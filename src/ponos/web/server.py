@@ -961,6 +961,22 @@ class Handler(BaseHTTPRequestHandler):
     def _get_setup_github(self, query: dict) -> None:
         return self._json(setup.github())
 
+    @at(GETS, r"/api/setup/notion")
+    def _get_setup_notion(self, query: dict) -> None:
+        return self._json(setup.notion_shared(self.api, {}))
+
+    @at(GETS, r"/api/setup/projects")
+    def _get_setup_projects(self, query: dict) -> None:
+        return self._json(setup.project_choices(self.api))
+
+    @at(GETS, r"/api/setup/demo")
+    def _get_setup_demo(self, query: dict) -> None:
+        return self._json(setup.demo_state(self.api, (query.get("id") or [""])[0]))
+
+    @at(GETS, r"/api/setup/doctor")
+    def _get_setup_doctor(self, query: dict) -> None:
+        return self._json(setup.doctor())
+
     @at(GETS, r"/api/github")
     def _get_github(self, query: dict) -> None:
         return self._json(github.status())
@@ -1037,6 +1053,14 @@ class Handler(BaseHTTPRequestHandler):
     @at(POSTS, r"/api/setup/notion")
     def _post_setup_notion(self, payload: dict) -> None:
         return self._json(setup.save_notion(self.api, payload))
+
+    @at(POSTS, r"/api/setup/notion/shared")
+    def _post_setup_notion_shared(self, payload: dict) -> None:
+        return self._json(setup.notion_shared(self.api, payload))
+
+    @at(POSTS, r"/api/setup/demo")
+    def _post_setup_demo(self, payload: dict) -> None:
+        return self._json(setup.demo(self.api, payload))
 
     @at(POSTS, r"/api/setup/channels")
     def _post_setup_channels(self, payload: dict) -> None:

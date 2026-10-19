@@ -172,9 +172,10 @@ function Overview() {
         </a>
       </div>
       {open ? (
-        <div className="mt-3">
+        <div className="mt-3 flex flex-col gap-4">
           <React.Suspense fallback={null}>
             <LazySetupSummary change={(row) => <a href={settingsHref(row.section)}>{t("Change")}</a>} />
+            <LazyDiagnosis />
           </React.Suspense>
         </div>
       ) : null}
@@ -346,4 +347,7 @@ const GroupForm = React.lazy(() =>
 )
 const LazySetupSummary = React.lazy(() =>
   import("@/components/console/setup").then((module) => ({ default: module.SetupSummary }))
+)
+const LazyDiagnosis = React.lazy(() =>
+  import("@/components/console/setup").then((module) => ({ default: module.Diagnosis }))
 )

@@ -48,7 +48,7 @@ import type {
   TicketDetail,
 } from "./types"
 import type { HealthReport } from "./health"
-import type { SetupState, Summary } from "./setup"
+import type { Demo, SetupState, Shared, Summary } from "./setup"
 
 /* Talking to the server.
  *
@@ -363,14 +363,28 @@ export const api = {
     const response = await fetch("/api/setup", { headers: { ...GUARD }, credentials: "same-origin" })
     return response.ok ? ((await response.json()) as SetupState) : null
   },
-  claim: (typed: { code: string; email: string; password: string; confirm: string }) =>
+  claim: (typed: { code: string; email: string; password: string; confirm: string; language?: string }) =>
     request<{ steps: [string, string][]; problem: string; email: string }>("/api/setup", typed),
   summary: () => request<Summary>("/api/setup/summary"),
   claudeLogin: () => request<Checked & { command: string }>("/api/setup/claude"),
   saveProvider: (chosen: { provider: string; key?: string; route_sessions?: boolean }) =>
     request<Checked & { command?: string }>("/api/setup/provider", chosen),
-  saveNotion: (typed: { token: string; page: string }) =>
+  saveNotion: (typed: { token: string; page: string; workspace?: string }) =>
     request<Provisioned & { board: Summary["board"] }>("/api/setup/notion", typed),
+  /* Asked again every few seconds while somebody is in Notion sharing a page. */
+  sharedWithNotion: (token: string) =>
+    token ? request<Shared>("/api/setup/notion/shared", { token }) : request<Shared>("/api/setup/notion"),
+  setupProjects: () =>
+    request<{
+      root: string
+      said: string
+      repositories: { name: string; path: string; remote: string }[]
+      projects: { id: string; name: string }[]
+    }>("/api/setup/projects"),
+  startDemo: (chosen: { project: string; language: string }) =>
+    request<{ id: string; title: string }>("/api/setup/demo", chosen),
+  demo: (id: string) => request<Demo>(`/api/setup/demo?id=${encodeURIComponent(id)}`),
+  doctor: () => request<{ code: number; text: string }>("/api/setup/doctor"),
   github: () => request<Summary["github"]>("/api/setup/github"),
   saveChannels: (typed: Record<string, string>) =>
     request<Provisioned & { channels: { name: string; ok: boolean; said: string }[] }>(

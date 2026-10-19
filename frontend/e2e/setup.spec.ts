@@ -14,6 +14,10 @@ test.use({ viewport: { width: 1280, height: 900 }, locale: "en-GB", timezoneId: 
 test("the first connection goes from the account to the summary", async ({ page }) => {
   await page.goto("/")
   await expect(page.getByRole("heading", { name: "First connection" })).toBeVisible()
+  // The language first: the one step nobody has to be signed in for.
+  await expect(page.getByTestId("setup-language")).toBeVisible()
+  await expect(page.getByTestId("language-en")).toHaveAttribute("aria-checked", "true")
+  await page.getByRole("button", { name: "Continue" }).click()
   await expect(page.getByTestId("setup-access")).toBeVisible()
   await expect(page.getByLabel("Installation code")).toHaveCount(0)
 
@@ -27,7 +31,7 @@ test("the first connection goes from the account to the summary", async ({ page 
   await page.getByLabel("The same password again").fill("one I remember")
   await page.getByRole("button", { name: "Claim the console" }).click()
 
-  // Claimed: the account is no longer a step, and the provider is the first.
+  // Claimed: the account is no longer a step, and the provider comes next.
   await expect(page.getByTestId("setup-provider")).toBeVisible()
   await expect(page.getByRole("button", { name: /Access/ })).toHaveCount(0)
   await expect(page).toHaveURL(/step=provider/)
@@ -49,13 +53,20 @@ test("the first connection goes from the account to the summary", async ({ page 
   await page.getByRole("button", { name: "Continue" }).click()
   await expect(page.getByTestId("setup-github")).toBeVisible()
   await page.getByRole("button", { name: "Continue" }).click()
+  await expect(page.getByTestId("setup-project")).toBeVisible()
+  await expect(page.getByTestId("setup-projects-known")).toBeVisible()
+  await page.getByRole("button", { name: "Continue" }).click()
   await expect(page.getByTestId("setup-channels")).toBeVisible()
   await expect(page.getByLabel("Bot token", { exact: true })).toBeVisible()
+  await page.getByRole("button", { name: "Continue" }).click()
+  // The first ticket is offered, not played: this `claude` is signed in as nobody.
+  await expect(page.getByTestId("setup-demo")).toBeVisible()
+  await expect(page.getByTestId("demo-start")).toBeVisible()
   await page.getByRole("button", { name: "Continue" }).click()
 
   const summary = page.getByTestId("summary-rows")
   await expect(summary).toBeVisible({ timeout: 30_000 })
-  for (const row of ["provider", "model", "board", "github", "projects", "channels", "environment"])
+  for (const row of ["machine", "provider", "model", "board", "github", "projects", "channels", "environment"])
     await expect(summary.locator(`[data-row="${row}"]`)).toHaveCount(1)
   const provider = summary.locator('[data-row="provider"]')
   await expect(provider).toHaveAttribute("data-state", "missing")

@@ -973,32 +973,44 @@
     <div class="sec-head">
       <span class="label">Installation</span>
       <h2>One command.</h2>
-      <p>It installs the <code>ponos</code> command, a timer that hands Ponos the ready tickets, and the console. Beyond Claude Code, nothing to sign up for.</p>
+      <p>It checks what your machine has, says what is missing and how to install it, starts Ponos and opens its console in your browser. Everything after that happens there.</p>
     </div>
     <pre data-copy><span class="p">$ </span>curl -LsSf https://raw.githubusercontent.com/hermez-agency/ponos/main/install.sh | sh</pre>
     <div class="install-grid" style="margin-top:1rem">
       <div class="card">
-        <div class="card-header"><h3 class="card-title">Then, the board</h3></div>
-        <p>Make it a folder of Markdown files: in the console, <em>Settings › Where the board lives › markdown</em> — or one line under <code>[storage]</code>. Then write your first ticket in the console.</p>
-        <p>The installer still asks for a Notion token first: press Enter to skip it. Rather Notion? <a href="#notion">Your board in Notion</a>.</p>
-        <pre data-copy><span class="c"># [storage] mode = "markdown"</span>
-<span class="p">$ </span>ponos config
-<span class="p">$ </span>ponos doctor</pre>
+        <div class="card-header"><h3 class="card-title">Then, the console walks you through it</h3></div>
+        <p>On <code>http://127.0.0.1:8787</code>, a first connection in steps, each one checked for real before the next: the language, your password, who answers the sessions, Notion — paste the token, add Ponos to one page, the board is built under it —, GitHub in one click, a first project, and a demonstration ticket played there and then to prove it all works.</p>
+        <p>No Notion? The board can be a folder of Markdown files: <a href="#notion">Your board in Notion</a> says both.</p>
       </div>
       <div class="card">
         <div class="card-header"><h3 class="card-title">What it needs</h3></div>
         <ul>
-          <li>Linux, with systemd in the user session;</li>
+          <li>Linux or macOS — systemd or launchd keep it running, and without either the console still starts;</li>
           <li><code>python3</code> ≥ 3.11 — standard library only, nothing to install;</li>
-          <li><code>git</code> and <a href="https://claude.com/claude-code" target="_blank" rel="noopener">Claude Code</a>;</li>
-          <li><code>gh</code>, only for tickets that end in a pull request.</li>
+          <li><code>git</code> and <a href="https://claude.com/claude-code" target="_blank" rel="noopener">Claude Code</a>, which the installer offers to install;</li>
+          <li><code>gh</code> is optional: the console connects GitHub in one click.</li>
         </ul>
+        <p>A missing one is named with the command that installs it, then run the line above again.</p>
       </div>
     </div>
 
     <div id="faq">
       <h3 style="margin:3rem 0 0;font-size:1.25rem">Questions, answered</h3>
       <div class="card faq">
+        <details id="stuck">
+          <summary>
+            <h3>It does not work — where do I start?</h3>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+          </summary>
+          <div class="faq-body">
+            <ul>
+              <li><b>The installer stopped.</b> It printed what is missing and the command that installs it: run that, then the install line again.</li>
+              <li><b>The console does not open.</b> Go to <code>http://127.0.0.1:8787</code> yourself; if nothing answers, <code>ponos serve</code> starts it and says why it cannot.</li>
+              <li><b>Notion finds no page.</b> The page has to be shared with the integration: <code>···</code> at the top right → <em>Connections</em> → your integration. The console sees it within a few seconds.</li>
+              <li><b>The demonstration ticket fails.</b> The console shows what the run said; <em>Run the full diagnosis</em> on the summary — or <code>ponos doctor</code> in a terminal — checks everything, and is the text to paste when asking for help.</li>
+            </ul>
+          </div>
+        </details>
         <details id="dokploy">
           <summary>
             <h3>Can I install Ponos on a server, with Dokploy?</h3>

@@ -78,6 +78,22 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Added
 
+- **One command, then the browser.** The installer checks the machine first and says everything missing at once,
+  each with the command that installs it here (`apt-get`, `dnf`, `pacman` or `brew`); it finds a recent enough
+  Python under its versioned name, offers to install Claude Code, checks its sign-in and the free disk. It no longer
+  asks for a Notion token in the terminal: it starts the console and opens it. A machine with `systemctl` but no
+  user session — WSL, a container, SSH — no longer stops the script on `Failed to connect to bus`: the console is
+  started in the background instead, and a Mac gets two launchd agents.
+- **The first connection goes all the way to a ticket played.** It opens on the language, and gains a first
+  project — a repository found on this machine, a GitHub one, or none — and a demonstration ticket created and run
+  on the spot, followed until its answer is on the board. The Notion step is three gestures with a picture of
+  Notion's *Connections* menu: the token is checked against Notion before it is written, and the page shared with
+  the integration appears on its own, one click from having the board built under it.
+- **`ponos doctor` from the console.** The summary — at the end of the first connection and atop the settings —
+  gains a line for the machine itself (git, Claude Code, its sign-in, the disk, with the command that fixes each),
+  and *Run the full diagnosis* shows `doctor`'s text with a button that copies it for support. `doctor` itself now
+  prints the install command beside a missing tool.
+
 - **A project's type, description and site are corrected from the console.** The "Edit the project" drawer has them
   under "The project", as the "New project" window asks for them: a project switched to Writing loses its repository
   and folder, one switched to Code needs one of the two, and a site that is not an `http(s)://` address is refused. The

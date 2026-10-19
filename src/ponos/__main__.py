@@ -20,7 +20,7 @@ from datetime import datetime
 
 from . import __version__, channels, cleanup, config as config_module, conversation, credits, git, notion
 from . import db, journal, kinds, legacy, models, priority, resources, store, voice
-from . import github_app, health, project_settings, provision
+from . import github_app, health, prerequisites, project_settings, provision
 from . import provider as provider_module
 from . import schedules as schedules_module
 from . import session, state, subtypes, systemd, vault
@@ -972,6 +972,8 @@ def _doctor_tools(configuration: config_module.Config) -> int:
             ok(f"{binary} — {version}")
         else:
             (bad if why == "required" else warn)(f"{binary} missing ({why})")
+            if fix := prerequisites.install_command(binary):
+                print(f"    {DIM}install it: {fix}{RESET}")
             problems += 1 if why == "required" else 0
     if shutil.which("gh"):
         authed = subprocess.run(["gh", "auth", "status"], capture_output=True, text=True)
@@ -1161,6 +1163,7 @@ def _doctor_repositories(configuration: config_module.Config) -> int:
                 warn(f"{repo.name}: {name} is not reached by the GitHub App — add it on GitHub")
     else:
         bad(f"{root} does not exist (runner.workspace_root)")
+        print(f"    {DIM}create it: mkdir -p {root} — or pick another folder in the console's first connection{RESET}")
         problems += 1
     return problems
 

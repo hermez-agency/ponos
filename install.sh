@@ -12,6 +12,7 @@
 #   TR_INTERVAL   seconds between runs     (default: 1800, i.e. 30 min)
 #   TR_NO_SERVICE=1   do not install the systemd units (timer nor console)
 #   TR_NO_WEB=1       install the console's unit, but leave it stopped
+#   TR_NO_OPEN=1      do not open the console in the browser at the end
 set -eu
 
 TR_REPO="${TR_REPO:-hermez-agency/ponos}"
@@ -27,10 +28,10 @@ CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/ponos"
 CONFIG="$CONFIG_DIR/config.toml"
 UNIT_DIR="$HOME/.config/systemd/user"
 
-BOLD=""; DIM=""; GREEN=""; YELLOW=""; RESET=""
+BOLD=""; DIM=""; GREEN=""; YELLOW=""; RED=""; RESET=""
 if [ -t 1 ]; then
     BOLD=$(printf '\033[1m'); DIM=$(printf '\033[2m'); GREEN=$(printf '\033[32m')
-    YELLOW=$(printf '\033[33m'); RESET=$(printf '\033[0m')
+    YELLOW=$(printf '\033[33m'); RED=$(printf '\033[31m'); RESET=$(printf '\033[0m')
 fi
 
 say()  { printf '%s==>%s %s\n' "$BOLD" "$RESET" "$1"; }
@@ -39,30 +40,114 @@ warn() { printf '    %s!%s %s\n' "$YELLOW" "$RESET" "$1"; }
 die()  { printf '%serror:%s %s\n' "$BOLD" "$RESET" "$1" >&2; exit 1; }
 have() { command -v "$1" >/dev/null 2>&1; }
 
-# --- 1. dependencies --------------------------------------------------------
-say "Checking dependencies"
-have python3 || die "python3 is required"
-python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)' \
-    || die "python3 >= 3.11 is required (tomllib has been part of the standard library since then)"
-ok "python3 $(python3 -c 'import sys; print("%d.%d" % sys.version_info[:2])')"
+# --- 1. prerequisites --------------------------------------------------------
+# Everything missing is said at once, each with the command that installs it on
+# this machine: somebody stopped at the first missing tool, who runs the script
+# again only to be stopped at the second, has been told half of it twice. The
+# commands are the ones prerequisites.py gives `doctor` and the console — a test
+# keeps the two in step.
+say "Checking what this machine needs"
+OS=$(uname -s)
+MISSING=0
+lack() {  # what is missing, and the command that fixes it
+    printf '    %s✗%s %s\n' "$RED" "$RESET" "$1"
+    [ -n "${2:-}" ] && printf '        %s\n' "$2"
+    MISSING=$((MISSING + 1))
+}
+package() {  # the tool, as the package manager names it
+    case "$1:$2" in
+        pacman:python3) echo python ;;
+        pacman:gh) echo github-cli ;;
+        brew:python3) echo python@3.12 ;;
+        *) echo "$2" ;;
+    esac
+}
+install_hint() {  # the command that installs $1 here
+    if [ "$1" = claude ]; then echo "curl -fsSL https://claude.ai/install.sh | bash"; return; fi
+    if [ "$OS" = Darwin ]; then
+        if have brew; then echo "brew install $(package brew "$1")"
+        else echo "install Homebrew (https://brew.sh), then: brew install $(package brew "$1")"; fi
+        return
+    fi
+    if have apt-get; then echo "sudo apt-get install -y $(package apt-get "$1")"
+    elif have dnf; then echo "sudo dnf install -y $(package dnf "$1")"
+    elif have pacman; then echo "sudo pacman -S --noconfirm $(package pacman "$1")"
+    elif have brew; then echo "brew install $(package brew "$1")"
+    else echo "install $1 with your package manager"; fi
+}
 
-have git || die "git is required"
-ok "git found"
+# The newest Python that is recent enough, whatever it is called: a Mac's own
+# python3 is 3.9, Ubuntu 22.04's is 3.10, and both machines often have a newer
+# one beside it under its versioned name.
+PYTHON=""
+for candidate in python3.13 python3.12 python3.11 python3; do
+    if have "$candidate" && "$candidate" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)' 2>/dev/null; then
+        PYTHON="$(command -v "$candidate")"
+        break
+    fi
+done
+if [ -n "$PYTHON" ]; then
+    ok "python $("$PYTHON" -c 'import sys; print("%d.%d" % sys.version_info[:2])') — $PYTHON"
+elif have python3; then
+    lack "python3 is $(python3 -c 'import sys; print("%d.%d" % sys.version_info[:2])'), and Ponos needs 3.11 or newer (tomllib is part of the standard library since then)" \
+        "$(install_hint python3 | sed 's/python3$/python3.11/')"
+else
+    lack "python3 is missing — Ponos needs 3.11 or newer" "$(install_hint python3)"
+fi
 
+if have git; then ok "$(git --version)"; else lack "git is missing" "$(install_hint git)"; fi
+if [ -n "${TR_SRC:-}" ] && ! have tar; then lack "tar is missing" "$(install_hint tar)"; fi
+
+# Room for the code is little; room for a ticket is a worktree and its build.
+FREE_MB=$(df -Pk "$HOME" 2>/dev/null | awk 'NR == 2 { print int($4 / 1024) }')
+if [ -n "$FREE_MB" ] && [ "$FREE_MB" -lt 500 ]; then
+    lack "only ${FREE_MB} MB free in $HOME — the installation alone needs 500 MB" "free some space, then run this again"
+elif [ -n "$FREE_MB" ] && [ "$FREE_MB" -lt 5120 ]; then
+    warn "${FREE_MB} MB free — enough to install, but a ticket only starts above 5120 MB"
+elif [ -n "$FREE_MB" ]; then
+    ok "${FREE_MB} MB free"
+fi
+
+if [ "$MISSING" -gt 0 ]; then
+    printf '\n%s%d thing(s) to install first%s — run the command(s) above, then this one again:\n\n' "$BOLD" "$MISSING" "$RESET"
+    printf '    curl -LsSf https://raw.githubusercontent.com/%s/%s/install.sh | sh\n\n' "$TR_REPO" "$TR_REF"
+    exit 1
+fi
+
+# Claude Code is what does the work. Missing, it is offered rather than refused:
+# its installer is one script, needs no root, and the question is asked only
+# when somebody is there to answer it.
+if ! have claude && (exec 3</dev/tty) 2>/dev/null; then
+    printf '    %s!%s Claude Code is not installed — it is what runs the tickets.\n' "$YELLOW" "$RESET"
+    printf '      Install it now (%s)? [Y/n] ' "$(install_hint claude)"
+    read -r answer </dev/tty || answer="n"
+    case "$answer" in
+        ""|y|Y|yes|o|O|oui)
+            curl -fsSL https://claude.ai/install.sh | bash || warn "the Claude Code installer failed"
+            PATH="$HOME/.local/bin:$PATH"
+            ;;
+    esac
+fi
 if have claude; then
     ok "claude $(claude --version 2>/dev/null | head -1)"
+    # Signed in with an account, or not — what `provider.cli_login` asks too.
+    if claude auth status 2>/dev/null | "$PYTHON" -c 'import json, sys; sys.exit(0 if json.load(sys.stdin).get("loggedIn") else 1)' 2>/dev/null; then
+        ok "Claude Code is signed in"
+    else
+        warn "Claude Code is not signed in: claude auth login — or give the console an API key"
+    fi
 else
-    warn "claude missing — install Claude Code, or no ticket can ever be handled"
+    warn "Claude Code is missing — no ticket can run without it: $(install_hint claude)"
 fi
 
 if have gh; then
     if gh auth status >/dev/null 2>&1; then
         ok "gh authenticated"
     else
-        warn "gh found but not authenticated: gh auth login"
+        warn "gh found but not authenticated — the console connects GitHub in one click instead"
     fi
 else
-    warn "gh missing — branches will be pushed, but no pull request opened"
+    warn "gh missing — fine: the console connects GitHub in one click (for pull requests)"
 fi
 
 # --- 2. sources -------------------------------------------------------------
@@ -119,7 +204,6 @@ done
 ok "sources in $APP_ROOT/app-$LABEL ($WHAT)"
 
 # --- 3. executable ----------------------------------------------------------
-PYTHON="$(command -v python3)"
 sed -e "s|@APP_DIR@|$APP_DIR|g" -e "s|@PYTHON@|$PYTHON|g" \
     "$APP_DIR/bin/ponos.in" > "$BIN"
 chmod +x "$BIN"
@@ -165,37 +249,9 @@ else
     cp "$APP_DIR/config.example.toml" "$CONFIG"
     chmod 600 "$CONFIG"
     ok "configuration created: $CONFIG"
-
-    # The token and the database are the only two things this script cannot
-    # work out on its own — so ask, while a terminal is still there to answer.
-    if (exec 3</dev/tty) 2>/dev/null; then
-        printf '\n    %sNotion integration token%s (https://www.notion.so/my-integrations)\n' "$BOLD" "$RESET"
-        printf '    %s(press enter to fill it in later)%s > ' "$DIM" "$RESET"
-        read -r token </dev/tty || token=""
-        if [ -n "$token" ]; then
-            # Into secrets.env, created 0600 beside the configuration: a
-            # secret is never written in config.toml.
-            PYTHONPATH="$APP_DIR/src" "$PYTHON" - "$CONFIG" "$token" <<'PY'
-import sys, pathlib
-from ponos import config
-path = config.secrets_path(pathlib.Path(sys.argv[1]))
-config.write_secrets(path, {config.SECRETS[("notion", "token")]: sys.argv[2].strip()})
-PY
-            ok "token saved in $(dirname "$CONFIG")/secrets.env"
-        fi
-        # Nothing needs to exist in Notion yet: give a page shared with the
-        # integration and `init` builds the four databases under it.
-        printf '    %sURL of a Notion page to build the board under%s\n' "$BOLD" "$RESET"
-        printf '    %s(share it with your integration first: the page ... menu -> Connections)%s > ' "$DIM" "$RESET"
-        read -r page </dev/tty || page=""
-        if [ -n "$page" ] && [ -n "$token" ]; then
-            printf '\n'
-            "$BIN" init "$page" || warn "run it again once the page is shared: ponos init <url>"
-        elif [ -n "$page" ]; then
-            warn "no token yet - then: ponos init $page --token ntn_..."
-        fi
-        printf '\n'
-    fi
+    # Nothing more is asked here: the Notion token, the board, GitHub and the
+    # first project are the console's first connection, opened at the end —
+    # a form with a check behind each field says more than a terminal prompt.
 fi
 
 # The address the console answers on — read from the configuration rather than
@@ -250,11 +306,41 @@ if [ -d "$APP_DIR/src/ponos/icons" ]; then
 fi
 
 # --- 6. timer and console ---------------------------------------------------
-if [ "${TR_NO_SERVICE:-0}" != "1" ] && have systemctl; then
+# What keeps them running depends on the machine: systemd's user session where
+# there is one *that answers* — WSL, a container or an SSH session often have
+# the command and no bus behind it, and asking it then fails the whole script —,
+# launchd on a Mac, and otherwise the console started in the background, so
+# that the one command still ends in the console.
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/ponos"
+SERVICES=none
+if [ "${TR_NO_SERVICE:-0}" != "1" ]; then
+    if have systemctl && systemctl --user show-environment >/dev/null 2>&1; then
+        SERVICES=systemd
+    elif [ "$OS" = Darwin ] && have launchctl; then
+        SERVICES=launchd
+    else
+        SERVICES=background
+    fi
+fi
+
+# Does anything answer on the console's address? A 401 is an answer.
+console_up() {
+    "$PYTHON" - "$CONSOLE" <<'PY' 2>/dev/null
+import sys, urllib.error, urllib.request
+try:
+    urllib.request.urlopen(sys.argv[1] + "/api/setup", timeout=2)
+except urllib.error.HTTPError:
+    pass
+except Exception:
+    sys.exit(1)
+PY
+}
+
+if [ "$SERVICES" != none ]; then
     # The interval lives in the configuration, so that changing it later is one
     # number and "ponos enable" rather than a reinstall. TR_INTERVAL
     # only seeds it, on a configuration that does not set it yet.
-    INTERVAL=$(python3 - "$CONFIG" "$TR_INTERVAL" <<'PY'
+    INTERVAL=$("$PYTHON" - "$CONFIG" "$TR_INTERVAL" <<'PY'
 import pathlib, re, sys, tomllib
 path, seed = pathlib.Path(sys.argv[1]), sys.argv[2]
 text = path.read_text()
@@ -267,6 +353,9 @@ if current is None:
 print(int(current))
 PY
 )
+fi
+
+if [ "$SERVICES" = systemd ]; then
     say "Installing the timer (one run every ${INTERVAL}s)"
     mkdir -p "$UNIT_DIR"
     ACCURACY=30s
@@ -304,39 +393,98 @@ PY
     if have loginctl && [ "$(loginctl show-user "$USER" -p Linger --value 2>/dev/null)" != "yes" ]; then
         warn "to keep it running with no session open: sudo loginctl enable-linger $USER"
     fi
+elif [ "$SERVICES" = launchd ]; then
+    # The Mac's systemd: one agent keeps the console up, the other starts a
+    # pass every INTERVAL seconds. Both log beside the runner's state.
+    say "Installing the launchd agents (one run every ${INTERVAL}s)"
+    AGENTS="$HOME/Library/LaunchAgents"
+    mkdir -p "$AGENTS" "$STATE_DIR"
+    agent() {  # label, verb, the keys that say when it runs
+        cat > "$AGENTS/$1.plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>$1</string>
+  <key>ProgramArguments</key><array><string>$BIN</string><string>$2</string></array>
+  <key>EnvironmentVariables</key>
+  <dict><key>PATH</key><string>$PATH</string><key>PYTHONUNBUFFERED</key><string>1</string></dict>
+  <key>StandardOutPath</key><string>$STATE_DIR/$1.log</string>
+  <key>StandardErrorPath</key><string>$STATE_DIR/$1.log</string>
+  $3
+</dict>
+</plist>
+PLIST
+        launchctl unload "$AGENTS/$1.plist" >/dev/null 2>&1 || true
+        launchctl load -w "$AGENTS/$1.plist"
+    }
+    agent app.ponos.run run "<key>StartInterval</key><integer>$INTERVAL</integer>" \
+        && ok "app.ponos.run loaded" || warn "could not load $AGENTS/app.ponos.run.plist"
+    if [ "${TR_NO_WEB:-0}" != "1" ]; then
+        agent app.ponos.web serve "<key>RunAtLoad</key><true/><key>KeepAlive</key><true/>" \
+            && CONSOLE_UP=1 && ok "app.ponos.web loaded — $CONSOLE" \
+            || warn "could not load $AGENTS/app.ponos.web.plist — start it by hand: ponos serve"
+    fi
+elif [ "$SERVICES" = background ]; then
+    say "Starting the console"
+    warn "no systemd session here: no timer — a ticket runs when you start it from the console, or with “ponos run”"
+    if [ "${TR_NO_WEB:-0}" != "1" ]; then
+        if console_up; then
+            CONSOLE_UP=1
+            ok "a console already answers on $CONSOLE"
+        else
+            mkdir -p "$STATE_DIR/web"
+            nohup "$BIN" serve >>"$STATE_DIR/web/serve.log" 2>&1 </dev/null &
+            CONSOLE_UP=1
+            ok "started in the background — $CONSOLE (until this machine restarts: then “ponos serve”)"
+        fi
+    fi
 else
     warn "no unit installed — run passes with “ponos run”, the console with “ponos serve”"
 fi
 
+# Started is not answering: the address is printed — and opened — once it does.
+if [ "${CONSOLE_UP:-0}" = "1" ]; then
+    CONSOLE_UP=0
+    for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+        if console_up; then CONSOLE_UP=1; break; fi
+        sleep 0.5
+    done
+    [ "$CONSOLE_UP" = 1 ] || warn "the console does not answer on $CONSOLE yet — ponos doctor says why"
+fi
+
 # --- 7. summary -------------------------------------------------------------
-printf '\n%sinstallation complete.%s\n\n' "$BOLD" "$RESET"
-printf '  Build the Notion board (skip if you just did):\n\n    %sponos init <page-url>%s\n\n' "$BOLD" "$RESET"
-printf '  Check everything is in place:\n\n    %sponos doctor%s\n\n' "$BOLD" "$RESET"
-printf '  %sconfiguration%s  %s\n' "$DIM" "$RESET" "$CONFIG"
-printf '  %sready tickets%s  ponos list\n' "$DIM" "$RESET"
-printf '  %sone run%s        ponos run\n' "$DIM" "$RESET"
-printf '  %sfollow along%s   ponos logs -f\n' "$DIM" "$RESET"
-# The console is up, so what is worth printing is the address that opens it.
-# Which address depends on what it is waiting for: a console nobody has claimed
-# opens on its first connection, and the token would only skip the page that
-# asks for the password. Otherwise the token is printed with it, since the one
-# drawn on first start is otherwise readable only from a state file nobody would
-# think to look in.
-TOKEN=""
+# The console is where the rest happens, so what is worth printing first is the
+# address that opens it — and then opening it. Which address depends on what it
+# is waiting for: a console nobody has claimed opens on its first connection,
+# and a token would only skip the page that asks for the password. Otherwise
+# the token is printed with it, since the one drawn on first start is otherwise
+# readable only from a state file nobody would think to look in.
+OPEN="$CONSOLE"
 if [ "${CONSOLE_UP:-0}" = "1" ] && [ "$CONSOLE_CLAIMED" = "claimed" ]; then
     TOKEN=$("$BIN" serve --print-token 2>/dev/null || true)
+    [ -n "$TOKEN" ] && OPEN="$CONSOLE/?token=$TOKEN"
 fi
-if [ "${CONSOLE_UP:-0}" = "1" ] && [ "$CONSOLE_CLAIMED" = "open" ]; then
-    printf '  %sweb console%s    %s   %s(set your password there — nothing to paste)%s\n' \
-        "$DIM" "$RESET" "$CONSOLE" "$DIM" "$RESET"
-elif [ -n "$TOKEN" ]; then
-    printf '  %sweb console%s    %s/?token=%s\n' "$DIM" "$RESET" "$CONSOLE" "$TOKEN"
+
+printf '\n%sPonos is installed.%s\n\n' "$BOLD" "$RESET"
+if [ "${CONSOLE_UP:-0}" = "1" ]; then
+    printf '  Everything else happens in the console — Notion, GitHub, a first project\n'
+    printf '  and a first ticket, step by step:\n\n    %s%s%s\n\n' "$BOLD" "$OPEN" "$RESET"
+    if [ "${TR_NO_OPEN:-0}" != "1" ]; then
+        if [ "$OS" = Darwin ] && have open; then
+            open "$OPEN" >/dev/null 2>&1 || true
+        elif [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ] && have xdg-open; then
+            xdg-open "$OPEN" >/dev/null 2>&1 &
+        fi
+    fi
 else
-    printf '  %sweb console%s    ponos serve   %s(board, CLI and chat, on %s)%s\n' "$DIM" "$RESET" "$DIM" "$CONSOLE" "$RESET"
+    printf '  Start the console, then open %s — it walks you through the rest:\n\n    %sponos serve%s\n\n' "$CONSOLE" "$BOLD" "$RESET"
 fi
-printf '  %stold on Telegram%s  ponos notify --pair   %s(and answer with one word)%s\n' "$DIM" "$RESET" "$DIM" "$RESET"
+printf '  %sstuck?%s         ponos doctor   %s(the same diagnosis as the console, to paste when asking for help)%s\n' "$DIM" "$RESET" "$DIM" "$RESET"
+printf '  %sconfiguration%s  %s\n' "$DIM" "$RESET" "$CONFIG"
 printf '  %sversion%s        kept up to date on its own — ponos update\n\n' "$DIM" "$RESET"
 case ":$PATH:" in
     *":$BIN_DIR:"*) ;;
-    *) printf '  %s!%s add %s to your PATH: echo '"'"'export PATH="$HOME/.local/bin:$PATH"'"'"' >> ~/.bashrc\n\n' "$YELLOW" "$RESET" "$BIN_DIR" ;;
+    *) RC="$HOME/.bashrc"; [ "$OS" = Darwin ] && RC="$HOME/.zshrc"
+       printf '  %s!%s add %s to your PATH: echo '"'"'export PATH="$HOME/.local/bin:$PATH"'"'"' >> %s\n\n' "$YELLOW" "$RESET" "$BIN_DIR" "$RC" ;;
 esac
