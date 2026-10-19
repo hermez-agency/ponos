@@ -1,6 +1,6 @@
 services:
   ponos:
-    image: ghcr.io/salvadorcardona/ponos:0.1.0
+    image: ghcr.io/hermez-agency/ponos:0.1.0
     restart: unless-stopped
     expose:
       - "8787"

@@ -3713,7 +3713,7 @@ user, not as root — Claude Code refuses `bypassPermissions` to root.
 **Updating** is pulling a new image: `docker compose pull && docker compose up -d`. Inside a
 container the runner never updates itself — there is no install directory to move and no
 unit to restart — and the version in the console's header says so instead of offering a
-button. A release publishes `ghcr.io/salvadorcardona/ponos` with its version as the tag,
+button. A release publishes `ghcr.io/hermez-agency/ponos` with its version as the tag,
 and `latest`.
 
 **What you lose** in a container, against a machine:
@@ -3753,7 +3753,7 @@ later goes in the *Environment* tab, then *Settings › Board kept in › notion
 
 What the template decides for you, and why:
 
-- **the image is pinned** to a release, `ghcr.io/salvadorcardona/ponos:<version>`, never
+- **the image is pinned** to a release, `ghcr.io/hermez-agency/ponos:<version>`, never
   `latest`: `scripts/release.py bump` moves the pin in the same commit as `__version__`, so
   the template of a release pulls the image that release published. A new version is a new
   pin: change the tag in the *General* tab's compose, then **Deploy**;

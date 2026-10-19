@@ -18,7 +18,7 @@ script cannot make for you.
 | the notes | the `## [Unreleased]` section of `CHANGELOG.md` | whoever merges a change |
 | the tag | `v<version>` on `main` | you, at step 5 |
 | the release | GitHub, body taken from the changelog | the `release` workflow, on the tag |
-| the image | `ghcr.io/salvadorcardona/ponos:<version>`, and the pin in `docker/dokploy/` | the workflow; the pin, `release.py bump` |
+| the image | `ghcr.io/hermez-agency/ponos:<version>`, and the pin in `docker/dokploy/` | the workflow; the pin, `release.py bump` |
 
 Everything downstream is derived. `ponos --version`, the version in the
 web console header, the release title and the release body all read from those

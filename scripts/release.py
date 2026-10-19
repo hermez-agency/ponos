@@ -45,7 +45,7 @@ BLUEPRINT = ROOT / "docker" / "dokploy"
 # Where the Dokploy template says its version: the image it pulls, and the
 # catalogue entry, which Dokploy requires to match it.
 PINS = {
-    "docker-compose.yml": re.compile(r"(image: ghcr\.io/salvadorcardona/ponos:)([^\s]+)"),
+    "docker-compose.yml": re.compile(r"(image: ghcr\.io/hermez-agency/ponos:)([^\s]+)"),
     "meta.json": re.compile(r'("version": ")([^"]+)(")'),
 }
 NAME = "ponos"

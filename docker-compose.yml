@@ -14,7 +14,7 @@
 
 services:
   ponos:
-    image: ghcr.io/salvadorcardona/ponos:latest
+    image: ghcr.io/hermez-agency/ponos:latest
     build: .
     restart: unless-stopped
     expose:
