@@ -340,6 +340,25 @@ say({{"type": "result", "result": answer, "session_id": session, "total_cost_usd
 """
 
 
+# The runner's systemd timer, which the dashboard's health band reads: a board of
+# fixtures arms none, and on a machine with systemd but no timer (GitHub's
+# runners) the band would push the charts down and fail the tests that point at
+# them.
+SYSTEMCTL = """#!{python}
+import sys
+
+args = sys.argv[1:]
+if "is-enabled" in args:
+    print("enabled")
+elif "show" in args:
+    print("SubState=waiting")
+    print("NextElapseUSecRealtime=Mon 2099-01-01 00:00:00 UTC")
+    print("NextElapseUSecMonotonic=infinity")
+elif "list-timers" in args:
+    print("NEXT LEFT LAST PASSED UNIT ACTIVATES")
+    print("Mon 2099-01-01 00:00:00 UTC 1h left n/a n/a ponos.timer ponos.service")
+"""
+
 # Who `gh api user` says it is; anything else it is asked fails, as a gh signed out would.
 GH = """#!{python}
 import json, sys
@@ -444,6 +463,8 @@ def main() -> None:
     (bin / "claude").chmod(0o755)
     (bin / "gh").write_text(GH.format(python=sys.executable), encoding="utf-8")
     (bin / "gh").chmod(0o755)
+    (bin / "systemctl").write_text(SYSTEMCTL.format(python=sys.executable), encoding="utf-8")
+    (bin / "systemctl").chmod(0o755)
     (here / "home").mkdir()
     os.environ.update(
         PATH=f"{bin}{os.pathsep}{os.environ.get('PATH', '')}",
