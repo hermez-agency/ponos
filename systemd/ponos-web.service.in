@@ -1,6 +1,6 @@
 [Unit]
 Description=ponos — the web console
-Documentation=https://github.com/SalvadorCardona/ponos
+Documentation=https://github.com/hermez-agency/ponos
 After=network-online.target
 
 [Service]

@@ -833,12 +833,12 @@ def _settings(**overrides) -> C.Notion:
 def the_rows_of_a_workspace_become_the_runners_databases():
     client = _FakeClient(
         {"Tickets": "p-tickets", "Projects": "p-projects", "Context": "p-context"},
-        text="Je suis Salvador Cardona.",
+        text="Je suis Camille Martin.",
     )
     space = workspace.from_notion(client, _settings())
     assert space.tickets == "db-of-p-tickets"
     assert space.projects == "db-of-p-projects"
-    assert space.context == "Je suis Salvador Cardona."
+    assert space.context == "Je suis Camille Martin."
     assert not space.warnings
 
 
@@ -1143,9 +1143,9 @@ def the_prompt_reads_from_the_widest_frame_to_the_narrowest():
         base="main",
         url="https://notion.so/x",
         brief="Ton: direct, pas d'emoji.",
-        context="Je suis Salvador Cardona, développeur web.",
+        context="Je suis Camille Martin, développeur web.",
     )
-    assert text.index("Salvador Cardona") < text.index("Ton: direct"), "the global frame comes first"
+    assert text.index("Camille Martin") < text.index("Ton: direct"), "the global frame comes first"
     assert text.index("Ton: direct") < text.index("# Context"), "then the project, then the mechanics"
     assert "Le header prend trop de place." in text
 
@@ -12874,12 +12874,12 @@ def a_repository_is_worked_under_the_account_its_owner_names():
         asked.append(account)
         return f"gho-{account}" if account != "nobody" else ""
 
-    accounts = {"animalink": "dev-animalink", "salvadorcardona": "salvadevme"}
+    accounts = {"animalink": "dev-animalink", "hermez-agency": "hermez-bot"}
     with _git_answering(account_token=token):
         assert git_module.token_for("animalink/site", accounts) == "gho-dev-animalink"
         assert git_module.token_for(
-            "https://github.com/SalvadorCardona/x/pull/1", accounts
-        ) == "gho-salvadevme"
+            "https://github.com/hermez-agency/x/pull/1", accounts
+        ) == "gho-hermez-bot"
         # An owner nobody named, and a machine that names nobody: both are the
         # account `gh` is signed in as, which is what one GitHub always did.
         assert git_module.token_for("someone-else/x", accounts) == ""
@@ -12887,7 +12887,7 @@ def a_repository_is_worked_under_the_account_its_owner_names():
         # And an account `gh` is not signed in as is not a ticket's problem:
         # `doctor` says so, the command runs as whoever is active.
         assert git_module.token_for("x/y", {"x": "nobody"}) == ""
-    assert asked == ["dev-animalink", "salvadevme", "nobody"], asked
+    assert asked == ["dev-animalink", "hermez-bot", "nobody"], asked
 
 
 @case
@@ -14513,7 +14513,7 @@ def the_landing_page_and_the_readme_link_to_anchors_that_exist():
         target = target.split("?", 1)[0]
         assert (ROOT / "docs" / target).exists(), f"the site links {target}, which docs/ does not have"
     anchors = _readme_anchors()
-    linked = re.findall(r'href="https://github\.com/SalvadorCardona/ponos#([^"]+)"', page)
+    linked = re.findall(r'href="https://github\.com/hermez-agency/ponos#([^"]+)"', page)
     assert linked, "the site no longer points at the documentation"
     for anchor in linked:
         assert anchor == "readme" or anchor in anchors, f"the site links README#{anchor}, which has no such heading"
@@ -14942,8 +14942,8 @@ def a_frontmatter_survives_the_round_trip():
 
 @case
 def a_file_with_no_frontmatter_is_all_body():
-    front, body = files.parse("Je suis Salvador Cardona.\n")
-    assert front == {} and body == "Je suis Salvador Cardona."
+    front, body = files.parse("Je suis Camille Martin.\n")
+    assert front == {} and body == "Je suis Camille Martin."
 
 
 @case
@@ -15014,8 +15014,8 @@ def projects_the_context_and_the_schedules_live_in_files_too():
         project = board.create_row("projects", "ponos", {"Repository": "user/repo"})
         assert store.read(board.page(project), "Repository") == "user/repo"
 
-        board.set_context("Je suis Salvador Cardona, développeur web.")
-        assert board.context() == "Je suis Salvador Cardona, développeur web."
+        board.set_context("Je suis Camille Martin, développeur web.")
+        assert board.context() == "Je suis Camille Martin, développeur web."
         assert board.blocks_text(files.CONTEXT_PAGE) == board.context()
 
         schedule = board.create_row(
@@ -15076,7 +15076,7 @@ def the_whole_runner_runs_against_files_with_no_notion_at_all():
             "tickets", "Écrire l'annonce", {"Status": "Ready", "Type": "Writing"}
         )
         board.append_markdown(page_id, "Rédige une annonce courte.")
-        board.set_context("Je suis Salvador Cardona.")
+        board.set_context("Je suis Camille Martin.")
 
         real_client = notion.Client
         notion.Client = refuse
@@ -15085,7 +15085,7 @@ def the_whole_runner_runs_against_files_with_no_notion_at_all():
             run = Runner(configuration, quiet=True)
             assert isinstance(run.client, files.Board)
             assert run.database == "tickets"
-            assert run.workspace.context == "Je suis Salvador Cardona."
+            assert run.workspace.context == "Je suis Camille Martin."
             ready = run.ready()
             assert [ticket.title for ticket in ready] == ["Écrire l'annonce"]
 
@@ -15254,7 +15254,7 @@ def _mirror(context: str = ""):
 
 @case
 def a_ticket_written_in_notion_appears_in_the_files():
-    with _mirror("Je suis Salvador Cardona.") as (here, there, both, marks):
+    with _mirror("Je suis Camille Martin.") as (here, there, both, marks):
         page_id = here.create_row("tickets", "Corriger l'entête", {"Status": "Ready"})
         here.replace_markdown(page_id, "Relire la page d'accueil.")
 
@@ -15266,7 +15266,7 @@ def a_ticket_written_in_notion_appears_in_the_files():
         assert mirrored.title == "Corriger l'entête"
         assert store.read(mirrored, "Status") == "Ready"
         assert there.blocks_text(page_id) == "Relire la page d'accueil."
-        assert there.context() == "Je suis Salvador Cardona."
+        assert there.context() == "Je suis Camille Martin."
 
         # A second pass on an unchanged board carries nothing: without that,
         # every fifteen minutes would rewrite every file on the disk.
@@ -15612,14 +15612,14 @@ def _refused(create, field: str) -> str:
 @case
 def a_github_repository_is_written_as_its_whole_address():
     for given in (
-        "SalvadorCardona/ponos",
-        "https://github.com/SalvadorCardona/ponos",
-        "https://github.com/SalvadorCardona/ponos.git",
-        "github.com/SalvadorCardona/ponos/",
-        "git@github.com:SalvadorCardona/ponos.git",
-        "https://github.com/SalvadorCardona/ponos/tree/main/src",
+        "hermez-agency/ponos",
+        "https://github.com/hermez-agency/ponos",
+        "https://github.com/hermez-agency/ponos.git",
+        "github.com/hermez-agency/ponos/",
+        "git@github.com:hermez-agency/ponos.git",
+        "https://github.com/hermez-agency/ponos/tree/main/src",
     ):
-        assert web_creation.github_url(given) == "https://github.com/SalvadorCardona/ponos", given
+        assert web_creation.github_url(given) == "https://github.com/hermez-agency/ponos", given
     for given in ("ponos", "https://gitlab.com/someone/ponos", "a/b/c", "-bad/ponos", "owner/..", "owner/a b"):
         assert web_creation.github_url(given) == "", given
 
@@ -15653,9 +15653,9 @@ def a_project_is_created_from_the_console_with_what_its_page_says():
         assert not store.read(page, "github")
         assert board.blocks_text(made["id"]) == "# Voix\n\nÉcris court."
 
-        code = api.creation.create({"name": "Ponos", "kind": "code", "repository": "SalvadorCardona/ponos"})
+        code = api.creation.create({"name": "Ponos", "kind": "code", "repository": "hermez-agency/ponos"})
         assert code["kind"] == "code"
-        assert code["repository"] == "https://github.com/SalvadorCardona/ponos"
+        assert code["repository"] == "https://github.com/hermez-agency/ponos"
         # The column this database calls its repository, not a second one.
         assert store.read(board.page(code["id"]), "github") == code["repository"]
         assert "Repository" not in board.page(code["id"]).properties
@@ -15671,7 +15671,7 @@ def a_project_is_created_from_the_console_with_what_its_page_says():
             clone = root / "ponos"
             subprocess.run(["git", "init", "-q", str(clone)], check=True)
             subprocess.run(
-                ["git", "-C", str(clone), "remote", "add", "origin", "git@github.com:SalvadorCardona/ponos.git"],
+                ["git", "-C", str(clone), "remote", "add", "origin", "git@github.com:hermez-agency/ponos.git"],
                 check=True,
             )
             ticket = api.create_ticket("Un ticket", project=code["id"])["id"]

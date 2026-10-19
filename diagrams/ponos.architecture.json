@@ -8,7 +8,7 @@
     "output": "../diagrams/architecture.html",
     "quality_profile": "showcase",
     "repository": {
-      "url": "https://github.com/SalvadorCardona/ponos",
+      "url": "https://github.com/hermez-agency/ponos",
       "revision": "6e118c6fb03db6ec52b005c1b7a188bf736d3b14"
     },
     "views": [

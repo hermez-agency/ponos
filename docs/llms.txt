@@ -26,7 +26,7 @@ command and the Python package are called ponos.
 ## Docs
 
 - [Landing page](https://the-ponos.app/): what it is, the loop — the console filmed doing it —, the four kinds of task, the console, the integrations, installation without Notion, a FAQ (installing on a server with Dokploy, the console from your phone over Tailscale)
-- [Install with Dokploy](https://github.com/SalvadorCardona/ponos#install-with-dokploy): a one-click template — the pinned image, four volumes, generated sign-in; only a Claude subscription token (`claude setup-token`) or an Anthropic key is required
-- [Connect Ponos to Claude](https://github.com/SalvadorCardona/ponos#connect-ponos-to-claude): the MCP connector — paste `https://<your console>/mcp` in claude.ai, or `claude mcp add --transport http ponos http://127.0.0.1:8787/mcp`; OAuth, no token to copy
-- [Documentation](https://github.com/SalvadorCardona/ponos#readme): installation, the board and its columns, the types of ticket, the Validated column, recurring tickets, Telegram and Slack, the web console, the Markdown board, Notion, OpenRouter, several GitHub accounts, usage limits, configuration, safety, troubleshooting, Ponos the mascot
-- [Changelog](https://github.com/SalvadorCardona/ponos/blob/main/CHANGELOG.md): what changed, release by release
+- [Install with Dokploy](https://github.com/hermez-agency/ponos#install-with-dokploy): a one-click template — the pinned image, four volumes, generated sign-in; only a Claude subscription token (`claude setup-token`) or an Anthropic key is required
+- [Connect Ponos to Claude](https://github.com/hermez-agency/ponos#connect-ponos-to-claude): the MCP connector — paste `https://<your console>/mcp` in claude.ai, or `claude mcp add --transport http ponos http://127.0.0.1:8787/mcp`; OAuth, no token to copy
+- [Documentation](https://github.com/hermez-agency/ponos#readme): installation, the board and its columns, the types of ticket, the Validated column, recurring tickets, Telegram and Slack, the web console, the Markdown board, Notion, OpenRouter, several GitHub accounts, usage limits, configuration, safety, troubleshooting, Ponos the mascot
+- [Changelog](https://github.com/hermez-agency/ponos/blob/main/CHANGELOG.md): what changed, release by release

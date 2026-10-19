@@ -1,10 +1,10 @@
 #!/bin/sh
 # Install Ponos.
 #
-#   curl -LsSf https://raw.githubusercontent.com/SalvadorCardona/ponos/main/install.sh | sh
+#   curl -LsSf https://raw.githubusercontent.com/hermez-agency/ponos/main/install.sh | sh
 #
 # Environment variables:
-#   TR_REPO       source repository        (default: SalvadorCardona/ponos)
+#   TR_REPO       source repository        (default: hermez-agency/ponos)
 #   TR_REF        branch or tag            (default: main; a tag pins the version,
 #                                          a branch is followed by the auto-update)
 #   TR_SRC        local folder to copy     (install from a clone, no network,
@@ -14,7 +14,7 @@
 #   TR_NO_WEB=1       install the console's unit, but leave it stopped
 set -eu
 
-TR_REPO="${TR_REPO:-SalvadorCardona/ponos}"
+TR_REPO="${TR_REPO:-hermez-agency/ponos}"
 TR_REF="${TR_REF:-main}"
 TR_INTERVAL="${TR_INTERVAL:-1800}"
 

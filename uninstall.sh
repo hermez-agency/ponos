@@ -1,6 +1,6 @@
 #!/bin/sh
 # Uninstall ponos.
-#   curl -LsSf https://raw.githubusercontent.com/SalvadorCardona/ponos/main/uninstall.sh | sh
+#   curl -LsSf https://raw.githubusercontent.com/hermez-agency/ponos/main/uninstall.sh | sh
 # Add TR_PURGE=1 to remove the configuration, logs and history as well.
 set -eu
 
