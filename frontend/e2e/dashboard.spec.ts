@@ -156,3 +156,34 @@ test("one chart says the created, the closed and the open; the other what they w
   await expect(made.locator('[data-slot="regression-rate"]')).toContainText("75 %")
   await expect(made.locator('[data-slot="made-projects"]')).toHaveCount(0)
 })
+
+test("the tickets created by type open on every type, so they add up to the card", async ({ page }) => {
+  // One ticket created, with no type: the card counts it, so must the chart.
+  await page.route("**/api/statistics*", async (route) => {
+    const answer = await route.fetch()
+    const figures = await answer.json()
+    figures.totals = { ...figures.totals, created: 1 }
+    figures.projects = [{ name: "", count: 1 }]
+    figures.made = {
+      unit: "day",
+      buckets: [day(1), day(0)],
+      cells: [{ bucket: day(0), kind: "", subtype: "", project: "", count: 1 }],
+      before: [],
+    }
+    await route.fulfill({ response: answer, json: figures })
+  })
+  await open(page)
+
+  const made = band(page).locator('[data-slot="made-chart"]')
+  await expect(made.getByRole("combobox", { name: "Type" })).toHaveText("All types")
+  await expect(made.locator('figure ul li[data-subtype="-"]')).toHaveText("Unclassified1")
+
+  // A type that has none says which, rather than that nothing was created.
+  await made.getByRole("combobox", { name: "Type" }).click()
+  await page.getByRole("option", { name: "Code" }).click()
+  await expect(made).toContainText("No Code ticket created in the period.")
+
+  await made.getByRole("combobox", { name: "Type" }).click()
+  await page.getByRole("option", { name: "No type" }).click()
+  await expect(made.locator('figure ul li[data-subtype="-"]')).toHaveText("Unclassified1")
+})

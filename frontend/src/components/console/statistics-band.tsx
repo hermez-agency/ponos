@@ -443,7 +443,9 @@ function Figures({ figures, project }: { figures: Statistics; project?: string }
 }
 
 /* The types of ticket a chart of the tickets created is filtered by, as the
- * board names them (`kinds.KINDS`): Code first, the one sub-types are for. */
+ * board names them (`kinds.KINDS`): Code first, the one sub-types are for.
+ * The chart still opens on all of them, and a ticket with no type has its own
+ * entry: the tickets drawn are then the ones the Created card counts. */
 const KINDS = [
   { key: "code", label: "Code" },
   { key: "writing", label: "Writing" },
@@ -469,9 +471,9 @@ const percent = (rate: number) => `${Math.round(rate * 100)} %`
  * it alone. */
 function MadeChart({ made, project }: { made: Made; project?: string }) {
   const t = useT()
-  const [kind, setKind] = React.useState<string>("code")
+  const [kind, setKind] = React.useState<string>(EVERY)
   const [chosen, setChosen] = React.useState<string | null>(null)
-  const scope = { kind: kind === EVERY ? null : kind, project: project ?? chosen }
+  const scope = { kind: kind === EVERY ? null : kind === NONE ? "" : kind, project: project ?? chosen }
 
   const known = currentBoard()?.subtypes ?? []
   const order = [...known.map((one) => one.key), ""]
@@ -513,6 +515,7 @@ function MadeChart({ made, project }: { made: Made; project?: string }) {
                 {t(one.label)}
               </SelectItem>
             ))}
+            <SelectItem value={NONE}>{t("No type")}</SelectItem>
           </SelectContent>
         </Select>
         {project === undefined ? (
@@ -564,7 +567,15 @@ function MadeChart({ made, project }: { made: Made; project?: string }) {
       </div>
 
       {!present.length ? (
-        <p className="text-muted-foreground text-sm">{t("No ticket created in the period.")}</p>
+        <p className="text-muted-foreground text-sm">
+          {kind === EVERY
+            ? t("No ticket created in the period.")
+            : kind === NONE
+              ? t("No ticket without a type created in the period.")
+              : t("No {{kind}} ticket created in the period.", {
+                  kind: t(KINDS.find((one) => one.key === kind)?.label ?? kind),
+                })}
+        </p>
       ) : (
         <figure className="flex min-w-0 flex-col gap-2" aria-label={t("Created, by type and sub-type")}>
           <ul className="text-muted-foreground flex flex-wrap gap-x-3 gap-y-1 text-xs">

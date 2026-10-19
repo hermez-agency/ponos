@@ -373,6 +373,10 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Fixed
 
+- **The dashboard's "Created, by type and sub-type" counts what the Created card counts.** It opened filtered on Code,
+  so a ticket with no type, or of another type, was left out and the card said no ticket was created while the
+  Created card and "Created, by project" counted it. It now opens on all types, the type menu has a "No type" entry,
+  and a type with no ticket says which one it is: "No Code ticket created in the period."
 - **The Markdown fields of the console's forms start their text where the other fields do.** The brief of a new
   project or of the project's drawer, a new ticket's and what a schedule does each time began forty pixels to the
   right, in the gutter Crepe keeps for its block handle. In a form the text now starts at the same 12px as the title
