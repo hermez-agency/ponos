@@ -621,9 +621,10 @@ ALLOWED = (
     "redéployer un service sur les Dokploy de Salva (dokploy.cardona.digital et le "
     "Dokploy d'Animalink), lire leurs logs, ajouter une variable d'environnement non "
     "secrète ou générer un secret aléatoire propre au service",
-    "taguer et publier une release d'un dépôt de SalvadorCardona, après fusion sur main",
-    "cloner un dépôt de SalvadorCardona manquant dans le workspace et lui créer un "
-    "projet Ponos",
+    "taguer et publier une release d'un dépôt de SalvadorCardona ou de hermez-agency, "
+    "après fusion sur main",
+    "cloner un dépôt de SalvadorCardona ou de hermez-agency manquant dans le workspace "
+    "et lui créer un projet Ponos",
     "relancer une CI",
     "fusionner une PR validée",
 )

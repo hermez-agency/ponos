@@ -6811,6 +6811,12 @@ def every_session_reads_what_it_may_do_alone():
 
     defaults = C.Permissions()
     assert any("dokploy.cardona.digital" in rule for rule in defaults.allowed)
+    for owner in ("SalvadorCardona", "hermez-agency"):
+        assert any("release" in rule and owner in rule for rule in defaults.allowed), owner
+        assert any("cloner" in rule and owner in rule for rule in defaults.allowed), owner
+    assert "another SalvadorCardona or hermez-agency repository" in " ".join(
+        prompt.PERMISSIONS.split()
+    ), "a ticket aimed at a migrated repository is not a question either"
     assert "toute dépense" in defaults.ask and "modifier un DNS" in defaults.ask
     assert C.load(_saved()[0]).permissions == defaults
 

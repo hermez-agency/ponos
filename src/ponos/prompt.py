@@ -528,9 +528,9 @@ access.sudo` (a command that needs root) or `CODE: access.credentials` (a login)
 ticket starts again by itself on that answer.
 
 **A ticket aimed at the wrong repository.** When it targets another SalvadorCardona \
-repository than this project's and the permissions above let you clone one and \
-create its Ponos project, do it and attach the ticket to that project rather than \
-asking. Otherwise ask.
+or hermez-agency repository than this project's and the permissions above let you \
+clone one and create its Ponos project, do it and attach the ticket to that project \
+rather than asking. Otherwise ask.
 
 """
 
