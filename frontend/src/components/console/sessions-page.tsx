@@ -1,9 +1,10 @@
 import * as React from "react"
-import { MessageSquare, MoreHorizontal, Pencil, Plus, Search, Trash2 } from "lucide-react"
+import { MessageSquare, MoreHorizontal, Pencil, Plus, Search, SearchX, Trash2, X } from "lucide-react"
+import { useCurrentViewResourceContext } from "react-resource-view"
 import { toast } from "sonner"
 
 import { ConfirmDialog } from "@/components/console/confirm-dialog"
-import { PageHead } from "@/components/console/frame"
+import { EmptyState } from "@/components/console/empty-state"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -85,20 +86,18 @@ export function SessionsPage() {
     }
   }
 
-  return (
-    <div data-sessions>
-      <PageHead
-        title={t("Sessions")}
-        blurb={t("Every conversation with your workspace. Open one to carry on where it stopped.")}
-        action={
-          <Button onClick={() => void start()} data-new-session>
-            <Plus />
-            {t("New session")}
-          </Button>
-        }
-      />
+  const newSession = (
+    <Button variant="secondary" size="lg" className="w-full min-w-0 shrink md:w-auto" onClick={() => void start()} data-new-session>
+      <Plus />
+      {t("New session")}
+    </Button>
+  )
 
-      <div className="relative mb-4 max-w-md">
+  return (
+    <div data-sessions className="flex flex-col gap-2">
+      <SessionsHead action={newSession} />
+
+      <div className="relative my-2 max-w-md">
         <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
         <Input
           type="search"
@@ -116,9 +115,33 @@ export function SessionsPage() {
       ) : sessions === null ? (
         <p className="text-muted-foreground text-sm">{t("Reading the sessions…")}</p>
       ) : sessions.length === 0 ? (
-        <p className="text-muted-foreground text-sm">
-          {query ? t("No session matches.") : t("No session yet. Start one with the button above.")}
-        </p>
+        query ? (
+          <EmptyState
+            icon={SearchX}
+            title={t("No session matches.")}
+            action={
+              <Button variant="outline" size="sm" onClick={() => setQuery("")}>
+                <X />
+                {t("Clear the search")}
+              </Button>
+            }
+          >
+            {t("Other words, and they will be back.")}
+          </EmptyState>
+        ) : (
+          <EmptyState
+            robot="sleep"
+            title={t("No session yet.")}
+            action={
+              <Button variant="outline" size="sm" onClick={() => void start()}>
+                <Plus />
+                {t("New session")}
+              </Button>
+            }
+          >
+            {t("Every conversation with your workspace is kept here, to be carried on later.")}
+          </EmptyState>
+        )
       ) : (
         <ul className="divide-y rounded-lg border" data-session-list>
           {sessions.map((session) => (
@@ -190,6 +213,39 @@ export function SessionsPage() {
         onClose={() => setDeleting(null)}
         onDone={() => void read(query)}
       />
+    </div>
+  )
+}
+
+/* The header the package draws over its lists — the icon, the name, the
+ * sentence, the gesture against the right edge — drawn here because the
+ * package lists nothing on this page: in its markup and under its slot, so
+ * that it reads as the projects' and the ideas' do, and what `index.css`
+ * says of theirs holds for it too. */
+function SessionsHead({ action }: { action: React.ReactNode }) {
+  const t = useT()
+  const Icon = useCurrentViewResourceContext().resource?.icon
+  return (
+    <div data-slot="list-header" className="flex flex-wrap items-center gap-x-4 gap-y-3 border-b pb-4">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        {Icon ? (
+          <span className="bg-muted text-muted-foreground flex size-10 shrink-0 items-center justify-center rounded-xl">
+            <Icon className="size-5" />
+          </span>
+        ) : null}
+        <div className="min-w-0">
+          <h2 className="truncate text-base font-semibold tracking-tight">{t("Sessions")}</h2>
+          <p className="text-muted-foreground text-sm">
+            {t("Every conversation with your workspace. Open one to carry on where it stopped.")}
+          </p>
+        </div>
+      </div>
+      <div
+        data-slot="list-header-controls"
+        className="flex w-full flex-wrap items-center gap-2 md:ms-auto md:w-auto md:justify-end"
+      >
+        {action}
+      </div>
     </div>
   )
 }

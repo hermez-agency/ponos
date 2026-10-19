@@ -2112,8 +2112,10 @@ export const FRENCH: Record<string, string> = {
   "Search the titles and what was said": "Chercher dans les titres et dans ce qui s'est dit",
   "Reading the sessions…": "Lecture des sessions…",
   "No session matches.": "Aucune session ne correspond.",
-  "No session yet. Start one with the button above.":
-    "Aucune session pour l'instant. Lancez-en une avec le bouton ci-dessus.",
+  "Other words, and they will be back.": "D'autres mots, et elles reviendront.",
+  "No session yet.": "Aucune session pour l'instant.",
+  "Every conversation with your workspace is kept here, to be carried on later.":
+    "Chaque conversation avec votre espace de travail est gardée ici, pour être reprise plus tard.",
   "Untitled session": "Session sans titre",
   open: "ouverte",
   "{{count}} exchange": "{{count}} échange",
