@@ -891,8 +891,6 @@ def _doctor_github_app() -> int:
 
 
 def command_doctor(args: argparse.Namespace) -> int:
-    problems = 0
-
     title("Configuration")
     try:
         configuration = config_module.load()
@@ -900,6 +898,56 @@ def command_doctor(args: argparse.Namespace) -> int:
     except config_module.ConfigError as error:
         bad(str(error))
         return 2
+    problems = _doctor_configuration(configuration)
+
+    title("Tools")
+    problems += _doctor_tools(configuration)
+
+    title("GitHub App")
+    problems += _doctor_github_app()
+
+    title("Claude provider")
+    problems += _doctor_provider(configuration)
+
+    title("Vault")
+    problems += _doctor_vault(configuration)
+
+    _doctor_validation(configuration)
+
+    title("Version")
+    _doctor_version(configuration)
+
+    title("Notifications")
+    problems += _doctor_notifications(configuration)
+
+    title("Console")
+    _doctor_console(configuration)
+
+    title("Repositories")
+    problems += _doctor_repositories(configuration)
+
+    title("Disk")
+    _doctor_disk(configuration)
+
+    title("Memory")
+    _doctor_memory(configuration)
+
+    title("Installation health")
+    problems += _doctor_health(configuration)
+
+    title("Local database")
+    problems += _doctor_database()
+
+    if problems:
+        print(f"\n{RED}{problems} problem(s) to fix.{RESET}")
+        return 1
+
+    return _doctor_board(configuration)
+
+
+def _doctor_configuration(configuration: config_module.Config) -> int:
+    """The configuration loaded: whether it is enough to run, and what it says of itself."""
+    problems = 0
     try:
         configuration.require_usable()
         ok(
@@ -912,8 +960,11 @@ def command_doctor(args: argparse.Namespace) -> int:
         problems += 1
     problems += _doctor_secrets(configuration)
     _doctor_languages(configuration.runner)
+    return problems
 
-    title("Tools")
+
+def _doctor_tools(configuration: config_module.Config) -> int:
+    problems = 0
     for binary, why in (("git", "required"), ("claude", "required"), ("gh", "for pull requests")):
         path = shutil.which(binary)
         if path:
@@ -937,16 +988,11 @@ def command_doctor(args: argparse.Namespace) -> int:
             else:
                 warn(f"{owner}/* — gh is not signed in as {account}: gh auth login")
                 problems += 1
+    return problems
 
-    title("GitHub App")
-    problems += _doctor_github_app()
 
-    title("Claude provider")
-    problems += _doctor_provider(configuration)
-
-    title("Vault")
-    problems += _doctor_vault(configuration)
-
+def _doctor_validation(configuration: config_module.Config) -> None:
+    """How far work goes on its own once validated: conflicts resolved, review skipped."""
     settings = configuration.runner
     if settings.rebase and settings.resolve_conflicts:
         excepted = settings.resolve_conflicts_except.strip()
@@ -975,7 +1021,8 @@ def command_doctor(args: argparse.Namespace) -> int:
         names = ", ".join(project["name"] or project["id"] for project in owning)
         ok(f"automatic validation of their own, over the lines above: {names}")
 
-    title("Version")
+
+def _doctor_version(configuration: config_module.Config) -> None:
     print(f"  {DIM}Ponos {__version__} — releases: CHANGELOG.md{RESET}")
     channel = configuration.runner.update_channel
     status = update_module.check(channel=channel)
@@ -1003,7 +1050,9 @@ def command_doctor(args: argparse.Namespace) -> int:
         else:
             print(f"  {DIM}runner.auto_update = false — ponos update to do it by hand{RESET}")
 
-    title("Notifications")
+
+def _doctor_notifications(configuration: config_module.Config) -> int:
+    problems = 0
     settings = configuration.notify
     if not settings.desktop:
         print(f"  {DIM}desktop notifications off{RESET}")
@@ -1038,8 +1087,10 @@ def command_doctor(args: argparse.Namespace) -> int:
             )
             + f"{RESET}"
         )
+    return problems
 
-    title("Console")
+
+def _doctor_console(configuration: config_module.Config) -> None:
     # "We have a sign-in, and the page still asks me for a token" is the
     # ordinary shape of a console whose `web.email` and `web.password` were
     # never both set — the sign-in is dormant until they are, and the token
@@ -1090,7 +1141,9 @@ def command_doctor(args: argparse.Namespace) -> int:
     elif configuration.openrouter.key:
         ok("console sessions: Claude models, and every OpenRouter model")
 
-    title("Repositories")
+
+def _doctor_repositories(configuration: config_module.Config) -> int:
+    problems = 0
     root = configuration.runner.workspace_root
     if root.is_dir():
         resolver = Resolver(root, configuration.projects, configuration.github)
@@ -1109,8 +1162,10 @@ def command_doctor(args: argparse.Namespace) -> int:
     else:
         bad(f"{root} does not exist (runner.workspace_root)")
         problems += 1
+    return problems
 
-    title("Disk")
+
+def _doctor_disk(configuration: config_module.Config) -> None:
     held = cleanup.sizes()
     print(
         f"  {config_module.state_dir()} — "
@@ -1155,7 +1210,8 @@ def command_doctor(args: argparse.Namespace) -> int:
     if last:
         print(f"  {DIM}last tidied {datetime.fromtimestamp(last):%Y-%m-%d %H:%M}{RESET}")
 
-    title("Memory")
+
+def _doctor_memory(configuration: config_module.Config) -> None:
     free, minimum = resources.available_mb(), configuration.runner.min_free_memory_mb
     if free is None:
         print(f"  {DIM}/proc/meminfo is unreadable here — the memory guard cannot tell{RESET}")
@@ -1169,17 +1225,54 @@ def command_doctor(args: argparse.Namespace) -> int:
     else:
         ok(f"{free} MB available (a session starts above {minimum} MB)")
 
-    title("Installation health")
-    problems += _doctor_health(configuration)
 
-    title("Local database")
-    problems += _doctor_database()
+def _doctor_board(configuration: config_module.Config) -> int:
+    """The board and what reads it — only asked once nothing above is wrong.
+
+    A board that cannot be reached stops it with 1 there and then: every
+    section after it would only say the same thing again.
+    """
+    title("Storage")
+    client = _doctor_storage(configuration)
+    if client is None:
+        return 1
+    space = _doctor_workspace(configuration, client)
+    if space is None:
+        return 1
+    database = space.tickets
+
+    title("Tickets database")
+    schema = _doctor_tickets_database(configuration, client, database)
+    if schema is None:
+        return 1
+    problems = _doctor_columns(schema, configuration.notion)
+
+    title("Statuses")
+    problems += _doctor_statuses(configuration, client, database)
+
+    type_column = configuration.notion.prop("type")
+    if type_column in schema:
+        title("Types")
+        _doctor_types(configuration, client, database, type_column)
+
+    title("Schedules database")
+    problems += _doctor_schedules(client, configuration, space)
+
+    title("Comments")
+    problems += _doctor_comments(configuration, client, database)
+
+    title("Model")
+    problems += _doctor_model(configuration)
 
     if problems:
         print(f"\n{RED}{problems} problem(s) to fix.{RESET}")
         return 1
+    print(f"\n{GREEN}Everything is in place.{RESET}")
+    return 0
 
-    title("Storage")
+
+def _doctor_storage(configuration: config_module.Config) -> store.Store | None:
+    """The board opened — or None, said, when Notion refuses its token."""
     storage = configuration.storage
     client = store.open(configuration)
     if storage.markdown:
@@ -1197,10 +1290,17 @@ def command_doctor(args: argparse.Namespace) -> int:
             ok(f"connected to Notion as “{client.my_name() or 'integration'}”")
         except store.StoreError as error:
             bad(f"token refused: {error}")
-            return 1
+            return None
     else:
         print(f"  {DIM}storage.mode = \"markdown\" — Notion is never asked anything{RESET}")
+    return client
 
+
+def _doctor_workspace(
+    configuration: config_module.Config, client: store.Store
+) -> workspace_module.Workspace | None:
+    """The pages the board is made of — or None, said, when they cannot be found."""
+    storage = configuration.storage
     if storage.notion and configuration.notion.workspace:
         title("Notion workspace")
     try:
@@ -1210,8 +1310,7 @@ def command_doctor(args: argparse.Namespace) -> int:
             bad(line.strip())
         if storage.notion:
             warn("every page must be shared with the integration (··· menu → Connections)")
-        return 1
-    database = space.tickets
+        return None
 
     if storage.notion and configuration.notion.workspace:
         listed = ", ".join(f"“{name}”" for name in sorted(space.rows)) or "nothing"
@@ -1227,22 +1326,29 @@ def command_doctor(args: argparse.Namespace) -> int:
         for key in ("projects", "agents", "schedules"):
             if resolved := getattr(space, key):
                 ok(f"“{configuration.notion.page(key)}” → database {resolved}")
+    return space
 
-    title("Tickets database")
+
+def _doctor_tickets_database(
+    configuration: config_module.Config, client: store.Store, database: str
+) -> dict[str, str] | None:
+    """The tickets database's schema — or None, said, when it cannot be read."""
+    storage = configuration.storage
     try:
         schema = client.schema(database)
     except store.StoreError as error:
         bad(f"unreachable: {str(error).splitlines()[0]}")
         warn("the database must be shared with the integration (··· menu → Connections)")
-        return 1
+        return None
     ok(f"readable — {len(schema)} property(ies)")
     reference = configuration.notion.tickets_database or configuration.notion.page("tickets")
     if storage.notion and database != reference:
         warn(f"resolved from “{reference}” to database {database}")
+    return schema
 
-    problems += _doctor_columns(schema, configuration.notion)
 
-    title("Statuses")
+def _doctor_statuses(configuration: config_module.Config, client: store.Store, database: str) -> int:
+    problems = 0
     options = client.options(database, configuration.notion.prop("status"))
     if not options:
         warn("the status property offers no options — nothing to check against")
@@ -1296,34 +1402,35 @@ def command_doctor(args: argparse.Namespace) -> int:
             bad(f"draft     → “{draft}” is not offered by the database")
             problems += 1
         print(f"  {DIM}available: {', '.join(options)}{RESET}")
+    return problems
 
-    type_column = configuration.notion.prop("type")
-    if type_column in schema:
-        title("Types")
-        offered = client.options(database, type_column)
-        for key in ("code", "writing", "external", "publication"):
-            names = configuration.notion.kind_names(key)
-            found = next((name for name in names if name in offered), "")
-            if found:
-                ok(f"{key:<11} → “{found}”")
-            else:
-                # Not a problem: Notion adds a select option the first time a
-                # value is written into it. Said so it is not a surprise.
-                warn(f"{key:<11} → “{names[0]}” not offered yet — added the first time it is written")
-        runner_settings = configuration.runner
-        if runner_settings.classify:
-            model = runner_settings.classify_model or "the CLI's default model"
-            ok(
-                f"an empty {type_column} is classified by {model}, acted on from "
-                f"{runner_settings.classify_confidence} confidence"
-            )
+
+def _doctor_types(
+    configuration: config_module.Config, client: store.Store, database: str, type_column: str
+) -> None:
+    offered = client.options(database, type_column)
+    for key in ("code", "writing", "external", "publication"):
+        names = configuration.notion.kind_names(key)
+        found = next((name for name in names if name in offered), "")
+        if found:
+            ok(f"{key:<11} → “{found}”")
         else:
-            warn(f"runner.classify is off — a ticket with no {type_column} runs by its project")
+            # Not a problem: Notion adds a select option the first time a
+            # value is written into it. Said so it is not a surprise.
+            warn(f"{key:<11} → “{names[0]}” not offered yet — added the first time it is written")
+    runner_settings = configuration.runner
+    if runner_settings.classify:
+        model = runner_settings.classify_model or "the CLI's default model"
+        ok(
+            f"an empty {type_column} is classified by {model}, acted on from "
+            f"{runner_settings.classify_confidence} confidence"
+        )
+    else:
+        warn(f"runner.classify is off — a ticket with no {type_column} runs by its project")
 
-    title("Schedules database")
-    problems += _doctor_schedules(client, configuration, space)
 
-    title("Comments")
+def _doctor_comments(configuration: config_module.Config, client: store.Store, database: str) -> int:
+    problems = 0
     # The one capability that is off by default, and the one whose absence is
     # silent: a ticket runs perfectly well while its discussion is invisible.
     sample = client.query(database)[:1]
@@ -1363,8 +1470,11 @@ def command_doctor(args: argparse.Namespace) -> int:
         )
     else:
         print(f"  {DIM}runner.unblock = false — a blocked ticket stays blocked until you move it{RESET}")
+    return problems
 
-    title("Model")
+
+def _doctor_model(configuration: config_module.Config) -> int:
+    problems = 0
     ok(f"claude: {session.available() or 'missing'}")
     runner_settings = configuration.runner
     if runner_settings.auto_model:
@@ -1404,12 +1514,7 @@ def command_doctor(args: argparse.Namespace) -> int:
         print(f"  {DIM}live steps written into the ticket every {every}s{RESET}")
     else:
         print(f"  {DIM}runner.progress = false — the ticket says nothing until the end{RESET}")
-
-    if problems:
-        print(f"\n{RED}{problems} problem(s) to fix.{RESET}")
-        return 1
-    print(f"\n{GREEN}Everything is in place.{RESET}")
-    return 0
+    return problems
 
 
 def _doctor_health(configuration: config_module.Config) -> int:

@@ -49,6 +49,7 @@ from dataclasses import dataclass
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from typing import Callable
 from urllib.parse import parse_qs, parse_qsl, quote, unquote, urlencode, urlparse
 
 from .. import __version__
@@ -247,6 +248,25 @@ class Console(ThreadingHTTPServer):
         if isinstance(sys.exc_info()[1], ConnectionError):
             return
         super().handle_error(request, client_address)
+
+
+# The API's routes, filed by `at` as the handler's methods are defined: a
+# path is matched whole against each pattern, and what its groups catch is
+# handed to the method after the query (a GET) or the body (a POST). No two
+# patterns match one path, so the order they are read in decides nothing.
+Route = tuple[re.Pattern[str], Callable[..., None]]
+GETS: list[Route] = []
+POSTS: list[Route] = []
+
+
+def at(table: list[Route], pattern: str) -> Callable[[Callable[..., None]], Callable[..., None]]:
+    """Files the method it decorates under `pattern`, in `table` — see GETS."""
+
+    def filed(method: Callable[..., None]) -> Callable[..., None]:
+        table.append((re.compile(pattern), method))
+        return method
+
+    return filed
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -523,137 +543,8 @@ class Handler(BaseHTTPRequestHandler):
             )
 
         try:
-            if route == "/api/state":
-                return self._json(self.api.state(local=self._local()))
-            if route == "/api/board":
-                return self._json(self.api.board())
-            if route == "/api/notifications":
-                return self._json(notifications.recent())
-            if route == "/api/projects":
-                return self._json(self.api.all_projects())
-            if route == "/api/projects/check":
-                return self._json(
-                    self.api.creation.check(
-                        (query.get("repository") or [""])[0], (query.get("path") or [""])[0]
-                    )
-                )
-            if match := re.fullmatch(r"/api/projects/([0-9a-fA-F-]{32,36})", route):
-                return self._json(self.api.project(match.group(1)))
-            if match := re.fullmatch(r"/api/projects/([0-9a-fA-F-]{32,36})/brief", route):
-                return self._json(self.api.project_brief(match.group(1)))
-            if match := re.fullmatch(r"/api/projects/([0-9a-fA-F-]{32,36})/settings", route):
-                return self._json(self.api.project_settings(match.group(1)))
-            if match := re.fullmatch(r"/api/projects/([0-9a-fA-F-]{32,36})/image/(\w+)", route):
-                data, kind = self.api.picture(match.group(1), match.group(2))
-                return self._send(
-                    200, data, kind, {"Content-Security-Policy": PICTURE_POLICY},
-                    cache="private, max-age=86400",
-                )
-            if match := re.fullmatch(r"/api/files/([0-9a-fA-F-]{32,36})", route):
-                return self._send(302, b"", "text/plain", {"Location": self.api.attachment(match.group(1))})
-            if route == "/api/context":
-                return self._json(self.api.context())
-            if route == "/api/schedules":
-                return self._json(self.api.schedules())
-            if match := re.fullmatch(r"/api/schedules/([0-9a-fA-F-]{32,36})", route):
-                return self._json(self.api.schedule(match.group(1)))
-            if route == "/api/ideas":
-                # No `project` is the workspace's ideas, the dashboard's.
-                return self._json(self.api.ideas.proposed((query.get("project") or [""])[0]))
-            if route == "/api/ideas/all":
-                # `scope=all` is every project's ideas and the workspace's together.
-                return self._json(
-                    self.api.ideas.every(
-                        None if query.get("scope") == ["all"] else (query.get("project") or [""])[0]
-                    )
-                )
-            if route == "/api/ideas/unscored":
-                # What scoring the ideas with none would take: said before it is started.
-                return self._json(
-                    self.api.ideas.unscored(
-                        None if query.get("scope") == ["all"] else (query.get("project") or [""])[0]
-                    )
-                )
-            if route == "/api/history":
-                return self._json(self.api.history())
-            if route == "/api/disk":
-                return self._json(self.api.disk())
-            if route == "/api/health":
-                return self._json(self.api.health())
-            if route == "/api/statistics":
-                try:
-                    figures = self.api.statistics(
-                        (query.get("from") or [""])[0],
-                        (query.get("to") or [""])[0],
-                        # No `project` (or a blank one, which `parse_qs` drops) is the whole board.
-                        query["project"][0] if "project" in query else None,
-                    )
-                except ValueError as error:
-                    # A period that makes no sense, said as the page's mistake.
-                    return self._fail(400, str(error))
-                return self._json(figures)
-            if route == "/api/chat":
-                return self._json({"messages": self.api.chat.history(), **self.api.chat.state()})
-            if route == "/api/chat/sessions":
-                return self._json({"sessions": self.api.chat.sessions((query.get("q") or [""])[0])})
-            if route == "/api/chat/models":
-                return self._json(self.api.chat.models())
-            if match := re.fullmatch(r"/api/chat/attachments/([0-9a-f]{12})", route):
-                return self._attachment(match.group(1))
-            if route == "/api/settings":
-                return self._json(self.api.settings())
-            if route == "/api/mcp":
-                return self._json(mcp_setup.overview(self._loopback(), self.api.config.web.url))
-            if route == "/api/mcp/servers":
-                return self._json(mcp_setup.servers())
-            if route == "/api/settings/folder":
-                try:
-                    return self._json(self.api.folder((query.get("path") or [""])[0]))
-                except ValueError as error:
-                    return self._fail(400, str(error))
-            if route == "/api/setup":
-                return self._json(self._setup_state(True))
-            if route == "/api/setup/summary":
-                return self._json(setup.summary(self.api))
-            if route == "/api/setup/claude":
-                return self._json(setup.claude_login())
-            if route == "/api/setup/github":
-                return self._json(setup.github())
-            if route == "/api/github":
-                return self._json(github.status())
-            if match := re.fullmatch(r"/api/tickets/([0-9a-fA-F-]{32,36})", route):
-                return self._json(self.api.ticket(match.group(1)))
-            if match := re.fullmatch(r"/api/tickets/([0-9a-fA-F-]{32,36})/talk", route):
-                return self._json(self.api.talk(match.group(1)))
-            if match := re.fullmatch(r"/api/tickets/([0-9a-fA-F-]{32,36})/decision", route):
-                try:
-                    return self._json(self.api.decision(match.group(1)))
-                except ValueError as error:
-                    return self._fail(409, str(error))
-            if match := re.fullmatch(r"/api/tickets/([0-9a-fA-F-]{32,36})/runs", route):
-                return self._json(self.api.runs(match.group(1)))
-            if match := re.fullmatch(r"/api/tickets/([0-9a-fA-F-]{32,36})/transitions", route):
-                return self._json(self.api.transitions(match.group(1)))
-            if match := re.fullmatch(r"/api/runs/(\d+)/steps", route):
-                try:
-                    pages = {
-                        name: int((query.get(name) or ["0"])[0] or 0)
-                        for name in ("before", "after", "limit")
-                    }
-                except ValueError:
-                    return self._fail(400, "before, after and limit are numbers")
-                return self._json(
-                    self.api.run_steps(
-                        int(match.group(1)),
-                        before=pages["before"],
-                        after=pages["after"],
-                        limit=pages["limit"] or journal.PAGE,
-                    )
-                )
-            if route == "/api/logs":
-                return self._json(self.api.logs((query.get("ticket") or [""])[0]))
-            if match := re.fullmatch(r"/api/logs/([\w.\-]+)", route):
-                return self._json(self.api.log(match.group(1)))
+            if self._routed(GETS, route, query):
+                return None
         except store.StoreError as error:
             return self._fail(502, f"the board: {str(error).splitlines()[0]}")
         except LookupError as error:
@@ -720,157 +611,8 @@ class Handler(BaseHTTPRequestHandler):
         if route in ("/api/update", "/api/update/cancel"):
             return self._update(route)
         try:
-            if picture:
-                chosen = store.Picture(
-                    url=str(payload.get("url") or "").strip(),
-                    emoji=str(payload.get("emoji") or "").strip(),
-                )
-                if chosen.removed and not payload.get("remove"):
-                    raise ValueError("say which picture: a url, an emoji, or remove")
-                return self._json(self.api.set_picture(picture.group(1), picture.group(2), chosen))
-            if route == "/api/setup":
-                return self._setup(payload)
-            if route == "/api/setup/provider":
-                return self._json(setup.save_provider(self.api, payload))
-            if route == "/api/setup/notion":
-                return self._json(setup.save_notion(self.api, payload))
-            if route == "/api/setup/channels":
-                return self._json(setup.save_channels(self.api, payload))
-            if route == "/api/github/connect":
-                return self._json(
-                    github.connect(self._base(), str(payload.get("organisation", "")))
-                )
-            if route == "/api/github/disconnect":
-                return self._json(github.disconnect(str(payload.get("slug", ""))))
-            if route == "/api/tickets":
-                return self._json(
-                    self.api.create_ticket(
-                        str(payload.get("title", "")),
-                        str(payload.get("body", "")),
-                        str(payload.get("project", "")),
-                        bool(payload.get("ready", True)),
-                        payload.get("priority", ""),
-                        str(payload.get("type", "")),
-                        str(payload.get("model", "")),
-                        str(payload.get("subtype", "")),
-                        str(payload.get("on", "")),
-                    )
-                )
-            if match := re.fullmatch(r"/api/tickets/([0-9a-fA-F-]{32,36})/on", route):
-                return self._json(self.api.set_on(match.group(1), str(payload.get("on", ""))))
-            if match := re.fullmatch(r"/api/tickets/([0-9a-fA-F-]{32,36})/status", route):
-                seen = payload.get("from")
-                return self._json(
-                    self.api.set_status(
-                        match.group(1),
-                        str(payload.get("column", "")),
-                        None if seen is None else str(seen),
-                    )
-                )
-            if match := re.fullmatch(r"/api/tickets/([0-9a-fA-F-]{32,36})/talk", route):
-                return self._json(self.api.tell(match.group(1), str(payload.get("text", ""))))
-            if match := re.fullmatch(r"/api/tickets/([0-9a-fA-F-]{32,36})/decision", route):
-                titles = payload.get("titles") or []
-                if not isinstance(titles, list):
-                    raise ValueError("titles is a list of strings")
-                return self._json(
-                    self.api.decide(
-                        match.group(1),
-                        str(payload.get("key", "")),
-                        number=int(payload.get("number") or 0),
-                        text=str(payload.get("text", "")),
-                        model=str(payload.get("model", "")),
-                        titles=[str(title) for title in titles],
-                    )
-                )
-            if route == "/api/command":
-                return self._json(self.api.commands.start(str(payload.get("line", ""))))
-            if route == "/api/chat":
-                attached = payload.get("attachments") or []
-                if not isinstance(attached, list):
-                    raise ValueError("attachments is a list of ids")
-                return self._json(
-                    self.api.chat.send(str(payload.get("text", "")), [str(item) for item in attached])
-                )
-            if match := re.fullmatch(r"/api/chat/attachments/([0-9a-f]{12})/remove", route):
-                return self._json(self.api.chat.detach(match.group(1)))
-            if route == "/api/chat/stop":
-                return self._json(self.api.chat.stop())
-            if route == "/api/chat/reset":
-                return self._json(self.api.chat.reset())
-            if route == "/api/chat/model":
-                return self._json(self.api.chat.choose(str(payload.get("model", ""))))
-            if match := re.fullmatch(r"/api/chat/sessions/([0-9a-f]{12})/(open|rename|delete|project)", route):
-                identifier, verb = match.groups()
-                if verb == "open":
-                    return self._json(self.api.chat.open(identifier))
-                if verb == "rename":
-                    return self._json(self.api.chat.rename(identifier, str(payload.get("title", ""))))
-                if verb == "project":
-                    return self._json(self.api.chat.link(identifier, str(payload.get("project", ""))))
-                return self._json(self.api.chat.delete(identifier))
-            if route == "/api/projects":
-                try:
-                    return self._json(self.api.creation.create(payload))
-                except creation.Refused as error:
-                    # Under the field it is about, as the form draws a refusal.
-                    said = str(error)
-                    violation = {"propertyPath": error.field, "message": said}
-                    return self._json({"error": said, "violations": [violation]}, 400)
-            if match := re.fullmatch(r"/api/projects/([0-9a-fA-F-]{32,36})/delete", route):
-                return self._json(self.api.removal.delete(match.group(1), payload))
-            if match := re.fullmatch(r"/api/projects/([0-9a-fA-F-]{32,36})/settings", route):
-                return self._json(self.api.save_project_settings(match.group(1), payload))
-            if match := re.fullmatch(r"/api/projects/([0-9a-fA-F-]{32,36})", route):
-                return self._json(self.api.save_project(match.group(1), payload))
-            if route == "/api/settings":
-                return self._json(self.api.save_settings(payload))
-            if route == "/api/context":
-                return self._json(self.api.save_context(str(payload.get("text", ""))))
-            if route == "/api/schedules":
-                return self._json(
-                    self.api.create_schedule(str(payload.get("name", "")), payload)
-                )
-            if match := re.fullmatch(r"/api/schedules/([0-9a-fA-F-]{32,36})/launch", route):
-                return self._json(self.api.launch_schedule(match.group(1)))
-            if match := re.fullmatch(r"/api/schedules/([0-9a-fA-F-]{32,36})", route):
-                return self._json(self.api.save_schedule(match.group(1), payload))
-            if route == "/api/ideas/generate":
-                return self._json(self.api.ideas.generate(str(payload.get("project") or "")))
-            if route == "/api/ideas":
-                return self._json(self.api.ideas.create(payload))
-            if route == "/api/ideas/score":
-                # No `project` at all is every scope's; "" the workspace's.
-                scope = payload.get("project")
-                return self._json(self.api.ideas.score_unscored(None if scope is None else str(scope)))
-            if match := re.fullmatch(r"/api/ideas/(\d+)", route):
-                return self._json(self.api.ideas.edit(int(match.group(1)), payload))
-            if match := re.fullmatch(r"/api/ideas/(\d+)/(keep|discard|ticket|reopen)", route):
-                return self._json(getattr(self.api.ideas, match.group(2))(int(match.group(1))))
-            if route == "/api/ideas/undo":
-                # A `project` (empty for the workspace's) takes back that scope's
-                # last decision; none at all, the last decision of any.
-                scope = payload.get("project")
-                return self._json(self.api.ideas.undo(None if scope is None else str(scope)))
-            if route == "/api/disk/clean":
-                return self._json(self.api.clean())
-            if route == "/api/health/fix":
-                return self._json(self.api.fix_health(payload))
-            if route == "/api/mcp/test":
-                # The address tried is one of the two the tab offers, never one the page typed.
-                web = self.api.config.web
-                address = f"{web.url.rstrip('/')}/mcp" if web.url else ""
-                if payload.get("target") != "public":
-                    address = f"{self._loopback()}/mcp"
-                return self._json(mcp_setup.probe(address))
-            if route == "/api/notifications/read":
-                identifier = payload.get("id")
-                if identifier is not None and not isinstance(identifier, int):
-                    raise ValueError("id is a number, or absent for all of them")
-                return self._json(self.api.read_notifications(identifier))
-            if route == "/api/refresh":
-                self.api.resynchronise()
-                return self._json({"ok": True})
+            if self._routed(POSTS, route, payload):
+                return None
         except config_module.ConfigError as error:
             return self._fail(400, str(error).splitlines()[0])
         except ValueError as error:
@@ -887,6 +629,459 @@ class Handler(BaseHTTPRequestHandler):
             return self._fail(500, str(error).splitlines()[0])
 
         return self._fail(404, f"no such route: {route}")
+
+    def _routed(self, table: list[Route], route: str, argument: dict) -> bool:
+        """The method `table` files `route` under, called — False when there is none."""
+        for pattern, method in table:
+            if found := pattern.fullmatch(route):
+                method(self, argument, *found.groups())
+                return True
+        return False
+
+    # -- the API's reads ---------------------------------------------------------
+
+    @at(GETS, r"/api/state")
+    def _get_state(self, query: dict) -> None:
+        return self._json(self.api.state(local=self._local()))
+
+    @at(GETS, r"/api/board")
+    def _get_board(self, query: dict) -> None:
+        return self._json(self.api.board())
+
+    @at(GETS, r"/api/notifications")
+    def _get_notifications(self, query: dict) -> None:
+        return self._json(notifications.recent())
+
+    @at(GETS, r"/api/projects")
+    def _get_projects(self, query: dict) -> None:
+        return self._json(self.api.all_projects())
+
+    @at(GETS, r"/api/projects/check")
+    def _get_projects_check(self, query: dict) -> None:
+        return self._json(
+            self.api.creation.check(
+                (query.get("repository") or [""])[0], (query.get("path") or [""])[0]
+            )
+        )
+
+    @at(GETS, r"/api/projects/([0-9a-fA-F-]{32,36})")
+    def _get_project(self, query: dict, project_id: str) -> None:
+        return self._json(self.api.project(project_id))
+
+    @at(GETS, r"/api/projects/([0-9a-fA-F-]{32,36})/brief")
+    def _get_project_brief(self, query: dict, project_id: str) -> None:
+        return self._json(self.api.project_brief(project_id))
+
+    @at(GETS, r"/api/projects/([0-9a-fA-F-]{32,36})/settings")
+    def _get_project_settings(self, query: dict, project_id: str) -> None:
+        return self._json(self.api.project_settings(project_id))
+
+    @at(GETS, r"/api/projects/([0-9a-fA-F-]{32,36})/image/(\w+)")
+    def _get_project_image(self, query: dict, project_id: str, slot: str) -> None:
+        data, kind = self.api.picture(project_id, slot)
+        return self._send(
+            200, data, kind, {"Content-Security-Policy": PICTURE_POLICY},
+            cache="private, max-age=86400",
+        )
+
+    @at(GETS, r"/api/files/([0-9a-fA-F-]{32,36})")
+    def _get_file(self, query: dict, file_id: str) -> None:
+        return self._send(302, b"", "text/plain", {"Location": self.api.attachment(file_id)})
+
+    @at(GETS, r"/api/context")
+    def _get_context(self, query: dict) -> None:
+        return self._json(self.api.context())
+
+    @at(GETS, r"/api/schedules")
+    def _get_schedules(self, query: dict) -> None:
+        return self._json(self.api.schedules())
+
+    @at(GETS, r"/api/schedules/([0-9a-fA-F-]{32,36})")
+    def _get_schedule(self, query: dict, schedule_id: str) -> None:
+        return self._json(self.api.schedule(schedule_id))
+
+    @at(GETS, r"/api/ideas")
+    def _get_ideas(self, query: dict) -> None:
+        # No `project` is the workspace's ideas, the dashboard's.
+        return self._json(self.api.ideas.proposed((query.get("project") or [""])[0]))
+
+    @at(GETS, r"/api/ideas/all")
+    def _get_ideas_all(self, query: dict) -> None:
+        # `scope=all` is every project's ideas and the workspace's together.
+        return self._json(
+            self.api.ideas.every(
+                None if query.get("scope") == ["all"] else (query.get("project") or [""])[0]
+            )
+        )
+
+    @at(GETS, r"/api/ideas/unscored")
+    def _get_ideas_unscored(self, query: dict) -> None:
+        # What scoring the ideas with none would take: said before it is started.
+        return self._json(
+            self.api.ideas.unscored(
+                None if query.get("scope") == ["all"] else (query.get("project") or [""])[0]
+            )
+        )
+
+    @at(GETS, r"/api/history")
+    def _get_history(self, query: dict) -> None:
+        return self._json(self.api.history())
+
+    @at(GETS, r"/api/disk")
+    def _get_disk(self, query: dict) -> None:
+        return self._json(self.api.disk())
+
+    @at(GETS, r"/api/health")
+    def _get_health(self, query: dict) -> None:
+        return self._json(self.api.health())
+
+    @at(GETS, r"/api/statistics")
+    def _get_statistics(self, query: dict) -> None:
+        try:
+            figures = self.api.statistics(
+                (query.get("from") or [""])[0],
+                (query.get("to") or [""])[0],
+                # No `project` (or a blank one, which `parse_qs` drops) is the whole board.
+                query["project"][0] if "project" in query else None,
+            )
+        except ValueError as error:
+            # A period that makes no sense, said as the page's mistake.
+            return self._fail(400, str(error))
+        return self._json(figures)
+
+    @at(GETS, r"/api/chat")
+    def _get_chat(self, query: dict) -> None:
+        return self._json({"messages": self.api.chat.history(), **self.api.chat.state()})
+
+    @at(GETS, r"/api/chat/sessions")
+    def _get_chat_sessions(self, query: dict) -> None:
+        return self._json({"sessions": self.api.chat.sessions((query.get("q") or [""])[0])})
+
+    @at(GETS, r"/api/chat/models")
+    def _get_chat_models(self, query: dict) -> None:
+        return self._json(self.api.chat.models())
+
+    @at(GETS, r"/api/chat/attachments/([0-9a-f]{12})")
+    def _get_chat_attachment(self, query: dict, identifier: str) -> None:
+        return self._attachment(identifier)
+
+    @at(GETS, r"/api/settings")
+    def _get_settings(self, query: dict) -> None:
+        return self._json(self.api.settings())
+
+    @at(GETS, r"/api/mcp")
+    def _get_mcp(self, query: dict) -> None:
+        return self._json(mcp_setup.overview(self._loopback(), self.api.config.web.url))
+
+    @at(GETS, r"/api/mcp/servers")
+    def _get_mcp_servers(self, query: dict) -> None:
+        return self._json(mcp_setup.servers())
+
+    @at(GETS, r"/api/settings/folder")
+    def _get_settings_folder(self, query: dict) -> None:
+        try:
+            return self._json(self.api.folder((query.get("path") or [""])[0]))
+        except ValueError as error:
+            return self._fail(400, str(error))
+
+    @at(GETS, r"/api/setup")
+    def _get_setup(self, query: dict) -> None:
+        return self._json(self._setup_state(True))
+
+    @at(GETS, r"/api/setup/summary")
+    def _get_setup_summary(self, query: dict) -> None:
+        return self._json(setup.summary(self.api))
+
+    @at(GETS, r"/api/setup/claude")
+    def _get_setup_claude(self, query: dict) -> None:
+        return self._json(setup.claude_login())
+
+    @at(GETS, r"/api/setup/github")
+    def _get_setup_github(self, query: dict) -> None:
+        return self._json(setup.github())
+
+    @at(GETS, r"/api/github")
+    def _get_github(self, query: dict) -> None:
+        return self._json(github.status())
+
+    @at(GETS, r"/api/tickets/([0-9a-fA-F-]{32,36})")
+    def _get_ticket(self, query: dict, ticket_id: str) -> None:
+        return self._json(self.api.ticket(ticket_id))
+
+    @at(GETS, r"/api/tickets/([0-9a-fA-F-]{32,36})/talk")
+    def _get_ticket_talk(self, query: dict, ticket_id: str) -> None:
+        return self._json(self.api.talk(ticket_id))
+
+    @at(GETS, r"/api/tickets/([0-9a-fA-F-]{32,36})/decision")
+    def _get_ticket_decision(self, query: dict, ticket_id: str) -> None:
+        try:
+            return self._json(self.api.decision(ticket_id))
+        except ValueError as error:
+            return self._fail(409, str(error))
+
+    @at(GETS, r"/api/tickets/([0-9a-fA-F-]{32,36})/runs")
+    def _get_ticket_runs(self, query: dict, ticket_id: str) -> None:
+        return self._json(self.api.runs(ticket_id))
+
+    @at(GETS, r"/api/tickets/([0-9a-fA-F-]{32,36})/transitions")
+    def _get_ticket_transitions(self, query: dict, ticket_id: str) -> None:
+        return self._json(self.api.transitions(ticket_id))
+
+    @at(GETS, r"/api/runs/(\d+)/steps")
+    def _get_run_steps(self, query: dict, run: str) -> None:
+        try:
+            pages = {
+                name: int((query.get(name) or ["0"])[0] or 0)
+                for name in ("before", "after", "limit")
+            }
+        except ValueError:
+            return self._fail(400, "before, after and limit are numbers")
+        return self._json(
+            self.api.run_steps(
+                int(run),
+                before=pages["before"],
+                after=pages["after"],
+                limit=pages["limit"] or journal.PAGE,
+            )
+        )
+
+    @at(GETS, r"/api/logs")
+    def _get_logs(self, query: dict) -> None:
+        return self._json(self.api.logs((query.get("ticket") or [""])[0]))
+
+    @at(GETS, r"/api/logs/([\w.\-]+)")
+    def _get_log(self, query: dict, name: str) -> None:
+        return self._json(self.api.log(name))
+
+    # -- the API's writes --------------------------------------------------------
+
+    @at(POSTS, r"/api/projects/([0-9a-fA-F-]{32,36})/image/(\w+)")
+    def _post_project_image(self, payload: dict, project_id: str, slot: str) -> None:
+        chosen = store.Picture(
+            url=str(payload.get("url") or "").strip(),
+            emoji=str(payload.get("emoji") or "").strip(),
+        )
+        if chosen.removed and not payload.get("remove"):
+            raise ValueError("say which picture: a url, an emoji, or remove")
+        return self._json(self.api.set_picture(project_id, slot, chosen))
+
+    @at(POSTS, r"/api/setup")
+    def _post_setup(self, payload: dict) -> None:
+        return self._setup(payload)
+
+    @at(POSTS, r"/api/setup/provider")
+    def _post_setup_provider(self, payload: dict) -> None:
+        return self._json(setup.save_provider(self.api, payload))
+
+    @at(POSTS, r"/api/setup/notion")
+    def _post_setup_notion(self, payload: dict) -> None:
+        return self._json(setup.save_notion(self.api, payload))
+
+    @at(POSTS, r"/api/setup/channels")
+    def _post_setup_channels(self, payload: dict) -> None:
+        return self._json(setup.save_channels(self.api, payload))
+
+    @at(POSTS, r"/api/github/connect")
+    def _post_github_connect(self, payload: dict) -> None:
+        return self._json(
+            github.connect(self._base(), str(payload.get("organisation", "")))
+        )
+
+    @at(POSTS, r"/api/github/disconnect")
+    def _post_github_disconnect(self, payload: dict) -> None:
+        return self._json(github.disconnect(str(payload.get("slug", ""))))
+
+    @at(POSTS, r"/api/tickets")
+    def _post_tickets(self, payload: dict) -> None:
+        return self._json(
+            self.api.create_ticket(
+                str(payload.get("title", "")),
+                str(payload.get("body", "")),
+                str(payload.get("project", "")),
+                bool(payload.get("ready", True)),
+                payload.get("priority", ""),
+                str(payload.get("type", "")),
+                str(payload.get("model", "")),
+                str(payload.get("subtype", "")),
+                str(payload.get("on", "")),
+            )
+        )
+
+    @at(POSTS, r"/api/tickets/([0-9a-fA-F-]{32,36})/on")
+    def _post_ticket_on(self, payload: dict, ticket_id: str) -> None:
+        return self._json(self.api.set_on(ticket_id, str(payload.get("on", ""))))
+
+    @at(POSTS, r"/api/tickets/([0-9a-fA-F-]{32,36})/status")
+    def _post_ticket_status(self, payload: dict, ticket_id: str) -> None:
+        seen = payload.get("from")
+        return self._json(
+            self.api.set_status(
+                ticket_id,
+                str(payload.get("column", "")),
+                None if seen is None else str(seen),
+            )
+        )
+
+    @at(POSTS, r"/api/tickets/([0-9a-fA-F-]{32,36})/talk")
+    def _post_ticket_talk(self, payload: dict, ticket_id: str) -> None:
+        return self._json(self.api.tell(ticket_id, str(payload.get("text", ""))))
+
+    @at(POSTS, r"/api/tickets/([0-9a-fA-F-]{32,36})/decision")
+    def _post_ticket_decision(self, payload: dict, ticket_id: str) -> None:
+        titles = payload.get("titles") or []
+        if not isinstance(titles, list):
+            raise ValueError("titles is a list of strings")
+        return self._json(
+            self.api.decide(
+                ticket_id,
+                str(payload.get("key", "")),
+                number=int(payload.get("number") or 0),
+                text=str(payload.get("text", "")),
+                model=str(payload.get("model", "")),
+                titles=[str(title) for title in titles],
+            )
+        )
+
+    @at(POSTS, r"/api/command")
+    def _post_command(self, payload: dict) -> None:
+        return self._json(self.api.commands.start(str(payload.get("line", ""))))
+
+    @at(POSTS, r"/api/chat")
+    def _post_chat(self, payload: dict) -> None:
+        attached = payload.get("attachments") or []
+        if not isinstance(attached, list):
+            raise ValueError("attachments is a list of ids")
+        return self._json(
+            self.api.chat.send(str(payload.get("text", "")), [str(item) for item in attached])
+        )
+
+    @at(POSTS, r"/api/chat/attachments/([0-9a-f]{12})/remove")
+    def _post_chat_attachment_remove(self, payload: dict, identifier: str) -> None:
+        return self._json(self.api.chat.detach(identifier))
+
+    @at(POSTS, r"/api/chat/stop")
+    def _post_chat_stop(self, payload: dict) -> None:
+        return self._json(self.api.chat.stop())
+
+    @at(POSTS, r"/api/chat/reset")
+    def _post_chat_reset(self, payload: dict) -> None:
+        return self._json(self.api.chat.reset())
+
+    @at(POSTS, r"/api/chat/model")
+    def _post_chat_model(self, payload: dict) -> None:
+        return self._json(self.api.chat.choose(str(payload.get("model", ""))))
+
+    @at(POSTS, r"/api/chat/sessions/([0-9a-f]{12})/(open|rename|delete|project)")
+    def _post_chat_session(self, payload: dict, identifier: str, verb: str) -> None:
+        if verb == "open":
+            return self._json(self.api.chat.open(identifier))
+        if verb == "rename":
+            return self._json(self.api.chat.rename(identifier, str(payload.get("title", ""))))
+        if verb == "project":
+            return self._json(self.api.chat.link(identifier, str(payload.get("project", ""))))
+        return self._json(self.api.chat.delete(identifier))
+
+    @at(POSTS, r"/api/projects")
+    def _post_projects(self, payload: dict) -> None:
+        try:
+            return self._json(self.api.creation.create(payload))
+        except creation.Refused as error:
+            # Under the field it is about, as the form draws a refusal.
+            said = str(error)
+            violation = {"propertyPath": error.field, "message": said}
+            return self._json({"error": said, "violations": [violation]}, 400)
+
+    @at(POSTS, r"/api/projects/([0-9a-fA-F-]{32,36})/delete")
+    def _post_project_delete(self, payload: dict, project_id: str) -> None:
+        return self._json(self.api.removal.delete(project_id, payload))
+
+    @at(POSTS, r"/api/projects/([0-9a-fA-F-]{32,36})/settings")
+    def _post_project_settings(self, payload: dict, project_id: str) -> None:
+        return self._json(self.api.save_project_settings(project_id, payload))
+
+    @at(POSTS, r"/api/projects/([0-9a-fA-F-]{32,36})")
+    def _post_project(self, payload: dict, project_id: str) -> None:
+        return self._json(self.api.save_project(project_id, payload))
+
+    @at(POSTS, r"/api/settings")
+    def _post_settings(self, payload: dict) -> None:
+        return self._json(self.api.save_settings(payload))
+
+    @at(POSTS, r"/api/context")
+    def _post_context(self, payload: dict) -> None:
+        return self._json(self.api.save_context(str(payload.get("text", ""))))
+
+    @at(POSTS, r"/api/schedules")
+    def _post_schedules(self, payload: dict) -> None:
+        return self._json(
+            self.api.create_schedule(str(payload.get("name", "")), payload)
+        )
+
+    @at(POSTS, r"/api/schedules/([0-9a-fA-F-]{32,36})/launch")
+    def _post_schedule_launch(self, payload: dict, schedule_id: str) -> None:
+        return self._json(self.api.launch_schedule(schedule_id))
+
+    @at(POSTS, r"/api/schedules/([0-9a-fA-F-]{32,36})")
+    def _post_schedule(self, payload: dict, schedule_id: str) -> None:
+        return self._json(self.api.save_schedule(schedule_id, payload))
+
+    @at(POSTS, r"/api/ideas/generate")
+    def _post_ideas_generate(self, payload: dict) -> None:
+        return self._json(self.api.ideas.generate(str(payload.get("project") or "")))
+
+    @at(POSTS, r"/api/ideas")
+    def _post_ideas(self, payload: dict) -> None:
+        return self._json(self.api.ideas.create(payload))
+
+    @at(POSTS, r"/api/ideas/score")
+    def _post_ideas_score(self, payload: dict) -> None:
+        # No `project` at all is every scope's; "" the workspace's.
+        scope = payload.get("project")
+        return self._json(self.api.ideas.score_unscored(None if scope is None else str(scope)))
+
+    @at(POSTS, r"/api/ideas/(\d+)")
+    def _post_idea(self, payload: dict, number: str) -> None:
+        return self._json(self.api.ideas.edit(int(number), payload))
+
+    @at(POSTS, r"/api/ideas/(\d+)/(keep|discard|ticket|reopen)")
+    def _post_idea_decision(self, payload: dict, number: str, verb: str) -> None:
+        return self._json(getattr(self.api.ideas, verb)(int(number)))
+
+    @at(POSTS, r"/api/ideas/undo")
+    def _post_ideas_undo(self, payload: dict) -> None:
+        # A `project` (empty for the workspace's) takes back that scope's
+        # last decision; none at all, the last decision of any.
+        scope = payload.get("project")
+        return self._json(self.api.ideas.undo(None if scope is None else str(scope)))
+
+    @at(POSTS, r"/api/disk/clean")
+    def _post_disk_clean(self, payload: dict) -> None:
+        return self._json(self.api.clean())
+
+    @at(POSTS, r"/api/health/fix")
+    def _post_health_fix(self, payload: dict) -> None:
+        return self._json(self.api.fix_health(payload))
+
+    @at(POSTS, r"/api/mcp/test")
+    def _post_mcp_test(self, payload: dict) -> None:
+        # The address tried is one of the two the tab offers, never one the page typed.
+        web = self.api.config.web
+        address = f"{web.url.rstrip('/')}/mcp" if web.url else ""
+        if payload.get("target") != "public":
+            address = f"{self._loopback()}/mcp"
+        return self._json(mcp_setup.probe(address))
+
+    @at(POSTS, r"/api/notifications/read")
+    def _post_notifications_read(self, payload: dict) -> None:
+        identifier = payload.get("id")
+        if identifier is not None and not isinstance(identifier, int):
+            raise ValueError("id is a number, or absent for all of them")
+        return self._json(self.api.read_notifications(identifier))
+
+    @at(POSTS, r"/api/refresh")
+    def _post_refresh(self, payload: dict) -> None:
+        self.api.resynchronise()
+        return self._json({"ok": True})
 
     def _update(self, route: str) -> None:
         """Start, or call off, the update the header offers. See `upgrade.py`.
