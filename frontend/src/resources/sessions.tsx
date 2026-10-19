@@ -7,10 +7,11 @@ import { SCOPE } from "@/lib/resource-view"
 
 /* The conversations, as a page of the menu.
  *
- * Declared like the settings: one page, the `read` view of a record that is
- * not a record — the list of sessions is drawn by the page itself, from its
- * own endpoint, with its search — so the package has nothing to list and the
- * list address leads to the page (see `App`). */
+ * Declared as a list, as the projects and the ideas are, so the bar names it
+ * as it names them — "Ponos › Sessions", not the resource and then the one
+ * record it used to be read as. But the package lists nothing: the list of
+ * sessions is drawn by the page itself, from its own endpoint, with its search,
+ * and the header with it (see `SessionsPage`). */
 
 export const SESSIONS = "sessions"
 
@@ -25,18 +26,11 @@ const LazySessions = () => (
   </React.Suspense>
 )
 
-/** The page is the one record. */
-const THE_LIST = "all"
-
 interface SessionsItem {
   "@id": string
   "@type": string
   id: string
-  name: string
 }
-
-/* The layout's header, in place of the package's: the page says what it is. */
-const NoHeader = () => null
 
 /* A session is started, renamed and deleted from the page, never as a record. */
 const refused = async (): Promise<never> => {
@@ -47,22 +41,18 @@ export const sessions = createViewResource<SessionsItem>(SESSIONS, {
   name: "Sessions",
   path: "/api/chat/sessions",
   icon: MessagesSquare,
-  // The one page, and nothing to write or delete through the package. Its list
-  // is allowed only to be linked to — the breadcrumb does — and leads to the
-  // page (see `App`).
-  permissions: ["list", "read"],
+  // The page, and nothing to read, write or delete through the package.
+  permissions: ["list"],
   repository: {
-    getItem: async () => ({
-      data: { id: THE_LIST, name: "Sessions", "@id": "/api/chat/sessions", "@type": SESSIONS },
-    }),
+    getItem: refused,
     getCollection: refused,
     createItem: refused,
     updateItem: refused,
     removeItem: refused,
   },
   views: {
-    read: {
-      components: { view: LazySessions, navigation: NoHeader },
+    list: {
+      components: { view: LazySessions },
       fullWidth: true,
     },
   },
@@ -73,6 +63,5 @@ export const sessionsHref = () =>
   generateLink({
     scope: SCOPE,
     resourceId: SESSIONS,
-    resourceAction: ActionList.read,
-    id: THE_LIST,
+    resourceAction: ActionList.list,
   })

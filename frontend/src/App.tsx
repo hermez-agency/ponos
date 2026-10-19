@@ -68,8 +68,10 @@ function Page({ params }: { params: ViewResourceContextParams }) {
   // to one — the breadcrumb in the bar does — and a list asked for is the file.
   if (resourceId === SETTINGS && action === ActionList.list)
     return <Navigate to={settingsHref()} replace />
-  // Likewise the sessions: the page draws its own list.
-  if (resourceId === SESSIONS && action === ActionList.list)
+  // The sessions the other way round: a list now, whose page draws it, and
+  // the one record they used to be read as is a bookmarked address that leads
+  // there.
+  if (resourceId === SESSIONS && action !== ActionList.list)
     return <Navigate to={sessionsHref()} replace />
   return (
     // The language is part of the key: what the package draws — the view's
