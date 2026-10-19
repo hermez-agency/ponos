@@ -1072,6 +1072,14 @@ class Handler(BaseHTTPRequestHandler):
             github.connect(self._base(), str(payload.get("organisation", "")))
         )
 
+    @at(POSTS, r"/api/github/token")
+    def _post_github_token(self, payload: dict) -> None:
+        return self._json(github.save_token(self.api, payload))
+
+    @at(POSTS, r"/api/github/token/forget")
+    def _post_github_token_forget(self, payload: dict) -> None:
+        return self._json(github.forget_token(self.api))
+
     @at(POSTS, r"/api/github/disconnect")
     def _post_github_disconnect(self, payload: dict) -> None:
         return self._json(github.disconnect(str(payload.get("slug", ""))))

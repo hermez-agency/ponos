@@ -49,7 +49,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from .. import __version__, channels, github_app, notion, prerequisites, projects, provider
+from .. import __version__, channels, github_app, github_token, notion, prerequisites, projects, provider
 from .. import git as git_module
 from .. import provision, store, voice
 from .. import config as config_module
@@ -424,18 +424,38 @@ def doctor() -> dict:
     return {"code": answered.returncode, "text": answered.stdout + answered.stderr}
 
 
+def _github_token(held: str) -> dict:
+    """The token's owner, asked of GitHub — or why it does not answer."""
+    try:
+        return {"state": "ok", "account": github_token.check(held)["login"], "via": "token",
+                "said": "", "command": ""}
+    except github_token.GithubTokenError as error:
+        return {"state": "error", "account": "", "via": "token", "said": str(error), "command": ""}
+
+
 def github() -> dict:
+    """What the GitHub step shows: who answers (`_github`), and where a token is made."""
+    return {**_github(), "create_url": github_token.CREATE_URL}
+
+
+def _github() -> dict:
     """Which GitHub account a pull request would be opened as — or why none.
 
     `GH_TOKEN` in the environment is how a container is usually given one, and
     `gh` reads it without being logged in: asking `gh` who it is covers both.
     A GitHub App connected from the console comes first, as it does for the
-    tickets — see github_app.py.
+    tickets — see github_app.py. A personal access token is the other choice
+    (github_token.py): it comes first when `[github_access] mode` says so, and
+    otherwise after the App.
     """
+    if github_token.access().mode == "token" and (held := github_token.token()):
+        return _github_token(held)
     for app in github_app.describe(with_repositories=False):
         if accounts := [one["account"] for one in app["installations"]]:
             return {"state": "ok", "account": f"{app['slug']}[bot] ({', '.join(accounts)})",
                     "via": "app", "said": "", "command": ""}
+    if held := github_token.token():
+        return _github_token(held)
     via = "GH_TOKEN" if os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN") else "gh"
     if not shutil.which("gh"):
         return {"state": "missing", "account": "", "via": via, "said": "gh is not installed",

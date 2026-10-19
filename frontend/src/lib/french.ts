@@ -1855,8 +1855,8 @@ export const FRENCH: Record<string, string> = {
   "Building the board…": "Construction du tableau…",
   "Connect and build the board": "Connecter et construire le tableau",
   "GitHub, for the pull requests": "GitHub, pour les pull requests",
-  "A code ticket comes back as a pull request. Connect GitHub in one click: Ponos creates its own GitHub App and you choose the repositories it reaches. Without it, `gh` is used — signed in with `gh auth login`, or given a token in `GH_TOKEN`, the way a container usually is.":
-    "Un ticket de code revient en pull request. Connectez GitHub en un clic : Ponos crée sa propre GitHub App et vous choisissez les dépôts qu'elle atteint. Sans elle, `gh` est utilisé — connecté avec `gh auth login`, ou muni d'un jeton dans `GH_TOKEN`, comme l'est d'ordinaire un conteneur.",
+  "A code ticket comes back as a pull request. Connect GitHub in one click: Ponos creates its own GitHub App and you choose the repositories it reaches. Or paste an access token. Without either, `gh` is used — signed in with `gh auth login`, or given a token in `GH_TOKEN`, the way a container usually is.":
+    "Un ticket de code revient en pull request. Connectez GitHub en un clic : Ponos crée sa propre GitHub App et vous choisissez les dépôts qu'elle atteint. Ou collez un jeton d'accès. Sans l'un ni l'autre, `gh` est utilisé — connecté avec `gh auth login`, ou muni d'un jeton dans `GH_TOKEN`, comme l'est d'ordinaire un conteneur.",
   "Check again": "Vérifier à nouveau",
   "Pull requests are opened as {{account}}, with the token in `GH_TOKEN`.":
     "Les pull requests sont ouvertes en tant que {{account}}, avec le jeton de `GH_TOKEN`.",
@@ -1869,6 +1869,10 @@ export const FRENCH: Record<string, string> = {
   "Asking gh…": "Question à gh…",
   "Pull requests are opened as {{account}}, through the GitHub App.":
     "Les pull requests sont ouvertes en tant que {{account}}, par la GitHub App.",
+  "Or use an access token instead": "Ou utiliser plutôt un jeton d'accès",
+  "Pull requests are opened as {{account}}, with the access token.":
+    "Les pull requests sont ouvertes en tant que {{account}}, avec le jeton d'accès.",
+  "{{account}} (token)": "{{account}} (jeton)",
   "Or, without the app:": "Ou, sans l'app :",
   // The settings' GitHub page.
   "The GitHub App tickets clone, push and open their pull requests with.":
@@ -1900,6 +1904,48 @@ export const FRENCH: Record<string, string> = {
   "The app could not be disconnected": "L'app n'a pas pu être déconnectée",
   "{{app}} is disconnected: its keys are deleted from this machine. The app itself still exists on GitHub — delete it there:":
     "{{app}} est déconnectée : ses clés sont supprimées de cette machine. L'app elle-même existe toujours sur GitHub — supprimez-la là-bas :",
+  // The access token, on the GitHub page and in the setup.
+  "Token of {{login}} ({{kind}}): {{count}} repository(ies) reached, {{writable}} writable.":
+    "Jeton de {{login}} ({{kind}}) : {{count}} dépôt(s) atteint(s), dont {{writable}} en écriture.",
+  classic: "classique",
+  "fine-grained": "à granularité fine",
+  "Missing: {{permission}} — {{level}}": "Manque : {{permission}} — {{level}}",
+  "Create a fine-grained token on GitHub": "Créer un jeton à granularité fine sur GitHub",
+  "— the form opens with the permissions already filled in.":
+    "— le formulaire s'ouvre avec les permissions déjà remplies.",
+  "Under Repository access, pick the repositories tickets may work on.":
+    "Sous Repository access, choisissez les dépôts sur lesquels les tickets peuvent travailler.",
+  "Needed: Contents and Pull requests on read and write, Metadata on read-only.":
+    "Nécessaire : Contents et Pull requests en lecture et écriture, Metadata en lecture seule.",
+  "Paste it here. It is checked, then kept in secrets.env — never in the configuration, never in a ticket.":
+    "Collez-le ici. Il est vérifié, puis gardé dans secrets.env — jamais dans la configuration, jamais dans un ticket.",
+  "Access token": "Jeton d'accès",
+  "Check and keep the token": "Vérifier et garder le jeton",
+  "The token could not be forgotten": "Le jeton n'a pas pu être oublié",
+  "Kept in {{source}}.": "Gardé dans {{source}}.",
+  "Forget the token?": "Oublier le jeton ?",
+  "It is deleted from this machine, and tickets go back to the App or gh. The token itself stays valid on GitHub until you revoke it there.":
+    "Il est supprimé de cette machine, et les tickets reviennent à l'App ou à gh. Le jeton lui-même reste valide sur GitHub jusqu'à ce que vous l'y révoquiez.",
+  Forget: "Oublier",
+  "Forget the token": "Oublier le jeton",
+  "Replace the access token": "Remplacer le jeton d'accès",
+  "Or use an access token": "Ou utiliser un jeton d'accès",
+  "Quicker than an App: a fine-grained token limited to the repositories you pick. Prefer the App for an organisation, for several people, or when you want tokens that expire on their own; the token suits one person and a first try.":
+    "Plus rapide qu'une App : un jeton à granularité fine limité aux dépôts que vous choisissez. Préférez l'App pour une organisation, pour plusieurs personnes, ou si vous voulez des jetons qui expirent d'eux-mêmes ; le jeton convient à une personne et à un premier essai.",
+  // Settings › Code › GitHub access.
+  "How clones, pushes and pull requests reach GitHub: a GitHub App, or a personal access token. The token itself is pasted in the GitHub tab, which checks it; it is never kept in this file.":
+    "Comment les clones, les pushes et les pull requests atteignent GitHub : une GitHub App, ou un jeton d'accès personnel. Le jeton se colle dans l'onglet GitHub, qui le vérifie ; il n'est jamais gardé dans ce fichier.",
+  "Reach GitHub with": "Atteindre GitHub avec",
+  "Empty: the App when one is connected and reaches the repository, then the token, then the `gh` accounts. Choosing one puts it first.":
+    "Vide : l'App quand elle est connectée et atteint le dépôt, puis le jeton, puis les comptes `gh`. En choisir un le met en premier.",
+  "GitHub App — installed on the repositories you pick": "GitHub App — installée sur les dépôts que vous choisissez",
+  "Access token — a fine-grained token you create": "Jeton d'accès — un jeton à granularité fine que vous créez",
+  "A fine-grained token with Contents and Pull requests on read and write. The GitHub tab checks it before keeping it; here it is kept as typed. Empty, `PONOS_GITHUB_TOKEN` from the environment is used.":
+    "Un jeton à granularité fine avec Contents et Pull requests en lecture et écriture. L'onglet GitHub le vérifie avant de le garder ; ici il est gardé tel que saisi. Vide, c'est `PONOS_GITHUB_TOKEN` de l'environnement qui est utilisé.",
+  "pass:ponos/github": "pass:ponos/github",
+  "Keep the token in a vault": "Garder le jeton dans un coffre-fort",
+  "Instead of `secrets.env`: where your vault holds it, e.g. `pass:ponos/github` or `keyring:ponos-github`. The token can also come from `PONOS_GITHUB_TOKEN` in the environment.":
+    "Au lieu de `secrets.env` : là où votre coffre-fort le garde, p. ex. `pass:ponos/github` ou `keyring:ponos-github`. Le jeton peut aussi venir de `PONOS_GITHUB_TOKEN` dans l'environnement.",
   "Being told, and answering": "Être prévenu, et répondre",
   "Optional — but on a server, the only way to hear about a blocked ticket: no desktop notification reaches you from a container. A question asked there is answered in the chat, and the answer lands on the ticket.":
     "Facultatif — mais sur un serveur, le seul moyen d'apprendre qu'un ticket est bloqué : aucune notification de bureau ne vous atteint depuis un conteneur. Une question posée là se répond dans la discussion, et la réponse arrive sur le ticket.",
