@@ -10,9 +10,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/SalvadorCardona/ponos/actions/workflows/ci.yml"><img src="https://github.com/SalvadorCardona/ponos/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/SalvadorCardona/ponos" alt="Licence: MIT"></a>
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/github/v/release/SalvadorCardona/ponos?include_prereleases&sort=semver&label=version" alt="Version"></a>
+  <a href="https://github.com/hermez-agency/ponos/actions/workflows/ci.yml"><img src="https://github.com/hermez-agency/ponos/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/hermez-agency/ponos" alt="Licence: MIT"></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/github/v/release/hermez-agency/ponos?include_prereleases&sort=semver&label=version" alt="Version"></a>
   <a href="#installation"><img src="https://img.shields.io/badge/python-3.11%2B-3776ab?logo=python&logoColor=white" alt="Python 3.11+"></a>
   <a href="tests/run.py"><img src="https://img.shields.io/badge/dependencies-zero-2ea44f" alt="Zero dependencies"></a>
 </p>
@@ -134,7 +134,7 @@ One command. It installs the `ponos` command, a timer that hands Ponos the ready
 and the console. Beyond Claude Code, nothing to sign up for.
 
 ```sh
-curl -LsSf https://raw.githubusercontent.com/SalvadorCardona/ponos/main/install.sh | sh
+curl -LsSf https://raw.githubusercontent.com/hermez-agency/ponos/main/install.sh | sh
 ```
 
 Then, the board: make it a folder of Markdown files — in the console, *Settings › Where the
@@ -278,7 +278,7 @@ a diagram that lands is a diagram that reads.
 ## Installation
 
 ```sh
-curl -LsSf https://raw.githubusercontent.com/SalvadorCardona/ponos/main/install.sh | sh
+curl -LsSf https://raw.githubusercontent.com/hermez-agency/ponos/main/install.sh | sh
 ```
 
 The script checks the dependencies, installs the `ponos` command into
@@ -489,7 +489,7 @@ Three ways to get them in, whichever you prefer:
 ponos config      # opens the TOML in your editor — the cleanest
 
 # or let the installer ask you (it does, on a fresh install):
-curl -LsSf https://raw.githubusercontent.com/SalvadorCardona/ponos/main/install.sh | sh
+curl -LsSf https://raw.githubusercontent.com/hermez-agency/ponos/main/install.sh | sh
 
 # or in one line — the token goes beside the file, never in it:
 echo 'PONOS_NOTION_TOKEN=ntn_…' >> ~/.config/ponos/secrets.env && chmod 600 ~/.config/ponos/secrets.env
@@ -779,7 +779,7 @@ gh auth status     # lists what it knows
 ```toml
 [github]
 "animalink" = "dev-animalink"        # the owner in the URL = the gh account
-"salvadorcardona" = "salvadevme"
+"hermez-agency" = "hermez-bot"
 ```
 
 On the left the **owner**, as GitHub spells it in a repository's URL; on the right the
@@ -4219,7 +4219,7 @@ the runner, and that stays a decision somebody makes on purpose.
 ## Uninstall
 
 ```sh
-curl -LsSf https://raw.githubusercontent.com/SalvadorCardona/ponos/main/uninstall.sh | sh
+curl -LsSf https://raw.githubusercontent.com/hermez-agency/ponos/main/uninstall.sh | sh
 ```
 
 `TR_PURGE=1` also removes the configuration, the logs and the history. Branches already

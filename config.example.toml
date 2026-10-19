@@ -1016,7 +1016,7 @@ send_after_transcription = false
 # GitHub) comes before this table for the owners it is installed on.
 [github]
 # "animalink" = "dev-animalink"
-# "salvadorcardona" = "salvadevme"
+# "hermez-agency" = "hermez-bot"
 
 # The keys a ticket's session may work with — an npm token, a GitHub
 # fine-grained token, a Dokploy API key — without anybody writing them in a

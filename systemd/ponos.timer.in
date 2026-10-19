@@ -1,6 +1,6 @@
 [Unit]
 Description=ponos — picks up ready Notion tickets
-Documentation=https://github.com/SalvadorCardona/ponos
+Documentation=https://github.com/hermez-agency/ponos
 
 [Timer]
 # Three starting points, because a timer with none of them never fires again.

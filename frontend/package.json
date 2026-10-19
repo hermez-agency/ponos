@@ -4,10 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "description": "The ponos web console: React, Vite and shadcn/ui, built into the package the Python server serves.",
-  "homepage": "https://cardona.digital",
+  "homepage": "https://hermez.dev",
   "author": {
-    "name": "Salvador Cardona",
-    "url": "https://cardona.digital"
+    "name": "Hermez",
+    "url": "https://hermez.dev"
   },
   "scripts": {
     "dev": "vite",
