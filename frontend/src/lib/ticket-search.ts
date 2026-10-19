@@ -73,7 +73,8 @@ export interface Searchable {
   column: string
   project: string
   type: string
-  priority: string
+  /** A score from 0 to 100, null on a board without the column. */
+  priority: number | null
   model: string
   progress: string
   pull_request: string
@@ -193,15 +194,19 @@ export interface Context {
   /** The clock, for the period. */
   now: number
   /** The board's choices, to read a type's key as the board spells it. */
-  choices?: Partial<Record<"type" | "priority" | "model", Choice[]>>
+  choices?: Partial<Record<"type" | "model", Choice[]>>
 }
+
+/** A ticket's score as the query and the address say it: its digits, "" for none. */
+export const scoreOf = (ticket: Searchable): string =>
+  typeof ticket.priority === "number" ? String(ticket.priority) : ""
 
 /** Whether a ticket is one the query asks for: every part of it, at once. */
 export function matchesQuery(ticket: Searchable, query: TicketQuery, context: Context): boolean {
   const choices = context.choices ?? {}
   if (!among(ticket.type, query.type, choices.type)) return false
   if (query.status.length && !query.status.includes(ticket.column)) return false
-  if (!among(ticket.priority, query.priority, choices.priority)) return false
+  if (query.priority.length && !query.priority.includes(scoreOf(ticket))) return false
   if (!among(ticket.model, query.model, choices.model)) return false
   if (query.project.length && !query.project.includes(ticket.project)) return false
   if (query.block.length && !query.block.includes(ticket.block?.code ?? "")) return false
@@ -241,7 +246,7 @@ export function toggled(values: string[], value: string): string[] {
  * console already writes there (`view`, `variant`, `tab`): a filtered board is
  * a link somebody can send, and a reload comes back to it. A list is its
  * values separated by commas, which a value therefore cannot hold — no type,
- * status or model does, and a priority with one is a priority nobody types. */
+ * status or model does, nor a priority score. */
 export const PARAMS = ["q", ...FACETS, "only", "cost", "since"] as const
 
 const decode = (raw: string) => {

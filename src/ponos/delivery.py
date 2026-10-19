@@ -70,6 +70,10 @@ from .ticket import Job, Ticket, short_id
 # moving faster than a replay, and a loop nobody is watching.
 MOST_REBASES = 2
 
+# The score of the ticket that repairs a red base: ahead of ordinary work, the
+# other tickets of that repository waiting on it, but behind what was said urgent.
+REPAIR_PRIORITY = 75
+
 # What a merge refusal would have said, for a pull request GitHub already calls
 # conflicting or behind before one is asked — see `git.merge_blocker`.
 BLOCKERS = {
@@ -610,7 +614,7 @@ class Delivery(Base):
     ) -> str:
         """The ticket that repairs a red base: the one already open, else a new one.
 
-        Ready and at High priority, with the failing jobs and the link of their
+        Ready and at priority 75 (`REPAIR_PRIORITY`), with the failing jobs and the link of their
         run. One per base: the table remembers the ticket opened for a
         repository's base, and a second is only opened once that one is done or
         failed — a base still red after a repair deserves a new look, not
@@ -637,7 +641,7 @@ class Delivery(Base):
             title = said.say("repair-title", base=base, project=project.name or repository)
             values: dict[str, object] = {
                 settings.prop("status"): settings.state("ready"),
-                settings.prop("priority"): "High",
+                settings.prop("priority"): self.priority_cell(REPAIR_PRIORITY),
             }
             if relation := store.read(ticket.page, settings.prop("project")):
                 values[settings.prop("project")] = relation

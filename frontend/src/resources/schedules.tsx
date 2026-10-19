@@ -35,6 +35,7 @@ import {
   TimeInputController,
 } from "@/components/console/recurrence-dialog-lazy"
 import { PillsInputController } from "@/components/console/new-ticket-lazy"
+import { PriorityInputController } from "@/components/console/priority"
 import { recordWindow, useOpensOverTheList } from "@/components/console/record-window"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -43,6 +44,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import { ApiError, api, why } from "@/lib/api"
 import { t } from "@/lib/i18n"
+import { readScore } from "@/lib/priority"
 import { locale, ruleOf } from "@/lib/recurrence"
 import { layoutOf, useLayoutInTheAddress } from "@/lib/resource-view"
 import { useRoute } from "@/lib/router"
@@ -98,7 +100,8 @@ export interface ScheduleWrite {
   day?: string
   active?: boolean
   model?: string
-  priority?: string
+  /** A score from 0 to 100, as typed: empty is 50. */
+  priority?: string | number | null
   type?: string
   subtype?: string
   body?: string
@@ -272,22 +275,13 @@ const CADENCES = (
   },
 }))
 /* The model in the board's own words, which are the runner's vocabulary and
- * stay untranslated; the priority is the runner's too, but said in the
- * console's language (`choiceWord`), as everywhere else it is drawn. None
- * chosen is an answer: the ticket then takes the runner's model, and waits its
- * turn. */
+ * stay untranslated. None chosen is an answer: the ticket then takes the
+ * runner's model. The priority is a score, typed as a new ticket's is. */
 const MODELS = [
   { value: "haiku", label: "Haiku" },
   { value: "sonnet", label: "Sonnet" },
   { value: "opus", label: "Opus" },
 ]
-const PRIORITIES = ["Low", "Normal", "High", "Urgent"].map((word) => ({
-  value: word,
-  // Read from the dictionary as the button is drawn: the language can change after.
-  get label() {
-    return choiceWord(word)
-  },
-}))
 
 /* The type and the sub-type its tickets are born with, as the server offers
  * them: only where the Schedules database has the column (`ponos init` adds
@@ -331,7 +325,14 @@ const fields: FormInterface["inputs"] = {
   day: { label: "Day", controller: DayInputController },
   at: { label: "Time", controller: TimeInputController },
   model: { label: "Model", controller: SegmentsInputController, valueOptions: MODELS },
-  priority: { label: "Priority", controller: SegmentsInputController, valueOptions: PRIORITIES },
+  priority: {
+    label: "Priority",
+    controller: PriorityInputController,
+    validator: (value: unknown) => {
+      if (readScore(value) === undefined) throw new Error(t("A priority is a number from 0 to 100."))
+      return value
+    },
+  },
   type: {
     label: "Type",
     controller: SegmentsInputController,
@@ -988,7 +989,7 @@ export const schedules = createViewResource<ScheduleItem, ScheduleWrite>(SCHEDUL
         day: patch.day ?? "",
         active: patch.active === true,
         model: patch.model ?? "",
-        priority: patch.priority ?? "",
+        priority: readScore(patch.priority) ?? "",
         type: patch.type ?? "",
         subtype: patch.subtype ?? "",
         ...(patch.body === undefined ? {} : { body: patch.body }),
@@ -1006,7 +1007,7 @@ export const schedules = createViewResource<ScheduleItem, ScheduleWrite>(SCHEDUL
         at: fresh.at ?? "",
         day: fresh.day ?? "",
         model: fresh.model ?? "",
-        priority: fresh.priority ?? "",
+        priority: readScore(fresh.priority) ?? "",
         type: fresh.type ?? "",
         subtype: fresh.subtype ?? "",
         ...(fresh.body ? { body: fresh.body } : {}),

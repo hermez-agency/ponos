@@ -36,7 +36,8 @@ export interface Ticket {
   kind: string
   /** The ticket's own type, as the board spells it: Code, Writing, External action… */
   type: string
-  priority: string
+  /** A score from 0 to 100, an empty cell read as 50; null on a board without the column. */
+  priority: number | null
   model: string
   /** `model` as `provider/model` — claude/haiku, deepseek/r1 — said by `models.label`. */
   model_label?: string
@@ -153,7 +154,9 @@ export interface Board {
   columns: { key: ColumnKey; name: string }[]
   /** What a new ticket may be given beside its title, for the columns this
    * board has: a column it lacks is not a key here. */
-  choices?: Partial<Record<"priority" | "type" | "model" | "subtype", { value: string; label: string }[]>>
+  choices?: Partial<Record<"type" | "model" | "subtype", { value: string; label: string }[]>>
+  /** Whether this board has a priority column to write a score in. */
+  priority?: boolean
   /** The sub-types of a code ticket, in the order they are offered. */
   subtypes?: Subtype[]
   /** What a ticket with no model of its own runs on: `runner.model`, empty for Claude Code's own. */
@@ -322,7 +325,8 @@ export interface Schedule {
   project: string
   project_id: string
   model: string
-  priority: string
+  /** A score from 0 to 100, null when the schedule says none: its tickets are born at 50. */
+  priority: number | null
   /** What its tickets are born as, by their keys — `code`, `bug` — empty to let them be guessed. */
   type?: string
   subtype?: string

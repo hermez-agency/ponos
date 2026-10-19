@@ -168,7 +168,7 @@ def board(root: Path, doomed: bool = False) -> None:
         f"## Part {part}\n\n" + " ".join(["A line of the brief, long enough to wrap."] * 12)
         for part in range(1, 41)
     )
-    long = {"id": LONG, "title": "A long ticket", "Status": "Ready"}
+    long = {"id": LONG, "title": "A long ticket", "Status": "Ready", "Priority": 90}
     (tickets / f"a-long-ticket-{LONG[-8:]}.md").write_text(files.render(long, brief), encoding="utf-8")
     asking = {
         "id": ASKING,

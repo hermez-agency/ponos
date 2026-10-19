@@ -23,10 +23,9 @@ import time
 from concurrent.futures import Future
 from datetime import datetime, timedelta, timezone
 
-from . import conversation, git, kinds, state, store, subtypes
+from . import conversation, git, kinds, priority, state, store, subtypes
 from . import voice as voice_module
 from .base import Base
-from .config import PRIORITIES
 from .projects import Project
 from .question import Question
 # The one reading of a Notion date in the project. It lives beside the calendar
@@ -124,8 +123,9 @@ class Board(Base):
 
         Among the tickets that may run, order settles who goes first when more
         are ready than `max_concurrent` allows: what the credit interrupted
-        before what was never begun, then priority, then the one whose date
-        passed longest ago, then age. Interrupted first because it is the one
+        before what was never begun, then the highest priority score (0 to
+        100, see `priority`), then the one whose date passed longest ago, then
+        age. Interrupted first because it is the one
         already half done — its branch carries commits, its session can be
         picked back up, and leaving it behind a fresh ticket is how a board
         spends the returning credit on starting things rather than on finishing
@@ -135,8 +135,6 @@ class Board(Base):
         tickets = [Ticket(page) for page in self.client.query(self.database, self._ready_filter())]
         tickets += self.woken()
         interrupted = self.parked(tickets)
-        priorities = {name: index for index, name in enumerate(PRIORITIES)}
-        default = priorities.get("Normal", len(PRIORITIES))
         now = datetime.now().astimezone()
 
         eligible: list[Ticket] = []
@@ -154,7 +152,7 @@ class Board(Base):
             value = store.read(ticket.page, self.config.notion.prop("priority"))
             return (
                 0 if ticket.id in interrupted else 1,
-                priorities.get(str(value), default),
+                -priority.score(value),
                 moments[ticket.id],
                 ticket.page.raw.get("created_time", ""),
             )
@@ -311,6 +309,19 @@ class Board(Base):
                 if name in offered:
                     return name
         return names[0]
+
+    def priority_cell(self, score: int) -> int | str:
+        """A priority score as the board's column takes it — see `priority.cell`.
+
+        The number on a board that has migrated, the nearest word on one whose
+        column is still a select: a runner updated first must not fill that
+        select with options named "75".
+        """
+        try:
+            kind = self.client.schema(self.database).get(self.config.notion.prop("priority"))
+        except store.StoreError:
+            kind = None
+        return priority.cell(score, kind)
 
     def parked(self, tickets: list[Ticket]) -> set[str]:
         """Which of these the credit stopped, rather than never started.

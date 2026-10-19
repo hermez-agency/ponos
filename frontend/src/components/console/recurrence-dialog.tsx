@@ -25,9 +25,10 @@ import { cn } from "@/lib/utils"
  * whatever the cadence, and nothing saying when the first ticket would come.
  * The fields are still react-data-form's, declared in `resources/schedules`
  * and written back the way they always were — the same words in the same
- * columns: only how each one is drawn changed. The cadence, the model and the
- * priority are buttons all in view, the day takes the shape the cadence gives
- * it (pills for a week, a number for a month, nothing for a day or an hour),
+ * columns: only how each one is drawn changed. The cadence and the model are
+ * buttons all in view, the priority a score beside its badge, the day takes
+ * the shape the cadence gives it (pills for a week, a number for a month,
+ * nothing for a day or an hour),
  * and a line under them says it back in a sentence, with the date the next
  * ticket is born — worked out by the runner's own rule (`lib/occurrences`).
  */
@@ -35,10 +36,9 @@ import { cn } from "@/lib/utils"
 /* -- the controllers ------------------------------------------------------ */
 
 /* A choice among a handful, all in view. A press on the one already chosen
- * lets it go where empty is an answer — the model and the priority, which a
- * ticket otherwise takes from the runner — and keeps it where it is not. The
- * labels are drawn as they are given: the model and the priority are the
- * board's words, said in no other language. */
+ * lets it go where empty is an answer — the model, which a ticket otherwise
+ * takes from the runner — and keeps it where it is not. The labels are drawn
+ * as they are given: the model is the board's word, said in no other language. */
 export const SegmentsInputController: InputControllerComponentInterface = ({ formInput, onChange }) => {
   const value = String(formInput.value ?? "")
   const optional = !formInput.required

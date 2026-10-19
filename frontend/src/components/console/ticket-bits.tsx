@@ -25,6 +25,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { PriorityBadge } from "@/components/console/priority"
 import { DecideButton } from "@/components/console/ticket-decision"
 import { CardTime } from "@/components/console/ticket-time"
 import { moveWithToast as move } from "@/hooks/use-console"
@@ -71,10 +72,10 @@ export function columnTitle(key: string, name?: string): string {
   return name || key
 }
 
-/* The words a ticket's type and priority are written in on the board: the
- * runner's own ("Writing", "Urgent"), which it acts on and which stay its
- * values — but said, wherever the console draws them, in its language. A word
- * the dictionary does not know (a priority a board added) is drawn as it is. */
+/* The words a ticket's type is written in on the board: the runner's own
+ * ("Writing", "Publication"), which it acts on and which stay its values — but
+ * said, wherever the console draws them, in its language. A word the
+ * dictionary does not know (a type a board added) is drawn as it is. */
 export const choiceWord = (value: string): string => (value ? t(value) : value)
 
 /** The colour of a column, as text. */
@@ -435,12 +436,13 @@ export function TicketSync({ ticket }: { ticket: Ticket }) {
 
 /** What is said *about* a ticket rather than in it: how urgent, on which model, when. */
 export function TicketTags({ ticket, lead }: { ticket: Ticket; lead?: React.ReactNode }) {
-  if (!lead && !ticket.priority && !ticket.model && !ticket.scheduled && !subtypeOf(ticket.subtype)) return null
+  const scored = typeof ticket.priority === "number"
+  if (!lead && !scored && !ticket.model && !ticket.scheduled && !subtypeOf(ticket.subtype)) return null
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {lead}
+      {scored ? <PriorityBadge score={ticket.priority as number} /> : null}
       <TicketSubtype subtype={ticket.subtype} />
-      {ticket.priority ? <Chip>{choiceWord(ticket.priority)}</Chip> : null}
       {ticket.model ? (
         <Chip className="min-w-0 max-w-full">
           <span className="truncate" data-slot="ticket-model" title={ticket.model_label || ticket.model}>

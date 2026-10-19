@@ -30,10 +30,11 @@ from .. import channels, cleanup, conversation, credits, decisions, git, images,
 from .. import journal, models, notifications, project_settings, redaction, resources, subtypes, systemd, voice, worktime
 from .. import transitions as transitions_module
 from .. import kinds as kinds_module
+from .. import priority as priority_module
 from .. import provision
 from .. import schedules as schedules_module
 from .. import update as update_module
-from ..config import PRIORITIES, Config
+from ..config import Config
 from ..runner import Runner
 from ..schedules import scheduled_for
 from ..ticket import short_id
@@ -255,8 +256,18 @@ class Api:
         except store.StoreError:
             offers = False
 
+        # Within a column, in the order the queue takes them: the highest
+        # score first, the oldest on a tie. A board with no priority column
+        # keeps its alphabetical order.
         order = {key: index for index, key in enumerate(keys)}
-        tickets.sort(key=lambda item: (order.get(item["column"], len(keys)), item["title"].lower()))
+        tickets.sort(
+            key=lambda item: (
+                order.get(item["column"], len(keys)),
+                -(item["priority"] if item["priority"] is not None else priority_module.DEFAULT),
+                item["created"] if item["priority"] is not None else "",
+                item["title"].lower(),
+            )
+        )
         columns = [
             {"key": key, "name": _status(settings, key)}
             for key in keys
@@ -273,6 +284,9 @@ class Api:
             "cancel": self._cancels(),
             "columns": columns,
             "choices": self._choices(),
+            # Whether a ticket can be given a score: only where the board has
+            # the column, as for the choices above.
+            "priority": self._scored(),
             # The sub-types, whole: the card's icon and colour, and its word —
             # one, untranslated — read off subtypes.py, never written twice.
             "subtypes": [subtype.as_dict() for subtype in subtypes.SUBTYPES],
@@ -281,15 +295,15 @@ class Api:
         }
 
     def _choices(self) -> dict[str, list[dict[str, str]]]:
-        """What a new ticket may be given beside its title: priority, type, model.
+        """What a new ticket may be given beside its title: type, sub-type, model.
 
         Only the columns this board has. A select offered for a column Notion
         does not carry is a value silently dropped on the way in — the form
         would be promising what the board cannot keep. The runner's own words
-        come first, because they are the ones it acts on (`PRIORITIES` orders
-        the queue, `MODELS` is what `claude --model` takes); whatever else the
-        board offers follows. A type is one of the four, written as the board
-        spells it.
+        come first, because they are the ones it acts on (`MODELS` is what
+        `claude --model` takes); whatever else the board offers follows. A type
+        is one of the four, written as the board spells it. The priority is not
+        a choice but a score: see `_scored`.
         """
         settings = self.config.notion
         client, database = self.runner.client, self.runner.database
@@ -298,16 +312,14 @@ class Api:
         except store.StoreError:
             return {}
         choices: dict[str, list[dict[str, str]]] = {}
-        for key, ours in (("priority", PRIORITIES), ("model", provision.MODELS)):
-            name = settings.prop(key)
-            if name not in schema:
-                continue
+        name = settings.prop("model")
+        if name in schema:
             try:
                 offered = client.options(database, name)
             except store.StoreError:
                 offered = []
-            values = list(dict.fromkeys([*ours, *(value for value in offered if value)]))
-            choices[key] = [{"value": value, "label": value} for value in values]
+            values = list(dict.fromkeys([*provision.MODELS, *(value for value in offered if value)]))
+            choices["model"] = [{"value": value, "label": value} for value in values]
         if settings.prop("type") in schema:
             choices["type"] = [
                 {"value": key, "label": self.runner.kind_name(key)} for key in kinds_module.KINDS
@@ -319,6 +331,14 @@ class Api:
                 {"value": subtype.key, "label": subtype.option} for subtype in subtypes.SUBTYPES
             ]
         return choices
+
+    def _scored(self) -> bool:
+        """Whether this board has a priority column to write a score in."""
+        try:
+            schema = self.runner.client.schema(self.runner.database)
+        except store.StoreError:
+            return False
+        return self.config.notion.prop("priority") in schema
 
     def _hold(self, tickets: list[dict]) -> None:
         """Put on every ready card why it is still there — see `board.held`.
@@ -379,7 +399,13 @@ class Api:
             # A code ticket's sub-type, as its key — `bug`, `docs` — or "" for
             # none, and for every ticket of another type: the column is ignored there.
             "subtype": _subtype(page, settings),
-            "priority": str(store.read(page, settings.prop("priority")) or ""),
+            # A score from 0 to 100, an empty cell read as 50; None where the
+            # board has no such column, and the card says nothing of it.
+            "priority": (
+                priority_module.score(store.read(page, settings.prop("priority")))
+                if settings.prop("priority") in page.properties
+                else None
+            ),
             "model": str(store.read(page, settings.prop("model")) or ""),
             "model_label": models.label(str(store.read(page, settings.prop("model")) or "")),
             "progress": str(store.read(page, settings.prop("progress")) or ""),
@@ -827,7 +853,15 @@ class Api:
             if key not in values:
                 continue
             value = values[key]
-            written[name] = bool(value) if key == "active" else str(value or "")
+            if key == "active":
+                written[name] = bool(value)
+            elif key == "priority":
+                # A score, refused outside 0–100; empty is the middle one.
+                written[name] = priority_module.cell(
+                    priority_module.given(value), self._schedule_column(name)
+                )
+            else:
+                written[name] = str(value or "")
         # A type and a sub-type said by their keys, as a new ticket's are, and
         # written as the board spells them: the ticket is born with that word.
         if "type" in values:
@@ -935,6 +969,14 @@ class Api:
             # be dropped on its way in. `ponos init` adds them.
             "choices": self._schedule_choices(),
         }
+
+    def _schedule_column(self, name: str) -> str | None:
+        """The kind of one column of the Schedules database, None when it has none."""
+        database = self.runner.workspace.schedules
+        try:
+            return self.runner.client.schema(database).get(name) if database else None
+        except store.StoreError:
+            return None
 
     def _schedule_choices(self) -> dict[str, list[dict[str, str]]]:
         database = self.runner.workspace.schedules
@@ -1233,7 +1275,7 @@ class Api:
         body: str = "",
         project: str = "",
         ready: bool = True,
-        priority: str = "",
+        priority: int | str = "",
         kind: str = "",
         model: str = "",
         subtype: str = "",
@@ -1245,6 +1287,7 @@ class Api:
         kind = kind.strip()
         if kind and kind not in kinds_module.KINDS:
             raise ValueError(f"unknown type “{kind}”")
+        score = priority_module.given(priority)
         subtype = subtype.strip()
         if subtype and subtype not in subtypes.KEYS:
             raise ValueError(f"unknown sub-type “{subtype}”")
@@ -1262,10 +1305,13 @@ class Api:
             values[settings.prop("status")] = _draft(settings)
         if project:
             values[settings.prop("project")] = [project]
+        # The score always, 50 when none is said, wherever the board has the
+        # column: the card says where the ticket stands in the queue rather
+        # than leave it to an empty cell.
+        if self._scored():
+            values[settings.prop("priority")] = self.runner.priority_cell(score)
         # Each one left out when it is not said: an empty type is the runner's
         # to classify before the ticket runs, as on a ticket written in Notion.
-        if priority.strip():
-            values[settings.prop("priority")] = priority.strip()
         if kind:
             values[settings.prop("type")] = self.runner.kind_name(kind)
         # Ignored on a ticket of another type, as on the board — but written:

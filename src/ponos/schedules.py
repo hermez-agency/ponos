@@ -30,6 +30,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from . import priority as priority_module
 from . import store
 from .config import Notion
 
@@ -65,7 +66,7 @@ class Schedule:
     last_ticket: str        # page id, "" when there is none
     project: str
     model: str
-    priority: str
+    priority: int | None    # None when the schedule says none: its tickets are born at 50
     # What its tickets are, as the board spells it, "" for "let it be guessed":
     # copied onto each ticket, which the classifier then leaves alone.
     kind: str = ""
@@ -141,7 +142,11 @@ def read(page: store.Page, settings: Notion) -> Schedule:
         last_ticket=first("last_ticket"),
         project=first("project"),
         model=str(value("model") or "").strip(),
-        priority=str(value("priority") or "").strip(),
+        priority=(
+            priority_module.score(value("priority"))
+            if str(value("priority") or "").strip()
+            else None
+        ),
         kind=str(value("type") or "").strip(),
         subtype=str(value("subtype") or "").strip(),
     )
