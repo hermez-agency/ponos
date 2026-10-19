@@ -7,14 +7,14 @@
  * drawn from last week's cache would be worse than a board that says it cannot
  * be reached.
  *
- * `vite.config.ts` writes this file into the build with `fa5dd64e48cc` replaced by
+ * `vite.config.ts` writes this file into the build with `acaf689d781c` replaced by
  * a hash of the files it shipped: a new deployment is a different `sw.js`, which
  * is how the browser knows to install it — and the old cache is dropped when
  * the new worker takes over. It does not take over by itself: the page asks
  * (`lib/service-worker.ts`), so a window in the middle of something is not
  * reloaded under its user.
  */
-const BUILD = "fa5dd64e48cc"
+const BUILD = "acaf689d781c"
 const CACHE = `ponos-shell-${BUILD}`
 const OFFLINE = "/static/offline.html"
 

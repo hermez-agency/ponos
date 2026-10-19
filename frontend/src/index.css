@@ -216,42 +216,6 @@
     display: table-cell;
   }
 
-  /* The schedules on a phone: nine columns and a button do not fit 390px, and
-     a table that scrolls sideways hides the two things the list is for — the
-     switch and the next date — past an edge nothing points at. The columns are
-     ordered for this in `resources/schedules.tsx`: the first four stay, the
-     five after them (at, day, last, project, problem) are in the form a tap
-     away. What is left wraps rather than widening the row — the date's badge
-     included, a long word broken rather than pushing the row past the edge (the
-     CI's fonts are wider than a desktop's) — and the edit button keeps its pencil: its word is still its
-     name for a screen reader, at a size nobody sees. */
-  @media (width < 40rem) {
-    [data-slot="table"]:has([data-schedule]) {
-      /* The run button is the column before the package's own (empty) actions one,
-         * and stays: it is a gesture, like the switch. */
-      :is(th, td):nth-child(n + 5):not(:last-child, :nth-last-child(2)) {
-        display: none;
-      }
-      :is(th, td) {
-        white-space: normal;
-        overflow-wrap: anywhere;
-        padding-inline: 0.25rem;
-      }
-      [data-slot="table-cell"]:first-child {
-        min-width: 4rem;
-      }
-      [data-slot="badge"] {
-        white-space: normal;
-        height: auto;
-      }
-      td:last-child [data-slot="button"] {
-        font-size: 0;
-        gap: 0;
-        padding-inline: 0.5rem;
-      }
-    }
-  }
-
   /* Written twice, because it is two features. WebKit and Chrome take the
      pseudo-elements, which is where the rounded thumb and the gap around it
      come from; Firefox has none of those and takes the pair of standard

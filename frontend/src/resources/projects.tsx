@@ -151,6 +151,9 @@ export function useProjects(): Projects | null {
   return React.useSyncExternalStore(subscribe, () => drawn)
 }
 
+/** What was last read, for what reads it outside a component: the schedules' search. */
+export const projectsRead = (): Projects | null => drawn
+
 let asked: Promise<Projects> | null = null
 
 /** The list, for a page that only wants the names: what was last read, or one

@@ -11,8 +11,9 @@ import { useCloseWindow } from "@/components/console/record-window"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
-import { currentLanguage, t } from "@/lib/i18n"
+import { t } from "@/lib/i18n"
 import { nextAfter, zoneOf } from "@/lib/occurrences"
+import { WEEKDAYS, clockOf, dayName, locale, ruleOf, weekdayOf } from "@/lib/recurrence"
 import { runnerZone } from "@/lib/runner-zone"
 import { cn } from "@/lib/utils"
 
@@ -30,34 +31,6 @@ import { cn } from "@/lib/utils"
  * and a line under them says it back in a sentence, with the date the next
  * ticket is born — worked out by the runner's own rule (`lib/occurrences`).
  */
-
-const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-// "09:00", "9h30", "9" — the shapes the runner reads (`schedules._CLOCK`).
-const CLOCK = /^(\d{1,2})\s*(?:[:hH]\s*(\d{1,2})?)?$/
-
-/** A day as the board writes it, found again from what a row says: "Mon", "monday". */
-const weekdayOf = (day: string) => {
-  const text = day.trim().toLowerCase()
-  return text ? WEEKDAYS.findIndex((name) => name.toLowerCase().startsWith(text)) : -1
-}
-
-/** The hour a row says, in the one shape a time field shows; empty is midnight, as for the runner. */
-function clockOf(at: string): string {
-  const match = CLOCK.exec(at.trim() || "0")
-  if (!match) return ""
-  const hour = Number(match[1])
-  const minute = Number(match[2] ?? 0)
-  if (hour > 23 || minute > 59) return ""
-  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`
-}
-
-const locale = () => (currentLanguage() === "fr" ? "fr-FR" : "en-GB")
-
-/* A Monday, at noon in UTC: where the names of the days are read from. */
-const dayName = (index: number, width: "long" | "narrow") =>
-  new Intl.DateTimeFormat(locale(), { weekday: width, timeZone: "UTC" }).format(
-    Date.UTC(2024, 0, 1 + index, 12)
-  )
 
 /* -- the controllers ------------------------------------------------------ */
 
@@ -194,19 +167,7 @@ function Summary({ data, original }: { data: Record<string, unknown>; original?:
   const at = String(data.at ?? "")
   const day = String(data.day ?? "")
   const active = data.active === true
-  const time = clockOf(at)
-
-  let rule = ""
-  if (cadence === "Hourly") rule = t("Every hour at :{{minute}}.", { minute: time.slice(3) || "00" })
-  else if (cadence === "Daily") rule = t("Every day at {{time}}.", { time })
-  else if (cadence === "Weekly") {
-    const index = weekdayOf(day)
-    rule =
-      index < 0
-        ? t("Every week at {{time}}.", { time })
-        : t("Every {{day}} at {{time}}.", { day: dayName(index, "long"), time })
-  } else if (cadence === "Monthly")
-    rule = t("On day {{day}} of every month at {{time}}.", { day: day.trim() || "1", time })
+  const rule = ruleOf({ cadence, at, day })
 
   const said = original?.active === true ? String(original.next ?? "") : ""
   const kept = active && said ? Date.parse(said) : NaN
@@ -234,7 +195,7 @@ function Summary({ data, original }: { data: Record<string, unknown>; original?:
       <span>
         {!rule || !when
           ? t("Choose a cadence and an hour to see when the next ticket is created.")
-          : `${rule} ${
+          : `${rule}. ${
               active
                 ? t("Next ticket: {{when}}.", { when })
                 : t("Next ticket, once it is turned on: {{when}}.", { when })
