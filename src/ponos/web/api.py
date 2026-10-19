@@ -28,6 +28,7 @@ from .. import blocks, ci
 from .. import config as config_module
 from .. import channels, cleanup, conversation, credits, decisions, git, images, question, session, state, store, sync
 from .. import journal, models, notifications, project_settings, redaction, resources, subtypes, systemd, voice, worktime
+from .. import transitions as transitions_module
 from .. import kinds as kinds_module
 from .. import provision
 from .. import schedules as schedules_module
@@ -435,7 +436,8 @@ class Api:
             last.get("reported") or last.get("model") or "",
             self.config.runner.model,
         )
-        return {**card, "content": content}
+        # Only on the page, not on every card of the board: a prompt can be long.
+        return {**card, "content": content, "on": str(store.read(page, settings.prop("on")) or "")}
 
     def attachment(self, block_id: str) -> str:
         """Where a picture or a file on a page is, asked when it is opened.
@@ -1210,6 +1212,7 @@ class Api:
         kind: str = "",
         model: str = "",
         subtype: str = "",
+        on: str = "",
     ) -> dict:
         title = title.strip()
         if not title:
@@ -1246,11 +1249,31 @@ class Api:
             values[settings.prop("subtype")] = subtypes.option(subtype)
         if model.strip():
             values[settings.prop("model")] = model.strip()
+        if on.strip():
+            values[settings.prop("on")] = on.strip()
         page_id = self.runner.client.create_row(self.runner.database, title, values)
         if body.strip():
             self.runner.client.append_markdown(page_id, body)
         self.watch.nudge()
         return {"id": page_id, "title": title}
+
+    def set_on(self, page_id: str, prompt: str) -> dict:
+        """Write the prompt a ticket runs at each change of its status; empty removes it.
+
+        Straight to the board and not through the outbox: the outbox is about a
+        status moving under a card, and a prompt is a value nobody else is
+        writing at the same time.
+        """
+        settings = self.config.notion
+        name = settings.prop("on")
+        if name not in self.runner.client.schema(self.runner.database):
+            raise ValueError(f"this board has no “{name}” column: run `ponos init` to add it")
+        self.runner.client.update(self.runner.database, page_id, {name: prompt.strip()})
+        return {"id": page_id.replace("-", ""), "on": prompt.strip()}
+
+    def transitions(self, page_id: str) -> dict:
+        """The executions of one ticket's « On » prompt, newest first."""
+        return {"transitions": transitions_module.history(page_id)}
 
     def set_status(self, page_id: str, key: str, seen: str | None = None) -> dict:
         """Move a ticket: queued now, in Notion as soon as Notion takes it.

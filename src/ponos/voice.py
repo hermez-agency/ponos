@@ -831,6 +831,16 @@ _SAID: dict[str, dict[str, str]] = {
         "en": "🔒 Still blocked: {reason}",
         "fr": "🔒 Toujours bloqué : {reason}",
     },
+    # -- the prompt of the « On » column --------------------------------------
+    "on-failed": {
+        "en": "⚠️ The « On » prompt failed on {old} → {new}: {reason}",
+        "fr": "⚠️ Le prompt « On » a échoué sur {old} → {new} : {reason}",
+    },
+    "on-over-budget": {
+        "en": "it reached its spending limit (${limit:.2f}) before the end",
+        "fr": "il a atteint son plafond de dépense ({limit:.2f} $) avant la fin",
+    },
+    "on-nothing": {"en": "the session said nothing", "fr": "la session n'a rien dit"},
     # -- a branch a ticket already had ----------------------------------------
     # Facts only git has, said here rather than by `git.py`: the worktree it
     # hands back carries them bare, and the run says them in its own words.

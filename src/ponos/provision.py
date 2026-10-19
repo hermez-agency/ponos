@@ -213,6 +213,8 @@ def tickets_schema(settings: Notion, projects: str = "", agents: str = "") -> di
         settings.prop("ci"): _select(list(ci.LABELS.values()), _CI_COLOURS),
         # What kind of change a code ticket is, in the colours of its card.
         settings.prop("subtype"): subtype_select(),
+        # The prompt run at every change of status — see transitions.py.
+        settings.prop("on"): {"rich_text": {}},
     }
     # Single-property relations: the ticket points at its project, and the
     # projects database is not given a back-reference it would never read.

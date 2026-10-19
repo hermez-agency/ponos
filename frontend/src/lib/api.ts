@@ -33,6 +33,7 @@ import type {
   Projects,
   ProjectSettings,
   Run,
+  Transition,
   RunnerState,
   RunSteps,
   UpgradeProgress,
@@ -198,6 +199,11 @@ export const api = {
   log: (name: string) =>
     request<{ name: string; count: number; steps: Step[] }>(`/api/logs/${encodeURIComponent(name)}`),
   runs: (id: string) => request<{ runs: Run[] }>(`/api/tickets/${id}/runs`),
+  /** The executions of a ticket's « On » prompt, newest first. */
+  transitions: (id: string) =>
+    request<{ transitions: Transition[] }>(`/api/tickets/${id}/transitions`),
+  /** Write the prompt run at every change of the ticket's status; empty removes it. */
+  setOn: (id: string, on: string) => request<{ id: string; on: string }>(`/api/tickets/${id}/on`, { on }),
   /** A run's last steps; `before`, those older than a position; `after`, those newer. */
   runSteps: (run: number, page: { before?: number; after?: number } = {}) =>
     request<RunSteps>(

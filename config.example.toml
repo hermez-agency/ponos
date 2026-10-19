@@ -204,6 +204,13 @@ block = "Blocage"
 # checks move and left empty for a repository without CI. ponos init adds it.
 # Optional: without it the console still shows the state, only Notion does not.
 ci = "CI"
+# text: a prompt Ponos runs at every change of the ticket's status — whoever
+# makes it, you or the runner (ready → in progress, in review → validated,
+# → blocked…). The session is told the old status, the new one and the ticket
+# (title, page, project, pull request, result); the prompt decides what to do
+# for which transition. Empty, nothing happens. See runner.on_* below for the
+# guardrails. ponos init adds it. Optional: without it no prompt runs.
+on = "On"
 
 # The columns of the *schedules* database — what comes back on its own. A row
 # there is the recipe for a ticket and the cadence it is born at; the body of
@@ -581,6 +588,23 @@ reply_scan = 20                  # pages looked at per pass
 reply_timeout_minutes = 10       # somebody is waiting for this one
 reply_permission_mode = "plan"   # it talks; it does not work
 
+# The « On » column: a prompt a ticket carries and Ponos runs at every change of
+# its status, with the old status, the new one and the ticket in front of it. The
+# board is looked at once in `on_interval_seconds` (ten at the least); a ticket
+# met for the first time is a starting point, not a change. One execution per
+# transition, written down before it starts: a restart never runs it twice.
+# Guardrails: a change of status made by an execution (and a ticket it created)
+# never starts another one for the ticket it came from, a ticket born of an
+# execution runs its own prompt only `on_max_depth` generations down, an
+# execution stops at `budget.on_usd` dollars, and an error is
+# written on the ticket as a comment without ever moving its status. It acts, so
+# it runs under `permission_mode` unless `on_permission_mode` says otherwise.
+on = true
+on_interval_seconds = 30
+on_max_depth = 3
+on_timeout_minutes = 10
+on_permission_mode = ""
+
 # Look again at the Blocked column, ticket by ticket. A session reads why a
 # ticket stopped — a dependency on another ticket, missing information, an
 # action somebody else had to take — and whether that still holds. Only when it
@@ -764,9 +788,15 @@ provider = ""
 #                 banner. Everything else resumes at midnight.
 # per_ticket_usd  one session. The CLI stops it cleanly at the limit and the
 #                 ticket goes to blocked with the reason; answer it to carry on.
+# on_usd          one execution of a ticket's « On » prompt, which acts on its
+#                 own at a change of status: the CLI stops it at the limit, the
+#                 reason is written on the ticket as a comment and its status is
+#                 left alone. One dollar when the line is absent; empty or 0 is
+#                 no limit.
 [budget]
 daily_usd = ""
 per_ticket_usd = ""
+on_usd = 1.0
 
 # ---------------------------------------------------------------------------
 # What a session may do alone

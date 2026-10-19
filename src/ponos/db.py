@@ -768,6 +768,46 @@ def _chats(connection: sqlite3.Connection) -> None:
     connection.execute("CREATE INDEX chats_updated ON chats (updated)")
 
 
+def _transitions(connection: sqlite3.Connection) -> None:
+    # `watched`: the last status seen on each ticket that carries a prompt, and
+    # how many generations of executions it is from a ticket a person made.
+    # `transitions`: one row per change of status met, written in the same
+    # transaction that moves `watched` forward — which is the whole of the
+    # idempotence: a change is either on both sides or on neither.
+    connection.execute(
+        """
+        CREATE TABLE watched (
+            ticket  TEXT PRIMARY KEY,
+            status  TEXT NOT NULL DEFAULT '',
+            depth   INTEGER NOT NULL DEFAULT 0,
+            at      TEXT NOT NULL DEFAULT ''
+        )
+        """
+    )
+    connection.execute(
+        """
+        CREATE TABLE transitions (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            ticket      TEXT NOT NULL,
+            title       TEXT NOT NULL DEFAULT '',
+            project     TEXT NOT NULL DEFAULT '',
+            old         TEXT NOT NULL DEFAULT '',
+            new         TEXT NOT NULL DEFAULT '',
+            depth       INTEGER NOT NULL DEFAULT 0,
+            state       TEXT NOT NULL DEFAULT 'pending',
+            seen_at     TEXT NOT NULL DEFAULT '',
+            started_at  TEXT NOT NULL DEFAULT '',
+            ended_at    TEXT NOT NULL DEFAULT '',
+            cost_usd    REAL,
+            seconds     REAL,
+            session     TEXT NOT NULL DEFAULT '',
+            result      TEXT NOT NULL DEFAULT ''
+        )
+        """
+    )
+    connection.execute("CREATE INDEX transitions_by_ticket ON transitions (ticket, id)")
+
+
 # Appended to, never edited or renamed: a file remembers each of these by name,
 # and the version of a file is how many of them it has been through. Statements go through `execute` one at a time — `executescript`
 # commits whatever transaction is open before it starts, which would apply half
@@ -801,6 +841,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     _ci,
     _ideas_have_a_score,
     _chats,
+    _transitions,
 )
 
 # Any way a read or a write of the database can fail. A note the runner keeps

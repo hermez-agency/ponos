@@ -122,6 +122,26 @@ export interface TicketDetail extends Ticket {
   content: string
   /** The model it runs on: the last session's own word, then the column, then the defaults. */
   model_in_use?: { label: string; full: string; default: boolean }
+  /** The prompt run at every change of the ticket's status, empty for none. */
+  on?: string
+}
+
+/** One change of status met on a ticket that carries an « On » prompt, and what running it did. */
+export interface Transition {
+  id: number
+  old: string
+  new: string
+  /** How many generations of tickets created by an execution it is below a person's. */
+  depth: number
+  state: "pending" | "running" | "ok" | "failed" | "skipped" | string
+  seen_at: string
+  started_at: string
+  ended_at: string
+  cost_usd: number | null
+  seconds: number | null
+  session: string
+  /** What the session said, or why it did not run. */
+  result: string
 }
 
 export interface Board {

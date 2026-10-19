@@ -71,7 +71,8 @@ deux suites, puis publie l'image sur `ghcr.io`.
   réclamer le ticket), `execution.py` (la session, et ce qu'un ticket en
   rapporte), `delivery.py` (la colonne validée : fusionner, publier),
   `recurrence.py` (les tickets qui reviennent seuls), `replies.py` (répondre
-  aux commentaires), `reports.py` (ce qui s'écrit sur un ticket et ce qui
+  aux commentaires), `transitions.py` (la colonne `On` : le prompt d'un ticket
+  à chaque changement de statut), `reports.py` (ce qui s'écrit sur un ticket et ce qui
   atteint ton téléphone), `ticket.py` (`Ticket` et `Job`, sans dépendance).
 - `src/ponos/` — autour du run : `config.py` (et `project_settings.py`, ce qu'un
   projet décide pour lui-même par-dessus, gardé dans `ponos.db`), `store.py` (la couture
