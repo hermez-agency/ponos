@@ -38,7 +38,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
 
-from . import generated, git, github_app, journal, progress, resources, session, state, store, subtypes
+from . import generated, git, github_token, journal, progress, resources, session, state, store, subtypes
 from . import config as config_module
 from . import vault
 from . import prompt as prompt_module
@@ -341,16 +341,16 @@ class Execution(Base):
         )
 
     def _github(self, job: Job) -> dict[str, str]:
-        """The GitHub App's token for this job's repository, when one is installed on it.
+        """The GitHub App's token for this job's repository, or the machine's own token.
 
-        Nothing for a ticket without code, and nothing when no app reaches the
+        Nothing for a ticket without code, and nothing when neither reaches the
         repository's owner: the session then answers as `gh` does, as before.
-        See `github_app.session_environment`.
+        See `github_token.session_environment`.
         """
         if not job.project.is_code or self.dry_run:
             return {}
         owner = git.owner(git.remote_url(job.workdir))
-        return github_app.session_environment(owner) if owner else {}
+        return github_token.session_environment(owner) if owner else {}
 
     def _secrets(self, job: Job) -> dict[str, str]:
         """The keys `[vault]` grants this job's project, read now — see vault.py.

@@ -57,6 +57,12 @@ PROVIDER_OPTIONS = (
     ("openrouter", "OpenRouter — the key of the OpenRouter section"),
 )
 
+# The two ways GitHub is reached, said as what each of them is.
+GITHUB_ACCESS_OPTIONS = (
+    ("app", "GitHub App — installed on the repositories you pick"),
+    ("token", "Access token — a fine-grained token you create"),
+)
+
 # How a code ticket's sub-type moves the level its type starts it at.
 SHIFT_OPTIONS = (
     ("lower", "One level lower"),
@@ -952,6 +958,39 @@ SECTIONS: tuple[Section, ...] = (
         pairs="github",
     ),
     Section(
+        key="github-access",
+        group="code",
+        title="GitHub access",
+        blurb=(
+            "How clones, pushes and pull requests reach GitHub: a GitHub App, or a personal "
+            "access token. The token itself is pasted in the GitHub tab, which checks it; "
+            "it is never kept in this file."
+        ),
+        fields=(
+            Field(
+                "github_access", "mode", "choice", "Reach GitHub with",
+                "Empty: the App when one is connected and reaches the repository, then the "
+                "token, then the `gh` accounts. Choosing one puts it first.",
+                choices=config_module.GITHUB_MODES,
+                options=GITHUB_ACCESS_OPTIONS,
+            ),
+            Field(
+                "github_access", "token", "secret", "Access token",
+                "A fine-grained token with Contents and Pull requests on read and write. "
+                "The GitHub tab checks it before keeping it; here it is kept as typed. "
+                "Empty, `PONOS_GITHUB_TOKEN` from the environment is used.",
+            ),
+            Field(
+                "github_access", "token_item", "text", "Keep the token in a vault",
+                "Instead of `secrets.env`: where your vault holds it, e.g. `pass:ponos/github` "
+                "or `keyring:ponos-github`. The token can also come from "
+                "`PONOS_GITHUB_TOKEN` in the environment.",
+                placeholder="pass:ponos/github",
+                advanced=True,
+            ),
+        ),
+    ),
+    Section(
         key="branches",
         group="code",
         title="Branches and pull requests",
@@ -1220,6 +1259,7 @@ def _fallback(config: Config, entry: Field) -> object:
         "claude": config.claude,
         "permissions": config.permissions,
         "storage": config.storage,
+        "github_access": config.github_access,
     }.get(entry.table)
     if holder is None:  # a channel table: nothing is defaulted into it
         return ""

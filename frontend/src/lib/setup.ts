@@ -62,7 +62,7 @@ export interface Summary {
     tickets: number | null
     said: string
   }
-  github: { state: Health; account: string; via: string; said: string; command: string }
+  github: { state: Health; account: string; via: string; said: string; command: string; create_url?: string }
   projects: { state: Health; root: string; repositories: number; configured: number }
   channels: { state: Health; active: string[] }
   environment: { state: Health; container: boolean; version: string }
@@ -251,6 +251,8 @@ export function rows(summary: Summary): Row[] {
       value: github.account
         ? github.via === "GH_TOKEN"
           ? "{{account}} (GH_TOKEN)"
+          : github.via === "token"
+          ? "{{account}} (token)"
           : "{{account}}"
         : "Not signed in",
       params: { account: github.account },

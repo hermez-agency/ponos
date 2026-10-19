@@ -12,6 +12,8 @@ import type {
   Folder,
   GithubApp,
   GithubManifest,
+  GithubToken,
+  GithubTokenCheck,
   Found,
   Idea,
   Unscored,
@@ -343,7 +345,11 @@ export const api = {
   disk: () => request<Disk>("/api/disk"),
   clean: () => request<Cleaned>("/api/disk/clean", {}),
   mcp: () => request<McpOverview>("/api/mcp"),
-  githubApps: () => request<{ apps: GithubApp[] }>("/api/github"),
+  githubApps: () => request<{ apps: GithubApp[]; token: GithubToken }>("/api/github"),
+  saveGithubToken: (token: string) =>
+    request<GithubTokenCheck & { saved: boolean }>("/api/github/token", { token }),
+  forgetGithubToken: () =>
+    request<{ forgotten: boolean; tokens_url: string }>("/api/github/token/forget", {}),
   connectGithub: (organisation: string) =>
     request<GithubManifest>("/api/github/connect", { organisation }),
   disconnectGithub: (slug: string) =>

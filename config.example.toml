@@ -25,6 +25,7 @@
 #   PONOS_SLACK_TOKEN      the Slack bot token (xoxb-…)        [notify.slack]
 #   ANTHROPIC_API_KEY      the Anthropic key                   [claude]
 #   OPENROUTER_API_KEY     the OpenRouter key                  [openrouter]
+#   PONOS_GITHUB_TOKEN     a GitHub personal access token      [github_access]
 #   PONOS_GITHUB_APPS      the GitHub Apps connected from the console, as one
 #                          JSON line (Settings › GitHub writes it, Disconnect
 #                          removes it — never typed by hand)
@@ -1050,10 +1051,36 @@ send_after_transcription = false
 # here. An owner this table does not name is worked under whichever account `gh`
 # is signed in as, which is what one account has always done: a machine with one
 # GitHub leaves this empty. A GitHub App connected from the console (Settings ›
-# GitHub) comes before this table for the owners it is installed on.
+# GitHub) comes before this table for the owners it is installed on, and so does
+# an access token (see [github_access] below).
 [github]
 # "animalink" = "dev-animalink"
 # "hermez-agency" = "hermez-bot"
+
+# How GitHub is reached without `gh`: a GitHub App, or a personal access token.
+# The App is the shape GitHub made for a robot and takes a few clicks (Settings ›
+# GitHub › Connect GitHub); a fine-grained token is a paste, and suits one person
+# and a first ticket. Prefer the App for an organisation, for several people, or
+# for tokens that expire by themselves.
+#
+#   mode   "app" or "token" puts that one first. Empty is the App when one
+#          reaches the repository's owner, then the token, then the `gh`
+#          accounts above
+#
+# The token is PONOS_GITHUB_TOKEN — in the environment, which is how a container
+# or Dokploy is given it, or in secrets.env, where the console writes the one you
+# paste after checking it (who it is, which repositories it reaches, and whether
+# Contents and Pull requests are on read and write). Never in this file. Create
+# one at github.com/settings/personal-access-tokens/new, limited to the
+# repositories tickets work on, with Contents and Pull requests on read and
+# write and Metadata on read-only.
+#
+#   token_item   keep it in a vault instead: `pass:ponos/github`,
+#                `keyring:ponos-github`, `bitwarden:github`. Read like [vault]'s
+#                items, and tried before PONOS_GITHUB_TOKEN
+[github_access]
+mode = ""
+# token_item = "pass:ponos/github"
 
 # The keys a ticket's session may work with — an npm token, a GitHub
 # fine-grained token, a Dokploy API key — without anybody writing them in a

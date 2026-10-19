@@ -19,7 +19,9 @@ configuration says which owner is whose account, and every command that leaves
 the machine is run with that account's token. A machine with one account
 configures nothing and nothing changes: `gh` answers as whoever it is signed in
 as, exactly as before. A GitHub App connected from the console comes before
-both, for the owners it is installed on — see github_app.py.
+both, for the owners it is installed on — see github_app.py. A personal access
+token (github_token.py) takes the same door: after the App, or before it when
+`[github_access] mode` says so.
 """
 
 from __future__ import annotations
@@ -35,7 +37,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from . import github_app
+from . import github_app, github_token
 from .config import state_dir
 
 
@@ -76,9 +78,10 @@ def run(
         # leave a GITHUB_TOKEN inherited from elsewhere to answer for the tools
         # that read it instead.
         environment = {**(environment or os.environ), "GH_TOKEN": token, "GITHUB_TOKEN": token}
-        # An app's token opens github.com over HTTPS, and git asks for it
-        # there: told how by the environment, never by `.git/config`.
-        if github_app.issued(token):
+        # An app's token, or the machine's own, opens github.com over HTTPS,
+        # and git asks for it there: told how by the environment, never by
+        # `.git/config`.
+        if github_app.issued(token) or github_token.holds(token):
             environment.update(github_app.git_environment(base=environment))
     try:
         process = subprocess.run(
@@ -188,10 +191,12 @@ def token_for(reference: str, accounts: Accounts | None) -> str:
     to report — a ticket has no business failing over a line of configuration
     that names an account nobody logged in.
 
-    Before any of it, a GitHub App installed on that owner: its token wins over
-    every `gh` account, since connecting it was the later decision.
+    Before any of it, a GitHub App installed on that owner or a personal access
+    token, as `[github_access] mode` orders them (the App first when it does
+    not): either wins over every `gh` account, since connecting it was the later
+    decision.
     """
-    if granted := github_app.token(owner(reference)):
+    if granted := github_token.for_owner(owner(reference)):
         return granted
     if not accounts:
         return ""

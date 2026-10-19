@@ -124,7 +124,7 @@ and none of them is a requirement.
 | | Optional | |
 | --- | --- | --- |
 | <a href="#the-notion-side"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/media/notion/made-for-notion-black.svg"><img src="docs/media/notion/made-for-notion-white.svg" height="48" alt="Made for Notion"></picture></a> | **Your board in Notion.** | Tickets, projects and schedules become Notion databases, and every report is written back on the ticket's page. [The Notion side](#the-notion-side) |
-| **GitHub** | **Pull requests.** | A code ticket comes back as one, through `gh`, and is merged on your yes. Writing, actions and posts need none of it. [Several GitHub accounts](#several-github-accounts) |
+| **GitHub** | **Pull requests.** | A code ticket comes back as one, through a GitHub App, an access token or `gh`, and is merged on your yes. Writing, actions and posts need none of it. [Several GitHub accounts](#several-github-accounts) |
 | **Telegram · Slack** | **Your phone.** | A question or a result reaches you there, and your answer — *oui* will do — lands on the ticket. [Telegram and Slack](#being-told-and-answering-with-one-word) |
 | **OpenRouter** | **Every other model.** | One key: a GPT writes the copy, a model transcribes a voice note — or the sessions themselves run on the model you name. [Every other model](#every-other-model) |
 
@@ -796,6 +796,39 @@ Each repository is worked by the one installed on its owner. An owner no app is 
 on — and a machine with no app at all — is worked through `gh` exactly as before, and so is
 everything when GitHub does not answer. `ponos doctor` says which apps are connected,
 whether each one still gets a token, and which repositories of the workspace no app reaches.
+
+### Or an access token
+
+A GitHub App is the right shape for a robot, and a lot to set up for a first ticket. A
+**fine-grained personal access token** does the same work in a paste. In **Settings ›
+GitHub** (and in the first connection's GitHub step), *Create a fine-grained token on
+GitHub* opens GitHub's form with the permissions already filled in: **Contents** and
+**Pull requests** on read and write, **Metadata** on read-only (and Workflows, Actions,
+Checks, Statuses and Issues for the tickets that touch a workflow or read a failed check).
+Pick the repositories tickets may work on under *Repository access*, paste the token, and
+the console **checks it before keeping it**: who it belongs to, which repositories it
+reaches and which of them it may write to, and whether pull requests answer. A token GitHub
+refuses (mistyped, expired, revoked) or that lacks a permission is not kept, and the answer
+names the permission — *Missing: Pull requests — Read and write*. Writing a pull request
+cannot be tried without opening one, so that is said, not guessed.
+
+Prefer the **App** for an organisation, for several people, or when you want tokens that
+expire on their own — an installation token lasts an hour, a personal one lasts as long as
+you made it. The token suits one person and a first try.
+
+- **Where it is kept.** Never in `config.toml`, a ticket or a log: it is `PONOS_GITHUB_TOKEN`
+  in `secrets.env` (0600, what the console writes), or in the environment — which is how a
+  container or Dokploy is given it — or an item of the vault you already use, with
+  `[github_access] token_item = "pass:ponos/github"` (`keyring:…`, `bitwarden:…`; see *Keys a ticket may use: the vault*). Every value read is masked wherever the runner
+  writes.
+- **Who answers.** `[github_access] mode` is `"app"` or `"token"` to put that one first
+  (also *Settings › Code › GitHub access*; pasting a token in the console selects it). Empty,
+  the App answers for the owners it is installed on, then the token, then the `[github]`
+  accounts and `gh`.
+- **One door.** The clone, the push, the pull request, its comments and the merge all go out
+  with the token through `GH_TOKEN` and git's environment — as they do with the App, only
+  the token differs. The session is handed it too, and commits are signed as usual.
+- `ponos doctor` has a *GitHub token* section: where it comes from, who it is, what it lacks.
 
 ### Several GitHub accounts
 

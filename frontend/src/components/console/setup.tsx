@@ -24,7 +24,7 @@ import {
   Terminal,
 } from "lucide-react"
 
-import { ConnectGithub } from "@/components/console/github-page"
+import { ConnectGithub, TokenForm } from "@/components/console/github-page"
 import { Rich } from "@/components/console/text"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -1038,7 +1038,7 @@ function GithubStep({ container, onNext }: { container: boolean; onNext: () => v
     <StepCard
       title={t("GitHub, for the pull requests")}
       blurb={t(
-        "A code ticket comes back as a pull request. Connect GitHub in one click: Ponos creates its own GitHub App and you choose the repositories it reaches. Without it, `gh` is used — signed in with `gh auth login`, or given a token in `GH_TOKEN`, the way a container usually is."
+        "A code ticket comes back as a pull request. Connect GitHub in one click: Ponos creates its own GitHub App and you choose the repositories it reaches. Or paste an access token. Without either, `gh` is used — signed in with `gh auth login`, or given a token in `GH_TOKEN`, the way a container usually is."
       )}
       footer={
         <>
@@ -1053,7 +1053,15 @@ function GithubStep({ container, onNext }: { container: boolean; onNext: () => v
         </>
       }
     >
-      {github?.via !== "app" ? <ConnectGithub /> : null}
+      {github?.via !== "app" && github?.via !== "token" ? <ConnectGithub /> : null}
+      {github?.via !== "app" && github?.via !== "token" ? (
+        <details data-testid="github-token-choice">
+          <summary className="cursor-pointer text-sm font-medium">{t("Or use an access token instead")}</summary>
+          <div className="pt-3">
+            <TokenForm createUrl={github?.create_url ?? ""} onSaved={() => void check()} />
+          </div>
+        </details>
+      ) : null}
       {github ? (
         github.account ? (
           <Said
@@ -1061,6 +1069,10 @@ function GithubStep({ container, onNext }: { container: boolean; onNext: () => v
             text={
               github.via === "app"
                 ? t("Pull requests are opened as {{account}}, through the GitHub App.", {
+                    account: github.account,
+                  })
+                : github.via === "token"
+                ? t("Pull requests are opened as {{account}}, with the access token.", {
                     account: github.account,
                   })
                 : github.via === "GH_TOKEN"

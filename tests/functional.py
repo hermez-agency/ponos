@@ -779,6 +779,7 @@ if args[:2] == ["pr", "create"]:
     # request, and what every question below is answered out of.
     write({"command": "pr create", "cwd": os.getcwd(), "url": url,
            "base": option("--base"), "title": option("--title"), "body": option("--body"),
+           "token": os.environ.get("GH_TOKEN", ""),
            "branch": git("rev-parse", "--abbrev-ref", "HEAD", cwd=os.getcwd()).stdout.strip(),
            "remote": git("remote", "get-url", "origin", cwd=os.getcwd()).stdout.strip()})
     print("Creating pull request for " + option("--base"))
@@ -1230,6 +1231,29 @@ def _environ(changes: dict[str, str]):
 
 
 # -- the scenarios -----------------------------------------------------------
+
+
+@case
+def a_code_ticket_comes_back_as_a_pull_request_with_nothing_but_an_access_token():
+    """`PONOS_GITHUB_TOKEN` is the whole of GitHub's setup: no App, no `gh` account.
+
+    The pull request is opened with the token, and the token is written
+    nowhere the board, the journal or the configuration could show it.
+    """
+    token = "github_pat_functional_0123456789abcdefghij"
+    with bench() as machine, _environ({"PONOS_GITHUB_TOKEN": token}):
+        repository = machine.repository("site")
+        project = machine.project("Site", repository)
+        ticket = machine.ticket("Corriger l'entête", "Le titre est faux, corrige-le.", project)
+
+        results = machine.run()
+
+        assert results and results[0]["status"] == "done", results
+        opened = machine.pull_requests()
+        assert len(opened) == 1 and opened[0]["token"] == token, opened
+        assert not any(token in said for said in machine.board.said(ticket)), "the token reached the ticket"
+        for path in Path(os.environ["XDG_CONFIG_HOME"]).rglob("*"):
+            assert not path.is_file() or token not in path.read_text(errors="replace"), path
 
 
 @case

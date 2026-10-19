@@ -93,6 +93,14 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
   gains a line for the machine itself (git, Claude Code, its sign-in, the disk, with the command that fixes each),
   and *Run the full diagnosis* shows `doctor`'s text with a button that copies it for support. `doctor` itself now
   prints the install command beside a missing tool.
+- **GitHub reached with an access token, no App needed.** Settings › GitHub (and the first connection's GitHub
+  step) takes a fine-grained personal access token next to the GitHub App: the console links to the token form with
+  the permissions already filled in, checks what is pasted — who it is, which repositories it reaches, whether
+  Contents and Pull requests are on read and write — and says exactly which permission is missing before keeping
+  anything. The token goes to `secrets.env` (0600), comes from `PONOS_GITHUB_TOKEN` in a container or Dokploy, or
+  from a vault item (`[github_access] token_item = "pass:ponos/github"`); it is masked wherever the runner writes and
+  never sits in `config.toml`. Clone, push, pull request and comments go through the same door as the App's, and
+  `[github_access] mode` puts the App or the token first. `ponos doctor` checks the token too.
 
 - **A project's type, description and site are corrected from the console.** The "Edit the project" drawer has them
   under "The project", as the "New project" window asks for them: a project switched to Writing loses its repository

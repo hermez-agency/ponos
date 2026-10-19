@@ -763,6 +763,28 @@ export interface GithubApp {
   error: string
 }
 
+/** What a personal access token was found to be able to do — see `github_token.check`. */
+export interface GithubTokenCheck {
+  login: string
+  kind: "classic" | "fine-grained"
+  repositories: string[]
+  writable: string[]
+  missing: { permission: string; level: string }[]
+  warnings: string[]
+  ok: boolean
+}
+
+/** The token as the console shows it: where it comes from, never the value. */
+export interface GithubToken {
+  configured: boolean
+  source: string
+  mode: string
+  vault: string
+  create_url: string
+  check?: GithubTokenCheck
+  error?: string
+}
+
 /** What the page posts to GitHub to create an app: where, and the manifest. */
 export interface GithubManifest {
   action: string

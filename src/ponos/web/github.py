@@ -1,5 +1,8 @@
 """The console's half of « Connect GitHub »: the trip out, and the two ways back.
 
+(A personal access token is the other way to connect, and a much shorter one:
+`save_token` checks what was pasted and keeps it — see `github_token`.)
+
 The page posts a form to GitHub — a form, and not a request of ours, because it
 is the person who creates the app, signed in to GitHub in their own browser.
 What comes back is two redirections, and neither carries the console's cookie:
@@ -24,14 +27,41 @@ import html
 import socket
 from urllib.parse import quote
 
-from .. import github_app
+from .. import github_app, github_token
 
 # Where the browser lands once GitHub is done with it.
 SETTINGS = "/?view=console/settings/read/config/github-app"
 
 
 def status() -> dict:
-    return {"apps": github_app.describe()}
+    return {"apps": github_app.describe(), "token": github_token.describe()}
+
+
+def save_token(api, payload: dict) -> dict:
+    """Check the token that was pasted, and keep it when a code ticket can work with it.
+
+    A token that GitHub refuses, or that lacks a permission, is not kept: the
+    answer says what it lacks, and the one already there is left alone. The
+    value is never part of an answer.
+    """
+    try:
+        checked = github_token.check(str(payload.get("token", "")))
+    except github_token.GithubTokenError as error:
+        raise ValueError(str(error)) from error
+    if checked["ok"]:
+        github_token.save(str(payload["token"]))
+        # Pasting a token is choosing it: the App, if one is connected too, no longer comes first.
+        api.save_settings({"settings": {"github_access.mode": "token"}})
+    return {"saved": checked["ok"], **checked}
+
+
+def forget_token(api) -> dict:
+    """Drop the token from this machine. GitHub still has it: the answer says where to revoke it."""
+    if not github_token.forget():
+        raise LookupError("no token is kept here")
+    if github_token.access().mode == "token":
+        api.save_settings({"settings": {"github_access.mode": ""}})
+    return {"forgotten": True, "tokens_url": "https://github.com/settings/personal-access-tokens"}
 
 
 def connect(console: str, organisation: str = "") -> dict:

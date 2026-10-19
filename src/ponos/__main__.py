@@ -20,7 +20,7 @@ from datetime import datetime
 
 from . import __version__, channels, cleanup, config as config_module, conversation, credits, git, notion
 from . import db, journal, kinds, legacy, models, priority, resources, store, voice
-from . import github_app, health, prerequisites, project_settings, provision
+from . import github_app, github_token, health, prerequisites, project_settings, provision
 from . import provider as provider_module
 from . import schedules as schedules_module
 from . import session, state, subtypes, systemd, vault
@@ -890,6 +890,33 @@ def _doctor_github_app() -> int:
     return problems
 
 
+def _doctor_github_token() -> int:
+    """The personal access token, if one is given: who it is, and what it lacks."""
+    if why := github_token.unavailable():
+        bad(f"[github_access] token_item — {why}")
+        return 1
+    held = github_token.token()
+    if not held:
+        print(f"  {DIM}no token (console: Settings › GitHub, or PONOS_GITHUB_TOKEN){RESET}")
+        return 0
+    try:
+        checked = github_token.check(held)
+    except github_token.GithubTokenError as error:
+        bad(f"token from {github_token.source()} — {error}")
+        return 1
+    reach = f"{len(checked['repositories'])} repository(ies), {len(checked['writable'])} writable"
+    problems = 0
+    if checked["missing"]:
+        needs = ", ".join(f"{one['permission']} ({one['level']})" for one in checked["missing"])
+        bad(f"token of {checked['login']} from {github_token.source()} — missing {needs}")
+        problems = 1
+    else:
+        ok(f"token of {checked['login']} from {github_token.source()} — {checked['kind']}, {reach}")
+    for warning in checked["warnings"]:
+        warn(warning)
+    return problems
+
+
 def command_doctor(args: argparse.Namespace) -> int:
     title("Configuration")
     try:
@@ -905,6 +932,9 @@ def command_doctor(args: argparse.Namespace) -> int:
 
     title("GitHub App")
     problems += _doctor_github_app()
+
+    title("GitHub token")
+    problems += _doctor_github_token()
 
     title("Claude provider")
     problems += _doctor_provider(configuration)

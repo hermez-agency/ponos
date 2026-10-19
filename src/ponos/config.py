@@ -42,6 +42,7 @@ WEB_PASSWORD_ENV = "PONOS_WEB_PASSWORD"
 # a container is given them once.
 ANTHROPIC_KEY_ENV = "ANTHROPIC_API_KEY"
 OPENROUTER_KEY_ENV = "OPENROUTER_API_KEY"
+GITHUB_TOKEN_ENV = "PONOS_GITHUB_TOKEN"
 
 # Every secret the configuration knows: where `config.toml` used to hold it, and
 # the variable that holds it now — in the environment, or in `secrets.env`.
@@ -53,6 +54,7 @@ SECRETS: dict[tuple[str, str], str] = {
     ("notify.slack", "token"): "PONOS_SLACK_TOKEN",
     ("claude", "api_key"): ANTHROPIC_KEY_ENV,
     ("openrouter", "key"): OPENROUTER_KEY_ENV,
+    ("github_access", "token"): GITHUB_TOKEN_ENV,
 }
 
 # The ones the environment wins for — see the module's docstring.
@@ -603,6 +605,26 @@ class OpenRouter:
     transcription_model: str = "openai/whisper-1"
 
 
+# How GitHub is reached. Empty is the whole of the old behaviour: a GitHub App
+# when one is connected, the `gh` accounts otherwise — and a token, when one is
+# given, only in the place of `gh`. `app` and `token` say which of the two wins.
+GITHUB_MODES = ("app", "token")
+
+
+@dataclass
+class GithubAccess:
+    """`[github_access]`: the GitHub App or a personal access token. See github_token.py.
+
+    The token itself is never a key of the file: `token` is read from
+    `secrets.env` or the environment (`SECRETS`), and `token_item` names where a
+    vault keeps it instead (`pass:ponos/github`, `keyring:ponos-github`).
+    """
+
+    mode: str = ""
+    token: str = ""
+    token_item: str = ""
+
+
 # Who answers a session. `cli` is Claude Code signed in as you (`claude login`),
 # which is the subscription, Claude in Chrome and the wait for credits. `api_key`
 # is an Anthropic key, billed by the token. `openrouter` is the key of
@@ -764,6 +786,7 @@ class Config:
     # `owner = "the gh account"`. Empty is a machine with one account, which is
     # every machine until it is not — see `git.token_for`.
     github: dict[str, str] = field(default_factory=dict)
+    github_access: GithubAccess = field(default_factory=GithubAccess)
     # The secrets `config.toml` still holds, as `table.key` — ignored, and said
     # so: see `move_secrets`.
     exposed: tuple[str, ...] = ()
@@ -1430,6 +1453,7 @@ def load(path: Path | None = None, *, secrets: Path | None = None) -> Config:
         storage=_storage(raw.get("storage", {})),
         vault=_vault(raw.get("vault")),
         github=github,
+        github_access=read_github_access(raw, stored),
         exposed=tuple(f"{table}.{key}" for table, key in exposed(raw)),
     )
 
@@ -1854,6 +1878,17 @@ def _sentences(raw: object, default: tuple[str, ...]) -> tuple[str, ...]:
     if not isinstance(raw, list):
         return default
     return tuple(text for item in raw if (text := str(item).strip()))
+
+
+def read_github_access(raw: dict, stored: dict[str, str]) -> GithubAccess:
+    """`[github_access]` and its token, read leniently: a word that is none of the modes says nothing."""
+    section = _section(raw, "github_access")
+    chosen = str(section.get("mode", "")).strip().lower()
+    return GithubAccess(
+        mode=chosen if chosen in GITHUB_MODES else "",
+        token=secret(stored, "github_access", "token"),
+        token_item=str(section.get("token_item", "")).strip(),
+    )
 
 
 def _vault(raw: object) -> Vault:
