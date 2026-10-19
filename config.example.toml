@@ -991,6 +991,12 @@ port = 8787
 # deserves the same suspicion: read what [web] says above before widening.
 # Changing the password signs out every browser at once. The token does not go
 # away: it stays what a script, and the dev server's proxy, carry.
+#
+# secrets.env keeps the password as its scrypt digest, scrypt:n:r:p:salt:hash —
+# the Settings write it so, and a line in clear from before is replaced by its
+# digest on the next launch, with the same password still signing in. The
+# environment's may be either. A sign-in lasts thirty days from its last use;
+# `ponos serve --sign-out-everywhere` ends them all.
 email = ""
 
 # How often the console asks Notion what the board looks like — and only while a

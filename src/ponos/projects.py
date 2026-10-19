@@ -262,7 +262,7 @@ class Resolver:
         # GitHub redirects a renamed repository, and only GitHub knows to what.
         # Asked last, because it is the one way that leaves the machine — and
         # only about a name that already failed to match anything here.
-        today = git.current_name(declared, self._accounts) if "/" in declared else ""
+        today = git.current_name(declared, self._accounts) if git.is_repository(declared) else ""
         current = _normalise(today)
         ambiguous = False
         if current and current != declared:
@@ -287,7 +287,7 @@ class Resolver:
         # ticket over a `git clone` is not. Ambiguity is the one thing that
         # still stops it — two clones already answer to that remote, and a
         # third would only make the question harder.
-        if clone and "/" in declared and not ambiguous:
+        if clone and git.is_repository(declared) and not ambiguous:
             fetch = today or declared
             try:
                 path = self._clone(fetch)

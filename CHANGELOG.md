@@ -28,6 +28,27 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
   to follow. It is checked when the page opens and again with "Recheck", and it is not drawn while everything is green.
   `ponos doctor` prints the same checks in an "Installation health" section.
 
+### Security
+
+- **The console's password is kept as a scrypt digest.** `secrets.env` held it as it is typed. It holds its digest
+  now, written by the Settings and the first connection; an installation from before has its line rewritten by the
+  next launch, and the same password keeps signing in — nobody is asked to type it again. One browser sign-in is
+  asked once after the update: the sessions given before are not readable any more.
+- **Guessing the door is slowed for real.** A wrong password, installation code or token used to cost a second of
+  `time.sleep` in its own thread, which twenty requests sent at once all slept together. Each address now waits
+  1 s, 2 s, 4 s… up to 30 s after each failure, is locked out for 15 minutes after ten, and an attempt is counted
+  before it is checked: of twenty sent at once, one is looked at and the others are told `429` with a
+  `Retry-After`.
+- **A sign-in lasts thirty days from its last use.** The cookie it left never ran out; it is renewed while the
+  browser keeps coming back and refused a month after its last use. `ponos serve --sign-out-everywhere` signs every
+  browser out at once, a running console included; the token still opens it.
+- **The console's pages run only their own scripts.** A Content-Security-Policy allows the bundle's files and the
+  inline lines each page carries, by their hash — the sign-in and token pages lost their `onsubmit=` for it — and
+  the API answers under `default-src 'none'`. With it `Permissions-Policy`, `Cross-Origin-Opener-Policy` and
+  `Cross-Origin-Resource-Policy`, and HSTS once a proxy says HTTPS.
+- **A repository named on a project page is checked before `gh` sees it.** Only `owner/name` is cloned or looked
+  up, after a `--`; a file beside `static/` whose name begins the same way is no longer served as one of its own.
+
 ### Changed
 
 - **The Projects and Ideas lists filter the way the Dashboard does.** Their filters are buttons with their name in

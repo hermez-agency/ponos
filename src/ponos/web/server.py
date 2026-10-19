@@ -21,7 +21,14 @@ is why:
   started: a console behind a domain is a console the whole Internet reaches
   first;
 - behind a proxy that says the browser came in over HTTPS (`X-Forwarded-Proto`),
-  every cookie is `Secure`, so it never travels in clear on the way back;
+  every cookie is `Secure`, so it never travels in clear on the way back, and
+  the answer says HSTS, so the browser never tries it in clear again;
+- a password, a token or an installation code typed wrong is counted per
+  address, and the address waits longer after each (`attempts`); a sign-in lasts
+  thirty days from its last use (`sessions`), and the password is kept as a
+  digest (`passwords`);
+- a page is served under a Content-Security-Policy that runs no script but the
+  bundle's files and the few lines written into the page itself, hashed;
 - a request from a browser page that is not the console is rejected: writes
   demand a header a cross-origin form cannot set, and the `Host` header must
   name the address the console was reached on, which is what stops a hostile
@@ -56,7 +63,8 @@ from .. import __version__
 from .. import config as config_module
 from .. import db, journal, legacy, notifications, openrouter, store, tailscale, vault, voice
 from ..config import Config, state_dir
-from . import attachments, creation, github, mcp, mcp_setup, oauth, setup
+from .. import github_app, passwords
+from . import attachments, attempts, creation, github, mcp, mcp_setup, oauth, sessions, setup
 from .api import Api
 
 STATIC = Path(__file__).resolve().parent / "static"
@@ -98,6 +106,68 @@ MAX_PICTURE = 20 * 1024 * 1024
 PICTURE_POLICY = "default-src 'none'; style-src 'unsafe-inline'; sandbox"
 
 LOOPBACK = ("127.0.0.1", "::1", "localhost", "[::1]")
+
+# What every answer that is not a page is served under: a JSON file opened on
+# its own runs nothing, loads nothing and is framed by nobody.
+LOCKED_POLICY = "default-src 'none'; frame-ancestors 'none'"
+# The service worker's own: its CSP is the one it runs under, and it fetches.
+WORKER_POLICY = "default-src 'self'"
+# The browser's powers a page here never needs — but the microphone, which
+# dictation asks for, from this origin only.
+PERMISSIONS = "camera=(), geolocation=(), microphone=(self), payment=(), usb=()"
+# A year, once the proxy says HTTPS: see `_secure`.
+HSTS = "max-age=31536000"
+# How long the token's cookie is kept. A sign-in's is `sessions.LIFETIME`.
+TOKEN_COOKIE_AGE = 31536000
+
+_INLINE_SCRIPT = re.compile(rb"<script(?![^>]*\bsrc=)[^>]*>(.*?)</script\s*>", re.IGNORECASE | re.DOTALL)
+_INLINE_STYLE = re.compile(rb"<style[^>]*>(.*?)</style\s*>", re.IGNORECASE | re.DOTALL)
+
+
+def _hashes(pattern: re.Pattern[bytes], page: bytes) -> str:
+    found = (base64.b64encode(hashlib.sha256(text).digest()).decode() for text in pattern.findall(page))
+    return "".join(f" 'sha256-{digest}'" for digest in dict.fromkeys(found))
+
+
+def page_policy(page: bytes, *, bundle: bool = False, leaves: bool = False) -> str:
+    """The Content-Security-Policy of one HTML page, from what that page holds.
+
+    Scripts: the files of `/static/`, and the lines a page carries inline —
+    the theme read before the first paint, the sign-in's fetch — by the hash
+    of exactly those lines, so a script anybody manages to write into a page
+    is one the browser refuses to run. Hashed when the page is served rather
+    than written down here, because the build rewrites `index.html`.
+
+    Styles: the same for the pages written in Python. The bundle (`bundle`) is
+    the exception: what it carries — the toasts, the scroll lock of a dialog,
+    the editor — writes `<style>` elements at runtime, with contents of their
+    own making, so inline styles are allowed there. A style runs no code.
+
+    `leaves` is the consent page, whose form is answered by a redirect to the
+    client that asked: `form-action` would stop it on the way out. The bundle's
+    forms go to this console, and to GitHub — the manifest a GitHub App is
+    created from is a form posted there (`github-page.tsx`).
+    """
+    styles = "'self' 'unsafe-inline'" if bundle else "'self'" + _hashes(_INLINE_STYLE, page)
+    policy = [
+        "default-src 'self'",
+        "script-src 'self'" + _hashes(_INLINE_SCRIPT, page),
+        f"style-src {styles}",
+        # A ticket's Markdown shows pictures from wherever they are hosted.
+        "img-src 'self' data: blob: https:",
+        "font-src 'self' data:",
+        "connect-src 'self'",
+        "media-src 'self' blob:",
+        "worker-src 'self'",
+        "manifest-src 'self'",
+        "object-src 'none'",
+        "base-uri 'none'",
+        "frame-ancestors 'none'",
+    ]
+    if not leaves:
+        site = urlparse(github_app.web())
+        policy.append(f"form-action 'self' {site.scheme}://{site.netloc}" if bundle else "form-action 'self'")
+    return "; ".join(policy)
 
 
 def accepts_gzip(header: str) -> bool:
@@ -154,19 +224,38 @@ def landing(query: str) -> str:
 
 @dataclass(frozen=True)
 class SignIn:
-    """An email, a password, and the cookie a browser that typed them carries.
+    """An email, a password's digest, and what a browser that typed them is given.
 
-    The cookie is *derived* from the two rather than drawn at random, and that
-    is the whole of the session handling: a console that restarts — and its unit
+    `proof` is *derived* from the email and what `secrets.env` keeps for the
+    password rather than drawn at random: a console that restarts — and its unit
     restarts with the machine — does not sign you out, while changing the
-    password signs out every browser that ever held one, without anything to
-    keep or to expire. It is an HMAC under the console's own token, so the value
-    in the cookie says nothing about the password it came from.
+    password signs out every browser that ever held a session. It is an HMAC
+    under the console's own token, so nothing derived from it says anything
+    about the password. A session is that proof, dated and signed again — see
+    `sessions`.
     """
 
     email: str
-    password: str
-    cookie: str
+    digest: str
+    proof: str
+
+    def session(self) -> str:
+        """A new session, as the cookie carries it."""
+        return sessions.issue(self.proof)
+
+    def holds(self, cookie: str) -> int | None:
+        """When that cookie's session was given, if it is one of this sign-in's and alive."""
+        return sessions.issued(self.proof, cookie)
+
+    def opens(self, email: str, password: str) -> bool:
+        """The email and the password, as somebody typed them.
+
+        Both compared before the answer is given: an early return here would
+        answer "that email does not exist" by taking less time to say so.
+        """
+        known_email = hmac.compare_digest(email.strip().lower().encode(), self.email.lower().encode())
+        known_password = passwords.matches(password, self.digest)
+        return known_email and known_password
 
 
 def sign_in(config: Config, secret: str) -> SignIn | None:
@@ -182,7 +271,11 @@ def sign_in(config: Config, secret: str) -> SignIn | None:
     proof = hmac.new(
         secret.encode(), f"{email.lower()}\n{password}".encode(), hashlib.sha256
     ).hexdigest()
-    return SignIn(email=email, password=password, cookie=proof)
+    # A password still in clear is the environment's — the file's is a digest
+    # since the launch that read it (`config.hash_password`). Digested here,
+    # in memory, so that nothing past this line holds it as it was typed.
+    digest = password if passwords.is_digest(password) else passwords.digest(password)
+    return SignIn(email=email, digest=digest, proof=proof)
 
 
 # The installation code's letters: no 0 and O, no 1 and I, nothing a log line
@@ -224,6 +317,10 @@ def claimable(config: Config, entry: SignIn | None) -> bool:
 class Console(ThreadingHTTPServer):
     daemon_threads = True
     allow_reuse_address = True
+    # `listen`'s backlog, five by default: a burst — a browser opening its six
+    # connections while a script guesses — was answered by a reset rather than
+    # by the 429 that says to wait.
+    request_queue_size = 64
 
     def __init__(
         self,
@@ -241,6 +338,8 @@ class Console(ThreadingHTTPServer):
         # What a first connection from outside this machine has to say first.
         # Empty: none was drawn, and such a connection is refused outright.
         self.code = code
+        # Who got the door wrong lately — see `attempts`.
+        self.attempts = attempts.Attempts()
 
     def handle_error(self, request, client_address) -> None:
         # A tab closed or reloaded mid-request is how a browser says goodbye,
@@ -289,18 +388,36 @@ class Handler(BaseHTTPRequestHandler):
     def _send(
         self, code: int, body: bytes, kind: str, extra: dict | None = None, cache: str = "no-store"
     ) -> None:
-        try:
-            self.send_response(code)
-            self.send_header("Content-Type", kind)
-            self.send_header("Content-Length", str(len(body)))
+        extra = extra or {}
+        headers = {
+            "Content-Type": kind,
+            "Content-Length": str(len(body)),
             # Nothing here is meant to be cached, framed, sniffed or embedded —
             # but a picture, whose address changes with it, and is kept a day,
             # and the build's own files, whose names change with them.
-            self.send_header("Cache-Control", cache)
-            self.send_header("X-Content-Type-Options", "nosniff")
-            self.send_header("X-Frame-Options", "DENY")
-            self.send_header("Referrer-Policy", "no-referrer")
-            for name, value in (extra or {}).items():
+            "Cache-Control": cache,
+            "X-Content-Type-Options": "nosniff",
+            "X-Frame-Options": "DENY",
+            "Referrer-Policy": "no-referrer",
+            "Permissions-Policy": PERMISSIONS,
+            # No window of another site keeps a hand on one of the console's,
+            # and no page elsewhere embeds what it answers.
+            "Cross-Origin-Opener-Policy": "same-origin",
+            "Cross-Origin-Resource-Policy": "same-origin",
+        }
+        if "Content-Security-Policy" not in extra:
+            headers["Content-Security-Policy"] = (
+                page_policy(body) if kind.startswith("text/html") else LOCKED_POLICY
+            )
+        if self._secure():
+            headers["Strict-Transport-Security"] = HSTS
+        renewed = getattr(self, "_renewed", "")
+        if renewed:
+            headers["Set-Cookie"] = self._cookie(renewed, sessions.LIFETIME)
+        headers.update(extra)
+        try:
+            self.send_response(code)
+            for name, value in headers.items():
                 self.send_header(name, value)
             if self.close_connection:
                 self.send_header("Connection", "close")
@@ -397,10 +514,26 @@ class Handler(BaseHTTPRequestHandler):
         proto = (self.headers.get("X-Forwarded-Proto") or "").split(",")[0]
         return proto.strip().lower() == "https"
 
-    def _cookie(self, value: str) -> str:
-        """The `Set-Cookie` of a way in — the token's, or a sign-in's."""
+    def _cookie(self, value: str, age: int = TOKEN_COOKIE_AGE) -> str:
+        """The `Set-Cookie` of a way in — the token's, or a sign-in's session."""
         secure = "; Secure" if self._secure() else ""
-        return f"{COOKIE}={value}; Path=/; HttpOnly; SameSite=Strict; Max-Age=31536000{secure}"
+        return f"{COOKIE}={value}; Path=/; HttpOnly; SameSite=Strict; Max-Age={age}{secure}"
+
+    def _knocker(self) -> str:
+        """Who the attempts are counted against — see `attempts.address_of`."""
+        return attempts.address_of(
+            str(self.client_address[0]), self.headers.get("X-Forwarded-For") or ""
+        )
+
+    def _too_many(self, wait: float) -> None:
+        """Refused unseen: this address got the door wrong too often, too recently."""
+        seconds = max(1, int(wait + 0.999))
+        self._send(
+            429,
+            json.dumps({"error": f"too many attempts — try again in {seconds} s"}).encode(),
+            "application/json",
+            {"Retry-After": str(seconds)},
+        )
 
     def _same_origin(self) -> bool:
         """The page that sent this is the console, as far as the browser says.
@@ -436,17 +569,39 @@ class Handler(BaseHTTPRequestHandler):
         what a script, the dev server's proxy and `--print-token` carry. What
         changes is that a person no longer has to.
         """
+        self._renewed = ""
         offered = (query.get("token") or [""])[0] or self._presented()
         if not offered:
             return False
-        known = [self.server.secret]  # type: ignore[attr-defined]
-        if self.entry:
-            known.append(self.entry.cookie)
+        # A token typed into the address or set in a header is an attempt, and
+        # counted; the cookie is what this console gave, and a stale one — a
+        # neighbouring console's — is no guess. While the address waits, an
+        # attempt is not even looked at.
+        attempt = bool((query.get("token") or [""])[0]) or self._explicit()
+        knocker = self._knocker()
+        if attempt and (wait := self.server.attempts.waiting(knocker)):  # type: ignore[attr-defined]
+            self._throttled = wait
+            return False
         # Compared as bytes: `compare_digest` refuses two strings when either
         # holds a character outside ASCII, and what is offered here came from a
         # browser — a cookie somebody pasted an accent into would be a 500
         # rather than the "no" it is.
-        return any(hmac.compare_digest(offered.encode(), value.encode()) for value in known)
+        if hmac.compare_digest(offered.encode(), self.server.secret.encode()):  # type: ignore[attr-defined]
+            return True
+        if self.entry and (given := self.entry.holds(offered)) is not None:
+            # Thirty days from the last time it was used: renewed, a day at most
+            # after it was given, by whatever this request is answered with.
+            if time.time() - given > sessions.RENEW_AFTER:
+                self._renewed = self.entry.session()
+            return True
+        if attempt:
+            self.server.attempts.failed(knocker)  # type: ignore[attr-defined]
+        return False
+
+    def _explicit(self) -> bool:
+        """The request carries a token of its own, rather than the console's cookie."""
+        header = self.headers.get("Authorization") or ""
+        return header.lower().startswith("bearer ") or bool(self.headers.get("X-Token"))
 
     # -- routing --------------------------------------------------------------
 
@@ -454,6 +609,7 @@ class Handler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         query = parse_qs(parsed.query)
         route = parsed.path.rstrip("/") or "/"
+        self._renewed, self._throttled = "", 0.0
 
         if not self._host_is_ours():
             return self._fail(421, "this console is not served under that name")
@@ -496,6 +652,8 @@ class Handler(BaseHTTPRequestHandler):
         ):
             return self._static(route[len("/static/") :])
         if not self._authorised(query):
+            if self._throttled:
+                return self._too_many(self._throttled)
             # An unclaimed console is drawn by the bundle, which is no secret:
             # it is the same files for everybody, and what it asks first is the
             # code, the email and the password.
@@ -557,6 +715,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
         route = parsed.path.rstrip("/") or "/"
+        self._renewed, self._throttled = "", 0.0
 
         if not self._host_is_ours():
             self.close_connection = True
@@ -586,6 +745,8 @@ class Handler(BaseHTTPRequestHandler):
             # next request on it would begin with this one's `{}` — which is how
             # a signed-out browser reloading the page got a 501 for "{}GET".
             self.close_connection = True
+            if self._throttled:
+                return self._too_many(self._throttled)
             return self._fail(401, "token missing or wrong")
         # A cookie alone is not consent: a page you have open elsewhere can post
         # a form to this port with your cookie attached, but it cannot set a
@@ -1400,8 +1561,13 @@ class Handler(BaseHTTPRequestHandler):
                 400, consent_refused(language, error.description).encode(), "text/html; charset=utf-8"
             )
         needs = "" if self._authorised({}) else ("password" if self.entry else "token")
-        page = consent_page(language, request, params, needs, said)
-        self._send(status, page.encode(), "text/html; charset=utf-8")
+        page = consent_page(language, request, params, needs, said).encode()
+        # The client that opened this page waits for its answer — in the
+        # window it opened, as often as not: that one is not severed from it.
+        self._send(status, page, "text/html; charset=utf-8", {
+            "Content-Security-Policy": page_policy(page, leaves=True),
+            "Cross-Origin-Opener-Policy": "unsafe-none",
+        })
 
     def _consent(self) -> None:
         """The consent page, answered: a code back to the client, or a refusal.
@@ -1428,10 +1594,16 @@ class Handler(BaseHTTPRequestHandler):
                 request.redirect_uri, error="access_denied", state=request.state, iss=base
             )
             return self._send(302, b"", "text/plain", {"Location": location})
-        if not self._authorised({}) and not self._proven(form):
-            time.sleep(1)  # as signing in does: a password is guessable, a wall to grind against
-            wrong = "wrong email or password" if self.entry else "wrong token"
-            return self._authorize(form, _words(self._language())(wrong), 401)
+        if not self._authorised({}):
+            # As signing in does: counted before it is checked — see `attempts`.
+            knocker = self._knocker()
+            if wait := self.server.attempts.admit(knocker):  # type: ignore[attr-defined]
+                said = _words(self._language())("too many attempts — try again in {seconds} s")
+                return self._authorize(form, said.format(seconds=max(1, int(wait + 0.999))), 429)
+            if not self._proven(form):
+                wrong = "wrong email or password" if self.entry else "wrong token"
+                return self._authorize(form, _words(self._language())(wrong), 401)
+            self.server.attempts.forgive(knocker)  # type: ignore[attr-defined]
         scopes = (oauth.READ, oauth.WRITE) if form.get("write") and oauth.WRITE in request.scopes else (oauth.READ,)
         code = oauth.code(request, scopes)
         location = oauth.back(request.redirect_uri, code=code, state=request.state, iss=base)
@@ -1441,10 +1613,7 @@ class Handler(BaseHTTPRequestHandler):
         """The credentials typed on the consent page: the sign-in's, or the token."""
         entry = self.entry
         if entry is not None:
-            email = form.get("email", "").strip().lower()
-            known_email = hmac.compare_digest(email.encode(), entry.email.lower().encode())
-            known_password = hmac.compare_digest(form.get("password", "").encode(), entry.password.encode())
-            return known_email and known_password
+            return entry.opens(form.get("email", ""), form.get("password", ""))
         offered = form.get("token", "").strip()
         return bool(offered) and hmac.compare_digest(offered.encode(), self.server.secret.encode())  # type: ignore[attr-defined]
 
@@ -1452,7 +1621,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def _static(self, name: str, setup: str = "") -> None:
         target = (STATIC / name).resolve()
-        if not str(target).startswith(str(STATIC)) or not target.is_file():
+        # `is_relative_to`, not a prefix: `static-old/` begins with `static` too.
+        if not target.is_relative_to(STATIC) or not target.is_file():
             return self._fail(404, f"no such file: {name}")
         kind = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
         body = target.read_bytes()
@@ -1465,6 +1635,11 @@ class Handler(BaseHTTPRequestHandler):
                 body = re.sub(rb"<html\b", f'<html data-setup="{setup}"'.encode(), body, count=1)
                 marked = f"{marked}:{setup}"
         extra: dict[str, str] = {}
+        # Hashed from the page as it is, before it is compressed: see `page_policy`.
+        if kind == "text/html":
+            extra["Content-Security-Policy"] = page_policy(body, bundle=name == "index.html")
+        elif name == "sw.js":
+            extra["Content-Security-Policy"] = WORKER_POLICY
         if kind.startswith(COMPRESSIBLE):
             extra["Vary"] = "Accept-Encoding"
             if accepts_gzip(self.headers.get("Accept-Encoding") or ""):
@@ -1485,20 +1660,19 @@ class Handler(BaseHTTPRequestHandler):
         entry = self.entry
         if entry is None:
             return self._fail(404, "this console is opened with its token")
-        email = str(payload.get("email", "")).strip().lower()
-        password = str(payload.get("password", ""))
-        # Both compared before either is looked at: an early return here would
-        # answer "that email does not exist" by taking less time to say so. And
-        # as bytes, because a password with an accent in it is a password.
-        known_email = hmac.compare_digest(email.encode(), entry.email.lower().encode())
-        known_password = hmac.compare_digest(password.encode(), entry.password.encode())
-        if not (known_email and known_password):
-            # Behind this port sits `bypassPermissions`, and a password is
-            # guessable in a way a 32-character token is not. A second per
-            # attempt is nothing to type through and a wall to grind against.
-            time.sleep(1)
+        # Behind this port sits `bypassPermissions`, and a password is guessable
+        # in a way a 32-character token is not: counted before it is checked,
+        # and refused unseen while the address waits — see `attempts`.
+        knocker = self._knocker()
+        if wait := self.server.attempts.admit(knocker):  # type: ignore[attr-defined]
+            return self._too_many(wait)
+        if not entry.opens(str(payload.get("email", "")), str(payload.get("password", ""))):
             return self._fail(401, "wrong email or password")
-        self._send(200, b'{"ok": true}', "application/json", {"Set-Cookie": self._cookie(entry.cookie)})
+        self.server.attempts.forgive(knocker)  # type: ignore[attr-defined]
+        self._send(
+            200, b'{"ok": true}', "application/json",
+            {"Set-Cookie": self._cookie(entry.session(), sessions.LIFETIME)},
+        )
 
     def _setup(self, payload: dict) -> None:
         """The first connection: everything at once, and a way in at the end.
@@ -1513,18 +1687,21 @@ class Handler(BaseHTTPRequestHandler):
             return self._fail(404, "this console has already been set up")
         if self._outside():
             # From outside this machine, the code `serve` printed — or nothing.
-            # Compared before anything is written, and a second per wrong guess,
-            # as a password is: eight letters out of thirty-two are a lot of
-            # guesses, and this keeps them that way.
+            # Compared before anything is written, and counted as a password is:
+            # eight letters out of thirty-two are a lot of guesses, and this
+            # keeps them that way.
             if not self.server.code:  # type: ignore[attr-defined]
                 return self._fail(
                     403,
                     "the first connection is only offered on this machine, or with the "
                     "installation code the console prints when it starts",
                 )
+            knocker = self._knocker()
+            if wait := self.server.attempts.admit(knocker):  # type: ignore[attr-defined]
+                return self._too_many(wait)
             if not same_code(str(payload.get("code", "")), self.server.code):  # type: ignore[attr-defined]
-                time.sleep(1)
                 return self._fail(403, "wrong installation code")
+            self.server.attempts.forgive(knocker)  # type: ignore[attr-defined]
         result = setup.apply(self.api, payload)
         entry = sign_in(self.api.config, self.server.secret)  # type: ignore[attr-defined]
         if entry is None:  # the write went through and said nothing: refuse to guess
@@ -1535,7 +1712,7 @@ class Handler(BaseHTTPRequestHandler):
             200,
             json.dumps(result, ensure_ascii=False).encode(),
             "application/json",
-            {"Set-Cookie": self._cookie(entry.cookie)},
+            {"Set-Cookie": self._cookie(entry.session(), sessions.LIFETIME)},
         )
 
     def _setup_state(self, signed_in: bool) -> dict:
@@ -1740,6 +1917,7 @@ _FRENCH = {
     "Allow": "Autoriser",
     "Refuse": "Refuser",
     "wrong token": "jeton incorrect",
+    "too many attempts — try again in {seconds} s": "trop de tentatives — réessayez dans {seconds} s",
     "This console has not been set up yet.": "Cette console n'est pas encore configurée.",
 }
 
@@ -1807,7 +1985,7 @@ def gate_page(language: str = "en", where: str = "", said: str = "") -> str:
     where = where or f"<code>{html.escape(str(state_dir() / 'web' / 'token'))}</code>"
     return _page(
         say("token"),
-        f"""<form onsubmit="location='/?token='+encodeURIComponent(this.t.value.trim());return false">
+        f"""<form id="door">
   <h1>Ponos</h1>
   <p>{say("This console needs its token. <code>ponos serve --print-token</code> prints it, "
           "and it is kept in {where}.").format(where=where)}</p>
@@ -1816,6 +1994,12 @@ def gate_page(language: str = "en", where: str = "", said: str = "") -> str:
   <button type="submit">{say("Open the console")}</button>
   <p class="said" role="alert">{html.escape(said, quote=False)}</p>
 </form>
+<script>
+document.getElementById('door').addEventListener('submit', function (event) {{
+  event.preventDefault();
+  location = '/?token=' + encodeURIComponent(this.t.value.trim());
+}});
+</script>
 """,
         language=language,
     )
@@ -1831,7 +2015,7 @@ def sign_in_page(language: str = "en") -> str:
     say = _words(language)
     return _page(
         say("sign in"),
-        f"""<form onsubmit="enter(this);return false">
+        f"""<form id="door">
   <h1>Ponos</h1>
   <p>{say("Sign in to open the console.")}</p>
   <label for="email">{say("Email")}</label>
@@ -1843,6 +2027,7 @@ def sign_in_page(language: str = "en") -> str:
 </form>
 <script>
 const WRONG = {json.dumps(say("wrong email or password"), ensure_ascii=False)};
+const TOO_MANY = {json.dumps(say("too many attempts — try again in {seconds} s"), ensure_ascii=False)};
 async function enter(form){{
   const said = document.getElementById('said');
   said.textContent = '';
@@ -1854,11 +2039,17 @@ async function enter(form){{
     }});
     if (answer.ok) {{ location = '/'; return; }}
     const body = await answer.json().catch(() => ({{}}));
-    said.textContent = answer.status === 401 ? WRONG : (body.error || WRONG);
+    said.textContent = answer.status === 401 ? WRONG
+      : answer.status === 429 ? TOO_MANY.replace('{{seconds}}', answer.headers.get('Retry-After') || '1')
+      : (body.error || WRONG);
   }} catch (error) {{
     said.textContent = String(error);
   }}
 }}
+document.getElementById('door').addEventListener('submit', function (event) {{
+  event.preventDefault();
+  enter(this);
+}});
 </script>
 """,
         language=language,

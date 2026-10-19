@@ -82,7 +82,10 @@ deux suites, puis publie l'image sur `ghcr.io`.
   ses jetons d'installation, devant `gh`), `session.py`, `provider.py` (qui répond aux sessions :
   le CLI connecté, une clé Anthropic ou OpenRouter), `voice.py` (les mots et la langue),
   `vault.py` (les clés que `[vault]` donne aux sessions d'un projet, et leur masquage partout où le runner écrit),
+  `passwords.py` (le mot de passe de la console, gardé en digest scrypt),
   `channels/` (Telegram, Slack), `web/` (serveur de la console et API ;
+  `web/attempts.py` compte les tentatives ratées par adresse, `web/sessions.py` date et
+  révoque les connexions ;
   `web/console.py` tient la conversation avec l'espace de travail, et
   `web/attachments.py` les fichiers qu'un message y emporte).
 - `src/ponos/web/static/` — **généré**, pas du code source à modifier

@@ -29,7 +29,7 @@ from pathlib import Path
 
 # The two vocabularies of `[storage]`, kept where the interface is declared —
 # `store.py` imports nothing from here, so this direction is the safe one.
-from . import disk, models, subtypes, vault
+from . import disk, models, passwords, subtypes, vault
 from .store import CONFLICTS, MODES
 
 PLACEHOLDER = "ntn_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
@@ -1079,6 +1079,9 @@ def edit(path: Path, changes: list[tuple[str, str, object]]) -> list[str]:
             file_changes.append((table, key, value))
             continue
         name = SECRETS[(table, key)]
+        if name == WEB_PASSWORD_ENV and value is not None and str(value).strip():
+            # Written as a digest from its first line: see `passwords`.
+            value = _password_digest(str(value))
         updated = _set_secret(pending, name, None if value is None else str(value))
         if read_secrets_text(updated).get(name) != read_secrets_text(pending).get(name):
             touched.append(f"{table}.{key}")
@@ -1323,6 +1326,37 @@ def move_secrets(path: Path) -> list[str]:
     # keeps saying so: only what actually left is reported as moved.
     left = set(exposed(read_raw(path)))
     return [f"{table}.{key}" for table, key in found if (table, key) not in left]
+
+
+def _password_digest(value: str) -> str:
+    """The console's password as `secrets.env` keeps it — a digest already stays one.
+
+    Stripped first, as `secret` strips what it reads back: the password that
+    was compared in clear was the stripped one, and the digest has to be of it.
+    """
+    value = value.strip()
+    return value if passwords.is_digest(value) else passwords.digest(value)
+
+
+def hash_password(path: Path) -> bool:
+    """Replace a password `secrets.env` keeps in clear by its digest.
+
+    What a launch does after `move_secrets` — which may just have brought one
+    over from `config.toml` — so that an installation from before digests keeps
+    its password, the one people type, and stops keeping it readable. Nobody is
+    asked to type it again: the digest is of the very value that was there.
+
+    The environment's is left alone, being the unit's or the compose file's to
+    keep; the console digests it in memory (`web.server.sign_in`).
+
+    Returns whether anything was written; raises OSError when the file cannot be.
+    """
+    file = secrets_path(path)
+    kept = read_secrets(file).get(WEB_PASSWORD_ENV, "").strip()
+    if not kept or passwords.is_digest(kept):
+        return False
+    write_secrets(file, {WEB_PASSWORD_ENV: _password_digest(kept)})
+    return True
 
 
 def secret(stored: dict[str, str], table: str, key: str) -> str:
