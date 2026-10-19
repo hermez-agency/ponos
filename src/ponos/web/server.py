@@ -2224,7 +2224,7 @@ def serve(
         print(f"  open  {opening(shown)}")
         if code:
             print(f"  code  {code}  —  asked by the first connection from anywhere but this machine")
-        print(f"  stop  Ctrl-C\n", flush=True)
+        print("  stop  Ctrl-C\n", flush=True)
 
     thread = threading.Thread(target=server.serve_forever, name="tr-console", daemon=True)
     thread.start()

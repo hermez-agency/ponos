@@ -52,6 +52,12 @@ RUN useradd --create-home --uid 1000 --shell /bin/bash ponos \
  && mkdir -p /data /workspace /home/ponos/.claude /home/ponos/.config/gh \
  && chown -R ponos:ponos /data /workspace /home/ponos
 
+# What the code imports beyond the standard library — nothing yet — into the
+# image's own Python: a container is never updated in place, so there is no
+# per-version environment to make (see environment.py).
+COPY requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir --disable-pip-version-check --require-hashes -r /app/requirements.txt
+
 COPY src /app/src
 COPY config.example.toml /app/config.example.toml
 COPY docker/entrypoint.sh /app/docker/entrypoint.sh

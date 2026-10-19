@@ -3719,6 +3719,101 @@ def a_version_that_does_not_start_is_taken_back_and_one_that_does_is_kept():
 
 
 @case
+def each_version_runs_in_an_environment_of_its_own_made_before_it_is_pointed_at():
+    """A version gets its `.venv` before `app` names it, and keeps it.
+
+    The day the runner requires a package, it is installed in the version's own
+    environment — never in one something is running on, never in the machine's
+    Python. The version replaced keeps the environment it ran in, which is what
+    going back to it needs.
+    """
+    from ponos import environment
+
+    with _installable() as (commit, app, first):
+        second = commit("two")
+        assert update.install(update.check(app, "main"), 600, app) == ""
+        assert _head(app) == second
+        made = environment.python(app.resolve())
+        assert made.exists(), "the new version was pointed at without its environment"
+        assert environment.interpreter(app.resolve()) == str(made)
+        launcher = (Path(os.environ["HOME"]) / ".local/bin/ponos").read_text()
+        assert '.venv/bin/python' in launcher, "the launcher does not run the environment"
+        assert f'PYTHON="{environment.base_python()}"' in launcher, (
+            "the launcher falls back on a Python inside a version directory"
+        )
+
+        # A version whose packages cannot be installed is never pointed at.
+        third = commit("asks for a package", lambda work: (work / "requirements.txt").write_text(
+            "a-package-nobody-published\n"))
+        error = update.install(update.check(app, "main"), 600, app)
+        assert error and "could not be" in error, error  # made, or installed into
+        assert _head(app) == second and made.exists(), "the version in use lost its environment"
+        assert not app.with_name(f"app-{third[:12]}").exists()
+
+
+@case
+def an_installation_updated_by_a_version_without_environments_gets_one_on_its_next_pass():
+    """The first update onto this code is made by the code before it.
+
+    That code copies the version, moves it, points `app` at it — and makes no
+    environment, since it knows of none. The launcher runs the machine's Python
+    meanwhile, and the next pass makes the environment, once.
+    """
+    from ponos import environment
+
+    with _installable() as (commit, app, first):
+        update.install(update.check(app, "main"), 600, app)  # gives `app` its link
+        version = app.resolve()
+        shutil.rmtree(version / environment.VENV, ignore_errors=True)
+        assert environment.interpreter(version, "/usr/bin/python3") == "/usr/bin/python3"
+        said: list[str] = []
+        original = update.app_dir
+        update.app_dir = lambda: app
+        try:
+            update.between_runs(
+                C.Runner(auto_update=False), say=said.append, notify=lambda *_: None
+            )
+        finally:
+            update.app_dir = original
+        assert environment.python(version).exists(), said
+        assert said == [], said
+        assert environment.ensure(version) == "", "a second pass made it again"
+
+
+@case
+def the_launcher_runs_the_environment_and_the_machines_python_without_one():
+    from ponos import environment
+
+    with tempfile.TemporaryDirectory() as directory:
+        version = Path(directory) / "app-1"
+        (version / "src" / "ponos").mkdir(parents=True)
+        (version / "src" / "ponos" / "__init__.py").write_text("", encoding="utf-8")
+        (version / "src" / "ponos" / "__main__.py").write_text(
+            "import sys\nprint(sys.prefix)\n", encoding="utf-8"
+        )
+        app = Path(directory) / "app"
+        app.symlink_to(version.name)
+        launcher = Path(directory) / "ponos"
+        launcher.write_text(
+            (ROOT / "bin" / "ponos.in").read_text(encoding="utf-8")
+            .replace("@APP_DIR@", str(app)).replace("@PYTHON@", environment.base_python()),
+            encoding="utf-8",
+        )
+        launcher.chmod(0o755)
+
+        def prefix() -> str:
+            return subprocess.run(
+                [str(launcher)], capture_output=True, text=True, check=True
+            ).stdout.strip()
+
+        assert Path(prefix()).resolve() == Path(sys.base_prefix).resolve(), (
+            "without an environment, the machine's Python"
+        )
+        assert environment.create(version) == ""
+        assert Path(prefix()) == version / environment.VENV, "the environment was not used"
+
+
+@case
 def the_header_does_not_offer_a_version_already_installed():
     """On 30 September 2026 the header said ↑ on an installation already on the
     newest commit: the stamp was written before the update it announced, and
@@ -15952,6 +16047,25 @@ def the_version_is_rewritten_where_the_product_reads_it():
         assert '__version__ = "9.9.9"' in init.read_text(encoding="utf-8")
 
 
+@case
+def the_project_file_says_the_version_the_product_says():
+    """`pyproject.toml` must name a version, and it is a copy of `__version__`.
+
+    `bump` writes both, against the real file's shape — the first `version =`
+    of the file, never `requires-python` nor a dependency's — and the tree as
+    committed agrees, or `check` would refuse the tag.
+    """
+    assert release.read_project_version() == release.read_version(), "pyproject.toml lags"
+    with tempfile.TemporaryDirectory() as directory:
+        pyproject = Path(directory) / "pyproject.toml"
+        original = release.PYPROJECT.read_text(encoding="utf-8")
+        pyproject.write_text(original, encoding="utf-8")
+        release.write_project_version("9.9.9", pyproject)
+        assert release.read_project_version(pyproject) == "9.9.9"
+        rewritten = pyproject.read_text(encoding="utf-8")
+        assert rewritten.replace('version = "9.9.9"', f'version = "{release.read_version()}"', 1) == original
+
+
 # -- a board made of files ----------------------------------------------------
 
 
@@ -21553,7 +21667,8 @@ def health_reports_a_project_whose_folder_is_gone_and_one_with_no_remote():
     assert bare[1].state == health.ERROR and bare[1].steps
 
 
-def main() -> int:
+def isolate() -> None:
+    """What the whole suite runs under, whoever starts it: `main` or pytest."""
     # Claude Code's own store, pointed at an empty directory for the whole
     # suite. Everything here is pure, and "how much of this machine's
     # subscription is spent" is the least pure fact there is: a laptop at 96 %
@@ -21570,6 +21685,10 @@ def main() -> int:
     # once rather than asking the real GitHub for a token. The tests about the
     # app replace the transport itself — see `_github_answering`.
     os.environ[github_app.API_ENV] = "http://127.0.0.1:9"
+
+
+def main() -> int:
+    isolate()
     failures = 0
     for function in CASES:
         try:

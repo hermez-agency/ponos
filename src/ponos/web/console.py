@@ -44,7 +44,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
 
-from .. import disk, openrouter, progress, provider, session, voice
+from .. import openrouter, progress, provider, session, voice
 from ..config import Config, state_dir
 from . import attachments as files
 from . import chats

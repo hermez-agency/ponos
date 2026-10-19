@@ -185,6 +185,27 @@ fi
 # is never written over.
 [ -e "$APP_ROOT/app-$LABEL" ] && LABEL="$LABEL-$(date +%s)"
 mv "$STAGE" "$APP_ROOT/app-$LABEL"
+
+# Its environment, made before `app` names it (environment.py says why): a
+# version whose packages cannot be installed is removed, and the version in use
+# — when there is one — stays in use, untouched. It is made from the Python
+# chosen in step 1.
+if ! ENV_PROBLEM=$(PYTHONPATH="$APP_ROOT/app-$LABEL/src" "$PYTHON" - "$APP_ROOT/app-$LABEL" <<'PY'
+import pathlib, sys
+from ponos import environment
+problem = environment.create(pathlib.Path(sys.argv[1]))
+print(problem)
+sys.exit(1 if problem else 0)
+PY
+); then
+    rm -rf "$APP_ROOT/app-$LABEL"
+    die "the environment could not be made: $ENV_PROBLEM — nothing changed"
+fi
+if [ -x "$APP_ROOT/app-$LABEL/.venv/bin/python" ]; then
+    ok "environment in $APP_ROOT/app-$LABEL/.venv"
+else
+    warn "no environment (this python3 cannot make one) — the machine's python3 runs ponos, as before"
+fi
 PREVIOUS=""
 if [ -L "$APP_DIR" ]; then
     PREVIOUS="$(readlink "$APP_DIR")"
@@ -204,6 +225,8 @@ done
 ok "sources in $APP_ROOT/app-$LABEL ($WHAT)"
 
 # --- 3. executable ----------------------------------------------------------
+# The Python chosen above: the launcher prefers the version's environment, and
+# falls back on this one while a version has none.
 sed -e "s|@APP_DIR@|$APP_DIR|g" -e "s|@PYTHON@|$PYTHON|g" \
     "$APP_DIR/bin/ponos.in" > "$BIN"
 chmod +x "$BIN"

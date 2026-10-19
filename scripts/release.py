@@ -7,9 +7,10 @@
     python3 scripts/release.py check [VERSION]   everything that must be true before a tag
     python3 scripts/release.py publish [VERSION] the GitHub release, from the tag
 
-The version lives in exactly one place — `__version__` in
-`src/ponos/__init__.py` — and the notes live in exactly one other,
-`CHANGELOG.md`. Everything else is derived: the tag is `v` and the version, the
+The version lives in `__version__`, in `src/ponos/__init__.py` — and is copied
+into `pyproject.toml`, which the Python tools require to say one; `bump` writes
+both and `check` refuses a tree where they differ. The notes live in exactly one
+place, `CHANGELOG.md`. Everything else is derived: the tag is `v` and the version, the
 release title is the name and the version, the release body is the changelog
 section. Nothing here invents a number or writes prose; it moves what a human
 already wrote into the shapes git and GitHub want.
@@ -39,6 +40,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 INIT = ROOT / "src" / "ponos" / "__init__.py"
+PYPROJECT = ROOT / "pyproject.toml"
 CHANGELOG = ROOT / "CHANGELOG.md"
 BLUEPRINT = ROOT / "docker" / "dokploy"
 
@@ -126,6 +128,27 @@ def write_version(version: str, init: Path | None = None) -> None:
     )
     if count != 1:
         raise Problem(f"no __version__ to rewrite in {path}")
+    path.write_text(text, encoding="utf-8")
+
+
+# The `version = "..."` of the `[project]` table: the first one in the file.
+PROJECT_VERSION = re.compile(r'^(version\s*=\s*")([^"]+)(")', re.MULTILINE)
+
+
+def read_project_version(pyproject: Path | None = None) -> str:
+    match = PROJECT_VERSION.search((pyproject or PYPROJECT).read_text(encoding="utf-8"))
+    return match.group(2) if match else ""
+
+
+def write_project_version(version: str, pyproject: Path | None = None) -> None:
+    path = pyproject or PYPROJECT
+    text, count = PROJECT_VERSION.subn(
+        lambda match: match.group(1) + version + match.group(3),
+        path.read_text(encoding="utf-8"),
+        count=1,
+    )
+    if count != 1:
+        raise Problem(f"no version to rewrite in {path}")
     path.write_text(text, encoding="utf-8")
 
 
@@ -257,9 +280,11 @@ def command_bump(arguments: argparse.Namespace) -> int:
     text = promote(text, version, date)
     CHANGELOG.write_text(text, encoding="utf-8")
     write_version(version)
+    write_project_version(version)
     write_pins(version)
     print(f"{current} → {version}  ({date})")
     print(f"  {INIT.relative_to(ROOT)}")
+    print(f"  {PYPROJECT.relative_to(ROOT)}")
     print(f"  {CHANGELOG.relative_to(ROOT)}")
     print(f"  {BLUEPRINT.relative_to(ROOT)}/")
     print(f"\nreview the diff, commit it, then: {sys.argv[0]} check")
@@ -278,6 +303,9 @@ def command_check(arguments: argparse.Namespace) -> int:
 
     if version != read_version():
         problems.append(f"__version__ is {read_version()}, not {version}")
+
+    if read_project_version() != version:
+        problems.append(f"pyproject.toml says {read_project_version() or 'no version'}, not {version}")
 
     for name, pinned in read_pins().items():
         if pinned != version:
