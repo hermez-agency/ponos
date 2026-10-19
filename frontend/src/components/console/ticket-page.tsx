@@ -29,6 +29,7 @@ import { Markdown } from "./markdown"
 import { Robot } from "./robot"
 import { Pulse, TicketLive } from "./session-log"
 import { TicketDecision, TicketTabContext, WINDOW_TAB } from "./ticket-decision"
+import { TicketOn } from "./ticket-on"
 import { TicketTime } from "./ticket-time"
 import {
   SEED,
@@ -601,6 +602,7 @@ function TicketTabs({
               </p>
             )}
           </div>
+          <TicketOn ticket={ticket} />
         </section>
       </TabsContent>
       <TabsContent value="discussion">

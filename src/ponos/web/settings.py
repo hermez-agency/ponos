@@ -521,6 +521,7 @@ SECTIONS: tuple[Section, ...] = (
                 "block": ("Block cause", "Written by the runner: why a stopped ticket stopped, as a code."),
                 "ci": ("CI", "Written by the runner: the state of the pull request's checks while it is in review."),
                 "subtype": ("Sub-type", "Bug, Feature, Amélioration… on a code ticket; empty, it is deduced."),
+                "on": ("Prompt on status change", "A prompt run at every change of the ticket's status; empty, nothing runs."),
                 "cadence": ("Schedule: cadence", "Hourly, Daily, Weekly or Monthly."),
                 "at": ("Schedule: time", "The hour, written 09:00."),
                 "day": ("Schedule: day", "Monday… or 1 to 31."),
@@ -1091,6 +1092,40 @@ SECTIONS: tuple[Section, ...] = (
                   "Only when the runner lives on a server, e.g. `me@server.example.com`: the "
                   "ticket's Session link then opens the session over ssh.",
                   placeholder="this machine",
+                  advanced=True),
+        ),
+    ),
+    Section(
+        key="on",
+        group="execution",
+        title="Prompt on status change",
+        blurb=(
+            "A ticket whose « On » column holds a prompt runs it at every change of its "
+            "status — yours or the runner's — with the old status, the new one and the ticket."
+        ),
+        fields=(
+            Field("runner", "on", "bool", "Run the « On » prompt of a ticket",
+                  "A ticket whose « On » column holds a prompt runs it, in a session of its own, "
+                  "at every change of its status. Off: no prompt runs."),
+            Field("runner", "on_interval_seconds", "int", "Look for moved statuses every",
+                  "10 at the least; one request per hundred tickets that carry a prompt.",
+                  minimum=10,
+                  unit="seconds",
+                  advanced=True),
+            Field("runner", "on_max_depth", "int", "Generations of tickets created in a chain",
+                  "A ticket created by a prompt runs its own prompt only this many generations "
+                  "down. 0 stops the chain at once.",
+                  minimum=0,
+                  advanced=True),
+            Field("runner", "on_timeout_minutes", "int", "Time limit per prompt",
+                  "The session is stopped after this long.",
+                  minimum=1,
+                  unit="minutes",
+                  advanced=True),
+            Field("runner", "on_permission_mode", "choice", "What a prompt may do",
+                  "Empty: the same as a ticket's session, since a prompt is there to act.",
+                  choices=("", *PERMISSION_MODES),
+                  options=(("", "Like a ticket"), *PERMISSION_OPTIONS),
                   advanced=True),
         ),
     ),

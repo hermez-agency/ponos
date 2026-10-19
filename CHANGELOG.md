@@ -26,6 +26,15 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
   answers 404 to any other path on a request that carries Funnel's header. Never enabled by the installer or an
   update; README: "From your phone".
 
+- **A prompt on every change of status: the `On` column.** Write a prompt in a ticket's new `On` column and Ponos runs
+  it, in a session of its own, each time the ticket's status changes — yours or the runner's — told the old status, the
+  new one and the ticket (title, project, pull request, last report). One prompt for every transition, so « if it goes to
+  validated, create the deployment ticket » is one line on the ticket. One execution per change, never twice after a
+  restart; what an execution moves or creates never wakes a prompt in turn, and a chain of tickets made by prompts stops
+  at `runner.on_max_depth` generations; each execution is capped by `budget.on_usd` (1 $) and `on_timeout_minutes`; an
+  error is a comment on the ticket and never touches its status. The console shows and edits the prompt on the ticket's
+  page, with the list of its executions (transition, state, cost, result). `ponos init` adds the column; a Markdown
+  board reads it as an `On:` field.
 - **The disk is looked after.** A worktree is removed once its ticket has been done *or cancelled* for the retention,
   and any worktree untouched for `stale_worktree_days` (30) goes whatever its ticket — never one whose ticket is in
   progress, nor one holding uncommitted changes or commits no remote has; its local branch goes when a remote holds all

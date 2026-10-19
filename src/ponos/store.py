@@ -81,6 +81,10 @@ COLUMNS: dict[str, tuple[tuple[str, ...], str]] = {
         "a code ticket's sub-type is not kept, so its commit, its pull request and its "
         "CHANGELOG entry go by its title's prefix alone",
     ),
+    "on": (
+        ("rich_text",),
+        "the prompt a ticket runs at each change of status is not read, so none runs",
+    ),
 }
 
 

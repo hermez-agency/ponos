@@ -1473,6 +1473,38 @@ export const FRENCH: Record<string, string> = {
   "Time limit per answer (minutes)": "Durée maximale par réponse (minutes)",
   "Somebody is waiting for it: keep it short.": "Quelqu'un l'attend : gardez-la courte.",
   "What an answer may do": "Ce qu'une réponse peut faire",
+  "Run the « On » prompt of a ticket": "Exécuter le prompt « On » d'un ticket",
+  "A ticket whose « On » column holds a prompt runs it, in a session of its own, at every change of its status. Off: no prompt runs.":
+    "Un ticket dont la colonne « On » contient un prompt l'exécute, dans une session à part, à chaque changement de son statut. Désactivé : aucun prompt ne s'exécute.",
+  "A prompt Ponos runs at every change of this ticket's status, with the old status, the new one and the ticket. Empty, nothing runs.":
+    "Un prompt que Ponos exécute à chaque changement de statut de ce ticket, avec l'ancien statut, le nouveau et le ticket. Vide, rien ne s'exécute.",
+  "If it goes to validated, create the deployment ticket.":
+    "Si on passe en validé, crée le ticket de déploiement.",
+  "Save the prompt": "Enregistrer le prompt",
+  "Prompt saved": "Prompt enregistré",
+  "Prompt removed": "Prompt retiré",
+  "not started": "pas encore lancé",
+  "being run": "en cours d'exécution",
+  "ran": "exécuté",
+  "stopped on an error": "arrêté sur une erreur",
+  "not run": "non exécuté",
+  generation: "génération",
+  "A ticket whose « On » column holds a prompt runs it at every change of its status — yours or the runner's — with the old status, the new one and the ticket.":
+    "Un ticket dont la colonne « On » contient un prompt l'exécute à chaque changement de son statut — le vôtre ou celui du runner — avec l'ancien statut, le nouveau et le ticket.",
+  "Look for moved statuses every": "Chercher les statuts modifiés toutes les",
+  "Look for moved statuses every (seconds)": "Chercher les statuts modifiés toutes les (secondes)",
+  "10 at the least; one request per hundred tickets that carry a prompt.":
+    "10 au minimum ; une requête par centaine de tickets qui portent un prompt.",
+  "Generations of tickets created in a chain": "Générations de tickets créés en chaîne",
+  "A ticket created by a prompt runs its own prompt only this many generations down. 0 stops the chain at once.":
+    "Un ticket créé par un prompt n'exécute son propre prompt que jusqu'à cette génération. 0 arrête la chaîne aussitôt.",
+  "Time limit per prompt": "Durée maximale par prompt",
+  "Time limit per prompt (minutes)": "Durée maximale par prompt (minutes)",
+  "The session is stopped after this long.": "La session est arrêtée au bout de ce temps.",
+  "What a prompt may do": "Ce qu'un prompt peut faire",
+  "Empty: the same as a ticket's session, since a prompt is there to act.":
+    "Vide : comme la session d'un ticket, puisqu'un prompt est là pour agir.",
+  "Like a ticket": "Comme un ticket",
   "Look again at blocked tickets": "Réexaminer les tickets bloqués",
   "A session reads why each blocked ticket stopped and whether that still holds. Only a ticket whose cause is gone goes back to ready; the reason is written on it either way. It costs a session per ticket.":
     "Une session lit pourquoi chaque ticket bloqué s'est arrêté et si cela tient toujours. Seul un ticket dont la cause a disparu repasse en prêt ; la raison est écrite dessus dans les deux cas. Cela coûte une session par ticket.",
@@ -1617,6 +1649,9 @@ export const FRENCH: Record<string, string> = {
   "Waiting for credit": "En attente de crédit",
   "Ticked while the subscription limit is reached.":
     "Cochée tant que la limite de l'abonnement est atteinte.",
+  "Prompt on status change": "Prompt à chaque changement de statut",
+  "A prompt run at every change of the ticket's status; empty, nothing runs.":
+    "Un prompt exécuté à chaque changement de statut du ticket ; vide, rien ne s'exécute.",
   Type: "Type",
   "Code, Writing, External action or Publication; empty, it is guessed.":
     "Code, Rédaction, Action externe ou Publication ; vide, il est deviné.",

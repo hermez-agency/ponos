@@ -630,6 +630,8 @@ class Handler(BaseHTTPRequestHandler):
                     return self._fail(409, str(error))
             if match := re.fullmatch(r"/api/tickets/([0-9a-fA-F-]{32,36})/runs", route):
                 return self._json(self.api.runs(match.group(1)))
+            if match := re.fullmatch(r"/api/tickets/([0-9a-fA-F-]{32,36})/transitions", route):
+                return self._json(self.api.transitions(match.group(1)))
             if match := re.fullmatch(r"/api/runs/(\d+)/steps", route):
                 try:
                     pages = {
@@ -749,8 +751,11 @@ class Handler(BaseHTTPRequestHandler):
                         str(payload.get("type", "")),
                         str(payload.get("model", "")),
                         str(payload.get("subtype", "")),
+                        str(payload.get("on", "")),
                     )
                 )
+            if match := re.fullmatch(r"/api/tickets/([0-9a-fA-F-]{32,36})/on", route):
+                return self._json(self.api.set_on(match.group(1), str(payload.get("on", ""))))
             if match := re.fullmatch(r"/api/tickets/([0-9a-fA-F-]{32,36})/status", route):
                 seen = payload.get("from")
                 return self._json(

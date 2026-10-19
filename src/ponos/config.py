@@ -350,6 +350,16 @@ class Runner:
     # `plan` is the guardrail, not the prompt: a conversation that quietly
     # edited a repository is the one thing nobody would expect of it.
     reply_permission_mode: str = "plan"
+    # The « On » column: a prompt run at every change of a ticket's status — see
+    # transitions.py. The board is read at most this often, the prompt may spend
+    # `budget.on_usd` per execution, and a ticket born of an execution may
+    # itself run its prompt only `on_max_depth` generations down.
+    on: bool = True
+    on_interval_seconds: int = 30
+    on_max_depth: int = 3
+    on_timeout_minutes: int = 10
+    # Empty: the mode tickets run under, since the prompt is there to act.
+    on_permission_mode: str = ""
     # Looking again at what is blocked, and moving back to ready what no longer
     # is — see unblocking.py. Off by default: it spends a session per ticket.
     unblock: bool = False
@@ -626,6 +636,10 @@ class Budget:
 
     daily_usd: float = 0.0
     per_ticket_usd: float = 0.0
+    # One execution of a ticket's « On » prompt (see transitions.py). Unlike the
+    # other two it has a default: a prompt acts on its own, on a change nobody
+    # was watching for, and no limit is the wrong thing to start from.
+    on_usd: float = 1.0
 
 
 # What a session does without asking, and what it never does without Salva's
@@ -815,6 +829,9 @@ _DEFAULT_PROPERTIES = {
     # select, ignored on the other types. Empty, the runner fills it before the
     # ticket runs: from the title's prefix, or by asking. See subtypes.py.
     "subtype": "Sous-type",
+    # A prompt run at every change of the ticket's status, whoever made it. Text,
+    # optional, and empty means nothing happens: see transitions.py.
+    "on": "On",
     # Why a blocked or failed ticket stopped: a code of blocks.py, as a select a
     # Notion view filters on. Written when it stops, emptied when it leaves.
     "block": "Blocage",
@@ -1494,6 +1511,17 @@ def load(path: Path | None = None, *, secrets: Path | None = None) -> Config:
             runner_raw.get("reply_permission_mode", defaults.reply_permission_mode)
         ).strip()
         or defaults.reply_permission_mode,
+        on=bool(runner_raw.get("on", defaults.on)),
+        on_interval_seconds=max(
+            10, int(runner_raw.get("on_interval_seconds", defaults.on_interval_seconds))
+        ),
+        on_max_depth=max(0, int(runner_raw.get("on_max_depth", defaults.on_max_depth))),
+        on_timeout_minutes=max(
+            1, int(runner_raw.get("on_timeout_minutes", defaults.on_timeout_minutes))
+        ),
+        on_permission_mode=str(
+            runner_raw.get("on_permission_mode", defaults.on_permission_mode)
+        ).strip(),
         unblock=bool(runner_raw.get("unblock", defaults.unblock)),
         # A ticket is looked at once in this long, and a session is spent each
         # time: ten minutes is the floor.
@@ -1657,6 +1685,7 @@ def load(path: Path | None = None, *, secrets: Path | None = None) -> Config:
     budget = Budget(
         daily_usd=_dollars(budget_raw.get("daily_usd")),
         per_ticket_usd=_dollars(budget_raw.get("per_ticket_usd")),
+        on_usd=_dollars(budget_raw.get("on_usd", Budget.on_usd)),
     )
 
     permissions_raw = raw.get("permissions", {})

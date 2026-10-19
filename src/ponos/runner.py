@@ -36,7 +36,7 @@ from __future__ import annotations
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 
 from . import base, board, ci, cleanup, credits, delivery, execution, preparation
-from . import recurrence, replies, reports, state, unblocking
+from . import recurrence, replies, reports, state, transitions, unblocking
 from . import update as update_module
 from .projects import Project
 from .ticket import Ticket
@@ -52,6 +52,7 @@ class Runner(
     recurrence.Recurrence,
     replies.Replies,
     reports.Reports,
+    transitions.Transitions,
     unblocking.Unblocking,
     base.Base,
 ):
@@ -90,9 +91,9 @@ class Runner(
         # everything that costs no credit carries on, so a pull request you
         # validated this morning is still merged this afternoon.
         reserved = self.under_reserve()
-        # What the board asked for before any new work: the tickets you
-        # validated, merged or published on their way to done.
-        delivered: list[dict] = []
+        # What the board asked for before any new work: tickets you validated
+        # (merged, published on their way to done) and « On » prompts that woke.
+        delivered: list[dict] = [] if reference else self.transitions()
         if reference:
             tickets = self.requested(reference)
         else:
@@ -104,7 +105,7 @@ class Runner(
                 self.tidy()
             # Both before the queue, and both recorded as they happen: see
             # `delivered` and `born`.
-            delivered = self.delivered() + self.born()
+            delivered += self.delivered() + self.born()
             tickets, waiting = self.queue()
             # Every ticket the queue wants, and not only the ones that will fit
             # in this pass: a ticket queued for the next run — or held until

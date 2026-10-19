@@ -2740,6 +2740,95 @@ def a_board_that_cannot_be_reached_marks_no_ticket_failed_and_the_run_does_not_f
         assert machine.run()[0]["status"] == "done", "and the next pass, with the network back, runs it"
 
 
+def _with_an_on_prompt(machine: "Bench", ticket: str, prompt: str) -> None:
+    """The board given its « On » column, and a ticket the prompt written in it."""
+    database = machine.board.databases[machine.database]
+    database["properties"] = {**database["properties"], "On": {"type": "rich_text", "rich_text": {}}}
+    machine.board.pages[ticket]["properties"]["On"] = _stored({"rich_text": _rich(prompt)})
+
+
+@case
+def a_status_that_moves_runs_the_on_prompt_once_and_a_restart_does_not_run_it_again():
+    """The prompt of a ticket, woken by a change and by nothing else.
+
+    A fresh `Runner` for every pass is the restart: what keeps a change from
+    running twice is not in the process. And the first reading of a ticket is a
+    starting point — turning the feature on must not replay a board's past.
+    """
+    from ponos import transitions
+
+    with bench() as machine:
+        ticket = machine.ticket("Déployer le site", "Rien à faire ici.", status="Failed")
+        _with_an_on_prompt(machine, ticket, "Si on passe en Blocked, note-le dans le brief.")
+
+        assert machine.run() == [] and not machine.sessions(), "a first sight is not a change"
+
+        machine.move(ticket, "Blocked")
+        results = machine.run()
+        assert [entry["status"] for entry in results] == ["on-ok"], results
+        assert results[0]["transition"] == "Failed → Blocked", results
+        sessions = machine.sessions()
+        assert len(sessions) == 1, sessions
+        prompt = sessions[0]["prompt"]
+        assert "Old status: Failed" in prompt and "New status: Blocked" in prompt, prompt
+        assert "Si on passe en Blocked, note-le dans le brief." in prompt
+        assert "Déployer le site" in prompt, "the ticket reaches the prompt"
+        assert sessions[0]["budget"] == "1.00", "an execution has a ceiling"
+
+        # The log is emptied before each pass: a session here would be a second one.
+        for _ in range(2):
+            assert machine.run() == [] and not machine.sessions(), "one execution per change"
+
+        machine.move(ticket, "Failed")
+        assert len(machine.run()) == 1 and len(machine.sessions()) == 1, "the next change runs it again"
+        history = transitions.history(ticket)
+        assert [(row["old"], row["new"], row["state"]) for row in history] == [
+            ("Blocked", "Failed", "ok"), ("Failed", "Blocked", "ok"),
+        ], history
+        assert history[0]["cost_usd"], "what an execution cost is kept"
+        assert machine.status(ticket) == "Failed", "the prompt's own session moved nothing"
+
+
+@case
+def an_on_prompt_that_fails_says_so_on_the_ticket_and_leaves_its_status_alone():
+    from ponos import transitions
+
+    with bench() as machine:
+        ticket = machine.ticket("Fragile", "Rien.", status="Failed")
+        _with_an_on_prompt(machine, ticket, "Fais quelque chose.")
+        machine.run()
+
+        machine.move(ticket, "Blocked")
+        with _environ({"FAKE_CLAUDE_FAIL": "le réseau est tombé"}):
+            results = machine.run()
+
+        assert [entry["status"] for entry in results] == ["on-failed"], results
+        assert machine.status(ticket) == "Blocked", "an error never moves a status"
+        said = machine.board.said(ticket)
+        assert said and "« On »" in said[-1] and "Failed → Blocked" in said[-1], said
+        assert transitions.history(ticket)[0]["state"] == "failed"
+        assert machine.run() == [] and not machine.sessions(), "a failed change is not tried again"
+
+
+@case
+def an_on_prompt_is_not_run_when_the_feature_is_off_nor_for_an_empty_prompt():
+    with bench(on=False) as machine:
+        ticket = machine.ticket("Muet", "Rien.", status="Failed")
+        _with_an_on_prompt(machine, ticket, "Fais quelque chose.")
+        machine.run()
+        machine.move(ticket, "Blocked")
+        machine.run()
+        assert not machine.sessions(), "runner.on = false runs nothing"
+
+    with bench() as machine:
+        ticket = machine.ticket("Sans prompt", "Rien.", status="Failed")
+        _with_an_on_prompt(machine, ticket, "")
+        machine.run()
+        machine.move(ticket, "Blocked")
+        machine.run()
+        assert not machine.sessions(), "an empty prompt does nothing"
+
+
 def main() -> int:
     started = time.monotonic()
     failures = 0

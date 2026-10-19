@@ -277,6 +277,44 @@ No RESULT line and no other report.
 {language}"""
 
 
+ON_STATUS = """\
+The status of a Notion ticket {scope} has just changed, and the ticket carries a \
+prompt written for exactly that moment. You are carrying it out, alone and with \
+nobody to talk to: no one can answer a question while the session runs.
+
+# The ticket — {title}
+
+{body}
+
+{comments}{context}{brief}{agent}# Context
+
+- {where}
+- Notion ticket: {url}
+
+# The change that woke you
+
+{message}
+
+# What is expected
+
+1. Do what the prompt above asks, for this transition and no other: it was \
+written for every change of status of this ticket, and says by itself which \
+ones concern it. If it asks nothing of this one, do nothing and say so.
+2. The repository, if there is one, is read-only for you — work that belongs in \
+it is a ticket, not an edit made from here. Creating tickets on the board and \
+writing on this one are yours to do.
+3. A ticket you create runs its own prompt on its own changes of status, and a \
+status you change on any ticket does not wake this prompt again: do not create \
+tickets in a chain without a reason, there is a limit to how deep they go.
+4. You have a spending limit. If you are stopped on it, whatever you had not \
+done is not done.
+5. End with one line, in English, whatever the language of the ticket:
+
+RESULT: ok — <what you did, in one sentence, or that nothing was asked>
+RESULT: blocked — <what stopped you>
+{language}"""
+
+
 FOLLOW_UP = """\
 A new message in the same thread, on the same ticket. Same rules: you are \
 talking, not working — answer it, change nothing, stay in its language, keep it \

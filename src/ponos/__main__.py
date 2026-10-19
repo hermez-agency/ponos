@@ -571,6 +571,10 @@ def command_status(args: argparse.Namespace) -> int:
         )
     if configuration.budget.per_ticket_usd > 0:
         ok(f"per-ticket limit {configuration.budget.per_ticket_usd:.2f} $")
+    if configuration.runner.on:
+        cap = configuration.budget.on_usd
+        ok(f"« On » prompts: {f'{cap:.2f} $ each' if cap > 0 else 'no spending limit'}, "
+           f"{configuration.runner.on_max_depth} generation(s) of chained tickets")
 
     rules = configuration.permissions
     ok(f"permissions: {len(rules.allowed)} done alone, {len(rules.ask)} always asked")

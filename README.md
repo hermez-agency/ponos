@@ -238,6 +238,7 @@ itself and nothing else. The rest is one chapter per module:
 | `delivery.py` | the validated column: merging, or publishing what the ticket holds |
 | `recurrence.py` | what a due schedule becomes — an ordinary ticket |
 | `replies.py` | answering the comments that are waiting for an answer |
+| `transitions.py` | the `On` column: the prompt a ticket runs at each change of its status |
 | `reports.py` | what is written on a ticket, and what reaches your phone |
 | `ticket.py` | `Ticket` and `Job`, the two nouns everything else passes around |
 
@@ -1045,6 +1046,7 @@ tickets are made up:
 | `Blocage` | select | *optional* — filled by the runner when a ticket stops: **why**, as a code (`merge.checks-failed`, `session.question`, `worktree.residue`…), emptied when it leaves *Blocked* or *Failed* — see [Why a ticket stopped](#why-a-ticket-stopped) |
 | `CI` | select | *optional* — written by the runner while the ticket is in *In review*: the state of its pull request's checks (`en cours`, `réussi`, `erreur`), empty for a repository without CI — see [CI on the card](#ci-on-the-card) |
 | `Sous-type` | select | *optional* — on a **Code** ticket, what kind of change it is: `Bug`, `Feature`, `Amélioration`, `Chore`, `Refactor`, `Perf`, `Docs`, `Sécurité`. Decides the prefix of its commit and pull request and its CHANGELOG section; ignored on the other types. Empty, the runner fills it — see [The sub-type of a code ticket](#the-sub-type-of-a-code-ticket) |
+| `On` | text | *optional* — a **prompt Ponos runs at every change of the ticket's status**, yours or the runner's. Empty, nothing happens — see [A prompt on every change of status](#a-prompt-on-every-change-of-status) |
 
 `Waiting for credit` is an attribute rather than an eighth column, and on purpose: nothing
 happened to a ticket nothing was started for, so nothing on the board should say it moved.
@@ -1746,6 +1748,49 @@ It is deliberately slow and small: a ticket is looked at once every
 `unblock_interval_seconds` (six hours by default), three tickets at most per pass, and never
 one edited in the last hour — a question asked just now is waiting for its answer. A ticket
 already answered in a comment is left to the usual way of waking.
+
+### A prompt on every change of status
+
+Write a prompt in the ticket's `On` column and Ponos runs it each time the ticket's
+status changes — whoever changes it: you in Notion or in the console, or Ponos itself
+(*Ready → In progress*, *In review → Validated*, → *Blocked*…). The session is told the old
+status, the new one and the ticket (title, page, discussion with the last report, project,
+pull request, cost), and the prompt decides what the transition is worth. One prompt for
+every transition, so it says which ones concern it:
+
+> If it goes to **Validated**, create the deployment ticket in the *Infra* project. Any
+> other change: do nothing.
+
+It is the same text field on a Markdown board (an `On:` line in the ticket's front matter),
+and in the console, on the ticket's page under its brief, with the list of its executions:
+the transition each answered, its state, what it cost, how long it took and what it said.
+`ponos init` adds the column to a board that does not have it; `ponos doctor` says if it is
+missing. Settings › Prompt on status change turns it off (`runner.on = false`).
+
+How it behaves, because a prompt that acts on its own needs limits:
+
+- **Seen, not told.** The board is read at most once in `runner.on_interval_seconds`
+  (30 s), only the tickets whose `On` is filled. The first time a ticket is seen is its
+  starting point, not a change — turning this on does not replay your board. Two changes
+  between two readings are one change, from the first status to the last.
+- **Once per transition.** A change is written down in `ponos.db` in the same transaction
+  that moves the ticket's remembered status forward, so a restart never runs it twice. An
+  execution a dead run left open is closed as interrupted and not started again; one that
+  could not start for want of credit is simply run later.
+- **No loop.** Every status changed while an execution ran — its ticket's included — is
+  taken as the new starting point without running anything, and a ticket the execution
+  created is one generation below it: past `runner.on_max_depth` (3) its changes run
+  nothing, and say so in the list. A status you change by hand during those minutes is
+  lost to the prompt.
+- **A ceiling on each execution.** `budget.on_usd` (1 $) is handed to the session as
+  `--max-budget-usd`; `runner.on_timeout_minutes` (10) stops it by the clock. It acts, so it
+  runs under `runner.permission_mode` unless `runner.on_permission_mode` says otherwise —
+  in a scratch directory of its own, never in your repository: work for the repository is a
+  ticket it creates.
+- **Errors stay on the ticket.** A failed, overspent or timed-out execution is logged,
+  commented on the ticket (`⚠️ The « On » prompt failed on Ready → Blocked: …`) and never
+  changes its status. It is also a line of `ponos history` (`kind: on`) and counts in the
+  day's spending.
 
 ### The statuses
 
@@ -3580,7 +3625,7 @@ than the one this guards against.
 
 ### Spending limits
 
-`[budget]` draws two lines in dollars; empty is no limit, and both count what the CLI reports
+`[budget]` draws three lines in dollars; empty is no limit, and both count what the CLI reports
 a session cost — which a subscription does not, so they are for an API key or OpenRouter.
 
 - **`budget.daily_usd`** is read where a session is about to *start*, against what the
@@ -3591,6 +3636,9 @@ a session cost — which a subscription does not, so they are for an API key or 
 - **`budget.per_ticket_usd`** is handed to each session as `--max-budget-usd`: the CLI stops
   at the limit, between two steps, and the ticket goes to *blocked* with the reason. Answering
   it starts a new session, with a new allowance.
+
+- **`budget.on_usd`** (one dollar when the line is absent; empty or `0` for none) is the same
+  ceiling for one execution of a ticket's [`On` prompt](#a-prompt-on-every-change-of-status).
 
 The cost of a session that ended *blocked* or *failed* is written in the ticket's **Cost** like
 any other — it was paid for all the same, and the daily limit counts it.
