@@ -242,6 +242,12 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
   them with English; a schedule set to every hour says that only the minutes count. Ideas and Schedules use the whole
   width, as the board and the projects do, and the Ideas filters are no longer cut at the edge. On a phone, the
   dashboard no longer scrolls sideways.
+
+- **The image moves to `ghcr.io/hermez-agency/ponos`.** The repository now lives under the hermez-agency organisation,
+  and the next release publishes its image there: `docker-compose.yml`, the Dokploy template and `release.py bump`
+  point at it. The old `ghcr.io/salvadorcardona/ponos` (`0.1.0` and `latest`) stays where it is, so an existing
+  installation keeps pulling it; change the `image:` line to follow the new releases.
+
 - **The Projects page uses the whole width of the screen.** The centred column and its wide empty margins are gone, in
   the split, cards and table layouts alike: the list keeps its width, the context and the project picked take the
   rest, and the cards show up to five per row on a large screen. A phone is unchanged.
