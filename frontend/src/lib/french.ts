@@ -1933,7 +1933,6 @@ export const FRENCH: Record<string, string> = {
   "Quicker than an App: a fine-grained token limited to the repositories you pick. Prefer the App for an organisation, for several people, or when you want tokens that expire on their own; the token suits one person and a first try.":
     "Plus rapide qu'une App : un jeton à granularité fine limité aux dépôts que vous choisissez. Préférez l'App pour une organisation, pour plusieurs personnes, ou si vous voulez des jetons qui expirent d'eux-mêmes ; le jeton convient à une personne et à un premier essai.",
   // Settings › Code › GitHub access.
-  "GitHub access": "Accès à GitHub",
   "How clones, pushes and pull requests reach GitHub: a GitHub App, or a personal access token. The token itself is pasted in the GitHub tab, which checks it; it is never kept in this file.":
     "Comment les clones, les pushes et les pull requests atteignent GitHub : une GitHub App, ou un jeton d'accès personnel. Le jeton se colle dans l'onglet GitHub, qui le vérifie ; il n'est jamais gardé dans ce fichier.",
   "Reach GitHub with": "Atteindre GitHub avec",
