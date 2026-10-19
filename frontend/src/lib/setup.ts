@@ -8,8 +8,19 @@
  * to `t()` with its parameters, and `french.ts` holds the other language.
  */
 
-/** The steps, in the order somebody would say them. */
-export const STEPS = ["access", "provider", "notion", "github", "channels", "summary"] as const
+/** The steps, in the order somebody would say them — and the first ticket
+ * last, since it is the proof that every step before it holds. */
+export const STEPS = [
+  "language",
+  "access",
+  "provider",
+  "notion",
+  "github",
+  "project",
+  "channels",
+  "demo",
+  "summary",
+] as const
 export type StepKey = (typeof STEPS)[number]
 
 /** What the server says before a step is drawn — `GET /api/setup`. */
@@ -55,6 +66,50 @@ export interface Summary {
   projects: { state: Health; root: string; repositories: number; configured: number }
   channels: { state: Health; active: string[] }
   environment: { state: Health; container: boolean; version: string }
+  /** git, Claude Code and its sign-in, the disk — what `doctor` checks under Tools. */
+  machine: { state: Health; needs: Need[] }
+}
+
+/** One thing the machine needs, and the command that installs it when it is missing. */
+export interface Need {
+  name: string
+  ok: boolean
+  required: boolean
+  said: string
+  fix: string
+}
+
+/** What `GET /api/setup/notion` found shared with the integration. */
+export interface Shared {
+  ok: boolean
+  said: string
+  /** Notion said the token is not one of its own: the page says it, translated. */
+  refused?: boolean
+  /** The integration's name, as Notion shows it in the Connections menu. */
+  name: string
+  pages: { id: string; title: string; url: string }[]
+  boards: { id: string; url: string }[]
+}
+
+/** Where the demonstration ticket stands — `GET /api/setup/demo`. */
+export interface Demo {
+  id: string
+  title: string
+  url: string
+  column: string
+  status: string
+  progress: string
+  running: boolean
+  code: number | null
+  said: string
+}
+
+/** The columns a ticket's run can end in, and what the page makes of each. */
+export function demoOutcome(demo: Pick<Demo, "column" | "running" | "code">): "waiting" | "done" | "stuck" | "failed" {
+  if (["review", "validated", "done"].includes(demo.column)) return "done"
+  if (demo.column === "blocked") return "stuck"
+  if (demo.column === "failed" || (demo.code !== null && demo.code !== 0)) return "failed"
+  return "waiting"
 }
 
 /** One line of the summary: an English sentence and its parameters, a state, and where it is changed. */
@@ -77,7 +132,11 @@ export function stepsFor(state: Pick<SetupState, "claimed">): StepKey[] {
   return STEPS.filter((step) => step !== "access" || !state.claimed)
 }
 
-/** The step an address asks for, if this console has it — else the first. */
+/** The step an address asks for, if this console has it — else the first.
+ *
+ * The first is the language, the one step that needs nobody signed in: chosen
+ * in this browser at once, and written with the account, or straight away
+ * once there is one. */
 export function stepFrom(state: Pick<SetupState, "claimed">, asked: string | null): StepKey {
   const steps = stepsFor(state)
   return steps.find((step) => step === asked) ?? steps[0]
@@ -112,7 +171,7 @@ const PROVIDER_NAMES: Record<Provider, string> = {
 
 /** The summary, one line per thing that has to work. */
 export function rows(summary: Summary): Row[] {
-  const { provider, model, board, github, projects, channels, environment } = summary
+  const { provider, model, board, github, projects, channels, environment, machine } = summary
   const name = PROVIDER_NAMES[provider.provider] ?? provider.provider
   const providerValue: Pick<Row, "value" | "params"> =
     provider.provider === "cli"
@@ -140,7 +199,18 @@ export function rows(summary: Summary): Row[] {
             }
         : { value: "No board yet", params: {} }
 
+  const lacking = machine.needs.filter((need) => !need.ok)
   return [
+    {
+      key: "machine",
+      label: "This machine",
+      value: lacking.length ? "Missing: {{names}}" : "git, Claude Code and room on the disk",
+      params: { names: lacking.map((need) => need.name).join(", ") },
+      state: machine.state,
+      said: lacking.map((need) => (need.fix ? `${need.said} — ${need.fix}` : need.said)).join(" · "),
+      step: "summary",
+      section: "update",
+    },
     {
       key: "provider",
       label: "Claude provider",

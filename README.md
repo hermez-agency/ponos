@@ -130,26 +130,39 @@ and none of them is a requirement.
 
 ## Install it
 
-One command. It installs the `ponos` command, a timer that hands Ponos the ready tickets,
-and the console. Beyond Claude Code, nothing to sign up for.
+One command. It checks what your machine has — Python, git, Claude Code and its sign-in, room
+on the disk —, names whatever is missing with the command that installs it, starts Ponos and
+**opens its console in your browser**. Beyond Claude Code, nothing to sign up for.
 
 ```sh
 curl -LsSf https://raw.githubusercontent.com/hermez-agency/ponos/main/install.sh | sh
 ```
 
-Then, the board: make it a folder of Markdown files — in the console, *Settings › Where the
-board lives › markdown*, or one line under `[storage]` — and write your first ticket. The
-installer still asks for a Notion token first: press Enter to skip it.
+Everything after that happens in the console, on `http://127.0.0.1:8787` — never on the
+Internet: a [first connection](#the-first-connection) in steps, each one checked against the
+real thing before the next. The language; the password that opens the console; who answers
+the sessions; Notion — paste the integration's token, add it to one page, and the board is
+built under that page, found on its own as soon as it is shared; GitHub in one click; a first
+project; and a demonstration ticket, played there and then, which is the proof that every
+step holds. No Notion? The board can be [a folder of Markdown files](#without-notion-the-board-as-markdown-files).
 
-```sh
-# [storage] mode = "markdown"
-ponos config
-ponos doctor
-```
+It needs Linux or macOS, `python3` ≥ 3.11 — standard library only, nothing to install —,
+`git` and [Claude Code](https://claude.com/claude-code), which the installer offers to
+install when it is missing. `gh` is optional: the console connects GitHub itself. The rest is
+in [Installation](#installation) below.
 
-It needs Linux with systemd in the user session, `python3` ≥ 3.11 — standard library only,
-nothing to install —, `git` and [Claude Code](https://claude.com/claude-code), and `gh` only
-for tickets that end in a pull request. The rest is in [Installation](#installation) below.
+### It does not work?
+
+| Where it stops | What to do |
+| --- | --- |
+| the installer prints `✗ … is missing` | run the command printed under it, then the install line again — everything missing is listed at once |
+| `Failed to connect to bus` (an older installer) | there is no systemd user session here — WSL, a container, SSH: install again, the console is now started without it |
+| the browser does not open | open `http://127.0.0.1:8787` yourself; nothing answers? `ponos serve` starts it and says why it cannot |
+| `ponos: command not found` | `~/.local/bin` is not in your `PATH` — the installer prints the line to add |
+| Notion shows no page in the console | the page is not shared with the integration: `···` at the top right of the page → *Connections* → your integration. The console sees it within seconds |
+| the demonstration ticket fails | the console shows what the run said. *Run the full diagnosis* on the summary is `ponos doctor`, and is the text to paste when asking for help |
+
+[When it does not work](#when-it-does-not-work) has the rest, once Ponos runs.
 
 Or in a container, on your machine or behind a domain: `docker compose up -d`, then the
 console's first connection — see [Docker](#docker). On Dokploy, a template does it in one
@@ -282,19 +295,32 @@ a diagram that lands is a diagram that reads.
 curl -LsSf https://raw.githubusercontent.com/hermez-agency/ponos/main/install.sh | sh
 ```
 
-The script checks the dependencies, installs the `ponos` command into
-`~/.local/bin`, asks for a Notion token — Enter skips it, a [board of Markdown
-files](#without-notion-the-board-as-markdown-files) needs none — and arms a systemd timer that picks up ready
-tickets **every 30 minutes** — `interval_seconds` in the configuration changes that, down
-to a few seconds if you want a ticket picked up as soon as you move it. It also starts
-the [web console](#the-web-console) on `http://127.0.0.1:8787` and prints the address to
-open it with; `TR_NO_WEB=1` leaves it stopped. Then:
+The script checks the machine first and says everything that is missing at once, each with
+the command that installs it here — `apt-get`, `dnf`, `pacman` or `brew`, whichever this
+machine has; it picks the newest Python that is recent enough, `python3.12` beside an older
+`python3` included, and offers to install Claude Code when it is not there. Then it installs
+the `ponos` command into `~/.local/bin` and arms a timer that picks up ready tickets **every
+30 minutes** — `interval_seconds` in the configuration changes that, down to a few seconds if
+you want a ticket picked up as soon as you move it:
+
+- **Linux with a systemd user session** — a systemd timer, and the console as a service;
+- **macOS** — two launchd agents in `~/Library/LaunchAgents`, `app.ponos.run` and
+  `app.ponos.web`, logging under `~/.local/state/ponos/`;
+- **neither** — WSL, a container, an SSH session with no user bus: no timer, and the console
+  started in the background until the machine restarts. A ticket then runs when the console
+  starts it, or with `ponos run`.
+
+It ends by opening the [web console](#the-web-console) on `http://127.0.0.1:8787`, where the
+[first connection](#the-first-connection) does the rest; `TR_NO_WEB=1` leaves the console
+stopped, `TR_NO_OPEN=1` only skips the browser. Nothing is asked in the terminal any more.
+Later,
 
 ```sh
 ponos doctor
 ```
 
-which tells you, line by line, what is still missing.
+tells you, line by line, what is still missing — the same text as *Run the full diagnosis*
+in the console.
 
 Running the same command again **updates** the installation: the code is replaced, your
 configuration is kept.
@@ -363,15 +389,16 @@ changes the hour; `runner.update_channel` chooses between releases and `main` �
 `ponos doctor` says which one is followed. An installation made from a local copy (`TR_SRC=.`) has no remote to
 compare itself against: it says so once per check and carries on.
 
-> **Requirements** — Linux with systemd in the user session, `python3` >= 3.11 (no
-> dependencies to install, everything is in the standard library), `git`,
-> [Claude Code](https://claude.com/claude-code), and `gh` authenticated for pull requests.
+> **Requirements** — Linux or macOS, `python3` >= 3.11 (no dependencies to install,
+> everything is in the standard library), `git`, [Claude Code](https://claude.com/claude-code),
+> and for pull requests either the GitHub App the console connects or `gh` authenticated.
 
 | Variable | Effect |
 | --- | --- |
 | `TR_INTERVAL=10` | seconds between two runs (default: 1800, i.e. 30 min) |
 | `TR_NO_SERVICE=1` | no timer and no console: you run `ponos run` yourself |
 | `TR_NO_WEB=1` | the console's unit is installed, but left stopped |
+| `TR_NO_OPEN=1` | the console is started, but not opened in the browser |
 | `TR_SRC=.` | install from a local clone, without the network — and without self-updating |
 | `TR_REF=v1.2` | install a tag instead of `main`, and stay on it |
 
@@ -3211,31 +3238,54 @@ chosen in the configuration, no email and password set — serves its first conn
 instead of a door, and `http://127.0.0.1:8787` is the whole of the address. It comes in
 steps, drawn by the console itself, one write each:
 
-1. **Access** — the email and the password the console asks for from now on. They are
+1. **Language** — the console's, and the one the reports are written in. Taken in the
+   browser at once, and written to the file (`runner.language`, `runner.app_language`) with
+   the account — or straight away when there already is one.
+2. **Access** — the email and the password the console asks for from now on. They are
    written into `[web]`, the browser is signed in with them there and then, and that pair
    is what **closes this step for good**: from the next request on, the console is
    claimed. From anywhere but this machine, the *installation code* is asked first — see
    below.
-2. **Claude provider** — who answers the sessions, in three cards: the CLI signed in as you,
+3. **Claude provider** — who answers the sessions, in three cards: the CLI signed in as you,
    an Anthropic key, or OpenRouter (see [Who answers the sessions](#who-answers-the-sessions)).
    A key is tried against its provider before it is written; for the CLI the page shows the
    command to type in a terminal (`claude auth login`) and asks again once you have.
-3. **Notion** — the integration token and the page you shared, the two halves of
-   [step 1 and step 2](#1-create-a-notion-integration): what happens next is `ponos
-   init`, the same code and the same databases, built under that page. A board already
-   there is said, and left alone; a Markdown board has nothing to connect.
-4. **GitHub** — whether `gh` is signed in, or has a `GH_TOKEN`, and as whom.
-5. **Channels**, optional — Telegram and Slack. Leave Telegram's chat id empty, say anything
+4. **Notion** — three gestures, drawn as such. Create the integration (a button opens
+   Notion's page for it) and paste its secret: it is asked of Notion before it is written, and
+   a refused one says where to copy it again. Then *Add Ponos to your Notion page* — `···` →
+   *Connections* → the integration, with a picture of that menu. The step asks Notion every
+   few seconds what has been shared, so the page **appears on its own**, and one click builds
+   the board under it — [`ponos init`](#3-let-the-runner-build-the-rest), the same code and
+   the same databases. There is no template to duplicate: the databases are built with every
+   column spelled the way the runner reads them. A board already built and shared is offered
+   as such, and pointed at rather than rebuilt; a Markdown board has nothing to connect.
+5. **GitHub** — the GitHub App in one click, or whether `gh` is signed in, or has a
+   `GH_TOKEN`, and as whom.
+6. **First project** — the repositories found under `runner.workspace_root` (the folder is
+   created when a fresh machine has none), each one click from being a project; or a GitHub
+   repository, cloned at the first ticket; or a project with no code at all.
+7. **Channels**, optional — Telegram and Slack. Leave Telegram's chat id empty, say anything
    to your new bot, and the id is read back from it, the same gesture as `notify --pair`.
-6. **Summary** — what the console runs on, one line per thing that has to work, each `ok`,
-   `missing` or `error`, and each leading to the step that changes it: the provider and its
-   account or masked key, the default model and the automatic choice, the board and how
-   many tickets it holds, the GitHub account, the projects folder and the repositories
-   found in it, the channels, and whether this is a container or a machine, with the
-   version. The **Settings** page keeps the same summary at its top, under *What this
-   console runs on*.
+8. **First ticket** — a short writing ticket, put on the board in *Ready* under the first
+   project and **played at once** with `ponos run --ticket`, rather than at the timer's next
+   pass: the step follows it to *Review*, links it, and says *it works*. One that fails shows
+   what its run printed.
+9. **Summary** — what the console runs on, one line per thing that has to work, each `ok`,
+   `missing` or `error`, and each leading to the step that changes it: this machine (git,
+   Claude Code and its sign-in, the free disk, with the command that installs what is
+   missing), the provider and its account or masked key, the default model and the automatic
+   choice, the board and how many tickets it holds, the GitHub account, the projects folder
+   and the repositories found in it, the channels, and whether this is a container or a
+   machine, with the version. *Run the full diagnosis* below it runs `ponos doctor` and shows
+   its text, with a button that copies it for whoever is helping. The **Settings** page keeps
+   the same summary and the same button at its top, under *What this console runs on*.
 
-Every step but the first may be left for later, and a step that fails says so and leaves
+<p align="center">
+  <img src="docs/media/first-connection/3-notion-page-found.webp" width="420" alt="The Notion step: the token checked, the Connections menu drawn, and the page shared with the integration found on its own">
+  <img src="docs/media/first-connection/5-first-ticket-played.webp" width="420" alt="The first ticket step: the demonstration ticket played, and the console saying it works">
+</p>
+
+Every step but the account may be left for later, and a step that fails says so and leaves
 the ones before it standing, exactly as `init` does, since pages created in somebody's
 Notion are not a thing to roll back. `/setup` is where the steps are afterwards, and the
 bare address of a console that has no board yet leads there on its own.

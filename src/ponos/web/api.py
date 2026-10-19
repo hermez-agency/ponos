@@ -79,7 +79,7 @@ COLUMNS = ("ready", "running", "blocked", "review", "validated", "failed", "done
 class Api:
     def __init__(self, config: Config) -> None:
         self._config = config
-        self._stamp = _mtime(config.path)
+        self._stamp = _stamp(config.path)
         self._runner: Runner | None = None
         self._projects: dict[str, dict] = {}
         self._projects_at = 0.0
@@ -118,7 +118,7 @@ class Api:
         and a console that had to be restarted to notice would be a console
         people restart all day.
         """
-        stamp = _mtime(self._config.path)
+        stamp = _stamp(self._config.path)
         if stamp != self._stamp:
             try:
                 fresh = config_module.load(self._config.path)
@@ -1988,6 +1988,16 @@ def _mtime(path: Path) -> float:
         return path.stat().st_mtime
     except OSError:
         return 0.0
+
+
+def _stamp(path: Path) -> tuple[float, float]:
+    """When the configuration last changed — the file, or the secrets beside it.
+
+    A token is written to `secrets.env` alone: watching `config.toml` only, the
+    console kept the token it had before the first connection pasted one, and
+    went on saying there was none until it was restarted.
+    """
+    return _mtime(path), _mtime(config_module.secrets_path(path))
 
 
 def _instant(stamp: str) -> float | None:

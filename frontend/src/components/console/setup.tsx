@@ -8,12 +8,19 @@ import {
   CircleCheck,
   CircleDashed,
   Copy,
+  ExternalLink,
+  FolderGit2,
   GitPullRequest,
+  HardDrive,
   KeyRound,
+  Languages,
   ListChecks,
+  LoaderCircle,
   NotebookText,
+  Play,
   RefreshCw,
   Route,
+  Stethoscope,
   Terminal,
 } from "lucide-react"
 
@@ -27,17 +34,20 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { api, why, type Provisioned } from "@/lib/api"
-import { useT } from "@/lib/i18n"
+import { LANGUAGES, setLanguage, useLanguage, useT, type Language } from "@/lib/i18n"
 import {
   accessProblem,
+  demoOutcome,
   nextStep,
   rows,
   stepFrom,
   stepsFor,
+  type Demo,
   type Health,
   type Provider,
   type Row,
   type SetupState,
+  type Shared,
   type StepKey,
   type Summary,
 } from "@/lib/setup"
@@ -58,20 +68,26 @@ import { cn } from "@/lib/utils"
  */
 
 const ICONS: Record<StepKey, React.ComponentType<{ className?: string }>> = {
+  language: Languages,
   access: KeyRound,
   provider: Bot,
   notion: NotebookText,
   github: GitPullRequest,
+  project: FolderGit2,
   channels: Bell,
+  demo: Play,
   summary: ListChecks,
 }
 
 const TITLES: Record<StepKey, string> = {
+  language: "Language",
   access: "Access",
   provider: "Claude provider",
   notion: "Notion",
   github: "GitHub",
+  project: "First project",
   channels: "Channels",
+  demo: "First ticket",
   summary: "Summary",
 }
 
@@ -155,12 +171,14 @@ export function SetupApp() {
     <Shell>
       <Stepper steps={steps} current={step} reachable={state.claimed} onStep={go} />
       <div data-testid={`setup-${step}`}>
-        {step === "access" ? (
+        {step === "language" ? (
+          <LanguageStep claimed={state.claimed} onNext={forward} />
+        ) : step === "access" ? (
           <AccessStep
             state={state}
             onClaimed={async () => {
               await load()
-              go(stepFrom({ claimed: true }, null))
+              go("provider")
             }}
           />
         ) : step === "provider" ? (
@@ -169,8 +187,12 @@ export function SetupApp() {
           <NotionStep storage={state.storage} onNext={forward} />
         ) : step === "github" ? (
           <GithubStep container={state.container} onNext={forward} />
+        ) : step === "project" ? (
+          <ProjectStep onNext={forward} />
         ) : step === "channels" ? (
           <ChannelsStep container={state.container} onNext={forward} />
+        ) : step === "demo" ? (
+          <DemoStep onNext={forward} onStep={go} />
         ) : (
           <SummaryStep onStep={go} />
         )}
@@ -341,10 +363,76 @@ function Report({ done }: { done: Provisioned | null }) {
   )
 }
 
+/* -- 0. the language -------------------------------------------------------- */
+
+/** The language, first: every step after it is read in it.
+ *
+ * Taken in this browser the moment it is clicked, like the picker of the
+ * settings; and written to the file as the language of the reports and of the
+ * console — at once when somebody is signed in, with the account otherwise. */
+function LanguageStep({ claimed, onNext }: { claimed: boolean; onNext: () => void }) {
+  const t = useT()
+  const language = useLanguage()
+  const [problem, setProblem] = React.useState("")
+
+  const choose = async (code: Language) => {
+    setLanguage(code)
+    setProblem("")
+    if (!claimed) return
+    try {
+      await api.saveSettings({ settings: { "runner.language": code, "runner.app_language": code } })
+    } catch (error) {
+      setProblem(why(error))
+    }
+  }
+
+  return (
+    <StepCard
+      title={t("Which language")}
+      blurb={t(
+        "The console's, and the one Ponos writes its reports in. Both can be changed later in the settings."
+      )}
+      footer={
+        <Button type="button" onClick={onNext}>
+          {t("Continue")}
+          <ArrowRight />
+        </Button>
+      }
+    >
+      <div className="grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label={t("Language")}>
+        {LANGUAGES.map((item) => (
+          <button
+            key={item.code}
+            type="button"
+            role="radio"
+            aria-checked={language === item.code}
+            data-testid={`language-${item.code}`}
+            onClick={() => void choose(item.code)}
+            className={cn(
+              "flex items-center gap-3 rounded-xl border p-4 text-left text-base font-semibold transition-colors",
+              language === item.code
+                ? "border-primary ring-primary/30 bg-primary/5 ring-2"
+                : "hover:bg-muted/60"
+            )}
+          >
+            <span aria-hidden className="text-2xl">
+              {item.flag}
+            </span>
+            {item.name}
+            {language === item.code ? <CircleCheck className="text-primary ml-auto size-4" /> : null}
+          </button>
+        ))}
+      </div>
+      <Said ok={false} text={problem} />
+    </StepCard>
+  )
+}
+
 /* -- 1. access -------------------------------------------------------------- */
 
 function AccessStep({ state, onClaimed }: { state: SetupState; onClaimed: () => Promise<void> }) {
   const t = useT()
+  const language = useLanguage()
   const [typed, setTyped] = React.useState({ code: "", email: "", password: "", confirm: "" })
   const [problem, setProblem] = React.useState("")
   const [busy, setBusy] = React.useState(false)
@@ -361,7 +449,7 @@ function AccessStep({ state, onClaimed }: { state: SetupState; onClaimed: () => 
     setBusy(true)
     setProblem("")
     try {
-      await api.claim(typed)
+      await api.claim({ ...typed, language })
       await onClaimed()
     } catch (error) {
       setProblem(why(error))
@@ -658,31 +746,65 @@ function NotionStep({ storage, onNext }: { storage: string; onNext: () => void }
   const t = useT()
   const [board, setBoard] = React.useState<Summary["board"] | null>(null)
   const [token, setToken] = React.useState("")
+  const [shared, setShared] = React.useState<Shared | null>(null)
   const [page, setPage] = React.useState("")
   const [busy, setBusy] = React.useState(false)
   const [done, setDone] = React.useState<Provisioned | null>(null)
   const [problem, setProblem] = React.useState("")
 
   React.useEffect(() => {
+    if (storage === "markdown") return
     void api.summary().then(
       (summary) => setBoard(summary.board),
       () => undefined
     )
-  }, [])
+    // A token already written — a step left half-way, a reload — is asked again.
+    void api.sharedWithNotion("").then(
+      (answer) => answer.ok && setShared(answer),
+      () => undefined
+    )
+  }, [storage])
 
-  const save = async (event: React.FormEvent) => {
+  const found = board?.state === "ok"
+  const waiting = Boolean(shared?.ok && !found && !shared.pages.length && !shared.boards.length)
+
+  // Nothing shared yet: somebody is in Notion adding the integration to a page,
+  // and the page appears here on its own as soon as they have.
+  React.useEffect(() => {
+    if (!waiting) return
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "hidden") return
+      void api.sharedWithNotion("").then(
+        (answer) => answer.ok && setShared(answer),
+        () => undefined
+      )
+    }, 4000)
+    return () => window.clearInterval(timer)
+  }, [waiting])
+
+  const check = async (event: React.FormEvent) => {
     event.preventDefault()
+    setBusy(true)
+    setProblem("")
+    try {
+      const answer = await api.sharedWithNotion(token.trim())
+      setShared(answer)
+      if (answer.ok) setToken("")
+    } catch (error) {
+      setProblem(why(error))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const build = async (chosen: { page?: string; workspace?: string }) => {
     setBusy(true)
     setProblem("")
     setDone(null)
     try {
-      const answer = await api.saveNotion({ token: token.trim(), page: page.trim() })
+      const answer = await api.saveNotion({ token: "", page: chosen.page ?? "", workspace: chosen.workspace })
       setDone(answer)
       setBoard(answer.board)
-      if (!answer.problem) {
-        setToken("")
-        setPage("")
-      }
     } catch (error) {
       setProblem(why(error))
     } finally {
@@ -691,7 +813,7 @@ function NotionStep({ storage, onNext }: { storage: string; onNext: () => void }
   }
 
   const footer = (
-    <Button type="button" variant="outline" onClick={onNext}>
+    <Button type="button" variant={found ? "default" : "outline"} onClick={onNext}>
       {t("Continue")}
       <ArrowRight />
     </Button>
@@ -708,57 +830,185 @@ function NotionStep({ storage, onNext }: { storage: string; onNext: () => void }
       </StepCard>
     )
 
-  const found = board?.state === "ok"
   return (
-    <form onSubmit={(event) => void save(event)}>
-      <StepCard
-        title={t("The board, in Notion")}
-        blurb={t(
-          "Create an internal integration on `notion.so/my-integrations`, share one page with it — the `···` menu → Connections — and paste the two here. The board, its databases and their columns are built under that page, as `ponos init` would."
-        )}
-        footer={footer}
-      >
-        {board ? (
+    <StepCard
+      title={t("The board, in Notion")}
+      blurb={t(
+        "Three gestures in Notion, and Ponos does the rest: it builds the Tickets and Projects databases itself, with every column spelled the way it reads them — there is no template to duplicate."
+      )}
+      footer={footer}
+    >
+      {/* Only once there is one: before, what is missing is what the three
+          gestures below are about, and the configuration's own words for it
+          would only alarm somebody who has not started yet. */}
+      {found ? (
+        <Said ok text={t("A board is connected: {{count}} ticket(s) on it.", { count: String(board.tickets ?? 0) })} />
+      ) : board?.state === "error" ? (
+        <Said ok={false} text={board.said} />
+      ) : null}
+
+      <section className="flex flex-col gap-3" aria-labelledby="notion-one">
+        <h3 id="notion-one" className="text-sm font-semibold">
+          {t("1. Create the Ponos integration")}
+        </h3>
+        <ol className="text-muted-foreground list-decimal pl-5 text-sm leading-relaxed">
+          <li>{t("Open Notion's integrations page, and click “New integration”.")}</li>
+          <li>{t("Name it “Ponos”, choose your workspace, type “Internal”, and save.")}</li>
+          <li>
+            <Rich text={t("Under Capabilities, tick “Read comments” and “Insert comments”, then copy the “Internal Integration Secret”.")} />
+          </li>
+        </ol>
+        <div>
+          <Button asChild variant="outline" size="sm">
+            <a href="https://www.notion.so/profile/integrations" target="_blank" rel="noreferrer">
+              {t("Open Notion's integrations")}
+              <ExternalLink />
+            </a>
+          </Button>
+        </div>
+        <form className="flex flex-col gap-3" onSubmit={(event) => void check(event)}>
+          <Field
+            id="notion-token"
+            label={t("Integration secret")}
+            type="password"
+            placeholder="ntn_…"
+            value={token}
+            onChange={(event) => setToken(event.target.value)}
+            hint={shared?.ok ? t("Already saved — paste another one only to replace it.") : undefined}
+          />
+          <div>
+            <Button type="submit" disabled={busy || !token.trim()}>
+              {busy ? t("Checking…") : t("Check the token")}
+            </Button>
+          </div>
+        </form>
+        {shared ? (
           <Said
-            ok={found}
+            ok={shared.ok}
             text={
-              found
-                ? t("A board is already connected: {{count}} ticket(s) on it.", {
-                    count: String(board.tickets ?? 0),
-                  })
-                : board.said || t("No board yet.")
+              shared.ok
+                ? t("Notion knows this token: it is the integration “{{name}}”.", { name: shared.name || "Ponos" })
+                : shared.refused
+                  ? t("Notion refused this token: copy the “Internal Integration Secret” again, from Notion's integrations page.")
+                  : shared.said
             }
           />
         ) : null}
-        <Field
-          id="notion-token"
-          label={t("Integration token")}
-          type="password"
-          placeholder="ntn_…"
-          value={token}
-          onChange={(event) => setToken(event.target.value)}
-        />
-        <Field
-          id="notion-page"
-          label={t("Link of the page you shared")}
-          placeholder="https://www.notion.so/…"
-          value={page}
-          onChange={(event) => setPage(event.target.value)}
-          hint={
-            found
-              ? t("Only to build a second board: the one above stays where it is otherwise.")
-              : t("Left empty, only the token is written — `ponos init <page>` builds the board later.")
-          }
-        />
-        <div>
-          <Button type="submit" disabled={busy || (!token.trim() && !page.trim())}>
-            {busy ? t("Building the board…") : found ? t("Save") : t("Connect and build the board")}
-          </Button>
+      </section>
+
+      {shared?.ok ? (
+        <section className="flex flex-col gap-3" aria-labelledby="notion-two">
+          <h3 id="notion-two" className="text-sm font-semibold">
+            {t("2. Add Ponos to your Notion page")}
+          </h3>
+          <div className="grid items-start gap-4 sm:grid-cols-[1fr_17rem]">
+            <ol className="text-muted-foreground list-decimal pl-5 text-sm leading-relaxed">
+              <li>{t("In Notion, open the page the board should live under — or create an empty one, “Ponos” for instance.")}</li>
+              <li>
+                <Rich text={t("Click `···` at the top right of the page, then “Connections”.")} />
+              </li>
+              <li>{t("Search for “{{name}}”, pick it, and confirm.", { name: shared.name || "Ponos" })}</li>
+              <li>{t("Come back here: the page appears below on its own.")}</li>
+            </ol>
+            <NotionShareIllustration name={shared.name || "Ponos"} />
+          </div>
+          <div>
+            <Button asChild variant="outline" size="sm">
+              <a href="https://www.notion.so" target="_blank" rel="noreferrer">
+                {t("Open Notion")}
+                <ExternalLink />
+              </a>
+            </Button>
+          </div>
+        </section>
+      ) : null}
+
+      {shared?.ok ? (
+        <section className="flex flex-col gap-3" aria-labelledby="notion-three" data-testid="notion-shared">
+          <h3 id="notion-three" className="text-sm font-semibold">
+            {t("3. Choose where the board goes")}
+          </h3>
+          {waiting ? (
+            <p className="text-muted-foreground flex items-center gap-2 text-sm" role="status">
+              <LoaderCircle className="size-4 animate-spin" />
+              {t("Waiting for a page shared with “{{name}}”…", { name: shared.name || "Ponos" })}
+            </p>
+          ) : null}
+          {shared.boards.map((one) => (
+            <div key={one.id} className="flex flex-wrap items-center gap-3 rounded-lg border p-3 text-sm">
+              <NotebookText className="text-muted-foreground size-4" />
+              <span className="flex-1">{t("A Ponos board is already there.")}</span>
+              <Button type="button" size="sm" disabled={busy || found} onClick={() => void build({ workspace: one.id })}>
+                {t("Use this board")}
+              </Button>
+            </div>
+          ))}
+          {shared.pages.length ? (
+            <div className="flex flex-col gap-2" role="radiogroup" aria-label={t("Pages shared with the integration")}>
+              {shared.pages.map((one) => (
+                <label
+                  key={one.id}
+                  className={cn(
+                    "flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm",
+                    page === one.id ? "border-primary bg-primary/5" : "hover:bg-muted/60"
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name="notion-page"
+                    value={one.id}
+                    checked={page === one.id}
+                    onChange={() => setPage(one.id)}
+                    className="accent-primary"
+                  />
+                  <span className="flex-1 font-medium">{one.title || t("(untitled page)")}</span>
+                </label>
+              ))}
+              <div>
+                <Button type="button" disabled={busy || !page} onClick={() => void build({ page })}>
+                  {busy ? t("Building the board…") : t("Build the board under this page")}
+                </Button>
+              </div>
+            </div>
+          ) : null}
+          <Report done={done} />
+        </section>
+      ) : null}
+      <Said ok={false} text={problem} />
+    </StepCard>
+  )
+}
+
+/** What Notion's own menu looks like at the moment it matters — drawn rather
+ * than photographed, so that it speaks the page's language and stays true
+ * whatever the workspace is called. */
+function NotionShareIllustration({ name }: { name: string }) {
+  const t = useT()
+  return (
+    <figure className="bg-muted/40 rounded-xl border p-3 text-xs" aria-label={t("Notion's page menu, Connections open")}>
+      <div className="mb-2 flex items-center justify-end gap-2 text-[0.7rem]">
+        <span className="text-muted-foreground">{t("Share")}</span>
+        <span className="text-muted-foreground">☆</span>
+        <span className="ring-primary rounded px-1.5 font-bold ring-2">···</span>
+      </div>
+      <div className="bg-background ml-auto w-56 rounded-lg border shadow-sm">
+        <div className="text-muted-foreground border-b px-3 py-1.5">{t("Copy link")}</div>
+        <div className="bg-primary/10 text-foreground flex items-center justify-between px-3 py-1.5 font-semibold">
+          {t("Connections")}
+          <span>›</span>
         </div>
-        <Report done={done} />
-        <Said ok={false} text={problem} />
-      </StepCard>
-    </form>
+        <div className="border-t p-2">
+          <div className="text-muted-foreground mb-1.5 rounded border px-2 py-1">{t("Search for connections…")}</div>
+          <div className="bg-primary/10 ring-primary flex items-center gap-2 rounded px-2 py-1 font-medium ring-1">
+            <span aria-hidden>🤖</span>
+            {name}
+          </div>
+        </div>
+      </div>
+      <figcaption className="text-muted-foreground mt-2 text-center">
+        <Rich text={t("`···` → Connections → {{name}}", { name })} />
+      </figcaption>
+    </figure>
   )
 }
 
@@ -845,7 +1095,283 @@ function GithubStep({ container, onNext }: { container: boolean; onNext: () => v
   )
 }
 
-/* -- 5. channels ------------------------------------------------------------ */
+/* -- 5. the first project --------------------------------------------------- */
+
+type Choices = Awaited<ReturnType<typeof api.setupProjects>>
+
+/** Where a demonstration ticket and every ticket after it are filed. */
+const PROJECT_KEY = "ponos-setup-project"
+
+function ProjectStep({ onNext }: { onNext: () => void }) {
+  const t = useT()
+  const [choices, setChoices] = React.useState<Choices | null>(null)
+  const [failed, setFailed] = React.useState("")
+  const [name, setName] = React.useState("")
+  const [repository, setRepository] = React.useState("")
+  const [busy, setBusy] = React.useState(false)
+  const [made, setMade] = React.useState("")
+  const [problem, setProblem] = React.useState("")
+
+  const read = React.useCallback(() => {
+    void api.setupProjects().then(setChoices, (error) => setFailed(why(error)))
+  }, [])
+  React.useEffect(read, [read])
+
+  const create = async (values: Record<string, unknown>) => {
+    setBusy(true)
+    setProblem("")
+    try {
+      const written = await api.createProject(values)
+      window.localStorage.setItem(PROJECT_KEY, written.id)
+      setMade(written.name)
+      setName("")
+      setRepository("")
+      // Added here rather than read again: the board's list of projects is
+      // cached for a while, and would not have it yet.
+      setChoices((held) =>
+        held ? { ...held, projects: [...held.projects, { id: written.id, name: written.name }] } : held
+      )
+    } catch (error) {
+      setProblem(why(error))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const known = choices?.projects ?? []
+  return (
+    <StepCard
+      title={t("A first project")}
+      blurb={t(
+        "A ticket belongs to a project: the repository a code ticket works in, or simply a theme for writing. Pick a repository this machine already has, name one on GitHub — it is cloned at the first ticket —, or start with a project without code."
+      )}
+      footer={
+        <Button type="button" variant={known.length ? "default" : "outline"} onClick={onNext}>
+          {t("Continue")}
+          <ArrowRight />
+        </Button>
+      }
+    >
+      {failed ? <Said ok={false} text={failed} /> : null}
+      {!choices && !failed ? <p className="text-muted-foreground text-sm">{t("Looking for repositories…")}</p> : null}
+      {made ? <Said ok text={t("The project “{{name}}” is created.", { name: made })} /> : null}
+      {known.length ? (
+        <p className="text-sm" data-testid="setup-projects-known">
+          {t("Projects on the board: {{names}}", { names: known.map((one) => one.name).join(", ") })}
+        </p>
+      ) : null}
+
+      {choices?.repositories.length ? (
+        <section className="flex flex-col gap-2" aria-labelledby="project-found">
+          <h3 id="project-found" className="text-sm font-semibold">
+            {t("Repositories found in {{root}}", { root: choices.root })}
+          </h3>
+          {choices.repositories.slice(0, 12).map((one) => {
+            const taken = known.some((project) => project.name.toLowerCase() === one.name.toLowerCase())
+            return (
+              <div key={one.path} className="flex flex-wrap items-center gap-3 rounded-lg border p-3 text-sm">
+                <FolderGit2 className="text-muted-foreground size-4" />
+                <span className="min-w-0 flex-1">
+                  <span className="font-medium">{one.name}</span>
+                  <span className="text-muted-foreground block truncate text-xs">{one.remote || one.path}</span>
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={busy || taken}
+                  onClick={() => void create({ name: one.name, kind: "code", path: one.path })}
+                >
+                  {taken ? t("Already a project") : t("Make it a project")}
+                </Button>
+              </div>
+            )
+          })}
+        </section>
+      ) : choices ? (
+        <p className="text-muted-foreground text-sm">
+          <Rich text={t("No repository in `{{root}}` yet — the folder where Ponos keeps them.", { root: choices.root })} />
+        </p>
+      ) : null}
+
+      <form
+        className="flex flex-col gap-3"
+        onSubmit={(event) => {
+          event.preventDefault()
+          void create({ name: name.trim(), kind: repository.trim() ? "code" : "document", repository: repository.trim() })
+        }}
+      >
+        <h3 className="text-sm font-semibold">{t("Or a new one")}</h3>
+        <Field id="project-name" label={t("Project name")} value={name} onChange={(event) => setName(event.target.value)} />
+        <Field
+          id="project-repository"
+          label={t("GitHub repository (optional)")}
+          placeholder="https://github.com/owner/repository"
+          value={repository}
+          onChange={(event) => setRepository(event.target.value)}
+          hint={t("Left empty, the project has no code: its tickets are written answers and documents.")}
+        />
+        <div>
+          <Button type="submit" disabled={busy || !name.trim()}>
+            {t("Create the project")}
+          </Button>
+        </div>
+      </form>
+      <Said ok={false} text={problem} />
+    </StepCard>
+  )
+}
+
+/* -- 7. the first ticket ---------------------------------------------------- */
+
+/** The demonstration ticket being played, so that a reload finds it again. */
+const DEMO_KEY = "ponos-setup-demo"
+
+function DemoStep({ onNext, onStep }: { onNext: () => void; onStep: (step: StepKey) => void }) {
+  const t = useT()
+  const language = useLanguage()
+  const [id, setId] = React.useState(() => window.localStorage.getItem(DEMO_KEY) ?? "")
+  const [demo, setDemo] = React.useState<Demo | null>(null)
+  const [busy, setBusy] = React.useState(false)
+  const [problem, setProblem] = React.useState("")
+
+  const outcome = demo ? demoOutcome(demo) : null
+
+  React.useEffect(() => {
+    if (!id || (outcome && outcome !== "waiting")) return
+    let live = true
+    const ask = () =>
+      api.demo(id).then(
+        (read) => live && setDemo(read),
+        (error) => {
+          if (!live) return
+          // A ticket deleted since, or a board changed: start over.
+          window.localStorage.removeItem(DEMO_KEY)
+          setId("")
+          setProblem(why(error))
+        }
+      )
+    void ask()
+    const timer = window.setInterval(() => void ask(), 3000)
+    return () => {
+      live = false
+      window.clearInterval(timer)
+    }
+  }, [id, outcome])
+
+  const start = async () => {
+    setBusy(true)
+    setProblem("")
+    setDemo(null)
+    try {
+      const project = window.localStorage.getItem(PROJECT_KEY) ?? ""
+      const made = await api.startDemo({ project, language })
+      window.localStorage.setItem(DEMO_KEY, made.id)
+      setId(made.id)
+    } catch (error) {
+      setProblem(why(error))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <StepCard
+      title={t("A first ticket, played now")}
+      blurb={t(
+        "The proof that everything holds: Ponos writes a short ticket on your board and runs it at once — Claude reads it, answers, and the answer lands on the ticket. It takes a minute or two."
+      )}
+      footer={
+        <Button type="button" variant={outcome === "done" ? "default" : "outline"} onClick={onNext}>
+          {t("Continue")}
+          <ArrowRight />
+        </Button>
+      }
+    >
+      {!id ? (
+        <div>
+          <Button type="button" disabled={busy} onClick={() => void start()} data-testid="demo-start">
+            <Play />
+            {busy ? t("Writing the ticket…") : t("Create and play the demonstration ticket")}
+          </Button>
+        </div>
+      ) : null}
+      {id && !demo ? <p className="text-muted-foreground text-sm">{t("Reading the board…")}</p> : null}
+      {demo ? (
+        <div className="flex flex-col gap-3" data-testid="demo-state" data-outcome={outcome ?? ""}>
+          <div className="flex flex-wrap items-center gap-3 rounded-lg border p-3 text-sm">
+            {outcome === "waiting" ? (
+              <LoaderCircle className="text-primary size-4 animate-spin" />
+            ) : outcome === "done" ? (
+              <CircleCheck className="text-tr-green size-4" />
+            ) : (
+              <CircleAlert className="text-destructive size-4" />
+            )}
+            <span className="min-w-0 flex-1">
+              <span className="font-medium">{demo.title}</span>
+              <span className="text-muted-foreground block text-xs">
+                {demo.status || t("no status")}
+                {demo.progress ? ` — ${demo.progress}` : ""}
+              </span>
+            </span>
+            {demo.url ? (
+              <Button asChild size="sm" variant="outline">
+                <a href={demo.url} target="_blank" rel="noreferrer">
+                  {t("Open the ticket")}
+                  <ExternalLink />
+                </a>
+              </Button>
+            ) : null}
+          </div>
+          {outcome === "done" ? (
+            <Said ok text={t("It works: the ticket ran, and its answer is on the ticket. Ponos is ready.")} />
+          ) : outcome === "stuck" ? (
+            <Said ok={false} text={t("The ticket stopped on a question — open it to read what it needs.")} />
+          ) : outcome === "failed" ? (
+            <>
+              <Said
+                ok={false}
+                text={t("The ticket did not run. What it said is below; the summary and its full diagnosis say which part is missing.")}
+              />
+              {demo.said ? (
+                <pre className="bg-muted max-h-64 overflow-auto rounded-lg border p-3 font-mono text-xs whitespace-pre-wrap">
+                  {demo.said}
+                </pre>
+              ) : null}
+            </>
+          ) : (
+            <p className="text-muted-foreground text-sm" role="status">
+              {demo.running ? t("Claude is working on it…") : t("Waiting for the run to start…")}
+            </p>
+          )}
+          {outcome && outcome !== "waiting" && outcome !== "done" ? (
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" onClick={() => onStep("summary")}>
+                <Stethoscope />
+                {t("See what is missing")}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  window.localStorage.removeItem(DEMO_KEY)
+                  setId("")
+                  setDemo(null)
+                }}
+              >
+                <RefreshCw />
+                {t("Try again")}
+              </Button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+      <Said ok={false} text={problem} />
+    </StepCard>
+  )
+}
+
+/* -- 6. channels ------------------------------------------------------------ */
 
 function ChannelsStep({ container, onNext }: { container: boolean; onNext: () => void }) {
   const t = useT()
@@ -952,7 +1478,7 @@ function ChannelsStep({ container, onNext }: { container: boolean; onNext: () =>
   )
 }
 
-/* -- 6. the summary --------------------------------------------------------- */
+/* -- 8. the summary --------------------------------------------------------- */
 
 function SummaryStep({ onStep }: { onStep: (step: StepKey) => void }) {
   const t = useT()
@@ -982,7 +1508,66 @@ function SummaryStep({ onStep }: { onStep: (step: StepKey) => void }) {
           )
         }
       />
+      <Diagnosis />
     </StepCard>
+  )
+}
+
+/** `ponos doctor`, run here: the terminal's full diagnosis, to read — or to
+ * copy whole into a message to whoever is helping. The same text, so that
+ * support never has to ask somebody to open a terminal for it. */
+export function Diagnosis() {
+  const t = useT()
+  const [answer, setAnswer] = React.useState<{ code: number; text: string } | null>(null)
+  const [busy, setBusy] = React.useState(false)
+  const [copied, setCopied] = React.useState(false)
+
+  const run = async () => {
+    setBusy(true)
+    setCopied(false)
+    try {
+      setAnswer(await api.doctor())
+    } catch (error) {
+      setAnswer({ code: -1, text: why(error) })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="flex flex-col gap-2" aria-labelledby="diagnosis">
+      <div className="flex flex-wrap items-center gap-2">
+        <h3 id="diagnosis" className="flex-1 text-sm font-semibold">
+          {t("Something does not work?")}
+        </h3>
+        <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void run()} data-testid="run-doctor">
+          {busy ? <LoaderCircle className="animate-spin" /> : <Stethoscope />}
+          {busy ? t("Running the diagnosis…") : t("Run the full diagnosis")}
+        </Button>
+        {answer ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => void navigator.clipboard?.writeText(answer.text).then(() => setCopied(true))}
+          >
+            {copied ? <Check /> : <Copy />}
+            {t("Copy it for support")}
+          </Button>
+        ) : null}
+      </div>
+      <p className="text-muted-foreground text-xs leading-relaxed">
+        <Rich text={t("The same as `ponos doctor` in a terminal: every check, and what to do about each one that fails.")} />
+      </p>
+      {answer ? (
+        <pre
+          className="bg-muted max-h-96 overflow-auto rounded-lg border p-3 font-mono text-xs whitespace-pre-wrap"
+          data-testid="doctor-output"
+        >
+          {answer.text}
+        </pre>
+      ) : null}
+    </section>
   )
 }
 
@@ -995,6 +1580,7 @@ const STATES: Record<Health, { label: string; icon: React.ComponentType<{ classN
 }
 
 const ROW_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  machine: HardDrive,
   provider: Bot,
   model: Route,
   board: NotebookText,

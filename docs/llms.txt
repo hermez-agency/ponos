@@ -18,8 +18,9 @@ console, and projects that are only a name and a brief — a GitHub link is clon
 time a ticket needs it, no repository at all means the tickets come back as text.
 
 The board is the console and its folder of Markdown files (`storage.mode = "markdown"`), or
-Notion (`ponos init <page-url>`), or both kept in step. A fresh configuration still
-says `notion`, and the installer asks for a Notion token first — Enter skips it. Python
+Notion (`ponos init <page-url>`), or both kept in step. The installer checks the machine,
+starts the console and opens it: the rest — Notion, GitHub, a first project, a demonstration
+ticket played on the spot — is the console's first connection, step by step. Python
 3.11+, standard library only — no dependency to install, no build step. The repository, the
 command and the Python package are called ponos.
 

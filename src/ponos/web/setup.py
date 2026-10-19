@@ -46,8 +46,12 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+import sys
+from pathlib import Path
 
-from .. import __version__, channels, github_app, notion, projects, provider, provision, store
+from .. import __version__, channels, github_app, notion, prerequisites, projects, provider
+from .. import git as git_module
+from .. import provision, store, voice
 from .. import config as config_module
 from ..channels import telegram as telegram_channel
 from .api import Api
@@ -93,6 +97,10 @@ def apply(api: Api, payload: dict) -> dict:
 
     report = provision.Report()
     values: dict[str, object] = {"web.email": email, "web.password": password}
+    # Chosen on the step before this one, while nobody could write yet.
+    language = _text(payload, "language")
+    if language in voice.LANGUAGES:
+        values["runner.language"] = values["runner.app_language"] = language
     for name, value in (
         ("notion.token", _text(payload, "notion_token")),
         ("notify.telegram.token", bot),
@@ -241,12 +249,179 @@ def save_notion(api: Api, payload: dict) -> dict:
     if token:
         api.save_settings({"settings": {"notion.token": token}})
         report.note("created", "the integration token is written to the configuration")
+    # A board found already built, among what was shared: pointed at, not rebuilt.
+    workspace = config_module.identifier(_text(payload, "workspace"))
+    if workspace and not page_id:
+        if not config_module.is_identifier(workspace):
+            raise ValueError("that board has no Notion ID")
+        api.save_settings({"settings": {"notion.workspace": workspace}})
+        report.note("kept", f"the board {workspace} — written to the configuration")
     problem = _notion(api, report, page_id) if page_id else ""
     return {
         "steps": [list(step) for step in report.steps],
         "problem": problem,
         "board": _board(api),
     }
+
+
+def notion_shared(api: Api, payload: dict) -> dict:
+    """Is this token Notion's, and what has been shared with it so far?
+
+    Asked once when the token is pasted and then every few seconds by the page,
+    while somebody is in Notion adding the integration to a page: the moment
+    the share is done, the page appears here, and nobody has to copy its link.
+    A token Notion refuses is not written — the field keeps it, and says why.
+    """
+    token = _text(payload, "token")
+    stored = api.config.notion.token
+    if not token and (not stored or stored == config_module.PLACEHOLDER):
+        return {"ok": False, "said": "no token yet", "name": "", "pages": [], "boards": []}
+    client = notion.Client(token or stored, timeout=provider.CHECK_TIMEOUT)
+    try:
+        name = client.my_name()
+        pages, boards = client.shared(provision.DIRECTORY)
+    except store.StoreError as error:
+        said = str(error).splitlines()[0]
+        # The one refusal a newcomer meets, said by the page in its own words.
+        refused = any(word in said.lower() for word in ("401", "unauthorized", "invalid"))
+        if refused:
+            said = (
+                "Notion refused this token — copy the “Internal Integration Secret” "
+                "again from notion.so/my-integrations"
+            )
+        return {"ok": False, "said": said, "refused": refused, "name": "", "pages": [], "boards": []}
+    if token and token != stored:
+        api.save_settings({"settings": {"notion.token": token}})
+    return {"ok": True, "said": "", "name": name, "pages": pages, "boards": boards}
+
+
+def project_choices(api: Api) -> dict:
+    """The repositories this machine already has, to make a first project of one.
+
+    Looked for under `runner.workspace_root`, the folder every ticket's
+    repository is found or cloned in — and created here when it does not exist
+    yet, since a fresh machine has none and a missing folder is the one thing
+    `doctor` would otherwise hold against it.
+    """
+    root = api.config.runner.workspace_root
+    try:
+        root.mkdir(parents=True, exist_ok=True)
+    except OSError as error:
+        return {"root": str(root), "said": str(error), "repositories": [], "projects": []}
+    found = sorted(projects._walk(root, max_depth=2), key=lambda path: path.name.lower())
+    try:
+        known = [
+            {"id": row["id"], "name": row["name"]}
+            for row in api.all_projects()["projects"] if row.get("id")
+        ]
+    except store.StoreError:
+        known = []
+    return {
+        "root": str(root),
+        "said": "",
+        "repositories": [
+            {"name": path.name, "path": str(path), "remote": git_module.remote_url(path)}
+            for path in found
+        ],
+        "projects": known,
+    }
+
+
+# The demonstration ticket: something every installation can do — no repository,
+# no pull request, no account but the board's and Claude's — and short enough to
+# come back within the minute. Its answer lands on the ticket, which is the point.
+DEMO = {
+    "en": (
+        "Say hello — Ponos demonstration ticket",
+        "This ticket was created by the console's first connection, to check that "
+        "everything answers.\n\nIn a few lines, introduce yourself: what you can do "
+        "for me from this board, and the three things I should write in a ticket for "
+        "it to go well.",
+    ),
+    "fr": (
+        "Dire bonjour — ticket de démonstration de Ponos",
+        "Ce ticket a été créé par la première connexion de la console, pour vérifier "
+        "que tout répond.\n\nEn quelques lignes, présente-toi : ce que tu peux faire "
+        "pour moi depuis ce tableau, et les trois choses à écrire dans un ticket pour "
+        "qu'il se passe bien.",
+    ),
+}
+
+# The runs started from here, by ticket: whether one has ended, and how.
+_PLAYED: dict[str, subprocess.Popen] = {}
+
+
+def demo(api: Api, payload: dict) -> dict:
+    """Write the demonstration ticket, and play it now rather than at the next pass.
+
+    The timer would pick it up — in half an hour, or never on a machine with no
+    systemd. What starts it here is `ponos run --ticket`, the command a pass
+    runs, in a process of its own that outlives the request: it takes the same
+    lock as the timer, so the two never run the ticket twice.
+    """
+    language = _text(payload, "language")
+    title, body = DEMO.get(language) or DEMO["en"]
+    made = api.create_ticket(title, body, _text(payload, "project"), True, "", "writing")
+    ticket = made["id"].replace("-", "")
+    play(ticket)
+    return {"id": ticket, "title": title}
+
+
+def play(ticket: str) -> None:
+    log = config_module.state_dir() / "web" / f"demo-{ticket}.log"
+    log.parent.mkdir(parents=True, exist_ok=True)
+    source = str(Path(__file__).resolve().parents[2])
+    environment = {
+        **os.environ,
+        "PYTHONPATH": os.pathsep.join([source, os.environ.get("PYTHONPATH", "")]).rstrip(os.pathsep),
+        "NO_COLOR": "1",
+    }
+    with log.open("w") as written:
+        _PLAYED[ticket] = subprocess.Popen(
+            [sys.executable, "-m", "ponos", "run", "--ticket", ticket],
+            cwd=str(Path.home()), stdout=written, stderr=subprocess.STDOUT,
+            env=environment, start_new_session=True,
+        )
+
+
+def demo_state(api: Api, ticket: str) -> dict:
+    """Where the demonstration ticket stands, and — once its run ended badly — why."""
+    ticket = ticket.replace("-", "")
+    found = next((row for row in api.board().get("tickets", []) if row["id"] == ticket), None)
+    if found is None:
+        raise LookupError("no such ticket on the board")
+    process = _PLAYED.get(ticket)
+    code = process.poll() if process else None
+    said = ""
+    if code:
+        log = config_module.state_dir() / "web" / f"demo-{ticket}.log"
+        lines = [line for line in log.read_text(errors="replace").splitlines() if line.strip()]
+        said = "\n".join(lines[-12:])
+    return {
+        "id": ticket,
+        "title": found["title"],
+        "url": found["url"],
+        "column": found["column"],
+        "status": found["status"],
+        "progress": found["progress"],
+        "running": process is not None and code is None,
+        "code": code,
+        "said": said,
+    }
+
+
+def doctor() -> dict:
+    """`ponos doctor`, as the terminal prints it — to read, or to copy for support."""
+    environment = {**os.environ, "NO_COLOR": "1",
+                   "PYTHONPATH": str(Path(__file__).resolve().parents[2])}
+    try:
+        answered = subprocess.run(
+            [sys.executable, "-m", "ponos", "doctor"],
+            capture_output=True, text=True, timeout=180, env=environment, cwd=str(Path.home()),
+        )
+    except subprocess.TimeoutExpired:
+        return {"code": -1, "text": "ponos doctor did not answer within three minutes"}
+    return {"code": answered.returncode, "text": answered.stdout + answered.stderr}
 
 
 def github() -> dict:
@@ -396,7 +571,18 @@ def summary(api: Api) -> dict:
     }
 
     active = [channel.name for channel in channels.open(configuration.notify)]
+    needs = prerequisites.check(config_module.state_dir(), runner.min_free_disk_mb)
+    machine = {
+        "state": "error" if any(not need.ok and need.required for need in needs)
+        else "missing" if any(not need.ok for need in needs) else "ok",
+        "needs": [
+            {"name": need.name, "ok": need.ok, "required": need.required,
+             "said": need.said, "fix": need.fix}
+            for need in needs
+        ],
+    }
     return {
+        "machine": machine,
         "provider": claude,
         "model": model,
         "board": _board(api),

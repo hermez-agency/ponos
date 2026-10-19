@@ -744,6 +744,37 @@ class Client:
         )
         return payload.get("id", "").replace("-", "")
 
+    def shared(self, directory: str) -> tuple[list[dict], list[dict]]:
+        """What has been shared with the integration: pages, and boards already built.
+
+        The first connection's way of not asking for a URL. Sharing a page with
+        an integration happens in Notion, and the only sign of it the API gives
+        is that `search` starts returning the page — so the console asks, and
+        offers what came back. A board is a database titled `directory` (what
+        `provision` builds); a page that lives inside a database is a row of
+        somebody's table, not a place to build under, and is left out.
+        """
+        pages: list[dict] = []
+        found = self._request(
+            "POST", "/search", {"filter": {"value": "page", "property": "object"}, "page_size": 50}
+        )
+        for item in found.get("results", []):
+            if (item.get("parent") or {}).get("type") == "database_id" or item.get("archived"):
+                continue
+            page = _to_page(item)
+            pages.append({"id": page.id.replace("-", ""), "title": page.title, "url": page.url})
+        boards: list[dict] = []
+        found = self._request(
+            "POST",
+            "/search",
+            {"query": directory, "filter": {"value": "database", "property": "object"}},
+        )
+        for item in found.get("results", []):
+            title = "".join(part.get("plain_text", "") for part in item.get("title", []))
+            if title.strip().lower() != directory.lower() or item.get("archived"):
+                continue
+            boards.append({"id": item.get("id", "").replace("-", ""), "url": item.get("url", "")})
+        return pages, boards
 
 
 # -- conversions -------------------------------------------------------------
