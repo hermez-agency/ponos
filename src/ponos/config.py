@@ -1365,6 +1365,43 @@ def load(path: Path | None = None, *, secrets: Path | None = None) -> Config:
     copy `edit` checks before it replaces anything.
     """
     target = path or config_path()
+    raw = _read_toml(target)
+    stored = read_secrets(secrets or secrets_path(target))
+    runner = _runner(raw.get("runner", {}))
+
+    projects = {
+        str(name): os.path.expanduser(str(value))
+        for name, value in raw.get("projects", {}).items()
+    }
+
+    # Lowercased on the way in: GitHub does not care how an owner is spelled,
+    # and a line that says `Animalink` must answer for `animalink/site`.
+    github = {
+        str(name).strip().lower(): str(value).strip()
+        for name, value in raw.get("github", {}).items()
+        if str(value).strip()
+    }
+
+    return Config(
+        notion=_notion(raw.get("notion", {}), stored),
+        runner=runner,
+        projects=projects,
+        path=target,
+        web=_web(raw.get("web", {}), stored),
+        notify=_notify(raw.get("notify", {}), stored, runner),
+        openrouter=_openrouter(raw.get("openrouter", {}), stored),
+        claude=_claude(raw.get("claude", {}), stored),
+        budget=_budget(raw.get("budget", {})),
+        permissions=_permissions(raw.get("permissions", {})),
+        storage=_storage(raw.get("storage", {})),
+        vault=_vault(raw.get("vault")),
+        github=github,
+        exposed=tuple(f"{table}.{key}" for table, key in exposed(raw)),
+    )
+
+
+def _read_toml(target: Path) -> dict:
+    """The file as TOML says it — or a ConfigError that names it."""
     if not target.exists():
         raise ConfigError(
             f"configuration not found: {target}\n"
@@ -1375,11 +1412,11 @@ def load(path: Path | None = None, *, secrets: Path | None = None) -> Config:
             raw = tomllib.load(handle)
     except tomllib.TOMLDecodeError as error:
         raise ConfigError(f"{target} is not valid TOML: {error}") from error
+    return raw
 
-    stored = read_secrets(secrets or secrets_path(target))
 
-    notion_raw = raw.get("notion", {})
-    notion = Notion(
+def _notion(notion_raw: dict, stored: dict[str, str]) -> Notion:
+    return Notion(
         token=secret(stored, "notion", "token"),
         workspace=_database_id(str(notion_raw.get("workspace", ""))),
         mention=str(notion_raw.get("mention", "")).strip(),
@@ -1395,9 +1432,22 @@ def load(path: Path | None = None, *, secrets: Path | None = None) -> Config:
         types=dict(notion_raw.get("types", {})),
     )
 
-    runner_raw = raw.get("runner", {})
+
+def _runner(runner_raw: dict) -> Runner:
+    """`[runner]`, read a part at a time: the table holds most of the keys there are."""
     defaults = Runner()
-    runner = Runner(
+    return Runner(
+        **_runner_pace(runner_raw, defaults),
+        **_runner_work(runner_raw, defaults),
+        **_runner_conversation(runner_raw, defaults),
+        **_runner_upkeep(runner_raw, defaults),
+        **_runner_models(runner_raw, defaults),
+    )
+
+
+def _runner_pace(runner_raw: dict, defaults: Runner) -> dict:
+    """Where the work is, how often and how much of it at once, and what holds it back."""
+    return dict(
         workspace_root=Path(
             os.path.expanduser(
                 str(runner_raw.get("workspace_root", defaults.workspace_root))
@@ -1434,6 +1484,12 @@ def load(path: Path | None = None, *, secrets: Path | None = None) -> Config:
                 int(runner_raw.get("credit_reserve_percent", defaults.credit_reserve_percent)),
             ),
         ),
+    )
+
+
+def _runner_work(runner_raw: dict, defaults: Runner) -> dict:
+    """How a ticket is worked: its session, its branch, and how far it goes on its own."""
+    return dict(
         model=str(runner_raw.get("model", defaults.model)).strip(),
         # Kept as the file wrote it: `voice` reads it down to a language it
         # speaks, and the difference between "nothing was said" and "English was
@@ -1485,6 +1541,20 @@ def load(path: Path | None = None, *, secrets: Path | None = None) -> Config:
         ),
         attach_sessions=bool(runner_raw.get("attach_sessions", defaults.attach_sessions)),
         session_host=str(runner_raw.get("session_host", defaults.session_host)).strip(),
+        dry_run=bool(runner_raw.get("dry_run", defaults.dry_run)),
+        prompt_file=str(runner_raw.get("prompt_file", defaults.prompt_file)).strip(),
+        document_prompt_file=str(
+            runner_raw.get("document_prompt_file", defaults.document_prompt_file)
+        ).strip(),
+        delivery_prompt_file=str(
+            runner_raw.get("delivery_prompt_file", defaults.delivery_prompt_file)
+        ).strip(),
+    )
+
+
+def _runner_conversation(runner_raw: dict, defaults: Runner) -> dict:
+    """What it says on a ticket, and when it answers, reacts or looks again."""
+    return dict(
         notify=bool(runner_raw.get("notify", defaults.notify)),
         progress=bool(runner_raw.get("progress", defaults.progress)),
         # Ten seconds reads as live and costs three writes a ticket per tick.
@@ -1526,6 +1596,12 @@ def load(path: Path | None = None, *, secrets: Path | None = None) -> Config:
             600, int(runner_raw.get("unblock_interval_seconds", defaults.unblock_interval_seconds))
         ),
         schedule=bool(runner_raw.get("schedule", defaults.schedule)),
+    )
+
+
+def _runner_upkeep(runner_raw: dict, defaults: Runner) -> dict:
+    """Keeping itself up to date, and tidying up after itself."""
+    return dict(
         auto_update=bool(runner_raw.get("auto_update", defaults.auto_update)),
         # Filtered rather than trusted: a typo here must not quietly put an
         # installation on every commit of `main`. Anything unknown is the
@@ -1557,14 +1633,12 @@ def load(path: Path | None = None, *, secrets: Path | None = None) -> Config:
             if isinstance(raw_exclude := runner_raw.get("worktree_exclude", ""), list)
             else str(raw_exclude).strip()
         ),
-        dry_run=bool(runner_raw.get("dry_run", defaults.dry_run)),
-        prompt_file=str(runner_raw.get("prompt_file", defaults.prompt_file)).strip(),
-        document_prompt_file=str(
-            runner_raw.get("document_prompt_file", defaults.document_prompt_file)
-        ).strip(),
-        delivery_prompt_file=str(
-            runner_raw.get("delivery_prompt_file", defaults.delivery_prompt_file)
-        ).strip(),
+    )
+
+
+def _runner_models(runner_raw: dict, defaults: Runner) -> dict:
+    """Which model a ticket gets, and which one sorts it first."""
+    return dict(
         classify=bool(runner_raw.get("classify", defaults.classify)),
         # Empty is the CLI's own model, which is a choice too: a runner routed
         # through OpenRouter has no `haiku` to be given.
@@ -1609,22 +1683,10 @@ def load(path: Path | None = None, *, secrets: Path | None = None) -> Config:
         use_fable=bool(runner_raw.get("use_fable", defaults.use_fable)),
     )
 
-    projects = {
-        str(name): os.path.expanduser(str(value))
-        for name, value in raw.get("projects", {}).items()
-    }
 
-    # Lowercased on the way in: GitHub does not care how an owner is spelled,
-    # and a line that says `Animalink` must answer for `animalink/site`.
-    github = {
-        str(name).strip().lower(): str(value).strip()
-        for name, value in raw.get("github", {}).items()
-        if str(value).strip()
-    }
-
-    web_raw = raw.get("web", {})
+def _web(web_raw: dict, stored: dict[str, str]) -> Web:
     web_defaults = Web()
-    web = Web(
+    return Web(
         host=str(web_raw.get("host", web_defaults.host)).strip() or web_defaults.host,
         port=int(web_raw.get("port", web_defaults.port)),
         token=secret(stored, "web", "token"),
@@ -1656,9 +1718,10 @@ def load(path: Path | None = None, *, secrets: Path | None = None) -> Config:
         ),
     )
 
-    router_raw = raw.get("openrouter", {})
+
+def _openrouter(router_raw: dict, stored: dict[str, str]) -> OpenRouter:
     router_defaults = OpenRouter()
-    openrouter = OpenRouter(
+    return OpenRouter(
         key=secret(stored, "openrouter", "key"),
         # A trailing slash here would produce `…/v1//messages`, which some
         # gateways answer and others refuse. Emptied, the default answers.
@@ -1669,39 +1732,43 @@ def load(path: Path | None = None, *, secrets: Path | None = None) -> Config:
         or router_defaults.transcription_model,
     )
 
-    claude_raw = raw.get("claude", {})
+
+def _claude(claude_raw: dict, stored: dict[str, str]) -> Claude:
     # Filtered rather than trusted: a typo must not leave the sessions on an
     # account nobody chose. An unknown word is the file that says nothing.
     chosen = str(claude_raw.get("provider", "")).strip().lower()
-    claude = Claude(
+    return Claude(
         provider=chosen if chosen in PROVIDERS else "",
         api_key=secret(stored, "claude", "api_key"),
     )
 
-    budget_raw = raw.get("budget", {})
-    budget = Budget(
+
+def _budget(budget_raw: dict) -> Budget:
+    return Budget(
         daily_usd=_dollars(budget_raw.get("daily_usd")),
         per_ticket_usd=_dollars(budget_raw.get("per_ticket_usd")),
         on_usd=_dollars(budget_raw.get("on_usd", Budget.on_usd)),
     )
 
-    permissions_raw = raw.get("permissions", {})
+
+def _permissions(permissions_raw: dict) -> Permissions:
     permissions_defaults = Permissions()
-    permissions = Permissions(
+    return Permissions(
         **{
             name: _sentences(permissions_raw.get(name), getattr(permissions_defaults, name))
             for name in ("allowed", "ask")
         }
     )
 
-    storage_raw = raw.get("storage", {})
+
+def _storage(storage_raw: dict) -> Storage:
     storage_defaults = Storage()
     # Filtered rather than trusted, and for once that is not paranoia: a typo
     # here would silently decide where the board lives. An unknown word falls
     # back on Notion, which is what a file that says nothing already gets.
     mode = str(storage_raw.get("mode", storage_defaults.mode)).strip().lower()
     conflict = str(storage_raw.get("conflict", storage_defaults.conflict)).strip().lower()
-    storage = Storage(
+    return Storage(
         mode=mode if mode in MODES else storage_defaults.mode,
         path=Path(os.path.expanduser(str(storage_raw.get("path", "")))) if storage_raw.get("path")
         else storage_defaults.path,
@@ -1711,14 +1778,13 @@ def load(path: Path | None = None, *, secrets: Path | None = None) -> Config:
         ),
     )
 
-    vault_settings = _vault(raw.get("vault"))
 
-    notify_raw = raw.get("notify", {})
+def _notify(notify_raw: dict, stored: dict[str, str], runner: Runner) -> Notify:
     # `runner.notify` came first and said "one desktop notification per ticket".
     # It keeps saying exactly that: the new table only has to name what it
     # changes, and a file written before any of this existed behaves as it did.
     events = notify_raw.get("events", EVENTS)
-    notify = Notify(
+    return Notify(
         desktop=bool(notify_raw.get("desktop", runner.notify)),
         replies=bool(notify_raw.get("replies", True)),
         # Filtered rather than trusted: a typo in this list would otherwise
@@ -1730,23 +1796,6 @@ def load(path: Path | None = None, *, secrets: Path | None = None) -> Config:
         ),
         telegram=_channel(notify_raw.get("telegram"), secret(stored, "notify.telegram", "token")),
         slack=_channel(notify_raw.get("slack"), secret(stored, "notify.slack", "token")),
-    )
-
-    return Config(
-        notion=notion,
-        runner=runner,
-        projects=projects,
-        path=target,
-        web=web,
-        notify=notify,
-        openrouter=openrouter,
-        claude=claude,
-        budget=budget,
-        permissions=permissions,
-        storage=storage,
-        vault=vault_settings,
-        github=github,
-        exposed=tuple(f"{table}.{key}" for table, key in exposed(raw)),
     )
 
 
