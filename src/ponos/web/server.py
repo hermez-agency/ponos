@@ -1346,8 +1346,25 @@ class Handler(BaseHTTPRequestHandler):
         if self.entry:
             page = sign_in_page(language)
         else:
-            page = gate_page(language, self._token_whereabouts())
+            page = gate_page(language, self._token_whereabouts(), self._refused(language))
         self._send(401, page.encode(), "text/html; charset=utf-8")
+
+    def _refused(self, language: str) -> str:
+        """Why the token that came with this request did not open the door, if one did.
+
+        A cookie is scoped by host and not by port: a second console on this
+        machine — a test one beside 8787 — overwrites the first one's, and the
+        gate reappears with nothing to say why. Now it says.
+        """
+        say = _words(language)
+        if parse_qs(urlparse(self.path).query).get("token"):
+            return say("wrong token")
+        if self._presented():
+            return say(
+                "The token this browser kept is not this console's: another console at this "
+                "address may have replaced it."
+            )
+        return ""
 
     def _language(self) -> str:
         """The language these pages are written in: the file's, else the browser's."""
@@ -1362,9 +1379,13 @@ class Handler(BaseHTTPRequestHandler):
         """Where this console's token can be read, on this machine, as HTML."""
         configuration = self.api.config
         if configuration.web.token:
-            return _words(self._language())(
-                "<code>web.token</code> of <code>{path}</code>"
-            ).format(path=html.escape(str(configuration.path)))
+            say = _words(self._language())
+            kept = config_module.secrets_path(configuration.path)
+            if config_module.read_secrets(kept).get("PONOS_WEB_TOKEN", "").strip():
+                return say("<code>PONOS_WEB_TOKEN</code> of <code>{path}</code>").format(
+                    path=html.escape(str(kept))
+                )
+            return say("the <code>PONOS_WEB_TOKEN</code> environment variable")
         return f"<code>{html.escape(str(state_dir() / 'web' / 'token'))}</code>"
 
     def _stream(self, since: str = "", board: bool = False) -> None:
@@ -1420,30 +1441,47 @@ class Handler(BaseHTTPRequestHandler):
 
 # -- the pages a browser sees before it is in ---------------------------
 
-# Accent and ladder are the console's own (see `frontend/src/index.css`): the
-# robot blue on near-black it is drawn in, and its light translation for a browser
-# that asked for one. The door and the room behind it are the same colour.
+# The palette, the card, the field and the button are the console's own — Hermez's
+# stone and orange, the values of `frontend/src/tokens.css` and the shapes of its
+# shadcn `Card`, `Input` and `Button` — copied rather than linked, because the
+# bundle is behind this door. Dark unless this browser chose light in the console:
+# the same line of `localStorage` its `index.html` reads before the first paint,
+# so the door and the room behind it are the same colour.
 _STYLE = """<style>
- :root{--bg:#0e0f13;--card:#16181e;--field:#1a1d24;--line:#262a34;--fg:#f1f2f4;--muted:#8d95a5;
-       --accent:#82a8ff;--on-accent:#0b1430;--bad:#f2685f;--good:#4ade80;color-scheme:dark}
- @media (prefers-color-scheme: light){
-  :root{--bg:#fbfbf9;--card:#fff;--field:#f4f5f1;--line:#e4e5e0;--fg:#14161a;--muted:#5f6573;
-        --accent:#3a62d1;--on-accent:#fff;--bad:#c8332a;--good:#15803d;color-scheme:light}
- }
- body{background:var(--bg);color:var(--fg);font:15px/1.6 "DM Sans",ui-sans-serif,system-ui,sans-serif;
-      display:grid;place-items:center;min-height:100vh;margin:0}
- form{box-sizing:border-box;width:min(28rem,92vw);background:var(--card);border:1px solid var(--line);border-radius:14px;padding:1.6rem}
- h1{font-size:1.1rem;margin:0 0 .4rem} p{color:var(--muted);margin:.2rem 0 1.2rem;font-size:.9rem}
- label{display:block;font-size:.85rem;font-weight:600;margin:.8rem 0 .3rem}
- input{width:100%;box-sizing:border-box;background:var(--field);border:1px solid var(--line);color:inherit;
-       border-radius:9px;padding:.7rem .8rem;font:inherit}
- input:focus-visible,textarea:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
- button{margin-top:1.1rem;width:100%;background:var(--accent);color:var(--on-accent);border:0;border-radius:9px;
-        padding:.7rem;font:inherit;font-weight:600;cursor:pointer}
- code{background:var(--field);padding:.15rem .4rem;border-radius:6px;color:var(--fg);overflow-wrap:anywhere}
- .said{color:var(--bad);margin:.9rem 0 0;min-height:1.2em}
+ :root{--background:#fafaf9;--foreground:#1c1917;--card:#fff;--field:#f5f5f4;--border:#e7e5e4;
+       --muted-foreground:#57534e;--primary:#bf4a02;--primary-foreground:#fff;--ring:#e46212;
+       --destructive:#cc2020;--shadow:0 1px 2px 0 rgb(28 25 23/.064);color-scheme:light}
+ .dark{--background:#0c0a09;--foreground:#fafaf9;--card:#1c1917;--field:#221f1d;--border:#fafaf91c;
+       --muted-foreground:#a8a29e;--primary:#ff8b44;--primary-foreground:#1c1917;--ring:#e46212;
+       --destructive:#f87171;--shadow:0 1px 2px 0 rgb(0 0 0/.32);color-scheme:dark}
+ body{background:var(--background);color:var(--foreground);margin:0;display:grid;place-items:center;min-height:100vh;
+      font:14px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+      -webkit-font-smoothing:antialiased}
+ form{box-sizing:border-box;width:min(26rem,92vw);background:var(--card);border:1px solid var(--border);
+      border-radius:1.05rem;padding:1.5rem;box-shadow:var(--shadow)}
+ h1{font:800 1.25rem/1.2 "Bricolage Grotesque Variable","Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+    letter-spacing:-.025em;margin:0 0 .375rem}
+ p{color:var(--muted-foreground);margin:0 0 1.25rem;font-size:.875rem}
+ label{display:block;font-size:.875rem;font-weight:500;margin:1rem 0 .375rem}
+ input{width:100%;box-sizing:border-box;height:2.25rem;background:var(--field);border:1px solid var(--border);
+       color:inherit;border-radius:.6rem;padding:.25rem .75rem;font:inherit;outline:none}
+ input:focus-visible{background:var(--background);border-color:var(--ring);box-shadow:0 0 0 3px rgb(228 98 18/.5)}
+ button:focus-visible,a:focus-visible{outline:none;box-shadow:0 0 0 3px rgb(228 98 18/.5)}
+ button{margin-top:1.25rem;width:100%;height:2.25rem;background:var(--primary);color:var(--primary-foreground);
+        border:0;border-radius:.6rem;padding:0 1rem;font:inherit;font-weight:500;cursor:pointer}
+ button:hover{opacity:.9}
+ code{background:var(--field);padding:.1rem .35rem;border-radius:.45rem;color:var(--foreground);
+      font:.8125rem ui-monospace,Menlo,Consolas,monospace;overflow-wrap:anywhere}
+ .said{color:var(--destructive);margin:.9rem 0 0;min-height:1.2em}
 </style>
 """
+
+# Before the first paint, as the console's `index.html` does it: dark, unless the
+# console was switched to light in this browser.
+_THEME = (
+    "<script>try{document.documentElement.classList.toggle('dark',"
+    "localStorage.getItem('ponos-theme')!=='light')}catch(e){}</script>\n"
+)
 
 # What these pages say, in the two languages the console speaks. The key is
 # the English, as it is in `frontend/src/lib/french.ts`: a sentence nobody
@@ -1458,10 +1496,17 @@ _FRENCH = {
     "Sign in to open the console.": "Connectez-vous pour ouvrir la console.",
     "wrong email or password": "e-mail ou mot de passe incorrect",
     "This console needs its token. <code>ponos serve --print-token</code> prints it, "
-    "and it is written in {where}.":
+    "and it is kept in {where}.":
         "Cette console demande son jeton. <code>ponos serve --print-token</code> "
-        "l'affiche, et il est écrit dans {where}.",
-    "<code>web.token</code> of <code>{path}</code>": "le <code>web.token</code> de <code>{path}</code>",
+        "l'affiche, et il est gardé dans {where}.",
+    "<code>PONOS_WEB_TOKEN</code> of <code>{path}</code>":
+        "le <code>PONOS_WEB_TOKEN</code> de <code>{path}</code>",
+    "the <code>PONOS_WEB_TOKEN</code> environment variable":
+        "la variable d'environnement <code>PONOS_WEB_TOKEN</code>",
+    "The token this browser kept is not this console's: another console at this "
+    "address may have replaced it.":
+        "Le jeton gardé par ce navigateur n'est pas celui de cette console : une autre "
+        "console à la même adresse l'a peut-être remplacé.",
     "connect": "connecter",
     "<strong>{client}</strong> asks to reach this Ponos.": "<strong>{client}</strong> demande l'accès à ce Ponos.",
     "Read the tasks, the projects, the ideas and what the runner is doing":
@@ -1522,19 +1567,20 @@ def _page(title: str, body: str, style: str = "", language: str = "en") -> str:
     here, they reach for nothing that is not on this machine.
     """
     return (
-        f'<!doctype html>\n<html lang="{language}">\n<meta charset="utf-8">'
+        f'<!doctype html>\n<html lang="{language}" class="dark">\n<meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">\n'
-        f"<title>{html.escape(title)} · Ponos</title>\n" + _STYLE + style + body
+        f"<title>{html.escape(title)} · Ponos</title>\n" + _THEME + _STYLE + style + body
     )
 
 
-def gate_page(language: str = "en", where: str = "") -> str:
+def gate_page(language: str = "en", where: str = "", said: str = "") -> str:
     """Asked for the token — and told where to find it, as this machine has it.
 
-    `where` is the real place: the `web.token` line of the file in use when the
-    token was chosen there, or the file it was drawn into — under
-    `$XDG_STATE_HOME` when that is set, which a path printed as a constant got
-    wrong on every machine that sets it.
+    `where` is the real place: the `PONOS_WEB_TOKEN` line of the `secrets.env`
+    in use, or the environment, when the token was chosen; else the file it was
+    drawn into — under `$XDG_STATE_HOME` when that is set, which a path printed
+    as a constant got wrong on every machine that sets it. `said` is why a token
+    that was offered did not open the door, already in the page's language.
     """
     say = _words(language)
     where = where or f"<code>{html.escape(str(state_dir() / 'web' / 'token'))}</code>"
@@ -1543,10 +1589,11 @@ def gate_page(language: str = "en", where: str = "") -> str:
         f"""<form onsubmit="location='/?token='+encodeURIComponent(this.t.value.trim());return false">
   <h1>Ponos</h1>
   <p>{say("This console needs its token. <code>ponos serve --print-token</code> prints it, "
-          "and it is written in {where}.").format(where=where)}</p>
+          "and it is kept in {where}.").format(where=where)}</p>
   <label for="t">{say("Token")}</label>
   <input id="t" name="t" autofocus autocomplete="off" spellcheck="false">
   <button type="submit">{say("Open the console")}</button>
+  <p class="said" role="alert">{html.escape(said, quote=False)}</p>
 </form>
 """,
         language=language,
@@ -1655,7 +1702,7 @@ def consent_page(language: str, request, params: dict[str, str], needs: str, sai
         # from elsewhere. This one says where it is from, to itself alone.
         style='<meta name="referrer" content="same-origin">\n'
         "<style>.scope{display:flex;gap:.5rem;align-items:baseline;font-weight:400}"
-        ".scope input{width:auto}.quiet{background:transparent;color:var(--muted);margin-top:.4rem}</style>\n",
+        ".scope input{width:auto;height:auto}.quiet{background:transparent;color:var(--muted-foreground);margin-top:.4rem}</style>\n",
         language=language,
     )
 

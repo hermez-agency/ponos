@@ -244,6 +244,12 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Changed
 
+- **The token page looks like the console it opens.** The page that asks for the console's token (and the sign-in and
+  MCP consent pages beside it) is drawn in the console's stone and orange, its card, field and button, dark unless the
+  console was switched to light in this browser. It now says the token is kept as `PONOS_WEB_TOKEN` in `secrets.env` (or
+  the environment) rather than in `web.token` of `config.toml`, and says so when the token a browser kept is refused —
+  usually another console on the same address, a test one beside 8787, whose cookie replaced this one's.
+
 - **A tidier console, after a page-by-page review.** The Projects page puts its projects first: the search and the
   *Type* filter are one compact row (*All types* rather than *Choose…*), the three layouts have three icons, the count of
   projects with a repository and the folder repositories are looked for are one line of small print under the list —
