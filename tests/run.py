@@ -14740,12 +14740,17 @@ def the_console_is_downloaded_once_and_compressed():
 
     # What the first load fetches — the page, the bundle and what it preloads,
     # the stylesheet and the icon — under the 500 kB the ticket set, gzipped.
+    # For a reader of French, that is with the dictionary the page then asks
+    # for: the heavier of the two first loads is the one held to the budget.
     page = (STATIC / "index.html").read_text(encoding="utf-8")
     first = [STATIC / "index.html"] + [
         STATIC / named for named in re.findall(r'"/static/(assets/[^"]+)"', page)
     ]
-    weight = sum(len(gzip.compress(path.read_bytes(), compresslevel=9)) for path in first)
-    assert weight < 500_000, f"the first load is {weight // 1000} kB compressed"
+    french = sorted((STATIC / "assets").glob("french-*.js"))
+    assert len(french) == 1, f"one French dictionary expected, the build left {french}"
+    assert french[0] not in first, "the French dictionary is fetched by readers of English too"
+    weight = sum(len(gzip.compress(path.read_bytes(), compresslevel=9)) for path in first + french)
+    assert weight < 500_000, f"the first load in French is {weight // 1000} kB compressed"
 
 
 @case

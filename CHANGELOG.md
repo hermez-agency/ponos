@@ -30,6 +30,13 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Changed
 
+- **The console's first load is lighter: 432 kB compressed in English, 484 kB in French, down from 486 kB for
+  both.** The French dictionary is fetched only by a page that reads French, instead of by everybody, and what every
+  page needs comes in 9 files instead of 19. The console's packages are up to date — Milkdown 7.22.3, Radix, Vite 8.3,
+  TanStack Router — and `npm audit` no longer reports a high alert, only four low ones in the formula support Milkdown
+  ships and the console does not load. React stays on 19.2: 19.3 mounts the palette and the conversation later, and a
+  Ctrl+K pressed as the board appears went unheard. `PONOS_BUNDLE_STATS=1 npm run build` draws what each file of the
+  bundle is made of.
 - **The Projects and Ideas lists filter the way the Dashboard does.** Their filters are buttons with their name in
   them, dashed until they ask for something and then saying what, instead of a row of labels taller than the fields
   under it. On a phone the bar wraps rather than scrolling sideways out of sight — "All types" and "Ticket" are no
