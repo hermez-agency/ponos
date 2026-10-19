@@ -15322,6 +15322,36 @@ def a_project_that_cannot_be_read_says_what_the_server_answered():
 
 
 @case
+def no_two_routes_of_the_console_answer_one_path():
+    """The route table is read in no particular order, which holds while no path has two routes.
+
+    Each pattern is given a path its groups accept — a Notion ID, a chat
+    identifier, a number, a word of its own alternatives — and that path must
+    find that route alone, in its table.
+    """
+    from ponos.web import server
+
+    examples = {
+        "([0-9a-fA-F-]{32,36})": "3eaf7e7b99c04adeae76ac6ecd52cdd0",
+        "([0-9a-f]{12})": "0123456789ab",
+        r"(\d+)": "42",
+        r"(\w+)": "icon",
+        r"([\w.\-]+)": "20260828-112441-3eaf7e7b.jsonl",
+    }
+    for table in (server.GETS, server.POSTS):
+        assert len({method.__name__ for _, method in table}) == len(table), "two routes, one method"
+        for pattern, _ in table:
+            path = pattern.pattern
+            for group, example in examples.items():
+                path = path.replace(group, example)
+            path = re.sub(r"\(([a-z]+)\|[^)]*\)", r"\1", path)  # an alternative: its first word
+            assert pattern.fullmatch(path), (pattern.pattern, path)
+            answering = [other.__name__ for found, other in table if found.fullmatch(path)]
+            assert len(answering) == 1, (path, answering)
+    assert len(server.GETS) == 41 and len(server.POSTS) == 39
+
+
+@case
 def the_console_route_of_one_project_is_the_one_the_page_asks_for():
     """The address the browser builds has to be an address the server answers.
 
@@ -15330,11 +15360,11 @@ def the_console_route_of_one_project_is_the_one_the_page_asks_for():
     regular expression. A 404 there reads, in the browser, as a project that
     could not be read.
     """
-    routes = (ROOT / "src/ponos/web/server.py").read_text(encoding="utf-8")
-    pattern = re.search(r'r"(/api/projects/[^"]+)"', routes)
-    assert pattern, "the server no longer routes one project"
+    from ponos.web import server
+
     asked = "/api/projects/" + "3eaf7e7b99c04adeae76ac6ecd52cdd0"
-    assert re.fullmatch(pattern.group(1), asked), f"{asked} is not a route this server answers"
+    routed = [method.__name__ for pattern, method in server.GETS if pattern.fullmatch(asked)]
+    assert routed == ["_get_project"], f"{asked} is not a route this server answers: {routed}"
     assert "`/api/projects/${id}`" in (FRONTEND / "src/lib/api.ts").read_text(encoding="utf-8"), (
         "the console asks for a project somewhere else now"
     )
