@@ -686,6 +686,12 @@ export interface Settings {
 /** The room the runner takes on this machine — see cleanup.py. */
 export interface Disk {
   sizes: { worktrees: number; logs: number; scratch: number }
+  worktrees: { name: string; size: number }[]
+  free_mb: number | null
+  disk_mb: number | null
+  min_free_disk_mb: number
+  short: boolean
+  stale_worktree_days: number
   total: number
   measured_at: string
   tidied_at: string

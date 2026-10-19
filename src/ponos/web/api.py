@@ -27,7 +27,7 @@ from typing import Any
 from .. import blocks, ci
 from .. import config as config_module
 from .. import channels, cleanup, conversation, credits, decisions, git, images, question, session, state, store, sync
-from .. import journal, models, notifications, project_settings, subtypes, systemd, voice, worktime
+from .. import journal, models, notifications, project_settings, resources, subtypes, systemd, voice, worktime
 from .. import kinds as kinds_module
 from .. import provision
 from .. import schedules as schedules_module
@@ -1057,12 +1057,24 @@ class Api:
         """The room the runner takes on this machine, and what keeps it in check."""
         held = getattr(self, "_disk", None)
         if fresh or held is None or time.time() - held[0] > DISK_TTL:
-            held = (time.time(), cleanup.sizes())
+            worktrees = cleanup.worktree_sizes()
+            sizes = cleanup.sizes({"worktrees": sum(size for _, size in worktrees)})
+            held = (time.time(), sizes, worktrees)
             self._disk = held
-        measured, sizes = held
+        measured, sizes, worktrees = held
         settings = self.config.runner
+        # Read every time, unlike the sizes: it is one call, and a console that
+        # says the disk has room when it just filled up is worse than none.
+        room = resources.disk_mb(config_module.state_dir())
+        free = room[0] if room else None
         return {
             "sizes": sizes,
+            "worktrees": [{"name": name, "size": size} for name, size in worktrees[:20]],
+            "free_mb": free,
+            "disk_mb": room[1] if room else None,
+            "min_free_disk_mb": settings.min_free_disk_mb,
+            "short": resources.short_of_disk(settings.min_free_disk_mb, config_module.state_dir()) is not None,
+            "stale_worktree_days": settings.stale_worktree_days,
             "total": sum(sizes.values()),
             "measured_at": datetime.fromtimestamp(measured, timezone.utc).isoformat(),
             "tidied_at": (

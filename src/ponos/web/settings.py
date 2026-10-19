@@ -373,6 +373,20 @@ SECTIONS: tuple[Section, ...] = (
                 "Once a day, delete the working copies of tickets done for as many days as "
                 "the logs are kept. A blocked or in-review ticket keeps its own.",
             ),
+            Field(
+                "runner", "stale_worktree_days", "int", "Drop forgotten working copies after",
+                "A working copy untouched for this many days is deleted, whatever its ticket, "
+                "unless the ticket is in progress or the copy holds work that is not pushed. "
+                "0 turns it off.",
+                minimum=0,
+                unit="days",
+            ),
+            Field(
+                "runner", "worktree_exclude", "text", "Leave out of working copies",
+                "Comma-separated folders (docs/media, for instance) that new working copies are "
+                "made without, to spare the disk. A ticket that needs one runs "
+                "git sparse-checkout disable.",
+            ),
         ),
     ),
     # -- source --------------------------------------------------------------
@@ -603,6 +617,13 @@ SECTIONS: tuple[Section, ...] = (
                 "runner", "min_free_memory_mb", "int", "Memory to keep free",
                 "No session is started while less memory than this is available; the ticket "
                 "waits in Ready. 0 turns the guard off.",
+                minimum=0,
+                unit="MB",
+            ),
+            Field(
+                "runner", "min_free_disk_mb", "int", "Disk space to keep free",
+                "Under it, old working copies are tidied first; if the space is still short, "
+                "no ticket is started and it waits in Ready. 0 turns the guard off.",
                 minimum=0,
                 unit="MB",
             ),

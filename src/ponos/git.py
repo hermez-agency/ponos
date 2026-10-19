@@ -370,7 +370,30 @@ def rebase(worktree: Path, onto: str, settle: Settle | None = None) -> str:
     return conflict or (lines[0] if lines else f"git rebase {onto} failed")
 
 
-def add_worktree(repo: Path, path: Path, branch: str, base: str) -> Worktree:
+def exclusions(setting: str) -> list[str]:
+    """`runner.worktree_exclude` as the directories it names, slashes dropped."""
+    names = (name.strip().strip("/") for name in setting.split(","))
+    return [name for name in names if name]
+
+
+def _leave_out(path: Path, exclude: list[str]) -> None:
+    """Fill a worktree made with `--no-checkout`, minus the paths in `exclude`.
+
+    Before the first file is written rather than after: the disk filled on a
+    video being checked out, and checking it out to delete it would fail the
+    same way. `sparse-checkout` is per worktree (git turns on
+    `extensions.worktreeConfig` for it), so the main checkout keeps every file.
+    """
+    patterns = ["/*", *(f"!/{name}" for name in exclude)]
+    for step in (["sparse-checkout", "set", "--no-cone", *patterns], ["reset", "--hard", "-q", "HEAD"]):
+        result = git(step, path)
+        if not result.ok:
+            raise GitError(f"git {step[0]}: {result.err or result.out}")
+
+
+def add_worktree(
+    repo: Path, path: Path, branch: str, base: str, exclude: list[str] | None = None
+) -> Worktree:
     """The ticket's worktree, on its own branch, off the latest state of `base`.
 
     A branch is named after the ticket's ID, so every attempt at one ticket asks
@@ -380,8 +403,11 @@ def add_worktree(repo: Path, path: Path, branch: str, base: str) -> Worktree:
     instead, replayed on top of the newest base, and the session carries on from
     where the last one stopped. Nothing is thrown away to make room, and nothing
     that another worktree is holding is touched.
+
+    `exclude` names directories the worktree is made without — see `_leave_out`.
     """
     start = base
+    deferred = ["--no-checkout"] if exclude else []
     if git(["rev-parse", "--verify", "--quiet", f"origin/{base}"], repo).ok:
         start = f"origin/{base}"
     # Registrations for directories somebody deleted by hand: git still counts
@@ -395,9 +421,11 @@ def add_worktree(repo: Path, path: Path, branch: str, base: str) -> Worktree:
 
     if not local and not remote:
         _make_room(repo, path, base)
-        result = git(["worktree", "add", "-b", branch, str(path), start], repo)
+        result = git(["worktree", "add", *deferred, "-b", branch, str(path), start], repo)
         if not result.ok:
             raise GitError(f"git worktree add: {result.err or result.out}")
+        if exclude:
+            _leave_out(path, exclude)
         return Worktree(backup=backup)
 
     held = _held_at(repo, branch)
@@ -412,13 +440,15 @@ def add_worktree(repo: Path, path: Path, branch: str, base: str) -> Worktree:
     else:
         _make_room(repo, path, base)
         add = (
-            ["worktree", "add", str(path), branch]
+            ["worktree", "add", *deferred, str(path), branch]
             if local
-            else ["worktree", "add", "--track", "-b", branch, str(path), f"origin/{branch}"]
+            else ["worktree", "add", *deferred, "--track", "-b", branch, str(path), f"origin/{branch}"]
         )
         result = git(add, repo)
         if not result.ok:
             raise GitError(f"git worktree add: {result.err or result.out}")
+        if exclude:
+            _leave_out(path, exclude)
         why = "left" if local else "pushed"
 
     return Worktree(
@@ -652,6 +682,22 @@ def commits_ahead(worktree: Path, base: str) -> int:
         if result.ok and result.out.isdigit():
             return int(result.out)
     return 0
+
+
+def unpushed(worktree: Path) -> int:
+    """Commits of this worktree that no remote-tracking branch holds.
+
+    The question a worktree is asked before it is thrown away: its commits are
+    safe if some remote has them, whatever the branch is called there. -1 when
+    git cannot say, which no caller reads as "nothing to lose".
+    """
+    result = git(["rev-list", "--count", "HEAD", "--not", "--remotes"], worktree)
+    return int(result.out) if result.ok and result.out.isdigit() else -1
+
+
+def current_branch(worktree: Path) -> str:
+    """The branch checked out in `worktree`, '' when HEAD is detached."""
+    return git(["symbolic-ref", "--quiet", "--short", "HEAD"], worktree).out
 
 
 def head(worktree: Path) -> str:

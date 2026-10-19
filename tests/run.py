@@ -12394,6 +12394,136 @@ def the_retention_can_be_turned_off():
 
 
 @case
+def a_cancelled_ticket_loses_its_worktree_like_a_done_one_and_a_validated_one_keeps_it():
+    with _state_home() as root:
+        cancelled = _aged(root / "worktrees" / "app-1a2b3c41", 30)
+        validated = _aged(root / "worktrees" / "app-1a2b3c42", 20)
+        pages = [
+            _aged_page("page-1a2b3c41", "Cancelled", 30),
+            _aged_page("page-1a2b3c42", "Validated", 30),
+        ]
+        with _git_answering(
+            repository_of=lambda _path: root,
+            is_dirty=lambda _path: False,
+            unpushed=lambda _path: 0,
+            current_branch=lambda _path: "",
+            remove_worktree=lambda _repo, path: shutil.rmtree(path),
+        ):
+            _tidying(pages).tidy()
+        assert not cancelled.exists() and validated.exists()
+
+
+@case
+def a_forgotten_worktree_goes_unless_its_ticket_runs_or_it_holds_work_nobody_else_has():
+    tail = ["1a2b3c51", "1a2b3c52", "1a2b3c53", "1a2b3c54", "1a2b3c55", "1a2b3c56", "1a2b3c57"]
+    pages = [
+        _aged_page(f"page-{tail[0]}", "Failed", 40),
+        _aged_page(f"page-{tail[1]}", "In progress", 40),
+        _aged_page(f"page-{tail[2]}", "Blocked", 40),
+        _aged_page(f"page-{tail[3]}", "Blocked", 40),
+        _aged_page(f"page-{tail[4]}", "Blocked", 3),
+    ]
+    with _state_home() as root:
+        names = ["failed", "running", "dirty", "unpushed", "young", "gone", "stray"]
+        places = {
+            name: _aged(root / "worktrees" / f"app-{owner}", 3 if name == "young" else 40)
+            for name, owner in zip(names, tail)
+        }
+        # Not a worktree any repository knows: not ours to guess about.
+        (places["stray"] / "notes.txt").write_text("x")
+        branches: list[str] = []
+
+        def dirty(path):
+            return path.name.endswith(tail[2])
+
+        def unpushed(path):
+            return 2 if path.name.endswith(tail[3]) else 0
+
+        def repository_of(path):
+            return None if path.name.endswith(tail[6]) else root
+
+        with _git_answering(
+            repository_of=repository_of,
+            is_dirty=dirty,
+            unpushed=unpushed,
+            current_branch=lambda path: f"ticket/{path.name}",
+            remove_worktree=lambda _repo, path: shutil.rmtree(path),
+            delete_branch=lambda _repo, branch: branches.append(branch),
+        ):
+            _tidying(pages, "[runner]\nlog_retention_days = 0\n").tidy()
+            gone = {name for name, path in places.items() if not path.exists()}
+            assert gone == {"failed", "gone"}, gone
+            assert sorted(branches) == [f"ticket/app-{tail[0]}", f"ticket/app-{tail[5]}"]
+            # A ticket still in progress, and every one when it is turned off.
+            again = _aged(root / "worktrees" / f"app-{tail[0]}", 40)
+            _tidying(pages, "[runner]\nstale_worktree_days = 0\n").tidy(now=True)
+            assert again.exists()
+            # Nothing is guessed from a board that was not read.
+            _tidying([]).tidy(now=True)
+            assert again.exists()
+
+
+@case
+def a_low_disk_tidies_first_then_starts_nothing_and_leaves_the_ticket_in_ready():
+    from ponos import resources
+
+    runner = _tidying([])
+    runner.dry_run = False
+    runner._memory_warned, runner._disk_warned, runner._disk_tidied = False, False, 0.0
+    runner.config.runner.min_free_memory_mb = 0
+    runner.config.runner.min_free_disk_mb = 5000
+    said: list[str] = []
+    tidied: list[bool] = []
+    runner.say = said.append
+    runner.tidy = lambda now=False: tidied.append(now)
+    runner._notify = lambda *args, **kwargs: said.append("notified")
+    original = resources.disk_mb
+    try:
+        resources.disk_mb = lambda path: (1000, 100000)
+        assert not runner.room_for_a_session() and not runner.room_for_a_session()
+        assert tidied == [True], "one tidy, not one per place"
+        assert sum("1000" in line for line in said) == 1 and "notified" in said, said
+        resources.disk_mb = lambda path: (9000, 100000)
+        assert runner.room_for_a_session()
+        runner.config.runner.min_free_disk_mb = 0
+        resources.disk_mb = lambda path: (1, 100000)
+        assert runner.room_for_a_session(), "zero switches the guard off"
+        # A tidy that freed the room is the whole answer: the ticket starts.
+        runner.config.runner.min_free_disk_mb = 5000
+        runner._disk_tidied = 0.0
+        measures = iter([(1000, 100000), (8000, 100000)])
+        resources.disk_mb = lambda path: next(measures)
+        assert runner.room_for_a_session()
+    finally:
+        resources.disk_mb = original
+
+
+@case
+def a_worktree_is_made_without_the_excluded_folders_and_the_main_checkout_keeps_them():
+    from ponos import git as git_module
+
+    assert git_module.exclusions(" docs/media/, ,assets ") == ["docs/media", "assets"]
+    with tempfile.TemporaryDirectory() as home:
+        repo, path = Path(home) / "repo", Path(home) / "worktrees" / "site-9d2cb790"
+        for step in (["init", "-q", "-b", "main"], ["config", "user.email", "t@t"], ["config", "user.name", "t"]):
+            assert git_module.git(step, repo.mkdir() or repo).ok if step[0] == "init" else git_module.git(step, repo).ok
+        (repo / "docs" / "media").mkdir(parents=True)
+        (repo / "docs" / "media" / "promo.mp4").write_text("big")
+        (repo / "src").mkdir()
+        (repo / "src" / "a.py").write_text("x")
+        assert git_module.git(["add", "."], repo).ok
+        assert git_module.git(["commit", "-qm", "first"], repo).ok
+        git_module.add_worktree(repo, path, "ticket/x-9d2cb790", "main", ["docs/media"])
+        assert (path / "src" / "a.py").exists() and not (path / "docs" / "media").exists()
+        assert not git_module.is_dirty(path), "an excluded folder is not a deletion"
+        assert (repo / "docs" / "media" / "promo.mp4").exists()
+        assert git_module.git(["status", "--porcelain"], repo).out == ""
+        other = Path(home) / "worktrees" / "site-aaaaaaaa"
+        git_module.add_worktree(repo, other, "ticket/y-aaaaaaaa", "main")
+        assert (other / "docs" / "media" / "promo.mp4").exists(), "nothing excluded, everything checked out"
+
+
+@case
 def the_console_measures_the_disk_and_cleans_only_between_runs():
     from ponos.web import api as web_api
 

@@ -498,6 +498,10 @@ _SAID: dict[str, dict[str, str]] = {
         "en": "Only {free} MB of memory available (under {minimum} MB): no session is started until it comes back.",
         "fr": "Seulement {free} Mo de mémoire disponibles (sous {minimum} Mo) : aucune session ne démarre avant son retour.",
     },
+    "disk-short": {
+        "en": "Only {free} MB free on the disk (under {minimum} MB), even after a tidy: no ticket is started until room is back.",
+        "fr": "Seulement {free} Mo libres sur le disque (sous {minimum} Mo), même après un nettoyage : aucun ticket ne démarre avant que la place revienne.",
+    },
     "no-answer": {
         "en": "the session stopped without writing an answer",
         "fr": "la session s'est arrêtée sans écrire de réponse",

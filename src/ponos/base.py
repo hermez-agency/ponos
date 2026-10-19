@@ -91,6 +91,9 @@ class Base:
         self._usage_warned = False
         # Same, for the memory guard: see `Board.room_for_a_session`.
         self._memory_warned = False
+        # And for the disk guard, with the time of its last emergency tidy.
+        self._disk_warned = False
+        self._disk_tidied = 0.0
         # The columns a write of this run left out because the board has none
         # by that name. Each is said once — see `_dropped`.
         self._unwritten: set[tuple[str, str]] = set()

@@ -1122,6 +1122,19 @@ def command_doctor(args: argparse.Namespace) -> int:
             f"  {DIM}runner.clean_done_worktrees = false — worktrees stay until "
             f"ponos clean --force{RESET}"
         )
+    room = resources.disk_mb(config_module.state_dir())
+    minimum_disk = configuration.runner.min_free_disk_mb
+    if room is None:
+        print(f"  {DIM}the free disk space cannot be read here — the disk guard cannot tell{RESET}")
+    elif minimum_disk <= 0:
+        print(f"  {DIM}runner.min_free_disk_mb = 0 — no disk guard; {room[0]} MB free{RESET}")
+    elif room[0] < minimum_disk:
+        warn(
+            f"{room[0]} MB free, under runner.min_free_disk_mb ({minimum_disk} MB) — "
+            f"no ticket is started until it is back"
+        )
+    else:
+        ok(f"{room[0]} MB free (a ticket starts above {minimum_disk} MB)")
     leftover = git.residues(config_module.state_dir() / "worktrees")
     if leftover:
         warn(

@@ -476,7 +476,10 @@ class Execution(Base):
         if self.config.runner.fetch:
             git.fetch(project.path)
         try:
-            worktree = git.add_worktree(project.path, job.workdir, job.branch, job.base)
+            worktree = git.add_worktree(
+                project.path, job.workdir, job.branch, job.base,
+                git.exclusions(self.config.runner.worktree_exclude),
+            )
         except git.GitError as error:
             return self._fail(
                 ticket, self.voice.say("no-worktree"), str(error), code="worktree.residue"
