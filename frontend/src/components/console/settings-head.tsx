@@ -152,10 +152,13 @@ function KeysSwitch() {
   )
 }
 
+/** The two pages the file does not describe, named as their tabs are (see `resources/settings`). */
+const PAGE_NAMES: Record<string, string> = { "github-app": "GitHub", mcp: "MCP" }
+
 /* What sits above the tabs: where you are, how to find a setting, and whatever
  * `doctor` would refuse to start over. */
 export function SettingsHead() {
-  const { fetchData, subResource, setViewResource } = useCurrentViewResourceContext()
+  const { data, fetchData, subResource, setViewResource } = useCurrentViewResourceContext()
   const navigate = useNavigate()
   const t = useT()
   useSettingsRevision()
@@ -194,13 +197,28 @@ export function SettingsHead() {
     void navigate({ to: settingsHref(section.group), replace: true })
   }, [drawn, subResource, navigate, setViewResource])
 
+  // The bar's breadcrumb names the record, and the record is the file: it
+  // said "Settings › config.toml" whatever page was open. Named after the page
+  // instead — "Settings › General" — and named again when another is opened,
+  // when the file is read again or when the console changes language.
+  const page = subResource ?? drawn?.groups[0]?.key ?? ""
+  const named = PAGE_NAMES[page] ?? groupOf(page)?.title
+  const name = named ? t(named) : undefined
+  const shown = (data as { name?: unknown } | undefined)?.name
+  React.useEffect(() => {
+    if (!name || shown === name) return
+    setViewResource((current) =>
+      current.data ? { ...current, data: { ...current.data, name } } : current
+    )
+  }, [name, shown, setViewResource])
+
   if (!drawn)
     return <p className="text-muted-foreground text-sm">{t("Reading the configuration…")}</p>
 
   return (
     <>
       <PageHead
-        title={t("Configure the runner.")}
+        title={t("Configure the runner")}
         action={
           <div className="flex w-full flex-wrap items-center gap-x-4 gap-y-2 sm:w-auto">
             <SettingsSearch />

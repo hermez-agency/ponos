@@ -28,7 +28,7 @@ export function LanguagePicker() {
 
   return (
     <div className="mb-5 flex max-w-prose flex-col gap-1.5">
-      <Label htmlFor="console-language">{t("the console's language")}</Label>
+      <Label htmlFor="console-language" className="leading-snug font-semibold">{t("Language of the console, in this browser")}</Label>
       <Select value={language} onValueChange={(value) => setLanguage(value as Language)}>
         <SelectTrigger id="console-language" className="w-full max-w-68">
           <SelectValue>
@@ -49,7 +49,7 @@ export function LanguagePicker() {
       </Select>
       <p className="text-muted-foreground text-xs leading-relaxed">
         {t(
-          "This browser's, and this browser's only: it is not written to the file. Left alone, the console reads the one your browser asks for."
+          "This browser's, and this browser's only: it is not written to the file, and it comes before the default below."
         )}
       </p>
     </div>
