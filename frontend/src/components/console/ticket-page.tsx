@@ -34,6 +34,7 @@ import {
   SEED,
   LABEL,
   NO_COMMIT,
+  choiceWord,
   columnTitle,
   TicketActions,
   TicketBlock,
@@ -260,14 +261,14 @@ function TicketSummary({ ticket, onSession }: { ticket: TicketDetail; onSession:
           {ticket.type ? (
             <>
               {sep}
-              <span>{ticket.type}</span>
+              <span>{choiceWord(ticket.type)}</span>
             </>
           ) : null}
           {ticket.subtype ? <TicketSubtype subtype={ticket.subtype} /> : null}
           {ticket.priority ? (
             <>
               {sep}
-              <span>{ticket.priority}</span>
+              <span>{choiceWord(ticket.priority)}</span>
             </>
           ) : null}
         </div>

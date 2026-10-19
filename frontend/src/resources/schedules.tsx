@@ -25,6 +25,7 @@ import {
 
 import { EmptyState } from "@/components/console/empty-state"
 import { MarkdownInputController } from "@/components/console/markdown-editor"
+import { choiceWord } from "@/components/console/ticket-bits"
 import {
   DayInputController,
   RecurrenceFields,
@@ -264,15 +265,23 @@ const CADENCES = (
     return t(words)
   },
 }))
-/* The model and the priority in the board's own words, which are the runner's
- * vocabulary and stay untranslated. None chosen is an answer: the ticket then
- * takes the runner's model, and waits its turn. */
+/* The model in the board's own words, which are the runner's vocabulary and
+ * stay untranslated; the priority is the runner's too, but said in the
+ * console's language (`choiceWord`), as everywhere else it is drawn. None
+ * chosen is an answer: the ticket then takes the runner's model, and waits its
+ * turn. */
 const MODELS = [
   { value: "haiku", label: "Haiku" },
   { value: "sonnet", label: "Sonnet" },
   { value: "opus", label: "Opus" },
 ]
-const PRIORITIES = ["Low", "Normal", "High", "Urgent"].map((word) => ({ value: word, label: word }))
+const PRIORITIES = ["Low", "Normal", "High", "Urgent"].map((word) => ({
+  value: word,
+  // Read from the dictionary as the button is drawn: the language can change after.
+  get label() {
+    return choiceWord(word)
+  },
+}))
 
 /* The type and the sub-type its tickets are born with, as the server offers
  * them: only where the Schedules database has the column (`ponos init` adds
@@ -320,7 +329,8 @@ const fields: FormInterface["inputs"] = {
   type: {
     label: "Type",
     controller: SegmentsInputController,
-    getValueOptions: async () => choicesOf("type"),
+    getValueOptions: async () =>
+      choicesOf("type").map((choice) => ({ ...choice, label: choiceWord(choice.label) })),
     hidden: () => !choicesOf("type").length,
     get description() {
       return t("The road every ticket takes. Empty, the runner deduces it.")
@@ -804,13 +814,15 @@ export const schedules = createViewResource<ScheduleItem, ScheduleWrite>(SCHEDUL
       rowActions: [],
       /* The two layouts. Their labels go through the dictionary as the tabs
        * are drawn, and their address is their type: `table`, `calendar`, in
-       * every language. */
+       * every language. At the width of the page, as the board and the
+       * projects are. */
       layouts: [
-        layout.table({ label: "table" }),
+        layout.table({ label: "table", fullWidth: true }),
         // Typed against the launches `ScheduleCalendar` hands the package, not
         // against the rows — hence the cast into the rows' list of layouts.
         layout.calendar<Launch>({
           label: "calendar",
+          fullWidth: true,
           dateField: "when",
           titleField: "title",
           colorField: "color",

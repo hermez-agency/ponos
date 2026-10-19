@@ -25,6 +25,7 @@ import {
 
 import { MarkdownInputController } from "@/components/console/markdown-editor"
 import {
+  choiceWord,
   columnTitle,
   SEED,
   TicketActions,
@@ -278,7 +279,11 @@ function choiceInput(
             value: subtype.key,
             label: subtype.label,
           }))
-        : (currentBoard()?.choices?.[key] ?? [])),
+        : // The type and the priority in the console's language (`choiceWord`),
+          // their values the board's.
+          (currentBoard()?.choices?.[key] ?? []).map((choice) =>
+            key === "model" ? choice : { ...choice, label: choiceWord(choice.label) }
+          )),
     ],
   }
 }
@@ -404,6 +409,11 @@ const ModelCell: InputControllerComponentInterface = ({ formInput }) => {
   return <>{original?.model_label || String(formInput.value ?? "")}</>
 }
 
+/** A priority, in the console's words rather than the board's: see `choiceWord`. */
+const PriorityCell: InputControllerComponentInterface = ({ formInput }) => (
+  <>{choiceWord(String(formInput.value ?? ""))}</>
+)
+
 /* The title, in the table, as the way into the ticket — the window over the
  * list, as a card's title is. */
 const TitleCell: InputControllerComponentInterface = ({ formInput }) => {
@@ -428,7 +438,7 @@ const rowForm: FormInterface = {
     title: { label: "Ticket", readonly: true, controller: TitleCell },
     project: { label: "Project", readonly: true },
     status: { label: "Status", readonly: true, controller: StatusCell },
-    priority: { label: "Priority", readonly: true },
+    priority: { label: "Priority", readonly: true, controller: PriorityCell },
     model: { label: "Model", readonly: true, controller: ModelCell },
     spent: { label: "Cost", readonly: true },
     took: { label: "Took", readonly: true },

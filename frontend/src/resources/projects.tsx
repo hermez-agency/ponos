@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Check, Clock, Copy, FileText, Folder, FolderGit2, Plus, SearchX, X } from "lucide-react"
+import { Check, Clock, Columns2, Copy, FileText, Folder, FolderGit2, LayoutGrid, Plus, SearchX, X } from "lucide-react"
 import { ActionList, SelectInputController, type FormInterface } from "react-data-form"
 import {
   Link,
@@ -18,7 +18,6 @@ import {
 
 import { ContextBlock } from "@/components/console/context-block"
 import { EmptyState } from "@/components/console/empty-state"
-import { Eyebrow } from "@/components/console/frame"
 import { MarkdownInputController } from "@/components/console/markdown-editor"
 import { ProjectThumb } from "@/components/console/project-picture"
 import { ProjectMenu } from "@/components/console/project-delete"
@@ -26,6 +25,7 @@ import { ProjectActions, ProjectPage, ProjectTitle } from "@/components/console/
 import {
   BoxInputController,
   KindInputController,
+  ProjectEditFields,
   LineInputController,
   ProjectFields,
   ProjectFoot,
@@ -250,25 +250,59 @@ export async function readProject(id: string): Promise<ProjectItem> {
  * which is what the getters are for: the declaration is built once, and the
  * language can change after it.
  */
+/* In three groups, in the words the "New project" window uses for the same
+ * fields — "Name", "GitHub", "Local folder" — where it said "Project" over the
+ * name and "Where it is" over the folder: the project, where its code is, and
+ * the brief. A repository is checked as it is typed, rather than by the
+ * server once the drawer is sent. */
+const REPOSITORY = /^([\w.-]+\/[\w.-]+|https?:\/\/\S+|git@\S+:\S+|ssh:\/\/\S+)$/
+
 const editForm: FormInterface = {
   label: { submit: "Save" },
+  components: { formInputs: ProjectEditFields },
+  groupOption: {
+    itemGroups: [
+      { group: "project", title: "The project", order: 1 },
+      {
+        group: "code",
+        title: "Where its code is",
+        get description() {
+          return t("Both empty: a writing project, whose tickets come back as a document.")
+        },
+        order: 2,
+      },
+      { group: "brief", title: "The brief", order: 3 },
+    ],
+  },
   inputs: {
     name: {
-      label: "Project",
+      label: "Name",
+      groups: ["project"],
       get description() {
         return t("What the board calls it. A ticket points at this page, not at this name.")
       },
       required: true,
+      validator: (value: unknown) => {
+        if (!String(value ?? "").trim()) throw new Error(t("A project needs a name."))
+        return value
+      },
     },
     repository: {
-      label: "Repository",
+      label: "GitHub",
+      groups: ["code"],
       get description() {
         return t("owner/repo, or the clone URL. Empty, and its tickets come back as a document.")
       },
-      placeholder: "SalvadorCardona/ponos",
+      placeholder: "owner/repo",
+      validator: (value: unknown) => {
+        const said = String(value ?? "").trim()
+        if (said && !REPOSITORY.test(said)) throw new Error(t("Write it as owner/repo, or paste the clone URL."))
+        return value
+      },
     },
     path: {
-      label: "Where it is",
+      label: "Local folder",
+      groups: ["code"],
       get description() {
         return t(
           "Only needed where the repository cannot be found on its own. Worktrees are made beside it, never in it."
@@ -280,6 +314,7 @@ const editForm: FormInterface = {
     },
     content: {
       label: "The brief",
+      groups: ["brief"],
       get description() {
         return t(
           "The audience, the voice, the conventions, the things never to do. Every ticket of this project is told it before it is told the ticket."
@@ -618,7 +653,7 @@ function ProjectRows({ rows = [] }: ListComponentPropsInterface) {
       <div className="overflow-hidden rounded-md border">
         <div className={cn(COLUMNS, "text-muted-foreground border-b py-2 text-xs font-medium")} aria-hidden>
           <span>{t("Project")}</span>
-          <span className="hidden md:block">{t("Kind")}</span>
+          <span className="hidden md:block">{t("Type")}</span>
           <span className="hidden md:block">{t("Repository")}</span>
           <span className="hidden md:block">{t("On this machine")}</span>
           <span className="text-right">{t("Tickets")}</span>
@@ -823,55 +858,70 @@ function CopyPath({ path }: { path: string }) {
 
 /* -- what sits around the list -------------------------------------------- */
 
-/** The standing context, over the projects it covers; then how many of them are worked on in git. */
+/* What sits around the list depends on the layout.
+ *
+ * Beside it, in the split layout, the panel holds the standing context and the
+ * project picked: see `ProjectAside`. The other two have no room on their side,
+ * and the context used to be drawn over the list — a block as wide as the page,
+ * most of it an empty state, between the menu and the projects the page is
+ * named after. It is under them now: the projects first, then what covers all
+ * of them. */
 function ProjectsTop() {
   useLayoutInTheAddress(PROJECTS)
   const { viewVariant } = useCurrentViewResourceContext()
-  // Beside the list, in the panel: see `ProjectAside`. Over it, in the other
-  // two layouts, which have no room on their side.
-  if (viewVariant === SPLIT) {
-    return (
-      <React.Suspense fallback={null}>
-        <ProjectAside />
-      </React.Suspense>
-    )
-  }
+  if (viewVariant !== SPLIT) return null
+  return (
+    <React.Suspense fallback={null}>
+      <ProjectAside />
+    </React.Suspense>
+  )
+}
+
+/** Under the list: how many are worked on in git and where their repositories are
+ * looked for — then, in the two layouts with no panel, the standing context. */
+function ProjectsBottom() {
+  const { viewVariant } = useCurrentViewResourceContext()
   return (
     <>
-      <ContextBlock />
-      <ProjectsCount />
+      <ProjectsFoot />
+      {viewVariant === SPLIT ? null : (
+        <div className="mt-8">
+          <ContextBlock />
+        </div>
+      )}
     </>
   )
 }
 
-/** How many of them are worked on in git, said where the list opens. */
-function ProjectsCount() {
+/* How many of them are worked on in git, and where a repository is looked for —
+ * which is the answer to half of "why was it not found". One line of small
+ * print under the list: the count floated over the page's title, and the
+ * folder was said by its configuration key. The key is still there, on hover,
+ * for whoever wants to change it. */
+function ProjectsFoot() {
   const read = useProjects()
   if (!read) return null
   const code = read.projects.filter((project) => project.kind === "code").length
   const counted = { count: String(code), total: String(read.projects.length) }
   return (
-    <p className="text-muted-foreground mb-2 inline-flex items-center gap-1.5 font-mono text-[0.7rem]">
-      <FolderGit2 className="size-3.5" />
-      {read.projects.length
-        ? code > 1
-          ? t("{{count}} of {{total}} projects have a repository", counted)
-          : t("{{count}} of {{total}} projects has a repository", counted)
-        : t("nothing yet")}
-    </p>
-  )
-}
-
-/** Where a repository is looked for, which is the answer to half of "why was it not found". */
-function ProjectsFoot() {
-  const read = useProjects()
-  if (!read) return null
-  return (
-    <p className="text-muted-foreground mt-4 text-xs">
-      <Eyebrow>runner.workspace_root</Eyebrow> —{" "}
-      <span className="font-mono">{read.workspace_root}</span>{" "}
-      {t("is where a repository is looked for, and cloned into when it is nowhere.")}
-    </p>
+    <div className="text-muted-foreground mt-4 flex flex-col gap-1.5 text-xs sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4">
+      <span className="inline-flex items-center gap-1.5">
+        <FolderGit2 className="size-3.5 shrink-0" />
+        {read.projects.length
+          ? code > 1
+            ? t("{{count}} of {{total}} projects have a repository", counted)
+            : t("{{count}} of {{total}} projects has a repository", counted)
+          : t("nothing yet")}
+      </span>
+      <span className="inline-flex min-w-0 items-center gap-1.5" title="runner.workspace_root">
+        <Folder className="size-3.5 shrink-0" />
+        <span className="min-w-0">
+          {t("Repositories are looked for in {{path}}, and cloned there when they are nowhere.", {
+            path: shortPath(read.workspace_root),
+          })}
+        </span>
+      </span>
+    </div>
   )
 }
 
@@ -916,14 +966,22 @@ function NoProject() {
  * two types. The labels are read from the dictionary as the bar is drawn. */
 const formFilter: FormInterface = {
   inputs: {
+    // The labels are for a screen reader: the box and the select say what they
+    // are, as the board's search bar does, and a row of two labels over two
+    // fields was the tallest thing on the page.
     q: {
       label: "Search",
+      className: "[&_[data-slot=field-label]]:sr-only",
       get placeholder() {
         return t("Search a project")
       },
     },
     type: {
       label: "Type",
+      className: "[&_[data-slot=field-label]]:sr-only",
+      get placeholder() {
+        return t("All types")
+      },
       controller: SelectInputController,
       getValueOptions: async () => [
         { value: "", label: t("All types") },
@@ -1005,8 +1063,8 @@ export const projects = createViewResource<ProjectItem, ProjectWrite>(PROJECTS, 
        * are drawn, and their address is their type: `cards`, `table`, in
        * every language. */
       layouts: [
-        layout.cards({ id: SPLIT, label: "split", fullWidth: true, components: { list: ProjectMaster } }),
-        layout.cards({ label: "cards", fullWidth: true, components: { list: ProjectCards } }),
+        layout.cards({ id: SPLIT, label: "split", icon: Columns2, fullWidth: true, components: { list: ProjectMaster } }),
+        layout.cards({ label: "cards", icon: LayoutGrid, fullWidth: true, components: { list: ProjectCards } }),
         layout.table({ label: "table", fullWidth: true, components: { list: ProjectRows } }),
       ],
       // A card, or a row, is a link to the project's page: no button under it.
@@ -1014,7 +1072,7 @@ export const projects = createViewResource<ProjectItem, ProjectWrite>(PROJECTS, 
       // The search is the package's own: it lives in the address (`q`, `type`),
       // and the rows are kept by `keeps`, as the list is read.
       filters: formFilter,
-      components: { top: ProjectsTop, bottom: ProjectsFoot, empty: NoProject },
+      components: { top: ProjectsTop, bottom: ProjectsBottom, empty: NoProject },
     },
     create: {
       title: "New project",
@@ -1039,7 +1097,7 @@ export const projects = createViewResource<ProjectItem, ProjectWrite>(PROJECTS, 
       components: { view: ProjectPage, title: ProjectTitle, actions: ProjectActions },
     },
     update: {
-      title: "Project",
+      title: "Edit the project",
       // What the button that opens this form says. Left to the package it is
       // the action's own name, which reads as a lower-case "update".
       buttonLabel: "Edit",

@@ -271,29 +271,33 @@ export function ActivityChart({
         ) : null}
       </div>
 
-      <table className="sr-only">
-        <caption>{label}</caption>
-        <thead>
-          <tr>
-            <th scope="col" />
-            {series.map((one) => (
-              <th key={one.key} scope="col">
-                {one.label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {points.map((point, index) => (
-            <tr key={index}>
-              <th scope="row">{longDay(point)}</th>
+      {/* In a box of its own: a table does not shrink to the 1px `sr-only`
+          gives it, and one as wide as its days pushed a phone's page sideways. */}
+      <div className="sr-only">
+        <table>
+          <caption>{label}</caption>
+          <thead>
+            <tr>
+              <th scope="col" />
               {series.map((one) => (
-                <td key={one.key}>{number(one.value(point))}</td>
+                <th key={one.key} scope="col">
+                  {one.label}
+                </th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {points.map((point, index) => (
+              <tr key={index}>
+                <th scope="row">{longDay(point)}</th>
+                {series.map((one) => (
+                  <td key={one.key}>{number(one.value(point))}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }

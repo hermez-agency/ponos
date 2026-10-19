@@ -30,7 +30,7 @@ async function openWebsiteForm(page: Page) {
   await onThePageOf(page, "Website")
   await page.getByRole("link", { name: "Edit" }).click()
   await expect(drawer(page)).toBeVisible()
-  await expect(drawer(page).getByLabel("Project")).toHaveValue("Website")
+  await expect(drawer(page).getByRole("textbox", { name: /^Name/ })).toHaveValue("Website")
 }
 
 test.describe("at 1440px", () => {
@@ -159,7 +159,7 @@ test.describe("at 1440px", () => {
     await card(page, "Newsletter").click()
     await onThePageOf(page, "Newsletter")
     await page.getByRole("link", { name: "Edit" }).click()
-    const name = drawer(page).getByLabel("Project")
+    const name = drawer(page).getByRole("textbox", { name: /^Name/ })
     await expect(name).toHaveValue("Newsletter")
     await name.fill("Weekly letter")
     await drawer(page).getByRole("button", { name: "Save" }).click()

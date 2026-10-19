@@ -22,6 +22,7 @@ const lazily = <Name extends string>(name: Name): Part => {
 export const ProjectWindow = lazily("ProjectWindow")
 export const ProjectForm = lazily("ProjectForm")
 export const ProjectFields = lazily("ProjectFields")
+export const ProjectEditFields = lazily("ProjectEditFields")
 export const ProjectFoot = lazily("ProjectFoot")
 export const ProjectNameInputController = lazily("ProjectNameInputController") as InputControllerComponentInterface
 export const LineInputController = lazily("LineInputController") as InputControllerComponentInterface

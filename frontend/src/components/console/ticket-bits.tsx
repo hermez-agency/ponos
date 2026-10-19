@@ -57,14 +57,25 @@ export const LABEL: Record<string, string> = {
 /** A column's name as the board heads it: the board's word, with a capital — Notion's may have none. */
 export const capital = (name: string): string => name.charAt(0).toUpperCase() + name.slice(1)
 
-/* The heading over a column: the board's own word for it, except over the
- * drafts. There the word is the option a draft is written with — often a bare
- * "draft" — rather than a name anybody gave a column, and the column says
- * "Draft" in whichever language the console is in. */
+/* The heading over a column: the console's word for it, in its language,
+ * wherever the runner has one — which is every column it acts on.
+ *
+ * It was the board's own word, repeated as it is: but that word is a status
+ * option, and an option is spelt for the board's sake — "progress", "review",
+ * "Ready" — so a French console headed its columns in English beside its
+ * "Brouillon", while the ticket's page said "En revue" for the same column.
+ * The board's word is kept for a column the runner has no word for. */
 export function columnTitle(key: string, name?: string): string {
-  if (key === "draft") return t(LABEL.draft)
-  return name || t(LABEL[key] ?? "") || key
+  const ours = LABEL[key]
+  if (ours) return t(ours)
+  return name || key
 }
+
+/* The words a ticket's type and priority are written in on the board: the
+ * runner's own ("Writing", "Urgent"), which it acts on and which stay its
+ * values — but said, wherever the console draws them, in its language. A word
+ * the dictionary does not know (a priority a board added) is drawn as it is. */
+export const choiceWord = (value: string): string => (value ? t(value) : value)
 
 /** The colour of a column, as text. */
 export const TONE: Record<string, string> = {
@@ -429,7 +440,7 @@ export function TicketTags({ ticket, lead }: { ticket: Ticket; lead?: React.Reac
     <div className="flex flex-wrap items-center gap-1.5">
       {lead}
       <TicketSubtype subtype={ticket.subtype} />
-      {ticket.priority ? <Chip>{ticket.priority}</Chip> : null}
+      {ticket.priority ? <Chip>{choiceWord(ticket.priority)}</Chip> : null}
       {ticket.model ? (
         <Chip className="min-w-0 max-w-full">
           <span className="truncate" data-slot="ticket-model" title={ticket.model_label || ticket.model}>
