@@ -2029,6 +2029,59 @@ def command_mcp(args: argparse.Namespace) -> int:
     return 0
 
 
+def command_tailscale(args: argparse.Namespace) -> int:
+    """The console inside the tailnet, the MCP endpoint through Funnel — see `tailscale.py`.
+
+    `enable` is the decision to publish `/mcp`, which is why nothing else turns
+    it on: not the installer, not an update, not `ponos enable`.
+    """
+    from . import tailscale
+
+    try:
+        port = config_module.load().web.port
+    except config_module.ConfigError as error:
+        print(f"{RED}error:{RESET} {error}", file=sys.stderr)
+        return 2
+    try:
+        if args.action == "watch":
+            tailscale.watch(port, args.interval)
+            return 0
+        if args.action == "enable":
+            if not shutil.which("systemctl"):
+                print("systemd not available — `ponos tailscale watch` does the same in the foreground", file=sys.stderr)
+                return 1
+            update_module.write_units(config_module.load().runner.interval_seconds)
+            subprocess.call(["systemctl", "--user", "daemon-reload"])
+            code = subprocess.call(["systemctl", "--user", "enable", "--now", "ponos-tailscale.service"])
+            if code == 0:
+                ok("ponos-tailscale.service enabled — it waits for the tailnet, then publishes")
+                print(f"{DIM}  journalctl --user -u ponos-tailscale -f{RESET}")
+            return code
+        if args.action == "disable":
+            if shutil.which("systemctl"):
+                subprocess.call(["systemctl", "--user", "disable", "--now", "ponos-tailscale.service"])
+            tailscale.withdraw()
+            ok("both doors taken down")
+            return 0
+        if args.action == "apply":
+            tailscale.apply(port)
+        current = tailscale.node()
+        title("Tailnet")
+        if not current.connected:
+            warn(f"tailscale is {current.state} — `tailscale up`, then again")
+            return 1
+        up = tailscale.in_place(port, current.name)
+        (ok if up else warn)(
+            f"{current.name}: " + ("both doors are up" if up else "not published — `ponos tailscale apply`")
+        )
+        print(f"  console   https://{current.name}:{tailscale.PRIVATE_PORT}  {DIM}— tailnet only{RESET}")
+        print(f"  connector https://{current.name}/mcp  {DIM}— public, behind the keys; set web.url = \"https://{current.name}\"{RESET}")
+    except tailscale.TailscaleError as error:
+        bad(str(error))
+        return 1
+    return 0
+
+
 def command_timer(args: argparse.Namespace) -> int:
     """Both units at once: the timer that runs tickets, and the console.
 
@@ -2045,6 +2098,11 @@ def command_timer(args: argparse.Namespace) -> int:
         )
         subprocess.call(
             ["systemctl", "--user", "disable", "--now", "ponos-web.service"]
+        )
+        # The public door goes with the console it opens onto.
+        subprocess.call(
+            ["systemctl", "--user", "disable", "--now", "ponos-tailscale.service"],
+            stderr=subprocess.DEVNULL,
         )
         return code
 
@@ -2257,6 +2315,19 @@ def build_parser() -> argparse.ArgumentParser:
     listing_keys = actions.add_parser("list", help="the clients, and the last writes they asked for")
     listing_keys.add_argument("-n", "--number", type=int, default=20)
     serving_mcp.set_defaults(function=command_mcp, action="list", number=20)
+
+    tailnet = subparsers.add_parser(
+        "tailscale", help="the console on your tailnet, the MCP connector through Funnel"
+    )
+    tailnet.add_argument(
+        "action",
+        nargs="?",
+        default="status",
+        choices=("status", "apply", "enable", "disable", "watch"),
+        help="status (default), apply once, enable the unit, disable and withdraw, or watch",
+    )
+    tailnet.add_argument("--interval", type=int, default=30, help="seconds between two looks (watch)")
+    tailnet.set_defaults(function=command_tailscale)
 
     notifying = subparsers.add_parser(
         "notify", help="send yourself a test message, or pair a Telegram chat"

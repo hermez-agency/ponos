@@ -3080,7 +3080,44 @@ but the tunnel is the answer that does not depend on the token never leaking.
 `tailscale serve --bg 8787` relays `https://<machine>.<tailnet>.ts.net` to the loopback
 console, inside your tailnet only. Set `web.url` to that address — the console answers the
 name `web.url` gives it, that one exactly, and still turns any other away with a 421.
-Never `tailscale funnel`: that one is the whole Internet.
+Never `tailscale funnel` on the console itself: that one is the whole Internet. The one
+thing that has to be public is the MCP connector, and `ponos tailscale` below does exactly that.
+
+#### From your phone, and from Claude: `ponos tailscale`
+
+Claude's connectors are called from Anthropic's servers, which are not on your tailnet. So two
+doors, kept apart: the console stays private, the MCP endpoint alone goes through
+[Funnel](https://tailscale.com/kb/1223/funnel), behind the OAuth sign-in of the
+[connector](#connect-ponos-to-claude). Funnel is per host *and port* — which is why they are on two
+ports.
+
+| Door | Address | Who reaches it |
+| --- | --- | --- |
+| Console | `https://<machine>.<tailnet>.ts.net:8443` | your devices on the tailnet |
+| Connector | `https://<machine>.<tailnet>.ts.net/mcp` | the Internet — `/mcp`, `/oauth`, `/.well-known`, no other path |
+
+1. **On the laptop**: install [Tailscale](https://tailscale.com/download) and `sudo tailscale up`. In
+   the [admin console](https://login.tailscale.com/admin) enable *MagicDNS* and *HTTPS certificates*
+   (DNS page), and allow Funnel for this machine (the `funnel` node attribute — the Access controls
+   page offers it in one click).
+2. **On the phone**: install the Tailscale app and sign in with the same account. Then open the
+   console address above and sign in with its email and password.
+3. **Set `web.url`** to `https://<machine>.<tailnet>.ts.net` (no port), then
+   `systemctl --user restart ponos-web`.
+4. **Publish**: `ponos tailscale enable`. `ponos tailscale` (status) prints both addresses and says
+   whether they are up.
+5. **In Claude** (claude.ai or the mobile app, *Settings → Connectors → Add custom connector*):
+   paste `https://<machine>.<tailnet>.ts.net/mcp`. Claude opens the console's sign-in page — sign in,
+   choose *read* or *read and write*, and call the `whoami` tool to see it hold.
+
+The unit is `ponos-tailscale.service`. It looks every 30 seconds: while the laptop sleeps, changes
+network or is logged out of the tailnet it waits, and as soon as the tailnet is back it checks the
+serve configuration and puts it back if it drifted (`tailscaled` reconnects by itself — this is only
+for the configuration). `journalctl --user -u ponos-tailscale -f` tells what it did. Nothing turns it
+on but you: not the installer, not an update, and `ponos disable` turns it off.
+`ponos tailscale disable` also takes both doors down in Tailscale. Without systemd,
+`ponos tailscale watch` does the same in the foreground. As a second lock, the console itself
+answers 404 to any path but those three on a request that came through Funnel.
 
 | Key | Default | Effect |
 | --- | --- | --- |

@@ -1,0 +1,21 @@
+[Unit]
+Description=ponos — the console inside the tailnet, the MCP endpoint through Funnel
+Documentation=https://github.com/SalvadorCardona/ponos
+After=network-online.target ponos-web.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=@BIN@ tailscale watch
+
+# `watch` waits for the tailnet itself — a closed lid, another Wi-Fi, a login
+# that expired — and puts the configuration back when it drifted. This is only
+# for the day the process itself dies.
+Restart=always
+RestartSec=10
+
+Environment=PATH=@PATH@
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=default.target

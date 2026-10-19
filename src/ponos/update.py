@@ -394,6 +394,13 @@ def write_units(interval_seconds: int, app: Path | None = None) -> Path:
         text = console.read_text()
         text = text.replace("@BIN@", str(_binary())).replace("@PATH@", os.environ.get("PATH", ""))
         (units / "ponos-web.service").write_text(text)
+    # Same reasoning: written, never enabled — `ponos tailscale enable` is the
+    # decision to publish the MCP endpoint, and an update does not take it.
+    tailnet = app / "systemd" / "ponos-tailscale.service.in"
+    if tailnet.exists():
+        text = tailnet.read_text()
+        text = text.replace("@BIN@", str(_binary())).replace("@PATH@", os.environ.get("PATH", ""))
+        (units / "ponos-tailscale.service").write_text(text)
     return units
 
 

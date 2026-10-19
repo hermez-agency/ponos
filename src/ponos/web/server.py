@@ -53,7 +53,7 @@ from urllib.parse import parse_qs, parse_qsl, quote, unquote, urlencode, urlpars
 
 from .. import __version__
 from .. import config as config_module
-from .. import db, journal, legacy, notifications, openrouter, store, vault, voice
+from .. import db, journal, legacy, notifications, openrouter, store, tailscale, vault, voice
 from ..config import Config, state_dir
 from . import attachments, creation, github, mcp, mcp_setup, oauth, setup
 from .api import Api
@@ -345,6 +345,18 @@ class Handler(BaseHTTPRequestHandler):
             pass
         return host in expected
 
+    def _funnel_allows(self, route: str) -> bool:
+        """A request that came through Tailscale Funnel reaches the MCP doors only.
+
+        Funnel is the public Internet: the MCP endpoint is meant to be there, the
+        console is not. `ponos tailscale` publishes those paths and no others, and
+        this is the second lock, for a handler somebody added by hand. The header
+        is Funnel's to set — it overwrites whatever the caller sent.
+        """
+        if not self.headers.get(tailscale.FUNNEL_HEADER):
+            return True
+        return tailscale.funnel_allowed(route)
+
     def _local(self) -> bool:
         """The request comes from this machine — not only to an address of it."""
         address = str(self.client_address[0])
@@ -425,6 +437,8 @@ class Handler(BaseHTTPRequestHandler):
 
         if not self._host_is_ours():
             return self._fail(421, "this console is not served under that name")
+        if not self._funnel_allows(route):
+            return self._fail(404, "no such route")
         # What a container's healthcheck asks: the console answers. Nothing
         # behind the door — not even whether it was claimed — so no key.
         if route == "/healthz":
@@ -652,6 +666,9 @@ class Handler(BaseHTTPRequestHandler):
         if not self._host_is_ours():
             self.close_connection = True
             return self._fail(421, "this console is not served under that name")
+        if not self._funnel_allows(route):
+            self.close_connection = True
+            return self._fail(404, "no such route")
         # The MCP server and its authorisation server: a client of theirs is no
         # browser on the console's page, and carries none of its credentials.
         if route == "/mcp":
