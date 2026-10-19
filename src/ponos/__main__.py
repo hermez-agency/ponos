@@ -2084,6 +2084,13 @@ def command_serve(args: argparse.Namespace) -> int:
     """The web console: the board, this CLI and a chat, in one page."""
     from . import web
 
+    # Before the configuration: what is signed out is the state's, not the file's.
+    if getattr(args, "sign_out_everywhere", False):
+        from .web import sessions
+
+        sessions.revoke()
+        ok("every browser signed in to the console is signed out — the token still opens it")
+        return 0
     # Loaded, not required to be usable: the console is where an installation
     # becomes usable — its first connection asks for the Notion token and the
     # page — so refusing to start without them made that page unreachable, and
@@ -2434,6 +2441,10 @@ def build_parser() -> argparse.ArgumentParser:
     serving.add_argument(
         "--print-token", action="store_true", help="print the console's token and exit"
     )
+    serving.add_argument(
+        "--sign-out-everywhere", action="store_true",
+        help="end every browser's sign-in to the console, running or not, and exit",
+    )
     serving.set_defaults(function=command_serve)
 
     serving_mcp = subparsers.add_parser("mcp", help="the MCP server's keys: draw, list, revoke")
@@ -2517,6 +2528,9 @@ def secrets_out_of_config(say=None) -> None:
     something to say. A move that cannot be made, a read-only file in an image,
     is said at every launch instead, with the names to set: the runner ignores
     what is left there, and would otherwise only report a missing token.
+
+    The console's password, once in `secrets.env`, is replaced by its digest
+    there (`config.hash_password`): the same launch, for the same reason.
     """
     say = say or (lambda line: print(line, file=sys.stderr))
     path = config_module.config_path()
@@ -2529,6 +2543,13 @@ def secrets_out_of_config(say=None) -> None:
     if moved:
         say(f"ponos: moved {', '.join(moved)} out of {path} into {target} (0600) — "
             "config.toml holds no secret any more")
+    try:
+        if config_module.hash_password(path):
+            say(f"ponos: the console's password in {target} is kept as a scrypt digest now — "
+                "the same password signs in")
+    except OSError as error:
+        say(f"ponos: could not replace the console's password in {target} by its digest: "
+            f"{error.strerror or error}")
     left = config_module.exposed(config_module.read_raw(path))
     if left:
         names = ", ".join(f"{table}.{key} → {config_module.SECRETS[(table, key)]}"

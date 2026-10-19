@@ -431,7 +431,7 @@ def _github_rights(config: config_module.Config, name: str, owner: str) -> Check
                 )
             return _check("github.repository", OK, title, "The GitHub App reaches {{repository}}.", params=params)
     token = git.token_for(name, config.github)
-    answered = git.run(["gh", "repo", "view", name, "--json", "viewerPermission", "--jq", ".viewerPermission"],
+    answered = git.run(["gh", "repo", "view", "--json", "viewerPermission", "--jq", ".viewerPermission", "--", name],
                        timeout=PROBE_TIMEOUT, token=token) if shutil.which("gh") else None
     if answered is None:
         return _check("github.repository", WARN, title, "{{repository}} cannot be checked without `gh`.", params=params)

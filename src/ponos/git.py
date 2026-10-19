@@ -199,6 +199,18 @@ def token_for(reference: str, accounts: Accounts | None) -> str:
     return account_token(account) if account else ""
 
 
+# What a repository named on a Notion page may look like before it reaches a
+# command line: GitHub's own shape, `owner/name`, and nothing `gh` or `git`
+# could read as an option, a path or a URL of somebody else's. A project page
+# is anybody's to edit who can edit the board.
+REPOSITORY = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})/[A-Za-z0-9._-]{1,100}")
+
+
+def is_repository(name: str) -> bool:
+    """`name` is an `owner/name` that can be handed to `gh` and `git` as it is."""
+    return bool(REPOSITORY.fullmatch(name)) and name.rsplit("/", 1)[-1] not in (".", "..")
+
+
 def is_repo(path: Path) -> bool:
     return (path / ".git").exists()
 
@@ -221,13 +233,17 @@ def clone(repository: str, into: Path, accounts: Accounts | None = None) -> None
     line, and a ticket refused because the clone was big is not a better
     outcome than a ticket that started late.
     """
+    if not is_repository(repository):
+        raise GitError(f"{repository!r} is not a GitHub repository name, owner/name — not cloned")
     into.parent.mkdir(parents=True, exist_ok=True)
     token = token_for(repository, accounts)
+    # `--` before the name, whatever it was checked against: past it, nothing
+    # is read as an option.
     if shutil.which("gh"):
-        result = run(["gh", "repo", "clone", repository, str(into)], timeout=600, token=token)
+        result = run(["gh", "repo", "clone", "--", repository, str(into)], timeout=600, token=token)
     else:
         result = run(
-            ["git", "clone", f"https://github.com/{repository}.git", str(into)],
+            ["git", "clone", "--", f"https://github.com/{repository}.git", str(into)],
             timeout=600,
             token=token,
         )
@@ -1411,10 +1427,10 @@ def current_name(owner_and_name: str, accounts: Accounts | None = None) -> str:
     authenticated, no network, or a repository that never existed under any
     name. The caller treats every one of those the same way: no rename known.
     """
-    if not shutil.which("gh"):
+    if not shutil.which("gh") or not is_repository(owner_and_name):
         return ""
     result = run(
-        ["gh", "repo", "view", owner_and_name, "--json", "nameWithOwner", "-q", ".nameWithOwner"],
+        ["gh", "repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner", "--", owner_and_name],
         timeout=60,
         token=token_for(owner_and_name, accounts),
     )

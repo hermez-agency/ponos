@@ -3117,7 +3117,26 @@ makes it useful, and it is the whole of the risk. So:
   leaves, which is the same guard reached by a different door;
 - writes demand a header a cross-origin form cannot set, and the `Host` header must name
   the address the console was reached on. Between them, a hostile page you have open in
-  another tab can neither post to the console nor read from it.
+  another tab can neither post to the console nor read from it;
+- a wrong password, installation code or token — in the address or a header — is counted
+  **per address**, in memory: the address waits 1 s, then 2, 4… up to 30, and the tenth
+  failure in a row locks it out for 15 minutes. An attempt is counted *before* it is
+  checked, so twenty sent at once are one checked and nineteen refused with a `429` and a
+  `Retry-After`. Behind a proxy on the same machine or network (Traefik, `tailscale serve`),
+  the address is the last one it appended to `X-Forwarded-For`;
+- the password is kept as a scrypt digest, and a sign-in lasts thirty days from its last use
+  (`ponos serve --sign-out-everywhere` ends them all);
+- every page is served under a **Content-Security-Policy** that runs no script but the
+  bundle's files from `/static/` and the few lines a page carries inline, allowed by their
+  hash; styles are the bundle's files too, plus the ones its libraries write at runtime (the
+  toasts, a dialog's scroll lock, the editor) — a style runs no code. The API answers under
+  `default-src 'none'`. With them, `Permissions-Policy` (no camera, no location; the
+  microphone for this origin only, for dictation), `Cross-Origin-Opener-Policy` and
+  `Cross-Origin-Resource-Policy: same-origin`, and `Strict-Transport-Security` once the proxy
+  says the browser came in over HTTPS — never on plain HTTP;
+- a repository named on a project page is checked to be `owner/name` before `gh` or `git`
+  sees it, and passed after `--`: a page anybody can edit names nothing a command line would
+  read as an option.
 
 To reach it from your phone or another machine, **tunnel rather than widen**:
 
@@ -3267,10 +3286,19 @@ read out loud. Both halves are needed — an email without a password is somebod
 through configuring one, and it is not a way in.
 
 With them set, `http://127.0.0.1:8787` is a bookmark that works: the page asks for the
-two, and the cookie it leaves is derived from them rather than drawn, so a console that
+two, and the session it leaves is signed from them rather than drawn, so a console that
 restarts does not sign you out and **changing the password signs out every browser at
-once**. A wrong answer costs a second, which is nothing to type through and a wall to
-grind against.
+once**. A session lasts **thirty days from its last use** — a browser that keeps coming
+back is renewed, one left in a drawer runs out — and `ponos serve --sign-out-everywhere`
+ends every one of them, the running console's included, by drawing a new key into
+`~/.local/state/ponos/web/sessions`. A wrong answer is counted against
+the address it came from, which waits longer after each — see *What is behind that port*.
+
+`secrets.env` keeps the password as a **scrypt digest** (`scrypt:n:r:p:salt:hash`), never as
+it is typed: the console's Settings write it that way, and a `secrets.env` from before is
+rewritten by the next launch — the same password signs in, nobody is asked to type it again.
+`PONOS_WEB_PASSWORD` in the environment may hold the password or such a digest; one in clear
+is digested in memory when the console starts, and stays the unit's to keep.
 
 The token does not go away. It stays what a script carries in `Authorization: Bearer`,
 what `serve --print-token` prints, and what the dev server's proxy borrows — it just
