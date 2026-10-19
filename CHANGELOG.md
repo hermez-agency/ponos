@@ -266,6 +266,12 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Changed
 
+- **The settings say which language of the console wins.** The two settings that were both called the console's
+  language sit together and say whose they are: "in this browser", which comes first, and "by default for all", for
+  every browser that has not picked one. The page is titled "Configure the runner", the breadcrumb names the page open
+  ("Settings › General") rather than `config.toml`, and the cards take the column's width, the sentence under each
+  field wrapping instead of being cut short.
+
 - **The token page looks like the console it opens.** The page that asks for the console's token (and the sign-in and
   MCP consent pages beside it) is drawn in the console's stone and orange, its card, field and button, dark unless the
   console was switched to light in this browser. It now says the token is kept as `PONOS_WEB_TOKEN` in `secrets.env` (or

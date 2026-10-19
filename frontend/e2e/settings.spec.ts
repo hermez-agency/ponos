@@ -18,7 +18,7 @@ async function open(page: Page, path: string) {
 
 const settingsPage = async (page: Page) => {
   await expect.poll(() => new URL(page.url()).searchParams.get("view")).toMatch(/^console\/settings\/read\/config/)
-  await expect(page.getByRole("heading", { name: "Configure the runner." })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Configure the runner" })).toBeVisible()
   await expect(page.getByText("Something went wrong")).toHaveCount(0)
 }
 
@@ -44,8 +44,21 @@ test("the page has one title, and no way back to a list", async ({ page }) => {
   // The layout's header is where "← Settings", the second title and "#config" were.
   await expect(page.locator('[data-slot="admin-header"]')).toHaveCount(0)
   await expect(page.getByText("#config")).toHaveCount(0)
-  await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toContainText("config.toml")
+  // Named after the page open rather than after the file.
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toContainText("Communication")
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" })).not.toContainText("config.toml")
   await expect(page.getByRole("heading", { level: 2 })).toHaveCount(1)
+  await page.getByRole("tab", { name: "General" }).click()
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toContainText("General")
+})
+
+test("the console's language is one setting in two places, each saying whose it is", async ({ page }) => {
+  await open(page, "/?view=console/settings/read/config/general")
+  await settingsPage(page)
+  const card = page.locator('[data-card="languages"]')
+  await expect(card.getByText("Language of the console, in this browser")).toBeVisible()
+  await expect(card.getByText("Language of the console, by default for all")).toBeVisible()
+  await expect(card.getByText("the language picked in a browser comes first", { exact: false })).toBeVisible()
 })
 
 test("the settings say what the console runs on, line by line", async ({ page }) => {

@@ -458,7 +458,7 @@ export function MoreHelp({ field }: { field: Pick<SettingField, "label" | "help"
   )
 }
 
-/* A field: its label in bold, its control, one line of what it does — the rest
+/* A field: its label in bold, its control, a sentence of what it does — the rest
  * behind the « ? » — and, for whoever asked to see them, its key. A switch sits
  * at the right of its label, the way a phone's settings put it; anything else
  * goes under it, the width of the column. */
@@ -478,7 +478,7 @@ function SettingRow({ formInput, onChange, formInputComponent: Control }: FormGr
     </div>
   )
   const description = line ? (
-    <p className="text-muted-foreground mt-1 truncate text-[13px] leading-snug" title={line.replaceAll("`", "")}>
+    <p className="text-muted-foreground mt-1 text-[13px] leading-snug">
       <Rich text={line} />
     </p>
   ) : null

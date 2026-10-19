@@ -314,7 +314,7 @@ export function GroupPage({ group }: { group: string }) {
   }, [group, target])
 
   return (
-    <div className="flex max-w-[720px] min-w-0 flex-col gap-5">
+    <div className="flex max-w-5xl min-w-0 flex-col gap-5">
       {group === "general" ? <StateCard /> : null}
       {note ? (
         <Alert variant={note.bad ? "destructive" : "success"}>

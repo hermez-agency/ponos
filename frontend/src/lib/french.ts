@@ -84,9 +84,9 @@ export const FRENCH: Record<string, string> = {
   settings: "réglages",
   "the console": "la console",
   "the ticket": "le ticket",
-  "the console's language": "la langue de la console",
-  "This browser's, and this browser's only: it is not written to the file. Left alone, the console reads the one your browser asks for.":
-    "Celle de ce navigateur, et de lui seul : elle ne s'écrit pas dans le fichier. Sans réponse, la console lit celle que votre navigateur demande.",
+  "Language of the console, in this browser": "Langue de la console, dans ce navigateur",
+  "This browser's, and this browser's only: it is not written to the file, and it comes before the default below.":
+    "Celle de ce navigateur, et de lui seul : elle ne s'écrit pas dans le fichier, et passe avant la langue par défaut ci-dessous.",
   // The bubble in the bottom corner, and what it opens: the ticket's
   // discussion where there is one, the workspace's own everywhere else.
   "open {{pane}}": "ouvrir {{pane}}",
@@ -917,7 +917,7 @@ export const FRENCH: Record<string, string> = {
     "Une fermeture est datée par l'historique du runner quand c'est lui qui a fermé le ticket ({{history}}), sinon par la dernière modification de la page dans Notion ({{edited}}).",
 
   /* -- the settings page, in its own words ----------------------------------- */
-  "Configure the runner.": "Configurez le runner.",
+  "Configure the runner": "Configurez le runner",
   "Reading the configuration…": "Lecture de la configuration…",
   "could not read the configuration: {{why}}": "impossible de lire la configuration : {{why}}",
   "default · {{value}}": "défaut · {{value}}",
@@ -1039,8 +1039,8 @@ export const FRENCH: Record<string, string> = {
 
   // The cards, and the sentence each opens on.
   Languages: "Langues",
-  "What the runner writes in, and what this console opens in.":
-    "La langue dans laquelle le runner écrit, et celle dans laquelle cette console s'ouvre.",
+  "What the runner writes in, and what this console opens in: the language picked in a browser comes first, the default is for every browser that has not picked one.":
+    "La langue dans laquelle le runner écrit, et celle dans laquelle cette console s'ouvre : la langue choisie dans un navigateur passe en premier, celle par défaut vaut pour tous ceux qui n'en ont pas choisi.",
   "Test mode": "Mode test",
   "Try a configuration out without the runner touching anything.":
     "Essayez une configuration sans que le runner ne touche à rien.",
@@ -1197,9 +1197,9 @@ export const FRENCH: Record<string, string> = {
   "Language of the reports": "Langue des comptes rendus",
   "What the runner writes on tickets and sends to your phone, and the language sessions are asked to answer in. Not set: reports in English, and each session answers in the ticket's language.":
     "Ce que le runner écrit sur les tickets et envoie sur votre téléphone, et la langue dans laquelle on demande aux sessions de répondre. Non choisie : comptes rendus en anglais, et chaque session répond dans la langue du ticket.",
-  "Language of the console": "Langue de la console",
-  "The language the console opens in, until you pick one with the FR / EN select — that choice stays with the browser. Not set: the language of the reports, or else the browser's.":
-    "La langue dans laquelle la console s'ouvre, jusqu'à ce que vous en choisissiez une avec le sélecteur FR / EN — ce choix reste dans le navigateur. Non choisie : la langue des comptes rendus, ou à défaut celle du navigateur.",
+  "Language of the console, by default for all": "Langue de la console, par défaut pour tous",
+  "The language the console opens in on every browser that has not picked its own above. Not set: the language of the reports, or else the browser's.":
+    "La langue dans laquelle la console s'ouvre sur tout navigateur qui n'a pas choisi la sienne ci-dessus. Non choisie : la langue des comptes rendus, ou à défaut celle du navigateur.",
   English: "Anglais",
   French: "Français",
   "Test mode (changes nothing)": "Mode test (ne modifie rien)",

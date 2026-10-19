@@ -239,21 +239,22 @@ SECTIONS: tuple[Section, ...] = (
         key="languages",
         group="general",
         title="Languages",
-        blurb="What the runner writes in, and what this console opens in.",
+        blurb="What the runner writes in, and what this console opens in: the language "
+        "picked in a browser comes first, the default is for every browser that has not "
+        "picked one.",
         fields=(
+            Field(
+                "runner", "app_language", "choice", "Language of the console, by default for all",
+                "The language the console opens in on every browser that has not picked its "
+                "own above. Not set: the language of the reports, or else the browser's.",
+                choices=voice.LANGUAGES,
+                options=(("en", "English"), ("fr", "French")),
+            ),
             Field(
                 "runner", "language", "choice", "Language of the reports",
                 "What the runner writes on tickets and sends to your phone, and the language "
                 "sessions are asked to answer in. Not set: reports in English, and each "
                 "session answers in the ticket's language.",
-                choices=voice.LANGUAGES,
-                options=(("en", "English"), ("fr", "French")),
-            ),
-            Field(
-                "runner", "app_language", "choice", "Language of the console",
-                "The language the console opens in, until you pick one with the FR / EN "
-                "select — that choice stays with the browser. Not set: the language of the "
-                "reports, or else the browser's.",
                 choices=voice.LANGUAGES,
                 options=(("en", "English"), ("fr", "French")),
             ),
