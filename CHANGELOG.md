@@ -58,6 +58,17 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
   ships and the console does not load. React stays on 19.2: 19.3 mounts the palette and the conversation later, and a
   Ctrl+K pressed as the board appears went unheard. `PONOS_BUNDLE_STATS=1 npm run build` draws what each file of the
   bundle is made of.
+- **Each installed version runs in a Python environment of its own.** `install.sh` and the automatic update make
+  `~/.local/share/ponos/app-<commit>/.venv` before switching to the version, and the launcher runs it from there. The
+  runner still needs nothing beyond the standard library, so nothing is downloaded; what changes is that the day a
+  library is added, an update installs it there — and a version whose packages cannot be installed is never switched
+  to, the one in use keeps running. An existing installation needs nothing: the update onto this version is made by
+  the previous one, and the next pass creates the environment. A `python3` that cannot make one runs Ponos as before.
+- **The repository has a `pyproject.toml`, a `uv.lock` and a lint.** `uv sync` installs the contributor's tools —
+  pytest, pytest-cov, ruff — at locked versions; `uv run pytest` runs both suites (`python3 tests/run.py` still
+  works without anything installed), and a new CI job runs ruff and pytest with coverage on every pull request.
+  `docs/audit-technique-2026-10.md` is the technical audit that goes with it: what to change next, and in what order.
+
 - **The Projects and Ideas lists filter the way the Dashboard does.** Their filters are buttons with their name in
   them, dashed until they ask for something and then saying what, instead of a row of labels taller than the fields
   under it. On a phone the bar wraps rather than scrolling sideways out of sight — "All types" and "Ticket" are no

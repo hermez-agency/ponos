@@ -57,13 +57,12 @@ import os
 import re
 import shutil
 import subprocess
-import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
-from . import disk, git
+from . import disk, environment, git
 from .config import Runner, in_container, state_dir
 
 # What a container says instead of updating itself, and what to type instead.
@@ -315,9 +314,12 @@ def between_runs(
     from a copy, no release to follow, a refused write are all one line and
     then the tickets.
     """
-    if not settings.auto_update or not due(settings.update_interval_seconds):
-        return
     if in_container():
+        return
+    healed = _environment()
+    if healed:
+        say(f"  ! {healed}")
+    if not settings.auto_update or not due(settings.update_interval_seconds):
         return
     status = check(channel=settings.update_channel)
     if status.reason:
@@ -333,6 +335,19 @@ def between_runs(
         return
     say("    updated — the next run uses it")
     notify("Ponos updated", short)
+
+
+def _environment() -> str:
+    """The environment of the version in use, made if an update left it without one.
+
+    Only for an installation `install.sh` made — `app` a link — never for a
+    checkout someone runs the suite in.
+    """
+    app = app_dir()
+    if not app.is_symlink():
+        return ""
+    problem = environment.ensure(app.resolve())
+    return f"no environment for this version yet: {problem}" if problem else ""
 
 
 def describe(status: Status) -> str:
@@ -357,7 +372,9 @@ def write_launcher(app: Path | None = None) -> Path:
     app = app or app_dir()
     binary = _binary()
     text = (app / "bin" / "ponos.in").read_text()
-    text = text.replace("@APP_DIR@", str(app)).replace("@PYTHON@", sys.executable)
+    # The machine's Python, not this process's: from inside an environment that
+    # would be a link into a version directory an update later prunes.
+    text = text.replace("@APP_DIR@", str(app)).replace("@PYTHON@", environment.base_python())
     binary.parent.mkdir(parents=True, exist_ok=True)
     # Renamed over the old one: the timer may start it at any moment, and a
     # launcher read half-written is a pass that does not start.
@@ -509,13 +526,19 @@ def _versioned(app: Path) -> Path:
 
 
 def _prepare(previous: Path, version: Path, commit: str) -> str:
-    """Copy the version in use to `version`, move it to `commit`, and start it."""
+    """Copy the version in use to `version`, move it to `commit`, and start it.
+
+    Its environment is made afresh rather than copied: what it requires is the
+    new commit's `requirements.txt`, and an environment moved from one
+    directory to another is not one any more.
+    """
     staging = version.with_name(f"{version.name}.partial")
     _remove(version)
     _remove(staging)
     try:
         shutil.copytree(
-            previous, staging, symlinks=True, ignore=shutil.ignore_patterns("__pycache__")
+            previous, staging, symlinks=True,
+            ignore=shutil.ignore_patterns("__pycache__", environment.VENV, f"{environment.VENV}.*"),
         )
         reset = git.git(["reset", "--hard", "--quiet", commit], staging)
         if not reset.ok:
@@ -525,6 +548,9 @@ def _prepare(previous: Path, version: Path, commit: str) -> str:
     except (OSError, shutil.Error, subprocess.SubprocessError) as error:
         _remove(staging)
         return f"the new version could not be copied: {error}"
+    problem = environment.create(version)
+    if problem:
+        return problem
     return verify(version)
 
 
@@ -560,17 +586,18 @@ def _regenerate(interval_seconds: int, app: Path) -> None:
 def verify(app: Path) -> str:
     """Does the code on disk start? "" when it does, what it said otherwise.
 
-    Imported by a Python of its own, from the directory itself: the process
-    asking is still running the old modules, and would answer for those. The
+    Imported by a Python of its own, from the directory itself — the one its
+    launcher will run, its environment's when it has one: the process asking is
+    still running the old modules, and would answer for those. The
     console's page is checked too — it is committed, and a version without it
     is a console that answers every address with a 404.
     """
     probe = "import ponos.__main__, ponos.web.server"
-    environment = {**os.environ, "PYTHONPATH": str(app / "src")}
+    variables = {**os.environ, "PYTHONPATH": str(app / "src")}
     try:
         done = subprocess.run(
-            [sys.executable, "-c", probe],
-            cwd=app, env=environment, capture_output=True, text=True, timeout=60,
+            [environment.interpreter(app), "-c", probe],
+            cwd=app, env=variables, capture_output=True, text=True, timeout=60,
         )
     except (OSError, subprocess.SubprocessError) as error:
         return f"the new version could not be started: {error}"

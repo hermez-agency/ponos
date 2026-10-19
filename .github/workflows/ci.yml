@@ -25,6 +25,15 @@
 # Node 24, parce que `npm test` fait lire à `node --test` les tests de
 # la barre de message écrits en TypeScript, sans rien installer pour ça.
 #
+# Le job qualité est le seul à installer quelque chose : l'outillage de
+# `pyproject.toml`, aux versions de `uv.lock` (`uv sync --locked` échoue si le
+# lockfile ne correspond plus au pyproject). Il passe ruff — les règles et la
+# base d'exceptions du pyproject —, vérifie que `requirements.txt`, ce que les
+# installations mettent dans leur environnement, est bien l'export du lockfile,
+# puis lance les deux suites sous pytest, avec la couverture et les dix cas les
+# plus lents. Le job cœur reste tel quel : c'est lui qui prouve que le runner et
+# ses tests tournent sans rien installer.
+#
 # Le job image construit le `Dockerfile` et relance `tests/functional.py` dans
 # l'image qu'il vient de construire : c'est une autre façon d'installer le
 # runner, et ce qu'elle apporte — le Python 3.13 de l'image, son git, son
@@ -62,6 +71,30 @@ jobs:
 
       - name: Le parcours complet
         run: python3 tests/functional.py
+
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.13"
+          enable-cache: true
+
+      - name: L'outillage, aux versions du lockfile
+        run: uv sync --locked
+
+      - name: Ruff
+        run: uv run ruff check --output-format=github .
+
+      - name: requirements.txt est l'export du lockfile
+        run: |
+          uv export --frozen --no-dev --no-emit-project --format requirements-txt -o requirements.txt
+          git diff --exit-code -- requirements.txt
+
+      - name: Les deux suites, sous pytest
+        run: uv run pytest --cov=src/ponos --cov-report=term:skip-covered
 
   frontend:
     runs-on: ubuntu-latest

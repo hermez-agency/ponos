@@ -16,11 +16,13 @@ canaux (Telegram, Slack) permettent de suivre le travail ou d'y répondre.
 
 Deux mondes séparés, à ne pas mélanger :
 
-- **Cœur** — Python 3.11+, bibliothèque standard uniquement. Aucune
-  dépendance externe, aucun `pyproject.toml` : choix assumé (voir le docstring
-  de `tests/run.py`) pour qu'installer le runner ne demande jamais rien de
-  plus que `python3` et `git`, et que la suite de tests ne demande jamais
-  d'installation.
+- **Cœur** — Python 3.11+, bibliothèque standard uniquement à ce jour
+  (`dependencies = []` dans `pyproject.toml`, `requirements.txt` vide). Le
+  `pyproject.toml` et `uv.lock` ne portent que l'outillage (groupe `dev` :
+  ruff, pytest, pytest-cov). Chaque version installée a son `.venv`
+  (`environment.py`), prêt pour le jour où une dépendance arrive — par un ticket
+  dédié, voir `docs/audit-technique-2026-10.md`. Les suites de tests tournent
+  toujours avec `python3` seul.
 - **`frontend/`** — sous-projet séparé : React 19, TypeScript, Vite 8,
   shadcn/ui sur Tailwind 4. Géré par npm (`package-lock.json`). Node n'est
   nécessaire que pour *modifier* la console, jamais pour l'installer ou
@@ -28,12 +30,18 @@ Deux mondes séparés, à ne pas mélanger :
 
 ## Commandes réelles
 
-Cœur Python — pas de build, pas de lint séparé, ne pas en inventer :
+Cœur Python — pas de build :
 
 ```sh
 python3 tests/run.py         # la partie pure : ne touche ni Notion, ni git, ni le réseau
 python3 tests/functional.py  # le parcours complet, sur des doublures locales
+uv sync                      # l'outillage, aux versions de uv.lock, dans .venv
+uv run pytest                # les deux suites sous pytest (-m "not functional" : la partie pure)
+uv run ruff check .          # le lint de la CI ; ruff format n'est pas encore imposé
 ```
+
+Un nouveau cas s'écrit toujours avec `@case` dans `tests/run.py` ou
+`tests/functional.py` : `tests/test_suites.py` les donne à pytest tels quels.
 
 Frontend, depuis `frontend/` :
 
@@ -52,7 +60,8 @@ npm run dev     # serveur de dev avec hot reload, proxy /api vers un console dé
 `.github/workflows/ci.yml` tourne sur chaque pull request et sur chaque push
 vers `main` : le job cœur relance `python3 tests/run.py` puis
 `python3 tests/functional.py` sous Python 3.11 et 3.13, sans installer quoi que
-ce soit ; le job frontend ne se déclenche que si `frontend/**` ou
+ce soit ; le job qualité fait `uv sync --locked`, `ruff check`, vérifie que
+`requirements.txt` est l'export de `uv.lock`, puis `pytest --cov` ; le job frontend ne se déclenche que si `frontend/**` ou
 `src/ponos/web/**` a changé, et y
 fait `npm ci`, `npm run lint`, `npm test`, `npm run build` (sous Node 24),
 échoue si `src/ponos/web/static` diffère de ce que le build vient
@@ -117,9 +126,10 @@ deux suites, puis publie l'image sur `ghcr.io`.
 
 - `from __future__ import annotations` en tête de chaque module du cœur, et
   des annotations de type partout.
-- Le cœur n'importe que la bibliothèque standard et ses propres modules —
-  jamais de paquet tiers. Un `import` qui casserait ça n'est pas une option,
-  c'est un autre projet.
+- Le cœur n'importe que la bibliothèque standard et ses propres modules. Un
+  paquet tiers n'entre que par le ticket qui le décide (voir l'audit), déclaré
+  dans `pyproject.toml` et exporté dans `requirements.txt` — jamais au détour
+  d'un autre changement.
 - Les docstrings de module expliquent le *pourquoi* d'un choix (souvent non
   évident), pas ce que fait le fichier — voir `naming.py` ou `tests/run.py`
   pour le ton attendu. Continue dans ce style plutôt que d'ajouter des
@@ -168,6 +178,14 @@ deux suites, puis publie l'image sur `ghcr.io`.
 - **`config.example.toml` documente chaque clé en commentaire.** Une nouvelle
   clé de configuration sans son commentaire, ou sans mise à jour de
   `ponos doctor`, part du mauvais pied.
-- **Pas de `pyproject.toml` : ne pas en ajouter.** Une dépendance externe pour
-  le cœur, même petite, va à l'encontre du choix documenté dans
-  `tests/run.py`.
+- **Une dépendance d'exécution ne s'ajoute pas en passant.** Le socle est là
+  (`pyproject.toml`, `uv.lock`, un `.venv` par version installée), mais chaque
+  bibliothèque a son ticket, dans l'ordre de `docs/audit-technique-2026-10.md`.
+  Elle s'ajoute avec `uv add`, puis `uv export --no-dev --no-emit-project
+  --format requirements-txt -o requirements.txt` (la CI vérifie l'export), et
+  l'image l'installe au build.
+- **La version est écrite deux fois** : `__version__` et `pyproject.toml`.
+  `scripts/release.py bump` écrit les deux, `check` et un test refusent un écart.
+- **La base d'exceptions de ruff ne fait que rétrécir.** Les entrées de
+  `[tool.ruff.lint.per-file-ignores]` décrivent l'existant d'octobre 2026 ; un
+  nouveau fichier n'y entre pas.

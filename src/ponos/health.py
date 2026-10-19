@@ -38,7 +38,6 @@ import shutil
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
-from pathlib import Path
 from typing import Callable
 
 from . import channels, git, github_app, projects, provider, provision, resources, session, store, systemd

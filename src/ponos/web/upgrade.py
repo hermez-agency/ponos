@@ -46,7 +46,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable
 
-from .. import disk, state
+from .. import disk, environment, state
 from .. import update as update_module
 from ..config import Runner, in_container, state_dir
 
@@ -98,6 +98,7 @@ def restart() -> None:
     # command line would come back on it. The version the link names now is the
     # one to come back on.
     app = update_module.app_dir()
+    python = sys.executable
     if app.is_symlink():
         running = str(Path(update_module.__file__).resolve().parents[2] / "src")
         landed = str(app.resolve() / "src")
@@ -105,7 +106,10 @@ def restart() -> None:
         os.environ["PYTHONPATH"] = os.pathsep.join(
             landed if part == running else part for part in parts
         )
-    os.execv(sys.executable, [sys.executable, *sys.orig_argv[1:]])
+        # And on its environment: the one this process runs in belongs to the
+        # version it replaced.
+        python = environment.interpreter(app.resolve())
+    os.execv(python, [python, *sys.orig_argv[1:]])
 
 
 class Upgrade:

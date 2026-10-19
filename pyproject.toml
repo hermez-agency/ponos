@@ -1,0 +1,69 @@
+# The project, as the Python tools read it — and nothing the runner needs.
+#
+# The core still imports the standard library alone: `dependencies` is empty,
+# and `install.sh` still asks for python3 and git and nothing else. What this
+# file brings is the tooling around the code — ruff, pytest — pinned in
+# `uv.lock` so that every machine and the CI lint and test with the same
+# versions. `uv sync` installs them in `.venv`; `python3 tests/run.py` keeps
+# working without it.
+#
+# The version is written twice, here and in `src/ponos/__init__.py`:
+# `scripts/release.py bump` moves both, and `check` refuses a tag where they
+# disagree. See docs/audit-technique-2026-10.md for what comes next.
+
+[project]
+name = "ponos"
+version = "0.1.0"
+description = "Notion tickets turned into Claude Code sessions."
+readme = "README.md"
+license = "MIT"
+authors = [{ name = "Hermez", email = "contact@cardona.digital" }]
+requires-python = ">=3.11"
+dependencies = []
+
+[project.urls]
+Homepage = "https://hermez.dev"
+Repository = "https://github.com/hermez-agency/ponos"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4",
+    "pytest-cov>=6.2",
+    "ruff>=0.13",
+]
+
+[tool.uv]
+# Not built nor installed as a package: the launcher runs `src/` through
+# PYTHONPATH, as it always has. The environment only holds the tools.
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["-ra", "--strict-markers", "--durations=10"]
+markers = [
+    "functional: the whole road, on local doubles (tests/functional.py) — slower",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+# Generated, or not Python of ours.
+extend-exclude = ["src/ponos/web/static", "frontend", "diagrams"]
+
+[tool.ruff.lint]
+# Ruff's defaults (pyflakes, and the pycodestyle errors that are bugs), plus
+# warnings and bugbear: what catches a mistake, not what moves a comma.
+# Formatting (`ruff format`) is not enforced yet — it would rewrite 73 files at
+# once; see the audit for when.
+select = ["E4", "E7", "E9", "F", "W", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+# The baseline: what was there when ruff arrived (October 2026), left for a
+# ticket of its own rather than fixed in passing. A new file starts clean; an
+# entry here only ever shrinks.
+"src/ponos/__main__.py" = ["B904"]
+"src/ponos/git.py" = ["B904"]
+"src/ponos/{db,journal,notify,subtypes,sync,transitions}.py" = ["B905"]
+"scripts/release.py" = ["B007"]
+"tests/run.py" = ["B007", "B023", "B905", "E731", "F401", "F402", "F811", "F841"]
+"tests/functional.py" = ["F841"]

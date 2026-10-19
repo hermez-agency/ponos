@@ -9,4 +9,10 @@ APP_DIR="$(cd -P "@APP_DIR@" && pwd)"
 export PYTHONPATH="$APP_DIR/src${PYTHONPATH:+:$PYTHONPATH}"
 export PYTHONUNBUFFERED=1
 
-exec "@PYTHON@" -m ponos "$@"
+# The version's own environment (see environment.py), and the machine's Python
+# while it has none: a version installed by an update from before environments
+# gets one on its next pass, and runs as it always has until then.
+PYTHON="@PYTHON@"
+[ -x "$APP_DIR/.venv/bin/python" ] && PYTHON="$APP_DIR/.venv/bin/python"
+
+exec "$PYTHON" -m ponos "$@"

@@ -9,3 +9,7 @@ diagrams/*.visual-check.*
 .claude/skills/archify/
 test-results/
 playwright-report/
+
+# What `pytest --cov` writes.
+.coverage
+htmlcov/
