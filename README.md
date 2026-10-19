@@ -3399,9 +3399,9 @@ the *Execution* page of the Settings, where the defaults are shown and can be ch
 
 - `allowed` — what a session does without asking. By default: redeploy a service on the
   Dokploy instances, read their logs, add a non-secret variable or generate a random secret
-  of the service; tag and publish a release of a SalvadorCardona repository after the merge
-  into `main`; clone a missing SalvadorCardona repository and create its Ponos project;
-  re-run a CI; merge a validated pull request.
+  of the service; tag and publish a release of a SalvadorCardona or hermez-agency repository
+  after the merge into `main`; clone a missing SalvadorCardona or hermez-agency repository
+  and create its Ponos project; re-run a CI; merge a validated pull request.
 - `ask` — what always waits for your word, the ticket ending blocked with the question. By
   default: publishing on a public registry, opening a pull request or an issue on somebody
   else's repository, anything that sends a message to someone but you, deleting production
@@ -3413,8 +3413,8 @@ a `sudo` password, an `npm login` or a code received by e-mail cannot be given o
 does not ask yes or no: it prepares the exact commands, ends blocked with the code
 `access.sudo` or `access.credentials` (`CODE:` and one `COMMAND:` line each, next to the
 other lines of the question) and the ticket starts again by itself when you answer « fait ».
-And a ticket aimed at another SalvadorCardona repository than its project's is not a
-question when `allowed` lets the session clone it: it creates the project and attaches the
+And a ticket aimed at another SalvadorCardona or hermez-agency repository than its
+project's is not a question when `allowed` lets the session clone it: it creates the project and attaches the
 ticket there.
 
 ### Stopping before the wall
