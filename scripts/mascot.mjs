@@ -8,6 +8,10 @@
  *   docs/mascot/og.png        the Open Graph card, 1200 × 630
  *   docs/mascot/states.png    every state, light and dark, and the sizes
  *   frontend/public/pwa/*     the app icons: the robot on the dark ground
+ *   docs/apple-touch-icon.png the same, at the root where an iPhone looks for it
+ *   docs/favicon.ico          the face at 16, 32 and 48 px, for whoever asks /favicon.ico
+ *   src/ponos/icons/*         the desktop's icons: the robot cut out, for the dock
+ *                             and the notifications
  *
  *   node scripts/mascot.mjs
  *
@@ -20,7 +24,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -82,14 +86,35 @@ const sheet = `<!doctype html><meta charset="utf-8">${fonts}
 
 const chrome = process.env.CHROME || 'google-chrome';
 const scratch = mkdtempSync(join(tmpdir(), 'mascot-'));
-function shoot(html, target, width, height) {
+function shoot(html, target, width, height, { clear = false } = {}) {
   const page = join(scratch, `${basename(target)}.html`);
   writeFileSync(page, html);
   execFileSync(chrome, [
     '--headless=new', '--disable-gpu', '--hide-scrollbars', '--force-device-scale-factor=1',
     `--window-size=${width},${height}`, '--virtual-time-budget=4000',
+    ...(clear ? ['--default-background-color=00000000'] : []),
     `--screenshot=${target}`, pathToFileURL(page).href,
   ], { stdio: 'ignore' });
+}
+
+/* An .ico is a directory of PNGs: six bytes of header, sixteen per image,
+   then the images as they are — every browser since Vista reads it so. */
+function ico(pngs) {
+  const header = Buffer.alloc(6 + 16 * pngs.length);
+  header.writeUInt16LE(1, 2);
+  header.writeUInt16LE(pngs.length, 4);
+  let offset = header.length;
+  pngs.forEach(([px, data], n) => {
+    const at = 6 + 16 * n;
+    header.writeUInt8(px % 256, at);
+    header.writeUInt8(px % 256, at + 1);
+    header.writeUInt16LE(1, at + 4);
+    header.writeUInt16LE(32, at + 6);
+    header.writeUInt32LE(data.length, at + 8);
+    header.writeUInt32LE(offset, at + 12);
+    offset += data.length;
+  });
+  return Buffer.concat([header, ...pngs.map(([, data]) => data)]);
 }
 
 /* An app icon is the robot on the dark ground of the console, filling the
@@ -101,6 +126,15 @@ const icon = (px, fill) => `<!doctype html><meta charset="utf-8"><style>
   div { width: 100%; height: 100%; display: grid; place-items: center; }
   .bot { width: ${fill}%; }
 </style><div><div class="bot">${standalone({ theme: 'dark' })}</div></div>`;
+
+/* A desktop icon has no ground: the robot alone, on a transparent square that
+   a dock or a notification draws on its own colour — an opaque one is drawn as
+   a black square. The tab's icon is the face of favicon.svg, cut out the same. */
+const desktop = join(root, 'src', 'ponos', 'icons');
+const cutout = (px, svg) => `<!doctype html><meta charset="utf-8"><style>
+  html, body { margin: 0; width: ${px}px; height: ${px}px; overflow: hidden; background: transparent; }
+  svg { display: block; width: 100%; height: 100%; }
+</style>${svg}`;
 try {
   shoot(og, join(out, 'og.png'), 1200, 630);
   shoot(sheet, join(out, 'states.png'), 1200, 696);
@@ -108,7 +142,17 @@ try {
   shoot(icon(192, 84), join(pwa, 'icon-192.png'), 192, 192);
   shoot(icon(180, 84), join(pwa, 'apple-touch-icon.png'), 180, 180);
   shoot(icon(512, 62), join(pwa, 'icon-maskable-512.png'), 512, 512);
+  copyFileSync(join(pwa, 'apple-touch-icon.png'), join(root, 'docs', 'apple-touch-icon.png'));
+  for (const px of [48, 64, 128, 256]) {
+    shoot(cutout(px, standalone({ theme: 'light' })), join(desktop, `ponos-${px}.png`), px, px, { clear: true });
+  }
+  const faces = [16, 32, 48].map((px) => {
+    const target = join(scratch, `favicon-${px}.png`);
+    shoot(cutout(px, standalone({ small: true, theme: 'light' })), target, px, px, { clear: true });
+    return [px, readFileSync(target)];
+  });
+  writeFileSync(join(root, 'docs', 'favicon.ico'), ico(faces));
 } finally {
   rmSync(scratch, { recursive: true, force: true });
 }
-console.log('docs/mascot: robot.svg, favicon.svg, og.png, states.png; frontend/public/pwa: the app icons');
+console.log('docs/mascot: robot.svg, favicon.svg, og.png, states.png; frontend/public/pwa: the app icons; docs: favicon.ico, apple-touch-icon.png; src/ponos/icons: the desktop icons');

@@ -373,6 +373,11 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Fixed
 
+- **A desktop notification shows the orange Ponos, and the site has the icons a browser asks for.** The dock and
+  notification icons had stayed on the old blue robot when the mascot went orange; `scripts/mascot.mjs` now draws them
+  with the rest. the-ponos.app answers `/favicon.ico` and `/apple-touch-icon.png` instead of a 404, and an address it
+  does not have lands on a page of its own rather than GitHub Pages' generic one. The repository's homepage is
+  https://the-ponos.app, and `config.example.toml` lists hermez-agency beside SalvadorCardona as the code does.
 - **The dashboard's "Created, by type and sub-type" counts what the Created card counts.** It opened filtered on Code,
   so a ticket with no type, or of another type, was left out and the card said no ticket was created while the
   Created card and "Created, by project" counted it. It now opens on all types, the type menu has a "No type" entry,

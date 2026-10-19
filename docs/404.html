@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Not here — Ponos</title>
+<meta name="robots" content="noindex">
+<!-- GitHub Pages serves this file for any address it does not have, at any
+     depth: every path below starts at the root, or /a/b/c would lose them. -->
+<link rel="icon" type="image/svg+xml" href="/mascot/favicon.svg?v=hermez">
+<link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<script>
+  /* The landing page's theme, read the same way before the first paint. */
+  try {
+    var kept = localStorage.getItem("ponos-theme");
+    var dark = kept ? kept === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    document.documentElement.classList.toggle("dark", dark);
+  } catch (error) { /* storage switched off: the light page, which is the default */ }
+</script>
+<link rel="stylesheet" href="/tokens.css">
+<style>
+  :root { color-scheme: light; }
+  .dark { color-scheme: dark; }
+  body {
+    margin: 0; min-height: 100vh; display: grid; place-items: center; text-align: center;
+    background: var(--background); color: var(--foreground); font-family: var(--sans); line-height: 1.6;
+  }
+  main { padding: 2rem 20px; max-width: 32rem; }
+  ponos-robot { display: block; width: 160px; aspect-ratio: 1; margin: 0 auto 1.5rem; }
+  h1 { font-size: 2rem; line-height: 1.15; letter-spacing: -.02em; margin: 0 0 .75rem; }
+  p { color: var(--muted-foreground); margin: 0 0 1.75rem; }
+  a.btn {
+    display: inline-flex; align-items: center; height: 2.5rem; padding: 0 1.25rem; border-radius: var(--radius);
+    background: var(--primary); color: var(--primary-foreground); font-weight: 600; text-decoration: none;
+  }
+  footer { margin-top: 2.5rem; font-size: .875rem; color: var(--muted-foreground); }
+  footer a { color: inherit; }
+</style>
+<script type="module" src="/mascot/ponos-robot.js?v=greek"></script>
+<script src="https://umami.cardona.digital/nx.js" defer data-website-id="a3af4ed4-63b2-4732-93a2-a43d156910ec" data-domains="the-ponos.app"></script>
+</head>
+<body>
+<main>
+  <ponos-robot state="error" aria-hidden="true"></ponos-robot>
+  <h1>Nothing to do here.</h1>
+  <p>Ponos looked, and this page does not exist — it may have moved, or never been written.</p>
+  <a class="btn" href="/">Back to Ponos</a>
+  <footer><a href="https://hermez.dev" target="_blank" rel="noopener">A Hermez product</a></footer>
+</main>
+</body>
+</html>

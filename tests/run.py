@@ -12418,6 +12418,58 @@ def the_icon_of_ponos_is_cut_out_in_the_sizes_a_desktop_asks_for():
     assert notify.ICON.name == "ponos-256.png"
 
 
+def _png_pixels(data: bytes) -> list[tuple[int, int, int, int]]:
+    """The pixels of an 8-bit RGBA PNG, unfiltered — enough to read a colour."""
+    import struct
+    import zlib
+
+    width, height, depth, colour = struct.unpack(">IIBB", data[16:26])
+    assert depth == 8 and colour == 6, "an 8-bit RGBA PNG"
+    chunks, at = b"", 8
+    while at < len(data):
+        length, kind = struct.unpack(">I4s", data[at : at + 8])
+        if kind == b"IDAT":
+            chunks += data[at + 8 : at + 8 + length]
+        at += 12 + length
+    raw, stride, rows, previous = zlib.decompress(chunks), width * 4, [], bytearray(width * 4)
+    for y in range(height):
+        kind, line = raw[y * (stride + 1)], bytearray(raw[y * (stride + 1) + 1 : (y + 1) * (stride + 1)])
+        for x in range(stride):
+            left = line[x - 4] if x >= 4 else 0
+            up, corner = previous[x], previous[x - 4] if x >= 4 else 0
+            if kind == 1:
+                line[x] = (line[x] + left) & 255
+            elif kind == 2:
+                line[x] = (line[x] + up) & 255
+            elif kind == 3:
+                line[x] = (line[x] + (left + up) // 2) & 255
+            elif kind == 4:
+                guess = left + up - corner
+                near = min((abs(guess - left), left), (abs(guess - up), up), (abs(guess - corner), corner), key=lambda pair: pair[0])
+                line[x] = (line[x] + near[1]) & 255
+        rows.append(line)
+        previous = line
+    return [tuple(row[x : x + 4]) for row in rows for x in range(0, stride, 4)]
+
+
+@case
+def the_icon_of_a_notification_is_the_orange_mascot_and_the_mascot_script_draws_it():
+    """The desktop icons were cut by hand once, and stayed blue when the robot went orange.
+
+    They are the mascot's like the app icons are, so `scripts/mascot.mjs` writes
+    them with the rest — and a vivid pixel of the robot is Hermez orange, red
+    well above blue, never the blue it used to be.
+    """
+    for size in (48, 256):
+        pixels = _png_pixels((notify.ICON.parent / f"ponos-{size}.png").read_bytes())
+        vivid = [(r, g, b) for r, g, b, a in pixels if a > 200 and max(r, g, b) - min(r, g, b) > 80]
+        assert vivid, f"ponos-{size}.png has no colour at all"
+        orange = sum(1 for r, g, b in vivid if r > b + 60)
+        assert orange > len(vivid) * 0.6, f"ponos-{size}.png is not the orange mascot ({orange}/{len(vivid)})"
+    script = (ROOT / "scripts/mascot.mjs").read_text(encoding="utf-8")
+    assert "'src', 'ponos', 'icons'" in script, "the desktop icons are not written from the mascot"
+
+
 # -- the bell ----------------------------------------------------------------
 
 
@@ -14745,6 +14797,45 @@ def the_landing_page_shows_the_console_filmed_right_after_its_hero():
     assert "node scripts/film-console.mjs" in (ROOT / "README.md").read_text(encoding="utf-8"), (
         "the command that films the console is not documented"
     )
+
+
+@case
+def the_site_answers_the_icons_a_browser_asks_for_and_a_page_of_its_own_for_a_lost_one():
+    """`/favicon.ico` and `/apple-touch-icon.png` are asked for whatever the page declares.
+
+    A browser, a feed reader or an iPhone saving the page look for them at the
+    root without reading a <link> — a 404 there is a blank square on a home
+    screen. And an address that does not exist lands on GitHub Pages' own 404
+    unless `docs/404.html` is there to say Ponos.
+    """
+    import struct
+
+    ico = (ROOT / "docs/favicon.ico").read_bytes()
+    reserved, kind, count = struct.unpack("<HHH", ico[:6])
+    assert (reserved, kind) == (0, 1) and count >= 2, "favicon.ico is not an icon with its sizes"
+    sizes = {ico[6 + 16 * n] or 256 for n in range(count)}
+    assert {16, 32} <= sizes, f"favicon.ico lacks the tab's sizes: {sizes}"
+    touch = (ROOT / "docs/apple-touch-icon.png").read_bytes()
+    assert touch.startswith(b"\x89PNG") and struct.unpack(">II", touch[16:24]) == (180, 180)
+    page = LANDING.read_text(encoding="utf-8")
+    assert 'rel="apple-touch-icon" href="apple-touch-icon.png' in page, "the page does not declare its touch icon"
+    lost = (ROOT / "docs/404.html").read_text(encoding="utf-8")
+    assert "Ponos" in lost and 'href="/"' in lost, "the 404 does not lead back to the site"
+    assert 'href="/mascot/favicon.svg' in lost, "a 404 at any depth loses its icon with a relative path"
+    script = (ROOT / "scripts/mascot.mjs").read_text(encoding="utf-8")
+    assert "favicon.ico" in script and "apple-touch-icon.png" in script, "the site's icons are not drawn from the mascot"
+
+
+@case
+def the_repository_s_homepage_is_the_site():
+    """The package says where Ponos lives, and the example says whose repositories a session may touch."""
+    import tomllib
+
+    package = json.loads((FRONTEND / "package.json").read_text(encoding="utf-8"))
+    assert package["homepage"] == "https://the-ponos.app", package["homepage"]
+    example = tomllib.loads((ROOT / "config.example.toml").read_text(encoding="utf-8"))
+    assert example["permissions"]["allowed"] == list(C.ALLOWED), "config.example.toml says other rules than the code"
+    assert example["permissions"]["ask"] == list(C.ASK)
 
 
 @case
