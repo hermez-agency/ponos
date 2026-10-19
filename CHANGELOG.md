@@ -292,6 +292,11 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Fixed
 
+- **A ticket without a repository no longer fails with “the runner itself broke” when its session met Claude in Chrome's
+  refusal.** A browser-internal tab refused by Claude in Chrome leaves an event in the session's log whose message is a
+  sentence; looking for the pull requests the session opened tripped on it (`AttributeError: 'str' object has no
+  attribute 'get'`), after the work was done and before its answer reached the page. It is skipped now.
+
 - **`main` is green again: the console's first load is back under 500 kB.** The two-column Projects page took it to
   501 kB gzipped and the core suite failed on every push. The project panel and a ticket's *Discussion* tab are now
   loaded when they are opened, which brings the first load to 491 kB.

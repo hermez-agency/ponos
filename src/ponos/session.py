@@ -579,12 +579,16 @@ def pull_requests(log: Path) -> list[str]:
             event = json.loads(line)
         except ValueError:
             continue
-        content = (event.get("message") or {}).get("content") if isinstance(event, dict) else None
+        # Not every event's `message` is a turn: a `permission_denied` carries
+        # a sentence there.
+        message = event.get("message") if isinstance(event, dict) else None
+        content = message.get("content") if isinstance(message, dict) else None
         for block in content if isinstance(content, list) else []:
             if not isinstance(block, dict):
                 continue
             if block.get("type") == "tool_use":
-                command = str((block.get("input") or {}).get("command") or "")
+                given = block.get("input")
+                command = str(given.get("command") or "") if isinstance(given, dict) else ""
                 if re.search(r"\bgh\s+pr\s+create\b", command):
                     creating.add(str(block.get("id")))
             elif block.get("type") == "tool_result" and str(block.get("tool_use_id")) in creating:
