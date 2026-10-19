@@ -747,7 +747,7 @@ class Handler(BaseHTTPRequestHandler):
                         str(payload.get("body", "")),
                         str(payload.get("project", "")),
                         bool(payload.get("ready", True)),
-                        str(payload.get("priority", "")),
+                        payload.get("priority", ""),
                         str(payload.get("type", "")),
                         str(payload.get("model", "")),
                         str(payload.get("subtype", "")),

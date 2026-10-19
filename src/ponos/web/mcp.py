@@ -43,7 +43,6 @@ from .. import __version__
 from .. import config as config_module
 from .. import db, ideas, journal, state, store, systemd
 from .. import kinds as kinds_module
-from ..config import PRIORITIES
 from . import live
 from .api import COLUMNS
 from .oauth import READ, WRITE, Grant
@@ -266,9 +265,11 @@ TOOLS: list[dict] = [
                     "publication (publier, après validation humaine).",
                 },
                 "priority": {
-                    "type": "string",
-                    "enum": list(PRIORITIES),
-                    "description": "L'ordre dans la file : Urgent passe avant High, Normal, Low.",
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100,
+                    "description": "Un score de 0 (vraiment pas important) à 100 (à faire tout de "
+                    "suite) : la file passe du plus haut au plus bas. 50 par défaut.",
                 },
                 "status": {
                     "type": "string",
@@ -842,7 +843,7 @@ def create_task(
     description: str = "",
     project: str = "",
     type: str = "",  # noqa: A002 — the name the tool gives it
-    priority: str = "",
+    priority: int | str = "",
     status: str = "draft",
 ) -> dict:
     if not title.strip():

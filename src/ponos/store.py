@@ -60,7 +60,7 @@ COLUMNS: dict[str, tuple[tuple[str, ...], str]] = {
     ),
     "session": (("url", "rich_text"), "no link to the session behind a ticket"),
     "model": (("select", "rich_text"), "no model per ticket — runner.model for every one"),
-    "priority": (("select",), "no ready ticket goes before another"),
+    "priority": (("number", "select"), "no ready ticket goes before another"),
     "cost": (("number",), "what a run cost is not written back"),
     "duration": (("number",), "how long a run took is not written back"),
     "progress": (("rich_text",), "nothing says what a session is doing while it runs"),

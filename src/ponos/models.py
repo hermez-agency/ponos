@@ -26,8 +26,8 @@ put up with:
 - **the words** that announce heavy work — an audit, a migration, a refactor,
   a hard bug — take it to the heavy level, and to the heaviest when the request
   is long as well;
-- **the priority**: an urgent ticket never runs on the lightest model, since a
-  second attempt is exactly what it cannot afford.
+- **the priority**: a ticket scored 75 or more never runs on the lightest
+  model, since a second attempt is exactly what it cannot afford.
 
 Four levels, and each says which model it is in the configuration — the names
 are the configuration's, not this module's, so a runner routed through
@@ -58,6 +58,8 @@ import re
 import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
+
+from . import priority as priority_module
 
 # From the lightest to the heaviest. A level is what a ticket asks for; which
 # model answers it is the configuration's to say.
@@ -96,9 +98,6 @@ SMALL_WORDS, SMALL_STEPS = 250, 10
 
 # What a Fable that is not allowed runs on instead: the heaviest of the others.
 INSTEAD_OF_FABLE = "opus"
-
-# The priorities a ticket is not run lightly at.
-URGENT = ("urgent", "high")
 
 _STEP = re.compile(r"^\s*(?:[-*+•]|\d+[.)]|\[[ xX]?\])\s+\S", re.MULTILINE)
 
@@ -257,7 +256,7 @@ def choose(
     *,
     kind: str,
     code: bool,
-    priority: str = "",
+    priority: int | None = None,
     grid: Grid,
     earlier: Earlier | None = None,
     escalate: bool = True,
@@ -319,7 +318,7 @@ def choose(
         level = max(level, 1)
         signals.append(("model-ordinary", {}))
 
-    if _fold(priority).strip() in URGENT and level == 0:
+    if priority is not None and priority >= priority_module.URGENT and level == 0:
         level = 1
         signals.append(("model-urgent", {"priority": priority}))
 

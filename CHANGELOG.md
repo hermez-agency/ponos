@@ -16,6 +16,18 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ## [Unreleased]
 
+### Changed
+
+- **A ticket's priority is a score from 0 to 100.** Urgent, High, Normal and Low said little and tied often: the
+  `Priority` column is now a number — 0, not important at all; 100, right now — and the ready tickets run highest
+  first, the oldest first on a tie, an empty cell counting as 50. The console draws the score as a badge in a gradient,
+  grey-blue towards 0, green at 25, yellow at 50, orange at 75, red at 100, on the cards, in the table and on a ticket's
+  page; the board's columns are in that order too, and the search filters by score. A new ticket and a schedule are
+  given theirs with a slider and a box, 50 when left empty, and anything outside 0–100 is refused, from the console as
+  from the MCP `create_task` tool. `ponos init` creates the column as a number; a board still on the old select keeps
+  its order — the words read as 100, 75, 50 and 25 — until its column is replaced. A repair ticket is born at 75, and a
+  ticket at 75 or more is never run on the lightest model.
+
 ### Added
 
 - **A project's type, description and site are corrected from the console.** The "Edit the project" drawer has them

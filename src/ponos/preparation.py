@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import shutil
 
-from . import agents, git, journal, kinds, models, naming, session, state, store, subtypes
+from . import agents, git, journal, kinds, models, naming, priority, session, state, store, subtypes
 from . import voice as voice_module
 from .base import Base
 from .config import state_dir
@@ -217,7 +217,7 @@ class Preparation(Base):
             job.body,
             kind=job.kind,
             code=job.project.is_code,
-            priority=str(store.read(ticket.page, self.config.notion.prop("priority")) or ""),
+            priority=priority.score(store.read(ticket.page, self.config.notion.prop("priority"))),
             grid=settings.model_grid(),
             # A run begun on Fable before it was turned off carries on, or
             # stays, on what is allowed now.

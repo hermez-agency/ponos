@@ -78,7 +78,7 @@ test("the day takes the shape of the cadence, and the summary follows", async ({
 
   await window_.getByRole("button", { name: "Chaque mois" }).click()
   await expect(window_.getByRole("button", { name: "lundi" })).toHaveCount(0)
-  const day = window_.getByRole("spinbutton")
+  const day = window_.getByRole("spinbutton", { name: /Jour/ })
   await expect(day).toHaveValue("1")
   await day.fill("20")
   await window_.locator('input[type="time"]').fill("14:30")
@@ -91,10 +91,14 @@ test("the day takes the shape of the cadence, and the summary follows", async ({
   await expect(summary).toContainText("ven. 16 oct. à 14:30")
 })
 
-test("the model and the priority are buttons, the model in the board's words and the priority in the console's", async ({ page }) => {
+test("the model is buttons in the board's words, the priority a score with its badge", async ({ page }) => {
   const window_ = await open(page)
-  for (const word of ["Haiku", "Sonnet", "Opus", "Faible", "Normale", "Élevée", "Urgente"])
+  for (const word of ["Haiku", "Sonnet", "Opus"])
     await expect(window_.getByRole("button", { name: word, exact: true })).toBeVisible()
+  const priority = window_.getByRole("spinbutton", { name: "Priorité, de 0 à 100" })
+  await expect(priority).toHaveAttribute("placeholder", "50")
+  await priority.fill("90")
+  await expect(window_.locator('[data-slot="priority-input"] [data-slot="priority-badge"]')).toHaveText("90")
   const opus = window_.getByRole("button", { name: "Opus", exact: true })
   await opus.click()
   await expect(opus).toHaveAttribute("aria-pressed", "true")

@@ -4,6 +4,7 @@ import { ChevronDown, Search, SearchX, SlidersHorizontal, X } from "lucide-react
 
 import { blockSaid, capital, choiceWord, columnTitle, SubtypeDot } from "@/components/console/ticket-bits"
 import { EmptyState } from "@/components/console/empty-state"
+import { PriorityBadge } from "@/components/console/priority"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -33,6 +34,7 @@ import {
   marks,
   matchesQuery,
   readQuery,
+  scoreOf,
   toggled,
   writeQuery,
   type Choice,
@@ -145,11 +147,13 @@ interface Option {
   count: number
   /** A sub-type's dot before the label, in the colour it has everywhere else. */
   subtype?: string
+  /** A priority score, drawn as the badge a card wears rather than as its digits. */
+  score?: number
 }
 
 /* The values a list offers: the board's own choices first, in its order, then
  * whatever a ticket carries that they do not name — a model typed by hand, a
- * priority since removed from the column's options. Each with the number of
+ * type since removed from the column's options. Each with the number of
  * tickets of this list it would keep, and none at all when nothing has one. */
 function offered(
   tickets: Ticket[],
@@ -204,7 +208,9 @@ function FacetFilter({
             onCheckedChange={() => onChange(toggled(selected, option.value))}
           >
             {option.subtype ? <SubtypeDot subtype={option.subtype} /> : null}
-            <span className="min-w-0 flex-1 truncate">{option.label}</span>
+            <span className="min-w-0 flex-1 truncate">
+              {option.score === undefined ? option.label : <PriorityBadge score={option.score} />}
+            </span>
             <span className="text-muted-foreground ms-3 font-mono text-xs tabular-nums">{option.count}</span>
           </DropdownMenuCheckboxItem>
         ))}
@@ -417,7 +423,10 @@ export function TicketSearch({
         label: capital(columnTitle(column.key, column.name)),
         count: tickets.filter((ticket) => ticket.column === column.key).length,
       })),
-    priority: offered(tickets, (ticket) => ticket.priority, said(choices.priority), choiceWord),
+    // The scores the board's tickets carry, the highest first, each in its badge's colour.
+    priority: offered(tickets, scoreOf)
+      .map((option) => ({ ...option, score: Number(option.value) }))
+      .sort((a, b) => b.score - a.score),
     model: offered(
       tickets,
       (ticket) => ticket.model,

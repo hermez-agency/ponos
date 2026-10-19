@@ -31,7 +31,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from . import blocks, ci, notion, subtypes
-from .config import PRIORITIES, Notion
+from .config import Notion
 from .schedules import CADENCES
 
 # The board, left to right, and the colour that says what a column means.
@@ -64,8 +64,6 @@ _BLOCK_COLOURS = {
     "question": "orange",
     "access": "yellow",
 }
-
-_PRIORITY_COLOURS = {"Urgent": "red", "High": "orange", "Normal": "default", "Low": "gray"}
 
 # What `claude --model` accepts. A select rather than free text: the whole point
 # of the column is to pick without remembering the spelling.
@@ -191,7 +189,8 @@ def tickets_schema(settings: Notion, projects: str = "", agents: str = "") -> di
         settings.prop("session"): {"url": {}},
         settings.prop("pull_request"): {"url": {}},
         settings.prop("model"): _select(MODELS),
-        settings.prop("priority"): _select(PRIORITIES, _PRIORITY_COLOURS),
+        # A score from 0 to 100, highest first: see priority.py.
+        settings.prop("priority"): {"number": {"format": "number"}},
         settings.prop("cost"): {"number": {"format": "dollar"}},
         settings.prop("duration"): {"number": {"format": "number"}},
         settings.prop("due"): {"date": {}},
@@ -272,7 +271,8 @@ def schedules_schema(settings: Notion, tickets: str = "", projects: str = "") ->
         settings.prop("next_run"): {"date": {}},
         settings.prop("last_run"): {"date": {}},
         settings.prop("model"): _select(MODELS),
-        settings.prop("priority"): _select(PRIORITIES, _PRIORITY_COLOURS),
+        # A score from 0 to 100, highest first: see priority.py.
+        settings.prop("priority"): {"number": {"format": "number"}},
         settings.prop("type"): type_select(settings),
         settings.prop("subtype"): subtype_select(),
     }

@@ -55,12 +55,9 @@ const hasRepository = (project?: Project) => project?.kind === "code"
 
 /* -- the fields ------------------------------------------------------------- */
 
-/* A choice among a handful, all in view: the type and the priority. Four
- * options hidden behind a select were four options nobody saw. The empty one
- * comes first and says what empty means in its tooltip; the alarming one —
- * Urgent — is in the colour of an alert, chosen or not. */
-const ALARM = new Set(["Urgent"])
-
+/* A choice among a handful, all in view: the type. Four options hidden
+ * behind a select were four options nobody saw. The empty one comes first and
+ * says what empty means in its tooltip. */
 export const SegmentedInputController: InputControllerComponentInterface = ({ formInput, onChange }) => {
   const value = String(formInput.value ?? "")
   return (
@@ -73,7 +70,6 @@ export const SegmentedInputController: InputControllerComponentInterface = ({ fo
       {(formInput.valueOptions ?? []).map((option) => {
         const key = String(option.value ?? "")
         const chosen = key === value
-        const alarm = ALARM.has(key)
         return (
           <button
             key={key || "empty"}
@@ -83,9 +79,7 @@ export const SegmentedInputController: InputControllerComponentInterface = ({ fo
             onClick={() => onChange({ ...formInput, value: key, violations: [] })}
             className={cn(
               "text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring/50 min-w-0 flex-auto rounded-md px-2.5 py-1 text-xs font-medium transition-colors outline-none focus-visible:ring-[3px]",
-              alarm && "text-destructive hover:text-destructive",
-              chosen && "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground",
-              chosen && alarm && "bg-destructive hover:bg-destructive text-destructive-foreground hover:text-destructive-foreground"
+              chosen && "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground"
             )}
           >
             {option.label}

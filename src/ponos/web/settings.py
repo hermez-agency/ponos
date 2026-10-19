@@ -511,7 +511,7 @@ SECTIONS: tuple[Section, ...] = (
                 "pull_request": ("Pull request", "Written by the runner when one is opened."),
                 "session": ("Session", "Written by the runner: the link that reopens the session."),
                 "model": ("Model", "This ticket's model, over the default one."),
-                "priority": ("Priority", "Which Ready ticket goes first."),
+                "priority": ("Priority", "A score from 0 to 100: the highest Ready ticket goes first."),
                 "cost": ("Cost", "Written by the runner, in dollars."),
                 "duration": ("Duration", "Written by the runner, in minutes."),
                 "progress": ("Progress", "Written by the runner: what the session is doing."),

@@ -19,7 +19,7 @@ from pathlib import Path
 from datetime import datetime
 
 from . import __version__, channels, cleanup, config as config_module, conversation, credits, git, notion
-from . import db, journal, kinds, legacy, models, resources, store, voice
+from . import db, journal, kinds, legacy, models, priority, resources, store, voice
 from . import github_app, project_settings, provision
 from . import provider as provider_module
 from . import schedules as schedules_module
@@ -231,9 +231,10 @@ def command_list(args: argparse.Namespace) -> int:
                 kind = "code" if resolved.is_code else "document"
             except (LookupError, store.StoreError):
                 project = f"{YELLOW}project not found{RESET}"
+        score = store.read(ticket.page, configuration.notion.prop("priority"))
         badges = [
-            str(store.read(ticket.page, configuration.notion.prop(key)) or "")
-            for key in ("priority", "model")
+            f"priority {priority.score(score)}" if score not in (None, "") else "",
+            str(store.read(ticket.page, configuration.notion.prop("model")) or ""),
         ]
         tail = " · ".join([part for part in [project, kind, *badges] if part])
         print(f"  {position}. {ticket.title}\n     {DIM}{tail}{RESET}\n     {DIM}{ticket.url}{RESET}")
@@ -1619,7 +1620,7 @@ def _doctor_schedules(
         ("last_ticket", "relation", "written by the runner: how it knows the last one is over"),
         ("project", "relation", "the project every ticket it makes points at"),
         ("model", "select", "the model every ticket it makes runs on"),
-        ("priority", "select", "the priority every ticket it makes carries"),
+        ("priority", "number", "the priority score, 0 to 100, every ticket it makes carries"),
         ("type", "select", "the type every ticket it makes is born with — empty, it is guessed"),
         ("subtype", "select", "the sub-type every code ticket it makes is born with"),
     ):

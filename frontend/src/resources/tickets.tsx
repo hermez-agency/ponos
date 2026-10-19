@@ -51,6 +51,7 @@ import {
 } from "@/components/console/new-ticket-lazy"
 import { EmptyState } from "@/components/console/empty-state"
 import { ProjectThumb } from "@/components/console/project-picture"
+import { PriorityBadge, PriorityInputController } from "@/components/console/priority"
 import { Robot, TicketRobot } from "@/components/console/robot"
 import { RunnerStrip } from "@/components/console/runner-strip"
 import { StatisticsBand } from "@/components/console/statistics"
@@ -79,6 +80,7 @@ import {
 } from "@/lib/board-store"
 import { counted, t } from "@/lib/i18n"
 import { money } from "@/lib/numbers"
+import { DEFAULT_SCORE, readScore } from "@/lib/priority"
 import { layoutOf, useLayoutInTheAddress, useRememberedLayout } from "@/lib/resource-view"
 import type { ColumnKey, Ticket, TicketDetail } from "@/lib/types"
 import { cn } from "@/lib/utils"
@@ -162,7 +164,8 @@ export interface TicketWrite {
   body?: string
   project?: string
   ready?: boolean
-  priority?: string
+  /** A score from 0 to 100, as typed: empty is 50. */
+  priority?: string | number
   type?: string
   model?: string
   subtype?: string
@@ -255,20 +258,21 @@ function useSendOnControlEnter(field: React.RefObject<HTMLElement | null>) {
   }, [field])
 }
 
-/* The four a board may or may not have a column for: priority, type,
- * sub-type, model. Drawn only where it has one — a value for a missing column
- * would be dropped on its way in — and always optional. The options are the
+/* Three a board may or may not have a column for: type, sub-type, model —
+ * the priority, a score, is `PriorityInputController`'s. Drawn only where it
+ * has one — a value for a missing column would be dropped on its way in — and
+ * always optional. The options are the
  * board's (see `Api._choices`): read from the board the console already holds,
  * which is there before a dialog over it can open. The empty one comes first,
  * and says in its tooltip what empty means. */
 function choiceInput(
-  key: "priority" | "type" | "model" | "subtype",
+  key: "type" | "model" | "subtype",
   empty: string,
   meaning: string,
   controller: InputControllerComponentInterface
 ) {
   return {
-    label: { type: "Type", priority: "Priority", model: "Model", subtype: "Sub-type" }[key],
+    label: { type: "Type", model: "Model", subtype: "Sub-type" }[key],
     controller,
     hidden: () => !currentBoard()?.choices?.[key]?.length,
     getValueOptions: async () => [
@@ -279,7 +283,7 @@ function choiceInput(
             value: subtype.key,
             label: subtype.label,
           }))
-        : // The type and the priority in the console's language (`choiceWord`),
+        : // The type in the console's language (`choiceWord`),
           // their values the board's.
           (currentBoard()?.choices?.[key] ?? []).map((choice) =>
             key === "model" ? choice : { ...choice, label: choiceWord(choice.label) }
@@ -365,12 +369,12 @@ const createForm: FormInterface = {
       "What kind of change a code ticket is: the prefix of its commit and its CHANGELOG section. Empty, the runner deduces it.",
       PillsInputController
     ),
-    priority: choiceInput(
-      "priority",
-      "None",
-      "Which ready ticket goes first. Empty, it waits its turn.",
-      SegmentedInputController
-    ),
+    // A score, drawn only where the board has the column to keep it in.
+    priority: {
+      label: "Priority",
+      controller: PriorityInputController,
+      hidden: () => !currentBoard()?.priority,
+    },
     // On one line: label, then the select.
     model: {
       ...choiceInput("model", "the runner's model", "", SelectInputController),
@@ -409,10 +413,9 @@ const ModelCell: InputControllerComponentInterface = ({ formInput }) => {
   return <>{original?.model_label || String(formInput.value ?? "")}</>
 }
 
-/** A priority, in the console's words rather than the board's: see `choiceWord`. */
-const PriorityCell: InputControllerComponentInterface = ({ formInput }) => (
-  <>{choiceWord(String(formInput.value ?? ""))}</>
-)
+/** A priority, as the badge the card wears: its score, in its colour. */
+const PriorityCell: InputControllerComponentInterface = ({ formInput }) =>
+  typeof formInput.value === "number" ? <PriorityBadge score={formInput.value} /> : null
 
 /* The title, in the table, as the way into the ticket — the window over the
  * list, as a card's title is. */
@@ -954,12 +957,14 @@ export async function createTicket(fresh: TicketWrite): Promise<TicketItem> {
   const title = String(fresh.title ?? "").trim()
   // Said under the field it is about, not only in a toast in the corner.
   if (!title) throw new FieldProblem("title", t("A ticket needs a title."))
+  const score = readScore(fresh.priority)
+  if (score === undefined) throw new FieldProblem("priority", t("A priority is a number from 0 to 100."))
   const made = await api.createTicket({
     title,
     body: String(fresh.body ?? ""),
     project: String(fresh.project ?? ""),
     ready: fresh.ready !== false,
-    priority: String(fresh.priority ?? ""),
+    priority: score ?? "",
     type: String(fresh.type ?? ""),
     model: String(fresh.model ?? ""),
     subtype: String(fresh.subtype ?? ""),
@@ -982,7 +987,8 @@ export async function createTicket(fresh: TicketWrite): Promise<TicketItem> {
     // The key was sent; the card says it as the board spells it.
     type: currentBoard()?.choices?.type?.find((choice) => choice.value === fresh.type)?.label ?? "",
     subtype: String(fresh.subtype ?? ""),
-    priority: String(fresh.priority ?? ""),
+    // What the server wrote: the score given, or the middle one.
+    priority: currentBoard()?.priority ? (score ?? DEFAULT_SCORE) : null,
     model: String(fresh.model ?? ""),
     progress: "",
     runner: "",

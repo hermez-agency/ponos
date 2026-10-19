@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from . import state, store
+from . import priority, state, store
 from . import schedules as schedules_module
 from . import voice as voice_module
 from .base import Base
@@ -202,12 +202,16 @@ class Recurrence(Base):
         for key, value in (
             ("project", schedule.project),
             ("model", schedule.model),
-            ("priority", schedule.priority),
             ("type", schedule.kind),
             ("subtype", schedule.subtype),
         ):
             if value:
                 values[settings.prop(key)] = value
+        # Always written: a ticket a schedule makes says its score on the board,
+        # the schedule's or the middle one.
+        values[settings.prop("priority")] = self.priority_cell(
+            priority.DEFAULT if schedule.priority is None else schedule.priority
+        )
         # The brief is read before anything is written: the page it comes from is
         # the likeliest thing to be unreadable, and a ticket that is all title
         # would run on nothing at all.

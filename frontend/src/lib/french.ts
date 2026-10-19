@@ -267,8 +267,11 @@ export const FRENCH: Record<string, string> = {
   Create: "Créer",
   "What must change, where, and how you will know it is done.":
     "Ce qui doit changer, où, et à quoi vous verrez que c'est fait.",
-  "Which ready ticket goes first. Empty, it waits its turn.":
-    "Quel ticket prêt passe en premier. Vide, il attend son tour.",
+  "Priority {{score}} out of 100": "Priorité {{score}} sur 100",
+  "{{label}}, from 0 to 100": "{{label}}, de 0 à 100",
+  "A priority is a number from 0 to 100.": "Une priorité est un nombre de 0 à 100.",
+  "0: not important at all · 100: right now. Empty, it is 50.":
+    "0 : vraiment pas important · 100 : tout de suite. Vide, c'est 50.",
   "deduced by the runner": "déduit par le runner",
   "The road the ticket takes. Empty, the runner deduces it before the ticket runs.":
     "Le chemin que prend le ticket. Vide, le runner le déduit avant de le lancer.",
@@ -283,7 +286,6 @@ export const FRENCH: Record<string, string> = {
   "Files concerned": "Fichiers concernés",
   "path/to/the/file": "chemin/du/fichier",
   Auto: "Auto",
-  None: "Aucune",
   "A git repository: the ticket comes back as a pull request.":
     "Un dépôt git : le ticket revient en pull request.",
   "No repository: the ticket comes back as a document.": "Pas de dépôt : le ticket revient en document.",
@@ -1391,9 +1393,6 @@ export const FRENCH: Record<string, string> = {
   Medium: "Moyenne",
   High: "Élevée",
   "Every hour: only the minutes are read.": "Chaque heure : seules les minutes comptent.",
-  // The two other priorities a ticket is written with (`choiceWord`).
-  Normal: "Normale",
-  Urgent: "Urgente",
   "Model that guesses the type": "Modèle qui devine le type",
   "A light one is enough, e.g. `haiku`. Empty: Claude Code's own default.":
     "Un modèle léger suffit, par ex. `haiku`. Vide : celui de Claude Code par défaut.",
@@ -1646,7 +1645,8 @@ export const FRENCH: Record<string, string> = {
     "Écrite par le runner : le lien qui rouvre la session.",
   "This ticket's model, over the default one.":
     "Le modèle de ce ticket, prioritaire sur celui par défaut.",
-  "Which Ready ticket goes first.": "Quel ticket prêt passe en premier.",
+  "A score from 0 to 100: the highest Ready ticket goes first.":
+    "Un score de 0 à 100 : le ticket prêt le plus haut passe en premier.",
   "Written by the runner, in dollars.": "Écrit par le runner, en dollars.",
   Duration: "Durée",
   "Written by the runner, in minutes.": "Écrite par le runner, en minutes.",

@@ -47,7 +47,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from ponos import config as C  # noqa: E402
 from ponos import credits, db, images, journal, notion, project_settings, store  # noqa: E402
-from ponos.config import PRIORITIES  # noqa: E402
 from ponos.runner import Runner  # noqa: E402
 from ponos.ticket import short_id  # noqa: E402
 
@@ -942,7 +941,7 @@ TICKETS = {
     "Runner": {"type": "rich_text", "rich_text": {}},
     "Pull Request": {"type": "url", "url": {}},
     "Session": {"type": "rich_text", "rich_text": {}},
-    "Priority": {"type": "select", "select": {"options": [{"name": name} for name in PRIORITIES]}},
+    "Priority": {"type": "number", "number": {}},
     "Model": {"type": "select", "select": {"options": [{"name": "opus"}]}},
     "Scheduled": {"type": "date", "date": {}},
     "Duration": {"type": "number", "number": {}},

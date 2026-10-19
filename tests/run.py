@@ -46,7 +46,7 @@ from ponos import db, files, images, journal, project_settings, vault  # noqa: E
 from ponos.channels import slack as slack_channel, telegram as telegram_channel  # noqa: E402
 from ponos import legacy, models, update, voice, workspace  # noqa: E402
 from ponos import ticket as ticket_module  # noqa: E402
-from ponos import redaction, worktime  # noqa: E402
+from ponos import priority, redaction, worktime  # noqa: E402
 from ponos.runner import Runner  # noqa: E402
 from ponos import __version__  # noqa: E402
 from ponos.__main__ import _names, banner, subcommands, welcome  # noqa: E402
@@ -3102,7 +3102,7 @@ def _schedule_page(page_id: str, **values) -> notion.Page:
             "Last ticket": {"type": "relation",
                             "relation": [{"id": last_ticket}] if last_ticket else []},
             "Project": {"type": "relation", "relation": [{"id": "p-animalink"}]},
-            "Priority": {"type": "select", "select": {"name": "Normal"}},
+            "Priority": {"type": "number", "number": 40},
             **({"Type": {"type": "select", "select": {"name": values["type"]}}}
                if values.get("type") else {}),
             **({"Sous-type": {"type": "select", "select": {"name": values["subtype"]}}}
@@ -3199,7 +3199,7 @@ def a_machine_that_was_off_for_three_days_produces_one_ticket_and_not_twelve():
     title_, values = runner.client.created[0]
     assert title_.startswith("Revue des dépendances — ")
     assert values["Status"] == "Ready"
-    assert values["Project"] == "p-animalink" and values["Priority"] == "Normal"
+    assert values["Project"] == "p-animalink" and values["Priority"] == 40
 
     # The next moment is computed from now, never by stacking up what was lost.
     ahead = schedules.scheduled_for(_written(runner.client, "Next"))
@@ -3219,7 +3219,7 @@ def a_code_schedule_makes_a_code_ticket_that_nobody_classifies():
     assert len(runner.recur()) == 1
     _, values = runner.client.created[0]
     assert values["Type"] == "Code" and values["Sous-type"] == "Feature"
-    assert values["Model"] == "opus" and values["Priority"] == "Normal"
+    assert values["Model"] == "opus" and values["Priority"] == 40
 
     # Born typed, it is never handed to the classifier.
     born = notion.Page(id="t-1", url="", title="Revue — 2026-10-16", properties={
@@ -7553,7 +7553,7 @@ def a_small_change_runs_on_the_light_model_and_says_why():
         [" ".join(["La page affiche un paragraphe que plus personne ne lit."] * 18)]
         + [f"- critère {number} vérifié sur desktop et mobile" for number in range(6)]
     )
-    real = _chosen("Réglages : retirer le paragraphe d'explication", explained, priority="Low")
+    real = _chosen("Réglages : retirer le paragraphe d'explication", explained, priority=25)
     assert real.model == "haiku", "a small change said in its title, however explained"
     drowned = _chosen("Retirer la phrase et animer le robot", " ".join(["mot"] * 400))
     assert drowned.model == "sonnet", "past a page, the title alone does not make it small"
@@ -7589,9 +7589,61 @@ def heavy_work_runs_on_a_heavy_model_and_the_heaviest_when_it_is_long_too():
 def an_action_on_the_world_or_an_urgent_ticket_never_runs_on_the_lightest_model():
     post = _chosen("Retirer le post LinkedIn", "", kind="publication", code=False)
     assert post.model == "sonnet", post
-    urgent = _chosen("Renommer le bouton", "", priority="Urgent")
+    urgent = _chosen("Renommer le bouton", "", priority=75)
     assert urgent.model == "sonnet" and urgent.signals[-1][0] == "model-urgent", urgent
-    assert _chosen("Renommer le bouton", "", priority="Low").model == "haiku"
+    assert _chosen("Renommer le bouton", "", priority=74).model == "haiku"
+
+
+@case
+def a_priority_is_a_score_from_0_to_100_and_the_old_words_still_read():
+    """Urgent, High, Normal, Low read as the scores their migration gives them,
+    so a board not migrated yet keeps its order; what a cell says outside 0–100
+    is clamped, what somebody gives is refused."""
+    assert [priority.score(word) for word in ("Urgent", "high", "Normal", "Low")] == [100, 75, 50, 25]
+    assert priority.score(None) == priority.score("") == 50, "empty is the middle"
+    assert priority.score(150) == 100 and priority.score(-3) == 0 and priority.score(62.6) == 63
+    assert priority.score("80") == 80 and priority.score("nonsense") == 50
+    assert priority.given("") == 50 and priority.given(0) == 0 and priority.given("100") == 100
+    for wrong in (101, -1, "vite", True):
+        try:
+            priority.given(wrong)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"{wrong!r} is not a priority")
+    assert [priority.word(score) for score in (100, 90, 75, 60, 50, 30, 0)] == [
+        "Urgent", "Urgent", "High", "Normal", "Normal", "Low", "Low",
+    ]
+    assert priority.cell(80, "select") == "High" and priority.cell(80, "number") == 80
+
+
+@case
+def the_ready_tickets_run_by_score_highest_first_and_the_oldest_on_a_tie():
+    def ready(identifier: str, created: str, cell: dict | None) -> notion.Page:
+        properties = {"Priority": cell} if cell else {}
+        return notion.Page(id=identifier, url="", title=identifier, properties=properties,
+                           raw={"created_time": created})
+
+    pages = [
+        ready("plain", "2026-10-01T09:00:00Z", None),
+        ready("low", "2026-09-01T09:00:00Z", {"type": "number", "number": 10}),
+        ready("tienew", "2026-10-02T09:00:00Z", {"type": "number", "number": 90}),
+        ready("tieold", "2026-09-02T09:00:00Z", {"type": "number", "number": 90}),
+        ready("worded", "2026-09-03T09:00:00Z", {"type": "select", "select": {"name": "High"}}),
+        ready("middle", "2026-09-04T09:00:00Z", {"type": "number", "number": 60}),
+    ]
+    runner = Runner.__new__(Runner)
+    runner.config = _config("")
+    runner._workspace = workspace.Workspace(tickets="db")
+    runner.client = type("S", (), {"query": lambda self, database, query=None: pages})()
+    runner._ready_filter = lambda: {}
+    runner.woken = lambda: []
+    runner.parked = lambda tickets: set()
+    eligible, waiting = runner.queue()
+    assert [ticket.id for ticket in eligible] == [
+        "tieold", "tienew", "worded", "middle", "plain", "low",
+    ], [ticket.id for ticket in eligible]
+    assert waiting == []
 
 
 @case
@@ -13781,7 +13833,7 @@ def a_red_base_sets_the_pull_request_aside_and_opens_one_repair_for_all_of_them(
     assert len(runner.client.created) == 1, runner.client.created
     title, values = runner.client.created[0]
     assert title == "Repair main of Site", title
-    assert values["Status"] == "Ready" and values["Priority"] == "High", values
+    assert values["Status"] == "Ready" and values["Priority"] == 75, values
     assert "`frontend`" in runner.client.bodies[0] and _REPAIR_RUN in runner.client.bodies[0]
 
 
@@ -16348,11 +16400,13 @@ def the_console_reads_and_rewrites_the_standing_context():
 
 @case
 def a_ticket_created_from_the_console_carries_its_priority_type_and_model():
-    """Three selects in the form, written as the board spells them.
+    """A score and two selects in the form, written as the board takes them.
 
     They used to be set in Notion afterwards, by hand. Offered only for the
     columns the board has — a value for a missing one would be dropped on the
     way in — and a type left empty stays empty, for the runner to classify.
+    The priority is a score from 0 to 100, 50 when none is said, refused
+    outside that range.
     """
     with _board() as board:
         api = _markdown_api(board)
@@ -16360,22 +16414,30 @@ def a_ticket_created_from_the_console_carries_its_priority_type_and_model():
         api._reader = web_board.Reader(journal=lambda report: None)
         api._outbox = web_board.Outbox(journal=lambda report: None)
         api.watch = _Nudged()
-        choices = api.board()["choices"]
-        assert [option["value"] for option in choices["priority"]] == list(C.PRIORITIES)
+        read = api.board()
+        choices = read["choices"]
+        assert read["priority"] is True and "priority" not in choices
         assert [option["value"] for option in choices["model"]] == ["opus", "sonnet", "haiku"]
         assert {option["value"]: option["label"] for option in choices["type"]}["writing"] == "Writing"
 
-        made = api.create_ticket("Écrire l'annonce", ready=False, priority="High", kind="writing", model="haiku")
+        made = api.create_ticket("Écrire l'annonce", ready=False, priority=80, kind="writing", model="haiku")
         page = board.page(made["id"])
         settings = api.config.notion
-        assert store.read(page, settings.prop("priority")) == "High"
+        assert store.read(page, settings.prop("priority")) == 80
         assert store.read(page, settings.prop("type")) == "Writing"
         assert store.read(page, settings.prop("model")) == "haiku"
         assert not store.read(page, settings.prop("status")), "not ready is a draft"
 
         bare = board.page(api.create_ticket("Sans rien")["id"])
         assert not store.read(bare, settings.prop("type")), "an empty type is the runner's to deduce"
-        assert not store.read(bare, settings.prop("priority"))
+        assert store.read(bare, settings.prop("priority")) == 50, "none said is the middle"
+        for wrong in (101, -1, "vite"):
+            try:
+                api.create_ticket("Hors bornes", priority=wrong)
+            except ValueError:
+                pass
+            else:
+                raise AssertionError(f"a priority of {wrong!r} must be refused")
         try:
             api.create_ticket("Mauvais type", kind="poem")
         except ValueError:
@@ -17024,9 +17086,9 @@ def the_console_writes_a_schedule_without_touching_what_a_pass_writes_back():
         assert row.active is False, "a new schedule is created unticked, whatever was asked"
         assert not row.problem
 
-        api.save_schedule(created["id"], {"active": True, "at": "07:30", "priority": "High"})
+        api.save_schedule(created["id"], {"active": True, "at": "07:30", "priority": 80})
         again = schedules.read(board.page(created["id"]), board.settings())
-        assert again.active is True and again.at == "07:30" and again.priority == "High"
+        assert again.active is True and again.at == "07:30" and again.priority == 80
         assert again.next is None and again.last is None
 
         # The type and the sub-type its tickets are born with, said by their
@@ -18869,7 +18931,7 @@ def an_mcp_client_lists_what_waits_creates_a_task_and_answers_a_question():
 
         created = _mcp_call(
             api, grant, "create_task", title="Brancher le domaine", description="Sur Dokploy.",
-            project="usine", type="code", priority="High",
+            project="usine", type="code", priority=80,
         )
         assert not created["isError"], created
         made = board.page(created["structuredContent"]["id"])

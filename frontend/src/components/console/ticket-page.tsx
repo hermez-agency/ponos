@@ -26,6 +26,7 @@ import {
 import { EmptyState } from "./empty-state"
 import { Eyebrow } from "./frame"
 import { Markdown } from "./markdown"
+import { PriorityBadge } from "./priority"
 import { Robot } from "./robot"
 import { Pulse, TicketLive } from "./session-log"
 import { TicketDecision, TicketTabContext, WINDOW_TAB } from "./ticket-decision"
@@ -266,10 +267,10 @@ function TicketSummary({ ticket, onSession }: { ticket: TicketDetail; onSession:
             </>
           ) : null}
           {ticket.subtype ? <TicketSubtype subtype={ticket.subtype} /> : null}
-          {ticket.priority ? (
+          {typeof ticket.priority === "number" ? (
             <>
               {sep}
-              <span>{choiceWord(ticket.priority)}</span>
+              <PriorityBadge score={ticket.priority} />
             </>
           ) : null}
         </div>

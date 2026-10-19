@@ -334,7 +334,7 @@ _SAID: dict[str, dict[str, str]] = {
     },
     "model-heavy": {"en": "heavy work ({words})", "fr": "travail lourd ({words})"},
     "model-urgent": {
-        "en": "{priority} priority, not the lightest model",
+        "en": "priority {priority}, not the lightest model",
         "fr": "priorité {priority}, pas le modèle le plus léger",
     },
     "model-escalated": {

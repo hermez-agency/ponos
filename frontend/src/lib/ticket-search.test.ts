@@ -32,7 +32,7 @@ const ticket = (given: Partial<Searchable> = {}): Searchable => ({
   column: "ready",
   project: "Ponos",
   type: "Code",
-  priority: "High",
+  priority: 75,
   model: "opus",
   progress: "",
   pull_request: "",
@@ -78,13 +78,15 @@ test("a ticket is found by its id, its branch or its Notion address, and only th
 })
 
 test("the filters combine: every one of them must hold, with the words", () => {
-  const one = ticket({ type: "Rédaction", column: "review", priority: "Urgent", pull_request: "https://x/pull/3" })
+  const one = ticket({ type: "Rédaction", column: "review", priority: 100, pull_request: "https://x/pull/3" })
   assert.equal(keeps(one, { type: ["writing"] }), true, "the key finds the board's own spelling")
   assert.equal(keeps(one, { type: ["code"] }), false)
   assert.equal(keeps(one, { type: ["code", "writing"], status: ["review", "done"] }), true)
   assert.equal(keeps(one, { type: ["writing"], status: ["done"] }), false)
-  assert.equal(keeps(one, { priority: ["urgent"], only: ["pr"], text: "moteurs" }), true)
-  assert.equal(keeps(one, { priority: ["urgent"], only: ["pr"], text: "absent" }), false)
+  assert.equal(keeps(one, { priority: ["100"], only: ["pr"], text: "moteurs" }), true)
+  assert.equal(keeps(one, { priority: ["75"] }), false, "a score is the score, not a band")
+  assert.equal(keeps(ticket({ priority: null }), { priority: ["50"] }), false, "no column is no score")
+  assert.equal(keeps(one, { priority: ["100"], only: ["pr"], text: "absent" }), false)
   assert.equal(keeps(ticket(), { only: ["pr"] }), false)
   assert.equal(keeps(ticket(), { project: ["Website"] }), false)
   assert.equal(keeps(ticket({ type: "" }), { type: ["code"] }), false, "no type is not every type")

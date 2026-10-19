@@ -155,7 +155,8 @@ session = "Session"
 
 # All five are optional — a database without them behaves exactly as before.
 model = "Model"          # select: pick the model per ticket, over runner.model
-priority = "Priority"    # select: Urgent, High, Normal, Low — which one runs first
+priority = "Priority"    # number, 0 to 100: the highest runs first, empty is 50 (a select
+                         # of Urgent, High, Normal, Low still reads as 100, 75, 50, 25)
 cost = "Cost"            # number: what the run cost, written back
 duration = "Duration"    # number: how long it took, in minutes
 role = "Agent"           # relation → your agents database: who handles the ticket

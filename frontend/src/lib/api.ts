@@ -217,8 +217,9 @@ export const api = {
     project: string
     ready: boolean
     /** Each left out, or empty, for a ticket that does not say: an empty type
-     * is the runner's to deduce. `type` is one of the four keys, not a label. */
-    priority?: string
+     * is the runner's to deduce, an empty priority is 50. `type` is one of the
+     * four keys, not a label; `priority` a score from 0 to 100. */
+    priority?: number | ""
     type?: string
     model?: string
     /** A sub-type's key — `bug`, `docs` — and only on a code ticket. */

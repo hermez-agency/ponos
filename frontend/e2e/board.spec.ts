@@ -86,3 +86,15 @@ for (const viewport of [
     expect(await widthOf("table")).toBe(await widthOf("board"))
   })
 }
+
+test("a card wears its priority as a badge, its score in the colour the score gives", async ({ page }) => {
+  await open(page)
+  const badge = page.locator('[data-slot="priority-badge"]').filter({ hasText: /^90$/, visible: true }).first()
+  await expect(badge).toBeVisible()
+  await expect(badge).toHaveAttribute("title", "Priority 90 out of 100")
+  // Towards red: an urgent score, not the grey-blue of one that can wait.
+  const colour = await badge.evaluate((element) => getComputedStyle(element).backgroundColor)
+  const [red, green, blue] = (colour.match(/\d+(\.\d+)?/g) ?? []).map(Number)
+  expect(red).toBeGreaterThan(green)
+  expect(red).toBeGreaterThan(blue)
+})

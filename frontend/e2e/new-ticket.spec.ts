@@ -34,10 +34,13 @@ async function choose(page: Page, dialog: ReturnType<Page["getByRole"]>, field: 
   await page.getByRole("option", { name: option, exact: true }).click()
 }
 
-/* The type and the priority are all in view, a button each; so is a code
- * ticket's sub-type. */
+/* The type is all in view, a button each; so is a code ticket's sub-type. */
 const segment = (dialog: ReturnType<Page["getByRole"]>, field: string, option: string) =>
   dialog.getByRole("group", { name: field, exact: true }).getByRole("button", { name: option, exact: true })
+
+/* The priority is a score from 0 to 100, typed into its box. */
+const score = (dialog: ReturnType<Page["getByRole"]>) =>
+  dialog.getByRole("spinbutton", { name: "Priority, from 0 to 100" })
 
 test("a new ticket carries its priority, type and model, and Ctrl+Enter launches it", async ({ page }) => {
   const sent: Record<string, unknown>[] = []
@@ -50,8 +53,8 @@ test("a new ticket carries its priority, type and model, and Ctrl+Enter launches
 
   await expect(dialog.getByText("Launched, the ticket starts at the next pass")).toBeVisible()
   await expect(dialog.getByText("Ready to run")).toHaveCount(0)
-  await segment(dialog, "Priority", "High").click()
-  await expect(segment(dialog, "Priority", "High")).toHaveAttribute("aria-pressed", "true")
+  await score(dialog).fill("80")
+  await expect(dialog.locator('[data-slot="priority-input"] [data-slot="priority-badge"]')).toHaveText("80")
   await segment(dialog, "Type", "Code").click()
   await choose(page, dialog, "Model", "haiku")
   await segment(dialog, "Sub-type", "Bug").click()
@@ -62,7 +65,7 @@ test("a new ticket carries its priority, type and model, and Ctrl+Enter launches
   await expect.poll(() => sent.length).toBe(1)
   expect(sent[0]).toMatchObject({
     title: "Announce it",
-    priority: "High",
+    priority: 80,
     type: "code",
     model: "haiku",
     subtype: "bug",
@@ -109,11 +112,27 @@ test("Draft creates a ticket the runner leaves alone", async ({ page }) => {
   })
   const dialog = await open(page)
   await dialog.getByLabel("Title").fill("Later")
-  await segment(dialog, "Priority", "Low").click()
+  await score(dialog).fill("0")
   await dialog.getByRole("button", { name: "Draft" }).click()
   await expect.poll(() => sent.length).toBe(1)
-  expect(sent[0]).toMatchObject({ title: "Later", priority: "Low", ready: false })
+  expect(sent[0]).toMatchObject({ title: "Later", priority: 0, ready: false })
   await expect(dialog).toBeHidden()
+})
+
+test("a priority outside 0 to 100 is said under its field and never sent", async ({ page }) => {
+  const sent: Record<string, unknown>[] = []
+  await page.route("**/api/tickets", async (route) => {
+    if (route.request().method() !== "POST") return route.fallback()
+    sent.push(route.request().postDataJSON())
+    await route.fulfill({ json: { id: "0000000000000000000000000000f013", title: "Too much" } })
+  })
+  const dialog = await open(page)
+  await dialog.getByLabel("Title").fill("Too much")
+  await score(dialog).fill("150")
+  await expect(dialog.getByText("A priority is a number from 0 to 100.").first()).toBeVisible()
+  await dialog.getByRole("button", { name: "Launch the ticket" }).click()
+  await expect(dialog).toBeVisible()
+  expect(sent).toHaveLength(0)
 })
 
 test("a draft refused for want of a title, then launched with Ctrl+Enter, is launched", async ({ page }) => {

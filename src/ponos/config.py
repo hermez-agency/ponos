@@ -805,7 +805,7 @@ _DEFAULT_PROPERTIES = {
     # Optional. A database without them behaves exactly as before: the runner
     # skips a property the schema does not declare.
     "model": "Model",          # per-ticket model, overrides runner.model
-    "priority": "Priority",    # which ready ticket goes first
+    "priority": "Priority",    # a score from 0 to 100: which ready ticket goes first
     "cost": "Cost",            # written back, in dollars
     "duration": "Duration",    # written back, in minutes
     # What the session is doing right now, rewritten every few seconds while it
@@ -891,9 +891,6 @@ _TYPE_ALIASES = {
     "writing": ("Rédaction", "Redaction"),
     "external": ("Action externe",),
 }
-
-# Highest first. Anything else — including an empty cell — sorts as normal.
-PRIORITIES = ("Urgent", "High", "Normal", "Low")
 
 # The columns of the board, and they are meant to be read in that order.
 #

@@ -606,7 +606,7 @@ repository (documents) are not counted. It is also in the console's *Settings*, 
 `max_concurrent` is a number of **places**, not a batch size. A pass keeps that many
 sessions running for as long as the ready column has anything in it: a session that ends
 frees a place, the board is read again on the spot, and what goes in is whichever ticket
-is top of the queue *then* — priority, date, age, exactly as at the start. So a ticket
+is top of the queue *then* — highest priority score, date, age, exactly as at the start. So a ticket
 made ready at 14:10 starts at 14:10 rather than waiting on the two-hour session that
 began at 14:04, and the pass ends when nothing is ready and nothing is in flight.
 
@@ -916,7 +916,7 @@ title: Corriger l'entête de la page d'accueil
 created: 2026-09-14T09:00:00+00:00
 edited: 2026-09-14T09:12:31.884210+00:00
 Status: Ready
-Priority: High
+Priority: 75
 Project:
   - a5f1c2b7e1f04c0e9c8d1b2a3f4e5d60
 ---
@@ -1035,7 +1035,7 @@ tickets are made up:
 | `Runner` | text | filled by the runner: which machine took the ticket |
 | `Pull Request` | URL | filled by the runner at the end |
 | `Session` | **URL** or text | written as soon as the ticket is claimed. Make it a URL and it becomes a link that opens the session; leave it text and it holds the bare ID |
-| `Priority` | select | *optional* — `Urgent`, `High`, `Normal`, `Low`. Decides which ready ticket runs first |
+| `Priority` | number | *optional* — a score from 0 (not important at all) to 100 (right now): the ready tickets run highest first, the oldest first on a tie; an empty cell is 50. A board whose column is still the old select of `Urgent`, `High`, `Normal`, `Low` keeps working — they read as 100, 75, 50 and 25, and a score is written back as the nearest word — until it is moved to a number column |
 | `Model` | select | *optional* — `opus`, `sonnet`, `haiku`. This ticket's model, over its agent's and over `runner.model` |
 | `Cost` | number | *optional* — written back, in dollars |
 | `Duration` | number | *optional* — written back, in minutes |
@@ -1271,7 +1271,7 @@ twice, and say exactly why. Four levels, each answered by a model of the configu
   *refonte*/*refactor*, *débogage*/*debug*, *diagnostiquer*, *sécurité*, *performance*,
   *multi-dépôts* —
   take it to *heavy*, and to *heaviest* when the request is long and names two of them;
-- **the priority**: an *Urgent* or *High* ticket never runs on the lightest model.
+- **the priority**: a ticket scored 75 or more never runs on the lightest model.
 
 External action and Publication never drop below where their type puts them: a browser
 driven by the lightest model clicks the wrong button. The choice and its reason go into a
@@ -1959,8 +1959,8 @@ and the second no longer replays cleanly — “Pull Request has merge conflicts
    commit of the base — red there too, the base is the one that is broken, not the pull
    request. The ticket is then set aside in *Validated* (“the base is red, it is not this
    pull request”, `merge.base-red`), no session is started again and nobody is asked
-   anything; one ticket “Repair `<base>` of `<project>`” is opened in *Ready* at *High*
-   priority, with the failing jobs and the link of their run — never a second one while it
+   anything; one ticket “Repair `<base>` of `<project>`” is opened in *Ready* at priority
+   75, with the failing jobs and the link of their run — never a second one while it
    is open — and at every pass the base is read again: once those checks are no longer red
    there, the pull request goes on by itself. `ponos doctor` and `ponos projects` say when
    a repository's base has no CI run at push, or only skipped ones: that is how a red base
