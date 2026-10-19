@@ -4,7 +4,6 @@ import { configurePorts as configureForms, setFormConfig } from "react-data-form
 import { setTranslation, translate } from "react-mini-i18n"
 import { configurePorts as configureViews } from "react-resource-view"
 
-import { FRENCH } from "./french"
 import { count, setNumberLocale } from "./numbers"
 
 /* Which language the console speaks.
@@ -13,7 +12,9 @@ import { count, setNumberLocale } from "./numbers"
  * key — which is what react-mini-i18n is for: a key nobody translated is
  * rendered as it stands, so English needs no dictionary of its own beyond the
  * handful of words the packages under the console say differently. French is
- * the other dictionary, and it lives in `french.ts`.
+ * the other dictionary, and it lives in `french.ts` — fetched only by a page
+ * that reads French: it is a third of what the first load would otherwise
+ * download, for a reader who never sees a word of it.
  *
  * Nobody is asked which one they read. The configuration may already say —
  * `runner.app_language`, or the reports' language when that is empty — and the
@@ -67,9 +68,14 @@ const ENGLISH: Record<string, string> = {
   false: "no",
 }
 
-const DICTIONARIES: Record<Language, Record<string, string>> = {
+const DICTIONARIES: Partial<Record<Language, Record<string, string>>> = {
   en: ENGLISH,
-  fr: FRENCH,
+}
+
+/** The words of a language, fetched the first time it is asked for. */
+async function dictionary(code: Language): Promise<Record<string, string>> {
+  if (code === "fr") DICTIONARIES.fr ??= (await import("./french")).FRENCH
+  return DICTIONARIES[code] ?? ENGLISH
 }
 
 /* Where French is the language of the work, whatever the browser was installed
@@ -131,8 +137,8 @@ function remembered(): Language {
 let language: Language = remembered()
 const listeners = new Set<() => void>()
 
-function apply(next: Language) {
-  setTranslation(DICTIONARIES[next])
+function apply(next: Language, words: Record<string, string>) {
+  setTranslation(words)
   document.documentElement.lang = next
   /* A date is not a sentence, so no dictionary can hold it: the month over the
    * schedules' calendar and the moment in a cell are formatted by the packages
@@ -168,17 +174,24 @@ function apply(next: Language) {
 }
 
 // On import, before a resource is declared: `createViewResource` reads the
-// dictionary as it builds.
-apply(language)
+// dictionary as it builds. Awaited at the top of the module, so nothing that
+// imports this one runs until the French has arrived, when it is French.
+apply(language, await dictionary(language))
 
 /** The language the console is in. */
 export const currentLanguage = () => language
 
+// The last one picked: a pick made while French is on its way outranks it.
+let wanted: Language = language
+
 /** Change it, and redraw everything that says anything. */
-export function setLanguage(next: Language) {
+export async function setLanguage(next: Language) {
+  wanted = next
   if (next === language) return
+  const words = await dictionary(next)
+  if (wanted !== next) return
   language = next
-  apply(next)
+  apply(next, words)
   try {
     localStorage.setItem(KEY, next)
   } catch {

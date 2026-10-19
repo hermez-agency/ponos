@@ -3,6 +3,7 @@ import { copyFileSync, readFileSync } from "node:fs"
 import path from "node:path"
 import react from "@vitejs/plugin-react"
 import tailwindcss from "@tailwindcss/vite"
+import { visualizer } from "rollup-plugin-visualizer"
 import { defineConfig, searchForWorkspaceRoot, type Plugin } from "vite"
 
 /* The console is served by Python, not by Node.
@@ -72,7 +73,16 @@ function serviceWorker(): Plugin {
 
 export default defineConfig({
   base: "/static/",
-  plugins: [react(), tailwindcss(), publishTokens(), serviceWorker()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    publishTokens(),
+    serviceWorker(),
+    // `PONOS_BUNDLE_STATS=1 npm run build` draws what each chunk is made of in
+    // `frontend/bundle-stats.html`: a chunk is named after its first module, and
+    // the one called `i18n` turned out to be the packages every page shares.
+    Boolean(process.env.PONOS_BUNDLE_STATS) && visualizer({ filename: "bundle-stats.html", gzipSize: true }),
+  ],
   resolve: {
     alias: { "@": path.resolve(import.meta.dirname, "./src"), "@mascot": MASCOT },
   },
@@ -86,7 +96,8 @@ export default defineConfig({
     // clear; a second load downloads nothing but that page.
     rollupOptions: {
       output: {
-        entryFileNames: "assets/console-[hash].js",
+        // The entry is only the door: what it opens is `console`, below.
+        entryFileNames: "assets/start-[hash].js",
         chunkFileNames: "assets/[name]-[hash].js",
         assetFileNames: "assets/console-[hash].[ext]",
         // The libraries every page needs, apart from the console's own code:
@@ -94,6 +105,13 @@ export default defineConfig({
         // longer rewrites the part of the bundle that did not change. Only
         // what the first page loads anyway — the lazy Markdown editor stays
         // lazy, which a catch-all `node_modules` group would undo.
+        //
+        // The last three take what is left of the first load by its tag,
+        // `$initial`, rather than by name. Since `i18n.ts` awaits the French
+        // dictionary at its top, the console's own code came out in forty
+        // pieces, each compressed on its own: put back together it is 13 kB
+        // lighter gzipped. Stylesheets stay out of `views`, or the font's would
+        // be a second `console-*.css`.
         codeSplitting: {
           groups: [
             { name: "react", test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/ },
@@ -101,6 +119,9 @@ export default defineConfig({
               name: "ui",
               test: /node_modules[\\/](@radix-ui|@floating-ui|lucide-react|sonner|date-fns|react-day-picker)[\\/]/,
             },
+            { name: "router", tags: ["$initial"], test: /node_modules[\\/]@tanstack[\\/]/ },
+            { name: "views", tags: ["$initial"], test: /node_modules[\\/].*\.[cm]?js$/ },
+            { name: "console", tags: ["$initial"], test: /frontend[\\/]src[\\/]/ },
           ],
         },
       },
