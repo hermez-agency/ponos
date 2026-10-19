@@ -3021,7 +3021,7 @@ the MCP server announce the registry — without it, `get_project_registries` an
 none is configured and `list_items_in_registries` refuses to look.
 
 **The frame is react-resource-view's.** Every page of the console is a resource of one
-[react-resource-view](https://github.com/SalvadorCardona/react-resource-view) *scope* —
+[react-resource-view](https://github.com/hermez-agency/react-resource-view) *scope* —
 `frontend/src/resources/scope.tsx` — and the frame around them is the package's
 `AdminLayout`: the sidebar built from the scope's menu, the bar over the page, the page's
 heading, and a navigation bar along the bottom edge on a phone. The console adds its mark,
@@ -3033,7 +3033,7 @@ The resources are `frontend/src/resources/*.tsx`. The board, the ticket page and
 *New ticket* form are one declaration — `tickets.tsx` — which the package renders as the
 column layout, the table, the header the list opens on, the panel a new ticket is written
 in and the addresses from it, with the forms drawn by
-[react-data-form](https://github.com/SalvadorCardona/react-data-form). The projects, the
+[react-data-form](https://github.com/hermez-agency/react-data-form). The projects, the
 schedules and the settings are declared the same way. The one text every ticket is told is
 not a resource at all: it is a block at the top of the projects' list, which it covers.
 
