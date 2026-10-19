@@ -10636,13 +10636,13 @@ def the_pages_before_the_console_speak_the_browsers_language():
 
     for build in (web_server.sign_in_page, web_server.gate_page):
         french = build("fr")
-        assert '<html lang="fr">' in french
+        assert '<html lang="fr"' in french
         assert "Ouvrir la console" in french
         assert web_server.GUARD_HEADER in french or build is web_server.gate_page
         for field in re.findall(r'<(?:input|textarea)[^>]*\bid="([^"]+)"', french):
             assert f'<label for="{field}"' in french, f"{field} has no label"
         assert "#3b82f6" not in french, "the door is drawn in the console's own blue, not a stock one"
-    assert '<html lang="en">' in web_server.SIGN_IN
+    assert '<html lang="en"' in web_server.SIGN_IN
 
 
 @case
@@ -10661,6 +10661,72 @@ def the_gate_says_where_this_machines_token_actually_is():
             os.environ["XDG_STATE_HOME"] = previous
     assert "/srv/elsewhere/ponos/web/token" in page
     assert "~/.local/state" not in page
+
+
+@case
+def the_gate_says_a_chosen_token_lives_in_secrets_env_and_why_a_cookie_was_refused():
+    """The token left `config.toml` for `secrets.env`; the gate said otherwise.
+
+    And a cookie is scoped by host, not by port: a test console beside 8787
+    overwrites 8787's, and the gate came back with nothing to say why.
+    """
+    import urllib.error
+    import urllib.request
+
+    from ponos.web import server as web_server
+
+    api = _bare_api(_TalkClient([]))
+    api._config.web.token = "tok"
+    folder = Path(tempfile.mkdtemp())
+    api._config.path = folder / "config.toml"
+    console = web_server.Console(("127.0.0.1", 0), web_server.Handler, api, "tok")
+    threading.Thread(target=console.serve_forever, daemon=True).start()
+    port = console.server_address[1]
+
+    def gate(path: str, cookie: str = "") -> str:
+        request = urllib.request.Request(f"http://127.0.0.1:{port}{path}")
+        request.add_header("Accept-Language", "fr")
+        if cookie:
+            request.add_header("Cookie", f"{web_server.COOKIE}={cookie}")
+        try:
+            urllib.request.urlopen(request, timeout=5)
+        except urllib.error.HTTPError as error:
+            assert error.code == 401
+            return error.read().decode()
+        raise AssertionError("the door opened")
+
+    previous = os.environ.pop(C.SECRETS_PATH_ENV, None)
+    try:
+        page = gate("/")
+        assert "variable d'environnement <code>PONOS_WEB_TOKEN</code>" in page, page
+        assert "web.token" not in page
+        assert "n'est pas celui de cette console" not in page, "nothing was offered"
+
+        (folder / "secrets.env").write_text("PONOS_WEB_TOKEN=tok\n")
+        page = gate("/", cookie="another-consoles")
+        assert f"<code>{folder / 'secrets.env'}</code>" in page, page
+        assert "n'est pas celui de cette console" in page
+        assert "jeton incorrect" in gate("/?token=nope")
+    finally:
+        if previous is not None:
+            os.environ[C.SECRETS_PATH_ENV] = previous
+        console.shutdown()
+        console.server_close()
+
+
+@case
+def the_door_is_drawn_in_the_consoles_palette_in_both_themes():
+    """Hermez's stone and orange, dark unless the console was switched to light."""
+    from ponos.web import server as web_server
+
+    tokens = (ROOT / "frontend" / "src" / "tokens.css").read_text()
+    light, dark = tokens.split("\n.dark {", 1)
+    for name in ("background", "card", "primary", "field", "foreground"):
+        ours = re.findall(rf"--{name}:([^;]+);", web_server._STYLE)
+        assert ours[0] in light.replace("#ffffff", "#fff"), name
+        assert ours[1] in dark, name
+    assert '<html lang="en" class="dark">' in web_server.GATE
+    assert "ponos-theme" in web_server.GATE, "the choice made in the console is the door's too"
 
 
 @case
