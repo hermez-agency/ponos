@@ -470,7 +470,9 @@
    for shadcn's colours, so the dark mode needs nothing of its own. The sizes
    are Notion's rather than Crepe's: Crepe draws a document, sixty pixels of
    margin and a title in 42px serif, and these are fields in a form. The left
-   gutter is the room the block handle is drawn in. */
+   gutter is the room the block handle is drawn in — on a page of its own: in a
+   form, the text starts where the other fields' does, at 12px, and the handle
+   is not drawn, since a dialog has no margin to put it in. */
 .milkdown {
   --crepe-color-background: transparent;
   --crepe-color-on-background: var(--foreground);
@@ -517,6 +519,13 @@
 .milkdown .ProseMirror {
   flex: 1;
   padding: 0.75rem 1rem 0.75rem 3.25rem;
+}
+[data-slot="markdown-editor"][data-field] .milkdown .ProseMirror {
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
+}
+[data-slot="markdown-editor"][data-field] .milkdown-block-handle {
+  display: none;
 }
 .milkdown .ProseMirror h1,
 .milkdown .ProseMirror h2,
