@@ -165,8 +165,9 @@ if [ -n "${TR_SRC:-}" ]; then
     mkdir -p "$STAGE"
     # `node_modules` is the console's build-time dependency and is measured in
     # hundreds of megabytes; what the console actually serves is already built
-    # and committed under src/ponos/web/static.
-    tar -C "$TR_SRC" --exclude='.git' --exclude='__pycache__' --exclude='node_modules' \
+    # and committed under src/ponos/web/static. `.venv` is a contributor's
+    # tools: the version gets an environment of its own below.
+    tar -C "$TR_SRC" --exclude='.git' --exclude='__pycache__' --exclude='node_modules' --exclude='.venv' \
         -cf - . | tar -C "$STAGE" -xf -
     LABEL="copy-$(date +%s)"
     WHAT="a copy: it will not update itself"

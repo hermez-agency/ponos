@@ -118,7 +118,12 @@ def create(app: Path, base: str | None = None) -> str:
     if problem:
         shutil.rmtree(staging, ignore_errors=True)
         if packages:
-            return f"the environment could not be made: {problem}"
+            # Debian and Ubuntu ship `venv` without `ensurepip`: pip comes with
+            # `python3-venv`, and uv needs neither.
+            return (
+                f"the environment could not be made: {problem} "
+                "(install uv, or python3-venv, and the next update will try again)"
+            )
         # Nothing to install, so nothing lost: the launcher runs the machine's
         # Python, exactly as before environments existed.
         return ""

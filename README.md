@@ -374,6 +374,13 @@ installing, restarting — and the page reloads by itself from the new version:
   its own, `~/.local/share/ponos/app-<commit>`, and `app` is a link moved onto it
   in one step once it starts. A pass reads the link once, when it starts, and runs whole
   on the version it found; the previous version stays on disk beside the new one;
+- **each version has its own Python environment.** `app-<commit>/.venv` is made from the
+  machine's `python3` before `app` points at the version, and holds what
+  `requirements.txt` lists — nothing yet: the runner still imports the standard library
+  alone. A version whose environment cannot be made is never pointed at, and the one in
+  use keeps its own. An installation updated by a version from before environments gets
+  its `.venv` on its next pass, with nothing to do; until then, and on a `python3` that
+  cannot make one at all, the launcher runs the machine's `python3` as it always has;
 - **the page chooses nothing.** `POST /api/update` takes no command, no version and no
   path; it asks the remote again, under the lock, for the newest version of the configured
   channel. It answers only a request from this machine carrying the console's guard header
@@ -390,7 +397,8 @@ changes the hour; `runner.update_channel` chooses between releases and `main` �
 compare itself against: it says so once per check and carries on.
 
 > **Requirements** — Linux or macOS, `python3` >= 3.11 (no dependencies to install,
-> everything is in the standard library), `git`, [Claude Code](https://claude.com/claude-code),
+> everything is in the standard library; each version still gets a `.venv` of its own,
+> see above), `git`, [Claude Code](https://claude.com/claude-code),
 > and for pull requests either the GitHub App the console connects or `gh` authenticated.
 
 | Variable | Effect |
@@ -4239,6 +4247,25 @@ python3 tests/functional.py
 No framework and no dependency, for the same reason the runner has none: a suite that
 needs an install is a suite that stops being run.
 
+The same cases also run under **pytest**, with the contributor's tools that
+`pyproject.toml` declares and `uv.lock` pins — [uv](https://docs.astral.sh/uv/) installs
+them into `.venv`:
+
+```sh
+uv sync                              # pytest, pytest-cov and ruff, at the locked versions
+uv run pytest                        # both suites: -k to pick a case, -x to stop at the first failure
+uv run pytest -m "not functional"    # the pure part only
+uv run pytest --cov=src/ponos        # with the coverage
+uv run ruff check .                  # the lint the CI runs
+```
+
+`tests/test_suites.py` hands pytest the very cases the two scripts run, one test each and
+in the same order: nothing is written twice. Ruff checks pyflakes, the pycodestyle errors,
+warnings and bugbear; what was already there when it arrived is listed file by file in
+`pyproject.toml`, an exception list that only ever shrinks. `ruff format` is not enforced
+yet. The technical audit of October 2026, with what comes next, is
+[docs/audit-technique-2026-10.md](docs/audit-technique-2026-10.md).
+
 The first covers the pure part — identifier collisions, status mapping, the
 markdown-to-Notion conversion, deep links, property encoding, which message answers which
 ticket, who a comment is addressed to — which is to say what has already gone wrong
@@ -4297,7 +4324,9 @@ changed — the browser tests open the console's server as much as its page — 
 `src/ponos/web/static` is not exactly what that build produces: the console is
 served from the committed build, so a change to the console without its build is a change
 nobody receives. The workflow only ever reads the repository (`permissions: contents:
-read`). `.github/workflows/release.yml` is separate: it re-runs both suites once more, at
+read`). A third job, the only one that installs anything, runs `uv sync --locked`, ruff,
+checks that `requirements.txt` is the export of `uv.lock`, and runs both suites under
+pytest with their coverage. `.github/workflows/release.yml` is separate: it re-runs both suites once more, at
 the tagged commit, when a version is published.
 
 ---
