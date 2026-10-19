@@ -180,7 +180,21 @@ la priorité donnée au journal (n° 3).
 
 ## 5. Les recommandations (= les tickets brouillons)
 
-Chaque ligne : sous-type · pourquoi · coût · « à faire après ».
+Chaque ligne : sous-type · pourquoi · coût · « à faire après ». Les tickets, dans
+l'ordre où les prendre (le brief de chacun répète ses prérequis) :
+[10 — sécurité](https://app.notion.com/p/3fe451680af48197a050d818324699d4) ·
+[4 — journal](https://app.notion.com/p/3fe451680af48106aecae3c3cca6c774) ·
+[1 — ruff](https://app.notion.com/p/3f8451680af481c2b80cec6bb120978c) ·
+[13 — front](https://app.notion.com/p/3fe451680af48184a06ff3da29e3f329) ·
+[5 — environnement](https://app.notion.com/p/3fe451680af4812c9123df0027ad3b66) ·
+[6 — httpx](https://app.notion.com/p/3fe451680af4811f9fc7c7a52d2976d5) ·
+[2 — pre-commit](https://app.notion.com/p/3fe451680af48113b1bed053f60af947) ·
+[3 — mypy](https://app.notion.com/p/3fe451680af481ff9cd3cf32ac078257) ·
+[12 — tests](https://app.notion.com/p/3fe451680af48186a2a4f237e923f9b4) ·
+[7 — fonctions géantes](https://app.notion.com/p/3f8451680af4813ebe6bed8142adf84f) ·
+[8 — pydantic](https://app.notion.com/p/3fe451680af4812097d0e87b2eb38e33) ·
+[9 — FastAPI](https://app.notion.com/p/3f8451680af4811ab322c0c788271cc6) ·
+[11 — types.ts](https://app.notion.com/p/3f8451680af481d29789f29e9a4d2351).
 
 1. **Ruff : vider la base d'exceptions, puis `ruff format`** · Chore · reprend le
    brouillon « Linter ruff… ». Activer `I` et `UP` (`--fix`), corriger les 25 bugbear,
