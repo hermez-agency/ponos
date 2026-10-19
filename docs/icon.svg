@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 680" role="img">
 <title>Ponos</title>
-<desc>Un ticket stylisé en bleu robot avec une perforation en pointillés et un chevron, sur un carré arrondi bleu nuit.</desc>
-<rect x="60" y="60" width="560" height="560" rx="120" fill="#0f172a"/>
-<g fill="none" stroke="#82a8ff" stroke-width="17" stroke-linecap="round" stroke-linejoin="round">
+<desc>Un ticket stylisé en orange Hermez avec une perforation en pointillés et un chevron, sur un carré arrondi noir Hermez.</desc>
+<rect x="60" y="60" width="560" height="560" rx="120" fill="#141414"/>
+<g fill="none" stroke="#E8611A" stroke-width="17" stroke-linecap="round" stroke-linejoin="round">
 <rect x="200" y="248" width="280" height="184" rx="24"/>
 <line x1="322" y1="272" x2="322" y2="298"/>
 <line x1="322" y1="316" x2="322" y2="342"/>
@@ -10,6 +10,6 @@
 <line x1="322" y1="404" x2="322" y2="408"/>
 <polyline points="358,300 396,340 358,380"/>
 </g>
-<circle cx="322" cy="248" r="22" fill="#0f172a"/>
-<circle cx="322" cy="432" r="22" fill="#0f172a"/>
+<circle cx="322" cy="248" r="22" fill="#141414"/>
+<circle cx="322" cy="432" r="22" fill="#141414"/>
 </svg>

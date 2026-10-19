@@ -47,7 +47,7 @@ export function Flow({ text }: { text: string }) {
         href={address}
         target="_blank"
         rel="noreferrer noopener"
-        className="text-tr-blue underline underline-offset-2 break-all hover:opacity-80"
+        className="text-primary underline underline-offset-2 break-all hover:opacity-80"
       >
         {address}
       </a>

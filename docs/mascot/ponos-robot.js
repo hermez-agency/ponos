@@ -50,40 +50,40 @@
 
 export const PALETTES = {
   light: {
-    '--robot-body': '#78a0ff',
-    '--robot-body-shade': '#5079e6',
-    '--robot-screen': '#1c2547',
-    '--robot-eye': '#b4f1ff',
+    '--robot-body': '#E8611A',
+    '--robot-body-shade': '#BF4A02',
+    '--robot-screen': '#18181B',
+    '--robot-eye': '#FFE1CC',
     '--robot-accent': '#ffcf5c',
-    '--robot-flame': '#f59a3c',
-    '--robot-flame-core': '#fbd35a',
+    '--robot-flame': '#FFA524',
+    '--robot-flame-core': '#FFE08A',
     '--robot-gold': '#f2c65a',
     '--robot-gold-deep': '#b8861f',
     '--robot-tunic': '#f3ecdc',
-    '--robot-sash': '#c4553a',
+    '--robot-sash': '#18181B',
     '--robot-pink': '#ff8fb0',
     '--robot-glint': '#ffffff',
     '--robot-alert': '#ff6b86',
-    '--robot-ink': '#46599a',
-    '--robot-shadow': 'rgba(36, 52, 110, .16)',
+    '--robot-ink': '#8A3206',
+    '--robot-shadow': 'rgba(24, 24, 27, .16)',
   },
   dark: {
-    '--robot-body': '#82a8ff',
-    '--robot-body-shade': '#5c84ee',
-    '--robot-screen': '#141b36',
-    '--robot-eye': '#b4f1ff',
+    '--robot-body': '#F2803F',
+    '--robot-body-shade': '#E8611A',
+    '--robot-screen': '#141414',
+    '--robot-eye': '#FFE1CC',
     '--robot-accent': '#ffd36b',
-    '--robot-flame': '#f59a3c',
-    '--robot-flame-core': '#fbd35a',
+    '--robot-flame': '#FFA524',
+    '--robot-flame-core': '#FFE08A',
     '--robot-gold': '#f2c65a',
     '--robot-gold-deep': '#b8861f',
     '--robot-tunic': '#f3ecdc',
-    '--robot-sash': '#c4553a',
+    '--robot-sash': '#141414',
     '--robot-pink': '#ff8fb0',
     '--robot-glint': '#ffffff',
     '--robot-alert': '#ff7d93',
-    '--robot-ink': '#a9bdf2',
-    '--robot-shadow': 'rgba(130, 168, 255, .16)',
+    '--robot-ink': '#FFB38A',
+    '--robot-shadow': 'rgba(242, 128, 63, .16)',
   },
 };
 
@@ -105,8 +105,8 @@ const SMALL = 40;
 const DRAWING = `
   <defs>
     <linearGradient id="trr-shade" x1="0" y1="0" x2="0" y2="1">
-      <stop offset=".4" stop-color="#0b1330" stop-opacity="0"/>
-      <stop offset="1" stop-color="#0b1330" stop-opacity=".2"/>
+      <stop offset=".4" stop-color="#1c0a02" stop-opacity="0"/>
+      <stop offset="1" stop-color="#1c0a02" stop-opacity=".2"/>
     </linearGradient>
     <radialGradient id="trr-sheen" cx=".32" cy=".18" r=".75">
       <stop offset="0" stop-color="#fff" stop-opacity=".38"/>

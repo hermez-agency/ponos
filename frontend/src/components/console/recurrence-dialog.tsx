@@ -189,7 +189,7 @@ function Summary({ data, original }: { data: Record<string, unknown>; original?:
     <p
       data-slot="recurrence-summary"
       aria-live="polite"
-      className="flex items-start gap-2 rounded-xl border border-blue-500/30 bg-blue-500/10 px-3 py-2.5 text-sm text-blue-900 dark:text-blue-100 [&>svg]:mt-0.5 [&>svg]:size-4 [&>svg]:shrink-0"
+      className="flex items-start gap-2 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2.5 text-sm text-foreground [&>svg]:mt-0.5 [&>svg]:size-4 [&>svg]:shrink-0"
     >
       <CalendarClock />
       <span>

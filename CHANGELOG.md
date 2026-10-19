@@ -18,6 +18,9 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Changed
 
+- **Ponos is orange, the Hermez one.** The robot, its favicon, the app icons and the Open Graph card were blue; they are
+  the Hermez orange now, in both themes. The console's links, the running state, the unread dot and the recurrence summary
+  take the brand's primary colour instead of the old blue, and the landing page's favicon is reloaded.
 - **A ticket's priority is a score from 0 to 100.** Urgent, High, Normal and Low said little and tied often: the
   `Priority` column is now a number — 0, not important at all; 100, right now — and the ready tickets run highest
   first, the oldest first on a tie, an empty cell counting as 50. The console draws the score as a badge in a gradient,

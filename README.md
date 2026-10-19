@@ -4067,7 +4067,7 @@ frame                          everything — what the small face zooms
 ```
 
 The volume — the darker bottom, the gloss on the head, the glow of the screen — comes from
-gradients of white and navy laid over the shapes, so the colours stay in the variables below.
+gradients of white and of dark brown laid over the shapes, so the colours stay in the variables below.
 The dress is clipped to the torso and belongs to `body`, so it hops, sighs and jiggles with it.
 
 Each layer that turns has its pivot in `PIVOTS`, in the grid's own units, so a state
@@ -4080,22 +4080,22 @@ Colours are CSS variables, never literal fills in the drawing; `PALETTES` holds 
 
 | Variable | Used for | Light | Dark |
 |---|---|---|---|
-| `--robot-body` | head and torso | `#78a0ff` | `#82a8ff` |
-| `--robot-body-shade` | ears, arms, legs, *Z*s, dots | `#5079e6` | `#5c84ee` |
-| `--robot-screen` | face screen, eyelids | `#1c2547` | `#141b36` |
-| `--robot-eye` | eyes, mouth, tear | `#b4f1ff` | `#b4f1ff` |
+| `--robot-body` | head and torso | `#E8611A` | `#F2803F` |
+| `--robot-body-shade` | ears, arms, legs, *Z*s, dots | `#BF4A02` | `#E8611A` |
+| `--robot-screen` | face screen, eyelids | `#18181B` | `#141414` |
+| `--robot-eye` | eyes, mouth, tear | `#FFE1CC` | `#FFE1CC` |
 | `--robot-accent` | stars, the accessories | `#ffcf5c` | `#ffd36b` |
-| `--robot-flame` | the flame | `#f59a3c` | `#f59a3c` |
-| `--robot-flame-core` | the flame's yellow heart | `#fbd35a` | `#fbd35a` |
+| `--robot-flame` | the flame | `#FFA524` | `#FFA524` |
+| `--robot-flame-core` | the flame's yellow heart | `#FFE08A` | `#FFE08A` |
 | `--robot-gold` | the brooch, the flame's socket | `#f2c65a` | `#f2c65a` |
 | `--robot-gold-deep` | the brooch's pin | `#b8861f` | `#b8861f` |
 | `--robot-tunic` | the tunic | `#f3ecdc` | `#f3ecdc` |
-| `--robot-sash` | the sash | `#c4553a` | `#c4553a` |
+| `--robot-sash` | the sash | `#18181B` | `#141414` |
 | `--robot-pink` | tongue, heart | `#ff8fb0` | `#ff8fb0` |
 | `--robot-glint` | the lights in the eyes and on the head | `#ffffff` | `#ffffff` |
 | `--robot-alert` | `error`: the flame | `#ff6b86` | `#ff7d93` |
-| `--robot-ink` | the headset | `#46599a` | `#a9bdf2` |
-| `--robot-shadow` | the shadow on the floor | 16 % navy | 16 % blue |
+| `--robot-ink` | the headset | `#8A3206` | `#FFB38A` |
+| `--robot-shadow` | the shadow on the floor | 16 % ink | 16 % orange |
 
 ```css
 ponos-robot.holiday { --robot-body: #4ade80; --robot-accent: #fde047; }
@@ -4133,7 +4133,7 @@ The favicon, a standalone SVG, the Open Graph card and the sheet above are all w
 from the same module — none of them is drawn by hand:
 
 ```bash
-node scripts/mascot.mjs   # robot.svg, favicon.svg, og.png, states.png in docs/mascot/
+node scripts/mascot.mjs   # robot.svg, favicon.svg, og.png, states.png in docs/mascot/; the app icons in frontend/public/pwa/
 ```
 
 The PNGs are screenshots from headless Chrome (`$CHROME`, or `google-chrome` on the

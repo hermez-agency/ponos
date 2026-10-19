@@ -150,7 +150,7 @@ function Panel({ close }: { close: () => void }) {
                     </span>
                   </span>
                   {item.read ? null : (
-                    <span className="bg-tr-blue mt-1.5 size-2 shrink-0 rounded-full" aria-label={t("unread")} />
+                    <span className="bg-primary mt-1.5 size-2 shrink-0 rounded-full" aria-label={t("unread")} />
                   )}
                 </button>
               </li>

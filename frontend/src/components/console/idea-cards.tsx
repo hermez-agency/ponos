@@ -69,7 +69,7 @@ export function useStatusWords() {
 
 /** The colour a status is said in: a dot and a word, the same in both themes. */
 const TONE: Record<IdeaStatus, string> = {
-  proposed: "bg-sky-500",
+  proposed: "bg-primary",
   kept: "bg-emerald-500",
   discarded: "bg-muted-foreground/60",
   ticket: "bg-violet-500",
@@ -99,7 +99,7 @@ export const CATEGORY_WORDS: Record<Exclude<IdeaCategory, "">, string> = {
 /* A tint each, so a list is sorted at a glance — security the loudest, since
  * it is the one to deal with first. */
 const CATEGORY_TONE: Record<Exclude<IdeaCategory, "">, string> = {
-  ux: "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300",
+  ux: "border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300",
   feature: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
   security: "border-rose-500/40 bg-rose-500/15 text-rose-700 dark:text-rose-300",
   technical: "border-slate-500/30 bg-slate-500/10 text-slate-700 dark:text-slate-300",
