@@ -26,6 +26,7 @@ import urllib.error
 import urllib.request
 from typing import Any, Callable
 
+from . import vault
 from .config import PLACEHOLDER
 from .store import SLOTS, Comment, Page, Picture, StoreError, Unreachable, read
 
@@ -127,7 +128,13 @@ class Client:
                 "no Notion token yet — the console's first connection, "
                 "or `ponos init`, sets it"
             )
-        data = raw if raw is not None else json.dumps(body).encode() if body is not None else None
+        # Masked here, at the one door every write to Notion goes through: a
+        # comment, a page, a property — none of them carries a secret. See vault.py.
+        data = (
+            raw if raw is not None
+            else json.dumps(vault.masked(body)).encode() if body is not None
+            else None
+        )
         request = urllib.request.Request(
             f"{endpoint()}{path}",
             data=data,

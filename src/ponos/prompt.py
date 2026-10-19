@@ -552,6 +552,24 @@ def permissions(allowed: Iterable[str] = (), ask: Iterable[str] = ()) -> str:
     )
 
 
+def held_secrets(names: Iterable[str]) -> str:
+    """The line that tells a session which keys it holds, or nothing — see vault.py.
+
+    The names and never the values: the prompt is a file on disk, a transcript
+    and, for a carried-on session, a conversation Claude Code keeps.
+    """
+    listed = ", ".join(f"`{name}`" for name in names)
+    if not listed:
+        return ""
+    return (
+        "# Secrets\n\n"
+        f"This project's secrets are in your environment: {listed}. Use them by "
+        "name (`$NAME`), and never print, echo, commit or write their values "
+        "anywhere — not in a file, a comment, a log or your report. Any value that "
+        "slips out is replaced by *** before it reaches Notion or the console.\n"
+    )
+
+
 def kind(kind: str, repository: object = "") -> str:
     """The section a type of ticket adds to the document frame, or nothing.
 
@@ -588,6 +606,7 @@ def build(
     kind: str = "",
     allowed: Iterable[str] = (),
     ask: Iterable[str] = (),
+    secrets: Iterable[str] = (),
 ) -> str:
     scope, frame, heading, role, discussion = _frames(
         project, context, brief, agent_name, agent_brief, comments
@@ -619,6 +638,11 @@ def build(
     if kind and "{kind}" not in template:
         # A prompt file of your own, older than the types: see the docstring.
         text = f"{text.rstrip()}\n\n{kind}"
+    held = held_secrets(secrets)
+    if held:
+        # Last, and whatever the template: every frame — a code ticket, a
+        # document, a conflict to resolve — may be handed a project's keys.
+        text = f"{text.rstrip()}\n\n{held}"
     return text
 
 

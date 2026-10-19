@@ -39,6 +39,8 @@ from pathlib import Path
 from typing import Callable
 
 from . import generated, git, github_app, journal, progress, resources, session, state, store, subtypes
+from . import config as config_module
+from . import vault
 from . import prompt as prompt_module
 from . import voice as voice_module
 from .base import Base
@@ -144,6 +146,7 @@ class Execution(Base):
         a test reproducing a bug are asked for.
         """
         section = subtypes.section(job.subtype) if subtype else ""
+        job.secrets = self._secrets(job)
         text = prompt_module.build(
             template,
             project=job.project.name,
@@ -183,6 +186,7 @@ class Execution(Base):
                 if job.backup
                 else ""
             ),
+            secrets=sorted(job.secrets),
         )
         log = job.log or state.log_file(short_id(job.ticket.id))
         # The ticket first, then its agent, then the runner: the narrower the
@@ -331,7 +335,7 @@ class Execution(Base):
             timeout_minutes=self.config.runner.timeout_minutes,
             session_id=job.session_id,
             resume=job.resume,
-            environment={**self.environment, **self._github(job)},
+            environment={**job.secrets, **self.environment, **self._github(job)},
             on_event=_both(run.event, live.event if live else None),
             max_budget_usd=self.config.budget.per_ticket_usd,
         )
@@ -347,6 +351,26 @@ class Execution(Base):
             return {}
         owner = git.owner(git.remote_url(job.workdir))
         return github_app.session_environment(owner) if owner else {}
+
+    def _secrets(self, job: Job) -> dict[str, str]:
+        """The keys `[vault]` grants this job's project, read now — see vault.py.
+
+        Read at every session rather than kept: a token rotated in the keyring
+        is the one the next session gets. Under the runner's own variables, so
+        that a project can never stand in for the provider's key or the GitHub
+        App's token. What could not be read is said, by name only, and the
+        ticket runs without it.
+        """
+        granted = self.config.vault.granted(job.project.name)
+        if not granted or self.dry_run:
+            return {}
+        stored = config_module.read_secrets(config_module.secrets_path(self.config.path))
+        found = vault.read(granted, self.config.vault.provider, stored)
+        if found.values:
+            self.say(f"    · secrets: {', '.join(sorted(found.values))}")
+        for missing in found.missing:
+            self.say(f"    ! secret not read: {missing}")
+        return found.values
 
     def _report_missing(self, job: Job, outcome: session.Outcome) -> bool:
         """Did this session stop without its report, and may it be asked for it?
@@ -407,7 +431,7 @@ class Execution(Base):
             timeout_minutes=self.config.runner.timeout_minutes,
             session_id=outcome.session_id,
             resume=True,
-            environment={**self.environment, **self._github(job)},
+            environment={**job.secrets, **self.environment, **self._github(job)},
             on_event=_both(run.event, live.event if live else None),
             max_budget_usd=self.config.budget.per_ticket_usd,
         )
