@@ -380,8 +380,8 @@ function Figures({ figures, project }: { figures: Statistics; project?: string }
           <Panel eyebrow={t("Activity")} className="min-w-0" bodyClassName="pb-3">
             <ActivityChart
               points={days}
-              labels={{ created: t("Created"), closed: t("Closed"), open: t("Open") }}
-              label={t("Tickets created and closed per day, and still open each evening")}
+              labels={{ created: t("Created"), closed: t("Closed"), open: t("Open"), spent: t("Spent per day") }}
+              label={t("Tickets created and closed per day, still open each evening, and the spending per day")}
               day={short}
               longDay={long}
               height={CHART * 2}

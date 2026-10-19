@@ -903,8 +903,9 @@ export const FRENCH: Record<string, string> = {
   "by the runner's sessions in the period": "par les sessions du runner sur la période",
   "No ticket on the board over this period.": "Aucun ticket sur le tableau pendant cette période.",
   Activity: "Activité",
-  "Tickets created and closed per day, and still open each evening":
-    "Tickets créés et fermés par jour, et encore ouverts chaque soir",
+  "Tickets created and closed per day, still open each evening, and the spending per day":
+    "Tickets créés et fermés par jour, encore ouverts chaque soir, et dépenses par jour",
+  "Spent per day": "Dépenses",
   "Created, by type and sub-type": "Créés, par type et sous-type",
   "See by project ({{count}})": "Voir par projet ({{count}})",
   Hide: "Masquer",
