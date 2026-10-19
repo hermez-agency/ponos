@@ -484,6 +484,7 @@ export const FRENCH: Record<string, string> = {
     "D'autres mots, ou un autre type, et ils reviendront.",
   "Search a project": "Chercher un projet",
   "All types": "Tous les types",
+  "No type": "Sans type",
 
   /* -- a ticket's terminal -------------------------------------------------- */
   Discussion: "Discussion",
@@ -925,6 +926,8 @@ export const FRENCH: Record<string, string> = {
   "Spent by the runner's sessions in the period; the average is over the tickets closed in it, all their sessions counted.":
     "Dépensé par les sessions du runner sur la période ; la moyenne porte sur les tickets terminés sur la période, toutes leurs sessions comprises.",
   "No ticket created in the period.": "Aucun ticket créé sur la période.",
+  "No {{kind}} ticket created in the period.": "Aucun ticket {{kind}} créé sur la période.",
+  "No ticket without a type created in the period.": "Aucun ticket sans type créé sur la période.",
   "A closing is dated by the runner's history when the runner closed the ticket ({{history}}), by the page's last edit in Notion otherwise ({{edited}}).":
     "Une fermeture est datée par l'historique du runner quand c'est lui qui a fermé le ticket ({{history}}), sinon par la dernière modification de la page dans Notion ({{edited}}).",
 
