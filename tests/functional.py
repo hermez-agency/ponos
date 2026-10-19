@@ -969,6 +969,7 @@ SETTINGS = {
     "max_concurrent": 2,
     "relaunch_delay_seconds": 0,        # a killed session is resumed at once
     "min_free_memory_mb": 0,            # whatever this machine has free today
+    "min_free_disk_mb": 0,              # and whatever disk it has left
 }
 
 

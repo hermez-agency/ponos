@@ -16,10 +16,12 @@ is the one platform the runner lives on, and the one `/proc/meminfo` exists on.
 from __future__ import annotations
 
 import re
+import shutil
 import signal
 import socket
 import subprocess
 from datetime import datetime, timedelta
+from pathlib import Path
 from urllib.parse import urlparse
 
 from . import notion
@@ -58,6 +60,31 @@ def short_of_memory(minimum_mb: int) -> int | None:
         return None
     free = available_mb()
     return free if free is not None and free < minimum_mb else None
+
+
+def disk_mb(path: Path) -> tuple[int, int] | None:
+    """(free, total) in MB on the filesystem `path` lives on — None when unknown.
+
+    Asked of the nearest directory that exists: the state directory is made by
+    the first ticket, and a guard that cannot be asked before it must not read
+    that as "full".
+    """
+    probe = path
+    while not probe.exists() and probe != probe.parent:
+        probe = probe.parent
+    try:
+        usage = shutil.disk_usage(probe)
+    except OSError:
+        return None
+    return usage.free // 1_000_000, usage.total // 1_000_000
+
+
+def short_of_disk(minimum_mb: int, path: Path) -> int | None:
+    """What is free when it is under `minimum_mb`, else None — as `short_of_memory`."""
+    if minimum_mb <= 0:
+        return None
+    measured = disk_mb(path)
+    return measured[0] if measured is not None and measured[0] < minimum_mb else None
 
 
 def _board() -> tuple[str, int]:

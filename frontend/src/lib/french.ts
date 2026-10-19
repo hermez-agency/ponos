@@ -1175,6 +1175,17 @@ export const FRENCH: Record<string, string> = {
     "Au-delà, la session est arrêtée et le ticket passe en échec, avec la raison.",
   "Memory to keep free": "Mémoire à garder libre",
   "Memory to keep free (MB)": "Mémoire à garder libre (Mo)",
+  "Disk space to keep free": "Place disque à garder libre",
+  "Disk space to keep free (MB)": "Place disque à garder libre (Mo)",
+  "Under it, old working copies are tidied first; if the space is still short, no ticket is started and it waits in Ready. 0 turns the guard off.":
+    "En dessous, les vieilles copies de travail sont d'abord nettoyées ; si la place manque encore, aucun ticket ne démarre et il attend dans Prêt. 0 désactive la garde.",
+  "Drop forgotten working copies after": "Supprimer les copies de travail oubliées après",
+  "Drop forgotten working copies after (days)": "Supprimer les copies de travail oubliées après (jours)",
+  "A working copy untouched for this many days is deleted, whatever its ticket, unless the ticket is in progress or the copy holds work that is not pushed. 0 turns it off.":
+    "Une copie de travail intacte depuis ce nombre de jours est supprimée, quel que soit son ticket, sauf s'il est en cours ou si la copie contient du travail non poussé. 0 désactive.",
+  "Leave out of working copies": "Exclure des copies de travail",
+  "Comma-separated folders (docs/media, for instance) that new working copies are made without, to spare the disk. A ticket that needs one runs git sparse-checkout disable.":
+    "Dossiers séparés par des virgules (docs/media, par exemple) absents des nouvelles copies de travail, pour ménager le disque. Un ticket qui en a besoin lance git sparse-checkout disable.",
   "Wait before resuming a killed session": "Attente avant de reprendre une session tuée",
   "No session is started while less memory than this is available; the ticket waits in Ready. 0 turns the guard off.":
     "Aucune session ne démarre tant qu'il y a moins de mémoire disponible que cela ; le ticket attend en Prêt. 0 désactive la garde.",
@@ -1203,6 +1214,10 @@ export const FRENCH: Record<string, string> = {
   "How long each session's log stays on this machine. 0 keeps them forever.":
     "Combien de temps le journal de chaque session reste sur cette machine. 0 les garde pour toujours.",
   "Clean up after done tickets": "Faire le ménage après les tickets terminés",
+  "{{free}} free of {{total}} on this disk": "{{free}} libres sur {{total}} sur ce disque",
+  "Low disk space: under {{minimum}} free — no ticket is started until room is back.":
+    "Disque presque plein : moins de {{minimum}} libres — aucun ticket ne démarre avant le retour de la place.",
+  "Heaviest working copies: {{list}}": "Copies de travail les plus lourdes : {{list}}",
   "Disk space: {{total}}": "Place sur le disque : {{total}}",
   "worktrees {{worktrees}} · logs {{logs}} · scratch {{scratch}}":
     "worktrees {{worktrees}} · journaux {{logs}} · scratch {{scratch}}",

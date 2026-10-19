@@ -266,6 +266,11 @@ class Runner:
     # zero turns the guard off. Eight sessions with `tsc` and a test suite each
     # is how the kernel ends up killing one of them.
     min_free_memory_mb: int = 2048
+    # Same guard for the disk the state directory is on, in MB: below it, a
+    # tidy runs before anything is started, and if that does not bring it back
+    # the ticket stays in Ready. A full disk fails every ticket at once. See
+    # cleanup.py; zero turns the guard off.
+    min_free_disk_mb: int = 5120
     # What to do when the subscription's quota is spent: wait for the window to
     # roll over rather than fail every ticket it touches. Off is the old
     # behaviour — an exhausted quota is reported as the session failure it looks
@@ -364,6 +369,15 @@ class Runner:
     # Once a day, the worktrees and scratch directories of tickets done for
     # `log_retention_days` go too — see cleanup.py.
     clean_done_worktrees: bool = True
+    # A worktree nobody has touched for this many days goes too, whatever its
+    # ticket's status — unless the ticket is in progress, or the worktree holds
+    # changes or commits that are nowhere else. Zero turns it off.
+    stale_worktree_days: int = 30
+    # Paths left out of every worktree (a sparse checkout), for the big media
+    # files a ticket almost never touches. A ticket that needs one runs
+    # `git sparse-checkout disable`. Empty checks everything out.
+    worktree_exclude: str = ""
+
     dry_run: bool = False
     prompt_file: str = ""
     document_prompt_file: str = ""
@@ -1365,6 +1379,9 @@ def load(path: Path | None = None, *, secrets: Path | None = None) -> Config:
         min_free_memory_mb=max(
             0, int(runner_raw.get("min_free_memory_mb", defaults.min_free_memory_mb))
         ),
+        min_free_disk_mb=max(
+            0, int(runner_raw.get("min_free_disk_mb", defaults.min_free_disk_mb))
+        ),
         wait_for_credits=bool(
             runner_raw.get("wait_for_credits", defaults.wait_for_credits)
         ),
@@ -1479,6 +1496,16 @@ def load(path: Path | None = None, *, secrets: Path | None = None) -> Config:
         ),
         clean_done_worktrees=bool(
             runner_raw.get("clean_done_worktrees", defaults.clean_done_worktrees)
+        ),
+        stale_worktree_days=max(
+            0, int(runner_raw.get("stale_worktree_days", defaults.stale_worktree_days))
+        ),
+        # A list in the file reads as well as the comma-separated line the
+        # console writes, as `resolve_conflicts_except` does.
+        worktree_exclude=(
+            ", ".join(str(path).strip() for path in raw_exclude)
+            if isinstance(raw_exclude := runner_raw.get("worktree_exclude", ""), list)
+            else str(raw_exclude).strip()
         ),
         dry_run=bool(runner_raw.get("dry_run", defaults.dry_run)),
         prompt_file=str(runner_raw.get("prompt_file", defaults.prompt_file)).strip(),

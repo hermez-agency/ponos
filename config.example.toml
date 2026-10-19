@@ -381,6 +381,14 @@ relaunch_delay_seconds = 15
 # 0 turns the guard off. `ponos doctor` shows what is available now.
 min_free_memory_mb = 2048
 
+# The same guard for the disk the state directory (worktrees, logs) is on, in
+# MB. Under it, a tidy runs before anything is started — at most every ten
+# minutes — and if the space is still short no ticket is started: it stays in
+# Ready, not Blocked, and the console and your notifications say so. A full disk
+# fails every ticket at once (git worktree add: No space left on device).
+# 0 turns the guard off.
+min_free_disk_mb = 5120
+
 # A subscription is metered in windows: a few hours of work, then Claude Code
 # answers "usage limit reached" to everything until the window rolls over. With
 # this on, that is not a failure — the ticket stays where it is, ticked as
@@ -623,12 +631,26 @@ update_interval_seconds = 3600   # one hour; a minute is the floor
 log_retention_days = 14
 
 # Once a day, also remove the worktrees and scratch directories of tickets that
-# have been done for log_retention_days, and the scratch directories of tickets
+# have been done or cancelled for log_retention_days, and the scratch directories of tickets
 # no longer on the board. Never a ticket in progress, blocked, failed or in
 # review; never a worktree with uncommitted changes; never a branch. false keeps
 # them until `ponos clean --force`. The console's settings page shows
 # the space taken and a "Clean up" button.
 clean_done_worktrees = true
+
+# Also once a day: a worktree untouched for this many days is removed, whatever
+# its ticket's status (a failed ticket kept for a post-mortem, a ticket gone
+# from the board) — never one whose ticket is in progress, never one with
+# changes not committed or commits no remote has. Its local branch goes with it
+# when a remote holds all its commits. 0 turns it off.
+stale_worktree_days = 30
+
+# Folders new worktrees are made without (a sparse checkout), comma-separated
+# or as a list — for big media files a ticket almost never touches, such as
+# "docs/media". Left out *before* the checkout, so they never use the disk. The
+# main checkout is untouched; a ticket that needs one of them runs
+# `git sparse-checkout disable` in its worktree. Empty checks everything out.
+worktree_exclude = ""
 
 dry_run = false
 

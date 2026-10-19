@@ -112,7 +112,32 @@ function DiskLine() {
           })}
         </span>
       </span>
+      {disk.free_mb !== null && disk.disk_mb !== null ? (
+        <span className="text-muted-foreground text-xs" data-testid="disk-free">
+          {t("{{free}} free of {{total}} on this disk", {
+            free: bytes(disk.free_mb * 1_000_000),
+            total: bytes(disk.disk_mb * 1_000_000),
+          })}
+        </span>
+      ) : null}
+      {disk.short ? (
+        <span className="text-destructive text-xs font-medium" role="alert" data-testid="disk-short">
+          {t("Low disk space: under {{minimum}} free — no ticket is started until room is back.", {
+            minimum: bytes(disk.min_free_disk_mb * 1_000_000),
+          })}
+        </span>
+      ) : null}
       <span className="text-muted-foreground text-xs">{rule}</span>
+      {disk.worktrees.length ? (
+        <span className="text-muted-foreground text-xs" data-testid="disk-worktrees">
+          {t("Heaviest working copies: {{list}}", {
+            list: disk.worktrees
+              .slice(0, 5)
+              .map((entry) => `${entry.name} ${bytes(entry.size)}`)
+              .join(" · "),
+          })}
+        </span>
+      ) : null}
       <span className="flex flex-wrap items-center gap-2">
         <Button size="xs" variant="outline" onClick={() => void clean()} disabled={cleaning}>
           <Trash2 />

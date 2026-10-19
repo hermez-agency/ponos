@@ -556,7 +556,10 @@ for reading rather than for filling in.
 | `runner.update_channel` | `"release"` | what "latest" means: the newest `vX.Y.Z` tag, or `"main"` for every commit. No tag, no update; anything unknown reads as `"release"` |
 | `runner.update_interval_seconds` | `3600` | how often a run asks; one minute is the floor |
 | `runner.log_retention_days` | `14` | drop older session logs, once a day; `0` keeps everything |
-| `runner.clean_done_worktrees` | `true` | once a day, also remove the worktrees and scratch directories of tickets done for `log_retention_days` — see [What `clean` removes](#what-clean-removes-and-what-it-refuses-to) |
+| `runner.min_free_disk_mb` | `5120` | under this much free disk (in MB), a tidy runs before any ticket is started; if the space is still short, nothing starts, the ticket stays in Ready and the console says so; `0` turns the guard off. `ponos doctor` reports it |
+| `runner.stale_worktree_days` | `30` | once a day, remove any worktree untouched for this long, whatever its ticket — never one whose ticket is in progress, nor one with uncommitted changes or commits no remote has; its local branch goes when a remote holds all of it; `0` turns it off |
+| `runner.worktree_exclude` | `""` | folders new worktrees are made without (sparse checkout), e.g. `"docs/media"` — left out before the checkout so big media never reach the disk; a ticket that needs one runs `git sparse-checkout disable` |
+| `runner.clean_done_worktrees` | `true` | once a day, also remove the worktrees and scratch directories of tickets done or cancelled for `log_retention_days` — see [What `clean` removes](#what-clean-removes-and-what-it-refuses-to) |
 | `runner.attach_sessions` | `true` | file each session under its project, so `claude --resume` there lists it |
 | `runner.prompt_file` | `""` | your own prompt template, for repository tickets |
 | `runner.document_prompt_file` | `""` | the same, for tickets with no repository |
@@ -3254,10 +3257,19 @@ it, where it would have climbed to whatever repository the state directory sits 
 Nobody has to remember it, though. Once a day a run tidies on its own — the
 retention is `log_retention_days`: session logs older than that, and, with
 `clean_done_worktrees` on, the worktrees and scratch directories of tickets the
-board says have been **done** for that long, plus the scratch directories of
-tickets no longer on the board. A ticket in progress, blocked, failed or in
-review keeps its directory however old it is; a done ticket's worktree with
-uncommitted changes is kept and named; branches are never touched. The
+board says have been **done** or **cancelled** for that long, plus the scratch
+directories of tickets no longer on the board. A ticket in progress, blocked,
+failed or in review keeps its directory until `stale_worktree_days` (30) have
+passed without anything touching it; even then a worktree whose ticket is in
+progress, or that holds uncommitted changes or commits no remote has, is kept
+and named. A branch is deleted only when a remote holds all its commits.
+
+The disk is watched too. Under `min_free_disk_mb` free, the run tidies before it
+starts a ticket (at most every ten minutes), and if the space is still short it
+starts nothing — the ticket stays in Ready, not Blocked, and the console and a
+notification say so. `worktree_exclude = "docs/media"` makes new worktrees
+without those folders (a sparse checkout, decided before the first file is
+written), so a repository's videos never fill the disk once per ticket. The
 *General* page of the console's settings shows the space the three directories take, with
 a **Clean up** button that applies the same retention straight away, and
 `ponos doctor` says both.

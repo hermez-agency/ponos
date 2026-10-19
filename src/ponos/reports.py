@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Callable
 
 from . import blocks, channels, conversation, credits, notifications, provider, resources, session, state, store, sync
+from . import config as config_module
 from . import question as question_module
 from . import voice as voice_module
 from .base import Base
@@ -33,6 +34,9 @@ from .ticket import Job, Ticket
 
 # How much of a ticket's own history is worth carrying into the prompt.
 COMMENT_LIMIT = 10
+
+# How often a low disk may cost a tidy: it reads the whole board.
+DISK_TIDY_INTERVAL = 600
 COMMENT_CHARS = 2000
 
 # What a session identifier looks like — `session.new_id` draws a UUID4. Matched
@@ -820,10 +824,42 @@ class Reports(Base):
         free = None if self.dry_run else resources.short_of_memory(self.config.runner.min_free_memory_mb)
         if free is None:
             self._memory_warned = False
-            return True
+            return self.room_on_disk()
         if not self._memory_warned:
             self._memory_warned = True
             self.say(self.voice.say("memory-short", free=free, minimum=self.config.runner.min_free_memory_mb))
+        return False
+
+    def room_on_disk(self) -> bool:
+        """Is there disk for one more worktree? A tidy first, then a refusal.
+
+        The 19 October 2026 failure: the disk filled, and fifteen tickets
+        failed at once on `git worktree add`. Under `min_free_disk_mb` a tidy
+        runs (at most every ten minutes — it reads the board), and only if the
+        space is still short is nothing started. The ticket is left in ready
+        and not blocked: it did nothing wrong, and it starts by itself the
+        pass after room is back. What is running is left alone.
+        """
+        minimum, home = self.config.runner.min_free_disk_mb, config_module.state_dir()
+        if self.dry_run or resources.short_of_disk(minimum, home) is None:
+            self._disk_warned = False
+            return True
+        if time.time() - self._disk_tidied > DISK_TIDY_INTERVAL:
+            self._disk_tidied = time.time()
+            self.say("Disk space is low — tidying before starting anything.")
+            try:
+                self.tidy(now=True)
+            except Exception as error:  # a failed tidy must not stop the pass
+                self.say(f"  ! tidy failed: {error}")
+        free = resources.short_of_disk(minimum, home)
+        if free is None:
+            self._disk_warned = False
+            return True
+        if not self._disk_warned:
+            self._disk_warned = True
+            message = self.voice.say("disk-short", free=free, minimum=minimum)
+            self.say(message)
+            self._notify("Ponos — disk full", message, urgent=True)
         return False
 
     def under_reserve(self) -> float:

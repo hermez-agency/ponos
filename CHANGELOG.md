@@ -18,6 +18,13 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Added
 
+- **The disk is looked after.** A worktree is removed once its ticket has been done *or cancelled* for the retention,
+  and any worktree untouched for `stale_worktree_days` (30) goes whatever its ticket — never one whose ticket is in
+  progress, nor one holding uncommitted changes or commits no remote has; its local branch goes when a remote holds all
+  of it. Under `min_free_disk_mb` (5 GB) free, a tidy runs before a ticket starts, and if the space is still short the
+  ticket stays in Ready (not Blocked) with a notification and an alert in the console. `worktree_exclude` makes new
+  worktrees without big folders such as `docs/media` (sparse checkout). Settings › General now shows the free space
+  and the heaviest worktrees.
 - **The Projects page in two columns.** The list of projects is on the left — one compact line each: icon, name, type,
   tickets and last activity — under the search, the *Type* filter and *New project*; on the right, the global context
   stays folded to a few lines (*See all*, *Edit*, its character count) and, under it, the project picked in the list shows
