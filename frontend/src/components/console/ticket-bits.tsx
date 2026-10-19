@@ -81,7 +81,7 @@ export const choiceWord = (value: string): string => (value ? t(value) : value)
 /** The colour of a column, as text. */
 export const TONE: Record<string, string> = {
   ready: "text-tr-green",
-  running: "text-tr-blue",
+  running: "text-primary",
   blocked: "text-tr-amber",
   review: "text-tr-violet",
   validated: "text-tr-pink",
@@ -94,7 +94,7 @@ export const TONE: Record<string, string> = {
  * the one end apart from the other. */
 export const SEED: Record<string, string> = {
   ready: "bg-tr-green",
-  running: "bg-tr-blue",
+  running: "bg-primary",
   blocked: "bg-tr-amber",
   review: "bg-tr-violet",
   validated: "bg-tr-pink",

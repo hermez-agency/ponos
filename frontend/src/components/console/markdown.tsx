@@ -57,7 +57,7 @@ function Spans({ spans, linked = false }: { spans: Span[]; linked?: boolean }) {
                 href={span.href}
                 target="_blank"
                 rel="noreferrer noopener"
-                className="text-tr-blue underline underline-offset-2 hover:opacity-80"
+                className="text-primary underline underline-offset-2 hover:opacity-80"
               >
                 <Spans spans={span.children} linked />
               </a>
@@ -117,7 +117,7 @@ function Attached({ block }: { block: Extract<Block, { kind: "attached" }> }) {
         href={source}
         target="_blank"
         rel="noreferrer noopener"
-        className="text-tr-blue underline underline-offset-2 hover:opacity-80"
+        className="text-primary underline underline-offset-2 hover:opacity-80"
       >
         📎 {label}
       </a>
