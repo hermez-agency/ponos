@@ -1,9 +1,10 @@
 import * as React from "react"
 import { useLocation, useRouter } from "@tanstack/react-router"
-import { ChevronDown, Search, SearchX, SlidersHorizontal, X } from "lucide-react"
+import { Search, SearchX, SlidersHorizontal, X } from "lucide-react"
 
 import { blockSaid, capital, choiceWord, columnTitle, SubtypeDot } from "@/components/console/ticket-bits"
 import { EmptyState } from "@/components/console/empty-state"
+import { FilterButton } from "@/components/console/filter-bar"
 import { PriorityBadge } from "@/components/console/priority"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -224,32 +225,6 @@ function FacetFilter({
     </DropdownMenu>
   )
 }
-
-/* The button a filter opens from: dashed while it asks for nothing, solid and
- * saying what it asks for once it does. */
-const FilterButton = React.forwardRef<
-  HTMLButtonElement,
-  React.ComponentProps<typeof Button> & { label: string; on: boolean }
->(function FilterButton({ label, on, children, className, ...props }, ref) {
-  return (
-    <Button
-      ref={ref}
-      variant="outline"
-      size="sm"
-      data-on={on || undefined}
-      className={cn("shrink-0 font-normal", !on && "border-dashed", on && "border-primary/50", className)}
-      {...props}
-    >
-      {label}
-      {children ? (
-        <span className="bg-primary/10 text-primary max-w-32 truncate rounded px-1.5 text-xs font-medium">
-          {children}
-        </span>
-      ) : null}
-      <ChevronDown className="opacity-60" />
-    </Button>
-  )
-})
 
 /** When a ticket last moved: one choice, or none. */
 function PeriodFilter({ value, onChange }: { value: Period; onChange: (next: Period) => void }) {

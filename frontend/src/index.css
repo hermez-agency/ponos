@@ -327,6 +327,15 @@
     }
   }
 
+  /* A list's filter bar as wide as the list, and no wider. The package draws
+     it in a row that scrolls sideways, and Base UI writes `min-width:
+     fit-content` on that row, on the element itself: a bar that wraps (see
+     `filter-bar.tsx`) was laid out on one line all the same, and a phone cut
+     "All types" or "Ticket" at its edge with nothing saying there was more. */
+  [data-slot="scroll-area-content"]:has([data-list-filters]) {
+    min-width: 0 !important;
+  }
+
   /* The sidebar's head is the bar's twin: the package gives both the same
      height, but only the bar draws its lower edge, so the two lines stopped
      short of each other. The same border puts the second one under the mark. */
