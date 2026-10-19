@@ -1,10 +1,9 @@
 import * as React from "react"
-import { CalendarCheck, CalendarClock, CalendarOff, ExternalLink, Loader2, Play } from "lucide-react"
+import { CalendarCheck, CalendarClock, CalendarOff, ExternalLink, Loader2, Play, SearchX, X } from "lucide-react"
 import { toast } from "sonner"
 import {
   ActionList,
-  MomentInputController,
-  SwitchInputController,
+  SelectInputController,
   useFormContext,
   type FormInterface,
   type InputControllerComponentInterface,
@@ -15,8 +14,10 @@ import {
   generateLinkByResource,
   Link,
   ListCalendar,
+  ListTable,
   layout,
   useCurrentViewResourceContext,
+  useListViewContext,
   useNavigate,
   type ListComponentPropsInterface,
   type RowComponentPropsInterface,
@@ -36,15 +37,19 @@ import {
 import { PillsInputController } from "@/components/console/new-ticket-lazy"
 import { recordWindow, useOpensOverTheList } from "@/components/console/record-window"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Switch } from "@/components/ui/switch"
 import { ApiError, api, why } from "@/lib/api"
 import { t } from "@/lib/i18n"
+import { locale, ruleOf } from "@/lib/recurrence"
 import { layoutOf, useLayoutInTheAddress } from "@/lib/resource-view"
 import { useRoute } from "@/lib/router"
 import { setRunnerZone } from "@/lib/runner-zone"
+import { STATES, filtering, keeps } from "@/lib/schedule-search"
 import type { Schedule, Schedules } from "@/lib/types"
-import { projectsOnce, useProjects } from "@/resources/projects"
+import { projectsOnce, projectsRead, useProjects } from "@/resources/projects"
 import { ticketHref } from "@/resources/tickets"
 
 /* What comes back on its own, declared once for react-resource-view.
@@ -59,6 +64,7 @@ import { ticketHref } from "@/resources/tickets"
  * turn one off: `Active` is the one cell that is not read-only, so unticking a
  * row in the list is the whole gesture — which is the gesture this feature was
  * designed around, since it stops everything without deleting a single row.
+ * On a phone the table is a card per schedule, the same switch on each.
  * **A calendar** because the only question a schedule really answers is when
  * the next one lands, and `Next` is a date: the package lays the rows out by
  * day, week or month, and a row with no date is a row nothing is due from.
@@ -385,38 +391,25 @@ const editForm: FormInterface = {
 /* The name, as the way into the schedule: the window over the list, as a
  * ticket's title opens its own over the board — and the page it is written on,
  * where its history is (the comments, the edits, what Notion draws that a form
- * does not), one icon further. The package's own way of drawing a cell is a
- * controller, and this is the whole of it. */
-const PageLink: InputControllerComponentInterface = ({ formInput }) => {
-  const { form } = useFormContext()
-  const said = String(formInput.value ?? "")
-  // The row the cell belongs to, which is what the form was built from: a
-  // controller is handed its own field and nothing else.
-  const data = form?.data as { id?: string; url?: string } | undefined
-  const id = String(data?.id ?? "")
-  const url = String(data?.url ?? "")
+ * does not), one icon further. The table's cell and the phone's card draw the
+ * same one. */
+function ScheduleName({ id, name, url }: { id: string; name: string; url: string }) {
   const open = useOpensOverTheList(schedules, "update", id)
-  // `data-schedule` is how the stylesheet finds this table among the others,
-  // to fold it to a phone's width.
   return (
-    <span data-schedule className="inline-flex items-center gap-1.5">
+    <span className="inline-flex min-w-0 items-center gap-1.5">
       {id ? (
-        <Link
-          to={scheduleHref(id)}
-          onClick={open}
-          className="underline-offset-2 hover:underline"
-        >
-          {said}
+        <Link to={scheduleHref(id)} onClick={open} className="underline-offset-2 hover:underline">
+          {name}
         </Link>
       ) : (
-        said
+        name
       )}
       {url ? (
         <a
           href={url}
           target="_blank"
           rel="noreferrer noopener"
-          className="text-muted-foreground hover:text-foreground"
+          className="text-muted-foreground hover:text-foreground shrink-0"
           title={t("Open the schedule's page on the board")}
           aria-label={t("Open the schedule's page on the board")}
         >
@@ -427,23 +420,60 @@ const PageLink: InputControllerComponentInterface = ({ formInput }) => {
   )
 }
 
-/* The cadence in the console's language. The row holds the board's word — the
- * one `schedules.py` reads and the form writes back — and a word the runner does
- * not know is drawn as it is, since the dictionary has nothing for it. */
-const CadenceWord: InputControllerComponentInterface = ({ formInput }) => {
-  const said = String(formInput.value ?? "")
-  return <>{said ? t(said) : ""}</>
+/* The package's own way of drawing a cell is a controller, handed its own
+ * field and nothing else: the row it belongs to is the form it was built from. */
+const rowOf = (form: { data?: unknown } | undefined) => (form?.data ?? {}) as Partial<ScheduleItem>
+
+const PageLink: InputControllerComponentInterface = ({ formInput }) => {
+  const { form } = useFormContext()
+  const data = rowOf(form)
+  return <ScheduleName id={String(data.id ?? "")} name={String(formInput.value ?? "")} url={String(data.url ?? "")} />
+}
+
+/* The rule, in one sentence: "Every Monday at 09:00". It replaced three
+ * columns — the cadence, the hour, the day — that said an hourly schedule ran
+ * "at 00:00" on no day at all. A cadence the runner does not know has no
+ * sentence: it is drawn as the board says it. */
+const ruleSaid = (schedule: Partial<Schedule>) => {
+  const cadence = String(schedule.cadence ?? "")
+  const rule = ruleOf({ cadence, at: String(schedule.at ?? ""), day: String(schedule.day ?? "") })
+  return rule || (cadence ? t(cadence) : "")
+}
+
+const RuleCell: InputControllerComponentInterface = () => {
+  const { form } = useFormContext()
+  return <>{ruleSaid(rowOf(form))}</>
+}
+
+/* A date as the package's table says one, on one line: the package's own breaks
+ * between the year's digits on a narrow screen. Nothing at all where there is
+ * no date — "never yet" is an empty cell, not a dash in a badge. */
+function Moment({ value }: { value: string }) {
+  const date = value ? new Date(value) : null
+  if (!date || Number.isNaN(date.getTime())) return null
+  const day = new Intl.DateTimeFormat(locale()).format(date)
+  const hour = date.toLocaleTimeString(locale(), { hour: "2-digit", minute: "2-digit" })
+  return (
+    <Badge variant="secondary" className="whitespace-nowrap">
+      {`${day} - ${hour}`}
+    </Badge>
+  )
 }
 
 /* When the next ticket is born. The server sends nothing for a schedule that is
  * off, since nothing will be; said here in a word rather than left blank, so an
  * empty cell is not read as a date that failed to load. */
-const NextMoment: InputControllerComponentInterface = (props) => {
-  const { form } = useFormContext()
-  const on = (form?.data as { active?: boolean } | undefined)?.active === true
-  if (!on) return <span className="text-muted-foreground">{t("paused")}</span>
-  return <MomentInputController {...props} />
+function NextOf({ schedule }: { schedule: Partial<Schedule> }) {
+  if (schedule.active !== true) return <span className="text-muted-foreground">{t("paused")}</span>
+  return <Moment value={String(schedule.next ?? "")} />
 }
+
+const NextMoment: InputControllerComponentInterface = () => {
+  const { form } = useFormContext()
+  return <NextOf schedule={rowOf(form)} />
+}
+
+const LastMoment: InputControllerComponentInterface = ({ formInput }) => <Moment value={String(formInput.value ?? "")} />
 
 /* The project a schedule points at, by name.
  *
@@ -452,10 +482,7 @@ const NextMoment: InputControllerComponentInterface = (props) => {
  * is not known yet is drawn with a skeleton in its place, filled in once the
  * list the projects page reads has arrived — asked once, whatever the number
  * of rows. */
-const ProjectName: InputControllerComponentInterface = ({ formInput }) => {
-  const { form } = useFormContext()
-  const said = String(formInput.value ?? "")
-  const page = String((form?.data as { project_id?: string } | undefined)?.project_id ?? "")
+function ProjectOf({ said, page }: { said: string; page: string }) {
   const known = useProjects()
   const wanted = !said && Boolean(page)
   const [unread, setUnread] = React.useState(false)
@@ -469,40 +496,146 @@ const ProjectName: InputControllerComponentInterface = ({ formInput }) => {
   return <>{known.projects.find((project) => project.id === page)?.name ?? ""}</>
 }
 
+const ProjectName: InputControllerComponentInterface = ({ formInput }) => {
+  const { form } = useFormContext()
+  return <ProjectOf said={String(formInput.value ?? "")} page={String(rowOf(form).project_id ?? "")} />
+}
+
+/* The switch that turns a schedule on or off, and nothing else.
+ *
+ * Written as the one column it is, rather than left to the package: a cell it
+ * is given a controller for is saved with the row's other cells — and only
+ * those, so the hour and the day the rule column says in a sentence, and the
+ * model a row does not show, would be written back empty. It moves as it is
+ * pressed, and back if the board refuses. */
+function ActiveSwitch({ id, on, name }: { id: string; on: boolean; name: string }) {
+  const [pressed, setPressed] = React.useState<boolean | null>(null)
+  const flip = async (wanted: boolean) => {
+    setPressed(wanted)
+    try {
+      await api.saveSchedule(id, { active: wanted })
+      const fresh = await load().catch(() => null)
+      const found = fresh?.schedules.find((schedule) => schedule.id === id)
+      if (found) schedules.onChange.publish({ data: item(found), action: ActionList.update })
+    } catch (error) {
+      toast.error(t("The schedule could not be saved"), { description: why(error) })
+    } finally {
+      setPressed(null)
+    }
+  }
+  return (
+    <Switch
+      checked={pressed ?? on}
+      disabled={pressed !== null}
+      onCheckedChange={(wanted) => void flip(wanted)}
+      aria-label={t("{{name}} on", { name })}
+    />
+  )
+}
+
+const ActiveCell: InputControllerComponentInterface = ({ formInput }) => {
+  const { form } = useFormContext()
+  const data = rowOf(form)
+  const id = String(data.id ?? "")
+  return id ? <ActiveSwitch id={id} on={formInput.value === true} name={String(data.name ?? "")} /> : null
+}
+
 /* The columns of the table, and the fields the calendar's preview lists.
  *
- * Read-only but one: `active` carries the switch, and the package saves a cell
- * it is given a controller for — so turning a schedule off is one click in the
- * list rather than a form. `Next` and `Last` are dates, drawn as the package
- * draws a date; `Problem` is empty on every row that is fine, which is what
- * makes it worth a column of its own.
+ * Read-only, every one: the switch writes its own column (`ActiveSwitch`).
+ * `Next` and `Last` are dates; `Problem` is empty on every row that is fine,
+ * which is what makes it worth a column of its own.
  *
  * Model and priority are not here: they are what the ticket inherits, they are
  * in the form that writes them, and two more columns would push the dates off
  * the edge of a pane that shares its screen with the console.
  *
- * The order is the phone's: the name, the cadence, the switch and the next
- * date come first, and on a narrow screen they are the only four — the
- * stylesheet folds the rest away (see `[data-schedule]` in index.css), so the
- * switch and the edit button are on the screen rather than past its edge.
+ * On a phone there is no table: each schedule is a card (`ScheduleCards`).
  */
 const rowForm: FormInterface = {
   inputs: {
     name: { label: "Schedule", readonly: true, controller: PageLink },
-    // The row's own word, and not the select the form offers: a cadence the
-    // runner does not know is still what the board says, and a select asked for
-    // a word it has no option for answers with the wrong one.
-    cadence: { label: "Cadence", readonly: true, controller: CadenceWord },
-    active: { label: "On", controller: SwitchInputController },
+    rule: { label: "Rule", readonly: true, controller: RuleCell },
+    active: { label: "On", readonly: true, controller: ActiveCell },
     next: { label: "Next", readonly: true, controller: NextMoment },
-    at: { label: "At", readonly: true },
-    day: { label: "Day", readonly: true },
-    last: { label: "Last", readonly: true, controller: MomentInputController },
+    last: { label: "Last", readonly: true, controller: LastMoment },
     project: { label: "Project", readonly: true, controller: ProjectName },
     problem: { label: "Problem", readonly: true },
     // Last, after the dates and the problem: an action at the right of the row.
     launch: { label: "", readonly: true, controller: RunNow },
   },
+}
+
+/* -- the list, at both widths --------------------------------------------- */
+
+/* The package's table where it fits, and a card per schedule where it does
+ * not: nine columns do not fit 390px, and folding them away left the dates
+ * broken over two lines and the project and the problem nowhere. A card says
+ * all of it, the switch and the run button in reach of a thumb. One or the
+ * other, never both hidden by turns: a name drawn twice is a link found twice. */
+const NARROW = "(max-width: 39.99rem)"
+
+/** Whether the screen is too narrow for the table: a phone's. */
+function useNarrow(): boolean {
+  return React.useSyncExternalStore(
+    (listener) => {
+      const query = window.matchMedia(NARROW)
+      query.addEventListener("change", listener)
+      return () => query.removeEventListener("change", listener)
+    },
+    () => window.matchMedia(NARROW).matches
+  )
+}
+
+function ScheduleRows({ rows = [] }: ListComponentPropsInterface<ScheduleItem>) {
+  const narrow = useNarrow()
+  if (!narrow) return <ListTable rows={rows} />
+  return (
+    <ul className="flex w-full flex-col gap-2">
+      {rows.map((row) => (row.data ? <ScheduleCard key={row.data.id} schedule={row.data} /> : null))}
+    </ul>
+  )
+}
+
+function ScheduleCard({ schedule }: { schedule: ScheduleItem }) {
+  const said = ruleSaid(schedule)
+  return (
+    <li data-schedule-card className="bg-card flex flex-col gap-2 rounded-xl border p-3 text-sm">
+      <div className="flex items-start justify-between gap-3">
+        <span className="min-w-0 font-medium break-words">
+          <ScheduleName id={schedule.id} name={schedule.name} url={schedule.url} />
+        </span>
+        <span className="flex shrink-0 items-center gap-1">
+          <LaunchButton id={schedule.id} />
+          <ActiveSwitch id={schedule.id} on={schedule.active} name={schedule.name} />
+        </span>
+      </div>
+      {said ? <p className="text-muted-foreground">{said}</p> : null}
+      <dl className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1 text-xs">
+        <dt className="text-muted-foreground">{t("Next")}</dt>
+        <dd>
+          <NextOf schedule={schedule} />
+        </dd>
+        {schedule.last ? (
+          <>
+            <dt className="text-muted-foreground">{t("Last")}</dt>
+            <dd>
+              <Moment value={schedule.last} />
+            </dd>
+          </>
+        ) : null}
+        {schedule.project || schedule.project_id ? (
+          <>
+            <dt className="text-muted-foreground">{t("Project")}</dt>
+            <dd className="min-w-0 break-words">
+              <ProjectOf said={schedule.project} page={schedule.project_id} />
+            </dd>
+          </>
+        ) : null}
+      </dl>
+      {schedule.problem ? <p className="text-destructive text-xs">{schedule.problem}</p> : null}
+    </li>
+  )
 }
 
 /* -- what sits around the list -------------------------------------------- */
@@ -593,6 +726,22 @@ function SchedulesFoot() {
  * a row to. */
 function NoSchedule() {
   const { drawn } = useSchedules()
+  const { filterContext } = useListViewContext()
+  if (filtering(filterContext.filter))
+    return (
+      <EmptyState
+        icon={SearchX}
+        title={t("No schedule matches")}
+        action={
+          <Button variant="outline" size="sm" onClick={() => filterContext.resetFilter({})}>
+            <X />
+            {t("Clear the search")}
+          </Button>
+        }
+      >
+        {t("Other words, another project or another state, and they will be back.")}
+      </EmptyState>
+    )
   // Named rather than left blank: an empty parameter is not substituted, so the
   // sentence would show the placeholder itself. See `react-mini-i18n`.
   const page = drawn?.page || "Schedules"
@@ -709,6 +858,82 @@ const LaunchPreview = ({ row }: RowComponentPropsInterface<Launch>) => {
   )
 }
 
+/* -- the search ------------------------------------------------------------ */
+
+/* What the list last read, once it has: the projects the search offers are the
+ * ones a schedule points at, and they come with the rows. */
+function firstRead(): Promise<Schedules> {
+  if (read.drawn) return Promise.resolve(read.drawn)
+  return new Promise((resolve) => {
+    const off = subscribe(() => {
+      if (!read.drawn) return
+      off()
+      resolve(read.drawn)
+    })
+  })
+}
+
+/** A schedule's project by name: the server's when it knew it, the projects page's when that was read. */
+const projectNameOf = (schedule: Schedule) =>
+  schedule.project ||
+  (projectsRead()?.projects.find((project) => project.id === schedule.project_id)?.name ?? "")
+
+/* The search over the list, as the projects have theirs: the words of a name,
+ * a project or a rule, one of the projects the schedules point at, and on or
+ * paused. The labels are for a screen reader; the boxes say what they are. */
+// Positioned, so the label kept for a screen reader stays inside the bar
+// that scrolls on a phone: three fields are wider than 390px, and a label
+// placed past the bar's edge widened the whole page.
+const FILTER = "relative [&_[data-slot=field-label]]:sr-only"
+
+const formFilter: FormInterface = {
+  inputs: {
+    q: {
+      label: "Search",
+      className: FILTER,
+      get placeholder() {
+        return t("Search a schedule")
+      },
+    },
+    project: {
+      label: "Project",
+      className: FILTER,
+      get placeholder() {
+        return t("All projects")
+      },
+      controller: SelectInputController,
+      getValueOptions: async () => {
+        const drawn = await firstRead()
+        // Their names may need the projects page: asked once, and a list that
+        // cannot be read leaves the names the server wrote.
+        if (drawn.schedules.some((schedule) => schedule.project_id && !schedule.project))
+          await projectsOnce().catch(() => undefined)
+        const pages = new Map<string, string>()
+        for (const schedule of drawn.schedules)
+          if (schedule.project_id) pages.set(schedule.project_id, projectNameOf(schedule) || schedule.project_id)
+        return [
+          { value: "", label: t("All projects") },
+          ...[...pages]
+            .sort(([, one], [, other]) => one.localeCompare(other))
+            .map(([value, label]) => ({ value, label })),
+        ]
+      },
+    },
+    state: {
+      label: "State",
+      className: FILTER,
+      get placeholder() {
+        return t("On or paused")
+      },
+      controller: SelectInputController,
+      getValueOptions: async () => [
+        { value: "", label: t("On or paused") },
+        ...STATES.map((state) => ({ value: state, label: state === "on" ? t("on") : t("paused") })),
+      ],
+    },
+  },
+}
+
 /* -- the declaration ------------------------------------------------------ */
 
 export const schedules = createViewResource<ScheduleItem, ScheduleWrite>(SCHEDULES, {
@@ -724,12 +949,16 @@ export const schedules = createViewResource<ScheduleItem, ScheduleWrite>(SCHEDUL
     export: false,
   },
   repository: {
-    getCollection: async () => {
+    getCollection: async (filter) => {
       const fresh = await load()
       return {
         data: createResourceCollection({
           id: "/api/schedules",
-          items: fresh.schedules.map(item),
+          items: fresh.schedules
+            .filter((schedule) =>
+              keeps({ ...schedule, project: projectNameOf(schedule), rule: ruleSaid(schedule) }, filter)
+            )
+            .map(item),
         }),
       } as never
     },
@@ -812,12 +1041,15 @@ export const schedules = createViewResource<ScheduleItem, ScheduleWrite>(SCHEDUL
       // The switch in the row is one gesture, the name opening the form in a
       // window is the other: no button of the package's beside them.
       rowActions: [],
+      // The search is the package's own: it lives in the address (`q`,
+      // `project`, `state`), and the rows are kept by `keeps`, as the list is read.
+      filters: formFilter,
       /* The two layouts. Their labels go through the dictionary as the tabs
        * are drawn, and their address is their type: `table`, `calendar`, in
        * every language. At the width of the page, as the board and the
        * projects are. */
       layouts: [
-        layout.table({ label: "table", fullWidth: true }),
+        layout.table({ label: "table", fullWidth: true, components: { list: ScheduleRows } }),
         // Typed against the launches `ScheduleCalendar` hands the package, not
         // against the rows — hence the cast into the rows' list of layouts.
         layout.calendar<Launch>({

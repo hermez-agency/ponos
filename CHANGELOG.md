@@ -271,6 +271,13 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
   every browser that has not picked one. The page is titled "Configure the runner", the breadcrumb names the page open
   ("Settings › General") rather than `config.toml`, and the cards take the column's width, the sentence under each
   field wrapping instead of being cut short.
+- **The list of schedules says each rule in a sentence, and is searched like the projects.** One "Rule" column —
+  "Every hour at :00", "Every Monday at 09:00" — replaces Cadence, At and Day, which had an hourly schedule run "at
+  00:00" on an empty day. A schedule nothing has made yet has an empty "Last", not a dash in a badge, and a date stays
+  on one line. On a phone each schedule is a card with its rule, its dates, its project and its problem, the switch and
+  the run button beside its name, instead of a table cut after "Next". A search over the names, projects and rules, a
+  project and on / paused filters sit over the list, in the address. The switch now writes only the tick: it used to
+  send the row's other cells too, and emptied the model, the priority and the type a schedule had been given.
 
 - **The token page looks like the console it opens.** The page that asks for the console's token (and the sign-in and
   MCP consent pages beside it) is drawn in the console's stone and orange, its card, field and button, dark unless the

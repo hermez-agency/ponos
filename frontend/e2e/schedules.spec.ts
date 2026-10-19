@@ -5,9 +5,9 @@ import { expect, test, type Page } from "@playwright/test"
  * Both rows were last read by a pass three weeks ago. The one turned off since
  * will never fire, and used to show that stale date as its next one; the one
  * still on fires on the next pass, which is not three weeks ago either. The
- * cadence is the board's English word, said in the console's language. And at
- * 390px the switch, the next date and the name are on the screen, not
- * past an edge the table scrolls to.
+ * rule is said in a sentence, in the console's language. And at 390px each
+ * schedule is a card, its switch, its next date and its name on the screen,
+ * not past an edge a table scrolls to.
  */
 
 const LIST = "/?view=console/schedules/list"
@@ -20,13 +20,15 @@ async function open(page: Page) {
   await expect(page.getByText("Test email")).toBeVisible()
 }
 
-const row = (page: Page, name: string) => page.locator('[data-slot="table-row"]', { hasText: name })
+const row = (page: Page, name: string) => page.locator("[data-schedule-card]", { hasText: name })
 
-test("a paused schedule has no next date, and the cadence is said in French", async ({ page }) => {
+test("a paused schedule has no next date, and the rule is said in French", async ({ page }) => {
   await open(page)
   const paused = row(page, "Test email")
-  await expect(paused).toContainText("Toutes les heures")
+  await expect(paused).toContainText("Chaque heure à :00")
   await expect(paused).not.toContainText("Hourly")
+  // Nothing made yet by the one on: no "Last" at all, not a dash.
+  await expect(row(page, "Weekly digest")).not.toContainText("Dernière")
   await expect(paused).toContainText("en pause")
   await expect(paused).not.toContainText("09/09/2026")
   // The one still on is due: it fires on the next pass, not three weeks ago.
@@ -34,17 +36,37 @@ test("a paused schedule has no next date, and the cadence is said in French", as
   await expect(page.getByText("1 active sur 2")).toBeVisible()
 })
 
-test("at 390px the switch, the next date and the name fit on the screen", async ({ page }) => {
+test("at 390px each schedule is a card, its switch, next date and name on the screen", async ({ page }) => {
   await open(page)
-  const table = page.locator('[data-slot="table-container"]').first()
-  const overflow = await table.evaluate((element) => element.scrollWidth - element.clientWidth)
-  expect(overflow, "the table scrolls sideways").toBeLessThanOrEqual(0)
+  await expect(page.locator('[data-slot="table"]')).toHaveCount(0)
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+  expect(overflow, "the page scrolls sideways").toBeLessThanOrEqual(0)
   const paused = row(page, "Test email")
   for (const part of [paused.getByRole("switch"), paused.getByText("en pause"), paused.getByRole("link", { name: "Test email" })]) {
     const box = await part.boundingBox()
     expect(box, "drawn").not.toBeNull()
     expect(box!.x + box!.width).toBeLessThanOrEqual(390)
   }
+  // The last date is one line, not "09/09/202" over "6 - 21:00".
+  const last = paused.locator('[data-slot="badge"]')
+  const box = await last.boundingBox()
+  expect(box!.height).toBeLessThan(30)
+})
+
+test("the search, the project and the state live in the address", async ({ page }) => {
+  await open(page)
+  await page.getByPlaceholder("Chercher une récurrence").fill("digest")
+  await expect.poll(() => decodeURIComponent(decodeURIComponent(page.url()))).toContain('"q":"digest"')
+  await expect(row(page, "Weekly digest")).toBeVisible()
+  await expect(row(page, "Test email")).toHaveCount(0)
+  await page.goto(`${LIST}&filter=${encodeURIComponent(JSON.stringify({ state: "paused" }))}`)
+  await expect(row(page, "Test email")).toBeVisible()
+  await expect(row(page, "Weekly digest")).toHaveCount(0)
+  await page.goto(`${LIST}&filter=${encodeURIComponent(JSON.stringify({ q: "nope" }))}`)
+  await expect(page.getByText("Aucune récurrence ne correspond")).toBeVisible()
+  // The bar has its own, the empty page says it again: either clears it.
+  await page.getByRole("button", { name: "Effacer la recherche" }).last().click()
+  await expect(row(page, "Weekly digest")).toBeVisible()
 })
 
 test("a schedule's name opens it in the window of the board, full screen on a phone", async ({ page }) => {
@@ -115,4 +137,25 @@ test("the opened schedule has the button in its header", async ({ page }) => {
   await page.getByRole("dialog").getByRole("button", { name: "Lancer maintenant" }).click()
   await expect(page.getByText("Ticket créé")).toBeVisible()
   expect(calls).toHaveLength(1)
+})
+
+test.describe("on a desktop", () => {
+  test.use({ viewport: { width: 1280, height: 800 } })
+
+  test("the table says the rule in one column, and the switch writes only itself", async ({ page }) => {
+    const sent: unknown[] = []
+    await page.route(/\/api\/schedules\/[0-9a-f]+$/, async (route) => {
+      if (route.request().method() !== "POST") return route.fallback()
+      sent.push(route.request().postDataJSON())
+      await route.fulfill({ json: { id: "x" } })
+    })
+    await open(page)
+    const header = page.locator('[data-slot="table-header"]')
+    await expect(header).toContainText("Règle")
+    for (const gone of ["Cadence", "À", "Jour"]) await expect(header.getByText(gone, { exact: true })).toHaveCount(0)
+    const paused = page.locator('[data-slot="table-row"]', { hasText: "Test email" })
+    await expect(paused).toContainText("Chaque heure à :00")
+    await paused.getByRole("switch").click()
+    await expect.poll(() => sent).toEqual([{ active: true }])
+  })
 })
