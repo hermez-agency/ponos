@@ -16,6 +16,18 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ## [Unreleased]
 
+### Added
+
+- **The dashboard says what is misconfigured, and mends it when it can.** An "Installation status" band opens the
+  page whenever something would stop a ticket: the Notion token, the Tickets and Projects databases (shared with the
+  integration, with every property and status the runner uses), GitHub (App installed or `gh` signed in, access to each
+  project's repository, enough rights to push and open a pull request), Claude Code (installed, recent enough, signed
+  in), each project (local folder, reachable remote, known default branch) and the machine (free disk, the runner's
+  timer, Telegram or Slack when they are on). Each problem comes with its probable cause and either a "Configure"
+  button — which names what it will change and changes nothing until you confirm — or the exact steps, with the link
+  to follow. It is checked when the page opens and again with "Recheck", and it is not drawn while everything is green.
+  `ponos doctor` prints the same checks in an "Installation health" section.
+
 ### Changed
 
 - **The Projects and Ideas lists filter the way the Dashboard does.** Their filters are buttons with their name in

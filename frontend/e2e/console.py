@@ -271,6 +271,16 @@ CLAUDE = """#!{python}
 import json, os, pathlib, sys, time
 
 args = sys.argv[1:]
+# What the health band at the top of the dashboard asks: a Claude Code that is
+# there, recent enough and signed in — nothing to fix on a board of fixtures.
+if args == ["--version"]:
+    print("2.1.0 (Claude Code)")
+    sys.exit(0)
+# Signed in, except for the first connection's console, whose test is about the
+# sign-in it asks for.
+if args[:2] == ["auth", "status"]:
+    print(json.dumps({{"loggedIn": {signed}, "authMethod": "claude.ai", "email": "ada@example.com"}}))
+    sys.exit(0)
 resumed = "--resume" in args
 session = args[args.index("--resume" if resumed else "--session-id") + 1]
 filed = pathlib.Path.home() / ".claude" / "projects" / "-e2e" / f"{{session}}.jsonl"
@@ -334,6 +344,8 @@ say({{"type": "result", "result": answer, "session_id": session, "total_cost_usd
 GH = """#!{python}
 import json, sys
 
+if sys.argv[1:3] == ["auth", "status"]:
+    sys.exit(0)
 if sys.argv[1:3] == ["api", "user"]:
     print(json.dumps({{"login": "ada", "name": "Ada Lovelace", "avatar_url": ""}}))
     sys.exit(0)
@@ -428,7 +440,7 @@ def main() -> None:
     }))
     bin = here / "bin"
     bin.mkdir()
-    (bin / "claude").write_text(CLAUDE.format(python=sys.executable), encoding="utf-8")
+    (bin / "claude").write_text(CLAUDE.format(python=sys.executable, signed=not unclaimed), encoding="utf-8")
     (bin / "claude").chmod(0o755)
     (bin / "gh").write_text(GH.format(python=sys.executable), encoding="utf-8")
     (bin / "gh").chmod(0o755)

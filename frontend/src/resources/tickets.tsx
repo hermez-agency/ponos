@@ -54,6 +54,7 @@ import { ProjectThumb } from "@/components/console/project-picture"
 import { PriorityBadge, PriorityInputController } from "@/components/console/priority"
 import { Robot, TicketRobot } from "@/components/console/robot"
 import { RunnerStrip } from "@/components/console/runner-strip"
+import { HealthBand } from "@/components/console/health-band"
 import { StatisticsBand } from "@/components/console/statistics"
 import { CardLive } from "@/components/console/session-log"
 import { TicketHead, TicketPage } from "@/components/console/ticket-page"
@@ -587,6 +588,7 @@ function DashboardTop({
   if (!loading)
     return listing ? (
       <>
+        <HealthBand />
         <RunnerStrip action={<IdeasButton inline />} />
         <StatisticsBand />
       </>

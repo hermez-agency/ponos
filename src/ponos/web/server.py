@@ -578,6 +578,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(self.api.history())
             if route == "/api/disk":
                 return self._json(self.api.disk())
+            if route == "/api/health":
+                return self._json(self.api.health())
             if route == "/api/statistics":
                 try:
                     figures = self.api.statistics(
@@ -852,6 +854,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(self.api.ideas.undo(None if scope is None else str(scope)))
             if route == "/api/disk/clean":
                 return self._json(self.api.clean())
+            if route == "/api/health/fix":
+                return self._json(self.api.fix_health(payload))
             if route == "/api/mcp/test":
                 # The address tried is one of the two the tab offers, never one the page typed.
                 web = self.api.config.web

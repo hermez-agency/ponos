@@ -399,7 +399,7 @@ _issued: set[str] = set()
 
 
 def installations(app: App, fresh: bool = False) -> list[dict]:
-    """Where the app is installed: `{"id", "account", "selection"}` each."""
+    """Where the app is installed: `{"id", "account", "selection", "permissions"}` each."""
     now = time.monotonic()
     with _lock:
         held = _installations.get(app.id)
@@ -418,6 +418,7 @@ def installations(app: App, fresh: bool = False) -> list[dict]:
             "id": int(one["id"]),
             "account": str((one.get("account") or {}).get("login") or ""),
             "selection": str(one.get("repository_selection") or ""),
+            "permissions": one.get("permissions") if isinstance(one.get("permissions"), dict) else {},
         }
         for one in (answer if isinstance(answer, list) else [])
         if isinstance(one, dict) and one.get("id")

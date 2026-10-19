@@ -20,7 +20,7 @@ from datetime import datetime
 
 from . import __version__, channels, cleanup, config as config_module, conversation, credits, git, notion
 from . import db, journal, kinds, legacy, models, priority, resources, store, voice
-from . import github_app, project_settings, provision
+from . import github_app, health, project_settings, provision
 from . import provider as provider_module
 from . import schedules as schedules_module
 from . import session, state, subtypes, systemd, vault
@@ -1169,6 +1169,9 @@ def command_doctor(args: argparse.Namespace) -> int:
     else:
         ok(f"{free} MB available (a session starts above {minimum} MB)")
 
+    title("Installation health")
+    problems += _doctor_health(configuration)
+
     title("Local database")
     problems += _doctor_database()
 
@@ -1407,6 +1410,24 @@ def command_doctor(args: argparse.Namespace) -> int:
         return 1
     print(f"\n{GREEN}Everything is in place.{RESET}")
     return 0
+
+
+def _doctor_health(configuration: config_module.Config) -> int:
+    """The checks the console's dashboard shows, said on a terminal — see health.py."""
+    checks = health.run(configuration)
+    for check in checks:
+        line = f"{check.text(check.title)}: {check.text(check.said)}"
+        if check.state == health.OK:
+            ok(line)
+            continue
+        (bad if check.state == health.ERROR else warn)(line)
+        if check.cause:
+            print(f"    {DIM}{check.text(check.cause)}{RESET}")
+        for step in check.steps:
+            print(f"    {DIM}- {check.text(step)}{RESET}")
+        if check.url:
+            print(f"    {DIM}{check.url}{RESET}")
+    return health.problems(checks)
 
 
 def _doctor_secrets(configuration: config_module.Config) -> int:

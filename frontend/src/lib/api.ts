@@ -47,6 +47,7 @@ import type {
   Talk,
   TicketDetail,
 } from "./types"
+import type { HealthReport } from "./health"
 import type { SetupState, Summary } from "./setup"
 
 /* Talking to the server.
@@ -334,6 +335,11 @@ export const api = {
   /** One notification read, or all of them; the bell it leaves is the answer. */
   readNotifications: (id?: number) =>
     request<Bell>("/api/notifications/read", id === undefined ? {} : { id }),
+  /** What is wrong with the installation, checked now. */
+  health: () => request<HealthReport>("/api/health"),
+  /** One fix a check offered — the page has asked first, and says so. */
+  fixHealth: (action: string, target: string) =>
+    request<HealthReport>("/api/health/fix", { action, target, confirmed: true }),
   disk: () => request<Disk>("/api/disk"),
   clean: () => request<Cleaned>("/api/disk/clean", {}),
   mcp: () => request<McpOverview>("/api/mcp"),

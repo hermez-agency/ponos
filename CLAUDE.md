@@ -78,7 +78,7 @@ deux suites, puis publie l'image sur `ghcr.io`.
   projet décide pour lui-même par-dessus, gardé dans `ponos.db`), `store.py` (la couture
   vers un tableau, quel qu'il soit) et les trois qui la remplissent —
   `notion.py`, `files.py` (le board en fichiers Markdown), `sync.py` (les deux
-  en phase) —, `git.py`, `github_app.py` (la GitHub App créée depuis la console,
+  en phase) —, `health.py` (les vérifications que le dashboard et `ponos doctor` partagent, et les corrections qu'il propose), `git.py`, `github_app.py` (la GitHub App créée depuis la console,
   ses jetons d'installation, devant `gh`), `session.py`, `provider.py` (qui répond aux sessions :
   le CLI connecté, une clé Anthropic ou OpenRouter), `voice.py` (les mots et la langue),
   `vault.py` (les clés que `[vault]` donne aux sessions d'un projet, et leur masquage partout où le runner écrit),
