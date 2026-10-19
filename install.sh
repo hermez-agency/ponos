@@ -279,6 +279,9 @@ PY
         "$APP_DIR/systemd/ponos.timer.in" > "$UNIT_DIR/ponos.timer"
     sed -e "s|@BIN@|$BIN|g" -e "s|@PATH@|$PATH|g" \
         "$APP_DIR/systemd/ponos-web.service.in" > "$UNIT_DIR/ponos-web.service"
+    # Written and left off: publishing the MCP endpoint is `ponos tailscale enable`.
+    sed -e "s|@BIN@|$BIN|g" -e "s|@PATH@|$PATH|g" \
+        "$APP_DIR/systemd/ponos-tailscale.service.in" > "$UNIT_DIR/ponos-tailscale.service"
     systemctl --user daemon-reload
     systemctl --user enable --now ponos.timer >/dev/null 2>&1 \
         && ok "ponos.timer enabled" \

@@ -919,7 +919,9 @@ channel = ""
 # from your phone or another machine, tunnel rather than widen:
 #   ssh -L 8787:127.0.0.1:8787 <this machine>
 # or, on a tailnet, `tailscale serve --bg 8787` with `url` below set to
-# https://<machine>.<tailnet>.ts.net — never `tailscale funnel`, which is public.
+# https://<machine>.<tailnet>.ts.net — never `tailscale funnel` on the console, which
+# is public. For the MCP connector alone, `ponos tailscale enable` does both
+# (console on :8443 inside the tailnet, /mcp through Funnel); see the README.
 [web]
 host = "127.0.0.1"
 port = 8787

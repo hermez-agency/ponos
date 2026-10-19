@@ -18,6 +18,14 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Added
 
+- **The console on your phone, and Claude's connector, over Tailscale.** `ponos tailscale enable` installs a user unit
+  that waits for the tailnet, then serves the console on `https://<machine>.<tailnet>.ts.net:8443` (tailnet only) and
+  publishes through Funnel on 443 the three paths the MCP connector needs — `/mcp`, `/oauth`, `/.well-known` — and
+  nothing else. A closed lid, another network or an expired login are waited out, and a configuration `tailscaled` lost
+  is put back; `status`, `apply`, `watch` and `disable` (which takes both doors down) complete it. The console also
+  answers 404 to any other path on a request that carries Funnel's header. Never enabled by the installer or an
+  update; README: "From your phone".
+
 - **The disk is looked after.** A worktree is removed once its ticket has been done *or cancelled* for the retention,
   and any worktree untouched for `stale_worktree_days` (30) goes whatever its ticket — never one whose ticket is in
   progress, nor one holding uncommitted changes or commits no remote has; its local branch goes when a remote holds all

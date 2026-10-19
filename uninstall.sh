@@ -10,9 +10,11 @@ if command -v systemctl >/dev/null 2>&1; then
     say "Stopping the timer and the console"
     systemctl --user disable --now ponos.timer >/dev/null 2>&1 || true
     systemctl --user disable --now ponos-web.service >/dev/null 2>&1 || true
+    systemctl --user disable --now ponos-tailscale.service >/dev/null 2>&1 || true
     rm -f "$HOME/.config/systemd/user/ponos.timer" \
           "$HOME/.config/systemd/user/ponos.service" \
-          "$HOME/.config/systemd/user/ponos-web.service"
+          "$HOME/.config/systemd/user/ponos-web.service" \
+          "$HOME/.config/systemd/user/ponos-tailscale.service"
     systemctl --user daemon-reload || true
 fi
 
