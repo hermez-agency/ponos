@@ -15785,7 +15785,7 @@ def no_two_routes_of_the_console_answer_one_path():
             assert pattern.fullmatch(path), (pattern.pattern, path)
             answering = [other.__name__ for found, other in table if found.fullmatch(path)]
             assert len(answering) == 1, (path, answering)
-    assert len(server.GETS) == 41 and len(server.POSTS) == 39
+    assert len(server.GETS) == 45 and len(server.POSTS) == 41
 
 
 @case
