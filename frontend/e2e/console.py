@@ -451,6 +451,12 @@ def main() -> None:
         PONOS_CONFIG=str(config),
         XDG_STATE_HOME=str(here / "state"),
         PYTHONPATH=str(ROOT / "src"),
+        # The dashboard's health band checks the runner's systemd timer, which a
+        # board of fixtures never arms: on a machine without one (GitHub's
+        # runners) the band would push the charts down and fail the tests that
+        # point at them. "In a container" is the one answer that says the runner
+        # is not this machine's to check.
+        PONOS_CONTAINER="1",
     )
     journal_of(ASKING)
     bell_of()
