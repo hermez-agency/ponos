@@ -31,7 +31,7 @@ from .. import journal, models, notifications, project_settings, redaction, reso
 from .. import transitions as transitions_module
 from .. import kinds as kinds_module
 from .. import priority as priority_module
-from .. import provision
+from .. import health, provision
 from .. import schedules as schedules_module
 from .. import update as update_module
 from ..config import Config
@@ -1154,6 +1154,27 @@ class Api:
             "retention_days": settings.log_retention_days,
             "clean_done_worktrees": settings.clean_done_worktrees,
         }
+
+    def health(self) -> dict:
+        """What is wrong with the installation, for the top of the dashboard. See `health.py`."""
+        checks = health.run(self.config, self.runner.client)
+        return {
+            "checks": [check.asdict() for check in checks],
+            "problems": health.problems(checks),
+            "checked_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+    def fix_health(self, payload: dict) -> dict:
+        """One fix a check offered, once the page says it was confirmed."""
+        if payload.get("confirmed") is not True:
+            raise ValueError("a fix is made only once it is confirmed")
+        done = health.fix(
+            self.config, self.runner.client, str(payload.get("action") or ""),
+            str(payload.get("target") or ""), confirmed=True,
+        )
+        # The board's shape just changed under the cache that reads it.
+        self.forget_projects()
+        return {"done": done, **self.health()}
 
     def clean(self) -> dict:
         """The daily tidy, now. Under the run lock, or refused while a run holds

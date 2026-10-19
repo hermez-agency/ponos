@@ -517,6 +517,14 @@ ponos doctor
 which checks the token, the access to the database, the type of every column and the
 presence of each status — and names whichever of those was missed.
 
+The console's dashboard says the same thing without a terminal: an "Installation status"
+band lists what is misconfigured — Notion, GitHub, Claude Code, each project, the machine —
+with its probable cause, and either a **Configure** button (a missing property or status
+on the Notion board, a project's default branch: Ponos changes it only after you confirm)
+or the exact steps and the link to follow. It checks again when the page opens and on
+**Recheck**, and it is not drawn while everything is green. `ponos doctor` prints the same
+checks (`src/ponos/health.py`) under "Installation health".
+
 ### 4. The rest of the file
 
 Every key below is also a field in the console's **Settings** tab —
