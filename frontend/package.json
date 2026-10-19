@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "description": "The ponos web console: React, Vite and shadcn/ui, built into the package the Python server serves.",
-  "homepage": "https://hermez.dev",
+  "homepage": "https://the-ponos.app",
   "author": {
     "name": "Hermez",
     "url": "https://hermez.dev"

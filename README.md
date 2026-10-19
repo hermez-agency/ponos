@@ -4133,7 +4133,8 @@ The favicon, a standalone SVG, the Open Graph card and the sheet above are all w
 from the same module — none of them is drawn by hand:
 
 ```bash
-node scripts/mascot.mjs   # robot.svg, favicon.svg, og.png, states.png in docs/mascot/; the app icons in frontend/public/pwa/
+node scripts/mascot.mjs   # robot.svg, favicon.svg, og.png, states.png in docs/mascot/; the app icons in frontend/public/pwa/;
+                          # favicon.ico and apple-touch-icon.png in docs/; the desktop icons in src/ponos/icons/
 ```
 
 The PNGs are screenshots from headless Chrome (`$CHROME`, or `google-chrome` on the
