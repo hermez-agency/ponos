@@ -4123,6 +4123,26 @@ def a_writing_session_that_opened_nothing_still_ends_in_done():
 
 
 @case
+def a_log_event_whose_message_is_a_sentence_does_not_crash_the_ticket():
+    """Opoil and Leadz Ninja, both transferred, both « le runner lui-même a
+    cassé » : Claude in Chrome refused a browser-internal tab, and the
+    `permission_denied` event it logs carries its `message` as a sentence, not
+    as a dict. Reading the pull requests out of the log broke on it."""
+    url = "https://github.com/SalvadorCardona/opoil/pull/4"
+    log = _session_log(("gh pr create --title x --body y", f"{url}\n"))
+    with log.open("a") as written:
+        written.write(json.dumps({
+            "type": "system", "subtype": "permission_denied",
+            "tool_name": "mcp__claude-in-chrome__get_page_text",
+            "message": "Can't interact with browser-internal or extension pages",
+        }) + "\n")
+        written.write(json.dumps({"type": "assistant", "message": {"content": [
+            {"type": "tool_use", "id": "u9", "name": "Read", "input": "not a dict"},
+        ]}}) + "\n")
+    assert session.pull_requests(log) == [url]
+
+
+@case
 def a_question_answered_on_a_finished_ticket_goes_to_review_rather_than_blocked():
     """« C'est quoi X ? » — answered, nothing left to do, and said as a stop.
 
