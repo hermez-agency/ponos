@@ -367,7 +367,11 @@ export function ProjectFields() {
  * was a card in a card. */
 export function ProjectEditFields() {
   const { form } = useFormContext()
-  const groups = [...(form.groupOption?.itemGroups ?? [])].sort((a, b) => a.order - b.order)
+  // A writing project has no code to say where it is: the group goes with the type.
+  const writing = form.data?.kind === "document"
+  const groups = [...(form.groupOption?.itemGroups ?? [])]
+    .filter((group) => !(writing && group.group === "code"))
+    .sort((a, b) => a.order - b.order)
   return (
     <div
       data-project-edit

@@ -180,6 +180,9 @@ export interface Project {
   /** What the project page declares, when it declares anything. */
   repository?: string
   path?: string
+  /** What it does, in a sentence, and its public address — the page's columns, empty when it has none. */
+  description?: string
+  site?: string
   /** The `[projects]` entry of the configuration, where there is one. */
   configured?: string
   /** Where the clone really is on this machine — said only by the project's own page, empty when there is none. */

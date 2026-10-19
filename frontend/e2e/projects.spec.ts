@@ -154,6 +154,44 @@ test.describe("at 1440px", () => {
     await expect(drawer(page)).toBeHidden()
   })
 
+  test("the header says the short id, and copies the whole one", async ({ page }) => {
+    await page.context().grantPermissions(["clipboard-read", "clipboard-write"])
+    await open(page)
+    await card(page, "Website").click()
+    await onThePageOf(page, "Website")
+    const said = page.locator('[data-slot="project-id"]')
+    await expect(said).toHaveText(/Project · #0000cafe/)
+    await expect(page.getByText("#0000000000000000000000000000cafe")).toHaveCount(0)
+    await said.getByRole("button", { name: "Copy the full id" }).click()
+    await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe("0000000000000000000000000000cafe")
+  })
+
+  test("the type, the description and the site are changed in the drawer", async ({ page }) => {
+    await open(page)
+    await openWebsiteForm(page)
+    const form = drawer(page)
+    // Writing: nothing left to say about where its code is.
+    await form.getByRole("button", { name: "Writing" }).click()
+    await expect(form.getByRole("textbox", { name: /^GitHub/ })).toHaveCount(0)
+    await form.getByRole("button", { name: "Code" }).click()
+    await expect(form.getByRole("textbox", { name: /^GitHub/ })).toHaveValue("example/website")
+
+    await form.getByRole("textbox", { name: /^Site/ }).fill("not an address")
+    await form.getByRole("button", { name: "Save" }).click()
+    await expect(form.getByText("Write the whole address, from https://.")).toBeVisible()
+
+    await form.getByRole("textbox", { name: /^Description/ }).fill("What journalists download.")
+    await form.getByRole("textbox", { name: /^Site/ }).fill("https://example.com")
+    await form.getByRole("button", { name: "Save" }).click()
+    await expect(drawer(page)).toBeHidden()
+
+    await page.reload()
+    await page.getByRole("link", { name: "Edit" }).click()
+    await expect(form.getByRole("textbox", { name: /^Description/ })).toHaveValue("What journalists download.")
+    await expect(form.getByRole("textbox", { name: /^Site/ })).toHaveValue("https://example.com")
+    await expect(form.getByRole("button", { name: "Code" })).toHaveAttribute("aria-pressed", "true")
+  })
+
   test("a save closes the drawer, and the list says the new name", async ({ page }) => {
     await open(page)
     await card(page, "Newsletter").click()
@@ -171,6 +209,15 @@ test.describe("at 1440px", () => {
 
 test.describe("on a phone", () => {
   test.use({ viewport: { width: 390, height: 844 } })
+
+  test("the “…” menu stays on the line of the edit button", async ({ page }) => {
+    await open(page)
+    await card(page, "Website").click()
+    await onThePageOf(page, "Website")
+    const edit = await page.getByRole("link", { name: "Edit" }).boundingBox()
+    const more = await page.getByRole("button", { name: "More actions on “Website”" }).boundingBox()
+    expect(edit && more && Math.round(more.y + more.height / 2)).toBe(edit && Math.round(edit.y + edit.height / 2))
+  })
 
   test("the drawer takes the whole screen", async ({ page }) => {
     await open(page)

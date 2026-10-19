@@ -15856,6 +15856,25 @@ def the_console_opens_a_project_and_writes_it_back():
         else:
             raise AssertionError("a change with nothing to change must say so")
 
+        # What the window asked for at the creation is corrected here too: the
+        # description and the site in their columns, the type by its repository.
+        written = api.save_project(page, {"description": "  Le  runner. ", "site": "https://ponos.dev"})
+        assert written["description"] == "Le runner."
+        assert written["site"] == "https://ponos.dev"
+        assert store.read(board.page(page), "URL") == "https://ponos.dev"
+        for refused in ({"site": "ponos.dev"}, {"kind": "code", "repository": "", "path": ""}):
+            try:
+                api.save_project(page, refused)
+            except ValueError:
+                pass
+            else:
+                raise AssertionError(f"{refused} must be refused")
+        written = api.save_project(page, {"kind": "document", "repository": "user/autre-repo"})
+        assert written["kind"] == "document"
+        assert written["repository"] == "" and written["path"] == ""
+        written = api.save_project(page, {"kind": "code", "repository": "user/repo"})
+        assert written["kind"] == "code"
+
         # And a project the console has never heard of is a 404, not an empty page.
         try:
             api.project("f" * 32)

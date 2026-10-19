@@ -1,8 +1,11 @@
 import * as React from "react"
 import { useLocation, useRouter } from "@tanstack/react-router"
+import { ArrowLeft, CopyIcon } from "lucide-react"
 import { ActionList } from "react-data-form"
 import { Link, ResourceViewButton, useCurrentViewResourceContext, useNavigate } from "react-resource-view"
+import { toast } from "sonner"
 
+import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { why } from "@/lib/api"
@@ -43,8 +46,7 @@ const ProjectSettingsTab = React.lazy(() =>
  * ticket of that project is told before it is told the ticket.
  *
  * What sits above it — the way back, the name, the edit button — is the
- * layout's header, told what a project adds to it: see `ProjectTitle` and
- * `ProjectActions` below.
+ * layout's header, written for a project: see `ProjectHead` below.
  */
 
 export function ProjectPage() {
@@ -199,12 +201,64 @@ function ProjectTabs({ project, children }: { project: ProjectItem; children: Re
 }
 
 /* The top of the page is the layout's: the way back, the title, the line under
- * it and the actions, drawn by react-resource-view the way it draws them on
+ * it and the actions, in the shapes react-resource-view draws them in on
  * every page of the console. The page drew its own on top of it — two ways
- * back, two titles, two edit buttons — so what only a project has is handed to
+ * back, two titles, two edit buttons — so what only a project has is said in
  * that header instead: the kind of work above the name, and on the right the
  * page in Notion, how many tickets point at it, and the edit button.
+ *
+ * Written here rather than told to the package's, as the ticket's is (see
+ * `TicketHead`): the package says the whole page id under the title —
+ * `#0000000000000000000000000000cafe` — and a view replaces that line only
+ * with the whole header. So this is the whole header: the short id, as the
+ * ticket's, with a button that copies the long one.
  */
+export function ProjectHead() {
+  const project = useCurrentViewResourceContext().data as ProjectItem | undefined
+  const t = useT()
+  const page = project && isAPage(project.id) ? project.id.replace(/-/g, "") : ""
+  const copy = () => {
+    if (!page) return
+    void navigator.clipboard
+      ?.writeText(page)
+      .then(() => toast.success(t("Copied"), { description: page }))
+      .catch(() => {})
+  }
+  return (
+    <header data-slot="admin-header" className="w-full">
+      <div className="border-border flex flex-wrap items-end gap-x-6 gap-y-4 border-b pb-5">
+        <div className="min-w-0 flex-1">
+          <Link
+            to={projectsHref()}
+            className="text-muted-foreground hover:text-foreground mb-1.5 inline-flex items-center gap-1 text-sm transition-colors"
+          >
+            <ArrowLeft className="size-4" />
+            {t("Projects")}
+          </Link>
+          <ProjectTitle />
+          {page ? (
+            <p data-slot="project-id" className="text-muted-foreground mt-1 flex items-center gap-1 text-sm">
+              {t("Project")} · <span className="font-mono">#{page.slice(-8)}</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                onClick={copy}
+                title={t("Copy the full id")}
+                aria-label={t("Copy the full id")}
+              >
+                <CopyIcon />
+              </Button>
+            </p>
+          ) : null}
+        </div>
+        <div className="flex w-full flex-wrap items-center gap-2 md:w-auto">
+          <ProjectActions />
+        </div>
+      </div>
+    </header>
+  )
+}
 
 /** The name, under the kind of work it is. */
 export function ProjectTitle() {
@@ -247,7 +301,9 @@ export function ProjectActions() {
         <Chip>{counted(count, "{{count}} ticket", "{{count}} tickets")}</Chip>
       ) : null}
       {isAPage(project.id) ? (
-        <>
+        // One piece, so that on a phone the "…" wraps with the edit button
+        // rather than alone on a line under it.
+        <span className="flex items-center gap-2">
           <ResourceViewButton
             action={ActionList.update}
             resource={context.resource}
@@ -259,7 +315,7 @@ export function ProjectActions() {
             tickets={count}
             onDeleted={() => void navigate({ to: projectsHref() })}
           />
-        </>
+        </span>
       ) : null}
     </>
   )
