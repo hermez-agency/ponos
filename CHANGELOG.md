@@ -25,6 +25,13 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
   ticket stays in Ready (not Blocked) with a notification and an alert in the console. `worktree_exclude` makes new
   worktrees without big folders such as `docs/media` (sparse checkout). Settings › General now shows the free space
   and the heaviest worktrees.
+- **A vault for the keys a ticket needs.** A ticket that publishes a package or redeploys a service no longer needs its
+  token written in the ticket: `[vault]` in `config.toml` says where keys are read — the GNOME keyring (`secret-tool`),
+  `pass`, the Bitwarden CLI or the environment and `secrets.env` — and which ones each project is given, by its Notion
+  name. They reach that project's sessions, and no other's, as environment variables; the prompt names them and never
+  holds them. Any value read is replaced by `***` in the comments and pages written to Notion or the Markdown board,
+  the session transcripts, the runner's log, Telegram and Slack, and the console. `ponos doctor` reads each key and
+  says whether it is there, without printing it.
 - **The Projects page in two columns.** The list of projects is on the left — one compact line each: icon, name, type,
   tickets and last activity — under the search, the *Type* filter and *New project*; on the right, the global context
   stays folded to a few lines (*See all*, *Edit*, its character count) and, under it, the project picked in the list shows

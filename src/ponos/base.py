@@ -25,7 +25,7 @@ import socket
 import threading
 from datetime import datetime
 
-from . import channels, conversation, journal, legacy, notify, provider, store
+from . import channels, conversation, journal, legacy, notify, provider, store, vault
 from . import voice as voice_module
 from . import workspace as workspace_module
 from .config import Config
@@ -158,7 +158,8 @@ class Base:
 
     def say(self, message: str) -> None:
         if not self.quiet:
-            print(message, flush=True)
+            # Into the systemd journal, which keeps it: masked — see vault.py.
+            print(vault.mask(message), flush=True)
 
     def _dropped(self, database: str, name: str) -> None:
         """A write left `name` out: the board has no such column. Said once a run.

@@ -1015,3 +1015,33 @@ send_after_transcription = false
 [github]
 # "animalink" = "dev-animalink"
 # "salvadorcardona" = "salvadevme"
+
+# The keys a ticket's session may work with — an npm token, a GitHub
+# fine-grained token, a Dokploy API key — without anybody writing them in a
+# ticket. They stay where they already live, and each project is given its own
+# and nobody else's, as environment variables of its sessions. Whatever value
+# was read is replaced by *** in the comments, the pages, the logs and the
+# console. Prefer tokens of narrow reach (npm granular, GitHub fine-grained)
+# over passwords. `ponos doctor` reads each one and says whether it is there.
+#
+# provider: where they are read from, unless an entry says otherwise
+#   "env"        the runner's environment, then secrets.env beside this file
+#   "keyring"    the GNOME keyring (any Secret Service), through secret-tool:
+#                  secret-tool store --label="Ponos NPM" service ponos username hermez-npm
+#   "pass"       pass show <item>, its first line
+#   "bitwarden"  bw get password <item> — BW_SESSION in the environment or in
+#                secrets.env (bw unlock --raw)
+[vault]
+provider = "env"
+
+# One table per project, by its exact Notion name: the variable the session
+# sees = the item the provider holds it under. An item may name another
+# provider than the one above: "pass:hermez/npm". A list of names reads each
+# one under its own name. A project that is not here is given nothing; the
+# runner's own variables (PONOS_*, ANTHROPIC_API_KEY…) are never handed over.
+[vault.projects]
+# Leadz = ["LEADZ_DOKPLOY_TOKEN"]
+
+# [vault.projects.Ponos]
+# NPM_TOKEN = "hermez-npm"
+# GH_DEPLOY_TOKEN = "pass:github/ponos-deploy"

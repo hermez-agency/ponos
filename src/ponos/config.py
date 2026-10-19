@@ -29,7 +29,7 @@ from pathlib import Path
 
 # The two vocabularies of `[storage]`, kept where the interface is declared —
 # `store.py` imports nothing from here, so this direction is the safe one.
-from . import disk, models, subtypes
+from . import disk, models, subtypes, vault
 from .store import CONFLICTS, MODES
 
 PLACEHOLDER = "ntn_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
@@ -665,6 +665,30 @@ class Permissions:
     ask: tuple[str, ...] = ASK
 
 
+@dataclass
+class Vault:
+    """Which keys each project's sessions are given, and where they are read. See vault.py.
+
+    `projects` is `project → {VARIABLE: item}`: the variable the session sees,
+    and the item the provider holds it under — prefixed with another provider
+    (`pass:hermez/npm`) when that one key lives elsewhere. A project the table
+    does not name is given nothing. `problems` is what the file asked for and
+    cannot have, said by `ponos doctor` rather than discovered in a ticket.
+    """
+
+    provider: str = "env"
+    projects: dict[str, dict[str, str]] = field(default_factory=dict)
+    problems: tuple[str, ...] = ()
+
+    def granted(self, project: str) -> dict[str, str]:
+        """The variables that project may have — matched however the board spells it."""
+        wanted = project.strip().casefold()
+        for name, secrets in self.projects.items():
+            if name.strip().casefold() == wanted:
+                return dict(secrets)
+        return {}
+
+
 def board_dir() -> Path:
     """Where a Markdown board lives when the file does not say.
 
@@ -721,6 +745,7 @@ class Config:
     budget: Budget = field(default_factory=Budget)
     permissions: Permissions = field(default_factory=Permissions)
     storage: Storage = field(default_factory=Storage)
+    vault: Vault = field(default_factory=Vault)
     # `[github]`: which of your GitHub accounts each owner is worked under, as
     # `owner = "the gh account"`. Empty is a machine with one account, which is
     # every machine until it is not — see `git.token_for`.
@@ -1660,6 +1685,8 @@ def load(path: Path | None = None, *, secrets: Path | None = None) -> Config:
         ),
     )
 
+    vault_settings = _vault(raw.get("vault"))
+
     notify_raw = raw.get("notify", {})
     # `runner.notify` came first and said "one desktop notification per ticket".
     # It keeps saying exactly that: the new table only has to name what it
@@ -1691,6 +1718,7 @@ def load(path: Path | None = None, *, secrets: Path | None = None) -> Config:
         budget=budget,
         permissions=permissions,
         storage=storage,
+        vault=vault_settings,
         github=github,
         exposed=tuple(f"{table}.{key}" for table, key in exposed(raw)),
     )
@@ -1717,6 +1745,43 @@ def _sentences(raw: object, default: tuple[str, ...]) -> tuple[str, ...]:
     if not isinstance(raw, list):
         return default
     return tuple(text for item in raw if (text := str(item).strip()))
+
+
+def _vault(raw: object) -> Vault:
+    """`[vault]`, read leniently and checked: what cannot be handed over is said.
+
+    A project's secrets are written either as a table — `NPM_TOKEN =
+    "hermez/npm"`, the variable and the item it is read from — or as a list of
+    names, each read under its own name. An entry that is no variable name, or
+    that would take the place of one of the runner's own keys, is left out and
+    named in `problems`: a session must never be handed a project's
+    `ANTHROPIC_API_KEY` in place of the one the runner chose.
+    """
+    table = raw if isinstance(raw, dict) else {}
+    found: list[str] = []
+    chosen = str(table.get("provider", "env")).strip().lower() or "env"
+    if chosen not in vault.PROVIDERS:
+        found.append(f"vault.provider = {chosen!r} is none of {', '.join(vault.PROVIDERS)}")
+    reserved = set(SECRETS.values()) | {"ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN"}
+    projects: dict[str, dict[str, str]] = {}
+    listed = table.get("projects", {})
+    for project, entries in (listed.items() if isinstance(listed, dict) else ()):
+        if isinstance(entries, dict):
+            pairs = [(str(name).strip(), str(item).strip()) for name, item in entries.items()]
+        elif isinstance(entries, (list, tuple)):
+            pairs = [(str(name).strip(), str(name).strip()) for name in entries]
+        else:
+            found.append(f"vault.projects.{project} is neither a table nor a list")
+            continue
+        kept: dict[str, str] = {}
+        for variable, item in pairs:
+            why = vault.problems(variable, item, reserved)
+            if why:
+                found.append(f"vault.projects.{project}: {why}")
+                continue
+            kept[variable] = item
+        projects[str(project)] = kept
+    return Vault(provider=chosen, projects=projects, problems=tuple(found))
 
 
 def _channel(raw: object, token: str) -> dict[str, str]:

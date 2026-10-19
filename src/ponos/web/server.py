@@ -53,7 +53,7 @@ from urllib.parse import parse_qs, parse_qsl, quote, unquote, urlencode, urlpars
 
 from .. import __version__
 from .. import config as config_module
-from .. import db, journal, legacy, notifications, openrouter, store, voice
+from .. import db, journal, legacy, notifications, openrouter, store, vault, voice
 from ..config import Config, state_dir
 from . import attachments, creation, github, mcp, mcp_setup, oauth, setup
 from .api import Api
@@ -294,7 +294,10 @@ class Handler(BaseHTTPRequestHandler):
             self.close_connection = True
 
     def _json(self, payload: dict, code: int = 200) -> None:
-        self._send(code, json.dumps(payload, ensure_ascii=False).encode(), "application/json")
+        # Every answer of the API, masked on its way to the page: see vault.py.
+        self._send(
+            code, json.dumps(vault.masked(payload), ensure_ascii=False).encode(), "application/json"
+        )
 
     def _fail(self, code: int, message: str) -> None:
         self._json({"error": message}, code)
@@ -1404,7 +1407,7 @@ class Handler(BaseHTTPRequestHandler):
                     self.wfile.write(b": still here\n\n")
                     self.wfile.flush()
                     continue
-                self.wfile.write(event.encode().encode("utf-8"))
+                self.wfile.write(vault.mask(event.encode()).encode("utf-8"))
                 self.wfile.flush()
         except (BrokenPipeError, ConnectionResetError, OSError):
             pass  # the tab was closed, which is the normal way this ends

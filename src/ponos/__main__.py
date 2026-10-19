@@ -23,7 +23,7 @@ from . import db, journal, kinds, legacy, models, resources, store, voice
 from . import github_app, project_settings, provision
 from . import provider as provider_module
 from . import schedules as schedules_module
-from . import session, state, subtypes, systemd
+from . import session, state, subtypes, systemd, vault
 from . import update as update_module
 from . import workspace as workspace_module
 from .projects import Resolver
@@ -939,6 +939,9 @@ def command_doctor(args: argparse.Namespace) -> int:
     title("Claude provider")
     problems += _doctor_provider(configuration)
 
+    title("Vault")
+    problems += _doctor_vault(configuration)
+
     settings = configuration.runner
     if settings.rebase and settings.resolve_conflicts:
         excepted = settings.resolve_conflicts_except.strip()
@@ -1420,6 +1423,40 @@ def _doctor_secrets(configuration: config_module.Config) -> int:
         problems += 1
     elif not configuration.exposed:
         ok(f"secrets in {target} (600), none in {configuration.path.name}")
+    return problems
+
+
+def _doctor_vault(configuration: config_module.Config) -> int:
+    """The keys `[vault]` grants each project, and whether they can be read now.
+
+    Each one is read, as a session would — and only said to be there or not:
+    no value, and not even its length, is printed. See vault.py.
+    """
+    settings = configuration.vault
+    problems = 0
+    for problem in settings.problems:
+        bad(problem)
+        problems += 1
+    if not settings.projects:
+        print(f"  {DIM}no [vault] secrets — no project is given a key{RESET}")
+        return problems
+    used = {settings.provider} | {
+        vault.where(item, settings.provider)[0]
+        for granted in settings.projects.values()
+        for item in granted.values()
+    }
+    for name in sorted(used & set(vault.PROVIDERS)):
+        missing = vault.provider(name).available() if name != "env" else ""
+        (bad if missing else ok)(missing or f"provider {name}")
+        problems += 1 if missing else 0
+    stored = config_module.read_secrets(config_module.secrets_path(configuration.path))
+    for project, granted in sorted(settings.projects.items()):
+        found = vault.read(granted, settings.provider, stored)
+        if found.values:
+            ok(f"{project} — {', '.join(sorted(found.values))}")
+        for missing in found.missing:
+            bad(f"{project} — {missing}")
+            problems += 1
     return problems
 
 

@@ -39,7 +39,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .. import disk, question, voice
+from .. import disk, question, vault, voice
 from ..config import Notify, state_dir
 
 # How many questions a channel remembers, so that a reply arriving tomorrow
@@ -57,7 +57,8 @@ class ChannelError(Exception):
 
 def request(url: str, payload: dict | None = None, *, headers: dict | None = None) -> dict:
     """One JSON call. Both APIs speak JSON both ways, so one helper does."""
-    data = json.dumps(payload).encode() if payload is not None else None
+    # What reaches the phone carries no secret, whatever wrote it: see vault.py.
+    data = json.dumps(vault.masked(payload)).encode() if payload is not None else None
     every = {"Content-Type": "application/json; charset=utf-8", "User-Agent": "ponos"}
     every.update(headers or {})
     message = urllib.request.Request(url, data=data, headers=every)

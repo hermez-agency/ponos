@@ -30,7 +30,7 @@ from pathlib import Path
 from typing import Callable
 from urllib.parse import parse_qs, quote, urlparse
 
-from . import credits, disk, legacy
+from . import credits, disk, legacy, vault
 from .question import Question, caveats, parse
 
 
@@ -257,6 +257,9 @@ def run(
         texts: list[str] = []
         try:
             for line in process.stdout:  # type: ignore[union-attr]
+                # Masked before anything reads it: the transcript, the steps
+                # written into the ticket, the answer — see vault.py.
+                line = vault.mask(line)
                 journal.write(line)
                 journal.flush()
                 try:
@@ -281,6 +284,8 @@ def run(
             process.wait()
         finally:
             watchdog.cancel()
+    # Written by the CLI itself, so masked once it has let go of it.
+    vault.scrub(stderr_path)
 
     seconds = time.monotonic() - started
     # A stop that crossed the session's last word is no stop: the answer had

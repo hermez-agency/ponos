@@ -48,6 +48,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from . import vault
 from .store import SLOTS, Comment, Page, Picture, StoreError, read, written
 
 # The collections a board is made of, and the file that is not one of them.
@@ -782,7 +783,8 @@ def _text(path: Path) -> str:
 def _write(path: Path, text: str) -> None:
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(text, encoding="utf-8")
+        # The board's one writer, so its one place to mask: see vault.py.
+        path.write_text(vault.mask(text), encoding="utf-8")
     except OSError as error:
         raise StoreError(f"{path}: {error}") from error
 

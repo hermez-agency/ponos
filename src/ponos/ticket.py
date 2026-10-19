@@ -78,6 +78,9 @@ class Job:
     # Kept on the job because what goes in it is decided after the session ends:
     # a run that failed files its trace there rather than in the report.
     live: progress.Live | None = None
+    # The project's secrets, read from `[vault]` once per session and handed to
+    # it as environment variables — see vault.py. Never written anywhere.
+    secrets: dict[str, str] = field(default_factory=dict)
 
 
 def short_id(page_id: str) -> str:

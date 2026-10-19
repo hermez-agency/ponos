@@ -796,6 +796,86 @@ either: the command runs as the active account, and `ponos doctor` is what says
 the line is dead. The table is also a section of the console's **Settings** tab, *GitHub
 accounts*.
 
+### Keys a ticket may use: the vault
+
+A ticket that publishes a package, redeploys a service or calls an API needs a token — and
+a ticket is the worst place to write one: it is a Notion page, a prompt, a transcript and
+sometimes a pull request. So keys stay where they already live, and `[vault]` says two
+things: **where** they are read, and **which ones each project is given**.
+
+```toml
+[vault]
+provider = "pass"                 # env, keyring, pass or bitwarden
+
+[vault.projects.Ponos]            # the project's exact Notion name
+NPM_TOKEN = "hermez-agency/npm"   # the variable the session sees = the item it is read from
+GH_DEPLOY_TOKEN = "keyring:ponos-deploy"   # one key that lives somewhere else
+
+[vault.projects]
+Leadz = ["LEADZ_DOKPLOY_TOKEN"]   # a list: each one read under its own name
+```
+
+| `provider` | Reads | What it needs |
+| --- | --- | --- |
+| `env` (default) | the runner's environment, then `secrets.env` beside `config.toml` | nothing |
+| `keyring` | the GNOME keyring, or any Secret Service, through `secret-tool lookup` — a bare name is `service ponos username <name>`; `attr=value attr=value` finds any other item | `libsecret-tools`, and a keyring unlocked by your session |
+| `pass` | the first line of `pass show <item>` | `pass`, and a `gpg-agent` that has the passphrase |
+| `bitwarden` | `bw get password <item>`, by name or id | the Bitwarden CLI, unlocked: `BW_SESSION` in the environment or in `secrets.env` (`bw unlock --raw`) |
+
+Those keys reach the sessions of **that project's tickets, and nobody else's**, as
+environment variables. The prompt tells the session their names — never their values —
+and asks it to use them as `$NPM_TOKEN` and never print them. A project the table does not
+name is given nothing; the runner's own variables (`PONOS_*`, `ANTHROPIC_API_KEY`, the
+OpenRouter key) are never handed to a project, and win over a key of the same name. Each
+key is read again at every session, so a token rotated in the keyring is the one the next
+ticket gets; one that cannot be read is said in the log, by name, and the ticket runs
+without it.
+
+And a value read is a value **masked**. A session may still print its key — an `env` to
+debug a deploy, a verbose `npm publish` — so every value read is replaced by `***` before
+anything goes out: the comments and pages written to Notion or to the Markdown board, the
+session's transcript and stderr, the runner's log, Telegram and Slack, the console's
+answers. By value, not by name: what leaks is never `$NPM_TOKEN`, it is what it expands
+to. A value under six characters is too short to mask without masking the code around it,
+and is not handed over at all.
+
+**Prefer keys of narrow reach.** An npm *granular* token limited to the packages and the
+organisation it publishes, a GitHub *fine-grained* token limited to one repository and the
+permissions it needs, a Dokploy key for one project — never a password, and never a
+token that can do everything your account can.
+
+**Adding one — hermez-agency's npm token, for the Ponos project:**
+
+1. On npmjs.com, *Access Tokens › Generate New Token › Granular Access Token*: read and
+   write on the `hermez-agency` organisation's packages only, with an expiry.
+2. Put it in the vault, without it ever touching a shell history:
+
+   ```sh
+   pass insert hermez-agency/npm
+   # or, in the GNOME keyring:
+   secret-tool store --label="Ponos · hermez-agency npm" service ponos username hermez-agency-npm
+   # or, with no vault at all, a line of ~/.config/ponos/secrets.env (kept 0600):
+   #   NPM_TOKEN=npm_…
+   ```
+
+3. Grant it to the project, in `~/.config/ponos/config.toml`:
+
+   ```toml
+   [vault]
+   provider = "pass"
+
+   [vault.projects.Ponos]
+   NPM_TOKEN = "hermez-agency/npm"      # or "keyring:hermez-agency-npm", or "env:NPM_TOKEN"
+   ```
+
+4. `ponos doctor` reads it, and answers `✓ Ponos — NPM_TOKEN` — or why it could not. A
+   ticket of Ponos can then publish with `NPM_TOKEN` in its environment (an `.npmrc` that
+   says `//registry.npmjs.org/:_authToken=${NPM_TOKEN}`). Publishing on a public registry
+   is still one of the actions it asks before, whatever key it holds.
+
+Another provider — 1Password's `op read`, say — is one class in `src/ponos/vault.py` with a
+`read(item)` and an `available()`, and one line in its `PROVIDERS`.
+
 ---
 
 ## Without Notion: the board as Markdown files
