@@ -21,7 +21,7 @@ import { EmptyState } from "@/components/console/empty-state"
 import { MarkdownInputController } from "@/components/console/markdown-editor"
 import { ProjectThumb } from "@/components/console/project-picture"
 import { ProjectMenu } from "@/components/console/project-delete"
-import { ProjectActions, ProjectPage, ProjectTitle } from "@/components/console/project-page"
+import { ProjectHead, ProjectPage } from "@/components/console/project-page"
 import {
   BoxInputController,
   KindInputController,
@@ -99,7 +99,7 @@ export interface ProjectWrite {
   repository?: string
   path?: string
   content?: string
-  /** Only said as a project is created: what it does, its kind and its public address. */
+  /** What it does, its kind and its public address. */
   description?: string
   kind?: string
   site?: string
@@ -252,10 +252,14 @@ export async function readProject(id: string): Promise<ProjectItem> {
  */
 /* In three groups, in the words the "New project" window uses for the same
  * fields — "Name", "GitHub", "Local folder" — where it said "Project" over the
- * name and "Where it is" over the folder: the project, where its code is, and
- * the brief. A repository is checked as it is typed, rather than by the
- * server once the drawer is sent. */
+ * name and "Where it is" over the folder: the project — its description, its
+ * type and its site with it, which the window asks for too and a page is
+ * corrected in as often — where its code is, and the brief. A repository and a
+ * site are checked as they are typed, rather than by the server once the
+ * drawer is sent. */
 const REPOSITORY = /^([\w.-]+\/[\w.-]+|https?:\/\/\S+|git@\S+:\S+|ssh:\/\/\S+)$/
+/** A public address, as the server takes it: http or https, a host, no space. */
+const SITE = /^https?:\/\/[^\s/?#]+\S*$/
 
 const editForm: FormInterface = {
   label: { submit: "Save" },
@@ -267,7 +271,7 @@ const editForm: FormInterface = {
         group: "code",
         title: "Where its code is",
         get description() {
-          return t("Both empty: a writing project, whose tickets come back as a document.")
+          return t("One of the two is enough. A writing project has neither: its tickets come back as a document.")
         },
         order: 2,
       },
@@ -287,11 +291,39 @@ const editForm: FormInterface = {
         return value
       },
     },
+    description: {
+      label: "Description",
+      groups: ["project"],
+      get placeholder() {
+        return t("What the project does, in one sentence")
+      },
+    },
+    kind: {
+      label: "Type",
+      groups: ["project"],
+      controller: KindInputController,
+      get valueOptions() {
+        return [
+          { value: "code", label: t("Code") },
+          { value: "document", label: t("Writing") },
+        ]
+      },
+    },
+    site: {
+      label: "Site",
+      groups: ["project"],
+      placeholder: "https://",
+      validator: (value: unknown) => {
+        const said = String(value ?? "").trim()
+        if (said && !SITE.test(said)) throw new Error(t("Write the whole address, from https://."))
+        return value
+      },
+    },
     repository: {
       label: "GitHub",
       groups: ["code"],
       get description() {
-        return t("owner/repo, or the clone URL. Empty, and its tickets come back as a document.")
+        return t("owner/repo, or the clone URL.")
       },
       placeholder: "owner/repo",
       validator: (value: unknown) => {
@@ -1020,10 +1052,15 @@ export const projects = createViewResource<ProjectItem, ProjectWrite>(PROJECTS, 
         throw new Error(
           t("This project is a line in config.toml; it is changed in the settings.")
         )
+      const kind = patch.kind === "document" ? "document" : "code"
       const written = await api.saveProject(id, {
         name: patch.name ?? "",
-        repository: patch.repository ?? "",
-        path: patch.path ?? "",
+        description: patch.description ?? "",
+        kind,
+        // A writing project has neither, whatever the drawer still holds.
+        repository: kind === "code" ? (patch.repository ?? "") : "",
+        path: kind === "code" ? (patch.path ?? "") : "",
+        site: patch.site ?? "",
         content: patch.content ?? "",
       })
       // The list is drawn from what was last read, and a rename that only showed
@@ -1092,9 +1129,9 @@ export const projects = createViewResource<ProjectItem, ProjectWrite>(PROJECTS, 
       // The dashboard's width and margins: the page is a header, figures and a
       // board, not a form to keep in a column.
       fullWidth: true,
-      // The layout's header, with what only a project has in it: the page has
-      // no header of its own.
-      components: { view: ProjectPage, title: ProjectTitle, actions: ProjectActions },
+      // The layout's header, in the same shapes but written for a project: its
+      // short id, and what only a project has in it.
+      components: { view: ProjectPage, navigation: ProjectHead },
     },
     update: {
       title: "Edit the project",

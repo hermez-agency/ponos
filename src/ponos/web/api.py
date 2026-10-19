@@ -502,6 +502,8 @@ class Api:
                         "url": page.url,
                         "repository": repository,
                         "path": path,
+                        "description": _first(page, *creation.COLUMNS["description"]),
+                        "site": _first(page, *creation.COLUMNS["site"]),
                         **self._pictures(page),
                     }
         except store.StoreError:
@@ -643,10 +645,15 @@ class Api:
     def save_project(self, page_id: str, values: dict) -> dict:
         """Change one project page from the console.
 
-        Four things, which are the whole of what a project is: its name, the
-        repository its tickets are worked in, the path this machine finds that
-        repository at, and the brief. Never its tickets — those point at the
-        page, and are moved on the board.
+        What a project is: its name, what it does in a sentence, its public
+        address, the repository its tickets are worked in, the path this
+        machine finds that repository at, and the brief. Never its tickets —
+        those point at the page, and are moved on the board.
+
+        Its type is no column: a page that names a repository or a folder is a
+        code project (see `projects`). So "document" empties both, and "code"
+        is refused when neither would be left — a type corrected after the
+        creation is a type that holds, not one the next reading undoes.
 
         The columns are written under the name the page already carries:
         a project database is written by hand, so "Repository" is sometimes
@@ -664,6 +671,24 @@ class Api:
             written[column] = str(values["repository"] or "")
         if "path" in values:
             written[_column(page, "Path", "path")] = str(values["path"] or "")
+        if values.get("kind") == "document":
+            written[_column(page, *creation.COLUMNS["repository"])] = ""
+            written[_column(page, *creation.COLUMNS["path"])] = ""
+        elif values.get("kind") == "code":
+            kept = {
+                key: str(values[key] or "").strip() if key in values else _first(page, *creation.COLUMNS[key])
+                for key in ("repository", "path")
+            }
+            if not any(kept.values()):
+                raise ValueError(self.runner.voice.say("project-needs-repository"))
+        if "description" in values:
+            description = " ".join(str(values["description"] or "").split())
+            written[_column(page, *creation.COLUMNS["description"])] = description
+        if "site" in values:
+            site = str(values["site"] or "").strip()
+            if site and not creation.is_site(site):
+                raise ValueError(self.runner.voice.say("project-site-invalid", given=site))
+            written[_column(page, *creation.COLUMNS["site"])] = site
         if str(values.get("name", "")).strip():
             written[self.runner.client.title_property(database)] = str(values["name"]).strip()
         if not written and "content" not in values:

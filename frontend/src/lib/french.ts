@@ -780,8 +780,8 @@ export const FRENCH: Record<string, string> = {
   "A name is all it takes.": "Un nom suffit.",
   "The project": "Le projet",
   "Where its code is": "Où est son code",
-  "Both empty: a writing project, whose tickets come back as a document.":
-    "Les deux vides : un projet de rédaction, dont les tickets reviennent sous forme de document.",
+  "One of the two is enough. A writing project has neither: its tickets come back as a document.":
+    "L'un des deux suffit. Un projet de rédaction n'a ni l'un ni l'autre : ses tickets reviennent sous forme de document.",
   "A project needs a name.": "Un projet a besoin d'un nom.",
   "Write it as owner/repo, or paste the clone URL.": "Écrivez-le sous la forme propriétaire/dépôt, ou collez l'URL du clone.",
   "Edit the project": "Modifier le projet",
@@ -836,8 +836,8 @@ export const FRENCH: Record<string, string> = {
     "Ce projet est une ligne de config.toml ; il se modifie dans les réglages.",
   "What the board calls it. A ticket points at this page, not at this name.":
     "Le nom que lui donne le tableau. Un ticket pointe vers cette page, pas vers ce nom.",
-  "owner/repo, or the clone URL. Empty, and its tickets come back as a document.":
-    "propriétaire/dépôt, ou l'URL du clone. Vide, ses tickets reviennent sous forme de document.",
+  "owner/repo, or the clone URL.": "propriétaire/dépôt, ou l'URL du clone.",
+  "Write the whole address, from https://.": "Écrivez l'adresse entière, depuis https://.",
   "Only needed where the repository cannot be found on its own. Worktrees are made beside it, never in it.":
     "Utile seulement quand le dépôt ne se trouve pas tout seul. Les worktrees sont créés à côté, jamais dedans.",
   "The audience, the voice, the conventions, the things never to do. Every ticket of this project is told it before it is told the ticket.":

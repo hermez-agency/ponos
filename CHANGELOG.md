@@ -18,6 +18,11 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Added
 
+- **A project's type, description and site are corrected from the console.** The "Edit the project" drawer has them
+  under "The project", as the "New project" window asks for them: a project switched to Writing loses its repository
+  and folder, one switched to Code needs one of the two, and a site that is not an `http(s)://` address is refused. The
+  page's header says the project's short id, `#0000cafe`, with a button that copies the whole one — as a ticket's does —
+  and on a phone its "…" menu stays on the line of the edit button.
 - **The console on your phone, and Claude's connector, over Tailscale.** `ponos tailscale enable` installs a user unit
   that waits for the tailnet, then serves the console on `https://<machine>.<tailnet>.ts.net:8443` (tailnet only) and
   publishes through Funnel on 443 the three paths the MCP connector needs — `/mcp`, `/oauth`, `/.well-known` — and

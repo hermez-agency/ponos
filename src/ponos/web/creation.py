@@ -77,6 +77,12 @@ def github_url(given: str) -> str:
     return f"https://github.com/{owner}/{name}"
 
 
+def is_site(given: str) -> bool:
+    """Whether a site is an address a browser opens: http or https, a host, no space."""
+    parsed = urlparse(given)
+    return parsed.scheme in ("http", "https") and bool(parsed.netloc) and " " not in given
+
+
 def _column(schema: dict[str, str], used: dict[str, str], key: str) -> str:
     """The column that holds `key`: the one the pages fill in, the one the
     database declares, or the name `init` would give it — in that order.
@@ -174,10 +180,8 @@ class Creation:
                 raise Refused("repository", self._say("project-needs-repository"))
 
         site = str(payload.get("site") or "").strip()
-        if site:
-            parsed = urlparse(site)
-            if parsed.scheme not in ("http", "https") or not parsed.netloc or " " in site:
-                raise Refused("site", self._say("project-site-invalid", given=site))
+        if site and not is_site(site):
+            raise Refused("site", self._say("project-site-invalid", given=site))
 
         client = api.runner.client
         schema = client.schema(database)
@@ -215,6 +219,8 @@ class Creation:
             "url": page.url,
             "repository": repository,
             "path": path,
+            "description": written.get(_column(schema, used, "description"), ""),
+            "site": site,
             **api._shown(bare),
             "configured": "",
             "source": "board",
