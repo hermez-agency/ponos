@@ -508,21 +508,7 @@ class Execution(Base):
             return self._fail(
                 ticket, self.voice.say("no-worktree"), str(error), code="worktree.residue"
             )
-        if worktree.reused:
-            # A ticket that has run before: said out loud, because the session
-            # about to start is continuing somebody's work rather than opening
-            # on an empty branch, and the comment should carry that too — the
-            # journal in English, like the rest of it, the comment in its voice.
-            self.say("    · " + voice_module.Voice().branch_note(worktree).replace("`", ""))
-            job.notes.append(self.voice.branch_note(worktree))
-            job.resumed = worktree.reused
-        if worktree.backup:
-            # Said to the session as well as to the ticket: the half-done work
-            # it is about to meet is no longer in its worktree, and nothing but
-            # this sentence tells it where it went.
-            self.say(f"    · interrupted worktree saved to {worktree.backup}")
-            job.notes.append(self.voice.backup_note(worktree, job.base))
-            job.backup = worktree.backup
+        self._note_worktree(job, worktree)
 
         try:
             outcome = self._run_session(
@@ -559,128 +545,190 @@ class Execution(Base):
             outcome = replace(outcome, ok=True, blocked=False)
 
         if not outcome.ok:
-            code, reason, detail = self._why_stopped(
-                outcome, "session.question" if outcome.blocked else "session.killed"
-            )
-            # An agent that asked a question is waiting for you; a session that
-            # crashed is waiting for someone to look at the log. Different rows
-            # on the board, when the board has somewhere to put them.
-            kept = ""
-            if self.config.runner.keep_worktree_on_failure:
-                kept = said.say("worktree-kept", path=job.workdir, branch=job.branch)
-            else:
-                git.remove_worktree(project.path, job.workdir)
-            return self._fail(
-                ticket,
-                reason,
-                detail,
-                code=code,
-                blocked=outcome.blocked or bool(outcome.killed),
-                question=self._question(outcome, detail),
-                note=self._filed(job, outcome, kept),
-                outcome=outcome,
-            )
+            return self._code_stopped(job, outcome)
 
         commits = git.commits_ahead(job.workdir, job.base)
         if commits == 0:
-            dirty = git.is_dirty(job.workdir)
-            if not dirty and _done_elsewhere(outcome.answer):
-                # Nothing to commit because nothing was to be: the work was a
-                # deployment, a setting, a board — and its report is what it
-                # delivers, written into the page as a document ticket's is. A
-                # session that changed files and left them uncommitted, or says
-                # it changed the code, is still blocked below.
-                git.remove_worktree(project.path, job.workdir)
-                self.say("    · nothing committed, the work was done outside the repository")
-                return self._deliver_text(
-                    job,
-                    outcome,
-                    _report(outcome.answer) or outcome.summary,
-                    note=said.say("done-elsewhere"),
-                )
-            if not dirty:
-                git.remove_worktree(project.path, job.workdir)
-            return self._fail(
-                ticket,
-                said.say("nothing-committed"),
-                outcome.summary,
-                code="session.no-commit",
-                blocked=True,
-                question=outcome.summary,
-                note=self._filed(job, outcome),
-                outcome=outcome,
-            )
+            return self._nothing_committed(job, outcome)
 
         pull_request = ""
         replayed = False
         if self.config.runner.push and self.config.runner.rebase:
-            # The base has moved under this session: the ticket started on the
-            # `main` of an hour ago, and one of the other nine tickets aimed at
-            # this repository has been merged since. Replaying the branch now is
-            # what makes the pull request open on top of what the repository
-            # actually holds rather than as a conflict somebody has to come and
-            # sort out by hand.
-            #
-            # A rebase that cannot be done is not a reason to keep the work
-            # here: `git.rebase` puts the branch back as it was, the pull
-            # request opens all the same, and the conflict is said on the ticket
-            # — which is the one place a person will look at it.
-            if self.config.runner.fetch:
-                git.fetch(project.path)
-            start = (
-                f"origin/{job.base}"
-                if git.has_ref(project.path, f"origin/{job.base}")
-                else job.base
-            )
-            was = git.head(job.workdir)
-            if failure := git.rebase(job.workdir, start, generated.settle):
-                self.say(f"    ! not replayed onto {start}: {failure}")
-                job.notes.append(said.say("rebase-refused", base=start, error=failure))
-            elif git.head(job.workdir) != was:
-                replayed = True
-                self.say(f"    · replayed onto {start}")
-                job.notes.append(said.say("rebased-onto", base=start))
+            replayed = self._replay_branch(job)
         if self.config.runner.push:
-            pushed = git.push(
+            if failure := self._push_branch(job, outcome, force=worktree.reused or replayed):
+                return failure
+            if self.config.runner.open_pull_request:
+                pull_request = self._open_pull_request(job, outcome, commits)
+
+        return self._code_delivered(job, outcome, commits, pull_request)
+
+    def _note_worktree(self, job: Job, worktree: git.Worktree) -> None:
+        """What the session is about to meet in its worktree, said before it starts."""
+        if worktree.reused:
+            # A ticket that has run before: said out loud, because the session
+            # about to start is continuing somebody's work rather than opening
+            # on an empty branch, and the comment should carry that too — the
+            # journal in English, like the rest of it, the comment in its voice.
+            self.say("    · " + voice_module.Voice().branch_note(worktree).replace("`", ""))
+            job.notes.append(self.voice.branch_note(worktree))
+            job.resumed = worktree.reused
+        if worktree.backup:
+            # Said to the session as well as to the ticket: the half-done work
+            # it is about to meet is no longer in its worktree, and nothing but
+            # this sentence tells it where it went.
+            self.say(f"    · interrupted worktree saved to {worktree.backup}")
+            job.notes.append(self.voice.backup_note(worktree, job.base))
+            job.backup = worktree.backup
+
+    def _code_stopped(self, job: Job, outcome: session.Outcome) -> dict:
+        """A session that did not succeed: blocked on a question, or killed."""
+        ticket, project = job.ticket, job.project
+        said = self.voice
+        code, reason, detail = self._why_stopped(
+            outcome, "session.question" if outcome.blocked else "session.killed"
+        )
+        # An agent that asked a question is waiting for you; a session that
+        # crashed is waiting for someone to look at the log. Different rows
+        # on the board, when the board has somewhere to put them.
+        kept = ""
+        if self.config.runner.keep_worktree_on_failure:
+            kept = said.say("worktree-kept", path=job.workdir, branch=job.branch)
+        else:
+            git.remove_worktree(project.path, job.workdir)
+        return self._fail(
+            ticket,
+            reason,
+            detail,
+            code=code,
+            blocked=outcome.blocked or bool(outcome.killed),
+            question=self._question(outcome, detail),
+            note=self._filed(job, outcome, kept),
+            outcome=outcome,
+        )
+
+    def _nothing_committed(self, job: Job, outcome: session.Outcome) -> dict:
+        """A session that succeeded with no commit: done outside, or blocked."""
+        ticket, project = job.ticket, job.project
+        said = self.voice
+        dirty = git.is_dirty(job.workdir)
+        if not dirty and _done_elsewhere(outcome.answer):
+            # Nothing to commit because nothing was to be: the work was a
+            # deployment, a setting, a board — and its report is what it
+            # delivers, written into the page as a document ticket's is. A
+            # session that changed files and left them uncommitted, or says
+            # it changed the code, is still blocked below.
+            git.remove_worktree(project.path, job.workdir)
+            self.say("    · nothing committed, the work was done outside the repository")
+            return self._deliver_text(
+                job,
+                outcome,
+                _report(outcome.answer) or outcome.summary,
+                note=said.say("done-elsewhere"),
+            )
+        if not dirty:
+            git.remove_worktree(project.path, job.workdir)
+        return self._fail(
+            ticket,
+            said.say("nothing-committed"),
+            outcome.summary,
+            code="session.no-commit",
+            blocked=True,
+            question=outcome.summary,
+            note=self._filed(job, outcome),
+            outcome=outcome,
+        )
+
+    def _replay_branch(self, job: Job) -> bool:
+        """The branch replayed onto where its base is now; True when it moved."""
+        project = job.project
+        said = self.voice
+        replayed = False
+        # The base has moved under this session: the ticket started on the
+        # `main` of an hour ago, and one of the other nine tickets aimed at
+        # this repository has been merged since. Replaying the branch now is
+        # what makes the pull request open on top of what the repository
+        # actually holds rather than as a conflict somebody has to come and
+        # sort out by hand.
+        #
+        # A rebase that cannot be done is not a reason to keep the work
+        # here: `git.rebase` puts the branch back as it was, the pull
+        # request opens all the same, and the conflict is said on the ticket
+        # — which is the one place a person will look at it.
+        if self.config.runner.fetch:
+            git.fetch(project.path)
+        start = (
+            f"origin/{job.base}"
+            if git.has_ref(project.path, f"origin/{job.base}")
+            else job.base
+        )
+        was = git.head(job.workdir)
+        if failure := git.rebase(job.workdir, start, generated.settle):
+            self.say(f"    ! not replayed onto {start}: {failure}")
+            job.notes.append(said.say("rebase-refused", base=start, error=failure))
+        elif git.head(job.workdir) != was:
+            replayed = True
+            self.say(f"    · replayed onto {start}")
+            job.notes.append(said.say("rebased-onto", base=start))
+        return replayed
+
+    def _push_branch(self, job: Job, outcome: session.Outcome, *, force: bool) -> dict | None:
+        """The branch pushed — or the ticket failed on the refusal, as `_fail` returns it."""
+        ticket = job.ticket
+        said = self.voice
+        pushed = git.push(
+            job.workdir,
+            job.branch,
+            force=force,
+            accounts=self.config.github,
+        )
+        if not pushed.ok:
+            message = pushed.err or pushed.out
+            if resources.network_error(message) and not resources.reachable():
+                # Not a refusal: GitHub was never asked. The branch and its
+                # commits stay where they are for the attempt after.
+                raise store.Unreachable(f"git push: {message}")
+            return self._fail(
+                ticket,
+                said.say("push-refused"),
+                pushed.err or pushed.out,
+                code="merge.push-refused",
+                note=self._filed(
+                    job, outcome, said.say("push-refused-detail", branch=job.branch)
+                ),
+                outcome=outcome,
+            )
+        return None
+
+    def _open_pull_request(self, job: Job, outcome: session.Outcome, commits: int) -> str:
+        """The pull request's address — empty when it could not be opened, which is said."""
+        ticket = job.ticket
+        said = self.voice
+        pull_request = ""
+        body = said.pull_request_body(
+            outcome.summary, ticket.url, outcome.session_id, commits
+        )
+        try:
+            # Prefixed the conventional way when the sub-type is known:
+            # squashed, the title is the commit that lands on the base.
+            pull_request = git.open_pull_request(
                 job.workdir,
-                job.branch,
-                force=worktree.reused or replayed,
+                subtypes.titled(job.subtype, ticket.title),
+                body,
+                job.base,
                 accounts=self.config.github,
             )
-            if not pushed.ok:
-                message = pushed.err or pushed.out
-                if resources.network_error(message) and not resources.reachable():
-                    # Not a refusal: GitHub was never asked. The branch and its
-                    # commits stay where they are for the attempt after.
-                    raise store.Unreachable(f"git push: {message}")
-                return self._fail(
-                    ticket,
-                    said.say("push-refused"),
-                    pushed.err or pushed.out,
-                    code="merge.push-refused",
-                    note=self._filed(
-                        job, outcome, said.say("push-refused-detail", branch=job.branch)
-                    ),
-                    outcome=outcome,
-                )
-            if self.config.runner.open_pull_request:
-                body = said.pull_request_body(
-                    outcome.summary, ticket.url, outcome.session_id, commits
-                )
-                try:
-                    # Prefixed the conventional way when the sub-type is known:
-                    # squashed, the title is the commit that lands on the base.
-                    pull_request = git.open_pull_request(
-                        job.workdir,
-                        subtypes.titled(job.subtype, ticket.title),
-                        body,
-                        job.base,
-                        accounts=self.config.github,
-                    )
-                except git.GitError as error:
-                    self.say(f"    ! pull request not opened: {error}")
-                    job.notes.append(said.say("no-pull-request-opened", error=error))
+        except git.GitError as error:
+            self.say(f"    ! pull request not opened: {error}")
+            job.notes.append(said.say("no-pull-request-opened", error=error))
+        return pull_request
 
+    def _code_delivered(
+        self, job: Job, outcome: session.Outcome, commits: int, pull_request: str
+    ) -> dict:
+        """A branch with commits: merged when forced, the board moved, and the ticket told."""
+        ticket, project = job.ticket, job.project
+        said = self.voice
         # Force validated: the merge that moving the ticket to validated would
         # have asked for, asked now — before the worktree goes, since the CI it
         # waits for is read from it. Only this far down: every road out of a
