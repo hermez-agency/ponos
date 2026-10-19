@@ -100,8 +100,8 @@ test("one chart says the created, the closed and the open; the other what they w
     figures.totals = { ...figures.totals, created: 9, closed: 4, open: 5 }
     figures.days = [
       { day: day(2), created: 4, closed: 1, open: 3, cost: 0 },
-      { day: day(1), created: 3, closed: 2, open: 4, cost: 0 },
-      { day: day(0), created: 2, closed: 1, open: 5, cost: 0 },
+      { day: day(1), created: 3, closed: 2, open: 4, cost: 3.42 },
+      { day: day(0), created: 2, closed: 1, open: 5, cost: 3.42 },
     ]
     figures.made = {
       unit: "day",
@@ -126,6 +126,7 @@ test("one chart says the created, the closed and the open; the other what they w
   await expect(tip).toContainText("Created3")
   await expect(tip).toContainText("Closed2")
   await expect(tip).toContainText("Open4")
+  await expect(tip).toContainText("Spent per day$3.42")
 
   const made = band(page).locator('[data-slot="made-chart"]')
   await expect(made.getByText("Unclassified")).toBeVisible()

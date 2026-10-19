@@ -1,6 +1,6 @@
 import * as React from "react"
 
-import { number } from "@/lib/numbers"
+import { money, number } from "@/lib/numbers"
 import type { StatisticsDay } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
@@ -16,6 +16,11 @@ import { cn } from "@/lib/utils"
  * than the flows — forty tickets open against three a day would be a ruler
  * nobody reads the bars on — and shares the left one otherwise, so a chart
  * with one axis is not read as two.
+ *
+ * The spending is a second line, on a scale of its own, further right: dollars
+ * are not tickets, and a day at three dollars would be flat against forty
+ * open ones. `cost` comes from the API added up from the first day; the line
+ * draws what each day spent, so it is the difference with the day before.
  *
  * Still an SVG drawn in the pixels it is given and nothing a chart library
  * would add: a few quiet rules, a legend, the day's three numbers under the
@@ -42,6 +47,7 @@ export interface ActivityLabels {
   created: string
   closed: string
   open: string
+  spent: string
 }
 
 export function ActivityChart({
@@ -86,7 +92,12 @@ export function ActivityChart({
   const left = scale(apart ? flows : Math.max(flows, stock), count)
   const right = apart ? scale(stock, count) : left
 
-  const margin = { left: MARGIN.side, right: apart ? MARGIN.side : 12 }
+  // Cents, so that the differences of rounded totals do not drift.
+  const spent = points.map((point, index) => Math.round((point.cost - (index ? points[index - 1].cost : 0)) * 100) / 100)
+  const expense = Math.max(0, ...spent)
+  const dear = scale(expense, count)
+
+  const margin = { left: MARGIN.side, right: (apart ? MARGIN.side : 12) + (expense > 0 ? MARGIN.side + 6 : 0) }
   const inner = Math.max(0, width - margin.left - margin.right)
   const tall = height - MARGIN.top - MARGIN.bottom
   const slot = points.length ? inner / points.length : 0
@@ -97,6 +108,8 @@ export function ActivityChart({
 
   const rules: number[] = []
   for (let value = 0; value <= left.top + left.step / 2; value += left.step) rules.push(value)
+  const dollars: number[] = []
+  if (expense > 0) for (let value = 0; value <= dear.top + dear.step / 2; value += dear.step) dollars.push(value)
   const others: number[] = []
   if (apart) for (let value = 0; value <= right.top + right.step / 2; value += right.step) others.push(value)
 
@@ -114,11 +127,13 @@ export function ActivityChart({
   }
 
   const series = [
-    { key: "created", label: labels.created, color: "var(--series-1)", value: (point: StatisticsDay) => point.created },
-    { key: "closed", label: labels.closed, color: "var(--series-2)", value: (point: StatisticsDay) => point.closed },
-    { key: "open", label: labels.open, color: "var(--series-3)", value: (point: StatisticsDay) => point.open },
+    { key: "created", label: labels.created, color: "var(--series-1)", value: (_: StatisticsDay) => _.created, format: number },
+    { key: "closed", label: labels.closed, color: "var(--series-2)", value: (_: StatisticsDay) => _.closed, format: number },
+    { key: "open", label: labels.open, color: "var(--series-3)", value: (_: StatisticsDay) => _.open, format: number },
+    { key: "spent", label: labels.spent, color: "var(--series-4)", value: (_: StatisticsDay, index: number) => spent[index], format: money },
   ]
   const line = points.map((point, index) => `${index ? "L" : "M"}${x(index)},${y(point.open, right)}`).join("")
+  const spending = points.map((_, index) => `${index ? "L" : "M"}${x(index)},${y(spent[index], dear)}`).join("")
   const at = hovered !== null ? points[hovered] : undefined
 
   return (
@@ -127,11 +142,11 @@ export function ActivityChart({
         {series.map((one) => (
           <li key={one.key} className="text-muted-foreground inline-flex items-center gap-1.5">
             <span
-              className={one.key === "open" ? "h-0.5 w-3 rounded-full" : "size-2.5 rounded-sm"}
+              className={one.key === "open" || one.key === "spent" ? "h-0.5 w-3 rounded-full" : "size-2.5 rounded-sm"}
               style={{ background: one.color }}
             />
             {one.label}
-            {one.key === "open" && apart ? " →" : null}
+            {(one.key === "open" && apart) || (one.key === "spent" && expense > 0) ? " →" : null}
           </li>
         ))}
       </ul>
@@ -185,6 +200,20 @@ export function ActivityChart({
               </text>
             ))}
 
+            {dollars.map((value) => (
+              <text
+                key={value}
+                x={width - margin.right + 8 + (apart ? MARGIN.side : 0)}
+                y={y(value, dear)}
+                dy="0.32em"
+                textAnchor="start"
+                className="font-mono text-[0.65rem]"
+                style={{ fill: "var(--series-4)" }}
+              >
+                {money(value, 0)}
+              </text>
+            ))}
+
             {ticks.map((index) => (
               <text
                 key={index}
@@ -210,7 +239,7 @@ export function ActivityChart({
 
             {points.map((point, index) =>
               series.slice(0, 2).map((one, side) => {
-                const value = one.value(point)
+                const value = one.value(point, index)
                 if (!value) return null
                 const top = y(value, left)
                 return (
@@ -238,15 +267,36 @@ export function ActivityChart({
               />
             ) : null}
 
-            {hovered !== null && at ? (
-              <circle
-                cx={x(hovered)}
-                cy={y(at.open, right)}
-                r={4}
-                fill="var(--series-3)"
-                className="stroke-card"
+            {points.length ? (
+              <path
+                d={spending}
+                fill="none"
+                stroke="var(--series-4)"
                 strokeWidth={2}
+                strokeLinejoin="round"
+                strokeLinecap="round"
               />
+            ) : null}
+
+            {hovered !== null && at ? (
+              <>
+                <circle
+                  cx={x(hovered)}
+                  cy={y(at.open, right)}
+                  r={4}
+                  fill="var(--series-3)"
+                  className="stroke-card"
+                  strokeWidth={2}
+                />
+                <circle
+                  cx={x(hovered)}
+                  cy={y(spent[hovered], dear)}
+                  r={4}
+                  fill="var(--series-4)"
+                  className="stroke-card"
+                  strokeWidth={2}
+                />
+              </>
             ) : null}
           </svg>
         ) : null}
@@ -264,7 +314,7 @@ export function ActivityChart({
                   <span className="size-2 rounded-full" style={{ background: one.color }} />
                   {one.label}
                 </span>
-                <span className="font-mono font-semibold tabular-nums">{number(one.value(at))}</span>
+                <span className="font-mono font-semibold tabular-nums">{one.format(one.value(at, hovered!))}</span>
               </p>
             ))}
           </div>
@@ -291,7 +341,7 @@ export function ActivityChart({
               <tr key={index}>
                 <th scope="row">{longDay(point)}</th>
                 {series.map((one) => (
-                  <td key={one.key}>{number(one.value(point))}</td>
+                  <td key={one.key}>{one.format(one.value(point, index))}</td>
                 ))}
               </tr>
             ))}
