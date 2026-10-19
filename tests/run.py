@@ -46,7 +46,7 @@ from ponos import db, files, images, journal, project_settings, vault  # noqa: E
 from ponos.channels import slack as slack_channel, telegram as telegram_channel  # noqa: E402
 from ponos import legacy, models, update, voice, workspace  # noqa: E402
 from ponos import ticket as ticket_module  # noqa: E402
-from ponos import worktime  # noqa: E402
+from ponos import redaction, worktime  # noqa: E402
 from ponos.runner import Runner  # noqa: E402
 from ponos import __version__  # noqa: E402
 from ponos.__main__ import _names, banner, subcommands, welcome  # noqa: E402
@@ -10054,6 +10054,89 @@ def a_message_written_to_a_ticket_reaches_every_open_console():
     assert event.payload["ticket"] == "p-ticket"
     assert event.payload["role"] == "you"
     assert event.payload["text"] == "on garde le bandeau"
+
+
+@case
+def a_password_is_masked_and_what_only_talks_of_one_is_left_alone():
+    """The sentences `frontend/src/lib/secrets.test.ts` reads, read here too.
+
+    Masked, the label stays and the value goes: the next session still knows
+    a password was given, and has to ask for it some other way.
+    """
+    shown = {
+        "mot de passe : hunter2": (["password"], "mot de passe : ••••••"),
+        "password=S3cr3t!": (["password"], "password=••••••"),
+        "Le mot de passe npm de l'agence est Hz!2026kpl": (
+            ["password"], "Le mot de passe npm de l'agence est ••••••",
+        ),
+        'mdp: "azerty123" merci': (["password"], 'mdp: "••••••" merci'),
+        "la clé API : abcd1234": (["password"], "la clé API : ••••••"),
+        "voici ghp_abcdefghijklmnopqrstuvwxyz0123456789": (["token"], "voici ••••••"),
+        "sk-ant-api03-abcdefghijklmnopqrstuvwxyz": (["token"], "••••••"),
+        "npm_abcdefghijklmnopqrstuvwxyz0123456789": (["token"], "••••••"),
+        "git clone https://salva:p4ss@github.com/x/y.git": (
+            ["address"], "git clone https://salva:••••••@github.com/x/y.git",
+        ),
+        "token : ghp_abcdefghijklmnopqrstuvwxyz0123456789": (["token", "password"], "token : ••••••"),
+    }
+    for text, (kinds, masked) in shown.items():
+        assert redaction.found(text) == kinds, (text, redaction.found(text))
+        assert redaction.masked(text) == masked, (text, redaction.masked(text))
+    for text in (
+        "le token est expiré, refais-le",
+        "le secret est dans le coffre",
+        "Oui, vas-y avec le mot de passe que tu as.",
+        "commit 8df7c20a1b2c3d4e5f60718293a4b5c6d7e8f901, session 3fe451680af4819c8f1bdb25215b6ff7",
+        "https://github.com/SalvadorCardona/ticket-runner/pull/284",
+    ):
+        assert redaction.found(text) == [], text
+        assert redaction.masked(text) == text, text
+
+
+@case
+def the_page_and_the_runner_know_the_same_tokens():
+    """`secrets.ts` warns about what `redaction` masks: the same list, twice."""
+    source = (Path(__file__).resolve().parents[1] / "frontend/src/lib/secrets.ts").read_text()
+    listed = re.search(r"export const TOKENS[^\[]*\[(.*?)\n\]", source, re.S)
+    assert listed, "secrets.ts lost its TOKENS"
+    written = re.findall(r"String\.raw`(.*?)`,", listed.group(1))
+    assert written == list(redaction.TOKENS), written
+
+
+@case
+def a_password_typed_at_a_ticket_never_reaches_the_page():
+    """Masked before the comment, the stream and the answer all see it."""
+    client = _TalkClient([])
+    api = _bare_api(client)
+    channel = api.hub.subscribe(after=0)
+    message = api.tell("p-ticket", "Le mot de passe npm est Hz!2026kpl, publie la 1.2.0")
+    written = client.written[0][1]
+    assert "Hz!2026kpl" not in written, written
+    assert conversation.said(written) == "Le mot de passe npm est ••••••, publie la 1.2.0"
+    assert "Hz!2026kpl" not in channel.get_nowait().payload["text"]
+    assert "Hz!2026kpl" not in message["text"]
+
+    # A reply from a phone goes the same way.
+    relayed = channels.answer(
+        channels.Reply(channel="telegram", text="token: npm_abcdefghijklmnopqrstuvwxyz0123456789")
+    )
+    assert "npm_" not in relayed and relayed.endswith("token: ••••••"), relayed
+
+
+@case
+def a_password_given_with_a_decision_never_reaches_the_page():
+    """The instruction typed under a blocked ticket is an answer like any other."""
+    settings = C.Notion()
+    with _state_home(), _board() as board:
+        project = board.create_row("projects", "Usine", {"Repository": "user/usine"})
+        api = _ideas_api(board)
+        said = api.runner.voice
+        page = board.create_row("tickets", "Publish", {"Status": settings.state("blocked")})
+        board.update("tickets", page, {"Project": [project]})
+        board.comment(page, said.report(said.verdict("blocked", "nothing"), "No npm login."))
+        api.decide(page, "other", text="Le mot de passe : Hz!2026kpl")
+        comment = board.comments(page)[-1].text
+        assert "Hz!2026kpl" not in comment and comment.endswith("Le mot de passe : ••••••"), comment
 
 
 @case

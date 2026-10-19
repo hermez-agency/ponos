@@ -393,6 +393,14 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
   asked in a comment and has finished is told to end `RESULT: ok`; one that says `blocked`
   without asking anything, its deliverable written, goes to review.
 
+### Security
+
+- **A password or a token typed in an answer no longer stays in the ticket's comments.** The console holds back a
+  message that looks like one — a value after « mot de passe : », `password=` or « token est », a GitHub, npm,
+  Anthropic, OpenRouter or Slack token, a private key, a password inside an address — and says so; sent again, it
+  goes, masked. Whatever the runner recognises is replaced by `••••••` before it is written to Notion, shown in the console
+  or relayed from Telegram and Slack: the label stays, so the next session knows something was given, never what.
+
 ### Changed
 
 - **A new idea is written in a quick-entry window rather than a drawer the height of the screen.** « New idea »

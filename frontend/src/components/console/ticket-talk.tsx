@@ -27,6 +27,7 @@ import {
   typedOf,
 } from "@/lib/decision"
 import { currentLanguage, t as translate, useT } from "@/lib/i18n"
+import { secretsIn } from "@/lib/secrets"
 import type { Decision, Solution, Ticket } from "@/lib/types"
 
 import { Composer } from "./composer"
@@ -88,6 +89,8 @@ export function TicketTalk({ ticket, onSession }: { ticket: Ticket; onSession: (
   const board = useBoard()
   const t = useT()
   const [problem, setProblem] = React.useState("")
+  // The message held back once for a secret in it: sent, masked, if pressed again as it is.
+  const [warned, setWarned] = React.useState("")
   const [busy, setBusy] = React.useState(false)
   const [model, setModel] = React.useState("")
   const [abandoning, setAbandoning] = React.useState(false)
@@ -173,6 +176,17 @@ export function TicketTalk({ ticket, onSession }: { ticket: Ticket; onSession: (
 
   const send = async (text: string) => {
     setProblem("")
+    // A comment stays on the page: a password in it is said before it leaves.
+    if (secretsIn(text).length && warned !== text) {
+      setWarned(text)
+      setProblem(
+        t(
+          "This looks like a password or a token. Nothing was sent: remove it, or send again and it will be masked before it reaches the ticket."
+        )
+      )
+      return false
+    }
+    setWarned("")
     const offer = blocked
       ? model
         ? solutions.find((solution) => solution.key === "model")
