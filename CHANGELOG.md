@@ -18,6 +18,11 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Changed
 
+- **The Projects and Ideas lists filter the way the Dashboard does.** Their filters are buttons with their name in
+  them, dashed until they ask for something and then saying what, instead of a row of labels taller than the fields
+  under it. On a phone the bar wraps rather than scrolling sideways out of sight — "All types" and "Ticket" are no
+  longer cut at the edge — and the Ideas filters other than the status fold behind a "Filters" button that counts
+  the ones on. "Ponos, find me ideas" sits in the page's header, beside "New idea", with "Score the unscored ideas".
 - **Ponos is orange, the Hermez one.** The robot, its favicon, the app icons and the Open Graph card were blue; they are
   the Hermez orange now, in both themes. The console's links, the running state, the unread dot and the recurrence summary
   take the brand's primary colour instead of the old blue, and the landing page's favicon is reloaded.

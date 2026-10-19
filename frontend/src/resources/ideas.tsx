@@ -1,4 +1,5 @@
 import * as React from "react"
+import { createPortal } from "react-dom"
 import { Gauge, Lightbulb } from "lucide-react"
 import {
   ActionList,
@@ -28,6 +29,7 @@ import {
   useToneWords,
 } from "@/components/console/idea-cards"
 import { ConfirmDialog } from "@/components/console/confirm-dialog"
+import { FilterSelect, listFilters } from "@/components/console/filter-bar"
 import {
   ChipsInputController,
   IdeaFields,
@@ -40,7 +42,6 @@ import {
 import { IdeasButton } from "@/components/console/ideas-deck"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { api, why } from "@/lib/api"
 import { counted, t, useT } from "@/lib/i18n"
 import {
@@ -184,7 +185,9 @@ export function ideasChanged(idea?: Idea) {
 
 /* The status: a row of buttons, each with how many ideas it would show, as the
  * pane had them. A select would hide the counts, which are what the row is
- * read for. The counts follow the two other filters (see `idea-search.ts`). */
+ * read for: it is the one filter always in sight, and wraps on a phone rather
+ * than running past its edge. The counts follow the other filters (see
+ * `idea-search.ts`). */
 const StatusFilter: InputControllerComponentInterface = ({ formInput, onChange }) => {
   const { filter } = useCurrentViewResourceContext()
   const known = useIdeas().ideas ?? []
@@ -192,7 +195,7 @@ const StatusFilter: InputControllerComponentInterface = ({ formInput, onChange }
   const counted = counts(known, filter ?? {})
   const value = String(formInput.value ?? "")
   return (
-    <div className="flex flex-nowrap gap-1" role="group" aria-label={t("Status")}>
+    <div className="flex flex-wrap gap-1" role="group" aria-label={t("Status")}>
       {(["", ...STATUSES] as const).map((key) => (
         <Button
           key={key || "all"}
@@ -215,16 +218,10 @@ const StatusFilter: InputControllerComponentInterface = ({ formInput, onChange }
   )
 }
 
-/* A select of the bar, positioned: Radix draws a native select beside it,
- * absolutely, and one placed against the page rather than against the bar
- * escapes the bar's scrolling and widens a phone's screen. */
-const Choice = ({ children }: { children: React.ReactNode }) => <div className="relative">{children}</div>
-
 /* Whom an idea is for: every project an idea is for, by its name, and the
  * workspace. Drawn here rather than by the package's select, whose options are
- * asked for once: these are the ones the last read found. */
-const ANY = "__any__"
-
+ * asked for once: these are the ones the last read found. Each of the five is
+ * a button of the board's search bar (see `filter-bar.tsx`), its name in it. */
 const ProjectFilter: InputControllerComponentInterface = ({ formInput, onChange }) => {
   const known = useIdeas().ideas ?? []
   const projects = useProjects()
@@ -233,78 +230,52 @@ const ProjectFilter: InputControllerComponentInterface = ({ formInput, onChange 
   }, [])
   const named = scopes(known)
     .map((id) => ({
-      id,
-      name: projects?.projects.find((one) => bare(one.id) === id)?.name ?? t("Project"),
+      value: id,
+      label: projects?.projects.find((one) => bare(one.id) === id)?.name ?? t("Project"),
     }))
-    .sort((a, b) => a.name.localeCompare(b.name))
+    .sort((a, b) => a.label.localeCompare(b.label))
   return (
-    <Choice>
-      <Select
-        value={String(formInput.value ?? "") || ANY}
-        onValueChange={(value) => onChange({ ...formInput, value: value === ANY ? "" : value })}
-      >
-        <SelectTrigger size="sm" className="h-8 w-auto text-xs" data-slot="ideas-project-filter" aria-label={t("Project")}>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={ANY}>{t("All projects")}</SelectItem>
-          <SelectItem value={WORKSPACE}>{t("Workspace")}</SelectItem>
-          {named.map((one) => (
-            <SelectItem key={one.id} value={one.id}>
-              {one.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </Choice>
+    <FilterSelect
+      label={t("Project")}
+      data-slot="ideas-project-filter"
+      value={String(formInput.value ?? "")}
+      onChange={(value) => onChange({ ...formInput, value })}
+      options={[{ value: "", label: t("All projects") }, { value: WORKSPACE, label: t("Workspace") }, ...named]}
+    />
   )
 }
 
-/* Who wrote it, in the same shape as the project: two selects side by side
- * that do not look like two different things. */
+/* Who wrote it, in the same shape as the project. */
 const AuthorFilter: InputControllerComponentInterface = ({ formInput, onChange }) => (
-  <Choice>
-    <Select
-      value={String(formInput.value ?? "") || ANY}
-      onValueChange={(value) => onChange({ ...formInput, value: value === ANY ? "" : value })}
-    >
-      <SelectTrigger size="sm" className="h-8 w-auto text-xs" data-slot="ideas-author-filter" aria-label={t("Written by")}>
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value={ANY}>{t("Written by anyone")}</SelectItem>
-        {AUTHORS.map((author) => (
-          <SelectItem key={author} value={author}>
-            {author === "ponos" ? t("Written by Ponos") : t("Written by us")}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  </Choice>
+  <FilterSelect
+    label={t("Written by")}
+    data-slot="ideas-author-filter"
+    value={String(formInput.value ?? "")}
+    onChange={(value) => onChange({ ...formInput, value })}
+    options={[
+      { value: "", label: t("Written by anyone") },
+      ...AUTHORS.map((author) => ({
+        value: author,
+        label: author === "ponos" ? t("Written by Ponos") : t("Written by us"),
+      })),
+    ]}
+  />
 )
 
-/* What an idea is about, in the same shape as the two others. */
+/* What an idea is about, in the same shape. */
 const CategoryFilter: InputControllerComponentInterface = ({ formInput, onChange }) => {
   useT()
   return (
-    <Choice>
-      <Select
-        value={String(formInput.value ?? "") || ANY}
-        onValueChange={(value) => onChange({ ...formInput, value: value === ANY ? "" : value })}
-      >
-        <SelectTrigger size="sm" className="h-8 w-auto text-xs" data-slot="ideas-category-filter" aria-label={t("Category")}>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={ANY}>{t("All categories")}</SelectItem>
-          {CATEGORIES.map((category) => (
-            <SelectItem key={category} value={category}>
-              {CATEGORY_WORDS[category]}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </Choice>
+    <FilterSelect
+      label={t("Category")}
+      data-slot="ideas-category-filter"
+      value={String(formInput.value ?? "")}
+      onChange={(value) => onChange({ ...formInput, value })}
+      options={[
+        { value: "", label: t("All categories") },
+        ...CATEGORIES.map((category) => ({ value: category, label: CATEGORY_WORDS[category] })),
+      ]}
+    />
   )
 }
 
@@ -312,57 +283,45 @@ const CategoryFilter: InputControllerComponentInterface = ({ formInput, onChange
 const ScoreFilter: InputControllerComponentInterface = ({ formInput, onChange }) => {
   const words = useToneWords()
   return (
-    <Choice>
-      <Select
-        value={String(formInput.value ?? "") || ANY}
-        onValueChange={(value) => onChange({ ...formInput, value: value === ANY ? "" : value })}
-      >
-        <SelectTrigger size="sm" className="h-8 w-auto text-xs" data-slot="ideas-score-filter" aria-label={t("Score")}>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={ANY}>{t("All scores")}</SelectItem>
-          {TONES.map((tone) => (
-            <SelectItem key={tone} value={tone}>
-              {words[tone]}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </Choice>
+    <FilterSelect
+      label={t("Score")}
+      data-slot="ideas-score-filter"
+      value={String(formInput.value ?? "")}
+      onChange={(value) => onChange({ ...formInput, value })}
+      options={[{ value: "", label: t("All scores") }, ...TONES.map((tone) => ({ value: tone, label: words[tone] }))]}
+    />
   )
 }
 
-/* The order: "" is the one the status rests on, and the select shows which
+/* The order: "" is the one the status rests on, and the button says which
  * that is; choosing it again puts "" back, so the address says only a choice. */
 const OrderFilter: InputControllerComponentInterface = ({ formInput, onChange }) => {
   const { filter } = useCurrentViewResourceContext()
   const resting = orderOf({ status: filter?.status })
   const shown = orderOf({ status: filter?.status, sorted: formInput.value })
   return (
-    <Choice>
-      <Select
-        value={shown}
-        onValueChange={(value) => onChange({ ...formInput, value: value === resting ? "" : value })}
-      >
-        <SelectTrigger size="sm" className="h-8 w-auto text-xs" data-slot="ideas-order" aria-label={t("Order")}>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {ORDERS.map((order) => (
-            <SelectItem key={order} value={order}>
-              {order === "relevance" ? t("Most relevant first") : t("Newest first")}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </Choice>
+    <FilterSelect
+      label={t("Order")}
+      data-slot="ideas-order"
+      value={shown}
+      resting={resting}
+      always
+      onChange={(value) => onChange({ ...formInput, value: value === resting ? "" : value })}
+      options={ORDERS.map((order) => ({
+        value: order,
+        label: order === "relevance" ? t("Most relevant first") : t("Newest first"),
+      }))}
+    />
   )
 }
 
 /* The filters, in the address as `status`, `category`, `score`, `project`, `author` and `sorted`; ""
  * is "all" for each, which is where the list rests. The labels are read from
- * the dictionary as the bar is drawn. */
+ * the dictionary as the bar is drawn, for a screen reader: each button says
+ * its own name. The status stays in sight, the five others fold behind
+ * "Filters" on a phone. */
+const IdeaFilters = listFilters({ lead: "status", fold: true })
+
 const statusFilter = { label: "Status", controller: StatusFilter }
 const categoryFilter = { label: "Category", controller: CategoryFilter }
 const authorFilter = { label: "Written by", controller: AuthorFilter }
@@ -370,6 +329,7 @@ const scoreFilter = { label: "Score", controller: ScoreFilter }
 const orderFilter = { label: "Order", controller: OrderFilter }
 
 const formFilter: FormInterface = {
+  components: { formInputs: IdeaFilters },
   inputs: {
     status: statusFilter,
     category: categoryFilter,
@@ -383,6 +343,7 @@ const formFilter: FormInterface = {
 /* Under a project, or in the swipe: the scope is the filter whoever draws the
  * list injects, and the package keeps an injected filter through a reset. */
 const scopedFormFilter: FormInterface = {
+  components: { formInputs: IdeaFilters },
   inputs: { status: statusFilter, category: categoryFilter, score: scoreFilter, author: authorFilter, sorted: orderFilter },
 }
 
@@ -520,21 +481,47 @@ function ScoreUnscored() {
   )
 }
 
-/** The swipe, for the project the filter is on — or the workspace's — and why nothing was read, where nothing was. */
+/* The controls of the list's header — the layouts, "New idea" — where the
+ * swipe goes too. The package draws that header with no room for another
+ * action, and what is drawn above the view sat over the heading, apart from
+ * the gesture it is the twin of: found beside the anchor, in the same view,
+ * and found again whenever the view draws its header anew. */
+function useHeaderControls(anchor: React.RefObject<HTMLElement | null>) {
+  const [controls, setControls] = React.useState<Element | null>(null)
+  React.useEffect(() => {
+    const view = anchor.current?.parentElement
+    if (!view) return
+    const find = () => setControls(view.querySelector('[data-slot="list-header-controls"]'))
+    find()
+    const watch = new MutationObserver(find)
+    watch.observe(view, { childList: true, subtree: true })
+    return () => watch.disconnect()
+  }, [anchor])
+  return controls
+}
+
+/** The swipe, for the project the filter is on — or the workspace's — beside "New idea", and why nothing was read, where nothing was. */
 function IdeasTop() {
   const { filter, fetchData } = useCurrentViewResourceContext()
   const { problem } = useIdeas()
   const projects = useProjects()
+  const anchor = React.useRef<HTMLDivElement>(null)
+  const controls = useHeaderControls(anchor)
   useLayoutInTheAddress(IDEAS)
   const chosen = String(filter?.project ?? "")
   const project = chosen === WORKSPACE ? "" : chosen
   const name = projects?.projects.find((one) => bare(one.id) === project)?.name
   return (
-    <div className="mb-2 flex flex-col gap-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <IdeasButton project={project} name={name} onClose={() => void fetchData?.()} />
-        <ScoreUnscored />
-      </div>
+    <div ref={anchor} className={problem ? "mb-2" : undefined}>
+      {controls
+        ? createPortal(
+            <>
+              <IdeasButton project={project} name={name} onClose={() => void fetchData?.()} />
+              <ScoreUnscored />
+            </>,
+            controls
+          )
+        : null}
       {problem ? (
         <Alert variant="destructive">
           <AlertDescription>{problem}</AlertDescription>

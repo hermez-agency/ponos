@@ -1,6 +1,10 @@
 import * as React from "react"
 import { Check, Clock, Columns2, Copy, FileText, Folder, FolderGit2, LayoutGrid, Plus, SearchX, X } from "lucide-react"
-import { ActionList, SelectInputController, type FormInterface } from "react-data-form"
+import {
+  ActionList,
+  type FormInterface,
+  type InputControllerComponentInterface,
+} from "react-data-form"
 import {
   Link,
   ListPagination,
@@ -18,6 +22,7 @@ import {
 
 import { ContextBlock } from "@/components/console/context-block"
 import { EmptyState } from "@/components/console/empty-state"
+import { FilterSelect, listFilters } from "@/components/console/filter-bar"
 import { MarkdownInputController } from "@/components/console/markdown-editor"
 import { ProjectThumb } from "@/components/console/project-picture"
 import { ProjectMenu } from "@/components/console/project-delete"
@@ -39,7 +44,7 @@ import { Button, buttonVariants } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api } from "@/lib/api"
 import { useTicketTallies, type Tally } from "@/lib/board-store"
-import { counted, t } from "@/lib/i18n"
+import { counted, t, useT } from "@/lib/i18n"
 import { repositoryName, shortPath } from "@/lib/places"
 import { KINDS, filtering, keeps } from "@/lib/project-search"
 import { carrying, layoutOf, useLayoutInTheAddress } from "@/lib/resource-view"
@@ -998,31 +1003,37 @@ function NoProject() {
 /* -- the declaration ------------------------------------------------------ */
 
 /* The search over the list: the words of a name (or of a type), and one of the
- * two types. The labels are read from the dictionary as the bar is drawn. */
+ * two types. The labels are read from the dictionary as the bar is drawn, for
+ * a screen reader: the box and the button say what they are, as the board's
+ * search bar does, and a row of two labels over two fields was the tallest
+ * thing on the page. The type is one of the board's filter buttons (see
+ * `filter-bar.tsx`), beside the box, under it on a phone. */
+const TypeFilter: InputControllerComponentInterface = ({ formInput, onChange }) => {
+  const t = useT()
+  return (
+    <FilterSelect
+      label={t("Type")}
+      data-slot="projects-type-filter"
+      value={String(formInput.value ?? "")}
+      onChange={(value) => onChange({ ...formInput, value })}
+      options={[
+        { value: "", label: t("All types") },
+        ...KINDS.map((kind) => ({ value: kind, label: kind === "code" ? t("code work") : t("document work") })),
+      ]}
+    />
+  )
+}
+
 const formFilter: FormInterface = {
+  components: { formInputs: listFilters({ lead: "q", grow: true }) },
   inputs: {
-    // The labels are for a screen reader: the box and the select say what they
-    // are, as the board's search bar does, and a row of two labels over two
-    // fields was the tallest thing on the page.
     q: {
       label: "Search",
-      className: "[&_[data-slot=field-label]]:sr-only",
       get placeholder() {
         return t("Search a project")
       },
     },
-    type: {
-      label: "Type",
-      className: "[&_[data-slot=field-label]]:sr-only",
-      get placeholder() {
-        return t("All types")
-      },
-      controller: SelectInputController,
-      getValueOptions: async () => [
-        { value: "", label: t("All types") },
-        ...KINDS.map((kind) => ({ value: kind, label: kind === "code" ? t("code work") : t("document work") })),
-      ],
-    },
+    type: { label: "Type", controller: TypeFilter },
   },
 }
 
