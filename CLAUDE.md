@@ -153,6 +153,10 @@ deux suites, puis publie l'image sur `ghcr.io`.
   `frontend/src/lib/composer.ts` (ce que la page refuse d'emblée) : un test
   vérifie qu'ils concordent. N'y ajouter ni HTML ni SVG — les fichiers sont
   resservis depuis l'origine de la console.
+- **Les formes de token sont écrites deux fois.** `TOKENS` dans `redaction.py`
+  (ce que le runner masque avant d'écrire un commentaire) et dans
+  `frontend/src/lib/secrets.ts` (ce dont la console avertit avant l'envoi) :
+  un test vérifie qu'elles concordent.
 - **Deux phrases identiques, deux endroits.** Certaines chaînes affichées par
   la console (nom d'un réglage, texte d'aide) viennent de `web/settings.py`
   côté Python et sont recherchées par leur texte exact côté React — renommer

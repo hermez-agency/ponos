@@ -27,7 +27,7 @@ from typing import Any
 from .. import blocks, ci
 from .. import config as config_module
 from .. import channels, cleanup, conversation, credits, decisions, git, images, question, session, state, store, sync
-from .. import journal, models, notifications, project_settings, resources, subtypes, systemd, voice, worktime
+from .. import journal, models, notifications, project_settings, redaction, resources, subtypes, systemd, voice, worktime
 from .. import kinds as kinds_module
 from .. import provision
 from .. import schedules as schedules_module
@@ -1304,8 +1304,12 @@ class Api:
         it is part of. And it opens with `conversation.RELAYED`, because the only
         Notion token this console has is the runner's own: without that line the
         next run would read its own voice, and answer itself forever.
+
+        A password or a token in it never reaches the page: it is masked here,
+        before the comment, the stream or anything else sees it — see
+        `redaction`.
         """
-        text = text.strip()
+        text = redaction.masked(text.strip())
         if not text:
             raise ValueError("nothing to say")
         me = self.runner.myself()
@@ -1438,7 +1442,7 @@ class Api:
         )
         if solution is None:
             raise ValueError(f"“{key}” is not something this ticket offers")
-        text = str(text or "").strip()
+        text = redaction.masked(str(text or "").strip())
         named = [title.strip() for title in titles or [] if title.strip()]
         if solution.needs == "text" and not text:
             raise ValueError("this choice needs an instruction")

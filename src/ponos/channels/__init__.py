@@ -39,7 +39,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .. import disk, question, vault, voice
+from .. import disk, question, redaction, vault, voice
 from ..config import Notify, state_dir
 
 # How many questions a channel remembers, so that a reply arriving tomorrow
@@ -152,7 +152,9 @@ def answer(reply: Reply, said: voice.Voice | None = None, asked: question.Questi
         + (said.say("relayed-by", who=reply.who) if reply.who else "")
         + "."
     ]
-    return "\n".join(lines + spelled(reply.text, said, asked))
+    # A password typed on a phone is masked like one typed in the console —
+    # see `redaction`: a comment stays, and is read by every run after.
+    return "\n".join(lines + spelled(redaction.masked(reply.text), said, asked))
 
 
 def spelled(text: str, said: voice.Voice, asked: question.Question | None = None) -> list[str]:
