@@ -239,17 +239,19 @@ export function ContextBlock() {
           </div>
         </>
       ) : (
-        <EmptyState
-          icon={BookOpen}
-          action={
-            <Button size="sm" onClick={() => setEditing(true)}>
-              <Pencil />
-              {t("Write the context")}
-            </Button>
-          }
-        >
-          {t("Nothing is written yet, so the tickets are told nothing about who the work is for.")}
-        </EmptyState>
+        // One line and its button: an empty state as tall as the screen's
+        // empty states was the largest thing on the Projects page, for a text
+        // nobody had written yet.
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-dashed px-4 py-3">
+          <p className="text-muted-foreground flex min-w-0 items-center gap-2 text-sm">
+            <BookOpen className="size-4 shrink-0" />
+            {t("Nothing is written yet, so the tickets are told nothing about who the work is for.")}
+          </p>
+          <Button size="sm" onClick={() => setEditing(true)}>
+            <Pencil />
+            {t("Write the context")}
+          </Button>
+        </div>
       )}
 
       <ConfirmDialog

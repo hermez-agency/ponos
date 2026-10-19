@@ -608,10 +608,12 @@ const options: ResourceDefinition<IdeaItem, IdeaWrite> = {
       description: "What Ponos proposed, kept or thrown away, for the workspace and for each project.",
       /* The two layouts. Their labels go through the dictionary as the tabs
        * are drawn, and their address is their type: `cards`, `table`, in
-       * every language. */
+       * every language. At the width of the page, as the board and the
+       * projects are: in a column, the row of six filters ran past its edge
+       * and cut the last one in two. */
       layouts: [
-        layout.cards({ label: "cards", components: { list: IdeaCards } }),
-        layout.table({ label: "table", components: { list: IdeaRows } }),
+        layout.cards({ label: "cards", fullWidth: true, components: { list: IdeaCards } }),
+        layout.table({ label: "table", fullWidth: true, components: { list: IdeaRows } }),
       ],
       // Every card carries its own gestures (see `idea-cards.tsx`).
       rowActions: [],

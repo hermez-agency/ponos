@@ -2,7 +2,7 @@ import * as React from "react"
 import { useLocation, useRouter } from "@tanstack/react-router"
 import { ChevronDown, Search, SearchX, SlidersHorizontal, X } from "lucide-react"
 
-import { blockSaid, capital, columnTitle, SubtypeDot } from "@/components/console/ticket-bits"
+import { blockSaid, capital, choiceWord, columnTitle, SubtypeDot } from "@/components/console/ticket-bits"
 import { EmptyState } from "@/components/console/empty-state"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -167,6 +167,10 @@ function offered(
   }
   return options.some((option) => option.count) ? options : []
 }
+
+/** The board's choices, labelled in the console's language: see `choiceWord`. */
+const said = (choices: Choice[] = []): Choice[] =>
+  choices.map((choice) => ({ ...choice, label: choiceWord(choice.label) }))
 
 /** One property, as a button and the list of its values, any number of them ticked. */
 function FacetFilter({
@@ -392,7 +396,7 @@ export function TicketSearch({
 
   const choices = board.choices ?? {}
   const facets: Record<Facet, Option[]> = {
-    type: offered(tickets, (ticket) => ticket.type, choices.type),
+    type: offered(tickets, (ticket) => ticket.type, said(choices.type), choiceWord),
     // In the table's order, each behind its dot, in the developers' word.
     subtype: offered(
       tickets,
@@ -413,7 +417,7 @@ export function TicketSearch({
         label: capital(columnTitle(column.key, column.name)),
         count: tickets.filter((ticket) => ticket.column === column.key).length,
       })),
-    priority: offered(tickets, (ticket) => ticket.priority, choices.priority),
+    priority: offered(tickets, (ticket) => ticket.priority, said(choices.priority), choiceWord),
     model: offered(
       tickets,
       (ticket) => ticket.model,

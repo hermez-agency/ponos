@@ -230,6 +230,18 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Changed
 
+- **A tidier console, after a page-by-page review.** The Projects page puts its projects first: the search and the
+  *Type* filter are one compact row (*All types* rather than *Choose…*), the three layouts have three icons, the count of
+  projects with a repository and the folder repositories are looked for are one line of small print under the list —
+  said in words, not as `runner.workspace_root` — and in the cards and table layouts the global context is under the
+  projects, its empty state one line and a button. *Edit the project* is in three groups (*The project*, *Where its code
+  is*, *The brief*), in the words *New project* uses (*Name*, *GitHub*, *Local folder*), and refuses a repository that
+  is neither `owner/repo` nor a clone URL before it is sent. *New project* says what each type means, what the site is
+  for, that the brief can wait, and why its button is greyed. The board's columns, a ticket's type and its priority are
+  said in the console's language everywhere — *Prêt*, *En cours*, *Rédaction*, *Urgente* — where a French console mixed
+  them with English; a schedule set to every hour says that only the minutes count. Ideas and Schedules use the whole
+  width, as the board and the projects do, and the Ideas filters are no longer cut at the edge. On a phone, the
+  dashboard no longer scrolls sideways.
 - **The Projects page uses the whole width of the screen.** The centred column and its wide empty margins are gone, in
   the split, cards and table layouts alike: the list keeps its width, the context and the project picked take the
   rest, and the cards show up to five per row on a large screen. A phone is unchanged.

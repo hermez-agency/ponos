@@ -744,7 +744,6 @@ export const FRENCH: Record<string, string> = {
   "A project says where the work happens and what conventions hold there. One with no repository is not a mistake: its tickets come back as a document.":
     "Un projet dit où se fait le travail et quelles conventions y règnent. Un projet sans dépôt n'est pas une erreur : ses tickets reviennent sous forme de document.",
   cards: "cartes",
-  Kind: "Nature",
   Repository: "Dépôt",
   "On this machine": "Sur cette machine",
   Tickets: "Tickets",
@@ -771,8 +770,21 @@ export const FRENCH: Record<string, string> = {
   "Reading the projects…": "Lecture des projets…",
   "No project yet — a ticket without one comes back as a document.":
     "Aucun projet pour l'instant — un ticket sans projet revient sous forme de document.",
-  "is where a repository is looked for, and cloned into when it is nowhere.":
-    "est l'endroit où un dépôt est cherché, et cloné quand il n'est nulle part.",
+  "Its tickets are worked in its repository, and come back as a pull request.":
+    "Ses tickets sont traités dans son dépôt, et reviennent en pull request.",
+  "Its public address, if it has one. Optional.": "Son adresse publique, s'il en a une. Facultatif.",
+  "Optional, and written later just as well: from the project's page.":
+    "Facultatif, et tout aussi bien écrit plus tard : depuis la page du projet.",
+  "A name is all it takes.": "Un nom suffit.",
+  "The project": "Le projet",
+  "Where its code is": "Où est son code",
+  "Both empty: a writing project, whose tickets come back as a document.":
+    "Les deux vides : un projet de rédaction, dont les tickets reviennent sous forme de document.",
+  "A project needs a name.": "Un projet a besoin d'un nom.",
+  "Write it as owner/repo, or paste the clone URL.": "Écrivez-le sous la forme propriétaire/dépôt, ou collez l'URL du clone.",
+  "Edit the project": "Modifier le projet",
+  "Repositories are looked for in {{path}}, and cloned there when they are nowhere.":
+    "Les dépôts sont cherchés dans {{path}}, et clonés là quand ils n'existent nulle part.",
   "This project could not be read.": "Ce projet n'a pas pu être lu.",
   "No project called “{{name}}”.": "Aucun projet ne s'appelle « {{name}} ».",
   "Nothing is written on this page, so its tickets are told about the workspace and nothing about the project.":
@@ -1352,6 +1364,10 @@ export const FRENCH: Record<string, string> = {
   Low: "Faible",
   Medium: "Moyenne",
   High: "Élevée",
+  "Every hour: only the minutes are read.": "Chaque heure : seules les minutes comptent.",
+  // The two other priorities a ticket is written with (`choiceWord`).
+  Normal: "Normale",
+  Urgent: "Urgente",
   "Model that guesses the type": "Modèle qui devine le type",
   "A light one is enough, e.g. `haiku`. Empty: Claude Code's own default.":
     "Un modèle léger suffit, par ex. `haiku`. Vide : celui de Claude Code par défaut.",

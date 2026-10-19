@@ -310,7 +310,15 @@ export function ProjectFields() {
         {field("description")}
       </div>
       <div className="flex flex-col gap-4 border-t px-5 py-4 [&_[data-slot=field]]:my-0 [&_[data-slot=field]]:gap-1 [&_[data-slot=field-label]]:sr-only">
-        {row("Type", field("kind"), t("Without a repository, its tickets come back as a document."))}
+        {/* What the type chosen means — the sentence about writing was said
+            under Code too, where it described the other button. */}
+        {row(
+          "Type",
+          field("kind"),
+          code
+            ? t("Its tickets are worked in its repository, and come back as a pull request.")
+            : t("Without a repository, its tickets come back as a document.")
+        )}
         {code
           ? row(
               "Repository",
@@ -338,13 +346,52 @@ export function ProjectFields() {
               <Checked checked={checked} source={source} />
             )
           : null}
-        {row("Site", field("site"))}
+        {row("Site", field("site"), t("Its public address, if it has one. Optional."))}
       </div>
       <div className="flex flex-col gap-2 border-t px-5 py-4 [&_[data-slot=field]]:my-0 [&_[data-slot=field-label]]:sr-only">
         <span className="text-muted-foreground text-sm">{t("The brief")}</span>
         {field("content")}
+        <p className="text-muted-foreground text-xs">
+          {t("Optional, and written later just as well: from the project's page.")}
+        </p>
       </div>
     </>
+  )
+}
+
+/* The form a project is edited in, in the drawer: its fields in the groups
+ * the declaration names (`groupOption` in `resources/projects`), each under a
+ * heading and the sentence that says what the group is for — as the "New
+ * project" window has its rows, and the recurrence window its sections. The
+ * package's own grouped form draws each group as a card, which in a drawer
+ * was a card in a card. */
+export function ProjectEditFields() {
+  const { form } = useFormContext()
+  const groups = [...(form.groupOption?.itemGroups ?? [])].sort((a, b) => a.order - b.order)
+  return (
+    <div
+      data-project-edit
+      className="flex flex-col divide-y pt-3 [&_[data-slot=field]]:my-0 [&>section]:py-5 [&>section:first-child]:pt-0"
+    >
+      {groups.map((group) => (
+        <section
+          key={group.group}
+          // A field named as its group — the brief — is not named twice.
+          className={cn(
+            "flex flex-col gap-4",
+            group.group === "brief" && "[&_[data-slot=field-label]]:sr-only"
+          )}
+        >
+          <header>
+            <h3 className="text-sm font-semibold">{t(group.title ?? "")}</h3>
+            {group.description ? <p className="text-muted-foreground mt-0.5 text-xs">{group.description}</p> : null}
+          </header>
+          {getFormInputsFromForm({ ...form, groups: [group.group] }).map((input) => (
+            <InputControllerProvider key={`${input.id}${input.name}${form.version}`} formInput={input} />
+          ))}
+        </section>
+      ))}
+    </div>
   )
 }
 
@@ -395,6 +442,12 @@ export function ProjectFoot() {
         </label>
       ) : null}
       <span className="flex-1" />
+      {/* Why the button is greyed, rather than a button that does nothing. */}
+      {!name.trim() ? (
+        <span data-slot="project-name-needed" className="text-muted-foreground text-xs">
+          {t("A name is all it takes.")}
+        </span>
+      ) : null}
       <span aria-hidden className="text-muted-foreground pointer-coarse:hidden hidden text-xs sm:inline">
         {mac ? t("⌘ + Enter") : t("Ctrl + Enter")}
       </span>

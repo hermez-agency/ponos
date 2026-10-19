@@ -295,6 +295,11 @@ export function RecurrenceFields() {
         <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
           {cadence === "Weekly" || cadence === "Monthly" ? field("day") : null}
           {field("at")}
+          {/* An hourly one has no hour: only the minutes of the field are read,
+              which a box reading "00:00" under "Time" did not say. */}
+          {cadence === "Hourly" ? (
+            <p className="text-muted-foreground pb-2 text-xs">{t("Every hour: only the minutes are read.")}</p>
+          ) : null}
         </div>
         <Summary data={data} original={form.originalData as Record<string, unknown> | undefined} />
       </Section>

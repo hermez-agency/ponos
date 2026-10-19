@@ -91,9 +91,9 @@ test("the day takes the shape of the cadence, and the summary follows", async ({
   await expect(summary).toContainText("ven. 16 oct. à 14:30")
 })
 
-test("the model and the priority are buttons, said in the board's words", async ({ page }) => {
+test("the model and the priority are buttons, the model in the board's words and the priority in the console's", async ({ page }) => {
   const window_ = await open(page)
-  for (const word of ["Haiku", "Sonnet", "Opus", "Low", "Normal", "High", "Urgent"])
+  for (const word of ["Haiku", "Sonnet", "Opus", "Faible", "Normale", "Élevée", "Urgente"])
     await expect(window_.getByRole("button", { name: word, exact: true })).toBeVisible()
   const opus = window_.getByRole("button", { name: "Opus", exact: true })
   await opus.click()
