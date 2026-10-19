@@ -27,7 +27,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable
+from typing import IO, Callable
 from urllib.parse import parse_qs, quote, urlparse
 
 from . import credits, disk, legacy, vault
@@ -160,32 +160,14 @@ def run(
         raise FileNotFoundError("claude not found in PATH")
 
     session_id = session_id or new_id()
-    command = [
+    command = _command(
         binary,
-        "--print",
-        # Claude in Chrome, so a ticket can be handled in the browser the way a
-        # person would. `--print` turns it off by default and only the flag
-        # overrides that, so the setting alone would never reach us here. It
-        # attaches to the Chrome already running — it cannot start one — and it
-        # needs the OAuth session of the CLI: an ANTHROPIC_API_KEY session gets
-        # `user:inference` alone and the integration refuses to load — which is
-        # also what a session routed through OpenRouter is, see openrouter.py.
-        "--chrome",
-        # `--resume` continues a conversation that already exists, and refuses
-        # to be given an identifier to create: the console's chat is one long
-        # session, drawn once and carried on turn after turn, which is what
-        # makes it a conversation rather than a series of strangers.
-        *(["--resume", session_id] if resume else ["--session-id", session_id]),
-        "--output-format", "stream-json",
-        "--verbose",
-        "--permission-mode", permission_mode,
-    ]
-    if model:
-        command += ["--model", model]
-    # The CLI stops itself at the limit, between two steps, and says so in its
-    # last line: a clean end, with the cost of what was done.
-    if max_budget_usd > 0:
-        command += ["--max-budget-usd", f"{max_budget_usd:.2f}"]
+        session_id,
+        resume=resume,
+        permission_mode=permission_mode,
+        model=model,
+        max_budget_usd=max_budget_usd,
+    )
 
     # What the caller adds comes last: an OpenRouter key configured for the
     # runner is meant to win over one that happens to be in this shell. See
@@ -253,34 +235,8 @@ def run(
                 target=interrupt, args=(stop,), name="tr-stop", daemon=True
             ).start()
 
-        final: dict = {}
-        texts: list[str] = []
         try:
-            for line in process.stdout:  # type: ignore[union-attr]
-                # Masked before anything reads it: the transcript, the steps
-                # written into the ticket, the answer — see vault.py.
-                line = vault.mask(line)
-                journal.write(line)
-                journal.flush()
-                try:
-                    event = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                if on_event is not None:
-                    try:
-                        on_event(event)
-                    except Exception as error:  # noqa: BLE001
-                        # Whoever watches the session is never allowed to stop
-                        # it: a reporter that throws is dropped, and the ticket
-                        # runs to its end unwatched.
-                        print(f"    ! live report dropped: {error}", flush=True)
-                        on_event = None
-                if event.get("type") == "result":
-                    final = event
-                elif event.get("type") == "assistant":
-                    for block in event.get("message", {}).get("content", []):
-                        if block.get("type") == "text":
-                            texts.append(block.get("text", ""))
+            final, texts = _read(process, journal, on_event)
             process.wait()
         finally:
             watchdog.cancel()
@@ -288,9 +244,110 @@ def run(
     vault.scrub(stderr_path)
 
     seconds = time.monotonic() - started
+    return _outcome(
+        final,
+        texts,
+        session_id=session_id,
+        log=log,
+        stderr_path=stderr_path,
+        seconds=seconds,
+        code=process.returncode,
+        interrupted=interrupted.is_set(),
+        timed_out=timed_out.is_set(),
+        timeout_minutes=timeout_minutes,
+    )
+
+
+def _command(
+    binary: str,
+    session_id: str,
+    *,
+    resume: bool,
+    permission_mode: str,
+    model: str,
+    max_budget_usd: float,
+) -> list[str]:
+    """The CLI's command line for one session."""
+    command = [
+        binary,
+        "--print",
+        # Claude in Chrome, so a ticket can be handled in the browser the way a
+        # person would. `--print` turns it off by default and only the flag
+        # overrides that, so the setting alone would never reach us here. It
+        # attaches to the Chrome already running — it cannot start one — and it
+        # needs the OAuth session of the CLI: an ANTHROPIC_API_KEY session gets
+        # `user:inference` alone and the integration refuses to load — which is
+        # also what a session routed through OpenRouter is, see openrouter.py.
+        "--chrome",
+        # `--resume` continues a conversation that already exists, and refuses
+        # to be given an identifier to create: the console's chat is one long
+        # session, drawn once and carried on turn after turn, which is what
+        # makes it a conversation rather than a series of strangers.
+        *(["--resume", session_id] if resume else ["--session-id", session_id]),
+        "--output-format", "stream-json",
+        "--verbose",
+        "--permission-mode", permission_mode,
+    ]
+    if model:
+        command += ["--model", model]
+    # The CLI stops itself at the limit, between two steps, and says so in its
+    # last line: a clean end, with the cost of what was done.
+    if max_budget_usd > 0:
+        command += ["--max-budget-usd", f"{max_budget_usd:.2f}"]
+    return command
+
+
+def _read(
+    process: subprocess.Popen, journal: IO[str], on_event: Callable[[dict], None] | None
+) -> tuple[dict, list[str]]:
+    """The stream, written to the journal as it comes: its last event, and what was said."""
+    final: dict = {}
+    texts: list[str] = []
+    for line in process.stdout:  # type: ignore[union-attr]
+        # Masked before anything reads it: the transcript, the steps
+        # written into the ticket, the answer — see vault.py.
+        line = vault.mask(line)
+        journal.write(line)
+        journal.flush()
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if on_event is not None:
+            try:
+                on_event(event)
+            except Exception as error:  # noqa: BLE001
+                # Whoever watches the session is never allowed to stop
+                # it: a reporter that throws is dropped, and the ticket
+                # runs to its end unwatched.
+                print(f"    ! live report dropped: {error}", flush=True)
+                on_event = None
+        if event.get("type") == "result":
+            final = event
+        elif event.get("type") == "assistant":
+            for block in event.get("message", {}).get("content", []):
+                if block.get("type") == "text":
+                    texts.append(block.get("text", ""))
+    return final, texts
+
+
+def _outcome(
+    final: dict,
+    texts: list[str],
+    *,
+    session_id: str,
+    log: Path,
+    stderr_path: Path,
+    seconds: float,
+    code: int | None,
+    interrupted: bool,
+    timed_out: bool,
+    timeout_minutes: int,
+) -> Outcome:
+    """What a session that has ended did, read from its last event and its stderr."""
     # A stop that crossed the session's last word is no stop: the answer had
     # arrived, and it is what is kept.
-    if interrupted.is_set() and not final:
+    if interrupted and not final:
         return Outcome(
             ok=False,
             blocked=False,
@@ -301,10 +358,10 @@ def run(
             error="stopped",
             seconds=seconds,
             stopped=True,
-            code=process.returncode,
+            code=code,
             resulted=False,
         )
-    if timed_out.is_set():
+    if timed_out:
         return Outcome(
             ok=False,
             blocked=False,
@@ -314,7 +371,7 @@ def run(
             answer="",
             error=f"session killed after {timeout_minutes} min",
             seconds=seconds,
-            code=process.returncode,
+            code=code,
             resulted=bool(final),
             timed_out=True,
         )
@@ -322,14 +379,14 @@ def run(
     answer = str(final.get("result") or "\n".join(texts)).strip()
     over_budget = final.get("subtype") == "error_max_budget_usd"
     failed = not over_budget and (
-        bool(final.get("is_error")) or (process.returncode != 0 and not interrupted.is_set())
+        bool(final.get("is_error")) or (code != 0 and not interrupted)
     )
     blocked = over_budget or _verdict(answer) == "blocked"
     error = ""
     resets_at = 0.0
     if failed:
         tail = _tail(stderr_path)
-        error = answer[-800:] or tail or f"claude exited with code {process.returncode}"
+        error = answer[-800:] or tail or f"claude exited with code {code}"
         # Read on a failure only: a session that *talks* about usage limits must
         # not put the runner to sleep. And out of both the answer and stderr,
         # because the CLI says it in whichever of the two it was writing to.
@@ -351,7 +408,7 @@ def run(
         caveats=caveats(answer) if not failed and not blocked else [],
         resets_at=resets_at,
         over_budget=over_budget,
-        code=process.returncode,
+        code=code,
         resulted=bool(final),
     )
 
