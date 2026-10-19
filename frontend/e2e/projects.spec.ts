@@ -326,6 +326,8 @@ test.describe("the page of a project", () => {
     await expect(editor).toBeHidden()
     await edit.click()
 
+    // A page of its own, not a field in a form: the gutter of the block handle stays.
+    await expect(editor.locator(".ProseMirror")).toHaveCSS("padding-left", "52px")
     await editor.locator(".ProseMirror").click()
     await page.keyboard.press("Control+End")
     await page.keyboard.type(" Always in French.")

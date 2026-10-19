@@ -19,6 +19,10 @@ export interface MarkdownEditorProps {
   placeholder?: string
   readOnly?: boolean
   className?: string
+  /** A field among others in a form, rather than a page of its own: its text
+   * starts at the inner margin of the fields around it, and the block handle
+   * that would need a gutter there is not drawn — `/` still opens the blocks. */
+  field?: boolean
 }
 
 const CrepeEditor = React.lazy(() => import("./crepe-editor"))
@@ -28,7 +32,9 @@ export function MarkdownEditor({ className, ...props }: MarkdownEditorProps) {
   return (
     // The box is drawn before the editor arrives, at the size it will have, so
     // the form does not jump when it does.
-    <React.Suspense fallback={<div data-slot="markdown-editor" className={box} />}>
+    <React.Suspense
+      fallback={<div data-slot="markdown-editor" data-field={props.field || undefined} className={box} />}
+    >
       <CrepeEditor {...props} className={box} />
     </React.Suspense>
   )
@@ -44,5 +50,6 @@ export const MarkdownInputController: InputControllerComponentInterface = ({
     onChange={(value) => onChange({ ...formInput, value })}
     placeholder={formInput.placeholder}
     readOnly={formInput.readonly}
+    field
   />
 )

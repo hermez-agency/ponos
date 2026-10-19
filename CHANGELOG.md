@@ -368,6 +368,11 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Fixed
 
+- **The Markdown fields of the console's forms start their text where the other fields do.** The brief of a new
+  project or of the project's drawer, a new ticket's and what a schedule does each time began forty pixels to the
+  right, in the gutter Crepe keeps for its block handle. In a form the text now starts at the same 12px as the title
+  beside it and the handle is not drawn — `/` still opens the blocks; the full-page editors, the global context and a
+  project's brief, keep their gutter and their handle.
 - **A ticket without a repository no longer fails with “the runner itself broke” when its session met Claude in Chrome's
   refusal.** A browser-internal tab refused by Claude in Chrome leaves an event in the session's log whose message is a
   sentence; looking for the pull requests the session opened tripped on it (`AttributeError: 'str' object has no

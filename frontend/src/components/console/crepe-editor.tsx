@@ -35,6 +35,7 @@ export default function CrepeEditor({
   placeholder,
   readOnly,
   className,
+  field,
 }: MarkdownEditorProps) {
   const root = React.useRef<HTMLDivElement>(null)
   const crepe = React.useRef<CrepeBuilder | null>(null)
@@ -136,5 +137,5 @@ export default function CrepeEditor({
     crepe.current?.setReadonly(Boolean(readOnly))
   }, [readOnly])
 
-  return <div ref={root} data-slot="markdown-editor" className={cn(className)} />
+  return <div ref={root} data-slot="markdown-editor" data-field={field || undefined} className={cn(className)} />
 }

@@ -226,3 +226,28 @@ test("the project is chosen from the keyboard, filtered by what is typed", async
   await expect.poll(() => sent.length).toBe(1)
   expect(sent[0]).toMatchObject({ title: "Typed", project: "0000000000000000000000000000beef" })
 })
+
+/* The brief is a field like the title, and its text starts where the title's
+ * does. Crepe keeps a gutter on the left for its block handle — right on a page
+ * of its own, a field drawn forty pixels to the right in a form — so in a form
+ * the handle is not drawn and `/` alone opens the blocks. */
+test("the brief's text starts at the title's inner margin, without a block handle", async ({ page }) => {
+  const dialog = await open(page)
+  // From the field's outer edge to where its text starts.
+  const inset = (field: ReturnType<Page["locator"]>) =>
+    field.evaluate((element) => {
+      const box = element.closest('[data-slot="markdown-editor"]') ?? element
+      const style = getComputedStyle(element)
+      const text = element.getBoundingClientRect().left + parseFloat(style.borderLeftWidth) + parseFloat(style.paddingLeft)
+      return text - box.getBoundingClientRect().left
+    })
+  const brief = dialog.locator(".ProseMirror")
+  await expect(brief).toBeVisible()
+  const title = await inset(dialog.getByLabel("Title"))
+  expect(Math.abs((await inset(brief)) - title)).toBeLessThanOrEqual(1)
+
+  await brief.click()
+  await page.keyboard.type("A line")
+  await brief.locator("p").first().hover()
+  await expect(dialog.locator(".milkdown-block-handle")).toBeHidden()
+})
