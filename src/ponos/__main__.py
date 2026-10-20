@@ -31,6 +31,7 @@ from . import (
     journal,
     kinds,
     legacy,
+    log,
     models,
     notion,
     prerequisites,
@@ -681,7 +682,44 @@ def _print_runs(runs: list[dict]) -> int:
     return 0
 
 
+def _print_service(follow: bool) -> int:
+    """`ponos logs --service`: the end of ponos.log, and what is written next with -f."""
+    target = log.path()
+    if not target.exists():
+        print("No service log yet.")
+        return 0
+    print(f"{DIM}{target}{RESET}", file=sys.stderr)
+    for line in log.tail(200, target):
+        print(line)
+    if not follow:
+        return 0
+    handle = target.open(encoding="utf-8", errors="replace")
+    handle.seek(0, os.SEEK_END)
+    try:
+        while True:
+            line = handle.readline()
+            if line:
+                print(line, end="", flush=True)
+                continue
+            # Turned over by whoever wrote past a megabyte: the new file, from its start.
+            try:
+                moved = os.stat(target).st_ino != os.fstat(handle.fileno()).st_ino
+            except OSError:
+                moved = False
+            if moved:
+                handle.close()
+                handle = target.open(encoding="utf-8", errors="replace")
+                continue
+            time.sleep(0.5)
+    except KeyboardInterrupt:
+        return 0
+    finally:
+        handle.close()
+
+
 def command_logs(args: argparse.Namespace) -> int:
+    if args.service:
+        return _print_service(args.follow)
     if args.runs:
         return _print_runs(_journal_runs(args.ticket or ""))
     logs = sorted(state.logs_dir().glob("*.jsonl"))
@@ -2516,6 +2554,11 @@ def build_parser() -> argparse.ArgumentParser:
     logs.add_argument(
         "--runs", action="store_true", help="list the ticket's runs from the local journal"
     )
+    logs.add_argument(
+        "--service",
+        action="store_true",
+        help="the runner's and the console's own log, ponos.log, instead of a session",
+    )
     logs.set_defaults(function=command_logs)
 
     doctor = subparsers.add_parser("doctor", help="full diagnostics")
@@ -2629,6 +2672,8 @@ def main(argv: list[str] | None = None) -> int:
     if not getattr(args, "function", None):
         welcome(parser)
         return 0
+    # Whatever the command, what it logs is kept in ponos.log — see log.py.
+    log.setup()
     try:
         return args.function(args)
     except KeyboardInterrupt:

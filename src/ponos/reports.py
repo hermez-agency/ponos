@@ -18,6 +18,7 @@ saying at all, and where.
 
 from __future__ import annotations
 
+import logging
 import re
 import time
 from collections.abc import Callable
@@ -29,6 +30,7 @@ from . import (
     channels,
     conversation,
     credits,
+    log,
     notifications,
     provider,
     resources,
@@ -42,6 +44,8 @@ from . import question as question_module
 from . import voice as voice_module
 from .base import Base
 from .ticket import Job, Ticket
+
+logger = logging.getLogger(__name__)
 
 # How much of a ticket's own history is worth carrying into the prompt.
 COMMENT_LIMIT = 10
@@ -668,14 +672,18 @@ class Reports(Base):
             )
             self._journal_end(ticket, {"status": "interrupted", "reason": "network"})
             return None
-        except Exception as error:  # noqa: BLE001 — the point is to catch it all
+        except Exception as error:  # the point is to catch it all
+            logger.exception("%s crashed", ticket.title, extra=log.FILE_ONLY)
             detail = f"{type(error).__name__}: {voice_module.line(error)}"
             state.release(ticket.id)
             try:
                 result = self._fail(
                     ticket, self.voice.say("crashed"), detail, code="runner.crashed"
                 )
-            except Exception as unwritten:  # noqa: BLE001
+            except Exception as unwritten:
+                logger.exception(
+                    "%s: the failure could not be written", ticket.title, extra=log.FILE_ONLY
+                )
                 self.say(
                     f"    ✗ {ticket.title} — {detail}, and the failure could not be "
                     f"written: {voice_module.line(unwritten)}"
@@ -873,6 +881,7 @@ class Reports(Base):
             try:
                 self.tidy(now=True)
             except Exception as error:  # a failed tidy must not stop the pass
+                logger.exception("tidy failed", extra=log.FILE_ONLY)
                 self.say(f"  ! tidy failed: {error}")
         free = resources.short_of_disk(minimum, home)
         if free is None:

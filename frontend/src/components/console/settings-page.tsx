@@ -176,6 +176,7 @@ function Overview() {
           <React.Suspense fallback={null}>
             <LazySetupSummary change={(row) => <a href={settingsHref(row.section)}>{t("Change")}</a>} />
             <LazyDiagnosis />
+            <LazyServiceLog />
           </React.Suspense>
         </div>
       ) : null}
@@ -350,4 +351,7 @@ const LazySetupSummary = React.lazy(() =>
 )
 const LazyDiagnosis = React.lazy(() =>
   import("@/components/console/setup").then((module) => ({ default: module.Diagnosis }))
+)
+const LazyServiceLog = React.lazy(() =>
+  import("@/components/console/setup").then((module) => ({ default: module.ServiceLog }))
 )

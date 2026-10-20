@@ -21,6 +21,7 @@ import gzip
 import http.client
 import io
 import json
+import logging
 import os
 import re
 import shutil
@@ -53,6 +54,7 @@ from ponos import (
     journal,
     kinds,
     legacy,
+    log,
     markdown,
     models,
     naming,
@@ -3712,8 +3714,10 @@ def _state_home():
         yield Path(os.environ["XDG_STATE_HOME"]) / "ponos"
     finally:
         # Its database too: a connection left open per test is three file
-        # descriptors, and the suite has hundreds of these.
+        # descriptors, and the suite has hundreds of these. And the journal a
+        # command opened there: the next test's directory is another one.
         db.close()
+        log.close()
         if previous is None:
             os.environ.pop("XDG_STATE_HOME", None)
         else:
@@ -12807,6 +12811,98 @@ def a_client_that_hangs_up_mid_answer_leaves_no_trace():
 
 
 @case
+def a_500_leaves_its_trace_in_the_journal_masked():
+    """A route that raised answered a 500 and kept the reason to itself.
+
+    `log_message` was switched off and the `except Exception` turned the error
+    into one line of JSON: the console's journal said nothing of it. It now
+    holds the whole trace — and the request that came back 500 — with the
+    secrets the trace printed masked, a vault's value and a token's shape alike.
+    """
+    import socket as sockets
+
+    from ponos.web import server as web_server
+
+    secret = "vault-value-" + "q" * 24
+    token = "ghp_" + "Z" * 36
+    with _state_home() as home:
+        target = log.setup(home / "logs" / "ponos.log")
+        assert target is not None
+        vault.remember(secret)
+        api = _bare_api(_TalkClient([]))
+
+        def broken():
+            raise RuntimeError(f"the board refused {secret} and {token}")
+
+        api.board = broken
+        console = web_server.Console(("127.0.0.1", 0), web_server.Handler, api, "tok")
+        threading.Thread(target=console.serve_forever, daemon=True).start()
+        try:
+            request = (
+                b"GET /api/board?token=tok HTTP/1.1\r\nHost: 127.0.0.1\r\n"
+                b"Authorization: Bearer tok\r\nConnection: close\r\n\r\n"
+            )
+            with sockets.create_connection(("127.0.0.1", console.server_address[1]), 5) as link:
+                link.sendall(request)
+                answer = b""
+                while chunk := link.recv(65536):
+                    answer += chunk
+        finally:
+            console.shutdown()
+            console.server_close()
+            vault.forget()
+            written = target.read_text(encoding="utf-8")
+            served = api.service_log(50)["lines"]
+    assert answer.startswith(b"HTTP/1.1 500"), answer[:80]
+    assert "ERROR ponos.web.server: console: GET /api/board failed" in written, written
+    assert "Traceback (most recent call last)" in written and "in broken" in written, written
+    assert "console: GET /api/board → 500" in written, written
+    assert secret not in written and token not in written, written
+    assert "the board refused *** and ••••••" in written, written
+    assert "token=tok" not in written, "a request is logged by its path, never its query"
+    assert served == written.splitlines()
+
+
+@case
+def say_writes_what_it_always_printed_and_the_journal_keeps_it_dated():
+    """`say` went through `print`: the standard output reads the same line, and
+    ponos.log has it too, with a date, a level and the module — and the trace of
+    an error already said goes to the file alone."""
+    import io
+
+    with _state_home() as home:
+        target = log.setup(home / "logs" / "ponos.log")
+        assert target is not None
+        runner = _bare_runner(_TalkClient([]))
+        runner.quiet = False
+        stdout, sys.stdout = sys.stdout, io.StringIO()
+        try:
+            runner.say("  ✓ a line, 100% as it was")
+            try:
+                raise ValueError("inside")
+            except ValueError:
+                logging.getLogger("ponos.test").exception("said already", extra=log.FILE_ONLY)
+            printed = sys.stdout.getvalue()
+        finally:
+            sys.stdout = stdout
+        written = target.read_text(encoding="utf-8")
+    assert printed == "  ✓ a line, 100% as it was\n", printed
+    assert " INFO ponos.base:   ✓ a line, 100% as it was\n" in written, written
+    assert "ERROR ponos.test: said already" in written and "ValueError: inside" in written
+
+
+@case
+def the_journal_tail_is_its_last_lines_and_nothing_when_it_was_never_written():
+    with tempfile.TemporaryDirectory() as folder:
+        target = Path(folder) / "ponos.log"
+        assert log.tail(10, target) == []
+        target.write_text("".join(f"line {number}\n" for number in range(100_000)))
+        tail = log.tail(3, target)
+        assert tail == ["line 99997", "line 99998", "line 99999"], tail
+        assert all(line.startswith("line ") for line in log.tail(0, target))
+
+
+@case
 def a_path_field_picks_from_the_folder_it_points_at():
     """Names, folders first; a file typed half-way lists its folder."""
     root = Path(tempfile.mkdtemp())
@@ -17157,7 +17253,7 @@ def no_two_routes_of_the_console_answer_one_path():
             assert pattern.fullmatch(path), (pattern.pattern, path)
             answering = [other.__name__ for found, other in table if found.fullmatch(path)]
             assert len(answering) == 1, (path, answering)
-    assert len(server.GETS) == 45 and len(server.POSTS) == 43
+    assert len(server.GETS) == 46 and len(server.POSTS) == 43
 
 
 @case
@@ -21448,6 +21544,19 @@ def ponos_logs_lists_a_tickets_runs_from_the_journal():
             assert "which header?" in text and "x-dddddddd.jsonl" in text, text
         finally:
             db.close()
+
+
+@case
+def ponos_logs_service_prints_the_end_of_the_runners_own_journal():
+    """`ponos logs --service` reads ponos.log — which the command itself opened."""
+    with _state_home():
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            assert cli_main(["logs", "--service"]) == 0
+            logging.getLogger("ponos.test").warning("the board is slow today")
+            assert cli_main(["logs", "--service"]) == 0
+        text = out.getvalue()
+        assert "WARNING ponos.test: the board is slow today" in text, text
 
 
 # -- the MCP server ----------------------------------------------------------

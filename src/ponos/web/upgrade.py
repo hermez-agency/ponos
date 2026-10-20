@@ -36,6 +36,7 @@ version is a new image, and gives the command that pulls it — see `update.py`.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import shutil
 import subprocess
@@ -46,9 +47,11 @@ from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 
-from .. import disk, environment, state
+from .. import disk, environment, log, state
 from .. import update as update_module
 from ..config import Runner, in_container, state_dir
+
+logger = logging.getLogger(__name__)
 
 # The steps a page draws, in order. `waiting` is the lock; `failed` and `done`
 # are where it ends.
@@ -206,8 +209,8 @@ class Upgrade:
             while True:
                 try:
                     self.look()
-                except Exception:  # noqa: BLE001 — a thread that dies stops looking for good
-                    pass
+                except Exception:  # a thread that dies stops looking for good
+                    logger.exception("upgrade: the check for a new version failed")
                 time.sleep(every)
 
         threading.Thread(target=loop, name="upgrade-check", daemon=True).start()
@@ -261,7 +264,8 @@ class Upgrade:
     def _work(self) -> None:
         try:
             self._run()
-        except Exception as error:  # noqa: BLE001 — a thread that dies says nothing
+        except Exception as error:  # a thread that dies says nothing
+            logger.exception("upgrade: the update stopped", extra=log.FILE_ONLY)
             self._fail(f"the update stopped: {error}")
 
     def _run(self) -> None:

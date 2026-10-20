@@ -35,17 +35,20 @@ reads to choose a tool, and a vague one is a tool called at the wrong moment.
 from __future__ import annotations
 
 import json
+import logging
 import re
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-from .. import __version__, db, ideas, journal, state, store, systemd
+from .. import __version__, db, ideas, journal, log, state, store, systemd
 from .. import config as config_module
 from .. import kinds as kinds_module
 from . import live
 from .api import COLUMNS
 from .oauth import READ, WRITE, Grant
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from .api import Api
@@ -530,7 +533,8 @@ def call(api: Api, grant: Grant, tool: dict, arguments: dict, address: str = "")
         if writes:
             record(grant, name, arguments, f"failed: {error}")
         return _refusal(f"Le tableau n'a pas répondu : {str(error).splitlines()[0]}")
-    except Exception as error:  # noqa: BLE001 — a tool fails in its answer, not by killing the request
+    except Exception as error:  # a tool fails in its answer, not by killing the request
+        logger.exception("mcp: the tool %s failed", name, extra=log.FILE_ONLY)
         if writes:
             record(grant, name, arguments, f"failed: {error}")
         return _refusal(

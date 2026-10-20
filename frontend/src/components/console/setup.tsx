@@ -20,6 +20,7 @@ import {
   Play,
   RefreshCw,
   Route,
+  ScrollText,
   Stethoscope,
   Terminal,
 } from "lucide-react"
@@ -1577,6 +1578,55 @@ export function Diagnosis() {
           data-testid="doctor-output"
         >
           {answer.text}
+        </pre>
+      ) : null}
+    </section>
+  )
+}
+
+/** The end of ponos.log — what the runner and this console said, and the trace
+ * of every error they caught — for whoever has no terminal for
+ * `ponos logs --service`. Masked on the server, as the file is. */
+export function ServiceLog() {
+  const t = useT()
+  const [answer, setAnswer] = React.useState<{ path: string; lines: string[] } | null>(null)
+  const [failed, setFailed] = React.useState("")
+  const [busy, setBusy] = React.useState(false)
+
+  const read = async () => {
+    setBusy(true)
+    setFailed("")
+    try {
+      setAnswer(await api.serviceLog())
+    } catch (error) {
+      setFailed(why(error))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="flex flex-col gap-2" aria-labelledby="service-log">
+      <div className="flex flex-wrap items-center gap-2">
+        <h3 id="service-log" className="flex-1 text-sm font-semibold">
+          {t("The runner's journal")}
+        </h3>
+        <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void read()} data-testid="read-service-log">
+          {busy ? <LoaderCircle className="animate-spin" /> : answer ? <RefreshCw /> : <ScrollText />}
+          {answer ? t("Read it again") : t("Read the journal")}
+        </Button>
+      </div>
+      <p className="text-muted-foreground text-xs leading-relaxed">
+        <Rich text={t("The same as `ponos logs --service` in a terminal: its last lines, with the trace of every error.")} />
+      </p>
+      {failed ? <p className="text-destructive text-xs">{failed}</p> : null}
+      {answer ? (
+        <pre
+          className="bg-muted max-h-96 overflow-auto rounded-lg border p-3 font-mono text-xs whitespace-pre"
+          data-testid="service-log-output"
+          title={answer.path}
+        >
+          {answer.lines.length ? answer.lines.join("\n") : t("Nothing written yet.")}
         </pre>
       ) : null}
     </section>

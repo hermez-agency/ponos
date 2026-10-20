@@ -29,17 +29,19 @@ the second click would pay for scores the first is already writing.
 from __future__ import annotations
 
 import json
+import logging
 import shutil
 import subprocess
-import sys
 import threading
 import uuid
 from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from .. import ideas, provider, session, state, store
+from .. import ideas, log, provider, session, state, store
 from ..config import state_dir
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from .api import Api
@@ -340,12 +342,15 @@ class Ideas:
                     scores = self._score(project, chunk)
                 except ScoreFailed as failure:
                     scores, error = {}, str(failure)
-                except Exception as failure:  # noqa: BLE001 — a score is never worth a crash
+                except Exception as failure:  # a score is never worth a crash
+                    logger.exception("ideas: scoring failed", extra=log.FILE_ONLY)
                     scores, error = {}, f"{type(failure).__name__}: {failure}"
                 if error:
-                    print(
-                        f"ideas: scoring {len(chunk)} ideas of {project or 'the workspace'} failed: {error}",
-                        file=sys.stderr,
+                    logger.warning(
+                        "ideas: scoring %d ideas of %s failed: %s",
+                        len(chunk),
+                        project or "the workspace",
+                        error,
                     )
                     if failures is not None:
                         failures.append(error)

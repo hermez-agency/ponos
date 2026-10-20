@@ -16,6 +16,7 @@ to repair by hand rather than something to redo.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import shlex
@@ -33,6 +34,8 @@ from urllib.parse import parse_qs, quote, urlparse
 
 from . import credits, disk, legacy, vault
 from .question import Question, caveats, parse
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -317,11 +320,11 @@ def _read(
         if on_event is not None:
             try:
                 on_event(event)
-            except Exception as error:  # noqa: BLE001
+            except Exception as error:
                 # Whoever watches the session is never allowed to stop
                 # it: a reporter that throws is dropped, and the ticket
                 # runs to its end unwatched.
-                print(f"    ! live report dropped: {error}", flush=True)
+                logger.exception("    ! live report dropped: %s", error)
                 on_event = None
         if event.get("type") == "result":
             final = event

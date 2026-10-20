@@ -18,6 +18,7 @@ Two rules keep it honest:
 from __future__ import annotations
 
 import json
+import logging
 import queue
 import re
 import threading
@@ -28,7 +29,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, BinaryIO
 
-from .. import notifications, progress, state
+from .. import log, notifications, progress, state, store
+
+logger = logging.getLogger(__name__)
 
 # What a browser connecting mid-flight is given to catch up with. Enough to
 # rebuild a running session's steps, small enough to send in one go.
@@ -442,7 +445,13 @@ class Watch:
         """
         try:
             payload = self.board()
-        except Exception as error:  # noqa: BLE001
+        except Exception as error:
+            # A board that does not answer is said, once a refresh, without a
+            # trace: that is the network, not the code.
+            if isinstance(error, store.StoreError):
+                logger.warning("live: the board could not be read: %s", error, extra=log.FILE_ONLY)
+            else:
+                logger.exception("live: the board could not be read", extra=log.FILE_ONLY)
             message = str(error).splitlines()[0]
             self.hub.publish("notice", where="board", message=message)
             if self.status is not None:
@@ -484,7 +493,10 @@ class Watch:
             try:
                 self.tail.pass_once()
                 self.ring()
-            except Exception as error:  # noqa: BLE001
+            except Exception as error:
+                logger.exception(
+                    "live: the session logs could not be followed", extra=log.FILE_ONLY
+                )
                 self.hub.publish("notice", where="logs", message=str(error).splitlines()[0])
             if self._stop.wait(1):
                 return
