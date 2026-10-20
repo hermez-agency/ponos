@@ -3056,7 +3056,7 @@ single conversation, and a turn left running there would be in every other test'
 `PONOS_E2E_PORT` to pin them (the chat takes the next port).
 
 **One set of tokens for the console and the site.** The colours of both themes —
-Hermez's, the design system in SalvadorCardona/brand-assets, on its stone greys and its
+Hermez's, the design system in hermez-agency/brand-assets, on its stone greys and its
 orange —, the faces (Bricolage Grotesque for headings, the system's own for the rest), the
 radius, the `--tr-*` status colours and the chart
 series live in `frontend/src/tokens.css`, which `index.css` imports. The landing page has
