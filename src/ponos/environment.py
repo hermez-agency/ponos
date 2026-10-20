@@ -26,16 +26,35 @@ keep working:
   `ensure` makes it on the next pass, under the run lock, and the launcher runs
   the machine's Python until then.
 
+Packages to install on that same Python is where pip is missing, and asking for
+`sudo apt install python3-venv` in the middle of an automatic update is asking
+nobody: the update would be refused at every pass, forever. So when there is
+neither `uv` nor `ensurepip`, the runner fetches uv itself — the official
+binary, at the version pinned here, its SHA-256 checked before it is unpacked —
+into `~/.local/share/ponos/uv`, beside the versions and outside any of them, and
+installs with it. Offline, that fails like any other install: the version is
+not pointed at, and the one in use carries on.
+
+An environment is also lost under its feet when the distribution moves to
+another Python: `.venv` names an interpreter (`executable` in `pyvenv.cfg`) that
+the upgrade removed. `ensure` sees it with a `stat`, and makes it again.
+
 In a container none of this: the image installs `requirements.txt` into its own
 Python when it is built.
 """
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
+import platform
 import shutil
 import subprocess
 import sys
+import tarfile
+import tempfile
+import urllib.request
 from pathlib import Path
 
 from .config import in_container
@@ -47,15 +66,34 @@ VENV = ".venv"
 # (`uv export --no-dev --no-emit-project`), with hashes.
 REQUIREMENTS = "requirements.txt"
 
+# The uv fetched when the machine has no way to install a package. Pinned, with
+# the sums of its release page: a new one is a commit that changes both.
+UV_VERSION = "0.12.5"
+UV_RELEASES = "https://github.com/astral-sh/uv/releases/download"
+UV_SHA256 = {
+    "x86_64-unknown-linux-gnu": "68a509da24b06b4223a1c0175fb5eb5bc79342b76cbeff0cfe51ac3f5b17b6b2",
+    "aarch64-unknown-linux-gnu": "9bf43b4d1a07665bf64d4c4e710930b382321a785e0eb10aac07f46471f86a31",
+    "x86_64-apple-darwin": "b3b2137477cf96c9686ebfb71524614cec780c673fd73e59bce099aef02e70e8",
+    "aarch64-apple-darwin": "5bb0e5fe008a773c3dbcb97ff79cd89e1241464fe9d2f986d52ad8f1b037bd62",
+}
+
+# What `ponos doctor` tells to type when the environment is not what it should be.
+REPAIR = "ponos update --environment"
+
 
 def base_python() -> str:
     """The machine's Python, even when asked from inside an environment.
 
     An environment's `python` is a link into the version directory it belongs
     to, and that directory is pruned two updates later: neither a launcher nor
-    the next environment may be built on it.
+    the next environment may be built on it. From an environment whose Python
+    the distribution replaced, the one it was made from is gone too: then the
+    interpreter actually running, wherever its links lead.
     """
-    return getattr(sys, "_base_executable", "") or sys.executable
+    base = getattr(sys, "_base_executable", "")
+    if base and Path(base).is_file():
+        return base
+    return str(Path(sys.executable).resolve())
 
 
 def python(app: Path) -> Path:
@@ -68,6 +106,40 @@ def interpreter(app: Path, fallback: str | None = None) -> str:
     if candidate.is_file() and os.access(candidate, os.X_OK):
         return str(candidate)
     return fallback or base_python()
+
+
+def _settings(app: Path) -> dict[str, str]:
+    """`pyvenv.cfg`, as the `key = value` lines venv and uv both write."""
+    try:
+        text = (app / VENV / "pyvenv.cfg").read_text(encoding="utf-8")
+    except OSError:
+        return {}
+    pairs = (line.partition("=") for line in text.splitlines() if "=" in line)
+    return {key.strip(): value.strip() for key, _, value in pairs}
+
+
+def stale(app: Path) -> str:
+    """Why `app` has no usable environment, "" when it has one. Only `stat`s.
+
+    A link that leads nowhere, or an interpreter `pyvenv.cfg` names and the
+    machine no longer has: the distribution moved to another Python, and the
+    environment's packages were built for the one it removed.
+    """
+    candidate = python(app)
+    if not candidate.exists():
+        if candidate.is_symlink():
+            return f"{candidate} leads nowhere: the machine's Python changed"
+        return "there is no environment"
+    if not os.access(candidate, os.X_OK):
+        return f"{candidate} is not executable"
+    settings = _settings(app)
+    made_from = settings.get("executable", "")
+    if not made_from and settings.get("home"):
+        version = settings.get("version") or settings.get("version_info", "")
+        made_from = str(Path(settings["home"]) / f"python{'.'.join(version.split('.')[:2])}")
+    if made_from and not Path(made_from).exists():
+        return f"{made_from}, which it was made from, is gone: the machine's Python changed"
+    return ""
 
 
 def required(app: Path) -> list[str]:
@@ -107,10 +179,15 @@ def create(app: Path, base: str | None = None) -> str:
     target = app / VENV
     staging = app / f"{VENV}.partial"
     shutil.rmtree(staging, ignore_errors=True)
-    # Without pip when there is nothing to install: it is faster, and it works
-    # on a Python that has no `ensurepip`.
+    installer = uv() if packages else ""
+    if packages and not installer and not _has_ensurepip(base):
+        installer, problem = fetch_uv()
+        if problem:
+            return f"the packages could not be installed: uv could not be fetched: {problem}"
+    # Without pip when there is nothing to install, or uv to install it: it is
+    # faster, and it works on a Python that has no `ensurepip`.
     command = [base, "-m", "venv"]
-    if not packages or shutil.which("uv"):
+    if not packages or installer:
         command.append("--without-pip")
     problem = _run([*command, str(staging)], app, timeout=300)
     if problem:
@@ -126,7 +203,7 @@ def create(app: Path, base: str | None = None) -> str:
         # Python, exactly as before environments existed.
         return ""
     if packages:
-        problem = _install(app, staging)
+        problem = _install(app, staging, installer)
         if problem:
             shutil.rmtree(staging, ignore_errors=True)
             return f"the packages could not be installed: {problem}"
@@ -135,14 +212,14 @@ def create(app: Path, base: str | None = None) -> str:
     return ""
 
 
-def _install(app: Path, environment: Path) -> str:
-    """Install `requirements.txt` into `environment`, hashes checked."""
+def _install(app: Path, environment: Path, installer: str) -> str:
+    """Install `requirements.txt` into `environment`, hashes checked — with uv when there is one."""
     requirements = str(app / REQUIREMENTS)
     target = str(environment / "bin" / "python")
-    if shutil.which("uv"):
+    if installer:
         return _run(
             [
-                "uv",
+                installer,
                 "pip",
                 "install",
                 "--quiet",
@@ -173,12 +250,160 @@ def _install(app: Path, environment: Path) -> str:
 
 
 def ensure(app: Path) -> str:
-    """Give the version in use the environment it was installed without. "" or why not.
+    """Give the version in use the environment it lacks. "" or why not.
 
-    For the installation updated onto this code by a version that made none:
-    called at the top of a pass, under the run lock. Cheap when there is one —
-    a `stat` — and never fatal: the launcher keeps running the machine's Python.
+    For the installation updated onto this code by a version that made none,
+    and for the one whose Python the distribution replaced: called at the top
+    of a pass, under the run lock. Cheap when there is one — a few `stat`s —
+    and never fatal: the launcher keeps running the machine's Python.
     """
-    if in_container() or python(app).exists():
+    if in_container() or not stale(app):
         return ""
     return create(app)
+
+
+# -- uv, when the machine has nothing else to install with ---------------------
+
+
+def uv_home() -> Path:
+    return Path.home() / ".local" / "share" / "ponos" / "uv"
+
+
+def uv() -> str:
+    """The uv to install with: the machine's, or the one fetched earlier. "" when neither."""
+    found = shutil.which("uv")
+    if found:
+        return found
+    fetched = uv_home() / "uv"
+    return str(fetched) if fetched.is_file() and os.access(fetched, os.X_OK) else ""
+
+
+def _has_ensurepip(base: str) -> bool:
+    """Whether `base -m venv` can give an environment pip — not on a Debian without `python3-venv`."""
+    return not _run([base, "-I", "-c", "import ensurepip"], Path.home(), timeout=60)
+
+
+def _platform() -> str:
+    """The name uv's releases give this machine, "" for one they do not cover."""
+    machine = {"amd64": "x86_64", "arm64": "aarch64"}.get(
+        platform.machine().lower(), platform.machine().lower()
+    )
+    system = {"linux": "unknown-linux-gnu", "darwin": "apple-darwin"}.get(platform.system().lower())
+    return f"{machine}-{system}" if system else ""
+
+
+def fetch_uv() -> tuple[str, str]:
+    """Download the pinned uv into `uv_home()`: (its path, "") or ("", what went wrong).
+
+    The archive is read whole and its sum checked before a byte of it is
+    unpacked; the binary is renamed into place once written, so a fetch cut
+    short leaves nothing that `uv()` would pick up.
+    """
+    target = _platform()
+    expected = UV_SHA256.get(target)
+    if not expected:
+        return "", f"no uv {UV_VERSION} for {platform.system()} {platform.machine()}"
+    url = f"{UV_RELEASES}/{UV_VERSION}/uv-{target}.tar.gz"
+    home = uv_home()
+    try:
+        home.mkdir(parents=True, exist_ok=True)
+        with urllib.request.urlopen(url, timeout=120) as response:
+            archive = response.read()
+    except (OSError, ValueError) as error:
+        return "", f"{url}: {error}"
+    if hashlib.sha256(archive).hexdigest() != expected:
+        return "", f"{url}: the SHA-256 is not uv {UV_VERSION}'s"
+    staging = home / "uv.partial"
+    try:
+        with tempfile.TemporaryFile(dir=home) as copy:
+            copy.write(archive)
+            copy.seek(0)
+            with tarfile.open(fileobj=copy, mode="r:gz") as unpacked:
+                member = next(
+                    (
+                        one
+                        for one in unpacked.getmembers()
+                        if one.isfile() and one.name.endswith("/uv")
+                    ),
+                    None,
+                )
+                source = unpacked.extractfile(member) if member else None
+                if source is None:
+                    return "", f"{url}: no uv in the archive"
+                staging.write_bytes(source.read())
+        staging.chmod(0o755)
+        staging.rename(home / "uv")
+    except (OSError, tarfile.TarError) as error:
+        staging.unlink(missing_ok=True)
+        return "", f"uv could not be unpacked: {error}"
+    return str(home / "uv"), ""
+
+
+# -- what `ponos doctor` says of it --------------------------------------------
+
+
+def missing(app: Path) -> list[str]:
+    """The packages of `requirements.txt` the environment of `app` cannot import.
+
+    Asked of the environment's own Python: the process asking may run another
+    one. A package counts as there when its distribution is installed and each
+    module it provides imports.
+    """
+    wanted = [_name(line) for line in required(app)]
+    if not wanted:
+        return []
+    probe = (
+        "import importlib, importlib.metadata as m, json, re, sys\n"
+        "canon = lambda name: re.sub(r'[-_.]+', '-', name).lower()\n"
+        "modules = {}\n"
+        "for module, owners in m.packages_distributions().items():\n"
+        "    for owner in owners:\n"
+        "        modules.setdefault(canon(owner), []).append(module)\n"
+        "lost = []\n"
+        "for name in json.loads(sys.argv[1]):\n"
+        "    try:\n"
+        "        m.distribution(name)\n"
+        "        for module in modules.get(canon(name), []):\n"
+        "            importlib.import_module(module)\n"
+        "    except Exception:\n"
+        "        lost.append(name)\n"
+        "print(json.dumps(lost))\n"
+    )
+    try:
+        done = subprocess.run(
+            [str(python(app)), "-I", "-c", probe, json.dumps(wanted)],
+            cwd=app,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        return list(json.loads(done.stdout)) if done.returncode == 0 else wanted
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return wanted
+
+
+def _name(requirement: str) -> str:
+    """`httpx==0.28.1 ; python_version >= "3.11" \\` → `httpx`."""
+    name = requirement.split(";", 1)[0].strip()
+    for mark in ("[", "=", "<", ">", "!", "~", " ", "\\"):
+        name = name.split(mark, 1)[0]
+    return name.strip()
+
+
+def diagnose(app: Path) -> tuple[str, str]:
+    """("ok" | "warn" | "error", one sentence) — the environment of the version `app`."""
+    packages = required(app)
+    why = stale(app)
+    if why and not packages:
+        # The machine's Python runs Ponos, as before environments: nothing lost.
+        return (
+            "warn",
+            f"no environment ({why}) — nothing to install, the machine's Python runs ponos",
+        )
+    if why:
+        return "error", f"{why} — {len(packages)} package(s) to install"
+    lost = missing(app)
+    if lost:
+        return "error", f"{python(app)} cannot import {', '.join(lost)}"
+    held = f"{len(packages)} package(s)" if packages else "no package to install"
+    return "ok", f"{app / VENV} — {held}"

@@ -24,6 +24,7 @@ from . import (
     conversation,
     credits,
     db,
+    environment,
     git,
     github_app,
     github_token,
@@ -1025,6 +1026,9 @@ def command_doctor(args: argparse.Namespace) -> int:
     title("Version")
     _doctor_version(configuration)
 
+    title("Environment")
+    problems += _doctor_environment()
+
     title("Notifications")
     problems += _doctor_notifications(configuration)
 
@@ -1161,6 +1165,38 @@ def _doctor_version(configuration: config_module.Config) -> None:
             print(f"  {DIM}checked by a run every {every}s (runner.auto_update){RESET}")
         else:
             print(f"  {DIM}runner.auto_update = false — ponos update to do it by hand{RESET}")
+
+
+def _installed_version() -> Path | None:
+    """The version directory `install.sh` or an update made, None for a checkout.
+
+    By its name rather than by the link: a copy installed with `TR_SRC` is
+    `app-copy-<time>`, which no link beside it is named after.
+    """
+    version = update_module.app_dir().resolve()
+    return version if version.name.startswith("app-") else None
+
+
+def _doctor_environment() -> int:
+    """The `.venv` of the version in use: there, runnable, and holding what it requires."""
+    if config_module.in_container():
+        print(f"  {DIM}the image's Python — requirements.txt installed when it was built{RESET}")
+        return 0
+    version = _installed_version()
+    if version is None:
+        where = update_module.app_dir()
+        print(f"  {DIM}not installed by install.sh — {where} runs on whatever started it{RESET}")
+        return 0
+    state, said = environment.diagnose(version)
+    if state == "ok":
+        ok(said)
+        return 0
+    if state == "warn":
+        warn(said)
+        return 0
+    bad(said)
+    print(f"    {DIM}{environment.REPAIR}   to make it again{RESET}")
+    return 1
 
 
 def _doctor_notifications(configuration: config_module.Config) -> int:
@@ -2172,6 +2208,8 @@ def command_clean(args: argparse.Namespace) -> int:
 
 def command_update(args: argparse.Namespace) -> int:
     """What a run does once an hour, on demand and out loud."""
+    if args.environment:
+        return _remake_environment()
     try:
         settings = config_module.load().runner
     except config_module.ConfigError:
@@ -2193,6 +2231,29 @@ def command_update(args: argparse.Namespace) -> int:
         bad(error)
         return 1
     ok(f"updated to {status.tag or status.latest[:8]}")
+    return 0
+
+
+def _remake_environment() -> int:
+    """`ponos update --environment`: the `.venv` of the version in use, made again.
+
+    What `ponos doctor` prints when it is missing, outlived its Python, or lost
+    a package. Made beside and renamed into place, as for a new version.
+    """
+    if config_module.in_container():
+        bad(update_module.CONTAINER)
+        return 1
+    version = _installed_version()
+    if version is None:
+        where = update_module.app_dir()
+        bad(f"{where} was not installed by install.sh: it has no environment of its own")
+        return 1
+    problem = environment.create(version)
+    if problem:
+        bad(problem)
+        return 1
+    state, said = environment.diagnose(version)
+    (ok if state == "ok" else warn)(said)
     return 0
 
 
@@ -2580,6 +2641,11 @@ def build_parser() -> argparse.ArgumentParser:
     updating = subparsers.add_parser("update", help="move the installation to the newest version")
     updating.add_argument(
         "--check", action="store_true", help="say what is available, change nothing"
+    )
+    updating.add_argument(
+        "--environment",
+        action="store_true",
+        help="make the environment of the version in use again, and nothing else",
     )
     updating.set_defaults(function=command_update)
 

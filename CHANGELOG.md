@@ -79,6 +79,13 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
   library is added, an update installs it there — and a version whose packages cannot be installed is never switched
   to, the one in use keeps running. An existing installation needs nothing: the update onto this version is made by
   the previous one, and the next pass creates the environment. A `python3` that cannot make one runs Ponos as before.
+- **An update that adds a package goes through on Debian and Ubuntu without `python3-venv`.** Their `python3` cannot
+  give an environment pip, so such an update would have been refused at every pass until somebody typed `sudo apt`.
+  When the machine has neither `uv` nor `ensurepip`, `install.sh` and the update now fetch uv — the official binary,
+  pinned, its SHA-256 checked — into `~/.local/share/ponos/uv`, without `sudo`, and install with it. Offline, the update
+  is refused and the version in use carries on. An environment whose Python a distribution upgrade removed is made
+  again on the next pass, and `ponos doctor` has an *Environment* section that says whether the `.venv` is there, runs,
+  and imports every package it should — with `ponos update --environment` to make it again when it does not.
 - **The repository has a `pyproject.toml`, a `uv.lock` and a lint.** `uv sync` installs the contributor's tools —
   pytest, pytest-cov, ruff — at locked versions; `uv run pytest` runs both suites (`python3 tests/run.py` still
   works without anything installed), and a new CI job runs ruff and pytest with coverage on every pull request.
