@@ -9739,47 +9739,57 @@ def an_openrouter_model_goes_through_openrouter_whatever_the_provider():
 
 @case
 def the_catalogue_of_openrouter_is_read_once_and_a_failure_is_said():
-    import urllib.request
-
     from ponos import openrouter as router
 
     answers = [json.dumps({"data": [{"id": "a/b", "name": "A: B"}, {"name": "no id"}]}).encode()]
     opened: list[str] = []
 
-    class Reply:
-        def __init__(self, body: bytes) -> None:
-            self.body = body
+    def answer(request: httpx.Request) -> httpx.Response:
+        opened.append(str(request.url))
+        return httpx.Response(200, content=answers[0])
 
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *_):
-            return False
-
-        def read(self):
-            return self.body
-
-    def urlopen(request, timeout=0):
-        opened.append(request.full_url)
-        return Reply(answers[0])
-
-    original, router._catalogue = urllib.request.urlopen, {}
-    urllib.request.urlopen = urlopen
+    router._catalogue = {}
     try:
-        settings = _config('[openrouter]\nkey = "k"\n').openrouter
-        assert router.catalogue(settings) == [{"id": "a/b", "name": "A: B"}]
-        router.catalogue(settings)
-        assert len(opened) == 1, "kept for a while"
-        router._catalogue = {}
-        answers[0] = b"nope"
-        try:
+        with _http_answering(answer):
+            settings = _config('[openrouter]\nkey = "k"\n').openrouter
+            assert router.catalogue(settings) == [{"id": "a/b", "name": "A: B"}]
             router.catalogue(settings)
-        except router.Unavailable as error:
-            assert "not JSON" in str(error)
-        else:
-            raise AssertionError("a page that is not JSON was read as a catalogue")
+            assert len(opened) == 1, "kept for a while"
+            router._catalogue = {}
+            answers[0] = b"nope"
+            try:
+                router.catalogue(settings)
+            except router.Unavailable as error:
+                assert "not JSON" in str(error)
+            else:
+                raise AssertionError("a page that is not JSON was read as a catalogue")
     finally:
-        urllib.request.urlopen, router._catalogue = original, {}
+        router._catalogue = {}
+
+
+@case
+def a_recording_is_transcribed_and_a_refusal_says_its_sentence():
+    from ponos import openrouter as router
+    from ponos import provider
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/key"):
+            return httpx.Response(401, json={"error": {"message": "no"}})
+        if json.loads(request.content)["input_audio"]["format"] == "webm":
+            return httpx.Response(200, json={"text": " bonjour "})
+        return httpx.Response(400, json={"error": {"message": "unsupported format"}})
+
+    settings = _config('[openrouter]\nkey = "k"\n').openrouter
+    with _http_answering(answer) as pauses:
+        assert router.transcribe(settings, b"x", "audio/webm") == "bonjour"
+        try:
+            router.transcribe(settings, b"x", "audio/flac")
+        except router.TranscriptionError as error:
+            assert str(error).endswith("400 unsupported format"), error
+        else:
+            raise AssertionError("a refused recording was taken for a transcription")
+        assert provider.openrouter_key("k").ok is False
+        assert not pauses, "a refusal is an answer, not a silence"
 
 
 @case
