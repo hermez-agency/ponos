@@ -63,6 +63,7 @@ Frontend, depuis `frontend/` :
 npm install
 npm run build   # tsc -b && vite build — écrit dans ../src/ponos/web/static
 npm run lint    # tsc -b --noEmit
+npm run types   # src/lib/api-types.d.ts, depuis le schéma OpenAPI de la console (scripts/openapi.py)
 npm run test:e2e  # Playwright dans le Chrome installé, sur un vrai `serve` et un board jetable
 npm run test:e2e:ci  # le même, avec les deux workers de la CI : c’est lui qui montre une dépendance à l’ordre
 npm test        # node --test src/lib/*.test.ts — la logique de la barre de message, sans navigateur
@@ -78,7 +79,8 @@ et 3.13 ; le job qualité fait `uv sync --locked`, `ruff check`, `ruff format --
 `requirements.txt` est l'export de `uv.lock`, puis `pytest --cov --cov-fail-under=80`
 (réparti par pytest-xdist, sous-processus Python compris dans la couverture) ; le job frontend ne se déclenche que si `frontend/**` ou
 `src/ponos/web/**` a changé, et y
-fait `npm ci`, `npm run lint`, `npm test`, `npm run build` (sous Node 24),
+fait `npm ci`, échoue si `npm run types` change `src/lib/api-types.d.ts`, puis
+`npm run lint`, `npm test`, `npm run build` (sous Node 24),
 échoue si `src/ponos/web/static` diffère de ce que le build vient
 d'écrire, puis lance `npm run test:e2e` sur ce `requirements.txt` installé.
 Un job `image` construit le `Dockerfile` et relance `tests/functional.py`
@@ -115,7 +117,8 @@ deux suites, puis publie l'image sur `ghcr.io`.
   erreur rattrapée, le masquage des secrets avant l'écriture),
   `channels/` (Telegram, Slack), `web/` (la console : `server.py` la porte —
   jeton, connexion, pages d'avant, `serve` —, `app.py` l'application FastAPI —
-  la garde en middleware, le flux SSE, MCP et OAuth —, `routes.py` l'API ;
+  la garde en middleware, le flux SSE, MCP et OAuth —, `routes.py` l'API,
+  `answers.py` les formes de ce qu'elle répond, d'où viennent les types de la page ;
   `web/attempts.py` compte les tentatives ratées par adresse, `web/sessions.py` date et
   révoque les connexions ;
   `web/console.py` tient la conversation avec l'espace de travail, et
@@ -156,7 +159,7 @@ deux suites, puis publie l'image sur `ghcr.io`.
   `http.send`, jamais par `urllib.request` ; pydantic seulement dans
   `schema.py`, que `config.load` importe en lisant le fichier, pour qu'une
   passe sur le `python3` de la machine fabrique encore le `.venv`. FastAPI (et ce qu'il tire) n'entre
-  que dans `web/app.py` et `web/routes.py` — un test le vérifie. Un autre
+  que dans `web/app.py`, `web/routes.py` et `web/answers.py` — un test le vérifie. Un autre
   paquet tiers n'entre que par le ticket qui le décide (voir l'audit), déclaré
   dans `pyproject.toml` et exporté dans `requirements.txt` — jamais au détour
   d'un autre changement.
@@ -180,6 +183,11 @@ deux suites, puis publie l'image sur `ghcr.io`.
   `frontend/` — le runner s'installe avec `python3` et `git` seulement, donc ce
   répertoire doit rester dans le dépôt et à jour à chaque changement de la
   console.
+- **Les types de l'API ne s'écrivent pas dans le frontend.** Une clé que
+  l'API ajoute, renomme ou retire se dit dans `web/answers.py` (et la route
+  la nomme par `response_model=`), puis `npm run types` réécrit
+  `frontend/src/lib/api-types.d.ts`, généré et commité ; `types.ts` n'en
+  garde que les noms. La CI régénère le fichier et refuse un écart.
 - **`web/server.py` reste en bibliothèque standard.** Une installation encore
   en v0.1.0 vérifie une nouvelle version en important `ponos.web.server` avec le
   `python3` de la machine (`update.verify`) : y importer FastAPI bloquerait

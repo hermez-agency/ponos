@@ -43,7 +43,7 @@ from starlette.convertors import Convertor, register_url_convertor
 
 from .. import config as config_module
 from .. import journal, notifications, store, vault
-from . import creation, github, mcp_setup, setup
+from . import answers, creation, github, mcp_setup, setup
 from .api import Api
 
 logger = logging.getLogger(__name__)
@@ -226,7 +226,7 @@ class Text(Payload):
     text: str = ""
 
 
-class Decision(Payload):
+class Chosen(Payload):
     key: str = ""
     number: int | None = 0
     text: str = ""
@@ -238,7 +238,7 @@ class Line(Payload):
     line: str = ""
 
 
-class Message(Payload):
+class Sent(Payload):
     text: str = ""
     attachments: list[str] | None = None
 
@@ -294,12 +294,12 @@ Fields = dict[str, Any]
 # -- the API's reads -----------------------------------------------------------
 
 
-@router.get("/api/state")
+@router.get("/api/state", response_model=answers.RunnerState)
 def state(request: Request) -> Response:
     return answer(_api(request).state(local=request.state.asking.local()))
 
 
-@router.get("/api/board")
+@router.get("/api/board", response_model=answers.Board)
 def board(request: Request) -> Response:
     return answer(_api(request).board())
 
@@ -309,27 +309,27 @@ def recent_notifications() -> Response:
     return answer(notifications.recent())
 
 
-@router.get("/api/projects")
+@router.get("/api/projects", response_model=answers.Projects)
 def projects(request: Request) -> Response:
     return answer(_api(request).all_projects())
 
 
-@router.get("/api/projects/check")
+@router.get("/api/projects/check", response_model=answers.ProjectCheck)
 def projects_check(request: Request, repository: str = "", path: str = "") -> Response:
     return answer(_api(request).creation.check(repository, path))
 
 
-@router.get("/api/projects/{project_id:page}")
+@router.get("/api/projects/{project_id:page}", response_model=answers.ProjectDetail)
 def project(request: Request, project_id: str) -> Response:
     return answer(_api(request).project(project_id))
 
 
-@router.get("/api/projects/{project_id:page}/brief")
+@router.get("/api/projects/{project_id:page}/brief", response_model=answers.ProjectBrief)
 def project_brief(request: Request, project_id: str) -> Response:
     return answer(_api(request).project_brief(project_id))
 
 
-@router.get("/api/projects/{project_id:page}/settings")
+@router.get("/api/projects/{project_id:page}/settings", response_model=answers.ProjectSettings)
 def project_settings(request: Request, project_id: str) -> Response:
     return answer(_api(request).project_settings(project_id))
 
@@ -357,34 +357,34 @@ def file(request: Request, file_id: str) -> Response:
     )
 
 
-@router.get("/api/context")
+@router.get("/api/context", response_model=answers.Context)
 def context(request: Request) -> Response:
     return answer(_api(request).context())
 
 
-@router.get("/api/schedules")
+@router.get("/api/schedules", response_model=answers.Schedules)
 def schedules(request: Request) -> Response:
     return answer(_api(request).schedules())
 
 
-@router.get("/api/schedules/{schedule_id:page}")
+@router.get("/api/schedules/{schedule_id:page}", response_model=answers.ScheduleDetail)
 def schedule(request: Request, schedule_id: str) -> Response:
     return answer(_api(request).schedule(schedule_id))
 
 
-@router.get("/api/ideas")
+@router.get("/api/ideas", response_model=answers.Ideas)
 def ideas(request: Request, project: str = "") -> Response:
     # No `project` is the workspace's ideas, the dashboard's.
     return answer(_api(request).ideas.proposed(project))
 
 
-@router.get("/api/ideas/all")
+@router.get("/api/ideas/all", response_model=answers.IdeaList)
 def ideas_all(request: Request, project: str = "", scope: str = "") -> Response:
     # `scope=all` is every project's ideas and the workspace's together.
     return answer(_api(request).ideas.every(None if scope == "all" else project))
 
 
-@router.get("/api/ideas/unscored")
+@router.get("/api/ideas/unscored", response_model=answers.Unscored)
 def ideas_unscored(request: Request, project: str = "", scope: str = "") -> Response:
     # What scoring the ideas with none would take: said before it is started.
     return answer(_api(request).ideas.unscored(None if scope == "all" else project))
@@ -395,7 +395,7 @@ def history(request: Request) -> Response:
     return answer(_api(request).history())
 
 
-@router.get("/api/disk")
+@router.get("/api/disk", response_model=answers.Disk)
 def disk(request: Request) -> Response:
     return answer(_api(request).disk())
 
@@ -405,7 +405,7 @@ def health(request: Request) -> Response:
     return answer(_api(request).health())
 
 
-@router.get("/api/statistics")
+@router.get("/api/statistics", response_model=answers.Statistics)
 def statistics(
     request: Request, start: str = Query("", alias="from"), to: str = "", project: str = ""
 ) -> Response:
@@ -418,39 +418,39 @@ def statistics(
     return answer(figures)
 
 
-@router.get("/api/chat")
+@router.get("/api/chat", response_model=answers.Chat)
 def chat(request: Request) -> Response:
     talk = _api(request).chat
     return answer({"messages": talk.history(), **talk.state()})
 
 
-@router.get("/api/chat/sessions")
+@router.get("/api/chat/sessions", response_model=answers.ChatSessions)
 def chat_sessions(request: Request, q: str = "") -> Response:
     return answer({"sessions": _api(request).chat.sessions(q)})
 
 
-@router.get("/api/chat/models")
+@router.get("/api/chat/models", response_model=answers.ChatModels)
 def chat_models(request: Request) -> Response:
     return answer(_api(request).chat.models())
 
 
-@router.get("/api/settings")
+@router.get("/api/settings", response_model=answers.Settings)
 def settings(request: Request) -> Response:
     return answer(_api(request).settings())
 
 
-@router.get("/api/mcp")
+@router.get("/api/mcp", response_model=answers.McpOverview)
 def mcp(request: Request) -> Response:
     asking = request.state.asking
     return answer(mcp_setup.overview(asking.loopback(), _api(request).config.web.url))
 
 
-@router.get("/api/mcp/servers")
+@router.get("/api/mcp/servers", response_model=answers.McpServers)
 def mcp_servers() -> Response:
     return answer(mcp_setup.servers())
 
 
-@router.get("/api/settings/folder")
+@router.get("/api/settings/folder", response_model=answers.Folder)
 def settings_folder(request: Request, path: str = "") -> Response:
     try:
         return answer(_api(request).folder(path))
@@ -493,22 +493,22 @@ def setup_doctor() -> Response:
     return answer(setup.doctor())
 
 
-@router.get("/api/github")
+@router.get("/api/github", response_model=answers.Github)
 def github_status() -> Response:
     return answer(github.status())
 
 
-@router.get("/api/tickets/{ticket_id:page}")
+@router.get("/api/tickets/{ticket_id:page}", response_model=answers.TicketDetail)
 def ticket(request: Request, ticket_id: str) -> Response:
     return answer(_api(request).ticket(ticket_id))
 
 
-@router.get("/api/tickets/{ticket_id:page}/talk")
+@router.get("/api/tickets/{ticket_id:page}/talk", response_model=answers.Talk)
 def ticket_talk(request: Request, ticket_id: str) -> Response:
     return answer(_api(request).talk(ticket_id))
 
 
-@router.get("/api/tickets/{ticket_id:page}/decision")
+@router.get("/api/tickets/{ticket_id:page}/decision", response_model=answers.Decision)
 def ticket_decision(request: Request, ticket_id: str) -> Response:
     try:
         return answer(_api(request).decision(ticket_id))
@@ -516,17 +516,17 @@ def ticket_decision(request: Request, ticket_id: str) -> Response:
         return fail(409, str(error))
 
 
-@router.get("/api/tickets/{ticket_id:page}/runs")
+@router.get("/api/tickets/{ticket_id:page}/runs", response_model=answers.Runs)
 def ticket_runs(request: Request, ticket_id: str) -> Response:
     return answer(_api(request).runs(ticket_id))
 
 
-@router.get("/api/tickets/{ticket_id:page}/transitions")
+@router.get("/api/tickets/{ticket_id:page}/transitions", response_model=answers.Transitions)
 def ticket_transitions(request: Request, ticket_id: str) -> Response:
     return answer(_api(request).transitions(ticket_id))
 
 
-@router.get("/api/runs/{run:int}/steps")
+@router.get("/api/runs/{run:int}/steps", response_model=answers.RunSteps)
 def run_steps(
     request: Request, run: int, before: str = "", after: str = "", limit: str = ""
 ) -> Response:
@@ -547,7 +547,7 @@ def run_steps(
     )
 
 
-@router.get("/api/logs")
+@router.get("/api/logs", response_model=answers.Logs)
 def logs(request: Request, ticket: str = "") -> Response:
     return answer(_api(request).logs(ticket))
 
@@ -557,7 +557,7 @@ def service_log(request: Request, lines: str = "500") -> Response:
     return answer(_api(request).service_log(int(lines) if lines.isdigit() else 500))
 
 
-@router.get("/api/logs/{name:log}")
+@router.get("/api/logs/{name:log}", response_model=answers.LogSteps)
 def log(request: Request, name: str) -> Response:
     return answer(_api(request).log(name))
 
@@ -565,7 +565,7 @@ def log(request: Request, name: str) -> Response:
 # -- the API's writes ----------------------------------------------------------
 
 
-@router.post("/api/projects/{project_id:page}/image/{slot:slot}")
+@router.post("/api/projects/{project_id:page}/image/{slot:slot}", response_model=answers.Pictures)
 async def set_project_image(request: Request, project_id: str, slot: str) -> Response:
     """A picture chosen — an address, an emoji, none — or sent whole, as the body.
 
@@ -643,7 +643,7 @@ def setup_channels(request: Request, payload: Fields = Body(default_factory=dict
     return answer(setup.save_channels(_api(request), payload))
 
 
-@router.post("/api/github/connect")
+@router.post("/api/github/connect", response_model=answers.GithubManifest)
 def github_connect(
     request: Request, payload: Organisation = Body(default_factory=Organisation)
 ) -> Response:
@@ -707,7 +707,7 @@ def tell_ticket(
 
 @router.post("/api/tickets/{ticket_id:page}/decision")
 def decide_ticket(
-    request: Request, ticket_id: str, payload: Decision = Body(default_factory=Decision)
+    request: Request, ticket_id: str, payload: Chosen = Body(default_factory=Chosen)
 ) -> Response:
     return answer(
         _api(request).decide(
@@ -727,7 +727,7 @@ def command(request: Request, payload: Line = Body(default_factory=Line)) -> Res
 
 
 @router.post("/api/chat")
-def send_chat(request: Request, payload: Message = Body(default_factory=Message)) -> Response:
+def send_chat(request: Request, payload: Sent = Body(default_factory=Sent)) -> Response:
     return answer(_api(request).chat.send(payload.text, payload.attachments or []))
 
 
@@ -746,36 +746,36 @@ def reset_chat(request: Request) -> Response:
     return answer(_api(request).chat.reset())
 
 
-@router.post("/api/chat/model")
+@router.post("/api/chat/model", response_model=answers.ChatState)
 def choose_chat_model(request: Request, payload: Model = Body(default_factory=Model)) -> Response:
     return answer(_api(request).chat.choose(payload.model))
 
 
-@router.post("/api/chat/sessions/{identifier:attachment}/open")
+@router.post("/api/chat/sessions/{identifier:attachment}/open", response_model=answers.ChatState)
 def open_chat_session(request: Request, identifier: str) -> Response:
     return answer(_api(request).chat.open(identifier))
 
 
-@router.post("/api/chat/sessions/{identifier:attachment}/rename")
+@router.post("/api/chat/sessions/{identifier:attachment}/rename", response_model=answers.ChatState)
 def rename_chat_session(
     request: Request, identifier: str, payload: Title = Body(default_factory=Title)
 ) -> Response:
     return answer(_api(request).chat.rename(identifier, payload.title))
 
 
-@router.post("/api/chat/sessions/{identifier:attachment}/project")
+@router.post("/api/chat/sessions/{identifier:attachment}/project", response_model=answers.ChatState)
 def link_chat_session(
     request: Request, identifier: str, payload: ProjectLink = Body(default_factory=ProjectLink)
 ) -> Response:
     return answer(_api(request).chat.link(identifier, payload.project))
 
 
-@router.post("/api/chat/sessions/{identifier:attachment}/delete")
+@router.post("/api/chat/sessions/{identifier:attachment}/delete", response_model=answers.ChatState)
 def delete_chat_session(request: Request, identifier: str) -> Response:
     return answer(_api(request).chat.delete(identifier))
 
 
-@router.post("/api/projects")
+@router.post("/api/projects", response_model=answers.Project)
 def create_project(request: Request, payload: Fields = Body(default_factory=dict)) -> Response:
     try:
         return answer(_api(request).creation.create(payload))
@@ -786,28 +786,28 @@ def create_project(request: Request, payload: Fields = Body(default_factory=dict
         return answer({"error": said, "violations": [violation]}, 400)
 
 
-@router.post("/api/projects/{project_id:page}/delete")
+@router.post("/api/projects/{project_id:page}/delete", response_model=answers.ProjectDeleted)
 def delete_project(
     request: Request, project_id: str, payload: Fields = Body(default_factory=dict)
 ) -> Response:
     return answer(_api(request).removal.delete(project_id, payload))
 
 
-@router.post("/api/projects/{project_id:page}/settings")
+@router.post("/api/projects/{project_id:page}/settings", response_model=answers.ProjectSettings)
 def save_project_settings(
     request: Request, project_id: str, payload: Fields = Body(default_factory=dict)
 ) -> Response:
     return answer(_api(request).save_project_settings(project_id, payload))
 
 
-@router.post("/api/projects/{project_id:page}")
+@router.post("/api/projects/{project_id:page}", response_model=answers.ProjectDetail)
 def save_project(
     request: Request, project_id: str, payload: Fields = Body(default_factory=dict)
 ) -> Response:
     return answer(_api(request).save_project(project_id, payload))
 
 
-@router.post("/api/settings")
+@router.post("/api/settings", response_model=answers.Saved)
 def save_settings(request: Request, payload: Fields = Body(default_factory=dict)) -> Response:
     return answer(_api(request).save_settings(payload))
 
@@ -834,19 +834,19 @@ def save_schedule(
     return answer(_api(request).save_schedule(schedule_id, payload))
 
 
-@router.post("/api/ideas/generate")
+@router.post("/api/ideas/generate", response_model=answers.Found)
 def generate_ideas(
     request: Request, payload: ProjectLink = Body(default_factory=ProjectLink)
 ) -> Response:
     return answer(_api(request).ideas.generate(payload.project))
 
 
-@router.post("/api/ideas")
+@router.post("/api/ideas", response_model=answers.Idea)
 def create_idea(request: Request, payload: Fields = Body(default_factory=dict)) -> Response:
     return answer(_api(request).ideas.create(payload))
 
 
-@router.post("/api/ideas/score")
+@router.post("/api/ideas/score", response_model=answers.Unscored)
 def score_ideas(request: Request, payload: Scope = Body(default_factory=Scope)) -> Response:
     # No `project` at all is every scope's; "" the workspace's.
     return answer(_api(request).ideas.score_unscored(payload.project))
@@ -859,34 +859,34 @@ def undo_idea(request: Request, payload: Scope = Body(default_factory=Scope)) ->
     return answer(_api(request).ideas.undo(payload.project))
 
 
-@router.post("/api/ideas/{number:int}")
+@router.post("/api/ideas/{number:int}", response_model=answers.Idea)
 def edit_idea(
     request: Request, number: int, payload: Fields = Body(default_factory=dict)
 ) -> Response:
     return answer(_api(request).ideas.edit(number, payload))
 
 
-@router.post("/api/ideas/{number:int}/keep")
+@router.post("/api/ideas/{number:int}/keep", response_model=answers.Idea)
 def keep_idea(request: Request, number: int) -> Response:
     return answer(_api(request).ideas.keep(number))
 
 
-@router.post("/api/ideas/{number:int}/discard")
+@router.post("/api/ideas/{number:int}/discard", response_model=answers.Idea)
 def discard_idea(request: Request, number: int) -> Response:
     return answer(_api(request).ideas.discard(number))
 
 
-@router.post("/api/ideas/{number:int}/ticket")
+@router.post("/api/ideas/{number:int}/ticket", response_model=answers.Idea)
 def ticket_idea(request: Request, number: int) -> Response:
     return answer(_api(request).ideas.ticket(number))
 
 
-@router.post("/api/ideas/{number:int}/reopen")
+@router.post("/api/ideas/{number:int}/reopen", response_model=answers.Idea)
 def reopen_idea(request: Request, number: int) -> Response:
     return answer(_api(request).ideas.reopen(number))
 
 
-@router.post("/api/disk/clean")
+@router.post("/api/disk/clean", response_model=answers.Cleaned)
 def clean_disk(request: Request) -> Response:
     return answer(_api(request).clean())
 
@@ -896,7 +896,7 @@ def fix_health(request: Request, payload: Fields = Body(default_factory=dict)) -
     return answer(_api(request).fix_health(payload))
 
 
-@router.post("/api/mcp/test")
+@router.post("/api/mcp/test", response_model=answers.McpTest)
 def test_mcp(request: Request, payload: Probe = Body(default_factory=Probe)) -> Response:
     # The address tried is one of the two the tab offers, never one the page typed.
     web = _api(request).config.web
@@ -906,7 +906,7 @@ def test_mcp(request: Request, payload: Probe = Body(default_factory=Probe)) -> 
     return answer(mcp_setup.probe(address))
 
 
-@router.post("/api/notifications/read")
+@router.post("/api/notifications/read", response_model=answers.Bell)
 def read_notifications(request: Request, payload: Read = Body(default_factory=Read)) -> Response:
     return answer(_api(request).read_notifications(payload.id))
 
