@@ -58,9 +58,9 @@ import re
 import shutil
 import subprocess
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable
 
 from . import disk, environment, git
 from .config import Runner, in_container, state_dir

@@ -33,14 +33,25 @@ from __future__ import annotations
 import re
 import shutil
 import time
+from collections.abc import Callable
 from dataclasses import replace
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Callable
 
-from . import generated, git, github_token, journal, progress, resources, session, state, store, subtypes
 from . import config as config_module
-from . import vault
+from . import (
+    generated,
+    git,
+    github_token,
+    journal,
+    progress,
+    resources,
+    session,
+    state,
+    store,
+    subtypes,
+    vault,
+)
 from . import prompt as prompt_module
 from . import voice as voice_module
 from .base import Base
@@ -925,7 +936,7 @@ class Execution(Base):
         """
         ticket = job.ticket
         said = self.voice
-        stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        stamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
         try:
             blocks = self.client.append_markdown(
                 ticket.page.id,

@@ -32,8 +32,8 @@ import json
 import shutil
 import subprocess
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
 # The one port the console is served on inside the tailnet, and the one the
 # funnel opens. Funnel only accepts 443, 8443 and 10000.
@@ -127,7 +127,7 @@ def _proxies(handler: object, target: str) -> bool:
     return str(proxy).rstrip("/") == target.rstrip("/")
 
 
-def _run(arguments: list[str]) -> "subprocess.CompletedProcess[str]":
+def _run(arguments: list[str]) -> subprocess.CompletedProcess[str]:
     if not shutil.which("tailscale"):
         raise TailscaleError("tailscale is not installed — https://tailscale.com/download")
     try:

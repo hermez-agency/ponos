@@ -50,8 +50,8 @@ the board, which nobody can say a project for.
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Callable
 from datetime import date, datetime, timedelta, tzinfo
-from typing import Callable
 
 from .. import blocks, subtypes
 

@@ -25,9 +25,10 @@ import subprocess
 import threading
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import IO, Callable
+from typing import IO
 from urllib.parse import parse_qs, quote, urlparse
 
 from . import credits, disk, legacy, vault
@@ -109,7 +110,7 @@ def available() -> str:
     return shutil.which("claude") or ""
 
 
-def lost(outcome: "Outcome") -> bool:
+def lost(outcome: Outcome) -> bool:
     """Did this session fail because there was no conversation to resume?
 
     The one failure a fresh session repairs. Everything else a resumed session
@@ -119,7 +120,7 @@ def lost(outcome: "Outcome") -> bool:
     return bool(_LOST.search(outcome.error or ""))
 
 
-def signalled(outcome: "Outcome") -> bool:
+def signalled(outcome: Outcome) -> bool:
     """Was the session ended by a signal nobody on our side sent?
 
     SIGKILL is 137 once a shell has relayed it and -9 straight from the

@@ -40,7 +40,7 @@ import hmac
 import json
 import secrets
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from urllib.parse import urlencode, urlparse
 
 from .. import db
@@ -142,7 +142,7 @@ def digest(secret: str) -> str:
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _stamp(moment: datetime) -> str:

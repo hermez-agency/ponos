@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import re
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from . import agents, conversation, credits, session, state, store
 from . import prompt as prompt_module
@@ -126,7 +126,7 @@ class Unblocking(Base):
         if flag and store.read(ticket.page, flag):
             return False
         try:
-            age = datetime.now(timezone.utc) - datetime.fromisoformat(
+            age = datetime.now(UTC) - datetime.fromisoformat(
                 ticket.page.raw.get("last_edited_time", "")
             )
             if age.total_seconds() < GRACE:

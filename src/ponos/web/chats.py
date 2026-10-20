@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from .. import db
 
@@ -31,7 +31,7 @@ TITLE_LENGTH = 60
 
 
 def now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 def titled(text: str) -> str:

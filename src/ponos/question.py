@@ -29,8 +29,8 @@ layout `Voice.question` writes, and nothing else.
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Iterable
 
 from . import voice
 

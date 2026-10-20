@@ -39,10 +39,10 @@ import subprocess
 import sys
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Callable
 
 from .. import openrouter, progress, provider, session, voice
 from ..config import Config, state_dir
@@ -119,7 +119,7 @@ def attachments_dir() -> Path:
 class Message:
     role: str
     text: str
-    at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat(timespec="seconds"))
+    at: str = field(default_factory=lambda: datetime.now(UTC).isoformat(timespec="seconds"))
     # What came with it, as the page draws it: name, kind, size, and the id the
     # file is served back under for as long as the conversation keeps it.
     attachments: list[dict] = field(default_factory=list)

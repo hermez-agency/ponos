@@ -40,7 +40,7 @@ if TYPE_CHECKING:
 
 
 class Removal:
-    def __init__(self, api: "Api") -> None:
+    def __init__(self, api: Api) -> None:
         self._api = api
 
     def tickets_of(self, project: str) -> list[store.Page]:

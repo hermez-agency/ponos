@@ -52,18 +52,29 @@ import socket
 import sys
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Callable
 from urllib.parse import parse_qs, parse_qsl, quote, unquote, urlencode, urlparse
 
-from .. import __version__
+from .. import (
+    __version__,
+    db,
+    github_app,
+    journal,
+    legacy,
+    notifications,
+    openrouter,
+    passwords,
+    store,
+    tailscale,
+    vault,
+    voice,
+)
 from .. import config as config_module
-from .. import db, journal, legacy, notifications, openrouter, store, tailscale, vault, voice
 from ..config import Config, state_dir
-from .. import github_app, passwords
 from . import attachments, attempts, creation, github, mcp, mcp_setup, oauth, sessions, setup
 from .api import Api
 

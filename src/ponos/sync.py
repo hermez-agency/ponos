@@ -47,7 +47,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -84,7 +84,7 @@ class Entry:
     at: str = ""
 
     def row(self) -> tuple[str, str, str, str, str, str]:
-        at = self.at or datetime.now(timezone.utc).isoformat(timespec="seconds")
+        at = self.at or datetime.now(UTC).isoformat(timespec="seconds")
         return (at, self.what, self.collection, self.page, self.title, self.detail)
 
 
@@ -249,8 +249,8 @@ def _moment(stamp: str) -> datetime:
     try:
         moment = datetime.fromisoformat(str(stamp))
     except (TypeError, ValueError):
-        return datetime.min.replace(tzinfo=timezone.utc)
-    return moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)
+        return datetime.min.replace(tzinfo=UTC)
+    return moment if moment.tzinfo else moment.replace(tzinfo=UTC)
 
 
 def _newer(left: str, right: str) -> bool:
@@ -659,4 +659,4 @@ def _bare(identifier: str) -> str:
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="microseconds")
+    return datetime.now(UTC).isoformat(timespec="microseconds")

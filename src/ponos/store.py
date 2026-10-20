@@ -29,8 +29,9 @@ directories are made the first time something is written into them.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 # The three modes of `storage.mode`, and the whole of them.
 MODES = ("notion", "markdown", "both")

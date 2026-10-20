@@ -22,7 +22,7 @@ clock read at any moment without waiting for it.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from . import blocks
 
@@ -42,7 +42,7 @@ def _instant(stamp: str | None) -> datetime | None:
         moment = datetime.fromisoformat(str(stamp))
     except ValueError:
         return None
-    return moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)
+    return moment if moment.tzinfo else moment.replace(tzinfo=UTC)
 
 
 def pause_of(span: dict) -> str:
@@ -63,7 +63,7 @@ def measure(spans: list[dict], column: str, now: datetime | None = None) -> dict
     where the board draws it now. `work` and `paused` are seconds, as of `now`;
     `running` says the clock is going, `pause` why it is stopped, if it is.
     """
-    now = now or datetime.now(timezone.utc)
+    now = now or datetime.now(UTC)
     runs = []
     for span in spans:
         start = _instant(span.get("start"))

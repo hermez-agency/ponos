@@ -49,10 +49,21 @@ import subprocess
 import sys
 from pathlib import Path
 
-from .. import __version__, channels, github_app, github_token, notion, prerequisites, projects, provider
-from .. import git as git_module
-from .. import provision, store, voice
+from .. import (
+    __version__,
+    channels,
+    github_app,
+    github_token,
+    notion,
+    prerequisites,
+    projects,
+    provider,
+    provision,
+    store,
+    voice,
+)
 from .. import config as config_module
+from .. import git as git_module
 from ..channels import telegram as telegram_channel
 from .api import Api
 

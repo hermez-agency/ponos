@@ -91,7 +91,7 @@ def probe(address: str) -> dict:
         if isinstance(reason, socket.gaierror):
             return {"ok": False, "code": "unknown-host", "status": 0}
         return {"ok": False, "code": "unreachable", "status": 0}
-    except (TimeoutError, socket.timeout):
+    except TimeoutError:
         return {"ok": False, "code": "timeout", "status": 0}
     except (OSError, ValueError, AttributeError):
         # A reply that is not what a server of ours would say: JSON that is not

@@ -32,8 +32,8 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Iterable
 
 from . import question as question_module
 from . import voice as voice_module

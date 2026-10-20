@@ -26,8 +26,8 @@ from __future__ import annotations
 import ipaddress
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
 # The tenth failure in a row is not somebody who forgot.
 LOCK_AFTER = 10

@@ -44,7 +44,7 @@ import json
 import re
 import unicodedata
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -94,7 +94,7 @@ def now() -> str:
     is what `sync.py` compares against the last reconciliation, and two writes
     in the same second would be one write as far as it could tell.
     """
-    return datetime.now(timezone.utc).isoformat(timespec="microseconds")
+    return datetime.now(UTC).isoformat(timespec="microseconds")
 
 
 def new_id() -> str:

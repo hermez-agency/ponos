@@ -36,9 +36,9 @@ stopped, from blocks.py. A run the runner never got to close
 from __future__ import annotations
 
 import sqlite3
-from datetime import datetime, timezone
+from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Callable
 
 from . import db, progress
 
@@ -54,7 +54,7 @@ _FAILURES = (db.DatabaseError, sqlite3.Error, OSError)
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 def _row(step: progress.Step) -> tuple[str, str, str]:

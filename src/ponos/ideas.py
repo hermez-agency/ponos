@@ -70,7 +70,7 @@ import json
 import re
 import unicodedata
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from . import db
 
@@ -244,7 +244,7 @@ class Idea:
         if not started or self.score is not None:
             return False
         try:
-            since = datetime.now(timezone.utc) - datetime.fromisoformat(started)
+            since = datetime.now(UTC) - datetime.fromisoformat(started)
         except ValueError:
             return False
         return since.total_seconds() < SCORING_FOR_MINUTES * 60
@@ -374,7 +374,7 @@ Write every reason in {language}.
 
 
 def score_prompt(
-    candidates: list["Idea"],
+    candidates: list[Idea],
     *,
     project: str = "",
     brief: str = "",
@@ -643,7 +643,7 @@ def draft(say, *, what: str, where: str, done: list[str], out: list[str]) -> str
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 _COLUMNS = (

@@ -70,7 +70,7 @@ class ScoreFailed(Exception):
 
 
 class Ideas:
-    def __init__(self, api: "Api") -> None:
+    def __init__(self, api: Api) -> None:
         self._api = api
         self._lock = threading.Lock()
         self._busy: set[str] = set()

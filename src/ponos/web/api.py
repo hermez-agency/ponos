@@ -20,19 +20,43 @@ from __future__ import annotations
 import hashlib
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from .. import blocks, ci
+from .. import (
+    blocks,
+    channels,
+    ci,
+    cleanup,
+    conversation,
+    credits,
+    decisions,
+    git,
+    health,
+    images,
+    journal,
+    models,
+    notifications,
+    project_settings,
+    provision,
+    question,
+    redaction,
+    resources,
+    session,
+    state,
+    store,
+    subtypes,
+    sync,
+    systemd,
+    voice,
+    worktime,
+)
 from .. import config as config_module
-from .. import channels, cleanup, conversation, credits, decisions, git, images, question, session, state, store, sync
-from .. import journal, models, notifications, project_settings, redaction, resources, subtypes, systemd, voice, worktime
-from .. import transitions as transitions_module
 from .. import kinds as kinds_module
 from .. import priority as priority_module
-from .. import health, provision
 from .. import schedules as schedules_module
+from .. import transitions as transitions_module
 from .. import update as update_module
 from ..config import Config
 from ..runner import Runner
@@ -41,8 +65,8 @@ from ..ticket import short_id
 from . import board as board_module
 from . import console, creation, live, removal, statistics
 from . import ideas as ideas_module
-from . import upgrade as upgrade_module
 from . import settings as settings_module
+from . import upgrade as upgrade_module
 
 # The project index is read from one database query, not one page fetch per
 # project — and kept, because projects are renamed about as often as they are
@@ -1145,9 +1169,9 @@ class Api:
             "short": resources.short_of_disk(settings.min_free_disk_mb, config_module.state_dir()) is not None,
             "stale_worktree_days": settings.stale_worktree_days,
             "total": sum(sizes.values()),
-            "measured_at": datetime.fromtimestamp(measured, timezone.utc).isoformat(),
+            "measured_at": datetime.fromtimestamp(measured, UTC).isoformat(),
             "tidied_at": (
-                datetime.fromtimestamp(cleanup.tidied_at(), timezone.utc).isoformat()
+                datetime.fromtimestamp(cleanup.tidied_at(), UTC).isoformat()
                 if cleanup.tidied_at()
                 else ""
             ),
@@ -1161,7 +1185,7 @@ class Api:
         return {
             "checks": [check.asdict() for check in checks],
             "problems": health.problems(checks),
-            "checked_at": datetime.now(timezone.utc).isoformat(),
+            "checked_at": datetime.now(UTC).isoformat(),
         }
 
     def fix_health(self, payload: dict) -> dict:
@@ -1445,7 +1469,7 @@ class Api:
         message = {
             "role": "you",
             "text": text,
-            "at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "at": datetime.now(UTC).isoformat(timespec="seconds"),
         }
         self.hub.publish("talk", ticket=page_id, **message)
         return message
@@ -1629,7 +1653,7 @@ class Api:
             ticket=page_id,
             role="you",
             text="\n".join(lines[1:]),
-            at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            at=datetime.now(UTC).isoformat(timespec="seconds"),
         )
 
     def _offered(self, solutions: list[decisions.Solution]) -> list[dict]:
@@ -2007,7 +2031,7 @@ def _instant(stamp: str) -> float | None:
     except ValueError:
         return None
     if moment.tzinfo is None:
-        moment = moment.replace(tzinfo=timezone.utc)
+        moment = moment.replace(tzinfo=UTC)
     return moment.timestamp()
 
 

@@ -37,7 +37,7 @@ import time
 import traceback
 import uuid
 from contextlib import contextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -65,7 +65,7 @@ def _ident() -> str:
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 # -- a Notion of our own -----------------------------------------------------
@@ -325,7 +325,7 @@ class Board:
             value = page.get(slot)
             if value and value.get("type") == "file":
                 url = value["file"]["url"].split("?", 1)[0]
-                expires = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+                expires = (datetime.now(UTC) + timedelta(hours=1)).isoformat()
                 signed[slot] = {
                     "type": "file",
                     "file": {"url": f"{url}?X-Amz-Signature={_ident()}", "expiry_time": expires},
@@ -2035,7 +2035,7 @@ def a_session_that_stops_without_its_report_is_asked_for_it_once():
         assert len(machine.sessions()) == 1, "not picked up a second time"
 
 
-def _budget(machine: "Bench", **limits: float) -> None:
+def _budget(machine: Bench, **limits: float) -> None:
     """The installation's `[budget]`, written into its configuration."""
     with open(machine.config, "a", encoding="utf-8") as handle:
         handle.write("\n[budget]\n" + "".join(f"{key} = {value}\n" for key, value in limits.items()))
@@ -2282,7 +2282,7 @@ def a_project_left_out_of_resolution_blocks_on_its_conflict_as_before():
         assert not machine.merges()
 
 
-def _with_a_bundle(machine: "Bench", name: str) -> Path:
+def _with_a_bundle(machine: Bench, name: str) -> Path:
     """A repository that declares a generated bundle, and keeps a changelog.
 
     `dist/bundle.js` is what `build` writes from `parts/*.txt`, as a frontend
@@ -2661,7 +2661,7 @@ def a_pass_started_during_an_update_runs_on_one_version_and_never_on_both():
             assert after.returncode == 0 and "Error" not in said, said
 
 
-def _worktree_of(machine: "Bench") -> Path:
+def _worktree_of(machine: Bench) -> Path:
     """The one worktree a failed ticket left in the state directory."""
     (path,) = (Path(os.environ["XDG_STATE_HOME"]) / "ponos" / "worktrees").glob("*")
     return path
@@ -2741,8 +2741,9 @@ def a_session_killed_is_resumed_once_and_blocked_as_killed_if_it_dies_again():
 
 @case
 def a_board_that_cannot_be_reached_marks_no_ticket_failed_and_the_run_does_not_fail():
-    from ponos import __main__ as command
     import argparse
+
+    from ponos import __main__ as command
 
     with bench() as machine:
         repository = machine.repository("site")
@@ -2762,7 +2763,7 @@ def a_board_that_cannot_be_reached_marks_no_ticket_failed_and_the_run_does_not_f
         assert machine.run()[0]["status"] == "done", "and the next pass, with the network back, runs it"
 
 
-def _with_an_on_prompt(machine: "Bench", ticket: str, prompt: str) -> None:
+def _with_an_on_prompt(machine: Bench, ticket: str, prompt: str) -> None:
     """The board given its « On » column, and a ticket the prompt written in it."""
     database = machine.board.databases[machine.database]
     database["properties"] = {**database["properties"], "On": {"type": "rich_text", "rich_text": {}}}

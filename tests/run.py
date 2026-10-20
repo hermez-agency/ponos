@@ -16,6 +16,7 @@ reaches Notion as a wall of text, a summary that keeps its verdict.
 from __future__ import annotations
 
 import ast
+import contextlib
 import gzip
 import http.client
 import io
@@ -31,42 +32,75 @@ import threading
 import time
 import traceback
 import uuid
-import contextlib
 from contextlib import contextmanager
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from ponos import config as C  # noqa: E402
-from ponos import agents, channels, conversation, credits, kinds, markdown, naming, notion  # noqa: E402
-from ponos import notify, openrouter, progress, projects, prompt, provision, question  # noqa: E402
-from ponos import schedules, session, state, store, subtypes, sync, systemd  # noqa: E402
-from ponos import db, files, github_token, images, journal, project_settings, vault  # noqa: E402
-from ponos.channels import slack as slack_channel, telegram as telegram_channel  # noqa: E402
-from ponos import legacy, models, update, voice, workspace  # noqa: E402
-from ponos import ticket as ticket_module  # noqa: E402
-from ponos import priority, redaction, worktime  # noqa: E402
-from ponos.runner import Runner  # noqa: E402
-from ponos import __version__  # noqa: E402
-from ponos.__main__ import _names, banner, subcommands, welcome  # noqa: E402
-from ponos.__main__ import main as cli_main  # noqa: E402
-from ponos.__main__ import build_parser  # noqa: E402
-from ponos.web import api as web_api  # noqa: E402
-from ponos.web import board as web_board  # noqa: E402
-from ponos.web import removal as web_removal  # noqa: E402
-from ponos.web import creation as web_creation  # noqa: E402
-from ponos.web import attachments as web_attachments  # noqa: E402
-from ponos.web import console as web_console  # noqa: E402
-from ponos.web import settings as web_settings  # noqa: E402
-from ponos.web import live as web_live  # noqa: E402
-from ponos.web import statistics as web_statistics  # noqa: E402
-from ponos.web import ideas as web_ideas  # noqa: E402
-from ponos import ideas  # noqa: E402
-from ponos import git as git_module, github_app  # noqa: E402
-from ponos.web import github as web_github  # noqa: E402
-from ponos.ticket import short_id, slugify  # noqa: E402
-from ponos.projects import _normalise  # noqa: E402
+from ponos import (
+    __version__,
+    agents,
+    channels,
+    conversation,
+    credits,
+    db,
+    files,
+    github_app,
+    github_token,
+    ideas,
+    images,
+    journal,
+    kinds,
+    legacy,
+    markdown,
+    models,
+    naming,
+    notify,
+    notion,
+    openrouter,
+    priority,
+    progress,
+    project_settings,
+    projects,
+    prompt,
+    provision,
+    question,
+    redaction,
+    schedules,
+    session,
+    state,
+    store,
+    subtypes,
+    sync,
+    systemd,
+    update,
+    vault,
+    voice,
+    workspace,
+    worktime,
+)
+from ponos import config as C
+from ponos import git as git_module
+from ponos import ticket as ticket_module
+from ponos.__main__ import _names, banner, build_parser, subcommands, welcome
+from ponos.__main__ import main as cli_main
+from ponos.channels import slack as slack_channel
+from ponos.channels import telegram as telegram_channel
+from ponos.projects import _normalise
+from ponos.runner import Runner
+from ponos.ticket import short_id, slugify
+from ponos.web import api as web_api
+from ponos.web import attachments as web_attachments
+from ponos.web import board as web_board
+from ponos.web import console as web_console
+from ponos.web import creation as web_creation
+from ponos.web import github as web_github
+from ponos.web import ideas as web_ideas
+from ponos.web import live as web_live
+from ponos.web import removal as web_removal
+from ponos.web import settings as web_settings
+from ponos.web import statistics as web_statistics
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
@@ -5706,7 +5740,7 @@ def the_columns_are_read_in_one_order_with_blocked_right_after_running():
     assert [key for key in order if key not in ("blocked",)] == [
         "ready", "running", "review", "validated", "failed", "done", "cancelled"
     ], order
-    assert mcp.STATUSES == ("draft", *order), mcp.STATUSES
+    assert ("draft", *order) == mcp.STATUSES, mcp.STATUSES
 
 
 @case
@@ -6841,7 +6875,7 @@ def an_orphan_claim_is_let_go_of_by_the_sweep():
     """A note of a claim whose ticket is no longer in progress — moved by hand,
     or its run gone without a word — is dropped; one still in progress is not."""
     live = _in_progress("p-live", None)
-    live.raw["last_edited_time"] = datetime.now(timezone.utc).isoformat()
+    live.raw["last_edited_time"] = datetime.now(UTC).isoformat()
     runner = _board_runner([live], {})
     with _state_home():
         state.claim("plive", "Validated")
@@ -6854,7 +6888,7 @@ def an_orphan_claim_is_let_go_of_by_the_sweep():
 def a_ready_card_always_says_what_it_is_waiting_for():
     from ponos.web import board as web_board
 
-    now = datetime(2026, 10, 9, 23, 50, tzinfo=timezone.utc)
+    now = datetime(2026, 10, 9, 23, 50, tzinfo=UTC)
     card = {"id": "p1", "column": "ready", "scheduled": ""}
 
     def held(ticket=card, noted=None, passing=True, timer=True, waits=None):
@@ -7775,7 +7809,7 @@ def the_statistics_count_the_closed_tickets_by_sub_type_and_by_week():
         {"id": "a", "at": "2026-10-06T09:00:00+00:00", "cost_usd": 1.0, "seconds": 600},
         {"id": "b", "at": "2026-10-13T09:00:00+00:00", "cost_usd": 3.0},
     ]
-    found = web_statistics.figures(tickets, history, date(2026, 10, 1), date(2026, 10, 20), timezone.utc)[
+    found = web_statistics.figures(tickets, history, date(2026, 10, 1), date(2026, 10, 20), UTC)[
         "subtypes"
     ]
     assert found["total"] == 3, found
@@ -8928,6 +8962,7 @@ def an_openrouter_model_goes_through_openrouter_whatever_the_provider():
 @case
 def the_catalogue_of_openrouter_is_read_once_and_a_failure_is_said():
     import urllib.request
+
     from ponos import openrouter as router
 
     answers = [json.dumps({"data": [{"id": "a/b", "name": "A: B"}, {"name": "no id"}]}).encode()]
@@ -10561,7 +10596,7 @@ def a_secret_left_in_config_toml_is_never_read():
         raise AssertionError("a token only config.toml holds is no token")
 
     # The example's placeholder is where a token went, not one.
-    path.write_text('[notion]\ntoken = "%s"\n' % C.PLACEHOLDER)
+    path.write_text(f'[notion]\ntoken = "{C.PLACEHOLDER}"\n')
     assert C.load(path).exposed == ()
 
 
@@ -10730,7 +10765,7 @@ def a_closing_is_dated_by_the_runner_before_the_last_edit():
         _card("c", "done", "2026-09-01T09:00:00.000Z", edited="2026-09-08T09:00:00.000Z"),
     ]
     figures = web_statistics.figures(
-        tickets, history, date(2026, 9, 1), date(2026, 9, 10), timezone.utc
+        tickets, history, date(2026, 9, 1), date(2026, 9, 10), UTC
     )
     closed = {item["day"]: item["closed"] for item in figures["days"] if item["closed"]}
     assert closed == {"2026-09-05": 1, "2026-09-06": 1, "2026-09-08": 1}, closed
@@ -10760,7 +10795,7 @@ def the_open_curve_starts_from_the_board_as_it_stood_and_ends_on_it():
         {"at": "2026-08-01T12:00:00+00:00", "id": "old", "status": "blocked", "cost_usd": 9},
     ]
     figures = web_statistics.figures(
-        tickets, history, date(2026, 9, 1), date(2026, 9, 5), timezone.utc
+        tickets, history, date(2026, 9, 1), date(2026, 9, 5), UTC
     )
     opened = [item["open"] for item in figures["days"]]
     assert opened == [2, 2, 1, 3, 3], opened
@@ -10795,7 +10830,7 @@ def a_cancelled_ticket_is_neither_closed_nor_open_and_keeps_its_cost():
         {"at": "2026-09-02T12:00:00+00:00", "id": "dropped", "status": "blocked", "cost_usd": 2.0},
     ]
     figures = web_statistics.figures(
-        tickets, history, date(2026, 9, 1), date(2026, 9, 4), timezone.utc
+        tickets, history, date(2026, 9, 1), date(2026, 9, 4), UTC
     )
     assert [item["open"] for item in figures["days"]] == [2, 2, 1, 1]
     assert figures["totals"] == {"open": 1, "closed": 0, "created": 2, "cost": 2.0}, figures["totals"]
@@ -10819,7 +10854,7 @@ def the_open_tickets_of_the_last_day_are_the_boards_not_closed_ones():
         for column in columns
     ]
     figures = web_statistics.figures(
-        tickets, [], date(2026, 9, 1), date(2026, 9, 4), timezone.utc
+        tickets, [], date(2026, 9, 1), date(2026, 9, 4), UTC
     )
     board = sum(1 for ticket in tickets if ticket["column"] not in ("done", "validated", "cancelled"))
     assert [item["open"] for item in figures["days"]] == [8, 8, board, board], figures["days"]
@@ -10854,7 +10889,7 @@ def the_tickets_created_are_handed_by_type_sub_type_and_project():
     ]
     kinds = {"code": "code", "rédaction": "writing"}
     figures = web_statistics.figures(
-        tickets, [], date(2026, 9, 7), date(2026, 9, 13), timezone.utc,
+        tickets, [], date(2026, 9, 7), date(2026, 9, 13), UTC,
         kind_of=lambda option: kinds.get(option.casefold(), ""),
     )
     made = figures["made"]
@@ -10870,7 +10905,7 @@ def the_tickets_created_are_handed_by_type_sub_type_and_project():
     assert made["before"] == [{"kind": "code", "subtype": "feature", "project": "Opoil", "count": 1}]
 
     # Past a month, a bucket is a week, named by its Monday.
-    longer = web_statistics.figures(tickets, [], date(2026, 8, 1), date(2026, 9, 13), timezone.utc)
+    longer = web_statistics.figures(tickets, [], date(2026, 8, 1), date(2026, 9, 13), UTC)
     assert longer["made"]["unit"] == "week"
     assert longer["made"]["buckets"][:2] == ["2026-07-27", "2026-08-03"]
     assert {cell["bucket"] for cell in longer["made"]["cells"]} == {"2026-08-17", "2026-08-31", "2026-09-07"}
@@ -10902,9 +10937,9 @@ def the_projects_figures_add_up_to_the_boards():
         {"at": "2026-09-04T14:00:00+00:00", "id": "gone", "status": "done", "cost_usd": 8.0},
     ]
     first, last = date(2026, 9, 1), date(2026, 9, 10)
-    whole = web_statistics.figures(tickets, history, first, last, timezone.utc)
+    whole = web_statistics.figures(tickets, history, first, last, UTC)
     by_project = {
-        name: web_statistics.figures(tickets, history, first, last, timezone.utc, project=name)
+        name: web_statistics.figures(tickets, history, first, last, UTC, project=name)
         for name in ("Opoil", "ponos", "")
     }
     assert whole["totals"]["created"] == sum(f["totals"]["created"] for f in by_project.values())
@@ -10927,7 +10962,7 @@ def a_day_is_this_machines_day():
 
     paris = timezone(timedelta(hours=2))
     assert web_statistics.day_of("2026-09-02T22:30:00.000Z", paris) == date(2026, 9, 3)
-    assert web_statistics.day_of("2026-09-02T22:30:00.000Z", timezone.utc) == date(2026, 9, 2)
+    assert web_statistics.day_of("2026-09-02T22:30:00.000Z", UTC) == date(2026, 9, 2)
     assert web_statistics.day_of("2026-09-02", paris) == date(2026, 9, 2)
     assert web_statistics.day_of("", paris) is None
     assert web_statistics.day_of("hier", paris) is None
@@ -11350,7 +11385,7 @@ def a_ticket_page_is_read_again_only_when_notion_says_it_changed():
     assert client.reads == 2
 
     # Edited just now: the minute is not over, so nothing is kept.
-    now = datetime.now(timezone.utc).replace(second=0, microsecond=0)
+    now = datetime.now(UTC).replace(second=0, microsecond=0)
     client.edited = now.isoformat().replace("+00:00", ".000Z")
     api.ticket(ticket)
     client._content = "third brief"
@@ -13202,7 +13237,7 @@ def the_bell_keeps_what_is_unread_once_and_forgets_what_was_read_after_thirty_da
         heard = notifications.recent()
         assert heard["unread"] == 0 and len(heard["items"]) == 3 and all(i["read"] for i in heard["items"])
 
-        old = (datetime.now(timezone.utc) - timedelta(days=31)).isoformat(timespec="seconds")
+        old = (datetime.now(UTC) - timedelta(days=31)).isoformat(timespec="seconds")
         with db.transaction() as connection:
             connection.execute("UPDATE notifications SET read_at = ? WHERE id = ?", (old, heard["items"][2]["id"]))
         notifications.read()
@@ -13482,7 +13517,7 @@ def _one(commands: list[list[str]], prefix: list[str]) -> list[str]:
 
 
 def _aged_page(page_id: str, status: str, edited_days_ago: float) -> notion.Page:
-    edited = datetime.now(timezone.utc) - timedelta(days=edited_days_ago)
+    edited = datetime.now(UTC) - timedelta(days=edited_days_ago)
     return notion.Page(
         id=page_id,
         url="",
@@ -13774,7 +13809,7 @@ def a_ticket_that_never_ran_gets_its_branch_drawn_fresh():
     made, commands = _worktree_for()
     assert voice.Voice().branch_note(made) == "", "nothing happened worth telling anyone about"
     assert not made.reused
-    assert ["worktree", "add", "-b", "ticket/le-header-9d2cb790"] == commands[-1][:4]
+    assert commands[-1][:4] == ["worktree", "add", "-b", "ticket/le-header-9d2cb790"]
     assert not any(command[:1] == ["rebase"] for command in commands)
 
 
@@ -16404,7 +16439,7 @@ def _stamp() -> str:
     both sides at — two writes in the same second would otherwise be one write
     as far as it could tell, and a conflict test would pass by accident.
     """
-    return datetime.now(timezone.utc).isoformat(timespec="microseconds")
+    return datetime.now(UTC).isoformat(timespec="microseconds")
 
 
 @contextmanager
@@ -17994,9 +18029,8 @@ def the_console_reads_and_rewrites_the_brief_a_schedule_is_born_with():
 @case
 def the_console_says_which_board_it_is_looking_at():
     """The panes read it: a Notion link is worth drawing on one and not the other."""
-    with _board() as board:
-        with _state_home():
-            said = _markdown_api(board).state()
+    with _board() as board, _state_home():
+        said = _markdown_api(board).state()
     assert said["storage"] == "markdown"
     assert said["board_path"] == str(board.root)
 
@@ -18165,7 +18199,7 @@ class _Pictures:
     """A cache of pictures on a clock of the test's own, with a network that counts."""
 
     def __init__(self, fetched: bytes = JPEG) -> None:
-        self.now = datetime(2026, 9, 30, 8, 5, tzinfo=timezone.utc)
+        self.now = datetime(2026, 9, 30, 8, 5, tzinfo=UTC)
         self.fetched: list[str] = []
         self.answer = fetched
         self.directory = Path(tempfile.mkdtemp())
@@ -18507,7 +18541,7 @@ class _Minutes:
     """
 
     def __init__(self, count: int = 3) -> None:
-        self.now = datetime(2026, 9, 30, 9, 32, 6, tzinfo=timezone.utc)
+        self.now = datetime(2026, 9, 30, 9, 32, 6, tzinfo=UTC)
         self.pages: dict[str, store.Page] = {}
         self.queried: list[dict | None] = []
         self.patched: list[tuple[str, dict]] = []
@@ -18860,7 +18894,7 @@ def a_notion_page_edited_twice_in_one_minute_reaches_the_files_both_times():
     with _state_home(), _mirror() as (here, there, both, marks):
         page_id = here.create_row("tickets", "Corriger l'entête", {"Status": "Ready"})
         both.synchronise(_settings(), stamps=marks)
-        minute = (datetime.now(timezone.utc) + timedelta(days=1)).replace(second=0, microsecond=0)
+        minute = (datetime.now(UTC) + timedelta(days=1)).replace(second=0, microsecond=0)
         at = minute.isoformat().replace("+00:00", ".000Z")
         here.update("tickets", page_id, {"Status": "Blocked"}, at=at)
         assert [entry.what for entry in both.synchronise(_settings(), stamps=marks).carried] == ["notion→markdown"]
@@ -18912,11 +18946,13 @@ def an_installation_from_before_the_rename_starts_with_everything_it_had():
     )
     repository = home / "workspace" / "app"
     repository.mkdir(parents=True)
-    git = lambda *argv, cwd=repository: subprocess.run(  # noqa: E731
-        ["git", *argv], cwd=cwd, capture_output=True, text=True, check=True,
-        env={**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
-             "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"},
-    ).stdout
+    def git(*argv: str, cwd: Path = repository) -> str:
+        return subprocess.run(
+            ["git", *argv], cwd=cwd, capture_output=True, text=True, check=True,
+            env={**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+                 "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"},
+        ).stdout
+
     git("init", "-q")
     git("commit", "-q", "--allow-empty", "-m", "start")
     worktree = old_state / "worktrees" / "app-1234abcd"
@@ -20771,7 +20807,7 @@ def the_statistics_count_the_stops_by_cause_and_by_week():
         {"at": "2026-09-01T09:00:00+00:00", "status": "blocked", "code": "session.question"},
     ]
     found = web_statistics.figures(
-        [], history, date(2026, 10, 1), date(2026, 10, 20), timezone.utc
+        [], history, date(2026, 10, 1), date(2026, 10, 20), UTC
     )["blocks"]
     assert found["total"] == 4, found
     assert [week["week"] for week in found["weeks"]] == [
@@ -21112,7 +21148,7 @@ def an_installation_token_is_kept_and_renewed_before_it_lapses():
 
     with _github_answering(answer):
         github_app.save(_test_app())
-        lapse = datetime(2030, 1, 1, 12, tzinfo=timezone.utc).timestamp()
+        lapse = datetime(2030, 1, 1, 12, tzinfo=UTC).timestamp()
         app = github_app.apps()[0]
         assert github_app.installation_token(app, 7, now=lapse - 3000) == "ghs_0"
         assert github_app.installation_token(app, 7, now=lapse - 700) == "ghs_0", "still fresh"
@@ -21387,15 +21423,19 @@ def a_token_is_read_from_the_environment_or_a_vault_and_masked():
         assert github_token.source() == C.GITHUB_TOKEN_ENV
         assert vault.mask("echo github_pat_from_the_container") == "echo ***"
         assert github_token.forget() is False, "a token the environment gives is not ours to drop"
-    with _token_answering(lambda *_: (200, {}, {}), '[github_access]\ntoken_item = "pass:ponos/github"\n'):
-        with _tools({"pass": "print('github_pat_from_pass\\nnote')"}):
-            assert github_token.token() == "github_pat_from_pass"
-            assert github_token.source() == "pass:ponos/github"
-            assert github_token.unavailable() == ""
-            assert vault.mask("github_pat_from_pass") == "***"
-    with _token_answering(lambda *_: (200, {}, {}), '[github_access]\ntoken_item = "pass:absent"\n'):
-        with _tools({"pass": "sys.stderr.write('Error: absent is not in the password store.'); sys.exit(1)"}):
-            assert github_token.token() == "" and "holds no item" in github_token.unavailable()
+    with (
+        _token_answering(lambda *_: (200, {}, {}), '[github_access]\ntoken_item = "pass:ponos/github"\n'),
+        _tools({"pass": "print('github_pat_from_pass\\nnote')"}),
+    ):
+        assert github_token.token() == "github_pat_from_pass"
+        assert github_token.source() == "pass:ponos/github"
+        assert github_token.unavailable() == ""
+        assert vault.mask("github_pat_from_pass") == "***"
+    with (
+        _token_answering(lambda *_: (200, {}, {}), '[github_access]\ntoken_item = "pass:absent"\n'),
+        _tools({"pass": "sys.stderr.write('Error: absent is not in the password store.'); sys.exit(1)"}),
+    ):
+        assert github_token.token() == "" and "holds no item" in github_token.unavailable()
 
 
 @case
@@ -21726,7 +21766,7 @@ def the_tailscale_watch_waits_for_the_tailnet_then_publishes_and_republishes_aft
     state = {"backend": "Stopped", "serve": "{}"}
     ran: list[list[str]] = []
 
-    def run(arguments: list[str]) -> "subprocess.CompletedProcess[str]":
+    def run(arguments: list[str]) -> subprocess.CompletedProcess[str]:
         ran.append(arguments)
         out = ""
         if arguments[:2] == ["status", "--json"]:

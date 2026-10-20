@@ -34,7 +34,7 @@ import urllib.request
 from dataclasses import dataclass
 
 from . import openrouter, session
-from .config import Config, OPENROUTER_URL
+from .config import OPENROUTER_URL, Config
 
 ANTHROPIC_MODELS = "https://api.anthropic.com/v1/models"
 

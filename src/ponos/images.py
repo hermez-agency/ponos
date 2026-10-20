@@ -47,10 +47,11 @@ import threading
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from . import db
 from .store import SLOTS, Page, Picture, StoreError
@@ -188,8 +189,8 @@ def _moment(stamp: str) -> datetime:
     try:
         moment = datetime.fromisoformat(str(stamp).replace("Z", "+00:00"))
     except (TypeError, ValueError):
-        return datetime.min.replace(tzinfo=timezone.utc)
-    return moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)
+        return datetime.min.replace(tzinfo=UTC)
+    return moment if moment.tzinfo else moment.replace(tzinfo=UTC)
 
 
 def _edited(page: Page) -> str:
@@ -220,7 +221,7 @@ class Cache:
         self._dir = Path(directory)
         self._database = database
         self._fetch = fetch
-        self._clock = clock or (lambda: datetime.now(timezone.utc))
+        self._clock = clock or (lambda: datetime.now(UTC))
         self._lock = threading.Lock()
         self._locks: dict[str, threading.Lock] = {}
         self._known: dict[str, dict] | None = None

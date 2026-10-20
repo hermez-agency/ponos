@@ -21,19 +21,19 @@ from __future__ import annotations
 
 import time
 from concurrent.futures import Future
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from . import conversation, git, kinds, priority, state, store, subtypes
 from . import voice as voice_module
 from .base import Base
 from .projects import Project
 from .question import Question
+
 # The one reading of a Notion date in the project. It lives beside the calendar
 # because a date on a ticket and a date on a schedule mean the same thing, and
 # two readings of them that drift apart is a bug nobody would ever find.
 from .schedules import scheduled_for
 from .ticket import Ticket
-
 
 # How long a ticket a pass has just finished with stays out of its readings of
 # the ready column. Measured: a query sees a write one to four seconds after it
@@ -571,7 +571,7 @@ class Board(Base):
                 continue
             edited = page.raw.get("last_edited_time", "")
             try:
-                age = datetime.now(timezone.utc) - datetime.fromisoformat(edited)
+                age = datetime.now(UTC) - datetime.fromisoformat(edited)
             except ValueError:
                 age = timedelta(days=1)
             if age < timedelta(minutes=2):

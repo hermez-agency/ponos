@@ -63,7 +63,6 @@ from .config import state_dir
 from .projects import Project
 from .ticket import Job, Ticket, short_id
 
-
 # How many times one validated ticket's branch is replayed and pushed before
 # the runner stops chasing its base and asks: twice is a base that moved once
 # more while the first replay was being merged, three times is a repository

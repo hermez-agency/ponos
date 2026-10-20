@@ -10,20 +10,45 @@ import argparse
 import json
 import os
 import shutil
-import subprocess
 import sqlite3
+import subprocess
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
 
-from datetime import datetime
-
-from . import __version__, channels, cleanup, config as config_module, conversation, credits, git, notion
-from . import db, journal, kinds, legacy, models, priority, resources, store, voice
-from . import github_app, github_token, health, prerequisites, project_settings, provision
+from . import (
+    __version__,
+    channels,
+    cleanup,
+    conversation,
+    credits,
+    db,
+    git,
+    github_app,
+    github_token,
+    health,
+    journal,
+    kinds,
+    legacy,
+    models,
+    notion,
+    prerequisites,
+    priority,
+    project_settings,
+    provision,
+    resources,
+    session,
+    state,
+    store,
+    subtypes,
+    systemd,
+    vault,
+    voice,
+)
+from . import config as config_module
 from . import provider as provider_module
 from . import schedules as schedules_module
-from . import session, state, subtypes, systemd, vault
 from . import update as update_module
 from . import workspace as workspace_module
 from .projects import Resolver

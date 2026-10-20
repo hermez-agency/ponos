@@ -37,10 +37,11 @@ from __future__ import annotations
 
 import re
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
-from . import markdown, store, voice as voice_module
+from . import markdown, store
+from . import voice as voice_module
 
 # The default cadence, in seconds. Ten is short enough to feel live and long
 # enough that a page is not rewritten under the reader's eyes.

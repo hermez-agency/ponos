@@ -37,10 +37,10 @@ from __future__ import annotations
 import re
 import shutil
 import time
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterable
 
 from . import db, store, voice
 from .config import state_dir
@@ -257,7 +257,7 @@ class Ledger:
     database: Path | None = None
 
     @classmethod
-    def load(cls, database: Path | None = None) -> "Ledger":
+    def load(cls, database: Path | None = None) -> Ledger:
         ledger = cls(database=database)
         try:
             with db.transaction(immediate=False, location=database) as connection:
@@ -385,7 +385,7 @@ class Ledger:
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 def _newest(entries: dict[str, str], keep: int) -> dict[str, str]:

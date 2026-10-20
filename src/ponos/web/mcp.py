@@ -36,12 +36,12 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Any, Callable
+from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING, Any
 
-from .. import __version__
+from .. import __version__, db, ideas, journal, state, store, systemd
 from .. import config as config_module
-from .. import db, ideas, journal, state, store, systemd
 from .. import kinds as kinds_module
 from . import live
 from .api import COLUMNS
@@ -429,7 +429,7 @@ def _result(identifier: Any, result: dict) -> dict:
     return {"jsonrpc": "2.0", "id": identifier, "result": result}
 
 
-def handle(api: "Api", grant: Grant, message: Any, address: str = "") -> Any:
+def handle(api: Api, grant: Grant, message: Any, address: str = "") -> Any:
     """One JSON-RPC message, or a batch of them: the answer, or None for none.
 
     `address` is the console's, as the client reached it — what `whoami` says.
@@ -483,7 +483,7 @@ def handle(api: "Api", grant: Grant, message: Any, address: str = "") -> Any:
     return _error(identifier, -32601, f"method not found: {method}")
 
 
-def call(api: "Api", grant: Grant, tool: dict, arguments: dict, address: str = "") -> dict:
+def call(api: Api, grant: Grant, tool: dict, arguments: dict, address: str = "") -> dict:
     """One tool, answered as MCP wants it: text for the model, and the same as data.
 
     A tool that refuses says why in its result, flagged as an error, rather
@@ -587,7 +587,7 @@ def record(grant: Grant, tool: str, arguments: dict, outcome: str) -> None:
             connection.execute(
                 "INSERT INTO mcp_calls (at, client, name, tool, arguments, outcome) VALUES (?, ?, ?, ?, ?, ?)",
                 (
-                    datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                    datetime.now(UTC).isoformat(timespec="seconds"),
                     grant.client,
                     grant.name,
                     tool,
@@ -619,11 +619,11 @@ def _bare(reference: str) -> str:
     return reference.replace("-", "").strip().lower()
 
 
-def _projects(api: "Api") -> list[dict]:
+def _projects(api: Api) -> list[dict]:
     return sorted(api.projects().values(), key=lambda project: project["name"].lower())
 
 
-def _project(api: "Api", reference: str) -> dict:
+def _project(api: Api, reference: str) -> dict:
     """The project a name or an id designates — or a refusal that lists the known ones."""
     wanted = reference.strip()
     for project in _projects(api):
@@ -659,7 +659,7 @@ def _task(card: dict) -> dict:
     }
 
 
-def _card(api: "Api", reference: str) -> dict:
+def _card(api: Api, reference: str) -> dict:
     """The board's card for a task, found by its long or its short id."""
     wanted = re.sub(r"[^0-9a-f]", "", _bare(reference))
     if not wanted:
@@ -675,7 +675,7 @@ def _card(api: "Api", reference: str) -> dict:
     return found[0]
 
 
-def whoami(api: "Api", grant: Grant, address: str = "") -> dict:
+def whoami(api: Api, grant: Grant, address: str = "") -> dict:
     configuration = api.config
     try:
         projects: int | None = len(api.projects())
@@ -697,7 +697,7 @@ def whoami(api: "Api", grant: Grant, address: str = "") -> dict:
     }
 
 
-def list_projects(api: "Api") -> dict:
+def list_projects(api: Api) -> dict:
     return {
         "projects": [
             {
@@ -713,7 +713,7 @@ def list_projects(api: "Api") -> dict:
 
 
 def list_tasks(
-    api: "Api",
+    api: Api,
     project: str = "",
     status: str = "",
     waiting_for_you: bool = False,
@@ -731,7 +731,7 @@ def list_tasks(
     return {"count": len(cards), "tasks": [_task(card) for card in cards[:limit]]}
 
 
-def get_task(api: "Api", task: str) -> dict:
+def get_task(api: Api, task: str) -> dict:
     card = _card(api, task)
     detail = api.ticket(card["id"])
     talk = api.talk(card["id"])
@@ -768,7 +768,7 @@ def get_task(api: "Api", task: str) -> dict:
     }
 
 
-def runner_status(api: "Api", days: int = 30) -> dict:
+def runner_status(api: Api, days: int = 30) -> dict:
     configuration = api.config
     held = state.running()
     sessions = live.active(held=lambda: held)
@@ -810,7 +810,7 @@ def runner_status(api: "Api", days: int = 30) -> dict:
     }
 
 
-def list_ideas(api: "Api", project: str = "", status: str = "proposed") -> dict:
+def list_ideas(api: Api, project: str = "", status: str = "proposed") -> dict:
     scope = _project(api, project)["id"] if project else ""
     return {
         "scope": "project" if scope else "workspace",
@@ -838,7 +838,7 @@ def _idea(shown: dict) -> dict:
 
 
 def create_task(
-    api: "Api",
+    api: Api,
     title: str,
     description: str = "",
     project: str = "",
@@ -865,7 +865,7 @@ def create_task(
     }
 
 
-def answer_question(api: "Api", task: str, answer: str, ready: bool = False) -> dict:
+def answer_question(api: Api, task: str, answer: str, ready: bool = False) -> dict:
     card = _card(api, task)
     if card["column"] != "blocked":
         raise ToolError(
@@ -881,7 +881,7 @@ def answer_question(api: "Api", task: str, answer: str, ready: bool = False) -> 
     return {"id": card["id"], "title": card["title"], "answered": True, "status": "ready" if moved else "blocked"}
 
 
-def list_solutions(api: "Api", task: str) -> dict:
+def list_solutions(api: Api, task: str) -> dict:
     card = _card(api, task)
     if card["column"] not in ("blocked", "review"):
         raise ToolError(
@@ -892,7 +892,7 @@ def list_solutions(api: "Api", task: str) -> dict:
 
 
 def apply_solution(
-    api: "Api",
+    api: Api,
     task: str,
     solution: str,
     number: int = 0,
@@ -912,7 +912,7 @@ def apply_solution(
 
 
 def create_idea(
-    api: "Api",
+    api: Api,
     title: str,
     description: str = "",
     project: str = "",
@@ -923,7 +923,7 @@ def create_idea(
     return _idea(api.ideas.write(scope, kind, title, description, category))
 
 
-def set_idea_state(api: "Api", idea: int, state: str) -> dict:
+def set_idea_state(api: Api, idea: int, state: str) -> dict:
     if state == "keep":
         return _idea(api.ideas.keep(idea))
     if state == "ticket":

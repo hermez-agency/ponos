@@ -61,8 +61,8 @@ exactly that. `runner.language` is what replaces that rule with a decision, and
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
 DEFAULT = """\
 You are working through a ticket for the {project} project, alone and with \

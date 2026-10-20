@@ -42,9 +42,9 @@ import subprocess
 import sys
 import threading
 import time
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from typing import Callable
 
 from .. import disk, environment, state
 from .. import update as update_module

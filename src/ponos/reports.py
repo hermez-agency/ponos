@@ -20,17 +20,28 @@ from __future__ import annotations
 
 import re
 import time
+from collections.abc import Callable
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Callable
 
-from . import blocks, channels, conversation, credits, notifications, provider, resources, session, state, store, sync
+from . import (
+    blocks,
+    channels,
+    conversation,
+    credits,
+    notifications,
+    provider,
+    resources,
+    session,
+    state,
+    store,
+    sync,
+)
 from . import config as config_module
 from . import question as question_module
 from . import voice as voice_module
 from .base import Base
 from .ticket import Job, Ticket
-
 
 # How much of a ticket's own history is worth carrying into the prompt.
 COMMENT_LIMIT = 10
@@ -127,7 +138,7 @@ class Reports(Base):
         except store.StoreError:
             return True
         found = store.read(fresh, status)
-        if found == known or found == target:
+        if found in (known, target):
             return True
         if status in fresh.properties:
             ticket.page.properties[status] = fresh.properties[status]

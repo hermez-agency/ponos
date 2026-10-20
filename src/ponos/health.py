@@ -36,11 +36,22 @@ from __future__ import annotations
 import re
 import shutil
 import subprocess
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
-from typing import Callable
 
-from . import channels, git, github_app, projects, provider, provision, resources, session, store, systemd
+from . import (
+    channels,
+    git,
+    github_app,
+    projects,
+    provider,
+    provision,
+    resources,
+    session,
+    store,
+    systemd,
+)
 from . import config as config_module
 from . import workspace as workspace_module
 
@@ -538,7 +549,7 @@ def _machine(config: config_module.Config) -> list[Check]:
     minimum = config.runner.min_free_disk_mb
     if room is None:
         found.append(_check("machine.disk", WARN, "Disk space", "The free disk space cannot be read here."))
-    elif 0 < minimum and room[0] < minimum:
+    elif minimum > 0 and room[0] < minimum:
         found.append(
             _check(
                 "machine.disk", ERROR, "Disk space", "{{free}} MB free, under the {{minimum}} MB a ticket needs to start.",

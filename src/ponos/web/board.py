@@ -43,10 +43,11 @@ import json
 import re
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from .. import disk, store, sync
 
@@ -75,7 +76,7 @@ def _key(identifier: str) -> str:
 
 
 def _stamp(moment: float) -> str:
-    return datetime.fromtimestamp(moment, timezone.utc).isoformat(timespec="seconds")
+    return datetime.fromtimestamp(moment, UTC).isoformat(timespec="seconds")
 
 
 def _clock(moment: str) -> str:
@@ -489,7 +490,7 @@ def _moment(stamp: str) -> datetime | None:
         moment = datetime.fromisoformat(stamp.replace("Z", "+00:00"))
     except (TypeError, ValueError):
         return None
-    return moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)
+    return moment if moment.tzinfo else moment.replace(tzinfo=UTC)
 
 
 def describe(reader: Reader, tickets: list[dict]) -> dict[str, Any]:
@@ -532,7 +533,7 @@ def held(
     if ticket.get("column") != "ready":
         return {}
     moment = _moment(str(ticket.get("scheduled") or ""))
-    if moment is not None and moment > (now or datetime.now(timezone.utc)):
+    if moment is not None and moment > (now or datetime.now(UTC)):
         return {"reason": "date", "detail": str(ticket["scheduled"])}
     for what, until in (waits or {}).items():
         if until:

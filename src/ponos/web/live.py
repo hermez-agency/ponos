@@ -23,9 +23,10 @@ import re
 import threading
 import time
 from collections import deque
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, BinaryIO, Callable, Iterator
+from typing import Any, BinaryIO
 
 from .. import notifications, progress, state
 

@@ -40,7 +40,7 @@ console shows beside the form.
 from __future__ import annotations
 
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from . import agents, conversation, db, session, state, store
 from . import prompt as prompt_module
@@ -64,7 +64,7 @@ SKIPPED = "skipped"
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 def observe(ticket: str, status: str, *, title: str, depth_limit: int) -> tuple[int, str]:
@@ -145,7 +145,7 @@ def adopt(ticket: str, status: str, depth: int | None = None) -> None:
 
 def abandon(older_than_seconds: float) -> int:
     """Close the executions a run died in the middle of. Never run again."""
-    cutoff = datetime.fromtimestamp(time.time() - older_than_seconds, timezone.utc).isoformat(
+    cutoff = datetime.fromtimestamp(time.time() - older_than_seconds, UTC).isoformat(
         timespec="seconds"
     )
     try:

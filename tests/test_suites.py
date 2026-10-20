@@ -13,9 +13,8 @@ run one case, `-x` to stop at the first failure, `--durations`, coverage
 
 from __future__ import annotations
 
-import pytest
-
 import functional
+import pytest
 import run
 
 # What `run.main()` sets before its first case — set once here, at collection,

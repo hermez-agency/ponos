@@ -20,7 +20,7 @@ written is never a reason for a ticket to fail.
 from __future__ import annotations
 
 import sqlite3
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from . import blocks, db
 
@@ -61,7 +61,7 @@ def kind_of(verdict: str, code: str = "") -> str:
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 def add(kind: str, ticket: str, title: str) -> None:
@@ -85,7 +85,7 @@ def add(kind: str, ticket: str, title: str) -> None:
 
 
 def _purge(connection: sqlite3.Connection) -> None:
-    oldest = (datetime.now(timezone.utc) - timedelta(days=KEEP_DAYS)).isoformat(timespec="seconds")
+    oldest = (datetime.now(UTC) - timedelta(days=KEEP_DAYS)).isoformat(timespec="seconds")
     connection.execute("DELETE FROM notifications WHERE read_at != '' AND read_at < ?", (oldest,))
 
 

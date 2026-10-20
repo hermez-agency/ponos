@@ -52,7 +52,14 @@ extend-exclude = ["src/ponos/web/static", "frontend", "diagrams"]
 
 [tool.ruff.lint]
 # Ruff's defaults (pyflakes, and the pycodestyle errors that are bugs), plus
-# warnings and bugbear: what catches a mistake, not what moves a comma.
-# Formatting (`ruff format`) is not enforced yet — it would rewrite 73 files at
-# once; see the audit for when.
-select = ["E4", "E7", "E9", "F", "W", "B"]
+# warnings and bugbear: what catches a mistake. Then imports in one order (I),
+# the syntax of the Python we target (UP), and the simplifications (SIM) that
+# read better — `ruff format` takes care of the commas.
+select = ["E4", "E7", "E9", "F", "W", "B", "I", "UP", "SIM"]
+ignore = [
+    # try/except/pass is how the code says "this may fail, and that is fine",
+    # next to the comment that says why; contextlib.suppress hides both.
+    "SIM105",
+    # A nested `if` keeps apart two questions a comment tells apart.
+    "SIM102",
+]
