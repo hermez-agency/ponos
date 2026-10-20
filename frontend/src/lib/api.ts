@@ -391,6 +391,7 @@ export const api = {
     request<{ id: string; title: string }>("/api/setup/demo", chosen),
   demo: (id: string) => request<Demo>(`/api/setup/demo?id=${encodeURIComponent(id)}`),
   doctor: () => request<{ code: number; text: string }>("/api/setup/doctor"),
+  serviceLog: () => request<{ path: string; lines: string[] }>("/api/service-log"),
   github: () => request<Summary["github"]>("/api/setup/github"),
   saveChannels: (typed: Record<string, string>) =>
     request<Provisioned & { channels: { name: string; ok: boolean; said: string }[] }>(

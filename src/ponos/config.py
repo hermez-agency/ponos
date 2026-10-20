@@ -1138,7 +1138,7 @@ def edit(path: Path, changes: list[tuple[str, str, object]]) -> list[str]:
         # refuses to read — a port that is not a number, a path that is not one
         # — has to come back as "not saved" rather than as a traceback and half
         # a file. The scratch copy is what took it, so there is nothing to undo.
-        except Exception as error:  # noqa: BLE001
+        except Exception as error:
             raise ConfigError(
                 f"that would leave the configuration unusable — "
                 f"{str(error).splitlines()[0].replace(str(scratch), str(path))}"

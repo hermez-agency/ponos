@@ -43,6 +43,7 @@ Two things are worth saying out loud.
 
 from __future__ import annotations
 
+import logging
 import os
 import shutil
 import subprocess
@@ -54,6 +55,7 @@ from .. import (
     channels,
     github_app,
     github_token,
+    log,
     notion,
     prerequisites,
     projects,
@@ -66,6 +68,8 @@ from .. import config as config_module
 from .. import git as git_module
 from ..channels import telegram as telegram_channel
 from .api import Api
+
+logger = logging.getLogger(__name__)
 
 # Behind this port sits a runner that starts Claude Code sessions with
 # `bypassPermissions`, and a password is guessable in a way a 32-character token
@@ -583,7 +587,8 @@ def _board(api: Api) -> dict:
         return {**drawn, "state": "missing", "said": str(error).splitlines()[0]}
     try:
         drawn["tickets"] = len(api.board().get("tickets", []))
-    except Exception as error:  # noqa: BLE001 — the summary says it, it does not fail on it
+    except Exception as error:  # the summary says it, it does not fail on it
+        logger.exception("setup: the board could not be read", extra=log.FILE_ONLY)
         return {**drawn, "state": "error", "said": str(error).splitlines()[0]}
     return drawn
 

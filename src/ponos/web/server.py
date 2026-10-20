@@ -44,6 +44,7 @@ import hashlib
 import hmac
 import html
 import json
+import logging
 import mimetypes
 import queue
 import re
@@ -77,6 +78,8 @@ from .. import config as config_module
 from ..config import Config, state_dir
 from . import attachments, attempts, creation, github, mcp, mcp_setup, oauth, sessions, setup
 from .api import Api
+
+logger = logging.getLogger(__name__)
 
 STATIC = Path(__file__).resolve().parent / "static"
 COOKIE = "ponos_token"
@@ -395,7 +398,20 @@ class Handler(BaseHTTPRequestHandler):
     # -- plumbing -------------------------------------------------------------
 
     def log_message(self, format: str, *args) -> None:  # noqa: A002
-        return  # a console is not a web server; its log is the terminal it runs in
+        """What `http.server` has to say — a request line it could not read — into the journal."""
+        logger.warning("console: %s — %s", self.address_string(), format % args)
+
+    def log_request(self, code: int | str = "-", size: int | str = "-") -> None:
+        """A request that went wrong, into the journal: the 2xx and 3xx are no news.
+
+        The path without its query: `?token=…` is how a console is opened.
+        """
+        status = code if isinstance(code, int) else 0
+        if status < 400:
+            return
+        (logger.error if status >= 500 else logger.warning)(
+            "console: %s %s → %d", self.command, urlparse(self.path).path, status
+        )
 
     @property
     def api(self) -> Api:
@@ -727,7 +743,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._fail(502, f"the board: {str(error).splitlines()[0]}")
         except LookupError as error:
             return self._fail(404, str(error))
-        except Exception as error:  # noqa: BLE001
+        except Exception as error:
+            logger.exception("console: %s %s failed", self.command, urlparse(self.path).path)
             return self._fail(500, str(error).splitlines()[0])
 
         return self._fail(404, f"no such route: {route}")
@@ -806,7 +823,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._fail(503, str(error))
         except store.StoreError as error:
             return self._fail(502, f"the board: {str(error).splitlines()[0]}")
-        except Exception as error:  # noqa: BLE001
+        except Exception as error:
+            logger.exception("console: %s %s failed", self.command, urlparse(self.path).path)
             return self._fail(500, str(error).splitlines()[0])
 
         return self._fail(404, f"no such route: {route}")
@@ -1048,6 +1066,11 @@ class Handler(BaseHTTPRequestHandler):
     @at(GETS, r"/api/logs")
     def _get_logs(self, query: dict) -> None:
         return self._json(self.api.logs((query.get("ticket") or [""])[0]))
+
+    @at(GETS, r"/api/service-log")
+    def _get_service_log(self, query: dict) -> None:
+        asked = (query.get("lines") or ["500"])[0]
+        return self._json(self.api.service_log(int(asked) if asked.isdigit() else 500))
 
     @at(GETS, r"/api/logs/([\w.\-]+)")
     def _get_log(self, query: dict, name: str) -> None:
@@ -1424,7 +1447,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._fail(400, str(error))
         except store.StoreError as error:
             return self._fail(502, f"the board: {str(error).splitlines()[0]}")
-        except Exception as error:  # noqa: BLE001
+        except Exception as error:
+            logger.exception("console: %s %s failed", self.command, urlparse(self.path).path)
             return self._fail(500, str(error).splitlines()[0])
 
     # -- the MCP server --------------------------------------------------------

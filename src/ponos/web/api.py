@@ -36,6 +36,7 @@ from .. import (
     health,
     images,
     journal,
+    log,
     models,
     notifications,
     project_settings,
@@ -1262,6 +1263,14 @@ class Api:
         # The count is of the whole session, the steps only of its end: a card
         # says how far a run has come, and a thousand lines is enough to read.
         return {"name": target.name, "count": len(steps), "steps": steps[-1000:]}
+
+    def service_log(self, lines: int = 500) -> dict:
+        """The end of ponos.log — the runner's and the console's own journal, masked.
+
+        What `ponos logs --service` prints, for whoever has no terminal at hand:
+        the last lines, never the whole file. See log.py.
+        """
+        return {"path": str(log.path()), "lines": log.tail(max(1, min(lines, 2000)))}
 
     def runs(self, page_id: str) -> dict:
         """Every run of one ticket the local journal holds, newest first.

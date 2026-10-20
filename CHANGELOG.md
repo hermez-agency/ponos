@@ -56,6 +56,12 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
   cause, the steps and the technical detail in small print. The choice is kept in the browser. A property two settings
   name (“Agent”) is listed once, what each missing property costs and Slack's errors are translated, and the raw error
   code stays in the detail ("Slack", not "slack").
+- **The runner keeps a journal, and no error disappears any more.** What the runner and the console say still goes to
+  the standard output — and so to `journalctl`, word for word as before — and is now also written, dated and levelled,
+  to `~/.local/state/ponos/logs/ponos.log` (turned over at 1 MB, five files kept). Every error the runner or the
+  console catches leaves its whole trace there, a route that answers a 500 included, and every request that comes back
+  4xx or 5xx is a line. Secrets are masked on the way in: a vault's values and anything shaped like a token. Read it
+  with `ponos logs --service` (`-f` to follow), or in the console's Settings, under "What this console runs on".
 - **A ticket's CI block fits on one line.** The list of checks is folded behind a chevron, leaving the state, the
   count of checks passed ("5/5") and the link to GitHub; a click or the keyboard opens it, and the choice is kept for
   every ticket. When the CI failed the list is open until you choose otherwise, and a folded line names the checks that

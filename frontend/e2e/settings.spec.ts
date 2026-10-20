@@ -70,6 +70,9 @@ test("the settings say what the console runs on, line by line", async ({ page })
   await expect(summary.locator('[data-row="board"]')).toHaveAttribute("data-state", "ok")
   // And `doctor`'s full text, one click below, for whoever is helping.
   await expect(page.getByTestId("run-doctor")).toBeVisible()
+  // And the runner's own journal, ponos.log, as `ponos logs --service` prints it.
+  await page.getByTestId("read-service-log").click()
+  await expect(page.getByTestId("service-log-output")).toBeVisible()
   await summary.locator('[data-row="channels"]').getByRole("link", { name: "Change" }).click()
   await expect.poll(() => new URL(page.url()).searchParams.get("view")).toBe("console/settings/read/config/communication")
 })

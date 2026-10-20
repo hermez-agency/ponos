@@ -33,6 +33,7 @@ that looks hung.
 
 from __future__ import annotations
 
+import logging
 import re
 import shutil
 import subprocess
@@ -44,6 +45,7 @@ from . import (
     channels,
     git,
     github_app,
+    log,
     projects,
     provider,
     provision,
@@ -54,6 +56,8 @@ from . import (
 )
 from . import config as config_module
 from . import workspace as workspace_module
+
+logger = logging.getLogger(__name__)
 
 OK, WARN, ERROR = "ok", "warn", "error"
 
@@ -951,7 +955,8 @@ def run(config: config_module.Config, client: store.Store | None = None) -> list
 def _guard_notion(config, client):
     try:
         return _notion(config, client)
-    except Exception as error:  # noqa: BLE001 — a check that cannot be made is a line, not a crash
+    except Exception as error:  # a check that cannot be made is a line, not a crash
+        logger.exception("health: the Notion checks could not be made", extra=log.FILE_ONLY)
         return [_unknown("notion", error)], None
 
 
@@ -959,7 +964,8 @@ def _guarded(group: str, job: Callable[[], list[Check]]) -> Callable[[], list[Ch
     def guarded() -> list[Check]:
         try:
             return job()
-        except Exception as error:  # noqa: BLE001
+        except Exception as error:
+            logger.exception("health: the %s checks could not be made", group, extra=log.FILE_ONLY)
             return [_unknown(group, error)]
 
     return guarded

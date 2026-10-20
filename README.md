@@ -1448,6 +1448,7 @@ ponos logs <ticket id>        # a past session, rendered
 ponos logs <ticket id> --raw  # the raw JSON stream
 ponos logs <ticket id> --runs # every run of that ticket, from the run journal
 ponos logs --runs             # the latest runs, every ticket
+ponos logs --service [-f]     # the runner's and the console's own journal, ponos.log
 ```
 
 `ponos logs <ticket id>` finds the ticket's newest run in the journal, so a session that
@@ -3809,6 +3810,16 @@ any other — it was paid for all the same, and the daily limit counts it.
 Session logs are in `~/.local/state/ponos/logs/` (one `.jsonl` per ticket, the raw
 session stream), the history in `ponos.db` (`ponos history`), and the timer's own journal in
 `journalctl --user -u ponos -f`.
+
+The runner and the console also keep a journal of their own, `ponos.log`, in the same
+`logs/` directory: every line they print, dated and levelled, and — which the standard
+output never shows — the full trace of every error they caught, a route of the console
+that answered a 500 included, and a line for each request that came back 4xx or 5xx. It
+turns over at a megabyte and keeps five files behind; `ponos clean --days` drops the old
+ones with the session logs. Values read from a vault and anything shaped like a token
+(`ghp_…`, `sk-…`, `ntn_…`, a Telegram bot token…) are masked before they are written.
+`ponos logs --service` prints its end (`-f` follows it), and the console shows the same
+lines in **Settings**, under *What this console runs on*, with **Read the journal**.
 
 `~/.local/state/ponos/ponos.db` is the runner's local memory — a SQLite file, kept
 beside the board rather than instead of it. Its schema is numbered and brought up to date

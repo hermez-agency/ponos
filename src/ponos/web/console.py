@@ -30,6 +30,7 @@ sent, like anything typed.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import secrets
@@ -44,10 +45,13 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
+from .. import log as log_module
 from .. import openrouter, progress, provider, session, voice
 from ..config import Config, state_dir
 from . import attachments as files
 from . import chats
+
+logger = logging.getLogger(__name__)
 
 # The verbs the console runs, written down one by one rather than read off the
 # parser. Deriving them was the convenient answer and the wrong one: every verb
@@ -528,7 +532,8 @@ class Chat:
                 on_event=self._on_event,
                 stop=stop,
             )
-        except Exception as error:  # noqa: BLE001
+        except Exception as error:
+            logger.exception("console: the turn failed", extra=log_module.FILE_ONLY)
             with self._lock:
                 self._stop = None
                 self.messages.append(Message("error", str(error)))

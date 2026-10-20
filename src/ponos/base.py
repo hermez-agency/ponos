@@ -21,16 +21,19 @@ resolves once and re-reads all day.
 
 from __future__ import annotations
 
+import logging
 import socket
 import threading
 from datetime import datetime
 
-from . import channels, conversation, journal, legacy, notify, provider, store, vault
+from . import channels, conversation, journal, legacy, notify, provider, store
 from . import voice as voice_module
 from . import workspace as workspace_module
 from .config import Config
 from .projects import Resolver
 from .ticket import Ticket
+
+logger = logging.getLogger(__name__)
 
 
 class Base:
@@ -156,8 +159,9 @@ class Base:
 
     def say(self, message: str) -> None:
         if not self.quiet:
-            # Into the systemd journal, which keeps it: masked — see vault.py.
-            print(vault.mask(message), flush=True)
+            # Onto the standard output, which the systemd journal keeps, and into
+            # ponos.log — masked on the way, see log.py.
+            logger.info(message)
 
     def _dropped(self, database: str, name: str) -> None:
         """A write left `name` out: the board has no such column. Said once a run.

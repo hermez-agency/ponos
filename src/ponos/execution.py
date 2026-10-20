@@ -30,6 +30,7 @@ blocked with the question, and an exhausted quota goes to neither — see
 
 from __future__ import annotations
 
+import logging
 import re
 import shutil
 import time
@@ -57,6 +58,8 @@ from . import voice as voice_module
 from .base import Base
 from .ticket import Job, short_id
 
+logger = logging.getLogger(__name__)
+
 
 def _both(
     first: Callable[[dict], None], second: Callable[[dict], None] | None
@@ -74,8 +77,8 @@ def _both(
         for listener in list(listeners):
             try:
                 listener(event)
-            except Exception as error:  # noqa: BLE001
-                print(f"    ! live report dropped: {error}", flush=True)
+            except Exception as error:
+                logger.exception("    ! live report dropped: %s", error)
                 listeners.remove(listener)
 
     return listen
