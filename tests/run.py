@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The pure part of ponos, under assertions.
 
-    python3 tests/run.py
+    uv run python tests/run.py   # or python3, with requirements.txt installed
 
 No framework, and no dependency beyond the runner's own (`requirements.txt`, in
 the `.venv` `uv sync` makes): a test suite that needs more of an install than

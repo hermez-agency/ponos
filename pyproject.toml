@@ -1,11 +1,13 @@
-# The project, as the Python tools read it — and nothing the runner needs.
+# The project, as the Python tools read it.
 #
-# The core still imports the standard library alone: `dependencies` is empty,
-# and `install.sh` still asks for python3 and git and nothing else. What this
-# file brings is the tooling around the code — ruff, pytest — pinned in
-# `uv.lock` so that every machine and the CI lint and test with the same
-# versions. `uv sync` installs them in `.venv`; `python3 tests/run.py` keeps
-# working without it.
+# `dependencies` is what the runner imports beyond the standard library —
+# httpx, since October 2026, and each one by a ticket of its own (see the
+# audit). It reaches installations as `requirements.txt`, the export of
+# `uv.lock`, which each version installs in its own `.venv` (environment.py):
+# `install.sh` still asks the machine for python3 and git and nothing else.
+# The rest is the tooling around the code — ruff, pytest — pinned in the same
+# lockfile so that every machine and the CI lint and test with the same
+# versions. `uv sync` installs both in `.venv`, and the suites run there.
 #
 # The version is written twice, here and in `src/ponos/__init__.py`:
 # `scripts/release.py bump` moves both, and `check` refuses a tag where they

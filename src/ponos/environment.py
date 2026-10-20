@@ -1,10 +1,10 @@
 """The virtual environment each installed version runs in.
 
 Until October 2026 the runner imported the standard library and nothing else,
-and the launcher ran it with whatever `python3` the machine had. That stays
-true of the code today — `requirements.txt` lists no package — but the day a
-library comes in, it has to be installed somewhere that is the runner's own,
-and a system Python shared with everything else on the machine is not that.
+and the launcher ran it with whatever `python3` the machine had. Then a library
+came in — httpx, see http.py — and it has to be installed somewhere that is the
+runner's own: a system Python shared with everything else on the machine is not
+that.
 
 So every version directory gets its own `.venv`, made from the machine's Python
 when the version is installed, *before* `app` points at it: `install.sh` makes

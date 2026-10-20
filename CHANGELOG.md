@@ -51,6 +51,13 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Changed
 
+- **Every service is asked again the way Notion always was.** GitHub, OpenRouter, Telegram and Slack, the pictures and
+  the console's MCP test now go through one HTTP client, httpx, with Notion's policy: four attempts, the pause a "too
+  many requests" asks for (a minute at most), and a request that adds something — a message, a comment — sent again
+  only when it cannot have arrived. A notification refused by Telegram for going too fast is no longer lost. httpx is
+  the runner's first package: an installation updates by itself, the new version's environment holding it before the
+  switch, provided the machine has `uv` or, on Debian and Ubuntu, `python3-venv`; the image installs it when it is
+  built.
 - **The dashboard's "Installation status" band fits on one line.** Folded by default, it keeps the count of points to
   fix and "Recheck"; unfolded, each problem is one line with its button, and a toggle of its own opens the probable
   cause, the steps and the technical detail in small print. The choice is kept in the browser. A property two settings

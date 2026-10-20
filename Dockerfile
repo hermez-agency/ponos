@@ -1,7 +1,7 @@
 # Ponos in a container — another way to install it, not another program.
 #
-# The runner is the same Python and the same standard library; what the image
-# adds is what install.sh would have found on the machine: git, gh, and Claude
+# The runner is the same Python and the same packages (requirements.txt); what
+# the image adds is what install.sh would have found on the machine: git, gh, and Claude
 # Code, which is a Node program. The console is not built here: it is committed,
 # built, in src/ponos/web/static, so the image needs no npm of its own beyond
 # the one Claude Code is installed with.
@@ -52,9 +52,10 @@ RUN useradd --create-home --uid 1000 --shell /bin/bash ponos \
  && mkdir -p /data /workspace /home/ponos/.claude /home/ponos/.config/gh \
  && chown -R ponos:ponos /data /workspace /home/ponos
 
-# What the code imports beyond the standard library — nothing yet — into the
-# image's own Python: a container is never updated in place, so there is no
-# per-version environment to make (see environment.py).
+# What the code imports beyond the standard library — httpx and what it pulls
+# in, with their hashes — into the image's own Python: a container is never
+# updated in place, so there is no per-version environment to make (see
+# environment.py).
 COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir --disable-pip-version-check --require-hashes -r /app/requirements.txt
 

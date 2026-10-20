@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The road a ticket travels, end to end, under assertions.
 
-    python3 tests/functional.py
+    uv run python tests/functional.py   # or python3, with requirements.txt installed
 
 `tests/run.py` covers the pure part and assumes it touches nothing — not Notion,
 not git, not the network. What that leaves uncovered is the road itself: ready
