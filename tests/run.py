@@ -13600,6 +13600,32 @@ def an_answer_finds_its_ticket_by_thread_first_then_by_name():
 
 
 @case
+def a_channel_says_what_telegram_said_and_waits_when_asked_to():
+    """A 4xx is Telegram's sentence ("chat not found"), not a number; and a
+    429 — Telegram's "too many requests" — is a pause, not a lost message."""
+    script = [
+        httpx.Response(429, headers={"Retry-After": "3"}, json={"ok": False}),
+        httpx.Response(200, json={"ok": True}),
+        httpx.Response(400, json={"ok": False, "description": "Bad Request: chat not found"}),
+    ]
+    sent: list[bytes] = []
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        sent.append(request.content)
+        return script.pop(0)
+
+    with _http_answering(answer) as pauses:
+        assert channels.request("https://api.telegram.test/send", {"text": "a"}) == {"ok": True}
+        assert pauses == [3.0] and len(sent) == 2, (pauses, sent)
+        try:
+            channels.request("https://api.telegram.test/send", {"text": "b"})
+        except channels.ChannelError as error:
+            assert str(error) == "400 Bad Request: chat not found", error
+        else:
+            raise AssertionError("a refusal was taken for a message sent")
+
+
+@case
 def a_telegram_message_from_anywhere_else_is_not_an_answer():
     """A bot token is a public address: anyone can write to it."""
     channel = telegram_channel.Telegram("token", "42")

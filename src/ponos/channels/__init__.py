@@ -33,13 +33,11 @@ from __future__ import annotations
 
 import json
 import re
-import urllib.error
-import urllib.request
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-from .. import disk, question, redaction, vault, voice
+from .. import disk, http, question, redaction, vault, voice
 from ..config import Notify, state_dir
 
 # How many questions a channel remembers, so that a reply arriving tomorrow
@@ -59,14 +57,21 @@ def request(url: str, payload: dict | None = None, *, headers: dict | None = Non
     """One JSON call. Both APIs speak JSON both ways, so one helper does."""
     # What reaches the phone carries no secret, whatever wrote it: see vault.py.
     data = json.dumps(vault.masked(payload)).encode() if payload is not None else None
-    every = {"Content-Type": "application/json; charset=utf-8", "User-Agent": "ponos"}
+    every = {"Content-Type": "application/json; charset=utf-8"}
     every.update(headers or {})
-    message = urllib.request.Request(url, data=data, headers=every)
     try:
-        with urllib.request.urlopen(message, timeout=TIMEOUT) as response:
-            body = response.read() or b"{}"
-    except urllib.error.HTTPError as error:
-        detail = error.read().decode(errors="replace")[:400]
+        answer = http.send(
+            "channels",
+            "POST" if data is not None else "GET",
+            url,
+            headers=every,
+            content=data,
+            timeout=TIMEOUT,
+        )
+    except http.Unanswered as error:
+        raise ChannelError(str(error)) from error
+    if answer.status >= 400:
+        detail = answer.body.decode(errors="replace")[:400]
         # Telegram says what is wrong in the body of a 4xx, and that sentence
         # is the whole diagnosis ("chat not found"). Losing it for the status
         # code would leave the user with a number.
@@ -74,11 +79,9 @@ def request(url: str, payload: dict | None = None, *, headers: dict | None = Non
             detail = json.loads(detail).get("description", detail)
         except (json.JSONDecodeError, AttributeError):
             pass
-        raise ChannelError(f"{error.code} {detail}") from error
-    except (urllib.error.URLError, OSError) as error:
-        raise ChannelError(str(getattr(error, "reason", error))) from error
+        raise ChannelError(f"{answer.status} {detail}")
     try:
-        return json.loads(body)
+        return json.loads(answer.body or b"{}")
     except json.JSONDecodeError as error:
         raise ChannelError("the answer was not JSON") from error
 
