@@ -24106,7 +24106,9 @@ def health_names_a_property_once_and_says_what_each_costs_in_french_too():
     settings.properties["agent"] = "Agent"  # two settings, one property
     config = _config("")
     config.notion = settings
-    found = health._schema(config, board, workspace.Workspace(tickets="db", projects="projects", agents="agents"))
+    found = health._schema(
+        config, board, workspace.Workspace(tickets="db", projects="projects", agents="agents")
+    )
     columns = next(check for check in found if check.code == "notion.columns")
     names = [note["name"] for note in columns.notes]
     assert len(names) == len(set(names)) and "Agent" in names, names
