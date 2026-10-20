@@ -52,7 +52,7 @@ def a_request_through_the_funnel_reaches_the_mcp_doors_and_nothing_else(state_ho
     import urllib.request
 
     from ponos import tailscale
-    from ponos.web import server as web_server
+    from ponos.web import app as web_app
 
     assert tailscale.funnel_allowed("/mcp") and tailscale.funnel_allowed("/oauth/token")
     assert tailscale.funnel_allowed("/.well-known/oauth-protected-resource/mcp")
@@ -62,7 +62,7 @@ def a_request_through_the_funnel_reaches_the_mcp_doors_and_nothing_else(state_ho
     with _board() as board:
         api = _ideas_api(board)
         api._config.web.token = "tok"
-        console = web_server.Console(("127.0.0.1", 0), web_server.Handler, api, "tok")
+        console = web_app.Console(("127.0.0.1", 0), api, "tok")
         threading.Thread(target=console.serve_forever, daemon=True).start()
         port = console.server_address[1]
 

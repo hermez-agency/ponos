@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import io
 import os
 import shutil
@@ -293,6 +294,49 @@ def an_installation_updated_by_a_version_without_environments_gets_one_on_its_ne
     assert environment.python(version).exists(), said
     assert said == [], said
     assert environment.ensure(version) == "", "a second pass made it again"
+
+
+@case
+def only_the_consoles_application_imports_a_package_from_outside():
+    """The runner, and `web/server.py`, stay the standard library's alone.
+
+    The runner because a pass must not depend on an environment it may have
+    to make (`environment.ensure`) — httpx is the one exception, and only
+    `http.py` imports it, when the first request is sent. And `server.py`
+    because an installation still on v0.1.0 checks that a new version starts
+    by importing it with the machine's Python — had it imported FastAPI, the
+    update that brings FastAPI would have been refused on every such machine,
+    for good.
+    """
+    outside = {"app.py", "routes.py"}
+    for path in sorted((ROOT / "src" / "ponos").rglob("*.py")):
+        if path.parent.name == "web" and path.name in outside:
+            continue
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if isinstance(node, ast.Import):
+                names = [alias.name for alias in node.names]
+            elif isinstance(node, ast.ImportFrom) and not node.level:
+                names = [node.module or ""]
+            else:
+                continue
+            for name in names:
+                top = name.split(".")[0]
+                if top == "httpx" and path == ROOT / "src" / "ponos" / "http.py":
+                    continue
+                assert top in sys.stdlib_module_names or top == "ponos", (path.name, name)
+    probe = (
+        "import sys\n"
+        "for name in ('fastapi', 'uvicorn', 'starlette', 'pydantic', 'anyio', 'httpx'):\n"
+        "    sys.modules[name] = None\n"
+        "import ponos.__main__, ponos.web.server, ponos.runner\n"
+    )
+    done = subprocess.run(
+        [sys.executable, "-c", probe],
+        env={**os.environ, "PYTHONPATH": str(ROOT / "src")},
+        capture_output=True,
+        text=True,
+    )
+    assert done.returncode == 0, done.stderr
 
 
 @case
@@ -662,7 +706,7 @@ def the_update_endpoint_answers_only_this_machine_and_the_console_page():
     import urllib.error
     import urllib.request
 
-    from ponos.web import server as web_server
+    from ponos.web import app as web_app
 
     started: list[int] = []
 
@@ -676,7 +720,7 @@ def the_update_endpoint_answers_only_this_machine_and_the_console_page():
 
     api = _bare_api(_TalkClient([]))
     api._upgrade = Upgrade()
-    console = web_server.Console(("127.0.0.1", 0), web_server.Handler, api, "tok")
+    console = web_app.Console(("127.0.0.1", 0), api, "tok")
     threading.Thread(target=console.serve_forever, daemon=True).start()
     port = console.server_address[1]
 
@@ -707,12 +751,10 @@ def the_update_endpoint_answers_only_this_machine_and_the_console_page():
         console.server_close()
     assert len(started) == 2
 
-    handler = web_server.Handler.__new__(web_server.Handler)
     for address, local in (
         ("127.0.0.1", True),
         ("::1", True),
         ("192.168.1.20", False),
         ("100.64.0.3", False),
     ):
-        handler.client_address = (address, 0)
-        assert handler._local() is local, address
+        assert web_app.is_local(address) is local, address

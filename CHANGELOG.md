@@ -69,6 +69,16 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
   console catches leaves its whole trace there, a route that answers a 500 included, and every request that comes back
   4xx or 5xx is a line. Secrets are masked on the way in: a vault's values and anything shaped like a token. Read it
   with `ponos logs --service` (`-f` to follow), or in the console's Settings, under "What this console runs on".
+- **The console runs on FastAPI and uvicorn, in the environment of its version.** Same addresses, same answers,
+  same door — the token or the sign-in, the `Host` check, the `X-Ponos` header on a write, the security headers —
+  now one middleware in front of every route instead of checks written by hand. What a write carries is checked
+  before it is used, a malformed body is refused with a `400` that says which field, and the whole API is
+  described at `/openapi.json`, behind the same token. FastAPI and uvicorn are installed in each version's `.venv`
+  before the version is used, by the update itself: an installation updates on its own, as before — with uv, or
+  with pip, which Debian and Ubuntu ship in `python3-venv`; a machine with neither keeps the version it has and the
+  update says why. An installation still on v0.1.0, whose updates know nothing of environments, gets its `.venv`
+  from the first pass of the runner after the update, and its console starts on it then — until that pass, the
+  console says what it is missing. The console now starts in about 0.7 s instead of 0.3 s and holds about 58 MB instead of 34 MB.
 - **A ticket's CI block fits on one line.** The list of checks is folded behind a chevron, leaving the state, the
   count of checks passed ("5/5") and the link to GitHub; a click or the keyboard opens it, and the choice is kept for
   every ticket. When the CI failed the list is open until you choose otherwise, and a folded line names the checks that

@@ -146,8 +146,8 @@ built under that page, found on its own as soon as it is shared; GitHub in one c
 project; and a demonstration ticket, played there and then, which is the proof that every
 step holds. No Notion? The board can be [a folder of Markdown files](#without-notion-the-board-as-markdown-files).
 
-It needs Linux or macOS, `python3` ≥ 3.11 — the one package it imports, httpx, goes into an
-environment of its own, made by the installer —,
+It needs Linux or macOS, `python3` ≥ 3.11 — what it imports, httpx for the runner and FastAPI
+and uvicorn for the console, goes into an environment of its own, made by the installer —,
 `git` and [Claude Code](https://claude.com/claude-code), which the installer offers to
 install when it is missing. `gh` is optional: the console connects GitHub itself. The rest is
 in [Installation](#installation) below.
@@ -378,13 +378,16 @@ installing, restarting — and the page reloads by itself from the new version:
   on the version it found; the previous version stays on disk beside the new one;
 - **each version has its own Python environment.** `app-<commit>/.venv` is made from the
   machine's `python3` before `app` points at the version, and holds what
-  `requirements.txt` lists — httpx and the few packages it pulls in, at the versions of
-  `uv.lock`, hashes checked; [uv](https://docs.astral.sh/uv/) installs them when the machine
-  has it, pip otherwise (on Debian and Ubuntu, pip in an environment comes with
-  `python3-venv`). A version whose environment cannot be made is never pointed at, and the one in
-  use keeps its own. An installation updated by a version from before environments gets
-  its `.venv` on its next pass, with nothing to do; until then, and on a `python3` that
-  cannot make one at all, the launcher runs the machine's `python3` as it always has;
+  `requirements.txt` lists — httpx for the runner, the console's FastAPI and uvicorn, and
+  the few packages they pull in, at the versions of `uv.lock`, hashes checked;
+  [uv](https://docs.astral.sh/uv/) installs them when the machine has it, pip otherwise (on
+  Debian and Ubuntu, pip in an environment comes with `python3-venv`). A version whose
+  environment cannot be made, or whose console does not import in it, is never pointed at,
+  and the one in use keeps its own. An installation updated by a version from before
+  environments gets its `.venv` on its next pass, with nothing to do: until then, and on a
+  `python3` that cannot make one at all, the launcher runs the machine's `python3` as it
+  always has, and the console says what it is missing and starts again on the environment
+  once the pass has made it;
 - **no `pip` is needed to install a package.** On Debian or Ubuntu without `python3-venv`,
   `python3` cannot give an environment pip. When `requirements.txt` lists a package and the
   machine has neither `uv` nor `ensurepip`, `install.sh` and the update fetch
@@ -413,8 +416,9 @@ changes the hour; `runner.update_channel` chooses between releases and `main` �
 compare itself against: it says so once per check and carries on.
 
 > **Requirements** — Linux or macOS, `python3` >= 3.11 (and `uv`, or `python3-venv` on
-> Debian and Ubuntu: each version installs httpx, the one package the runner imports, in a
-> `.venv` of its own — see above), `git`, [Claude Code](https://claude.com/claude-code),
+> Debian and Ubuntu: each version installs httpx, which the runner imports, and the
+> console's FastAPI and uvicorn in a `.venv` of its own — see above), `git`,
+> [Claude Code](https://claude.com/claude-code),
 > and for pull requests either the GitHub App the console connects or `gh` authenticated.
 
 | Variable | Effect |
@@ -3047,9 +3051,25 @@ year and gzips them on the way out; `index.html`, which names the current ones, 
 kept, and that is how an update reaches a browser that cached the last build.
 
 That is the whole arrangement, and it is deliberate. `install.sh` clones this repository
-onto a machine that has `python3` and `git`, and `ponos serve` is `http.server` and
-the standard library. **Nothing about the console asks the machine that runs it for Node.**
+onto a machine that has `python3` and `git`, and `ponos serve` is
+[FastAPI](https://fastapi.tiangolo.com), served by [uvicorn](https://www.uvicorn.org), in
+the version's own `.venv`. **Nothing about the console asks the machine that runs it for Node.**
 Node is a thing you need to *change* the console, not to use it.
+
+The server side is three modules of `src/ponos/web/`. `server.py` is the door — the
+token, the sign-in, the pages shown before it, `serve` — and stays standard library only,
+because an installation still on v0.1.0 checks a new version by importing it with the
+machine's `python3`. `app.py` is the application: one middleware, the guard, in front of
+every route — the token or the session cookie, the `Host`, the `X-Ponos` header on a write,
+the headers every answer carries — then the pages, the event stream (a `StreamingResponse`),
+the first connection, the update and the MCP server. `routes.py` is the API the page reads
+and writes, its bodies described by pydantic models. The schema of all of it is served at
+**`/openapi.json`**, behind the same token as the rest — the schema only: the pages that draw
+one load their scripts from a CDN, which the console's policy refuses.
+
+```sh
+curl -H "Authorization: Bearer $(ponos serve --print-token)" http://127.0.0.1:8787/openapi.json
+```
 
 ```sh
 cd frontend
@@ -3977,7 +3997,8 @@ installation code then the password are what stand between the Internet and the 
 ## Docker
 
 The image is another way to install the runner, not another program: the same Python and
-the same packages, installed from `requirements.txt` when it is built, with what `install.sh` would have found on the machine — git,
+the same packages — httpx, the console's FastAPI and uvicorn —, installed from
+`requirements.txt` when it is built (a container has no per-version `.venv`), with what `install.sh` would have found on the machine — git,
 `gh`, Node and Claude Code. The console is not built in it; it is committed, built.
 
 ```sh
@@ -4301,14 +4322,17 @@ vector. Run it again after any change to the module, and commit what it writes.
 ## Tests
 
 ```sh
-uv sync                        # httpx, the one package the runner imports, and the tools below
+uv sync                        # httpx, FastAPI, uvicorn and the tools below
 uv run python tests/run.py     # one process per core; -j 1 runs the cases one after the other
 uv run python tests/functional.py
 ```
 
 No framework, and no dependency beyond the runner's own: a suite that needs more of an
 install than the runner does is a suite that stops being run. `python3 tests/run.py` works
-just as well with `requirements.txt` installed in that Python — which is what the CI does.
+just as well with `requirements.txt` installed in that Python — which is what the CI does —
+and runs itself again under the checkout's `.venv` when `python3` has no FastAPI, which the
+console's cases start for real: `uv sync` once, and the command stays the same. The browser
+tests' `e2e/console.py` does the same.
 The requests the runner sends go through `ponos/http.py`, and the tests answer them with
 an `httpx.MockTransport` (`_http_answering` in `tests/support.py`); the functional suite keeps
 its own Notion, on a local port.
@@ -4423,14 +4447,15 @@ The script also writes, into `docs/index.html`, the second at which each of the 
 gestures begins, for the legend under the film to follow it.
 
 `.github/workflows/ci.yml` runs both suites on every pull request and on every push to
-`main`, on Python 3.11 — the oldest the runner promises — and 3.13 — the runner opens its
+`main`, on Python 3.11 — the oldest the runner promises — and 3.13, after installing
+`requirements.txt` as an installation does — the runner opens its
 own PRs, and none of them was checked before merge until this ran. A second job builds and
 lints `frontend/` the same way, but only when `frontend/**` or `src/ponos/web/**`
 changed — the browser tests open the console's server as much as its page — and then fails if
 `src/ponos/web/static` is not exactly what that build produces: the console is
 served from the committed build, so a change to the console without its build is a change
 nobody receives. The workflow only ever reads the repository (`permissions: contents:
-read`). A third job, the only one that installs anything, runs `uv sync --locked`, ruff,
+read`). A third job runs `uv sync --locked`, ruff,
 checks that `requirements.txt` is the export of `uv.lock`, and runs both suites under
 pytest with their coverage, which fails under 80 %. `.github/workflows/release.yml` is separate: it re-runs both suites once more, at
 the tagged commit, when a version is published.

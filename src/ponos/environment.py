@@ -1,10 +1,11 @@
 """The virtual environment each installed version runs in.
 
 Until October 2026 the runner imported the standard library and nothing else,
-and the launcher ran it with whatever `python3` the machine had. Then a library
-came in — httpx, see http.py — and it has to be installed somewhere that is the
-runner's own: a system Python shared with everything else on the machine is not
-that.
+and the launcher ran it with whatever `python3` the machine had. Then libraries
+came in — httpx for the runner (see http.py), FastAPI and uvicorn for the
+console (see web/app.py) — and they have to be installed somewhere that is the
+installation's own: a system Python shared with everything else on the machine
+is not that.
 
 So every version directory gets its own `.venv`, made from the machine's Python
 when the version is installed, *before* `app` points at it: `install.sh` makes
@@ -24,7 +25,9 @@ keep working:
 - **An installation from before the environment.** The first update onto this
   code is applied by the previous version, which knows nothing of `.venv`:
   `ensure` makes it on the next pass, under the run lock, and the launcher runs
-  the machine's Python until then.
+  the machine's Python until then — the runner's passes as before, and a
+  console that says what it is missing and starts again, on the environment,
+  once the pass has made it (`server.serve`).
 
 Packages to install on that same Python is where pip is missing, and asking for
 `sudo apt install python3-venv` in the middle of an automatic update is asking

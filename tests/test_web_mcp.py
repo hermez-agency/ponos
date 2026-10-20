@@ -361,8 +361,8 @@ def the_mcp_server_is_reached_through_oauth_with_pkce_and_its_own_keys(state_hom
     import urllib.request
     from urllib.parse import parse_qs, urlencode, urlparse
 
+    from ponos.web import app as web_app
     from ponos.web import oauth as web_oauth
-    from ponos.web import server as web_server
 
     class Stay(urllib.request.HTTPRedirectHandler):
         def redirect_request(self, *args, **kwargs):
@@ -374,7 +374,7 @@ def the_mcp_server_is_reached_through_oauth_with_pkce_and_its_own_keys(state_hom
         board.create_row("tickets", "Un ticket", {"Status": C.Notion().state("blocked")})
         api = _ideas_api(board)
         api._config.web.token = "tok"
-        console = web_server.Console(("127.0.0.1", 0), web_server.Handler, api, "tok")
+        console = web_app.Console(("127.0.0.1", 0), api, "tok")
         threading.Thread(target=console.serve_forever, daemon=True).start()
         base = f"http://127.0.0.1:{console.server_address[1]}"
 
@@ -384,9 +384,9 @@ def the_mcp_server_is_reached_through_oauth_with_pkce_and_its_own_keys(state_hom
             )
             try:
                 with opener.open(request, timeout=5) as response:
-                    return response.status, dict(response.headers), response.read()
+                    return response.status, response.headers, response.read()
             except urllib.error.HTTPError as error:
-                return error.code, dict(error.headers), error.read()
+                return error.code, error.headers, error.read()
 
         def rpc(token, method, params=None):
             body = json.dumps(
@@ -653,14 +653,14 @@ def the_mcp_metadata_names_the_public_address_behind_a_proxy_that_says_nothing(s
     """
     import urllib.request
 
-    from ponos.web import server as web_server
+    from ponos.web import app as web_app
 
     with _board() as board:
         api = _ideas_api(board)
         api._config.web.token = "tok"
         api._config.web.host = "0.0.0.0"  # a wider bind: the Host check is the token's then
         api._config.web.url = "https://ponos.example"
-        console = web_server.Console(("127.0.0.1", 0), web_server.Handler, api, "tok")
+        console = web_app.Console(("127.0.0.1", 0), api, "tok")
         threading.Thread(target=console.serve_forever, daemon=True).start()
         port = console.server_address[1]
 
@@ -693,12 +693,12 @@ def a_loopback_console_answers_the_name_web_url_gives_it_and_no_other(state_home
     import urllib.error
     import urllib.request
 
-    from ponos.web import server as web_server
+    from ponos.web import app as web_app
 
     with _board() as board:
         api = _ideas_api(board)
         api._config.web.token = "tok"
-        console = web_server.Console(("127.0.0.1", 0), web_server.Handler, api, "tok")
+        console = web_app.Console(("127.0.0.1", 0), api, "tok")
         threading.Thread(target=console.serve_forever, daemon=True).start()
         port = console.server_address[1]
 

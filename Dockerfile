@@ -52,10 +52,10 @@ RUN useradd --create-home --uid 1000 --shell /bin/bash ponos \
  && mkdir -p /data /workspace /home/ponos/.claude /home/ponos/.config/gh \
  && chown -R ponos:ponos /data /workspace /home/ponos
 
-# What the code imports beyond the standard library — httpx and what it pulls
-# in, with their hashes — into the image's own Python: a container is never
-# updated in place, so there is no per-version environment to make (see
-# environment.py).
+# What the code imports beyond the standard library — httpx for the runner,
+# FastAPI and uvicorn for the console, and what they pull in, with their
+# hashes — into the image's own Python: a container is never updated in place,
+# so there is no per-version environment to make (see environment.py).
 COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir --disable-pip-version-check --require-hashes -r /app/requirements.txt
 

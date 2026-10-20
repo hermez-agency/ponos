@@ -672,12 +672,12 @@ def the_console_takes_a_file_as_a_raw_body_and_serves_it_back_sandboxed():
     import urllib.error
     import urllib.request
 
-    from ponos.web import server as web_server
+    from ponos.web import app as web_app
 
     with _chat("[web]\nattachment_max_mb = 1\n") as chat:
         api = _bare_api(_TalkClient([]))
         api.chat = chat
-        console = web_server.Console(("127.0.0.1", 0), web_server.Handler, api, "tok")
+        console = web_app.Console(("127.0.0.1", 0), api, "tok")
         threading.Thread(target=console.serve_forever, daemon=True).start()
         base = f"http://127.0.0.1:{console.server_address[1]}"
 

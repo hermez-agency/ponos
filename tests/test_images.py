@@ -389,7 +389,7 @@ def a_markdown_project_keeps_its_picture_beside_it():
 @case
 def the_console_serves_a_picture_as_a_picture_and_never_as_a_page():
     """An SVG opened at the console's own address must not be a page with a script."""
-    routes = (ROOT / "src/ponos/web/server.py").read_text(encoding="utf-8")
+    routes = (ROOT / "src/ponos/web/routes.py").read_text(encoding="utf-8")
     assert "sandbox" in routes and "PICTURE_POLICY" in routes
     assert images.sniff(b"<svg xmlns='http://www.w3.org/2000/svg'/>") == "image/svg+xml"
     assert images.sniff(b"<html><script>") == ""

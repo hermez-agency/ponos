@@ -12,7 +12,7 @@ same 443 would publish both. So the console is served on 8443, tailnet only,
 and 443 is the funnel, with a handler for `/mcp`, `/oauth` and `/.well-known`
 and for nothing else — Tailscale answers 404 to any other path. The console
 refuses those other paths as well when a request carries the header Funnel adds
-(`Tailscale-Funnel-Request`, see `server.py`): the second lock, for the day a
+(`Tailscale-Funnel-Request`, see `web/app.py`): the second lock, for the day a
 handler is added to the first by hand.
 
 **Why a loop and not a one-shot.** `tailscaled` keeps the serve configuration

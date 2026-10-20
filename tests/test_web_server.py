@@ -258,9 +258,9 @@ def _talk_to(console, method: str, path: str, body: dict | None = None, **header
 
 @contextmanager
 def _console(api, code: str = "", entry=None):
-    from ponos.web import server as web_server
+    from ponos.web import app as web_app
 
-    console = web_server.Console(("127.0.0.1", 0), web_server.Handler, api, "tok", entry, code)
+    console = web_app.Console(("127.0.0.1", 0), api, "tok", entry, code)
     threading.Thread(target=console.serve_forever, daemon=True).start()
     try:
         yield console
@@ -346,6 +346,41 @@ def a_containers_healthcheck_is_answered_without_a_key():
         assert status == 200 and said == {"ok": True}, "from outside as well, claimed or not"
         status, _, _ = _talk_to(console, "GET", "/api/board")
         assert status == 401, "and it opens nothing else"
+
+
+@case
+def the_openapi_schema_is_behind_the_same_door_as_the_api():
+    """`/openapi.json` describes every route — so it opens with the token, like them.
+
+    And a route answers as it did under `http.server`: with a slash at the
+    end, to a HEAD without its body, and a path it does not serve is the 404
+    the page reads — never FastAPI's `detail`, nor a 405 for another method.
+    """
+    path, _ = _saved()
+    with _console(_Fresh(path)) as console:
+        status, headers, said = _talk_to(console, "GET", "/openapi.json")
+        assert status == 401 and said == {"error": "token missing or wrong"}, (status, said)
+        key = {"Authorization": "Bearer tok"}
+        status, headers, schema = _talk_to(console, "GET", "/openapi.json", **key)
+        assert status == 200 and headers["X-Frame-Options"] == "DENY", status
+        ticket = schema["paths"]["/api/tickets"]["post"]["requestBody"]
+        assert ticket["content"]["application/json"]["schema"]["$ref"].endswith("/NewTicket")
+        assert "/api/projects/{project_id}" in schema["paths"]
+        assert not any(name.startswith(("/static", "/oauth")) for name in schema["paths"])
+        assert _talk_to(console, "GET", "/docs", **key)[0] == 404, "no page that loads a CDN"
+        status, _, said = _talk_to(console, "GET", "/api/setup/", **key)
+        assert status == 200 and said["signed_in"] is True, said
+        status, headers, said = _talk_to(console, "HEAD", "/api/setup", **key)
+        assert status == 200 and int(headers["Content-Length"]) > 2 and said == {}, said
+        assert _talk_to(console, "GET", "/api/nowhere", **key)[2] == {
+            "error": "no such route: /api/nowhere"
+        }
+        status, _, said = _talk_to(console, "POST", "/api/setup/summary", {}, **key)
+        assert (status, said) == (404, {"error": "no such route: /api/setup/summary"})
+        status, _, said = _talk_to(console, "POST", "/api/tickets", {"ready": "maybe"}, **key)
+        assert status == 400 and said["error"].startswith("ready: "), said
+        status, _, said = _talk_to(console, "POST", "/api/chat", {"attachments": "x"}, **key)
+        assert status == 400 and said["error"].startswith("attachments"), said
 
 
 @case

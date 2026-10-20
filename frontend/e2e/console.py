@@ -9,6 +9,8 @@ console you run for yourself.
 
     python3 e2e/console.py 8790
 
+Under the checkout's `.venv` when `python3` has no FastAPI: `uv sync` makes it.
+
 One ticket is written long on purpose: a brief several screens tall, which is
 the page that stopped scrolling. One is blocked on a question a run asked, for
 the discussion its page opens on and the mark its card wears. Two more blocked
@@ -40,6 +42,7 @@ written by hand is signed with.
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import subprocess
@@ -52,6 +55,16 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from ponos import files  # noqa: E402
+
+# The console is served by FastAPI (web/app.py), which the machine's python3 may
+# not have: the checkout's environment does, once `uv sync` has made it.
+VENV = ROOT / ".venv" / "bin" / "python"
+if (
+    importlib.util.find_spec("fastapi") is None
+    and VENV.is_file()
+    and Path(sys.prefix).resolve() != VENV.parents[1].resolve()
+):
+    os.execv(VENV, [str(VENV), *sys.argv])
 
 # The token the tests open the console with: a board of fixtures has nothing to guard.
 TOKEN = "e2e"

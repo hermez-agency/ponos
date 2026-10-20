@@ -310,10 +310,10 @@ def the_console_is_downloaded_once_and_compressed():
     """
     import urllib.request
 
-    from ponos.web import server as web_server
+    from ponos.web import app as web_app
 
     api = _bare_api(_TalkClient([]))
-    console = web_server.Console(("127.0.0.1", 0), web_server.Handler, api, "tok")
+    console = web_app.Console(("127.0.0.1", 0), api, "tok")
     threading.Thread(target=console.serve_forever, daemon=True).start()
     port = console.server_address[1]
 
@@ -376,10 +376,10 @@ def the_console_is_installable_as_an_app():
     import urllib.error
     import urllib.request
 
-    from ponos.web import server as web_server
+    from ponos.web import app as web_app
 
     api = _bare_api(_TalkClient([]))
-    console = web_server.Console(("127.0.0.1", 0), web_server.Handler, api, "tok")
+    console = web_app.Console(("127.0.0.1", 0), api, "tok")
     threading.Thread(target=console.serve_forever, daemon=True).start()
     port = console.server_address[1]
 
@@ -1013,32 +1013,36 @@ def a_project_that_cannot_be_read_says_what_the_server_answered():
 
 @case
 def no_two_routes_of_the_console_answer_one_path():
-    """The route table is read in no particular order, which holds while no path has two routes.
+    """A path finds one route of its method, so the order they are filed in decides nothing.
 
-    Each pattern is given a path its groups accept — a Notion ID, a chat
-    identifier, a number, a word of its own alternatives — and that path must
-    find that route alone, in its table.
+    Each route is given a path its parameters accept — a Notion ID, a chat
+    identifier, a number, a word — and that path must find that route alone.
     """
-    from ponos.web import server
+    from ponos.web import app, routes
 
     examples = {
-        "([0-9a-fA-F-]{32,36})": "3eaf7e7b99c04adeae76ac6ecd52cdd0",
-        "([0-9a-f]{12})": "0123456789ab",
-        r"(\d+)": "42",
-        r"(\w+)": "icon",
-        r"([\w.\-]+)": "20260828-112441-3eaf7e7b.jsonl",
+        "[0-9a-fA-F-]{32,36}": "3eaf7e7b99c04adeae76ac6ecd52cdd0",
+        "[0-9a-f]{12}": "0123456789ab",
+        "[0-9]+": "42",
+        r"\w+": "icon",
+        r"[\w.\-]+": "20260828-112441-3eaf7e7b.jsonl",
+        ".*": "assets/index.js",
     }
-    for table in (server.GETS, server.POSTS):
-        assert len({method.__name__ for _, method in table}) == len(table), "two routes, one method"
-        for pattern, _ in table:
-            path = pattern.pattern
-            for group, example in examples.items():
-                path = path.replace(group, example)
-            path = re.sub(r"\(([a-z]+)\|[^)]*\)", r"\1", path)  # an alternative: its first word
-            assert pattern.fullmatch(path), (pattern.pattern, path)
-            answering = [other.__name__ for found, other in table if found.fullmatch(path)]
-            assert len(answering) == 1, (path, answering)
-    assert len(server.GETS) == 46 and len(server.POSTS) == 43
+    table = [*routes.router.routes, *app.doors.routes]
+    assert len({route.name for route in table}) == len(table), "two routes, one name"
+    for route in table:
+        path = route.path_format
+        for name, convertor in route.param_convertors.items():
+            path = path.replace(f"{{{name}}}", examples[convertor.regex])
+        assert route.path_regex.fullmatch(path), (route.path, path)
+        for method in route.methods:
+            answering = [
+                other.name
+                for other in table
+                if method in other.methods and other.path_regex.fullmatch(path)
+            ]
+            assert answering == [route.name], (method, path, answering)
+    assert len(table) > 80, "the routes are filed somewhere else now"
 
 
 @case
@@ -1047,14 +1051,18 @@ def the_console_route_of_one_project_is_the_one_the_page_asks_for():
 
     They are written in two languages and checked by nobody at build time: the
     page asks `/api/projects/<id>`, and the server matches that route with a
-    regular expression. A 404 there reads, in the browser, as a project that
+    pattern of its own. A 404 there reads, in the browser, as a project that
     could not be read.
     """
-    from ponos.web import server
+    from ponos.web import routes
 
     asked = "/api/projects/" + "3eaf7e7b99c04adeae76ac6ecd52cdd0"
-    routed = [method.__name__ for pattern, method in server.GETS if pattern.fullmatch(asked)]
-    assert routed == ["_get_project"], f"{asked} is not a route this server answers: {routed}"
+    routed = [
+        route.name
+        for route in routes.router.routes
+        if "GET" in route.methods and route.path_regex.fullmatch(asked)
+    ]
+    assert routed == ["project"], f"{asked} is not a route this server answers: {routed}"
     assert "`/api/projects/${id}`" in (FRONTEND / "src/lib/api.ts").read_text(encoding="utf-8"), (
         "the console asks for a project somewhere else now"
     )

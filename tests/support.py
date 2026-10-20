@@ -41,6 +41,7 @@ from ponos import (
     channels,
     conversation,
     db,
+    environment,
     files,
     github_app,
     github_token,
@@ -553,9 +554,23 @@ def _installable():
         tools.mkdir()
         (tools / "git").symlink_to(shutil.which("git") or "/usr/bin/git")
         os.environ["HOME"], os.environ["PATH"] = directory, str(tools)
+        # What a version's environment would download — FastAPI, for the
+        # console its start is checked by (`update.verify`) — borrowed from this
+        # process instead: the test stays offline, and as fast as it was.
+        made = environment.create
+
+        def create(version: Path, base: str | None = None) -> str:
+            problem = made(version, base)
+            borrowed = [path for path in sys.path if path.endswith("-packages")]
+            for site in (version / environment.VENV / "lib").glob("python*/site-packages"):
+                (site / "borrowed.pth").write_text("\n".join(borrowed), encoding="utf-8")
+            return problem
+
+        environment.create = create
         try:
             yield commit, app, first
         finally:
+            environment.create = made
             for name, value in kept.items():
                 if value is None:
                     os.environ.pop(name, None)

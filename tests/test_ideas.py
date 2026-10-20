@@ -913,10 +913,10 @@ def an_image_in_a_brief_is_named_for_the_session_and_drawn_by_the_console():
     except LookupError:
         pass
 
-    from ponos.web import server as web_server
+    from ponos.web import app as web_app
 
     api = _bare_api(client)
-    console = web_server.Console(("127.0.0.1", 0), web_server.Handler, api, "tok")
+    console = web_app.Console(("127.0.0.1", 0), api, "tok")
     threading.Thread(target=console.serve_forever, daemon=True).start()
     try:
 

@@ -29,7 +29,7 @@ Two things are worth saying out loud.
   somebody sitting at this machine. In a container it listens to a network, and
   behind a domain to everybody: there, `serve` draws a code once per start and
   prints it — in the container's logs, which Dokploy shows — and the first
-  connection asks for it before anything else (see `server.Handler._claim`). A
+  connection asks for it before anything else (see `app.claim`). A
   request that is not this machine's own, or that came through a proxy, is
   outside. `PONOS_WEB_EMAIL` and `PONOS_WEB_PASSWORD` in the environment claim
   the console before anybody arrives, and the steps start after the account.
