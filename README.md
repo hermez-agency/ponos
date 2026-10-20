@@ -4302,7 +4302,7 @@ vector. Run it again after any change to the module, and commit what it writes.
 
 ```sh
 uv sync                        # httpx, the one package the runner imports, and the tools below
-uv run python tests/run.py
+uv run python tests/run.py     # one process per core; -j 1 runs the cases one after the other
 uv run python tests/functional.py
 ```
 
@@ -4310,18 +4310,33 @@ No framework, and no dependency beyond the runner's own: a suite that needs more
 install than the runner does is a suite that stops being run. `python3 tests/run.py` works
 just as well with `requirements.txt` installed in that Python — which is what the CI does.
 The requests the runner sends go through `ponos/http.py`, and the tests answer them with
-an `httpx.MockTransport` (`_http_answering` in `tests/run.py`); the functional suite keeps
+an `httpx.MockTransport` (`_http_answering` in `tests/support.py`); the functional suite keeps
 its own Notion, on a local port.
+
+The pure part is written one file per module — `tests/test_update.py` for `update.py`,
+`tests/test_web_server.py` for `web/server.py` — so that two tickets touching two modules
+touch two files; what several of them share, the doubles of Notion, of a session or of a
+board, is in `tests/support.py`. A case is a function registered with `@case`, and what it
+needs set up and taken down around it — a state directory of its own (`state_home`), an
+installation of this very runner (`installation`), a whole machine for the functional
+suite (`machine`, with `@runner_settings(...)` for what it changes of `[runner]`) — it
+names as a parameter: a fixture, written once in `support.py` or `functional.py` with
+`@fixture`. `tests/run.py` imports every `tests/test_*.py` and runs what they registered,
+opening each fixture a case names; both scripts share the cases among one process per
+core, each of them with directories of its own, so that no case leans on another having
+run first.
 
 The same cases also run under **pytest**, with the contributor's tools that
 `pyproject.toml` declares and `uv.lock` pins — [uv](https://docs.astral.sh/uv/) installs
 them into `.venv`:
 
 ```sh
-uv sync                              # pytest, pytest-cov, ruff and mypy, at the locked versions
-uv run pytest                        # both suites: -k to pick a case, -x to stop at the first failure
+uv sync                              # pytest, pytest-cov, pytest-xdist, ruff and mypy, at the locked versions
+uv run pytest                        # both suites, one worker per core: -k to pick a case, -x to stop at the first failure
+uv run pytest tests/test_update.py   # one module
 uv run pytest -m "not functional"    # the pure part only
-uv run pytest --cov=src/ponos        # with the coverage
+uv run pytest -n 0                   # in one process and in order, for a debugger
+uv run pytest --cov=src/ponos        # with the coverage, the CI's floor being 80 %
 uv run ruff check .                  # the lint the CI runs
 uv run ruff format .                 # the format the CI checks
 uv run mypy                          # the types: strict, but for the modules pyproject.toml still lists
@@ -4346,8 +4361,10 @@ before the hook can see that it lagged. It is a contributor's tool and nothing m
 installation reads the file. `SKIP=static-built-from-frontend git commit` lets through a
 rebuild that has no source change, a new Node for instance.
 
-`tests/test_suites.py` hands pytest the very cases the two scripts run, one test each and
-in the same order: nothing is written twice. Ruff checks pyflakes, the pycodestyle errors,
+`tests/conftest.py` hands pytest the very cases the two scripts run, one test each under
+its own name, and the same fixtures: nothing is written twice. The coverage counts the
+Python a test starts in a subprocess — `python3 -m ponos`, an update trying its new
+code — as well (`[tool.coverage.run] patch = ["subprocess"]`). Ruff checks pyflakes, the pycodestyle errors,
 warnings, bugbear, the order of imports, the syntax of Python 3.11 and some
 simplifications, with no exception list: a deviation is fixed, or justified by a `# noqa`
 on its line. `ruff format` is enforced too; the commit that formatted the whole repository
@@ -4415,7 +4432,7 @@ served from the committed build, so a change to the console without its build is
 nobody receives. The workflow only ever reads the repository (`permissions: contents:
 read`). A third job, the only one that installs anything, runs `uv sync --locked`, ruff,
 checks that `requirements.txt` is the export of `uv.lock`, and runs both suites under
-pytest with their coverage. `.github/workflows/release.yml` is separate: it re-runs both suites once more, at
+pytest with their coverage, which fails under 80 %. `.github/workflows/release.yml` is separate: it re-runs both suites once more, at
 the tagged commit, when a version is published.
 
 ---

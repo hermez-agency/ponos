@@ -35,9 +35,10 @@ Cœur Python — pas de build :
 
 ```sh
 uv sync                      # httpx et l'outillage, aux versions de uv.lock, dans .venv
-uv run python tests/run.py         # la partie pure : ne touche ni Notion, ni git, ni le réseau
+uv run python tests/run.py         # la partie pure : ne touche ni Notion, ni git, ni le réseau (-j 1 : en série)
 uv run python tests/functional.py  # le parcours complet, sur des doublures locales
-uv run pytest                # les deux suites sous pytest (-m "not functional" : la partie pure)
+uv run pytest                # les deux suites sous pytest, un worker par cœur (-n 0 : en série ; -m "not functional" : la partie pure)
+uv run pytest tests/test_update.py  # les cas d'un seul module
 uv run ruff check .          # le lint de la CI
 uv run ruff format .         # le format, que la CI vérifie aussi (--check)
 uv run mypy                  # les types, comme la CI : strict partout sauf la liste d'exceptions
@@ -45,8 +46,14 @@ uv run pre-commit install    # une fois par clone : ruff, format, uv.lock, requi
 uv run --frozen pre-commit run --all-files  # les mêmes hooks sur tout l'arbre (--frozen : sinon uv met uv.lock à jour avant le hook)
 ```
 
-Un nouveau cas s'écrit toujours avec `@case` dans `tests/run.py` ou
-`tests/functional.py` : `tests/test_suites.py` les donne à pytest tels quels.
+Un nouveau cas s'écrit toujours avec `@case`, dans le `tests/test_<module>.py`
+du module qu'il teste (ou dans `tests/functional.py`) : `tests/run.py` importe
+tous les `tests/test_*.py`, et `tests/conftest.py` donne les mêmes cas à pytest.
+Ce qu'un cas met en place autour de lui se demande par un paramètre — une
+fixture écrite avec `@fixture` dans `tests/support.py` (`state_home`,
+`installation`) ou `tests/functional.py` (`machine`) — que les deux lanceurs
+ouvrent. Les deux scripts répartissent les cas sur un processus par cœur, comme
+`pytest -n auto` : aucun cas ne doit dépendre d'un autre lancé avant lui.
 
 Frontend, depuis `frontend/` :
 
@@ -66,7 +73,8 @@ npm run dev     # serveur de dev avec hot reload, proxy /api vers un console dé
 vers `main` : le job cœur installe `requirements.txt` (et rien d'autre), puis
 relance `python3 tests/run.py` et `python3 tests/functional.py` sous Python 3.11
 et 3.13 ; le job qualité fait `uv sync --locked`, `ruff check`, `ruff format --check`, `mypy`, vérifie que
-`requirements.txt` est l'export de `uv.lock`, puis `pytest --cov` ; le job frontend ne se déclenche que si `frontend/**` ou
+`requirements.txt` est l'export de `uv.lock`, puis `pytest --cov --cov-fail-under=80`
+(réparti par pytest-xdist, sous-processus Python compris dans la couverture) ; le job frontend ne se déclenche que si `frontend/**` ou
 `src/ponos/web/**` a changé, et y
 fait `npm ci`, `npm run lint`, `npm test`, `npm run build` (sous Node 24),
 échoue si `src/ponos/web/static` diffère de ce que le build vient
@@ -117,7 +125,9 @@ deux suites, puis publie l'image sur `ghcr.io`.
   lise tel quel.
 - `bin/ponos.in` — gabarit du script installé par `install.sh`
   (`@APP_DIR@` et `@PYTHON@` y sont substitués).
-- `tests/run.py` — toute la suite de tests du cœur, sans framework.
+- `tests/test_<module>.py` — la suite du cœur, un fichier par module, sans
+  framework ; `tests/support.py` porte ce que plusieurs fichiers partagent
+  (doublures, fixtures, `@case`) et `tests/run.py` les lance tous.
 - `tests/functional.py` — les tests du parcours complet, avec leurs doublures :
   un faux Notion en local (`http.server`), un dépôt git et son remote bare, un
   `claude` et un `gh` en tête du `PATH`. Le seul point d'injection côté cœur est

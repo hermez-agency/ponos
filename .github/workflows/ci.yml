@@ -8,7 +8,8 @@
 # `tests/functional.py` a besoin de `git`, que le runner GitHub a déjà : son
 # Notion, son dépôt et son `claude` sont à lui. Il tourne sur la plus ancienne version de Python que le
 # runner promet (3.11) et sur la plus récente, parce qu'une installation prend
-# le `python3` de la machine, quel qu'il soit.
+# le `python3` de la machine, quel qu'il soit. Chaque suite répartit ses cas sur
+# un processus par cœur (`support.run`), comme `pytest -n auto` le fait ailleurs.
 #
 # Le job frontend ne tourne que si `frontend/**` (ses tests e2e compris) ou
 # `src/ponos/web/**` a changé, pour ne pas payer npm sur des tickets qui
@@ -31,8 +32,9 @@
 # lockfile ne correspond plus au pyproject). Il passe ruff — les règles du
 # pyproject, puis `ruff format --check` —, vérifie que `requirements.txt`, ce que les
 # installations mettent dans leur environnement, est bien l'export du lockfile,
-# puis lance les deux suites sous pytest, avec la couverture et les dix cas les
-# plus lents. Le job cœur reste à part : c'est lui qui prouve que le runner et
+# puis lance les deux suites sous pytest, réparties sur les cœurs (pytest-xdist),
+# avec la couverture — qui doit rester à 80 % au moins — et les dix cas les plus
+# lents. Le job cœur reste à part : c'est lui qui prouve que le runner et
 # ses tests tournent avec ce que `requirements.txt` installe, et rien de plus.
 #
 # Le job image construit le `Dockerfile` et relance `tests/functional.py` dans
@@ -104,7 +106,7 @@ jobs:
           git diff --exit-code -- requirements.txt
 
       - name: Les deux suites, sous pytest
-        run: uv run pytest --cov=src/ponos --cov-report=term:skip-covered
+        run: uv run pytest --cov=src/ponos --cov-report=term:skip-covered --cov-fail-under=80
 
   frontend:
     runs-on: ubuntu-latest
