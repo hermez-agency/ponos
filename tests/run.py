@@ -3,8 +3,9 @@
 
     python3 tests/run.py
 
-No framework and no dependency, for the same reason the runner has none: a test
-suite that needs an install is a test suite that stops being run. Everything
+No framework, and no dependency beyond the runner's own (`requirements.txt`, in
+the `.venv` `uv sync` makes): a test suite that needs more of an install than
+the runner does is a test suite that stops being run. Everything
 here is pure — nothing touches Notion, git, the network or the disk beyond a
 temporary file.
 
@@ -36,6 +37,8 @@ import uuid
 from contextlib import contextmanager
 from datetime import UTC, date, datetime, timedelta, timezone
 from pathlib import Path
+
+import httpx
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
@@ -84,6 +87,7 @@ from ponos import (
 )
 from ponos import config as C
 from ponos import git as git_module
+from ponos import http as http_module
 from ponos import ticket as ticket_module
 from ponos.__main__ import _names, banner, build_parser, subcommands, welcome
 from ponos.__main__ import main as cli_main
@@ -2750,59 +2754,51 @@ def a_link_cannot_slip_an_option_into_ssh_or_claude():
 
 
 @contextmanager
+def _http_answering(handler):
+    """Every client of `ponos.http` sent to `handler` (an `httpx.MockTransport`).
+
+    Yields the pauses the retry policy takes between attempts — none of which
+    are slept for real.
+    """
+    pauses: list[float] = []
+    http_module.transport = httpx.MockTransport(handler)
+    http_module.forget()
+    http_module.sleep = pauses.append
+    try:
+        yield pauses
+    finally:
+        http_module.transport = None
+        http_module.forget()
+        http_module.sleep = time.sleep
+
+
+@contextmanager
 def _notion_answering(*answers):
     """Notion's transport replaced by a script: each call takes the next answer.
 
-    An answer is a dict (the JSON Notion returns) or an exception to raise, the
-    way `urlopen` raises it. Yields the calls made, as (method, path), and the
-    pauses taken between them — none of which are slept for real.
+    An answer is a dict (the JSON Notion returns), an `httpx.Response`, or an
+    exception to raise, the way httpx raises it. Yields the calls made, as
+    (method, path), and the pauses taken between them.
     """
-    import urllib.error
-    import urllib.request
-
     calls: list[tuple[str, str]] = []
-    pauses: list[float] = []
     queue = list(answers)
 
-    class _Response:
-        def __init__(self, body: dict) -> None:
-            self._body = json.dumps(body).encode()
-
-        def read(self) -> bytes:
-            return self._body
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *exc) -> None:
-            return None
-
-    def urlopen(request, timeout=None):
-        calls.append((request.get_method(), request.full_url.split("/v1", 1)[-1]))
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append((request.method, str(request.url).split("/v1", 1)[-1]))
         answer = queue.pop(0)
         if isinstance(answer, BaseException):
             raise answer
-        return _Response(answer)
+        if isinstance(answer, httpx.Response):
+            return answer
+        return httpx.Response(200, json=answer)
 
-    original_open, original_sleep = urllib.request.urlopen, notion.time.sleep
-    notion.urllib.request.urlopen = urlopen
-    notion.time.sleep = pauses.append
-    try:
+    with _http_answering(handler) as pauses:
         yield calls, pauses
-    finally:
-        notion.urllib.request.urlopen = original_open
-        notion.time.sleep = original_sleep
 
 
 def _http_error(code: int, retry_after: str = ""):
-    import email.message
-    import urllib.error
-
-    headers = email.message.Message()
-    if retry_after:
-        headers["Retry-After"] = retry_after
-    body = io.BytesIO(json.dumps({"message": f"status {code}"}).encode())
-    return urllib.error.HTTPError("https://api.notion.com/v1/x", code, "no", headers, body)
+    headers = {"Retry-After": retry_after} if retry_after else {}
+    return httpx.Response(code, headers=headers, json={"message": f"status {code}"})
 
 
 @case
@@ -2838,14 +2834,10 @@ def the_console_starts_on_the_file_install_sh_leaves():
         assert printed.getvalue().strip(), "a token to open the console with"
         assert "notion.token" in errors.getvalue()
 
-    import urllib.request
-
-    def refuse(*args, **kwargs):
+    def refuse(request):
         raise AssertionError("the placeholder token was sent to Notion")
 
-    original = urllib.request.urlopen
-    notion.urllib.request.urlopen = refuse
-    try:
+    with _http_answering(refuse):
         for token in ("", C.PLACEHOLDER):
             try:
                 notion.Client(token)._request("POST", "/databases/d/query", {})
@@ -2853,8 +2845,6 @@ def the_console_starts_on_the_file_install_sh_leaves():
                 assert "no Notion token yet" in str(error)
             else:
                 raise AssertionError("a board with no token was read")
-    finally:
-        notion.urllib.request.urlopen = original
 
 
 @case
@@ -2864,16 +2854,14 @@ def a_read_that_times_out_is_asked_again_and_says_notion_when_it_gives_up():
     Nothing catches an OSError around a Notion call — `StoreError` is what the
     runner is written to survive — so one slow answer took the whole pass down.
     """
-    import urllib.error
-
     client = notion.Client("ntn_x")
     with _notion_answering(
-        TimeoutError("timed out"), ConnectionResetError(104, "reset"), {"object": "page", "id": "p"}
+        httpx.ReadTimeout("timed out"), httpx.ReadError("reset"), {"object": "page", "id": "p"}
     ) as (calls, pauses):
         assert client._request("GET", "/pages/p") == {"object": "page", "id": "p"}
     assert len(calls) == 3 and len(pauses) == 2, (calls, pauses)
 
-    with _notion_answering(*[TimeoutError("timed out")] * notion.MAX_ATTEMPTS) as (calls, _):
+    with _notion_answering(*[httpx.ReadTimeout("timed out")] * notion.MAX_ATTEMPTS) as (calls, _):
         try:
             client._request("POST", "/databases/d/query", {})
         except notion.NotionError as error:
@@ -2882,7 +2870,7 @@ def a_read_that_times_out_is_asked_again_and_says_notion_when_it_gives_up():
             raise AssertionError("a Notion that never answers was taken for an answer")
     assert len(calls) == notion.MAX_ATTEMPTS, "a query is a read, and is retried"
 
-    refused = urllib.error.URLError(ConnectionRefusedError(111, "refused"))
+    refused = httpx.ConnectError("[Errno 111] Connection refused")
     with _notion_answering(refused, {"results": []}) as (calls, _):
         assert client._request("GET", "/users/me") == {"results": []}
 
@@ -2892,12 +2880,10 @@ def a_comment_is_never_posted_twice_on_the_strength_of_a_silence():
     """A write that may have landed is not sent again: a duplicate comment is
     worse than an error. Only what Notion refused outright — a 429, or a
     connection that never carried the request — is safe to send twice."""
-    import urllib.error
-
     client = notion.Client("ntn_x")
     for silence in (
-        TimeoutError("timed out"),
-        ConnectionResetError(104, "reset"),
+        httpx.ReadTimeout("timed out"),
+        httpx.ReadError("reset"),
         _http_error(502),
     ):
         with _notion_answering(silence, {"object": "comment"}) as (calls, _):
@@ -2909,7 +2895,7 @@ def a_comment_is_never_posted_twice_on_the_strength_of_a_silence():
                 raise AssertionError(f"{silence!r} was retried on a write")
         assert calls == [("POST", "/comments")], (silence, calls)
 
-    refused = urllib.error.URLError(ConnectionRefusedError(111, "refused"))
+    refused = httpx.ConnectError("[Errno 111] Connection refused")
     with _notion_answering(refused, {"object": "comment"}) as (calls, _):
         assert client._request("POST", "/comments", {}) == {"object": "comment"}
     assert len(calls) == 2, "never sent is safe to send"
@@ -2923,9 +2909,9 @@ def a_comment_is_never_posted_twice_on_the_strength_of_a_silence():
 
     with _notion_answering(_http_error(429, retry_after="86400"), {}) as (_, pauses):
         client._request("GET", "/users/me")
-    assert pauses == [notion.LONGEST_WAIT], "a day is not a pause, it is a refusal"
+    assert pauses == [http_module.LONGEST_WAIT], "a day is not a pause, it is a refusal"
 
-    with _notion_answering(TimeoutError("timed out"), {}) as (calls, _):
+    with _notion_answering(httpx.ReadTimeout("timed out"), {}) as (calls, _):
         try:
             client._request("PATCH", "/blocks/b/children", {"children": []})
         except notion.NotionError:
@@ -2935,6 +2921,63 @@ def a_comment_is_never_posted_twice_on_the_strength_of_a_silence():
     with _notion_answering(_http_error(503), {"id": "p"}) as (calls, _):
         client._request("PATCH", "/pages/p", {"properties": {}})
     assert len(calls) == 2, "setting a value twice is setting it once"
+
+
+@case
+def every_service_is_asked_again_as_notion_always_was():
+    """GitHub, OpenRouter, the channels, the pictures: one policy, Notion's.
+
+    A read is asked again after a 5xx or a silence, a POST only when it was
+    refused before anything was done — a 429, a connection that never opened.
+    And what keeps failing comes back as the last answer, or `Unanswered`.
+    """
+    seen: list[str] = []
+    script: list = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.method)
+        assert request.headers["User-Agent"] == http_module.USER_AGENT
+        answer = script.pop(0)
+        if isinstance(answer, BaseException):
+            raise answer
+        return answer
+
+    with _http_answering(handler) as pauses:
+        script[:] = [httpx.Response(503), httpx.ReadTimeout("slow"), httpx.Response(200, text="ok")]
+        answer = http_module.send("github", "GET", "https://example.test/x")
+        assert (answer.status, answer.body) == (200, b"ok"), answer
+        assert seen == ["GET"] * 3 and pauses == [1.5, 3.0], (seen, pauses)
+
+        seen.clear()
+        script[:] = [httpx.Response(503), httpx.Response(200)]
+        assert http_module.send("channels", "POST", "https://example.test/x").status == 503
+        assert seen == ["POST"], "a message posted twice is two messages"
+
+        seen.clear()
+        pauses.clear()
+        script[:] = [httpx.Response(429, headers={"Retry-After": "5"}), httpx.Response(200)]
+        assert http_module.send("channels", "POST", "https://example.test/x").status == 200
+        assert pauses == [5.0], pauses
+
+        script[:] = [httpx.ReadTimeout("slow")]
+        try:
+            http_module.send("channels", "POST", "https://example.test/x")
+        except http_module.Unanswered as error:
+            assert "may have been applied" in str(error) and not error.offline, error
+        else:
+            raise AssertionError("a POST that may have landed was taken for an answer")
+
+        script[:] = [httpx.ConnectError("[Errno -2] Name or service not known")] * 2
+        try:
+            http_module.send("images", "GET", "https://example.test/x", attempts=2)
+        except http_module.Unanswered as error:
+            assert error.offline and "gave up after 2 attempts" in str(error), error
+        else:
+            raise AssertionError("a host that does not exist answered")
+
+        script[:] = [httpx.Response(200, content=b"x" * 100)]
+        answer = http_module.send("images", "GET", "https://example.test/x", limit=10)
+        assert 10 < len(answer.body) <= 100 and answer.kind == "text/plain", answer
 
 
 @case
@@ -23969,24 +24012,12 @@ def a_secret_read_is_masked_wherever_it_would_be_written():
         # Notion: what is sent, whatever the call.
         sent: list[bytes] = []
 
-        class Answer:
-            def __enter__(self):
-                return self
+        def answer(request):
+            sent.append(request.content)
+            return httpx.Response(200, json={})
 
-            def __exit__(self, *_):
-                return False
-
-            def read(self):
-                return b"{}"
-
-        original = notion.urllib.request.urlopen
-        notion.urllib.request.urlopen = lambda request, timeout=0: (
-            sent.append(request.data) or Answer()
-        )
-        try:
+        with _http_answering(answer):
             notion.Client("ntn_test").comment("p", "the key is npm_0123456789")
-        finally:
-            notion.urllib.request.urlopen = original
         assert sent and b"npm_0123456789" not in sent[0] and b"***" in sent[0], sent
     finally:
         vault.forget()

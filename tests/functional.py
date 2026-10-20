@@ -47,6 +47,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from ponos import config as C  # noqa: E402
 from ponos import credits, db, images, journal, notion, project_settings, store  # noqa: E402
+from ponos import http as http_module  # noqa: E402
 from ponos.runner import Runner  # noqa: E402
 from ponos.ticket import short_id  # noqa: E402
 
@@ -2651,6 +2652,9 @@ def a_pass_started_during_an_update_runs_on_one_version_and_never_on_both():
         ignore = shutil.ignore_patterns("__pycache__")
         for part in ("src", "bin", "systemd"):
             shutil.copytree(ROOT / part, work / part, ignore=ignore)
+        # What the code imports beyond the standard library: each version's
+        # environment is made from it, before `app` points there.
+        shutil.copy(ROOT / "requirements.txt", work / "requirements.txt")
 
         def land(message: str) -> str:
             _git(["add", "-A"], work)
@@ -2683,6 +2687,10 @@ def a_pass_started_during_an_update_runs_on_one_version_and_never_on_both():
         tools = machine.root / "tools"
         tools.mkdir()
         (tools / "bash").symlink_to(shutil.which("bash") or "/bin/bash")
+        # uv when the machine has it, as `environment.create` would find it;
+        # pip from the environment otherwise — both download the same pins.
+        if shutil.which("uv"):
+            (tools / "uv").symlink_to(shutil.which("uv") or "")
         hold = machine.root / "hold"
         environment = {
             "HOME": str(home),
@@ -2746,6 +2754,14 @@ def a_pass_started_during_an_update_runs_on_one_version_and_never_on_both():
             installing.join()
             assert during == [""], during
             assert app.resolve().name == f"app-{second[:12]}"
+            # The new version's own environment, holding what it imports, before
+            # anything ran on it.
+            probe = subprocess.run(
+                [str(app / ".venv" / "bin" / "python"), "-c", "import httpx"],
+                capture_output=True,
+                text=True,
+            )
+            assert probe.returncode == 0, probe.stderr
 
             meanwhile.append(started("run"))
             for one in meanwhile:
@@ -2877,7 +2893,7 @@ def a_board_that_cannot_be_reached_marks_no_ticket_failed_and_the_run_does_not_f
         ticket = machine.ticket(
             "Pendant la coupure", "Fais-le.", machine.project("Site", repository)
         )
-        patched, notion.time.sleep = notion.time.sleep, lambda seconds: None
+        patched, http_module.sleep = http_module.sleep, lambda seconds: None
         try:
             with _environ(
                 {
@@ -2889,7 +2905,7 @@ def a_board_that_cannot_be_reached_marks_no_ticket_failed_and_the_run_does_not_f
                     argparse.Namespace(every=None, dry_run=False, limit=None, ticket="")
                 )
         finally:
-            notion.time.sleep = patched
+            http_module.sleep = patched
         assert code == 0, "the service must not fail while the network is away"
         assert machine.status(ticket) == "Ready", machine.status(ticket)
         assert not [

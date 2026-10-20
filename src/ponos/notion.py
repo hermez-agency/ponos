@@ -1,7 +1,7 @@
-"""A minimal Notion client, standard library only.
+"""A minimal Notion client, on the runner's own HTTP (see http.py).
 
-No SDK: three HTTP verbs and a handful of conversions are enough, and one less
-dependency is one less thing that can break the install.
+No SDK: three HTTP verbs and a handful of conversions are enough, and an SDK
+would be one more layer, and one more dependency, for a handful of endpoints.
 
 The client reads **the database schema** before writing anything. That is what
 lets you rename a column in Notion, or switch `Status` from a status property to
@@ -16,18 +16,13 @@ because a Notion page is still what they were shaped after.
 
 from __future__ import annotations
 
-import http.client
 import json
 import os
 import re
-import socket
-import time
-import urllib.error
-import urllib.request
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from typing import Any
 
-from . import vault
+from . import http, vault
 from .config import PLACEHOLDER
 from .store import SLOTS, Comment, Page, Picture, StoreError, Unreachable, read
 
@@ -39,7 +34,7 @@ API = "https://api.notion.com/v1"
 # unset everywhere else, which is every installation.
 API_ENV = "PONOS_NOTION_API"
 VERSION = "2022-06-28"
-MAX_ATTEMPTS = 4
+MAX_ATTEMPTS = http.MAX_ATTEMPTS
 
 # What Notion takes in one request of its File Upload API. Past it, an upload is
 # sent in parts — which a picture the console has already shrunk never needs.
@@ -53,11 +48,6 @@ __all__ = ["API", "Client", "Comment", "NotionError", "Page", "VERSION", "read"]
 def endpoint() -> str:
     """Where the API lives: Notion's, unless `PONOS_NOTION_API` says."""
     return os.environ.get(API_ENV, "").strip().rstrip("/") or API
-
-
-# Past this, a Retry-After is not a pause, it is Notion saying "not today": the
-# run moves on and the next one asks again.
-LONGEST_WAIT = 60
 
 
 def _replayable(method: str, path: str) -> bool:
@@ -75,14 +65,6 @@ def _replayable(method: str, path: str) -> bool:
     if method == "PATCH":
         return not path.endswith("/children")
     return False
-
-
-def _retry_after(error: urllib.error.HTTPError) -> float:
-    """What a 429 asks us to wait, in seconds — bounded, and 0 when unsaid."""
-    try:
-        return min(float(error.headers.get("Retry-After", "") or 0), LONGEST_WAIT)
-    except (TypeError, ValueError, AttributeError):
-        return 0.0
 
 
 class NotionError(StoreError):
@@ -137,75 +119,64 @@ class Client:
             if body is not None
             else None
         )
-        request = urllib.request.Request(
-            f"{endpoint()}{path}",
-            data=data,
-            method=method,
-            headers={
-                "Authorization": f"Bearer {self._token}",
-                "Notion-Version": VERSION,
-                "Content-Type": kind,
-                "User-Agent": "ponos",
-            },
-        )
-        last = ""
-        unreachable = False
-        replayable = _replayable(method, path)
-        for attempt in range(MAX_ATTEMPTS):
-            wait = 1.5 * (attempt + 1)
+        try:
+            answer = http.send(
+                "notion",
+                method,
+                f"{endpoint()}{path}",
+                content=data,
+                headers={
+                    "Authorization": f"Bearer {self._token}",
+                    "Notion-Version": VERSION,
+                    "Content-Type": kind,
+                },
+                timeout=self._timeout,
+                replayable=_replayable(method, path),
+            )
+        except http.Unanswered as error:
+            raise (Offline if error.offline else NotionError)(
+                f"{method} {path}: {error}"
+            ) from error
+        if answer.status >= 400:
+            payload = answer.body.decode(errors="replace")
+            message = payload
             try:
-                with urllib.request.urlopen(request, timeout=self._timeout) as response:
-                    return json.loads(response.read() or b"{}")
-            except urllib.error.HTTPError as error:
-                # First: an HTTPError is a URLError, which is an OSError.
-                unreachable = False
-                try:
-                    payload = error.read().decode(errors="replace")
-                except OSError:
-                    payload = ""  # the status says enough; its body timed out
-                message = payload
-                try:
-                    message = json.loads(payload).get("message", payload)
-                except json.JSONDecodeError:
-                    pass
-                last = f"{error.code} {message}"
-                if error.code == 429:
-                    # Refused before anything was done, whatever the method:
-                    # always worth the wait Notion asks for.
-                    wait = max(wait, _retry_after(error))
-                elif error.code in (500, 502, 503, 504) and replayable:
-                    pass
-                else:
-                    # Anything else is our fault — or a 5xx on a write, which
-                    # Notion may have carried out before failing to say so.
-                    raise NotionError(f"{method} {path}: {last}") from error
-            except urllib.error.URLError as error:
-                # Raised while connecting or sending: the request never reached
-                # Notion whole, so even a comment is safe to send again.
-                last = str(error.reason)
-                unreachable = isinstance(
-                    error.reason, (socket.gaierror, ConnectionError, TimeoutError)
-                )
-            except (ValueError, http.client.InvalidURL) as error:
-                # A malformed path never becomes valid by retrying — most often
-                # a configuration value that is not what it claims to be. And
-                # an answer that is not JSON is not going to become JSON either.
-                raise NotionError(f"{method} {path}: {error}") from error
-            except (OSError, http.client.HTTPException) as error:
-                # Raised while *reading* the answer — a timeout, a reset, a
-                # connection closed halfway. The request may have been carried
-                # out, and a second comment is worse than an error.
-                last = f"{type(error).__name__}: {error}" if str(error) else type(error).__name__
-                unreachable = False
-                if not replayable:
-                    raise NotionError(
-                        f"{method} {path}: {last} — not retried, it may have been applied"
-                    ) from error
-            if attempt < MAX_ATTEMPTS - 1:
-                time.sleep(wait)
-        raise (Offline if unreachable else NotionError)(
-            f"{method} {path}: {last} (gave up after {MAX_ATTEMPTS} attempts)"
-        )
+                message = json.loads(payload).get("message", payload)
+            except (json.JSONDecodeError, AttributeError):
+                pass
+            last = f"{answer.status} {message}"
+            if http.retried(answer.status, _replayable(method, path)):
+                last += f" (gave up after {MAX_ATTEMPTS} attempts)"
+            # Anything else is our fault — or a 5xx on a write, which Notion
+            # may have carried out before failing to say so.
+            raise NotionError(f"{method} {path}: {last}")
+        try:
+            return json.loads(answer.body or b"{}")
+        except ValueError as error:
+            # An answer that is not JSON is not going to become JSON either.
+            raise NotionError(f"{method} {path}: {error}") from error
+
+    def _paged(self, method: str, path: str, body: dict | None = None) -> Iterator[dict]:
+        """Every result of a listing, a hundred at a time, following Notion's cursor.
+
+        A read spelt as a GET carries the cursor in its query string, one
+        spelt as a POST (a database query) in its body.
+        """
+        cursor: str | None = None
+        while True:
+            if method == "GET":
+                separator = "&" if "?" in path else "?"
+                suffix = f"&start_cursor={cursor}" if cursor else ""
+                payload = self._request(method, f"{path}{separator}page_size=100{suffix}")
+            else:
+                sent: dict[str, Any] = {**(body or {}), "page_size": 100}
+                if cursor:
+                    sent["start_cursor"] = cursor
+                payload = self._request(method, path, sent)
+            yield from payload.get("results", [])
+            if not payload.get("has_more"):
+                return
+            cursor = payload.get("next_cursor")
 
     # -- reading -------------------------------------------------------------
 
@@ -319,19 +290,10 @@ class Client:
         )
 
     def query(self, database_id: str, filter_: dict | None = None) -> list[Page]:
-        pages: list[Page] = []
-        cursor: str | None = None
-        while True:
-            body: dict[str, Any] = {"page_size": 100}
-            if filter_:
-                body["filter"] = filter_
-            if cursor:
-                body["start_cursor"] = cursor
-            payload = self._request("POST", f"/databases/{database_id}/query", body)
-            pages.extend(_to_page(item) for item in payload.get("results", []))
-            if not payload.get("has_more"):
-                return pages
-            cursor = payload.get("next_cursor")
+        body = {"filter": filter_} if filter_ else None
+        return [
+            _to_page(item) for item in self._paged("POST", f"/databases/{database_id}/query", body)
+        ]
 
     def page(self, page_id: str) -> Page:
         return _to_page(self._request("GET", f"/pages/{page_id}"))
@@ -348,25 +310,19 @@ class Client:
         it comes back as no comments, and the caller says so.
         """
         found: list[Comment] = []
-        cursor: str | None = None
-        while True:
-            suffix = f"&start_cursor={cursor}" if cursor else ""
-            payload = self._request("GET", f"/comments?block_id={page_id}&page_size=100{suffix}")
-            for item in payload.get("results", []):
-                text = "".join(_written(part) for part in item.get("rich_text", []))
-                if text.strip():
-                    found.append(
-                        Comment(
-                            text.strip(),
-                            item.get("created_time", ""),
-                            id=item.get("id", ""),
-                            discussion_id=item.get("discussion_id", ""),
-                            created_by=(item.get("created_by") or {}).get("id", ""),
-                        )
+        for item in self._paged("GET", f"/comments?block_id={page_id}"):
+            text = "".join(_written(part) for part in item.get("rich_text", []))
+            if text.strip():
+                found.append(
+                    Comment(
+                        text.strip(),
+                        item.get("created_time", ""),
+                        id=item.get("id", ""),
+                        discussion_id=item.get("discussion_id", ""),
+                        created_by=(item.get("created_by") or {}).get("id", ""),
                     )
-            if not payload.get("has_more"):
-                return found
-            cursor = payload.get("next_cursor")
+                )
+        return found
 
     def blocks_text(self, block_id: str, depth: int = 0, *, live: bool = True) -> str:
         """A page's content, flattened into something an agent can read.
@@ -379,21 +335,14 @@ class Client:
         if depth > 3:
             return ""
         lines: list[str] = []
-        cursor: str | None = None
-        while True:
-            suffix = f"?page_size=100&start_cursor={cursor}" if cursor else "?page_size=100"
-            payload = self._request("GET", f"/blocks/{block_id}/children{suffix}")
-            for block in payload.get("results", []):
-                if not live and progress.is_live(block):
-                    continue
-                lines.append(_block_text(block, depth))
-                if block.get("has_children") and block.get("type") != "child_page":
-                    nested = self.blocks_text(block["id"], depth + 1, live=live)
-                    if nested:
-                        lines.append(_indent(nested))
-            if not payload.get("has_more"):
-                break
-            cursor = payload.get("next_cursor")
+        for block in self._paged("GET", f"/blocks/{block_id}/children"):
+            if not live and progress.is_live(block):
+                continue
+            lines.append(_block_text(block, depth))
+            if block.get("has_children") and block.get("type") != "child_page":
+                nested = self.blocks_text(block["id"], depth + 1, live=live)
+                if nested:
+                    lines.append(_indent(nested))
         return "\n".join(line for line in lines if line is not None).strip()
 
     def losses(self, block_id: str, depth: int = 0) -> dict[str, int]:
@@ -406,22 +355,16 @@ class Client:
         from . import markdown as converter
 
         found: dict[str, int] = {}
-        cursor: str | None = None
-        while True:
-            suffix = f"?page_size=100&start_cursor={cursor}" if cursor else "?page_size=100"
-            payload = self._request("GET", f"/blocks/{block_id}/children{suffix}")
-            for block in payload.get("results", []):
-                for kind in converter.lost(block):
-                    found[kind] = found.get(kind, 0) + 1
-                if block.get("has_children") and block.get("type") != "child_page":
-                    if depth >= 3:
-                        found["nested"] = found.get("nested", 0) + 1
-                        continue
-                    for kind, count in self.losses(block["id"], depth + 1).items():
-                        found[kind] = found.get(kind, 0) + count
-            if not payload.get("has_more"):
-                return found
-            cursor = payload.get("next_cursor")
+        for block in self._paged("GET", f"/blocks/{block_id}/children"):
+            for kind in converter.lost(block):
+                found[kind] = found.get(kind, 0) + 1
+            if block.get("has_children") and block.get("type") != "child_page":
+                if depth >= 3:
+                    found["nested"] = found.get("nested", 0) + 1
+                    continue
+                for kind, count in self.losses(block["id"], depth + 1).items():
+                    found[kind] = found.get(kind, 0) + count
+        return found
 
     def attachment(self, block_id: str) -> str:
         block = self._request("GET", f"/blocks/{block_id}")
