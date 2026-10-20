@@ -23265,7 +23265,12 @@ def the_mcp_tab_reads_claude_mcp_list_without_its_keys_and_tests_the_401_a_live_
         server.shutdown()
         server.server_close()
     assert mcp_setup.probe("")["code"] == "no-address"
-    assert mcp_setup.probe("http://127.0.0.1:1/mcp")["code"] == "unreachable"
+    # Asked again, as every request is, before it is said: without the pauses.
+    http_module.sleep = lambda seconds: None
+    try:
+        assert mcp_setup.probe("http://127.0.0.1:1/mcp")["code"] == "unreachable"
+    finally:
+        http_module.sleep = time.sleep
     overview = mcp_setup.overview("http://127.0.0.1:8787", "https://p.example/")
     assert (
         overview["local"] == "http://127.0.0.1:8787/mcp"
