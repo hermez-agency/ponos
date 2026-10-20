@@ -3072,14 +3072,15 @@ onto a machine that has `python3` and `git`, and `ponos serve` is
 the version's own `.venv`. **Nothing about the console asks the machine that runs it for Node.**
 Node is a thing you need to *change* the console, not to use it.
 
-The server side is three modules of `src/ponos/web/`. `server.py` is the door — the
+The server side is four modules of `src/ponos/web/`. `server.py` is the door — the
 token, the sign-in, the pages shown before it, `serve` — and stays standard library only,
 because an installation still on v0.1.0 checks a new version by importing it with the
 machine's `python3`. `app.py` is the application: one middleware, the guard, in front of
 every route — the token or the session cookie, the `Host`, the `X-Ponos` header on a write,
 the headers every answer carries — then the pages, the event stream (a `StreamingResponse`),
 the first connection, the update and the MCP server. `routes.py` is the API the page reads
-and writes, its bodies described by pydantic models. The schema of all of it is served at
+and writes, its bodies described by pydantic models; `answers.py` describes what it answers,
+the models its routes name. The schema of all of it is served at
 **`/openapi.json`**, behind the same token as the rest — the schema only: the pages that draw
 one load their scripts from a CDN, which the console's policy refuses.
 
@@ -3093,6 +3094,7 @@ npm install
 npm run build      # writes ../src/ponos/web/static — commit what it writes
 npm run dev        # hot reload, proxying /api to a console you started yourself
 npm run lint       # tsc, in the strict configuration the build uses
+npm run types      # src/lib/api-types.d.ts, from the schema — commit what it writes
 npm run test:e2e   # the built console in your Chrome, on a board of files of its own
 npm test           # node --test on the message bar's decisions — nothing to install
 ```

@@ -148,6 +148,18 @@ jobs:
         run: npm ci
         working-directory: frontend
 
+      # Le même principe que pour web/static : les types de la page sont ce que
+      # le schéma OpenAPI de la console décrit, jamais une copie à la main.
+      - name: Les types de l'API sont ceux du schéma
+        if: steps.changes.outputs.frontend == 'true'
+        run: |
+          npm run types
+          git diff --exit-code -- src/lib/api-types.d.ts || {
+            echo "frontend/src/lib/api-types.d.ts n'est pas à jour : lancez npm run types et commitez le résultat"
+            exit 1
+          }
+        working-directory: frontend
+
       - name: Lint
         if: steps.changes.outputs.frontend == 'true'
         run: npm run lint

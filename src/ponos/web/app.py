@@ -34,6 +34,7 @@ import threading
 import time
 from collections.abc import AsyncIterator, Callable
 from http.cookies import SimpleCookie
+from typing import Any
 from urllib.parse import parse_qsl, quote, unquote, urlparse
 
 import uvicorn
@@ -50,7 +51,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from .. import __version__, db, openrouter, tailscale, vault, voice
 from .. import config as config_module
 from ..config import state_dir
-from . import attachments, attempts, github, mcp, oauth, routes, server, sessions, setup
+from . import answers, attachments, attempts, github, mcp, oauth, routes, server, sessions, setup
 from .api import Api
 from .routes import MAX_BODY, answer, fail
 from .server import (
@@ -698,8 +699,8 @@ class _Body:
         return piece
 
 
-def application(console: Console) -> FastAPI:
-    """The console's routes, behind its guard: the API's, and the doors around it."""
+def _described() -> FastAPI:
+    """The console's routes — the API's, and the doors around it — and no console yet."""
     app = FastAPI(
         title="Ponos",
         version=__version__,
@@ -709,10 +710,21 @@ def application(console: Console) -> FastAPI:
         docs_url=None,
         redoc_url=None,
     )
-    app.state.console = console
-    app.add_middleware(Guard, console=console)
     app.include_router(routes.router)
     app.include_router(doors)
+    return app
+
+
+def schema() -> dict[str, Any]:
+    """The OpenAPI schema, without a console to serve it: what `scripts/openapi.py` writes."""
+    return _described().openapi()
+
+
+def application(console: Console) -> FastAPI:
+    """The console's routes, behind its guard."""
+    app = _described()
+    app.state.console = console
+    app.add_middleware(Guard, console=console)
 
     @app.exception_handler(StarletteHTTPException)
     async def unrouted(request: Request, error: StarletteHTTPException) -> Response:
@@ -904,12 +916,12 @@ def _update(request: Request, cancel: bool) -> Response:
         return fail(409, str(error))
 
 
-@doors.post("/api/update")
+@doors.post("/api/update", response_model=answers.UpgradeProgress)
 def update(request: Request) -> Response:
     return _update(request, cancel=False)
 
 
-@doors.post("/api/update/cancel")
+@doors.post("/api/update/cancel", response_model=answers.UpgradeProgress)
 def cancel_update(request: Request) -> Response:
     return _update(request, cancel=True)
 
@@ -917,7 +929,7 @@ def cancel_update(request: Request) -> Response:
 # -- the stream --------------------------------------------------------------
 
 
-@doors.get("/api/events")
+@doors.get("/api/events", response_model=answers.Stream)
 async def events(request: Request, after: str = "", board: str = "") -> Response:
     """One Server-Sent Events connection, for as long as the tab is open.
 
@@ -927,6 +939,9 @@ async def events(request: Request, after: str = "", board: str = "") -> Response
     browser, and a new `EventSource` cannot set a header. `?board=1` is a
     console whose board no longer follows from the changes it was sent,
     asking for it whole.
+
+    What the schema says it answers, `answers.Stream`, is no body: it is the
+    data of each event, under the event's name — for the page's types.
     """
     console = _console(request)
     api = console.api
@@ -968,7 +983,7 @@ async def events(request: Request, after: str = "", board: str = "") -> Response
 # -- what a message carries --------------------------------------------------
 
 
-@doors.post("/api/chat/attachments")
+@doors.post("/api/chat/attachments", response_model=answers.Attached)
 def upload(request: Request, name: str = "") -> Response:
     """One file for the message being written, as the raw body of the request.
 

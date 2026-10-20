@@ -309,7 +309,7 @@ def only_the_consoles_application_imports_a_package_from_outside():
     update that brings FastAPI would have been refused on every such machine,
     for good.
     """
-    outside = {"app.py", "routes.py"}
+    outside = {"answers.py", "app.py", "routes.py"}
     for path in sorted((ROOT / "src" / "ponos").rglob("*.py")):
         if path.parent.name == "web" and path.name in outside:
             continue
