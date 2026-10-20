@@ -146,8 +146,8 @@ built under that page, found on its own as soon as it is shared; GitHub in one c
 project; and a demonstration ticket, played there and then, which is the proof that every
 step holds. No Notion? The board can be [a folder of Markdown files](#without-notion-the-board-as-markdown-files).
 
-It needs Linux or macOS, `python3` ≥ 3.11 — what it imports, httpx for the runner and FastAPI
-and uvicorn for the console, goes into an environment of its own, made by the installer —,
+It needs Linux or macOS, `python3` ≥ 3.11 — what it imports, httpx and pydantic for the
+runner and FastAPI and uvicorn for the console, goes into an environment of its own, made by the installer —,
 `git` and [Claude Code](https://claude.com/claude-code), which the installer offers to
 install when it is missing. `gh` is optional: the console connects GitHub itself. The rest is
 in [Installation](#installation) below.
@@ -378,7 +378,7 @@ installing, restarting — and the page reloads by itself from the new version:
   on the version it found; the previous version stays on disk beside the new one;
 - **each version has its own Python environment.** `app-<commit>/.venv` is made from the
   machine's `python3` before `app` points at the version, and holds what
-  `requirements.txt` lists — httpx for the runner, the console's FastAPI and uvicorn, and
+  `requirements.txt` lists — httpx and pydantic for the runner, the console's FastAPI and uvicorn, and
   the few packages they pull in, at the versions of `uv.lock`, hashes checked;
   [uv](https://docs.astral.sh/uv/) installs them when the machine has it, pip otherwise (on
   Debian and Ubuntu, pip in an environment comes with `python3-venv`). A version whose
@@ -386,8 +386,9 @@ installing, restarting — and the page reloads by itself from the new version:
   and the one in use keeps its own. An installation updated by a version from before
   environments gets its `.venv` on its next pass, with nothing to do: until then, and on a
   `python3` that cannot make one at all, the launcher runs the machine's `python3` as it
-  always has, and the console says what it is missing and starts again on the environment
-  once the pass has made it;
+  always has — where a pass, which cannot read `config.toml` without pydantic, makes the
+  environment and runs no ticket —, and the console says what it is missing and starts
+  again on the environment once the pass has made it;
 - **no `pip` is needed to install a package.** On Debian or Ubuntu without `python3-venv`,
   `python3` cannot give an environment pip. When `requirements.txt` lists a package and the
   machine has neither `uv` nor `ensurepip`, `install.sh` and the update fetch
@@ -416,7 +417,7 @@ changes the hour; `runner.update_channel` chooses between releases and `main` �
 compare itself against: it says so once per check and carries on.
 
 > **Requirements** — Linux or macOS, `python3` >= 3.11 (and `uv`, or `python3-venv` on
-> Debian and Ubuntu: each version installs httpx, which the runner imports, and the
+> Debian and Ubuntu: each version installs httpx and pydantic, which the runner imports, and the
 > console's FastAPI and uvicorn in a `.venv` of its own — see above), `git`,
 > [Claude Code](https://claude.com/claude-code),
 > and for pull requests either the GitHub App the console connects or `gh` authenticated.
@@ -470,6 +471,21 @@ container claims a console before anybody opens it. A secret an older version le
 `config.toml` is ignored; the next launch moves it into `secrets.env` (and out of
 `config.toml.bak`) and says so on stderr, or says, at every launch, which variable to set
 when it cannot. `ponos doctor` checks that neither file gives a secret away.
+
+**The file is checked as it is read.** Each table has its model (`src/ponos/schema.py`,
+pydantic): what a key may hold, its default, and the rules the runner always applied — a
+value under a key's floor is the floor (`interval_seconds = 0` is one second), a word that
+is none of a key's choices is the default (a typo in `update_channel` is `release`, never
+`main`), an amount left blank is no limit, and a key nobody reads is left alone. A value
+none of that reads — a port that is not a number, a list where a word goes — stops the
+runner, the console's save and `ponos doctor` with the key and its line:
+
+```text
+✗ /home/you/.config/ponos/config.toml, line 12: web.port = 'eighty' — Input should be a valid integer, unable to parse string as an integer
+```
+
+`config.example.toml` is read against these models by the tests, and documents every key
+they read — no more, no fewer.
 
 Steps 1 to 3 are for a board in Notion. A board of Markdown files needs none of them —
 one line, under [Without Notion](#without-notion-the-board-as-markdown-files) — and goes
@@ -3997,7 +4013,7 @@ installation code then the password are what stand between the Internet and the 
 ## Docker
 
 The image is another way to install the runner, not another program: the same Python and
-the same packages — httpx, the console's FastAPI and uvicorn —, installed from
+the same packages — httpx, pydantic, the console's FastAPI and uvicorn —, installed from
 `requirements.txt` when it is built (a container has no per-version `.venv`), with what `install.sh` would have found on the machine — git,
 `gh`, Node and Claude Code. The console is not built in it; it is committed, built.
 
@@ -4322,7 +4338,7 @@ vector. Run it again after any change to the module, and commit what it writes.
 ## Tests
 
 ```sh
-uv sync                        # httpx, FastAPI, uvicorn and the tools below
+uv sync                        # httpx, pydantic, FastAPI, uvicorn and the tools below
 uv run python tests/run.py     # one process per core; -j 1 runs the cases one after the other
 uv run python tests/functional.py
 ```

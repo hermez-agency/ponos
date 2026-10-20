@@ -316,7 +316,7 @@ def between_runs(
     """
     if in_container():
         return
-    healed = _environment()
+    healed = heal_environment()
     if healed:
         say(f"  ! {healed}")
     if not settings.auto_update or not due(settings.update_interval_seconds):
@@ -337,7 +337,7 @@ def between_runs(
     notify("Ponos updated", short)
 
 
-def _environment() -> str:
+def heal_environment() -> str:
     """The environment of the version in use, made if an update left it without one.
 
     Only for an installation `install.sh` made — `app` a link — never for a

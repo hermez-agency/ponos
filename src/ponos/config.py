@@ -22,15 +22,18 @@ from __future__ import annotations
 
 import os
 import re
+import sys
 import threading
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-# The two vocabularies of `[storage]`, kept where the interface is declared —
-# `store.py` imports nothing from here, so this direction is the safe one.
 from . import disk, models, passwords, subtypes, vault
-from .store import CONFLICTS, MODES
+
+if TYPE_CHECKING:
+    # Imported by `load`, not here: see schema.py.
+    from . import schema
 
 PLACEHOLDER = "ntn_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
@@ -1415,467 +1418,180 @@ def load(path: Path | None = None, *, secrets: Path | None = None) -> Config:
     """The runner's reading of the file — and of its secrets, which are elsewhere.
 
     `secrets` names the secrets file when it is not the one beside `path`: the
-    copy `edit` checks before it replaces anything.
+    copy `edit` checks before it replaces anything. What each key may hold is
+    schema.py's; what is put together here is what the file does not say — the
+    secrets, the environment, the defaults that depend on where this runs.
     """
     target = path or config_path()
-    raw = _read_toml(target)
+    raw, file = _validated(target)
     stored = read_secrets(secrets or secrets_path(target))
-    runner = _runner(raw.get("runner", {}))
-
-    projects = {
-        str(name): os.path.expanduser(str(value)) for name, value in raw.get("projects", {}).items()
-    }
-
-    # Lowercased on the way in: GitHub does not care how an owner is spelled,
-    # and a line that says `Animalink` must answer for `animalink/site`.
-    github = {
-        str(name).strip().lower(): str(value).strip()
-        for name, value in raw.get("github", {}).items()
-        if str(value).strip()
-    }
-
+    runner = _runner(file.runner)
     return Config(
-        notion=_notion(raw.get("notion", {}), stored),
+        notion=_notion(file.notion, stored),
         runner=runner,
-        projects=projects,
+        projects={name: os.path.expanduser(value) for name, value in file.projects.items()},
         path=target,
-        web=_web(raw.get("web", {}), stored),
-        notify=_notify(raw.get("notify", {}), stored, runner),
-        openrouter=_openrouter(raw.get("openrouter", {}), stored),
-        claude=_claude(raw.get("claude", {}), stored),
-        budget=_budget(raw.get("budget", {})),
-        permissions=_permissions(raw.get("permissions", {})),
-        storage=_storage(raw.get("storage", {})),
-        vault=_vault(raw.get("vault")),
-        github=github,
-        github_access=read_github_access(raw, stored),
+        web=_web(file.web, stored),
+        notify=_notify(file.notify, stored, runner),
+        openrouter=OpenRouter(
+            key=secret(stored, "openrouter", "key"), **file.openrouter.model_dump()
+        ),
+        claude=Claude(provider=file.claude.provider, api_key=secret(stored, "claude", "api_key")),
+        budget=Budget(**file.budget.model_dump()),
+        permissions=Permissions(**file.permissions.model_dump()),
+        storage=_storage(file.storage),
+        vault=_vault(file.vault),
+        github=dict(file.github),
+        github_access=_github_access(file.github_access, stored),
         exposed=tuple(f"{table}.{key}" for table, key in exposed(raw)),
     )
 
 
-def _read_toml(target: Path) -> dict:
-    """The file as TOML says it — or a ConfigError that names it."""
+class MissingLibrary(ConfigError):
+    """This Python has no pydantic, and the file is not read without it.
+
+    The machine's own Python, running a version an older one installed before
+    it had an environment: see `readable` and `__main__.command_run`.
+    """
+
+
+def readable() -> bool:
+    """Can this Python read the file — is pydantic installed for it?"""
+    try:
+        from . import schema  # noqa: F401
+    except ImportError:
+        return False
+    return True
+
+
+def _validated(target: Path) -> tuple[dict, schema.File]:
+    """The file as TOML says it, and read against schema.py — or a ConfigError naming what is wrong."""
     if not target.exists():
         raise ConfigError(
             f"configuration not found: {target}\n"
             "  reinstall with install.sh, or copy config.example.toml"
         )
+    text = target.read_text(encoding="utf-8")
     try:
-        with target.open("rb") as handle:
-            raw = tomllib.load(handle)
+        raw = tomllib.loads(text)
     except tomllib.TOMLDecodeError as error:
         raise ConfigError(f"{target} is not valid TOML: {error}") from error
-    return raw
+    try:
+        from . import schema
+    except ImportError as error:
+        raise MissingLibrary(
+            f"{target} cannot be read by {sys.executable}: it has no {error.name or 'pydantic'}. "
+            "This version's environment is missing it — ponos update --environment makes it, "
+            "and so does the next run"
+        ) from error
+    return raw, schema.read(raw, text, target)
 
 
-def _notion(notion_raw: dict, stored: dict[str, str]) -> Notion:
+def _notion(table: schema.NotionTable, stored: dict[str, str]) -> Notion:
     return Notion(
         token=secret(stored, "notion", "token"),
-        workspace=_database_id(str(notion_raw.get("workspace", ""))),
-        mention=str(notion_raw.get("mention", "")).strip(),
-        tickets_database=_database_id(str(notion_raw.get("tickets_database", ""))),
+        workspace=table.workspace,
+        mention=table.mention,
+        tickets_database=table.tickets_database,
         # Not merged with the defaults, for the same reason as `status` below:
         # `page_aliases()` needs to know which titles the file actually names, to
         # tell "the user calls it this" from "nobody said, so try the old names".
-        pages=dict(notion_raw.get("pages", {})),
-        properties={**_DEFAULT_PROPERTIES, **notion_raw.get("properties", {})},
+        pages=dict(table.pages),
+        properties={**_DEFAULT_PROPERTIES, **table.properties},
         # Not merged with the defaults: `state()` needs to know which keys the
         # file actually sets, to let "blocked" fall back on "failed".
-        status=dict(notion_raw.get("status", {})),
-        types=dict(notion_raw.get("types", {})),
+        status=dict(table.status),
+        types=dict(table.types),
     )
 
 
-def _runner(runner_raw: dict) -> Runner:
-    """`[runner]`, read a part at a time: the table holds most of the keys there are."""
-    defaults = Runner()
+def _runner(table: schema.RunnerTable) -> Runner:
+    read = table.model_dump(exclude={f"auto_model_subtype_{key}" for key in subtypes.KEYS})
     return Runner(
-        **_runner_pace(runner_raw, defaults),
-        **_runner_work(runner_raw, defaults),
-        **_runner_conversation(runner_raw, defaults),
-        **_runner_upkeep(runner_raw, defaults),
-        **_runner_models(runner_raw, defaults),
-    )
-
-
-def _runner_pace(runner_raw: dict, defaults: Runner) -> dict:
-    """Where the work is, how often and how much of it at once, and what holds it back."""
-    return dict(
-        workspace_root=Path(
-            os.path.expanduser(str(runner_raw.get("workspace_root", defaults.workspace_root)))
-        ),
-        # systemd refuses a zero interval, and anything below a second would
-        # only spin: one second is the floor that means anything here.
-        interval_seconds=max(1, int(runner_raw.get("interval_seconds", defaults.interval_seconds))),
-        max_concurrent=max(1, int(runner_raw.get("max_concurrent", defaults.max_concurrent))),
-        max_concurrent_per_project=max(
-            1,
-            int(runner_raw.get("max_concurrent_per_project", defaults.max_concurrent_per_project)),
-        ),
-        timeout_minutes=max(1, int(runner_raw.get("timeout_minutes", defaults.timeout_minutes))),
-        relaunch_delay_seconds=max(
-            0, int(runner_raw.get("relaunch_delay_seconds", defaults.relaunch_delay_seconds))
-        ),
-        min_free_memory_mb=max(
-            0, int(runner_raw.get("min_free_memory_mb", defaults.min_free_memory_mb))
-        ),
-        min_free_disk_mb=max(0, int(runner_raw.get("min_free_disk_mb", defaults.min_free_disk_mb))),
-        wait_for_credits=bool(runner_raw.get("wait_for_credits", defaults.wait_for_credits)),
-        # Both ends clamped rather than refused: a file saying 150 meant "keep
-        # plenty", not "never run again", and a negative reserve is a typo for
-        # none at all.
-        credit_reserve_percent=max(
-            0,
-            min(
-                MOST_RESERVED,
-                int(runner_raw.get("credit_reserve_percent", defaults.credit_reserve_percent)),
-            ),
-        ),
-    )
-
-
-def _runner_work(runner_raw: dict, defaults: Runner) -> dict:
-    """How a ticket is worked: its session, its branch, and how far it goes on its own."""
-    return dict(
-        model=str(runner_raw.get("model", defaults.model)).strip(),
-        # Kept as the file wrote it: `voice` reads it down to a language it
-        # speaks, and the difference between "nothing was said" and "English was
-        # asked for" is one the loader must not flatten.
-        language=str(
-            runner_raw.get("language", defaults.language) or os.environ.get(LANGUAGE_ENV, "")
-        ).strip(),
-        app_language=str(runner_raw.get("app_language", defaults.app_language)).strip(),
-        permission_mode=str(runner_raw.get("permission_mode", defaults.permission_mode)).strip(),
-        branch_prefix=str(runner_raw.get("branch_prefix", defaults.branch_prefix)),
-        base_branch=str(runner_raw.get("base_branch", defaults.base_branch)).strip(),
-        fetch=bool(runner_raw.get("fetch", defaults.fetch)),
-        push=bool(runner_raw.get("push", defaults.push)),
-        open_pull_request=bool(runner_raw.get("open_pull_request", defaults.open_pull_request)),
-        rebase=bool(runner_raw.get("rebase", defaults.rebase)),
-        force_validated_code=bool(
-            runner_raw.get("force_validated_code", defaults.force_validated_code)
-        ),
-        force_validated_writing=bool(
-            runner_raw.get("force_validated_writing", defaults.force_validated_writing)
-        ),
-        force_validated_external=bool(
-            runner_raw.get("force_validated_external", defaults.force_validated_external)
-        ),
-        force_validated_publication=bool(
-            runner_raw.get("force_validated_publication", defaults.force_validated_publication)
-        ),
-        merge_method=(
-            str(runner_raw.get("merge_method", "")).strip().lower()
-            if str(runner_raw.get("merge_method", "")).strip().lower() in MERGE_METHODS
-            else defaults.merge_method
-        ),
-        resolve_conflicts=bool(runner_raw.get("resolve_conflicts", defaults.resolve_conflicts)),
-        # A list in the file reads as well as the comma-separated line the
-        # console writes: both are a handful of project names.
-        resolve_conflicts_except=(
-            ", ".join(str(name).strip() for name in raw_except)
-            if isinstance(raw_except := runner_raw.get("resolve_conflicts_except", ""), list)
-            else str(raw_except).strip()
-        ),
-        resolve_model=str(runner_raw.get("resolve_model", defaults.resolve_model)).strip(),
-        checks_timeout_minutes=max(
-            0, int(runner_raw.get("checks_timeout_minutes", defaults.checks_timeout_minutes))
-        ),
-        keep_worktree_on_failure=bool(
-            runner_raw.get("keep_worktree_on_failure", defaults.keep_worktree_on_failure)
-        ),
-        attach_sessions=bool(runner_raw.get("attach_sessions", defaults.attach_sessions)),
-        session_host=str(runner_raw.get("session_host", defaults.session_host)).strip(),
-        dry_run=bool(runner_raw.get("dry_run", defaults.dry_run)),
-        prompt_file=str(runner_raw.get("prompt_file", defaults.prompt_file)).strip(),
-        document_prompt_file=str(
-            runner_raw.get("document_prompt_file", defaults.document_prompt_file)
-        ).strip(),
-        delivery_prompt_file=str(
-            runner_raw.get("delivery_prompt_file", defaults.delivery_prompt_file)
-        ).strip(),
-    )
-
-
-def _runner_conversation(runner_raw: dict, defaults: Runner) -> dict:
-    """What it says on a ticket, and when it answers, reacts or looks again."""
-    return dict(
-        notify=bool(runner_raw.get("notify", defaults.notify)),
-        progress=bool(runner_raw.get("progress", defaults.progress)),
-        # Ten seconds reads as live and costs three writes a ticket per tick.
-        # The floor is five: below that, two tickets running at once would spend
-        # the integration's rate limit on saying what they are about to do.
-        progress_interval_seconds=max(
-            5,
-            int(runner_raw.get("progress_interval_seconds", defaults.progress_interval_seconds)),
-        ),
-        reply=bool(runner_raw.get("reply", defaults.reply)),
-        # The floor is ten seconds, which is the fastest a run itself goes: a
-        # zero here would turn every pass into a full scan of the board.
-        reply_interval_seconds=max(
-            10, int(runner_raw.get("reply_interval_seconds", defaults.reply_interval_seconds))
-        ),
-        reply_scan=max(1, int(runner_raw.get("reply_scan", defaults.reply_scan))),
-        reply_timeout_minutes=max(
-            1, int(runner_raw.get("reply_timeout_minutes", defaults.reply_timeout_minutes))
-        ),
-        reply_permission_mode=str(
-            runner_raw.get("reply_permission_mode", defaults.reply_permission_mode)
-        ).strip()
-        or defaults.reply_permission_mode,
-        on=bool(runner_raw.get("on", defaults.on)),
-        on_interval_seconds=max(
-            10, int(runner_raw.get("on_interval_seconds", defaults.on_interval_seconds))
-        ),
-        on_max_depth=max(0, int(runner_raw.get("on_max_depth", defaults.on_max_depth))),
-        on_timeout_minutes=max(
-            1, int(runner_raw.get("on_timeout_minutes", defaults.on_timeout_minutes))
-        ),
-        on_permission_mode=str(
-            runner_raw.get("on_permission_mode", defaults.on_permission_mode)
-        ).strip(),
-        unblock=bool(runner_raw.get("unblock", defaults.unblock)),
-        # A ticket is looked at once in this long, and a session is spent each
-        # time: ten minutes is the floor.
-        unblock_interval_seconds=max(
-            600, int(runner_raw.get("unblock_interval_seconds", defaults.unblock_interval_seconds))
-        ),
-        schedule=bool(runner_raw.get("schedule", defaults.schedule)),
-    )
-
-
-def _runner_upkeep(runner_raw: dict, defaults: Runner) -> dict:
-    """Keeping itself up to date, and tidying up after itself."""
-    return dict(
-        auto_update=bool(runner_raw.get("auto_update", defaults.auto_update)),
-        # Filtered rather than trusted: a typo here must not quietly put an
-        # installation on every commit of `main`. Anything unknown is the
-        # careful answer.
-        update_channel=(
-            str(runner_raw.get("update_channel", "")).strip().lower()
-            if str(runner_raw.get("update_channel", "")).strip().lower() in UPDATE_CHANNELS
-            else defaults.update_channel
-        ),
-        # A run asks the remote at most once per this interval. The floor is a
-        # minute: at a ten-second cadence, an unbounded value would turn into a
-        # `git fetch` six times a minute, forever.
-        update_interval_seconds=max(
-            60, int(runner_raw.get("update_interval_seconds", defaults.update_interval_seconds))
-        ),
-        log_retention_days=max(
-            0, int(runner_raw.get("log_retention_days", defaults.log_retention_days))
-        ),
-        clean_done_worktrees=bool(
-            runner_raw.get("clean_done_worktrees", defaults.clean_done_worktrees)
-        ),
-        stale_worktree_days=max(
-            0, int(runner_raw.get("stale_worktree_days", defaults.stale_worktree_days))
-        ),
-        # A list in the file reads as well as the comma-separated line the
-        # console writes, as `resolve_conflicts_except` does.
-        worktree_exclude=(
-            ", ".join(str(path).strip() for path in raw_exclude)
-            if isinstance(raw_exclude := runner_raw.get("worktree_exclude", ""), list)
-            else str(raw_exclude).strip()
-        ),
-    )
-
-
-def _runner_models(runner_raw: dict, defaults: Runner) -> dict:
-    """Which model a ticket gets, and which one sorts it first."""
-    return dict(
-        classify=bool(runner_raw.get("classify", defaults.classify)),
-        # Empty is the CLI's own model, which is a choice too: a runner routed
-        # through OpenRouter has no `haiku` to be given.
-        classify_model=str(runner_raw.get("classify_model", defaults.classify_model)).strip(),
-        ideas_model=str(runner_raw.get("ideas_model", defaults.ideas_model)).strip(),
-        # Filtered rather than trusted, like the channel: a typo must not turn
-        # into a threshold nothing reaches, which would block every ticket.
-        classify_confidence=(
-            str(runner_raw.get("classify_confidence", "")).strip().lower()
-            if str(runner_raw.get("classify_confidence", "")).strip().lower() in CONFIDENCES
-            else defaults.classify_confidence
-        ),
-        auto_model=bool(runner_raw.get("auto_model", defaults.auto_model)),
-        # Empty is allowed: a level that names no model borrows the nearest one
-        # that does — see `models.Grid.model`.
         **{
-            f"auto_model_{level}": str(
-                runner_raw.get(f"auto_model_{level}", getattr(defaults, f"auto_model_{level}"))
-            ).strip()
-            for level in models.LEVELS
-        },
-        # Filtered rather than trusted: a typo is the type's default level, not
-        # a level nothing answers.
-        **{
-            f"auto_model_{kind}": (
-                str(runner_raw.get(f"auto_model_{kind}", "")).strip().lower()
-                if str(runner_raw.get(f"auto_model_{kind}", "")).strip().lower() in models.LEVELS
-                else getattr(defaults, f"auto_model_{kind}")
-            )
-            for kind in ("code", "writing", "external", "publication")
-        },
-        # Filtered like the types: a word that is none of the three is the
-        # sub-type's own default, not a level nothing answers.
-        auto_model_subtypes={
-            key: str(runner_raw.get(f"auto_model_subtype_{key}", "")).strip().lower()
-            for key in subtypes.KEYS
-            if str(runner_raw.get(f"auto_model_subtype_{key}", "")).strip().lower()
-            in subtypes.SHIFTS
-        },
-        auto_model_escalate=bool(
-            runner_raw.get("auto_model_escalate", defaults.auto_model_escalate)
-        ),
-        use_fable=bool(runner_raw.get("use_fable", defaults.use_fable)),
-    )
-
-
-def _web(web_raw: dict, stored: dict[str, str]) -> Web:
-    web_defaults = Web()
-    return Web(
-        host=str(web_raw.get("host", web_defaults.host)).strip() or web_defaults.host,
-        port=int(web_raw.get("port", web_defaults.port)),
-        token=secret(stored, "web", "token"),
-        url=str(web_raw.get("url", web_defaults.url)).strip().rstrip("/"),
-        # The environment first, so a unit file or a container can hold the
-        # credentials rather than the file. Stripped like every other secret
-        # here: a password read out of a file would otherwise carry the
-        # newline that file ends with, and lock you out of your own console.
-        email=(
-            os.environ.get(WEB_EMAIL_ENV) or str(web_raw.get("email", web_defaults.email))
-        ).strip(),
-        password=secret(stored, "web", "password"),
-        # Five seconds is the floor for the same reason as the live report's:
-        # below that, a page left open in a tab becomes a second full-time
-        # reader of the board.
-        poll_seconds=max(5, int(web_raw.get("poll_seconds", web_defaults.poll_seconds))),
-        chat_timeout_minutes=max(
-            1, int(web_raw.get("chat_timeout_minutes", web_defaults.chat_timeout_minutes))
-        ),
-        chat_model=str(web_raw.get("chat_model", web_defaults.chat_model)).strip(),
-        attachment_max_mb=max(
-            1, int(web_raw.get("attachment_max_mb", web_defaults.attachment_max_mb))
-        ),
-        attachment_days=max(1, int(web_raw.get("attachment_days", web_defaults.attachment_days))),
-        send_after_transcription=bool(
-            web_raw.get("send_after_transcription", web_defaults.send_after_transcription)
-        ),
-    )
-
-
-def _openrouter(router_raw: dict, stored: dict[str, str]) -> OpenRouter:
-    router_defaults = OpenRouter()
-    return OpenRouter(
-        key=secret(stored, "openrouter", "key"),
-        # A trailing slash here would produce `…/v1//messages`, which some
-        # gateways answer and others refuse. Emptied, the default answers.
-        base_url=str(router_raw.get("base_url", "")).strip().rstrip("/")
-        or router_defaults.base_url,
-        route_sessions=bool(router_raw.get("route_sessions", router_defaults.route_sessions)),
-        transcription_model=str(router_raw.get("transcription_model", "")).strip()
-        or router_defaults.transcription_model,
-    )
-
-
-def _claude(claude_raw: dict, stored: dict[str, str]) -> Claude:
-    # Filtered rather than trusted: a typo must not leave the sessions on an
-    # account nobody chose. An unknown word is the file that says nothing.
-    chosen = str(claude_raw.get("provider", "")).strip().lower()
-    return Claude(
-        provider=chosen if chosen in PROVIDERS else "",
-        api_key=secret(stored, "claude", "api_key"),
-    )
-
-
-def _budget(budget_raw: dict) -> Budget:
-    return Budget(
-        daily_usd=_dollars(budget_raw.get("daily_usd")),
-        per_ticket_usd=_dollars(budget_raw.get("per_ticket_usd")),
-        on_usd=_dollars(budget_raw.get("on_usd", Budget.on_usd)),
-    )
-
-
-def _permissions(permissions_raw: dict) -> Permissions:
-    permissions_defaults = Permissions()
-    return Permissions(
-        **{
-            name: _sentences(permissions_raw.get(name), getattr(permissions_defaults, name))
-            for name in ("allowed", "ask")
+            **read,
+            "workspace_root": Path(os.path.expanduser(table.workspace_root)),
+            # The file first: a language picked in Settings is a decision taken
+            # later than the deployment that set the environment.
+            "language": table.language or os.environ.get(LANGUAGE_ENV, "").strip(),
+            "auto_model_subtypes": table.subtype_shifts(),
         }
     )
 
 
-def _storage(storage_raw: dict) -> Storage:
-    storage_defaults = Storage()
-    # Filtered rather than trusted, and for once that is not paranoia: a typo
-    # here would silently decide where the board lives. An unknown word falls
-    # back on Notion, which is what a file that says nothing already gets.
-    mode = str(storage_raw.get("mode", storage_defaults.mode)).strip().lower()
-    conflict = str(storage_raw.get("conflict", storage_defaults.conflict)).strip().lower()
-    return Storage(
-        mode=mode if mode in MODES else storage_defaults.mode,
-        path=Path(os.path.expanduser(str(storage_raw.get("path", ""))))
-        if storage_raw.get("path")
-        else storage_defaults.path,
-        conflict=conflict if conflict in CONFLICTS else storage_defaults.conflict,
-        on_every_pass=bool(storage_raw.get("on_every_pass", storage_defaults.on_every_pass)),
+def _web(table: schema.WebTable, stored: dict[str, str]) -> Web:
+    return Web(
+        **{
+            **table.model_dump(),
+            "token": secret(stored, "web", "token"),
+            # The environment first, so a unit file or a container can hold the
+            # credentials rather than the file. Stripped like every other secret
+            # here: a password read out of a file would otherwise carry the
+            # newline that file ends with, and lock you out of your own console.
+            "email": (os.environ.get(WEB_EMAIL_ENV) or table.email).strip(),
+            "password": secret(stored, "web", "password"),
+        }
     )
 
 
-def _notify(notify_raw: dict, stored: dict[str, str], runner: Runner) -> Notify:
+def _storage(table: schema.StorageTable) -> Storage:
+    return Storage(
+        mode=table.mode,
+        path=Path(os.path.expanduser(table.path)) if table.path else board_dir(),
+        conflict=table.conflict,
+        on_every_pass=table.on_every_pass,
+    )
+
+
+def _notify(table: schema.NotifyTable, stored: dict[str, str], runner: Runner) -> Notify:
     # `runner.notify` came first and said "one desktop notification per ticket".
     # It keeps saying exactly that: the new table only has to name what it
     # changes, and a file written before any of this existed behaves as it did.
-    events = notify_raw.get("events", EVENTS)
     return Notify(
-        desktop=bool(notify_raw.get("desktop", runner.notify)),
-        replies=bool(notify_raw.get("replies", True)),
-        # Filtered rather than trusted: a typo in this list would otherwise
-        # silence a moment without ever saying so.
-        events=tuple(
-            name for name in (str(value).strip().lower() for value in events) if name in EVENTS
-        ),
-        telegram=_channel(notify_raw.get("telegram"), secret(stored, "notify.telegram", "token")),
-        slack=_channel(notify_raw.get("slack"), secret(stored, "notify.slack", "token")),
+        desktop=runner.notify if table.desktop is None else table.desktop,
+        replies=table.replies,
+        events=table.events,
+        telegram=_channel(table.telegram, secret(stored, "notify.telegram", "token")),
+        slack=_channel(table.slack, secret(stored, "notify.slack", "token")),
     )
 
 
-def _dollars(raw: object) -> float:
-    """An amount, or 0.0 for a limit that is empty, negative or not a number.
+def _channel(table: schema.TelegramTable | schema.SlackTable, token: str) -> dict[str, str]:
+    """One [notify.<channel>] table, as the strings it says — and its token.
 
-    Empty is the line left blank in the file, and it must read as "no limit"
-    rather than as a ceiling of nothing that stops every session.
+    The keys the file writes, and only those. The bot's token is put in from
+    where secrets live, and a `token` the table still carries is left out.
     """
-    try:
-        return max(0.0, float(raw))  # type: ignore[arg-type]
-    except (TypeError, ValueError):
-        return 0.0
-
-
-def _sentences(raw: object, default: tuple[str, ...]) -> tuple[str, ...]:
-    """A list of sentences as the file wrote it, or the default when it wrote none.
-
-    A key that is absent, or not a list, is the default; a list — even an empty
-    one — is the answer. Blank entries are dropped, not kept as empty rules.
-    """
-    if not isinstance(raw, list):
-        return default
-    return tuple(text for item in raw if (text := str(item).strip()))
+    read: dict[str, str] = table.model_dump(exclude_unset=True)
+    if token:
+        read["token"] = token
+    return read
 
 
 def read_github_access(raw: dict, stored: dict[str, str]) -> GithubAccess:
-    """`[github_access]` and its token, read leniently: a word that is none of the modes says nothing."""
-    section = _section(raw, "github_access")
-    chosen = str(section.get("mode", "")).strip().lower()
+    """`[github_access]` and its token, read again — the console writes them as it runs.
+
+    Read leniently, as a table that does not validate says nothing.
+    """
+    from . import schema
+
+    try:
+        table = schema.GithubAccessTable.model_validate(_section(raw, "github_access"))
+    except ValueError:  # pydantic's ValidationError
+        table = schema.GithubAccessTable()
+    return _github_access(table, stored)
+
+
+def _github_access(table: schema.GithubAccessTable, stored: dict[str, str]) -> GithubAccess:
     return GithubAccess(
-        mode=chosen if chosen in GITHUB_MODES else "",
+        mode=table.mode,
         token=secret(stored, "github_access", "token"),
-        token_item=str(section.get("token_item", "")).strip(),
+        token_item=table.token_item,
     )
 
 
-def _vault(raw: object) -> Vault:
-    """`[vault]`, read leniently and checked: what cannot be handed over is said.
+def _vault(table: schema.VaultTable) -> Vault:
+    """`[vault]`, checked: what cannot be handed over is said.
 
     A project's secrets are written either as a table — `NPM_TOKEN =
     "hermez/npm"`, the variable and the item it is read from — or as a list of
@@ -1884,15 +1600,12 @@ def _vault(raw: object) -> Vault:
     named in `problems`: a session must never be handed a project's
     `ANTHROPIC_API_KEY` in place of the one the runner chose.
     """
-    table = raw if isinstance(raw, dict) else {}
     found: list[str] = []
-    chosen = str(table.get("provider", "env")).strip().lower() or "env"
-    if chosen not in vault.PROVIDERS:
-        found.append(f"vault.provider = {chosen!r} is none of {', '.join(vault.PROVIDERS)}")
+    if table.provider not in vault.PROVIDERS:
+        found.append(f"vault.provider = {table.provider!r} is none of {', '.join(vault.PROVIDERS)}")
     reserved = set(SECRETS.values()) | {"ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN"}
     projects: dict[str, dict[str, str]] = {}
-    listed = table.get("projects", {})
-    for project, entries in listed.items() if isinstance(listed, dict) else ():
+    for project, entries in table.projects.items():
         if isinstance(entries, dict):
             pairs = [(str(name).strip(), str(item).strip()) for name, item in entries.items()]
         elif isinstance(entries, (list, tuple)):
@@ -1908,30 +1621,4 @@ def _vault(raw: object) -> Vault:
                 continue
             kept[variable] = item
         projects[str(project)] = kept
-    return Vault(provider=chosen, projects=projects, problems=tuple(found))
-
-
-def _channel(raw: object, token: str) -> dict[str, str]:
-    """One [notify.<channel>] table, as strings — a chat id is not a number.
-
-    Telegram's chat ids are integers, negative for a group, and TOML will hand
-    them over as such. Everything downstream compares them to what the API
-    returns in JSON, where they are strings. The bot's token is put in from
-    where secrets live, and a `token` the table still carries is left out.
-    """
-    table = raw if isinstance(raw, dict) else {}
-    read = {
-        # A list — `allowed_users` — is kept as one comma-separated string, so
-        # the table stays the flat mapping every reader of it expects.
-        str(key): (
-            ",".join(str(item).strip() for item in value)
-            if isinstance(value, (list, tuple))
-            else str(value)
-        ).strip()
-        for key, value in table.items()
-        # Never the file's own: see `SECRETS`.
-        if key != "token"
-    }
-    if token:
-        read["token"] = token
-    return read
+    return Vault(provider=table.provider, projects=projects, problems=tuple(found))

@@ -16,9 +16,9 @@ canaux (Telegram, Slack) permettent de suivre le travail ou d'y répondre.
 
 Deux mondes séparés, à ne pas mélanger :
 
-- **Cœur** — Python 3.11+, la bibliothèque standard et trois dépendances
-  d'exécution : **httpx** pour le runner, **FastAPI** servi par **uvicorn**
-  pour la console (`web/app.py`, `web/routes.py`) — `dependencies` dans
+- **Cœur** — Python 3.11+, la bibliothèque standard et quatre dépendances
+  d'exécution : **httpx** et **pydantic** pour le runner, **FastAPI** servi par
+  **uvicorn** pour la console (`web/app.py`, `web/routes.py`) — `dependencies` dans
   `pyproject.toml`, exportées avec leurs sommes dans `requirements.txt`. Le
   groupe `dev` porte l'outillage (ruff, mypy, pytest, pytest-cov), le tout figé
   dans `uv.lock`. Chaque version installée a son `.venv` (`environment.py`), qui
@@ -98,7 +98,8 @@ deux suites, puis publie l'image sur `ghcr.io`.
   aux commentaires), `transitions.py` (la colonne `On` : le prompt d'un ticket
   à chaque changement de statut), `reports.py` (ce qui s'écrit sur un ticket et ce qui
   atteint ton téléphone), `ticket.py` (`Ticket` et `Job`, sans dépendance).
-- `src/ponos/` — autour du run : `config.py` (et `project_settings.py`, ce qu'un
+- `src/ponos/` — autour du run : `config.py` (et `schema.py`, ce que chaque table de
+  `config.toml` peut dire, en modèles pydantic ; `project_settings.py`, ce qu'un
   projet décide pour lui-même par-dessus, gardé dans `ponos.db`), `store.py` (la couture
   vers un tableau, quel qu'il soit) et les trois qui la remplissent —
   `notion.py`, `files.py` (le board en fichiers Markdown), `sync.py` (les deux
@@ -150,9 +151,11 @@ deux suites, puis publie l'image sur `ghcr.io`.
 
 - `from __future__ import annotations` en tête de chaque module du cœur, et
   des annotations de type partout.
-- Le cœur n'importe que la bibliothèque standard, ses propres modules et
-  httpx — et httpx seulement dans `http.py` : une requête passe par
-  `http.send`, jamais par `urllib.request`. FastAPI (et ce qu'il tire) n'entre
+- Le cœur n'importe que la bibliothèque standard, ses propres modules,
+  httpx et pydantic — httpx seulement dans `http.py` : une requête passe par
+  `http.send`, jamais par `urllib.request` ; pydantic seulement dans
+  `schema.py`, que `config.load` importe en lisant le fichier, pour qu'une
+  passe sur le `python3` de la machine fabrique encore le `.venv`. FastAPI (et ce qu'il tire) n'entre
   que dans `web/app.py` et `web/routes.py` — un test le vérifie. Un autre
   paquet tiers n'entre que par le ticket qui le décide (voir l'audit), déclaré
   dans `pyproject.toml` et exporté dans `requirements.txt` — jamais au détour

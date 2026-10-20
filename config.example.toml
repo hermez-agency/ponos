@@ -737,7 +737,11 @@ auto_model_publication = "standard"   # clicks the wrong button
 # auto_model_subtype_docs = "lower"
 # auto_model_subtype_chore = "lower"
 # auto_model_subtype_security = "higher"
-# auto_model_subtype_bug = "same"      # and feature, improvement, refactor, perf
+# auto_model_subtype_bug = "same"
+# auto_model_subtype_feature = "same"
+# auto_model_subtype_improvement = "same"
+# auto_model_subtype_refactor = "same"
+# auto_model_subtype_perf = "same"
 # A ticket whose chosen model failed runs one level up when it comes back —
 # once, and its comment says so. The next attempt keeps that model.
 auto_model_escalate = true
