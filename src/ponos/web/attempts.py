@@ -26,8 +26,8 @@ from __future__ import annotations
 import ipaddress
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
 # The tenth failure in a row is not somebody who forgot.
 LOCK_AFTER = 10
@@ -84,8 +84,11 @@ class Attempts:
         self._records: dict[str, _Record] = {}
 
     def _sweep(self, now: float) -> None:
-        for key in [key for key, record in self._records.items()
-                    if record.until <= now and now - record.last > FORGET_AFTER]:
+        for key in [
+            key
+            for key, record in self._records.items()
+            if record.until <= now and now - record.last > FORGET_AFTER
+        ]:
             del self._records[key]
 
     def _current(self, key: str, now: float) -> _Record | None:

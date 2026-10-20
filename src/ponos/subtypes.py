@@ -97,7 +97,14 @@ class Subtype:
 # so that a title or an answer written with them is still understood.
 SUBTYPES = (
     Subtype(
-        "bug", "Bug", "Bug", "🐞", "red", "fix", "Fixed", "same",
+        "bug",
+        "Bug",
+        "Bug",
+        "🐞",
+        "red",
+        "fix",
+        "Fixed",
+        "same",
         ("fix", "bugfix", "hotfix", "bogue"),
         rule=(
             "Before you fix it, write a test that reproduces the bug and fails "
@@ -106,41 +113,90 @@ SUBTYPES = (
         ),
     ),
     Subtype(
-        "feature", "Feature", "Feature", "✨", "green",
-        "feat", "Added", "same", ("feat", "nouveaute", "fonctionnalite"),
+        "feature",
+        "Feature",
+        "Feature",
+        "✨",
+        "green",
+        "feat",
+        "Added",
+        "same",
+        ("feat", "nouveaute", "fonctionnalite"),
     ),
     Subtype(
-        "improvement", "Amélioration", "Improvement", "⬆️",
-        "blue", "feat", "Changed", "same", ("enhancement", "evolution"),
+        "improvement",
+        "Amélioration",
+        "Improvement",
+        "⬆️",
+        "blue",
+        "feat",
+        "Changed",
+        "same",
+        ("enhancement", "evolution"),
     ),
     Subtype(
-        "chore", "Chore", "Chore", "🧹", "gray", "chore",
-        "", "lower", ("ops", "maintenance", "deps", "ci"),
+        "chore",
+        "Chore",
+        "Chore",
+        "🧹",
+        "gray",
+        "chore",
+        "",
+        "lower",
+        ("ops", "maintenance", "deps", "ci"),
         rule=(
             "No CHANGELOG entry, unless the CHANGELOG has a Maintenance section: "
             "then it goes there."
         ),
     ),
     Subtype(
-        "refactor", "Refactor", "Refactor", "♻️", "purple",
-        "refactor", "Changed", "same", ("refacto", "refactoring", "refonte"),
+        "refactor",
+        "Refactor",
+        "Refactor",
+        "♻️",
+        "purple",
+        "refactor",
+        "Changed",
+        "same",
+        ("refacto", "refactoring", "refonte"),
         rule=(
             "The behaviour does not change: the tests that pass before pass after. "
             "A CHANGELOG entry under Changed only if somebody using it can tell."
         ),
     ),
     Subtype(
-        "perf", "Perf", "Perf", "⚡", "yellow", "perf",
-        "Changed", "same", ("performance", "perfs", "optim", "optimisation", "optimization"),
+        "perf",
+        "Perf",
+        "Perf",
+        "⚡",
+        "yellow",
+        "perf",
+        "Changed",
+        "same",
+        ("performance", "perfs", "optim", "optimisation", "optimization"),
         rule="Measure before and after, and give both figures in the report.",
     ),
     Subtype(
-        "docs", "Docs", "Docs", "📝", "brown", "docs", "", "lower",
+        "docs",
+        "Docs",
+        "Docs",
+        "📝",
+        "brown",
+        "docs",
+        "",
+        "lower",
         ("doc", "documentation"),
     ),
     Subtype(
-        "security", "Sécurité", "Security", "🔒", "orange", "fix",
-        "Security", "higher", ("secu", "vuln", "vulnerability"),
+        "security",
+        "Sécurité",
+        "Security",
+        "🔒",
+        "orange",
+        "fix",
+        "Security",
+        "higher",
+        ("secu", "vuln", "vulnerability"),
     ),
 )
 
@@ -200,7 +256,7 @@ def titled(key: str, title: str) -> str:
     kept = title
     for match in _TAG.finditer(title):
         if of(match.group(1)) == key:
-            kept = (title[: match.start()] + title[match.end():]).strip()
+            kept = (title[: match.start()] + title[match.end() :]).strip()
             kept = re.sub(r"\s{2,}", " ", kept)
             break
     return f"{BY_KEY[key].commit}: {kept}"
@@ -211,9 +267,7 @@ def section(key: str) -> str:
     subtype = BY_KEY.get(key)
     if not subtype:
         return ""
-    where = (
-        f"under **{subtype.changelog}**" if subtype.changelog else "nowhere: no entry"
-    )
+    where = f"under **{subtype.changelog}**" if subtype.changelog else "nowhere: no entry"
     lines = [
         f"# Kind of change — {subtype.label}",
         "",
@@ -243,6 +297,7 @@ CHOICES = "\n".join(
             "documentation, README, a documentation site",
             "a security hole, a secret, permissions",
         ),
+        strict=True,
     )
 )
 
@@ -291,7 +346,9 @@ def parse(answer: str) -> Guess:
             continue
         if not isinstance(raw, dict):
             continue
-        confidence = str(raw.get("subtype_confidence") or raw.get("confidence") or "").strip().lower()
+        confidence = (
+            str(raw.get("subtype_confidence") or raw.get("confidence") or "").strip().lower()
+        )
         return Guess(
             subtype=of(raw.get("subtype")),
             reason=" ".join(str(raw.get("subtype_reason") or raw.get("reason") or "").split()),

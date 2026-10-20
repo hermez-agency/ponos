@@ -110,9 +110,13 @@ def installed(setup_action: str = "") -> str:
 def page(title: str, text: str, then: str = "") -> str:
     """A page of its own, without the bundle — and moving on, when it has somewhere to go."""
     moving = f'<meta http-equiv="refresh" content="0;url={html.escape(then)}">' if then else ""
-    link = f'<p><a href="{html.escape(then)}">Ponos</a></p>' if then else '<p><a href="/">Ponos</a></p>'
+    link = (
+        f'<p><a href="{html.escape(then)}">Ponos</a></p>'
+        if then
+        else '<p><a href="/">Ponos</a></p>'
+    )
     return (
-        "<!doctype html><html><head><meta charset=\"utf-8\">"
+        '<!doctype html><html><head><meta charset="utf-8">'
         f"<title>{html.escape(title)}</title>{moving}"
         "<style>body{font-family:system-ui,sans-serif;max-width:32rem;margin:4rem auto;padding:0 1rem}</style>"
         f"</head><body><h1>{html.escape(title)}</h1><p>{html.escape(text)}</p>{link}</body></html>"

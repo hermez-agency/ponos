@@ -177,7 +177,12 @@ class Replies(Base):
         discussion = thread.last.discussion_id
         resumed = self.ledger.session_of(discussion) if discussion else ""
         outcome = self._reply_session(
-            text, workdir, short, agent, ticket, session_id=resumed or session.new_id(),
+            text,
+            workdir,
+            short,
+            agent,
+            ticket,
+            session_id=resumed or session.new_id(),
             resume=bool(resumed),
         )
         if not outcome.ok and resumed and not outcome.exhausted:

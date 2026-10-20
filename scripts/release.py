@@ -208,7 +208,7 @@ def promote(text: str, version: str, date: str) -> str:
     Refuses an empty Unreleased: a release with no notes is a tag, and a tag is
     not what anybody came here for.
     """
-    for name, _date, body in sections(text):
+    for name, _date, _body in sections(text):
         if name == version:
             raise Problem(f"CHANGELOG.md already has a [{version}] section")
     for name, _date, body in sections(text):
@@ -305,11 +305,15 @@ def command_check(arguments: argparse.Namespace) -> int:
         problems.append(f"__version__ is {read_version()}, not {version}")
 
     if read_project_version() != version:
-        problems.append(f"pyproject.toml says {read_project_version() or 'no version'}, not {version}")
+        problems.append(
+            f"pyproject.toml says {read_project_version() or 'no version'}, not {version}"
+        )
 
     for name, pinned in read_pins().items():
         if pinned != version:
-            problems.append(f"{BLUEPRINT.relative_to(ROOT)}/{name} pins {pinned or 'nothing'}, not {version}")
+            problems.append(
+                f"{BLUEPRINT.relative_to(ROOT)}/{name} pins {pinned or 'nothing'}, not {version}"
+            )
 
     text = CHANGELOG.read_text(encoding="utf-8")
     try:
@@ -326,9 +330,7 @@ def command_check(arguments: argparse.Namespace) -> int:
     tag = f"v{version}"
     try:
         if tag_exists(tag):
-            problems.append(
-                f"{tag} already exists — releasing it again would move a published tag"
-            )
+            problems.append(f"{tag} already exists — releasing it again would move a published tag")
     except Problem as error:
         problems.append(str(error))
 
@@ -360,9 +362,12 @@ def command_publish(arguments: argparse.Namespace) -> int:
 
     body = notes_for(CHANGELOG.read_text(encoding="utf-8"), version)
 
-    if subprocess.run(
-        ["gh", "release", "view", tag], cwd=ROOT, capture_output=True, text=True, check=False
-    ).returncode == 0:
+    if (
+        subprocess.run(
+            ["gh", "release", "view", tag], cwd=ROOT, capture_output=True, text=True, check=False
+        ).returncode
+        == 0
+    ):
         print(f"  · {tag} is already released — nothing to do")
         return 0
 

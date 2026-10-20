@@ -42,9 +42,9 @@ import subprocess
 import sys
 import threading
 import time
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from typing import Callable
 
 from .. import disk, environment, state
 from .. import update as update_module
@@ -89,7 +89,9 @@ def restart() -> None:
     if shutil.which("systemctl"):
         shown = subprocess.run(
             ["systemctl", "--user", "show", "--property", "MainPID", "--value", UNIT],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         if shown.returncode == 0 and shown.stdout.strip() == str(os.getpid()):
             subprocess.run(["systemctl", "--user", "--no-block", "restart", UNIT], timeout=10)
@@ -181,9 +183,8 @@ class Upgrade:
             # How far behind, and what is coming: the button's number and its tooltip.
             "behind": status.behind if status.stale else 0,
             "commits": status.commits if status.stale else [],
-            "notes": update_module.notes(status, self._page) or (
-                f"{self._page}/blob/main/CHANGELOG.md" if self._page else ""
-            ),
+            "notes": update_module.notes(status, self._page)
+            or (f"{self._page}/blob/main/CHANGELOG.md" if self._page else ""),
         }
 
     def progress(self) -> dict:
@@ -200,6 +201,7 @@ class Upgrade:
 
     def watch(self, every: float = CHECK_SECONDS) -> None:
         """Ask the remote now, then every `every` seconds, for as long as the console runs."""
+
         def loop() -> None:
             while True:
                 try:
@@ -286,9 +288,7 @@ class Upgrade:
         self._set("restarting", "")
         self._say("restarting the console")
         try:
-            disk.write_atomic(
-                _marker(), json.dumps({"target": self.target, "at": time.time()})
-            )
+            disk.write_atomic(_marker(), json.dumps({"target": self.target, "at": time.time()}))
         except OSError:
             pass
         # A moment for the stream to carry "restarting" to the page before the

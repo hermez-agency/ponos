@@ -47,7 +47,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -84,7 +84,7 @@ class Entry:
     at: str = ""
 
     def row(self) -> tuple[str, str, str, str, str, str]:
-        at = self.at or datetime.now(timezone.utc).isoformat(timespec="seconds")
+        at = self.at or datetime.now(UTC).isoformat(timespec="seconds")
         return (at, self.what, self.collection, self.page, self.title, self.detail)
 
 
@@ -95,7 +95,9 @@ class Report:
     entries: list[Entry] = field(default_factory=list)
     problems: list[str] = field(default_factory=list)
 
-    def note(self, what: str, collection: str, page: str, title: str = "", detail: str = "") -> None:
+    def note(
+        self, what: str, collection: str, page: str, title: str = "", detail: str = ""
+    ) -> None:
         self.entries.append(Entry(what, collection, page, title, detail))
 
     def of(self, *kinds: str) -> list[Entry]:
@@ -146,7 +148,7 @@ def journal(limit: int = 50, database: Path | None = None) -> list[dict]:
     except db.ERRORS:
         return []
     names = ("at", "what", "collection", "page", "title", "detail")
-    return [dict(zip(names, row)) for row in reversed(rows)]
+    return [dict(zip(names, row, strict=True)) for row in reversed(rows)]
 
 
 # -- what the two sides agreed on last time ----------------------------------
@@ -249,8 +251,8 @@ def _moment(stamp: str) -> datetime:
     try:
         moment = datetime.fromisoformat(str(stamp))
     except (TypeError, ValueError):
-        return datetime.min.replace(tzinfo=timezone.utc)
-    return moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)
+        return datetime.min.replace(tzinfo=UTC)
+    return moment if moment.tzinfo else moment.replace(tzinfo=UTC)
 
 
 def _newer(left: str, right: str) -> bool:
@@ -342,9 +344,7 @@ class Mirror:
     def create_row(self, database_id: str, title: str, values: dict | None = None) -> str:
         page_id = self.primary.create_row(database_id, title, values)
         try:
-            self.mirror.create_row(
-                self._collection(database_id), title, values, page_id=page_id
-            )
+            self.mirror.create_row(self._collection(database_id), title, values, page_id=page_id)
         except StoreError:
             # The Notion page exists and is what the runner will work from. A
             # disk that would not take its twin is the next pass's problem, and
@@ -482,7 +482,10 @@ class Mirror:
                     # deleted in Notion over that — a file disappears for a
                     # hundred reasons and none of them is a decision.
                     report.note(
-                        "deleted-in-markdown", collection, page_id, left.title,
+                        "deleted-in-markdown",
+                        collection,
+                        page_id,
+                        left.title,
                         "the file is gone; the Notion page is left as it is",
                     )
                     continue
@@ -493,7 +496,10 @@ class Mirror:
                 assert right is not None
                 if marks.seen(page_id):
                     report.note(
-                        "deleted-in-notion", collection, page_id, right.title,
+                        "deleted-in-notion",
+                        collection,
+                        page_id,
+                        right.title,
                         "the Notion page is gone; the file is left as it is",
                     )
                     continue
@@ -640,7 +646,10 @@ class Mirror:
         moved_markdown = marks.seen(CONTEXT) and there != marks.markdown(CONTEXT)
         if moved_notion and moved_markdown:
             report.note(
-                "conflict", CONTEXT, CONTEXT, "the standing context",
+                "conflict",
+                CONTEXT,
+                CONTEXT,
+                "the standing context",
                 f"both were rewritten; Notion wins ({self.conflict})",
             )
         if moved_notion:
@@ -659,4 +668,4 @@ def _bare(identifier: str) -> str:
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="microseconds")
+    return datetime.now(UTC).isoformat(timespec="microseconds")

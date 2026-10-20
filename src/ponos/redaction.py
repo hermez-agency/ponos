@@ -106,7 +106,7 @@ def masked(text: str) -> str:
         # The sentence's own comma stays: « est ••••••, publie » still reads.
         # One sign of the password may show with it, which tells nothing.
         value = match.group("value")
-        kept = value[len(value.rstrip(".,;")):]
+        kept = value[len(value.rstrip(".,;")) :]
         return match.group(0)[:start] + MASK + kept
 
     return LABELLED.sub(hide, text)

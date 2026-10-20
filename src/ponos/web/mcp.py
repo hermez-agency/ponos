@@ -36,12 +36,12 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Any, Callable
+from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING, Any
 
-from .. import __version__
+from .. import __version__, db, ideas, journal, state, store, systemd
 from .. import config as config_module
-from .. import db, ideas, journal, state, store, systemd
 from .. import kinds as kinds_module
 from . import live
 from .api import COLUMNS
@@ -250,7 +250,10 @@ TOOLS: list[dict] = [
         "la tâche. Renvoie l'identifiant de la tâche créée.",
         "inputSchema": _schema(
             {
-                "title": {"type": "string", "description": "Le titre : ce qu'il faut faire, en une ligne."},
+                "title": {
+                    "type": "string",
+                    "description": "Le titre : ce qu'il faut faire, en une ligne.",
+                },
                 "description": {
                     "type": "string",
                     "description": "Le brief, en Markdown : le contexte, ce qui est attendu, quand "
@@ -293,7 +296,10 @@ TOOLS: list[dict] = [
         "inputSchema": _schema(
             {
                 "task": TASK_REFERENCE,
-                "answer": {"type": "string", "description": "La réponse, telle que la personne la donne."},
+                "answer": {
+                    "type": "string",
+                    "description": "La réponse, telle que la personne la donne.",
+                },
                 "ready": {
                     "type": "boolean",
                     "description": "true : remettre aussi la tâche en ready (false par défaut).",
@@ -335,7 +341,10 @@ TOOLS: list[dict] = [
                     "type": "string",
                     "description": "La consigne, la réponse ou la note, quand la solution en demande une.",
                 },
-                "model": {"type": "string", "description": "Le modèle, pour relancer avec un autre."},
+                "model": {
+                    "type": "string",
+                    "description": "Le modèle, pour relancer avec un autre.",
+                },
                 "titles": {
                     "type": "array",
                     "items": {"type": "string"},
@@ -355,7 +364,10 @@ TOOLS: list[dict] = [
         "une tâche à faire tout de suite, utiliser create_task.",
         "inputSchema": _schema(
             {
-                "title": {"type": "string", "description": "Ce qu'il faudrait faire, en une ligne."},
+                "title": {
+                    "type": "string",
+                    "description": "Ce qu'il faudrait faire, en une ligne.",
+                },
                 "description": {
                     "type": "string",
                     "description": "Pourquoi cela vaut la peine, en trois lignes au plus.",
@@ -429,13 +441,15 @@ def _result(identifier: Any, result: dict) -> dict:
     return {"jsonrpc": "2.0", "id": identifier, "result": result}
 
 
-def handle(api: "Api", grant: Grant, message: Any, address: str = "") -> Any:
+def handle(api: Api, grant: Grant, message: Any, address: str = "") -> Any:
     """One JSON-RPC message, or a batch of them: the answer, or None for none.
 
     `address` is the console's, as the client reached it — what `whoami` says.
     """
     if isinstance(message, list):
-        answers = [answer for answer in (handle(api, grant, item, address) for item in message) if answer]
+        answers = [
+            answer for answer in (handle(api, grant, item, address) for item in message) if answer
+        ]
         return answers or None
     if not isinstance(message, dict) or message.get("jsonrpc") != "2.0":
         return _error(None, -32600, "not a JSON-RPC 2.0 message")
@@ -483,7 +497,7 @@ def handle(api: "Api", grant: Grant, message: Any, address: str = "") -> Any:
     return _error(identifier, -32601, f"method not found: {method}")
 
 
-def call(api: "Api", grant: Grant, tool: dict, arguments: dict, address: str = "") -> dict:
+def call(api: Api, grant: Grant, tool: dict, arguments: dict, address: str = "") -> dict:
     """One tool, answered as MCP wants it: text for the model, and the same as data.
 
     A tool that refuses says why in its result, flagged as an error, rather
@@ -519,7 +533,9 @@ def call(api: "Api", grant: Grant, tool: dict, arguments: dict, address: str = "
     except Exception as error:  # noqa: BLE001 — a tool fails in its answer, not by killing the request
         if writes:
             record(grant, name, arguments, f"failed: {error}")
-        return _refusal(f"Erreur : {str(error).splitlines()[0] if str(error) else type(error).__name__}")
+        return _refusal(
+            f"Erreur : {str(error).splitlines()[0] if str(error) else type(error).__name__}"
+        )
     if writes:
         record(grant, name, arguments, "ok")
     return {
@@ -560,7 +576,9 @@ def _arguments(tool: dict, arguments: dict) -> dict:
         ):
             raise ToolError(f"« {name} » est une liste de textes.")
         if "enum" in expected and value not in expected["enum"]:
-            raise ToolError(f"« {name} » vaut l'une de ces valeurs : {', '.join(expected['enum'])}.")
+            raise ToolError(
+                f"« {name} » vaut l'une de ces valeurs : {', '.join(expected['enum'])}."
+            )
         if kind == "integer":
             low, high = expected.get("minimum"), expected.get("maximum")
             if (low is not None and value < low) or (high is not None and value > high):
@@ -579,7 +597,11 @@ def record(grant: Grant, tool: str, arguments: dict, outcome: str) -> None:
     the journal is read to know who did what — not to keep a second copy.
     """
     kept = {
-        key: (value[:ARGUMENT_LIMIT] + "…" if isinstance(value, str) and len(value) > ARGUMENT_LIMIT else value)
+        key: (
+            value[:ARGUMENT_LIMIT] + "…"
+            if isinstance(value, str) and len(value) > ARGUMENT_LIMIT
+            else value
+        )
         for key, value in arguments.items()
     }
     try:
@@ -587,7 +609,7 @@ def record(grant: Grant, tool: str, arguments: dict, outcome: str) -> None:
             connection.execute(
                 "INSERT INTO mcp_calls (at, client, name, tool, arguments, outcome) VALUES (?, ?, ?, ?, ?, ?)",
                 (
-                    datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                    datetime.now(UTC).isoformat(timespec="seconds"),
                     grant.client,
                     grant.name,
                     tool,
@@ -607,7 +629,14 @@ def calls(limit: int = 30) -> list[dict]:
             (limit,),
         ).fetchall()
     return [
-        {"at": at, "client": client, "name": name, "tool": tool, "arguments": arguments, "outcome": outcome}
+        {
+            "at": at,
+            "client": client,
+            "name": name,
+            "tool": tool,
+            "arguments": arguments,
+            "outcome": outcome,
+        }
         for at, client, name, tool, arguments, outcome in rows
     ]
 
@@ -619,11 +648,11 @@ def _bare(reference: str) -> str:
     return reference.replace("-", "").strip().lower()
 
 
-def _projects(api: "Api") -> list[dict]:
+def _projects(api: Api) -> list[dict]:
     return sorted(api.projects().values(), key=lambda project: project["name"].lower())
 
 
-def _project(api: "Api", reference: str) -> dict:
+def _project(api: Api, reference: str) -> dict:
     """The project a name or an id designates — or a refusal that lists the known ones."""
     wanted = reference.strip()
     for project in _projects(api):
@@ -659,7 +688,7 @@ def _task(card: dict) -> dict:
     }
 
 
-def _card(api: "Api", reference: str) -> dict:
+def _card(api: Api, reference: str) -> dict:
     """The board's card for a task, found by its long or its short id."""
     wanted = re.sub(r"[^0-9a-f]", "", _bare(reference))
     if not wanted:
@@ -675,11 +704,13 @@ def _card(api: "Api", reference: str) -> dict:
     return found[0]
 
 
-def whoami(api: "Api", grant: Grant, address: str = "") -> dict:
+def whoami(api: Api, grant: Grant, address: str = "") -> dict:
     configuration = api.config
     try:
         projects: int | None = len(api.projects())
-        waiting: int | None = sum(1 for card in api.board()["tickets"] if card["column"] == "blocked")
+        waiting: int | None = sum(
+            1 for card in api.board()["tickets"] if card["column"] == "blocked"
+        )
     except store.StoreError:
         projects = waiting = None  # the board is down; who you are is not
     return {
@@ -697,7 +728,7 @@ def whoami(api: "Api", grant: Grant, address: str = "") -> dict:
     }
 
 
-def list_projects(api: "Api") -> dict:
+def list_projects(api: Api) -> dict:
     return {
         "projects": [
             {
@@ -713,7 +744,7 @@ def list_projects(api: "Api") -> dict:
 
 
 def list_tasks(
-    api: "Api",
+    api: Api,
     project: str = "",
     status: str = "",
     waiting_for_you: bool = False,
@@ -727,11 +758,13 @@ def list_tasks(
         cards = [card for card in cards if card["column"] == "blocked"]
     if status:
         cards = [card for card in cards if card["column"] == status]
-    cards = sorted(cards, key=lambda card: card.get("edited") or card.get("created") or "", reverse=True)
+    cards = sorted(
+        cards, key=lambda card: card.get("edited") or card.get("created") or "", reverse=True
+    )
     return {"count": len(cards), "tasks": [_task(card) for card in cards[:limit]]}
 
 
-def get_task(api: "Api", task: str) -> dict:
+def get_task(api: Api, task: str) -> dict:
     card = _card(api, task)
     detail = api.ticket(card["id"])
     talk = api.talk(card["id"])
@@ -768,7 +801,7 @@ def get_task(api: "Api", task: str) -> dict:
     }
 
 
-def runner_status(api: "Api", days: int = 30) -> dict:
+def runner_status(api: Api, days: int = 30) -> dict:
     configuration = api.config
     held = state.running()
     sessions = live.active(held=lambda: held)
@@ -810,7 +843,7 @@ def runner_status(api: "Api", days: int = 30) -> dict:
     }
 
 
-def list_ideas(api: "Api", project: str = "", status: str = "proposed") -> dict:
+def list_ideas(api: Api, project: str = "", status: str = "proposed") -> dict:
     scope = _project(api, project)["id"] if project else ""
     return {
         "scope": "project" if scope else "workspace",
@@ -838,7 +871,7 @@ def _idea(shown: dict) -> dict:
 
 
 def create_task(
-    api: "Api",
+    api: Api,
     title: str,
     description: str = "",
     project: str = "",
@@ -865,7 +898,7 @@ def create_task(
     }
 
 
-def answer_question(api: "Api", task: str, answer: str, ready: bool = False) -> dict:
+def answer_question(api: Api, task: str, answer: str, ready: bool = False) -> dict:
     card = _card(api, task)
     if card["column"] != "blocked":
         raise ToolError(
@@ -878,10 +911,15 @@ def answer_question(api: "Api", task: str, answer: str, ready: bool = False) -> 
     moved = ""
     if ready:
         moved = api.set_status(card["id"], "ready", card["status"])["status"]
-    return {"id": card["id"], "title": card["title"], "answered": True, "status": "ready" if moved else "blocked"}
+    return {
+        "id": card["id"],
+        "title": card["title"],
+        "answered": True,
+        "status": "ready" if moved else "blocked",
+    }
 
 
-def list_solutions(api: "Api", task: str) -> dict:
+def list_solutions(api: Api, task: str) -> dict:
     card = _card(api, task)
     if card["column"] not in ("blocked", "review"):
         raise ToolError(
@@ -892,7 +930,7 @@ def list_solutions(api: "Api", task: str) -> dict:
 
 
 def apply_solution(
-    api: "Api",
+    api: Api,
     task: str,
     solution: str,
     number: int = 0,
@@ -906,13 +944,19 @@ def apply_solution(
             f"La tâche « {card['title']} » n'attend aucune décision (statut {card['column']})."
         )
     done = api.decide(
-        card["id"], solution, number=number, text=text, model=model, titles=titles or [], channel="MCP"
+        card["id"],
+        solution,
+        number=number,
+        text=text,
+        model=model,
+        titles=titles or [],
+        channel="MCP",
     )
     return {"id": card["id"], "title": card["title"], **done}
 
 
 def create_idea(
-    api: "Api",
+    api: Api,
     title: str,
     description: str = "",
     project: str = "",
@@ -923,7 +967,7 @@ def create_idea(
     return _idea(api.ideas.write(scope, kind, title, description, category))
 
 
-def set_idea_state(api: "Api", idea: int, state: str) -> dict:
+def set_idea_state(api: Api, idea: int, state: str) -> dict:
     if state == "keep":
         return _idea(api.ideas.keep(idea))
     if state == "ticket":

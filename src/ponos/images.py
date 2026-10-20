@@ -47,10 +47,11 @@ import threading
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from . import db
 from .store import SLOTS, Page, Picture, StoreError
@@ -118,7 +119,9 @@ def face(raw: dict[str, Any], slot: str) -> Face:
         inner = value.get("file") or {}
         url = str(inner.get("url", ""))
         return Face(
-            "file", url=url, expires=str(inner.get("expiry_time") or ""),
+            "file",
+            url=url,
+            expires=str(inner.get("expiry_time") or ""),
             identity=f"file:{url.split('?', 1)[0]}",
         )
     if kind in ("external", "custom_emoji"):
@@ -188,8 +191,8 @@ def _moment(stamp: str) -> datetime:
     try:
         moment = datetime.fromisoformat(str(stamp).replace("Z", "+00:00"))
     except (TypeError, ValueError):
-        return datetime.min.replace(tzinfo=timezone.utc)
-    return moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)
+        return datetime.min.replace(tzinfo=UTC)
+    return moment if moment.tzinfo else moment.replace(tzinfo=UTC)
 
 
 def _edited(page: Page) -> str:
@@ -220,7 +223,7 @@ class Cache:
         self._dir = Path(directory)
         self._database = database
         self._fetch = fetch
-        self._clock = clock or (lambda: datetime.now(timezone.utc))
+        self._clock = clock or (lambda: datetime.now(UTC))
         self._lock = threading.Lock()
         self._locks: dict[str, threading.Lock] = {}
         self._known: dict[str, dict] | None = None
@@ -402,7 +405,9 @@ class Cache:
                 except OSError as error:
                     raise StoreError(f"{self._dir}: {error}") from error
                 pending.update(
-                    kind="upload", file=name, type=kind,
+                    kind="upload",
+                    file=name,
+                    type=kind,
                     name=picture.name or f"{slot}{SUFFIXES[kind]}",
                 )
             elif picture.url:

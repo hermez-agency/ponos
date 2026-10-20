@@ -95,9 +95,7 @@ def send(
     return _plain(title, body, urgent=urgent, warning=warning, key=link)
 
 
-def _plain(
-    title: str, body: str, *, urgent: bool, warning: bool = False, key: str = ""
-) -> bool:
+def _plain(title: str, body: str, *, urgent: bool, warning: bool = False, key: str = "") -> bool:
     binary = shutil.which("notify-send")
     if not binary:
         return False
@@ -105,9 +103,12 @@ def _plain(
         subprocess.run(
             [
                 binary,
-                "--app-name", APP,
-                "--urgency", "critical" if urgent else "normal",
-                "--icon", _icon(warning),
+                "--app-name",
+                APP,
+                "--urgency",
+                "critical" if urgent else "normal",
+                "--icon",
+                _icon(warning),
                 # What GNOME and Ubuntu read as "replace the one with this tag".
                 *(["--hint", f"string:{SYNCHRONOUS}:{key}"] if key else []),
                 title,
@@ -155,8 +156,14 @@ def _hand_over(
     try:
         subprocess.Popen(
             [
-                sys.executable, "-m", "ponos.notify",
-                link, title, body, "urgent" if urgent else "normal", action,
+                sys.executable,
+                "-m",
+                "ponos.notify",
+                link,
+                title,
+                body,
+                "urgent" if urgent else "normal",
+                action,
                 "warning" if warning else "plain",
                 *(part for button in buttons for part in button),
             ],
@@ -197,8 +204,14 @@ def follow(
     previous = _remembered(key)
     identifier = (
         _post(
-            title, body, urgent=urgent, action=action, warning=warning, buttons=buttons,
-            replaces=previous.get("id", "0"), key=key,
+            title,
+            body,
+            urgent=urgent,
+            action=action,
+            warning=warning,
+            buttons=buttons,
+            replaces=previous.get("id", "0"),
+            key=key,
         )
         if watcher
         else ""
@@ -318,13 +331,24 @@ def _post(
     try:
         answer = subprocess.run(
             [
-                "gdbus", "call", "--session",
-                "--dest", BUS,
-                "--object-path", OBJECT,
-                "--method", f"{BUS}.Notify",
+                "gdbus",
+                "call",
+                "--session",
+                "--dest",
+                BUS,
+                "--object-path",
+                OBJECT,
+                "--method",
+                f"{BUS}.Notify",
                 "--",
-                _text(APP), replaces if replaces.isdigit() else "0", _text(_icon(warning)),
-                _text(title), _text(body), f"[{actions}]", f"{{{hints}}}", "-1",
+                _text(APP),
+                replaces if replaces.isdigit() else "0",
+                _text(_icon(warning)),
+                _text(title),
+                _text(body),
+                f"[{actions}]",
+                f"{{{hints}}}",
+                "-1",
             ],
             check=False,
             timeout=10,
@@ -375,10 +399,12 @@ def _clicked(watcher: subprocess.Popen, identifier: str) -> str:
 
 if __name__ == "__main__":  # the detached child, started by `send`
     follow(
-        sys.argv[1], sys.argv[2], sys.argv[3],
+        sys.argv[1],
+        sys.argv[2],
+        sys.argv[3],
         urgent=sys.argv[4] == "urgent",
         # A child started by an older parent, mid-update, has no label to read.
         action=sys.argv[5] if len(sys.argv) > 5 else ACTION,
         warning=len(sys.argv) > 6 and sys.argv[6] == "warning",
-        buttons=tuple(zip(sys.argv[7::2], sys.argv[8::2])),
+        buttons=tuple(zip(sys.argv[7::2], sys.argv[8::2], strict=False)),
     )

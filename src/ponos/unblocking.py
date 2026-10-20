@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import re
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from . import agents, conversation, credits, session, state, store
 from . import prompt as prompt_module
@@ -52,7 +52,9 @@ BATCH = 3
 OVERVIEW = 200
 
 _DECISION = re.compile(r"^\W*DECISION\s*:\s*(unblock|keep)\b", re.IGNORECASE | re.MULTILINE)
-_REASON = re.compile(r"^\W*REASON\s*:\s*(.+(?:\n(?!\W*DECISION\b).+)*)", re.IGNORECASE | re.MULTILINE)
+_REASON = re.compile(
+    r"^\W*REASON\s*:\s*(.+(?:\n(?!\W*DECISION\b).+)*)", re.IGNORECASE | re.MULTILINE
+)
 
 
 def decision(text: str) -> tuple[str, str]:
@@ -126,7 +128,7 @@ class Unblocking(Base):
         if flag and store.read(ticket.page, flag):
             return False
         try:
-            age = datetime.now(timezone.utc) - datetime.fromisoformat(
+            age = datetime.now(UTC) - datetime.fromisoformat(
                 ticket.page.raw.get("last_edited_time", "")
             )
             if age.total_seconds() < GRACE:
@@ -208,7 +210,9 @@ class Unblocking(Base):
             return None
         said = self.voice
         if verdict == "unblock":
-            self._set(ticket, **{self.config.notion.prop("status"): self.config.notion.state("ready")})
+            self._set(
+                ticket, **{self.config.notion.prop("status"): self.config.notion.state("ready")}
+            )
             self._comment(
                 ticket,
                 said.report(said.verdict("requeued"), said.say("unblocked", reason=reason)),

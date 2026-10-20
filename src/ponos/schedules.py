@@ -57,16 +57,16 @@ class Schedule:
 
     page: store.Page
     name: str
-    cadence: str            # "" when absent or unknown
-    at: str                 # "09:00"
-    day: str                # "Monday" | "1".."31" | ""
+    cadence: str  # "" when absent or unknown
+    at: str  # "09:00"
+    day: str  # "Monday" | "1".."31" | ""
     active: bool
-    next: datetime | None   # None = never yet computed
+    next: datetime | None  # None = never yet computed
     last: datetime | None
-    last_ticket: str        # page id, "" when there is none
+    last_ticket: str  # page id, "" when there is none
     project: str
     model: str
-    priority: int | None    # None when the schedule says none: its tickets are born at 50
+    priority: int | None  # None when the schedule says none: its tickets are born at 50
     # What its tickets are, as the board spells it, "" for "let it be guessed":
     # copied onto each ticket, which the classifier then leaves alone.
     kind: str = ""
@@ -118,6 +118,7 @@ def read(page: store.Page, settings: Notion) -> Schedule:
     Never raises. A row somebody half filled in is a row the pass steps over,
     not a pass that stops: one broken schedule must not take the others with it.
     """
+
     def value(key: str) -> object:
         return store.read(page, settings.prop(key))
 
@@ -264,7 +265,7 @@ def _in_month(year: int, month: int, day: int, hour: int, minute: int) -> dateti
 
 
 def _clock(at: str) -> tuple[int, int] | None:
-    """"09:35" → (9, 35). Empty is midnight; anything unreadable is None."""
+    """ "09:35" → (9, 35). Empty is midnight; anything unreadable is None."""
     text = at.strip()
     if not text:
         return (0, 0)
@@ -291,7 +292,7 @@ def _weekday(day: str) -> int | None:
 
 
 def _day_of_month(day: str) -> int | None:
-    """"1".."31", and nothing said means the first of the month."""
+    """ "1".."31", and nothing said means the first of the month."""
     text = day.strip()
     if not text:
         return 1

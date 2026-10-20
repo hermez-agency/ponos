@@ -103,7 +103,11 @@ def _read() -> tuple[str, str]:
     if not value and held.token:
         stored = config_module.read_secrets(config_module.secrets_path())
         value = held.token
-        origin = "secrets.env" if stored.get(config_module.GITHUB_TOKEN_ENV, "").strip() else config_module.GITHUB_TOKEN_ENV
+        origin = (
+            "secrets.env"
+            if stored.get(config_module.GITHUB_TOKEN_ENV, "").strip()
+            else config_module.GITHUB_TOKEN_ENV
+        )
     if value:
         vault.remember(value)
     with _lock:
@@ -142,7 +146,9 @@ def holds(value: str) -> bool:
 def save(value: str) -> None:
     """Keep a token in `secrets.env`, 0600 like the other secrets."""
     global _kept
-    config_module.write_secrets(config_module.secrets_path(), {config_module.GITHUB_TOKEN_ENV: value.strip()})
+    config_module.write_secrets(
+        config_module.secrets_path(), {config_module.GITHUB_TOKEN_ENV: value.strip()}
+    )
     vault.remember(value.strip())
     with _lock:
         _kept = None
@@ -151,8 +157,12 @@ def save(value: str) -> None:
 def forget() -> bool:
     """Drop the token from `secrets.env`. One the environment gives stays."""
     global _kept
-    present = bool(config_module.read_secrets(config_module.secrets_path()).get(config_module.GITHUB_TOKEN_ENV))
-    config_module.write_secrets(config_module.secrets_path(), {config_module.GITHUB_TOKEN_ENV: None})
+    present = bool(
+        config_module.read_secrets(config_module.secrets_path()).get(config_module.GITHUB_TOKEN_ENV)
+    )
+    config_module.write_secrets(
+        config_module.secrets_path(), {config_module.GITHUB_TOKEN_ENV: None}
+    )
     with _lock:
         _kept = None
     return present
@@ -207,7 +217,11 @@ def _send(url: str, bearer: str) -> tuple[int, dict[str, str], bytes]:
     )
     try:
         with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
-            return response.status, {k.lower(): v for k, v in response.headers.items()}, response.read()
+            return (
+                response.status,
+                {k.lower(): v for k, v in response.headers.items()},
+                response.read(),
+            )
     except urllib.error.HTTPError as error:
         return error.code, {k.lower(): v for k, v in error.headers.items()}, error.read()
 
@@ -238,7 +252,9 @@ def check(value: str) -> dict:
         raise GithubTokenError("GitHub refuses this token: it is mistyped, expired or revoked")
     if status >= 400 or not isinstance(user, dict) or not user.get("login"):
         said = user.get("message", "") if isinstance(user, dict) else ""
-        raise GithubTokenError(f"GitHub could not identify this token ({status}): {said}".rstrip(": "))
+        raise GithubTokenError(
+            f"GitHub could not identify this token ({status}): {said}".rstrip(": ")
+        )
 
     # Only a classic token carries its scopes in a header; a fine-grained one has none.
     classic = "x-oauth-scopes" in headers
@@ -254,19 +270,28 @@ def check(value: str) -> dict:
         repositories += [one for one in listed if isinstance(one, dict) and one.get("full_name")]
         if len(listed) < 100:
             break
-    writable = [one["full_name"] for one in repositories if (one.get("permissions") or {}).get("push")]
+    writable = [
+        one["full_name"] for one in repositories if (one.get("permissions") or {}).get("push")
+    ]
 
     if classic and "repo" not in scopes:
         missing.append({"permission": "repo", "level": "scope"})
     if classic and "workflow" not in scopes:
-        warnings.append("without the workflow scope, a ticket cannot change a file of .github/workflows")
+        warnings.append(
+            "without the workflow scope, a ticket cannot change a file of .github/workflows"
+        )
     if not repositories:
         missing.append({"permission": "Repository access", "level": "at least one repository"})
     elif not writable and not (classic and "repo" not in scopes):
         missing.append({"permission": "Contents", "level": "Read and write"})
     elif len(writable) < len(repositories):
         warnings.append(
-            "read-only on " + ", ".join(sorted(one["full_name"] for one in repositories if one["full_name"] not in writable)[:10])
+            "read-only on "
+            + ", ".join(
+                sorted(
+                    one["full_name"] for one in repositories if one["full_name"] not in writable
+                )[:10]
+            )
         )
     if writable and not classic:
         status, _, _ = _get(value, f"/repos/{quote(writable[0])}/pulls?per_page=1&state=all")
@@ -289,8 +314,13 @@ def check(value: str) -> dict:
 def describe() -> dict:
     """The token as the console and `doctor` show it: where from, who it is — never the value."""
     value = token()
-    shown: dict = {"configured": bool(value), "source": source(), "mode": access().mode,
-                   "vault": unavailable(), "create_url": CREATE_URL}
+    shown: dict = {
+        "configured": bool(value),
+        "source": source(),
+        "mode": access().mode,
+        "vault": unavailable(),
+        "create_url": CREATE_URL,
+    }
     if not value:
         return shown
     try:
@@ -298,4 +328,3 @@ def describe() -> dict:
     except GithubTokenError as error:
         shown["error"] = str(error)
     return shown
-

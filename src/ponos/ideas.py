@@ -70,7 +70,7 @@ import json
 import re
 import unicodedata
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from . import db
 
@@ -193,8 +193,7 @@ _PROJECT = """\
 The scope is one project, {name}: ideas for this project only."""
 
 _KINDS_GLOBAL = (
-    '"project" for a new project worth starting, "ticket" for an improvement '
-    "to the existing work"
+    '"project" for a new project worth starting, "ticket" for an improvement to the existing work'
 )
 _KINDS_PROJECT = '"ticket", always'
 
@@ -244,7 +243,7 @@ class Idea:
         if not started or self.score is not None:
             return False
         try:
-            since = datetime.now(timezone.utc) - datetime.fromisoformat(started)
+            since = datetime.now(UTC) - datetime.fromisoformat(started)
         except ValueError:
             return False
         return since.total_seconds() < SCORING_FOR_MINUTES * 60
@@ -260,7 +259,9 @@ class Idea:
             "category": self.category,
             "score": self.score,
             "score_reason": str(self.detail.get("score_reason") or ""),
-            "score_error": "" if self.score is not None else str(self.detail.get("score_error") or ""),
+            "score_error": ""
+            if self.score is not None
+            else str(self.detail.get("score_error") or ""),
             "tone": tone(self.score),
             "scoring": self.scoring(),
             "title": self.title,
@@ -374,7 +375,7 @@ Write every reason in {language}.
 
 
 def score_prompt(
-    candidates: list["Idea"],
+    candidates: list[Idea],
     *,
     project: str = "",
     brief: str = "",
@@ -390,7 +391,8 @@ def score_prompt(
     is not scored as original against itself, so it is left out of them.
     """
     listed = "\n\n".join(
-        f"{idea.id}. {idea.title}" + (f"\n{idea.description.strip()}" if idea.description.strip() else "")
+        f"{idea.id}. {idea.title}"
+        + (f"\n{idea.description.strip()}" if idea.description.strip() else "")
         for idea in candidates
     )
     own = {idea.title for idea in candidates}
@@ -643,7 +645,7 @@ def draft(say, *, what: str, where: str, done: list[str], out: list[str]) -> str
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 _COLUMNS = (
@@ -819,7 +821,9 @@ def scored(identifier: int, score: int | None, reason: str = "", error: str = ""
     if score is None:
         _detail(identifier, scoring=None, score_error=_line(error)[:DESCRIPTION_LIMIT] or None)
         return get(identifier)
-    _detail(identifier, scoring=None, score_error=None, score_reason=_line(reason)[:DESCRIPTION_LIMIT])
+    _detail(
+        identifier, scoring=None, score_error=None, score_reason=_line(reason)[:DESCRIPTION_LIMIT]
+    )
     with db.transaction() as connection:
         connection.execute("UPDATE ideas SET score = ? WHERE id = ?", (score_of(score), identifier))
     return get(identifier)

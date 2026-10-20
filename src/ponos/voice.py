@@ -167,8 +167,12 @@ def _project_and_title(title: str, project: str = "") -> tuple[str, str]:
 
 
 _DESKTOP_EVENT = {
-    "blocked": "blocked", "failed": "failed", "prepared": "prepared", "review": "review",
-    "merged": "done", "published": "done",
+    "blocked": "blocked",
+    "failed": "failed",
+    "prepared": "prepared",
+    "review": "review",
+    "merged": "done",
+    "published": "done",
 }
 _DESKTOP_NEXT = ("blocked", "failed", "review", "read", "merged", "published", "prepared")
 
@@ -296,8 +300,7 @@ _SAID: dict[str, dict[str, str]] = {
         "son compte rendu est son livrable.",
     },
     "classified-fix": {
-        "en": "Wrong? Change the {property} column — a type somebody chose is never "
-        "overwritten.",
+        "en": "Wrong? Change the {property} column — a type somebody chose is never overwritten.",
         "fr": "C'est faux ? Change la colonne {property} — un type choisi à la main "
         "n'est jamais écrasé.",
     },
@@ -320,8 +323,14 @@ _SAID: dict[str, dict[str, str]] = {
     # Why a model was chosen, one signal each, joined into one sentence — see
     # models.py for the rules they name.
     "model-type": {"en": "{kind} ticket", "fr": "ticket {kind}"},
-    "model-subtype-lower": {"en": "{subtype}: one level lower", "fr": "{subtype} : un niveau plus bas"},
-    "model-subtype-higher": {"en": "{subtype}: one level higher", "fr": "{subtype} : un niveau plus haut"},
+    "model-subtype-lower": {
+        "en": "{subtype}: one level lower",
+        "fr": "{subtype} : un niveau plus bas",
+    },
+    "model-subtype-higher": {
+        "en": "{subtype}: one level higher",
+        "fr": "{subtype} : un niveau plus haut",
+    },
     "model-small": {
         "en": "small targeted change ({words})",
         "fr": "petite modification ciblée ({words})",
@@ -816,9 +825,9 @@ _SAID: dict[str, dict[str, str]] = {
     },
     "credit-parked": {
         "en": "nothing was started for it, and nothing is wrong with it: "
-              "the credit comes back at {when}",
+        "the credit comes back at {when}",
         "fr": "rien n'a été lancé pour lui, et rien ne cloche de son côté : "
-              "le crédit revient à {when}",
+        "le crédit revient à {when}",
     },
     # -- a run that died in the middle ---------------------------------------
     "abandoned-requeued": {
@@ -849,7 +858,10 @@ _SAID: dict[str, dict[str, str]] = {
         "fr": "La branche `{branch}` existait déjà ({why}, {commits})",
     },
     "branch-held": {"en": "its worktree was still there", "fr": "son worktree était encore là"},
-    "branch-left": {"en": "an earlier attempt left it", "fr": "une tentative précédente l'a laissée"},
+    "branch-left": {
+        "en": "an earlier attempt left it",
+        "fr": "une tentative précédente l'a laissée",
+    },
     "branch-pushed": {
         "en": "it was pushed but never merged",
         "fr": "elle a été poussée mais jamais fusionnée",
@@ -971,10 +983,16 @@ _SAID: dict[str, dict[str, str]] = {
     "desktop-title-project": {"en": "{event} — {project}", "fr": "{event} — {project}"},
     # What to do about it, when the session has said nothing more specific.
     "desktop-next-blocked": {"en": "A question is waiting", "fr": "Une question attend ta réponse"},
-    "desktop-next-failed": {"en": "The run stopped on an error", "fr": "Le travail s'est arrêté sur une erreur"},
+    "desktop-next-failed": {
+        "en": "The run stopped on an error",
+        "fr": "Le travail s'est arrêté sur une erreur",
+    },
     "desktop-next-review": {"en": "A pull request is ready", "fr": "Une pull request est prête"},
     "desktop-next-read": {"en": "The result is ready to read", "fr": "Le résultat est prêt à lire"},
-    "desktop-next-merged": {"en": "The pull request is merged", "fr": "La pull request est fusionnée"},
+    "desktop-next-merged": {
+        "en": "The pull request is merged",
+        "fr": "La pull request est fusionnée",
+    },
     "desktop-next-published": {"en": "The result is published", "fr": "Le résultat est publié"},
     "desktop-next-prepared": {"en": "Validate it in the ticket", "fr": "Valide-le dans le ticket"},
     "answer-in-ticket": {"en": "Answer in the ticket", "fr": "Réponds dans le ticket"},
@@ -996,7 +1014,10 @@ _SAID: dict[str, dict[str, str]] = {
     "decision": {"en": "Decision: {choice}.", "fr": "Décision : {choice}."},
     "decided-answer": {"en": "answer to the question", "fr": "réponse à la question"},
     "decided-yes": {"en": "yes, go ahead", "fr": "oui, vas-y"},
-    "decided-close": {"en": "yes, close it — moved to done", "fr": "oui, clos-le — passé en terminé"},
+    "decided-close": {
+        "en": "yes, close it — moved to done",
+        "fr": "oui, clos-le — passé en terminé",
+    },
     "decided-option": {"en": "option {number}, “{option}”", "fr": "option {number}, « {option} »"},
     "decided-done-retry": {"en": "done by hand, run it again", "fr": "c'est fait, relancer"},
     "decided-retry": {"en": "run it again", "fr": "relancer"},
@@ -1030,8 +1051,14 @@ _SAID: dict[str, dict[str, str]] = {
         "en": "back to work: take the screenshots",
         "fr": "renvoyé : faire les captures demandées",
     },
-    "decided-rebase": {"en": "back to work: rebase onto the base branch", "fr": "renvoyé : rebaser sur la branche de base"},
-    "decided-caveat": {"en": "back to work on a point to check", "fr": "renvoyé sur un point à vérifier"},
+    "decided-rebase": {
+        "en": "back to work: rebase onto the base branch",
+        "fr": "renvoyé : rebaser sur la branche de base",
+    },
+    "decided-caveat": {
+        "en": "back to work on a point to check",
+        "fr": "renvoyé sur un point à vérifier",
+    },
     "decided-reject": {"en": "rejected, moved to done", "fr": "rejeté, passé en terminé"},
     "decided-reject-cancelled": {
         "en": "rejected, moved to cancelled",
@@ -1067,7 +1094,10 @@ _SAID: dict[str, dict[str, str]] = {
         "en": "Rebase the branch onto the base branch and resolve what conflicts.",
         "fr": "Rebase la branche sur la branche de base et résous les conflits.",
     },
-    "told-caveat": {"en": "Deal with this before review: {caveat}", "fr": "Règle ceci avant la relecture : {caveat}"},
+    "told-caveat": {
+        "en": "Deal with this before review: {caveat}",
+        "fr": "Règle ceci avant la relecture : {caveat}",
+    },
     "told-split": {
         "en": "Split from “{title}”: {url}",
         "fr": "Découpé depuis « {title} » : {url}",
@@ -1278,7 +1308,9 @@ class Voice:
         project, title = _project_and_title(title, project)
         kind = _DESKTOP_EVENT.get(name)
         event = self.say("desktop-title-" + kind if kind else "verdict-" + name)
-        heading = self.say("desktop-title-project", event=event, project=project) if project else event
+        heading = (
+            self.say("desktop-title-project", event=event, project=project) if project else event
+        )
         sentence = self.brief(_bare(summary), GIST) or self.say(
             "desktop-next-" + name if name in _DESKTOP_NEXT else "desktop-next-failed"
         )
@@ -1342,13 +1374,19 @@ class Voice:
         if mode == "choice":
             options = getattr(asked, "options", [])
             lines.append(
-                " · ".join(f"{index}. {self.brief(option, 60)}" for index, option in enumerate(options, 1))
+                " · ".join(
+                    f"{index}. {self.brief(option, 60)}" for index, option in enumerate(options, 1)
+                )
             )
         return [line for line in lines if line]
 
     def caveats(self, caveats: object) -> list[str]:
         """What a session could not check, one line each, as a review report says it."""
-        return [self.say("caveat", text=self.brief(caveat)) for caveat in caveats or () if str(caveat).strip()]
+        return [
+            self.say("caveat", text=self.brief(caveat))
+            for caveat in caveats or ()
+            if str(caveat).strip()
+        ]
 
     def paragraphs(self, *parts: object) -> str:
         """Whatever is worth saying, one paragraph each, blanks dropped.

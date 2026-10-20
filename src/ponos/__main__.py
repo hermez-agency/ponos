@@ -10,20 +10,45 @@ import argparse
 import json
 import os
 import shutil
-import subprocess
 import sqlite3
+import subprocess
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
 
-from datetime import datetime
-
-from . import __version__, channels, cleanup, config as config_module, conversation, credits, git, notion
-from . import db, journal, kinds, legacy, models, priority, resources, store, voice
-from . import github_app, github_token, health, prerequisites, project_settings, provision
+from . import (
+    __version__,
+    channels,
+    cleanup,
+    conversation,
+    credits,
+    db,
+    git,
+    github_app,
+    github_token,
+    health,
+    journal,
+    kinds,
+    legacy,
+    models,
+    notion,
+    prerequisites,
+    priority,
+    project_settings,
+    provision,
+    resources,
+    session,
+    state,
+    store,
+    subtypes,
+    systemd,
+    vault,
+    voice,
+)
+from . import config as config_module
 from . import provider as provider_module
 from . import schedules as schedules_module
-from . import session, state, subtypes, systemd, vault
 from . import update as update_module
 from . import workspace as workspace_module
 from .projects import Resolver
@@ -92,9 +117,7 @@ def command_run(args: argparse.Namespace) -> int:
     if getattr(args, "every", None) is not None:
         return run_every(args)
     configuration = load_config()
-    runner = Runner(
-        configuration, dry_run=args.dry_run, announce_idle=sys.stdout.isatty()
-    )
+    runner = Runner(configuration, dry_run=args.dry_run, announce_idle=sys.stdout.isatty())
     try:
         with state.lock():
             results = runner.tick(limit=args.limit, reference=args.ticket or "")
@@ -158,8 +181,10 @@ def run_every(args: argparse.Namespace, *, passes: int = 0) -> int:
         elif not waiting:
             # A container's first minutes: the console is up, nobody has given
             # it a board yet. Said once, rather than as an error every minute.
-            print(f"{DIM}no board configured yet — the first run starts once there is one{RESET}",
-                  flush=True)
+            print(
+                f"{DIM}no board configured yet — the first run starts once there is one{RESET}",
+                flush=True,
+            )
             waiting = True
         # Read after the run, which may write the file itself.
         seen = _config_stamp()
@@ -208,14 +233,18 @@ def command_list(args: argparse.Namespace) -> int:
     # And what is not written yet: a schedule is as much a thing about to happen
     # as a dated ticket is. Showing one without the other would be half a
     # calendar, and the half that surprises you is always the other one.
-    births = sorted(
-        (
-            schedule
-            for schedule in runner.schedules()
-            if schedule.active and schedule.next and not schedule.problem
-        ),
-        key=lambda schedule: schedule.next,
-    ) if configuration.runner.schedule else []
+    births = (
+        sorted(
+            (
+                schedule
+                for schedule in runner.schedules()
+                if schedule.active and schedule.next and not schedule.problem
+            ),
+            key=lambda schedule: schedule.next,
+        )
+        if configuration.runner.schedule
+        else []
+    )
     if not tickets and not rows and not births:
         print("No ticket ready.")
         return 0
@@ -237,7 +266,9 @@ def command_list(args: argparse.Namespace) -> int:
             str(store.read(ticket.page, configuration.notion.prop("model")) or ""),
         ]
         tail = " · ".join([part for part in [project, kind, *badges] if part])
-        print(f"  {position}. {ticket.title}\n     {DIM}{tail}{RESET}\n     {DIM}{ticket.url}{RESET}")
+        print(
+            f"  {position}. {ticket.title}\n     {DIM}{tail}{RESET}\n     {DIM}{ticket.url}{RESET}"
+        )
 
     now = datetime.now().astimezone()
     if rows:
@@ -251,10 +282,7 @@ def command_list(args: argparse.Namespace) -> int:
             cadence = " · ".join(
                 part for part in (schedule.cadence, schedule.day, schedule.at) if part
             )
-            print(
-                f"  {schedule.name}\n"
-                f"     {DIM}{_when(schedule.next, now)} · {cadence}{RESET}"
-            )
+            print(f"  {schedule.name}\n     {DIM}{_when(schedule.next, now)} · {cadence}{RESET}")
     return 0
 
 
@@ -452,8 +480,11 @@ def command_sync(args: argparse.Namespace) -> int:
         title(f"The last {len(entries)} entries")
         for entry in entries:
             mark = {
-                "conflict": YELLOW, "deleted-in-notion": YELLOW, "deleted-in-markdown": YELLOW,
-                "drift": YELLOW, "write-failed": YELLOW,
+                "conflict": YELLOW,
+                "deleted-in-notion": YELLOW,
+                "deleted-in-markdown": YELLOW,
+                "drift": YELLOW,
+                "write-failed": YELLOW,
             }
             colour = mark.get(entry.get("what", ""), DIM)
             said = " — " + entry["detail"] if entry.get("detail") else ""
@@ -465,7 +496,7 @@ def command_sync(args: argparse.Namespace) -> int:
 
     if configuration.storage.mode != "both":
         bad(f'storage.mode is "{configuration.storage.mode}" — there is only one board to read')
-        print(f"  {DIM}set storage.mode = \"both\" to keep Notion and Markdown in step{RESET}")
+        print(f'  {DIM}set storage.mode = "both" to keep Notion and Markdown in step{RESET}')
         return 2
 
     backend = store.open(configuration)
@@ -497,7 +528,9 @@ def command_history(args: argparse.Namespace) -> int:
         status = entry.get("status", "?")
         colour = _colour(status)
         seconds = entry.get("seconds")
-        timing = f" {DIM}({seconds / 60:.0f} min){RESET}" if isinstance(seconds, (int, float)) else ""
+        timing = (
+            f" {DIM}({seconds / 60:.0f} min){RESET}" if isinstance(seconds, (int, float)) else ""
+        )
         cost = entry.get("cost_usd")
         price = f" {DIM}(${float(cost):.2f}){RESET}" if isinstance(cost, (int, float)) else ""
         line = f"  {colour}{status:<7}{RESET} {entry.get('at', '')}  {entry.get('ticket', '')}{timing}{price}"
@@ -522,11 +555,10 @@ def command_status(args: argparse.Namespace) -> int:
         # about a ticket goes wrong when it is down, you simply have no board.
         console = subprocess.run(
             ["systemctl", "--user", "is-active", "ponos-web.service"],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         ).stdout.strip()
-        (ok if console == "active" else warn)(
-            f"ponos-web.service: {console or 'not installed'}"
-        )
+        (ok if console == "active" else warn)(f"ponos-web.service: {console or 'not installed'}")
         if console == "active":
             print(f"    {DIM}http://{configuration.web.host}:{configuration.web.port}{RESET}")
         else:
@@ -574,8 +606,10 @@ def command_status(args: argparse.Namespace) -> int:
         ok(f"per-ticket limit {configuration.budget.per_ticket_usd:.2f} $")
     if configuration.runner.on:
         cap = configuration.budget.on_usd
-        ok(f"« On » prompts: {f'{cap:.2f} $ each' if cap > 0 else 'no spending limit'}, "
-           f"{configuration.runner.on_max_depth} generation(s) of chained tickets")
+        ok(
+            f"« On » prompts: {f'{cap:.2f} $ each' if cap > 0 else 'no spending limit'}, "
+            f"{configuration.runner.on_max_depth} generation(s) of chained tickets"
+        )
 
     rules = configuration.permissions
     ok(f"permissions: {len(rules.allowed)} done alone, {len(rules.ask)} always asked")
@@ -604,7 +638,9 @@ def command_status(args: argparse.Namespace) -> int:
     for entry in entries:
         status = entry.get("status", "?")
         seconds = entry.get("seconds")
-        timing = f" {DIM}({seconds / 60:.0f} min){RESET}" if isinstance(seconds, (int, float)) else ""
+        timing = (
+            f" {DIM}({seconds / 60:.0f} min){RESET}" if isinstance(seconds, (int, float)) else ""
+        )
         print(f"  {_colour(status)}{status:<7}{RESET} {entry.get('ticket', '')}{timing}")
         detail = entry.get("pull_request") or entry.get("reason") or ""
         if detail:
@@ -704,7 +740,9 @@ def _render(line: str) -> str:
             elif block.get("type") == "tool_use":
                 name = block.get("name", "?")
                 target = block.get("input", {})
-                hint = target.get("file_path") or target.get("command") or target.get("pattern") or ""
+                hint = (
+                    target.get("file_path") or target.get("command") or target.get("pattern") or ""
+                )
                 pieces.append(f"{DIM}· {name} {str(hint)[:100]}{RESET}")
         return "\n".join(pieces)
     if kind == "result":
@@ -755,9 +793,7 @@ def command_init(args: argparse.Namespace) -> int:
 
     title("Workspace")
     try:
-        report = provision.provision(
-            client, configuration.notion, page, demo=not args.no_demo
-        )
+        report = provision.provision(client, configuration.notion, page, demo=not args.no_demo)
     except store.StoreError as error:
         # The API's validation errors say what is wrong on the lines after the
         # first one; cutting them off leaves “body failed validation. Fix one:”.
@@ -881,7 +917,11 @@ def _doctor_github_app() -> int:
             warn(f"{app['slug']} — installed nowhere: {app['install_url']}")
             continue
         for installation in app["installations"]:
-            reach = "every repository" if installation["selection"] == "all" else "the repositories chosen"
+            reach = (
+                "every repository"
+                if installation["selection"] == "all"
+                else "the repositories chosen"
+            )
             if github_app.token(installation["account"]):
                 ok(f"{app['slug']} on {installation['account']} — token obtained, {reach}")
             else:
@@ -998,7 +1038,9 @@ def _doctor_tools(configuration: config_module.Config) -> int:
     for binary, why in (("git", "required"), ("claude", "required"), ("gh", "for pull requests")):
         path = shutil.which(binary)
         if path:
-            version = git.run([binary, "--version"]).out.splitlines()[0] if binary != "gh" else "present"
+            version = (
+                git.run([binary, "--version"]).out.splitlines()[0] if binary != "gh" else "present"
+            )
             ok(f"{binary} — {version}")
         else:
             (bad if why == "required" else warn)(f"{binary} missing ({why})")
@@ -1075,7 +1117,7 @@ def _doctor_version(configuration: config_module.Config) -> None:
             if channel == "main"
             else "the newest release tag (vX.Y.Z), never a commit in between"
         )
-        print(f"  {DIM}runner.update_channel = \"{channel}\" — follows {following}{RESET}")
+        print(f'  {DIM}runner.update_channel = "{channel}" — follows {following}{RESET}')
         if configuration.runner.auto_update:
             every = configuration.runner.update_interval_seconds
             print(f"  {DIM}checked by a run every {every}s (runner.auto_update){RESET}")
@@ -1149,7 +1191,9 @@ def _doctor_console(configuration: config_module.Config) -> None:
     elif public:
         warn(f"web.url is {public}: claude.ai only adds a connector at an https:// address")
     else:
-        print(f"  {DIM}MCP connector — {address}/mcp for Claude Code here; web.url for claude.ai{RESET}")
+        print(
+            f"  {DIM}MCP connector — {address}/mcp for Claude Code here; web.url for claude.ai{RESET}"
+        )
     # What a message typed there can carry, and the two things that need
     # something this machine may not have: a video needs ffmpeg to be looked at,
     # and dictation needs somebody to transcribe it.
@@ -1193,7 +1237,9 @@ def _doctor_repositories(configuration: config_module.Config) -> int:
                 warn(f"{repo.name}: {name} is not reached by the GitHub App — add it on GitHub")
     else:
         bad(f"{root} does not exist (runner.workspace_root)")
-        print(f"    {DIM}create it: mkdir -p {root} — or pick another folder in the console's first connection{RESET}")
+        print(
+            f"    {DIM}create it: mkdir -p {root} — or pick another folder in the console's first connection{RESET}"
+        )
         problems += 1
     return problems
 
@@ -1208,10 +1254,7 @@ def _doctor_disk(configuration: config_module.Config) -> None:
     if days <= 0:
         warn("runner.log_retention_days = 0 — nothing is ever tidied on its own")
     elif configuration.runner.clean_done_worktrees:
-        ok(
-            f"tidied once a day: logs, and the worktrees of tickets done, "
-            f"older than {days} day(s)"
-        )
+        ok(f"tidied once a day: logs, and the worktrees of tickets done, older than {days} day(s)")
     else:
         ok(f"logs older than {days} day(s) dropped once a day")
         print(
@@ -1325,7 +1368,7 @@ def _doctor_storage(configuration: config_module.Config) -> store.Store | None:
             bad(f"token refused: {error}")
             return None
     else:
-        print(f"  {DIM}storage.mode = \"markdown\" — Notion is never asked anything{RESET}")
+        print(f'  {DIM}storage.mode = "markdown" — Notion is never asked anything{RESET}')
     return client
 
 
@@ -1380,7 +1423,9 @@ def _doctor_tickets_database(
     return schema
 
 
-def _doctor_statuses(configuration: config_module.Config, client: store.Store, database: str) -> int:
+def _doctor_statuses(
+    configuration: config_module.Config, client: store.Store, database: str
+) -> int:
     problems = 0
     options = client.options(database, configuration.notion.prop("status"))
     if not options:
@@ -1462,7 +1507,9 @@ def _doctor_types(
         warn(f"runner.classify is off — a ticket with no {type_column} runs by its project")
 
 
-def _doctor_comments(configuration: config_module.Config, client: store.Store, database: str) -> int:
+def _doctor_comments(
+    configuration: config_module.Config, client: store.Store, database: str
+) -> int:
     problems = 0
     # The one capability that is off by default, and the one whose absence is
     # silent: a ticket runs perfectly well while its discussion is invisible.
@@ -1484,9 +1531,7 @@ def _doctor_comments(configuration: config_module.Config, client: store.Store, d
             else:
                 warn(f"comments could not be read: {str(error).splitlines()[0]}")
     if configuration.runner.reply:
-        spellings = ", ".join(
-            conversation.names(configuration.notion.mention, client.my_name())
-        )
+        spellings = ", ".join(conversation.names(configuration.notion.mention, client.my_name()))
         ok(f"it answers when you write to it — {spellings}")
         print(
             f"  {DIM}every {configuration.runner.reply_interval_seconds}s, "
@@ -1502,7 +1547,9 @@ def _doctor_comments(configuration: config_module.Config, client: store.Store, d
             f"permission_mode = {configuration.runner.reply_permission_mode}{RESET}"
         )
     else:
-        print(f"  {DIM}runner.unblock = false — a blocked ticket stays blocked until you move it{RESET}")
+        print(
+            f"  {DIM}runner.unblock = false — a blocked ticket stays blocked until you move it{RESET}"
+        )
     return problems
 
 
@@ -1515,7 +1562,9 @@ def _doctor_model(configuration: config_module.Config) -> int:
         levels = ", ".join(f"{level} {grid.model(level) or '—'}" for level in models.LEVELS)
         ok(f"an empty Model is chosen by the rules: {levels}")
         if not runner_settings.auto_model_escalate:
-            print(f"  {DIM}runner.auto_model_escalate = false — a failed run comes back on the same model{RESET}")
+            print(
+                f"  {DIM}runner.auto_model_escalate = false — a failed run comes back on the same model{RESET}"
+            )
         if configuration.openrouter.key and configuration.openrouter.route_sessions:
             claude_names = {"haiku", "sonnet", "opus", "fable"}
             if any(grid.model(level) in claude_names for level in models.LEVELS):
@@ -1534,7 +1583,9 @@ def _doctor_model(configuration: config_module.Config) -> int:
     _doctor_fable(runner_settings)
     interval = configuration.runner.interval_seconds
     if config_module.in_container():
-        print(f"  {DIM}one run every {interval}s — ponos run --every, no timer in a container{RESET}")
+        print(
+            f"  {DIM}one run every {interval}s — ponos run --every, no timer in a container{RESET}"
+        )
     else:
         print(f"  {DIM}one run every {interval}s (ponos enable to apply a change){RESET}")
     if shutil.which("systemctl"):
@@ -1573,14 +1624,18 @@ def _doctor_secrets(configuration: config_module.Config) -> int:
     problems = 0
     target = config_module.secrets_path(configuration.path)
     if configuration.exposed:
-        bad(f"{configuration.path} still holds {', '.join(configuration.exposed)} — ignored; "
-            f"the next launch moves them to {target}")
+        bad(
+            f"{configuration.path} still holds {', '.join(configuration.exposed)} — ignored; "
+            f"the next launch moves them to {target}"
+        )
         problems += 1
     try:
         mode = target.stat().st_mode & 0o777
     except OSError:
-        ok(f"no secret in {configuration.path.name} — none in {target.name} either, "
-           "the environment holds them")
+        ok(
+            f"no secret in {configuration.path.name} — none in {target.name} either, "
+            "the environment holds them"
+        )
         return problems
     if mode & 0o077:
         bad(f"{target} is {oct(mode)[2:]}: chmod 600 {target}")
@@ -1864,8 +1919,7 @@ def command_notify(args: argparse.Namespace) -> int:
         return 1
 
     text = args.message or (
-        "Ponos speaking. Questions arrive here, and what you answer "
-        "lands on the ticket."
+        "Ponos speaking. Questions arrive here, and what you answer lands on the ticket."
     )
     problems = 0
     for channel in live:
@@ -2162,9 +2216,15 @@ def command_mcp(args: argparse.Namespace) -> int:
             scope = oauth.READ if args.read_only else f"{oauth.READ} {oauth.WRITE}"
             ok(f"token for {args.name or 'Claude Code'} ({scope}) — client {identifier}")
             print(f"\n  {token}\n")
-            print("Shown once, and kept only as a digest — for a client that cannot sign in itself:")
-            print(f'  claude mcp add --transport http ponos {address} --header "Authorization: Bearer {token}"')
-            print(f"{DIM}Claude Code needs none: claude mcp add --transport http ponos {address}{RESET}")
+            print(
+                "Shown once, and kept only as a digest — for a client that cannot sign in itself:"
+            )
+            print(
+                f'  claude mcp add --transport http ponos {address} --header "Authorization: Bearer {token}"'
+            )
+            print(
+                f"{DIM}Claude Code needs none: claude mcp add --transport http ponos {address}{RESET}"
+            )
             print(f"{DIM}Take it back with: ponos mcp revoke {identifier}{RESET}")
             return 0
         if args.action == "revoke":
@@ -2174,22 +2234,30 @@ def command_mcp(args: argparse.Namespace) -> int:
         clients = oauth.clients()
         title("Connect")
         if public:
-            print(f"  {public}/mcp  {DIM}— claude.ai, Claude Desktop: paste it as a custom connector{RESET}")
+            print(
+                f"  {public}/mcp  {DIM}— claude.ai, Claude Desktop: paste it as a custom connector{RESET}"
+            )
         print(f"  {address}")
-        print(f"  {DIM}claude mcp add --transport http ponos {address}  — then /mcp, Authenticate{RESET}")
+        print(
+            f"  {DIM}claude mcp add --transport http ponos {address}  — then /mcp, Authenticate{RESET}"
+        )
         title("Clients")
         if not clients:
             print("  none yet — connect claude.ai, or: ponos mcp token")
         for client in clients:
             scope = client["scope"] or f"{DIM}no live key{RESET}"
-            print(f"  {client['id']:<26} {client['name']:<24} {scope}  {DIM}{client['created_at']}{RESET}")
+            print(
+                f"  {client['id']:<26} {client['name']:<24} {scope}  {DIM}{client['created_at']}{RESET}"
+            )
         title("Last writes")
         calls = mcp.calls(args.number)
         if not calls:
             print("  none yet")
         for call in calls:
             colour = GREEN if call["outcome"] == "ok" else YELLOW
-            print(f"  {call['at']}  {call['tool']:<16} {colour}{call['outcome']}{RESET}  {DIM}{call['name']} ({call['client']}){RESET}")
+            print(
+                f"  {call['at']}  {call['tool']:<16} {colour}{call['outcome']}{RESET}  {DIM}{call['name']} ({call['client']}){RESET}"
+            )
             print(f"      {DIM}{call['arguments']}{RESET}")
     except LookupError as error:
         bad(str(error))
@@ -2219,18 +2287,25 @@ def command_tailscale(args: argparse.Namespace) -> int:
             return 0
         if args.action == "enable":
             if not shutil.which("systemctl"):
-                print("systemd not available — `ponos tailscale watch` does the same in the foreground", file=sys.stderr)
+                print(
+                    "systemd not available — `ponos tailscale watch` does the same in the foreground",
+                    file=sys.stderr,
+                )
                 return 1
             update_module.write_units(config_module.load().runner.interval_seconds)
             subprocess.call(["systemctl", "--user", "daemon-reload"])
-            code = subprocess.call(["systemctl", "--user", "enable", "--now", "ponos-tailscale.service"])
+            code = subprocess.call(
+                ["systemctl", "--user", "enable", "--now", "ponos-tailscale.service"]
+            )
             if code == 0:
                 ok("ponos-tailscale.service enabled — it waits for the tailnet, then publishes")
                 print(f"{DIM}  journalctl --user -u ponos-tailscale -f{RESET}")
             return code
         if args.action == "disable":
             if shutil.which("systemctl"):
-                subprocess.call(["systemctl", "--user", "disable", "--now", "ponos-tailscale.service"])
+                subprocess.call(
+                    ["systemctl", "--user", "disable", "--now", "ponos-tailscale.service"]
+                )
             tailscale.withdraw()
             ok("both doors taken down")
             return 0
@@ -2243,10 +2318,15 @@ def command_tailscale(args: argparse.Namespace) -> int:
             return 1
         up = tailscale.in_place(port, current.name)
         (ok if up else warn)(
-            f"{current.name}: " + ("both doors are up" if up else "not published — `ponos tailscale apply`")
+            f"{current.name}: "
+            + ("both doors are up" if up else "not published — `ponos tailscale apply`")
         )
-        print(f"  console   https://{current.name}:{tailscale.PRIVATE_PORT}  {DIM}— tailnet only{RESET}")
-        print(f"  connector https://{current.name}/mcp  {DIM}— public, behind the keys; set web.url = \"https://{current.name}\"{RESET}")
+        print(
+            f"  console   https://{current.name}:{tailscale.PRIVATE_PORT}  {DIM}— tailnet only{RESET}"
+        )
+        print(
+            f'  connector https://{current.name}/mcp  {DIM}— public, behind the keys; set web.url = "https://{current.name}"{RESET}'
+        )
     except tailscale.TailscaleError as error:
         bad(str(error))
         return 1
@@ -2264,12 +2344,8 @@ def command_timer(args: argparse.Namespace) -> int:
         print("systemd not available", file=sys.stderr)
         return 1
     if args.command == "disable":
-        code = subprocess.call(
-            ["systemctl", "--user", "disable", "--now", "ponos.timer"]
-        )
-        subprocess.call(
-            ["systemctl", "--user", "disable", "--now", "ponos-web.service"]
-        )
+        code = subprocess.call(["systemctl", "--user", "disable", "--now", "ponos.timer"])
+        subprocess.call(["systemctl", "--user", "disable", "--now", "ponos-web.service"])
         # The public door goes with the console it opens onto.
         subprocess.call(
             ["systemctl", "--user", "disable", "--now", "ponos-tailscale.service"],
@@ -2296,9 +2372,7 @@ def command_timer(args: argparse.Namespace) -> int:
     if code == 0:
         every = f"{interval}s" if interval < 120 else f"{interval // 60} min"
         ok(f"timer enabled — one run every {every}")
-    console = subprocess.call(
-        ["systemctl", "--user", "enable", "--now", "ponos-web.service"]
-    )
+    console = subprocess.call(["systemctl", "--user", "enable", "--now", "ponos-web.service"])
     if console == 0:
         ok(f"console enabled — http://{configuration.web.host}:{configuration.web.port}")
     else:
@@ -2461,7 +2535,9 @@ def build_parser() -> argparse.ArgumentParser:
     configure.set_defaults(function=command_config)
 
     updating = subparsers.add_parser("update", help="move the installation to the newest version")
-    updating.add_argument("--check", action="store_true", help="say what is available, change nothing")
+    updating.add_argument(
+        "--check", action="store_true", help="say what is available, change nothing"
+    )
     updating.set_defaults(function=command_update)
 
     opener = subparsers.add_parser("open", help="open a ponos:// session link")
@@ -2475,7 +2551,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--print-token", action="store_true", help="print the console's token and exit"
     )
     serving.add_argument(
-        "--sign-out-everywhere", action="store_true",
+        "--sign-out-everywhere",
+        action="store_true",
         help="end every browser's sign-in to the console, running or not, and exit",
     )
     serving.set_defaults(function=command_serve)
@@ -2487,7 +2564,9 @@ def build_parser() -> argparse.ArgumentParser:
     drawing.add_argument("--read-only", action="store_true", help="read, never write")
     revoking = actions.add_parser("revoke", help="take back every key of one client")
     revoking.add_argument("client", help="the client's id, as `ponos mcp list` shows it")
-    listing_keys = actions.add_parser("list", help="the clients, and the last writes they asked for")
+    listing_keys = actions.add_parser(
+        "list", help="the clients, and the last writes they asked for"
+    )
     listing_keys.add_argument("-n", "--number", type=int, default=20)
     serving_mcp.set_defaults(function=command_mcp, action="list", number=20)
 
@@ -2501,7 +2580,9 @@ def build_parser() -> argparse.ArgumentParser:
         choices=("status", "apply", "enable", "disable", "watch"),
         help="status (default), apply once, enable the unit, disable and withdraw, or watch",
     )
-    tailnet.add_argument("--interval", type=int, default=30, help="seconds between two looks (watch)")
+    tailnet.add_argument(
+        "--interval", type=int, default=30, help="seconds between two looks (watch)"
+    )
     tailnet.set_defaults(function=command_tailscale)
 
     notifying = subparsers.add_parser(
@@ -2574,21 +2655,30 @@ def secrets_out_of_config(say=None) -> None:
         moved = []
         say(f"ponos: could not move the secrets out of {path}: {error.strerror or error}")
     if moved:
-        say(f"ponos: moved {', '.join(moved)} out of {path} into {target} (0600) — "
-            "config.toml holds no secret any more")
+        say(
+            f"ponos: moved {', '.join(moved)} out of {path} into {target} (0600) — "
+            "config.toml holds no secret any more"
+        )
     try:
         if config_module.hash_password(path):
-            say(f"ponos: the console's password in {target} is kept as a scrypt digest now — "
-                "the same password signs in")
+            say(
+                f"ponos: the console's password in {target} is kept as a scrypt digest now — "
+                "the same password signs in"
+            )
     except OSError as error:
-        say(f"ponos: could not replace the console's password in {target} by its digest: "
-            f"{error.strerror or error}")
+        say(
+            f"ponos: could not replace the console's password in {target} by its digest: "
+            f"{error.strerror or error}"
+        )
     left = config_module.exposed(config_module.read_raw(path))
     if left:
-        names = ", ".join(f"{table}.{key} → {config_module.SECRETS[(table, key)]}"
-                          for table, key in left)
-        say(f"ponos: {path} still holds secrets, and they are ignored — set them in "
-            f"{target} or in the environment instead: {names}")
+        names = ", ".join(
+            f"{table}.{key} → {config_module.SECRETS[(table, key)]}" for table, key in left
+        )
+        say(
+            f"ponos: {path} still holds secrets, and they are ignored — set them in "
+            f"{target} or in the environment instead: {names}"
+        )
     try:
         loose = target.stat().st_mode & 0o077
     except OSError:
@@ -2605,7 +2695,7 @@ if __name__ == "__main__":
         config_module.refuse_real_state()
     except config_module.RealStateRefused as error:
         print(f"ponos: {error}", file=sys.stderr)
-        raise SystemExit(2)
+        raise SystemExit(2) from None
     legacy.migrate()
     secrets_out_of_config()
     raise SystemExit(main())

@@ -37,10 +37,10 @@ from __future__ import annotations
 import re
 import shutil
 import time
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterable
 
 from . import db, store, voice
 from .config import state_dir
@@ -257,7 +257,7 @@ class Ledger:
     database: Path | None = None
 
     @classmethod
-    def load(cls, database: Path | None = None) -> "Ledger":
+    def load(cls, database: Path | None = None) -> Ledger:
         ledger = cls(database=database)
         try:
             with db.transaction(immediate=False, location=database) as connection:
@@ -331,7 +331,9 @@ class Ledger:
 
     def known_pages(self) -> list[str]:
         """The pages it has spoken on, most recently first."""
-        return [page for page, _ in sorted(self.pages.items(), key=lambda item: item[1], reverse=True)]
+        return [
+            page for page, _ in sorted(self.pages.items(), key=lambda item: item[1], reverse=True)
+        ]
 
     def rotate(self, pages: list[str], limit: int) -> list[str]:
         """`limit` pages to look at now, taking the next ones each pass.
@@ -379,13 +381,11 @@ class Ledger:
         history in Notion, which is enough to start a fresh one from.
         """
         if discussion in self.threads:
-            self.threads[discussion] = {
-                **self.threads[discussion], "session": "", "at": _now()
-            }
+            self.threads[discussion] = {**self.threads[discussion], "session": "", "at": _now()}
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 def _newest(entries: dict[str, str], keep: int) -> dict[str, str]:

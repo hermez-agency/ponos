@@ -35,8 +35,22 @@ from __future__ import annotations
 
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 
-from . import base, board, ci, cleanup, credits, delivery, execution, preparation
-from . import recurrence, replies, reports, state, transitions, unblocking
+from . import (
+    base,
+    board,
+    ci,
+    cleanup,
+    credits,
+    delivery,
+    execution,
+    preparation,
+    recurrence,
+    replies,
+    reports,
+    state,
+    transitions,
+    unblocking,
+)
 from . import update as update_module
 from .projects import Project
 from .ticket import Ticket
@@ -222,14 +236,17 @@ class Runner(
                 # accepted than beginning work nobody has read yet. `--limit`
                 # does not count them — it caps what is taken off the ready
                 # column, and this was taken off another one.
-                while publishing and not stalled and len(flight) < width and self.room_for_a_session():
+                while (
+                    publishing and not stalled and len(flight) < width and self.room_for_a_session()
+                ):
                     ticket, project = publishing.pop(0)
                     flight.add(pool.submit(self._guarded, ticket, self._carry_out, ticket, project))
                 while (
                     queued
                     and not stalled
                     and len(flight) < width
-                    and (remaining is None or remaining > 0) and self.room_for_a_session()
+                    and (remaining is None or remaining > 0)
+                    and self.room_for_a_session()
                 ):
                     ticket = self.pick(queued, hand)
                     if ticket is None:
@@ -253,9 +270,7 @@ class Runner(
                 # refills therefore wakes on the timer's cadence even with every
                 # place taken. A pass that does not refill waits for a session
                 # exactly as it did.
-                empty = (
-                    not stalled and len(flight) < width and (remaining is None or remaining > 0)
-                )
+                empty = not stalled and len(flight) < width and (remaining is None or remaining > 0)
                 looking = refill and not stalled
                 done, flight = wait(
                     flight,
@@ -287,9 +302,7 @@ class Runner(
                 # status that was just written over.
                 settled, fresh = self.delivering(carried)
                 results += state.record_all(settled)
-                carried |= {entry["id"] for entry in settled} | {
-                    ticket.id for ticket, _ in fresh
-                }
+                carried |= {entry["id"] for entry in settled} | {ticket.id for ticket, _ in fresh}
                 publishing += fresh
                 if fresh:
                     self.say(

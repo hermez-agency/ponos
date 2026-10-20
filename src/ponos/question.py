@@ -29,8 +29,8 @@ layout `Voice.question` writes, and nothing else.
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Iterable
 
 from . import voice
 
@@ -52,7 +52,9 @@ MOST = 4
 
 # The fields a blocked session writes before its RESULT line. Uppercase like the
 # RESULT line itself, because a model reads them as the same kind of thing.
-_FIELD = re.compile(r"^(DONE|WHY|CATEGORY|QUESTION|MODE|OPTION|CODE|COMMAND)\s*:\s*(.*)$", re.IGNORECASE)
+_FIELD = re.compile(
+    r"^(DONE|WHY|CATEGORY|QUESTION|MODE|OPTION|CODE|COMMAND)\s*:\s*(.*)$", re.IGNORECASE
+)
 
 # What a session that ends ok hands over for whoever reviews it: one line per
 # thing it could not check. Read like the fields above, from the end.
@@ -64,24 +66,73 @@ _OPTION = re.compile(r"(\d)\.\s+(.+?)(?=\s+·\s+\d\.\s|$)")
 
 # The words that name a number, for « la deuxième » as much as for “2”.
 _ORDINALS = {
-    "first": 1, "second": 2, "third": 3, "fourth": 4,
-    "premier": 1, "première": 1, "premiere": 1, "deuxième": 2, "deuxieme": 2,
-    "seconde": 2, "troisième": 3, "troisieme": 3, "quatrième": 4,
-    "quatrieme": 4, "un": 1, "deux": 2, "trois": 3, "quatre": 4,
-    "one": 1, "two": 2, "three": 3, "four": 4,
+    "first": 1,
+    "second": 2,
+    "third": 3,
+    "fourth": 4,
+    "premier": 1,
+    "première": 1,
+    "premiere": 1,
+    "deuxième": 2,
+    "deuxieme": 2,
+    "seconde": 2,
+    "troisième": 3,
+    "troisieme": 3,
+    "quatrième": 4,
+    "quatrieme": 4,
+    "un": 1,
+    "deux": 2,
+    "trois": 3,
+    "quatre": 4,
+    "one": 1,
+    "two": 2,
+    "three": 3,
+    "four": 4,
 }
 # What may stand in front of the number: « la 2 », “option 2”, “#2”, « n°2 ».
 _BEFORE = r"(?:(?:la|le|l'|option|choix|choice|number|numéro|numero|n°|#)\s*)?"
 
 # Yes and no, in both languages and in the shapes people actually type them.
 _YES = {
-    "y", "yes", "yep", "yeah", "ok", "okay", "go", "sure", "do it", "ship it",
-    "oui", "ouais", "vas-y", "vas y", "allez", "d'accord", "daccord", "ça marche",
-    "ca marche", "👍", "✅", "👌",
+    "y",
+    "yes",
+    "yep",
+    "yeah",
+    "ok",
+    "okay",
+    "go",
+    "sure",
+    "do it",
+    "ship it",
+    "oui",
+    "ouais",
+    "vas-y",
+    "vas y",
+    "allez",
+    "d'accord",
+    "daccord",
+    "ça marche",
+    "ca marche",
+    "👍",
+    "✅",
+    "👌",
 }
 _NO = {
-    "n", "no", "nope", "nah", "stop", "cancel", "drop it",
-    "non", "nan", "laisse", "laisse tomber", "annule", "👎", "❌", "🚫",
+    "n",
+    "no",
+    "nope",
+    "nah",
+    "stop",
+    "cancel",
+    "drop it",
+    "non",
+    "nan",
+    "laisse",
+    "laisse tomber",
+    "annule",
+    "👎",
+    "❌",
+    "🚫",
 }
 
 
@@ -133,7 +184,7 @@ class Reading:
 
 
 def decide(text: str) -> str:
-    """"yes", "no", or "" for anything that is not one of those two.
+    """ "yes", "no", or "" for anything that is not one of those two.
 
     Only the *first* word is read, and only when it stands alone or opens the
     sentence: "yes, and rename the column while you are there" is a yes with an
@@ -186,7 +237,9 @@ def parse(answer: str) -> Question | None:
         ask=found["QUESTION"],
         mode=mode or ("choice" if options else "free"),
         options=options,
-        done="" if found.get("DONE", "").lower() in ("nothing", "rien", "-") else found.get("DONE", ""),
+        done=""
+        if found.get("DONE", "").lower() in ("nothing", "rien", "-")
+        else found.get("DONE", ""),
         why=found.get("WHY", ""),
         category=found.get("CATEGORY", "").lower().strip(" .`"),
         code=found.get("CODE", "").lower(),
@@ -201,7 +254,10 @@ def caveats(answer: str) -> list[str]:
     a session explaining itself may well quote one earlier on. At most four —
     past that, it is a report, and the report is in the page.
     """
-    lines = [line.strip().strip("*_`").lstrip("-#> ").strip("*_` ") for line in str(answer or "").splitlines()]
+    lines = [
+        line.strip().strip("*_`").lstrip("-#> ").strip("*_` ")
+        for line in str(answer or "").splitlines()
+    ]
     lines = [line for line in lines if line]
     if lines and lines[-1].upper().startswith("RESULT"):
         lines.pop()

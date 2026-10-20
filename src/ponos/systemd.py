@@ -52,8 +52,10 @@ def read() -> Timer:
     try:
         enabled = _systemctl("is-enabled", UNIT).strip() or "not installed"
         shown = _systemctl(
-            "show", UNIT,
-            "-p", "SubState,NextElapseUSecRealtime,NextElapseUSecMonotonic",
+            "show",
+            UNIT,
+            "-p",
+            "SubState,NextElapseUSecRealtime,NextElapseUSecMonotonic",
         )
         listed = _systemctl("list-timers", UNIT, "--no-pager")
     except (OSError, subprocess.SubprocessError):

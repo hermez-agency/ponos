@@ -58,9 +58,9 @@ import re
 import shutil
 import subprocess
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable
 
 from . import disk, environment, git
 from .config import Runner, in_container, state_dir
@@ -207,7 +207,7 @@ def _release(app: Path) -> Status:
     tag = newest_release(git.git(["tag", "--list", "v*"], app).out.splitlines())
     if not tag:
         return Status(
-            reason='no release tagged yet (vX.Y.Z) — nothing to update to; '
+            reason="no release tagged yet (vX.Y.Z) — nothing to update to; "
             'runner.update_channel = "main" follows every commit instead'
         )
     current = git.git(["rev-parse", "HEAD"], app).out
@@ -537,7 +537,9 @@ def _prepare(previous: Path, version: Path, commit: str) -> str:
     _remove(staging)
     try:
         shutil.copytree(
-            previous, staging, symlinks=True,
+            previous,
+            staging,
+            symlinks=True,
             ignore=shutil.ignore_patterns("__pycache__", environment.VENV, f"{environment.VENV}.*"),
         )
         reset = git.git(["reset", "--hard", "--quiet", commit], staging)
@@ -597,7 +599,11 @@ def verify(app: Path) -> str:
     try:
         done = subprocess.run(
             [environment.interpreter(app), "-c", probe],
-            cwd=app, env=variables, capture_output=True, text=True, timeout=60,
+            cwd=app,
+            env=variables,
+            capture_output=True,
+            text=True,
+            timeout=60,
         )
     except (OSError, subprocess.SubprocessError) as error:
         return f"the new version could not be started: {error}"
@@ -637,8 +643,11 @@ def repository_page(app: Path | None = None) -> str:
         url = git.git(["config", "--get", "remote.origin.url"], app or app_dir()).out.strip()
     except (OSError, subprocess.SubprocessError):
         return ""
-    match = re.match(r"^(?:https://github\.com/|git@github\.com:|ssh://git@github\.com/)"
-                     r"([\w.-]+/[\w.-]+?)(?:\.git)?/?$", url)
+    match = re.match(
+        r"^(?:https://github\.com/|git@github\.com:|ssh://git@github\.com/)"
+        r"([\w.-]+/[\w.-]+?)(?:\.git)?/?$",
+        url,
+    )
     return f"https://github.com/{match.group(1)}" if match else ""
 
 

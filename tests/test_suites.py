@@ -13,9 +13,8 @@ run one case, `-x` to stop at the first failure, `--durations`, coverage
 
 from __future__ import annotations
 
-import pytest
-
 import functional
+import pytest
 import run
 
 # What `run.main()` sets before its first case — set once here, at collection,
@@ -29,8 +28,6 @@ def test_pure(case) -> None:
 
 
 @pytest.mark.functional
-@pytest.mark.parametrize(
-    "case", functional.CASES, ids=[case.__name__ for case in functional.CASES]
-)
+@pytest.mark.parametrize("case", functional.CASES, ids=[case.__name__ for case in functional.CASES])
 def test_functional(case) -> None:
     case()

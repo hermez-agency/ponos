@@ -253,7 +253,9 @@ def clone(repository: str, into: Path, accounts: Accounts | None = None) -> None
             token=token,
         )
     if not result.ok:
-        lines = [line.strip() for line in (result.err + "\n" + result.out).splitlines() if line.strip()]
+        lines = [
+            line.strip() for line in (result.err + "\n" + result.out).splitlines() if line.strip()
+        ]
         why = lines[-1] if lines else "no reason given"
         raise GitError(f"{repository} could not be cloned into {into} — {why}")
 
@@ -406,7 +408,10 @@ def _leave_out(path: Path, exclude: list[str]) -> None:
     `extensions.worktreeConfig` for it), so the main checkout keeps every file.
     """
     patterns = ["/*", *(f"!/{name}" for name in exclude)]
-    for step in (["sparse-checkout", "set", "--no-cone", *patterns], ["reset", "--hard", "-q", "HEAD"]):
+    for step in (
+        ["sparse-checkout", "set", "--no-cone", *patterns],
+        ["reset", "--hard", "-q", "HEAD"],
+    ):
         result = git(step, path)
         if not result.ok:
             raise GitError(f"git {step[0]}: {result.err or result.out}")
@@ -463,7 +468,16 @@ def add_worktree(
         add = (
             ["worktree", "add", *deferred, str(path), branch]
             if local
-            else ["worktree", "add", *deferred, "--track", "-b", branch, str(path), f"origin/{branch}"]
+            else [
+                "worktree",
+                "add",
+                *deferred,
+                "--track",
+                "-b",
+                branch,
+                str(path),
+                f"origin/{branch}",
+            ]
         )
         result = git(add, repo)
         if not result.ok:
@@ -534,15 +548,25 @@ def rescue(repo: Path, path: Path, branch: str) -> str:
     name = f"ponos/backup/{branch.rsplit('-', 1)[-1]}-{datetime.now():%Y%m%d-%H%M%S}"
     git(["add", "-A"], path)
     git(
-        ["-c", "core.hooksPath=/dev/null", "-c", "commit.gpgsign=false",
-         "commit", "--no-verify", "--allow-empty",
-         "-m", f"ponos: sauvegarde d'un worktree interrompu ({operation})"],
+        [
+            "-c",
+            "core.hooksPath=/dev/null",
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "--no-verify",
+            "--allow-empty",
+            "-m",
+            f"ponos: sauvegarde d'un worktree interrompu ({operation})",
+        ],
         path,
         environment=identity(path),
     )
     saved = git(["branch", name, "HEAD"], path)
     if not saved.ok:
-        raise GitError(f"{path} was interrupted in a {operation} and could not be saved: {saved.err}")
+        raise GitError(
+            f"{path} was interrupted in a {operation} and could not be saved: {saved.err}"
+        )
     if operation != "detached":
         git([operation, "--abort"], path)
     remove_worktree(repo, path)
@@ -652,8 +676,17 @@ def discard(path: Path) -> str:
     if shutil.which("docker"):
         run(
             [
-                "docker", "run", "--rm", "-v", f"{path}:/w", DOCKER_IMAGE,
-                "find", "/w", "-mindepth", "1", "-delete",
+                "docker",
+                "run",
+                "--rm",
+                "-v",
+                f"{path}:/w",
+                DOCKER_IMAGE,
+                "find",
+                "/w",
+                "-mindepth",
+                "1",
+                "-delete",
             ],
             timeout=600,
         )
@@ -670,7 +703,7 @@ def discard(path: Path) -> str:
         path.rename(target)
     except OSError:
         # Another filesystem, or nowhere to write: nothing better than saying so.
-        raise GitError(f"{path} cannot be emptied or moved aside — remove it by hand")
+        raise GitError(f"{path} cannot be emptied or moved aside — remove it by hand") from None
     return str(target)
 
 
@@ -769,9 +802,7 @@ def open_pull_request(
             if line.startswith("http"):
                 return line.strip()
         return result.out
-    existing = run(
-        ["gh", "pr", "view", "--json", "url", "-q", ".url"], cwd=worktree, token=token
-    )
+    existing = run(["gh", "pr", "view", "--json", "url", "-q", ".url"], cwd=worktree, token=token)
     if existing.ok and existing.out.startswith("http"):
         return existing.out
     raise GitError(f"gh pr create: {result.err or result.out}")
@@ -780,9 +811,7 @@ def open_pull_request(
 MERGE_FLAGS = {"squash": "--squash", "merge": "--merge", "rebase": "--rebase"}
 
 
-def merge_pull_request(
-    url: str, method: str = "squash", accounts: Accounts | None = None
-) -> str:
+def merge_pull_request(url: str, method: str = "squash", accounts: Accounts | None = None) -> str:
     """Merge that pull request through `gh`. Returns what `gh` said of it.
 
     The one outward-facing gesture the runner makes on its own — and it makes it
@@ -837,8 +866,16 @@ def pull_request_branches(url: str, accounts: Accounts | None = None) -> tuple[s
     if not shutil.which("gh"):
         return "", ""
     result = run(
-        ["gh", "pr", "view", url, "--json", "headRefName,baseRefName",
-         "-q", ".headRefName + \" \" + .baseRefName"],
+        [
+            "gh",
+            "pr",
+            "view",
+            url,
+            "--json",
+            "headRefName,baseRefName",
+            "-q",
+            '.headRefName + " " + .baseRefName',
+        ],
         timeout=60,
         token=token_for(url, accounts),
     )
@@ -898,9 +935,7 @@ def is_conflict(failure: str) -> bool:
     return failure.startswith("CONFLICT")
 
 
-def push_leased(
-    worktree: Path, branch: str, was: str, accounts: Accounts | None = None
-) -> str:
+def push_leased(worktree: Path, branch: str, was: str, accounts: Accounts | None = None) -> str:
     """Push HEAD onto `branch`, on a lease on the very commit it was replayed from.
 
     `--force-with-lease=<branch>:<was>`, never `--force`: a branch somebody
@@ -915,9 +950,7 @@ def push_leased(
     )
     if pushed.ok:
         return ""
-    lines = [
-        line.strip() for line in (pushed.err + "\n" + pushed.out).splitlines() if line.strip()
-    ]
+    lines = [line.strip() for line in (pushed.err + "\n" + pushed.out).splitlines() if line.strip()]
     return lines[-1] if lines else f"git push {branch} failed"
 
 
@@ -940,8 +973,16 @@ def merge_blocker(url: str, accounts: Accounts | None = None) -> str:
     if not shutil.which("gh"):
         return ""
     result = run(
-        ["gh", "pr", "view", url, "--json", "mergeable,mergeStateStatus",
-         "-q", ".mergeable + \" \" + .mergeStateStatus"],
+        [
+            "gh",
+            "pr",
+            "view",
+            url,
+            "--json",
+            "mergeable,mergeStateStatus",
+            "-q",
+            '.mergeable + " " + .mergeStateStatus',
+        ],
         timeout=60,
         token=token_for(url, accounts),
     )
@@ -1021,7 +1062,9 @@ def begin_replay(
     replay.conflicts = conflicted(workdir)
     if not result.ok and not replay.conflicts:
         git(["rebase", "--abort"], workdir)
-        lines = [line.strip() for line in (result.out + "\n" + result.err).splitlines() if line.strip()]
+        lines = [
+            line.strip() for line in (result.out + "\n" + result.err).splitlines() if line.strip()
+        ]
         replay.error = lines[0] if lines else f"git rebase origin/{onto} failed"
     return replay
 
@@ -1055,7 +1098,9 @@ def with_markers(worktree: Path, files: list[str]) -> list[str]:
     marked = []
     for name in files:
         try:
-            lines = (Path(worktree) / name).read_text(encoding="utf-8", errors="replace").splitlines()
+            lines = (
+                (Path(worktree) / name).read_text(encoding="utf-8", errors="replace").splitlines()
+            )
         except OSError:
             continue  # deleted on purpose, which is a resolution like any other
         if any(line.startswith(("<<<<<<< ", ">>>>>>> ")) or line == "<<<<<<<" for line in lines):
@@ -1224,11 +1269,13 @@ def _rolled_up(url: str, accounts: Accounts | None = None, timeout: int = 60) ->
         else:
             name, link = one.get("name"), one.get("detailsUrl")
             verdict = one.get("conclusion") if one.get("status") == "COMPLETED" else ""
-        listed.append({
-            "name": str(name or ""),
-            "bucket": _BUCKETS.get(str(verdict or "").upper(), "pending"),
-            "link": str(link or ""),
-        })
+        listed.append(
+            {
+                "name": str(name or ""),
+                "bucket": _BUCKETS.get(str(verdict or "").upper(), "pending"),
+                "link": str(link or ""),
+            }
+        )
     return listed
 
 
@@ -1264,15 +1311,26 @@ def unstarted_checks(url: str, accounts: Accounts | None = None) -> str:
         if not job:
             return ""
         result = run(
-            ["gh", "api", "--hostname", host,
-             f"repos/{owner_name}/check-runs/{job.group(1)}/annotations", "-q", ".[].message"],
+            [
+                "gh",
+                "api",
+                "--hostname",
+                host,
+                f"repos/{owner_name}/check-runs/{job.group(1)}/annotations",
+                "-q",
+                ".[].message",
+            ],
             timeout=60,
             token=token,
         )
-        said = next(
-            (line.strip() for line in result.out.splitlines() if "was not started" in line),
-            "",
-        ) if result.ok else ""
+        said = (
+            next(
+                (line.strip() for line in result.out.splitlines() if "was not started" in line),
+                "",
+            )
+            if result.ok
+            else ""
+        )
         if not said:
             return ""
         reasons.append(said)
@@ -1335,7 +1393,7 @@ def failed_log(url: str, accounts: Accounts | None = None, most: int = 6000) -> 
             token=token,
         )
         if result.ok and result.out.strip():
-            logs.append(result.out.strip()[-(most // len(runs)):])
+            logs.append(result.out.strip()[-(most // len(runs)) :])
     return "\n\n".join(logs)
 
 
@@ -1353,10 +1411,16 @@ def base_failures(url: str, base: str, accounts: Accounts | None = None) -> list
         return []
     host, owner_name = parts[0], "/".join(parts[1:3])
     result = run(
-        ["gh", "api", "--hostname", host,
-         f"repos/{owner_name}/commits/{base}/check-runs?per_page=100",
-         "-q", ".check_runs[] | select(.conclusion == \"failure\" or .conclusion == "
-               "\"timed_out\" or .conclusion == \"cancelled\") | [.name, .html_url] | @tsv"],
+        [
+            "gh",
+            "api",
+            "--hostname",
+            host,
+            f"repos/{owner_name}/commits/{base}/check-runs?per_page=100",
+            "-q",
+            '.check_runs[] | select(.conclusion == "failure" or .conclusion == '
+            '"timed_out" or .conclusion == "cancelled") | [.name, .html_url] | @tsv',
+        ],
         timeout=60,
         token=token_for(url, accounts),
     )
@@ -1388,8 +1452,21 @@ def ci_at_push(repo: Path, base: str, accounts: Accounts | None = None) -> str:
     if not base or len(parts) < 3 or not shutil.which("gh"):
         return ""
     result = run(
-        ["gh", "run", "list", "--branch", base, "--event", "push", "--limit", "20",
-         "--json", "conclusion", "-R", "/".join(parts[:3])],
+        [
+            "gh",
+            "run",
+            "list",
+            "--branch",
+            base,
+            "--event",
+            "push",
+            "--limit",
+            "20",
+            "--json",
+            "conclusion",
+            "-R",
+            "/".join(parts[:3]),
+        ],
         timeout=60,
         token=token_for(remote, accounts),
     )
@@ -1415,7 +1492,19 @@ def pull_request_on(repo: Path, branch: str, accounts: Accounts | None = None) -
     if not shutil.which("gh"):
         return ""
     result = run(
-        ["gh", "pr", "list", "--head", branch, "--state", "open", "--json", "url", "-q", ".[0].url"],
+        [
+            "gh",
+            "pr",
+            "list",
+            "--head",
+            branch,
+            "--state",
+            "open",
+            "--json",
+            "url",
+            "-q",
+            ".[0].url",
+        ],
         cwd=repo,
         timeout=60,
         token=token_for(remote_url(repo), accounts),
@@ -1435,7 +1524,17 @@ def current_name(owner_and_name: str, accounts: Accounts | None = None) -> str:
     if not shutil.which("gh") or not is_repository(owner_and_name):
         return ""
     result = run(
-        ["gh", "repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner", "--", owner_and_name],
+        [
+            "gh",
+            "repo",
+            "view",
+            "--json",
+            "nameWithOwner",
+            "-q",
+            ".nameWithOwner",
+            "--",
+            owner_and_name,
+        ],
         timeout=60,
         token=token_for(owner_and_name, accounts),
     )

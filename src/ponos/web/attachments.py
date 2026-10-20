@@ -183,7 +183,9 @@ class Folder:
         for path in self.path.glob(f"{identifier}-*"):
             if path.is_file():
                 return Attachment(identifier, path.name[len(identifier) + 1 :], path)
-        raise LookupError(f"no such attachment: {identifier} — it was removed, or the conversation is over")
+        raise LookupError(
+            f"no such attachment: {identifier} — it was removed, or the conversation is over"
+        )
 
     def remove(self, identifier: str) -> None:
         attachment = self.find(identifier)
@@ -252,8 +254,19 @@ def frames(path: Path, count: int = FRAMES) -> list[Path]:
     if probe:
         try:
             said = subprocess.run(
-                [probe, "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(path)],
-                capture_output=True, text=True, timeout=30,
+                [
+                    probe,
+                    "-v",
+                    "error",
+                    "-show_entries",
+                    "format=duration",
+                    "-of",
+                    "csv=p=0",
+                    str(path),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=30,
             ).stdout.strip()
             every = max(0.5, float(said) / count)
         except (OSError, ValueError, subprocess.SubprocessError):
@@ -262,12 +275,20 @@ def frames(path: Path, count: int = FRAMES) -> list[Path]:
     try:
         subprocess.run(
             [
-                binary, "-v", "error", "-y", "-i", str(path),
-                "-vf", f"fps=1/{every:.3f},scale='min(1280,iw)':-2",
-                "-frames:v", str(count),
+                binary,
+                "-v",
+                "error",
+                "-y",
+                "-i",
+                str(path),
+                "-vf",
+                f"fps=1/{every:.3f},scale='min(1280,iw)':-2",
+                "-frames:v",
+                str(count),
                 str(out / "frame-%02d.jpg"),
             ],
-            capture_output=True, timeout=FFMPEG_TIMEOUT,
+            capture_output=True,
+            timeout=FFMPEG_TIMEOUT,
         )
     except (OSError, subprocess.SubprocessError):
         pass

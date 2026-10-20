@@ -27,8 +27,8 @@
 #
 # Le job qualité est le seul à installer quelque chose : l'outillage de
 # `pyproject.toml`, aux versions de `uv.lock` (`uv sync --locked` échoue si le
-# lockfile ne correspond plus au pyproject). Il passe ruff — les règles et la
-# base d'exceptions du pyproject —, vérifie que `requirements.txt`, ce que les
+# lockfile ne correspond plus au pyproject). Il passe ruff — les règles du
+# pyproject, puis `ruff format --check` —, vérifie que `requirements.txt`, ce que les
 # installations mettent dans leur environnement, est bien l'export du lockfile,
 # puis lance les deux suites sous pytest, avec la couverture et les dix cas les
 # plus lents. Le job cœur reste tel quel : c'est lui qui prouve que le runner et
@@ -87,6 +87,9 @@ jobs:
 
       - name: Ruff
         run: uv run ruff check --output-format=github .
+
+      - name: Ruff format
+        run: uv run ruff format --check .
 
       - name: requirements.txt est l'export du lockfile
         run: |

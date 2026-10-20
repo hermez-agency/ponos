@@ -70,7 +70,7 @@ class ScoreFailed(Exception):
 
 
 class Ideas:
-    def __init__(self, api: "Api") -> None:
+    def __init__(self, api: Api) -> None:
         self._api = api
         self._lock = threading.Lock()
         self._busy: set[str] = set()
@@ -158,7 +158,9 @@ class Ideas:
             if readme:
                 text = _readme(
                     api.runner.resolver.locate(
-                        name, row.get("configured") or row.get("path") or "", row.get("repository") or ""
+                        name,
+                        row.get("configured") or row.get("path") or "",
+                        row.get("repository") or "",
                     )
                 )
         else:
@@ -250,7 +252,8 @@ class Ideas:
         return [
             (
                 ticket["title"],
-                ticket["column"] if project or not ticket["project"]
+                ticket["column"]
+                if project or not ticket["project"]
                 else f"{ticket['column']}, {ticket['project']}",
             )
             for ticket in chosen[: ideas.TICKETS_SHOWN]
@@ -264,9 +267,7 @@ class Ideas:
         With None, those of every scope — the Ideas page's.
         """
         waiting = ideas.unscored(project)
-        calls = sum(
-            -(-len(group) // ideas.SCORE_BATCH) for group in _by_scope(waiting).values()
-        )
+        calls = sum(-(-len(group) // ideas.SCORE_BATCH) for group in _by_scope(waiting).values())
         configuration = self._api.config
         with self._lock:
             busy = SCORING in self._busy
@@ -342,13 +343,22 @@ class Ideas:
                 except Exception as failure:  # noqa: BLE001 — a score is never worth a crash
                     scores, error = {}, f"{type(failure).__name__}: {failure}"
                 if error:
-                    print(f"ideas: scoring {len(chunk)} ideas of {project or 'the workspace'} failed: {error}", file=sys.stderr)
+                    print(
+                        f"ideas: scoring {len(chunk)} ideas of {project or 'the workspace'} failed: {error}",
+                        file=sys.stderr,
+                    )
                     if failures is not None:
                         failures.append(error)
                 for idea in chunk:
                     score, reason = scores.get(idea.id, (None, ""))
                     try:
-                        ideas.scored(idea.id, score, reason, error or ("The answer had no score for this idea" if score is None else ""))
+                        ideas.scored(
+                            idea.id,
+                            score,
+                            reason,
+                            error
+                            or ("The answer had no score for this idea" if score is None else ""),
+                        )
                     except LookupError:
                         continue
                     if score is not None:
@@ -564,7 +574,9 @@ def _readme(location: Path | None) -> str:
         return ""
     for name in READMES:
         try:
-            return (location / name).read_text(encoding="utf-8", errors="replace")[: ideas.README_LIMIT]
+            return (location / name).read_text(encoding="utf-8", errors="replace")[
+                : ideas.README_LIMIT
+            ]
         except OSError:
             continue
     return ""

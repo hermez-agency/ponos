@@ -438,8 +438,7 @@ class Runner:
         """The levels and the types' starting points, as models.py reads them."""
         return models.Grid(
             models={
-                level: self.allowed(getattr(self, f"auto_model_{level}"))
-                for level in models.LEVELS
+                level: self.allowed(getattr(self, f"auto_model_{level}")) for level in models.LEVELS
             },
             starts={
                 kind: getattr(self, f"auto_model_{kind}")
@@ -469,9 +468,7 @@ class Runner:
 
     def resolves_conflicts(self, project: str) -> bool:
         """Is a conflict on that project's pull requests resolved by a session?"""
-        left_alone = {
-            name.strip().casefold() for name in self.resolve_conflicts_except.split(",")
-        }
+        left_alone = {name.strip().casefold() for name in self.resolve_conflicts_except.split(",")}
         return self.resolve_conflicts and project.strip().casefold() not in left_alone
 
 
@@ -813,7 +810,7 @@ class Config:
                 f"{', '.join(missing)} must be set\n"
                 "  ponos init <page-url>   builds the databases and fills this in\n"
                 "  ponos config            opens the file in your editor\n"
-                "  storage.mode = \"markdown\"       runs the whole thing without Notion"
+                '  storage.mode = "markdown"       runs the whole thing without Notion'
             )
 
 
@@ -827,10 +824,10 @@ _DEFAULT_PROPERTIES = {
     "session": "Session",
     # Optional. A database without them behaves exactly as before: the runner
     # skips a property the schema does not declare.
-    "model": "Model",          # per-ticket model, overrides runner.model
-    "priority": "Priority",    # a score from 0 to 100: which ready ticket goes first
-    "cost": "Cost",            # written back, in dollars
-    "duration": "Duration",    # written back, in minutes
+    "model": "Model",  # per-ticket model, overrides runner.model
+    "priority": "Priority",  # a score from 0 to 100: which ready ticket goes first
+    "cost": "Cost",  # written back, in dollars
+    "duration": "Duration",  # written back, in minutes
     # What the session is doing right now, rewritten every few seconds while it
     # runs and cleared when it ends. The board's live column.
     "progress": "Progress",
@@ -867,12 +864,12 @@ _DEFAULT_PROPERTIES = {
     # The Schedules database, for what comes back on its own. The first four are
     # what you fill in; the last three are what a pass writes back. A workspace
     # without that database never reads any of them.
-    "cadence": "Cadence",          # select: Hourly, Daily, Weekly, Monthly
-    "at": "At",                    # text: "09:00"
-    "day": "Day",                  # text: "Monday", or "1".."31"
-    "active": "Active",            # checkbox: unticked stops everything
-    "next_run": "Next",            # date: when the next ticket is born
-    "last_run": "Last",            # date: when the last one was
+    "cadence": "Cadence",  # select: Hourly, Daily, Weekly, Monthly
+    "at": "At",  # text: "09:00"
+    "day": "Day",  # text: "Monday", or "1".."31"
+    "active": "Active",  # checkbox: unticked stops everything
+    "next_run": "Next",  # date: when the next ticket is born
+    "last_run": "Last",  # date: when the last one was
     "last_ticket": "Last ticket",  # relation → the tickets database
 }
 
@@ -1051,7 +1048,7 @@ def write_value(path: Path, table: str, key: str, value: object) -> bool:
         if line:
             if existing.group(0).strip() == line:
                 return False
-            body = body[: existing.start()] + line + body[existing.end():]
+            body = body[: existing.start()] + line + body[existing.end() :]
         else:
             stop = existing.end() + (1 if body[existing.end() : existing.end() + 1] == "\n" else 0)
             body = body[: existing.start()] + body[stop:]
@@ -1198,8 +1195,7 @@ def exposed(raw: dict) -> list[tuple[str, str]]:
     return [
         (table, key)
         for table, key in SECRETS
-        if (value := str(_section(raw, table).get(key, "") or "").strip())
-        and value != PLACEHOLDER
+        if (value := str(_section(raw, table).get(key, "") or "").strip()) and value != PLACEHOLDER
     ]
 
 
@@ -1427,8 +1423,7 @@ def load(path: Path | None = None, *, secrets: Path | None = None) -> Config:
     runner = _runner(raw.get("runner", {}))
 
     projects = {
-        str(name): os.path.expanduser(str(value))
-        for name, value in raw.get("projects", {}).items()
+        str(name): os.path.expanduser(str(value)) for name, value in raw.get("projects", {}).items()
     }
 
     # Lowercased on the way in: GitHub does not care how an owner is spelled,
@@ -1507,9 +1502,7 @@ def _runner_pace(runner_raw: dict, defaults: Runner) -> dict:
     """Where the work is, how often and how much of it at once, and what holds it back."""
     return dict(
         workspace_root=Path(
-            os.path.expanduser(
-                str(runner_raw.get("workspace_root", defaults.workspace_root))
-            )
+            os.path.expanduser(str(runner_raw.get("workspace_root", defaults.workspace_root)))
         ),
         # systemd refuses a zero interval, and anything below a second would
         # only spin: one second is the floor that means anything here.
@@ -1526,12 +1519,8 @@ def _runner_pace(runner_raw: dict, defaults: Runner) -> dict:
         min_free_memory_mb=max(
             0, int(runner_raw.get("min_free_memory_mb", defaults.min_free_memory_mb))
         ),
-        min_free_disk_mb=max(
-            0, int(runner_raw.get("min_free_disk_mb", defaults.min_free_disk_mb))
-        ),
-        wait_for_credits=bool(
-            runner_raw.get("wait_for_credits", defaults.wait_for_credits)
-        ),
+        min_free_disk_mb=max(0, int(runner_raw.get("min_free_disk_mb", defaults.min_free_disk_mb))),
+        wait_for_credits=bool(runner_raw.get("wait_for_credits", defaults.wait_for_credits)),
         # Both ends clamped rather than refused: a file saying 150 meant "keep
         # plenty", not "never run again", and a negative reserve is a typo for
         # none at all.
@@ -1561,9 +1550,7 @@ def _runner_work(runner_raw: dict, defaults: Runner) -> dict:
         base_branch=str(runner_raw.get("base_branch", defaults.base_branch)).strip(),
         fetch=bool(runner_raw.get("fetch", defaults.fetch)),
         push=bool(runner_raw.get("push", defaults.push)),
-        open_pull_request=bool(
-            runner_raw.get("open_pull_request", defaults.open_pull_request)
-        ),
+        open_pull_request=bool(runner_raw.get("open_pull_request", defaults.open_pull_request)),
         rebase=bool(runner_raw.get("rebase", defaults.rebase)),
         force_validated_code=bool(
             runner_raw.get("force_validated_code", defaults.force_validated_code)
@@ -1733,7 +1720,8 @@ def _runner_models(runner_raw: dict, defaults: Runner) -> dict:
         auto_model_subtypes={
             key: str(runner_raw.get(f"auto_model_subtype_{key}", "")).strip().lower()
             for key in subtypes.KEYS
-            if str(runner_raw.get(f"auto_model_subtype_{key}", "")).strip().lower() in subtypes.SHIFTS
+            if str(runner_raw.get(f"auto_model_subtype_{key}", "")).strip().lower()
+            in subtypes.SHIFTS
         },
         auto_model_escalate=bool(
             runner_raw.get("auto_model_escalate", defaults.auto_model_escalate)
@@ -1768,9 +1756,7 @@ def _web(web_raw: dict, stored: dict[str, str]) -> Web:
         attachment_max_mb=max(
             1, int(web_raw.get("attachment_max_mb", web_defaults.attachment_max_mb))
         ),
-        attachment_days=max(
-            1, int(web_raw.get("attachment_days", web_defaults.attachment_days))
-        ),
+        attachment_days=max(1, int(web_raw.get("attachment_days", web_defaults.attachment_days))),
         send_after_transcription=bool(
             web_raw.get("send_after_transcription", web_defaults.send_after_transcription)
         ),
@@ -1828,12 +1814,11 @@ def _storage(storage_raw: dict) -> Storage:
     conflict = str(storage_raw.get("conflict", storage_defaults.conflict)).strip().lower()
     return Storage(
         mode=mode if mode in MODES else storage_defaults.mode,
-        path=Path(os.path.expanduser(str(storage_raw.get("path", "")))) if storage_raw.get("path")
+        path=Path(os.path.expanduser(str(storage_raw.get("path", ""))))
+        if storage_raw.get("path")
         else storage_defaults.path,
         conflict=conflict if conflict in CONFLICTS else storage_defaults.conflict,
-        on_every_pass=bool(
-            storage_raw.get("on_every_pass", storage_defaults.on_every_pass)
-        ),
+        on_every_pass=bool(storage_raw.get("on_every_pass", storage_defaults.on_every_pass)),
     )
 
 
@@ -1848,9 +1833,7 @@ def _notify(notify_raw: dict, stored: dict[str, str], runner: Runner) -> Notify:
         # Filtered rather than trusted: a typo in this list would otherwise
         # silence a moment without ever saying so.
         events=tuple(
-            name
-            for name in (str(value).strip().lower() for value in events)
-            if name in EVENTS
+            name for name in (str(value).strip().lower() for value in events) if name in EVENTS
         ),
         telegram=_channel(notify_raw.get("telegram"), secret(stored, "notify.telegram", "token")),
         slack=_channel(notify_raw.get("slack"), secret(stored, "notify.slack", "token")),
@@ -1909,7 +1892,7 @@ def _vault(raw: object) -> Vault:
     reserved = set(SECRETS.values()) | {"ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN"}
     projects: dict[str, dict[str, str]] = {}
     listed = table.get("projects", {})
-    for project, entries in (listed.items() if isinstance(listed, dict) else ()):
+    for project, entries in listed.items() if isinstance(listed, dict) else ():
         if isinstance(entries, dict):
             pairs = [(str(name).strip(), str(item).strip()) for name, item in entries.items()]
         elif isinstance(entries, (list, tuple)):

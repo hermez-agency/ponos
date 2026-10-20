@@ -23,9 +23,10 @@ import re
 import threading
 import time
 from collections import deque
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, BinaryIO, Callable, Iterator
+from typing import Any, BinaryIO
 
 from .. import notifications, progress, state
 
@@ -501,6 +502,7 @@ def difference(before: dict | None, after: dict) -> dict | None:
     and that is replayed here: changes that would not give back exactly
     `after`, in its order, are not sent.
     """
+
     def frame(board: dict) -> dict:
         return {key: value for key, value in board.items() if key != "tickets"}
 
@@ -523,7 +525,9 @@ def difference(before: dict | None, after: dict) -> dict | None:
     for entry in changed:
         if entry["after"] and entry["after"] not in order:
             return None
-        order.insert(order.index(entry["after"]) + 1 if entry["after"] else 0, entry["ticket"]["id"])
+        order.insert(
+            order.index(entry["after"]) + 1 if entry["after"] else 0, entry["ticket"]["id"]
+        )
     if order != now:
         return None
     return {"changed": changed, "removed": removed}

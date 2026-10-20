@@ -33,21 +33,34 @@ from __future__ import annotations
 import re
 import shutil
 import time
+from collections.abc import Callable
 from dataclasses import replace
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Callable
 
-from . import generated, git, github_token, journal, progress, resources, session, state, store, subtypes
 from . import config as config_module
-from . import vault
+from . import (
+    generated,
+    git,
+    github_token,
+    journal,
+    progress,
+    resources,
+    session,
+    state,
+    store,
+    subtypes,
+    vault,
+)
 from . import prompt as prompt_module
 from . import voice as voice_module
 from .base import Base
 from .ticket import Job, short_id
 
 
-def _both(first: Callable[[dict], None], second: Callable[[dict], None] | None) -> Callable[[dict], None]:
+def _both(
+    first: Callable[[dict], None], second: Callable[[dict], None] | None
+) -> Callable[[dict], None]:
     """One listener for the session's events, out of the journal and the page.
 
     Each is kept from the other's failures: `session.run` drops a listener
@@ -121,10 +134,7 @@ def _answered_anyway(job: Job, outcome: session.Outcome) -> bool:
     the caller checks the deliverable is there before finishing the ticket.
     """
     return bool(
-        outcome.blocked
-        and outcome.question is None
-        and not outcome.over_budget
-        and job.comments
+        outcome.blocked and outcome.question is None and not outcome.over_budget and job.comments
     )
 
 
@@ -164,7 +174,9 @@ class Execution(Base):
             language=self.voice.instruction(),
             allowed=self.config.permissions.allowed,
             ask=self.config.permissions.ask,
-            kind=section if job.project.is_code else prompt_module.kind(job.kind, job.reference or ""),
+            kind=section
+            if job.project.is_code
+            else prompt_module.kind(job.kind, job.reference or ""),
             # A branch picked up from an earlier attempt: the session is told,
             # because a worktree that opens on somebody's half-done work and
             # reads as empty is how the same thing gets written twice.
@@ -269,8 +281,13 @@ class Execution(Base):
             oom = resources.oom_killed()
             return f"{why} ; {said.say('killed-oom', line=oom)}" if oom else why
         cut = not (
-            outcome.ok or outcome.blocked or outcome.stopped or outcome.timed_out
-            or outcome.exhausted or outcome.resulted or session.lost(outcome)
+            outcome.ok
+            or outcome.blocked
+            or outcome.stopped
+            or outcome.timed_out
+            or outcome.exhausted
+            or outcome.resulted
+            or session.lost(outcome)
         )
         return said.say("killed-network") if cut and not resources.reachable() else ""
 
@@ -501,7 +518,10 @@ class Execution(Base):
             git.fetch(project.path)
         try:
             worktree = git.add_worktree(
-                project.path, job.workdir, job.branch, job.base,
+                project.path,
+                job.workdir,
+                job.branch,
+                job.base,
                 git.exclusions(self.config.runner.worktree_exclude),
             )
         except git.GitError as error:
@@ -658,9 +678,7 @@ class Execution(Base):
         if self.config.runner.fetch:
             git.fetch(project.path)
         start = (
-            f"origin/{job.base}"
-            if git.has_ref(project.path, f"origin/{job.base}")
-            else job.base
+            f"origin/{job.base}" if git.has_ref(project.path, f"origin/{job.base}") else job.base
         )
         was = git.head(job.workdir)
         if failure := git.rebase(job.workdir, start, generated.settle):
@@ -693,9 +711,7 @@ class Execution(Base):
                 said.say("push-refused"),
                 pushed.err or pushed.out,
                 code="merge.push-refused",
-                note=self._filed(
-                    job, outcome, said.say("push-refused-detail", branch=job.branch)
-                ),
+                note=self._filed(job, outcome, said.say("push-refused-detail", branch=job.branch)),
                 outcome=outcome,
             )
         return None
@@ -705,9 +721,7 @@ class Execution(Base):
         ticket = job.ticket
         said = self.voice
         pull_request = ""
-        body = said.pull_request_body(
-            outcome.summary, ticket.url, outcome.session_id, commits
-        )
+        body = said.pull_request_body(outcome.summary, ticket.url, outcome.session_id, commits)
         try:
             # Prefixed the conventional way when the sub-type is known:
             # squashed, the title is the commit that lands on the base.
@@ -779,8 +793,11 @@ class Execution(Base):
             said.count(commits, "commit"),
         )
         if merged:
-            placed = (*placed[:1], said.say("merged-with", method=self.config.runner.merge_method),
-                      *placed[1:])
+            placed = (
+                *placed[:1],
+                said.say("merged-with", method=self.config.runner.merge_method),
+                *placed[1:],
+            )
         facts = (*placed, *said.spent(outcome.seconds, outcome.cost_usd))
         verdict = "merged" if merged else "waiting" if later else "review"
         brief = said.brief(outcome.summary)
@@ -836,9 +853,12 @@ class Execution(Base):
         ticket = job.ticket
         job.workdir.mkdir(parents=True, exist_ok=True)
         try:
-            outcome = self._run_session(job, prompt_module.template(
-                self.config.runner.document_prompt_file, prompt_module.DOCUMENT
-            ))
+            outcome = self._run_session(
+                job,
+                prompt_module.template(
+                    self.config.runner.document_prompt_file, prompt_module.DOCUMENT
+                ),
+            )
         except (OSError, FileNotFoundError) as error:
             return self._fail(
                 ticket, self.voice.say("no-session"), str(error), code="session.not-started"
@@ -895,14 +915,21 @@ class Execution(Base):
         opened = session.pull_requests(outcome.log)
         note = ""
         if opened:
-            self.say(f"    · the session opened {', '.join(opened)} itself — attached, sent to review")
+            self.say(
+                f"    · the session opened {', '.join(opened)} itself — attached, sent to review"
+            )
             note = said.paragraphs(
                 said.say("pull-request-adopted", url=opened[-1]),
                 said.say("pull-requests-also", urls=", ".join(opened[:-1])) if opened[1:] else "",
             )
         return self._deliver_text(
-            job, outcome, content, review=anyway or bool(opened), kept=answer_file,
-            note=note, pull_request=opened[-1] if opened else "",
+            job,
+            outcome,
+            content,
+            review=anyway or bool(opened),
+            kept=answer_file,
+            note=note,
+            pull_request=opened[-1] if opened else "",
         )
 
     def _deliver_text(
@@ -925,7 +952,7 @@ class Execution(Base):
         """
         ticket = job.ticket
         said = self.voice
-        stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        stamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
         try:
             blocks = self.client.append_markdown(
                 ticket.page.id,
@@ -956,7 +983,9 @@ class Execution(Base):
         # for the pass that has credit again to publish it, as it would one you
         # had moved there yourself. A board with no such column has nowhere to
         # hold it, and the ticket waits in review as it always did.
-        following = self._forced("publication", job.project) if prepared and not pull_request else ""
+        following = (
+            self._forced("publication", job.project) if prepared and not pull_request else ""
+        )
         forced = bool(following)
         postponed = forced and bool(self.under_reserve())
         if postponed and not self.validated_column():
@@ -991,12 +1020,18 @@ class Execution(Base):
             said.say("nothing-published") if prepared else said.count(blocks, "block"),
         )
         facts = (*placed, *said.spent(outcome.seconds, outcome.cost_usd))
-        verdict = "waiting" if forced else "prepared" if prepared else "review" if review else "read"
+        verdict = (
+            "waiting" if forced else "prepared" if prepared else "review" if review else "read"
+        )
         brief = said.brief(outcome.summary)
         self._comment(
             ticket,
             said.report(
-                said.verdict(verdict, *facts), brief, *said.caveats(outcome.caveats), following, note
+                said.verdict(verdict, *facts),
+                brief,
+                *said.caveats(outcome.caveats),
+                following,
+                note,
             ),
         )
         self.say(

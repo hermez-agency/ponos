@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from .. import db
 
@@ -31,7 +31,7 @@ TITLE_LENGTH = 60
 
 
 def now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 def titled(text: str) -> str:
@@ -139,7 +139,9 @@ def listing(query: str = "") -> list[dict]:
     try:
         with db.transaction(immediate=False) as connection:
             if query:
-                like = "%" + query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+                like = (
+                    "%" + query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+                )
                 rows = connection.execute(
                     "SELECT id, title, model, project, turns, updated, created, "
                     "title LIKE ? ESCAPE '\\' FROM chats "

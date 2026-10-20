@@ -16,10 +16,10 @@ import fcntl
 import json
 import os
 import time
+from collections.abc import Iterable
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterable
 
 from . import db, disk
 from .config import state_dir
@@ -69,7 +69,7 @@ def lock():
         raise Busy(f"a run is already in progress (lock {path})") from error
     handle.seek(0)
     handle.truncate()
-    handle.write(f"{os.getpid()} {datetime.now(timezone.utc).isoformat()}\n")
+    handle.write(f"{os.getpid()} {datetime.now(UTC).isoformat()}\n")
     handle.flush()
     try:
         yield
@@ -251,7 +251,11 @@ def waiting_for_base(ticket_id: str) -> tuple[str, str, list[str]] | None:
             ).fetchone()
     except db.ERRORS:
         return None
-    return (str(row[0]), str(row[1]), [name for name in str(row[2]).split("\n") if name]) if row else None
+    return (
+        (str(row[0]), str(row[1]), [name for name in str(row[2]).split("\n") if name])
+        if row
+        else None
+    )
 
 
 def forget_base_wait(ticket_id: str) -> None:
@@ -311,7 +315,7 @@ def wrote_up(ticket_id: str) -> None:
         with db.transaction() as connection:
             connection.execute(
                 "INSERT OR IGNORE INTO write_ups (ticket, at) VALUES (?, ?)",
-                (ticket_id, datetime.now(timezone.utc).isoformat(timespec="seconds")),
+                (ticket_id, datetime.now(UTC).isoformat(timespec="seconds")),
             )
     except db.ERRORS:
         pass
@@ -340,7 +344,7 @@ def mending(ticket_id: str, head: str) -> None:
         with db.transaction() as connection:
             connection.execute(
                 "INSERT OR IGNORE INTO mends (ticket, head, at) VALUES (?, ?, ?)",
-                (ticket_id, head, datetime.now(timezone.utc).isoformat(timespec="seconds")),
+                (ticket_id, head, datetime.now(UTC).isoformat(timespec="seconds")),
             )
     except db.ERRORS:
         pass
@@ -350,9 +354,7 @@ def forget_mending(ticket_id: str, head: str) -> None:
     """That repair never ran (no credit left): it may be asked for again."""
     try:
         with db.transaction() as connection:
-            connection.execute(
-                "DELETE FROM mends WHERE ticket = ? AND head = ?", (ticket_id, head)
-            )
+            connection.execute("DELETE FROM mends WHERE ticket = ? AND head = ?", (ticket_id, head))
     except db.ERRORS:
         pass
 
@@ -413,7 +415,9 @@ def drop_ci(ticket_ids: Iterable[str]) -> None:
     """Stop following those tickets: they have left review."""
     try:
         with db.transaction() as connection:
-            connection.executemany("DELETE FROM ci WHERE ticket = ?", [(one,) for one in ticket_ids])
+            connection.executemany(
+                "DELETE FROM ci WHERE ticket = ?", [(one,) for one in ticket_ids]
+            )
     except db.ERRORS:
         pass
 
@@ -427,7 +431,7 @@ def _number(value: object) -> float | None:
 
 def record(entry: dict) -> None:
     """One line of history: the whole entry, and beside it what one sorts and sums on."""
-    entry = {"at": datetime.now(timezone.utc).isoformat(timespec="seconds"), **entry}
+    entry = {"at": datetime.now(UTC).isoformat(timespec="seconds"), **entry}
     with db.transaction() as connection:
         connection.execute(
             "INSERT INTO history"
@@ -467,7 +471,7 @@ def spent_today() -> float:
     *start*, and one that began under it is left to finish.
     """
     midnight = datetime.now().astimezone().replace(hour=0, minute=0, second=0, microsecond=0)
-    since = midnight.astimezone(timezone.utc).isoformat(timespec="seconds")
+    since = midnight.astimezone(UTC).isoformat(timespec="seconds")
     try:
         with db.transaction(immediate=False) as connection:
             (total,) = connection.execute(
@@ -483,7 +487,7 @@ def spent_by_project(since: datetime) -> list[tuple[str, int, float]]:
 
     `(project, sessions, cost)`; a session of no project is filed under "".
     """
-    stamp = since.astimezone(timezone.utc).isoformat(timespec="seconds")
+    stamp = since.astimezone(UTC).isoformat(timespec="seconds")
     with db.transaction(immediate=False) as connection:
         rows = connection.execute(
             "SELECT project, COUNT(*), COALESCE(SUM(cost_usd), 0) FROM history"

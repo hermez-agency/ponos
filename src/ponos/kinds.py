@@ -159,9 +159,11 @@ def prompt(
     if comments:
         # What was said since — a blocked ticket is answered in a comment, and
         # “it's a publication” is exactly the sort of thing it is answered with.
-        said = "\n# What was said on the ticket, oldest first\n\n" + "\n".join(
-            f"- {line}" for line in comments
-        ) + "\n"
+        said = (
+            "\n# What was said on the ticket, oldest first\n\n"
+            + "\n".join(f"- {line}" for line in comments)
+            + "\n"
+        )
     return PROMPT.format(
         repository=where,
         title=title.strip() or "(untitled)",
@@ -233,7 +235,9 @@ def settle(guess: Guess) -> Guess:
     between = {guess.kind, guess.alternative}
     if "code" not in between:
         return guess
-    other = next((kind for kind in (guess.kind, guess.alternative) if kind in WITHOUT_REPOSITORY), "")
+    other = next(
+        (kind for kind in (guess.kind, guess.alternative) if kind in WITHOUT_REPOSITORY), ""
+    )
     if not other:
         return guess
     return replace(guess, kind=other, alternative="", settled="code")

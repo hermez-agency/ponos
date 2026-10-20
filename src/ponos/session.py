@@ -25,9 +25,10 @@ import subprocess
 import threading
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import IO, Callable
+from typing import IO
 from urllib.parse import parse_qs, quote, urlparse
 
 from . import credits, disk, legacy, vault
@@ -109,7 +110,7 @@ def available() -> str:
     return shutil.which("claude") or ""
 
 
-def lost(outcome: "Outcome") -> bool:
+def lost(outcome: Outcome) -> bool:
     """Did this session fail because there was no conversation to resume?
 
     The one failure a fresh session repairs. Everything else a resumed session
@@ -119,7 +120,7 @@ def lost(outcome: "Outcome") -> bool:
     return bool(_LOST.search(outcome.error or ""))
 
 
-def signalled(outcome: "Outcome") -> bool:
+def signalled(outcome: Outcome) -> bool:
     """Was the session ended by a signal nobody on our side sent?
 
     SIGKILL is 137 once a shell has relayed it and -9 straight from the
@@ -231,9 +232,7 @@ def run(
                     return
 
         if stop is not None:
-            threading.Thread(
-                target=interrupt, args=(stop,), name="tr-stop", daemon=True
-            ).start()
+            threading.Thread(target=interrupt, args=(stop,), name="tr-stop", daemon=True).start()
 
         try:
             final, texts = _read(process, journal, on_event)
@@ -284,9 +283,11 @@ def _command(
         # session, drawn once and carried on turn after turn, which is what
         # makes it a conversation rather than a series of strangers.
         *(["--resume", session_id] if resume else ["--session-id", session_id]),
-        "--output-format", "stream-json",
+        "--output-format",
+        "stream-json",
         "--verbose",
-        "--permission-mode", permission_mode,
+        "--permission-mode",
+        permission_mode,
     ]
     if model:
         command += ["--model", model]
@@ -378,9 +379,7 @@ def _outcome(
 
     answer = str(final.get("result") or "\n".join(texts)).strip()
     over_budget = final.get("subtype") == "error_max_budget_usd"
-    failed = not over_budget and (
-        bool(final.get("is_error")) or (code != 0 and not interrupted)
-    )
+    failed = not over_budget and (bool(final.get("is_error")) or (code != 0 and not interrupted))
     blocked = over_budget or _verdict(answer) == "blocked"
     error = ""
     resets_at = 0.0
@@ -500,9 +499,15 @@ def relocate(session_id: str, destination: Path) -> Path | None:
 
 SCHEME = "ponos"
 TERMINALS = (
-    ("gnome-terminal", lambda cwd, args: ["gnome-terminal", f"--working-directory={cwd}", "--", *args]),
+    (
+        "gnome-terminal",
+        lambda cwd, args: ["gnome-terminal", f"--working-directory={cwd}", "--", *args],
+    ),
     ("konsole", lambda cwd, args: ["konsole", "--workdir", str(cwd), "-e", *args]),
-    ("xfce4-terminal", lambda cwd, args: ["xfce4-terminal", f"--working-directory={cwd}", "-e", " ".join(args)]),
+    (
+        "xfce4-terminal",
+        lambda cwd, args: ["xfce4-terminal", f"--working-directory={cwd}", "-e", " ".join(args)],
+    ),
     ("kitty", lambda cwd, args: ["kitty", "--directory", str(cwd), *args]),
     ("alacritty", lambda cwd, args: ["alacritty", "--working-directory", str(cwd), "-e", *args]),
     ("foot", lambda cwd, args: ["foot", "--working-directory", str(cwd), *args]),
@@ -613,9 +618,7 @@ def open_link(uri: str) -> int:
             # Detached: the click must not keep the desktop handler alive.
             subprocess.Popen(build(cwd, command), start_new_session=True)
             return 0
-    raise FileNotFoundError(
-        "no terminal emulator found — set PONOS_TERMINAL to the one you use"
-    )
+    raise FileNotFoundError("no terminal emulator found — set PONOS_TERMINAL to the one you use")
 
 
 # A pull request's address, as `gh pr create` prints it on its last line.
@@ -656,8 +659,9 @@ def pull_requests(log: Path) -> list[str]:
             elif block.get("type") == "tool_result" and str(block.get("tool_use_id")) in creating:
                 printed = block.get("content")
                 if isinstance(printed, list):
-                    printed = " ".join(str(part.get("text") or "") for part in printed
-                                       if isinstance(part, dict))
+                    printed = " ".join(
+                        str(part.get("text") or "") for part in printed if isinstance(part, dict)
+                    )
                 for url in _PULL_REQUEST.findall(str(printed or "")):
                     if url not in found:
                         found.append(url)

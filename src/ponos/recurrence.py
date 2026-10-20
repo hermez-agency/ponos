@@ -116,10 +116,7 @@ class Recurrence(Base):
                 },
             )
             if self._busy(schedule):
-                self.say(
-                    f"  · {schedule.name} — its last ticket is still open, "
-                    "no second one made"
-                )
+                self.say(f"  · {schedule.name} — its last ticket is still open, no second one made")
                 continue
             entry = self._born(schedule)
             if entry:
@@ -172,7 +169,9 @@ class Recurrence(Base):
             return False
         status = str(store.read(page, settings.prop("status")) or "")
         return status not in (
-            settings.state("done"), settings.state("failed"), settings.state("cancelled")
+            settings.state("done"),
+            settings.state("failed"),
+            settings.state("cancelled"),
         )
 
     def _born(self, schedule: schedules_module.Schedule, *, strict: bool = False) -> dict | None:
@@ -222,8 +221,7 @@ class Recurrence(Base):
             if strict:
                 raise
             self.say(
-                f"  ! {schedule.name} — the ticket could not be created: "
-                f"{voice_module.line(error)}"
+                f"  ! {schedule.name} — the ticket could not be created: {voice_module.line(error)}"
             )
             return None
         # Linked first, so that a body Notion refuses still leaves the schedule
@@ -239,9 +237,7 @@ class Recurrence(Base):
                 + (f"\n{brief}\n" if brief.strip() else ""),
             )
         except store.StoreError as error:
-            self.say(
-                f"  ! {title} — created, but its body was refused: {voice_module.line(error)}"
-            )
+            self.say(f"  ! {title} — created, but its body was refused: {voice_module.line(error)}")
         self.say(f"  ✳ {title} — created by a schedule, ready")
         return {
             "ticket": title,
@@ -265,6 +261,4 @@ class Recurrence(Base):
         try:
             self.client.update(self.workspace.schedules, schedule.page.id, written)
         except store.StoreError as error:
-            self.say(
-                f"  ! {schedule.name} — Notion refused the write: {voice_module.line(error)}"
-            )
+            self.say(f"  ! {schedule.name} — Notion refused the write: {voice_module.line(error)}")

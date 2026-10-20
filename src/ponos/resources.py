@@ -89,7 +89,9 @@ def short_of_disk(minimum_mb: int, path: Path) -> int | None:
 
 def _board() -> tuple[str, int]:
     parsed = urlparse(notion.endpoint())
-    return parsed.hostname or "api.notion.com", parsed.port or (80 if parsed.scheme == "http" else 443)
+    return parsed.hostname or "api.notion.com", parsed.port or (
+        80 if parsed.scheme == "http" else 443
+    )
 
 
 def reachable(timeout: float = 3.0) -> bool:
@@ -150,9 +152,19 @@ def oom_killed(seconds: float = 900.0) -> str:
     since = datetime.now().astimezone() - timedelta(seconds=seconds)
     try:
         journal = subprocess.run(
-            ["journalctl", "-k", "--no-pager", "-q", "-o", "short-iso",
-             "--since", since.strftime("%Y-%m-%d %H:%M:%S")],
-            capture_output=True, text=True, timeout=10,
+            [
+                "journalctl",
+                "-k",
+                "--no-pager",
+                "-q",
+                "-o",
+                "short-iso",
+                "--since",
+                since.strftime("%Y-%m-%d %H:%M:%S"),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         if journal.returncode == 0:
             hits = [line for line in journal.stdout.splitlines() if _OOM.search(line)]

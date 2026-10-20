@@ -32,8 +32,8 @@ import json
 import shutil
 import subprocess
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
 # The one port the console is served on inside the tailnet, and the one the
 # funnel opens. Funnel only accepts 443, 8443 and 10000.
@@ -76,7 +76,9 @@ def commands(port: int) -> list[list[str]]:
     local = f"http://127.0.0.1:{port}"
     lines = [["serve", "--bg", f"--https={PRIVATE_PORT}", local]]
     for path in PUBLIC_PATHS:
-        lines.append(["funnel", "--bg", f"--https={PUBLIC_PORT}", f"--set-path={path}", local + path])
+        lines.append(
+            ["funnel", "--bg", f"--https={PUBLIC_PORT}", f"--set-path={path}", local + path]
+        )
     return lines
 
 
@@ -127,7 +129,7 @@ def _proxies(handler: object, target: str) -> bool:
     return str(proxy).rstrip("/") == target.rstrip("/")
 
 
-def _run(arguments: list[str]) -> "subprocess.CompletedProcess[str]":
+def _run(arguments: list[str]) -> subprocess.CompletedProcess[str]:
     if not shutil.which("tailscale"):
         raise TailscaleError("tailscale is not installed — https://tailscale.com/download")
     try:
@@ -192,7 +194,9 @@ def watch(
                 waiting = False
                 if not in_place(port, current.name, run):
                     apply(port, run)
-                    log(f"serving https://{current.name}:{PRIVATE_PORT} (tailnet) and {PUBLIC_PATHS} on {PUBLIC_PORT} (funnel)")
+                    log(
+                        f"serving https://{current.name}:{PRIVATE_PORT} (tailnet) and {PUBLIC_PATHS} on {PUBLIC_PORT} (funnel)"
+                    )
                 last = ""
         except TailscaleError as error:
             if str(error) != last:

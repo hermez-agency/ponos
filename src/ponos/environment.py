@@ -84,11 +84,9 @@ def required(app: Path) -> list[str]:
 
 
 def _run(command: list[str], app: Path, timeout: int) -> str:
-    """"" when the command succeeded, its last line of output otherwise."""
+    """ "" when the command succeeded, its last line of output otherwise."""
     try:
-        done = subprocess.run(
-            command, cwd=app, capture_output=True, text=True, timeout=timeout
-        )
+        done = subprocess.run(command, cwd=app, capture_output=True, text=True, timeout=timeout)
     except (OSError, subprocess.SubprocessError) as error:
         return str(error)
     if done.returncode == 0:
@@ -143,14 +141,34 @@ def _install(app: Path, environment: Path) -> str:
     target = str(environment / "bin" / "python")
     if shutil.which("uv"):
         return _run(
-            ["uv", "pip", "install", "--quiet", "--python", target, "--require-hashes",
-             "-r", requirements],
-            app, timeout=900,
+            [
+                "uv",
+                "pip",
+                "install",
+                "--quiet",
+                "--python",
+                target,
+                "--require-hashes",
+                "-r",
+                requirements,
+            ],
+            app,
+            timeout=900,
         )
     return _run(
-        [target, "-m", "pip", "install", "--quiet", "--disable-pip-version-check",
-         "--require-hashes", "-r", requirements],
-        app, timeout=900,
+        [
+            target,
+            "-m",
+            "pip",
+            "install",
+            "--quiet",
+            "--disable-pip-version-check",
+            "--require-hashes",
+            "-r",
+            requirements,
+        ],
+        app,
+        timeout=900,
     )
 
 

@@ -21,19 +21,19 @@ from __future__ import annotations
 
 import time
 from concurrent.futures import Future
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from . import conversation, git, kinds, priority, state, store, subtypes
 from . import voice as voice_module
 from .base import Base
 from .projects import Project
 from .question import Question
+
 # The one reading of a Notion date in the project. It lives beside the calendar
 # because a date on a ticket and a date on a schedule mean the same thing, and
 # two readings of them that drift apart is a bug nobody would ever find.
 from .schedules import scheduled_for
 from .ticket import Ticket
-
 
 # How long a ticket a pass has just finished with stays out of its readings of
 # the ready column. Measured: a query sees a write one to four seconds after it
@@ -395,9 +395,7 @@ class Board(Base):
             # `discussion` is where that is said out loud, once per ticket.
             return False
         reports = [
-            index
-            for index, comment in enumerate(comments)
-            if voice_module.is_report(comment.text)
+            index for index, comment in enumerate(comments) if voice_module.is_report(comment.text)
         ]
         if not reports:
             return False
@@ -405,9 +403,7 @@ class Board(Base):
         # What the runner has said in the comments since its report is not an
         # answer to it — that is the whole point of being able to talk here.
         since = [
-            comment
-            for comment in comments[reports[-1] + 1 :]
-            if not conversation.ours(comment, me)
+            comment for comment in comments[reports[-1] + 1 :] if not conversation.ours(comment, me)
         ]
         if not since:
             return False
@@ -488,9 +484,9 @@ class Board(Base):
             page_id = page_id.split("?")[0].rstrip("/").rsplit("/", 1)[-1].rsplit("-", 1)[-1]
         ticket = Ticket(self.client.page(page_id.replace("-", "")))
         settings = self.config.notion
-        if self.cancelled_column() and store.read(ticket.page, settings.prop("status")) == settings.state(
-            "cancelled"
-        ):
+        if self.cancelled_column() and store.read(
+            ticket.page, settings.prop("status")
+        ) == settings.state("cancelled"):
             self.say(f"Requested ticket is cancelled — not run: {ticket.title}")
             return []
         self.say(f"Requested ticket: {ticket.title}")
@@ -571,7 +567,7 @@ class Board(Base):
                 continue
             edited = page.raw.get("last_edited_time", "")
             try:
-                age = datetime.now(timezone.utc) - datetime.fromisoformat(edited)
+                age = datetime.now(UTC) - datetime.fromisoformat(edited)
             except ValueError:
                 age = timedelta(days=1)
             if age < timedelta(minutes=2):
@@ -594,8 +590,13 @@ class Board(Base):
                 asked = said.question(Question(ask=said.sentence(interrupted)))
                 self._comment(ticket, said.report(said.verdict("blocked"), *asked))
                 self._tell(
-                    "blocked", ticket, "blocked", "\n".join(asked), ask=True,
-                    code="worktree.interrupted", summary=interrupted,
+                    "blocked",
+                    ticket,
+                    "blocked",
+                    "\n".join(asked),
+                    ask=True,
+                    code="worktree.interrupted",
+                    summary=interrupted,
                 )
                 state.release(ticket.id)
                 recovered += 1
@@ -604,9 +605,7 @@ class Board(Base):
             self._set(ticket, **{status_property: self.config.notion.state("ready")})
             self._comment(
                 ticket,
-                said.report(
-                    said.verdict("requeued", stopped), said.say("abandoned-requeued")
-                ),
+                said.report(said.verdict("requeued", stopped), said.say("abandoned-requeued")),
             )
             state.release(ticket.id)
             recovered += 1
@@ -660,9 +659,7 @@ class Board(Base):
                 **{status_property: self.config.notion.state("done")},
                 **self._refusal_cleared(ticket),
             )
-            self._comment(
-                ticket, said.report(said.verdict("merged", said.pull_request(url)), url)
-            )
+            self._comment(ticket, said.report(said.verdict("merged", said.pull_request(url)), url))
             closed += 1
         # The ones still open are the ones whose CI is worth knowing.
         self.follow_ci(waiting)
@@ -700,9 +697,7 @@ class Board(Base):
         # In the column and in a session of this pass at once: moved back to
         # ready while it ran. It is run again — once that session is over, not
         # beside it.
-        self._holding = {
-            ticket.id: (ticket, "running") for ticket in tickets if ticket.id in hand
-        }
+        self._holding = {ticket.id: (ticket, "running") for ticket in tickets if ticket.id in hand}
         # Queued or held for later, both are work about to happen: `converse`
         # leaves them alone, because their comments are going into a prompt.
         self._claimed |= {ticket.id for ticket in fresh} | {ticket.id for ticket, _ in waiting}

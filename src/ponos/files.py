@@ -44,7 +44,7 @@ import json
 import re
 import unicodedata
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -94,7 +94,7 @@ def now() -> str:
     is what `sync.py` compares against the last reconciliation, and two writes
     in the same second would be one write as far as it could tell.
     """
-    return datetime.now(timezone.utc).isoformat(timespec="microseconds")
+    return datetime.now(UTC).isoformat(timespec="microseconds")
 
 
 def new_id() -> str:
@@ -511,7 +511,10 @@ class Board:
         if slot == "icon" and len(text) <= 16 and not re.search(r"[./\\]", text):
             return {"type": "emoji", "emoji": text}
         target = (path.parent / text).resolve()
-        if not target.is_relative_to(self._root.resolve()) or target.suffix.lower() not in PICTURES.values():
+        if (
+            not target.is_relative_to(self._root.resolve())
+            or target.suffix.lower() not in PICTURES.values()
+        ):
             return None
         return {"type": "external", "external": {"url": target.as_uri()}}
 
@@ -622,7 +625,10 @@ class Board:
         front, body = parse(_text(path))
         front["id"] = _bare(fresh)
         front["edited"] = now()
-        target = self.directory(collection) / f"{slug(str(front.get('title', '')))}-{_bare(fresh)[-8:]}.md"
+        target = (
+            self.directory(collection)
+            / f"{slug(str(front.get('title', '')))}-{_bare(fresh)[-8:]}.md"
+        )
         _write(target, render(front, body))
         if target != path:
             try:
@@ -758,7 +764,9 @@ class Board:
                 written_values[name] = value.isoformat()
             elif kind == "relation":
                 written_values[name] = [
-                    _bare(str(one)) for one in (value if isinstance(value, (list, tuple)) else [value]) if one
+                    _bare(str(one))
+                    for one in (value if isinstance(value, (list, tuple)) else [value])
+                    if one
                 ]
             elif kind == "checkbox":
                 written_values[name] = bool(value)

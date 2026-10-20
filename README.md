@@ -4290,13 +4290,16 @@ uv run pytest                        # both suites: -k to pick a case, -x to sto
 uv run pytest -m "not functional"    # the pure part only
 uv run pytest --cov=src/ponos        # with the coverage
 uv run ruff check .                  # the lint the CI runs
+uv run ruff format .                 # the format the CI checks
 ```
 
 `tests/test_suites.py` hands pytest the very cases the two scripts run, one test each and
 in the same order: nothing is written twice. Ruff checks pyflakes, the pycodestyle errors,
-warnings and bugbear; what was already there when it arrived is listed file by file in
-`pyproject.toml`, an exception list that only ever shrinks. `ruff format` is not enforced
-yet. The technical audit of October 2026, with what comes next, is
+warnings, bugbear, the order of imports, the syntax of Python 3.11 and some
+simplifications, with no exception list: a deviation is fixed, or justified by a `# noqa`
+on its line. `ruff format` is enforced too; the commit that formatted the whole repository
+is in `.git-blame-ignore-revs`, which GitHub reads and `git config blame.ignoreRevsFile
+.git-blame-ignore-revs` makes local `git blame` read. The technical audit of October 2026, with what comes next, is
 [docs/audit-technique-2026-10.md](docs/audit-technique-2026-10.md).
 
 The first covers the pure part — identifier collisions, status mapping, the
