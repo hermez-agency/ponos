@@ -168,7 +168,7 @@ def pending(limit: int) -> list[dict]:
             (PENDING, limit),
         ).fetchall()
     keys = ("id", "ticket", "title", "project", "old", "new", "depth")
-    return [dict(zip(keys, row)) for row in rows]
+    return [dict(zip(keys, row, strict=True)) for row in rows]
 
 
 def start(identifier: int) -> bool:
@@ -212,7 +212,7 @@ def history(ticket: str, limit: int = 50) -> list[dict]:
             ).fetchall()
     except db.ERRORS:
         return []
-    return [dict(zip(keys, row)) for row in rows]
+    return [dict(zip(keys, row, strict=True)) for row in rows]
 
 
 class Transitions(Base):

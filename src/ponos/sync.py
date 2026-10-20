@@ -146,7 +146,7 @@ def journal(limit: int = 50, database: Path | None = None) -> list[dict]:
     except db.ERRORS:
         return []
     names = ("at", "what", "collection", "page", "title", "detail")
-    return [dict(zip(names, row)) for row in reversed(rows)]
+    return [dict(zip(names, row, strict=True)) for row in reversed(rows)]
 
 
 # -- what the two sides agreed on last time ----------------------------------

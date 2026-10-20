@@ -670,7 +670,7 @@ def discard(path: Path) -> str:
         path.rename(target)
     except OSError:
         # Another filesystem, or nowhere to write: nothing better than saying so.
-        raise GitError(f"{path} cannot be emptied or moved aside — remove it by hand")
+        raise GitError(f"{path} cannot be emptied or moved aside — remove it by hand") from None
     return str(target)
 
 

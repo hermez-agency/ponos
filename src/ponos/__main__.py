@@ -2605,7 +2605,7 @@ if __name__ == "__main__":
         config_module.refuse_real_state()
     except config_module.RealStateRefused as error:
         print(f"ponos: {error}", file=sys.stderr)
-        raise SystemExit(2)
+        raise SystemExit(2) from None
     legacy.migrate()
     secrets_out_of_config()
     raise SystemExit(main())

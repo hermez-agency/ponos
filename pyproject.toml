@@ -56,14 +56,3 @@ extend-exclude = ["src/ponos/web/static", "frontend", "diagrams"]
 # Formatting (`ruff format`) is not enforced yet — it would rewrite 73 files at
 # once; see the audit for when.
 select = ["E4", "E7", "E9", "F", "W", "B"]
-
-[tool.ruff.lint.per-file-ignores]
-# The baseline: what was there when ruff arrived (October 2026), left for a
-# ticket of its own rather than fixed in passing. A new file starts clean; an
-# entry here only ever shrinks.
-"src/ponos/__main__.py" = ["B904"]
-"src/ponos/git.py" = ["B904"]
-"src/ponos/{db,journal,notify,subtypes,sync,transitions}.py" = ["B905"]
-"scripts/release.py" = ["B007"]
-"tests/run.py" = ["B007", "B023", "B905", "E731", "F401", "F402", "F811", "F841"]
-"tests/functional.py" = ["F841"]

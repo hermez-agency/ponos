@@ -2157,9 +2157,8 @@ def a_validated_merge_refused_for_being_behind_is_replayed_and_lands():
         project = machine.project("Site", repository)
         ticket = machine.ticket("Corriger l'entête", "Le titre est faux.", project)
 
-        first = machine.run()
+        machine.run()
         assert machine.status(ticket) == "In review", machine.status(ticket)
-        branch = first[0]["branch"]
 
         machine.land(repository, "OTHER.md")
         machine.move(ticket, "Validated")
@@ -2464,7 +2463,7 @@ def a_ticket_runs_in_the_repository_its_project_names():
         api = machine.repository("api")
         machine.project("Site", site)
         second = machine.project("API", api)
-        ticket = machine.ticket("Ajouter une route", "Une route de plus.", second)
+        machine.ticket("Ajouter une route", "Une route de plus.", second)
 
         results = machine.run()
 
@@ -2717,7 +2716,7 @@ def a_session_killed_is_resumed_once_and_blocked_as_killed_if_it_dies_again():
     with bench() as machine:
         repository = machine.repository("site")
         project = machine.project("Site", repository)
-        ticket = machine.ticket("Une session tuée", "Fais-le.", project)
+        machine.ticket("Une session tuée", "Fais-le.", project)
         count = machine.root / "logs" / "count"
 
         with _environ({"FAKE_CLAUDE_KILL": "1", "FAKE_CLAUDE_COUNT": str(count)}):

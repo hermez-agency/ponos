@@ -243,6 +243,7 @@ CHOICES = "\n".join(
             "documentation, README, a documentation site",
             "a security hole, a secret, permissions",
         ),
+        strict=True,
     )
 )
 

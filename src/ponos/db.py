@@ -922,7 +922,7 @@ def migrate(connection: sqlite3.Connection, migrations: Sequence[Migration] = MI
         except BaseException:
             connection.execute("ROLLBACK")
             raise
-    for migration, called in zip(migrations, names):
+    for migration, called in zip(migrations, names, strict=True):
         if called in (applied(connection) or []):
             continue
         connection.execute("BEGIN IMMEDIATE")
@@ -966,7 +966,7 @@ def disorder(connection: sqlite3.Connection, migrations: Sequence[Migration] = M
         said = [f"missing {', '.join(missing)}"] if missing else []
         said += [f"unknown to this code: {', '.join(unknown)}"] if unknown else []
         return "; ".join(said)
-    for position, (expected, found) in enumerate(zip(names, done), start=1):
+    for position, (expected, found) in enumerate(zip(names, done, strict=True), start=1):
         if expected != found:
             return (
                 f"applied in another order than this code's — {found} as number {position}, "

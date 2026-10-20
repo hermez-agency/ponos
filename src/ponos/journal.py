@@ -194,7 +194,7 @@ def _ticket_key(reference: str) -> str:
 
 
 def _run(row: sqlite3.Row | tuple, names: list[str]) -> dict:
-    entry = dict(zip(names, row))
+    entry = dict(zip(names, row, strict=True))
     entry["log"] = Path(entry["log"]).name if entry.get("log") else ""
     return entry
 

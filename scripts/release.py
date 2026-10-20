@@ -208,7 +208,7 @@ def promote(text: str, version: str, date: str) -> str:
     Refuses an empty Unreleased: a release with no notes is a tag, and a tag is
     not what anybody came here for.
     """
-    for name, _date, body in sections(text):
+    for name, _date, _body in sections(text):
         if name == version:
             raise Problem(f"CHANGELOG.md already has a [{version}] section")
     for name, _date, body in sections(text):

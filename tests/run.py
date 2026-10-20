@@ -180,7 +180,7 @@ def _workspace(
     original = projects.git.remote_url, projects.git.current_name, projects.git.clone
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
-        for folder, remote in remotes.items():
+        for folder in remotes:
             (root / folder / ".git").mkdir(parents=True)
 
         def clone(repository: str, into: Path, accounts=None) -> None:
@@ -7099,7 +7099,7 @@ def a_project_found_by_a_fallback_says_so_on_the_ticket():
 
     runner, ticket = _nameless("Retirer le shader", "Il coûte 12 % de CPU pour rien.")
     runner.resolver = _StaleRepository()
-    with _state_home(), _naming_session("") as asked:
+    with _state_home(), _naming_session(""):
         job = runner.prepare(ticket)
     assert job is not None and job.project.path == Path("/repo"), "the ticket runs"
     assert len(job.notes) == 1 and "from the project's Path property" in job.notes[0]
@@ -8015,7 +8015,9 @@ def a_model_written_by_the_runner_is_not_taken_for_one_somebody_chose():
     """The column holds the runner's pick on the next attempt: it must still
     be chosen for, or a run that failed could never climb. Another model there
     is somebody's, and is left alone."""
-    column = lambda name: {"Model": {"type": "select", "select": {"name": name}}}
+    def column(name: str) -> dict:
+        return {"Model": {"type": "select", "select": {"name": name}}}
+
     runner, ticket = _modelled("Retirer un paragraphe", "Le texte.", **column("haiku"))
     with _state_home(), _failed_pick("haiku"):
         job = runner.prepare(ticket)
@@ -10470,8 +10472,6 @@ def in_a_container_a_new_version_is_a_new_image():
 @case
 def a_loop_of_runs_takes_the_lock_like_the_timer_did():
     """`run --every` starts `ponos run` itself, and a run already going turns it away."""
-    from ponos.__main__ import run_every
-
     root = Path(tempfile.mkdtemp())
     config = root / "config.toml"
     config.write_text(f'[storage]\nmode = "markdown"\npath = "{root / "board"}"\n', encoding="utf-8")
@@ -11100,8 +11100,8 @@ def a_password_is_masked_and_what_only_talks_of_one_is_left_alone():
         ),
         "token : ghp_abcdefghijklmnopqrstuvwxyz0123456789": (["token", "password"], "token : ••••••"),
     }
-    for text, (kinds, masked) in shown.items():
-        assert redaction.found(text) == kinds, (text, redaction.found(text))
+    for text, (flagged, masked) in shown.items():
+        assert redaction.found(text) == flagged, (text, redaction.found(text))
         assert redaction.masked(text) == masked, (text, redaction.masked(text))
     for text in (
         "le token est expiré, refais-le",
@@ -13103,7 +13103,6 @@ def a_ticket_that_speaks_again_replaces_its_notification_instead_of_stacking():
 def the_icon_of_ponos_is_cut_out_in_the_sizes_a_desktop_asks_for():
     """An opaque square is drawn by a desktop as a black one."""
     import struct
-    import zlib
 
     for size in (48, 64, 128, 256):
         data = (notify.ICON.parent / f"ponos-{size}.png").read_bytes()
@@ -13650,7 +13649,7 @@ def a_forgotten_worktree_goes_unless_its_ticket_runs_or_it_holds_work_nobody_els
         names = ["failed", "running", "dirty", "unpushed", "young", "gone", "stray"]
         places = {
             name: _aged(root / "worktrees" / f"app-{owner}", 3 if name == "young" else 40)
-            for name, owner in zip(names, tail)
+            for name, owner in zip(names, tail, strict=True)
         }
         # Not a worktree any repository knows: not ours to guess about.
         (places["stray"] / "notes.txt").write_text("x")
@@ -14378,7 +14377,7 @@ def a_forced_merge_says_on_the_ticket_why_the_ci_stopped_it():
         runner._checked = lambda url, workdir, base, said=(checks, sentence): said
         job = SimpleNamespace(ticket=SimpleNamespace(id="p-forced"), workdir=Path("/work"), base="main")
         merges: list[str] = []
-        with _state_home(), _github({}, merge=lambda *args, **kept: merges.append(args) or "merged"):
+        with _state_home(), _github({}, merge=lambda *args, merges=merges, **kept: merges.append(args) or "merged"):
             why, later = runner._force_merge(job, url)
         assert (why, later, merges) == (sentence, False, []), (checks, why, later, merges)
 
@@ -14796,7 +14795,9 @@ def doctor_says_when_a_base_has_no_ci_at_push():
     with _git_answering(default_branch=lambda repo: "dev", ci_at_push=lambda repo, base, accounts=None: "skipped"):
         assert "only skipped" in cli._base_without_ci(Path("/repo"))
     for found in ("ran", ""):
-        with _git_answering(default_branch=lambda repo: "dev", ci_at_push=lambda repo, base, accounts=None: found):
+        with _git_answering(
+            default_branch=lambda repo: "dev", ci_at_push=lambda repo, base, accounts=None, found=found: found
+        ):
             assert cli._base_without_ci(Path("/repo")) == ""
 
 
@@ -14969,9 +14970,9 @@ def the_version_and_the_changelog_never_drift():
     release.parse(version)  # raises if it is not a version at all
 
     entries = release.released(release.CHANGELOG.read_text(encoding="utf-8"))
-    for name, date, body in entries:
+    for name, dated, body in entries:
         release.parse(name)
-        assert date, f"[{name}] has no date"
+        assert dated, f"[{name}] has no date"
         assert body.strip(), f"[{name}] has no notes"
 
     order = [release.order(name) for name, _date, _body in entries]
@@ -18494,8 +18495,6 @@ def the_console_serves_a_picture_as_a_picture_and_never_as_a_page():
 
 
 # -- the console and Notion, kept in step ------------------------------------
-
-from ponos.web import board as web_board  # noqa: E402
 
 
 class _Minutes:

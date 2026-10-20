@@ -380,5 +380,5 @@ if __name__ == "__main__":  # the detached child, started by `send`
         # A child started by an older parent, mid-update, has no label to read.
         action=sys.argv[5] if len(sys.argv) > 5 else ACTION,
         warning=len(sys.argv) > 6 and sys.argv[6] == "warning",
-        buttons=tuple(zip(sys.argv[7::2], sys.argv[8::2])),
+        buttons=tuple(zip(sys.argv[7::2], sys.argv[8::2], strict=False)),
     )
