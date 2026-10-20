@@ -4304,6 +4304,25 @@ uv run ruff check .                  # the lint the CI runs
 uv run ruff format .                 # the format the CI checks
 ```
 
+The same checks can run before each commit rather than minutes after the push, with
+[pre-commit](https://pre-commit.com), which `uv sync` brings along:
+
+```sh
+uv run pre-commit install                      # once per clone: the hook goes into .git/hooks
+uv run --frozen pre-commit run --all-files     # every hook, on the whole tree
+```
+
+`.pre-commit-config.yaml` runs `ruff check --fix` and `ruff format` on the staged Python,
+`uv lock --check` when `pyproject.toml` or `uv.lock` changes, rewrites `requirements.txt`
+from the lockfile with the CI's own command — a diff fails the commit, and the file left
+behind is the one to stage — and refuses a commit that changes `src/ponos/web/static/`
+without changing anything in `frontend/`, since that directory is what `npm run build`
+writes. Every hook runs the tools `uv.lock` pins, so nothing is fetched and nothing
+drifts from the CI. Run it by hand with `--frozen`: a plain `uv run` updates `uv.lock`
+before the hook can see that it lagged. It is a contributor's tool and nothing more: no
+installation reads the file. `SKIP=static-built-from-frontend git commit` lets through a
+rebuild that has no source change, a new Node for instance.
+
 `tests/test_suites.py` hands pytest the very cases the two scripts run, one test each and
 in the same order: nothing is written twice. Ruff checks pyflakes, the pycodestyle errors,
 warnings, bugbear, the order of imports, the syntax of Python 3.11 and some

@@ -1,0 +1,53 @@
+# What the CI's quality job would say, said before the push — for contributors,
+# never for an installation: `uv sync` brings pre-commit with the other tools,
+# `uv run pre-commit install` puts the hook in `.git/hooks`, and nothing else
+# reads this file.
+#
+# Every hook is local and runs through uv: ruff is the version `uv.lock` pins,
+# the one the CI runs, rather than a second pin here that would drift from it.
+# Nothing is fetched by pre-commit itself. By hand, it is
+# `uv run --frozen pre-commit run --all-files`: without `--frozen`, uv brings
+# `uv.lock` up to date before the uv-lock hook gets to say it lagged.
+
+default_install_hook_types: [pre-commit]
+
+repos:
+  - repo: local
+    hooks:
+      - id: ruff
+        name: ruff check --fix
+        entry: uv run --frozen ruff check --fix --force-exclude
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
+
+      - id: ruff-format
+        name: ruff format
+        entry: uv run --frozen ruff format --force-exclude
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
+
+      # `uv sync --locked` in the CI: a pyproject edited without its lockfile.
+      - id: uv-lock
+        name: uv.lock matches pyproject.toml
+        entry: uv lock --check
+        language: system
+        files: ^(pyproject\.toml|uv\.lock)$
+        pass_filenames: false
+
+      # Rewritten in place, with the CI's very command: a diff fails the hook,
+      # and the file left behind is the one to stage.
+      - id: requirements-export
+        name: requirements.txt is the export of uv.lock
+        entry: uv export --frozen --no-dev --no-emit-project --format requirements-txt -o requirements.txt --quiet
+        language: system
+        files: ^(pyproject\.toml|uv\.lock|requirements\.txt)$
+        pass_filenames: false
+
+      - id: static-built-from-frontend
+        name: web/static changes come with frontend/
+        entry: python3 scripts/check-static.py
+        language: system
+        files: ^src/ponos/web/static/
+        pass_filenames: false
