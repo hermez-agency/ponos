@@ -51,6 +51,10 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Changed
 
+- **A ticket's CI block fits on one line.** The list of checks is folded behind a chevron, leaving the state, the
+  count of checks passed ("5/5") and the link to GitHub; a click or the keyboard opens it, and the choice is kept for
+  every ticket. When the CI failed the list is open until you choose otherwise, and a folded line names the checks that
+  failed.
 - **The console's first load is lighter: 432 kB compressed in English, 484 kB in French, down from 486 kB for
   both.** The French dictionary is fetched only by a page that reads French, instead of by everybody, and what every
   page needs comes in 9 files instead of 19. The console's packages are up to date — Milkdown 7.22.3, Radix, Vite 8.3,
