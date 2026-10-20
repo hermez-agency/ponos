@@ -24099,6 +24099,29 @@ def health_adds_a_missing_status_to_a_select_and_only_says_how_on_a_real_status(
 
 
 @case
+def health_names_a_property_once_and_says_what_each_costs_in_french_too():
+    from ponos import health
+
+    settings, board = _health_board(skip=("Agent", "Progress"))
+    settings.properties["agent"] = "Agent"  # two settings, one property
+    config = _config("")
+    config.notion = settings
+    found = health._schema(
+        config, board, workspace.Workspace(tickets="db", projects="projects", agents="agents")
+    )
+    columns = next(check for check in found if check.code == "notion.columns")
+    names = [note["name"] for note in columns.notes]
+    assert len(names) == len(set(names)) and "Agent" in names, names
+    assert columns.params["missing"].count("“Agent”") == 1, columns.params
+    assert not columns.evidence, "the costs are sentences, not what a tool printed"
+    french = (FRONTEND / "src/lib/french.ts").read_text(encoding="utf-8")
+    for _, cost in store.COLUMNS.values():
+        assert f'"{cost}"' in french, f"nothing translates “{cost}” — add it to french.ts"
+    for sentence in health.NOTIFY_SAID.values():
+        assert f'"{sentence}"' in french, f"nothing translates “{sentence}” — add it to french.ts"
+
+
+@case
 def health_reports_a_project_whose_folder_is_gone_and_one_with_no_remote():
     from ponos import health
 

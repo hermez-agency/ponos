@@ -1,15 +1,15 @@
 import * as React from "react"
-import { AlertTriangle, ExternalLink, Loader2, OctagonAlert, RefreshCw } from "lucide-react"
+import { AlertTriangle, ChevronRight, ExternalLink, Loader2, OctagonAlert, RefreshCw } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { api, why } from "@/lib/api"
-import { byGroup, fixParams, shown, type HealthCheck, type HealthGroup, type HealthReport } from "@/lib/health"
+import { failing, fixParams, shown, type HealthCheck, type HealthReport } from "@/lib/health"
 import { useT } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 
 import { ConfirmDialog } from "./confirm-dialog"
-import { Panel } from "./frame"
 
 /* What is wrong with the installation, at the top of the dashboard.
  *
@@ -20,6 +20,12 @@ import { Panel } from "./frame"
  * nothing at all while everything is green: a band that is always there is a
  * band nobody reads.
  *
+ * The band is one line while folded — a count, "Recheck" — so that the
+ * statistics under it stay on the first screen; unfolded, each failing check is
+ * a line of its own (what is wrong, and the button that mends it), and its own
+ * toggle opens why it likely is and the technical detail. Both choices are
+ * kept with the browser, the band's like the CI block's of a ticket.
+ *
  * Each failing check says what is wrong, why it likely is, and then one of two
  * things. Where Ponos can mend it itself (a property missing on the Notion
  * board) a "Configure" button opens a window naming what will change, and
@@ -28,18 +34,41 @@ import { Panel } from "./frame"
  * to do them from.
  */
 
-const GROUP: Record<HealthGroup, string> = {
-  notion: "Notion",
-  github: "GitHub",
-  claude: "Claude Code",
-  projects: "Projects",
-  machine: "Machine",
+const OPEN_KEY = "ponos-health-open"
+
+/* Whether the list is unfolded: folded until chosen otherwise, and the choice
+ * outlives the page. */
+function useOpen() {
+  const [open, setOpen] = React.useState(() => {
+    try {
+      return localStorage.getItem(OPEN_KEY) === "open"
+    } catch {
+      return false
+    }
+  })
+  const choose = React.useCallback((next: boolean) => {
+    setOpen(next)
+    try {
+      localStorage.setItem(OPEN_KEY, next ? "open" : "folded")
+    } catch {
+      // Storage off: the choice lasts as long as the tab.
+    }
+  }, [])
+  return [open, choose] as const
 }
+
+const chevron = (open: boolean) => (
+  <ChevronRight
+    className={cn("text-muted-foreground size-3.5 shrink-0 transition-transform", open && "rotate-90")}
+    aria-hidden
+  />
+)
 
 export function HealthBand() {
   const t = useT()
   const [report, setReport] = React.useState<HealthReport | null>(null)
   const [checking, setChecking] = React.useState(false)
+  const [open, choose] = useOpen()
   // The newest request wins: an answer that arrives after a later one is stale.
   const asked = React.useRef(0)
 
@@ -68,102 +97,127 @@ export function HealthBand() {
   }
 
   if (!report || !shown(report.checks)) return null
-  const groups = byGroup(report.checks)
-  const count = groups.reduce((sum, entry) => sum + entry.checks.length, 0)
+  const checks = failing(report.checks)
+  const errors = checks.some((one) => one.state === "error")
+  const Icon = errors ? OctagonAlert : AlertTriangle
 
   return (
-    <section className="px-4 pt-4" data-testid="health-band">
-      <Panel
-        eyebrow={t("Installation status")}
-        title={t("{{count}} thing(s) to fix before tickets can run", { count })}
-        action={
+    <section className="py-3" data-testid="health-band">
+      <Collapsible open={open} onOpenChange={choose} className="bg-card rounded-xl border">
+        <div className="flex items-center justify-between gap-3 px-4 py-2.5">
+          <CollapsibleTrigger
+            className="focus-visible:ring-ring/50 flex min-w-0 items-center gap-2 rounded-md text-left outline-none focus-visible:ring-2"
+            data-testid="health-toggle"
+          >
+            {chevron(open)}
+            <Icon className={cn("size-4 shrink-0", errors ? "text-destructive" : "text-amber-600")} />
+            <span className="min-w-0 truncate text-sm font-medium">
+              {t("{{count}} thing(s) to fix before tickets can run", { count: checks.length })}
+            </span>
+          </CollapsibleTrigger>
           <Button variant="outline" size="sm" onClick={check} disabled={checking} data-testid="health-recheck">
             {checking ? <Loader2 className="animate-spin" /> : <RefreshCw />}
             {t("Recheck")}
           </Button>
-        }
-      >
-        <div className="flex flex-col gap-4">
-          {groups.map((entry) => (
-            <div key={entry.group} className="flex flex-col gap-2">
-              <h4 className="text-muted-foreground font-mono text-[0.65rem] font-semibold tracking-[0.14em] uppercase">
-                {t(GROUP[entry.group])}
-              </h4>
-              <ul className="flex flex-col gap-2">
-                {entry.checks.map((one) => (
-                  <Problem key={`${one.code}:${one.params.project ?? ""}:${one.params.repository ?? ""}`} check={one} onFix={fix} />
-                ))}
-              </ul>
-            </div>
-          ))}
         </div>
-      </Panel>
+        <CollapsibleContent>
+          <ul className="flex flex-col gap-2 px-4 pb-3">
+            {checks.map((one) => (
+              <Problem key={`${one.code}:${one.params.project ?? ""}:${one.params.repository ?? ""}`} check={one} onFix={fix} />
+            ))}
+          </ul>
+        </CollapsibleContent>
+      </Collapsible>
     </section>
   )
 }
 
 function Problem({ check, onFix }: { check: HealthCheck; onFix: (check: HealthCheck) => Promise<boolean | void> }) {
   const t = useT()
+  const [more, setMore] = React.useState(false)
   const error = check.state === "error"
   const Icon = error ? OctagonAlert : AlertTriangle
   const params = fixParams(check)
+  const detailed = Boolean(check.cause || check.steps.length || check.notes.length || check.evidence)
   return (
-    <li
-      className={cn(
-        "flex flex-col gap-1.5 rounded-lg border px-3 py-2.5 text-sm",
-        error ? "border-destructive/40 bg-destructive/5" : "border-amber-500/40 bg-amber-500/5"
-      )}
-      data-testid="health-check"
-      data-code={check.code}
-      data-state={check.state}
-    >
-      <div className="flex items-start gap-2">
-        <Icon className={cn("mt-0.5 size-4 shrink-0", error ? "text-destructive" : "text-amber-600")} />
-        <div className="min-w-0 flex-1">
-          <p className="font-medium">{t(check.title, check.params)}</p>
-          <p>{t(check.said, check.params)}</p>
-          {check.cause ? (
-            <p className="text-muted-foreground">
-              {t("Probable cause:")} {t(check.cause, check.params)}
-            </p>
-          ) : null}
-          {check.steps.length ? (
-            <ol className="text-muted-foreground mt-1 list-decimal pl-5">
-              {check.steps.map((step) => (
-                <li key={step}>{t(step, params)}</li>
-              ))}
-            </ol>
-          ) : null}
-          {check.evidence ? (
-            <pre className="text-muted-foreground mt-1 font-mono text-xs break-words whitespace-pre-wrap">
-              {check.evidence}
-            </pre>
-          ) : null}
+    <Collapsible asChild open={more} onOpenChange={setMore}>
+      <li
+        className={cn(
+          "flex flex-col gap-1.5 rounded-lg border px-3 py-2 text-sm",
+          error ? "border-destructive/40 bg-destructive/5" : "border-amber-500/40 bg-amber-500/5"
+        )}
+        data-testid="health-check"
+        data-code={check.code}
+        data-state={check.state}
+      >
+        <div className="flex items-center gap-2">
+          <Icon className={cn("size-4 shrink-0", error ? "text-destructive" : "text-amber-600")} />
+          <p className="min-w-0 flex-1">
+            <span className="font-medium">{t(check.title, check.params)}</span>
+            <span className="text-muted-foreground"> — {t(check.said, check.params)}</span>
+          </p>
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+            {check.url ? (
+              <Button asChild variant="outline" size="sm">
+                <a href={check.url} target="_blank" rel="noreferrer">
+                  <ExternalLink />
+                  {t("Open the link")}
+                </a>
+              </Button>
+            ) : null}
+            {check.fix ? (
+              <ConfirmDialog
+                title={t("Configure automatically?")}
+                description={t(check.fix.confirm, params)}
+                confirm={t(check.fix.label)}
+                onConfirm={() => onFix(check)}
+                trigger={
+                  <Button size="sm" data-testid="health-fix">
+                    {t(check.fix.label)}
+                  </Button>
+                }
+              />
+            ) : null}
+            {detailed ? (
+              <CollapsibleTrigger
+                className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 flex items-center gap-1 rounded-md px-1 text-xs outline-none focus-visible:ring-2"
+                data-testid="health-detail-toggle"
+              >
+                {chevron(more)}
+                {t("Details")}
+              </CollapsibleTrigger>
+            ) : null}
+          </div>
         </div>
-        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-          {check.url ? (
-            <Button asChild variant="outline" size="sm">
-              <a href={check.url} target="_blank" rel="noreferrer">
-                <ExternalLink />
-                {t("Open the link")}
-              </a>
-            </Button>
-          ) : null}
-          {check.fix ? (
-            <ConfirmDialog
-              title={t("Configure automatically?")}
-              description={t(check.fix.confirm, params)}
-              confirm={t(check.fix.label)}
-              onConfirm={() => onFix(check)}
-              trigger={
-                <Button size="sm" data-testid="health-fix">
-                  {t(check.fix.label)}
-                </Button>
-              }
-            />
-          ) : null}
-        </div>
-      </div>
-    </li>
+        {detailed ? (
+          <CollapsibleContent className="text-muted-foreground flex flex-col gap-1 pl-6 text-xs" data-testid="health-detail">
+            {check.cause ? (
+              <p>
+                {t("Probable cause:")} {t(check.cause, check.params)}
+              </p>
+            ) : null}
+            {check.steps.length ? (
+              <ol className="list-decimal pl-4">
+                {check.steps.map((step) => (
+                  <li key={step}>{t(step, params)}</li>
+                ))}
+              </ol>
+            ) : null}
+            {check.notes.length ? (
+              <ul className="list-disc pl-4">
+                {check.notes.map((note) => (
+                  <li key={note.name}>
+                    <span className="font-medium">“{note.name}”</span> : {note.said.map((said) => t(said)).join(" ; ")}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            {check.evidence ? (
+              <pre className="font-mono text-[0.7rem] break-words whitespace-pre-wrap opacity-80">{check.evidence}</pre>
+            ) : null}
+          </CollapsibleContent>
+        ) : null}
+      </li>
+    </Collapsible>
   )
 }

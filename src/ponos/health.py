@@ -68,6 +68,15 @@ MINIMUM_CLAUDE = (2, 0, 0)
 # is for a single call, and a remote that does not answer is the case at hand.
 PROBE_TIMEOUT = 15
 
+# What a channel's error code means, for the codes Slack answers with — the code
+# itself stays in the evidence, quoted.
+NOTIFY_SAID = {
+    "channel_not_found": "{{channel}} cannot find the channel, or the bot cannot see it.",
+    "not_in_channel": "The bot is not in the {{channel}} channel.",
+    "missing_scope": "The {{channel}} token lacks a permission.",
+    "invalid_auth": "{{channel}} refused the bot token.",
+}
+
 NOTION_INTEGRATIONS = "https://www.notion.so/profile/integrations"
 CLAUDE_INSTALL = "https://docs.claude.com/en/docs/claude-code/setup"
 
@@ -86,6 +95,9 @@ class Check:
     url: str = ""
     # What a tool printed, quoted — never translated.
     evidence: str = ""
+    # What each name in a list is worth: {"name", "said": [sentences]}, the
+    # sentences templates like the rest, the name a thing of the user's own.
+    notes: list[dict] = field(default_factory=list)
     # {"action", "label", "confirm", "target"} when Ponos can make the fix.
     fix: dict[str, str] | None = None
 
@@ -235,13 +247,15 @@ def _schema(
     schema = client.schema(space.tickets)
     missing: list[str] = []
     wrong: list[str] = []
-    costs: list[str] = []
+    costs: dict[str, list[str]] = {}
     for key, (accepted, cost) in store.COLUMNS.items():
         name = settings.prop(key)
         kind = schema.get(name)
         if kind is None:
-            missing.append(name)
-            costs.append(f"“{name}”: {cost}")
+            # Two settings may name one property (`agent` and `role` both say "Agent"): said once.
+            if name not in missing:
+                missing.append(name)
+            costs.setdefault(name, []).append(cost)
         elif kind not in accepted:
             wrong.append(f"“{name}” is a {kind}, not {' or '.join(accepted)}")
     wanted_columns = provision.tickets_schema(settings, space.projects, space.agents)
@@ -278,7 +292,7 @@ def _schema(
                     if wrong
                     else []
                 ),
-                evidence="\n".join(costs),
+                notes=[{"name": name, "said": said} for name, said in costs.items()],
                 # What `init` would add: a relation to a database that does not exist is not on the list.
                 fix=_fix(
                     "notion_columns",
@@ -883,17 +897,18 @@ def _machine(config: config_module.Config) -> list[Check]:
                     OK,
                     "{{channel}} notifications",
                     "{{channel}}: {{said}}.",
-                    params={"channel": channel.name, "said": channel.check()},
+                    params={"channel": channel.name.capitalize(), "said": channel.check()},
                 )
             )
         except channels.ChannelError as error:
+            code = _first_line(error).split(" ", 1)[0]
             found.append(
                 _check(
                     "machine.notify",
                     ERROR,
                     "{{channel}} notifications",
-                    "{{channel}} does not answer.",
-                    params={"channel": channel.name},
+                    NOTIFY_SAID.get(code, "{{channel}} does not answer."),
+                    params={"channel": channel.name.capitalize()},
                     evidence=_first_line(error),
                     cause="The token was revoked, or the chat or channel is wrong.",
                     steps=["Check the {{channel}} token and chat in Settings › Notifications."],

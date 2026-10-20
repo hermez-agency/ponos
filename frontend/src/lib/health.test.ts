@@ -18,6 +18,7 @@ const check = (code: string, state: HealthCheck["state"], extra: Partial<HealthC
   steps: [],
   url: "",
   evidence: "",
+  notes: [],
   fix: null,
   ...extra,
 })
