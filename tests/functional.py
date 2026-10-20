@@ -26,6 +26,7 @@ logs and the history with it.
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import shutil
@@ -54,6 +55,18 @@ from ponos.runner import Runner  # noqa: E402
 from ponos.ticket import short_id  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
+
+# An update is checked by importing the new version's console, FastAPI with
+# it: a `python3` without it runs the suite again under the checkout's `.venv`,
+# which `uv sync` makes — as `tests/run.py` does.
+_VENV = ROOT / ".venv" / "bin" / "python"
+if (
+    __name__ == "__main__"
+    and importlib.util.find_spec("fastapi") is None
+    and _VENV.is_file()
+    and Path(sys.prefix).resolve() != _VENV.parents[1].resolve()
+):
+    os.execv(_VENV, [str(_VENV), *sys.argv])
 
 
 def _ident() -> str:
@@ -2723,7 +2736,7 @@ def a_pass_started_during_an_update_runs_on_one_version_and_never_on_both(machin
         # The new version's own environment, holding what it imports, before
         # anything ran on it.
         probe = subprocess.run(
-            [str(app / ".venv" / "bin" / "python"), "-c", "import httpx"],
+            [str(app / ".venv" / "bin" / "python"), "-c", "import httpx, fastapi, uvicorn"],
             capture_output=True,
             text=True,
         )

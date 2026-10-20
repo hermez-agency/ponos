@@ -1,10 +1,11 @@
 # The project, as the Python tools read it.
 #
-# `dependencies` is what the runner imports beyond the standard library —
-# httpx, since October 2026, and each one by a ticket of its own (see the
-# audit). It reaches installations as `requirements.txt`, the export of
-# `uv.lock`, which each version installs in its own `.venv` (environment.py):
-# `install.sh` still asks the machine for python3 and git and nothing else.
+# `dependencies` is what the code imports beyond the standard library — httpx
+# for the runner, FastAPI served by uvicorn for the console (src/ponos/web/app.py),
+# each one by a ticket of its own (see the audit). They reach installations as
+# `requirements.txt`, the export of `uv.lock`, which each version installs in
+# its own `.venv` (environment.py): `install.sh` still asks the machine for
+# python3 and git and nothing else.
 # The rest is the tooling around the code — ruff, mypy, pytest — pinned in the same
 # lockfile so that every machine and the CI lint and test with the same
 # versions. `uv sync` installs both in `.venv`, and the suites run there.
@@ -23,6 +24,8 @@ authors = [{ name = "Hermez", email = "contact@cardona.digital" }]
 requires-python = ">=3.11"
 dependencies = [
     "httpx>=0.28.1",
+    "fastapi>=0.151.0",
+    "uvicorn>=0.54.0",
 ]
 
 [project.urls]
@@ -75,6 +78,10 @@ ignore = [
     # A nested `if` keeps apart two questions a comment tells apart.
     "SIM102",
 ]
+
+[tool.ruff.lint.flake8-bugbear]
+# How FastAPI is told what a parameter is: read once, when the route is filed.
+extend-immutable-calls = ["fastapi.Body", "fastapi.Query"]
 
 [tool.mypy]
 # Strict for every module, but two lists hold back those not there yet, and

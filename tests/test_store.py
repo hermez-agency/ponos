@@ -381,11 +381,11 @@ def the_console_server_creates_a_project_and_says_which_field_it_refuses():
     import urllib.parse
     import urllib.request
 
-    from ponos.web import server as web_server
+    from ponos.web import app as web_app
 
     with _board() as board:
         api = _creatable(board)
-        console = web_server.Console(("127.0.0.1", 0), web_server.Handler, api, "tok")
+        console = web_app.Console(("127.0.0.1", 0), api, "tok")
         threading.Thread(target=console.serve_forever, daemon=True).start()
         base = f"http://127.0.0.1:{console.server_address[1]}"
         headers = {

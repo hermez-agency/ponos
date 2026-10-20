@@ -590,11 +590,13 @@ def verify(app: Path) -> str:
 
     Imported by a Python of its own, from the directory itself — the one its
     launcher will run, its environment's when it has one: the process asking is
-    still running the old modules, and would answer for those. The
-    console's page is checked too — it is committed, and a version without it
-    is a console that answers every address with a 404.
+    still running the old modules, and would answer for those. The console's
+    application is imported with the rest, FastAPI with it: an environment
+    missing a package is a console that does not start after the move. Its
+    page is checked too — it is committed, and a version without it is a
+    console that answers every address with a 404.
     """
-    probe = "import ponos.__main__, ponos.web.server"
+    probe = "import ponos.__main__, ponos.web.server, ponos.web.app"
     variables = {**os.environ, "PYTHONPATH": str(app / "src")}
     try:
         done = subprocess.run(

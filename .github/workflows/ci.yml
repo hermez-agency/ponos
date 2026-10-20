@@ -3,8 +3,11 @@
 # `update_channel = "main"` prennent chaque commit sans attendre un tag.
 #
 # Le job cœur tourne toujours : les deux suites n'ont pas de raison d'être
-# sautées. Il installe ce que le runner importe — `requirements.txt`, avec ses
-# sommes, comme une installation le met dans son `.venv` —, et rien d'autre.
+# sautées. Il installe ce que le cœur importe — `requirements.txt`, avec ses
+# sommes, comme une installation le met dans son `.venv` : httpx pour le runner,
+# FastAPI et uvicorn pour la console —, et rien d'autre. `tests/run.py` vérifie
+# que rien hors de `web/app.py`, `web/routes.py` et de httpx dans `http.py`
+# n'importe autre chose que la bibliothèque standard.
 # `tests/functional.py` a besoin de `git`, que le runner GitHub a déjà : son
 # Notion, son dépôt et son `claude` sont à lui. Il tourne sur la plus ancienne version de Python que le
 # runner promet (3.11) et sur la plus récente, parce qu'une installation prend
@@ -23,11 +26,13 @@
 # pull request, frontend touché ou non. Il ouvre enfin la console dans le Chrome
 # du runner GitHub (`npm run test:e2e`), servie par le vrai `ponos
 # serve` sur un board de fichiers : ce qu'un navigateur fait d'une page — la
-# faire défiler, par exemple — aucune des deux suites ne le voit.
+# faire défiler, par exemple — aucune des deux suites ne le voit. Ce `serve`
+# tourne sur le `python3` où `requirements.txt` vient d'être installé, FastAPI
+# compris.
 # Node 24, parce que `npm test` fait lire à `node --test` les tests de
 # la barre de message écrits en TypeScript, sans rien installer pour ça.
 #
-# Le job qualité est le seul à installer quelque chose : l'outillage de
+# Le job qualité installe le projet entier : la console et l'outillage de
 # `pyproject.toml`, aux versions de `uv.lock` (`uv sync --locked` échoue si le
 # lockfile ne correspond plus au pyproject). Il passe ruff — les règles du
 # pyproject, puis `ruff format --check` —, vérifie que `requirements.txt`, ce que les
@@ -133,7 +138,7 @@ jobs:
         with:
           python-version: "3.13"
 
-      # Le `ponos serve` que les e2e ouvrent importe ce que le runner importe.
+      # Le `ponos serve` que les e2e ouvrent importe ce que le cœur importe.
       - name: Ce que le runner importe
         if: steps.changes.outputs.frontend == 'true'
         run: python3 -m pip install --disable-pip-version-check --require-hashes -r requirements.txt

@@ -1142,13 +1142,14 @@ def the_gate_says_a_chosen_token_lives_in_secrets_env_and_why_a_cookie_was_refus
     import urllib.error
     import urllib.request
 
+    from ponos.web import app as web_app
     from ponos.web import server as web_server
 
     api = _bare_api(_TalkClient([]))
     api._config.web.token = "tok"
     folder = Path(tempfile.mkdtemp())
     api._config.path = folder / "config.toml"
-    console = web_server.Console(("127.0.0.1", 0), web_server.Handler, api, "tok")
+    console = web_app.Console(("127.0.0.1", 0), api, "tok")
     threading.Thread(target=console.serve_forever, daemon=True).start()
     port = console.server_address[1]
 
@@ -1209,10 +1210,10 @@ def a_write_refused_before_its_body_is_read_closes_the_connection():
     """
     import socket as sockets
 
-    from ponos.web import server as web_server
+    from ponos.web import app as web_app
 
     api = _bare_api(_TalkClient([]))
-    console = web_server.Console(("127.0.0.1", 0), web_server.Handler, api, "tok")
+    console = web_app.Console(("127.0.0.1", 0), api, "tok")
     thread = threading.Thread(target=console.serve_forever, daemon=True)
     thread.start()
     try:
@@ -1231,7 +1232,7 @@ def a_write_refused_before_its_body_is_read_closes_the_connection():
         console.server_close()
     said = answer.decode("utf-8", "replace")
     assert said.startswith("HTTP/1.1 401"), said[:80]
-    assert "Connection: close" in said
+    assert "connection: close" in said.lower()
     assert "501" not in said, "the body was read as the next request"
 
 
@@ -1245,47 +1246,53 @@ def a_client_that_hangs_up_mid_answer_leaves_no_trace():
     """
     import socket as sockets
 
-    from ponos.web import server as web_server
+    from ponos.web import app as web_app
 
-    done = threading.Event()
+    asked = threading.Event()
+    journal: list[str] = []
 
-    class Handler(web_server.Handler):
-        def finish(self) -> None:
-            try:
-                super().finish()
-            finally:
-                done.set()
+    class Kept(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            journal.append(self.format(record))
 
+    kept = Kept(logging.WARNING)
     api = _bare_api(_TalkClient([]))
-    console = web_server.Console(("127.0.0.1", 0), Handler, api, "tok")
+    console = web_app.Console(("127.0.0.1", 0), api, "tok")
     threading.Thread(target=console.serve_forever, daemon=True).start()
     port = console.server_address[1]
     request = b"GET /api/board HTTP/1.1\r\nHost: 127.0.0.1\r\nAuthorization: Bearer tok\r\n\r\n"
     stderr, sys.stderr = sys.stderr, io.StringIO()
+    logging.getLogger("uvicorn.error").addHandler(kept)
     try:
-        # Far more than the socket buffers hold, so the write meets the hang-up.
-        api.board = lambda: {"tickets": ["x" * 1024] * 8192}
+
+        def large():
+            asked.set()
+            # Far more than the socket buffers hold, so the write meets the hang-up.
+            return {"tickets": ["x" * 1024] * 8192}
+
+        api.board = large
         with sockets.create_connection(("127.0.0.1", port), timeout=5) as connection:
             connection.sendall(request)
             connection.recv(100)
-        assert done.wait(5), "the request never finished"
-        journal = sys.stderr.getvalue()
+        assert asked.wait(5), "the request never arrived"
+        time.sleep(0.5)
+        journal.append(sys.stderr.getvalue())
 
         def broken():
             raise RuntimeError("the board is upside down\nand more")
 
         api.board = broken
-        done.clear()
         with sockets.create_connection(("127.0.0.1", port), timeout=5) as connection:
             connection.sendall(request.replace(b"\r\n\r\n", b"\r\nConnection: close\r\n\r\n"))
             answer = b""
             while chunk := connection.recv(65536):
                 answer += chunk
     finally:
+        logging.getLogger("uvicorn.error").removeHandler(kept)
         sys.stderr = stderr
         console.shutdown()
         console.server_close()
-    assert journal == "", journal
+    assert "".join(journal) == "", journal
     said = answer.decode("utf-8", "replace")
     assert said.startswith("HTTP/1.1 500"), said[:80]
     assert said.endswith('{"error": "the board is upside down"}'), said[-80:]
@@ -1295,14 +1302,14 @@ def a_client_that_hangs_up_mid_answer_leaves_no_trace():
 def a_500_leaves_its_trace_in_the_journal_masked(state_home):
     """A route that raised answered a 500 and kept the reason to itself.
 
-    `log_message` was switched off and the `except Exception` turned the error
+    The request log was switched off and the `except Exception` turned the error
     into one line of JSON: the console's journal said nothing of it. It now
     holds the whole trace — and the request that came back 500 — with the
     secrets the trace printed masked, a vault's value and a token's shape alike.
     """
     import socket as sockets
 
-    from ponos.web import server as web_server
+    from ponos.web import app as web_app
 
     secret = "vault-value-" + "q" * 24
     token = "ghp_" + "Z" * 36
@@ -1315,7 +1322,7 @@ def a_500_leaves_its_trace_in_the_journal_masked(state_home):
         raise RuntimeError(f"the board refused {secret} and {token}")
 
     api.board = broken
-    console = web_server.Console(("127.0.0.1", 0), web_server.Handler, api, "tok")
+    console = web_app.Console(("127.0.0.1", 0), api, "tok")
     threading.Thread(target=console.serve_forever, daemon=True).start()
     try:
         request = (
@@ -1334,7 +1341,7 @@ def a_500_leaves_its_trace_in_the_journal_masked(state_home):
         written = target.read_text(encoding="utf-8")
         served = api.service_log(50)["lines"]
     assert answer.startswith(b"HTTP/1.1 500"), answer[:80]
-    assert "ERROR ponos.web.server: console: GET /api/board failed" in written, written
+    assert "ERROR ponos.web.routes: console: GET /api/board failed" in written, written
     assert "Traceback (most recent call last)" in written and "in broken" in written, written
     assert "console: GET /api/board → 500" in written, written
     assert secret not in written and token not in written, written

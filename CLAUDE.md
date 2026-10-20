@@ -16,14 +16,16 @@ canaux (Telegram, Slack) permettent de suivre le travail ou d'y répondre.
 
 Deux mondes séparés, à ne pas mélanger :
 
-- **Cœur** — Python 3.11+, la bibliothèque standard et une seule dépendance
-  d'exécution : **httpx** (`dependencies` dans `pyproject.toml`, exportée avec
-  ses sommes dans `requirements.txt`). Le groupe `dev` porte l'outillage
-  (ruff, mypy, pytest, pytest-cov), le tout figé dans `uv.lock`. Chaque version
-  installée a son `.venv` (`environment.py`), qui reçoit `requirements.txt`
-  avant la bascule ; l'image l'installe au build. Les suites de tests tournent
-  dans le `.venv` de `uv sync`, ou avec un `python3` où `requirements.txt` est
-  installé.
+- **Cœur** — Python 3.11+, la bibliothèque standard et trois dépendances
+  d'exécution : **httpx** pour le runner, **FastAPI** servi par **uvicorn**
+  pour la console (`web/app.py`, `web/routes.py`) — `dependencies` dans
+  `pyproject.toml`, exportées avec leurs sommes dans `requirements.txt`. Le
+  groupe `dev` porte l'outillage (ruff, mypy, pytest, pytest-cov), le tout figé
+  dans `uv.lock`. Chaque version installée a son `.venv` (`environment.py`), qui
+  reçoit `requirements.txt` avant la bascule ; l'image l'installe au build. Les
+  suites de tests tournent dans le `.venv` de `uv sync`, ou avec un `python3` où
+  `requirements.txt` est installé ; `python3 tests/run.py` se relance dans le
+  `.venv` du dépôt quand `python3` n'a pas FastAPI.
 - **`frontend/`** — sous-projet séparé : React 19, TypeScript, Vite 8,
   shadcn/ui sur Tailwind 4. Géré par npm (`package-lock.json`). Node n'est
   nécessaire que pour *modifier* la console, jamais pour l'installer ou
@@ -78,7 +80,7 @@ et 3.13 ; le job qualité fait `uv sync --locked`, `ruff check`, `ruff format --
 `src/ponos/web/**` a changé, et y
 fait `npm ci`, `npm run lint`, `npm test`, `npm run build` (sous Node 24),
 échoue si `src/ponos/web/static` diffère de ce que le build vient
-d'écrire, puis lance `npm run test:e2e`.
+d'écrire, puis lance `npm run test:e2e` sur ce `requirements.txt` installé.
 Un job `image` construit le `Dockerfile` et relance `tests/functional.py`
 dedans. `release.yml` reste séparé, ne se déclenche que sur un tag, relance les
 deux suites, puis publie l'image sur `ghcr.io`.
@@ -110,7 +112,9 @@ deux suites, puis publie l'image sur `ghcr.io`.
   `httpx.MockTransport`),
   `log.py` (le journal `ponos.log` : un logger par module, la trace de chaque
   erreur rattrapée, le masquage des secrets avant l'écriture),
-  `channels/` (Telegram, Slack), `web/` (serveur de la console et API ;
+  `channels/` (Telegram, Slack), `web/` (la console : `server.py` la porte —
+  jeton, connexion, pages d'avant, `serve` —, `app.py` l'application FastAPI —
+  la garde en middleware, le flux SSE, MCP et OAuth —, `routes.py` l'API ;
   `web/attempts.py` compte les tentatives ratées par adresse, `web/sessions.py` date et
   révoque les connexions ;
   `web/console.py` tient la conversation avec l'espace de travail, et
@@ -148,7 +152,8 @@ deux suites, puis publie l'image sur `ghcr.io`.
   des annotations de type partout.
 - Le cœur n'importe que la bibliothèque standard, ses propres modules et
   httpx — et httpx seulement dans `http.py` : une requête passe par
-  `http.send`, jamais par `urllib.request`. Un autre
+  `http.send`, jamais par `urllib.request`. FastAPI (et ce qu'il tire) n'entre
+  que dans `web/app.py` et `web/routes.py` — un test le vérifie. Un autre
   paquet tiers n'entre que par le ticket qui le décide (voir l'audit), déclaré
   dans `pyproject.toml` et exporté dans `requirements.txt` — jamais au détour
   d'un autre changement.
@@ -172,6 +177,11 @@ deux suites, puis publie l'image sur `ghcr.io`.
   `frontend/` — le runner s'installe avec `python3` et `git` seulement, donc ce
   répertoire doit rester dans le dépôt et à jour à chaque changement de la
   console.
+- **`web/server.py` reste en bibliothèque standard.** Une installation encore
+  en v0.1.0 vérifie une nouvelle version en important `ponos.web.server` avec le
+  `python3` de la machine (`update.verify`) : y importer FastAPI bloquerait
+  pour de bon la mise à jour qui l'apporte. Ce qui en a besoin va dans
+  `web/app.py`, que `serve` importe au moment de servir.
 - **`diagrams/architecture.html` ne s'édite jamais directement.** Il est
   généré par l'outil `archify` à partir de
   `diagrams/ponos.architecture.json`, qui est le fichier à modifier.
