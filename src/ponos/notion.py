@@ -126,14 +126,15 @@ class Client:
             # is open. Sending the example's placeholder to Notion would only
             # buy a 401 — or a timeout — per poll, to say what is known here.
             raise NotionError(
-                "no Notion token yet — the console's first connection, "
-                "or `ponos init`, sets it"
+                "no Notion token yet — the console's first connection, or `ponos init`, sets it"
             )
         # Masked here, at the one door every write to Notion goes through: a
         # comment, a page, a property — none of them carries a secret. See vault.py.
         data = (
-            raw if raw is not None
-            else json.dumps(vault.masked(body)).encode() if body is not None
+            raw
+            if raw is not None
+            else json.dumps(vault.masked(body)).encode()
+            if body is not None
             else None
         )
         request = urllib.request.Request(
@@ -182,7 +183,9 @@ class Client:
                 # Raised while connecting or sending: the request never reached
                 # Notion whole, so even a comment is safe to send again.
                 last = str(error.reason)
-                unreachable = isinstance(error.reason, (socket.gaierror, ConnectionError, TimeoutError))
+                unreachable = isinstance(
+                    error.reason, (socket.gaierror, ConnectionError, TimeoutError)
+                )
             except (ValueError, http.client.InvalidURL) as error:
                 # A malformed path never becomes valid by retrying — most often
                 # a configuration value that is not what it claims to be. And
@@ -424,7 +427,11 @@ class Client:
         block = self._request("GET", f"/blocks/{block_id}")
         kind = block.get("type", "")
         payload = (block.get(kind) or {}) if kind in ("image", "file", "pdf") else {}
-        url = (payload.get("file") or {}).get("url") or (payload.get("external") or {}).get("url") or ""
+        url = (
+            (payload.get("file") or {}).get("url")
+            or (payload.get("external") or {}).get("url")
+            or ""
+        )
         # Somebody else's address is whatever was pasted; only the web is sent on.
         if not url.lower().startswith(("https://", "http://")):
             raise LookupError(f"block {block_id} holds no file")
@@ -534,9 +541,7 @@ class Client:
         for batch in converter.chunked(blocks):
             if not batch:
                 continue
-            payload = self._request(
-                "PATCH", f"/blocks/{block_id}/children", {"children": batch}
-            )
+            payload = self._request("PATCH", f"/blocks/{block_id}/children", {"children": batch})
             created += [item.get("id", "") for item in payload.get("results", [])]
         return created
 
@@ -607,18 +612,20 @@ class Client:
             raise NotionError(
                 f"{name}: {len(data) // (1024 * 1024)} MB is more than Notion takes in one piece"
             )
-        created = self._request(
-            "POST", "/file_uploads", {"filename": name, "content_type": kind}
-        )
+        created = self._request("POST", "/file_uploads", {"filename": name, "content_type": kind})
         identifier = str(created.get("id", ""))
         if not identifier:
             raise NotionError("POST /file_uploads: Notion answered without an upload ID")
         boundary = f"ponos-{os.urandom(12).hex()}"
         safe = name.replace('"', "").replace("\r", "").replace("\n", "")
         body = (
-            f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="{safe}"\r\n'
-            f"Content-Type: {kind}\r\n\r\n"
-        ).encode() + data + f"\r\n--{boundary}--\r\n".encode()
+            (
+                f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="{safe}"\r\n'
+                f"Content-Type: {kind}\r\n\r\n"
+            ).encode()
+            + data
+            + f"\r\n--{boundary}--\r\n".encode()
+        )
         self._request(
             "POST",
             f"/file_uploads/{identifier}/send",
@@ -729,7 +736,10 @@ class Client:
         payload = self._request(
             "POST",
             "/pages",
-            {"parent": {"type": "database_id", "database_id": database_id}, "properties": properties},
+            {
+                "parent": {"type": "database_id", "database_id": database_id},
+                "properties": properties,
+            },
         )
         return payload.get("id", "").replace("-", "")
 

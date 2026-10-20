@@ -139,7 +139,9 @@ def listing(query: str = "") -> list[dict]:
     try:
         with db.transaction(immediate=False) as connection:
             if query:
-                like = "%" + query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+                like = (
+                    "%" + query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+                )
                 rows = connection.execute(
                     "SELECT id, title, model, project, turns, updated, created, "
                     "title LIKE ? ESCAPE '\\' FROM chats "

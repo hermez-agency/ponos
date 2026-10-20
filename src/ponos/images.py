@@ -119,7 +119,9 @@ def face(raw: dict[str, Any], slot: str) -> Face:
         inner = value.get("file") or {}
         url = str(inner.get("url", ""))
         return Face(
-            "file", url=url, expires=str(inner.get("expiry_time") or ""),
+            "file",
+            url=url,
+            expires=str(inner.get("expiry_time") or ""),
             identity=f"file:{url.split('?', 1)[0]}",
         )
     if kind in ("external", "custom_emoji"):
@@ -403,7 +405,9 @@ class Cache:
                 except OSError as error:
                     raise StoreError(f"{self._dir}: {error}") from error
                 pending.update(
-                    kind="upload", file=name, type=kind,
+                    kind="upload",
+                    file=name,
+                    type=kind,
                     name=picture.name or f"{slot}{SUFFIXES[kind]}",
                 )
             elif picture.url:

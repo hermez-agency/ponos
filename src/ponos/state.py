@@ -251,7 +251,11 @@ def waiting_for_base(ticket_id: str) -> tuple[str, str, list[str]] | None:
             ).fetchone()
     except db.ERRORS:
         return None
-    return (str(row[0]), str(row[1]), [name for name in str(row[2]).split("\n") if name]) if row else None
+    return (
+        (str(row[0]), str(row[1]), [name for name in str(row[2]).split("\n") if name])
+        if row
+        else None
+    )
 
 
 def forget_base_wait(ticket_id: str) -> None:
@@ -350,9 +354,7 @@ def forget_mending(ticket_id: str, head: str) -> None:
     """That repair never ran (no credit left): it may be asked for again."""
     try:
         with db.transaction() as connection:
-            connection.execute(
-                "DELETE FROM mends WHERE ticket = ? AND head = ?", (ticket_id, head)
-            )
+            connection.execute("DELETE FROM mends WHERE ticket = ? AND head = ?", (ticket_id, head))
     except db.ERRORS:
         pass
 
@@ -413,7 +415,9 @@ def drop_ci(ticket_ids: Iterable[str]) -> None:
     """Stop following those tickets: they have left review."""
     try:
         with db.transaction() as connection:
-            connection.executemany("DELETE FROM ci WHERE ticket = ?", [(one,) for one in ticket_ids])
+            connection.executemany(
+                "DELETE FROM ci WHERE ticket = ?", [(one,) for one in ticket_ids]
+            )
     except db.ERRORS:
         pass
 

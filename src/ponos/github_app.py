@@ -268,7 +268,7 @@ def take_state(state: str) -> dict | None:
 
 
 def app_name(installation: str) -> str:
-    """"Ponos — {this installation}", within GitHub's thirty-four characters."""
+    """ "Ponos — {this installation}", within GitHub's thirty-four characters."""
     return f"Ponos — {installation.strip() or 'console'}"[:LONGEST_NAME].rstrip()
 
 
@@ -348,7 +348,9 @@ def _children(sequence: bytes) -> list[tuple[int, bytes]]:
 
 def private_key(pem: str) -> tuple[int, int]:
     """The modulus and the private exponent of an RSA key, PKCS #1 or PKCS #8."""
-    body = "".join(line for line in pem.strip().splitlines() if line and not line.startswith("-----"))
+    body = "".join(
+        line for line in pem.strip().splitlines() if line and not line.startswith("-----")
+    )
     try:
         data = base64.b64decode(body)
         _, outer, _ = _der(data, 0)
@@ -382,7 +384,11 @@ def jwt(app: App, now: float | None = None) -> str:
     """What the app proves itself with: ten minutes at the most, as GitHub asks."""
     moment = int(time.time() if now is None else now)
     header = _b64(json.dumps({"alg": "RS256", "typ": "JWT"}, separators=(",", ":")).encode())
-    claims = {"iat": moment - JWT_PAST, "exp": moment + JWT_FUTURE, "iss": app.client_id or str(app.id)}
+    claims = {
+        "iat": moment - JWT_PAST,
+        "exp": moment + JWT_FUTURE,
+        "iss": app.client_id or str(app.id),
+    }
     payload = _b64(json.dumps(claims, separators=(",", ":")).encode())
     signing = f"{header}.{payload}".encode()
     return f"{header}.{payload}.{_b64(sign(signing, app.pem))}"
@@ -418,7 +424,9 @@ def installations(app: App, fresh: bool = False) -> list[dict]:
             "id": int(one["id"]),
             "account": str((one.get("account") or {}).get("login") or ""),
             "selection": str(one.get("repository_selection") or ""),
-            "permissions": one.get("permissions") if isinstance(one.get("permissions"), dict) else {},
+            "permissions": one.get("permissions")
+            if isinstance(one.get("permissions"), dict)
+            else {},
         }
         for one in (answer if isinstance(answer, list) else [])
         if isinstance(one, dict) and one.get("id")
@@ -442,7 +450,9 @@ def installation_token(app: App, installation: int, now: float | None = None) ->
         held = _tokens.get(installation)
     if held and held[1] - moment > RENEW_SECONDS:
         return held[0]
-    answer = _call("POST", f"/app/installations/{installation}/access_tokens", bearer=jwt(app, moment))
+    answer = _call(
+        "POST", f"/app/installations/{installation}/access_tokens", bearer=jwt(app, moment)
+    )
     token = str(answer.get("token") or "") if isinstance(answer, dict) else ""
     if not token:
         raise GitHubAppError("GitHub gave no installation token")
@@ -533,8 +543,13 @@ def describe(with_repositories: bool = True) -> list[dict]:
         }
         try:
             for one in installations(app, fresh=with_repositories):
-                drawn = {"id": one["id"], "account": one["account"], "selection": one["selection"],
-                         "repositories": [], "error": ""}
+                drawn = {
+                    "id": one["id"],
+                    "account": one["account"],
+                    "selection": one["selection"],
+                    "repositories": [],
+                    "error": "",
+                }
                 if with_repositories:
                     try:
                         drawn["repositories"] = repositories(app, one["id"])
@@ -555,7 +570,9 @@ def bot(app: App) -> tuple[str, str]:
         user = int(answer.get("id") or 0) if isinstance(answer, dict) else 0
     except GitHubAppError:
         user = 0
-    address = f"{user}+{login}@users.noreply.github.com" if user else f"{login}@users.noreply.github.com"
+    address = (
+        f"{user}+{login}@users.noreply.github.com" if user else f"{login}@users.noreply.github.com"
+    )
     return login, address
 
 
@@ -583,10 +600,14 @@ def _config(entries: list[tuple[str, str]], base: dict[str, str] | None = None) 
 
 # The helper for the runner's own commands: the token is in GH_TOKEN, which
 # `git.run` has just set — read from there, so that it is in no argument.
-STATIC_HELPER = '!f() { test "$1" = get && echo username=x-access-token && echo "password=$GH_TOKEN"; }; f'
+STATIC_HELPER = (
+    '!f() { test "$1" = get && echo username=x-access-token && echo "password=$GH_TOKEN"; }; f'
+)
 
 
-def git_environment(helper: str = STATIC_HELPER, base: dict[str, str] | None = None) -> dict[str, str]:
+def git_environment(
+    helper: str = STATIC_HELPER, base: dict[str, str] | None = None
+) -> dict[str, str]:
     """The environment that has git authenticate to github.com with the app's token."""
     return _config(
         [
@@ -615,7 +636,7 @@ def _tools() -> tuple[Path, Path]:
         "#!/bin/sh\n"
         f"exec {python} -I -c 'import sys; sys.path.insert(0, sys.argv[1]); "
         "from ponos import github_app; raise SystemExit(github_app.helper(sys.argv[2:]))' "
-        f"{shlex.quote(str(source))} \"$@\"\n",
+        f'{shlex.quote(str(source))} "$@"\n',
         mode=0o700,
     )
     real = shutil.which("gh")
@@ -624,9 +645,9 @@ def _tools() -> tuple[Path, Path]:
         disk.write_atomic(
             wrapper,
             "#!/bin/sh\n"
-            f"fresh=$({shlex.quote(str(helper))} token) && [ -n \"$fresh\" ] && "
+            f'fresh=$({shlex.quote(str(helper))} token) && [ -n "$fresh" ] && '
             "GH_TOKEN=$fresh GITHUB_TOKEN=$fresh && export GH_TOKEN GITHUB_TOKEN\n"
-            f"exec {shlex.quote(real)} \"$@\"\n",
+            f'exec {shlex.quote(real)} "$@"\n',
             mode=0o700,
         )
     return helper, wrapper

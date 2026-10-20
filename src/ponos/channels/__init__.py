@@ -125,7 +125,7 @@ class Ask:
 
 
 def decide(text: str) -> str:
-    """"yes", "no", or "" for anything that is not one of those two.
+    """ "yes", "no", or "" for anything that is not one of those two.
 
     Read where every answer is read — see `question.decide` — since a reply
     typed on a phone and one typed under the question in Notion are the same
@@ -134,7 +134,9 @@ def decide(text: str) -> str:
     return question.decide(text)
 
 
-def answer(reply: Reply, said: voice.Voice | None = None, asked: question.Question | None = None) -> str:
+def answer(
+    reply: Reply, said: voice.Voice | None = None, asked: question.Question | None = None
+) -> str:
     """The comment a reply becomes, written for the session that will read it.
 
     A bare "oui" means nothing to an agent reading the ticket a minute later —
@@ -398,7 +400,5 @@ def announce(
 ) -> int:
     """Send one message to every configured channel. Returns how many took it."""
     return sum(
-        1
-        for channel in open(settings)
-        if channel.send(text, ticket=ticket, title=title, ask=ask)
+        1 for channel in open(settings) if channel.send(text, ticket=ticket, title=title, ask=ask)
     )

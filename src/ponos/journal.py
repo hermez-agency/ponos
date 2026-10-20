@@ -74,7 +74,9 @@ class Run:
     be opened, and does nothing then.
     """
 
-    def __init__(self, identifier: int | None, say: Callable[[str], None] = lambda message: None) -> None:
+    def __init__(
+        self, identifier: int | None, say: Callable[[str], None] = lambda message: None
+    ) -> None:
         self.id = identifier
         self.say = say
         self.position = 0
@@ -135,7 +137,9 @@ class Run:
             # or nothing) is not always what answers.
             announced = payload.get("model")
             if isinstance(announced, str) and announced.strip():
-                self._write("UPDATE runs SET reported = ? WHERE id = ?", (announced.strip(), self.id))
+                self._write(
+                    "UPDATE runs SET reported = ? WHERE id = ?", (announced.strip(), self.id)
+                )
             return
         if payload.get("type") == "result":
             spent = payload.get("total_cost_usd")
@@ -161,7 +165,9 @@ class Run:
     def again(self, session: str, log: Path | str) -> None:
         """The session was started over: same run, a new session and its own log."""
         if self.open:
-            self._write("UPDATE runs SET session = ?, log = ? WHERE id = ?", (session, str(log), self.id))
+            self._write(
+                "UPDATE runs SET session = ?, log = ? WHERE id = ?", (session, str(log), self.id)
+            )
 
     def end(self, status: str, reason: str = "", code: str = "") -> None:
         """What the ticket came to, and the cause it stopped on. Once: a run closed is not reopened."""
@@ -190,7 +196,9 @@ class Run:
 
 def _ticket_key(reference: str) -> str:
     """A ticket however it was given — full id, dashed, a URL, the short form."""
-    return reference.strip().rstrip("/").rsplit("/", 1)[-1].rsplit("-", 1)[-1].replace("-", "").lower()
+    return (
+        reference.strip().rstrip("/").rsplit("/", 1)[-1].rsplit("-", 1)[-1].replace("-", "").lower()
+    )
 
 
 def _run(row: sqlite3.Row | tuple, names: list[str]) -> dict:
@@ -249,7 +257,13 @@ def spans(ticket: str = "") -> dict[str, list[dict]]:
     found: dict[str, list[dict]] = {}
     for ticket_id, start, end, status, code, last in rows:
         found.setdefault(ticket_id, []).append(
-            {"start": start, "end": end, "status": status, "code": code or "", "last": last or start}
+            {
+                "start": start,
+                "end": end,
+                "status": status,
+                "code": code or "",
+                "last": last or start,
+            }
         )
     return found
 
@@ -304,8 +318,12 @@ def steps(identifier: int, *, before: int = 0, after: int = 0, limit: int = PAGE
                 " WHERE run = ? AND (? = 0 OR position < ?) ORDER BY position DESC LIMIT ?",
                 (identifier, before, before, limit),
             ).fetchall()[::-1]
-        count = connection.execute("SELECT count(*) FROM steps WHERE run = ?", (identifier,)).fetchone()[0]
-        first = connection.execute("SELECT min(position) FROM steps WHERE run = ?", (identifier,)).fetchone()[0]
+        count = connection.execute(
+            "SELECT count(*) FROM steps WHERE run = ?", (identifier,)
+        ).fetchone()[0]
+        first = connection.execute(
+            "SELECT min(position) FROM steps WHERE run = ?", (identifier,)
+        ).fetchone()[0]
     found = [
         {
             "position": position,

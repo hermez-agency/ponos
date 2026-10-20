@@ -148,7 +148,10 @@ class Reports(Base):
         )
         report = sync.Report()
         report.note(
-            "conflict", "tickets", ticket.id, ticket.title,
+            "conflict",
+            "tickets",
+            ticket.id,
+            ticket.title,
             f"the runner would have written {target}, but the page says {found or 'no status'} "
             f"(it said {known or 'no status'} when the runner last read it); not overwritten",
         )
@@ -284,8 +287,7 @@ class Reports(Base):
             hint = ""
             if "403" in str(error):
                 hint = (
-                    " — notion.so/my-integrations → your integration → "
-                    "Capabilities → Read comments"
+                    " — notion.so/my-integrations → your integration → Capabilities → Read comments"
                 )
             self.say(f"    ! comments not readable: {error}{hint}")
             return []
@@ -391,9 +393,7 @@ class Reports(Base):
             bell = notifications.kind_of(verdict, code)
             if bell:
                 notifications.add(bell, ticket.id, ticket.title)
-        title, text = said.desktop(
-            verdict, ticket.title, project=project, summary=summary or body
-        )
+        title, text = said.desktop(verdict, ticket.title, project=project, summary=summary or body)
         self._notify(
             title,
             text,
@@ -534,7 +534,11 @@ class Reports(Base):
         """
         # A session that stopped on an action it cannot take names it itself
         # (`CODE: access.sudo`): that is the cause, more precisely than ours.
-        if blocked and isinstance(question, question_module.Question) and blocks.known(question.code):
+        if (
+            blocked
+            and isinstance(question, question_module.Question)
+            and blocks.known(question.code)
+        ):
             code = question.code
         blocks.cause(code)
         spent = {**(self._measures(outcome) if outcome else {}), **self._blocked_by(code)}
@@ -668,7 +672,9 @@ class Reports(Base):
             detail = f"{type(error).__name__}: {voice_module.line(error)}"
             state.release(ticket.id)
             try:
-                result = self._fail(ticket, self.voice.say("crashed"), detail, code="runner.crashed")
+                result = self._fail(
+                    ticket, self.voice.say("crashed"), detail, code="runner.crashed"
+                )
             except Exception as unwritten:  # noqa: BLE001
                 self.say(
                     f"    ✗ {ticket.title} — {detail}, and the failure could not be "
@@ -803,9 +809,7 @@ class Reports(Base):
             **{
                 self.config.notion.prop("status"): status,
                 self.config.notion.prop("waiting"): True,
-                self.config.notion.prop("session"): self._session_value(
-                    outcome.session_id, home
-                ),
+                self.config.notion.prop("session"): self._session_value(outcome.session_id, home),
             },
         )
         self._comment(
@@ -832,13 +836,21 @@ class Reports(Base):
         the next one asking again. What is running is left alone: killing a
         session to save memory would spend what it has already cost.
         """
-        free = None if self.dry_run else resources.short_of_memory(self.config.runner.min_free_memory_mb)
+        free = (
+            None
+            if self.dry_run
+            else resources.short_of_memory(self.config.runner.min_free_memory_mb)
+        )
         if free is None:
             self._memory_warned = False
             return self.room_on_disk()
         if not self._memory_warned:
             self._memory_warned = True
-            self.say(self.voice.say("memory-short", free=free, minimum=self.config.runner.min_free_memory_mb))
+            self.say(
+                self.voice.say(
+                    "memory-short", free=free, minimum=self.config.runner.min_free_memory_mb
+                )
+            )
         return False
 
     def room_on_disk(self) -> bool:

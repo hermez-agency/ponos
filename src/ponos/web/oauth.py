@@ -229,12 +229,17 @@ def register(metadata: dict) -> dict:
     method = str(metadata.get("token_endpoint_auth_method") or "none")
     if method not in AUTH_METHODS:
         raise OAuthError(
-            "invalid_client_metadata", f"token_endpoint_auth_method is one of {', '.join(AUTH_METHODS)}"
+            "invalid_client_metadata",
+            f"token_endpoint_auth_method is one of {', '.join(AUTH_METHODS)}",
         )
     grants = metadata.get("grant_types") or ["authorization_code", "refresh_token"]
     if not isinstance(grants, list) or not set(grants) <= {"authorization_code", "refresh_token"}:
         raise OAuthError("invalid_client_metadata", "only authorization_code and refresh_token")
-    name = " ".join(str(metadata.get("client_name") or "").split())[:80] or urlparse(uris[0]).hostname or "?"
+    name = (
+        " ".join(str(metadata.get("client_name") or "").split())[:80]
+        or urlparse(uris[0]).hostname
+        or "?"
+    )
     identifier = secrets.token_urlsafe(18)
     secret = secrets.token_urlsafe(32) if method != "none" else ""
     issued = _now()
@@ -317,7 +322,14 @@ def asked(params: dict[str, str]) -> Asked:
     )
 
 
-def _issue(connection, kind: str, client_id: str, scope: str, seconds: int | None, detail: dict | None = None) -> str:
+def _issue(
+    connection,
+    kind: str,
+    client_id: str,
+    scope: str,
+    seconds: int | None,
+    detail: dict | None = None,
+) -> str:
     secret = secrets.token_urlsafe(32)
     now = _now()
     connection.execute(
@@ -415,26 +427,36 @@ def exchange(form: dict[str, str], basic: tuple[str, str] | None = None) -> dict
         if grant == "authorization_code":
             taken = _take(connection, form.get("code", ""), "code", found.id)
             if taken is None:
-                refused = OAuthError("invalid_grant", "this code is unknown, expired or already used")
+                refused = OAuthError(
+                    "invalid_grant", "this code is unknown, expired or already used"
+                )
             else:
                 scope, detail = taken
                 registered = str(detail.get("redirect_uri", ""))
                 if not same_redirect(form.get("redirect_uri") or registered, registered):
-                    refused = OAuthError("invalid_grant", "redirect_uri differs from the authorisation's")
+                    refused = OAuthError(
+                        "invalid_grant", "redirect_uri differs from the authorisation's"
+                    )
                 elif not verified(form.get("code_verifier", ""), str(detail.get("challenge", ""))):
-                    refused = OAuthError("invalid_grant", "code_verifier does not match the code_challenge")
+                    refused = OAuthError(
+                        "invalid_grant", "code_verifier does not match the code_challenge"
+                    )
                 else:
                     issued = _pair(connection, found.id, scope)
         else:
             taken = _take(connection, form.get("refresh_token", ""), "refresh", found.id)
             if taken is None:
-                refused = OAuthError("invalid_grant", "this refresh token is unknown, expired or already used")
+                refused = OAuthError(
+                    "invalid_grant", "this refresh token is unknown, expired or already used"
+                )
             else:
                 scope, _ = taken
                 if form.get("scope"):
                     # Narrower, never wider: a refresh is not a second consent.
                     narrowed = set(scopes_of(form["scope"]))
-                    scope = " ".join(item for item in SCOPES if item in narrowed and item in scope.split())
+                    scope = " ".join(
+                        item for item in SCOPES if item in narrowed and item in scope.split()
+                    )
                 issued = _pair(connection, found.id, scope)
     if refused is not None:
         raise refused
@@ -517,7 +539,9 @@ def revoke(identifier: str) -> int:
             "UPDATE mcp_tokens SET revoked_at = ? WHERE client = ? AND revoked_at IS NULL",
             (_stamp(_now()), identifier),
         )
-        known = connection.execute("SELECT 1 FROM mcp_clients WHERE id = ?", (identifier,)).fetchone()
+        known = connection.execute(
+            "SELECT 1 FROM mcp_clients WHERE id = ?", (identifier,)
+        ).fetchone()
     if known is None:
         raise LookupError(f"no MCP client {identifier}")
     return cursor.rowcount

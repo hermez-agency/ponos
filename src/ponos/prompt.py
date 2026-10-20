@@ -586,7 +586,9 @@ def permissions(allowed: Iterable[str] = (), ask: Iterable[str] = ()) -> str:
 
     return PERMISSIONS.format(
         allowed=listed("You do these without asking:", allowed),
-        ask=listed("You always ask Salva before these — `RESULT: blocked`, with the question:", ask),
+        ask=listed(
+            "You always ask Salva before these — `RESULT: blocked`, with the question:", ask
+        ),
     )
 
 

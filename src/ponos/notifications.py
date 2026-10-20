@@ -135,4 +135,3 @@ def read(identifier: int | None = None) -> None:
             _purge(connection)
     except db.ERRORS:
         pass
-

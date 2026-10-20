@@ -300,7 +300,14 @@ def notion_shared(api: Api, payload: dict) -> dict:
                 "Notion refused this token — copy the “Internal Integration Secret” "
                 "again from notion.so/my-integrations"
             )
-        return {"ok": False, "said": said, "refused": refused, "name": "", "pages": [], "boards": []}
+        return {
+            "ok": False,
+            "said": said,
+            "refused": refused,
+            "name": "",
+            "pages": [],
+            "boards": [],
+        }
     if token and token != stored:
         api.save_settings({"settings": {"notion.token": token}})
     return {"ok": True, "said": "", "name": name, "pages": pages, "boards": boards}
@@ -323,7 +330,8 @@ def project_choices(api: Api) -> dict:
     try:
         known = [
             {"id": row["id"], "name": row["name"]}
-            for row in api.all_projects()["projects"] if row.get("id")
+            for row in api.all_projects()["projects"]
+            if row.get("id")
         ]
     except store.StoreError:
         known = []
@@ -384,14 +392,19 @@ def play(ticket: str) -> None:
     source = str(Path(__file__).resolve().parents[2])
     environment = {
         **os.environ,
-        "PYTHONPATH": os.pathsep.join([source, os.environ.get("PYTHONPATH", "")]).rstrip(os.pathsep),
+        "PYTHONPATH": os.pathsep.join([source, os.environ.get("PYTHONPATH", "")]).rstrip(
+            os.pathsep
+        ),
         "NO_COLOR": "1",
     }
     with log.open("w") as written:
         _PLAYED[ticket] = subprocess.Popen(
             [sys.executable, "-m", "ponos", "run", "--ticket", ticket],
-            cwd=str(Path.home()), stdout=written, stderr=subprocess.STDOUT,
-            env=environment, start_new_session=True,
+            cwd=str(Path.home()),
+            stdout=written,
+            stderr=subprocess.STDOUT,
+            env=environment,
+            start_new_session=True,
         )
 
 
@@ -423,12 +436,19 @@ def demo_state(api: Api, ticket: str) -> dict:
 
 def doctor() -> dict:
     """`ponos doctor`, as the terminal prints it — to read, or to copy for support."""
-    environment = {**os.environ, "NO_COLOR": "1",
-                   "PYTHONPATH": str(Path(__file__).resolve().parents[2])}
+    environment = {
+        **os.environ,
+        "NO_COLOR": "1",
+        "PYTHONPATH": str(Path(__file__).resolve().parents[2]),
+    }
     try:
         answered = subprocess.run(
             [sys.executable, "-m", "ponos", "doctor"],
-            capture_output=True, text=True, timeout=180, env=environment, cwd=str(Path.home()),
+            capture_output=True,
+            text=True,
+            timeout=180,
+            env=environment,
+            cwd=str(Path.home()),
         )
     except subprocess.TimeoutExpired:
         return {"code": -1, "text": "ponos doctor did not answer within three minutes"}
@@ -438,8 +458,13 @@ def doctor() -> dict:
 def _github_token(held: str) -> dict:
     """The token's owner, asked of GitHub — or why it does not answer."""
     try:
-        return {"state": "ok", "account": github_token.check(held)["login"], "via": "token",
-                "said": "", "command": ""}
+        return {
+            "state": "ok",
+            "account": github_token.check(held)["login"],
+            "via": "token",
+            "said": "",
+            "command": "",
+        }
     except github_token.GithubTokenError as error:
         return {"state": "error", "account": "", "via": "token", "said": str(error), "command": ""}
 
@@ -463,28 +488,44 @@ def _github() -> dict:
         return _github_token(held)
     for app in github_app.describe(with_repositories=False):
         if accounts := [one["account"] for one in app["installations"]]:
-            return {"state": "ok", "account": f"{app['slug']}[bot] ({', '.join(accounts)})",
-                    "via": "app", "said": "", "command": ""}
+            return {
+                "state": "ok",
+                "account": f"{app['slug']}[bot] ({', '.join(accounts)})",
+                "via": "app",
+                "said": "",
+                "command": "",
+            }
     if held := github_token.token():
         return _github_token(held)
     via = "GH_TOKEN" if os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN") else "gh"
     if not shutil.which("gh"):
-        return {"state": "missing", "account": "", "via": via, "said": "gh is not installed",
-                "command": "gh auth login"}
+        return {
+            "state": "missing",
+            "account": "",
+            "via": via,
+            "said": "gh is not installed",
+            "command": "gh auth login",
+        }
     try:
         answered = subprocess.run(
             ["gh", "api", "user", "--jq", ".login"],
-            capture_output=True, text=True, timeout=provider.CHECK_TIMEOUT,
+            capture_output=True,
+            text=True,
+            timeout=provider.CHECK_TIMEOUT,
         )
     except (OSError, subprocess.SubprocessError) as error:
-        return {"state": "error", "account": "", "via": via, "said": str(error),
-                "command": "gh auth login"}
+        return {
+            "state": "error",
+            "account": "",
+            "via": via,
+            "said": str(error),
+            "command": "gh auth login",
+        }
     account = answered.stdout.strip()
     if answered.returncode == 0 and account:
         return {"state": "ok", "account": account, "via": via, "said": "", "command": ""}
     said = (answered.stderr.strip().splitlines() or ["not signed in"])[0]
-    return {"state": "missing", "account": "", "via": via, "said": said,
-            "command": "gh auth login"}
+    return {"state": "missing", "account": "", "via": via, "said": said, "command": "gh auth login"}
 
 
 def save_channels(api: Api, payload: dict) -> dict:
@@ -570,8 +611,11 @@ def summary(api: Api) -> dict:
         claude["state"] = "missing"
     elif which == "cli":
         login = provider.cli_login()
-        claude.update(state="ok" if login.ok else "missing", account=login.said if login.ok else "",
-                      said="" if login.ok else login.said.removeprefix("not signed in — "))
+        claude.update(
+            state="ok" if login.ok else "missing",
+            account=login.said if login.ok else "",
+            said="" if login.ok else login.said.removeprefix("not signed in — "),
+        )
     elif which == "api_key":
         claude["key"] = provider.masked(configuration.claude.api_key)
     else:
@@ -604,11 +648,19 @@ def summary(api: Api) -> dict:
     active = [channel.name for channel in channels.open(configuration.notify)]
     needs = prerequisites.check(config_module.state_dir(), runner.min_free_disk_mb)
     machine = {
-        "state": "error" if any(not need.ok and need.required for need in needs)
-        else "missing" if any(not need.ok for need in needs) else "ok",
+        "state": "error"
+        if any(not need.ok and need.required for need in needs)
+        else "missing"
+        if any(not need.ok for need in needs)
+        else "ok",
         "needs": [
-            {"name": need.name, "ok": need.ok, "required": need.required,
-             "said": need.said, "fix": need.fix}
+            {
+                "name": need.name,
+                "ok": need.ok,
+                "required": need.required,
+                "said": need.said,
+                "fix": need.fix,
+            }
             for need in needs
         ],
     }

@@ -210,7 +210,7 @@ class Api:
         self._schema_at = 0.0
 
     def resynchronise(self) -> None:
-        """"Resynchronise now": the whole board read again, the failed writes
+        """ "Resynchronise now": the whole board read again, the failed writes
         tried again, and the conflicts let go of — see `Outbox.retry`."""
         self.forget()
         self.reader.reconcile_next()
@@ -298,7 +298,8 @@ class Api:
             # A board whose `blocked` and `failed` are one column must not
             # be drawn twice under two headings.
             if key == "draft"
-            or _status(settings, key) not in [_status(settings, other) for other in keys[: keys.index(key)]]
+            or _status(settings, key)
+            not in [_status(settings, other) for other in keys[: keys.index(key)]]
         ]
         return {
             "tickets": tickets,
@@ -342,7 +343,9 @@ class Api:
                 offered = client.options(database, name)
             except store.StoreError:
                 offered = []
-            values = list(dict.fromkeys([*provision.MODELS, *(value for value in offered if value)]))
+            values = list(
+                dict.fromkeys([*provision.MODELS, *(value for value in offered if value)])
+            )
             choices["model"] = [{"value": value, "label": value} for value in values]
         if settings.prop("type") in schema:
             choices["type"] = [
@@ -655,9 +658,7 @@ class Api:
         the same text into every ticket of that project.
         """
         wanted = page_id.replace("-", "")
-        row = next(
-            (item for item in self.all_projects()["projects"] if item["id"] == wanted), None
-        )
+        row = next((item for item in self.all_projects()["projects"] if item["id"] == wanted), None)
         if row is None:
             raise LookupError(f"no project with id {wanted}")
         # Where the clone really is, which neither declaration says when the
@@ -726,7 +727,9 @@ class Api:
             written[_column(page, *creation.COLUMNS["path"])] = ""
         elif values.get("kind") == "code":
             kept = {
-                key: str(values[key] or "").strip() if key in values else _first(page, *creation.COLUMNS[key])
+                key: str(values[key] or "").strip()
+                if key in values
+                else _first(page, *creation.COLUMNS[key])
                 for key in ("repository", "path")
             }
             if not any(kept.values()):
@@ -774,7 +777,9 @@ class Api:
             raise RuntimeError("this brief changed in the board since it was opened")
         if "base" in values and not values.get("accept_losses"):
             if client.losses(page_id):
-                raise ValueError("this brief holds what Markdown cannot keep; saving it would lose it")
+                raise ValueError(
+                    "this brief holds what Markdown cannot keep; saving it would lose it"
+                )
 
     def set_picture(self, page_id: str, slot: str, picture: store.Picture) -> dict:
         """Change a project's cover or icon, and say where that leaves it.
@@ -1016,8 +1021,7 @@ class Api:
             ]
         if settings.prop("subtype") in schema:
             choices["subtype"] = [
-                {"value": subtype.key, "label": subtype.label}
-                for subtype in subtypes.SUBTYPES
+                {"value": subtype.key, "label": subtype.label} for subtype in subtypes.SUBTYPES
             ]
         return choices
 
@@ -1030,9 +1034,7 @@ class Api:
         be twenty pages read to draw a table that shows none of them.
         """
         wanted = page_id.replace("-", "")
-        row = next(
-            (item for item in self.schedules()["schedules"] if item["id"] == wanted), None
-        )
+        row = next((item for item in self.schedules()["schedules"] if item["id"] == wanted), None)
         if row is None:
             raise LookupError(f"no schedule with id {wanted}")
         return {**row, "body": self.runner.client.blocks_text(page_id)}
@@ -1114,9 +1116,7 @@ class Api:
             # whether a Notion link is worth drawing, and whether the sync has
             # anything to say — in `markdown` mode neither does.
             "storage": configuration.storage.mode,
-            "board_path": str(configuration.storage.path)
-            if configuration.storage.markdown
-            else "",
+            "board_path": str(configuration.storage.path) if configuration.storage.markdown else "",
             "interval_seconds": configuration.runner.interval_seconds,
             "model": configuration.runner.model or "default",
             "permission_mode": configuration.runner.permission_mode,
@@ -1142,7 +1142,11 @@ class Api:
         first, last = statistics.period(start, end, datetime.now().date())
         tickets = self.board()["tickets"]
         return statistics.figures(
-            tickets, state.history(1_000_000), first, last, project=project,
+            tickets,
+            state.history(1_000_000),
+            first,
+            last,
+            project=project,
             kind_of=self.config.notion.kind_of,
         )
 
@@ -1166,7 +1170,8 @@ class Api:
             "free_mb": free,
             "disk_mb": room[1] if room else None,
             "min_free_disk_mb": settings.min_free_disk_mb,
-            "short": resources.short_of_disk(settings.min_free_disk_mb, config_module.state_dir()) is not None,
+            "short": resources.short_of_disk(settings.min_free_disk_mb, config_module.state_dir())
+            is not None,
             "stale_worktree_days": settings.stale_worktree_days,
             "total": sum(sizes.values()),
             "measured_at": datetime.fromtimestamp(measured, UTC).isoformat(),
@@ -1193,8 +1198,11 @@ class Api:
         if payload.get("confirmed") is not True:
             raise ValueError("a fix is made only once it is confirmed")
         done = health.fix(
-            self.config, self.runner.client, str(payload.get("action") or ""),
-            str(payload.get("target") or ""), confirmed=True,
+            self.config,
+            self.runner.client,
+            str(payload.get("action") or ""),
+            str(payload.get("target") or ""),
+            confirmed=True,
         )
         # The board's shape just changed under the cache that reads it.
         self.forget_projects()
@@ -1269,12 +1277,17 @@ class Api:
             ]
         }
 
-    def run_steps(self, identifier: int, before: int = 0, after: int = 0, limit: int = journal.PAGE) -> dict:
+    def run_steps(
+        self, identifier: int, before: int = 0, after: int = 0, limit: int = journal.PAGE
+    ) -> dict:
         """One page of a run's steps: its end, what came before `before`, or after `after`."""
         found = journal.run(identifier)
         if found is None:
             raise LookupError(f"no such run: {identifier}")
-        return {**journal.steps(identifier, before=before, after=after, limit=limit), "ended": bool(found["ended_at"])}
+        return {
+            **journal.steps(identifier, before=before, after=after, limit=limit),
+            "ended": bool(found["ended_at"]),
+        }
 
     def talk(self, page_id: str) -> dict:
         """What has been said on one ticket, oldest first.
@@ -1509,10 +1522,14 @@ class Api:
                 "pull_request": url,
                 "checks": {
                     "state": state,
-                    "link": str((failing or {}).get("link") or "") or (f"{url}/checks" if url else ""),
+                    "link": str((failing or {}).get("link") or "")
+                    or (f"{url}/checks" if url else ""),
                     "listed": [
-                        {"name": str(check.get("name") or ""), "bucket": str(check.get("bucket") or ""),
-                         "link": str(check.get("link") or "")}
+                        {
+                            "name": str(check.get("name") or ""),
+                            "bucket": str(check.get("bucket") or ""),
+                            "link": str(check.get("link") or ""),
+                        }
                         for check in listed
                     ],
                 },
@@ -1563,19 +1580,24 @@ class Api:
         said = self.runner.voice
         if column == "review":
             solutions = decisions.deciding(
-                decisions.delivered(comment.text for comment in comments), said, checks="failed",
-                validate=self._validates(), cancel=self._cancels(),
+                decisions.delivered(comment.text for comment in comments),
+                said,
+                checks="failed",
+                validate=self._validates(),
+                cancel=self._cancels(),
             )
         else:
             solutions = decisions.unblocking(
-                decisions.blockage(comment.text for comment in comments), models=self._has("model"),
+                decisions.blockage(comment.text for comment in comments),
+                models=self._has("model"),
                 cancel=self._cancels(),
             )
         solution = next(
             (
                 offered
                 for offered in solutions
-                if offered.key == key and (key not in ("option", "caveat") or offered.number == number)
+                if offered.key == key
+                and (key not in ("option", "caveat") or offered.number == number)
             ),
             None,
         )
@@ -1592,7 +1614,9 @@ class Api:
         if solution.key == "model":
             if not self._has("model"):
                 raise ValueError("this board has no Model column")
-            self.runner.client.update(self.runner.database, page.id, {settings.prop("model"): model.strip()})
+            self.runner.client.update(
+                self.runner.database, page.id, {settings.prop("model"): model.strip()}
+            )
         created = []
         if solution.key == "split":
             relation = store.read(page, settings.prop("project")) or []
@@ -1602,7 +1626,10 @@ class Api:
                 for title in named
             ]
         relayed = said.say("relayed", channel=channel or said.say("relayed-console"))
-        lines = [f"{relayed}.", *decisions.told(said, solution, text, model=model.strip(), titles=named)]
+        lines = [
+            f"{relayed}.",
+            *decisions.told(said, solution, text, model=model.strip(), titles=named),
+        ]
         seen = str(store.read(page, settings.prop("status")) or "")
         if solution.column == "ready":
             self._say_on(page_id, lines, comments)
@@ -1620,7 +1647,9 @@ class Api:
                         )
                     )
                 except board_module.Conflict as moved_since:
-                    raise ValueError(f"the ticket was moved meanwhile, to {moved_since}") from moved_since
+                    raise ValueError(
+                        f"the ticket was moved meanwhile, to {moved_since}"
+                    ) from moved_since
                 moved = {"id": page_id, "status": _status(settings, solution.column)}
             else:
                 moved = self.set_status(page_id, solution.column, seen)
@@ -1640,7 +1669,9 @@ class Api:
         status = str(store.read(page, settings.prop("status")) or "")
         column = _columns(settings).get(status, "draft")
         if column not in ("blocked", "review"):
-            raise ValueError(f"only a blocked ticket or one in review waits on a decision, not {column}")
+            raise ValueError(
+                f"only a blocked ticket or one in review waits on a decision, not {column}"
+            )
         return page, column, self.runner.client.comments(page_id)
 
     def _say_on(self, page_id: str, lines: list[str], comments: list[store.Comment]) -> None:
@@ -1658,7 +1689,10 @@ class Api:
 
     def _offered(self, solutions: list[decisions.Solution]) -> list[dict]:
         said = self.runner.voice
-        return [{**solution.as_dict(), "label": decisions.label(said, solution)} for solution in solutions]
+        return [
+            {**solution.as_dict(), "label": decisions.label(said, solution)}
+            for solution in solutions
+        ]
 
     def _cancels(self) -> bool:
         """Whether this board has a cancelled column of its own — see `cancelled_column`."""
@@ -1718,9 +1752,7 @@ class Api:
         as it stands, and fill the project's in with it when they are turned on.
         """
         bare = project_settings.key(page_id)
-        globally = {
-            kind: self.config.runner.forces_validation(kind) for kind in kinds_module.KINDS
-        }
+        globally = {kind: self.config.runner.forces_validation(kind) for kind in kinds_module.KINDS}
         own = project_settings.validation(bare)
         return {
             "id": bare,
@@ -1955,7 +1987,9 @@ def _times(tickets: list[dict]) -> None:
     """
     spans = journal.spans() if len(tickets) != 1 else journal.spans(str(tickets[0].get("id", "")))
     for ticket in tickets:
-        ticket["worktime"] = worktime.measure(spans.get(str(ticket.get("id", "")), []), str(ticket.get("column", "")))
+        ticket["worktime"] = worktime.measure(
+            spans.get(str(ticket.get("id", "")), []), str(ticket.get("column", ""))
+        )
 
 
 def _subtype(page: store.Page, settings) -> str:

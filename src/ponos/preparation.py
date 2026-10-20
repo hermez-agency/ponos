@@ -48,9 +48,7 @@ class Preparation(Base):
                 # but not on this machine: a ticket about to run needs the
                 # clone to exist, and a project created from its GitHub link
                 # alone has never had one made. A dry run stays a dry run.
-                project = self.resolver.resolve(
-                    self.client, relation[0], clone=not self.dry_run
-                )
+                project = self.resolver.resolve(self.client, relation[0], clone=not self.dry_run)
             except (LookupError, store.StoreError) as error:
                 self._fail(
                     ticket,
@@ -65,9 +63,7 @@ class Preparation(Base):
         try:
             body = self.client.blocks_text(ticket.page.id, live=False)
         except store.StoreError as error:
-            self._fail(
-                ticket, self.voice.say("unreadable"), str(error), code="notion.read-failed"
-            )
+            self._fail(ticket, self.voice.say("unreadable"), str(error), code="notion.read-failed")
             return None
         if is_blank(body):
             body = ""
@@ -330,7 +326,9 @@ class Preparation(Base):
         if written:
             kind = self.config.notion.kind_of(written)
             if not kind:
-                self.say(f"    · type “{written}” is none of the four — run by what its project holds")
+                self.say(
+                    f"    · type “{written}” is none of the four — run by what its project holds"
+                )
             return kind, ""
         if not self.config.runner.classify:
             return "", ""
@@ -356,7 +354,9 @@ class Preparation(Base):
             if written:
                 key = subtypes.of(written)
                 if not key:
-                    self.say(f"    · sub-type “{written}” is none of the {len(subtypes.KEYS)} — left out")
+                    self.say(
+                        f"    · sub-type “{written}” is none of the {len(subtypes.KEYS)} — left out"
+                    )
                 return key, ""
         key = subtypes.from_prefix(ticket.title)
         if key:
@@ -382,9 +382,7 @@ class Preparation(Base):
             + (" — in doubt" if doubted else f" ({guess.confidence}) — {guess.reason}")
         )
         if doubted:
-            return key, said.say(
-                "subtype-doubt", subtype=subtypes.option(key), property=column
-            )
+            return key, said.say("subtype-doubt", subtype=subtypes.option(key), property=column)
         return key, said.say(
             "subtype-guessed",
             subtype=subtypes.option(key),

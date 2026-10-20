@@ -327,9 +327,7 @@ def _history(connection: sqlite3.Connection) -> AfterCommit:
 
 def _claims(connection: sqlite3.Connection) -> AfterCommit:
     """claims.json — the column each ticket in flight was taken from."""
-    connection.execute(
-        "CREATE TABLE claims (ticket TEXT PRIMARY KEY, status TEXT NOT NULL)"
-    )
+    connection.execute("CREATE TABLE claims (ticket TEXT PRIMARY KEY, status TEXT NOT NULL)")
     source = _beside(connection, "claims.json")
     held = _read_json(source)
     if isinstance(held, dict):
@@ -342,9 +340,7 @@ def _claims(connection: sqlite3.Connection) -> AfterCommit:
 
 def _rebases(connection: sqlite3.Connection) -> AfterCommit:
     """rebases.json — how many times a validated ticket has been replayed."""
-    connection.execute(
-        "CREATE TABLE rebases (ticket TEXT PRIMARY KEY, count INTEGER NOT NULL)"
-    )
+    connection.execute("CREATE TABLE rebases (ticket TEXT PRIMARY KEY, count INTEGER NOT NULL)")
     source = _beside(connection, "rebases.json")
     held = _read_json(source)
     if isinstance(held, dict):
@@ -425,7 +421,10 @@ def _waits(connection: sqlite3.Connection) -> AfterCommit:
         )
         """
     )
-    sources = {"spent": _beside(connection, "credits.json"), "reserve": _beside(connection, "reserve.json")}
+    sources = {
+        "spent": _beside(connection, "credits.json"),
+        "reserve": _beside(connection, "reserve.json"),
+    }
     for what, source in sources.items():
         note = _read_json(source)
         if not isinstance(note, dict) or not _number(note.get("until")):
@@ -478,7 +477,10 @@ def _sync(connection: sqlite3.Connection) -> AfterCommit:
     connection.executemany(
         "INSERT INTO sync_journal (at, what, collection, page, title, detail) VALUES (?, ?, ?, ?, ?, ?)",
         [
-            tuple(str(entry.get(name) or "") for name in ("at", "what", "collection", "page", "title", "detail"))
+            tuple(
+                str(entry.get(name) or "")
+                for name in ("at", "what", "collection", "page", "title", "detail")
+            )
             for entry in _read_lines(journal_file)
         ],
     )
@@ -692,7 +694,8 @@ def _stops_have_a_cause(connection: sqlite3.Connection) -> None:
         "SELECT id, reason FROM runs WHERE status IN ('blocked', 'failed')"
     ).fetchall():
         connection.execute(
-            "UPDATE runs SET code = ? WHERE id = ?", (blocks.classify(str(reason or "")), identifier)
+            "UPDATE runs SET code = ? WHERE id = ?",
+            (blocks.classify(str(reason or "")), identifier),
         )
 
 
@@ -1059,7 +1062,9 @@ def connect(location: Path | None = None) -> sqlite3.Connection:
 
 
 @contextmanager
-def transaction(immediate: bool = True, location: Path | None = None) -> Iterator[sqlite3.Connection]:
+def transaction(
+    immediate: bool = True, location: Path | None = None
+) -> Iterator[sqlite3.Connection]:
     """One transaction on this process's connection, committed if the block returns.
 
     `immediate` takes the write lock up front, so a transaction that reads and

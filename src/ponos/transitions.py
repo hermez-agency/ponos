@@ -96,8 +96,14 @@ def observe(ticket: str, status: str, *, title: str, depth_limit: int) -> tuple[
             " (ticket, title, old, new, depth, state, seen_at, ended_at, result)"
             " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
-                ticket, title, old, status, depth,
-                SKIPPED if too_deep else PENDING, _now(), _now() if too_deep else "",
+                ticket,
+                title,
+                old,
+                status,
+                depth,
+                SKIPPED if too_deep else PENDING,
+                _now(),
+                _now() if too_deep else "",
                 f"chain deeper than {depth_limit} generation(s): not run" if too_deep else "",
             ),
         )
@@ -153,8 +159,13 @@ def abandon(older_than_seconds: float) -> int:
             return connection.execute(
                 "UPDATE transitions SET state = ?, ended_at = ?, result = ?"
                 " WHERE state = ? AND started_at < ?",
-                (FAILED, _now(), "interrupted: the runner stopped during this execution",
-                 RUNNING, cutoff),
+                (
+                    FAILED,
+                    _now(),
+                    "interrupted: the runner stopped during this execution",
+                    RUNNING,
+                    cutoff,
+                ),
             ).rowcount
     except db.ERRORS:
         return 0
@@ -174,10 +185,13 @@ def pending(limit: int) -> list[dict]:
 def start(identifier: int) -> bool:
     """Take a pending change for execution; False when somebody else has it."""
     with db.transaction() as connection:
-        return connection.execute(
-            "UPDATE transitions SET state = ?, started_at = ? WHERE id = ? AND state = ?",
-            (RUNNING, _now(), identifier, PENDING),
-        ).rowcount == 1
+        return (
+            connection.execute(
+                "UPDATE transitions SET state = ?, started_at = ? WHERE id = ? AND state = ?",
+                (RUNNING, _now(), identifier, PENDING),
+            ).rowcount
+            == 1
+        )
 
 
 def requeue(identifier: int) -> None:
@@ -189,8 +203,14 @@ def requeue(identifier: int) -> None:
 
 
 def finish(
-    identifier: int, outcome: str, *, result: str = "", cost: float | None = None,
-    seconds: float | None = None, session_id: str = "", project: str = "",
+    identifier: int,
+    outcome: str,
+    *,
+    result: str = "",
+    cost: float | None = None,
+    seconds: float | None = None,
+    session_id: str = "",
+    project: str = "",
 ) -> None:
     with db.transaction() as connection:
         connection.execute(
@@ -202,8 +222,20 @@ def finish(
 
 def history(ticket: str, limit: int = 50) -> list[dict]:
     """The executions of one ticket's prompt, newest first. Empty when unreadable."""
-    keys = ("id", "old", "new", "depth", "state", "seen_at", "started_at", "ended_at",
-            "cost_usd", "seconds", "session", "result")
+    keys = (
+        "id",
+        "old",
+        "new",
+        "depth",
+        "state",
+        "seen_at",
+        "started_at",
+        "ended_at",
+        "cost_usd",
+        "seconds",
+        "session",
+        "result",
+    )
     try:
         with db.transaction(immediate=False) as connection:
             rows = connection.execute(
@@ -363,20 +395,37 @@ class Transitions(Base):
         if outcome.over_budget:
             reason = said.say("on-over-budget", limit=limit)
         elif not outcome.ok or outcome.blocked:
-            reason = voice_module.line(outcome.error) or voice_module.line(outcome.summary) \
+            reason = (
+                voice_module.line(outcome.error)
+                or voice_module.line(outcome.summary)
                 or said.say("on-nothing")
+            )
         else:
             reason = ""
         summary = " ".join((outcome.summary or outcome.answer or "").split())
         if reason:
-            finish(row["id"], FAILED, result=reason, cost=outcome.cost_usd,
-                   seconds=outcome.seconds, session_id=outcome.session_id, project=project.name)
+            finish(
+                row["id"],
+                FAILED,
+                result=reason,
+                cost=outcome.cost_usd,
+                seconds=outcome.seconds,
+                session_id=outcome.session_id,
+                project=project.name,
+            )
             self._complain(row, f"{reason} ({outcome.log})")
             self.say(f"    ! failed — {reason}")
             verdict = FAILED
         else:
-            finish(row["id"], OK, result=summary, cost=outcome.cost_usd,
-                   seconds=outcome.seconds, session_id=outcome.session_id, project=project.name)
+            finish(
+                row["id"],
+                OK,
+                result=summary,
+                cost=outcome.cost_usd,
+                seconds=outcome.seconds,
+                session_id=outcome.session_id,
+                project=project.name,
+            )
             self.say(f"    ↳ done · {outcome.seconds / 60:.1f} min · ${outcome.cost_usd:.3f}")
             verdict = OK
         return {

@@ -63,7 +63,10 @@ def probe(address: str) -> dict:
         request = urllib.request.Request(
             address,
             data=json.dumps({"jsonrpc": "2.0", "id": 1, "method": "ping"}).encode(),
-            headers={"Content-Type": "application/json", "Accept": "application/json, text/event-stream"},
+            headers={
+                "Content-Type": "application/json",
+                "Accept": "application/json, text/event-stream",
+            },
             method="POST",
         )
         try:
@@ -125,7 +128,9 @@ def parse(output: str) -> list[dict]:
             continue
         said = found["said"].strip().lower()
         state = "auth" if "auth" in said else "ok" if found["mark"] == "✓" else "error"
-        servers.append({"name": found["name"], "target": _described(found["target"]), "state": state})
+        servers.append(
+            {"name": found["name"], "target": _described(found["target"]), "state": state}
+        )
     return servers
 
 
@@ -136,8 +141,16 @@ def servers() -> dict:
         return {"available": False, "servers": [], "failed": False}
     try:
         done = subprocess.run(
-            [binary, "mcp", "list"], capture_output=True, text=True, timeout=LIST_TIMEOUT, stdin=subprocess.DEVNULL
+            [binary, "mcp", "list"],
+            capture_output=True,
+            text=True,
+            timeout=LIST_TIMEOUT,
+            stdin=subprocess.DEVNULL,
         )
     except (OSError, subprocess.TimeoutExpired):
         return {"available": True, "servers": [], "failed": True}
-    return {"available": True, "servers": parse(done.stdout), "failed": done.returncode != 0 and not done.stdout.strip()}
+    return {
+        "available": True,
+        "servers": parse(done.stdout),
+        "failed": done.returncode != 0 and not done.stdout.strip(),
+    }

@@ -181,7 +181,11 @@ class Reader:
         return pages
 
     def _compare(
-        self, held: dict[str, store.Page], truth: dict[str, store.Page], status: str, report: sync.Report
+        self,
+        held: dict[str, store.Page],
+        truth: dict[str, store.Page],
+        status: str,
+        report: sync.Report,
     ) -> list[dict]:
         """What the incremental reads had wrong, as the full read found it.
 
@@ -198,7 +202,10 @@ class Reader:
                 continue
             found.append({"id": key, "title": page.title, "held": said or "", "truth": real or ""})
             report.note(
-                "drift", "tickets", key, page.title,
+                "drift",
+                "tickets",
+                key,
+                page.title,
                 f"the console held {said or 'nothing'}, Notion says {real or 'nothing'}",
             )
         return found
@@ -225,7 +232,10 @@ class Reader:
                 continue
             edited = str(page.raw.get("last_edited_time", ""))
             report.note(
-                "seen", "tickets", key, page.title,
+                "seen",
+                "tickets",
+                key,
+                page.title,
                 f"{was or '—'} → {is_ or '—'} · edited {_clock(edited)} in Notion "
                 f"(to the minute) · seen {_clock(_stamp(now))} by the console",
             )
@@ -303,7 +313,9 @@ class Outbox:
 
     # -- sending --------------------------------------------------------------
 
-    def start(self, send: Callable[[Write], store.Page | None], changed: Callable[[], None]) -> None:
+    def start(
+        self, send: Callable[[Write], store.Page | None], changed: Callable[[], None]
+    ) -> None:
         """One thread, sending what is due, for as long as the console runs."""
         if self._thread and self._thread.is_alive():
             return
@@ -317,7 +329,9 @@ class Outbox:
         self._thread = threading.Thread(target=loop, name="tr-outbox", daemon=True)
         self._thread.start()
 
-    def flush(self, send: Callable[[Write], store.Page | None], changed: Callable[[], None]) -> float:
+    def flush(
+        self, send: Callable[[Write], store.Page | None], changed: Callable[[], None]
+    ) -> float:
         """Send every write that is due. Returns how long until the next one is."""
         now = self._clock()
         with self._lock:
@@ -347,7 +361,9 @@ class Outbox:
             waiting = [w.next_at for w in self._writes.values() if w.state == "pending"]
         return max(0.5, min(waiting) - self._clock()) if waiting else 3600.0
 
-    def _attempt(self, write: Write, send: Callable[[Write], store.Page | None], report: sync.Report) -> str:
+    def _attempt(
+        self, write: Write, send: Callable[[Write], store.Page | None], report: sync.Report
+    ) -> str:
         """One try. `sent`, or the write is left saying why not."""
         write.attempts += 1
         try:
@@ -355,7 +371,10 @@ class Outbox:
         except Conflict as conflict:
             write.state, write.error = "conflict", str(conflict)
             report.note(
-                "conflict", "tickets", _key(write.page), write.title,
+                "conflict",
+                "tickets",
+                _key(write.page),
+                write.title,
                 f"moved to {write.status} from the console, but Notion already says "
                 f"{conflict.found} (the console showed {write.seen}); not overwritten",
             )
@@ -366,14 +385,20 @@ class Outbox:
             if final or write.attempts > len(BACKOFF):
                 write.state = "failed"
                 report.note(
-                    "write-failed", "tickets", _key(write.page), write.title,
+                    "write-failed",
+                    "tickets",
+                    _key(write.page),
+                    write.title,
                     f"{write.status} not written after {write.attempts} attempt(s): {write.error}",
                 )
             else:
                 write.next_at = self._clock() + BACKOFF[write.attempts - 1]
             return "failed"
         report.note(
-            "console→notion", "tickets", _key(write.page), write.title,
+            "console→notion",
+            "tickets",
+            _key(write.page),
+            write.title,
             f"{write.seen or '—'} → {write.status} · asked {_clock(_stamp(write.queued))} · "
             f"confirmed {_clock(_stamp(self._clock()))} · {write.attempts} attempt(s)",
         )

@@ -82,9 +82,7 @@ def measure(spans: list[dict], column: str, now: datetime | None = None) -> dict
         last = _instant(span.get("last")) or start
         closed = _instant(span.get("end"))
         live = (
-            closed is None
-            and column == "progress"
-            and (now - last).total_seconds() < STALE_SECONDS
+            closed is None and column == "progress" and (now - last).total_seconds() < STALE_SECONDS
         )
         end = now if live else max(closed or last, start)
         if reached is not None:

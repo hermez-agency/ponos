@@ -123,7 +123,9 @@ class Creation:
                 located = self._api.runner.resolver.locate("", "", url)
                 answer.update(repository=url, cloned=str(located) if located else "")
             else:
-                answer["repository_error"] = self._say("project-github-invalid", given=repository.strip())
+                answer["repository_error"] = self._say(
+                    "project-github-invalid", given=repository.strip()
+                )
         if str(path).strip():
             try:
                 folder = self._folder(path)

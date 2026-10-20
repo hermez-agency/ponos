@@ -142,7 +142,9 @@ class Keyring:
             raise
 
     def available(self) -> str:
-        return "" if shutil.which("secret-tool") else "secret-tool is not installed (libsecret-tools)"
+        return (
+            "" if shutil.which("secret-tool") else "secret-tool is not installed (libsecret-tools)"
+        )
 
 
 @dataclass
@@ -260,7 +262,8 @@ def read(granted: dict[str, str], default: str, stored: dict[str, str] | None = 
             continue
         if len(value) < SHORTEST:
             missing.append(
-                f"{variable} ({which}: " + ("no such item" if not value else "too short to be masked")
+                f"{variable} ({which}: "
+                + ("no such item" if not value else "too short to be masked")
                 + ")"
             )
             continue

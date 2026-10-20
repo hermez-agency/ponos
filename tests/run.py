@@ -261,7 +261,8 @@ def locating_a_project_shows_its_clone_and_never_asks_github_nor_clones():
 def a_path_that_exists_is_taken_before_anything_else():
     """Nothing is noted and GitHub is never asked: the first way answered."""
     with _workspace({"mobile-factory": "git@github.com:SalvadorCardona/mobile-factory.git"}) as (
-        resolver, asked,
+        resolver,
+        asked,
     ):
         client = _ProjectClient(
             "Jeu d'usine mobile",
@@ -280,7 +281,8 @@ def a_wrong_path_gives_way_to_the_repository_property():
     the page kept the old path — while its Repository column was still right.
     """
     with _workspace({"mobile-factory": "git@github.com:SalvadorCardona/mobile-factory.git"}) as (
-        resolver, asked,
+        resolver,
+        asked,
     ):
         client = _ProjectClient(
             "Jeu d'usine mobile",
@@ -290,7 +292,9 @@ def a_wrong_path_gives_way_to_the_repository_property():
         project = resolver.resolve(client, "p-1")
     assert project.is_code and project.path.name == "mobile-factory"
     assert project.is_stale, "found, but not by the declaration that should have found it"
-    assert "factory-mobile, from the project's Path property, is not a git repository" in project.note
+    assert (
+        "factory-mobile, from the project's Path property, is not a git repository" in project.note
+    )
     assert "salvadorcardona/mobile-factory" in project.note, "the note says how it was found"
     assert asked == [], "a remote that matches is not a question for GitHub"
 
@@ -328,7 +332,10 @@ def a_project_no_way_leads_to_says_everything_that_was_tried():
             raise AssertionError("nothing leads to a repository, so this has to fail")
     assert "“Jeu d'usine mobile”" in message
     assert "factory-mobile, from the project's Path property, is not a git repository" in message
-    assert "salvadorcardona/factory-mobile, from the project's Repository property, matches no origin remote" in message
+    assert (
+        "salvadorcardona/factory-mobile, from the project's Repository property, matches no origin remote"
+        in message
+    )
     assert "GitHub gave no other name" in message
     assert '"Jeu d\'usine mobile" = "/path/to/the/repo"' in message, "and what to do about it"
     assert asked == ["salvadorcardona/factory-mobile"]
@@ -354,9 +361,12 @@ def a_folder_named_like_the_project_is_not_a_match():
     """Only the remote designates a repository. A clone whose folder happens to
     carry the declared name, with another remote, is somebody else's project."""
     with _workspace({"factory-mobile": "git@github.com:SomebodyElse/factory-mobile.git"}) as (
-        resolver, asked,
+        resolver,
+        asked,
     ):
-        client = _ProjectClient("Jeu", Repository="https://github.com/SalvadorCardona/factory-mobile")
+        client = _ProjectClient(
+            "Jeu", Repository="https://github.com/SalvadorCardona/factory-mobile"
+        )
         try:
             resolver.resolve(client, "p-1")
         except LookupError as error:
@@ -393,11 +403,15 @@ def a_project_made_of_its_github_link_alone_is_cloned():
     with _workspace(
         {}, renamed={"salvadorcardona/trader-ia": "SalvadorCardona/trader-ia"}, cloned=cloned
     ) as (resolver, asked):
-        client = _ProjectClient("Trader IA", Repository="https://github.com/SalvadorCardona/trader-ia")
+        client = _ProjectClient(
+            "Trader IA", Repository="https://github.com/SalvadorCardona/trader-ia"
+        )
         project = resolver.resolve(client, "p-1", clone=True)
         root = resolver._root  # noqa: SLF001
     assert project.is_code and project.path == root / "trader-ia"
-    assert cloned == [("SalvadorCardona/trader-ia", root / "trader-ia")], "under the name GitHub uses"
+    assert cloned == [("SalvadorCardona/trader-ia", root / "trader-ia")], (
+        "under the name GitHub uses"
+    )
     assert not project.is_stale, "nothing on the page is wrong — the clone was only missing"
     assert "cloned into" in project.cloned, "and the ticket's comment says where it came from"
 
@@ -484,10 +498,15 @@ def _config(body: str) -> C.Config:
 
 @case
 def a_database_reference_is_normalised_but_a_name_is_not():
-    assert C._database_id(
-        "https://www.notion.so/w/Master-Tickets-3c3451680af480f5b1aad0785c0322b4?v=1"
-    ) == "3c3451680af480f5b1aad0785c0322b4"
-    assert C._database_id("3c345168-0af4-80f5-b1aa-d0785c0322b4") == "3c3451680af480f5b1aad0785c0322b4"
+    assert (
+        C._database_id(
+            "https://www.notion.so/w/Master-Tickets-3c3451680af480f5b1aad0785c0322b4?v=1"
+        )
+        == "3c3451680af480f5b1aad0785c0322b4"
+    )
+    assert (
+        C._database_id("3c345168-0af4-80f5-b1aa-d0785c0322b4") == "3c3451680af480f5b1aad0785c0322b4"
+    )
     # Not an identifier: handed back untouched, to be looked up by name.
     assert C._database_id("Master Tickets") == "Master Tickets"
     assert C.is_identifier("3c3451680af480f5b1aad0785c0322b4")
@@ -553,8 +572,9 @@ def force_validated_is_off_for_every_type_until_the_file_says_otherwise():
     runner ran by what its project holds — is never one of them.
     """
     quiet = _config("").runner
-    assert not any(quiet.forces_validation(kind) for kind in ("code", "writing",
-                                                              "external", "publication", ""))
+    assert not any(
+        quiet.forces_validation(kind) for kind in ("code", "writing", "external", "publication", "")
+    )
     runner = _config(
         "[runner]\nforce_validated_code = true\nforce_validated_publication = true\n"
     ).runner
@@ -608,7 +628,10 @@ def a_project_with_its_own_validation_overrides_the_file_both_ways():
             # a restart: the connection closed, the file opened again.
             db.close()
             assert project_settings.validation(page.replace("-", "").upper()) == {
-                "code": True, "writing": False, "external": False, "publication": False,
+                "code": True,
+                "writing": False,
+                "external": False,
+                "publication": False,
             }
             assert project_settings.owning_validation() == [
                 {"id": page.replace("-", ""), "name": "Client"}
@@ -639,9 +662,7 @@ def a_project_with_its_own_validation_overrides_the_file_both_ways():
 def the_validation_line_says_whose_decision_it_was():
     """A report that only said "validated" would not say which switch to turn off."""
     english, french = voice.Voice("en"), voice.Voice("fr")
-    line = english.say(
-        "forced-validation", kind="Code", source=english.say("forced-by-project")
-    )
+    line = english.say("forced-validation", kind="Code", source=english.say("forced-by-project"))
     assert line == "Validated automatically (Force validated: Code) — the project's setting"
     assert french.say("forced-by-global") == "réglage global"
     assert french.say("forced-by-project") == "réglage du projet"
@@ -670,7 +691,10 @@ def a_project_page_reads_and_saves_its_own_automatic_validation():
                 field.label for field in section.fields
             ]
             assert [field["kind"] for field in validation["fields"]] == [
-                "code", "publication", "writing", "external",
+                "code",
+                "publication",
+                "writing",
+                "external",
             ]
 
             saved = api.save_project_settings(
@@ -684,9 +708,12 @@ def a_project_page_reads_and_saves_its_own_automatic_validation():
                 {"id": project_settings.key(page), "name": "Perso"}
             ]
 
-            for wrong in ({}, {"validation": {"own": "yes"}},
-                          {"validation": {"own": True, "values": {"deploy": True}}},
-                          {"validation": {"own": True, "values": {"code": "on"}}}):
+            for wrong in (
+                {},
+                {"validation": {"own": "yes"}},
+                {"validation": {"own": True, "values": {"deploy": True}}},
+                {"validation": {"own": True, "values": {"code": "on"}}},
+            ):
                 try:
                     api.save_project_settings(page, wrong)
                 except ValueError:
@@ -720,8 +747,17 @@ def the_update_check_never_runs_more_than_once_a_minute():
 @case
 def optional_properties_have_names_even_when_absent():
     config = _config("")
-    for key in ("status", "project", "agent", "pull_request", "session", "model",
-                "priority", "cost", "duration"):
+    for key in (
+        "status",
+        "project",
+        "agent",
+        "pull_request",
+        "session",
+        "model",
+        "priority",
+        "cost",
+        "duration",
+    ):
         assert config.notion.prop(key), key
 
 
@@ -927,7 +963,10 @@ def a_missing_context_page_warns_but_never_fails_a_run():
 
     # Present but unreadable, and present but empty, are both worth saying too.
     unreadable = _FakeClient({"Tickets": "p-t", "Context": "p-context"}, broken={"p-context"})
-    assert any("unreadable" in warning for warning in workspace.from_notion(unreadable, _settings()).warnings)
+    assert any(
+        "unreadable" in warning
+        for warning in workspace.from_notion(unreadable, _settings()).warnings
+    )
     empty = _FakeClient({"Tickets": "p-t", "Context": "p-context"}, text="   ")
     assert any("empty" in warning for warning in workspace.from_notion(empty, _settings()).warnings)
 
@@ -963,9 +1002,9 @@ class _Board:
     """A Notion that remembers what was created, without a network in sight."""
 
     def __init__(self, databases=None, rows=None, schemas=None, text=""):
-        self._databases = databases or {}          # page id -> {title: db id}
-        self._rows = rows or {}                    # db id -> {title: page id}
-        self._schemas = schemas or {}              # db id -> {name: {shape}}
+        self._databases = databases or {}  # page id -> {title: db id}
+        self._rows = rows or {}  # db id -> {title: page id}
+        self._schemas = schemas or {}  # db id -> {name: {shape}}
         self._text = text
         self.created = []
         self.patched = []
@@ -976,13 +1015,17 @@ class _Board:
         return dict(self._databases.get(page_id, {}))
 
     def schema(self, database_id):
-        return {name: next(iter(shape)) for name, shape in self._schemas.get(database_id, {}).items()}
+        return {
+            name: next(iter(shape)) for name, shape in self._schemas.get(database_id, {}).items()
+        }
 
     def database(self, database_id):
-        return {"properties": {
-            name: {"type": next(iter(shape)), **shape}
-            for name, shape in self._schemas.get(database_id, {}).items()
-        }}
+        return {
+            "properties": {
+                name: {"type": next(iter(shape)), **shape}
+                for name, shape in self._schemas.get(database_id, {}).items()
+            }
+        }
 
     def query(self, database_id, filter_=None):
         return [
@@ -1047,7 +1090,14 @@ def a_bare_page_becomes_the_whole_board():
     # runner reads both. Every column must be there, validated included.
     options = [option["name"] for option in schema["Status"]["select"]["options"]]
     assert options == [
-        "Ready", "In progress", "In review", "Validated", "Done", "Failed", "Blocked", "Cancelled",
+        "Ready",
+        "In progress",
+        "In review",
+        "Validated",
+        "Done",
+        "Failed",
+        "Blocked",
+        "Cancelled",
     ]
     # And the credit is not one of them: a ticket nothing was started for has not
     # moved, so it is ticked where it stands rather than sent to an eighth column.
@@ -1080,9 +1130,19 @@ def init_completes_a_board_that_predates_a_column():
     board = _Board(
         databases={"root": {"ponos": "dir"}, "page-tickets": {"Tickets": "db-tickets"}},
         rows={"dir": {"Tickets": "page-tickets"}},
-        schemas={"db-tickets": {"Name": {"title": {}}, "Status": {"select": {"options": [
-            {"name": "Ready", "color": "blue"}, {"name": "Mine", "color": "purple"},
-        ]}}}},
+        schemas={
+            "db-tickets": {
+                "Name": {"title": {}},
+                "Status": {
+                    "select": {
+                        "options": [
+                            {"name": "Ready", "color": "blue"},
+                            {"name": "Mine", "color": "purple"},
+                        ]
+                    }
+                },
+            }
+        },
     )
     provision.provision(board, _settings(), "root")
 
@@ -1106,9 +1166,19 @@ def a_real_status_column_is_reported_rather_than_patched():
     board = _Board(
         databases={"root": {"ponos": "dir"}, "page-tickets": {"Tickets": "db-tickets"}},
         rows={"dir": {"Tickets": "page-tickets"}},
-        schemas={"db-tickets": {"Name": {"title": {}}, "Status": {"status": {"options": [
-            {"name": "Ready"}, {"name": "In progress"},
-        ]}}}},
+        schemas={
+            "db-tickets": {
+                "Name": {"title": {}},
+                "Status": {
+                    "status": {
+                        "options": [
+                            {"name": "Ready"},
+                            {"name": "In progress"},
+                        ]
+                    }
+                },
+            }
+        },
     )
     report = provision.provision(board, _settings(), "root")
 
@@ -1150,7 +1220,9 @@ def two_states_on_one_column_produce_one_option():
 @case
 def the_workspace_is_written_back_into_the_configuration():
     path = Path(tempfile.mkdtemp()) / "config.toml"
-    path.write_text('[notion]\n# keep me\ntoken = "ntn_x"\nworkspace = ""\n\n[runner]\nfetch = true\n')
+    path.write_text(
+        '[notion]\n# keep me\ntoken = "ntn_x"\nworkspace = ""\n\n[runner]\nfetch = true\n'
+    )
 
     assert C.write_notion_value(path, "workspace", "abc") is True
     assert C.write_notion_value(path, "workspace", "abc") is False, "already says that"
@@ -1180,7 +1252,9 @@ def the_prompt_reads_from_the_widest_frame_to_the_narrowest():
         context="Je suis Camille Martin, développeur web.",
     )
     assert text.index("Camille Martin") < text.index("Ton: direct"), "the global frame comes first"
-    assert text.index("Ton: direct") < text.index("# Context"), "then the project, then the mechanics"
+    assert text.index("Ton: direct") < text.index("# Context"), (
+        "then the project, then the mechanics"
+    )
     assert "Le header prend trop de place." in text
 
 
@@ -1241,7 +1315,12 @@ def a_conversation_is_told_the_language_too_and_so_is_its_next_turn():
     said = voice.Voice("fr")
     first = prompt.conversation(
         prompt.CONVERSATION,
-        project="Animalink", title="t", body="b", where="w", url="u", message="et le footer ?",
+        project="Animalink",
+        title="t",
+        body="b",
+        where="w",
+        url="u",
+        message="et le footer ?",
         language=said.instruction(reply=True),
     )
     assert "Answer in French" in first
@@ -1408,7 +1487,7 @@ def _bare_runner(client) -> Runner:
     runner._comments = {}
     runner._usage_warned = False
     runner._spellings = conversation.names()
-    runner._me = ""          # Notion never said; the signature is all there is
+    runner._me = ""  # Notion never said; the signature is all there is
     runner._identity_error = ""
     return runner
 
@@ -1421,11 +1500,13 @@ def _runner_reading(texts: list[str], error: str = "") -> tuple[Runner, list[str
 
 @case
 def a_question_a_run_asked_comes_back_with_its_answer():
-    _, lines = _runner_reading([
-        f"{legacy.OLD}@laptop — blocked.\nThe ticket does not say which header.\n\n"
-        "Session: `abc-123` — `claude --resume abc-123`\nLog: /home/x/log.jsonl",
-        "Celui du dashboard, pas du site public.",
-    ])
+    _, lines = _runner_reading(
+        [
+            f"{legacy.OLD}@laptop — blocked.\nThe ticket does not say which header.\n\n"
+            "Session: `abc-123` — `claude --resume abc-123`\nLog: /home/x/log.jsonl",
+            "Celui du dashboard, pas du site public.",
+        ]
+    )
     assert lines == [
         "a previous run: blocked. The ticket does not say which header.",
         "the ticket's author: Celui du dashboard, pas du site public.",
@@ -1499,10 +1580,14 @@ def waking_looks_everywhere_but_where_a_status_already_speaks():
     runner.config = _config("")
     runner._workspace = workspace.Workspace(tickets="db", projects="projects", agents="agents")
     offered: list[str] = []
-    runner.client = type("S", (), {
-        "schema": lambda self, database: {"Status": "status"},
-        "options": lambda self, database, name: offered,
-    })()
+    runner.client = type(
+        "S",
+        (),
+        {
+            "schema": lambda self, database: {"Status": "status"},
+            "options": lambda self, database, name: offered,
+        },
+    )()
     excluded = {
         condition["status"]["does_not_equal"] for condition in runner._woken_filter()["and"]
     }
@@ -1529,24 +1614,26 @@ ME = "bot-user-id"
 
 def _said(text: str, *, by: str = "human", thread: str = "d1", ident: str = "") -> notion.Comment:
     return notion.Comment(
-        text, id=ident or f"c-{abs(hash((text, thread))) % 10**6}", discussion_id=thread,
+        text,
+        id=ident or f"c-{abs(hash((text, thread))) % 10**6}",
+        discussion_id=thread,
         created_by=by,
     )
 
 
 def _pending(comments: list[notion.Comment], mention: str = "") -> list[conversation.Thread]:
-    return conversation.waiting(
-        comments, me=ME, spellings=conversation.names(mention, "Ponos")
-    )
+    return conversation.waiting(comments, me=ME, spellings=conversation.names(mention, "Ponos"))
 
 
 @case
 def comments_are_grouped_into_the_threads_they_belong_to():
-    grouped = conversation.threads([
-        _said("le rapport", by=ME, thread="d1"),
-        _said("une remarque sans rapport", thread="d2"),
-        _said("et pourquoi ?", thread="d1"),
-    ])
+    grouped = conversation.threads(
+        [
+            _said("le rapport", by=ME, thread="d1"),
+            _said("une remarque sans rapport", thread="d2"),
+            _said("et pourquoi ?", thread="d1"),
+        ]
+    )
     assert [thread.discussion for thread in grouped] == ["d1", "d2"], "in the order they appear"
     assert len(grouped[0].comments) == 2
     assert grouped[0].last.text == "et pourquoi ?"
@@ -1556,19 +1643,23 @@ def comments_are_grouped_into_the_threads_they_belong_to():
 @case
 def a_comment_with_no_thread_of_its_own_is_not_lumped_with_the_others():
     """Notion answered without a discussion: two remarks are still two remarks."""
-    grouped = conversation.threads([
-        notion.Comment("une chose", id="c1"),
-        notion.Comment("une autre", id="c2"),
-    ])
+    grouped = conversation.threads(
+        [
+            notion.Comment("une chose", id="c1"),
+            notion.Comment("une autre", id="c2"),
+        ]
+    )
     assert len(grouped) == 2
 
 
 @case
 def replying_under_its_report_is_how_you_talk_to_it():
-    pending = _pending([
-        _said(f"{legacy.OLD}@laptop — done.\nFait.", by=ME),
-        _said("pourquoi ce nom de branche ?"),
-    ])
+    pending = _pending(
+        [
+            _said(f"{legacy.OLD}@laptop — done.\nFait.", by=ME),
+            _said("pourquoi ce nom de branche ?"),
+        ]
+    )
     assert [thread.last.text for thread in pending] == ["pourquoi ce nom de branche ?"]
 
 
@@ -1630,11 +1721,16 @@ def the_name_is_stripped_from_the_message_but_only_where_it_is_a_salutation():
 def an_unblocking_needs_a_decision_and_a_reason():
     from ponos import unblocking
 
-    said = "Le ticket B est en Done.\nDECISION: unblock\nREASON: B, dont il dépendait,\nest terminé."
-    assert unblocking.decision(said) == ("unblock", "B, dont il dépendait, est terminé.")
-    assert unblocking.decision("Réflexion.\nDECISION: unblock\nDECISION: keep\nREASON: toujours en attente")[0] == "keep", (
-        "the last decision wins"
+    said = (
+        "Le ticket B est en Done.\nDECISION: unblock\nREASON: B, dont il dépendait,\nest terminé."
     )
+    assert unblocking.decision(said) == ("unblock", "B, dont il dépendait, est terminé.")
+    assert (
+        unblocking.decision(
+            "Réflexion.\nDECISION: unblock\nDECISION: keep\nREASON: toujours en attente"
+        )[0]
+        == "keep"
+    ), "the last decision wins"
     for unreadable in ("", "peut-être débloqué", "DECISION: unblock", "DECISION: maybe\nREASON: x"):
         assert unblocking.decision(unreadable) == ("", ""), unreadable
 
@@ -1681,7 +1777,11 @@ def _unblocking(answer: str, already: list[str] | None = None):
     def fake_run(prompt_text, **kwargs):
         sessions.append(prompt_text)
         return session.Outcome(
-            ok=True, blocked=False, session_id="s-1", summary="", log=Path("/tmp/none.jsonl"),
+            ok=True,
+            blocked=False,
+            session_id="s-1",
+            summary="",
+            log=Path("/tmp/none.jsonl"),
             answer=answer,
         )
 
@@ -1697,7 +1797,10 @@ def _unblocking(answer: str, already: list[str] | None = None):
 def a_blocked_ticket_whose_cause_is_gone_goes_back_to_ready_with_the_reason():
     runner, result, sessions = _unblocking("DECISION: unblock\nREASON: Le ticket B est en Done.")
     assert runner.moved == [{"Status": runner.config.notion.state("ready")}], runner.moved
-    assert len(runner.comments_written) == 1 and "Le ticket B est en Done." in runner.comments_written[0]
+    assert (
+        len(runner.comments_written) == 1
+        and "Le ticket B est en Done." in runner.comments_written[0]
+    )
     assert (result["status"], result["reason"]) == ("unblocked", "Le ticket B est en Done.")
     assert "[Done] Ticket B" in sessions[0], "the session reads the whole board"
 
@@ -1708,7 +1811,9 @@ def a_blocked_ticket_that_is_still_blocked_stays_and_says_why_once():
     assert runner.moved == [], "nothing moves"
     assert "B n'est pas fini." in runner.comments_written[0]
     assert result["status"] == "kept-blocked"
-    again, traced, _ = _unblocking("DECISION: keep\nREASON: B n'est pas fini.", runner.comments_written)
+    again, traced, _ = _unblocking(
+        "DECISION: keep\nREASON: B n'est pas fini.", runner.comments_written
+    )
     assert len(again.comments_written) == 1, "the same reason is not written twice"
     assert traced["status"] == "kept-blocked", "but the decision is still traced"
 
@@ -1727,7 +1832,9 @@ def _page(identifier: str, status: str, prompt: str = "", title: str = "") -> no
         return {"type": kind, kind: [{"plain_text": value}]}
 
     return notion.Page(
-        id=identifier, url=f"https://notion.test/{identifier}", title=title or identifier,
+        id=identifier,
+        url=f"https://notion.test/{identifier}",
+        title=title or identifier,
         properties={
             "Status": {"type": "status", "status": {"name": status}},
             "On": text("rich_text", prompt),
@@ -1752,7 +1859,9 @@ class _OnBoard:
 
     def set(self, identifier: str, status: str) -> None:
         self.pages[identifier] = _page(
-            identifier, status, notion.read(self.pages[identifier], "On") if identifier in self.pages else ""
+            identifier,
+            status,
+            notion.read(self.pages[identifier], "On") if identifier in self.pages else "",
         )
 
 
@@ -1800,11 +1909,19 @@ def _a_session_that(effect=None, **outcome):
         seen.append({"prompt": prompt_text, **kwargs})
         if effect:
             effect()
-        return session.Outcome(**{
-            "ok": True, "blocked": False, "session_id": "s-on", "summary": "fait",
-            "log": Path("/tmp/none.jsonl"), "answer": "RESULT: ok — fait", "cost_usd": 0.12,
-            "seconds": 3.0, **outcome,
-        })
+        return session.Outcome(
+            **{
+                "ok": True,
+                "blocked": False,
+                "session_id": "s-on",
+                "summary": "fait",
+                "log": Path("/tmp/none.jsonl"),
+                "answer": "RESULT: ok — fait",
+                "cost_usd": 0.12,
+                "seconds": 3.0,
+                **outcome,
+            }
+        )
 
     return seen, fake
 
@@ -1824,8 +1941,12 @@ def a_status_is_a_change_only_from_the_second_time_it_is_seen_and_only_once():
     from ponos import transitions
 
     with _state_home():
-        assert transitions.observe("t1", "Ready", title="A", depth_limit=3) == (0, ""), "a first sight"
-        assert transitions.observe("t1", "Ready", title="A", depth_limit=3) == (0, ""), "nothing moved"
+        assert transitions.observe("t1", "Ready", title="A", depth_limit=3) == (0, ""), (
+            "a first sight"
+        )
+        assert transitions.observe("t1", "Ready", title="A", depth_limit=3) == (0, ""), (
+            "nothing moved"
+        )
         found, old = transitions.observe("t1", "Done", title="A", depth_limit=3)
         assert found and old == "Ready"
         assert transitions.observe("t1", "Done", title="A", depth_limit=3) == (0, ""), (
@@ -1938,7 +2059,9 @@ def an_execution_that_fails_or_overspends_is_commented_and_never_touches_a_statu
         assert [entry["status"] for entry in results] == ["on-failed"], results
         assert runner.moved == [], "the status is the board's"
         assert len(runner.comments_written) == 1
-        assert "Ready → Blocked" in runner.comments_written[0] and "1.00" in runner.comments_written[0]
+        assert (
+            "Ready → Blocked" in runner.comments_written[0] and "1.00" in runner.comments_written[0]
+        )
         assert transitions.history("t1")[0]["state"] == "failed"
         runner._on_read = float("-inf")
         assert runner.transitions() == [], "a failure is not tried again by itself"
@@ -2060,12 +2183,14 @@ def an_answer_given_on_your_phone_is_still_your_answer():
 
 @case
 def its_own_answers_are_not_read_back_as_yours():
-    runner = _knowing([
-        REPORT_BY_US,
-        _said("pourquoi ?"),
-        _said("parce que la page en a deux.", by=ME),
-        _said("celui du dashboard."),
-    ])
+    runner = _knowing(
+        [
+            REPORT_BY_US,
+            _said("pourquoi ?"),
+            _said("parce que la page en a deux.", by=ME),
+            _said("celui du dashboard."),
+        ]
+    )
     lines = runner.discussion(_ticket())
     assert lines == [
         "a previous run: blocked. Quel en-tête ?",
@@ -2077,19 +2202,23 @@ def its_own_answers_are_not_read_back_as_yours():
 
 @case
 def a_thread_transcript_tells_its_two_voices_apart():
-    thread = conversation.threads([
-        _said(f"{legacy.OLD}@laptop — done.", by=ME),
-        _said("pourquoi ?"),
-        _said("parce que.", by=ME),
-        _said("et sinon ?"),
-    ])[0]
+    thread = conversation.threads(
+        [
+            _said(f"{legacy.OLD}@laptop — done.", by=ME),
+            _said("pourquoi ?"),
+            _said("parce que.", by=ME),
+            _said("et sinon ?"),
+        ]
+    )[0]
     lines = conversation.transcript(thread, ME)
     assert lines == [
         f"you: {legacy.OLD}@laptop — done.",
         "them: pourquoi ?",
         "you: parce que.",
     ], lines
-    assert all("et sinon" not in line for line in lines), "the message being answered is not history"
+    assert all("et sinon" not in line for line in lines), (
+        "the message being answered is not history"
+    )
 
 
 @case
@@ -2248,9 +2377,15 @@ def _no_session(
         for name, text in (writes or {}).items():
             (Path(kwargs["cwd"]) / name).write_text(text, encoding="utf-8")
         return session.Outcome(
-            ok=good, blocked=False, session_id=kwargs.get("session_id", "s-1"),
-            summary="", log=Path("/tmp/none.jsonl"), answer=answer if good else "",
-            error="" if good else "claude exited with code 1", seconds=12.0, cost_usd=0.01,
+            ok=good,
+            blocked=False,
+            session_id=kwargs.get("session_id", "s-1"),
+            summary="",
+            log=Path("/tmp/none.jsonl"),
+            answer=answer if good else "",
+            error="" if good else "claude exited with code 1",
+            seconds=12.0,
+            cost_usd=0.01,
         )
 
     original = session.run
@@ -2360,7 +2495,11 @@ def a_pass_that_is_turned_off_or_too_soon_asks_notion_nothing():
 def a_conversation_prompt_says_what_it_is_not_allowed_to_do():
     text = prompt.conversation(
         prompt.CONVERSATION,
-        project="Animalink", title="t", body="b", where="Repository: /r", url="u",
+        project="Animalink",
+        title="t",
+        body="b",
+        where="Repository: /r",
+        url="u",
         message="pourquoi ce nom ?",
         thread=["them: pourquoi ?"],
         context="Je suis Salvador.",
@@ -2370,16 +2509,19 @@ def a_conversation_prompt_says_what_it_is_not_allowed_to_do():
         comments=["a previous run: done. fait"],
     )
     assert "talking, not working" in text
-    order = [text.index(mark) for mark in (
-        "b",                        # the ticket itself
-        "already been said",        # then what was said about it
-        "Je suis Salvador.",        # then the widest frame
-        "Ton: direct.",             # then the project
-        "Deux angles.",             # then the role
-        "# Context",                # then the mechanics
-        "This thread so far",       # then the conversation being had
-        "pourquoi ce nom ?",        # and last, the message to answer
-    )]
+    order = [
+        text.index(mark)
+        for mark in (
+            "b",  # the ticket itself
+            "already been said",  # then what was said about it
+            "Je suis Salvador.",  # then the widest frame
+            "Ton: direct.",  # then the project
+            "Deux angles.",  # then the role
+            "# Context",  # then the mechanics
+            "This thread so far",  # then the conversation being had
+            "pourquoi ce nom ?",  # and last, the message to answer
+        )
+    ]
     assert order == sorted(order), order
     # A resumed session is sent the message and not the whole frame again.
     assert prompt.message_of(text) == "pourquoi ce nom ?"
@@ -2389,7 +2531,11 @@ def a_conversation_prompt_says_what_it_is_not_allowed_to_do():
 def a_ticket_without_a_project_still_reads_as_a_sentence():
     text = prompt.conversation(
         prompt.CONVERSATION,
-        project="", title="t", body="", where="Working directory: /tmp/x", url="u",
+        project="",
+        title="t",
+        body="",
+        where="Working directory: /tmp/x",
+        url="u",
         message="et alors ?",
     )
     assert "that belongs to no project" in text
@@ -2410,21 +2556,30 @@ def an_answer_too_long_for_a_comment_is_cut_where_it_breathes():
 def the_role_sits_between_the_project_and_the_mechanics():
     text = prompt.build(
         prompt.DEFAULT,
-        project="Animalink", title="t", body="b", repo="/r", branch="br", base="main", url="u",
+        project="Animalink",
+        title="t",
+        body="b",
+        repo="/r",
+        branch="br",
+        base="main",
+        url="u",
         context="Je suis Salvador.",
         brief="Ton: direct.",
         agent_name="Rédacteur",
         agent_brief="Deux ou trois angles, toujours.",
         comments=["the ticket's author: plutôt court."],
     )
-    order = [text.index(mark) for mark in (
-        "b",                        # the ticket itself
-        "already been said",        # then what was said about it
-        "Je suis Salvador.",        # then the widest frame
-        "Ton: direct.",             # then the project
-        "Deux ou trois angles",     # then the role
-        "# Context",                # then the mechanics
-    )]
+    order = [
+        text.index(mark)
+        for mark in (
+            "b",  # the ticket itself
+            "already been said",  # then what was said about it
+            "Je suis Salvador.",  # then the widest frame
+            "Ton: direct.",  # then the project
+            "Deux ou trois angles",  # then the role
+            "# Context",  # then the mechanics
+        )
+    ]
     assert order == sorted(order), order
     assert "# Your role — Rédacteur" in text
 
@@ -2464,9 +2619,10 @@ def project_keys_match_what_claude_code_writes_on_disk():
     assert session.project_key(Path("/home/salva/workspace/labo/trader-ia")) == (
         "-home-salva-workspace-labo-trader-ia"
     )
-    assert session.project_key(
-        Path("/home/salva/.local/state/ponos/worktrees/trader-ia-3ca45168")
-    ) == "-home-salva--local-state-ponos-worktrees-trader-ia-3ca45168"
+    assert (
+        session.project_key(Path("/home/salva/.local/state/ponos/worktrees/trader-ia-3ca45168"))
+        == "-home-salva--local-state-ponos-worktrees-trader-ia-3ca45168"
+    )
 
 
 @case
@@ -2534,8 +2690,12 @@ def a_prompt_never_reaches_the_command_line():
             for name, text in prompts.items():
                 for resume in (False, True):
                     outcome = session.run(
-                        text, cwd=home, log=home / f"{name}.jsonl", timeout_minutes=1,
-                        session_id="0486a9fd-44f6-4fff-9dee-9e58bc4062ba", resume=resume,
+                        text,
+                        cwd=home,
+                        log=home / f"{name}.jsonl",
+                        timeout_minutes=1,
+                        session_id="0486a9fd-44f6-4fff-9dee-9e58bc4062ba",
+                        resume=resume,
                     )
                     assert outcome.ok, (name, resume, outcome.error)
                     got = json.loads(seen.read_text())
@@ -2576,9 +2736,7 @@ def a_link_cannot_slip_an_option_into_ssh_or_claude():
         cwd, command = session.resume_command(
             session.deep_link(identifier, "/srv/work/app", "salva@vps.example.org")
         )
-        _, bracketed = session.resume_command(
-            f"ponos://session/{identifier}?host=me%40%5B::1%5D"
-        )
+        _, bracketed = session.resume_command(f"ponos://session/{identifier}?host=me%40%5B::1%5D")
     finally:
         session.shutil.which = original
     assert command[:4] == ["ssh", "-t", "--", "salva@vps.example.org"], command
@@ -2707,8 +2865,9 @@ def a_read_that_times_out_is_asked_again_and_says_notion_when_it_gives_up():
     import urllib.error
 
     client = notion.Client("ntn_x")
-    with _notion_answering(TimeoutError("timed out"), ConnectionResetError(104, "reset"),
-                           {"object": "page", "id": "p"}) as (calls, pauses):
+    with _notion_answering(
+        TimeoutError("timed out"), ConnectionResetError(104, "reset"), {"object": "page", "id": "p"}
+    ) as (calls, pauses):
         assert client._request("GET", "/pages/p") == {"object": "page", "id": "p"}
     assert len(calls) == 3 and len(pauses) == 2, (calls, pauses)
 
@@ -2734,7 +2893,11 @@ def a_comment_is_never_posted_twice_on_the_strength_of_a_silence():
     import urllib.error
 
     client = notion.Client("ntn_x")
-    for silence in (TimeoutError("timed out"), ConnectionResetError(104, "reset"), _http_error(502)):
+    for silence in (
+        TimeoutError("timed out"),
+        ConnectionResetError(104, "reset"),
+        _http_error(502),
+    ):
         with _notion_answering(silence, {"object": "comment"}) as (calls, _):
             try:
                 client._request("POST", "/comments", {"rich_text": []})
@@ -2749,7 +2912,10 @@ def a_comment_is_never_posted_twice_on_the_strength_of_a_silence():
         assert client._request("POST", "/comments", {}) == {"object": "comment"}
     assert len(calls) == 2, "never sent is safe to send"
 
-    with _notion_answering(_http_error(429, retry_after="7"), {"object": "comment"}) as (calls, pauses):
+    with _notion_answering(_http_error(429, retry_after="7"), {"object": "comment"}) as (
+        calls,
+        pauses,
+    ):
         assert client._request("POST", "/comments", {}) == {"object": "comment"}
     assert len(calls) == 2 and pauses == [7.0], (calls, pauses)
 
@@ -2825,7 +2991,9 @@ def blocks_become_readable_text_for_the_prompt():
 @case
 def properties_are_read_back_as_plain_python():
     page = notion.Page(
-        id="x", url="u", title="t",
+        id="x",
+        url="u",
+        title="t",
         properties={
             "Status": {"type": "status", "status": {"name": "Done"}},
             "Empty": {"type": "status", "status": None},
@@ -2852,8 +3020,15 @@ def markdown_keeps_its_shape_as_notion_blocks():
         "> citation\n\n---\n\n```python\nprint(1)\n```\n"
     )
     assert [block["type"] for block in blocks] == [
-        "heading_1", "paragraph", "heading_2", "bulleted_list_item",
-        "to_do", "numbered_list_item", "quote", "divider", "code",
+        "heading_1",
+        "paragraph",
+        "heading_2",
+        "bulleted_list_item",
+        "to_do",
+        "numbered_list_item",
+        "quote",
+        "divider",
+        "code",
     ]
     assert blocks[4]["to_do"]["checked"] is True
     assert blocks[8]["code"]["language"] == "python"
@@ -3018,9 +3193,18 @@ def a_paused_or_unreadable_schedule_has_no_upcoming_moment():
     now = datetime.fromisoformat("2026-10-14T21:00:00+02:00")
     page = store.Page(id="a" * 32, title="Whisper Desk", properties={}, url="")
     due = schedules.Schedule(
-        page=page, name="Whisper Desk", cadence="Daily", at="09:00", day="", active=True,
-        next=datetime.fromisoformat("2026-10-09T09:00:00+02:00"), last=None,
-        last_ticket="", project="", model="", priority="",
+        page=page,
+        name="Whisper Desk",
+        cadence="Daily",
+        at="09:00",
+        day="",
+        active=True,
+        next=datetime.fromisoformat("2026-10-09T09:00:00+02:00"),
+        last=None,
+        last_ticket="",
+        project="",
+        model="",
+        priority="",
     )
     assert schedules.upcoming(due, now) == now, "due: it fires on the next pass, never in the past"
     due.active = False
@@ -3033,7 +3217,9 @@ def a_paused_or_unreadable_schedule_has_no_upcoming_moment():
 def a_date_range_schedules_on_its_end():
     """Notion dates may be ranges; the runner reads the moment work is due."""
     page = notion.Page(
-        id="x", url="u", title="t",
+        id="x",
+        url="u",
+        title="t",
         properties={
             "Due": {"type": "date", "date": {"start": "2026-08-30", "end": "2026-09-02"}},
             "Single": {"type": "date", "date": {"start": "2026-08-30", "end": None}},
@@ -3084,9 +3270,7 @@ def a_monthly_schedule_on_the_31st_lands_on_the_last_day_february_has():
         "Monthly", "07:00", "31", after=_after("2026-01-31T09:00:00")
     )
     assert from_january == _after("2026-02-28T07:00:00")
-    leap = schedules.next_occurrence(
-        "Monthly", "07:00", "31", after=_after("2028-01-31T09:00:00")
-    )
+    leap = schedules.next_occurrence("Monthly", "07:00", "31", after=_after("2028-01-31T09:00:00"))
     assert leap == _after("2028-02-29T07:00:00")
 
 
@@ -3097,9 +3281,7 @@ def an_occurrence_is_always_strictly_after_the_moment_it_is_computed_from():
     assert schedules.next_occurrence("Daily", "09:00", after=exactly) == _after(
         "2026-09-10T09:00:00"
     )
-    assert schedules.next_occurrence("Hourly", "00", after=exactly) == _after(
-        "2026-09-09T10:00:00"
-    )
+    assert schedules.next_occurrence("Hourly", "00", after=exactly) == _after("2026-09-09T10:00:00")
 
 
 @case
@@ -3126,23 +3308,35 @@ def _schedule_page(page_id: str, **values) -> notion.Page:
         title=values.get("name", "Revue des dépendances"),
         properties={
             "Cadence": {"type": "select", "select": {"name": values.get("cadence", "Daily")}},
-            "At": {"type": "rich_text",
-                   "rich_text": [{"plain_text": values.get("at", "09:00")}]},
+            "At": {"type": "rich_text", "rich_text": [{"plain_text": values.get("at", "09:00")}]},
             "Day": {"type": "rich_text", "rich_text": [{"plain_text": values.get("day", "")}]},
             "Active": {"type": "checkbox", "checkbox": values.get("active", True)},
-            "Next": {"type": "date",
-                     "date": {"start": values["next"]} if values.get("next") else None},
+            "Next": {
+                "type": "date",
+                "date": {"start": values["next"]} if values.get("next") else None,
+            },
             "Last": {"type": "date", "date": None},
-            "Last ticket": {"type": "relation",
-                            "relation": [{"id": last_ticket}] if last_ticket else []},
+            "Last ticket": {
+                "type": "relation",
+                "relation": [{"id": last_ticket}] if last_ticket else [],
+            },
             "Project": {"type": "relation", "relation": [{"id": "p-animalink"}]},
             "Priority": {"type": "number", "number": 40},
-            **({"Type": {"type": "select", "select": {"name": values["type"]}}}
-               if values.get("type") else {}),
-            **({"Sous-type": {"type": "select", "select": {"name": values["subtype"]}}}
-               if values.get("subtype") else {}),
-            **({"Model": {"type": "select", "select": {"name": values["model"]}}}
-               if values.get("model") else {}),
+            **(
+                {"Type": {"type": "select", "select": {"name": values["type"]}}}
+                if values.get("type")
+                else {}
+            ),
+            **(
+                {"Sous-type": {"type": "select", "select": {"name": values["subtype"]}}}
+                if values.get("subtype")
+                else {}
+            ),
+            **(
+                {"Model": {"type": "select", "select": {"name": values["model"]}}}
+                if values.get("model")
+                else {}
+            ),
         },
     )
 
@@ -3207,7 +3401,9 @@ def _recurring(pages, *, tickets=None, refuses="", schedule=True, dry_run=False)
 
 def _ticket_page(page_id: str, status: str) -> notion.Page:
     return notion.Page(
-        id=page_id, url="", title=page_id,
+        id=page_id,
+        url="",
+        title=page_id,
         properties={"Status": {"type": "status", "status": {"name": status}}},
     )
 
@@ -3247,28 +3443,39 @@ def a_code_schedule_makes_a_code_ticket_that_nobody_classifies():
     four Whisper Desk tickets to done with their pull requests lost: the
     schedule says what its tickets are, and the ticket is born with it."""
     stale = (datetime.now().astimezone() - timedelta(hours=1)).isoformat()
-    runner = _recurring([_schedule_page(
-        "s-1", next=stale, type="Code", subtype="Feature", model="opus"
-    )])
+    runner = _recurring(
+        [_schedule_page("s-1", next=stale, type="Code", subtype="Feature", model="opus")]
+    )
     assert len(runner.recur()) == 1
     _, values = runner.client.created[0]
     assert values["Type"] == "Code" and values["Sous-type"] == "Feature"
     assert values["Model"] == "opus" and values["Priority"] == 40
 
     # Born typed, it is never handed to the classifier.
-    born = notion.Page(id="t-1", url="", title="Revue — 2026-10-16", properties={
-        "Type": {"type": "select", "select": {"name": values["Type"]}},
-        "Sous-type": {"type": "select", "select": {"name": values["Sous-type"]}},
-    })
-    runner.client.schema = lambda database_id: {"Status": "status", "Type": "select",
-                                                "Sous-type": "select"}
+    born = notion.Page(
+        id="t-1",
+        url="",
+        title="Revue — 2026-10-16",
+        properties={
+            "Type": {"type": "select", "select": {"name": values["Type"]}},
+            "Sous-type": {"type": "select", "select": {"name": values["Sous-type"]}},
+        },
+    )
+    runner.client.schema = lambda database_id: {
+        "Status": "status",
+        "Type": "select",
+        "Sous-type": "select",
+    }
 
     def classified(*_):
         raise AssertionError("a typed ticket is not classified")
 
     runner._classify = classified
     runner._ask_subtype = classified
-    assert runner._kind(ticket_module.Ticket(born), "", projects.Project(name="", path=None)) == ("code", "")
+    assert runner._kind(ticket_module.Ticket(born), "", projects.Project(name="", path=None)) == (
+        "code",
+        "",
+    )
     assert runner._subtype(ticket_module.Ticket(born), "") == ("feature", "")
 
 
@@ -3389,10 +3596,12 @@ def a_schedule_in_the_future_and_one_that_is_off_both_cost_nothing():
     assert off.recur() == [] and off.client.written == []
 
     # A schedule nobody can read holds nobody up.
-    broken = _recurring([
-        _schedule_page("s-broken", cadence="Fortnightly", next=stale),
-        _schedule_page("s-fine", next=stale),
-    ])
+    broken = _recurring(
+        [
+            _schedule_page("s-broken", cadence="Fortnightly", next=stale),
+            _schedule_page("s-fine", next=stale),
+        ]
+    )
     assert len(broken.recur()) == 1
     assert broken.client.created[0][0].startswith("Revue")
 
@@ -3447,8 +3656,17 @@ def the_schedules_database_is_built_after_the_tickets_it_points_at():
     provision.provision(board, _settings(), "root")
 
     schema = board._schemas["db-schedules"]
-    for expected in ("Cadence", "At", "Day", "Active", "Next", "Last", "Last ticket",
-                     "Type", "Sous-type"):
+    for expected in (
+        "Cadence",
+        "At",
+        "Day",
+        "Active",
+        "Next",
+        "Last",
+        "Last ticket",
+        "Type",
+        "Sous-type",
+    ):
         assert expected in schema, expected
     # The same options as the tickets', so a value copied across is one they offer.
     tickets = board._schemas["db-tickets"]
@@ -3551,14 +3769,22 @@ def _installation():
         subprocess.run(["git", "clone", "--quiet", str(remote), str(work)], **quiet)
 
         def commit(message: str, tag: str = "") -> str:
-            subprocess.run(["git", *who, "-C", str(work), "commit", "--quiet", "--allow-empty",
-                            "-m", message], **quiet)
+            subprocess.run(
+                ["git", *who, "-C", str(work), "commit", "--quiet", "--allow-empty", "-m", message],
+                **quiet,
+            )
             if tag:
                 subprocess.run(["git", *who, "-C", str(work), "tag", "-a", tag, "-m", tag], **quiet)
-            subprocess.run(["git", "-C", str(work), "push", "--quiet", "--follow-tags", "origin",
-                            "HEAD:main"], **quiet)
-            return subprocess.run(["git", "-C", str(work), "rev-parse", "HEAD"],
-                                  capture_output=True, text=True, check=True).stdout.strip()
+            subprocess.run(
+                ["git", "-C", str(work), "push", "--quiet", "--follow-tags", "origin", "HEAD:main"],
+                **quiet,
+            )
+            return subprocess.run(
+                ["git", "-C", str(work), "rev-parse", "HEAD"],
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout.strip()
 
         first = commit("one")
         subprocess.run(["git", "clone", "--quiet", str(remote), str(app)], **quiet)
@@ -3589,8 +3815,11 @@ def an_installation_follows_releases_and_not_every_commit_of_main():
 
         # Already past the release — a clone of main switched to the release
         # channel — is not taken back to it.
-        subprocess.run(["git", "-C", str(app), "reset", "--quiet", "--hard", followed.latest],
-                       capture_output=True, check=True)
+        subprocess.run(
+            ["git", "-C", str(app), "reset", "--quiet", "--hard", followed.latest],
+            capture_output=True,
+            check=True,
+        )
         ahead = update.check(app, "release")
         assert not ahead.stale and not ahead.reason, ahead
 
@@ -3635,9 +3864,7 @@ def an_update_puts_the_console_on_the_code_it_just_installed():
         # installation's own: a test that reloads this machine's units is a test
         # gone somewhere it was never asked to go.
         asked = app.parent / "systemctl.log"
-        (app.parent / "bin" / "systemctl").write_text(
-            f'#!/bin/sh\necho "$@" >> {asked}\n'
-        )
+        (app.parent / "bin" / "systemctl").write_text(f'#!/bin/sh\necho "$@" >> {asked}\n')
         (app.parent / "bin" / "systemctl").chmod(0o755)
         (app.parent / "bin" / "sh").symlink_to(shutil.which("sh") or "/bin/sh")
         commit("two")
@@ -3678,11 +3905,19 @@ def _installable():
         def commit(message: str, change=lambda work: None) -> str:
             change(work)
             subprocess.run(["git", "-C", str(work), "add", "-A"], **quiet)
-            subprocess.run(["git", *who, "-C", str(work), "commit", "--quiet", "--allow-empty",
-                            "-m", message], **quiet)
-            subprocess.run(["git", "-C", str(work), "push", "--quiet", "origin", "HEAD:main"], **quiet)
-            return subprocess.run(["git", "-C", str(work), "rev-parse", "HEAD"],
-                                  capture_output=True, text=True, check=True).stdout.strip()
+            subprocess.run(
+                ["git", *who, "-C", str(work), "commit", "--quiet", "--allow-empty", "-m", message],
+                **quiet,
+            )
+            subprocess.run(
+                ["git", "-C", str(work), "push", "--quiet", "origin", "HEAD:main"], **quiet
+            )
+            return subprocess.run(
+                ["git", "-C", str(work), "rev-parse", "HEAD"],
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout.strip()
 
         first = commit("one")
         subprocess.run(["git", "clone", "--quiet", str(remote), str(app)], **quiet)
@@ -3702,8 +3937,9 @@ def _installable():
 
 
 def _head(app: Path) -> str:
-    return subprocess.run(["git", "-C", str(app), "rev-parse", "HEAD"],
-                          capture_output=True, text=True, check=True).stdout.strip()
+    return subprocess.run(
+        ["git", "-C", str(app), "rev-parse", "HEAD"], capture_output=True, text=True, check=True
+    ).stdout.strip()
 
 
 @case
@@ -3717,8 +3953,10 @@ def a_version_that_does_not_start_is_taken_back_and_one_that_does_is_kept():
     back to the commit it replaced when it does not.
     """
     with _installable() as (commit, app, first):
-        broken = commit("broken", lambda work: (work / "src/ponos/__main__.py").write_text(
-            "this is not python\n"))
+        broken = commit(
+            "broken",
+            lambda work: (work / "src/ponos/__main__.py").write_text("this is not python\n"),
+        )
         status = update.check(app, "main")
         assert status.stale and status.latest == broken
         error = update.install(status, 600, app)
@@ -3730,8 +3968,12 @@ def a_version_that_does_not_start_is_taken_back_and_one_that_does_is_kept():
         )
         assert not app.with_name(f"app-{broken[:12]}").exists(), "the broken version was kept"
 
-        fixed = commit("fixed", lambda work: shutil.copy(
-            ROOT / "src/ponos/__main__.py", work / "src/ponos/__main__.py"))
+        fixed = commit(
+            "fixed",
+            lambda work: shutil.copy(
+                ROOT / "src/ponos/__main__.py", work / "src/ponos/__main__.py"
+            ),
+        )
         status = update.check(app, "main")
         assert update.install(status, 600, app) == ""
         assert _head(app) == fixed
@@ -3771,14 +4013,16 @@ def each_version_runs_in_an_environment_of_its_own_made_before_it_is_pointed_at(
         assert made.exists(), "the new version was pointed at without its environment"
         assert environment.interpreter(app.resolve()) == str(made)
         launcher = (Path(os.environ["HOME"]) / ".local/bin/ponos").read_text()
-        assert '.venv/bin/python' in launcher, "the launcher does not run the environment"
+        assert ".venv/bin/python" in launcher, "the launcher does not run the environment"
         assert f'PYTHON="{environment.base_python()}"' in launcher, (
             "the launcher falls back on a Python inside a version directory"
         )
 
         # A version whose packages cannot be installed is never pointed at.
-        third = commit("asks for a package", lambda work: (work / "requirements.txt").write_text(
-            "a-package-nobody-published\n"))
+        third = commit(
+            "asks for a package",
+            lambda work: (work / "requirements.txt").write_text("a-package-nobody-published\n"),
+        )
         error = update.install(update.check(app, "main"), 600, app)
         assert error and "could not be" in error, error  # made, or installed into
         assert _head(app) == second and made.exists(), "the version in use lost its environment"
@@ -3829,8 +4073,10 @@ def the_launcher_runs_the_environment_and_the_machines_python_without_one():
         app.symlink_to(version.name)
         launcher = Path(directory) / "ponos"
         launcher.write_text(
-            (ROOT / "bin" / "ponos.in").read_text(encoding="utf-8")
-            .replace("@APP_DIR@", str(app)).replace("@PYTHON@", environment.base_python()),
+            (ROOT / "bin" / "ponos.in")
+            .read_text(encoding="utf-8")
+            .replace("@APP_DIR@", str(app))
+            .replace("@PYTHON@", environment.base_python()),
             encoding="utf-8",
         )
         launcher.chmod(0o755)
@@ -3856,8 +4102,11 @@ def the_header_does_not_offer_a_version_already_installed():
         second = commit("two")
         update.remember(update.Status(current=first, latest=second))
         assert update.waiting(app).stale, "installed is what the stamp compared: an update"
-        subprocess.run(["git", "-C", str(app), "pull", "--quiet", "origin", "main"],
-                       capture_output=True, check=True)
+        subprocess.run(
+            ["git", "-C", str(app), "pull", "--quiet", "origin", "main"],
+            capture_output=True,
+            check=True,
+        )
         assert not update.waiting(app).stale, "moved by hand since the check: nothing to offer"
     page = "https://github.com/owner/repo"
     tagged = update.Status(current="a" * 40, latest="b" * 40, tag="v0.2.0")
@@ -3894,7 +4143,9 @@ def the_console_looks_for_an_update_without_moving_the_run_s_clock():
         second = commit("two")
         said: list[dict] = []
         upgrade = web_upgrade.Upgrade(
-            lambda kind, **payload: said.append(payload), lambda: C.Runner(update_channel="main"), app=app
+            lambda kind, **payload: said.append(payload),
+            lambda: C.Runner(update_channel="main"),
+            app=app,
         )
         upgrade.look()
         assert update.last_check() == checked, "the console's look moved the run's clock"
@@ -3905,7 +4156,9 @@ def the_console_looks_for_an_update_without_moving_the_run_s_clock():
 
         commit("three")
         off = web_upgrade.Upgrade(
-            lambda kind, **payload: said.append(payload), lambda: C.Runner(auto_update=False, update_channel="main"), app=app
+            lambda kind, **payload: said.append(payload),
+            lambda: C.Runner(auto_update=False, update_channel="main"),
+            app=app,
         )
         off.look()
         assert len(said) == 1 and update.waiting(app).behind == 1, (
@@ -3962,8 +4215,12 @@ def an_update_from_the_console_waits_for_the_ticket_in_flight():
         restarted: list[int] = []
         talking = {"now": "a conversation turn is being answered"}
         upgrade = web_upgrade.Upgrade(
-            lambda kind, **payload: said.append(payload), C.Runner, lambda: talking["now"],
-            app=Path(tempfile.mkdtemp()), reboot=lambda: restarted.append(1), poll=0.02,
+            lambda kind, **payload: said.append(payload),
+            C.Runner,
+            lambda: talking["now"],
+            app=Path(tempfile.mkdtemp()),
+            reboot=lambda: restarted.append(1),
+            poll=0.02,
         )
         with state.lock():
             upgrade.start()
@@ -4008,8 +4265,11 @@ def a_failed_update_from_the_console_says_why_and_restarts_nothing():
     with _state_home(), _FakeUpdate("the new version does not start: boom — back on aaaaaaaa"):
         restarted: list[int] = []
         upgrade = web_upgrade.Upgrade(
-            lambda kind, **payload: None, C.Runner,
-            app=Path(tempfile.mkdtemp()), reboot=lambda: restarted.append(1), poll=0.02,
+            lambda kind, **payload: None,
+            C.Runner,
+            app=Path(tempfile.mkdtemp()),
+            reboot=lambda: restarted.append(1),
+            poll=0.02,
         )
         upgrade.start()
         _until(lambda: upgrade.phase == "failed")
@@ -4050,7 +4310,9 @@ def the_update_endpoint_answers_only_this_machine_and_the_console_page():
     def post(path: str, **headers: str):
         sent = {"Authorization": "Bearer tok", "Content-Type": "application/json", **headers}
         request = urllib.request.Request(
-            f"http://127.0.0.1:{port}{path}", data=b'{"command": "rm -rf ~"}', headers=sent,
+            f"http://127.0.0.1:{port}{path}",
+            data=b'{"command": "rm -rf ~"}',
+            headers=sent,
             method="POST",
         )
         try:
@@ -4073,8 +4335,12 @@ def the_update_endpoint_answers_only_this_machine_and_the_console_page():
     assert len(started) == 2
 
     handler = web_server.Handler.__new__(web_server.Handler)
-    for address, local in (("127.0.0.1", True), ("::1", True), ("192.168.1.20", False),
-                           ("100.64.0.3", False)):
+    for address, local in (
+        ("127.0.0.1", True),
+        ("::1", True),
+        ("192.168.1.20", False),
+        ("100.64.0.3", False),
+    ):
         handler.client_address = (address, 0)
         assert handler._local() is local, address
 
@@ -4167,7 +4433,9 @@ def a_copy_of_a_secret_is_private_before_it_holds_anything():
     names = {Path(name).name: mode for name, mode in created}
     assert names.get("token") == 0o600, names
     assert names.get("config.toml.bak") == 0o600, names
-    assert any(name.startswith(".config.toml.saving") and mode == 0o600 for name, mode in names.items()), names
+    assert any(
+        name.startswith(".config.toml.saving") and mode == 0o600 for name, mode in names.items()
+    ), names
 
 
 @case
@@ -4239,7 +4507,9 @@ def a_timer_with_no_next_run_is_stalled_rather_than_enabled():
     )
     assert busy.running and not busy.stalled, "no next run while the service runs is a run"
 
-    off = systemd.describe("disabled", "SubState=dead\nNextElapseUSecRealtime=\nNextElapseUSecMonotonic=\n")
+    off = systemd.describe(
+        "disabled", "SubState=dead\nNextElapseUSecRealtime=\nNextElapseUSecMonotonic=\n"
+    )
     assert not off.stalled and off.label == "disabled", "only an enabled timer can lie"
     assert systemd.describe("", "").label == "", "and what is not installed says so as it did"
 
@@ -4384,8 +4654,14 @@ def _that_failed(page: notion.Page, *, folded: bool) -> tuple[Runner, list[str],
         # than a question, which is the road a trace is actually read on.
         (job.workdir / "ANSWER.md").write_text("La moitié d'une réponse.")
         return session.Outcome(
-            ok=False, blocked=False, session_id="s-1", summary="",
-            error="npm test exited 1", log=Path("/logs/x.jsonl"), seconds=90.0, turns=4,
+            ok=False,
+            blocked=False,
+            session_id="s-1",
+            summary="",
+            error="npm test exited 1",
+            log=Path("/logs/x.jsonl"),
+            seconds=90.0,
+            turns=4,
         )
 
     runner._run_session = stopped
@@ -4398,9 +4674,7 @@ def _that_failed(page: notion.Page, *, folded: bool) -> tuple[Runner, list[str],
         workdir=Path(tempfile.mkdtemp()) / "doc",
     )
     if folded:
-        job.live = type(
-            "L", (), {"detail": lambda self, text: bool(filed.append(text)) or True}
-        )()
+        job.live = type("L", (), {"detail": lambda self, text: bool(filed.append(text)) or True})()
     return runner, filed, runner._execute_document(job)
 
 
@@ -4450,8 +4724,13 @@ def _answered_on(comments: list[str], answer: str, write: str) -> tuple[Runner, 
         if write:
             (job.workdir / "ANSWER.md").write_text(write)
         return session.Outcome(
-            ok=False, blocked=True, session_id="s-1", summary=session._summary(answer),
-            answer=answer, log=Path("/logs/x.jsonl"), question=question.parse(answer),
+            ok=False,
+            blocked=True,
+            session_id="s-1",
+            summary=session._summary(answer),
+            answer=answer,
+            log=Path("/logs/x.jsonl"),
+            question=question.parse(answer),
         )
 
     runner._run_session = answered
@@ -4465,12 +4744,31 @@ def _session_log(*steps: tuple[str, str]) -> Path:
     log = Path(tempfile.mkdtemp()) / "s.jsonl"
     lines = []
     for number, (command, printed) in enumerate(steps):
-        lines.append({"type": "assistant", "message": {"content": [
-            {"type": "tool_use", "id": f"u{number}", "name": "Bash", "input": {"command": command}}
-        ]}})
-        lines.append({"type": "user", "message": {"content": [
-            {"type": "tool_result", "tool_use_id": f"u{number}", "content": printed}
-        ]}})
+        lines.append(
+            {
+                "type": "assistant",
+                "message": {
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "id": f"u{number}",
+                            "name": "Bash",
+                            "input": {"command": command},
+                        }
+                    ]
+                },
+            }
+        )
+        lines.append(
+            {
+                "type": "user",
+                "message": {
+                    "content": [
+                        {"type": "tool_result", "tool_use_id": f"u{number}", "content": printed}
+                    ]
+                },
+            }
+        )
     log.write_text("".join(json.dumps(line) + "\n" for line in lines))
     return log
 
@@ -4491,8 +4789,14 @@ def a_pull_request_a_writing_session_opened_is_attached_and_sent_to_review():
 
     def answered(job, template):
         (job.workdir / "ANSWER.md").write_text("Fait : la PR est ouverte.")
-        return session.Outcome(ok=True, blocked=False, session_id="s-1", summary="ok",
-                               answer="RESULT: ok — PR ouverte", log=log)
+        return session.Outcome(
+            ok=True,
+            blocked=False,
+            session_id="s-1",
+            summary="ok",
+            answer="RESULT: ok — PR ouverte",
+            log=log,
+        )
 
     runner._run_session = answered
     job = _doc_job(page)
@@ -4516,8 +4820,14 @@ def a_writing_session_that_opened_nothing_still_ends_in_done():
 
     def answered(job, template):
         (job.workdir / "ANSWER.md").write_text("Le texte.")
-        return session.Outcome(ok=True, blocked=False, session_id="s-1", summary="ok",
-                               answer="RESULT: ok — écrit", log=log)
+        return session.Outcome(
+            ok=True,
+            blocked=False,
+            session_id="s-1",
+            summary="ok",
+            answer="RESULT: ok — écrit",
+            log=log,
+        )
 
     runner._run_session = answered
     job = _doc_job(page)
@@ -4536,14 +4846,30 @@ def a_log_event_whose_message_is_a_sentence_does_not_crash_the_ticket():
     url = "https://github.com/SalvadorCardona/opoil/pull/4"
     log = _session_log(("gh pr create --title x --body y", f"{url}\n"))
     with log.open("a") as written:
-        written.write(json.dumps({
-            "type": "system", "subtype": "permission_denied",
-            "tool_name": "mcp__claude-in-chrome__get_page_text",
-            "message": "Can't interact with browser-internal or extension pages",
-        }) + "\n")
-        written.write(json.dumps({"type": "assistant", "message": {"content": [
-            {"type": "tool_use", "id": "u9", "name": "Read", "input": "not a dict"},
-        ]}}) + "\n")
+        written.write(
+            json.dumps(
+                {
+                    "type": "system",
+                    "subtype": "permission_denied",
+                    "tool_name": "mcp__claude-in-chrome__get_page_text",
+                    "message": "Can't interact with browser-internal or extension pages",
+                }
+            )
+            + "\n"
+        )
+        written.write(
+            json.dumps(
+                {
+                    "type": "assistant",
+                    "message": {
+                        "content": [
+                            {"type": "tool_use", "id": "u9", "name": "Read", "input": "not a dict"},
+                        ]
+                    },
+                }
+            )
+            + "\n"
+        )
     assert session.pull_requests(log) == [url]
 
 
@@ -4583,9 +4909,7 @@ def a_publication_the_credits_ran_out_on_goes_back_to_validated():
     with _state_home():
         page = _reviewed("p-post", "Validated", None)
         runner = _out_of_credit(page)
-        result = runner._publish(
-            ticket_module.Ticket(page), projects.Project(name="", path=None)
-        )
+        result = runner._publish(ticket_module.Ticket(page), projects.Project(name="", path=None))
     assert runner.client.written[0][1]["Status"] == "In progress", "claimed first"
     assert runner.client.written[-1][1]["Status"] == "Validated"
     assert result["status"] == "waiting"
@@ -4736,7 +5060,9 @@ def the_budget_limits_are_empty_unless_the_file_names_an_amount():
     assert _config("").budget == C.Budget(0.0, 0.0), "no table, no limit"
     assert _config('[budget]\ndaily_usd = ""\nper_ticket_usd = ""\n').budget == C.Budget(0.0, 0.0)
     assert _config("[budget]\ndaily_usd = 25\nper_ticket_usd = 2.5\n").budget == C.Budget(25.0, 2.5)
-    assert _config('[budget]\ndaily_usd = -4\nper_ticket_usd = "n/a"\n').budget == C.Budget(0.0, 0.0)
+    assert _config('[budget]\ndaily_usd = -4\nper_ticket_usd = "n/a"\n').budget == C.Budget(
+        0.0, 0.0
+    )
 
 
 @case
@@ -4804,7 +5130,10 @@ def the_reserve_is_read_again_at_every_free_place_not_once_a_pass():
         runner = _reserving([_ready("p-1"), _ready("p-2")])
         runner.config.runner.max_concurrent = 1
         runner.prepare = lambda ticket: ticket_module.Job(
-            ticket, projects.Project(name="", path=None), branch="", base="",
+            ticket,
+            projects.Project(name="", path=None),
+            branch="",
+            base="",
             workdir=Path(tempfile.mkdtemp()) / "doc",
         )
 
@@ -4835,7 +5164,10 @@ def a_ticket_that_raises_fails_alone_and_the_pass_goes_on():
     with _state_home(), _usage(_windows(10)):
         runner = _reserving([_ready("p-1"), _ready("p-2")])
         runner.prepare = lambda ticket: ticket_module.Job(
-            ticket, projects.Project(name="", path=None), branch="", base="",
+            ticket,
+            projects.Project(name="", path=None),
+            branch="",
+            base="",
             workdir=Path(tempfile.mkdtemp()) / "doc",
         )
 
@@ -4866,7 +5198,9 @@ def a_git_command_that_hangs_is_a_failure_git_callers_already_read():
     stopped answering raised through every caller up to the pass itself."""
     from ponos import git as git_module
 
-    result = git_module.run([sys.executable, "-c", "import time; print('begun', flush=True); time.sleep(30)"], timeout=1)
+    result = git_module.run(
+        [sys.executable, "-c", "import time; print('begun', flush=True); time.sleep(30)"], timeout=1
+    )
     assert not result.ok and result.code == git_module.TIMED_OUT, result
     assert "timed out after 1s" in result.err, result.err
 
@@ -4926,7 +5260,9 @@ def a_ticket_waiting_for_credit_goes_before_one_that_never_started():
         assert not runner.prepare(queued[1]).resume, "a fresh ticket opens a fresh session"
         # Claiming it unticks it: the wait is over the moment something starts,
         # and a tick left behind would resume a session that is running.
-        claim = next(values for _, values in runner.client.written if "Waiting for credit" in values)
+        claim = next(
+            values for _, values in runner.client.written if "Waiting for credit" in values
+        )
         assert claim["Waiting for credit"] is False
 
 
@@ -4993,7 +5329,10 @@ def a_session_picked_back_up_is_told_what_changed_and_not_the_whole_ticket():
     def fake_run(text, **rest):
         sent.append((text, rest["resume"]))
         return session.Outcome(
-            ok=True, blocked=False, session_id=rest["session_id"], summary="fait",
+            ok=True,
+            blocked=False,
+            session_id=rest["session_id"],
+            summary="fait",
             log=Path("/dev/null"),
         )
 
@@ -5028,8 +5367,11 @@ def a_session_that_cannot_be_picked_back_up_starts_a_fresh_one():
         drawn.append(rest["session_id"])
         gone = rest["resume"]
         return session.Outcome(
-            ok=not gone, blocked=False, session_id=rest["session_id"],
-            summary="fait", error="No conversation found" if gone else "",
+            ok=not gone,
+            blocked=False,
+            session_id=rest["session_id"],
+            summary="fait",
+            error="No conversation found" if gone else "",
             log=Path("/dev/null"),
         )
 
@@ -5056,7 +5398,10 @@ def a_spent_window_mid_pass_says_so_on_the_tickets_it_did_not_start():
         runner = _reserving([_ready("p-1"), _ready("p-2"), _ready("p-3")])
         runner.config.runner.max_concurrent = 1
         runner.prepare = lambda ticket: ticket_module.Job(
-            ticket, projects.Project(name="", path=None), branch="", base="",
+            ticket,
+            projects.Project(name="", path=None),
+            branch="",
+            base="",
             workdir=Path(tempfile.mkdtemp()) / "doc",
         )
 
@@ -5168,7 +5513,9 @@ class _BoardClient:
         status = (values or {}).get("Status", "")
         self._pages.append(
             notion.Page(
-                id=page_id, url="", title=title,
+                id=page_id,
+                url="",
+                title=title,
                 properties={"Status": {"type": "status", "status": {"name": status}}},
             )
         )
@@ -5220,9 +5567,7 @@ def _board_runner(
     runner._landed, runner._replayed_after = {}, {}
     runner._landed_lock = threading.Lock()
     runner._queues = {}
-    runner._ledger = conversation.Ledger(
-        database=Path(tempfile.mkdtemp()) / "ponos.db"
-    )
+    runner._ledger = conversation.Ledger(database=Path(tempfile.mkdtemp()) / "ponos.db")
     return runner
 
 
@@ -5273,9 +5618,7 @@ def a_merged_pull_request_moves_its_ticket_to_done():
     )
     assert closed == 1
     assert client.written == [("p-merged", {"Status": "Done"})]
-    assert client.comments_written[0] == (
-        "✅ Merged — PR #1\nhttps://github.com/x/y/pull/1"
-    )
+    assert client.comments_written[0] == ("✅ Merged — PR #1\nhttps://github.com/x/y/pull/1")
 
 
 def _checks(*buckets: str) -> list[dict]:
@@ -5346,7 +5689,9 @@ def a_ticket_in_review_carries_its_ci_on_the_board_and_stops_when_it_leaves():
         asked = []
         head, listed = git_module.pull_request_head, git_module.checks
         git_module.pull_request_head = lambda link, accounts=None: "aaa"
-        git_module.checks = lambda link, accounts=None: asked.append(link) or _checks("pass", "pending")
+        git_module.checks = lambda link, accounts=None: (
+            asked.append(link) or _checks("pass", "pending")
+        )
         try:
             with _github({url: "OPEN"}):
                 git_module.pull_request_head = lambda link, accounts=None: "aaa"
@@ -5476,6 +5821,7 @@ def _asking(question: object, language: str = "fr") -> tuple[Runner, str, list[s
 @case
 def a_yes_no_question_says_the_two_words_that_answer_it():
     from ponos import question
+
     asked = question.Question(
         ask="Je fusionne et je déploie ?",
         mode="yes-no",
@@ -5502,6 +5848,7 @@ def a_yes_no_question_says_the_two_words_that_answer_it():
 @case
 def a_choice_is_numbered_on_one_line_so_that_a_number_answers_it():
     from ponos import question
+
     _, comment, _ = _asking(
         question.Question(
             ask="Qui fusionne ?",
@@ -5524,6 +5871,7 @@ def a_choice_is_numbered_on_one_line_so_that_a_number_answers_it():
 @case
 def a_free_question_stands_alone_and_says_what_to_give():
     from ponos import question
+
     _, comment, _ = _asking(question.Question(ask="Quelle URL pour le site de Wizaplace ?"))
     assert comment == "🙋 Bloqué\nQuelle URL pour le site de Wizaplace ?", comment
     # A question the runner asks on its own behalf is a free one, and its
@@ -5535,6 +5883,7 @@ def a_free_question_stands_alone_and_says_what_to_give():
 @case
 def a_blocked_comment_reaches_notion_with_real_line_breaks_and_a_link():
     from ponos import question
+
     _, comment, _ = _asking(question.parse(PR_58))
     pieces = notion._comment_text(comment)
     drawn = "".join(piece["text"]["content"] for piece in pieces)
@@ -5542,10 +5891,15 @@ def a_blocked_comment_reaches_notion_with_real_line_breaks_and_a_link():
     assert "\\n" not in drawn, "a break, not its escape"
     linked = [piece for piece in pieces if piece["text"].get("link")]
     assert linked == [
-        {"type": "text", "text": {"content": "PR #58", "link": {"url": "https://github.com/salva/site/pull/58"}}}
+        {
+            "type": "text",
+            "text": {"content": "PR #58", "link": {"url": "https://github.com/salva/site/pull/58"}},
+        }
     ], linked
     # And read back as it was written, so the console and the next run see the link.
-    read = "".join(notion._written({"plain_text": piece["text"]["content"], **piece}) for piece in pieces)
+    read = "".join(
+        notion._written({"plain_text": piece["text"]["content"], **piece}) for piece in pieces
+    )
     assert read == comment
     assert notion._comment_text("[x](javascript:alert(1))")[0]["text"].get("link") is None
 
@@ -5554,6 +5908,7 @@ def a_blocked_comment_reaches_notion_with_real_line_breaks_and_a_link():
 def the_pull_request_58_comes_back_as_a_clear_choice_in_four_lines():
     """The 02/10 comment, played again: a choice, and nothing else."""
     from ponos import question
+
     asked = question.parse(PR_58)
     assert asked and asked.mode == "choice", asked
     _, comment, _ = _asking(asked)
@@ -5572,24 +5927,35 @@ def the_pull_request_58_comes_back_as_a_clear_choice_in_four_lines():
 @case
 def a_session_that_wrote_no_question_blocks_the_way_it_always_did():
     from ponos import question
+
     assert question.parse("RESULT: blocked — quel en-tête ?") is None
     found = question.parse("**QUESTION:** On publie ?\n- MODE: yes/no\nRESULT: blocked — x")
     assert found and (found.ask, found.mode) == ("On publie ?", "yes-no"), found
-    assert question.found("🙋 Bloqué — Quel en-tête ?") is None, "an older report: no question to read"
+    assert question.found("🙋 Bloqué — Quel en-tête ?") is None, (
+        "an older report: no question to read"
+    )
     assert question.found("✅ À relire — PR #1\nFait.") is None
 
 
 @case
 def an_answer_is_read_as_the_option_it_names_whatever_its_shape():
     from ponos import question
+
     choice = question.Question(
         ask="Qui fusionne ?",
         mode="choice",
         options=["Tu fusionnes toi-même", "Tu m'autorises à fusionner", "On attend"],
     )
     for text, option in (
-        ("2", 2), ("la 2", 2), ("2.", 2), ("#3", 3), ("option 1", 1), ("la deuxième", 2),
-        ("2, mais sans déployer", 2), ("on attend", 3), ("Option 2 : Tu m'autorises à fusionner.", 2),
+        ("2", 2),
+        ("la 2", 2),
+        ("2.", 2),
+        ("#3", 3),
+        ("option 1", 1),
+        ("la deuxième", 2),
+        ("2, mais sans déployer", 2),
+        ("on attend", 3),
+        ("Option 2 : Tu m'autorises à fusionner.", 2),
     ):
         reading = question.read(text, choice)
         assert (reading.kind, reading.option) == ("option", option), (text, reading)
@@ -5606,6 +5972,7 @@ def an_answer_is_read_as_the_option_it_names_whatever_its_shape():
 @case
 def an_answer_from_a_phone_is_written_as_the_option_it_chose():
     from ponos import question
+
     _, comment, _ = _asking(question.parse(PR_58))
     said = voice.Voice("fr")
     asked = question.waiting([comment])
@@ -5615,7 +5982,8 @@ def an_answer_from_a_phone_is_written_as_the_option_it_chose():
     )
     reply.text = "la 2, mais sans déployer"
     assert channels.answer(reply, said, asked).splitlines()[1:] == [
-        "Option 2 : Tu m'autorises à fusionner.", "la 2, mais sans déployer",
+        "Option 2 : Tu m'autorises à fusionner.",
+        "la 2, mais sans déployer",
     ]
     reply.text = "oui"
     assert channels.answer(reply, said, asked).splitlines()[1:] == ["oui"], (
@@ -5634,6 +6002,7 @@ def an_answer_from_a_phone_is_written_as_the_option_it_chose():
 @case
 def the_next_run_is_told_the_question_and_what_the_answer_chose():
     from ponos import question
+
     _, comment, _ = _asking(question.parse(PR_58))
     _, lines = _runner_reading([comment, "la 2"])
     assert lines == [
@@ -5665,7 +6034,10 @@ def an_answer_is_understood_in_either_language_and_relayed_in_the_runners():
     relayed = channels.answer(reply, voice.Voice("fr"))
     assert relayed == "Répondu depuis Telegram par Salva.\nOui — vas-y avec ce que tu as proposé."
     assert conversation.is_relayed(relayed), "and it still wakes the ticket"
-    assert channels.answer(reply) == "Answered from Telegram by Salva.\nYes — go ahead with what you proposed."
+    assert (
+        channels.answer(reply)
+        == "Answered from Telegram by Salva.\nYes — go ahead with what you proposed."
+    )
     assert conversation.is_relayed("Answered from Slack.\nok"), "a board keeps the old ones"
     assert conversation.said(relayed) == "Oui — vas-y avec ce que tu as proposé."
 
@@ -5678,8 +6050,8 @@ def what_the_runner_writes_on_github_and_on_a_schedules_ticket_follows_the_langu
         "Le header est parti.\n\n---\nTicket Notion : https://notion.so/t\n"
         "Session Claude Code : `abc`\nOuverte par ponos (3 commits)."
     ), body
-    assert voice.Voice().pull_request_body("s", "u", "abc", 1).endswith(
-        "Opened by ponos (1 commit)."
+    assert (
+        voice.Voice().pull_request_body("s", "u", "abc", 1).endswith("Opened by ponos (1 commit).")
     ), "and English says what it always said"
     assert said.say("born-of-schedule", name="Veille", stamp="2026-10-02", url="u") == (
         "*Né de la récurrence « Veille », 2026-10-02* — u"
@@ -5710,7 +6082,9 @@ def the_console_opens_in_the_language_the_file_names_and_follows_the_reports_by_
     assert marked.startswith(b'<!doctype html>\n<html data-language="fr" lang="en" class="dark">')
     example = Path(__file__).resolve().parents[1] / "config.example.toml"
     assert b"\napp_language = " in example.read_bytes(), "documented where every key is"
-    fields = {(field.table, field.key) for section in web_settings.SECTIONS for field in section.fields}
+    fields = {
+        (field.table, field.key) for section in web_settings.SECTIONS for field in section.fields
+    }
     assert ("runner", "app_language") in fields, "and the Settings screen offers it"
 
 
@@ -5738,7 +6112,13 @@ def the_columns_are_read_in_one_order_with_blocked_right_after_running():
     assert order.index("blocked") == order.index("running") + 1, order
     assert order[-2:] == ("done", "cancelled"), order
     assert [key for key in order if key not in ("blocked",)] == [
-        "ready", "running", "review", "validated", "failed", "done", "cancelled"
+        "ready",
+        "running",
+        "review",
+        "validated",
+        "failed",
+        "done",
+        "cancelled",
     ], order
     assert ("draft", *order) == mcp.STATUSES, mcp.STATUSES
 
@@ -5752,7 +6132,6 @@ def a_board_without_a_review_column_is_never_even_queried():
         {"done": "Done"},
     )
     assert closed == 0 and client.written == []
-
 
 
 # -- validating is the gesture the runner acts on ----------------------------
@@ -5992,9 +6371,7 @@ def a_validated_ticket_whose_date_has_passed_is_carried_out_at_once():
     merges: list[tuple[str, str]] = []
     with _github(
         {"https://github.com/x/y/pull/1": "OPEN"},
-        merge=lambda url, method="squash", accounts=None: (
-            merges.append((url, method)) or "merged"
-        ),
+        merge=lambda url, method="squash", accounts=None: merges.append((url, method)) or "merged",
     ):
         results = runner.deliver()
     assert merges == [("https://github.com/x/y/pull/1", "squash")]
@@ -6047,7 +6424,9 @@ def a_publication_a_crash_interrupted_comes_back_as_a_question():
         recovered = runner.sweep()
         assert state.claims() == {}, "the note is dropped once it has been read"
     assert recovered == 1
-    assert runner.client.written == [("ppost", {"Status": "Blocked", "Blocage": "worktree.interrupted"})]
+    assert runner.client.written == [
+        ("ppost", {"Status": "Blocked", "Blocage": "worktree.interrupted"})
+    ]
     said = runner.client.comments_written[0]
     assert said.startswith("🙋 Stuck\nIts publication was interrupted")
     assert "“Validated”" in said and "An answer here" not in said
@@ -6078,7 +6457,10 @@ def _in_progress(page_id: str, runner_label: str | None) -> notion.Page:
     if runner_label is not None:
         properties["Runner"] = {"type": "rich_text", "rich_text": [{"plain_text": runner_label}]}
     return notion.Page(
-        id=page_id, url="", title=page_id, properties=properties,
+        id=page_id,
+        url="",
+        title=page_id,
+        properties=properties,
         raw={"last_edited_time": "2020-01-01T00:00:00.000+00:00"},
     )
 
@@ -6093,7 +6475,10 @@ def a_board_without_a_runner_column_still_gets_its_abandoned_tickets_back():
     runner = _board_runner([_in_progress("p-lost", None), _in_progress("p-other", None)], {})
     with _state_home():
         assert runner.sweep() == 2
-    assert runner.client.written == [("p-lost", {"Status": "Ready"}), ("p-other", {"Status": "Ready"})]
+    assert runner.client.written == [
+        ("p-lost", {"Status": "Ready"}),
+        ("p-other", {"Status": "Ready"}),
+    ]
 
 
 @case
@@ -6106,7 +6491,9 @@ def the_machines_free_memory_is_read_from_meminfo_and_a_guard_under_the_threshol
         assert resources.available_mb(str(meminfo)) == 1024
         assert resources.available_mb(str(Path(directory) / "nothing")) is None
         meminfo.write_text("MemTotal: 16000000 kB\n")
-        assert resources.available_mb(str(meminfo)) is None, "a machine that cannot say is not short"
+        assert resources.available_mb(str(meminfo)) is None, (
+            "a machine that cannot say is not short"
+        )
 
     original = resources.available_mb
     try:
@@ -6122,16 +6509,25 @@ def a_death_by_signal_is_told_from_a_failure_and_named():
     from ponos import resources
 
     def ended(code: int, **fields) -> session.Outcome:
-        return session.Outcome(ok=False, blocked=False, session_id="s", summary="",
-                               log=Path("x"), code=code, **fields)
+        return session.Outcome(
+            ok=False, blocked=False, session_id="s", summary="", log=Path("x"), code=code, **fields
+        )
 
-    assert session.signalled(ended(-9)) and session.signalled(ended(137)) and session.signalled(ended(143))
+    assert (
+        session.signalled(ended(-9))
+        and session.signalled(ended(137))
+        and session.signalled(ended(143))
+    )
     assert not session.signalled(ended(1)), "an ordinary failure is the session's own"
     assert not session.signalled(ended(-9, timed_out=True)), "the watchdog's kill is not a mystery"
     assert not session.signalled(ended(-15, stopped=True)), "nor is the console's Stop"
-    assert resources.signal_name(-9).startswith("SIGKILL") and resources.signal_name(137).startswith("SIGKILL")
+    assert resources.signal_name(-9).startswith("SIGKILL") and resources.signal_name(
+        137
+    ).startswith("SIGKILL")
     assert resources.signal_name(143).startswith("SIGTERM") and resources.signal_name(1) == ""
-    assert resources.network_error("fatal: unable to access 'x': Could not resolve host: github.com")
+    assert resources.network_error(
+        "fatal: unable to access 'x': Could not resolve host: github.com"
+    )
     assert not resources.network_error("remote: Permission denied")
 
 
@@ -6160,7 +6556,9 @@ def a_runner_short_of_memory_starts_nothing_and_says_so_once():
 
 @case
 def a_ticket_this_run_holds_is_never_put_back():
-    runner = _board_runner([_in_progress("p-held", None), _in_progress("p-signed", "ponos@laptop")], {})
+    runner = _board_runner(
+        [_in_progress("p-held", None), _in_progress("p-signed", "ponos@laptop")], {}
+    )
     runner.client.columns = {"Runner": "rich_text"}
     runner._claimed = {"pheld", "psigned"}  # `Ticket.id`, dashes dropped
     with _state_home():
@@ -6191,7 +6589,9 @@ def a_publication_interrupted_on_a_board_without_a_runner_column_still_asks():
     with _state_home():
         state.claim("ppost", "Validated")
         assert runner.sweep() == 1
-    assert runner.client.written == [("ppost", {"Status": "Blocked", "Blocage": "worktree.interrupted"})]
+    assert runner.client.written == [
+        ("ppost", {"Status": "Blocked", "Blocage": "worktree.interrupted"})
+    ]
 
 
 class _SchemaOnly(notion.Client):
@@ -6226,8 +6626,10 @@ def a_write_to_a_column_the_board_lacks_is_said_once_a_run():
     assert "“Runner” is not a column of the board" in said[0]
     assert "a second one on this board would put back" in said[0], "with what it costs"
     assert "“Progress”" in said[1] and "while it runs" in said[1]
-    assert all(body == {"properties": {"Status": {"status": {"name": "In progress"}}}}
-               for body in runner.client.patched[::2]), "the status still goes through"
+    assert all(
+        body == {"properties": {"Status": {"status": {"name": "In progress"}}}}
+        for body in runner.client.patched[::2]
+    ), "the status still goes through"
     runner._unwritten = set()  # what `tick` does: the next run says it again
     with contextlib.redirect_stdout(out):
         runner.client.update("db", "p4", {"Runner": "ponos@laptop"})
@@ -6239,7 +6641,9 @@ def doctor_names_every_column_the_board_lacks_and_counts_it():
     from ponos.__main__ import _doctor_columns
 
     settings = C.Notion(properties=dict(C._DEFAULT_PROPERTIES))
-    complete = {settings.prop(key): kinds_accepted[0] for key, (kinds_accepted, _) in store.COLUMNS.items()}
+    complete = {
+        settings.prop(key): kinds_accepted[0] for key, (kinds_accepted, _) in store.COLUMNS.items()
+    }
     out = io.StringIO()
     with contextlib.redirect_stdout(out):
         assert _doctor_columns(complete, settings) == 0
@@ -6327,13 +6731,22 @@ def doctor_reads_a_markdown_board_to_the_end_and_finds_nothing_wrong_with_a_new_
     directory = Path(tempfile.mkdtemp())
     config = _config(f'[storage]\nmode = "markdown"\npath = "{directory}/board"\n')
     original = cli._doctor_model
-    cli._doctor_model = lambda configuration: 0  # claude and the timer are this machine's, not the board's
+    cli._doctor_model = lambda configuration: (
+        0
+    )  # claude and the timer are this machine's, not the board's
     try:
         code, said = _doctor_said(cli._doctor_board, config)
     finally:
         cli._doctor_model = original
     assert code == 0, said
-    for section in ("Storage", "Tickets database", "Statuses", "Types", "Schedules database", "Comments"):
+    for section in (
+        "Storage",
+        "Tickets database",
+        "Statuses",
+        "Types",
+        "Schedules database",
+        "Comments",
+    ):
         assert f"{section}\n" in said, section
     assert "Notion workspace" not in said, "a markdown board has no page to look for"
     assert "not created yet" in said and "Notion is never asked anything" in said
@@ -6367,15 +6780,30 @@ def doctor_counts_a_missing_status_but_not_a_missing_validated_or_cancelled():
     from ponos import __main__ as cli
 
     config = _config("")
-    every = ["Ready", "In progress", "In review", "Validated", "Done", "Failed", "Blocked", "Cancelled"]
+    every = [
+        "Ready",
+        "In progress",
+        "In review",
+        "Validated",
+        "Done",
+        "Failed",
+        "Blocked",
+        "Cancelled",
+    ]
     assert _doctor_said(cli._doctor_statuses, config, _DoctorBoard(every), "db")[0] == 0
 
-    problems, said = _doctor_said(cli._doctor_statuses, config, _DoctorBoard([s for s in every if s != "Validated"]), "db")
+    problems, said = _doctor_said(
+        cli._doctor_statuses, config, _DoctorBoard([s for s in every if s != "Validated"]), "db"
+    )
     assert problems == 0 and "no column to validate from" in said
-    problems, said = _doctor_said(cli._doctor_statuses, config, _DoctorBoard([s for s in every if s != "Cancelled"]), "db")
+    problems, said = _doctor_said(
+        cli._doctor_statuses, config, _DoctorBoard([s for s in every if s != "Cancelled"]), "db"
+    )
     assert problems == 0 and "no column to give a ticket up in" in said
 
-    problems, said = _doctor_said(cli._doctor_statuses, config, _DoctorBoard([s for s in every if s != "Ready"]), "db")
+    problems, said = _doctor_said(
+        cli._doctor_statuses, config, _DoctorBoard([s for s in every if s != "Ready"]), "db"
+    )
     assert problems == 1 and "ready     → “Ready” is not offered by the database" in said
 
     drafted = _config('[notion.status]\ndraft = "Ready"\n')
@@ -6391,9 +6819,13 @@ def doctor_counts_comments_it_is_refused_but_not_one_it_could_not_read_once():
     from ponos import __main__ as cli
 
     config = _config("")
-    problems, said = _doctor_said(cli._doctor_comments, config, _DoctorBoard([], unread="403 restricted"), "db")
+    problems, said = _doctor_said(
+        cli._doctor_comments, config, _DoctorBoard([], unread="403 restricted"), "db"
+    )
     assert problems == 1 and "Read comments" in said
-    problems, said = _doctor_said(cli._doctor_comments, config, _DoctorBoard([], unread="502 bad gateway"), "db")
+    problems, said = _doctor_said(
+        cli._doctor_comments, config, _DoctorBoard([], unread="502 bad gateway"), "db"
+    )
     assert problems == 0 and "comments could not be read: 502 bad gateway" in said
     problems, said = _doctor_said(cli._doctor_comments, config, _DoctorBoard([]), "db")
     assert problems == 0 and "comments readable" in said
@@ -6403,7 +6835,9 @@ def doctor_counts_comments_it_is_refused_but_not_one_it_could_not_read_once():
 def doctor_says_what_leaves_the_machine_unread_and_what_cannot_be_merged():
     from ponos import __main__ as cli
 
-    _, said = _doctor_said(cli._doctor_validation, _config("[runner]\nforce_validated_code = true\npush = false\n"))
+    _, said = _doctor_said(
+        cli._doctor_validation, _config("[runner]\nforce_validated_code = true\npush = false\n")
+    )
     assert "force validated: code" in said
     assert "no pull request is opened to merge" in said
     _, said = _doctor_said(cli._doctor_validation, _config("[runner]\nrebase = false\n"))
@@ -6414,9 +6848,13 @@ def doctor_says_what_leaves_the_machine_unread_and_what_cannot_be_merged():
 def doctor_says_half_a_sign_in_and_a_connector_address_claude_ai_cannot_add():
     from ponos import __main__ as cli
 
-    _, said = _doctor_said(cli._doctor_console, _config('[web]\nemail = "me@example.com"\nurl = "http://box.lan"\n'))
+    _, said = _doctor_said(
+        cli._doctor_console, _config('[web]\nemail = "me@example.com"\nurl = "http://box.lan"\n')
+    )
     assert "opened with its token" in said and "half a sign-in" in said
-    assert "web.url is http://box.lan: claude.ai only adds a connector at an https:// address" in said
+    assert (
+        "web.url is http://box.lan: claude.ai only adds a connector at an https:// address" in said
+    )
 
 
 @case
@@ -6427,9 +6865,15 @@ def doctor_says_when_memory_is_short_and_when_it_cannot_tell():
     original = cli.resources.available_mb
     try:
         cli.resources.available_mb = lambda: 100
-        assert "100 MB available, under runner.min_free_memory_mb (2048 MB)" in _doctor_said(cli._doctor_memory, config)[1]
+        assert (
+            "100 MB available, under runner.min_free_memory_mb (2048 MB)"
+            in _doctor_said(cli._doctor_memory, config)[1]
+        )
         cli.resources.available_mb = lambda: 4096
-        assert "4096 MB available (a session starts above 2048 MB)" in _doctor_said(cli._doctor_memory, config)[1]
+        assert (
+            "4096 MB available (a session starts above 2048 MB)"
+            in _doctor_said(cli._doctor_memory, config)[1]
+        )
         cli.resources.available_mb = lambda: None
         assert "the memory guard cannot tell" in _doctor_said(cli._doctor_memory, config)[1]
     finally:
@@ -6449,9 +6893,13 @@ def publishing_hands_the_page_as_it_stands_to_a_session_and_then_closes_it():
     def fake_run(prompt_text, **kwargs):
         asked.append(prompt_text)
         return session.Outcome(
-            ok=True, blocked=False, session_id=kwargs.get("session_id", "s-1"),
-            summary="publié sur le compte Instagram", log=Path("/tmp/none.jsonl"),
-            seconds=90.0, turns=4,
+            ok=True,
+            blocked=False,
+            session_id=kwargs.get("session_id", "s-1"),
+            summary="publié sur le compte Instagram",
+            log=Path("/tmp/none.jsonl"),
+            seconds=90.0,
+            turns=4,
         )
 
     original = session.run
@@ -6465,7 +6913,8 @@ def publishing_hands_the_page_as_it_stands_to_a_session_and_then_closes_it():
     # Claimed first, exactly as a run claims a ticket, and only then closed:
     # a second machine watching the board must not post the same thing twice.
     assert [values["Status"] for _, values in runner.client.written] == [
-        "In progress", "Done",
+        "In progress",
+        "Done",
     ]
     assert results and results[0]["kind"] == "delivery"
 
@@ -7228,8 +7677,10 @@ def a_title_notion_refuses_leaves_the_ticket_to_run_under_the_default_label():
 
 @case
 def a_classification_is_read_out_of_whatever_the_session_wrapped_it_in():
-    said = 'Voici :\n```json\n{"type": "Publication", "reason": "Un  post.", ' \
+    said = (
+        'Voici :\n```json\n{"type": "Publication", "reason": "Un  post.", '
         '"confidence": "HIGH", "alternative": "writing"}\n```'
+    )
     guess = kinds.parse(said)
     assert (guess.kind, guess.confidence, guess.alternative) == ("publication", "high", "writing")
     assert guess.reason == "Un post."
@@ -7292,8 +7743,10 @@ def a_doubt_between_code_and_another_type_takes_the_one_that_needs_no_commit():
 @case
 def a_ticket_settled_off_code_says_so_on_the_ticket():
     runner, ticket = _typed(body="Vérifie que la prod répond, ne code rien.")
-    answer = '{"type": "code", "reason": "Peut-être un correctif.", "confidence": "low", ' \
+    answer = (
+        '{"type": "code", "reason": "Peut-être un correctif.", "confidence": "low", '
         '"alternative": "external"}'
+    )
     with _state_home(), _naming_session(answer):
         job = runner.prepare(ticket)
 
@@ -7326,8 +7779,13 @@ def a_report_of_work_done_outside_the_repository_is_told_from_a_code_change():
 
 @case
 def the_classification_is_told_whether_there_is_a_repository():
-    asked = kinds.prompt("Le DNS", "Ajoute un CNAME.", project="Site", repository=False,
-                         comments=["the ticket's author: c'est chez Hostinger"])
+    asked = kinds.prompt(
+        "Le DNS",
+        "Ajoute un CNAME.",
+        project="Site",
+        repository=False,
+        comments=["the ticket's author: c'est chez Hostinger"],
+    )
     assert "no code repository: it cannot be a code ticket" in asked
     assert "Ajoute un CNAME." in asked and "c'est chez Hostinger" in asked
     assert "belongs to no project" in kinds.prompt("x", "", project="", repository=False)
@@ -7365,19 +7823,39 @@ def a_type_somebody_chose_takes_a_repository_ticket_off_its_repository():
 def a_prompt_file_older_than_the_types_still_says_do_not_publish():
     """A template of your own has no `{kind}`: the rule is added at its end."""
     built = prompt.build(
-        "Old template — {title}\n{body}", project="", title="Post", body="Un post.",
-        repo="/tmp/x", branch="", base="", url="u", kind=prompt.kind("publication"),
+        "Old template — {title}\n{body}",
+        project="",
+        title="Post",
+        body="Un post.",
+        repo="/tmp/x",
+        branch="",
+        base="",
+        url="u",
+        kind=prompt.kind("publication"),
     )
     assert built.startswith("Old template — Post")
     assert built.rstrip().endswith(prompt.PREPARE.rstrip())
     document = prompt.build(
-        prompt.DOCUMENT, project="", title="Post", body="Un post.", repo="/tmp/x",
-        branch="", base="", url="u", kind=prompt.kind("publication"),
+        prompt.DOCUMENT,
+        project="",
+        title="Post",
+        body="Un post.",
+        repo="/tmp/x",
+        branch="",
+        base="",
+        url="u",
+        kind=prompt.kind("publication"),
     )
     assert document.index("do not publish it") < document.index("# What is expected")
     plain = prompt.build(
-        prompt.DOCUMENT, project="", title="Post", body="Un post.", repo="/tmp/x",
-        branch="", base="", url="u",
+        prompt.DOCUMENT,
+        project="",
+        title="Post",
+        body="Un post.",
+        repo="/tmp/x",
+        branch="",
+        base="",
+        url="u",
     )
     assert "- Notion ticket: u\n\n# What is expected" in plain, "no type, no change"
 
@@ -7387,10 +7865,15 @@ def every_session_reads_what_it_may_do_alone():
     """The policy is in the prompt of each ticket, the list written or the default."""
     common = dict(project="", title="T", body="b", repo="/tmp/x", branch="", base="", url="u")
     for template in (prompt.DEFAULT, prompt.DOCUMENT, prompt.DELIVERY, prompt.RESOLVE):
-        text = prompt.build(template, **common, allowed=["relancer une CI"], ask=["modifier un DNS"])
+        text = prompt.build(
+            template, **common, allowed=["relancer une CI"], ask=["modifier un DNS"]
+        )
         assert "You do these without asking:\n- relancer une CI" in text, template[:30]
         assert "before these" in text and "- modifier un DNS" in text
-        assert text.index("# What you may do alone") < text.index("# Context") or "{agent}" not in template
+        assert (
+            text.index("# What you may do alone") < text.index("# Context")
+            or "{agent}" not in template
+        )
         assert "access.sudo" in text and "access.credentials" in text
     old = prompt.build("Old template — {title}", **common, allowed=["relancer une CI"])
     assert "- relancer une CI" in old, "a prompt file of your own gets it at its end"
@@ -7422,10 +7905,15 @@ def the_permissions_are_edited_in_the_settings_and_an_empty_list_is_an_answer():
     }
     assert drawn["permissions.allowed"]["fallback"] == list(C.ALLOWED)
     assert drawn["permissions.ask"]["value"] is None
-    web_settings.save(config, {"settings": {
-        "permissions.allowed": [" relancer   une CI ", "", "fusionner une PR validée"],
-        "permissions.ask": [],
-    }})
+    web_settings.save(
+        config,
+        {
+            "settings": {
+                "permissions.allowed": [" relancer   une CI ", "", "fusionner une PR validée"],
+                "permissions.ask": [],
+            }
+        },
+    )
     saved = C.load(path).permissions
     assert saved.allowed == ("relancer une CI", "fusionner une PR validée")
     assert saved.ask == (), "emptied is written, not brought back to the default"
@@ -7491,8 +7979,10 @@ def _typed(kind: str = "", body: str = "Poste l'annonce de la v2 sur LinkedIn.")
 def a_ticket_with_no_type_is_classified_before_it_runs():
     """Written on the page in the board's own spelling, and explained in a comment."""
     runner, ticket = _typed()
-    answer = '{"type": "writing", "reason": "Il demande un texte.", "confidence": "high", ' \
+    answer = (
+        '{"type": "writing", "reason": "Il demande un texte.", "confidence": "high", '
         '"alternative": ""}'
+    )
     with _state_home(), _naming_session(answer) as asked:
         job = runner.prepare(ticket)
 
@@ -7520,13 +8010,17 @@ def a_type_somebody_chose_is_never_classified_again():
 def a_classification_that_is_not_sure_blocks_the_ticket_with_the_question():
     """Nothing claimed, no type written — the column is left for you to fill."""
     runner, ticket = _typed()
-    answer = '{"type": "writing", "reason": "Rédiger, ou publier ?", "confidence": "high", ' \
+    answer = (
+        '{"type": "writing", "reason": "Rédiger, ou publier ?", "confidence": "high", '
         '"alternative": "publication"}'
+    )
     with _state_home(), _naming_session(answer):
         job = runner.prepare(ticket)
 
     assert job is None
-    assert runner.client.written == [{"Status": "Blocked", "Blocage": "ticket.kind-unsure"}], runner.client.written
+    assert runner.client.written == [{"Status": "Blocked", "Blocage": "ticket.kind-unsure"}], (
+        runner.client.written
+    )
     question = runner.client.said[-1]
     assert "Rédaction or Publication?" in question and "Rédiger, ou publier ?" in question
     assert "I would take Publication" in question, "in doubt, the careful one"
@@ -7565,7 +8059,9 @@ class _SubtypedClient(_TypedClient):
         return {**super().schema(database_id), "Sous-type": "select"}
 
 
-def _subtyped(title: str, *, kind: str = "Code", subtype: str = "", body: str = "Le bouton ne répond plus."):
+def _subtyped(
+    title: str, *, kind: str = "Code", subtype: str = "", body: str = "Le bouton ne répond plus."
+):
     runner, ticket = _nameless(title, body)
     runner.client = _SubtypedClient(body)
     if kind:
@@ -7617,8 +8113,10 @@ def a_sub_type_without_a_prefix_is_deduced_by_the_light_model():
 
     # With no type either, the one session says both.
     runner, ticket = _subtyped("Le bouton Envoyer ne répond plus", kind="")
-    answer = '{"type": "code", "reason": "Un correctif.", "confidence": "high", ' \
+    answer = (
+        '{"type": "code", "reason": "Un correctif.", "confidence": "high", '
         '"alternative": "", "subtype": "perf", "subtype_confidence": "medium"}'
+    )
     with _state_home(), _naming_session(answer) as asked:
         job = runner.prepare(ticket)
     assert len(asked) == 1 and '"subtype"' in asked[0], "one session for the type and the sub-type"
@@ -7639,7 +8137,9 @@ def a_sub_type_in_doubt_is_an_improvement_and_the_report_says_so():
     with _state_home(), _naming_session("", missing=True):
         job = runner.prepare(ticket)
     assert job is not None and job.subtype == "improvement"
-    assert _subtype_written(runner) == [], "no answer at all: nothing written, asked again next time"
+    assert _subtype_written(runner) == [], (
+        "no answer at all: nothing written, asked again next time"
+    )
 
 
 @case
@@ -7672,14 +8172,24 @@ def a_sub_type_is_the_developers_word_in_every_language():
     """
     dictionary = (FRONTEND / "src/lib/french.ts").read_text(encoding="utf-8")
     assert [subtype.label for subtype in subtypes.SUBTYPES] == [
-        "Bug", "Feature", "Improvement", "Chore", "Refactor", "Perf", "Docs", "Security",
+        "Bug",
+        "Feature",
+        "Improvement",
+        "Chore",
+        "Refactor",
+        "Perf",
+        "Docs",
+        "Security",
     ]
     for subtype in subtypes.SUBTYPES:
         assert subtype.as_dict()["label"] == subtype.label, subtype.key
         assert f'"{subtype.label}":' not in dictionary, subtype.key
     for word, key in (
-        ("Fonctionnalité", "feature"), ("Amélioration", "improvement"), ("Maintenance", "chore"),
-        ("Performance", "perf"), ("Sécurité", "security"),
+        ("Fonctionnalité", "feature"),
+        ("Amélioration", "improvement"),
+        ("Maintenance", "chore"),
+        ("Performance", "perf"),
+        ("Sécurité", "security"),
     ):
         assert subtypes.of(word) == key, word
     ideas = (FRONTEND / "src/components/console/idea-cards.tsx").read_text(encoding="utf-8")
@@ -7689,9 +8199,14 @@ def a_sub_type_is_the_developers_word_in_every_language():
 @case
 def the_commit_the_pull_request_and_the_changelog_follow_the_sub_type():
     for key, commit, section in (
-        ("bug", "fix", "Fixed"), ("feature", "feat", "Added"), ("improvement", "feat", "Changed"),
-        ("chore", "chore", ""), ("refactor", "refactor", "Changed"), ("perf", "perf", "Changed"),
-        ("docs", "docs", ""), ("security", "fix", "Security"),
+        ("bug", "fix", "Fixed"),
+        ("feature", "feat", "Added"),
+        ("improvement", "feat", "Changed"),
+        ("chore", "chore", ""),
+        ("refactor", "refactor", "Changed"),
+        ("perf", "perf", "Changed"),
+        ("docs", "docs", ""),
+        ("security", "fix", "Security"),
     ):
         said = subtypes.section(key)
         assert f"starts with `{commit}: `" in said, key
@@ -7721,16 +8236,23 @@ def the_sub_type_moves_the_level_a_code_ticket_starts_at():
     assert docs.level == "light" and ("model-subtype-lower", {"subtype": "docs"}) in docs.signals
     hole = models.choose("Le token", body, kind="code", code=True, grid=grid, subtype="security")
     assert hole.level == "heavy"
-    writing = models.choose("Le token", body, kind="writing", code=False, grid=grid, subtype="security")
+    writing = models.choose(
+        "Le token", body, kind="writing", code=False, grid=grid, subtype="security"
+    )
     assert writing.level == "light", "only a code ticket"
     path, _ = _saved()
     with open(path, "a", encoding="utf-8") as handle:
-        handle.write('\n[runner]\nauto_model_subtype_docs = "same"\nauto_model_subtype_bug = "nope"\n')
+        handle.write(
+            '\n[runner]\nauto_model_subtype_docs = "same"\nauto_model_subtype_bug = "nope"\n'
+        )
     loaded = C.load(path).runner
     assert loaded.subtype_shift("docs") == "same" and loaded.subtype_shift("bug") == "same"
     assert loaded.subtype_shift("security") == "higher"
     top = C.Runner(auto_model_code="heaviest").model_grid()
-    assert models.choose("x", body, kind="code", code=True, grid=top, subtype="security").level == "heaviest"
+    assert (
+        models.choose("x", body, kind="code", code=True, grid=top, subtype="security").level
+        == "heaviest"
+    )
 
 
 @case
@@ -7738,11 +8260,21 @@ def init_offers_the_sub_type_column_and_doctor_names_it_when_it_is_missing():
     settings = C.Notion(properties=dict(C._DEFAULT_PROPERTIES))
     column = provision.tickets_schema(settings)["Sous-type"]
     options = [option["name"] for option in column["select"]["options"]]
-    assert options == ["Bug", "Feature", "Amélioration", "Chore", "Refactor", "Perf", "Docs", "Sécurité"]
+    assert options == [
+        "Bug",
+        "Feature",
+        "Amélioration",
+        "Chore",
+        "Refactor",
+        "Perf",
+        "Docs",
+        "Sécurité",
+    ]
     assert files.schemas(settings)["tickets"]["Sous-type"] == "select"
     out = io.StringIO()
     with contextlib.redirect_stdout(out):
         from ponos.__main__ import _doctor_columns
+
         _doctor_columns({"Status": "status"}, settings)
     assert "“Sous-type” missing" in out.getvalue(), out.getvalue()
 
@@ -7782,13 +8314,18 @@ def the_backfill_fills_the_code_tickets_from_their_prefix_alone():
         runner.backfill_subtypes()
     assert asked == [], "never a session"
     assert runner.client.written == [
-        {"id": "a", "Sous-type": "Bug"}, {"id": "e", "Sous-type": "Chore"},
+        {"id": "a", "Sous-type": "Bug"},
+        {"id": "e", "Sous-type": "Chore"},
     ], runner.client.written
-    assert [one.id for one, _ in runner.backfill_subtypes(write=False, closed=True)] == ["f", "a", "e"], (
-        "a done ticket only when asked: an edit moves its closing date"
-    )
+    assert [one.id for one, _ in runner.backfill_subtypes(write=False, closed=True)] == [
+        "f",
+        "a",
+        "e",
+    ], "a done ticket only when asked: an edit moves its closing date"
     settings = C.Notion()
-    assert web_api._subtype(done, settings) == "bug", "the console reads the prefix it was not given"
+    assert web_api._subtype(done, settings) == "bug", (
+        "the console reads the prefix it was not given"
+    )
     assert web_api._subtype(pages[2], settings) == "feature", "the column wins"
     assert web_api._subtype(pages[4], settings) == "", "never on another type"
 
@@ -7798,12 +8335,20 @@ def the_statistics_count_the_closed_tickets_by_sub_type_and_by_week():
     from ponos.web import statistics as web_statistics
 
     def card(identifier, subtype, edited, duration=None):
-        return {"id": identifier, "column": "done", "subtype": subtype, "created": "2026-10-01",
-                "edited": edited, "duration": duration}
+        return {
+            "id": identifier,
+            "column": "done",
+            "subtype": subtype,
+            "created": "2026-10-01",
+            "edited": edited,
+            "duration": duration,
+        }
 
     tickets = [
-        card("a", "bug", "2026-10-06"), card("b", "bug", "2026-10-13", 30),
-        card("c", "docs", "2026-10-13"), card("d", "", "2026-10-13"),
+        card("a", "bug", "2026-10-06"),
+        card("b", "bug", "2026-10-13", 30),
+        card("c", "docs", "2026-10-13"),
+        card("d", "", "2026-10-13"),
     ]
     history = [
         {"id": "a", "at": "2026-10-06T09:00:00+00:00", "cost_usd": 1.0, "seconds": 600},
@@ -7813,7 +8358,10 @@ def the_statistics_count_the_closed_tickets_by_sub_type_and_by_week():
         "subtypes"
     ]
     assert found["total"] == 3, found
-    assert found["weeks"][1]["counts"] == {"bug": 1} and found["weeks"][2]["counts"] == {"bug": 1, "docs": 1}
+    assert found["weeks"][1]["counts"] == {"bug": 1} and found["weeks"][2]["counts"] == {
+        "bug": 1,
+        "docs": 1,
+    }
     bug = next(item for item in found["subtypes"] if item["key"] == "bug")
     assert (bug["count"], bug["cost"], bug["duration"]) == (2, 2.0, 20.0), bug
     docs = next(item for item in found["subtypes"] if item["key"] == "docs")
@@ -7852,13 +8400,17 @@ def a_small_change_runs_on_the_light_model_and_says_why():
     assert real.model == "haiku", "a small change said in its title, however explained"
     drowned = _chosen("Retirer la phrase et animer le robot", " ".join(["mot"] * 400))
     assert drowned.model == "sonnet", "past a page, the title alone does not make it small"
-    writing = _chosen("Une phrase d'accroche", "Pour la page d'accueil.", kind="writing", code=False)
+    writing = _chosen(
+        "Une phrase d'accroche", "Pour la page d'accueil.", kind="writing", code=False
+    )
     assert writing.model == "haiku", "a short text is light from the start"
 
 
 @case
 def a_standard_bug_or_feature_runs_on_the_standard_model():
-    body = " ".join(["Le formulaire de connexion renvoie une erreur quand l'email a une majuscule."] * 12)
+    body = " ".join(
+        ["Le formulaire de connexion renvoie une erreur quand l'email a une majuscule."] * 12
+    )
     choice = _chosen("Connexion impossible avec une majuscule", body)
     assert (choice.model, choice.level) == ("sonnet", "standard"), choice
     assert choice.signals[-1] == ("model-ordinary", {})
@@ -7894,7 +8446,12 @@ def a_priority_is_a_score_from_0_to_100_and_the_old_words_still_read():
     """Urgent, High, Normal, Low read as the scores their migration gives them,
     so a board not migrated yet keeps its order; what a cell says outside 0–100
     is clamped, what somebody gives is refused."""
-    assert [priority.score(word) for word in ("Urgent", "high", "Normal", "Low")] == [100, 75, 50, 25]
+    assert [priority.score(word) for word in ("Urgent", "high", "Normal", "Low")] == [
+        100,
+        75,
+        50,
+        25,
+    ]
     assert priority.score(None) == priority.score("") == 50, "empty is the middle"
     assert priority.score(150) == 100 and priority.score(-3) == 0 and priority.score(62.6) == 63
     assert priority.score("80") == 80 and priority.score("nonsense") == 50
@@ -7907,7 +8464,13 @@ def a_priority_is_a_score_from_0_to_100_and_the_old_words_still_read():
         else:
             raise AssertionError(f"{wrong!r} is not a priority")
     assert [priority.word(score) for score in (100, 90, 75, 60, 50, 30, 0)] == [
-        "Urgent", "Urgent", "High", "Normal", "Normal", "Low", "Low",
+        "Urgent",
+        "Urgent",
+        "High",
+        "Normal",
+        "Normal",
+        "Low",
+        "Low",
     ]
     assert priority.cell(80, "select") == "High" and priority.cell(80, "number") == 80
 
@@ -7916,8 +8479,13 @@ def a_priority_is_a_score_from_0_to_100_and_the_old_words_still_read():
 def the_ready_tickets_run_by_score_highest_first_and_the_oldest_on_a_tie():
     def ready(identifier: str, created: str, cell: dict | None) -> notion.Page:
         properties = {"Priority": cell} if cell else {}
-        return notion.Page(id=identifier, url="", title=identifier, properties=properties,
-                           raw={"created_time": created})
+        return notion.Page(
+            id=identifier,
+            url="",
+            title=identifier,
+            properties=properties,
+            raw={"created_time": created},
+        )
 
     pages = [
         ready("plain", "2026-10-01T09:00:00Z", None),
@@ -7936,7 +8504,12 @@ def the_ready_tickets_run_by_score_highest_first_and_the_oldest_on_a_tie():
     runner.parked = lambda tickets: set()
     eligible, waiting = runner.queue()
     assert [ticket.id for ticket in eligible] == [
-        "tieold", "tienew", "worded", "middle", "plain", "low",
+        "tieold",
+        "tienew",
+        "worded",
+        "middle",
+        "plain",
+        "low",
     ], [ticket.id for ticket in eligible]
     assert waiting == []
 
@@ -8049,6 +8622,7 @@ def a_model_written_by_the_runner_is_not_taken_for_one_somebody_chose():
     """The column holds the runner's pick on the next attempt: it must still
     be chosen for, or a run that failed could never climb. Another model there
     is somebody's, and is left alone."""
+
     def column(name: str) -> dict:
         return {"Model": {"type": "select", "select": {"name": name}}}
 
@@ -8056,9 +8630,7 @@ def a_model_written_by_the_runner_is_not_taken_for_one_somebody_chose():
     with _state_home(), _failed_pick("haiku"):
         job = runner.prepare(ticket)
     assert job.chosen and job.model == "sonnet", (job.model, job.chosen)
-    assert [values["Model"] for values in runner.client.written if "Model" in values] == [
-        "sonnet"
-    ]
+    assert [values["Model"] for values in runner.client.written if "Model" in values] == ["sonnet"]
 
     runner, ticket = _modelled("Retirer un paragraphe", "Le texte.", **column("opus"))
     with _state_home(), _failed_pick("haiku"):
@@ -8107,7 +8679,10 @@ def a_model_somebody_chose_or_a_switched_off_choice_is_the_runner_as_before():
 def doctor_says_whether_fable_is_allowed():
     from ponos.__main__ import _doctor_fable
 
-    for allowed, expected in ((False, "Claude Fable is not allowed: opus"), (True, "Fable allowed")):
+    for allowed, expected in (
+        (False, "Claude Fable is not allowed: opus"),
+        (True, "Fable allowed"),
+    ):
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
             _doctor_fable(C.Runner(use_fable=allowed))
@@ -8135,7 +8710,9 @@ def a_fable_written_on_a_ticket_runs_on_opus_and_its_report_says_why():
 def a_run_begun_on_fable_carries_on_on_opus_once_it_is_turned_off():
     with _state_home():
         runner, ticket = _modelled("Audit complet", "Tout le dépôt.")
-        journal.Run.start(ticket=ticket.id, model="fable", chosen=True, escalated=True).end("failed")
+        journal.Run.start(ticket=ticket.id, model="fable", chosen=True, escalated=True).end(
+            "failed"
+        )
         job = runner.prepare(ticket)
         assert job.model == "opus", job
         runner, ticket = _modelled("Audit complet", "Tout le dépôt.")
@@ -8153,18 +8730,23 @@ def a_chosen_model_that_failed_comes_back_one_level_up_from_the_journal():
         second = runner.prepare(ticket)
         assert (second.model, second.escalated) == ("sonnet", True), second
         assert "one level up after a failed run on haiku" in runner.client.said[-1]
-        journal.Run.start(ticket=ticket.id, model=second.model, chosen=True, escalated=True).end("failed")
+        journal.Run.start(ticket=ticket.id, model=second.model, chosen=True, escalated=True).end(
+            "failed"
+        )
         runner, ticket = _modelled("Retirer un paragraphe", "Le texte.")
         third = runner.prepare(ticket)
         assert third.model == "sonnet", "once, not to the top of the price list"
-        assert journal.chosen(ticket.id) == {"model": "sonnet", "status": "failed", "escalated": True}
+        assert journal.chosen(ticket.id) == {
+            "model": "sonnet",
+            "status": "failed",
+            "escalated": True,
+        }
 
 
 @case
 def a_title_is_one_line_however_the_session_wrapped_it():
     assert (
-        naming.clean('Voici le titre :\n\n"Réparer le bandeau blanc"')
-        == "Réparer le bandeau blanc"
+        naming.clean('Voici le titre :\n\n"Réparer le bandeau blanc"') == "Réparer le bandeau blanc"
     )
     assert naming.clean("**Retirer le shader du bandeau.**") == "Retirer le shader du bandeau"
     assert naming.clean("   ") == ""
@@ -8253,7 +8835,9 @@ def the_ticket_gets_what_the_agent_said_and_not_each_command():
     ) + progress.describe(
         {
             "type": "user",
-            "message": {"content": [{"type": "tool_result", "is_error": True, "content": "exit 1"}]},
+            "message": {
+                "content": [{"type": "tool_result", "is_error": True, "content": "exit 1"}]
+            },
         }
     ):
         live.add(step)
@@ -8321,12 +8905,12 @@ class _Live:
 
     def __init__(self, refuse=False):
         self.refuse = refuse
-        self.blocks = []          # the text of every child appended under the toggle
-        self.kinds = []           # and its block type
-        self.pieces = []          # and how many pieces of rich text it took
-        self.marks = []           # every annotation any of those pieces carried
-        self.titles = []          # every title the toggle has carried
-        self.properties = []      # every value written to the board column
+        self.blocks = []  # the text of every child appended under the toggle
+        self.kinds = []  # and its block type
+        self.pieces = []  # and how many pieces of rich text it took
+        self.marks = []  # every annotation any of those pieces carried
+        self.titles = []  # every title the toggle has carried
+        self.properties = []  # every value written to the board column
 
     def append_blocks(self, block_id, blocks):
         if self.refuse:
@@ -8514,13 +9098,17 @@ def a_brief_is_read_without_the_story_of_earlier_runs():
     _run_on(page, "en", "Reading the header again.")
     by_hand = page.add(
         "page",
-        {"object": "block", "type": "toggle",
-         "toggle": {"rich_text": [{"type": "text", "text": {"content": "Notes"}}]}},
+        {
+            "object": "block",
+            "type": "toggle",
+            "toggle": {"rich_text": [{"type": "text", "text": {"content": "Notes"}}]},
+        },
     )
     page.add(by_hand, markdown.to_blocks("Garder le logo.")[0])
     titles = [
         "".join(part["plain_text"] for part in block["toggle"]["rich_text"])
-        for block in page.children["page"] if block["type"] == "toggle"
+        for block in page.children["page"]
+        if block["type"] == "toggle"
     ]
     assert titles[0].startswith("⚠️ Trace — 2 étapes") and titles[1].startswith("✓ 2 steps"), titles
     runs = [block["id"] for block in page.children["page"] if progress.is_live(block)]
@@ -8614,7 +9202,6 @@ def tool_calls_by_the_hundred_do_not_cost_the_prose_its_place():
     clock.now += 11
     live.flush()
     assert client.blocks == ["Tout est lu ; je lance les tests."]
-
 
 
 # -- the web console ---------------------------------------------------------
@@ -8764,7 +9351,11 @@ def a_message_of_words_alone_reaches_the_session_as_it_was_typed():
         prompt = _said_to(chat)
         assert prompt.endswith("what is on the board?")
         assert "Attached to this message" not in prompt
-        assert chat.history()[0] == {**chat.history()[0], "role": "you", "text": "what is on the board?"}
+        assert chat.history()[0] == {
+            **chat.history()[0],
+            "role": "you",
+            "text": "what is on the board?",
+        }
         assert "attachments" not in chat.history()[0], "no files, no empty list"
 
 
@@ -8777,7 +9368,9 @@ def an_image_travels_as_a_path_the_session_reads():
         assert said["kind"] == "image" and said["type"] == "image/png" and said["size"] == len(png)
         kept = chat.attachment(said["id"]).path
         assert kept.read_bytes() == png
-        assert kept.is_relative_to(web_console.attachments_dir()), "under the state, never a repository"
+        assert kept.is_relative_to(web_console.attachments_dir()), (
+            "under the state, never a repository"
+        )
         chat.send("what is wrong on this screen?", [said["id"]])
         prompt = _said_to(chat)
         assert str(kept) in prompt, "the absolute path is what the session is given"
@@ -8955,7 +9548,9 @@ def an_openrouter_model_goes_through_openrouter_whatever_the_provider():
         chat.send("again")
         _said_to(chat)
         assert seen[-1]["model"] == "sonnet"
-        assert "ANTHROPIC_BASE_URL" not in seen[-1]["environment"], "a Claude model stays on the CLI"
+        assert "ANTHROPIC_BASE_URL" not in seen[-1]["environment"], (
+            "a Claude model stays on the CLI"
+        )
         assert chat.models()["recent"] == ["sonnet"]
 
 
@@ -9008,13 +9603,24 @@ def the_catalogue_of_openrouter_is_read_once_and_a_failure_is_said():
 def the_single_conversation_of_chat_json_becomes_the_first_of_the_list():
     with _state_home():
         web_console.web_dir().joinpath("chat.json").write_text(
-            json.dumps({
-                "session_id": "abc", "turns": 1,
-                "messages": [
-                    {"role": "you", "text": "an old question", "at": "2026-01-01T10:00:00+00:00"},
-                    {"role": "workspace", "text": "an old answer", "at": "2026-01-01T10:01:00+00:00"},
-                ],
-            }),
+            json.dumps(
+                {
+                    "session_id": "abc",
+                    "turns": 1,
+                    "messages": [
+                        {
+                            "role": "you",
+                            "text": "an old question",
+                            "at": "2026-01-01T10:00:00+00:00",
+                        },
+                        {
+                            "role": "workspace",
+                            "text": "an old answer",
+                            "at": "2026-01-01T10:01:00+00:00",
+                        },
+                    ],
+                }
+            ),
             encoding="utf-8",
         )
         chat = web_console.Chat(_config(""), lambda *a, **k: None)
@@ -9044,6 +9650,7 @@ def a_stopped_session_takes_what_it_had_started_with_it():
         os.environ["PATH"] = f"{home}{os.pathsep}{previous}"
         stop = threading.Event()
         try:
+
             def press() -> None:
                 while not ticks.exists():
                     time.sleep(0.02)
@@ -9073,10 +9680,18 @@ def _halting(chat, exists: bool = True):
         chat.prompts.append(prompt)
         if rest["stop"].wait(5):
             return session.Outcome(
-                False, False, rest["session_id"], "", Path("/dev/null"),
-                answer="halfway", error="stopped", stopped=True,
+                False,
+                False,
+                rest["session_id"],
+                "",
+                Path("/dev/null"),
+                answer="halfway",
+                error="stopped",
+                stopped=True,
             )
-        return session.Outcome(True, False, rest["session_id"], "", Path("/dev/null"), answer="done")
+        return session.Outcome(
+            True, False, rest["session_id"], "", Path("/dev/null"), answer="done"
+        )
 
     session.run = run
     session.exists = lambda identifier: exists
@@ -9106,7 +9721,11 @@ def a_stopped_turn_is_kept_and_the_conversation_carries_on():
             stages = [said["stage"] for kind, said in chat.events if kind == "chat"]
             assert stages.count("stopping") == 1, stages
             assert stages[-1] == "stopped"
-            assert chat.history()[-1] == {**chat.history()[-1], "role": "stopped", "text": "halfway"}
+            assert chat.history()[-1] == {
+                **chat.history()[-1],
+                "role": "stopped",
+                "text": "halfway",
+            }
             assert chat.session_id == identifier and chat.turns == 1
             chat.send("only the README, then")
             chat.stop()
@@ -9180,11 +9799,13 @@ def dictation_is_sent_to_openrouter_in_the_language_asked_for():
             pass
 
         def do_POST(self):  # noqa: N802
-            received.append({
-                "path": self.path,
-                "auth": self.headers.get("Authorization"),
-                "body": json.loads(self.rfile.read(int(self.headers["Content-Length"]))),
-            })
+            received.append(
+                {
+                    "path": self.path,
+                    "auth": self.headers.get("Authorization"),
+                    "body": json.loads(self.rfile.read(int(self.headers["Content-Length"]))),
+                }
+            )
             answer = json.dumps({"text": " Bonjour la machine. "}).encode()
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
@@ -9255,7 +9876,9 @@ def the_console_takes_a_file_as_a_raw_body_and_serves_it_back_sandboxed():
                 assert response.read() == b"\x89PNG"
                 assert response.headers["Content-Type"] == "image/png"
                 assert "sandbox" in response.headers["Content-Security-Policy"]
-            code, _, _ = post(f"/api/chat/attachments/{said['id']}/remove", b"{}", kind="application/json")
+            code, _, _ = post(
+                f"/api/chat/attachments/{said['id']}/remove", b"{}", kind="application/json"
+            )
             assert code == 200
             try:
                 urllib.request.urlopen(request, timeout=5)
@@ -9285,12 +9908,23 @@ def the_message_bar_is_one_block_with_its_gestures_inside():
     assert 't("Send")' not in pane, "a text button for sending is back under the field"
     assert "a sentence talks to your workspace ·" not in pane, "the permanent help line is back"
     tests = (FRONTEND / "src/lib/composer.test.ts").read_text(encoding="utf-8")
-    for held in ("removed by its cross", "pasted screenshot", "starts with > is a command", "arrow is off"):
+    for held in (
+        "removed by its cross",
+        "pasted screenshot",
+        "starts with > is a command",
+        "arrow is off",
+    ):
         assert held in tests, f"nothing holds the bar to “{held}” any more"
-    accepted = set(re.findall(r"^  (\w+): \"(?:image|video|document)\"", (
-        FRONTEND / "src/lib/composer.ts"
-    ).read_text(encoding="utf-8"), re.M))
-    assert accepted == set(web_attachments.ACCEPTED), "the page and the server accept different files"
+    accepted = set(
+        re.findall(
+            r"^  (\w+): \"(?:image|video|document)\"",
+            (FRONTEND / "src/lib/composer.ts").read_text(encoding="utf-8"),
+            re.M,
+        )
+    )
+    assert accepted == set(web_attachments.ACCEPTED), (
+        "the page and the server accept different files"
+    )
 
 
 @case
@@ -9328,7 +9962,9 @@ def a_log_line_becomes_the_step_the_board_would_have_shown():
     line = json.dumps(
         {
             "type": "assistant",
-            "message": {"content": [{"type": "tool_use", "name": "Bash", "input": {"command": "npm test"}}]},
+            "message": {
+                "content": [{"type": "tool_use", "name": "Bash", "input": {"command": "npm test"}}]
+            },
         }
     )
     steps = web_live.steps(line)
@@ -9350,12 +9986,16 @@ def a_ticket_finds_its_own_session_and_tells_what_the_agent_said_from_what_it_di
     ran = json.dumps(
         {
             "type": "assistant",
-            "message": {"content": [{"type": "tool_use", "name": "Bash", "input": {"command": "ls"}}]},
+            "message": {
+                "content": [{"type": "tool_use", "name": "Bash", "input": {"command": "ls"}}]
+            },
         }
     )
     with _state_home():
         logs = state.logs_dir()
-        (logs / "20260830-120000-1a2b3c4d.jsonl").write_text(said + "\n" + ran + "\n", encoding="utf-8")
+        (logs / "20260830-120000-1a2b3c4d.jsonl").write_text(
+            said + "\n" + ran + "\n", encoding="utf-8"
+        )
         (logs / "20260830-130000-99999999.jsonl").write_text(ran + "\n", encoding="utf-8")
         api = _bare_api(_TalkClient([]))
         found = api.logs("1a2b3c4d")["logs"]
@@ -9372,7 +10012,11 @@ def a_ticket_finds_its_own_session_and_tells_what_the_agent_said_from_what_it_di
         published = []
         hub.publish = lambda kind, **payload: published.append((kind, payload))  # type: ignore[method-assign]
         web_live.Tail(hub, logs).pass_once()
-        told = [payload for kind, payload in published if kind == "step" and payload["source"] == "1a2b3c4d"]
+        told = [
+            payload
+            for kind, payload in published
+            if kind == "step" and payload["source"] == "1a2b3c4d"
+        ]
         assert [payload["said"] for payload in told] == [True, False], told
 
 
@@ -9403,8 +10047,11 @@ def a_session_log_is_tailed_forward_and_never_twice():
 def the_board_is_published_only_when_it_has_moved():
     """A poll that redrew an unchanged board would lose your scroll for nothing."""
     hub = web_live.Hub()
-    boards = [{"tickets": [{"id": "a", "title": "one"}]}, {"tickets": [{"id": "a", "title": "one"}]},
-              {"tickets": [{"id": "a", "title": "two"}]}]
+    boards = [
+        {"tickets": [{"id": "a", "title": "one"}]},
+        {"tickets": [{"id": "a", "title": "one"}]},
+        {"tickets": [{"id": "a", "title": "two"}]},
+    ]
     watch = web_live.Watch(hub, lambda: boards.pop(0), interval=5)
     channel = hub.subscribe()
     watch.refresh()
@@ -9425,7 +10072,11 @@ def _tickets(*cards: tuple[str, str, str]) -> dict:
     order = ["ready", "running", "review"]
     tickets = [{"id": i, "column": c, "title": t, "steps": 0} for i, c, t in cards]
     tickets.sort(key=lambda item: (order.index(item["column"]), item["title"]))
-    return {"tickets": tickets, "validate": False, "columns": [{"key": k, "name": k} for k in order]}
+    return {
+        "tickets": tickets,
+        "validate": False,
+        "columns": [{"key": k, "name": k} for k in order],
+    }
 
 
 def _apply(board: dict, changes: dict) -> list[dict]:
@@ -9433,7 +10084,11 @@ def _apply(board: dict, changes: dict) -> list[dict]:
     gone = set(changes["removed"]) | {entry["ticket"]["id"] for entry in changes["changed"]}
     tickets = [ticket for ticket in board["tickets"] if ticket["id"] not in gone]
     for entry in changes["changed"]:
-        at = next(i for i, t in enumerate(tickets) if t["id"] == entry["after"]) + 1 if entry["after"] else 0
+        at = (
+            next(i for i, t in enumerate(tickets) if t["id"] == entry["after"]) + 1
+            if entry["after"]
+            else 0
+        )
         tickets.insert(at, entry["ticket"])
     return tickets
 
@@ -9441,10 +10096,18 @@ def _apply(board: dict, changes: dict) -> list[dict]:
 @case
 def a_board_that_moved_is_sent_as_what_moved_and_gives_back_the_same_board():
     """A card moved, one added, one gone: the page rebuilds exactly the board, in its order."""
-    before = _tickets(("a", "ready", "Alpha"), ("b", "ready", "Beta"), ("c", "running", "Gamma"),
-                      ("d", "review", "Delta"))
-    after = _tickets(("a", "running", "Alpha"), ("b", "ready", "Beta"), ("c", "running", "Gamma"),
-                     ("e", "ready", "Epsilon"))
+    before = _tickets(
+        ("a", "ready", "Alpha"),
+        ("b", "ready", "Beta"),
+        ("c", "running", "Gamma"),
+        ("d", "review", "Delta"),
+    )
+    after = _tickets(
+        ("a", "running", "Alpha"),
+        ("b", "ready", "Beta"),
+        ("c", "running", "Gamma"),
+        ("e", "ready", "Epsilon"),
+    )
     changes = web_live.difference(before, after)
     assert changes is not None
     assert [entry["ticket"]["id"] for entry in changes["changed"]] == ["e", "a"], changes
@@ -9462,8 +10125,10 @@ def a_board_that_moved_is_sent_as_what_moved_and_gives_back_the_same_board():
 def a_ticket_in_flight_costs_the_stream_its_own_card_not_the_board():
     """475 tickets, one step further on one of them: under 10 KB, where the board is ~360."""
     filler = "x" * 600
-    cards = [{"id": f"{n:032x}", "column": "backlog", "title": f"Ticket {n:03d}", "brief": filler}
-             for n in range(475)]
+    cards = [
+        {"id": f"{n:032x}", "column": "backlog", "title": f"Ticket {n:03d}", "brief": filler}
+        for n in range(475)
+    ]
     board = {"tickets": cards, "validate": True, "columns": [{"key": "backlog", "name": "Backlog"}]}
     moved = {**board, "tickets": [dict(card) for card in cards]}
     moved["tickets"][200]["steps"] = 42
@@ -9481,17 +10146,24 @@ def a_ticket_in_flight_costs_the_stream_its_own_card_not_the_board():
 @case
 def a_browser_is_given_the_whole_board_again_only_when_it_missed_a_version():
     hub = web_live.Hub()
-    watch = web_live.Watch(hub, iter([
-        _tickets(("a", "ready", "Alpha")),
-        _tickets(("a", "running", "Alpha")),
-    ]).__next__)
+    watch = web_live.Watch(
+        hub,
+        iter(
+            [
+                _tickets(("a", "ready", "Alpha")),
+                _tickets(("a", "running", "Alpha")),
+            ]
+        ).__next__,
+    )
     watch.refresh()  # event 1: the whole board
     hub.publish("step", label="Read")  # event 2
     watch.refresh()  # event 3: what changed
 
     fresh = hub.subscribe()
     first = fresh.get_nowait()
-    assert (first.kind, first.payload["version"]) == ("board", 2), "a new tab gets it whole, as it is now"
+    assert (first.kind, first.payload["version"]) == ("board", 2), (
+        "a new tab gets it whole, as it is now"
+    )
     assert first.payload["tickets"][0]["column"] == "running"
 
     up_to_date = hub.subscribe(after=3)
@@ -9594,8 +10266,12 @@ def an_email_and_a_password_are_a_way_into_the_console():
 
     entry = web_server.sign_in(_web_config(email="Me@Example.com", password="hunter2"), "tok")
     assert entry is not None and entry.email == "Me@Example.com"
-    assert passwords.is_digest(entry.digest), "a password from the environment is digested in memory"
-    assert entry.opens(" me@example.COM", "hunter2") and not entry.opens("me@example.com", "hunter3")
+    assert passwords.is_digest(entry.digest), (
+        "a password from the environment is digested in memory"
+    )
+    assert entry.opens(" me@example.COM", "hunter2") and not entry.opens(
+        "me@example.com", "hunter3"
+    )
     again = web_server.sign_in(_web_config(email="me@example.com", password="hunter2"), "tok")
     assert entry.proof == again.proof, "a restart, or a capital, must not sign anybody out"
     assert "hunter2" not in entry.proof and entry.proof != "tok"
@@ -9649,7 +10325,7 @@ def the_sign_in_page_asks_the_way_the_console_does():
     assert "/api/login" in web_server.SIGN_IN
     assert 'type="password"' in web_server.SIGN_IN
     for page in (web_server.GATE, web_server.SIGN_IN):
-        assert "src=\"http" not in page and "href=\"http" not in page, "it reaches off the machine"
+        assert 'src="http' not in page and 'href="http' not in page, "it reaches off the machine"
 
 
 @case
@@ -9729,7 +10405,9 @@ def the_first_connection_writes_the_whole_installation_at_once():
     written = path.read_text(encoding="utf-8")
     secrets = C.read_secrets(C.secrets_path(path))
     assert 'email = "me@example.com"' in written and "one I remember" not in written
-    assert passwords.matches("one I remember", secrets["PONOS_WEB_PASSWORD"]), "a secret goes beside the file"
+    assert passwords.matches("one I remember", secrets["PONOS_WEB_PASSWORD"]), (
+        "a secret goes beside the file"
+    )
     assert passwords.is_digest(secrets["PONOS_WEB_PASSWORD"]), "and the password as its digest only"
     assert 'chat = "4242"' in written and "123:abc" not in written
     assert secrets["PONOS_TELEGRAM_TOKEN"] == "123:abc"
@@ -9783,8 +10461,9 @@ def _talk_to(console, method: str, path: str, body: dict | None = None, **header
     """One request to a console started for the test: status, headers, JSON."""
     connection = http.client.HTTPConnection("127.0.0.1", console.server_address[1], timeout=10)
     sent = {"Host": "127.0.0.1", "X-Ponos": "1", "Content-Type": "application/json", **headers}
-    connection.request(method, path, body=json.dumps(body).encode() if body is not None else None,
-                       headers=sent)
+    connection.request(
+        method, path, body=json.dumps(body).encode() if body is not None else None, headers=sent
+    )
     answer = connection.getresponse()
     raw = answer.read()
     connection.close()
@@ -9839,7 +10518,9 @@ def from_outside_this_machine_nobody_claims_the_console_without_its_code():
         assert status == 403, (status, said)
         assert "installation code" in said["error"]
         status, _, said = _talk_to(console, "GET", "/", **proxied)
-        assert status == 200 and 'data-setup="claim"' in said["_raw"], "the steps, drawn by the bundle"
+        assert status == 200 and 'data-setup="claim"' in said["_raw"], (
+            "the steps, drawn by the bundle"
+        )
         status, _, said = _talk_to(console, "GET", "/api/board", **proxied)
         assert status == 401, "and nothing else of the console"
     assert path.read_text(encoding="utf-8") == before, "a refusal writes nothing"
@@ -9847,13 +10528,21 @@ def from_outside_this_machine_nobody_claims_the_console_without_its_code():
 
     api = _Fresh(path)
     with _console(api, code="K7Q2-M9XD") as console:
-        status, _, said = _talk_to(console, "POST", "/api/setup", {**claim, "code": "AAAA-BBBB"}, **proxied)
+        status, _, said = _talk_to(
+            console, "POST", "/api/setup", {**claim, "code": "AAAA-BBBB"}, **proxied
+        )
         assert status == 403 and said["error"] == "wrong installation code", said
         assert path.read_text(encoding="utf-8") == before
-        status, headers, said = _talk_to(console, "POST", "/api/setup", {**claim, "code": "k7q2m9xd"}, **proxied)
-        assert status == 429 and headers["Retry-After"] == "1", "a wrong code is waited out, even before the right one"
+        status, headers, said = _talk_to(
+            console, "POST", "/api/setup", {**claim, "code": "k7q2m9xd"}, **proxied
+        )
+        assert status == 429 and headers["Retry-After"] == "1", (
+            "a wrong code is waited out, even before the right one"
+        )
         _time_passes(console, 1)
-        status, headers, said = _talk_to(console, "POST", "/api/setup", {**claim, "code": "k7q2m9xd"}, **proxied)
+        status, headers, said = _talk_to(
+            console, "POST", "/api/setup", {**claim, "code": "k7q2m9xd"}, **proxied
+        )
         assert status == 200, said
         assert "ponos_token=" in headers["Set-Cookie"]
         assert console.code == "", "a code opens the door once"
@@ -9938,7 +10627,9 @@ def twenty_wrong_passwords_sent_at_once_are_held_back_not_all_checked():
     with _state_home():
         path, _ = _saved()
         api = _Fresh(path)
-        entry = web_server.sign_in(_web_config(email="me@example.com", password="one I remember"), "tok")
+        entry = web_server.sign_in(
+            _web_config(email="me@example.com", password="one I remember"), "tok"
+        )
         wrong = {"email": "me@example.com", "password": "a guess"}
         right = {"email": "me@example.com", "password": "one I remember"}
         with _console(api, entry=entry) as console:
@@ -9947,7 +10638,9 @@ def twenty_wrong_passwords_sent_at_once_are_held_back_not_all_checked():
             frozen = console.attempts.clock()
             console.attempts.clock = lambda: frozen
             with ThreadPoolExecutor(max_workers=20) as pool:
-                answers = list(pool.map(lambda _: _talk_to(console, "POST", "/api/login", wrong), range(20)))
+                answers = list(
+                    pool.map(lambda _: _talk_to(console, "POST", "/api/login", wrong), range(20))
+                )
             statuses = sorted(status for status, _, _ in answers)
             assert statuses == [401] + [429] * 19, statuses
             assert all(headers["Retry-After"] for status, headers, _ in answers if status == 429)
@@ -9978,7 +10671,9 @@ def twenty_wrong_passwords_sent_at_once_are_held_back_not_all_checked():
     assert web_attempts.address_of("8.8.4.4", "198.51.100.1") == "8.8.4.4", (
         "anybody else saying who they relay is not"
     )
-    assert web_attempts.address_of("2001:db8::1") == web_attempts.address_of("2001:db8::2"), "one /64"
+    assert web_attempts.address_of("2001:db8::1") == web_attempts.address_of("2001:db8::2"), (
+        "one /64"
+    )
     assert web_attempts.address_of("::ffff:192.0.2.7") == "192.0.2.7"
 
 
@@ -10019,9 +10714,12 @@ def a_sign_in_lasts_thirty_days_from_its_last_use_and_all_of_them_end_at_once():
     with _state_home() as state:
         path, _ = _saved()
         api = _Fresh(path)
-        entry = web_server.sign_in(_web_config(email="me@example.com", password="one I remember"), "tok")
+        entry = web_server.sign_in(
+            _web_config(email="me@example.com", password="one I remember"), "tok"
+        )
         now = time.time()
         with _console(api, entry=entry) as console:
+
             def opened(cookie: str):
                 return _talk_to(console, "GET", "/setup", Cookie=f"ponos_token={cookie}")
 
@@ -10039,7 +10737,10 @@ def a_sign_in_lasts_thirty_days_from_its_last_use_and_all_of_them_end_at_once():
             assert status == 401, "a session of another password, or another console"
 
             status, _, _ = _talk_to(
-                console, "POST", "/api/login", {"email": "me@example.com", "password": "one I remember"}
+                console,
+                "POST",
+                "/api/login",
+                {"email": "me@example.com", "password": "one I remember"},
             )
             assert status == 200
             assert cli_main(["serve", "--sign-out-everywhere"]) == 0
@@ -10069,7 +10770,9 @@ def a_password_kept_in_clear_becomes_its_digest_on_the_first_launch():
     with _environment(PONOS_CONFIG=str(path), PONOS_WEB_PASSWORD=None):
         ponos_main.secrets_out_of_config(said.append)
         kept = C.read_secrets(secrets_file)[C.WEB_PASSWORD_ENV]
-        assert passwords.is_digest(kept) and "one I remember" not in secrets_file.read_text(encoding="utf-8")
+        assert passwords.is_digest(kept) and "one I remember" not in secrets_file.read_text(
+            encoding="utf-8"
+        )
         assert any("scrypt digest" in line for line in said), said
         entry = web_server.sign_in(C.load(path), "tok")
         assert entry is not None and entry.digest == kept
@@ -10082,7 +10785,9 @@ def a_password_kept_in_clear_becomes_its_digest_on_the_first_launch():
         assert passwords.is_digest(typed) and passwords.matches("another I remember", typed), (
             "and one typed in the Settings is written as its digest from the start"
         )
-    assert not passwords.matches("anything", "scrypt:1:1:1:broken:digest"), "a broken digest is no way in"
+    assert not passwords.matches("anything", "scrypt:1:1:1:broken:digest"), (
+        "a broken digest is no way in"
+    )
 
 
 @case
@@ -10104,7 +10809,9 @@ def every_page_runs_only_its_own_scripts_and_every_answer_says_so():
     with _state_home():
         path, _ = _saved()
         api = _Fresh(path)
-        entry = web_server.sign_in(_web_config(email="me@example.com", password="one I remember"), "tok")
+        entry = web_server.sign_in(
+            _web_config(email="me@example.com", password="one I remember"), "tok"
+        )
         with _console(api, entry=entry) as console:
             status, headers, said = _talk_to(console, "GET", "/")
             assert status == 401
@@ -10123,15 +10830,24 @@ def every_page_runs_only_its_own_scripts_and_every_answer_says_so():
             status, headers, said = _talk_to(console, "GET", "/setup", Cookie="ponos_token=tok")
             policy = headers["Content-Security-Policy"]
             scripts = policy.split("script-src ", 1)[1].split(";", 1)[0]
-            assert "unsafe" not in scripts and "'sha256-" in scripts, "the theme, before the first paint"
+            assert "unsafe" not in scripts and "'sha256-" in scripts, (
+                "the theme, before the first paint"
+            )
             assert "style-src 'self' 'unsafe-inline'" in policy, "the bundle writes its own styles"
 
-            status, headers, _ = _talk_to(console, "GET", "/api/board", Cookie="ponos_token=tok",
-                                          **{"X-Forwarded-Proto": "https"})
+            status, headers, _ = _talk_to(
+                console,
+                "GET",
+                "/api/board",
+                Cookie="ponos_token=tok",
+                **{"X-Forwarded-Proto": "https"},
+            )
             assert headers["Content-Security-Policy"] == web_server.LOCKED_POLICY
             assert headers["Strict-Transport-Security"].startswith("max-age=")
             status, headers, _ = _talk_to(console, "GET", "/sw.js")
-            assert headers["Content-Security-Policy"] == web_server.WORKER_POLICY, "a worker that fetches"
+            assert headers["Content-Security-Policy"] == web_server.WORKER_POLICY, (
+                "a worker that fetches"
+            )
 
 
 @case
@@ -10167,8 +10883,16 @@ def a_repository_named_on_a_notion_page_is_checked_before_a_command_sees_it():
     """
     for name in ("SalvadorCardona/ponos", "hermez-agency/react-data-form", "a/b.c_d-e"):
         assert git_module.is_repository(name), name
-    for name in ("--upload-pack=touch/x", "owner", "a/b/c", "owner/..", "-o/name",
-                 "owner/name; rm", "https://evil.example/owner/name", "owner/na me"):
+    for name in (
+        "--upload-pack=touch/x",
+        "owner",
+        "a/b/c",
+        "owner/..",
+        "-o/name",
+        "owner/name; rm",
+        "https://evil.example/owner/name",
+        "owner/na me",
+    ):
         assert not git_module.is_repository(name), name
 
     ran: list[list[str]] = []
@@ -10261,7 +10985,9 @@ def a_file_with_no_provider_runs_its_sessions_where_it_always_did():
         assert provider.environment(cli_keyed) == {}
 
     # A container is given its keys in the environment; the file still wins.
-    with _environment(ANTHROPIC_API_KEY="sk-ant-from-env-0000", OPENROUTER_API_KEY="sk-or-env-0000"):
+    with _environment(
+        ANTHROPIC_API_KEY="sk-ant-from-env-0000", OPENROUTER_API_KEY="sk-or-env-0000"
+    ):
         _, bare = _saved()
         assert bare.claude.api_key == "sk-ant-from-env-0000"
         assert bare.openrouter.key == "sk-or-env-0000"
@@ -10310,7 +11036,9 @@ def the_first_connection_writes_the_provider_only_once_it_answers():
     original = provider.api_key, provider.openrouter_key, provider.cli_login
     try:
         provider.api_key = lambda key: provider.Check(key == "sk-ant-good", "checked")
-        provider.openrouter_key = lambda key, base="": provider.Check(key == "sk-or-good", "checked")
+        provider.openrouter_key = lambda key, base="": provider.Check(
+            key == "sk-or-good", "checked"
+        )
         provider.cli_login = lambda: provider.Check(False, "not signed in — claude auth login")
         with _environment(ANTHROPIC_API_KEY=None, OPENROUTER_API_KEY=None):
             said = web_setup.save_provider(api, {"provider": "api_key", "key": "sk-ant-bad"})
@@ -10369,7 +11097,9 @@ def the_first_connection_finds_what_notion_shares_and_keeps_only_a_token_it_acce
         assert api.config.notion.token == "ntn_right", "accepted, so written"
         shared["pages"] = [{"id": "a" * 32, "title": "Ponos", "url": ""}]
         said = web_setup.notion_shared(api, {})
-        assert [page["title"] for page in said["pages"]] == ["Ponos"], "the share is seen on the next ask"
+        assert [page["title"] for page in said["pages"]] == ["Ponos"], (
+            "the share is seen on the next ask"
+        )
     finally:
         notion.Client.my_name, notion.Client.shared = original
 
@@ -10383,16 +11113,32 @@ def what_is_shared_with_the_integration_is_pages_to_build_under_and_boards_alrea
     def answer(method, path, body=None, **_):
         asked.append(body or {})
         if body["filter"]["value"] == "page":
-            return {"results": [
-                {"id": "1" * 32, "url": "u1", "parent": {"type": "workspace"},
-                 "properties": {"title": {"type": "title", "title": [{"plain_text": "Home"}]}}},
-                {"id": "2" * 32, "url": "u2", "parent": {"type": "database_id"},
-                 "properties": {"Name": {"type": "title", "title": [{"plain_text": "A ticket"}]}}},
-            ]}
-        return {"results": [
-            {"id": "3" * 32, "url": "u3", "title": [{"plain_text": "ponos"}]},
-            {"id": "4" * 32, "url": "u4", "title": [{"plain_text": "ponos archive"}]},
-        ]}
+            return {
+                "results": [
+                    {
+                        "id": "1" * 32,
+                        "url": "u1",
+                        "parent": {"type": "workspace"},
+                        "properties": {
+                            "title": {"type": "title", "title": [{"plain_text": "Home"}]}
+                        },
+                    },
+                    {
+                        "id": "2" * 32,
+                        "url": "u2",
+                        "parent": {"type": "database_id"},
+                        "properties": {
+                            "Name": {"type": "title", "title": [{"plain_text": "A ticket"}]}
+                        },
+                    },
+                ]
+            }
+        return {
+            "results": [
+                {"id": "3" * 32, "url": "u3", "title": [{"plain_text": "ponos"}]},
+                {"id": "4" * 32, "url": "u4", "title": [{"plain_text": "ponos archive"}]},
+            ]
+        }
 
     client._request = answer
     pages, boards = client.shared("ponos")
@@ -10410,8 +11156,12 @@ def the_language_chosen_before_the_account_is_written_with_it():
     api = _Fresh(path)
     web_setup.apply(
         api,
-        {"email": "me@example.com", "password": "one I remember", "confirm": "one I remember",
-         "language": "fr"},
+        {
+            "email": "me@example.com",
+            "password": "one I remember",
+            "confirm": "one I remember",
+            "language": "fr",
+        },
     )
     assert api.config.runner.language == "fr" and api.config.runner.app_language == "fr"
 
@@ -10426,7 +11176,9 @@ def the_first_project_step_makes_the_workspace_folder_and_offers_its_repositorie
 
     class Projects(_Fresh):
         def all_projects(self) -> dict:
-            return {"projects": [{"id": "p1", "name": "Site"}, {"id": "", "name": "only in the file"}]}
+            return {
+                "projects": [{"id": "p1", "name": "Site"}, {"id": "", "name": "only in the file"}]
+            }
 
     api = Projects(path)
     said = web_setup.project_choices(api)
@@ -10509,18 +11261,26 @@ def a_loop_of_runs_takes_the_lock_like_the_timer_did():
     """`run --every` starts `ponos run` itself, and a run already going turns it away."""
     root = Path(tempfile.mkdtemp())
     config = root / "config.toml"
-    config.write_text(f'[storage]\nmode = "markdown"\npath = "{root / "board"}"\n', encoding="utf-8")
+    config.write_text(
+        f'[storage]\nmode = "markdown"\npath = "{root / "board"}"\n', encoding="utf-8"
+    )
     arguments = build_parser().parse_args(["run", "--every", "1"])
     assert arguments.every == 1
     assert build_parser().parse_args(["run", "--every"]).every == 0, "the configuration's interval"
     with _environment(PONOS_CONFIG=str(config)), _state_home():
         with state.lock():
             answered = subprocess.run(
-                [sys.executable, "-c", (
-                    "import sys; from ponos.__main__ import run_every, build_parser;"
-                    "sys.exit(run_every(build_parser().parse_args(['run', '--every', '1']), passes=2))"
-                )],
-                capture_output=True, text=True, timeout=120,
+                [
+                    sys.executable,
+                    "-c",
+                    (
+                        "import sys; from ponos.__main__ import run_every, build_parser;"
+                        "sys.exit(run_every(build_parser().parse_args(['run', '--every', '1']), passes=2))"
+                    ),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=120,
                 env={**os.environ, "PYTHONPATH": str(Path(__file__).resolve().parents[1] / "src")},
             )
         assert answered.returncode == 0, answered.stderr
@@ -10584,7 +11344,9 @@ def a_secret_left_in_config_toml_is_never_read():
     )
     config = C.load(path)
     assert not config.notion.token and not config.web.token and not config.web.password
-    assert not config.claude.api_key and not config.openrouter.key and not config.github_access.token
+    assert (
+        not config.claude.api_key and not config.openrouter.key and not config.github_access.token
+    )
     assert "token" not in config.notify.telegram and config.notify.telegram["chat"] == "42"
     assert "token" not in config.notify.slack
     assert set(config.exposed) == {f"{table}.{key}" for table, key in C.SECRETS}
@@ -10691,8 +11453,11 @@ def a_typed_key_wins_over_the_environment_and_the_environment_over_a_password():
     C.write_secrets(
         C.secrets_path(path), {"ANTHROPIC_API_KEY": "typed", "PONOS_WEB_PASSWORD": "typed too"}
     )
-    with _environ(ANTHROPIC_API_KEY="composed", PONOS_WEB_PASSWORD="from the unit",
-                  PONOS_SLACK_TOKEN="xoxb-env"):
+    with _environ(
+        ANTHROPIC_API_KEY="composed",
+        PONOS_WEB_PASSWORD="from the unit",
+        PONOS_SLACK_TOKEN="xoxb-env",
+    ):
         config = C.load(path)
     assert config.claude.api_key == "typed"
     assert config.web.password == "from the unit"
@@ -10711,7 +11476,8 @@ def secrets_env_reads_what_a_shell_and_compose_read():
     assert C.read_secrets(path) == {"PONOS_WEB_PASSWORD": awkward, "PONOS_WEB_TOKEN": "t0k"}
     shell = subprocess.run(
         ["sh", "-c", f'. "{path}"; printf %s "$PONOS_WEB_PASSWORD"'],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     assert shell.stdout == awkward, shell.stdout
 
@@ -10764,9 +11530,7 @@ def a_closing_is_dated_by_the_runner_before_the_last_edit():
         # Merged by hand, closed by `close_merged`: no history line, its edit says when.
         _card("c", "done", "2026-09-01T09:00:00.000Z", edited="2026-09-08T09:00:00.000Z"),
     ]
-    figures = web_statistics.figures(
-        tickets, history, date(2026, 9, 1), date(2026, 9, 10), UTC
-    )
+    figures = web_statistics.figures(tickets, history, date(2026, 9, 1), date(2026, 9, 10), UTC)
     closed = {item["day"]: item["closed"] for item in figures["days"] if item["closed"]}
     assert closed == {"2026-09-05": 1, "2026-09-06": 1, "2026-09-08": 1}, closed
     assert figures["dated"] == {"history": 2, "edited": 1}
@@ -10794,12 +11558,12 @@ def the_open_curve_starts_from_the_board_as_it_stood_and_ends_on_it():
         {"at": "2026-09-04T12:00:00+00:00", "id": "new", "status": "blocked", "cost_usd": 0.25},
         {"at": "2026-08-01T12:00:00+00:00", "id": "old", "status": "blocked", "cost_usd": 9},
     ]
-    figures = web_statistics.figures(
-        tickets, history, date(2026, 9, 1), date(2026, 9, 5), UTC
-    )
+    figures = web_statistics.figures(tickets, history, date(2026, 9, 1), date(2026, 9, 5), UTC)
     opened = [item["open"] for item in figures["days"]]
     assert opened == [2, 2, 1, 3, 3], opened
-    assert figures["totals"] == {"open": 3, "closed": 2, "created": 3, "cost": 1.75}, figures["totals"]
+    assert figures["totals"] == {"open": 3, "closed": 2, "created": 3, "cost": 1.75}, figures[
+        "totals"
+    ]
     assert [item["cost"] for item in figures["days"]] == [0, 1.5, 1.5, 1.75, 1.75]
     assert {item["name"]: item["count"] for item in figures["projects"]} == {
         "": 1,
@@ -10824,18 +11588,23 @@ def a_cancelled_ticket_is_neither_closed_nor_open_and_keeps_its_cost():
 
     tickets = [
         _card("kept", "ready", "2026-09-01T09:00:00.000Z"),
-        _card("dropped", "cancelled", "2026-09-01T09:00:00.000Z", edited="2026-09-03T09:00:00.000Z"),
+        _card(
+            "dropped", "cancelled", "2026-09-01T09:00:00.000Z", edited="2026-09-03T09:00:00.000Z"
+        ),
     ]
     history = [
         {"at": "2026-09-02T12:00:00+00:00", "id": "dropped", "status": "blocked", "cost_usd": 2.0},
     ]
-    figures = web_statistics.figures(
-        tickets, history, date(2026, 9, 1), date(2026, 9, 4), UTC
-    )
+    figures = web_statistics.figures(tickets, history, date(2026, 9, 1), date(2026, 9, 4), UTC)
     assert [item["open"] for item in figures["days"]] == [2, 2, 1, 1]
-    assert figures["totals"] == {"open": 1, "closed": 0, "created": 2, "cost": 2.0}, figures["totals"]
+    assert figures["totals"] == {"open": 1, "closed": 0, "created": 2, "cost": 2.0}, figures[
+        "totals"
+    ]
     assert figures["average"] is None, "no ticket closed, none averaged"
-    assert {item["key"]: item["count"] for item in figures["statuses"]} == {"ready": 1, "cancelled": 1}
+    assert {item["key"]: item["count"] for item in figures["statuses"]} == {
+        "ready": 1,
+        "cancelled": 1,
+    }
 
 
 @case
@@ -10853,10 +11622,10 @@ def the_open_tickets_of_the_last_day_are_the_boards_not_closed_ones():
         _card(column, column, "2026-09-01T09:00:00.000Z", edited="2026-09-03T09:00:00.000Z")
         for column in columns
     ]
-    figures = web_statistics.figures(
-        tickets, [], date(2026, 9, 1), date(2026, 9, 4), UTC
+    figures = web_statistics.figures(tickets, [], date(2026, 9, 1), date(2026, 9, 4), UTC)
+    board = sum(
+        1 for ticket in tickets if ticket["column"] not in ("done", "validated", "cancelled")
     )
-    board = sum(1 for ticket in tickets if ticket["column"] not in ("done", "validated", "cancelled"))
     assert [item["open"] for item in figures["days"]] == [8, 8, board, board], figures["days"]
     assert figures["totals"]["open"] == board == 5
     assert [item["closed"] for item in figures["days"]] == [0, 0, 2, 0]
@@ -10889,7 +11658,11 @@ def the_tickets_created_are_handed_by_type_sub_type_and_project():
     ]
     kinds = {"code": "code", "rédaction": "writing"}
     figures = web_statistics.figures(
-        tickets, [], date(2026, 9, 7), date(2026, 9, 13), UTC,
+        tickets,
+        [],
+        date(2026, 9, 7),
+        date(2026, 9, 13),
+        UTC,
         kind_of=lambda option: kinds.get(option.casefold(), ""),
     )
     made = figures["made"]
@@ -10898,17 +11671,29 @@ def the_tickets_created_are_handed_by_type_sub_type_and_project():
     assert made["cells"] == [
         {"bucket": "2026-09-08", "kind": "code", "subtype": "bug", "project": "Opoil", "count": 2},
         {"bucket": "2026-09-09", "kind": "code", "subtype": "", "project": "ponos", "count": 1},
-        {"bucket": "2026-09-09", "kind": "code", "subtype": "feature", "project": "ponos", "count": 1},
+        {
+            "bucket": "2026-09-09",
+            "kind": "code",
+            "subtype": "feature",
+            "project": "ponos",
+            "count": 1,
+        },
         {"bucket": "2026-09-10", "kind": "code", "subtype": "", "project": "ponos", "count": 1},
         {"bucket": "2026-09-10", "kind": "writing", "subtype": "", "project": "ponos", "count": 1},
     ], made["cells"]
-    assert made["before"] == [{"kind": "code", "subtype": "feature", "project": "Opoil", "count": 1}]
+    assert made["before"] == [
+        {"kind": "code", "subtype": "feature", "project": "Opoil", "count": 1}
+    ]
 
     # Past a month, a bucket is a week, named by its Monday.
     longer = web_statistics.figures(tickets, [], date(2026, 8, 1), date(2026, 9, 13), UTC)
     assert longer["made"]["unit"] == "week"
     assert longer["made"]["buckets"][:2] == ["2026-07-27", "2026-08-03"]
-    assert {cell["bucket"] for cell in longer["made"]["cells"]} == {"2026-08-17", "2026-08-31", "2026-09-07"}
+    assert {cell["bucket"] for cell in longer["made"]["cells"]} == {
+        "2026-08-17",
+        "2026-08-31",
+        "2026-09-07",
+    }
     # No type said: none of the four.
     assert {cell["kind"] for cell in longer["made"]["cells"]} == {""}
 
@@ -10924,13 +11709,25 @@ def the_projects_figures_add_up_to_the_boards():
     from datetime import date
 
     tickets = [
-        _card("a", "done", "2026-09-02T09:00:00.000Z", edited="2026-09-04T09:00:00.000Z", project="Opoil"),
+        _card(
+            "a",
+            "done",
+            "2026-09-02T09:00:00.000Z",
+            edited="2026-09-04T09:00:00.000Z",
+            project="Opoil",
+        ),
         _card("b", "ready", "2026-09-03T09:00:00.000Z", project="Opoil"),
         _card("c", "review", "2026-09-03T10:00:00.000Z", project="ponos"),
         _card("d", "ready", "2026-09-04T10:00:00.000Z"),
     ]
     history = [
-        {"at": "2026-09-02T12:00:00+00:00", "id": "a", "status": "done", "kind": "document", "cost_usd": 1.0},
+        {
+            "at": "2026-09-02T12:00:00+00:00",
+            "id": "a",
+            "status": "done",
+            "kind": "document",
+            "cost_usd": 1.0,
+        },
         {"at": "2026-09-03T12:00:00+00:00", "id": "b", "status": "blocked", "cost_usd": 0.5},
         {"at": "2026-09-03T13:00:00+00:00", "id": "c", "status": "done", "cost_usd": 2.0},
         {"at": "2026-09-04T13:00:00+00:00", "id": "d", "status": "blocked", "cost_usd": 4.0},
@@ -11031,7 +11828,9 @@ def a_message_typed_at_a_ticket_is_a_comment_in_your_own_voice():
     assert page == "p-ticket"
     assert conversation.is_relayed(text), text
     assert conversation.said(text) == "Celui du dashboard."
-    assert discussion == "d-report", "an answer goes under the question, not at the foot of the page"
+    assert discussion == "d-report", (
+        "an answer goes under the question, not at the foot of the page"
+    )
 
     try:
         api.tell("p-ticket", "   ")
@@ -11044,12 +11843,16 @@ def a_message_typed_at_a_ticket_is_a_comment_in_your_own_voice():
 @case
 def a_ticket_the_runner_has_never_spoken_on_gets_a_thread_of_its_own():
     """No question to answer, and none invented: the message opens a discussion."""
-    client = _TalkClient([notion.Comment("une remarque", discussion_id="d-mine", created_by="salva")])
+    client = _TalkClient(
+        [notion.Comment("une remarque", discussion_id="d-mine", created_by="salva")]
+    )
     _bare_api(client).tell("p-ticket", "on reprend ça demain")
     assert client.written[0][2] == ""
     # Same when Notion will not say who we are: without an identity there is no
     # telling our own thread from yours, and guessing is how it goes wrong.
-    other = _TalkClient([notion.Comment("un rapport", discussion_id="d-report", created_by="runner-id")])
+    other = _TalkClient(
+        [notion.Comment("un rapport", discussion_id="d-report", created_by="runner-id")]
+    )
     _bare_api(other, me="").tell("p-ticket", "et celui-ci ?")
     assert other.written[0][2] == ""
 
@@ -11057,25 +11860,29 @@ def a_ticket_the_runner_has_never_spoken_on_gets_a_thread_of_its_own():
 @case
 def the_discussion_of_a_ticket_reads_as_a_conversation():
     """The ticket's terminal is the page's comments, said by who said them."""
-    client = _TalkClient([
-        notion.Comment(
-            f"{legacy.OLD}@laptop — blocked.\nWhich header?",
-            created_time="2026-08-30T10:00:00.000Z",
-            discussion_id="d-report",
-            created_by="runner-id",
-        ),
-        notion.Comment(
-            f"{conversation.RELAYED[0]}Telegram by Salva.\nCelui du dashboard.",
-            discussion_id="d-report",
-            created_by="runner-id",
-        ),
-        notion.Comment("Merci.", discussion_id="d-report", created_by="salva"),
-    ])
+    client = _TalkClient(
+        [
+            notion.Comment(
+                f"{legacy.OLD}@laptop — blocked.\nWhich header?",
+                created_time="2026-08-30T10:00:00.000Z",
+                discussion_id="d-report",
+                created_by="runner-id",
+            ),
+            notion.Comment(
+                f"{conversation.RELAYED[0]}Telegram by Salva.\nCelui du dashboard.",
+                discussion_id="d-report",
+                created_by="runner-id",
+            ),
+            notion.Comment("Merci.", discussion_id="d-report", created_by="salva"),
+        ]
+    )
     payload = _bare_api(client).talk("p-ticket")
     assert [message["role"] for message in payload["messages"]] == ["runner", "you", "you"]
     said = payload["messages"][1]["text"]
     assert said == "Celui du dashboard.", f"the device it came through is not the message: {said}"
-    assert payload["mention"] == conversation.MENTION, "the hint has to name what the runner answers to"
+    assert payload["mention"] == conversation.MENTION, (
+        "the hint has to name what the runner answers to"
+    )
 
     # An integration that will not say who we are still leaves the discussion
     # readable: a report opens with the name the runner signs it with.
@@ -11092,10 +11899,19 @@ def a_question_left_unanswered_is_a_ticket_waiting_on_you():
         created_by="runner-id",
     )
     assert _bare_api(_TalkClient([question])).talk("p-ticket")["waiting"] is True
-    answered = _TalkClient([question, notion.Comment("Celui du dashboard.", discussion_id="d-report", created_by="salva")])
-    assert _bare_api(answered).talk("p-ticket")["waiting"] is False, "an answered question waits on nobody"
+    answered = _TalkClient(
+        [
+            question,
+            notion.Comment("Celui du dashboard.", discussion_id="d-report", created_by="salva"),
+        ]
+    )
+    assert _bare_api(answered).talk("p-ticket")["waiting"] is False, (
+        "an answered question waits on nobody"
+    )
     report = notion.Comment(f"{voice.MARKS['review']} To review — PR #38", created_by="runner-id")
-    assert _bare_api(_TalkClient([report])).talk("p-ticket")["waiting"] is False, "a report is not a question"
+    assert _bare_api(_TalkClient([report])).talk("p-ticket")["waiting"] is False, (
+        "a report is not a question"
+    )
     assert _bare_api(_TalkClient([])).talk("p-ticket")["waiting"] is False
 
 
@@ -11123,7 +11939,8 @@ def a_password_is_masked_and_what_only_talks_of_one_is_left_alone():
         "mot de passe : hunter2": (["password"], "mot de passe : ••••••"),
         "password=S3cr3t!": (["password"], "password=••••••"),
         "Le mot de passe npm de l'agence est Hz!2026kpl": (
-            ["password"], "Le mot de passe npm de l'agence est ••••••",
+            ["password"],
+            "Le mot de passe npm de l'agence est ••••••",
         ),
         'mdp: "azerty123" merci': (["password"], 'mdp: "••••••" merci'),
         "la clé API : abcd1234": (["password"], "la clé API : ••••••"),
@@ -11131,9 +11948,13 @@ def a_password_is_masked_and_what_only_talks_of_one_is_left_alone():
         "sk-ant-api03-abcdefghijklmnopqrstuvwxyz": (["token"], "••••••"),
         "npm_abcdefghijklmnopqrstuvwxyz0123456789": (["token"], "••••••"),
         "git clone https://salva:p4ss@github.com/x/y.git": (
-            ["address"], "git clone https://salva:••••••@github.com/x/y.git",
+            ["address"],
+            "git clone https://salva:••••••@github.com/x/y.git",
         ),
-        "token : ghp_abcdefghijklmnopqrstuvwxyz0123456789": (["token", "password"], "token : ••••••"),
+        "token : ghp_abcdefghijklmnopqrstuvwxyz0123456789": (
+            ["token", "password"],
+            "token : ••••••",
+        ),
     }
     for text, (flagged, masked) in shown.items():
         assert redaction.found(text) == flagged, (text, redaction.found(text))
@@ -11285,8 +12106,7 @@ def the_console_never_shows_a_next_occurrence_already_behind_us():
     api = _bare_api(_TalkClient([]))
     api._runner = _recurring(
         [
-            _schedule_page("s-1", name="Test email", cadence="Hourly", next=stale,
-                           active=False),
+            _schedule_page("s-1", name="Test email", cadence="Hourly", next=stale, active=False),
             _schedule_page("s-2", cadence="Hourly", next=stale),
         ]
     )
@@ -11298,7 +12118,9 @@ def the_console_never_shows_a_next_occurrence_already_behind_us():
     paused, due = api.schedules()["schedules"]
     assert paused["active"] is False and paused["next"] == "", "a paused schedule has no next"
     assert paused["cadence"] == "Hourly", "the word the board holds, translated by the page"
-    assert schedules.scheduled_for(due["next"]) >= before, f"an occurrence in the past: {due['next']}"
+    assert schedules.scheduled_for(due["next"]) >= before, (
+        f"an occurrence in the past: {due['next']}"
+    )
 
 
 class _PageClient(_TalkClient):
@@ -11389,7 +12211,9 @@ def a_ticket_page_is_read_again_only_when_notion_says_it_changed():
     client.edited = now.isoformat().replace("+00:00", ".000Z")
     api.ticket(ticket)
     client._content = "third brief"
-    assert api.ticket(ticket)["content"] == "third brief", "an edit in the same minute is still read"
+    assert api.ticket(ticket)["content"] == "third brief", (
+        "an edit in the same minute is still read"
+    )
 
     files = _EditedPageClient("on disk", "2026-09-01T09:00:00.000Z")
     board = _bare_api(files)
@@ -11409,7 +12233,6 @@ def a_relation_is_written_as_notion_spells_it():
     assert notion._encode("relation", []) == {"relation": []}
 
 
-
 class _ColumnsClient(_TalkClient):
     """A tickets database: three rows, one of them under no known heading."""
 
@@ -11426,7 +12249,9 @@ class _ColumnsClient(_TalkClient):
                 id=f"{index:08d}-0000-0000-0000-000000000000",
                 url="",
                 title=f"ticket {index}",
-                properties={"Status": {"type": "status", "status": {"name": status} if status else None}},
+                properties={
+                    "Status": {"type": "status", "status": {"name": status} if status else None}
+                },
                 raw={"created_time": "2026-09-01T09:00:00.000Z"},
             )
             for index, status in enumerate(self._statuses)
@@ -11454,7 +12279,9 @@ def a_ticket_under_no_known_status_is_a_draft_and_no_column_is_added_for_it():
     board = api.board()
     keys = [column["key"] for column in board["columns"]]
     assert keys[0] == "draft" and "other" not in keys, keys
-    assert board["columns"][0] == {"key": "draft", "name": ""}, "the console names the drafts, not the board"
+    assert board["columns"][0] == {"key": "draft", "name": ""}, (
+        "the console names the drafts, not the board"
+    )
     assert [item["column"] for item in board["tickets"]] == ["draft", "draft", "ready"]
 
 
@@ -11534,8 +12361,12 @@ def the_runner_never_runs_a_cancelled_ticket_even_when_named():
         runner = Runner.__new__(Runner)
         runner._journals = {}
         runner.config = C.Config(
-            notion=C.Notion(), runner=C.Runner(), projects={}, path=Path("/nowhere/config.toml"),
-            web=C.Web(), storage=C.Storage(mode="markdown", path=board.root),
+            notion=C.Notion(),
+            runner=C.Runner(),
+            projects={},
+            path=Path("/nowhere/config.toml"),
+            web=C.Web(),
+            storage=C.Storage(mode="markdown", path=board.root),
         )
         runner.client = board
         runner._workspace = board.workspace(runner.config.notion)
@@ -11545,10 +12376,12 @@ def the_runner_never_runs_a_cancelled_ticket_even_when_named():
         assert runner.requested(page) == []
         assert said == ["Requested ticket is cancelled — not run: Abandonné"]
         assert page.replace("-", "") not in {
-            ticket_module.Ticket(found).id for found in board.query(runner.database, runner._ready_filter())
+            ticket_module.Ticket(found).id
+            for found in board.query(runner.database, runner._ready_filter())
         }
         assert page.replace("-", "") not in {
-            ticket_module.Ticket(found).id for found in board.query(runner.database, runner._woken_filter())
+            ticket_module.Ticket(found).id
+            for found in board.query(runner.database, runner._woken_filter())
         }
         board.update("tickets", page, {"Status": "Blocked"})
         assert [ticket.title for ticket in runner.requested(page)] == ["Abandonné"]
@@ -11605,7 +12438,9 @@ def a_ticket_with_no_status_is_a_draft_whether_or_not_the_board_names_them():
     assert [item["column"] for item in board["tickets"]] == ["draft", "draft", "ready"]
     plain.create_ticket("Écrire l'audit", ready=False)
     assert plain._runner.client.created == [("Écrire l'audit", {})], "no key, no status, as before"
-    assert plain.set_status("1" * 32, "draft")["status"] == "", "a move to the drafts clears the status"
+    assert plain.set_status("1" * 32, "draft")["status"] == "", (
+        "a move to the drafts clears the status"
+    )
 
     assert C.Notion().state("draft") == "", "nothing is defaulted"
     assert C.Notion(status={"draft": "Ready"}).state("draft") == "Ready"
@@ -11619,14 +12454,16 @@ class _UntitledClient(_ColumnsClient):
 
     def query(self, database: str, *args, **kwargs) -> list[notion.Page]:
         return [
-            notion.Page(id=page.id, url=page.url, title="", properties=page.properties, raw=page.raw)
+            notion.Page(
+                id=page.id, url=page.url, title="", properties=page.properties, raw=page.raw
+            )
             for page in super().query(database, *args, **kwargs)
         ]
 
 
 @case
 def a_ticket_without_a_title_is_named_by_the_console_in_its_language():
-    """"(untitled ticket)" used to come from the server, in English on a French console.
+    """ "(untitled ticket)" used to come from the server, in English on a French console.
 
     The server sends the title Notion has — none — and the console says what
     to call it, through the dictionary like every other word it says.
@@ -11636,7 +12473,9 @@ def a_ticket_without_a_title_is_named_by_the_console_in_its_language():
     api._schema_at = time.time()
     assert [item["title"] for item in api.board()["tickets"]] == [""]
     store_ = (FRONTEND / "src/lib/board-store.ts").read_text(encoding="utf-8")
-    assert 't("(untitled ticket)")' in store_, "the console no longer names a ticket without a title"
+    assert 't("(untitled ticket)")' in store_, (
+        "the console no longer names a ticket without a title"
+    )
     french = (FRONTEND / "src/lib/french.ts").read_text(encoding="utf-8")
     assert '"(untitled ticket)": "(ticket sans titre)"' in french
 
@@ -11666,9 +12505,12 @@ def the_pages_of_a_list_are_said_in_the_console_s_language():
 def _session_line(kind: str = "assistant") -> str:
     if kind == "result":
         return json.dumps({"type": "result", "result": "done", "session_id": "s"}) + "\n"
-    return json.dumps(
-        {"type": "assistant", "message": {"content": [{"type": "text", "text": "reading"}]}}
-    ) + "\n"
+    return (
+        json.dumps(
+            {"type": "assistant", "message": {"content": [{"type": "text", "text": "reading"}]}}
+        )
+        + "\n"
+    )
 
 
 @case
@@ -11780,7 +12622,9 @@ def the_pages_before_the_console_speak_the_browsers_language():
         assert web_server.GUARD_HEADER in french or build is web_server.gate_page
         for field in re.findall(r'<(?:input|textarea)[^>]*\bid="([^"]+)"', french):
             assert f'<label for="{field}"' in french, f"{field} has no label"
-        assert "#3b82f6" not in french, "the door is drawn in the console's own blue, not a stock one"
+        assert "#3b82f6" not in french, (
+            "the door is drawn in the console's own blue, not a stock one"
+        )
     assert '<html lang="en"' in web_server.SIGN_IN
 
 
@@ -11931,9 +12775,7 @@ def a_client_that_hangs_up_mid_answer_leaves_no_trace():
     console = web_server.Console(("127.0.0.1", 0), Handler, api, "tok")
     threading.Thread(target=console.serve_forever, daemon=True).start()
     port = console.server_address[1]
-    request = (
-        b"GET /api/board HTTP/1.1\r\nHost: 127.0.0.1\r\nAuthorization: Bearer tok\r\n\r\n"
-    )
+    request = b"GET /api/board HTTP/1.1\r\nHost: 127.0.0.1\r\nAuthorization: Bearer tok\r\n\r\n"
     stderr, sys.stderr = sys.stderr, io.StringIO()
     try:
         # Far more than the socket buffers hold, so the write meets the hang-up.
@@ -11978,7 +12820,9 @@ def a_path_field_picks_from_the_folder_it_points_at():
         {"name": "ticket.md", "folder": False},
     ], "hidden ones stay hidden"
     assert web_settings.folder(str(root / "tic"))["folder"] == str(root)
-    assert any(item["name"] == ".hidden" for item in web_settings.folder(str(root / ".h"))["entries"])
+    assert any(
+        item["name"] == ".hidden" for item in web_settings.folder(str(root / ".h"))["entries"]
+    )
 
 
 @case
@@ -12011,11 +12855,7 @@ def the_settings_are_six_pages_and_every_key_is_on_one_of_them_once():
     keys = [section.key for section in web_settings.SECTIONS]
     assert len(keys) == len(set(keys)), "two cards under one key"
 
-    where = {
-        field.name: section
-        for section in web_settings.SECTIONS
-        for field in section.fields
-    }
+    where = {field.name: section for section in web_settings.SECTIONS for field in section.fields}
     for name in where:
         if not name.startswith("notion.") and "model" in name.rpartition(".")[2]:
             assert where[name].group == "models", f"{name} is not with the models"
@@ -12023,8 +12863,12 @@ def the_settings_are_six_pages_and_every_key_is_on_one_of_them_once():
         for key in C.defaults(table):
             assert where[f"notion.{table}.{key}"].fold == "mapping", f"notion.{table}.{key}"
     notion = [name for name in where if name.startswith("notion.") and not where[name].fold]
-    assert sorted(notion) == ["notion.mention", "notion.tickets_database", "notion.token",
-                              "notion.workspace"], notion
+    assert sorted(notion) == [
+        "notion.mention",
+        "notion.tickets_database",
+        "notion.token",
+        "notion.workspace",
+    ], notion
     assert where["notion.mention"].key == "replies", "the word that asks is about answers"
     source = [section.key for section in web_settings.SECTIONS if section.group == "source"]
     assert source.index("storage") < source.index("notion"), "a board need not be in Notion"
@@ -12046,7 +12890,7 @@ def the_old_desktop_switch_is_one_field_and_moves_when_touched():
     """
     assert "runner.notify" not in web_settings.FIELDS
     assert web_settings.LEGACY["runner.notify"] in web_settings.FIELDS
-    path, config = _saved('\n[runner]\nnotify = false\n')
+    path, config = _saved("\n[runner]\nnotify = false\n")
     drawn = {
         field["name"]: field
         for section in web_settings.describe(config)["sections"]
@@ -12063,7 +12907,9 @@ def the_old_desktop_switch_is_one_field_and_moves_when_touched():
 def a_value_the_environment_gives_is_said_to_come_from_it():
     """Retyping a token the environment overrides changes nothing — the page says so."""
     path, config = _saved()
-    with _environment(PONOS_SLACK_TOKEN="xoxb-from-the-environment", PONOS_WEB_EMAIL="me@example.com"):
+    with _environment(
+        PONOS_SLACK_TOKEN="xoxb-from-the-environment", PONOS_WEB_EMAIL="me@example.com"
+    ):
         drawn = {
             field["name"]: field
             for section in web_settings.describe(config)["sections"]
@@ -12145,7 +12991,7 @@ def clearing_a_field_removes_the_line_rather_than_emptying_it():
 @case
 def a_save_is_all_of_it_or_none_of_it():
     """Half a configuration is a runner that claims tickets it cannot finish."""
-    path, config = _saved('\n[runner]\ninterval_seconds = 900\n')
+    path, config = _saved("\n[runner]\ninterval_seconds = 900\n")
     before = path.read_text()
     try:
         web_settings.save(
@@ -12198,9 +13044,7 @@ def a_save_that_would_leave_it_unusable_is_refused():
 @case
 def a_token_is_never_sent_to_the_browser():
     """A secret goes out as "set, ending in …abcd", and comes back only typed."""
-    path, config = _saved(
-        '\n[notify.slack]\ntoken = "xoxb-1234567890wxyz"\nchannel = "C1"\n'
-    )
+    path, config = _saved('\n[notify.slack]\ntoken = "xoxb-1234567890wxyz"\nchannel = "C1"\n')
     drawn = json.dumps(web_settings.describe(config), ensure_ascii=False)
     assert "ntn_real" not in drawn and "xoxb-1234567890wxyz" not in drawn
     assert "…wxyz" in drawn, "enough to recognise it by"
@@ -12287,7 +13131,16 @@ def every_setting_the_file_holds_is_one_the_console_can_reach():
 
     for name, field in web_settings.FIELDS.items():
         assert field.label, name
-        assert field.kind in ("text", "secret", "path", "bool", "int", "choice", "events", "lines"), name
+        assert field.kind in (
+            "text",
+            "secret",
+            "path",
+            "bool",
+            "int",
+            "choice",
+            "events",
+            "lines",
+        ), name
         if field.kind == "choice":
             assert field.choices, name
 
@@ -12361,7 +13214,9 @@ def a_setting_that_needs_more_than_saving_says_so_and_only_when_it_moved():
     result = web_settings.save(C.load(path), {"settings": {"runner.max_concurrent": 3}})
     assert result["after"] == [], "nothing to do but the next run"
     # Saving what the file already says changes nothing and claims nothing.
-    assert web_settings.save(C.load(path), {"settings": {"runner.max_concurrent": 3}})["saved"] == []
+    assert (
+        web_settings.save(C.load(path), {"settings": {"runner.max_concurrent": 3}})["saved"] == []
+    )
 
 
 # -- being told, and answering ------------------------------------------------
@@ -12416,15 +13271,13 @@ def a_word_is_a_verdict_only_when_it_opens_the_sentence():
 
 @case
 def a_bare_yes_reaches_the_agent_as_a_sentence():
-    """"oui" means nothing to a session that never saw the notification."""
+    """ "oui" means nothing to a session that never saw the notification."""
     written = channels.answer(channels.Reply(channel="telegram", text="oui", who="Salvador"))
     assert "Salvador" in written
     assert "go ahead" in written
     assert written.count("oui") == 0, "the word itself adds nothing once it is spelled out"
 
-    kept = channels.answer(
-        channels.Reply(channel="slack", text="oui, et renomme la colonne aussi")
-    )
+    kept = channels.answer(channels.Reply(channel="slack", text="oui, et renomme la colonne aussi"))
     assert "go ahead" in kept
     assert "renomme la colonne" in kept, "what was said around the word is the instruction"
 
@@ -12468,12 +13321,33 @@ def a_telegram_message_from_anywhere_else_is_not_an_answer():
     updates = {
         "ok": True,
         "result": [
-            {"update_id": 7, "message": {"message_id": 1, "chat": {"id": 42},
-                                         "from": {"first_name": "Salvador"}, "text": "oui"}},
-            {"update_id": 8, "message": {"message_id": 2, "chat": {"id": 99},
-                                         "from": {"first_name": "Someone"}, "text": "rm -rf"}},
-            {"update_id": 9, "message": {"message_id": 3, "chat": {"id": 42},
-                                         "from": {"is_bot": True}, "text": "echo"}},
+            {
+                "update_id": 7,
+                "message": {
+                    "message_id": 1,
+                    "chat": {"id": 42},
+                    "from": {"first_name": "Salvador"},
+                    "text": "oui",
+                },
+            },
+            {
+                "update_id": 8,
+                "message": {
+                    "message_id": 2,
+                    "chat": {"id": 99},
+                    "from": {"first_name": "Someone"},
+                    "text": "rm -rf",
+                },
+            },
+            {
+                "update_id": 9,
+                "message": {
+                    "message_id": 3,
+                    "chat": {"id": 42},
+                    "from": {"is_bot": True},
+                    "text": "echo",
+                },
+            },
         ],
     }
     with _api(telegram_channel, {"getUpdates": updates}) as calls:
@@ -12492,12 +13366,24 @@ def in_a_group_only_the_people_named_may_answer():
     group = {
         "ok": True,
         "result": [
-            {"update_id": 7, "message": {"message_id": 1, "chat": {"id": -42},
-                                         "from": {"id": 1001, "first_name": "Salvador"},
-                                         "text": "oui"}},
-            {"update_id": 8, "message": {"message_id": 2, "chat": {"id": -42},
-                                         "from": {"id": 2002, "first_name": "Someone"},
-                                         "text": "et supprime la base"}},
+            {
+                "update_id": 7,
+                "message": {
+                    "message_id": 1,
+                    "chat": {"id": -42},
+                    "from": {"id": 1001, "first_name": "Salvador"},
+                    "text": "oui",
+                },
+            },
+            {
+                "update_id": 8,
+                "message": {
+                    "message_id": 2,
+                    "chat": {"id": -42},
+                    "from": {"id": 2002, "first_name": "Someone"},
+                    "text": "et supprime la base",
+                },
+            },
         ],
     }
     with _api(telegram_channel, {"getUpdates": group}):
@@ -12506,7 +13392,9 @@ def in_a_group_only_the_people_named_may_answer():
         "nobody named is the old behaviour, kept"
     )
     with _api(telegram_channel, {"getUpdates": group}):
-        named, cursor = telegram_channel.Telegram("token", "-42", frozenset({"1001"}))._fetch("", [])
+        named, cursor = telegram_channel.Telegram("token", "-42", frozenset({"1001"}))._fetch(
+            "", []
+        )
     assert [message.who for message in named] == ["Salvador"], named
     assert cursor == "9", "what was dropped is still acknowledged, so it is never read again"
 
@@ -12548,7 +13436,9 @@ def nothing_said_before_the_runner_was_listening_is_an_answer():
         with _api(telegram_channel, {"getUpdates": backlog, **SENT}):
             channel.send("?", ticket=TICKET, title="Le header", ask=True)
             assert channel.collect() == [], "a backlog is a conversation, not a queue"
-        with _api(telegram_channel, {"getUpdates": {"ok": True, "result": [_update(9, 3, "oui")]}}) as calls:
+        with _api(
+            telegram_channel, {"getUpdates": {"ok": True, "result": [_update(9, 3, "oui")]}}
+        ) as calls:
             assert [reply.text for reply in channel.collect()] == ["oui"]
             assert calls[0][1]["offset"] == 9, "the first poll only settled where now is"
 
@@ -12595,15 +13485,21 @@ def slack_reads_the_thread_the_question_opened():
     """A message in a thread never appears in the channel's history."""
     channel = slack_channel.Slack("xoxb-token", "C1")
     answers = {
-        "conversations.history": {"ok": True, "messages": [
-            {"ts": "100.2", "user": "U1", "text": "et le footer ?"},
-            {"ts": "100.1", "bot_id": "B1", "text": "🙋 Blocked · le header"},
-            {"ts": "099.9", "user": "U1", "text": "déjà lu"},
-        ]},
-        "conversations.replies": {"ok": True, "messages": [
-            {"ts": "100.0", "bot_id": "B1", "text": "🙋 Blocked · le header"},
-            {"ts": "100.3", "user": "U1", "thread_ts": "100.0", "text": "oui"},
-        ]},
+        "conversations.history": {
+            "ok": True,
+            "messages": [
+                {"ts": "100.2", "user": "U1", "text": "et le footer ?"},
+                {"ts": "100.1", "bot_id": "B1", "text": "🙋 Blocked · le header"},
+                {"ts": "099.9", "user": "U1", "text": "déjà lu"},
+            ],
+        },
+        "conversations.replies": {
+            "ok": True,
+            "messages": [
+                {"ts": "100.0", "bot_id": "B1", "text": "🙋 Blocked · le header"},
+                {"ts": "100.3", "user": "U1", "thread_ts": "100.0", "text": "oui"},
+            ],
+        },
     }
     with _api(slack_channel, answers):
         incoming, cursor = channel._fetch("100.0", [channels.Ask(ref="100.0", ticket=TICKET)])
@@ -12655,8 +13551,8 @@ def a_channel_exists_only_once_both_of_its_values_are_there():
 def the_switch_that_came_first_still_means_what_it_said():
     """`runner.notify` was the desktop notification, and stays it."""
     assert _config("").notify.desktop is True
-    assert _config('[runner]\nnotify = false\n').notify.desktop is False
-    assert _config('[runner]\nnotify = false\n\n[notify]\ndesktop = true\n').notify.desktop is True
+    assert _config("[runner]\nnotify = false\n").notify.desktop is False
+    assert _config("[runner]\nnotify = false\n\n[notify]\ndesktop = true\n").notify.desktop is True
 
 
 @case
@@ -12784,19 +13680,25 @@ def a_blocked_ticket_travels_with_its_question_and_its_link():
     )
     runner.dry_run = False
     runner.quiet = True
-    ticket = type("T", (), {
-        "page": notion.Page(id=TICKET, url="https://notion.so/t", title="Le header"),
-        "id": TICKET,
-        "title": "Le header",
-        "url": "https://notion.so/t",
-    })()
+    ticket = type(
+        "T",
+        (),
+        {
+            "page": notion.Page(id=TICKET, url="https://notion.so/t", title="Le header"),
+            "id": TICKET,
+            "title": "Le header",
+            "url": "https://notion.so/t",
+        },
+    )()
 
     original = channels.announce
     channels.announce = lambda settings, text, **rest: sent.append({"text": text, **rest})
     try:
         with _state_home():
             runner._tell(
-                "blocked", ticket, "blocked",
+                "blocked",
+                ticket,
+                "blocked",
                 "Which header — the dashboard one or the public site?",
                 ask=True,
             )
@@ -12820,9 +13722,15 @@ def nothing_is_sent_anywhere_during_a_dry_run():
     runner.config = _config('[notify.telegram]\ntoken = "123:abc"\nchat = "42"\n')
     runner.dry_run = True
     runner.quiet = True
-    ticket = type("T", (), {
-        "page": notion.Page(id=TICKET, url="u", title="t"), "title": "t", "url": "u",
-    })()
+    ticket = type(
+        "T",
+        (),
+        {
+            "page": notion.Page(id=TICKET, url="u", title="t"),
+            "title": "t",
+            "url": "u",
+        },
+    )()
     original = channels.announce
     channels.announce = lambda settings, text, **rest: sent.append(text)
     try:
@@ -12862,28 +13770,38 @@ def _notifying(*, missing: str = ""):
 def a_desktop_notification_takes_you_to_the_ticket_it_names():
     """A line on screen you cannot follow is a title you then go and hunt for."""
     with _notifying() as launched:
-        assert notify.send(
-            "Blocked · Le header", "Which header?", link="https://notion.so/t"
-        )
+        assert notify.send("Blocked · Le header", "Which header?", link="https://notion.so/t")
     assert len(launched) == 1, "the plain notification is not sent on top of the clickable one"
     command = launched[0]
     assert command[1:3] == ["-m", "ponos.notify"], (
         "the click is waited for beside the run, never inside it"
     )
     assert command[3:] == [
-        "https://notion.so/t", "Blocked · Le header", "Which header?", "normal",
-        "Open the ticket", "plain",
+        "https://notion.so/t",
+        "Blocked · Le header",
+        "Which header?",
+        "normal",
+        "Open the ticket",
+        "plain",
     ]
 
     with _notifying() as launched:
         notify.send(
-            "To review · t", "PR #42", link="https://notion.so/t", warning=True,
-            buttons=(("See the PR", "https://github.com/o/r/pull/42"),
-                     ("Open the ticket", "https://notion.so/t")),
+            "To review · t",
+            "PR #42",
+            link="https://notion.so/t",
+            warning=True,
+            buttons=(
+                ("See the PR", "https://github.com/o/r/pull/42"),
+                ("Open the ticket", "https://notion.so/t"),
+            ),
         )
     assert launched[0][8:] == [
-        "warning", "See the PR", "https://github.com/o/r/pull/42",
-        "Open the ticket", "https://notion.so/t",
+        "warning",
+        "See the PR",
+        "https://github.com/o/r/pull/42",
+        "Open the ticket",
+        "https://notion.so/t",
     ], "each button travels to the child with where it goes"
 
 
@@ -12912,20 +13830,31 @@ def the_notification_posted_over_dbus_is_the_one_notify_send_would_have_sent():
     )
     try:
         assert notify._post("Blocked · t", '42 "why"', urgent=True, warning=True) == "42"
-        assert notify._post(
-            "To review · t", "PR #42", urgent=False,
-            buttons=(("See the PR", "https://github.com/o/r/pull/42"),),
-        ) == "42"
+        assert (
+            notify._post(
+                "To review · t",
+                "PR #42",
+                urgent=False,
+                buttons=(("See the PR", "https://github.com/o/r/pull/42"),),
+            )
+            == "42"
+        )
     finally:
         subprocess.run = original
     command = posted[0]
     assert "--" in command, "`-1` is an expiry, and gdbus would read it as an option"
-    assert command[command.index("--") + 1:] == [
-        '"Ponos"', "0", '"dialog-warning"', '"Blocked · t"', '"42 \\"why\\""',
-        '["default", "Open the ticket"]', "{'urgency': <byte 2>}", "-1",
+    assert command[command.index("--") + 1 :] == [
+        '"Ponos"',
+        "0",
+        '"dialog-warning"',
+        '"Blocked · t"',
+        '"42 \\"why\\""',
+        '["default", "Open the ticket"]',
+        "{'urgency': <byte 2>}",
+        "-1",
     ], "a body is a string, even when it reads like a number"
     command = posted[1]
-    tail = command[command.index("--") + 1:]
+    tail = command[command.index("--") + 1 :]
     assert tail[2] == f'"{notify.ICON}"', "Ponos's own icon, not the information sign"
     assert tail[5] == '["default", "Open the ticket", "open-0", "See the PR"]'
     assert tail[6] == "{'urgency': <byte 1>}"
@@ -12947,6 +13876,7 @@ def the_icon_of_ponos_falls_back_on_the_system_ones():
 @case
 def only_a_click_opens_the_page_and_a_dismissal_never_does():
     """`dbus-monitor` says it over several lines, and about every notification."""
+
     def watching(*lines):
         return type("W", (), {"stdout": iter(lines)})()
 
@@ -12990,12 +13920,16 @@ def a_ticket_notification_carries_its_page_to_the_screen_too():
     runner.config = _config("")
     runner.dry_run = False
     runner.quiet = True
-    ticket = type("T", (), {
-        "page": notion.Page(id=TICKET, url="https://notion.so/t", title="t"),
-        "id": TICKET,
-        "title": "t",
-        "url": "https://notion.so/t",
-    })()
+    ticket = type(
+        "T",
+        (),
+        {
+            "page": notion.Page(id=TICKET, url="https://notion.so/t", title="t"),
+            "id": TICKET,
+            "title": "t",
+            "url": "https://notion.so/t",
+        },
+    )()
     original = notify.send
     notify.send = lambda title, body, **rest: seen.append({"title": title, **rest})
     try:
@@ -13003,9 +13937,16 @@ def a_ticket_notification_carries_its_page_to_the_screen_too():
             runner._tell("done", ticket, "review", "branch")
     finally:
         notify.send = original
-    assert seen == [{"title": "To review", "urgent": False, "warning": False,
-                     "link": "https://notion.so/t", "action": "Open the ticket",
-                     "buttons": ()}]
+    assert seen == [
+        {
+            "title": "To review",
+            "urgent": False,
+            "warning": False,
+            "link": "https://notion.so/t",
+            "action": "Open the ticket",
+            "buttons": (),
+        }
+    ]
 
     seen.clear()
     runner.config.runner.language = "fr"
@@ -13023,8 +13964,13 @@ def a_ticket_notification_carries_its_page_to_the_screen_too():
     try:
         with _state_home():
             runner._tell(
-                "done", ticket, "review", f"PR #42 · 3 commits · 4 minutes · 0,82 $\nDone.\n{pull}",
-                project="Leadz", facts=("PR #42", "3 commits"), summary="Done.",
+                "done",
+                ticket,
+                "review",
+                f"PR #42 · 3 commits · 4 minutes · 0,82 $\nDone.\n{pull}",
+                project="Leadz",
+                facts=("PR #42", "3 commits"),
+                summary="Done.",
                 pull_request=pull,
             )
             runner._tell("blocked", ticket, "blocked", "Which one?", ask=True, summary="Which one?")
@@ -13062,7 +14008,9 @@ def a_desktop_notification_says_what_happened_where_and_what_to_do():
 
     # Markdown, addresses and markup, none of which a desktop can draw or follow.
     title, body = said.desktop(
-        "review", "Leadz — Fix `the` form", project="Leadz",
+        "review",
+        "Leadz — Fix `the` form",
+        project="Leadz",
         summary="Done in **two** steps, see [the doc](https://x.y/doc) and "
         "https://github.com/o/r/pull/9 — <b>Tom</b> & `snake_case` kept.",
     )
@@ -13078,16 +14026,19 @@ def a_desktop_notification_says_what_happened_where_and_what_to_do():
     assert title == "Ponos a une question — Ponos"
     assert body == "Which header?\nQuel en-tête ?\nRéponds dans le ticket"
     assert voice.Voice("en").desktop("blocked", "t", summary="x") == (
-        "Ponos has a question", "t\nx\nAnswer in the ticket"
+        "Ponos has a question",
+        "t\nx\nAnswer in the ticket",
     )
 
     # Never a bare "Ponos" with nothing under it, and a sentence even when the
     # session said none.
     assert said.desktop("failed", "Adam — Corriger le formulaire") == (
-        "Ticket en erreur — Adam", "Corriger le formulaire\nLe travail s'est arrêté sur une erreur"
+        "Ticket en erreur — Adam",
+        "Corriger le formulaire\nLe travail s'est arrêté sur une erreur",
     )
     assert said.desktop("review", "Adam — Corriger le formulaire", project="Adam") == (
-        "À relire — Adam", "Corriger le formulaire\nUne pull request est prête"
+        "À relire — Adam",
+        "Corriger le formulaire\nUne pull request est prête",
     )
     assert said.desktop("merged", "Adam — Une tâche", project="Adam")[0] == "Ticket terminé — Adam"
     assert said.desktop("prepared", "Portfolio — Une tâche")[0] == "À valider — Portfolio"
@@ -13112,7 +14063,7 @@ def a_ticket_that_speaks_again_replaces_its_notification_instead_of_stacking():
         assert notify._post("t", "b", urgent=False, replaces="5", key="https://notion.so/t") == "7"
     finally:
         subprocess.run = original
-    tail = posted[0][posted[0].index("--") + 1:]
+    tail = posted[0][posted[0].index("--") + 1 :]
     assert tail[1] == "5", "posted over the ticket's last one"
     assert tail[6] == (
         "{'urgency': <byte 1>, 'x-canonical-private-synchronous': <\"https://notion.so/t\">}"
@@ -13161,7 +14112,10 @@ def _png_pixels(data: bytes) -> list[tuple[int, int, int, int]]:
         at += 12 + length
     raw, stride, rows, previous = zlib.decompress(chunks), width * 4, [], bytearray(width * 4)
     for y in range(height):
-        kind, line = raw[y * (stride + 1)], bytearray(raw[y * (stride + 1) + 1 : (y + 1) * (stride + 1)])
+        kind, line = (
+            raw[y * (stride + 1)],
+            bytearray(raw[y * (stride + 1) + 1 : (y + 1) * (stride + 1)]),
+        )
         for x in range(stride):
             left = line[x - 4] if x >= 4 else 0
             up, corner = previous[x], previous[x - 4] if x >= 4 else 0
@@ -13173,7 +14127,12 @@ def _png_pixels(data: bytes) -> list[tuple[int, int, int, int]]:
                 line[x] = (line[x] + (left + up) // 2) & 255
             elif kind == 4:
                 guess = left + up - corner
-                near = min((abs(guess - left), left), (abs(guess - up), up), (abs(guess - corner), corner), key=lambda pair: pair[0])
+                near = min(
+                    (abs(guess - left), left),
+                    (abs(guess - up), up),
+                    (abs(guess - corner), corner),
+                    key=lambda pair: pair[0],
+                )
                 line[x] = (line[x] + near[1]) & 255
         rows.append(line)
         previous = line
@@ -13193,7 +14152,9 @@ def the_icon_of_a_notification_is_the_orange_mascot_and_the_mascot_script_draws_
         vivid = [(r, g, b) for r, g, b, a in pixels if a > 200 and max(r, g, b) - min(r, g, b) > 80]
         assert vivid, f"ponos-{size}.png has no colour at all"
         orange = sum(1 for r, g, b in vivid if r > b + 60)
-        assert orange > len(vivid) * 0.6, f"ponos-{size}.png is not the orange mascot ({orange}/{len(vivid)})"
+        assert orange > len(vivid) * 0.6, (
+            f"ponos-{size}.png is not the orange mascot ({orange}/{len(vivid)})"
+        )
     script = (ROOT / "scripts/mascot.mjs").read_text(encoding="utf-8")
     assert "'src', 'ponos', 'icons'" in script, "the desktop icons are not written from the mascot"
 
@@ -13204,13 +14165,16 @@ def the_icon_of_a_notification_is_the_orange_mascot_and_the_mascot_script_draws_
 @case
 def only_the_moments_that_need_you_ring_the_bell():
     from ponos import notifications
+
     assert notifications.kind_of("review") == "review"
     assert notifications.kind_of("failed") == "failed"
     assert notifications.kind_of("blocked", "session.question") == "question"
     assert notifications.kind_of("blocked", "worktree.interrupted") == "question"
     assert notifications.kind_of("blocked", "merge.checks-failed") == "ci"
     assert notifications.kind_of("blocked", "merge.refused") == "blocked"
-    assert notifications.kind_of("blocked") == "question", "a stop with no cause is a question asked"
+    assert notifications.kind_of("blocked") == "question", (
+        "a stop with no cause is a question asked"
+    )
     for routine in ("published", "merged", "read", "prepared", "waiting", "requeued"):
         assert notifications.kind_of(routine) == "", routine
 
@@ -13218,6 +14182,7 @@ def only_the_moments_that_need_you_ring_the_bell():
 @case
 def the_bell_keeps_what_is_unread_once_and_forgets_what_was_read_after_thirty_days():
     from ponos import notifications
+
     with _state_home():
         notifications.add("question", "a", "Le header")
         notifications.add("question", "a", "Le header")  # asked twice before anyone looked
@@ -13235,11 +14200,17 @@ def the_bell_keeps_what_is_unread_once_and_forgets_what_was_read_after_thirty_da
 
         notifications.read()
         heard = notifications.recent()
-        assert heard["unread"] == 0 and len(heard["items"]) == 3 and all(i["read"] for i in heard["items"])
+        assert (
+            heard["unread"] == 0
+            and len(heard["items"]) == 3
+            and all(i["read"] for i in heard["items"])
+        )
 
         old = (datetime.now(UTC) - timedelta(days=31)).isoformat(timespec="seconds")
         with db.transaction() as connection:
-            connection.execute("UPDATE notifications SET read_at = ? WHERE id = ?", (old, heard["items"][2]["id"]))
+            connection.execute(
+                "UPDATE notifications SET read_at = ? WHERE id = ?", (old, heard["items"][2]["id"])
+            )
         notifications.read()
         assert len(notifications.recent()["items"]) == 2, "read more than thirty days ago: purged"
 
@@ -13247,6 +14218,7 @@ def the_bell_keeps_what_is_unread_once_and_forgets_what_was_read_after_thirty_da
 @case
 def a_question_a_review_and_a_failure_ring_the_bell_but_a_dry_run_does_not():
     from ponos import notifications
+
     runner = Runner.__new__(Runner)
     runner._journals = {}
     runner.config = _config("")
@@ -13254,9 +14226,16 @@ def a_question_a_review_and_a_failure_ring_the_bell_but_a_dry_run_does_not():
     # screen of whoever runs the suite, titled "Question · t".
     runner.config.notify.desktop = False
     runner.quiet = True
-    ticket = type("T", (), {
-        "page": notion.Page(id=TICKET, url="u", title="t"), "id": TICKET, "title": "t", "url": "u",
-    })()
+    ticket = type(
+        "T",
+        (),
+        {
+            "page": notion.Page(id=TICKET, url="u", title="t"),
+            "id": TICKET,
+            "title": "t",
+            "url": "u",
+        },
+    )()
     with _state_home():
         runner.dry_run = True
         runner._tell("done", ticket, "review", "branch")
@@ -13332,16 +14311,19 @@ def _cleaning(worktrees: dict[str, dict]) -> tuple[str, list[str]]:
         previous = os.environ.get("PONOS_CONFIG")
         os.environ["PONOS_CONFIG"] = str(repo / "nothing.toml")
         try:
-            with _git_answering(
-                git=raw,
-                default_branch=lambda _repo: "main",
-                has_ref=lambda _repo, reference: reference in {"main", "origin/main"} | pushed,
-                pull_request_on=lambda _repo, branch, accounts=None: requests.get(branch, ""),
-                commits_ahead=lambda worktree, _base: facts(worktree).get("commits", 0),
-                is_dirty=lambda worktree: facts(worktree).get("dirty", False),
-                remove_worktree=lambda _repo, worktree: shutil.rmtree(worktree),
-                delete_branch=delete,
-            ), contextlib.redirect_stdout(printed):
+            with (
+                _git_answering(
+                    git=raw,
+                    default_branch=lambda _repo: "main",
+                    has_ref=lambda _repo, reference: reference in {"main", "origin/main"} | pushed,
+                    pull_request_on=lambda _repo, branch, accounts=None: requests.get(branch, ""),
+                    commits_ahead=lambda worktree, _base: facts(worktree).get("commits", 0),
+                    is_dirty=lambda worktree: facts(worktree).get("dirty", False),
+                    remove_worktree=lambda _repo, worktree: shutil.rmtree(worktree),
+                    delete_branch=delete,
+                ),
+                contextlib.redirect_stdout(printed),
+            ):
                 assert cli_main(["clean", "--force"]) == 0
         finally:
             if previous is None:
@@ -13381,8 +14363,18 @@ def a_scratch_directory_never_speaks_for_the_repository_around_it():
         outer.mkdir()
         quiet = {"capture_output": True, "check": True}
         subprocess.run(["git", "init", "--quiet", "-b", "main", str(outer)], **quiet)
-        identity = ["-c", "user.name=t", "-c", "user.email=t@example.invalid", "-c", "commit.gpgsign=false"]
-        subprocess.run(["git", *identity, "-C", str(outer), "commit", "--quiet", "--allow-empty", "-m", "one"], **quiet)
+        identity = [
+            "-c",
+            "user.name=t",
+            "-c",
+            "user.email=t@example.invalid",
+            "-c",
+            "commit.gpgsign=false",
+        ]
+        subprocess.run(
+            ["git", *identity, "-C", str(outer), "commit", "--quiet", "--allow-empty", "-m", "one"],
+            **quiet,
+        )
         scratch = outer / ".local" / "state" / "ponos" / "scratch" / "deliver-1a2b3c4d"
         scratch.mkdir(parents=True)
         assert git_module.repository_of(scratch) is None, "a scratch directory is no worktree"
@@ -13393,7 +14385,17 @@ def a_scratch_directory_never_speaks_for_the_repository_around_it():
 
         worktree = scratch.parent.parent / "worktrees" / "home-1a2b3c4d"
         subprocess.run(
-            ["git", "-C", str(outer), "worktree", "add", "--quiet", "-b", "ticket/x", str(worktree)],
+            [
+                "git",
+                "-C",
+                str(outer),
+                "worktree",
+                "add",
+                "--quiet",
+                "-b",
+                "ticket/x",
+                str(worktree),
+            ],
             **quiet,
         )
         found = git_module.repository_of(worktree)
@@ -13488,7 +14490,9 @@ def _worktree_for(
             return git_module.Result(0, "M src/x.py" if dirty else "", "")
         if args[:2] == ["rebase", "--autostash"]:
             if rebase:
-                return git_module.Result(1, f"CONFLICT (content): {rebase}", "error: could not apply")
+                return git_module.Result(
+                    1, f"CONFLICT (content): {rebase}", "error: could not apply"
+                )
             return git_module.Result(0, "", "")
         return git_module.Result(0, "", "")
 
@@ -13564,9 +14568,12 @@ def a_pass_tidies_what_done_tickets_left_and_nothing_else():
     """The ticket: 44 worktrees, 25 GB, because `clean` only ran when somebody
     typed it. A pass now applies the retention once a day — and the board says
     what may go: done for long enough, or a scratch directory nobody can reach."""
-    tail = {name: f"{index:08x}" for index, name in enumerate(
-        ["done", "fresh", "blocked", "review", "claimed", "gone", "gone2"], start=0x1a2b3c40
-    )}
+    tail = {
+        name: f"{index:08x}"
+        for index, name in enumerate(
+            ["done", "fresh", "blocked", "review", "claimed", "gone", "gone2"], start=0x1A2B3C40
+        )
+    }
     pages = [
         _aged_page(f"page-{tail['done']}", "Done", 30),
         _aged_page(f"page-{tail['fresh']}", "Done", 2),
@@ -13596,7 +14603,15 @@ def a_pass_tidies_what_done_tickets_left_and_nothing_else():
         assert not done.exists() and not done_scratch.exists(), "done for a month: gone"
         assert not orphan.exists(), "a scratch directory whose ticket left the board: gone"
         assert not old_log.exists() and new_log.exists()
-        for kept in (fresh, blocked, blocked_scratch, review, claimed, orphan_worktree, young_orphan):
+        for kept in (
+            fresh,
+            blocked,
+            blocked_scratch,
+            review,
+            claimed,
+            orphan_worktree,
+            young_orphan,
+        ):
             assert kept.exists(), f"{kept.name} was removed"
         assert tidied.logs == 1 and tidied.freed >= 3000, tidied
         assert runner.tidy() is None, "once a day, not every pass"
@@ -13762,8 +14777,16 @@ def a_worktree_is_made_without_the_excluded_folders_and_the_main_checkout_keeps_
     assert git_module.exclusions(" docs/media/, ,assets ") == ["docs/media", "assets"]
     with tempfile.TemporaryDirectory() as home:
         repo, path = Path(home) / "repo", Path(home) / "worktrees" / "site-9d2cb790"
-        for step in (["init", "-q", "-b", "main"], ["config", "user.email", "t@t"], ["config", "user.name", "t"]):
-            assert git_module.git(step, repo.mkdir() or repo).ok if step[0] == "init" else git_module.git(step, repo).ok
+        for step in (
+            ["init", "-q", "-b", "main"],
+            ["config", "user.email", "t@t"],
+            ["config", "user.name", "t"],
+        ):
+            assert (
+                git_module.git(step, repo.mkdir() or repo).ok
+                if step[0] == "init"
+                else git_module.git(step, repo).ok
+            )
         (repo / "docs" / "media").mkdir(parents=True)
         (repo / "docs" / "media" / "promo.mp4").write_text("big")
         (repo / "src").mkdir()
@@ -13777,7 +14800,9 @@ def a_worktree_is_made_without_the_excluded_folders_and_the_main_checkout_keeps_
         assert git_module.git(["status", "--porcelain"], repo).out == ""
         other = Path(home) / "worktrees" / "site-aaaaaaaa"
         git_module.add_worktree(repo, other, "ticket/y-aaaaaaaa", "main")
-        assert (other / "docs" / "media" / "promo.mp4").exists(), "nothing excluded, everything checked out"
+        assert (other / "docs" / "media" / "promo.mp4").exists(), (
+            "nothing excluded, everything checked out"
+        )
 
 
 @case
@@ -13801,7 +14826,6 @@ def the_console_measures_the_disk_and_cleans_only_between_runs():
                 raise AssertionError("a tidy ran under a pass")
         cleaned = console.clean()
         assert cleaned["removed"] == 1 and cleaned["sizes"]["scratch"] == 0, cleaned
-
 
 
 @case
@@ -13985,9 +15009,10 @@ def a_repository_is_worked_under_the_account_its_owner_names():
     accounts = {"animalink": "dev-animalink", "hermez-agency": "hermez-bot"}
     with _git_answering(account_token=token):
         assert git_module.token_for("animalink/site", accounts) == "gho-dev-animalink"
-        assert git_module.token_for(
-            "https://github.com/hermez-agency/x/pull/1", accounts
-        ) == "gho-hermez-bot"
+        assert (
+            git_module.token_for("https://github.com/hermez-agency/x/pull/1", accounts)
+            == "gho-hermez-bot"
+        )
         # An owner nobody named, and a machine that names nobody: both are the
         # account `gh` is signed in as, which is what one GitHub always did.
         assert git_module.token_for("someone-else/x", accounts) == ""
@@ -14074,9 +15099,7 @@ def a_merge_refused_for_being_behind_is_replayed_and_asked_again():
     """
     from ponos import git as git_module
 
-    runner = _board_runner(
-        [_reviewed("pbehind", "Validated", "https://github.com/x/y/pull/1")], {}
-    )
+    runner = _board_runner([_reviewed("pbehind", "Validated", "https://github.com/x/y/pull/1")], {})
     runner.config.runner.rebase = True
     runner._project_of = lambda ticket: projects.Project("Site", Path("/repo"))
     attempts: list[str] = []
@@ -14092,9 +15115,13 @@ def a_merge_refused_for_being_behind_is_replayed_and_asked_again():
         replayed.append((repo, branch, onto))
         return ""
 
-    with _state_home(), _github({"https://github.com/x/y/pull/1": "OPEN"}, merge=merge), _git_answering(
-        pull_request_branches=lambda url, accounts=None: ("ticket/le-header-9d2cb790", "main"),
-        replay_pushed=replay,
+    with (
+        _state_home(),
+        _github({"https://github.com/x/y/pull/1": "OPEN"}, merge=merge),
+        _git_answering(
+            pull_request_branches=lambda url, accounts=None: ("ticket/le-header-9d2cb790", "main"),
+            replay_pushed=replay,
+        ),
     ):
         results = runner.deliver()
 
@@ -14110,17 +15137,18 @@ def a_merge_refused_for_anything_else_is_still_a_question():
     """Nothing is pushed again to answer a review that has not happened."""
     from ponos import git as git_module
 
-    runner = _board_runner(
-        [_reviewed("preview", "Validated", "https://github.com/x/y/pull/1")], {}
-    )
+    runner = _board_runner([_reviewed("preview", "Validated", "https://github.com/x/y/pull/1")], {})
     runner._project_of = lambda ticket: projects.Project("Site", Path("/repo"))
     replayed: list[tuple] = []
 
     def merge(url: str, method: str = "squash", accounts=None) -> str:
         raise git_module.GitError("gh pr merge: 1 approving review is required")
 
-    with _github({"https://github.com/x/y/pull/1": "OPEN"}, merge=merge), _git_answering(
-        replay_pushed=lambda *args, **kwargs: replayed.append(args) or "",
+    with (
+        _github({"https://github.com/x/y/pull/1": "OPEN"}, merge=merge),
+        _git_answering(
+            replay_pushed=lambda *args, **kwargs: replayed.append(args) or "",
+        ),
     ):
         results = runner.deliver()
 
@@ -14146,9 +15174,13 @@ def a_replay_that_conflicts_leaves_the_merge_refused():
         attempts.append(url)
         raise git_module.GitError("gh pr merge: Pull request is not mergeable")
 
-    with _state_home(), _github({"https://github.com/x/y/pull/1": "OPEN"}, merge=merge), _git_answering(
-        pull_request_branches=lambda url, accounts=None: ("ticket/le-header-9d2cb790", "main"),
-        replay_pushed=lambda *args, **kwargs: "CONFLICT (content): src/app.py",
+    with (
+        _state_home(),
+        _github({"https://github.com/x/y/pull/1": "OPEN"}, merge=merge),
+        _git_answering(
+            pull_request_branches=lambda url, accounts=None: ("ticket/le-header-9d2cb790", "main"),
+            replay_pushed=lambda *args, **kwargs: "CONFLICT (content): src/app.py",
+        ),
     ):
         results = runner.deliver()
 
@@ -14176,9 +15208,13 @@ def github_calling_a_pull_request_conflicting_is_heard_before_any_merge():
         attempts.append(url)
         return "merged"
 
-    with _state_home(), _github({url: "OPEN"}, merge=merge, blockers={url: "BEHIND"}), _git_answering(
-        pull_request_branches=lambda url, accounts=None: ("ticket/le-header-9d2cb790", "main"),
-        replay_pushed=lambda *args, **kwargs: replayed.append(args) or "",
+    with (
+        _state_home(),
+        _github({url: "OPEN"}, merge=merge, blockers={url: "BEHIND"}),
+        _git_answering(
+            pull_request_branches=lambda url, accounts=None: ("ticket/le-header-9d2cb790", "main"),
+            replay_pushed=lambda *args, **kwargs: replayed.append(args) or "",
+        ),
     ):
         results = runner.deliver()
 
@@ -14211,9 +15247,16 @@ def a_replay_that_conflicts_is_handed_to_a_session_rather_than_to_you():
         def merge(url: str, method: str = "squash", accounts=None) -> str:
             raise AssertionError("a pull request GitHub calls conflicting is not merged as is")
 
-        with _state_home(), _github({url: "OPEN"}, merge=merge, blockers={url: "CONFLICTING"}), _git_answering(
-            pull_request_branches=lambda url, accounts=None: ("ticket/le-header-9d2cb790", "main"),
-            replay_pushed=lambda *args, **kwargs: "CONFLICT in src/app.py",
+        with (
+            _state_home(),
+            _github({url: "OPEN"}, merge=merge, blockers={url: "CONFLICTING"}),
+            _git_answering(
+                pull_request_branches=lambda url, accounts=None: (
+                    "ticket/le-header-9d2cb790",
+                    "main",
+                ),
+                replay_pushed=lambda *args, **kwargs: "CONFLICT in src/app.py",
+            ),
         ):
             settled, sessions = runner.delivering()
 
@@ -14251,9 +15294,12 @@ def a_base_that_keeps_moving_is_replayed_twice_then_asked_about():
         for _ in range(3):
             runner = _board_runner([page], {"blocked": "Blocked"})
             runner._project_of = lambda ticket: projects.Project("Site", Path("/repo"))
-            with _github({url: "OPEN"}, merge=merge), _git_answering(
-                pull_request_branches=lambda url, accounts=None: ("ticket/x-9d2cb790", "main"),
-                replay_pushed=lambda *args, **kwargs: replayed.append(args) or "",
+            with (
+                _github({url: "OPEN"}, merge=merge),
+                _git_answering(
+                    pull_request_branches=lambda url, accounts=None: ("ticket/x-9d2cb790", "main"),
+                    replay_pushed=lambda *args, **kwargs: replayed.append(args) or "",
+                ),
             ):
                 passes.append(runner.deliver())
             if passes[-1]:
@@ -14293,9 +15339,12 @@ def a_base_moved_by_the_runners_own_merges_is_not_held_against_the_ticket():
         runner._project_of = lambda ticket: projects.Project("Site", Path("/repo"))
         passes = []
         for sibling in (2, 3, 4):
-            with _github({url: "OPEN"}, merge=merge), _git_answering(
-                pull_request_branches=lambda url, accounts=None: ("ticket/x-9d2cb790", "main"),
-                replay_pushed=lambda *args, **kwargs: replayed.append(args) or "",
+            with (
+                _github({url: "OPEN"}, merge=merge),
+                _git_answering(
+                    pull_request_branches=lambda url, accounts=None: ("ticket/x-9d2cb790", "main"),
+                    replay_pushed=lambda *args, **kwargs: replayed.append(args) or "",
+                ),
             ):
                 passes.append(runner.deliver())
             if passes[-1]:
@@ -14308,7 +15357,10 @@ def a_base_moved_by_the_runners_own_merges_is_not_held_against_the_ticket():
 
 
 def _reading_checks(
-    verdicts: list[str], failing: list[list[str]], on_base: list[str], rerun: bool = True,
+    verdicts: list[str],
+    failing: list[list[str]],
+    on_base: list[str],
+    rerun: bool = True,
     unstarted: str = "",
 ):
     """`_checked` against a CI that answers `verdicts` in turn, and what it was asked."""
@@ -14410,9 +15462,14 @@ def a_forced_merge_says_on_the_ticket_why_the_ci_stopped_it():
     ):
         runner = _board_runner([], {})
         runner._checked = lambda url, workdir, base, said=(checks, sentence): said
-        job = SimpleNamespace(ticket=SimpleNamespace(id="p-forced"), workdir=Path("/work"), base="main")
+        job = SimpleNamespace(
+            ticket=SimpleNamespace(id="p-forced"), workdir=Path("/work"), base="main"
+        )
         merges: list[str] = []
-        with _state_home(), _github({}, merge=lambda *args, merges=merges, **kept: merges.append(args) or "merged"):
+        with (
+            _state_home(),
+            _github({}, merge=lambda *args, merges=merges, **kept: merges.append(args) or "merged"),
+        ):
             why, later = runner._force_merge(job, url)
         assert (why, later, merges) == (sentence, False, []), (checks, why, later, merges)
 
@@ -14427,16 +15484,37 @@ def an_older_gh_reads_the_checks_from_the_pull_request_itself():
     """
     from ponos import git as git_module
 
-    rollup = {"statusCheckRollup": [
-        {"__typename": "CheckRun", "name": "Tests", "status": "COMPLETED", "conclusion": "FAILURE",
-         "detailsUrl": "https://github.com/x/y/actions/runs/38/job/116"},
-        {"__typename": "CheckRun", "name": "Lint", "status": "COMPLETED", "conclusion": "SUCCESS",
-         "detailsUrl": "https://github.com/x/y/actions/runs/38/job/117"},
-        {"__typename": "CheckRun", "name": "Build", "status": "IN_PROGRESS", "conclusion": "",
-         "detailsUrl": "https://github.com/x/y/actions/runs/38/job/118"},
-        {"__typename": "StatusContext", "context": "GitGuardian", "state": "SUCCESS",
-         "targetUrl": "https://dashboard.gitguardian.com"},
-    ]}
+    rollup = {
+        "statusCheckRollup": [
+            {
+                "__typename": "CheckRun",
+                "name": "Tests",
+                "status": "COMPLETED",
+                "conclusion": "FAILURE",
+                "detailsUrl": "https://github.com/x/y/actions/runs/38/job/116",
+            },
+            {
+                "__typename": "CheckRun",
+                "name": "Lint",
+                "status": "COMPLETED",
+                "conclusion": "SUCCESS",
+                "detailsUrl": "https://github.com/x/y/actions/runs/38/job/117",
+            },
+            {
+                "__typename": "CheckRun",
+                "name": "Build",
+                "status": "IN_PROGRESS",
+                "conclusion": "",
+                "detailsUrl": "https://github.com/x/y/actions/runs/38/job/118",
+            },
+            {
+                "__typename": "StatusContext",
+                "context": "GitGuardian",
+                "state": "SUCCESS",
+                "targetUrl": "https://dashboard.gitguardian.com",
+            },
+        ]
+    }
     annotations = {"116": _NOT_STARTED, "117": ""}
     asked: list[list[str]] = []
 
@@ -14458,12 +15536,17 @@ def an_older_gh_reads_the_checks_from_the_pull_request_itself():
             url = "https://github.com/x/y/pull/1"
             listed = git_module.checks(url)
             assert [(one["name"], one["bucket"]) for one in listed] == [
-                ("Tests", "fail"), ("Lint", "pass"), ("Build", "pending"), ("GitGuardian", "pass"),
+                ("Tests", "fail"),
+                ("Lint", "pass"),
+                ("Build", "pending"),
+                ("GitGuardian", "pass"),
             ], listed
             assert listed[0]["link"].endswith("/actions/runs/38/job/116"), listed[0]
             assert git_module.failing_checks(url) == ["Tests"]
             assert git_module.unstarted_checks(url) == _NOT_STARTED
-            assert any("repos/x/y/check-runs/116/annotations" in part for one in asked for part in one)
+            assert any(
+                "repos/x/y/check-runs/116/annotations" in part for one in asked for part in one
+            )
 
             # One red check that did run is enough: that red is the code's.
             rollup["statusCheckRollup"][1]["conclusion"] = "FAILURE"
@@ -14521,7 +15604,9 @@ def a_forced_merge_that_is_a_question_still_waits_in_review():
     assert not later and "policy" in why, (why, later)
 
     (why, later), merges = _forcing(
-        "pending", refuses="Head branch is out of date", blocker="BEHIND",
+        "pending",
+        refuses="Head branch is out of date",
+        blocker="BEHIND",
         options=["In review", "Done"],
     )
     assert not later and len(merges) == 1, "without the column, nothing changes"
@@ -14533,10 +15618,16 @@ def the_checks_gh_lists_are_read_into_names_and_runs_to_start_again():
     from ponos import git as git_module
 
     listed = [
-        {"name": "frontend", "bucket": "fail",
-         "link": "https://github.com/x/y/actions/runs/36840080436/job/110296847197"},
-        {"name": "core (3.11)", "bucket": "pass",
-         "link": "https://github.com/x/y/actions/runs/36840080436/job/110296847663"},
+        {
+            "name": "frontend",
+            "bucket": "fail",
+            "link": "https://github.com/x/y/actions/runs/36840080436/job/110296847197",
+        },
+        {
+            "name": "core (3.11)",
+            "bucket": "pass",
+            "link": "https://github.com/x/y/actions/runs/36840080436/job/110296847663",
+        },
         {"name": "GitGuardian", "bucket": "fail", "link": "https://dashboard.gitguardian.com"},
     ]
     asked: list[list[str]] = []
@@ -14558,11 +15649,21 @@ def the_checks_gh_lists_are_read_into_names_and_runs_to_start_again():
             url = "https://github.com/x/y/pull/1"
             assert git_module.failing_checks(url) == ["GitGuardian", "frontend"]
             assert git_module.rerun_failed_checks(url)
-            assert ["gh", "run", "rerun", "36840080436", "--failed", "-R", "github.com/x/y"] in asked
+            assert [
+                "gh",
+                "run",
+                "rerun",
+                "36840080436",
+                "--failed",
+                "-R",
+                "github.com/x/y",
+            ] in asked
             assert len([one for one in asked if one[:3] == ["gh", "run", "rerun"]]) == 1
             assert git_module.failing_on(url, "main") == ["frontend"]
             assert any("repos/x/y/commits/main/check-runs" in part for one in asked for part in one)
-        with _git_answering(run=lambda *args, **kept: git_module.Result(1, "unknown flag: --json", "")):
+        with _git_answering(
+            run=lambda *args, **kept: git_module.Result(1, "unknown flag: --json", "")
+        ):
             assert git_module.failing_checks("https://github.com/x/y/pull/1") == []
     finally:
         git_module.shutil.which = original_which
@@ -14624,7 +15725,10 @@ def a_repair_that_is_done_is_followed_by_a_new_one_if_the_base_is_red_again():
     with _state_home(), _red_base():
         runner = _board_runner([page], {})
         _forced_on_red_base(runner, page, url)
-        runner.client._pages[-1].properties["Status"] = {"type": "status", "status": {"name": "Done"}}
+        runner.client._pages[-1].properties["Status"] = {
+            "type": "status",
+            "status": {"name": "Done"},
+        }
         _forced_on_red_base(runner, page, url)
     assert len(runner.client.created) == 2, runner.client.created
 
@@ -14657,28 +15761,45 @@ def _repairing(heads: list[str], ok: bool = True, then: str = "passed", pushed: 
     def work(job, template):
         sessions.append((job.body, template))
         return session_module.Outcome(
-            ok=ok, blocked=not ok, session_id="s", summary="done" if ok else "unsure",
-            log=Path("/log"), answer="- `settings.spec.ts` : locator exact\n\nRESULT: ok — x",
+            ok=ok,
+            blocked=not ok,
+            session_id="s",
+            summary="done" if ok else "unsure",
+            log=Path("/log"),
+            answer="- `settings.spec.ts` : locator exact\n\nRESULT: ok — x",
         )
 
     runner._run_session = work
     runner._checked = lambda url, workdir, base: (then, "CI: " + then)
     job = SimpleNamespace(
-        ticket=ticket_module.Ticket(page), workdir=Path("/work"), base="main", branch="ticket/x",
+        ticket=ticket_module.Ticket(page),
+        workdir=Path("/work"),
+        base="main",
+        branch="ticket/x",
     )
     job_copy = ticket_module.Job(
-        ticket_module.Ticket(page), projects.Project("Site", Path("/repo")),
-        branch="ticket/x", base="main", workdir=Path("/work"),
+        ticket_module.Ticket(page),
+        projects.Project("Site", Path("/repo")),
+        branch="ticket/x",
+        base="main",
+        workdir=Path("/work"),
     )
-    with _state_home(), _git_answering(
-        head=lambda workdir: heads.pop(0) if len(heads) > 1 else heads[0],
-        failing_checks=lambda url, accounts=None: ["frontend"],
-        failed_log=lambda url, accounts=None, most=6000: "Error: locator resolved to 2 elements",
-        pull_request_body=lambda url, accounts=None: "La PR.",
-        rebasing=lambda workdir: False,
-        is_dirty=lambda workdir: False,
-        push_leased=lambda workdir, branch, was, accounts=None: pushed.append((branch, was)) or "",
-        comment_pull_request=lambda *args, **kwargs: None,
+    with (
+        _state_home(),
+        _git_answering(
+            head=lambda workdir: heads.pop(0) if len(heads) > 1 else heads[0],
+            failing_checks=lambda url, accounts=None: ["frontend"],
+            failed_log=lambda url, accounts=None, most=6000: (
+                "Error: locator resolved to 2 elements"
+            ),
+            pull_request_body=lambda url, accounts=None: "La PR.",
+            rebasing=lambda workdir: False,
+            is_dirty=lambda workdir: False,
+            push_leased=lambda workdir, branch, was, accounts=None: (
+                pushed.append((branch, was)) or ""
+            ),
+            comment_pull_request=lambda *args, **kwargs: None,
+        ),
     ):
         pushed = [] if pushed is None else pushed
         first = runner._mend(job_copy, url, "CI: red.")
@@ -14692,7 +15813,9 @@ def a_pull_request_red_by_its_own_fault_is_repaired_by_a_session_and_goes_on():
     """The log reaches the session; its fix is pushed on the branch; a green CI lets the merge go on."""
     from ponos import prompt as prompt_module
 
-    (checks, said, outcome), _, sessions, pushed = _repairing(["aaa", "bbb"], then="passed", pushed=[])
+    (checks, said, outcome), _, sessions, pushed = _repairing(
+        ["aaa", "bbb"], then="passed", pushed=[]
+    )
     assert checks == "passed" and outcome is not None, (checks, said)
     assert pushed == [("ticket/x", "aaa")], pushed
     assert len(sessions) == 1 and sessions[0][1] is prompt_module.REPAIR, sessions
@@ -14752,13 +15875,15 @@ def a_pull_request_set_aside_waits_for_a_green_base_then_goes_on_its_own():
     with _state_home():
         state.wait_for_base("p1", "main", url, ["frontend"])
         runner = _board_runner([page], {})
-        with _github({url: "OPEN"}, merge=merge), _git_answering(
-            failing_on=lambda url, base, accounts=None: ["frontend", "lint"]
+        with (
+            _github({url: "OPEN"}, merge=merge),
+            _git_answering(failing_on=lambda url, base, accounts=None: ["frontend", "lint"]),
         ):
             assert runner.deliver() == [] and merges == []
             assert runner.client.comments_written == [], "waiting is not said again at every pass"
-        with _github({url: "OPEN"}, merge=merge), _git_answering(
-            failing_on=lambda url, base, accounts=None: []
+        with (
+            _github({url: "OPEN"}, merge=merge),
+            _git_answering(failing_on=lambda url, base, accounts=None: []),
         ):
             done = runner.deliver()
         assert merges == [url] and done[0]["status"] == "done", (merges, done)
@@ -14773,7 +15898,11 @@ def a_resolved_pull_request_on_a_red_base_goes_back_to_validated_without_a_quest
     with _state_home(), _red_base():
         runner = _board_runner([page], {})
         done = runner._left_for_base(
-            ticket_module.Ticket(page), projects.Project("Site", Path("/repo")), url, "main", "record"
+            ticket_module.Ticket(page),
+            projects.Project("Site", Path("/repo")),
+            url,
+            "main",
+            "record",
         )
         assert state.waiting_for_base("p1")
     assert done["status"] == "waiting" and done["reason"] == "merge.base-red", done
@@ -14799,7 +15928,8 @@ def the_failures_of_a_base_and_its_ci_at_push_are_read_from_gh():
             token_for=lambda reference, accounts=None: "",
         ):
             assert git_module.base_failures(url, "main") == [
-                ("frontend", "https://github.com/x/y/runs/1"), ("lint", "")
+                ("frontend", "https://github.com/x/y/runs/1"),
+                ("lint", ""),
             ]
         repo = Path("/repo")
         for out, wanted in (
@@ -14814,8 +15944,11 @@ def the_failures_of_a_base_and_its_ci_at_push_are_read_from_gh():
                 token_for=lambda reference, accounts=None: "",
             ):
                 assert git_module.ci_at_push(repo, "main") == wanted, (out, wanted)
-        with _git_answering(run=answering("", ok=False), remote_url=lambda repo: "git@github.com:x/y.git",
-                            token_for=lambda reference, accounts=None: ""):
+        with _git_answering(
+            run=answering("", ok=False),
+            remote_url=lambda repo: "git@github.com:x/y.git",
+            token_for=lambda reference, accounts=None: "",
+        ):
             assert git_module.ci_at_push(repo, "main") == "", "a question GitHub did not answer"
     finally:
         git_module.shutil.which = original_which
@@ -14825,13 +15958,18 @@ def the_failures_of_a_base_and_its_ci_at_push_are_read_from_gh():
 def doctor_says_when_a_base_has_no_ci_at_push():
     from ponos import __main__ as cli
 
-    with _git_answering(default_branch=lambda repo: "dev", ci_at_push=lambda repo, base, accounts=None: "none"):
+    with _git_answering(
+        default_branch=lambda repo: "dev", ci_at_push=lambda repo, base, accounts=None: "none"
+    ):
         assert "dev has no CI run at push" in cli._base_without_ci(Path("/repo"))
-    with _git_answering(default_branch=lambda repo: "dev", ci_at_push=lambda repo, base, accounts=None: "skipped"):
+    with _git_answering(
+        default_branch=lambda repo: "dev", ci_at_push=lambda repo, base, accounts=None: "skipped"
+    ):
         assert "only skipped" in cli._base_without_ci(Path("/repo"))
     for found in ("ran", ""):
         with _git_answering(
-            default_branch=lambda repo: "dev", ci_at_push=lambda repo, base, accounts=None, found=found: found
+            default_branch=lambda repo: "dev",
+            ci_at_push=lambda repo, base, accounts=None, found=found: found,
         ):
             assert cli._base_without_ci(Path("/repo")) == ""
 
@@ -14851,7 +15989,10 @@ def conflicts_are_resolved_everywhere_but_where_the_file_says_not():
     assert config.runner.resolve_conflicts_except == "Animalink, Site vitrine"
     assert not config.runner.resolves_conflicts("site vitrine")
     assert config.runner.resolves_conflicts("Trader IA")
-    assert _config('[runner]\nresolve_conflicts_except = "Site"\n').runner.resolve_conflicts_except == "Site"
+    assert (
+        _config('[runner]\nresolve_conflicts_except = "Site"\n').runner.resolve_conflicts_except
+        == "Site"
+    )
     off = _config("[runner]\nresolve_conflicts = false\n").runner
     assert not off.resolves_conflicts("Trader IA")
     assert _config("[runner]\nchecks_timeout_minutes = -3\n").runner.checks_timeout_minutes == 0
@@ -14951,11 +16092,15 @@ def clean_removes_a_residue_and_leaves_a_real_worktree():
         for args in (["init", "-q", "-b", "main"], ["commit", "-q", "--allow-empty", "-m", "x"]):
             subprocess.run(
                 ["git", "-c", "user.name=t", "-c", "user.email=t@t", *args],
-                cwd=repo, check=True, capture_output=True,
+                cwd=repo,
+                check=True,
+                capture_output=True,
             )
         real = worktrees / "real-11111111"
         worktrees.mkdir(parents=True)
-        subprocess.run(["git", "worktree", "add", "-q", str(real)], cwd=repo, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "worktree", "add", "-q", str(real)], cwd=repo, check=True, capture_output=True
+        )
         (worktrees / "left-22222222" / ".phpunit.cache").mkdir(parents=True)
         kept = cli._clear_residues(sorted(worktrees.iterdir()))
         assert not (worktrees / "left-22222222").exists()
@@ -15044,8 +16189,14 @@ def the_dokploy_template_keeps_to_the_catalogues_rules():
 
     for refused in ("ports:", "container_name", "networks:", ":latest"):
         assert refused not in compose, f"{refused} is not allowed in a Dokploy template"
-    assert re.search(r"^services:\n  ponos:$", compose, re.MULTILINE), "the service is the folder's name"
-    assert [domain["serviceName"] for domain in template["config"]["domains"]] == [meta["id"]] == ["ponos"]
+    assert re.search(r"^services:\n  ponos:$", compose, re.MULTILINE), (
+        "the service is the folder's name"
+    )
+    assert (
+        [domain["serviceName"] for domain in template["config"]["domains"]]
+        == [meta["id"]]
+        == ["ponos"]
+    )
     assert template["config"]["domains"][0]["port"] == 8787
     assert (release.BLUEPRINT / meta["logo"]).is_file()
     # An array of `KEY=value` strings: the catalogue's AGENTS.md refuses the table form.
@@ -15054,7 +16205,7 @@ def the_dokploy_template_keeps_to_the_catalogues_rules():
     env = dict(entry.split("=", 1) for entry in entries)
     given = set(env)
     read = set(re.findall(r"\$\{(\w+)\}", compose))
-    assert given == read, (given ^ read)
+    assert given == read, given ^ read
     secrets = {"PONOS_WEB_PASSWORD", "PONOS_WEB_TOKEN"}
     assert all(env[name].startswith("${") for name in secrets), "generated, never written"
     for name in ("CLAUDE_CODE_OAUTH_TOKEN", "ANTHROPIC_API_KEY", "GH_TOKEN", "PONOS_NOTION_TOKEN"):
@@ -15208,11 +16359,20 @@ def a_copy_that_is_not_a_repository_says_its_number_alone():
         copy = Path(scratch) / "app"
         shutil.copytree(ROOT / "src", copy / "src", ignore=shutil.ignore_patterns("__pycache__"))
         said = subprocess.run(
-            [sys.executable, "-c", "import json; from ponos import update; print(json.dumps(update.running()))"],
-            env={**os.environ, "PYTHONPATH": str(copy / "src")}, cwd=scratch,
-            capture_output=True, text=True, check=True,
+            [
+                sys.executable,
+                "-c",
+                "import json; from ponos import update; print(json.dumps(update.running()))",
+            ],
+            env={**os.environ, "PYTHONPATH": str(copy / "src")},
+            cwd=scratch,
+            capture_output=True,
+            text=True,
+            check=True,
         ).stdout
-    assert json.loads(said) == {"version": __version__, "commit": "", "date": "", "subject": ""}, said
+    assert json.loads(said) == {"version": __version__, "commit": "", "date": "", "subject": ""}, (
+        said
+    )
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15288,7 +16448,10 @@ def the_console_is_downloaded_once_and_compressed():
         headers, _ = get("/")
         assert headers["Cache-Control"] == "no-store", "the page that names the build was kept"
         headers, body = get(f"/static/assets/{bundle.name}", **{"Accept-Encoding": "gzip, br"})
-        assert "immutable" in headers["Cache-Control"] and "max-age=31536000" in headers["Cache-Control"]
+        assert (
+            "immutable" in headers["Cache-Control"]
+            and "max-age=31536000" in headers["Cache-Control"]
+        )
         assert headers["Content-Encoding"] == "gzip" and headers["Vary"] == "Accept-Encoding"
         assert gzip.decompress(body) == bundle.read_bytes(), "gzipped is not the same file"
         assert int(headers["Content-Length"]) == len(body) < bundle.stat().st_size / 2
@@ -15358,7 +16521,9 @@ def the_console_is_installable_as_an_app():
         assert headers["Content-Type"].startswith("application/javascript") or headers[
             "Content-Type"
         ].startswith("text/javascript")
-        assert headers["Cache-Control"] == "no-store", "an installed app would never see a new build"
+        assert headers["Cache-Control"] == "no-store", (
+            "an installed app would never see a new build"
+        )
         assert b"__BUILD__" not in body, "the worker was shipped as a template"
         get("/static/offline.html")
         # And the console itself is still behind its key.
@@ -15418,7 +16583,16 @@ def the_console_and_the_landing_page_share_one_set_of_tokens():
     source = (FRONTEND / "src/tokens.css").read_text(encoding="utf-8")
     copy = (ROOT / "docs/tokens.css").read_text(encoding="utf-8")
     assert copy == source, "docs/tokens.css is stale — run npm run build in frontend/ and commit it"
-    for name in ("--primary", "--background", "--radius", "--tr-green", "--series-1", "--sans", "--mono", "--heading"):
+    for name in (
+        "--primary",
+        "--background",
+        "--radius",
+        "--tr-green",
+        "--series-1",
+        "--sans",
+        "--mono",
+        "--heading",
+    ):
         assert f"{name}:" in source, f"{name} is not among the tokens"
     assert ".dark {" in source, "the tokens have no dark theme"
     index = (FRONTEND / "src/index.css").read_text(encoding="utf-8")
@@ -15434,11 +16608,15 @@ def the_console_and_the_landing_page_share_one_set_of_tokens():
     assert not stray, f"the site names colours of its own: {stray}"
     for gone in ("Inter", "Instrument Serif", "#3b82f6"):
         # A whole word: `IntersectionObserver` is not the old face.
-        assert not re.search(rf"(?<!\w){re.escape(gone)}(?!\w)", page), f"{gone} is the old identity"
+        assert not re.search(rf"(?<!\w){re.escape(gone)}(?!\w)", page), (
+            f"{gone} is the old identity"
+        )
     assert "family=Bricolage+Grotesque" in page, "the site does not load the headings' face"
     for gone in ("DM+Sans", "JetBrains+Mono"):
         assert gone not in page, f"{gone} is the old identity"
-    assert "ponos-theme" in page and "prefers-color-scheme" in page, "the site has no light and dark"
+    assert "ponos-theme" in page and "prefers-color-scheme" in page, (
+        "the site has no light and dark"
+    )
 
 
 @case
@@ -15456,13 +16634,19 @@ def the_landing_page_opens_on_ponos_and_tells_the_loop_in_seven_sections():
     hero = page.split("<section", 2)[1]
     assert 'id="top"' in hero.split(">", 1)[0], "the page does not open on its hero"
     assert "<ponos-robot" in hero and "Ponos" in hero, "Ponos is not on the first screen"
-    assert "Write the ticket." in hero and "It comes back done." in hero, "the promise is not the headline"
+    assert "Write the ticket." in hero and "It comes back done." in hero, (
+        "the promise is not the headline"
+    )
     title = re.search(r"<title>(.*?)</title>", page).group(1)
     assert "Write the ticket. It comes back done." in title
-    assert "Notion" not in title and "Claude" not in title, "the promise leans on somebody else's brand"
+    assert "Notion" not in title and "Claude" not in title, (
+        "the promise leans on somebody else's brand"
+    )
     description = re.search(r'<meta name="description" content="([^"]*)"', page).group(1)
     assert "It comes back done." in description
-    assert "It comes back done." in re.search(r'<meta property="og:title" content="([^"]*)"', page).group(1)
+    assert "It comes back done." in re.search(
+        r'<meta property="og:title" content="([^"]*)"', page
+    ).group(1)
     assert "It comes back done." in (ROOT / "docs/llms.txt").read_text(encoding="utf-8")
 
 
@@ -15477,17 +16661,25 @@ def the_heros_picture_is_the_loop_and_ends_on_your_decision():
     """
     page = LANDING.read_text(encoding="utf-8")
     figure = page.split('<figure class="card flow" id="flow"', 1)[1].split("</figure>", 1)[0]
-    assert 'data-step="3"' in figure.split(">", 1)[0], "without script, the picture is not at the decision"
+    assert 'data-step="3"' in figure.split(">", 1)[0], (
+        "without script, the picture is not at the decision"
+    )
     steps = re.findall(r'<span class="flow-num">(\d)</span><b>([^<]+)</b>', figure)
-    assert [n for n, _ in steps] == ["1", "2", "3"], f"the steps are not numbered one to three: {steps}"
+    assert [n for n, _ in steps] == ["1", "2", "3"], (
+        f"the steps are not numbered one to three: {steps}"
+    )
     assert "Ponos" in steps[1][1], "the second step is not Ponos's"
-    assert ">Validate<" in figure and ">Run again<" in figure, "the decision has lost one of its two buttons"
+    assert ">Validate<" in figure and ">Run again<" in figure, (
+        "the decision has lost one of its two buttons"
+    )
     assert "flow-link to-you" in figure and "your note" in figure, "the way back to Ponos is gone"
     assert "<ponos-robot" in figure
     statuses = re.findall(r'<span class="status[^"]*">([^<]+)</span>', figure)
     assert statuses == ["Ready"], f"the ticket of step one moves on: {statuses}"
     label = re.search(r'role="img" aria-label="([^"]+)"', figure).group(1)
-    assert "Validate" in label and "Run again" in label, "the picture's description does not tell the decision"
+    assert "Validate" in label and "Run again" in label, (
+        "the picture's description does not tell the decision"
+    )
     # The console's own words, so the picture does not promise a button that is not there.
     bits = (FRONTEND / "src/components/console/ticket-bits.tsx").read_text(encoding="utf-8")
     assert 't("Validate and publish")' in bits and 't("run again")' in bits
@@ -15514,19 +16706,31 @@ def the_landing_page_shows_the_console_filmed_right_after_its_hero():
     for attribute in ("muted", "loop", "playsinline", 'preload="none"'):
         assert re.search(rf"\s{attribute}(?=[\s>])", video), f"the film is not {attribute}"
     assert "autoplay" not in video, "the film starts before the page can ask about motion"
-    assert re.search(r'\sposter="media/console-loop-light-poster\.webp"', video), "the film has no poster"
+    assert re.search(r'\sposter="media/console-loop-light-poster\.webp"', video), (
+        "the film has no poster"
+    )
     for theme in ("light", "dark"):
-        for attribute, name in ((f"data-{theme}", f"console-loop-{theme}.mp4"),
-                                (f"data-poster-{theme}", f"console-loop-{theme}-poster.webp")):
+        for attribute, name in (
+            (f"data-{theme}", f"console-loop-{theme}.mp4"),
+            (f"data-poster-{theme}", f"console-loop-{theme}-poster.webp"),
+        ):
             assert f'{attribute}="media/{name}"' in video, f"the {theme} film lacks {attribute}"
             file = ROOT / "docs/media" / name
             assert file.exists(), f"docs/media/{name} is missing — node scripts/film-console.mjs"
-            assert file.stat().st_size < 2_000_000, f"docs/media/{name} is too heavy for the second screen"
+            assert file.stat().st_size < 2_000_000, (
+                f"docs/media/{name} is too heavy for the second screen"
+            )
     for theme in ("light", "dark"):
-        cues = [float(at) for at in re.search(rf'data-cues-{theme}="([^"]+)"', video).group(1).split()]
-        assert len(cues) == 4 and cues[0] == 0 and cues == sorted(cues), f"one cue per gesture, in order: {cues}"
+        cues = [
+            float(at) for at in re.search(rf'data-cues-{theme}="([^"]+)"', video).group(1).split()
+        ]
+        assert len(cues) == 4 and cues[0] == 0 and cues == sorted(cues), (
+            f"one cue per gesture, in order: {cues}"
+        )
     assert loop.count('class="card step"') == 4, "the four gestures are no longer the legend"
-    assert loop.index("<video") < loop.index('class="grid g4 gestures"'), "the legend comes before the film"
+    assert loop.index("<video") < loop.index('class="grid g4 gestures"'), (
+        "the legend comes before the film"
+    )
     script = (ROOT / "scripts/film-console.mjs").read_text(encoding="utf-8")
     assert "data-cues" in script, "the film's script no longer writes the cues into the page"
     assert "node scripts/film-console.mjs" in (ROOT / "README.md").read_text(encoding="utf-8"), (
@@ -15553,12 +16757,18 @@ def the_site_answers_the_icons_a_browser_asks_for_and_a_page_of_its_own_for_a_lo
     touch = (ROOT / "docs/apple-touch-icon.png").read_bytes()
     assert touch.startswith(b"\x89PNG") and struct.unpack(">II", touch[16:24]) == (180, 180)
     page = LANDING.read_text(encoding="utf-8")
-    assert 'rel="apple-touch-icon" href="apple-touch-icon.png' in page, "the page does not declare its touch icon"
+    assert 'rel="apple-touch-icon" href="apple-touch-icon.png' in page, (
+        "the page does not declare its touch icon"
+    )
     lost = (ROOT / "docs/404.html").read_text(encoding="utf-8")
     assert "Ponos" in lost and 'href="/"' in lost, "the 404 does not lead back to the site"
-    assert 'href="/mascot/favicon.svg' in lost, "a 404 at any depth loses its icon with a relative path"
+    assert 'href="/mascot/favicon.svg' in lost, (
+        "a 404 at any depth loses its icon with a relative path"
+    )
     script = (ROOT / "scripts/mascot.mjs").read_text(encoding="utf-8")
-    assert "favicon.ico" in script and "apple-touch-icon.png" in script, "the site's icons are not drawn from the mascot"
+    assert "favicon.ico" in script and "apple-touch-icon.png" in script, (
+        "the site's icons are not drawn from the mascot"
+    )
 
 
 @case
@@ -15569,7 +16779,9 @@ def the_repository_s_homepage_is_the_site():
     package = json.loads((FRONTEND / "package.json").read_text(encoding="utf-8"))
     assert package["homepage"] == "https://the-ponos.app", package["homepage"]
     example = tomllib.loads((ROOT / "config.example.toml").read_text(encoding="utf-8"))
-    assert example["permissions"]["allowed"] == list(C.ALLOWED), "config.example.toml says other rules than the code"
+    assert example["permissions"]["allowed"] == list(C.ALLOWED), (
+        "config.example.toml says other rules than the code"
+    )
     assert example["permissions"]["ask"] == list(C.ASK)
 
 
@@ -15578,7 +16790,9 @@ def ponos_is_named_on_the_site_in_the_readme_and_in_the_console():
     """The robot's name, in both languages, wherever the robot is."""
     assert "Ponos" in LANDING.read_text(encoding="utf-8")
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    assert "Write the ticket. It comes back done." in readme.split("---", 1)[0], "the README opens elsewhere"
+    assert "Write the ticket. It comes back done." in readme.split("---", 1)[0], (
+        "the README opens elsewhere"
+    )
     assert "## Ponos, the mascot" in readme
     shell = (FRONTEND / "src/components/console/shell.tsx").read_text(encoding="utf-8")
     mark = shell.split("export function Mark()", 1)[1].split("\n}\n", 1)[0]
@@ -15608,23 +16822,37 @@ def the_landing_page_tells_notion_in_one_band_with_its_badge_served_locally():
     videos = re.findall(r"<video\b[^>]*>", band)
     for name in ("notion-read-result", "notion-text", "notion-validate"):
         assert f'src="media/notion/{name}.mp4"' in band, f"{name}.mp4 is not in the band"
-    assert band.index("notion-read-result.mp4") < band.index("notion-text.mp4") < band.index("notion-validate.mp4")
-    assert len(videos) == 3 and band.count('class="window loop"') == 1, "the band holds more than one window"
+    assert (
+        band.index("notion-read-result.mp4")
+        < band.index("notion-text.mp4")
+        < band.index("notion-validate.mp4")
+    )
+    assert len(videos) == 3 and band.count('class="window loop"') == 1, (
+        "the band holds more than one window"
+    )
     for video in videos:
-        assert "muted" in video and "playsinline" in video, "a video would play aloud, or full screen"
+        assert "muted" in video and "playsinline" in video, (
+            "a video would play aloud, or full screen"
+        )
         assert 'preload="none"' in video, "a video loads before the band is near"
         assert 'aria-label="' in video, "a video says nothing to a screen reader"
         assert " loop " not in video, "a video loops on itself instead of calling the next"
     steps = re.findall(r"<button\b[^>]*\bdata-step=[^>]*>", band)
-    assert len(steps) == 3 and all("aria-pressed" in b for b in steps), "the steps are not buttons that say their state"
-    assert "data-toggle" in band and "data-play" in band, "the window lost its pause or its play button"
+    assert len(steps) == 3 and all("aria-pressed" in b for b in steps), (
+        "the steps are not buttons that say their state"
+    )
+    assert "data-toggle" in band and "data-play" in band, (
+        "the window lost its pause or its play button"
+    )
     badges = re.findall(r'<img\b[^>]*alt="Made for Notion"[^>]*>', band)
     assert len(badges) == 2, "the badge needs its light and its dark variant"
     for badge in badges:
         src = re.search(r'src="([^"]+)"', badge).group(1)
-        assert src.startswith("media/notion/") and (ROOT / "docs" / src).exists(), f"the badge is not served from docs/: {src}"
+        assert src.startswith("media/notion/") and (ROOT / "docs" / src).exists(), (
+            f"the badge is not served from docs/: {src}"
+        )
         assert 'height="48"' in badge, "Notion asks for a badge 48 px high on screen"
-    assert "class=\"notion-foot\"" in page, "the line on Notion and the files kept in step is gone"
+    assert 'class="notion-foot"' in page, "the line on Notion and the files kept in step is gone"
 
 
 def _readme_anchors() -> set[str]:
@@ -15665,12 +16893,16 @@ def the_landing_page_and_the_readme_link_to_anchors_that_exist():
     for target in re.findall(r'href="([^"#:]+)"', page):
         # `?v=` only makes a browser fetch the file again: the file is what has to exist.
         target = target.split("?", 1)[0]
-        assert (ROOT / "docs" / target).exists(), f"the site links {target}, which docs/ does not have"
+        assert (ROOT / "docs" / target).exists(), (
+            f"the site links {target}, which docs/ does not have"
+        )
     anchors = _readme_anchors()
     linked = re.findall(r'href="https://github\.com/hermez-agency/ponos#([^"]+)"', page)
     assert linked, "the site no longer points at the documentation"
     for anchor in linked:
-        assert anchor == "readme" or anchor in anchors, f"the site links README#{anchor}, which has no such heading"
+        assert anchor == "readme" or anchor in anchors, (
+            f"the site links README#{anchor}, which has no such heading"
+        )
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     for anchor in re.findall(r"\]\(#([^)]+)\)", readme):
         assert anchor in anchors, f"the README links #{anchor}, which has no such heading"
@@ -15783,12 +17015,16 @@ def a_project_is_a_resource_with_two_layouts_and_a_form():
     assert "layout.cards(" in declared, "the card layout is gone"
     assert "layout.table(" in declared, "the second layout is gone"
     permissions = declared.split("permissions:")[1].split("\n")[0]
-    assert "update" not in permissions and "readonly" not in permissions, "a project is read-only again"
+    assert "update" not in permissions and "readonly" not in permissions, (
+        "a project is read-only again"
+    )
     assert "api.saveProject" in declared, "nothing writes the project back"
     page = (FRONTEND / "src/components/console/project-page.tsx").read_text(encoding="utf-8")
     assert "ResourceViewButton" in page, "the page offers no way into the form"
-    assert (FRONTEND / "src/lib/router.tsx").read_text(encoding="utf-8").count(
-        "?view=console/projects/list"
+    assert (
+        (FRONTEND / "src/lib/router.tsx")
+        .read_text(encoding="utf-8")
+        .count("?view=console/projects/list")
     ), "the address the pane had stopped leading to the projects"
 
 
@@ -15810,7 +17046,9 @@ def a_schedule_is_a_resource_drawn_in_the_package_s_own_layouts():
     assert "createViewResource" in declared, "the schedules are a hand-rolled pane again"
     assert "layout.table(" in declared, "the table layout is gone"
     assert "layout.calendar<" in declared, "the calendar layout is gone"
-    assert 'dateField: "when"' in declared, "the calendar no longer lays out the launches by when they land"
+    assert 'dateField: "when"' in declared, (
+        "the calendar no longer lays out the launches by when they land"
+    )
     assert "api.saveSchedule" in declared, "nothing writes a schedule back"
     assert "api.createSchedule" in declared, "nothing writes a new schedule"
     # The columns a pass writes back are how the runner knows an occurrence has
@@ -15843,7 +17081,9 @@ def a_session_is_followed_on_its_ticket_rather_than_on_a_page_of_sessions():
     scope = (FRONTEND / "src/resources/scope.tsx").read_text(encoding="utf-8")
     assert "LIVE" not in scope, "the menu has an entry for the live page again"
     router = (FRONTEND / "src/lib/router.tsx").read_text(encoding="utf-8")
-    assert 'live: "/?view=console/tickets/list"' in router, "/?page=live no longer reaches the board"
+    assert 'live: "/?view=console/tickets/list"' in router, (
+        "/?page=live no longer reaches the board"
+    )
     page = (FRONTEND / "src/components/console/ticket-page.tsx").read_text(encoding="utf-8")
     assert "<TicketLive" in page, "a ticket's page no longer shows its session"
     assert '(running ? "live"' in page, "a running ticket no longer opens on its session"
@@ -16004,8 +17244,18 @@ def the_console_asks_for_nothing_it_did_not_ship():
     """
     # An `xmlns` is a name, not an address; what is looked for here is the
     # shapes that actually make the browser open a socket.
-    reaches = ('src="http', "src='http", 'href="http', "href='http",
-               "url(http", "url('http", 'url("http', "@import", "//unpkg", "//cdn")
+    reaches = (
+        'src="http',
+        "src='http",
+        'href="http',
+        "href='http",
+        "url(http",
+        "url('http",
+        'url("http',
+        "@import",
+        "//unpkg",
+        "//cdn",
+    )
     for path in _shipped():
         text = path.read_text(encoding="utf-8", errors="replace")
         for shape in reaches:
@@ -16100,7 +17350,10 @@ def the_project_file_says_the_version_the_product_says():
         release.write_project_version("9.9.9", pyproject)
         assert release.read_project_version(pyproject) == "9.9.9"
         rewritten = pyproject.read_text(encoding="utf-8")
-        assert rewritten.replace('version = "9.9.9"', f'version = "{release.read_version()}"', 1) == original
+        assert (
+            rewritten.replace('version = "9.9.9"', f'version = "{release.read_version()}"', 1)
+            == original
+        )
 
 
 # -- a board made of files ----------------------------------------------------
@@ -16200,10 +17453,12 @@ def a_markdown_board_answers_the_filters_the_runner_builds():
         # The woken filter: everything but the statuses that speak for a ticket.
         awake = board.query(
             "tickets",
-            {"and": [
-                {"property": "Status", "select": {"does_not_equal": "Ready"}},
-                {"property": "Status", "select": {"does_not_equal": "Done"}},
-            ]},
+            {
+                "and": [
+                    {"property": "Status", "select": {"does_not_equal": "Ready"}},
+                    {"property": "Status", "select": {"does_not_equal": "Done"}},
+                ]
+            },
         )
         assert awake == []
         # A filter this cannot read must not silently empty the board.
@@ -16268,6 +17523,7 @@ def the_whole_runner_runs_against_files_with_no_notion_at_all():
             encoding="utf-8",
         )
         configuration = C.load(path)
+
         # Nothing here may be reached for. A configuration with no token would
         # only have produced a 401; this produces a traceback naming the caller.
         def refuse(*_args, **_kwargs):
@@ -16319,7 +17575,7 @@ class _NotionBoard:
     def __init__(self, context: str = "") -> None:
         self.pages: dict[str, store.Page] = {}
         self.bodies: dict[str, str] = {}
-        self.where: dict[str, str] = {}   # page id -> database
+        self.where: dict[str, str] = {}  # page id -> database
         self.context = context
         self.said: list[tuple[str, str]] = []
         self._counter = 0
@@ -16343,8 +17599,12 @@ class _NotionBoard:
 
     def workspace(self, settings):
         space = workspace.Workspace(
-            tickets="tickets", projects="projects", agents="agents", schedules="schedules",
-            rows={"Context": "ctx"}, context_page="ctx",
+            tickets="tickets",
+            projects="projects",
+            agents="agents",
+            schedules="schedules",
+            rows={"Context": "ctx"},
+            context_page="ctx",
         )
         space.context = self.context
         return space
@@ -16352,10 +17612,7 @@ class _NotionBoard:
     # -- reading -------------------------------------------------------------
 
     def query(self, database_id, filter_=None):
-        return [
-            page for page_id, page in self.pages.items()
-            if self.where[page_id] == database_id
-        ]
+        return [page for page_id, page in self.pages.items() if self.where[page_id] == database_id]
 
     def page(self, page_id):
         if page_id not in self.pages:
@@ -16382,12 +17639,13 @@ class _NotionBoard:
         page = self.pages[page_id]
         page.raw["last_edited_time"] = at or _stamp()
 
-
     def create_row(self, database_id, title, values=None, at=""):
         self._counter += 1
         page_id = f"{self._counter:032x}"
         self.pages[page_id] = store.Page(
-            id=page_id, url=f"https://notion.so/{page_id}", title=title,
+            id=page_id,
+            url=f"https://notion.so/{page_id}",
+            title=title,
             properties={"Name": store.written("title", title)},
             raw={"created_time": at or _stamp(), "last_edited_time": at or _stamp()},
         )
@@ -16463,7 +17721,8 @@ def a_ticket_written_in_notion_appears_in_the_files():
 
         report = both.synchronise(_settings(), stamps=marks)
         assert [entry.what for entry in report.carried] == [
-            "created-in-markdown", "notion→markdown"
+            "created-in-markdown",
+            "notion→markdown",
         ], [entry.what for entry in report.carried]
         mirrored = there.page(page_id)
         assert mirrored.title == "Corriger l'entête"
@@ -16785,7 +18044,9 @@ def the_console_opens_a_project_and_writes_it_back():
 
         # What the window asked for at the creation is corrected here too: the
         # description and the site in their columns, the type by its repository.
-        written = api.save_project(page, {"description": "  Le  runner. ", "site": "https://ponos.dev"})
+        written = api.save_project(
+            page, {"description": "  Le  runner. ", "site": "https://ponos.dev"}
+        )
         assert written["description"] == "Le runner."
         assert written["site"] == "https://ponos.dev"
         assert store.read(board.page(page), "URL") == "https://ponos.dev"
@@ -16842,7 +18103,14 @@ def a_github_repository_is_written_as_its_whole_address():
         "https://github.com/hermez-agency/ponos/tree/main/src",
     ):
         assert web_creation.github_url(given) == "https://github.com/hermez-agency/ponos", given
-    for given in ("ponos", "https://gitlab.com/someone/ponos", "a/b/c", "-bad/ponos", "owner/..", "owner/a b"):
+    for given in (
+        "ponos",
+        "https://gitlab.com/someone/ponos",
+        "a/b/c",
+        "-bad/ponos",
+        "owner/..",
+        "owner/a b",
+    ):
         assert web_creation.github_url(given) == "", given
 
 
@@ -16875,7 +18143,9 @@ def a_project_is_created_from_the_console_with_what_its_page_says():
         assert not store.read(page, "github")
         assert board.blocks_text(made["id"]) == "# Voix\n\nÉcris court."
 
-        code = api.creation.create({"name": "Ponos", "kind": "code", "repository": "hermez-agency/ponos"})
+        code = api.creation.create(
+            {"name": "Ponos", "kind": "code", "repository": "hermez-agency/ponos"}
+        )
         assert code["kind"] == "code"
         assert code["repository"] == "https://github.com/hermez-agency/ponos"
         # The column this database calls its repository, not a second one.
@@ -16893,7 +18163,15 @@ def a_project_is_created_from_the_console_with_what_its_page_says():
             clone = root / "ponos"
             subprocess.run(["git", "init", "-q", str(clone)], check=True)
             subprocess.run(
-                ["git", "-C", str(clone), "remote", "add", "origin", "git@github.com:hermez-agency/ponos.git"],
+                [
+                    "git",
+                    "-C",
+                    str(clone),
+                    "remote",
+                    "add",
+                    "origin",
+                    "git@github.com:hermez-agency/ponos.git",
+                ],
                 check=True,
             )
             ticket = api.create_ticket("Un ticket", project=code["id"])["id"]
@@ -16911,7 +18189,15 @@ def a_project_is_created_from_a_folder_and_names_its_remote():
         clone = Path(directory) / "jeu"
         subprocess.run(["git", "init", "-q", str(clone)], check=True)
         subprocess.run(
-            ["git", "-C", str(clone), "remote", "add", "origin", "git@github.com:SalvadorCardona/jeu.git"],
+            [
+                "git",
+                "-C",
+                str(clone),
+                "remote",
+                "add",
+                "origin",
+                "git@github.com:SalvadorCardona/jeu.git",
+            ],
             check=True,
         )
         api = _creatable(board)
@@ -16941,15 +18227,22 @@ def a_project_the_console_cannot_create_is_refused_before_anything_is_written():
         said = _refused(lambda: create({"name": "PONOS", "kind": "document"}), "name")
         assert said == "Un projet s'appelle déjà « Ponos »."
         _refused(lambda: create({"name": "   ", "kind": "document"}), "name")
-        said = _refused(lambda: create({"name": "Neuf", "kind": "code", "repository": "gitlab.com/a/b"}), "repository")
+        said = _refused(
+            lambda: create({"name": "Neuf", "kind": "code", "repository": "gitlab.com/a/b"}),
+            "repository",
+        )
         assert "gitlab.com/a/b" in said and "GitHub" in said
         _refused(lambda: create({"name": "Neuf", "kind": "code"}), "repository")
         missing = f"{directory}/nowhere"
         said = _refused(lambda: create({"name": "Neuf", "kind": "code", "path": missing}), "path")
         assert said == f"Il n'y a pas de dossier à {missing} sur cette machine."
         _refused(lambda: create({"name": "Neuf", "kind": "code", "path": directory}), "path")
-        _refused(lambda: create({"name": "Neuf", "kind": "code", "path": "relative/folder"}), "path")
-        _refused(lambda: create({"name": "Neuf", "kind": "document", "site": "example.com"}), "site")
+        _refused(
+            lambda: create({"name": "Neuf", "kind": "code", "path": "relative/folder"}), "path"
+        )
+        _refused(
+            lambda: create({"name": "Neuf", "kind": "document", "site": "example.com"}), "site"
+        )
         assert [page.title for page in board.query("projects")] == ["Ponos"]
 
         # In English for a runner that speaks it.
@@ -16978,7 +18271,11 @@ def the_console_server_creates_a_project_and_says_which_field_it_refuses():
         console = web_server.Console(("127.0.0.1", 0), web_server.Handler, api, "tok")
         threading.Thread(target=console.serve_forever, daemon=True).start()
         base = f"http://127.0.0.1:{console.server_address[1]}"
-        headers = {"Authorization": "Bearer tok", "Content-Type": "application/json", "X-Ponos": "1"}
+        headers = {
+            "Authorization": "Bearer tok",
+            "Content-Type": "application/json",
+            "X-Ponos": "1",
+        }
 
         def ask(path: str, body: dict | None = None) -> tuple[int, dict]:
             data = None if body is None else json.dumps(body).encode()
@@ -16995,7 +18292,9 @@ def the_console_server_creates_a_project_and_says_which_field_it_refuses():
             status, refused = ask("/api/projects", {"name": "neuf", "kind": "document"})
             assert status == 400
             assert refused["violations"] == [{"propertyPath": "name", "message": refused["error"]}]
-            status, checked = ask("/api/projects/check?" + urllib.parse.urlencode({"repository": "o/n"}))
+            status, checked = ask(
+                "/api/projects/check?" + urllib.parse.urlencode({"repository": "o/n"})
+            )
             assert status == 200 and checked["repository"] == "https://github.com/o/n", checked
         finally:
             console.shutdown()
@@ -17071,9 +18370,10 @@ def a_deleted_project_leaves_the_console_and_its_tickets_are_stopped_not_lost():
             ("Ailleurs", settings.state("ready")),
         ):
             assert store.read(board.page(tickets[title]), status) == expected, title
-        assert "supprimé" in board.comments(tickets["Prêt"])[-1].text or "deleted" in board.comments(
-            tickets["Prêt"]
-        )[-1].text
+        assert (
+            "supprimé" in board.comments(tickets["Prêt"])[-1].text
+            or "deleted" in board.comments(tickets["Prêt"])[-1].text
+        )
         assert not board.comments(tickets["Ailleurs"])
         # The page is put aside, not deleted: it is still on the disk.
         assert list((board.root / "trash" / "projects").glob("ponos-*.md"))
@@ -17106,7 +18406,9 @@ def a_project_with_a_session_running_is_not_deleted():
     with _board() as board, _state_home():
         api, code, tickets = _deletable(board)
         running = web_live.active
-        web_live.active = lambda *a, **k: [{"source": ticket_module.short_id(tickets["En cours"]), "log": "x"}]
+        web_live.active = lambda *a, **k: [
+            {"source": ticket_module.short_id(tickets["En cours"]), "log": "x"}
+        ]
         try:
             api.removal.delete(code, {"confirm": "ponos"})
         except RuntimeError as error:
@@ -17156,10 +18458,15 @@ def a_brief_is_saved_only_from_the_version_it_was_opened_at():
         assert opened["version"] == api.project(page)["version"]
 
         # The text goes there and back unchanged, whatever the editor spells it.
-        written = api.save_project(page, {"content": "# Voix\n\n* Écris en français.\n", "base": opened["version"]})
+        written = api.save_project(
+            page, {"content": "# Voix\n\n* Écris en français.\n", "base": opened["version"]}
+        )
         assert board.blocks_text(page) == "# Voix\n\n* Écris en français."
         assert written["version"] != opened["version"]
-        assert projects.Resolver(Path("/nowhere"), {}).brief(board, page) == "# Voix\n\n* Écris en français."
+        assert (
+            projects.Resolver(Path("/nowhere"), {}).brief(board, page)
+            == "# Voix\n\n* Écris en français."
+        )
 
         # Somebody else wrote while the editor was open: refused, and kept.
         board.replace_markdown(page, "Écrit ailleurs.")
@@ -17188,16 +18495,37 @@ def a_brief_that_markdown_cannot_hold_is_not_rewritten_unannounced():
     from ponos import markdown
 
     def text(content, **notes):
-        part = {"type": "text", "plain_text": content, "href": notes.pop("href", None), "annotations": notes}
+        part = {
+            "type": "text",
+            "plain_text": content,
+            "href": notes.pop("href", None),
+            "annotations": notes,
+        }
         return {"rich_text": [part]}
 
     assert markdown.lost({"type": "paragraph", "paragraph": text("Rien à perdre.")}) == []
-    assert markdown.lost({"type": "heading_2", "heading_2": text("Titre", color="default", bold=False)}) == []
-    assert markdown.lost({"type": "paragraph", "paragraph": text("gras", bold=True)}) == ["formatting"]
-    assert markdown.lost({"type": "paragraph", "paragraph": text("lien", href="https://x.y")}) == ["link"]
-    assert markdown.lost({"type": "paragraph", "paragraph": {"rich_text": [{"type": "mention", "plain_text": "@Salva"}]}}) == ["mention"]
+    assert (
+        markdown.lost(
+            {"type": "heading_2", "heading_2": text("Titre", color="default", bold=False)}
+        )
+        == []
+    )
+    assert markdown.lost({"type": "paragraph", "paragraph": text("gras", bold=True)}) == [
+        "formatting"
+    ]
+    assert markdown.lost({"type": "paragraph", "paragraph": text("lien", href="https://x.y")}) == [
+        "link"
+    ]
+    assert markdown.lost(
+        {
+            "type": "paragraph",
+            "paragraph": {"rich_text": [{"type": "mention", "plain_text": "@Salva"}]},
+        }
+    ) == ["mention"]
     assert markdown.lost({"type": "toggle", "toggle": text("Plié")}) == ["toggle"]
-    assert markdown.lost({"type": "child_database", "child_database": {"title": "Notes"}}) == ["child_database"]
+    assert markdown.lost({"type": "child_database", "child_database": {"title": "Notes"}}) == [
+        "child_database"
+    ]
     # A row is lost with its table, which is said once.
     assert markdown.lost({"type": "table_row"}) == []
 
@@ -17212,15 +18540,30 @@ def a_brief_that_markdown_cannot_hold_is_not_rewritten_unannounced():
             {"id": "e", "type": "callout", "callout": text("Attention"), "has_children": True},
         ],
         "e": [{"id": "f", "type": "toggle", "toggle": text("Encore"), "has_children": True}],
-        "f": [{"id": "g", "type": "bookmark", "bookmark": {"url": "https://x.y"}, "has_children": True}],
+        "f": [
+            {
+                "id": "g",
+                "type": "bookmark",
+                "bookmark": {"url": "https://x.y"},
+                "has_children": True,
+            }
+        ],
         "g": [{"id": "h", "type": "image", "image": {}}],
     }
     client = notion.Client("ntn_x")
     client._request = lambda method, path, body=None: {  # type: ignore[method-assign]
-        "results": blocks.get(path.split("/")[2], []), "has_more": False
+        "results": blocks.get(path.split("/")[2], []),
+        "has_more": False,
     }
     found = client.losses("page")
-    assert found == {"toggle": 2, "child_database": 1, "formatting": 1, "callout": 1, "bookmark": 1, "nested": 1}, found
+    assert found == {
+        "toggle": 2,
+        "child_database": 1,
+        "formatting": 1,
+        "callout": 1,
+        "bookmark": 1,
+        "nested": 1,
+    }, found
 
     with _board() as board:
         page = board.create_row("projects", "ponos", {})
@@ -17293,9 +18636,13 @@ def a_ticket_created_from_the_console_carries_its_priority_type_and_model():
         choices = read["choices"]
         assert read["priority"] is True and "priority" not in choices
         assert [option["value"] for option in choices["model"]] == ["opus", "sonnet", "haiku"]
-        assert {option["value"]: option["label"] for option in choices["type"]}["writing"] == "Writing"
+        assert {option["value"]: option["label"] for option in choices["type"]}[
+            "writing"
+        ] == "Writing"
 
-        made = api.create_ticket("Écrire l'annonce", ready=False, priority=80, kind="writing", model="haiku")
+        made = api.create_ticket(
+            "Écrire l'annonce", ready=False, priority=80, kind="writing", model="haiku"
+        )
         page = board.page(made["id"])
         settings = api.config.notion
         assert store.read(page, settings.prop("priority")) == 80
@@ -17304,7 +18651,9 @@ def a_ticket_created_from_the_console_carries_its_priority_type_and_model():
         assert not store.read(page, settings.prop("status")), "not ready is a draft"
 
         bare = board.page(api.create_ticket("Sans rien")["id"])
-        assert not store.read(bare, settings.prop("type")), "an empty type is the runner's to deduce"
+        assert not store.read(bare, settings.prop("type")), (
+            "an empty type is the runner's to deduce"
+        )
         assert store.read(bare, settings.prop("priority")) == 50, "none said is the middle"
         for wrong in (101, -1, "vite"):
             try:
@@ -17351,9 +18700,15 @@ def _proposing(answers: list[list[dict]], cost: float = 0.02):
     def fake_run(text, **rest):
         asked.append({"prompt": text, **rest})
         return session.Outcome(
-            ok=True, blocked=False, session_id="s-ideas", summary="",
-            log=Path("/dev/null"), cost_usd=cost,
-            answer="Voici :\n```json\n" + json.dumps(answers[len(asked) - 1], ensure_ascii=False) + "\n```",
+            ok=True,
+            blocked=False,
+            session_id="s-ideas",
+            summary="",
+            log=Path("/dev/null"),
+            cost_usd=cost,
+            answer="Voici :\n```json\n"
+            + json.dumps(answers[len(asked) - 1], ensure_ascii=False)
+            + "\n```",
         )
 
     return fake_run, asked
@@ -17373,9 +18728,11 @@ def _idea(title: str, kind: str = "ticket", **more) -> dict:
 @case
 def an_idea_answer_is_read_whatever_wraps_it():
     """A fence, a sentence, a kind a project cannot have, a description too long."""
-    answer = 'Sure!\n```json\n[{"title": "  Mode   sombre ", "kind": "project",' \
-        ' "description": "un\\ndeux\\ntrois\\nquatre", "done": "ça marche"},' \
+    answer = (
+        'Sure!\n```json\n[{"title": "  Mode   sombre ", "kind": "project",'
+        ' "description": "un\\ndeux\\ntrois\\nquatre", "done": "ça marche"},'
         ' {"title": ""}, "rien"]\n```\nVoilà.'
+    )
     found = ideas.parse(answer, "project")
     assert [idea["title"] for idea in found] == ["Mode sombre"]
     assert found[0]["kind"] == "ticket", "a project's ideas are tickets, always"
@@ -17410,7 +18767,10 @@ def an_idea_is_sorted_into_one_category_or_left_unsorted():
         ]
     )
     assert [idea["category"] for idea in ideas.parse(answer, "project")] == [
-        "ux", "security", "", ""
+        "ux",
+        "security",
+        "",
+        "",
     ]
     with _state_home():
         _, stored = ideas.record("p", "haiku", None, ideas.parse(answer, "project"))
@@ -17453,9 +18813,14 @@ def an_idea_comes_with_a_score_bounded_by_the_grid_or_none_at_all():
         shown = [idea.shown() for idea in stored]
         assert [one["score"] for one in shown] == [85, 100, 0, 72, 70, None, None, None, None]
         assert shown[0]["score_reason"] == "Beaucoup d'impact." and shown[0]["tone"] == "green"
-        assert shown[-1]["tone"] == "" and shown[-1]["scoring"] is False, "not scored, and not being"
+        assert shown[-1]["tone"] == "" and shown[-1]["scoring"] is False, (
+            "not scored, and not being"
+        )
         assert [idea.title for idea in ideas.unscored("p")] == [
-            "Pas un nombre", "Un booléen", "Une liste", "Sans score"
+            "Pas un nombre",
+            "Un booléen",
+            "Une liste",
+            "Sans score",
         ]
         ideas.decide(stored[-1].id, "discarded")
         assert len(ideas.unscored("p")) == 3, "a thrown idea is not worth paying a score for"
@@ -17472,12 +18837,21 @@ def an_idea_comes_with_a_score_bounded_by_the_grid_or_none_at_all():
 def a_score_is_green_orange_or_red_by_the_same_two_thresholds_on_both_sides():
     """39 is red, 40 and 69 orange, 70 green — and the console reads the same numbers."""
     assert [ideas.tone(score) for score in (0, 39, 40, 69, 70, 100)] == [
-        "red", "red", "orange", "orange", "green", "green"
+        "red",
+        "red",
+        "orange",
+        "orange",
+        "green",
+        "green",
     ]
     assert ideas.tone(None) == ""
     search = (FRONTEND / "src/lib/idea-search.ts").read_text(encoding="utf-8")
-    assert f"export const GREEN = {ideas.GREEN}\n" in search, "the page and the server disagree on green"
-    assert f"export const ORANGE = {ideas.ORANGE}\n" in search, "the page and the server disagree on orange"
+    assert f"export const GREEN = {ideas.GREEN}\n" in search, (
+        "the page and the server disagree on green"
+    )
+    assert f"export const ORANGE = {ideas.ORANGE}\n" in search, (
+        "the page and the server disagree on orange"
+    )
 
 
 @case
@@ -17511,7 +18885,9 @@ def an_idea_written_by_hand_is_scored_behind_the_answer_that_saved_it():
         put_aside: list = []
         api.ideas.later = put_aside.append
         ideas.written(project, "Un mode sombre")
-        written = api.ideas.create({"project": project, "title": "Une carte des usines", "description": "Pour voir."})
+        written = api.ideas.create(
+            {"project": project, "title": "Une carte des usines", "description": "Pour voir."}
+        )
         assert written["score"] is None and written["scoring"] is True, "the pill says …"
         assert len(put_aside) == 1, "scored behind the answer, not before it"
 
@@ -17520,9 +18896,15 @@ def an_idea_written_by_hand_is_scored_behind_the_answer_that_saved_it():
         def fake_run(text, **rest):
             asked.append({"prompt": text, **rest})
             return session.Outcome(
-                ok=True, blocked=False, session_id="s-score", summary="", log=Path("/dev/null"),
+                ok=True,
+                blocked=False,
+                session_id="s-score",
+                summary="",
+                log=Path("/dev/null"),
                 cost_usd=0.001,
-                answer=json.dumps([{"id": written["id"], "score": 82, "score_reason": "Utile et petit."}]),
+                answer=json.dumps(
+                    [{"id": written["id"], "score": 82, "score_reason": "Utile et petit."}]
+                ),
             )
 
         original, session.run = session.run, fake_run
@@ -17542,8 +18924,16 @@ def an_idea_written_by_hand_is_scored_behind_the_answer_that_saved_it():
 
         mcp_one = api.ideas.write(project, "ticket", "Un tutoriel")
         assert mcp_one["scoring"] is True, "an idea an MCP client wrote is scored the same way"
-        original, session.run = session.run, lambda text, **rest: session.Outcome(
-            ok=True, blocked=False, session_id="s", summary="", log=Path("/dev/null"), answer="Je ne sais pas."
+        original, session.run = (
+            session.run,
+            lambda text, **rest: session.Outcome(
+                ok=True,
+                blocked=False,
+                session_id="s",
+                summary="",
+                log=Path("/dev/null"),
+                answer="Je ne sais pas.",
+            ),
         )
         try:
             put_aside.pop()()
@@ -17566,14 +18956,19 @@ def a_scoring_that_fails_says_why_on_the_idea_instead_of_staying_silent():
         api.hub.publish = lambda topic, **rest: published.append((topic, rest))
         first = ideas.written(project, "Une carte des usines")
         second = ideas.written(project, "Un tutoriel")
-        assert ideas.SCORE_CEILING_USD >= 0.5, "a call costs 0.12 to 0.14 dollars: 0.10 stopped every one"
+        assert ideas.SCORE_CEILING_USD >= 0.5, (
+            "a call costs 0.12 to 0.14 dollars: 0.10 stopped every one"
+        )
 
         def outcome(**rest):
             return session.Outcome(
                 ok=False, blocked=True, session_id="s", summary="", log=Path("/dev/null"), **rest
             )
 
-        original, session.run = session.run, lambda text, **rest: outcome(over_budget=True, cost_usd=0.1356)
+        original, session.run = (
+            session.run,
+            lambda text, **rest: outcome(over_budget=True, cost_usd=0.1356),
+        )
         try:
             api.ideas.score_unscored(project)
             put_aside.pop()()
@@ -17584,15 +18979,26 @@ def a_scoring_that_fails_says_why_on_the_idea_instead_of_staying_silent():
         assert "may spend" in shown["score_error"], shown["score_error"]
         assert ("ideas", {"project": project, "failed": shown["score_error"]}) in published
 
-        original, session.run = session.run, lambda text, **rest: outcome(error="credit balance too low")
+        original, session.run = (
+            session.run,
+            lambda text, **rest: outcome(error="credit balance too low"),
+        )
         try:
             api.ideas.score([second.id])
         finally:
             session.run = original
         assert ideas.get(second.id).shown()["score_error"] == "credit balance too low"
 
-        original, session.run = session.run, lambda text, **rest: session.Outcome(
-            ok=True, blocked=False, session_id="s", summary="", log=Path("/dev/null"), answer="Je ne sais pas."
+        original, session.run = (
+            session.run,
+            lambda text, **rest: session.Outcome(
+                ok=True,
+                blocked=False,
+                session_id="s",
+                summary="",
+                log=Path("/dev/null"),
+                answer="Je ne sais pas.",
+            ),
         )
         try:
             api.ideas.score([second.id])
@@ -17608,11 +19014,20 @@ def a_scoring_that_fails_says_why_on_the_idea_instead_of_staying_silent():
             api.ideas.score([second.id])
         finally:
             session.run = original
-        assert "no claude" in ideas.get(second.id).shown()["score_error"], "an exception is kept, not swallowed"
+        assert "no claude" in ideas.get(second.id).shown()["score_error"], (
+            "an exception is kept, not swallowed"
+        )
 
-        original, session.run = session.run, lambda text, **rest: session.Outcome(
-            ok=True, blocked=False, session_id="s", summary="", log=Path("/dev/null"),
-            answer=json.dumps([{"id": second.id, "score": 60, "score_reason": "Bien."}]),
+        original, session.run = (
+            session.run,
+            lambda text, **rest: session.Outcome(
+                ok=True,
+                blocked=False,
+                session_id="s",
+                summary="",
+                log=Path("/dev/null"),
+                answer=json.dumps([{"id": second.id, "score": 60, "score_reason": "Bien."}]),
+            ),
         )
         try:
             api.ideas.score([second.id])
@@ -17627,15 +19042,27 @@ def a_scoring_that_fails_says_why_on_the_idea_instead_of_staying_silent():
 def a_scoring_prompt_of_the_real_size_fits_under_the_ceiling_and_a_huge_one_is_not_started():
     """The estimate is checked before the session starts: a call that would be stopped is not paid for."""
     big = [
-        ideas.Idea(id=n, batch=None, scope="global", project="", kind="ticket",
-                   title=f"Idée {n} " + "x" * 80, description="d" * 600)
+        ideas.Idea(
+            id=n,
+            batch=None,
+            scope="global",
+            project="",
+            kind="ticket",
+            title=f"Idée {n} " + "x" * 80,
+            description="d" * 600,
+        )
         for n in range(ideas.SCORE_BATCH)
     ]
     prompt = ideas.score_prompt(
-        big, brief="b" * 10000, context="c" * 10000,
-        tickets=[("t" * 90, "ready")] * 100, known=["k" * 90] * 400,
+        big,
+        brief="b" * 10000,
+        context="c" * 10000,
+        tickets=[("t" * 90, "ready")] * 100,
+        known=["k" * 90] * 400,
     )
-    assert ideas.score_estimate(prompt) < ideas.SCORE_CEILING_USD, "even at its limits, a prompt is under the ceiling"
+    assert ideas.score_estimate(prompt) < ideas.SCORE_CEILING_USD, (
+        "even at its limits, a prompt is under the ceiling"
+    )
     assert ideas.score_estimate("x" * 400000) > ideas.SCORE_CEILING_USD
 
 
@@ -17649,8 +19076,13 @@ def the_ideas_with_no_score_are_scored_in_batches_under_a_ceiling_said_first():
             ideas.written(project, f"Idée du projet {number}")
         ideas.written("", "Idée de l'espace")
         told = api.ideas.unscored(None)
-        assert (told["count"], told["calls"]) == (26, 3), "two calls for the project, one for the workspace"
-        assert told["ceiling_usd"] == round(3 * ideas.SCORE_CEILING_USD, 2) and told["model"] == "haiku"
+        assert (told["count"], told["calls"]) == (26, 3), (
+            "two calls for the project, one for the workspace"
+        )
+        assert (
+            told["ceiling_usd"] == round(3 * ideas.SCORE_CEILING_USD, 2)
+            and told["model"] == "haiku"
+        )
         assert api.ideas.unscored("")["count"] == 1
 
         put_aside: list = []
@@ -17670,8 +19102,17 @@ def the_ideas_with_no_score_are_scored_in_batches_under_a_ceiling_said_first():
             numbers = [int(found) for found in re.findall(r"^(\d+)\. ", text, re.M)]
             sizes.append(len(numbers))
             return session.Outcome(
-                ok=True, blocked=False, session_id="s", summary="", log=Path("/dev/null"),
-                answer=json.dumps([{"id": number, "score": 30 + number, "score_reason": "."} for number in numbers]),
+                ok=True,
+                blocked=False,
+                session_id="s",
+                summary="",
+                log=Path("/dev/null"),
+                answer=json.dumps(
+                    [
+                        {"id": number, "score": 30 + number, "score_reason": "."}
+                        for number in numbers
+                    ]
+                ),
             )
 
         original, session.run = session.run, fake_run
@@ -17681,7 +19122,11 @@ def the_ideas_with_no_score_are_scored_in_batches_under_a_ceiling_said_first():
             session.run = original
         assert sorted(sizes) == [1, 5, 20], sizes
         assert api.ideas.unscored(None) == {
-            "count": 0, "calls": 0, "ceiling_usd": 0, "model": "haiku", "running": False
+            "count": 0,
+            "calls": 0,
+            "ceiling_usd": 0,
+            "model": "haiku",
+            "running": False,
         }
         assert all(idea.score is not None for idea in ideas.every(None))
 
@@ -17704,9 +19149,10 @@ def ideas_for_a_project_are_found_in_one_call_and_never_proposed_twice():
         api = _ideas_api(board)
         api._config.projects["Usine"] = str(clone)
 
-        first = [_idea(f"Idée numéro {word}") for word in (
-            "un", "deux", "trois", "quatre", "cinq", "six", "sept", "huit", "neuf"
-        )] + [_idea("Ajouter le tutoriel")]
+        first = [
+            _idea(f"Idée numéro {word}")
+            for word in ("un", "deux", "trois", "quatre", "cinq", "six", "sept", "huit", "neuf")
+        ] + [_idea("Ajouter le tutoriel")]
         again = [_idea("Idée numéro un !"), _idea("Une sauvegarde dans le cloud")]
         fake_run, asked = _proposing([first, again])
         original, session.run = session.run, fake_run
@@ -17740,7 +19186,9 @@ def ideas_for_a_project_are_found_in_one_call_and_never_proposed_twice():
         assert ideas.get(thrown["id"]).status == "discarded"
         assert thrown["id"] not in [idea["id"] for idea in api.ideas.proposed(project)["ideas"]]
         history = api.ideas.proposed(project)["decided"]
-        assert [idea["id"] for idea in history] == [thrown["id"]], "the history holds what was decided"
+        assert [idea["id"] for idea in history] == [thrown["id"]], (
+            "the history holds what was decided"
+        )
         assert history[0]["status"] == "discarded"
 
         with db.transaction(immediate=False) as connection:
@@ -17762,11 +19210,19 @@ def an_idea_turned_into_a_ticket_is_a_draft_and_a_project_idea_a_project():
         project = board.create_row("projects", "Usine", {})
         api = _ideas_api(board)
         api._config.runner.ideas_model = "sonnet"
-        fake_run, asked = _proposing([
-            [_idea("Un mode sombre", where="Les feuilles de style", done=["Le thème bascule"])],
-            [_idea("Un site pour le club", "project", description="Les horaires.\nLes inscriptions."),
-             _idea("Un journal des coûts", "ticket")],
-        ])
+        fake_run, asked = _proposing(
+            [
+                [_idea("Un mode sombre", where="Les feuilles de style", done=["Le thème bascule"])],
+                [
+                    _idea(
+                        "Un site pour le club",
+                        "project",
+                        description="Les horaires.\nLes inscriptions.",
+                    ),
+                    _idea("Un journal des coûts", "ticket"),
+                ],
+            ]
+        )
         original, session.run = session.run, fake_run
         try:
             mine = api.ideas.generate(project)["ideas"][0]
@@ -17829,7 +19285,9 @@ def an_idea_is_kept_thrown_reopened_and_nothing_is_ever_deleted():
     with _state_home(), _board() as board:
         project = board.create_row("projects", "Usine", {})
         api = _ideas_api(board)
-        fake_run, _ = _proposing([[_idea("Un mode sombre"), _idea("Un export CSV"), _idea("Un tutoriel")]])
+        fake_run, _ = _proposing(
+            [[_idea("Un mode sombre"), _idea("Un export CSV"), _idea("Un tutoriel")]]
+        )
         original, session.run = session.run, fake_run
         try:
             dark, export, tutorial = api.ideas.generate(project)["ideas"]
@@ -17865,7 +19323,10 @@ def an_idea_is_kept_thrown_reopened_and_nothing_is_ever_deleted():
         assert back["changed_at"] >= made["changed_at"] and back["decided_at"] is None
         assert api.ideas.discard(tutorial["id"])["status"] == "discarded"
         assert api.ideas.every(project)["counts"]["discarded"] == 2
-        assert [idea.title for idea in ideas.listed(project, ("discarded",))] == ["Un export CSV", "Un tutoriel"]
+        assert [idea.title for idea in ideas.listed(project, ("discarded",))] == [
+            "Un export CSV",
+            "Un tutoriel",
+        ]
 
 
 @case
@@ -17877,12 +19338,22 @@ def an_idea_written_by_hand_is_signed_and_never_proposed_again():
         api = _ideas_api(board)
         api.ideas._person = ("Salva", "https://example.com/salva.png")
         written = api.ideas.create(
-            {"project": project, "title": "  Une carte  des usines ", "description": "Pour voir.\n\nOù."}
+            {
+                "project": project,
+                "title": "  Une carte  des usines ",
+                "description": "Pour voir.\n\nOù.",
+            }
         )
         assert written["origin"] == "manual" and written["status"] == "proposed"
         assert written["title"] == "Une carte des usines"
-        assert written["description"] == "Pour voir.\n\nOù.", "a hand-written paragraph keeps its lines"
-        assert written["author"] == {"kind": "human", "name": "Salva", "avatar": "https://example.com/salva.png"}
+        assert written["description"] == "Pour voir.\n\nOù.", (
+            "a hand-written paragraph keeps its lines"
+        )
+        assert written["author"] == {
+            "kind": "human",
+            "name": "Salva",
+            "avatar": "https://example.com/salva.png",
+        }
         assert written["edited"] is None and written["kind"] == "ticket"
         assert written["project"] == project.replace("-", "")
         for wrong in ({"project": project, "title": "  "}, {"project": "f" * 32, "title": "Rien"}):
@@ -17902,14 +19373,17 @@ def an_idea_written_by_hand_is_signed_and_never_proposed_again():
             found = api.ideas.generate(project)
         finally:
             session.run = original
-        assert "Une carte des usines" in asked[0]["prompt"], "a hand-written idea is named to the model"
+        assert "Une carte des usines" in asked[0]["prompt"], (
+            "a hand-written idea is named to the model"
+        )
         assert found["dropped"] == ["Une carte des usines !"]
         ponos = found["ideas"][0]
         assert ponos["origin"] == "ponos" and ponos["author"]["kind"] == "ponos"
 
         api.ideas._person = ("Quelqu'un", "")
         edited = api.ideas.edit(
-            ponos["id"], {"title": "Un mode sombre, partout", "description": "Oui.", "category": "ux"}
+            ponos["id"],
+            {"title": "Un mode sombre, partout", "description": "Oui.", "category": "ux"},
         )
         assert edited["title"] == "Un mode sombre, partout" and edited["author"]["kind"] == "ponos"
         assert edited["category"] == "ux"
@@ -17972,7 +19446,9 @@ def the_console_writes_a_schedule_without_touching_what_a_pass_writes_back():
         typed = schedules.read(board.page(created["id"]), board.settings())
         assert (typed.kind, typed.subtype) == ("Code", "Bug"), (typed.kind, typed.subtype)
         listed = api.schedules()
-        assert listed["schedules"][0]["type"] == "code" and listed["schedules"][0]["subtype"] == "bug"
+        assert (
+            listed["schedules"][0]["type"] == "code" and listed["schedules"][0]["subtype"] == "bug"
+        )
         assert [choice["value"] for choice in listed["choices"]["type"]] == list(kinds.KINDS)
         api.save_schedule(created["id"], {"type": ""})
         assert schedules.read(board.page(created["id"]), board.settings()).kind == ""
@@ -18076,7 +19552,10 @@ def an_image_in_a_brief_is_named_for_the_session_and_drawn_by_the_console():
     }
     line = markdown.plain(image)
     assert "amazonaws" not in line and "?" not in line, line
-    assert line == f"[image attached to the ticket: Prix négatif affiché au client (Notion block {block_id.replace('-', '')})]"
+    assert (
+        line
+        == f"[image attached to the ticket: Prix négatif affiché au client (Notion block {block_id.replace('-', '')})]"
+    )
     read = markdown.ATTACHED.match(line)
     assert read and read["kind"] == "image" and read["block"] == block_id.replace("-", "")
     assert read["label"] == "Prix négatif affiché au client"
@@ -18111,7 +19590,9 @@ def an_image_in_a_brief_is_named_for_the_session_and_drawn_by_the_console():
     try:
 
         def get(path: str) -> tuple[int, str]:
-            connection = http.client.HTTPConnection("127.0.0.1", console.server_address[1], timeout=5)
+            connection = http.client.HTTPConnection(
+                "127.0.0.1", console.server_address[1], timeout=5
+            )
             connection.request("GET", path, headers={"Authorization": "Bearer tok"})
             response = connection.getresponse()
             response.read()
@@ -18146,8 +19627,12 @@ def the_live_report_writes_its_steps_into_the_file():
     with _board() as board:
         page_id = board.create_row("tickets", "Un ticket", {"Status": "Ready"})
         live = progress.Live(
-            board, page_id, database="tickets", property_name="Progress",
-            interval=0, words=voice.Voice(""),
+            board,
+            page_id,
+            database="tickets",
+            property_name="Progress",
+            interval=0,
+            words=voice.Voice(""),
         )
         live.add(progress.Step("Read", "src/x.py"))
         live.flush()
@@ -18180,7 +19665,9 @@ def _project_page(
 ) -> notion.Page:
     """A project page as Notion hands one over: the pictures are beside the columns."""
     return notion.Page(
-        id=page_id, url="", title="Opoil",
+        id=page_id,
+        url="",
+        title="Opoil",
         raw={"id": page_id, "cover": cover, "icon": icon, "last_edited_time": edited},
     )
 
@@ -18204,7 +19691,10 @@ class _Pictures:
         self.answer = fetched
         self.directory = Path(tempfile.mkdtemp())
         self.cache = images.Cache(
-            self.directory, fetch=self._fetch, clock=lambda: self.now, database=self.directory / "ponos.db"
+            self.directory,
+            fetch=self._fetch,
+            clock=lambda: self.now,
+            database=self.directory / "ponos.db",
         )
 
     def _fetch(self, url: str) -> tuple[bytes, str]:
@@ -18400,7 +19890,9 @@ def when_both_sides_changed_the_picture_the_newest_wins_and_says_so():
     last edit. Whichever lost is gone — but not silently: the entry says which
     side won, and the console shows it.
     """
-    before = _project_page(cover=_notion_file("w/f/old.png", "a"), edited="2026-09-30T08:00:00.000Z")
+    before = _project_page(
+        cover=_notion_file("w/f/old.png", "a"), edited="2026-09-30T08:00:00.000Z"
+    )
 
     def refuse(slot: str, picture: store.Picture) -> notion.Page:
         raise notion.NotionError("urlopen error [Errno -3] Temporary failure in name resolution")
@@ -18408,8 +19900,12 @@ def when_both_sides_changed_the_picture_the_newest_wins_and_says_so():
     # Chosen here at 08:05, changed in Notion at 08:30: Notion's is the newer.
     with _pictures() as pictures:
         pictures.cache.observe(before, _never)
-        pictures.cache.change(before.id, "cover", store.Picture(url="https://example.org/a.jpg"), refuse)
-        theirs = _project_page(cover=_notion_file("w/f/theirs.png", "b"), edited="2026-09-30T08:30:00.000Z")
+        pictures.cache.change(
+            before.id, "cover", store.Picture(url="https://example.org/a.jpg"), refuse
+        )
+        theirs = _project_page(
+            cover=_notion_file("w/f/theirs.png", "b"), edited="2026-09-30T08:30:00.000Z"
+        )
         pictures.cache.observe(theirs, _never)
         shown = pictures.cache.shown(before.id, "cover")
         assert shown["conflict"] == "notion" and "pending" not in shown, shown
@@ -18418,8 +19914,12 @@ def when_both_sides_changed_the_picture_the_newest_wins_and_says_so():
     # Changed in Notion at 08:02, chosen here at 08:05: the console's is the newer.
     with _pictures() as pictures:
         pictures.cache.observe(before, _never)
-        pictures.cache.change(before.id, "cover", store.Picture(url="https://example.org/a.jpg"), refuse)
-        theirs = _project_page(cover=_notion_file("w/f/theirs.png", "b"), edited="2026-09-30T08:02:00.000Z")
+        pictures.cache.change(
+            before.id, "cover", store.Picture(url="https://example.org/a.jpg"), refuse
+        )
+        theirs = _project_page(
+            cover=_notion_file("w/f/theirs.png", "b"), edited="2026-09-30T08:02:00.000Z"
+        )
         sent: list[store.Picture] = []
 
         def accept(slot: str, picture: store.Picture) -> notion.Page:
@@ -18450,7 +19950,9 @@ def the_notion_client_uploads_a_picture_then_sets_it_on_the_page():
         return {"status": "uploaded"}
 
     client._request = request  # type: ignore[method-assign]
-    page = client.set_picture("b" * 32, "cover", store.Picture(data=PNG, type="image/png", name="opoil.png"))
+    page = client.set_picture(
+        "b" * 32, "cover", store.Picture(data=PNG, type="image/png", name="opoil.png")
+    )
     assert [call[:2] for call in calls] == [
         ("POST", "/file_uploads"),
         ("POST", "/file_uploads/upload-1/send"),
@@ -18554,7 +20056,9 @@ class _Minutes:
 
     def add(self, page_id: str, title: str, status: str) -> None:
         self.pages[page_id] = store.Page(
-            id=page_id, url="", title=title,
+            id=page_id,
+            url="",
+            title=title,
             properties={"Status": store.written("select", status)},
             raw={"last_edited_time": self.minute()},
         )
@@ -18563,7 +20067,9 @@ class _Minutes:
         """Somebody drags a card in Notion."""
         page = self.pages[page_id]
         self.pages[page_id] = store.Page(
-            id=page.id, url="", title=page.title,
+            id=page.id,
+            url="",
+            title=page.title,
             properties={**page.properties, "Status": store.written("select", status)},
             raw={"last_edited_time": self.minute()},
         )
@@ -18575,8 +20081,10 @@ class _Minutes:
         if since:
             floor = datetime.fromisoformat(since)
             pages = [
-                page for page in pages
-                if datetime.fromisoformat(page.raw["last_edited_time"].replace("Z", "+00:00")) >= floor
+                page
+                for page in pages
+                if datetime.fromisoformat(page.raw["last_edited_time"].replace("Z", "+00:00"))
+                >= floor
             ]
         return pages
 
@@ -18673,7 +20181,11 @@ def a_board_of_more_than_a_hundred_tickets_is_read_to_its_last_page():
             for index in range(start, min(start + 100, 250))
         ]
         more = start + 100 < 250
-        return {"results": results, "has_more": more, "next_cursor": str(start + 100) if more else None}
+        return {
+            "results": results,
+            "has_more": more,
+            "next_cursor": str(start + 100) if more else None,
+        }
 
     client._request = answer  # type: ignore[method-assign]
     pages = client.query("db")
@@ -18687,7 +20199,9 @@ def a_move_the_network_lost_is_sent_again_until_notion_has_it():
     """Never lost in silence: pending on the card, then there, or said failed."""
     fake, said = _Minutes(), []
     now = [fake.now.timestamp()]
-    outbox = web_board.Outbox(clock=lambda: now[0], journal=lambda report: said.extend(report.entries))
+    outbox = web_board.Outbox(
+        clock=lambda: now[0], journal=lambda report: said.extend(report.entries)
+    )
     failures = [store.StoreError("PATCH /pages/x: <urlopen error timed out>")] * 2
 
     def send(write):
@@ -18719,7 +20233,9 @@ def a_move_the_network_lost_is_sent_again_until_notion_has_it():
 @case
 def a_move_notion_refuses_for_good_is_said_on_the_card_and_tried_again_on_demand():
     fake, said = _Minutes(), []
-    outbox = web_board.Outbox(clock=lambda: fake.now.timestamp(), journal=lambda r: said.extend(r.entries))
+    outbox = web_board.Outbox(
+        clock=lambda: fake.now.timestamp(), journal=lambda r: said.extend(r.entries)
+    )
 
     def refused(write):
         raise store.StoreError("PATCH /pages/x: 400 blocked is not an option of Status")
@@ -18742,9 +20258,15 @@ def a_move_notion_refuses_for_good_is_said_on_the_card_and_tried_again_on_demand
 def a_move_over_a_status_changed_in_notion_meanwhile_is_not_written():
     """The console showed done; somebody moved it to review in Notion since."""
     fake, said = _Minutes(), []
-    outbox = web_board.Outbox(clock=lambda: fake.now.timestamp(), journal=lambda r: said.extend(r.entries))
+    outbox = web_board.Outbox(
+        clock=lambda: fake.now.timestamp(), journal=lambda r: said.extend(r.entries)
+    )
     fake.move("1".zfill(32), "review")
-    outbox.put(web_board.Write(page="1".zfill(32), column="blocked", status="blocked", seen="done", title="ticket 1"))
+    outbox.put(
+        web_board.Write(
+            page="1".zfill(32), column="blocked", status="blocked", seen="done", title="ticket 1"
+        )
+    )
     outbox.flush(lambda write: web_board.send(fake, "db", "Status", write), lambda: None)
     assert fake.patched == [], "Notion's review was not written over"
     mark = outbox.marks()["1".zfill(32)]
@@ -18763,7 +20285,12 @@ def a_write_is_confirmed_by_reading_the_page_back():
     fake = _Minutes()
     fake.update = lambda database, page_id, values: fake.patched.append((page_id, values))  # type: ignore[method-assign]
     try:
-        web_board.send(fake, "db", "Status", web_board.Write(page="1".zfill(32), column="blocked", status="blocked", seen="done"))
+        web_board.send(
+            fake,
+            "db",
+            "Status",
+            web_board.Write(page="1".zfill(32), column="blocked", status="blocked", seen="done"),
+        )
     except store.StoreError as error:
         assert "still says done" in str(error)
     else:
@@ -18777,7 +20304,12 @@ def a_confirmed_move_is_not_undone_by_a_query_that_has_not_caught_up():
     reader = _reader(fake, said)
     reader.read(fake, "db", "Status")
     stale = fake.pages["1".zfill(32)]
-    confirmed = web_board.send(fake, "db", "Status", web_board.Write(page="1".zfill(32), column="blocked", status="blocked", seen="done"))
+    confirmed = web_board.send(
+        fake,
+        "db",
+        "Status",
+        web_board.Write(page="1".zfill(32), column="blocked", status="blocked", seen="done"),
+    )
     reader.hold(confirmed)
     fake.stale["1".zfill(32)] = stale
     fake.now = fake.now + timedelta(seconds=3)
@@ -18792,10 +20324,14 @@ def reading_the_board_never_writes_to_it():
     """No loop: a move is written once, however many reads and flushes follow."""
     fake, said = _Minutes(), []
     reader = _reader(fake, said)
-    outbox = web_board.Outbox(clock=lambda: fake.now.timestamp(), journal=lambda r: said.extend(r.entries))
+    outbox = web_board.Outbox(
+        clock=lambda: fake.now.timestamp(), journal=lambda r: said.extend(r.entries)
+    )
     outbox.put(web_board.Write(page="1".zfill(32), column="blocked", status="blocked", seen="done"))
     for _ in range(5):
-        outbox.flush(lambda write: reader.hold(web_board.send(fake, "db", "Status", write)), lambda: None)
+        outbox.flush(
+            lambda write: reader.hold(web_board.send(fake, "db", "Status", write)), lambda: None
+        )
         reader.read(fake, "db", "Status")
         fake.now = fake.now + timedelta(seconds=20)
     fake.now = fake.now + timedelta(seconds=web_board.RECONCILE)
@@ -18803,7 +20339,9 @@ def reading_the_board_never_writes_to_it():
     assert len(fake.patched) == 1, fake.patched
 
     # A move to where the page already is goes out as no write at all.
-    outbox.put(web_board.Write(page="1".zfill(32), column="blocked", status="blocked", seen="blocked"))
+    outbox.put(
+        web_board.Write(page="1".zfill(32), column="blocked", status="blocked", seen="blocked")
+    )
     outbox.flush(lambda write: web_board.send(fake, "db", "Status", write), lambda: None)
     assert len(fake.patched) == 1 and outbox.marks() == {}
 
@@ -18813,7 +20351,9 @@ def a_move_waiting_to_be_sent_survives_a_console_restart():
     directory = Path(tempfile.mkdtemp())
     try:
         first = web_board.Outbox(directory / "outbox.json")
-        first.put(web_board.Write(page="1".zfill(32), column="blocked", status="blocked", seen="done"))
+        first.put(
+            web_board.Write(page="1".zfill(32), column="blocked", status="blocked", seen="done")
+        )
         again = web_board.Outbox(directory / "outbox.json")
         assert again.marks()["1".zfill(32)].status == "blocked"
     finally:
@@ -18862,8 +20402,12 @@ def a_run_does_not_write_its_verdict_over_a_status_moved_by_hand():
         ticket = ticket_module.Ticket(page)
         moved = _reviewed("a" * 32, "Done", None)
         runner.client.page = lambda page_id: moved  # type: ignore[method-assign]
-        runner._set(ticket, **{"Status": "In review", "Pull Request": "https://github.com/o/r/pull/1"})
-        assert runner.client.written == [("a" * 32, {"Pull Request": "https://github.com/o/r/pull/1"})]
+        runner._set(
+            ticket, **{"Status": "In review", "Pull Request": "https://github.com/o/r/pull/1"}
+        )
+        assert runner.client.written == [
+            ("a" * 32, {"Pull Request": "https://github.com/o/r/pull/1"})
+        ]
         entries = sync.journal()
         assert [entry["what"] for entry in entries] == ["conflict"], entries
         assert "Done" in entries[0]["detail"] and "In review" in entries[0]["detail"]
@@ -18897,7 +20441,9 @@ def a_notion_page_edited_twice_in_one_minute_reaches_the_files_both_times():
         minute = (datetime.now(UTC) + timedelta(days=1)).replace(second=0, microsecond=0)
         at = minute.isoformat().replace("+00:00", ".000Z")
         here.update("tickets", page_id, {"Status": "Blocked"}, at=at)
-        assert [entry.what for entry in both.synchronise(_settings(), stamps=marks).carried] == ["notion→markdown"]
+        assert [entry.what for entry in both.synchronise(_settings(), stamps=marks).carried] == [
+            "notion→markdown"
+        ]
         here.update("tickets", page_id, {"Status": "Done"}, at=at)
         again = both.synchronise(_settings(), stamps=marks)
         assert [entry.what for entry in again.carried] == ["notion→markdown"], again.entries
@@ -18913,7 +20459,11 @@ def a_blocked_ticket_on_a_board_where_failed_is_blocked_too_is_drawn_in_blocked(
     went to the second, which was never drawn.
     """
     api = _bare_api(_ColumnsClient(["blocked", "blocked", "Done"]))
-    api._config.notion.status = {**api._config.notion.status, "blocked": "blocked", "failed": "blocked"}
+    api._config.notion.status = {
+        **api._config.notion.status,
+        "blocked": "blocked",
+        "failed": "blocked",
+    }
     api._runner._workspace = type("W", (), {"projects": "", "tickets": "db"})()
     api._schema_at = time.time()
     api._reader = web_board.Reader(journal=lambda report: None)
@@ -18922,7 +20472,6 @@ def a_blocked_ticket_on_a_board_where_failed_is_blocked_too_is_drawn_in_blocked(
     assert "blocked" in drawn and "failed" not in drawn, drawn
     assert [item["column"] for item in board["tickets"]][:2] == ["blocked", "blocked"]
     assert all(item["column"] in drawn for item in board["tickets"]), "no card off the board"
-
 
 
 # -- the rename: an installation from before Ponos was called Ponos -----------
@@ -18942,15 +20491,28 @@ def an_installation_from_before_the_rename_starts_with_everything_it_had():
     )
     (old_state / "board").mkdir(parents=True)
     (old_state / "history.jsonl").write_text(
-        json.dumps({"at": "2026-09-30T10:00:00+00:00", "status": "done", "ticket": "Fix the footer"}) + "\n"
+        json.dumps(
+            {"at": "2026-09-30T10:00:00+00:00", "status": "done", "ticket": "Fix the footer"}
+        )
+        + "\n"
     )
     repository = home / "workspace" / "app"
     repository.mkdir(parents=True)
+
     def git(*argv: str, cwd: Path = repository) -> str:
         return subprocess.run(
-            ["git", *argv], cwd=cwd, capture_output=True, text=True, check=True,
-            env={**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
-                 "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"},
+            ["git", *argv],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            check=True,
+            env={
+                **os.environ,
+                "GIT_AUTHOR_NAME": "t",
+                "GIT_AUTHOR_EMAIL": "t@t",
+                "GIT_COMMITTER_NAME": "t",
+                "GIT_COMMITTER_EMAIL": "t@t",
+            },
         ).stdout
 
     git("init", "-q")
@@ -18961,15 +20523,26 @@ def an_installation_from_before_the_rename_starts_with_everything_it_had():
     (home / ".claude" / "projects" / slug).mkdir(parents=True)
     (home / ".claude" / "projects" / slug / "s1.jsonl").write_text("{}\n")
 
-    environment = {key: value for key, value in os.environ.items()
-                   if not key.startswith(("XDG_", "PONOS_", legacy.OLD_PREFIX))}
+    environment = {
+        key: value
+        for key, value in os.environ.items()
+        if not key.startswith(("XDG_", "PONOS_", legacy.OLD_PREFIX))
+    }
     # Said explicitly, where the installation finds it by itself: launched
     # from this checkout, Ponos would not write a state it was not given.
-    environment.update(HOME=str(home), PYTHONPATH=str(ROOT / "src"),
-                       XDG_STATE_HOME=str(home / ".local" / "state"),
-                       **{legacy.OLD_PREFIX + "WEB_EMAIL": "me@example.com"})
-    done = subprocess.run([sys.executable, "-m", "ponos", "history"], env=environment,
-                          capture_output=True, text=True, timeout=60)
+    environment.update(
+        HOME=str(home),
+        PYTHONPATH=str(ROOT / "src"),
+        XDG_STATE_HOME=str(home / ".local" / "state"),
+        **{legacy.OLD_PREFIX + "WEB_EMAIL": "me@example.com"},
+    )
+    done = subprocess.run(
+        [sys.executable, "-m", "ponos", "history"],
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
     assert done.returncode == 0, done.stderr
     assert "Fix the footer" in done.stdout, "the history came along"
     assert "PONOS_WEB_EMAIL" in done.stderr, "the old variable is read, and said to be renamed"
@@ -18985,10 +20558,14 @@ def an_installation_from_before_the_rename_starts_with_everything_it_had():
     assert str(moved) in git("worktree", "list"), "the repository knows where its worktree went"
     assert (home / ".claude" / "projects" / session.project_key(moved) / "s1.jsonl").is_file()
 
-    again = subprocess.run([sys.executable, "-m", "ponos", "history"], env=environment,
-                           capture_output=True, text=True, timeout=60)
+    again = subprocess.run(
+        [sys.executable, "-m", "ponos", "history"],
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
     assert again.returncode == 0 and "moved" not in again.stderr, "and only once"
-
 
 
 @case
@@ -19037,8 +20614,11 @@ def an_old_state_directory_holding_only_a_console_token_is_tidied_once_and_silen
 
 @case
 def an_old_variable_is_read_under_its_new_name_unless_the_new_one_is_set():
-    environment = {legacy.OLD_PREFIX + "CONFIG": "/old", legacy.OLD_PREFIX + "TERMINAL": "kitty",
-                   "PONOS_TERMINAL": "foot"}
+    environment = {
+        legacy.OLD_PREFIX + "CONFIG": "/old",
+        legacy.OLD_PREFIX + "TERMINAL": "kitty",
+        "PONOS_TERMINAL": "foot",
+    }
     assert legacy.environment(environment) == [legacy.OLD_PREFIX + "CONFIG"]
     assert environment["PONOS_CONFIG"] == "/old"
     assert environment["PONOS_TERMINAL"] == "foot", "the new name wins"
@@ -19049,7 +20629,10 @@ def an_old_session_link_opens_the_worktree_where_it_went():
     previous = os.environ.get("XDG_STATE_HOME")
     os.environ["XDG_STATE_HOME"] = "/srv/state"
     try:
-        assert legacy.path(f"/srv/state/{legacy.OLD}/worktrees/app-1") == "/srv/state/ponos/worktrees/app-1"
+        assert (
+            legacy.path(f"/srv/state/{legacy.OLD}/worktrees/app-1")
+            == "/srv/state/ponos/worktrees/app-1"
+        )
         assert legacy.path("/home/me/work/app") == "/home/me/work/app"
     finally:
         if previous is None:
@@ -19062,7 +20645,7 @@ def an_old_session_link_opens_the_worktree_where_it_went():
 def the_old_command_says_it_was_renamed_and_runs_ponos():
     directory = Path(tempfile.mkdtemp())
     target = directory / "ponos"
-    target.write_text("#!/bin/sh\necho \"ponos $*\"\n")
+    target.write_text('#!/bin/sh\necho "ponos $*"\n')
     target.chmod(0o755)
     alias = directory / "old"
     alias.write_text((ROOT / "bin" / "former-name.in").read_text().replace("@BIN@", str(target)))
@@ -19096,7 +20679,10 @@ def a_new_database_is_brought_to_the_current_schema():
             connection = db.connect()
             assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
             assert connection.execute("PRAGMA busy_timeout").fetchone()[0] == db.BUSY_TIMEOUT_MS
-            tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+            tables = {
+                row[0]
+                for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+            }
             assert {"runs", "steps"} <= tables, tables
             assert location.stat().st_mode & 0o777 == 0o600
             with db.transaction() as writing:
@@ -19108,7 +20694,9 @@ def a_new_database_is_brought_to_the_current_schema():
                     (run,),
                 )
             with db.transaction(immediate=False) as reading:
-                assert reading.execute("SELECT status FROM runs").fetchone()[0] is None, "running: no status yet"
+                assert reading.execute("SELECT status FROM runs").fetchone()[0] is None, (
+                    "running: no status yet"
+                )
             assert db.connect() is connection, "one connection per process"
         finally:
             db.close()
@@ -19131,7 +20719,9 @@ def a_database_one_migration_behind_is_brought_up_to_date():
         upgraded.close()
     again = db.open_at(location, (*db.MIGRATIONS, notes))
     try:
-        assert again.execute("SELECT text FROM notes").fetchall() == [("kept",)], "applied once, not twice"
+        assert again.execute("SELECT text FROM notes").fetchall() == [("kept",)], (
+            "applied once, not twice"
+        )
     finally:
         again.close()
 
@@ -19174,7 +20764,10 @@ def two_processes_opening_a_new_database_together_both_get_it():
     processes = [
         subprocess.Popen(
             [sys.executable, "-c", script, str(ROOT / "src")],
-            env=environment, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+            env=environment,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
         )
         for _ in range(4)
     ]
@@ -19196,47 +20789,98 @@ def _json_installation(state_home: Path) -> dict:
     """
     state_home.mkdir(parents=True, exist_ok=True)
     history = [
-        {"at": "2026-09-28T09:00:00+00:00", "ticket": "Fix the footer", "id": "a" * 32,
-         "status": "done", "project": "app", "seconds": 312.4, "cost_usd": 1.25,
-         "pull_request": "https://github.com/o/r/pull/7", "merged": "https://github.com/o/r/pull/7"},
-        {"at": "2026-09-29T14:30:00+00:00", "ticket": "Write the guide", "id": "b" * 32,
-         "status": "done", "kind": "document", "project": "docs", "cost_usd": 0.5},
-        {"at": "2026-09-30T08:00:00+00:00", "ticket": "Flaky", "id": "c" * 32,
-         "status": "failed", "reason": "tests red"},
+        {
+            "at": "2026-09-28T09:00:00+00:00",
+            "ticket": "Fix the footer",
+            "id": "a" * 32,
+            "status": "done",
+            "project": "app",
+            "seconds": 312.4,
+            "cost_usd": 1.25,
+            "pull_request": "https://github.com/o/r/pull/7",
+            "merged": "https://github.com/o/r/pull/7",
+        },
+        {
+            "at": "2026-09-29T14:30:00+00:00",
+            "ticket": "Write the guide",
+            "id": "b" * 32,
+            "status": "done",
+            "kind": "document",
+            "project": "docs",
+            "cost_usd": 0.5,
+        },
+        {
+            "at": "2026-09-30T08:00:00+00:00",
+            "ticket": "Flaky",
+            "id": "c" * 32,
+            "status": "failed",
+            "reason": "tests red",
+        },
     ]
     (state_home / "history.jsonl").write_text(
         "".join(json.dumps(entry, ensure_ascii=False) + "\n" for entry in history[:2])
         + "half a line of jso\n"
-        + json.dumps(history[2]) + "\n"
+        + json.dumps(history[2])
+        + "\n"
     )
     claims = {"a" * 32: "Validated", "d" * 32: "Ready"}
     (state_home / "claims.json").write_text(json.dumps(claims))
     (state_home / "rebases.json").write_text(json.dumps({"a" * 32: 2}))
-    (state_home / "conversations.json").write_text(json.dumps({
-        "pages": {"e" * 32: "2026-09-30T10:00:00+00:00", "f" * 32: "2026-09-29T10:00:00+00:00"},
-        "threads": {"d1": {"session": "s-1", "answered": "c-42", "at": "2026-09-30T10:00:00+00:00"}},
-        "cursor": 3,
-        "at": 1790000000.5,
-    }))
+    (state_home / "conversations.json").write_text(
+        json.dumps(
+            {
+                "pages": {
+                    "e" * 32: "2026-09-30T10:00:00+00:00",
+                    "f" * 32: "2026-09-29T10:00:00+00:00",
+                },
+                "threads": {
+                    "d1": {"session": "s-1", "answered": "c-42", "at": "2026-09-30T10:00:00+00:00"}
+                },
+                "cursor": 3,
+                "at": 1790000000.5,
+            }
+        )
+    )
     later = time.time() + 3600
     (state_home / "credits.json").write_text(json.dumps({"until": later, "since": time.time()}))
-    (state_home / "reserve.json").write_text(json.dumps({"until": later + 60, "since": time.time()}))
-    (state_home / "sync.json").write_text(json.dumps({
-        "p1": ["2026-09-30T10:00:00.000Z", "2026-09-30T10:00:01+00:00", "f1ngerpr1nt"],
-        "p2": ["2026-09-29T10:00:00.000Z", "2026-09-29T10:00:01+00:00"],
-    }))
+    (state_home / "reserve.json").write_text(
+        json.dumps({"until": later + 60, "since": time.time()})
+    )
+    (state_home / "sync.json").write_text(
+        json.dumps(
+            {
+                "p1": ["2026-09-30T10:00:00.000Z", "2026-09-30T10:00:01+00:00", "f1ngerpr1nt"],
+                "p2": ["2026-09-29T10:00:00.000Z", "2026-09-29T10:00:01+00:00"],
+            }
+        )
+    )
     journal = [
-        {"at": "2026-09-30T10:00:00+00:00", "what": "conflict", "collection": "tickets",
-         "page": "p1", "title": "Le ticket", "detail": "both moved"},
-        {"at": "2026-09-30T10:05:00+00:00", "what": "seen", "collection": "tickets",
-         "page": "p2", "title": "L'autre", "detail": ""},
+        {
+            "at": "2026-09-30T10:00:00+00:00",
+            "what": "conflict",
+            "collection": "tickets",
+            "page": "p1",
+            "title": "Le ticket",
+            "detail": "both moved",
+        },
+        {
+            "at": "2026-09-30T10:05:00+00:00",
+            "what": "seen",
+            "collection": "tickets",
+            "page": "p2",
+            "title": "L'autre",
+            "detail": "",
+        },
     ]
     (state_home / "sync.jsonl").write_text("".join(json.dumps(entry) + "\n" for entry in journal))
     (state_home / "images").mkdir()
     pictures = {f"{'e' * 32}:cover": {"agreed": "emoji:🐾", "kind": "emoji", "url": ""}}
     (state_home / "images" / "index.json").write_text(json.dumps(pictures, ensure_ascii=False))
     return {
-        "history": history, "claims": claims, "journal": journal, "pictures": pictures,
+        "history": history,
+        "claims": claims,
+        "journal": journal,
+        "pictures": pictures,
         "files": sorted(path.relative_to(state_home) for path in state_home.rglob("*.json*")),
     }
 
@@ -19259,7 +20903,9 @@ def an_installation_of_json_files_starts_on_the_database_with_everything_it_had(
             processes = [
                 subprocess.Popen(
                     [sys.executable, "-c", script, str(ROOT / "src")],
-                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
                 )
                 for _ in range(4)
             ]
@@ -19389,13 +21035,18 @@ def a_database_migrated_by_a_branch_in_another_order_is_finished_by_main():
     connection = db.open_at(location)
     try:
         assert db.version(connection) == len(db.MIGRATIONS)
-        tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+        tables = {
+            row[0]
+            for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+        }
         assert {"write_ups", "mends", "history", "runs", "migrations"} <= tables, tables
         assert "code" in _columns(connection, "history") and "code" in _columns(connection, "runs")
         done = db.applied(connection)
         assert sorted(done) == sorted(db.name(migration) for migration in db.MIGRATIONS), done
         first = done.index("write_ups")
-        assert done[first:first + 2] == ["write_ups", "stops_have_a_cause"], "the one applied under another rank is not again"
+        assert done[first : first + 2] == ["write_ups", "stops_have_a_cause"], (
+            "the one applied under another rank is not again"
+        )
     finally:
         connection.close()
     again = db.open_at(location)
@@ -19490,8 +21141,13 @@ def a_checkout_does_not_write_the_real_state_unless_told_to():
     home = Path(tempfile.mkdtemp())
     environment = {key: value for key, value in os.environ.items() if key != "XDG_STATE_HOME"}
     environment.update(HOME=str(home), PYTHONPATH=str(ROOT / "src"))
-    done = subprocess.run([sys.executable, "-m", "ponos", "history"], env=environment,
-                          capture_output=True, text=True, timeout=60)
+    done = subprocess.run(
+        [sys.executable, "-m", "ponos", "history"],
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
     assert done.returncode == 2 and "XDG_STATE_HOME=$(mktemp -d)" in done.stderr, done.stderr
     assert not (home / ".local" / "state").exists(), "nothing written"
     with _state_home():
@@ -19506,7 +21162,10 @@ def _said_event(text: str) -> dict:
 
 
 def _tool_event(name: str, payload: dict) -> dict:
-    return {"type": "assistant", "message": {"content": [{"type": "tool_use", "name": name, "input": payload}]}}
+    return {
+        "type": "assistant",
+        "message": {"content": [{"type": "tool_use", "name": name, "input": payload}]},
+    }
 
 
 @case
@@ -19514,7 +21173,9 @@ def a_file_at_schema_version_one_gets_the_tool_and_cost_columns_and_keeps_its_st
     location = Path(tempfile.mkdtemp()) / "ponos.db"
     old = db.open_at(location, db.MIGRATIONS[:1])
     old.execute("INSERT INTO runs (ticket, started_at) VALUES ('t', 'now')")
-    old.execute("INSERT INTO steps (run, position, at, kind, text) VALUES (1, 1, 'now', 'said', 'kept')")
+    old.execute(
+        "INSERT INTO steps (run, position, at, kind, text) VALUES (1, 1, 'now', 'said', 'kept')"
+    )
     old.close()
     upgraded = db.open_at(location)
     try:
@@ -19571,10 +21232,16 @@ def the_model_of_a_ticket_is_the_sessions_word_then_the_column_then_the_defaults
         assert models.describe("", configured="sonnet")["label"] == "claude/sonnet"
         # The session's own word beats the rest, and the default stays said.
         found = models.describe("", "claude-haiku-4-5-20251001", "sonnet")
-        assert found == {"label": "claude/haiku", "full": "claude-haiku-4-5-20251001", "default": True}
+        assert found == {
+            "label": "claude/haiku",
+            "full": "claude-haiku-4-5-20251001",
+            "default": True,
+        }
         # A column chosen is not a default.
         assert models.describe("haiku", configured="opus") == {
-            "label": "claude/haiku", "full": "haiku", "default": False,
+            "label": "claude/haiku",
+            "full": "haiku",
+            "default": False,
         }
         # A settings file that is not JSON is nobody knowing.
         settings.write_text("not json", encoding="utf-8")
@@ -19602,14 +21269,21 @@ def a_run_is_written_step_by_step_and_closed_on_what_the_ticket_came_to():
     with _state_home():
         try:
             ticket = "3ed45168-0af4-8134-a677-f7f1e9024ae5"
-            run = journal.Run.start(ticket=ticket, title="Journal", project="Ponos", session="s1", log="/x/a.jsonl")
+            run = journal.Run.start(
+                ticket=ticket, title="Journal", project="Ponos", session="s1", log="/x/a.jsonl"
+            )
             assert run.open
             run.event({"type": "system", "subtype": "init"})
             run.event(_said_event("I read the brief."))
             run.event(_tool_event("Bash", {"command": "python3 tests/run.py"}))
-            run.event({"type": "user", "message": {"content": [
-                {"type": "tool_result", "is_error": True, "content": "exit 1"}
-            ]}})
+            run.event(
+                {
+                    "type": "user",
+                    "message": {
+                        "content": [{"type": "tool_result", "is_error": True, "content": "exit 1"}]
+                    },
+                }
+            )
             run.event({"type": "result", "total_cost_usd": 0.25})
             run.again("s2", "/x/a-again.jsonl")
             run.event(_tool_event("Read", {"file_path": "/repo/a.py"}))
@@ -19620,23 +21294,31 @@ def a_run_is_written_step_by_step_and_closed_on_what_the_ticket_came_to():
             assert found["status"] is None and found["ended_at"] is None, "still going"
             assert found["session"] == "s2" and found["log"] == "a-again.jsonl"
             assert found["cost_usd"] == 0.75 and found["steps"] == 4
-            assert journal.runs(f"https://app.notion.com/p/Journal-{ticket.replace('-', '')}") == [found]
+            assert journal.runs(f"https://app.notion.com/p/Journal-{ticket.replace('-', '')}") == [
+                found
+            ]
 
             run.end("done", "https://github.com/o/r/pull/1")
             run.end("failed", "too late: a run is closed once")
             (closed,) = journal.runs(ticket)
-            assert closed["status"] == "done" and closed["reason"] == "https://github.com/o/r/pull/1"
+            assert (
+                closed["status"] == "done" and closed["reason"] == "https://github.com/o/r/pull/1"
+            )
             assert closed["ended_at"]
 
             steps = journal.steps(closed["id"])["steps"]
-            assert [(step["kind"], step["label"], step["detail"], step["said"]) for step in steps] == [
+            assert [
+                (step["kind"], step["label"], step["detail"], step["said"]) for step in steps
+            ] == [
                 ("said", "I read the brief.", "", True),
                 ("tool", "Bash", "python3 tests/run.py", False),
                 ("error", "Error", "exit 1", False),
                 ("tool", "Read", "/repo/a.py", False),
             ], steps
             assert [step["position"] for step in steps] == [1, 2, 3, 4]
-            assert "cost_usd" not in steps[0] and steps[3]["cost_usd"] == 0.25, "the cost known then"
+            assert "cost_usd" not in steps[0] and steps[3]["cost_usd"] == 0.25, (
+                "the cost known then"
+            )
         finally:
             db.close()
 
@@ -19652,9 +21334,13 @@ def a_run_is_read_a_page_at_a_time_from_its_end():
             assert last["count"] == 450 and last["more"]
             assert [step["position"] for step in last["steps"]] == list(range(251, 451))
             before = journal.steps(run.id, before=251)
-            assert [step["position"] for step in before["steps"]] == list(range(51, 251)) and before["more"]
+            assert [step["position"] for step in before["steps"]] == list(
+                range(51, 251)
+            ) and before["more"]
             first = journal.steps(run.id, before=51)
-            assert [step["position"] for step in first["steps"]] == list(range(1, 51)) and not first["more"]
+            assert [step["position"] for step in first["steps"]] == list(
+                range(1, 51)
+            ) and not first["more"]
             after = journal.steps(run.id, after=440)
             assert [step["position"] for step in after["steps"]] == list(range(441, 451))
             assert journal.steps(run.id, after=450)["steps"] == []
@@ -19688,7 +21374,12 @@ def every_road_out_of_a_ticket_closes_its_run():
             runner._journals = {}
             ticket = ticket_module.Ticket(notion.Page(id="b" * 32, url="", title="t"))
             runner._journals[ticket.id] = journal.Run.start(ticket=ticket.id)
-            result = {"ticket": "t", "id": ticket.id, "status": "blocked", "reason": "which header?"}
+            result = {
+                "ticket": "t",
+                "id": ticket.id,
+                "status": "blocked",
+                "reason": "which header?",
+            }
             assert runner._guarded(ticket, lambda: result) is result
             (closed,) = journal.runs(ticket.id)
             assert (closed["status"], closed["reason"]) == ("blocked", "which header?")
@@ -19740,7 +21431,9 @@ def the_console_reads_a_tickets_runs_and_their_steps_from_the_journal():
 def ponos_logs_lists_a_tickets_runs_from_the_journal():
     with _state_home():
         try:
-            run = journal.Run.start(ticket="d" * 32, title="A ticket", log=state.logs_dir() / "x-dddddddd.jsonl")
+            run = journal.Run.start(
+                ticket="d" * 32, title="A ticket", log=state.logs_dir() / "x-dddddddd.jsonl"
+            )
             run.event(_said_event("hello"))
             run.event({"type": "result", "total_cost_usd": 1.5})
             run.end("blocked", "which header?")
@@ -19749,7 +21442,9 @@ def ponos_logs_lists_a_tickets_runs_from_the_journal():
             with contextlib.redirect_stdout(out):
                 assert cli_main(["logs", "dddddddd", "--runs"]) == 0
             text = out.getvalue()
-            assert "blocked" in text and "A ticket" in text and "1 steps" in text and "$1.50" in text, text
+            assert (
+                "blocked" in text and "A ticket" in text and "1 steps" in text and "$1.50" in text
+            ), text
             assert "which header?" in text and "x-dddddddd.jsonl" in text, text
         finally:
             db.close()
@@ -19762,8 +21457,14 @@ def _mcp_call(api, grant, name: str, **arguments) -> dict:
     from ponos.web import mcp as web_mcp
 
     answer = web_mcp.handle(
-        api, grant,
-        {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": name, "arguments": arguments}},
+        api,
+        grant,
+        {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {"name": name, "arguments": arguments},
+        },
     )
     return answer["result"]
 
@@ -19783,7 +21484,9 @@ def an_mcp_client_lists_what_waits_creates_a_task_and_answers_a_question():
     with _state_home(), _board() as board:
         project = board.create_row("projects", "Usine", {"Repository": "user/usine"})
         settings = C.Notion()
-        blocked = board.create_row("tickets", "Choisir l'hébergeur", {"Status": settings.state("blocked")})
+        blocked = board.create_row(
+            "tickets", "Choisir l'hébergeur", {"Status": settings.state("blocked")}
+        )
         board.update("tickets", blocked, {"Project": [project]})
         board.comment(blocked, f"{voice.MARKS['blocked']} Bloqué.\nQuestion : Dokploy ou Vercel ?")
         board.create_row("tickets", "Autre chose", {"Status": settings.state("ready")})
@@ -19791,12 +21494,16 @@ def an_mcp_client_lists_what_waits_creates_a_task_and_answers_a_question():
         grant = web_oauth.Grant(client="c-1", name="claude.ai", scopes=frozenset({"read", "write"}))
 
         projects = _mcp_call(api, grant, "list_projects")["structuredContent"]["projects"]
-        assert [(item["name"], item["repository"]) for item in projects] == [("Usine", "user/usine")]
+        assert [(item["name"], item["repository"]) for item in projects] == [
+            ("Usine", "user/usine")
+        ]
 
         waiting = _mcp_call(api, grant, "list_tasks", waiting_for_you=True)["structuredContent"]
         assert [task["title"] for task in waiting["tasks"]] == ["Choisir l'hébergeur"]
         task = waiting["tasks"][0]
-        assert task["project"] == "Usine" and task["status"] == "blocked" and task["waiting_for_you"]
+        assert (
+            task["project"] == "Usine" and task["status"] == "blocked" and task["waiting_for_you"]
+        )
         assert "url" not in task, "a task is not a Notion page"
 
         detail = _mcp_call(api, grant, "get_task", task=task["short"])["structuredContent"]
@@ -19804,8 +21511,14 @@ def an_mcp_client_lists_what_waits_creates_a_task_and_answers_a_question():
         assert detail["conversation"][-1]["from"] == "ponos"
 
         created = _mcp_call(
-            api, grant, "create_task", title="Brancher le domaine", description="Sur Dokploy.",
-            project="usine", type="code", priority=80,
+            api,
+            grant,
+            "create_task",
+            title="Brancher le domaine",
+            description="Sur Dokploy.",
+            project="usine",
+            type="code",
+            priority=80,
         )
         assert not created["isError"], created
         made = board.page(created["structuredContent"]["id"])
@@ -19817,10 +21530,14 @@ def an_mcp_client_lists_what_waits_creates_a_task_and_answers_a_question():
         unknown = _mcp_call(api, grant, "create_task", title="X", project="Nulle part")
         assert unknown["isError"] and "Usine" in unknown["content"][0]["text"]
 
-        refused = _mcp_call(api, grant, "answer_question", task=created["structuredContent"]["id"], answer="oui")
+        refused = _mcp_call(
+            api, grant, "answer_question", task=created["structuredContent"]["id"], answer="oui"
+        )
         assert refused["isError"], "only a blocked task is answered"
 
-        answered = _mcp_call(api, grant, "answer_question", task=task["id"], answer="Dokploy", ready=True)
+        answered = _mcp_call(
+            api, grant, "answer_question", task=task["id"], answer="Dokploy", ready=True
+        )
         assert not answered["isError"], answered
         said = board.comments(blocked)[-1].text
         assert said.endswith("Dokploy") and said != "Dokploy", "relayed, as the console's answer is"
@@ -19828,7 +21545,10 @@ def an_mcp_client_lists_what_waits_creates_a_task_and_answers_a_question():
 
         journal_lines = web_mcp.calls()
         assert [line["tool"] for line in journal_lines] == [
-            "answer_question", "answer_question", "create_task", "create_task",
+            "answer_question",
+            "answer_question",
+            "create_task",
+            "create_task",
         ]
         assert journal_lines[0]["outcome"] == "ok" and journal_lines[0]["name"] == "claude.ai"
         assert journal_lines[1]["outcome"].startswith("refused")
@@ -19856,7 +21576,9 @@ def a_blocked_session_names_what_it_stopped_on_and_a_finished_one_what_to_check(
     ) == ["not tried on Safari", "no screenshot"]
     assert question.caveats("Done.\nRESULT: ok — the header") == []
     assert "CATEGORY: <one word" in prompt.ASKING and "CAVEAT: <" in prompt.ASKING
-    assert all("{asking}" in template for template in (prompt.DEFAULT, prompt.DOCUMENT, prompt.RESOLVE))
+    assert all(
+        "{asking}" in template for template in (prompt.DEFAULT, prompt.DOCUMENT, prompt.RESOLVE)
+    )
 
 
 @case
@@ -19867,14 +21589,21 @@ def a_blocked_report_says_its_category_and_the_console_reads_it_back():
     for language, named in (("fr", "Accès manquant : "), ("en", "Missing access: ")):
         said = voice.Voice(language)
         asked = question.Question(
-            ask="Which token?", mode="choice", options=["Production", "A new one"],
-            done="branch ready", why="no Cloudflare token", category="access",
+            ask="Which token?",
+            mode="choice",
+            options=["Production", "A new one"],
+            done="branch ready",
+            why="no Cloudflare token",
+            category="access",
         )
         report = said.paragraphs(
-            said.report(said.verdict("blocked", asked.done), *said.question(asked)), "Worktree kept."
+            said.report(said.verdict("blocked", asked.done), *said.question(asked)),
+            "Worktree kept.",
         )
         assert named + "no Cloudflare token" in report
-        assert question.found(report).options == ["Production", "A new one"], "the layout still reads"
+        assert question.found(report).options == ["Production", "A new one"], (
+            "the layout still reads"
+        )
         found = decisions.blockage(["an answer", report, "a reply of yours"])
         assert found.category == "access" and found.declared and found.reported
         assert found.reason == "no Cloudflare token" and found.done == "branch ready"
@@ -19896,7 +21625,9 @@ def a_ticket_blocked_before_the_categories_still_reads_as_a_reason_and_offers_de
     assert [solution.key for solution in offered] == ["answer", "instruct", "abandon", "other"]
     assert len(offered) - 1 >= 2, "at least two solutions beside the free one"
     for key, category in (
-        ("conflict-open", "conflict"), ("checks-red", "ci"), ("rebased-too-often", "conflict"),
+        ("conflict-open", "conflict"),
+        ("checks-red", "ci"),
+        ("rebased-too-often", "conflict"),
     ):
         reason = said.sentence(said.say(key, base="main", branch="b", limit="5 $"))
         found = decisions.blockage([said.report(said.verdict("blocked"), reason)])
@@ -19911,7 +21642,10 @@ def a_ticket_blocked_before_the_categories_still_reads_as_a_reason_and_offers_de
     aside = decisions.blockage(["✅ To review — PR #3\nDone."])
     assert aside.category == "other" and not aside.reported, "set aside by hand: nothing said"
     assert [solution.key for solution in decisions.unblocking(aside, models=False)] == [
-        "retry", "instruct", "abandon", "other",
+        "retry",
+        "instruct",
+        "abandon",
+        "other",
     ]
     for category in decisions.DEFAULTS:
         offered = decisions.unblocking(decisions.Blockage(category=category))
@@ -19938,16 +21672,22 @@ def a_question_that_proposes_to_close_the_ticket_offers_to_close_it_at_once():
 
     said = voice.Voice("fr")
     for ask in ("C'est un doublon de #12 : je le clos ?", "Nothing to do here — close it?"):
-        found = decisions.Blockage(category="question", question=question.Question(ask=ask, mode="yes-no"))
+        found = decisions.Blockage(
+            category="question", question=question.Question(ask=ask, mode="yes-no")
+        )
         offered = decisions.unblocking(found)
         assert [solution.key for solution in offered][:3] == ["yes", "close", "answer"], ask
         assert offered[1].column == "done" and offered[1].needs == ""
     told = decisions.told(said, decisions.Solution("close", "done"))
     assert told == ["Décision : oui, clos-le — passé en terminé.", said.say("told-close")]
-    work = decisions.Blockage(question=question.Question(ask="Which header?", mode="choice", options=["A", "B"]))
+    work = decisions.Blockage(
+        question=question.Question(ask="Which header?", mode="choice", options=["A", "B"])
+    )
     assert "close" not in [solution.key for solution in decisions.unblocking(work)]
     free = decisions.Blockage(question=question.Question(ask="Close which one?", mode="free"))
-    assert "close" not in [solution.key for solution in decisions.unblocking(free)], "a free answer is words"
+    assert "close" not in [solution.key for solution in decisions.unblocking(free)], (
+        "a free answer is words"
+    )
 
 
 @case
@@ -19959,16 +21699,28 @@ def a_review_report_carries_what_to_check_and_the_panel_offers_to_send_it_back()
         said.verdict("review", "PR #3", "2 commits"),
         "Ajoute un bouton.",
         "https://github.com/a/b/pull/3",
-        *said.caveats(["Pas de test e2e", "Les captures restent à faire", "Le wording est à relire"]),
+        *said.caveats(
+            ["Pas de test e2e", "Les captures restent à faire", "Le wording est à relire"]
+        ),
     )
     assert "À vérifier : Pas de test e2e" in report
     found = decisions.delivered([report])
     assert found.summary == "Ajoute un bouton." and found.pull_request.endswith("/pull/3")
-    assert found.caveats == ["Pas de test e2e", "Les captures restent à faire", "Le wording est à relire"]
+    assert found.caveats == [
+        "Pas de test e2e",
+        "Les captures restent à faire",
+        "Le wording est à relire",
+    ]
     assert found.facts == "PR #3 · 2 commits"
     offered = decisions.deciding(found, said, checks="failed")
     assert [solution.key for solution in offered] == [
-        "validate", "rework", "fix-ci", "add-tests", "screenshots", "caveat", "reject",
+        "validate",
+        "rework",
+        "fix-ci",
+        "add-tests",
+        "screenshots",
+        "caveat",
+        "reject",
     ]
     assert offered[0].column == "validated" and offered[-1].column == "done"
     assert "Le wording est à relire" in offered[5].text and offered[5].number == 3
@@ -19997,8 +21749,19 @@ def each_choice_moves_the_ticket_and_leaves_the_instruction_for_the_next_session
         assert said.language == "en"
         asked = said.report(
             said.verdict("blocked", "nothing"),
-            *said.question(type("Q", (), {"ask": "Which host?", "mode": "choice", "why": "",
-                                          "options": ["Dokploy", "Vercel"], "category": ""})()),
+            *said.question(
+                type(
+                    "Q",
+                    (),
+                    {
+                        "ask": "Which host?",
+                        "mode": "choice",
+                        "why": "",
+                        "options": ["Dokploy", "Vercel"],
+                        "category": "",
+                    },
+                )()
+            ),
         )
 
         def blocked(title: str, report: str = asked) -> str:
@@ -20018,7 +21781,9 @@ def each_choice_moves_the_ticket_and_leaves_the_instruction_for_the_next_session
         assert done["column"] == "ready" and api.outbox.marks()[first].column == "ready"
         comment = board.comments(first)[-1].text
         assert comment.splitlines() == [
-            "Answered from the console.", "Decision: option 2, “Vercel”.", "Option 2: Vercel.",
+            "Answered from the console.",
+            "Decision: option 2, “Vercel”.",
+            "Option 2: Vercel.",
         ]
         assert conversation.is_relayed(comment), "read by the next session as the author's word"
 
@@ -20030,34 +21795,61 @@ def each_choice_moves_the_ticket_and_leaves_the_instruction_for_the_next_session
         else:
             raise AssertionError("an instruction of your own needs its words")
         api.decide(second, "other", text="Use the auth key in 1Password.\nThen carry on.")
-        assert board.comments(second)[-1].text.endswith("Use the auth key in 1Password.\nThen carry on.")
+        assert board.comments(second)[-1].text.endswith(
+            "Use the auth key in 1Password.\nThen carry on."
+        )
 
         third = blocked("Give up")
         api.decide(third, "abandon", text="Not needed any more.")
         # Given up on, not done: the board offers a cancelled column.
-        assert store.read(board.page(third), "Status") == settings.state("cancelled"), "moved at once"
+        assert store.read(board.page(third), "Status") == settings.state("cancelled"), (
+            "moved at once"
+        )
         assert third not in api.outbox.marks()
         assert board.comments(third)[-1].text.splitlines()[1:] == [
-            "Decision: abandoned, moved to cancelled.", "Not needed any more.",
+            "Decision: abandoned, moved to cancelled.",
+            "Not needed any more.",
         ]
 
-        fourth = blocked("Too big", said.report(
-            said.verdict("blocked"),
-            *said.question(type("Q", (), {"ask": "Split it?", "mode": "choice", "why": "two things",
-                                          "options": ["The API", "The page"], "category": "split"})()),
-        ))
+        fourth = blocked(
+            "Too big",
+            said.report(
+                said.verdict("blocked"),
+                *said.question(
+                    type(
+                        "Q",
+                        (),
+                        {
+                            "ask": "Split it?",
+                            "mode": "choice",
+                            "why": "two things",
+                            "options": ["The API", "The page"],
+                            "category": "split",
+                        },
+                    )()
+                ),
+            ),
+        )
         assert api.decision(fourth)["solutions"][0] == {
-            "key": "split", "column": "done", "needs": "titles", "text": "The API\nThe page",
-            "number": 0, "label": "split into sub-tickets",
+            "key": "split",
+            "column": "done",
+            "needs": "titles",
+            "text": "The API\nThe page",
+            "number": 0,
+            "label": "split into sub-tickets",
         }
         api.decide(fourth, "split", titles=["The API", " ", "The page"])
         assert store.read(board.page(fourth), "Status") == settings.state("done")
-        made = [page for page in board.query("tickets", {}) if page.title in ("The API", "The page")]
+        made = [
+            page for page in board.query("tickets", {}) if page.title in ("The API", "The page")
+        ]
         assert len(made) == 2 and all(store.read(page, "Project") == [project] for page in made)
         assert all(not store.read(page, "Status") for page in made), "drafts, never a paid session"
         assert "split into 2 tickets: The API · The page" in board.comments(fourth)[-1].text
 
-        fifth = blocked("Crashed twice", said.report(said.verdict("blocked"), "It went round in circles."))
+        fifth = blocked(
+            "Crashed twice", said.report(said.verdict("blocked"), "It went round in circles.")
+        )
         assert "model" in [solution["key"] for solution in api.decision(fifth)["solutions"]]
         api.decide(fifth, "model", model="opus")
         assert store.read(board.page(fifth), settings.prop("model")) == "opus"
@@ -20065,10 +21857,15 @@ def each_choice_moves_the_ticket_and_leaves_the_instruction_for_the_next_session
         assert "Decision: run it again on opus." in board.comments(fifth)[-1].text
 
         reviewed = board.create_row("tickets", "A button", {"Status": settings.state("review")})
-        board.comment(reviewed, said.report(
-            said.verdict("review", "PR #3"), "Adds a button.", "https://github.com/a/b/pull/3",
-            *said.caveats(["no screenshot taken"]),
-        ))
+        board.comment(
+            reviewed,
+            said.report(
+                said.verdict("review", "PR #3"),
+                "Adds a button.",
+                "https://github.com/a/b/pull/3",
+                *said.caveats(["no screenshot taken"]),
+            ),
+        )
         panel = api.decision(reviewed)
         assert panel["summary"] == "Adds a button." and panel["caveats"] == ["no screenshot taken"]
         assert panel["pull_request"] == "https://github.com/a/b/pull/3"
@@ -20076,7 +21873,8 @@ def each_choice_moves_the_ticket_and_leaves_the_instruction_for_the_next_session
         api.decide(reviewed, "screenshots", text="Take them on mobile too.")
         assert api.outbox.marks()[reviewed].column == "ready"
         assert board.comments(reviewed)[-1].text.splitlines()[1:] == [
-            "Decision: back to work: take the screenshots.", "Take them on mobile too.",
+            "Decision: back to work: take the screenshots.",
+            "Take them on mobile too.",
         ]
 
         ready = board.create_row("tickets", "Elsewhere", {"Status": settings.state("ready")})
@@ -20094,8 +21892,13 @@ def an_mcp_client_lists_the_solutions_of_a_blocked_task_and_applies_one():
 
     settings = C.Notion()
     with _state_home(), _board() as board:
-        blocked = board.create_row("tickets", "Install Tailscale", {"Status": settings.state("blocked")})
-        board.comment(blocked, f"{voice.MARKS['blocked']} Bloqué\nAction manuelle requise : il faut l'installer à la main\nC'est fait ?")
+        blocked = board.create_row(
+            "tickets", "Install Tailscale", {"Status": settings.state("blocked")}
+        )
+        board.comment(
+            blocked,
+            f"{voice.MARKS['blocked']} Bloqué\nAction manuelle requise : il faut l'installer à la main\nC'est fait ?",
+        )
         api = _ideas_api(board)
         grant = web_oauth.Grant(client="c-1", name="claude.ai", scopes=frozenset({"read", "write"}))
         listed = _mcp_call(api, grant, "list_solutions", task=blocked)["structuredContent"]
@@ -20104,7 +21907,9 @@ def an_mcp_client_lists_the_solutions_of_a_blocked_task_and_applies_one():
         assert listed["solutions"][0]["key"] == "answer"
         applied = _mcp_call(api, grant, "apply_solution", task=blocked, solution="done-retry")
         assert not applied["isError"], applied
-        assert board.comments(blocked)[-1].text.startswith(("Répondu depuis MCP.", "Answered from MCP."))
+        assert board.comments(blocked)[-1].text.startswith(
+            ("Répondu depuis MCP.", "Answered from MCP.")
+        )
         assert api.outbox.marks()[blocked].column == "ready"
         wrong = _mcp_call(api, grant, "apply_solution", task=blocked, solution="validate")
         assert wrong["isError"]
@@ -20117,26 +21922,49 @@ def an_mcp_client_sorts_ideas_without_deleting_any():
     with _state_home(), _board() as board:
         project = board.create_row("projects", "Usine", {})
         api = _ideas_api(board)
-        grant = web_oauth.Grant(client="c-1", name="Claude Code", scopes=frozenset({"read", "write"}))
-        idea = _mcp_call(api, grant, "create_idea", title="Un mode sombre", project="Usine")["structuredContent"]
+        grant = web_oauth.Grant(
+            client="c-1", name="Claude Code", scopes=frozenset({"read", "write"})
+        )
+        idea = _mcp_call(api, grant, "create_idea", title="Un mode sombre", project="Usine")[
+            "structuredContent"
+        ]
         assert idea["status"] == "proposed" and idea["kind"] == "ticket"
-        assert _mcp_call(api, grant, "create_idea", title="Un club", project="Usine", kind="project")["isError"]
+        assert _mcp_call(
+            api, grant, "create_idea", title="Un club", project="Usine", kind="project"
+        )["isError"]
         sorted_one = _mcp_call(
-            api, grant, "create_idea", title="Un audit des jetons", project="Usine", category="security"
+            api,
+            grant,
+            "create_idea",
+            title="Un audit des jetons",
+            project="Usine",
+            category="security",
         )["structuredContent"]
         assert sorted_one["category"] == "security" and idea["category"] == ""
-        assert _mcp_call(api, grant, "create_idea", title="Un tag", project="Usine", category="marketing")["isError"]
+        assert _mcp_call(
+            api, grant, "create_idea", title="Un tag", project="Usine", category="marketing"
+        )["isError"]
         listed = _mcp_call(api, grant, "list_ideas", project="Usine")["structuredContent"]["ideas"]
         assert [item["title"] for item in listed] == ["Un mode sombre", "Un audit des jetons"]
-        assert _mcp_call(api, grant, "list_ideas")["structuredContent"]["ideas"] == [], "the workspace's are apart"
+        assert _mcp_call(api, grant, "list_ideas")["structuredContent"]["ideas"] == [], (
+            "the workspace's are apart"
+        )
 
-        thrown = _mcp_call(api, grant, "set_idea_state", idea=idea["id"], state="discard")["structuredContent"]
+        thrown = _mcp_call(api, grant, "set_idea_state", idea=idea["id"], state="discard")[
+            "structuredContent"
+        ]
         assert thrown["status"] == "discarded"
-        back = _mcp_call(api, grant, "set_idea_state", idea=idea["id"], state="new")["structuredContent"]
+        back = _mcp_call(api, grant, "set_idea_state", idea=idea["id"], state="new")[
+            "structuredContent"
+        ]
         assert back["status"] == "proposed"
-        kept = _mcp_call(api, grant, "set_idea_state", idea=idea["id"], state="keep")["structuredContent"]
+        kept = _mcp_call(api, grant, "set_idea_state", idea=idea["id"], state="keep")[
+            "structuredContent"
+        ]
         assert kept["status"] == "kept" and not kept["task"], "keeping writes nothing on the board"
-        made = _mcp_call(api, grant, "set_idea_state", idea=idea["id"], state="ticket")["structuredContent"]
+        made = _mcp_call(api, grant, "set_idea_state", idea=idea["id"], state="ticket")[
+            "structuredContent"
+        ]
         assert made["status"] == "ticket" and made["task"]
         ticket = board.page(made["task"])
         assert ticket.title == "Un mode sombre" and store.read(ticket, "Project") == [project]
@@ -20153,21 +21981,31 @@ def a_read_only_mcp_client_sees_and_can_call_no_tool_that_writes():
         listed = web_mcp.handle(api, reader, {"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
         names = {tool["name"] for tool in listed["result"]["tools"]}
         assert names == {
-        "whoami", "list_projects", "list_tasks", "get_task", "runner_status", "list_ideas",
-        "list_solutions",
-    }
+            "whoami",
+            "list_projects",
+            "list_tasks",
+            "get_task",
+            "runner_status",
+            "list_ideas",
+            "list_solutions",
+        }
         assert all(tool["annotations"]["readOnlyHint"] for tool in listed["result"]["tools"])
         me = _mcp_call(api, reader, "whoami")["structuredContent"]
         assert me["client"] == "lecteur" and me["access"] == "lecture seule", me
         refused = _mcp_call(api, reader, "create_task", title="Rien")
         assert refused["isError"] and "lecture" in refused["content"][0]["text"]
         assert api.board()["tickets"] == [], "nothing was written"
-        assert web_mcp.calls()[0]["outcome"].startswith("refused"), "a refused write is journalled too"
+        assert web_mcp.calls()[0]["outcome"].startswith("refused"), (
+            "a refused write is journalled too"
+        )
         state.record({"id": "x", "status": "done", "project": "Usine", "cost_usd": 1.25})
         state.record({"id": "y", "status": "done", "cost_usd": 0.5})
         status = _mcp_call(api, reader, "runner_status", days=7)["structuredContent"]
         assert status["spend"]["period_usd"] == 1.75 and status["spend"]["today_usd"] == 1.75
-        assert [item["project"] for item in status["spend"]["by_project"]] == ["Usine", "(sans projet)"]
+        assert [item["project"] for item in status["spend"]["by_project"]] == [
+            "Usine",
+            "(sans projet)",
+        ]
         assert status["run_in_progress"] is False and status["sessions"] == []
 
 
@@ -20179,17 +22017,34 @@ def no_mcp_tool_starts_a_run_runs_a_command_or_deletes_anything():
     names = [tool["name"] for tool in web_mcp.TOOLS]
     assert set(names) == set(web_mcp.HANDLERS)
     assert names == [
-        "whoami", "list_projects", "list_tasks", "get_task", "runner_status", "list_ideas",
-        "create_task", "answer_question", "list_solutions", "apply_solution", "create_idea",
+        "whoami",
+        "list_projects",
+        "list_tasks",
+        "get_task",
+        "runner_status",
+        "list_ideas",
+        "create_task",
+        "answer_question",
+        "list_solutions",
+        "apply_solution",
+        "create_idea",
         "set_idea_state",
     ]
     writes = [tool["name"] for tool in web_mcp.TOOLS if tool["scope"] == "write"]
-    assert writes == ["create_task", "answer_question", "apply_solution", "create_idea", "set_idea_state"]
+    assert writes == [
+        "create_task",
+        "answer_question",
+        "apply_solution",
+        "create_idea",
+        "set_idea_state",
+    ]
     status = next(tool for tool in web_mcp.TOOLS if tool["name"] == "create_task")
     assert status["inputSchema"]["properties"]["status"]["enum"] == ["draft", "ready"]
     for tool in web_mcp.TOOLS:
         assert len(tool["description"]) > 80, f"{tool['name']}: a description Claude can choose by"
-        assert tool["title"] and len(tool["title"]) < 40, f"{tool['name']}: a title a person reads in a list"
+        assert tool["title"] and len(tool["title"]) < 40, (
+            f"{tool['name']}: a title a person reads in a list"
+        )
     titles = [tool["title"] for tool in web_mcp.TOOLS]
     assert len(set(titles)) == len(titles), "two tools Claude would show under one name"
 
@@ -20209,22 +22064,47 @@ def the_mcp_connector_says_its_name_and_who_holds_the_key():
         board.create_row("tickets", "Choisir l'hébergeur", {"Status": C.Notion().state("blocked")})
         api = _ideas_api(board)
         api._config.web.email = "moi@example.com"
-        writer = web_oauth.Grant(client="c-1", name="claude.ai", scopes=frozenset({"read", "write"}))
+        writer = web_oauth.Grant(
+            client="c-1", name="claude.ai", scopes=frozenset({"read", "write"})
+        )
         hello = web_mcp.handle(
-            api, writer, {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-11-25"}}
+            api,
+            writer,
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {"protocolVersion": "2025-11-25"},
+            },
         )["result"]["serverInfo"]
-        assert hello["name"] == "ponos" and hello["title"] == "Ponos" and hello["websiteUrl"] == "https://the-ponos.app"
-        assert hello["description"] and all(icon["src"].startswith("https://the-ponos.app/") for icon in hello["icons"])
+        assert (
+            hello["name"] == "ponos"
+            and hello["title"] == "Ponos"
+            and hello["websiteUrl"] == "https://the-ponos.app"
+        )
+        assert hello["description"] and all(
+            icon["src"].startswith("https://the-ponos.app/") for icon in hello["icons"]
+        )
         answer = web_mcp.handle(
-            api, writer,
-            {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "whoami", "arguments": {}}},
+            api,
+            writer,
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "tools/call",
+                "params": {"name": "whoami", "arguments": {}},
+            },
             "https://ponos.example",
         )["result"]
         me = answer["structuredContent"]
         assert not answer["isError"]
         assert me["console"] == "https://ponos.example" and me["email"] == "moi@example.com"
         assert me["client"] == "claude.ai" and me["access"] == "lecture et écriture"
-        assert me["projects"] == 1 and me["waiting_for_you"] == 1 and me["board"] == api.config.storage.mode
+        assert (
+            me["projects"] == 1
+            and me["waiting_for_you"] == 1
+            and me["board"] == api.config.storage.mode
+        )
         assert web_mcp.calls() == [], "reading who you are is no write"
         refused = _mcp_call(api, writer, "whoami", qui="moi")
         assert refused["isError"], "whoami takes no argument"
@@ -20262,7 +22142,9 @@ def the_mcp_server_is_reached_through_oauth_with_pkce_and_its_own_keys():
         base = f"http://127.0.0.1:{console.server_address[1]}"
 
         def ask(path, data=None, headers=None, method=None):
-            request = urllib.request.Request(base + path, data=data, headers=headers or {}, method=method)
+            request = urllib.request.Request(
+                base + path, data=data, headers=headers or {}, method=method
+            )
             try:
                 with opener.open(request, timeout=5) as response:
                     return response.status, dict(response.headers), response.read()
@@ -20270,8 +22152,14 @@ def the_mcp_server_is_reached_through_oauth_with_pkce_and_its_own_keys():
                 return error.code, dict(error.headers), error.read()
 
         def rpc(token, method, params=None):
-            body = json.dumps({"jsonrpc": "2.0", "id": 7, "method": method, "params": params or {}}).encode()
-            return ask("/mcp", body, {"Authorization": f"Bearer {token}", "Content-Type": "application/json"})
+            body = json.dumps(
+                {"jsonrpc": "2.0", "id": 7, "method": method, "params": params or {}}
+            ).encode()
+            return ask(
+                "/mcp",
+                body,
+                {"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+            )
 
         try:
             code, headers, _ = rpc("tok", "tools/list")
@@ -20283,47 +22171,84 @@ def the_mcp_server_is_reached_through_oauth_with_pkce_and_its_own_keys():
                 f'Bearer resource_metadata="{base}/.well-known/oauth-protected-resource/mcp"'
             ), "a GET without a key: a 401, not a 405"
             resource = json.loads(ask("/.well-known/oauth-protected-resource/mcp")[2])
-            assert resource["resource"] == f"{base}/mcp" and resource["scopes_supported"] == ["read", "write"]
+            assert resource["resource"] == f"{base}/mcp" and resource["scopes_supported"] == [
+                "read",
+                "write",
+            ]
             server = json.loads(ask("/.well-known/oauth-authorization-server")[2])
             assert server["code_challenge_methods_supported"] == ["S256"]
 
-            code, _, body = ask("/oauth/register", json.dumps({"redirect_uris": ["http://evil.example/cb"]}).encode(),
-                                {"Content-Type": "application/json"})
+            code, _, body = ask(
+                "/oauth/register",
+                json.dumps({"redirect_uris": ["http://evil.example/cb"]}).encode(),
+                {"Content-Type": "application/json"},
+            )
             assert code == 400, "a code is never sent in clear across a network"
             code, _, body = ask(
                 "/oauth/register",
-                json.dumps({"client_name": "claude.ai", "redirect_uris": ["https://claude.ai/api/mcp/auth_callback"]}).encode(),
+                json.dumps(
+                    {
+                        "client_name": "claude.ai",
+                        "redirect_uris": ["https://claude.ai/api/mcp/auth_callback"],
+                    }
+                ).encode(),
                 {"Content-Type": "application/json"},
             )
             assert code == 201, body
             client_id = json.loads(body)["client_id"]
 
             verifier = "v" * 50
-            challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
+            challenge = (
+                base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest())
+                .rstrip(b"=")
+                .decode()
+            )
             params = {
-                "response_type": "code", "client_id": client_id,
+                "response_type": "code",
+                "client_id": client_id,
                 "redirect_uri": "https://claude.ai/api/mcp/auth_callback",
-                "code_challenge": challenge, "code_challenge_method": "S256",
-                "scope": "read write", "state": "s-1",
+                "code_challenge": challenge,
+                "code_challenge_method": "S256",
+                "scope": "read write",
+                "state": "s-1",
             }
             code, _, page = ask("/oauth/authorize?" + urlencode(params))
-            assert code == 200 and b"claude.ai" in page and b'name="token"' in page, "signed out: the token is asked"
+            assert code == 200 and b"claude.ai" in page and b'name="token"' in page, (
+                "signed out: the token is asked"
+            )
             assert b'name="write"' in page
 
-            code, _, _ = ask("/oauth/authorize", urlencode({**params, "decision": "allow", "token": "nope"}).encode(),
-                             {"Content-Type": "application/x-www-form-urlencoded"})
+            code, _, _ = ask(
+                "/oauth/authorize",
+                urlencode({**params, "decision": "allow", "token": "nope"}).encode(),
+                {"Content-Type": "application/x-www-form-urlencoded"},
+            )
             assert code == 401
-            code, _, page = ask("/oauth/authorize", urlencode({**params, "decision": "allow", "token": "tok"}).encode(),
-                                {"Content-Type": "application/x-www-form-urlencoded", "Origin": base})
-            assert code == 429 and b"too many attempts" in page, "a wrong token is waited out, on this page too"
+            code, _, page = ask(
+                "/oauth/authorize",
+                urlencode({**params, "decision": "allow", "token": "tok"}).encode(),
+                {"Content-Type": "application/x-www-form-urlencoded", "Origin": base},
+            )
+            assert code == 429 and b"too many attempts" in page, (
+                "a wrong token is waited out, on this page too"
+            )
             _time_passes(console, 1)
-            code, _, _ = ask("/oauth/authorize", urlencode({**params, "decision": "allow", "token": "tok"}).encode(),
-                             {"Content-Type": "application/x-www-form-urlencoded", "Origin": "http://evil.example"})
+            code, _, _ = ask(
+                "/oauth/authorize",
+                urlencode({**params, "decision": "allow", "token": "tok"}).encode(),
+                {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "Origin": "http://evil.example",
+                },
+            )
             assert code == 403, "a consent posted from another page"
 
             # Write left unticked: read only.
-            code, headers, _ = ask("/oauth/authorize", urlencode({**params, "decision": "allow", "token": "tok"}).encode(),
-                                   {"Content-Type": "application/x-www-form-urlencoded", "Origin": base})
+            code, headers, _ = ask(
+                "/oauth/authorize",
+                urlencode({**params, "decision": "allow", "token": "tok"}).encode(),
+                {"Content-Type": "application/x-www-form-urlencoded", "Origin": base},
+            )
             assert code == 302, code
             back = urlparse(headers["Location"])
             assert back.netloc == "claude.ai"
@@ -20331,51 +22256,118 @@ def the_mcp_server_is_reached_through_oauth_with_pkce_and_its_own_keys():
             assert given["state"] == ["s-1"] and given["iss"] == [base]
 
             def exchange(**form):
-                return ask("/oauth/token", urlencode(form).encode(), {"Content-Type": "application/x-www-form-urlencoded"})
+                return ask(
+                    "/oauth/token",
+                    urlencode(form).encode(),
+                    {"Content-Type": "application/x-www-form-urlencoded"},
+                )
 
-            code, _, body = exchange(grant_type="authorization_code", code=given["code"][0], client_id=client_id,
-                                     redirect_uri=params["redirect_uri"], code_verifier="w" * 50)
-            assert code == 400 and json.loads(body)["error"] == "invalid_grant", "the wrong verifier"
-            code, _, body = exchange(grant_type="authorization_code", code=given["code"][0], client_id=client_id,
-                                     redirect_uri=params["redirect_uri"], code_verifier=verifier)
+            code, _, body = exchange(
+                grant_type="authorization_code",
+                code=given["code"][0],
+                client_id=client_id,
+                redirect_uri=params["redirect_uri"],
+                code_verifier="w" * 50,
+            )
+            assert code == 400 and json.loads(body)["error"] == "invalid_grant", (
+                "the wrong verifier"
+            )
+            code, _, body = exchange(
+                grant_type="authorization_code",
+                code=given["code"][0],
+                client_id=client_id,
+                redirect_uri=params["redirect_uri"],
+                code_verifier=verifier,
+            )
             assert code == 400, "a code refused once is spent"
 
-            code, headers, _ = ask("/oauth/authorize", urlencode({**params, "decision": "allow", "token": "tok"}).encode(),
-                                   {"Content-Type": "application/x-www-form-urlencoded", "Origin": base})
+            code, headers, _ = ask(
+                "/oauth/authorize",
+                urlencode({**params, "decision": "allow", "token": "tok"}).encode(),
+                {"Content-Type": "application/x-www-form-urlencoded", "Origin": base},
+            )
             fresh = parse_qs(urlparse(headers["Location"]).query)["code"][0]
-            code, _, body = exchange(grant_type="authorization_code", code=fresh, client_id=client_id,
-                                     redirect_uri=params["redirect_uri"], code_verifier=verifier)
+            code, _, body = exchange(
+                grant_type="authorization_code",
+                code=fresh,
+                client_id=client_id,
+                redirect_uri=params["redirect_uri"],
+                code_verifier=verifier,
+            )
             assert code == 200, body
             tokens = json.loads(body)
             assert tokens["scope"] == "read" and tokens["token_type"] == "Bearer"
 
-            code, _, body = rpc(tokens["access_token"], "initialize", {"protocolVersion": "2025-06-18"})
+            code, _, body = rpc(
+                tokens["access_token"], "initialize", {"protocolVersion": "2025-06-18"}
+            )
             assert code == 200 and json.loads(body)["result"]["protocolVersion"] == "2025-06-18"
-            code, _, _ = ask("/mcp", json.dumps({"jsonrpc": "2.0", "method": "notifications/initialized"}).encode(),
-                             {"Authorization": f"Bearer {tokens['access_token']}"})
+            code, _, _ = ask(
+                "/mcp",
+                json.dumps({"jsonrpc": "2.0", "method": "notifications/initialized"}).encode(),
+                {"Authorization": f"Bearer {tokens['access_token']}"},
+            )
             assert code == 202
             listed = json.loads(rpc(tokens["access_token"], "tools/list")[2])["result"]["tools"]
             assert "create_task" not in {tool["name"] for tool in listed}
-            assert ask("/mcp", headers={"Authorization": f"Bearer {tokens['access_token']}"})[0] == 405, "no stream"
+            assert (
+                ask("/mcp", headers={"Authorization": f"Bearer {tokens['access_token']}"})[0] == 405
+            ), "no stream"
             # A client that names where it runs is not refused for it: the key is the lock.
             code, _, body = ask(
                 "/mcp",
-                json.dumps({"jsonrpc": "2.0", "id": 8, "method": "tools/call", "params": {"name": "whoami"}}).encode(),
-                {"Authorization": f"Bearer {tokens['access_token']}", "Content-Type": "application/json",
-                 "Origin": "https://claude.ai"},
+                json.dumps(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": 8,
+                        "method": "tools/call",
+                        "params": {"name": "whoami"},
+                    }
+                ).encode(),
+                {
+                    "Authorization": f"Bearer {tokens['access_token']}",
+                    "Content-Type": "application/json",
+                    "Origin": "https://claude.ai",
+                },
             )
             assert code == 200, code
             me = json.loads(body)["result"]["structuredContent"]
-            assert me["console"] == base and me["client"] == "claude.ai" and me["access"] == "lecture seule"
-            answer = json.loads(rpc(tokens["access_token"], "tools/call", {"name": "list_tasks", "arguments": {"waiting_for_you": True}})[2])
-            assert [task["title"] for task in answer["result"]["structuredContent"]["tasks"]] == ["Un ticket"]
-            answer = json.loads(rpc(tokens["access_token"], "tools/call", {"name": "create_task", "arguments": {"title": "Non"}})[2])
+            assert (
+                me["console"] == base
+                and me["client"] == "claude.ai"
+                and me["access"] == "lecture seule"
+            )
+            answer = json.loads(
+                rpc(
+                    tokens["access_token"],
+                    "tools/call",
+                    {"name": "list_tasks", "arguments": {"waiting_for_you": True}},
+                )[2]
+            )
+            assert [task["title"] for task in answer["result"]["structuredContent"]["tasks"]] == [
+                "Un ticket"
+            ]
+            answer = json.loads(
+                rpc(
+                    tokens["access_token"],
+                    "tools/call",
+                    {"name": "create_task", "arguments": {"title": "Non"}},
+                )[2]
+            )
             assert answer["result"]["isError"], "read only cannot create"
 
             # A refresh turns over; the old one is spent.
-            code, _, body = exchange(grant_type="refresh_token", refresh_token=tokens["refresh_token"], client_id=client_id)
+            code, _, body = exchange(
+                grant_type="refresh_token",
+                refresh_token=tokens["refresh_token"],
+                client_id=client_id,
+            )
             assert code == 200 and json.loads(body)["scope"] == "read"
-            code, _, _ = exchange(grant_type="refresh_token", refresh_token=tokens["refresh_token"], client_id=client_id)
+            code, _, _ = exchange(
+                grant_type="refresh_token",
+                refresh_token=tokens["refresh_token"],
+                client_id=client_id,
+            )
             assert code == 400
 
             # Write, ticked this time; then taken back.
@@ -20385,8 +22377,13 @@ def the_mcp_server_is_reached_through_oauth_with_pkce_and_its_own_keys():
                 {"Content-Type": "application/x-www-form-urlencoded", "Origin": base},
             )
             writer = parse_qs(urlparse(headers["Location"]).query)["code"][0]
-            code, _, body = exchange(grant_type="authorization_code", code=writer, client_id=client_id,
-                                     redirect_uri=params["redirect_uri"], code_verifier=verifier)
+            code, _, body = exchange(
+                grant_type="authorization_code",
+                code=writer,
+                client_id=client_id,
+                redirect_uri=params["redirect_uri"],
+                code_verifier=verifier,
+            )
             assert json.loads(body)["scope"] == "read write"
             written = json.loads(body)["access_token"]
             listed = json.loads(rpc(written, "tools/list")[2])["result"]["tools"]
@@ -20395,9 +22392,14 @@ def the_mcp_server_is_reached_through_oauth_with_pkce_and_its_own_keys():
             assert rpc(written, "tools/list")[0] == 401, "revoked"
 
             # Refused: no redirect to an address the client did not register.
-            code, headers, _ = ask("/oauth/authorize?" + urlencode({**params, "redirect_uri": "https://evil.example/cb"}))
+            code, headers, _ = ask(
+                "/oauth/authorize?"
+                + urlencode({**params, "redirect_uri": "https://evil.example/cb"})
+            )
             assert code == 400 and "Location" not in headers
-            code, headers, _ = ask("/oauth/authorize?" + urlencode({**params, "code_challenge_method": "plain"}))
+            code, headers, _ = ask(
+                "/oauth/authorize?" + urlencode({**params, "code_challenge_method": "plain"})
+            )
             assert code == 302 and "error=invalid_request" in headers["Location"]
         finally:
             console.shutdown()
@@ -20427,7 +22429,8 @@ def the_mcp_metadata_names_the_public_address_behind_a_proxy_that_says_nothing()
 
         def metadata(host: str) -> dict:
             request = urllib.request.Request(
-                f"http://127.0.0.1:{port}/.well-known/oauth-protected-resource/mcp", headers={"Host": host}
+                f"http://127.0.0.1:{port}/.well-known/oauth-protected-resource/mcp",
+                headers={"Host": host},
             )
             with urllib.request.urlopen(request, timeout=5) as response:
                 return json.loads(response.read())
@@ -20464,7 +22467,8 @@ def a_loopback_console_answers_the_name_web_url_gives_it_and_no_other():
 
         def status(host: str) -> int:
             request = urllib.request.Request(
-                f"http://127.0.0.1:{port}/.well-known/oauth-protected-resource/mcp", headers={"Host": host}
+                f"http://127.0.0.1:{port}/.well-known/oauth-protected-resource/mcp",
+                headers={"Host": host},
             )
             try:
                 with urllib.request.urlopen(request, timeout=5) as response:
@@ -20503,7 +22507,6 @@ def a_local_mcp_token_is_drawn_once_and_kept_as_a_digest():
             assert cli_main(["mcp", "revoke", identifier]) == 0
         assert web_oauth.check(token) is None
         assert web_oauth.check("") is None
-
 
 
 # -- why a ticket stopped -----------------------------------------------------
@@ -20547,7 +22550,9 @@ def every_fail_carries_a_code_the_catalogue_knows():
         assert "code" in given, f"{name}:{line} — a _fail without code="
         code = given["code"]
         if isinstance(code, ast.Constant):
-            assert code.value in blocks.CAUSES, f"{name}:{line} — {code.value!r} is not in blocks.py"
+            assert code.value in blocks.CAUSES, (
+                f"{name}:{line} — {code.value!r} is not in blocks.py"
+            )
         else:
             assert isinstance(code, ast.Name), f"{name}:{line} — code= is neither a code nor a name"
     asked = []
@@ -20583,11 +22588,25 @@ def every_cause_is_described_whole_in_both_languages():
 
     assert blocks.UNKNOWN in blocks.CAUSES
     for given in (
-        "worktree.residue", "worktree.interrupted", "session.killed", "session.not-started",
-        "session.no-answer", "session.no-commit", "session.question", "merge.base-red",
-        "merge.checks-failed", "merge.base-moving", "merge.refused", "merge.conflict-decision",
-        "merge.push-refused", "merge.no-pr", "publish.failed", "notion.write-failed",
-        "access.sudo", "access.credentials", "project.no-repo",
+        "worktree.residue",
+        "worktree.interrupted",
+        "session.killed",
+        "session.not-started",
+        "session.no-answer",
+        "session.no-commit",
+        "session.question",
+        "merge.base-red",
+        "merge.checks-failed",
+        "merge.base-moving",
+        "merge.refused",
+        "merge.conflict-decision",
+        "merge.push-refused",
+        "merge.no-pr",
+        "publish.failed",
+        "notion.write-failed",
+        "access.sudo",
+        "access.credentials",
+        "project.no-repo",
     ):
         assert given in blocks.CAUSES, f"the ticket's {given} is missing"
     for code, cause in blocks.CAUSES.items():
@@ -20613,8 +22632,12 @@ def every_sentence_said_for_a_cause_is_read_back_to_it():
     from ponos import blocks
 
     values = {
-        "base": "main", "branch": "ticket/x", "limit": "$5", "origin": "Validated",
-        "problem": "x", "url": "https://github.com/o/r/pull/1",
+        "base": "main",
+        "branch": "ticket/x",
+        "limit": "$5",
+        "origin": "Validated",
+        "problem": "x",
+        "url": "https://github.com/o/r/pull/1",
     }
     for code, cause in blocks.CAUSES.items():
         for key in cause.said:
@@ -20659,14 +22682,20 @@ def a_stop_writes_its_cause_on_the_board_and_in_its_result_and_leaving_clears_it
     )
     ticket = ticket_module.Ticket(runner.client._pages[0])
     blocked = runner._fail(
-        ticket, runner.voice.say("merge-refused"), code="merge.refused", blocked=True,
+        ticket,
+        runner.voice.say("merge-refused"),
+        code="merge.refused",
+        blocked=True,
         question="?",
     )
     assert blocked["status"] == "blocked" and blocked["code"] == "merge.refused", blocked
     assert runner.client.written == [("p-stop", {"Status": "Blocked", "Blocage": "merge.refused"})]
     failed = runner._fail(ticket, runner.voice.say("crashed"), "boom", code="runner.crashed")
     assert failed["code"] == "runner.crashed", failed
-    assert runner.client.written[-1] == ("p-stop", {"Status": "Failed", "Blocage": "runner.crashed"})
+    assert runner.client.written[-1] == (
+        "p-stop",
+        {"Status": "Failed", "Blocage": "runner.crashed"},
+    )
 
     # The page now says why it stopped; the next status that is not a stop empties it.
     page = runner.client._pages[0]
@@ -20711,6 +22740,7 @@ def the_board_offers_the_column_and_doctor_names_it_when_it_is_missing():
     out = io.StringIO()
     with contextlib.redirect_stdout(out):
         from ponos.__main__ import _doctor_columns
+
         missing = _doctor_columns({"Status": "status"}, settings)
     assert "Blocage" in out.getvalue() and missing >= 1, out.getvalue()
 
@@ -20723,8 +22753,16 @@ def the_history_written_before_the_codes_is_reclassed_by_its_sentence():
         before = db.open_at(location, db.MIGRATIONS[:16])
         lines = [
             {"id": "a", "status": "blocked", "reason": "the session stopped to ask you something"},
-            {"id": "b", "status": "failed", "reason": "je n'ai pas pu créer le worktree pour travailler"},
-            {"id": "c", "status": "blocked", "reason": "ses conflits ont été résolus, mais ses vérifications échouent"},
+            {
+                "id": "b",
+                "status": "failed",
+                "reason": "je n'ai pas pu créer le worktree pour travailler",
+            },
+            {
+                "id": "c",
+                "status": "blocked",
+                "reason": "ses conflits ont été résolus, mais ses vérifications échouent",
+            },
             {"id": "d", "status": "failed", "reason": "a sentence from nowhere"},
             {"id": "e", "status": "done", "reason": ""},
         ]
@@ -20786,7 +22824,10 @@ def a_stopped_card_carries_its_cause_from_the_board_or_else_from_the_history():
         ]
         web_api._causes(cards)
         assert [(card["block"] or {}).get("code") for card in cards] == [
-            "session.question", "merge.refused", None, None,
+            "session.question",
+            "merge.refused",
+            None,
+            None,
         ], cards
         said = cards[0]["block"]
         assert said["family"] == "question" and said["action"] == "answer"
@@ -20802,22 +22843,31 @@ def the_statistics_count_the_stops_by_cause_and_by_week():
         {"at": "2026-10-06T09:00:00+00:00", "status": "failed", "code": "merge.checks-failed"},
         {"at": "2026-10-07T09:00:00+00:00", "status": "blocked", "code": "session.question"},
         # Written before the codes and never migrated: read back from its sentence.
-        {"at": "2026-10-13T09:00:00+00:00", "status": "blocked", "reason": "the pull request would not merge"},
+        {
+            "at": "2026-10-13T09:00:00+00:00",
+            "status": "blocked",
+            "reason": "the pull request would not merge",
+        },
         {"at": "2026-10-13T09:00:00+00:00", "status": "done"},
         {"at": "2026-09-01T09:00:00+00:00", "status": "blocked", "code": "session.question"},
     ]
-    found = web_statistics.figures(
-        [], history, date(2026, 10, 1), date(2026, 10, 20), UTC
-    )["blocks"]
+    found = web_statistics.figures([], history, date(2026, 10, 1), date(2026, 10, 20), UTC)[
+        "blocks"
+    ]
     assert found["total"] == 4, found
     assert [week["week"] for week in found["weeks"]] == [
-        "2026-09-28", "2026-10-05", "2026-10-12", "2026-10-19",
+        "2026-09-28",
+        "2026-10-05",
+        "2026-10-12",
+        "2026-10-19",
     ], found["weeks"]
     assert found["weeks"][0]["counts"] == {}
     assert found["weeks"][1]["counts"] == {"session.question": 2, "merge.checks-failed": 1}
     assert found["weeks"][2]["counts"] == {"merge.refused": 1}
     assert [(cause["code"], cause["count"]) for cause in found["causes"]] == [
-        ("session.question", 2), ("merge.checks-failed", 1), ("merge.refused", 1),
+        ("session.question", 2),
+        ("merge.checks-failed", 1),
+        ("merge.refused", 1),
     ]
     assert found["causes"][0]["family"] == "question" and found["causes"][0]["label"]["fr"]
 
@@ -20841,8 +22891,13 @@ def the_mcp_tab_reads_claude_mcp_list_without_its_keys_and_tests_the_401_a_live_
         "local: npx -y @x/server --token=SECRET - ✗ Failed to connect\n"
     )
     assert [(one["name"], one["state"]) for one in listed] == [
-        ("notion", "ok"), ("github", "auth"), ("local", "error")], listed
-    assert listed[0]["target"] == "https://mcp.notion.com/mcp" and listed[2]["target"] == "npx", listed
+        ("notion", "ok"),
+        ("github", "auth"),
+        ("local", "error"),
+    ], listed
+    assert listed[0]["target"] == "https://mcp.notion.com/mcp" and listed[2]["target"] == "npx", (
+        listed
+    )
     assert "SECRET" not in json.dumps(listed)
 
     answers = {"/mcp": 401, "/gone/mcp": 404, "/moved/mcp": 421}
@@ -20853,11 +22908,16 @@ def the_mcp_tab_reads_claude_mcp_list_without_its_keys_and_tests_the_401_a_live_
             status = answers.get(self.path, 404)
             self.send_response(status)
             if status == 401:
-                self.send_header("WWW-Authenticate", f'Bearer resource_metadata="http://{self.headers["Host"]}/meta"')
+                self.send_header(
+                    "WWW-Authenticate",
+                    f'Bearer resource_metadata="http://{self.headers["Host"]}/meta"',
+                )
             self.end_headers()
 
         def do_GET(self):
-            body = json.dumps({"resource": announced["resource"] or f"http://{self.headers['Host']}/mcp"}).encode()
+            body = json.dumps(
+                {"resource": announced["resource"] or f"http://{self.headers['Host']}/mcp"}
+            ).encode()
             self.send_response(200)
             self.end_headers()
             self.wfile.write(body)
@@ -20874,17 +22934,24 @@ def the_mcp_tab_reads_claude_mcp_list_without_its_keys_and_tests_the_401_a_live_
         assert mcp_setup.probe(f"{base}/moved/mcp")["code"] == "misrouted"
         announced["resource"] = "https://elsewhere.example/mcp"
         mismatch = mcp_setup.probe(f"{base}/mcp")
-        assert mismatch["code"] == "address-mismatch" and mismatch["seen"] == announced["resource"], mismatch
+        assert (
+            mismatch["code"] == "address-mismatch" and mismatch["seen"] == announced["resource"]
+        ), mismatch
     finally:
         server.shutdown()
         server.server_close()
     assert mcp_setup.probe("")["code"] == "no-address"
     assert mcp_setup.probe("http://127.0.0.1:1/mcp")["code"] == "unreachable"
     overview = mcp_setup.overview("http://127.0.0.1:8787", "https://p.example/")
-    assert overview["local"] == "http://127.0.0.1:8787/mcp" and overview["public"] == "https://p.example/mcp"
+    assert (
+        overview["local"] == "http://127.0.0.1:8787/mcp"
+        and overview["public"] == "https://p.example/mcp"
+    )
 
 
-def _span(start: str, end: str | None, status: str | None = "done", code: str = "", last: str = "") -> dict:
+def _span(
+    start: str, end: str | None, status: str | None = "done", code: str = "", last: str = ""
+) -> dict:
     day = "2026-10-14T"
     return {
         "start": day + start + "+00:00",
@@ -20926,26 +22993,41 @@ def the_clock_runs_on_a_live_run_and_stops_on_a_blocked_one():
 @case
 def review_and_the_wait_in_ready_are_nobodys_pause_and_credit_is_one():
     reviewed = worktime.measure([_span("10:00:00", "10:20:00", "done")], "review", _at("18:00:00"))
-    assert reviewed and reviewed["work"] == 1200 and reviewed["paused"] == 0 and reviewed["pause"] == "", reviewed
+    assert (
+        reviewed
+        and reviewed["work"] == 1200
+        and reviewed["paused"] == 0
+        and reviewed["pause"] == ""
+    ), reviewed
     # A correction after review: the days in review are not counted either.
     again = worktime.measure(
-        [_span("10:00:00", "10:20:00", "done"), _span("15:00:00", "15:10:00", "done")], "review", _at("18:00:00")
+        [_span("10:00:00", "10:20:00", "done"), _span("15:00:00", "15:10:00", "done")],
+        "review",
+        _at("18:00:00"),
     )
     assert again and again["work"] == 1800 and again["paused"] == 0, again
     credit = worktime.measure([_span("10:00:00", "10:20:00", "waiting")], "ready", _at("11:20:00"))
     assert credit and credit["pause"] == "credit" and credit["paused"] == 3600, credit
-    failed = worktime.measure([_span("10:00:00", "10:20:00", "failed", "runner.crashed")], "failed", _at("10:30:00"))
+    failed = worktime.measure(
+        [_span("10:00:00", "10:20:00", "failed", "runner.crashed")], "failed", _at("10:30:00")
+    )
     assert failed and failed["pause"] == "blocked", failed
 
 
 @case
 def a_run_the_runner_never_closed_stops_at_its_last_step_and_an_overlap_counts_once():
-    killed = worktime.measure([_span("10:00:00", None, None, last="10:07:00")], "ready", _at("20:00:00"))
+    killed = worktime.measure(
+        [_span("10:00:00", None, None, last="10:07:00")], "ready", _at("20:00:00")
+    )
     assert killed and killed["work"] == 420 and not killed["running"], killed
     # Still "progress" but silent for hours: the runner is gone, the clock is not running.
-    silent = worktime.measure([_span("10:00:00", None, None, last="10:07:00")], "progress", _at("20:00:00"))
+    silent = worktime.measure(
+        [_span("10:00:00", None, None, last="10:07:00")], "progress", _at("20:00:00")
+    )
     assert silent and silent["work"] == 420 and not silent["running"], silent
-    overlap = worktime.measure([_span("10:00:00", "10:10:00"), _span("10:05:00", "10:20:00")], "review", _at("11:00:00"))
+    overlap = worktime.measure(
+        [_span("10:00:00", "10:10:00"), _span("10:05:00", "10:20:00")], "review", _at("11:00:00")
+    )
     assert overlap and overlap["work"] == 1200, overlap
     assert worktime.measure([], "review", _at("11:00:00")) is None
 
@@ -20996,7 +23078,7 @@ def _github_answering(answer):
     calls: list[tuple[str, str, dict]] = []
 
     def send(method, url, headers, body):
-        path = url[len(github_app.api()):]
+        path = url[len(github_app.api()) :]
         calls.append((method, path, headers))
         status, payload = answer(method, path, headers, body)
         return status, json.dumps(payload).encode()
@@ -21030,8 +23112,15 @@ def _github_answering(answer):
 
 
 def _test_app(**changes) -> github_app.App:
-    held = dict(id=42, slug="ponos-laptop", name="Ponos — laptop", owner="hermez", pem=_TEST_PEM,
-                client_id="Iv1.abc", html_url="https://github.com/apps/ponos-laptop")
+    held = dict(
+        id=42,
+        slug="ponos-laptop",
+        name="Ponos — laptop",
+        owner="hermez",
+        pem=_TEST_PEM,
+        client_id="Iv1.abc",
+        html_url="https://github.com/apps/ponos-laptop",
+    )
     held.update(changes)
     return github_app.App(**held)
 
@@ -21061,7 +23150,10 @@ def a_github_app_jwt_is_rs256_signed_by_its_key_and_lasts_under_ten_minutes():
     digest = hashlib.sha256(f"{header}.{claims}".encode()).digest()
     assert opened.startswith(b"\x00\x01\xff") and opened.endswith(github_app.SHA256_PREFIX + digest)
     # Without a client id, the app's id is who signs.
-    assert json.loads(part(github_app.jwt(_test_app(client_id=""), now=5).split(".")[1]))["iss"] == "42"
+    assert (
+        json.loads(part(github_app.jwt(_test_app(client_id=""), now=5).split(".")[1]))["iss"]
+        == "42"
+    )
 
 
 @case
@@ -21071,10 +23163,17 @@ def the_manifest_code_is_exchanged_once_and_the_app_kept_with_the_secrets():
             return 200, []
         assert (method, path) == ("POST", "/app-manifests/abc123/conversions"), (method, path)
         assert "Authorization" not in headers
-        return 201, {"id": 42, "slug": "ponos-laptop", "name": "Ponos — laptop",
-                     "owner": {"login": "Hermez"}, "pem": _TEST_PEM, "client_id": "Iv1.abc",
-                     "client_secret": "shh", "webhook_secret": "hook",
-                     "html_url": "https://github.com/apps/ponos-laptop"}
+        return 201, {
+            "id": 42,
+            "slug": "ponos-laptop",
+            "name": "Ponos — laptop",
+            "owner": {"login": "Hermez"},
+            "pem": _TEST_PEM,
+            "client_id": "Iv1.abc",
+            "client_secret": "shh",
+            "webhook_secret": "hook",
+            "html_url": "https://github.com/apps/ponos-laptop",
+        }
 
     with _github_answering(answer) as calls:
         state = github_app.draw_state(organisation="hermez")
@@ -21121,7 +23220,9 @@ def connecting_github_posts_a_manifest_for_an_account_or_an_organisation():
     mine = github_app.begin("http://127.0.0.1:8787/", "", "laptop")
     assert mine["action"].startswith("https://github.com/settings/apps/new?state=")
     theirs = github_app.begin("https://ponos.example", "@Hermez", "laptop")
-    assert theirs["action"].startswith("https://github.com/organizations/Hermez/settings/apps/new?state=")
+    assert theirs["action"].startswith(
+        "https://github.com/organizations/Hermez/settings/apps/new?state="
+    )
     said = json.loads(theirs["manifest"])
     assert said["name"] == "Ponos — laptop" and said["public"] is False
     assert said["redirect_url"] == "https://ponos.example/api/github/manifest/callback"
@@ -21130,7 +23231,9 @@ def connecting_github_posts_a_manifest_for_an_account_or_an_organisation():
     assert said["default_permissions"]["contents"] == "write"
     assert said["default_permissions"]["metadata"] == "read"
     assert not any(key.startswith("organization_") for key in said["default_permissions"])
-    assert len(github_app.app_name("a-very-long-machine-name-indeed-yes")) <= github_app.LONGEST_NAME
+    assert (
+        len(github_app.app_name("a-very-long-machine-name-indeed-yes")) <= github_app.LONGEST_NAME
+    )
     assert github_app.take_state(theirs["state"]) == {"organisation": "Hermez"}
 
 
@@ -21155,7 +23258,9 @@ def an_installation_token_is_kept_and_renewed_before_it_lapses():
         assert github_app.installation_token(app, 7, now=lapse - 300) == "ghs_1", "renewed"
         assert minted == ["ghs_0", "ghs_1"]
         # The owner's repositories are worked with it, in place of any `gh` account.
-        assert git_module.token_for("git@github.com:hermez/site.git", {"hermez": "salva"}) == "ghs_1"
+        assert (
+            git_module.token_for("git@github.com:hermez/site.git", {"hermez": "salva"}) == "ghs_1"
+        )
         assert github_app.issued("ghs_1") and not github_app.issued("gho_personal")
         assert github_app.token("someone-else") == ""
 
@@ -21164,7 +23269,9 @@ def an_installation_token_is_kept_and_renewed_before_it_lapses():
 def a_session_and_a_push_on_an_installed_owner_carry_the_app_token_and_its_bot():
     def answer(method, path, headers, body):
         if path.startswith("/app/installations?"):
-            return 200, [{"id": 7, "account": {"login": "hermez"}, "repository_selection": "selected"}]
+            return 200, [
+                {"id": 7, "account": {"login": "hermez"}, "repository_selection": "selected"}
+            ]
         if path == "/app/installations/7/access_tokens":
             return 201, {"token": "ghs_session", "expires_at": "2099-01-01T00:00:00Z"}
         if path == "/users/ponos-laptop%5Bbot%5D":
@@ -21192,7 +23299,9 @@ def a_session_and_a_push_on_an_installed_owner_carry_the_app_token_and_its_bot()
         )
         assert seen.out.split()[0] == "ghs_session" and int(seen.out.split()[1]) >= 5, seen.out
         # A `gh` account's token is passed as it always was, and nothing more.
-        plain = git_module.run(["sh", "-c", 'echo "$GH_TOKEN ${GIT_CONFIG_COUNT:-none}"'], token="gho_mine")
+        plain = git_module.run(
+            ["sh", "-c", 'echo "$GH_TOKEN ${GIT_CONFIG_COUNT:-none}"'], token="gho_mine"
+        )
         assert plain.out == "gho_mine none" or plain.out.startswith("gho_mine "), plain.out
 
 
@@ -21220,7 +23329,9 @@ def git_is_given_the_app_token_through_its_environment_and_never_in_a_value():
     before = {name: os.environ.get(name) for name in ("GH_TOKEN", "PONOS_GITHUB_LAPSES")}
     os.environ.update(GH_TOKEN="ghs_held", PONOS_GITHUB_LAPSES=str(int(time.time()) + 3000))
     try:
-        github_app.helper(["get"], read=lambda: "protocol=https\nhost=github.com\npath=hermez/site.git\n", out=out)
+        github_app.helper(
+            ["get"], read=lambda: "protocol=https\nhost=github.com\npath=hermez/site.git\n", out=out
+        )
         assert out.getvalue() == "username=x-access-token\npassword=ghs_held\n", out.getvalue()
         elsewhere = io.StringIO()
         github_app.helper(["get"], read=lambda: "protocol=https\nhost=gitlab.com\n", out=elsewhere)
@@ -21246,7 +23357,7 @@ def _token_answering(answer, configuration: str = ""):
     asked: list[str] = []
 
     def send(url, bearer):
-        path = url[len(github_app.api()):]
+        path = url[len(github_app.api()) :]
         asked.append(path)
         status, headers, payload = answer(path, bearer)
         return status, headers, json.dumps(payload).encode()
@@ -21319,7 +23430,9 @@ def a_token_that_is_refused_or_too_narrow_says_what_it_lacks():
         try:
             github_token.check("github_pat_wrong")
         except github_token.GithubTokenError as error:
-            assert "mistyped, expired or revoked" in str(error) and "github_pat_wrong" not in str(error)
+            assert "mistyped, expired or revoked" in str(error) and "github_pat_wrong" not in str(
+                error
+            )
         else:
             raise AssertionError("a refused token is no token")
     read_only = [{"full_name": "salva/site", "permissions": {"push": False, "pull": True}}]
@@ -21333,6 +23446,7 @@ def a_token_that_is_refused_or_too_narrow_says_what_it_lacks():
         ]
     with _token_answering(_fine_grained([])):
         assert github_token.check("github_pat_x")["missing"][0]["permission"] == "Repository access"
+
     # A classic token says its scopes in a header; `repo` is the one it cannot do without.
     def classic(path, bearer):
         headers = {"x-oauth-scopes": "read:user"}
@@ -21359,7 +23473,9 @@ def the_console_keeps_only_a_token_that_can_work_and_selects_it():
     with _token_answering(_fine_grained(_WRITABLE, pulls=403)):
         answer = web_github.save_token(Api(), {"token": "github_pat_narrow"})
         assert answer["saved"] is False and answer["missing"][0]["permission"] == "Pull requests"
-        assert github_token.token() == "" and saved == [], "a token that lacks a permission is not kept"
+        assert github_token.token() == "" and saved == [], (
+            "a token that lacks a permission is not kept"
+        )
         try:
             web_github.save_token(Api(), {"token": "has a space"})
         except ValueError as error:
@@ -21377,7 +23493,11 @@ def the_console_keeps_only_a_token_that_can_work_and_selects_it():
 def a_token_comes_before_gh_and_after_or_before_the_app_as_the_mode_says():
     def answer(path, bearer):
         if path.startswith("/app/installations?"):
-            return 200, {}, [{"id": 7, "account": {"login": "hermez"}, "repository_selection": "all"}]
+            return (
+                200,
+                {},
+                [{"id": 7, "account": {"login": "hermez"}, "repository_selection": "all"}],
+            )
         raise AssertionError(path)
 
     def app_token(method, path, headers, body):
@@ -21411,7 +23531,10 @@ def a_token_comes_before_gh_and_after_or_before_the_app_as_the_mode_says():
         )
         assert seen.out.split()[0] == "github_pat_mine" and int(seen.out.split()[1]) >= 5, seen.out
         # `gh`'s own token is passed on as it always was.
-        assert git_module.run(["sh", "-c", 'echo "${GIT_CONFIG_COUNT:-none}"'], token="gho_mine").out == "none"
+        assert (
+            git_module.run(["sh", "-c", 'echo "${GIT_CONFIG_COUNT:-none}"'], token="gho_mine").out
+            == "none"
+        )
 
 
 @case
@@ -21424,7 +23547,9 @@ def a_token_is_read_from_the_environment_or_a_vault_and_masked():
         assert vault.mask("echo github_pat_from_the_container") == "echo ***"
         assert github_token.forget() is False, "a token the environment gives is not ours to drop"
     with (
-        _token_answering(lambda *_: (200, {}, {}), '[github_access]\ntoken_item = "pass:ponos/github"\n'),
+        _token_answering(
+            lambda *_: (200, {}, {}), '[github_access]\ntoken_item = "pass:ponos/github"\n'
+        ),
         _tools({"pass": "print('github_pat_from_pass\\nnote')"}),
     ):
         assert github_token.token() == "github_pat_from_pass"
@@ -21433,7 +23558,9 @@ def a_token_is_read_from_the_environment_or_a_vault_and_masked():
         assert vault.mask("github_pat_from_pass") == "***"
     with (
         _token_answering(lambda *_: (200, {}, {}), '[github_access]\ntoken_item = "pass:absent"\n'),
-        _tools({"pass": "sys.stderr.write('Error: absent is not in the password store.'); sys.exit(1)"}),
+        _tools(
+            {"pass": "sys.stderr.write('Error: absent is not in the password store.'); sys.exit(1)"}
+        ),
     ):
         assert github_token.token() == "" and "holds no item" in github_token.unavailable()
 
@@ -21446,7 +23573,10 @@ def the_github_access_keys_are_documented_and_the_token_is_a_secret():
     assert "token_item" in example
     assert _config('[github_access]\nmode = "token"\n').github_access.mode == "token"
     assert _config('[github_access]\nmode = "nonsense"\n').github_access.mode == ""
-    assert "contents=write" in github_token.CREATE_URL and "pull_requests=write" in github_token.CREATE_URL
+    assert (
+        "contents=write" in github_token.CREATE_URL
+        and "pull_requests=write" in github_token.CREATE_URL
+    )
 
 
 # -- the vault ---------------------------------------------------------------
@@ -21478,7 +23608,10 @@ def the_vault_is_read_project_by_project_and_checked():
     ).vault
     assert settings.provider == "pass"
     assert settings.granted("leadz") == {"LEADZ_DOKPLOY_TOKEN": "LEADZ_DOKPLOY_TOKEN"}
-    assert settings.granted(" PONOS ") == {"NPM_TOKEN": "hermez-npm", "GH_TOKEN": "keyring:service=gh"}
+    assert settings.granted(" PONOS ") == {
+        "NPM_TOKEN": "hermez-npm",
+        "GH_TOKEN": "keyring:service=gh",
+    }
     assert settings.granted("Opoil") == {}, "a project the table does not name is given nothing"
     joined = "\n".join(settings.problems)
     assert "ANTHROPIC_API_KEY is the runner's own" in joined, joined
@@ -21506,23 +23639,27 @@ def each_provider_reads_a_secret_and_tells_a_missing_one_from_a_locked_vault():
         assert environment.read("NOWHERE") == ""
     finally:
         os.environ.pop("PONOS_TEST_VAULT")
-    with _tools({
-        "pass": (
-            "if sys.argv[2] == 'hermez/npm': print('npm_granular_abcdef\\nlogin: hermez')\n"
-            "else: sys.stderr.write('Error: x is not in the password store.\\n'); sys.exit(1)\n"
-        ),
-        "secret-tool": (
-            "if sys.argv[1:] == ['lookup', 'service', 'ponos', 'username', 'npm']: print('kr_secret_value', end='')\n"
-            "elif sys.argv[1:] == ['lookup', 'service', 'gh', 'account', 'me']: print('kr_github_value', end='')\n"
-            "else: sys.exit(1)\n"
-        ),
-        "bw": (
-            "assert os.environ['BW_SESSION'] == 'unlocked'\n"
-            "if sys.argv[3] == 'dokploy': print('bw_dokploy_value')\n"
-            "else: sys.stderr.write('Not found.'); sys.exit(1)\n"
-        ),
-    }):
-        assert vault.provider("pass").read("hermez/npm") == "npm_granular_abcdef", "the first line only"
+    with _tools(
+        {
+            "pass": (
+                "if sys.argv[2] == 'hermez/npm': print('npm_granular_abcdef\\nlogin: hermez')\n"
+                "else: sys.stderr.write('Error: x is not in the password store.\\n'); sys.exit(1)\n"
+            ),
+            "secret-tool": (
+                "if sys.argv[1:] == ['lookup', 'service', 'ponos', 'username', 'npm']: print('kr_secret_value', end='')\n"
+                "elif sys.argv[1:] == ['lookup', 'service', 'gh', 'account', 'me']: print('kr_github_value', end='')\n"
+                "else: sys.exit(1)\n"
+            ),
+            "bw": (
+                "assert os.environ['BW_SESSION'] == 'unlocked'\n"
+                "if sys.argv[3] == 'dokploy': print('bw_dokploy_value')\n"
+                "else: sys.stderr.write('Not found.'); sys.exit(1)\n"
+            ),
+        }
+    ):
+        assert vault.provider("pass").read("hermez/npm") == "npm_granular_abcdef", (
+            "the first line only"
+        )
         assert vault.provider("pass").read("other") == ""
         assert vault.provider("keyring").read("npm") == "kr_secret_value"
         assert vault.provider("keyring").read("service=gh account=me") == "kr_github_value"
@@ -21544,7 +23681,9 @@ def each_provider_reads_a_secret_and_tells_a_missing_one_from_a_locked_vault():
         assert found.values == {"NPM_TOKEN": "npm_granular_abcdef", "DOKPLOY": "bw_dokploy_value"}
         assert found.missing == ["GONE (pass: no such item)"], found.missing
         assert "npm_granular_abcdef" not in "".join(found.missing)
-        assert vault.mask("token npm_granular_abcdef here") == "token *** here", "read is remembered"
+        assert vault.mask("token npm_granular_abcdef here") == "token *** here", (
+            "read is remembered"
+        )
     try:
         vault.provider("onepassword")
     except vault.VaultError as error:
@@ -21563,9 +23702,12 @@ def a_secret_read_is_masked_wherever_it_would_be_written():
         vault.remember('tok"en\\value')
         vault.remember("npm_0123456789")
         assert vault.mask("NPM=npm_0123456789!") == "NPM=***!"
-        assert vault.mask(json.dumps({"x": 'tok"en\\value'})) == '{"x": "***"}', "the JSON spelling too"
+        assert vault.mask(json.dumps({"x": 'tok"en\\value'})) == '{"x": "***"}', (
+            "the JSON spelling too"
+        )
         assert vault.masked({"a": ["npm_0123456789", 3], "b": {"c": "ok"}}) == {
-            "a": ["***", 3], "b": {"c": "ok"}
+            "a": ["***", 3],
+            "b": {"c": "ok"},
         }
         with tempfile.TemporaryDirectory() as directory:
             stderr = Path(directory) / "x.err"
@@ -21593,7 +23735,9 @@ def a_secret_read_is_masked_wherever_it_would_be_written():
                 return b"{}"
 
         original = notion.urllib.request.urlopen
-        notion.urllib.request.urlopen = lambda request, timeout=0: sent.append(request.data) or Answer()
+        notion.urllib.request.urlopen = lambda request, timeout=0: (
+            sent.append(request.data) or Answer()
+        )
         try:
             notion.Client("ntn_test").comment("p", "the key is npm_0123456789")
         finally:
@@ -21624,8 +23768,12 @@ def a_session_given_a_secret_never_writes_it_down():
         seen: list[dict] = []
         try:
             outcome = session.run(
-                "go", cwd=home, log=home / "s.jsonl", timeout_minutes=1,
-                environment={"NPM_TOKEN": "npm_supersecret_42"}, on_event=seen.append,
+                "go",
+                cwd=home,
+                log=home / "s.jsonl",
+                timeout_minutes=1,
+                environment={"NPM_TOKEN": "npm_supersecret_42"},
+                on_event=seen.append,
             )
         finally:
             os.environ["PATH"] = previous
@@ -21661,8 +23809,15 @@ def a_ticket_session_is_given_its_project_secrets_by_name_only():
         os.environ.pop("LEADZ_TEST_KEY")
         vault.forget()
     text = prompt.build(
-        prompt.DOCUMENT, project="Leadz", title="t", body="b", repo="r", branch="b",
-        base="main", url="u", secrets=["LEADZ_TEST_KEY"],
+        prompt.DOCUMENT,
+        project="Leadz",
+        title="t",
+        body="b",
+        repo="r",
+        branch="b",
+        base="main",
+        url="u",
+        secrets=["LEADZ_TEST_KEY"],
     )
     assert "# Secrets" in text and "`LEADZ_TEST_KEY`" in text and "leadz_secret_value" not in text
     assert "# Secrets" not in prompt.build(
@@ -21670,13 +23825,16 @@ def a_ticket_session_is_given_its_project_secrets_by_name_only():
     )
 
 
-
-def _serve_status(name: str, port: int = 8787, funnel: bool = True, extra: dict | None = None) -> str:
+def _serve_status(
+    name: str, port: int = 8787, funnel: bool = True, extra: dict | None = None
+) -> str:
     local = f"http://127.0.0.1:{port}"
     web = {
         f"{name}:8443": {"Handlers": {"/": {"Proxy": local}}},
         f"{name}:443": {
-            "Handlers": {path: {"Proxy": local + path} for path in ("/mcp", "/oauth", "/.well-known")}
+            "Handlers": {
+                path: {"Proxy": local + path} for path in ("/mcp", "/oauth", "/.well-known")
+            }
         },
     }
     web[f"{name}:443"]["Handlers"].update(extra or {})
@@ -21691,9 +23849,15 @@ def tailscale_publishes_the_mcp_paths_on_the_funnel_port_and_the_console_on_anot
     lines = tailscale.commands(8787)
     assert lines[0] == ["serve", "--bg", "--https=8443", "http://127.0.0.1:8787"], lines[0]
     funnelled = [line for line in lines if line[0] == "funnel"]
-    assert [line[3] for line in funnelled] == ["--set-path=/mcp", "--set-path=/oauth", "--set-path=/.well-known"]
+    assert [line[3] for line in funnelled] == [
+        "--set-path=/mcp",
+        "--set-path=/oauth",
+        "--set-path=/.well-known",
+    ]
     assert all(line[2] == "--https=443" for line in funnelled)
-    assert all(not line[-1].endswith(":8787") for line in funnelled), "the root must never be funnelled"
+    assert all(not line[-1].endswith(":8787") for line in funnelled), (
+        "the root must never be funnelled"
+    )
 
 
 @case
@@ -21719,7 +23883,9 @@ def a_request_through_the_funnel_reaches_the_mcp_doors_and_nothing_else():
         def status(path: str, funnel: bool, method: str = "GET") -> int:
             headers = {tailscale.FUNNEL_HEADER: "?1"} if funnel else {}
             request = urllib.request.Request(
-                f"http://127.0.0.1:{port}{path}", headers=headers, method=method,
+                f"http://127.0.0.1:{port}{path}",
+                headers=headers,
+                method=method,
                 data=b"{}" if method == "POST" else None,
             )
             try:
@@ -21749,7 +23915,9 @@ def tailscale_serve_status_is_read_as_in_place_only_when_both_doors_are_exactly_
     assert not tailscale.configured("{}", name, 8787), "nothing published yet"
     assert not tailscale.configured("not json", name, 8787)
     assert not tailscale.configured(_serve_status(name, port=9000), name, 8787), "the console moved"
-    assert not tailscale.configured(_serve_status(name, funnel=False), name, 8787), "funnel not allowed"
+    assert not tailscale.configured(_serve_status(name, funnel=False), name, 8787), (
+        "funnel not allowed"
+    )
     extra = {"/": {"Proxy": "http://127.0.0.1:8787"}}
     assert not tailscale.configured(_serve_status(name, extra=extra), name, 8787), (
         "a root handler on the funnel port is the console, public"
@@ -21807,7 +23975,6 @@ def a_missing_tailscale_binary_is_said_once_by_the_watcher_and_does_not_stop_it(
     assert said == ["tailscale is not installed"], said
 
 
-
 class _HealthBoard:
     """The few calls `health` makes of a Notion board, over a database held in memory."""
 
@@ -21826,7 +23993,9 @@ class _HealthBoard:
 
     def options(self, database_id: str, name: str) -> list[str]:
         prop = self.properties.get(name) or {}
-        return [option["name"] for option in (prop.get(prop.get("type", "")) or {}).get("options", [])]
+        return [
+            option["name"] for option in (prop.get(prop.get("type", "")) or {}).get("options", [])
+        ]
 
     def add_properties(self, database_id: str, properties: dict) -> None:
         self.added.update(properties)
@@ -21835,10 +24004,15 @@ class _HealthBoard:
 def _health_board(skip: tuple[str, ...] = (), statuses: tuple[str, ...] = ()):
     settings = C.Notion(properties=dict(C._DEFAULT_PROPERTIES))
     schema = provision.tickets_schema(settings, "projects", "agents")
-    properties = {name: {"type": next(iter(shape)), **shape} for name, shape in schema.items() if name not in skip}
+    properties = {
+        name: {"type": next(iter(shape)), **shape}
+        for name, shape in schema.items()
+        if name not in skip
+    }
     if statuses:
         properties[settings.prop("status")] = {
-            "type": "select", "select": {"options": [{"name": name} for name in statuses]},
+            "type": "select",
+            "select": {"options": [{"name": name} for name in statuses]},
         }
     return settings, _HealthBoard(properties)
 
@@ -21850,7 +24024,9 @@ def health_says_nothing_of_a_board_that_is_complete():
     settings, board = _health_board()
     config = _config("")
     config.notion = settings
-    found = health._schema(config, board, workspace.Workspace(tickets="db", projects="projects", agents="agents"))
+    found = health._schema(
+        config, board, workspace.Workspace(tickets="db", projects="projects", agents="agents")
+    )
     assert [check.state for check in found] == [health.OK, health.OK], found
 
 
@@ -21861,12 +24037,16 @@ def health_offers_to_add_the_missing_properties_and_does_it_only_once_confirmed(
     settings, board = _health_board(skip=("Runner", "Progress"))
     config = _config("")
     config.notion = settings
-    found = health._schema(config, board, workspace.Workspace(tickets="db", projects="projects", agents="agents"))
+    found = health._schema(
+        config, board, workspace.Workspace(tickets="db", projects="projects", agents="agents")
+    )
     columns = next(check for check in found if check.code == "notion.columns")
     assert columns.state == health.ERROR
     assert "“Runner”" in columns.params["missing"] and "“Progress”" in columns.params["missing"]
     assert columns.fix and columns.fix["action"] == "notion_columns"
-    assert "“Runner”" in columns.text(columns.fix["confirm"].replace("{{missing}}", columns.fix["missing"])), "the dialog names them"
+    assert "“Runner”" in columns.text(
+        columns.fix["confirm"].replace("{{missing}}", columns.fix["missing"])
+    ), "the dialog names them"
 
     class Client(_HealthBoard):
         def resolve_database(self, identifier: str) -> str:
@@ -21874,7 +24054,9 @@ def health_offers_to_add_the_missing_properties_and_does_it_only_once_confirmed(
 
     client = Client(board.properties)
     original = workspace.resolve
-    workspace.resolve = lambda backend, notion_settings: workspace.Workspace(tickets="db", projects="projects", agents="agents")
+    workspace.resolve = lambda backend, notion_settings: workspace.Workspace(
+        tickets="db", projects="projects", agents="agents"
+    )
     try:
         try:
             health.fix(config, client, "notion_columns")
@@ -21896,14 +24078,22 @@ def health_adds_a_missing_status_to_a_select_and_only_says_how_on_a_real_status(
     settings, board = _health_board(statuses=("Ready", "In progress", "Done"))
     config = _config("")
     config.notion = settings
-    found = health._schema(config, board, workspace.Workspace(tickets="db", projects="projects", agents="agents"))
+    found = health._schema(
+        config, board, workspace.Workspace(tickets="db", projects="projects", agents="agents")
+    )
     statuses = next(check for check in found if check.code == "notion.statuses")
-    assert statuses.state == health.ERROR and statuses.fix and statuses.fix["action"] == "notion_statuses"
+    assert (
+        statuses.state == health.ERROR
+        and statuses.fix
+        and statuses.fix["action"] == "notion_statuses"
+    )
     assert "“Failed”" in statuses.params["missing"]
 
     name = settings.prop("status")
     board.properties[name] = {"type": "status", "status": {"options": [{"name": "Ready"}]}}
-    found = health._schema(config, board, workspace.Workspace(tickets="db", projects="projects", agents="agents"))
+    found = health._schema(
+        config, board, workspace.Workspace(tickets="db", projects="projects", agents="agents")
+    )
     statuses = next(check for check in found if check.code == "notion.statuses")
     assert statuses.fix is None and statuses.steps, "Notion cannot widen a status from outside"
 
@@ -21913,12 +24103,16 @@ def health_reports_a_project_whose_folder_is_gone_and_one_with_no_remote():
     from ponos import health
 
     config = _config("")
-    gone = health._project(config, {"id": "1", "name": "Ghost", "repository": "", "path": "/nonexistent/ghost"})
+    gone = health._project(
+        config, {"id": "1", "name": "Ghost", "repository": "", "path": "/nonexistent/ghost"}
+    )
     assert [check.state for check in gone] == [health.ERROR] and gone[0].code == "projects.path"
     assert "Ghost" in gone[0].text(gone[0].said)
 
     # A repository to clone is not a mistake: it is fetched when its first ticket starts.
-    cloned = health._project(config, {"id": "2", "name": "Later", "repository": "acme/later", "path": ""})
+    cloned = health._project(
+        config, {"id": "2", "name": "Later", "repository": "acme/later", "path": ""}
+    )
     assert [check.state for check in cloned] == [health.WARN]
 
     repo = Path(tempfile.mkdtemp())

@@ -250,7 +250,10 @@ TOOLS: list[dict] = [
         "la tâche. Renvoie l'identifiant de la tâche créée.",
         "inputSchema": _schema(
             {
-                "title": {"type": "string", "description": "Le titre : ce qu'il faut faire, en une ligne."},
+                "title": {
+                    "type": "string",
+                    "description": "Le titre : ce qu'il faut faire, en une ligne.",
+                },
                 "description": {
                     "type": "string",
                     "description": "Le brief, en Markdown : le contexte, ce qui est attendu, quand "
@@ -293,7 +296,10 @@ TOOLS: list[dict] = [
         "inputSchema": _schema(
             {
                 "task": TASK_REFERENCE,
-                "answer": {"type": "string", "description": "La réponse, telle que la personne la donne."},
+                "answer": {
+                    "type": "string",
+                    "description": "La réponse, telle que la personne la donne.",
+                },
                 "ready": {
                     "type": "boolean",
                     "description": "true : remettre aussi la tâche en ready (false par défaut).",
@@ -335,7 +341,10 @@ TOOLS: list[dict] = [
                     "type": "string",
                     "description": "La consigne, la réponse ou la note, quand la solution en demande une.",
                 },
-                "model": {"type": "string", "description": "Le modèle, pour relancer avec un autre."},
+                "model": {
+                    "type": "string",
+                    "description": "Le modèle, pour relancer avec un autre.",
+                },
                 "titles": {
                     "type": "array",
                     "items": {"type": "string"},
@@ -355,7 +364,10 @@ TOOLS: list[dict] = [
         "une tâche à faire tout de suite, utiliser create_task.",
         "inputSchema": _schema(
             {
-                "title": {"type": "string", "description": "Ce qu'il faudrait faire, en une ligne."},
+                "title": {
+                    "type": "string",
+                    "description": "Ce qu'il faudrait faire, en une ligne.",
+                },
                 "description": {
                     "type": "string",
                     "description": "Pourquoi cela vaut la peine, en trois lignes au plus.",
@@ -435,7 +447,9 @@ def handle(api: Api, grant: Grant, message: Any, address: str = "") -> Any:
     `address` is the console's, as the client reached it — what `whoami` says.
     """
     if isinstance(message, list):
-        answers = [answer for answer in (handle(api, grant, item, address) for item in message) if answer]
+        answers = [
+            answer for answer in (handle(api, grant, item, address) for item in message) if answer
+        ]
         return answers or None
     if not isinstance(message, dict) or message.get("jsonrpc") != "2.0":
         return _error(None, -32600, "not a JSON-RPC 2.0 message")
@@ -519,7 +533,9 @@ def call(api: Api, grant: Grant, tool: dict, arguments: dict, address: str = "")
     except Exception as error:  # noqa: BLE001 — a tool fails in its answer, not by killing the request
         if writes:
             record(grant, name, arguments, f"failed: {error}")
-        return _refusal(f"Erreur : {str(error).splitlines()[0] if str(error) else type(error).__name__}")
+        return _refusal(
+            f"Erreur : {str(error).splitlines()[0] if str(error) else type(error).__name__}"
+        )
     if writes:
         record(grant, name, arguments, "ok")
     return {
@@ -560,7 +576,9 @@ def _arguments(tool: dict, arguments: dict) -> dict:
         ):
             raise ToolError(f"« {name} » est une liste de textes.")
         if "enum" in expected and value not in expected["enum"]:
-            raise ToolError(f"« {name} » vaut l'une de ces valeurs : {', '.join(expected['enum'])}.")
+            raise ToolError(
+                f"« {name} » vaut l'une de ces valeurs : {', '.join(expected['enum'])}."
+            )
         if kind == "integer":
             low, high = expected.get("minimum"), expected.get("maximum")
             if (low is not None and value < low) or (high is not None and value > high):
@@ -579,7 +597,11 @@ def record(grant: Grant, tool: str, arguments: dict, outcome: str) -> None:
     the journal is read to know who did what — not to keep a second copy.
     """
     kept = {
-        key: (value[:ARGUMENT_LIMIT] + "…" if isinstance(value, str) and len(value) > ARGUMENT_LIMIT else value)
+        key: (
+            value[:ARGUMENT_LIMIT] + "…"
+            if isinstance(value, str) and len(value) > ARGUMENT_LIMIT
+            else value
+        )
         for key, value in arguments.items()
     }
     try:
@@ -607,7 +629,14 @@ def calls(limit: int = 30) -> list[dict]:
             (limit,),
         ).fetchall()
     return [
-        {"at": at, "client": client, "name": name, "tool": tool, "arguments": arguments, "outcome": outcome}
+        {
+            "at": at,
+            "client": client,
+            "name": name,
+            "tool": tool,
+            "arguments": arguments,
+            "outcome": outcome,
+        }
         for at, client, name, tool, arguments, outcome in rows
     ]
 
@@ -679,7 +708,9 @@ def whoami(api: Api, grant: Grant, address: str = "") -> dict:
     configuration = api.config
     try:
         projects: int | None = len(api.projects())
-        waiting: int | None = sum(1 for card in api.board()["tickets"] if card["column"] == "blocked")
+        waiting: int | None = sum(
+            1 for card in api.board()["tickets"] if card["column"] == "blocked"
+        )
     except store.StoreError:
         projects = waiting = None  # the board is down; who you are is not
     return {
@@ -727,7 +758,9 @@ def list_tasks(
         cards = [card for card in cards if card["column"] == "blocked"]
     if status:
         cards = [card for card in cards if card["column"] == status]
-    cards = sorted(cards, key=lambda card: card.get("edited") or card.get("created") or "", reverse=True)
+    cards = sorted(
+        cards, key=lambda card: card.get("edited") or card.get("created") or "", reverse=True
+    )
     return {"count": len(cards), "tasks": [_task(card) for card in cards[:limit]]}
 
 
@@ -878,7 +911,12 @@ def answer_question(api: Api, task: str, answer: str, ready: bool = False) -> di
     moved = ""
     if ready:
         moved = api.set_status(card["id"], "ready", card["status"])["status"]
-    return {"id": card["id"], "title": card["title"], "answered": True, "status": "ready" if moved else "blocked"}
+    return {
+        "id": card["id"],
+        "title": card["title"],
+        "answered": True,
+        "status": "ready" if moved else "blocked",
+    }
 
 
 def list_solutions(api: Api, task: str) -> dict:
@@ -906,7 +944,13 @@ def apply_solution(
             f"La tâche « {card['title']} » n'attend aucune décision (statut {card['column']})."
         )
     done = api.decide(
-        card["id"], solution, number=number, text=text, model=model, titles=titles or [], channel="MCP"
+        card["id"],
+        solution,
+        number=number,
+        text=text,
+        model=model,
+        titles=titles or [],
+        channel="MCP",
     )
     return {"id": card["id"], "title": card["title"], **done}
 

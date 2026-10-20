@@ -429,7 +429,6 @@ class Live:
         elapsed = self.clock() - self.started
         return f"{self.words.count(self.written, 'step')} · {self.words.minutes(elapsed)}"
 
-
     def _failed(self, error: store.StoreError) -> None:
         self._failures += 1
         if self._failures < MAX_FAILURES:

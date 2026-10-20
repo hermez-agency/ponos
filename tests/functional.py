@@ -89,8 +89,7 @@ def _stored(value: dict) -> dict:
     stored = {"type": kind, **value}
     if kind in ("rich_text", "title"):
         stored[kind] = [
-            {**part, "plain_text": part.get("text", {}).get("content", "")}
-            for part in value[kind]
+            {**part, "plain_text": part.get("text", {}).get("content", "")} for part in value[kind]
         ]
     return stored
 
@@ -155,9 +154,17 @@ class Board:
             "properties": properties,
         }
         self.blocks[identifier] = (
-            [{"object": "block", "id": _ident(), "type": "paragraph",
-              "has_children": False, "paragraph": {"rich_text": _rich(line)}}
-             for line in body.splitlines() if line.strip()]
+            [
+                {
+                    "object": "block",
+                    "id": _ident(),
+                    "type": "paragraph",
+                    "has_children": False,
+                    "paragraph": {"rich_text": _rich(line)},
+                }
+                for line in body.splitlines()
+                if line.strip()
+            ]
             if body
             else []
         )
@@ -176,7 +183,9 @@ class Board:
         lines = []
         for block in self.blocks.get(page_id, []):
             payload = block.get(block.get("type", ""), {})
-            lines.append("".join(part.get("plain_text", "") for part in payload.get("rich_text", [])))
+            lines.append(
+                "".join(part.get("plain_text", "") for part in payload.get("rich_text", []))
+            )
         return "\n".join(lines)
 
     def said(self, page_id: str) -> list[str]:
@@ -189,9 +198,7 @@ class Board:
 
     # -- serving it ----------------------------------------------------------
 
-    def handle(
-        self, method: str, path: str, query: dict, body: dict, token: str, raw: bytes = b""
-    ):
+    def handle(self, method: str, path: str, query: dict, body: dict, token: str, raw: bytes = b""):
         """One request, routed. The endpoints `notion.py` calls, and those only.
 
         Anything else is refused *and remembered*: a client that grew a request
@@ -906,21 +913,33 @@ def _git(args: list[str], cwd: Path) -> None:
     no name, or signs every commit, must not be the reason a test fails.
     """
     result = subprocess.run(
-        ["git", "-c", "user.name=Bench", "-c", "user.email=bench@example.invalid",
-         "-c", "commit.gpgsign=false", *args],
+        [
+            "git",
+            "-c",
+            "user.name=Bench",
+            "-c",
+            "user.email=bench@example.invalid",
+            "-c",
+            "commit.gpgsign=false",
+            *args,
+        ],
         cwd=str(cwd),
         capture_output=True,
         text=True,
         timeout=60,
     )
     if result.returncode != 0:
-        raise AssertionError(f"git {' '.join(args)}: {result.stderr.strip() or result.stdout.strip()}")
+        raise AssertionError(
+            f"git {' '.join(args)}: {result.stderr.strip() or result.stdout.strip()}"
+        )
 
 
 def _lines(path: Path) -> list[dict]:
     if not path.exists():
         return []
-    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    return [
+        json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()
+    ]
 
 
 # -- the board, the configuration, the run -----------------------------------
@@ -933,8 +952,15 @@ TICKETS = {
         "status": {
             "options": [
                 {"name": name}
-                for name in ("Ready", "In progress", "In review", "Validated",
-                             "Done", "Failed", "Blocked")
+                for name in (
+                    "Ready",
+                    "In progress",
+                    "In review",
+                    "Validated",
+                    "Done",
+                    "Failed",
+                    "Blocked",
+                )
             ]
         },
     },
@@ -958,18 +984,18 @@ SETTINGS = {
     "push": True,
     "open_pull_request": True,
     "keep_worktree_on_failure": False,  # so "no orphan worktree" means something
-    "attach_sessions": False,           # nothing is moved into ~/.claude
-    "notify": False,                    # no desktop notification from a test
-    "progress": False,                  # the live report is its own machinery
-    "reply": False,                     # so is answering comments
+    "attach_sessions": False,  # nothing is moved into ~/.claude
+    "notify": False,  # no desktop notification from a test
+    "progress": False,  # the live report is its own machinery
+    "reply": False,  # so is answering comments
     "schedule": False,
     "auto_update": False,
     "log_retention_days": 0,
     "timeout_minutes": 1,
     "max_concurrent": 2,
-    "relaunch_delay_seconds": 0,        # a killed session is resumed at once
-    "min_free_memory_mb": 0,            # whatever this machine has free today
-    "min_free_disk_mb": 0,              # and whatever disk it has left
+    "relaunch_delay_seconds": 0,  # a killed session is resumed at once
+    "min_free_memory_mb": 0,  # whatever this machine has free today
+    "min_free_disk_mb": 0,  # and whatever disk it has left
 }
 
 
@@ -1025,9 +1051,12 @@ class Bench:
             **database["properties"],
             "Type": {
                 "type": "select",
-                "select": {"options": [{"name": name} for name in (
-                    "Code", "Rédaction", "Action externe", "Publication"
-                )]},
+                "select": {
+                    "options": [
+                        {"name": name}
+                        for name in ("Code", "Rédaction", "Action externe", "Publication")
+                    ]
+                },
             },
         }
 
@@ -1039,10 +1068,21 @@ class Bench:
             **database["properties"],
             "Sous-type": {
                 "type": "select",
-                "select": {"options": [{"name": name} for name in (
-                    "Bug", "Feature", "Amélioration", "Chore", "Refactor", "Perf", "Docs",
-                    "Sécurité",
-                )]},
+                "select": {
+                    "options": [
+                        {"name": name}
+                        for name in (
+                            "Bug",
+                            "Feature",
+                            "Amélioration",
+                            "Chore",
+                            "Refactor",
+                            "Perf",
+                            "Docs",
+                            "Sécurité",
+                        )
+                    ]
+                },
             },
         }
 
@@ -1057,9 +1097,7 @@ class Bench:
 
     def move(self, ticket: str, column: str) -> None:
         """A ticket dragged from one column to the next, as you would in Notion."""
-        self.board.pages[ticket]["properties"]["Status"] = _stored(
-            {"status": {"name": column}}
-        )
+        self.board.pages[ticket]["properties"]["Status"] = _stored({"status": {"name": column}})
 
     def land(self, repository: Path, filename: str, text: str = "un autre ticket\n") -> None:
         """Another ticket merged: one commit on `main`, pushed to the remote.
@@ -1106,7 +1144,10 @@ class Bench:
         """The worktrees git knows about, the repository itself excluded."""
         result = subprocess.run(
             ["git", "worktree", "list", "--porcelain"],
-            cwd=str(repository), capture_output=True, text=True, timeout=60,
+            cwd=str(repository),
+            capture_output=True,
+            text=True,
+            timeout=60,
         )
         return [
             line.split(" ", 1)[1]
@@ -1119,7 +1160,10 @@ class Bench:
         bare = self.root / "remotes" / f"{repository.name}.git"
         result = subprocess.run(
             ["git", "branch", "--format=%(refname:short)"],
-            cwd=str(bare), capture_output=True, text=True, timeout=60,
+            cwd=str(bare),
+            capture_output=True,
+            text=True,
+            timeout=60,
         )
         return [line.strip() for line in result.stdout.splitlines() if line.strip()]
 
@@ -1128,7 +1172,10 @@ class Bench:
         bare = self.root / "remotes" / f"{repository.name}.git"
         result = subprocess.run(
             ["git", "show", f"{branch}:{path}"],
-            cwd=str(bare), capture_output=True, text=True, timeout=60,
+            cwd=str(bare),
+            capture_output=True,
+            text=True,
+            timeout=60,
         )
         return result.stdout
 
@@ -1136,7 +1183,10 @@ class Bench:
         bare = self.root / "remotes" / f"{repository.name}.git"
         result = subprocess.run(
             ["git", "ls-tree", "--name-only", branch],
-            cwd=str(bare), capture_output=True, text=True, timeout=60,
+            cwd=str(bare),
+            capture_output=True,
+            text=True,
+            timeout=60,
         )
         return [line.strip() for line in result.stdout.splitlines() if line.strip()]
 
@@ -1251,7 +1301,9 @@ def a_code_ticket_comes_back_as_a_pull_request_with_nothing_but_an_access_token(
         assert results and results[0]["status"] == "done", results
         opened = machine.pull_requests()
         assert len(opened) == 1 and opened[0]["token"] == token, opened
-        assert not any(token in said for said in machine.board.said(ticket)), "the token reached the ticket"
+        assert not any(token in said for said in machine.board.said(ticket)), (
+            "the token reached the ticket"
+        )
         for path in Path(os.environ["XDG_CONFIG_HOME"]).rglob("*"):
             assert not path.is_file() or token not in path.read_text(errors="replace"), path
 
@@ -1336,7 +1388,9 @@ def the_page_keeps_what_the_agent_said_and_the_journal_every_step():
         assert "Le titre est faux, corrige-le." in page, page
         assert "J'écris FAKE.md puis je le commite." in page, page
         assert "RESULT: ok — un fichier écrit et commité" in page, page
-        assert "git commit" not in page and "Bash" not in page, "a command was written onto the ticket"
+        assert "git commit" not in page and "Bash" not in page, (
+            "a command was written onto the ticket"
+        )
         (run,) = journal.runs(ticket)
         kinds = [step["kind"] for step in journal.steps(run["id"])["steps"]]
         assert kinds == ["said", "tool", "said"], kinds
@@ -1392,9 +1446,7 @@ def a_ticket_run_again_is_not_briefed_on_its_previous_run():
         with _environ({"FAKE_CLAUDE_SAY": "Je relis d'abord la charte éditoriale."}):
             results = machine.run()
         assert results[0]["status"] == "done", results
-        toggles = [
-            block for block in machine.board.blocks[ticket] if block["type"] == "toggle"
-        ]
+        toggles = [block for block in machine.board.blocks[ticket] if block["type"] == "toggle"]
         assert len(toggles) == 1 and toggles[0]["has_children"], machine.board.blocks[ticket]
         story = machine.board.blocks[toggles[0]["id"]]
         assert any("la charte éditoriale" in str(block) for block in story), story
@@ -1427,12 +1479,14 @@ def a_ticket_with_no_type_is_classified_then_published_only_once_validated():
         repository = machine.repository("site")
         project = machine.project("Site", repository)
         ticket = machine.ticket("Annoncer la version 2", "Un post LinkedIn pour la v2.", project)
-        os.environ["FAKE_CLAUDE_KIND"] = json.dumps({
-            "type": "publication",
-            "reason": "Le ticket demande un post public.",
-            "confidence": "high",
-            "alternative": "",
-        })
+        os.environ["FAKE_CLAUDE_KIND"] = json.dumps(
+            {
+                "type": "publication",
+                "reason": "Le ticket demande un post public.",
+                "confidence": "high",
+                "alternative": "",
+            }
+        )
 
         results = machine.run()
 
@@ -1489,7 +1543,9 @@ def a_code_ticket_whose_validation_is_forced_is_merged_and_done_in_one_pass():
         assert [merge["url"] for merge in merges] == [opened[0]["url"]], merges
         assert "FAKE.md" in machine.files_on(repository, "main")
         said = machine.board.said(ticket)
-        assert "Validated automatically (Force validated: Code) — the global setting" in said[-1], said[-1]
+        assert "Validated automatically (Force validated: Code) — the global setting" in said[-1], (
+            said[-1]
+        )
         assert not machine.worktrees(repository), machine.worktrees(repository)
 
 
@@ -1511,7 +1567,9 @@ def a_project_with_its_own_validation_is_read_before_the_file_in_both_directions
 
         assert machine.status(merged) == "Done", machine.status(merged)
         said = machine.board.said(merged)
-        assert "Validated automatically (Force validated: Code) — the project's setting" in said[-1], said[-1]
+        assert (
+            "Validated automatically (Force validated: Code) — the project's setting" in said[-1]
+        ), said[-1]
         db.close()
 
     with bench(force_validated_code=True) as machine:
@@ -1538,7 +1596,7 @@ def a_forced_merge_github_refuses_leaves_the_ticket_in_review_with_the_reason():
         repository = machine.repository("site")
         project = machine.project("Site", repository)
         ticket = machine.ticket("Corriger l'entête", "Le titre est faux.", project)
-        os.environ["FAKE_GH_REFUSE"] = "Required status check \"build\" is failing"
+        os.environ["FAKE_GH_REFUSE"] = 'Required status check "build" is failing'
 
         machine.run()
 
@@ -1554,12 +1612,18 @@ def a_forced_merge_github_refuses_leaves_the_ticket_in_review_with_the_reason():
 
 def _check_runs(*verdicts: str) -> str:
     """`FAKE_GH_CHECKS` for jobs that ended with these conclusions."""
-    return json.dumps([
-        {"__typename": "CheckRun", "name": f"job {number}", "status": "COMPLETED",
-         "conclusion": verdict,
-         "detailsUrl": f"https://github.com/fake/repo/actions/runs/7/job/{number}"}
-        for number, verdict in enumerate(verdicts, start=1)
-    ])
+    return json.dumps(
+        [
+            {
+                "__typename": "CheckRun",
+                "name": f"job {number}",
+                "status": "COMPLETED",
+                "conclusion": verdict,
+                "detailsUrl": f"https://github.com/fake/repo/actions/runs/7/job/{number}",
+            }
+            for number, verdict in enumerate(verdicts, start=1)
+        ]
+    )
 
 
 @case
@@ -1614,9 +1678,14 @@ def a_ticket_blocked_on_its_type_is_merged_once_somebody_gives_it():
         repository = machine.repository("site")
         project = machine.project("Site", repository)
         ticket = machine.ticket("[Bug] Le formulaire", "Il ne part plus.", project)
-        os.environ["FAKE_CLAUDE_KIND"] = json.dumps({
-            "type": "code", "reason": "Peut-être.", "confidence": "low", "alternative": "",
-        })
+        os.environ["FAKE_CLAUDE_KIND"] = json.dumps(
+            {
+                "type": "code",
+                "reason": "Peut-être.",
+                "confidence": "low",
+                "alternative": "",
+            }
+        )
 
         machine.run()
 
@@ -1737,9 +1806,10 @@ def a_forced_merge_with_no_validated_column_still_waits_in_review():
         options = database["properties"]["Status"]["status"]["options"]
         database["properties"] = {
             **database["properties"],
-            "Status": {"type": "status", "status": {
-                "options": [one for one in options if one["name"] != "Validated"]
-            }},
+            "Status": {
+                "type": "status",
+                "status": {"options": [one for one in options if one["name"] != "Validated"]},
+            },
         }
         repository = machine.repository("site")
         project = machine.project("Site", repository)
@@ -1802,8 +1872,12 @@ def a_publication_whose_validation_is_forced_goes_out_without_waiting():
 def a_ticket_with_no_model_runs_on_the_one_chosen_for_it_and_a_model_written_as_written():
     with bench() as machine:
         project = machine.project("Notes", None)
-        light = machine.ticket("Retirer un paragraphe", "Le texte sous le titre ne sert à rien.", project)
-        heavy = machine.ticket("Audit complet", "Audit de sécurité et de performance du site.", project)
+        light = machine.ticket(
+            "Retirer un paragraphe", "Le texte sous le titre ne sert à rien.", project
+        )
+        heavy = machine.ticket(
+            "Audit complet", "Audit de sécurité et de performance du site.", project
+        )
         forced = machine.ticket("Retirer une ligne", "La dernière du pied de page.", project)
         machine.board.pages[forced]["properties"]["Model"] = _stored({"select": {"name": "opus"}})
 
@@ -1842,20 +1916,22 @@ def a_ticket_the_runner_hesitates_over_is_blocked_and_nothing_runs():
         machine.board.pages[chosen]["properties"]["Type"] = _stored(
             {"select": {"name": "Rédaction"}}
         )
-        os.environ["FAKE_CLAUDE_KIND"] = json.dumps({
-            "type": "writing",
-            "reason": "Rédiger, ou peut-être envoyer, la newsletter.",
-            "confidence": "medium",
-            "alternative": "publication",
-        })
+        os.environ["FAKE_CLAUDE_KIND"] = json.dumps(
+            {
+                "type": "writing",
+                "reason": "Rédiger, ou peut-être envoyer, la newsletter.",
+                "confidence": "medium",
+                "alternative": "publication",
+            }
+        )
 
         results = machine.run()
 
         # Stopped before it was claimed, like a ticket with no project: the
         # board says so, and the pass has only the other one to report.
-        assert [(result["id"], result["status"]) for result in results] == [
-            (chosen, "done")
-        ], results
+        assert [(result["id"], result["status"]) for result in results] == [(chosen, "done")], (
+            results
+        )
         assert machine.status(unsure) == "Blocked"
         assert machine.board.value(unsure, "Type") is None, "a doubt writes no type"
         question = machine.board.said(unsure)[-1]
@@ -1889,9 +1965,7 @@ def a_deleted_project_and_its_tickets_cost_no_session():
 
         results = machine.run()
 
-        assert [(result["id"], result["status"]) for result in results] == [
-            (kept, "done")
-        ], results
+        assert [(result["id"], result["status"]) for result in results] == [(kept, "done")], results
         assert machine.status(ticket) == "Blocked", machine.status(ticket)
         assert "deleted" in machine.board.said(ticket)[-1], machine.board.said(ticket)
         assert all("Corriger l'entête" not in one["prompt"] for one in machine.sessions())
@@ -1943,21 +2017,25 @@ def an_external_action_that_commits_nothing_is_done_with_its_report():
         repository = machine.repository("leadz")
         project = machine.project("Leadz", repository)
         hesitant = machine.ticket("Réparer le déploiement", "La prod est cassée.", project)
-        os.environ["FAKE_CLAUDE_KIND"] = json.dumps({
-            "type": "code",
-            "reason": "Il faut peut-être corriger la configuration.",
-            "confidence": "low",
-            "alternative": "external",
-        })
+        os.environ["FAKE_CLAUDE_KIND"] = json.dumps(
+            {
+                "type": "code",
+                "reason": "Il faut peut-être corriger la configuration.",
+                "confidence": "low",
+                "alternative": "external",
+            }
+        )
 
         results = machine.run()
 
-        assert [(result["id"], result["status"]) for result in results] == [
-            (hesitant, "done")
-        ], results
+        assert [(result["id"], result["status"]) for result in results] == [(hesitant, "done")], (
+            results
+        )
         assert machine.board.value(hesitant, "Type") == "Action externe"
         classified = machine.board.said(hesitant)[0]
-        assert "n'exige pas de commit" in classified or "asks for no commit" in classified, classified
+        assert "n'exige pas de commit" in classified or "asks for no commit" in classified, (
+            classified
+        )
         assert machine.status(hesitant) == "Done", machine.status(hesitant)
         assert not machine.pull_requests()
 
@@ -1968,9 +2046,9 @@ def an_external_action_that_commits_nothing_is_done_with_its_report():
         with _environ({"FAKE_CLAUDE_ELSEWHERE": report}):
             results = machine.run()
 
-        assert [(result["id"], result["status"]) for result in results] == [
-            (coded, "done")
-        ], results
+        assert [(result["id"], result["status"]) for result in results] == [(coded, "done")], (
+            results
+        )
         assert machine.status(coded) == "Done", machine.status(coded)
         assert report in machine.board.body(coded), machine.board.body(coded)
         assert "RESULT:" not in machine.board.body(coded), "the verdict is the status"
@@ -2038,7 +2116,9 @@ def a_session_that_stops_without_its_report_is_asked_for_it_once():
 def _budget(machine: Bench, **limits: float) -> None:
     """The installation's `[budget]`, written into its configuration."""
     with open(machine.config, "a", encoding="utf-8") as handle:
-        handle.write("\n[budget]\n" + "".join(f"{key} = {value}\n" for key, value in limits.items()))
+        handle.write(
+            "\n[budget]\n" + "".join(f"{key} = {value}\n" for key, value in limits.items())
+        )
 
 
 @case
@@ -2103,7 +2183,9 @@ def past_the_daily_limit_nothing_new_is_started_and_the_ready_tickets_wait():
         assert machine.sessions() == [], "a session was started past the daily limit"
         assert machine.status(second) == "Ready", machine.status(second)
         assert results == [], results
-        assert credits.held(what="budget") > time.time(), "the wait is written down for the runs after"
+        assert credits.held(what="budget") > time.time(), (
+            "the wait is written down for the runs after"
+        )
 
 
 @case
@@ -2211,11 +2293,16 @@ def a_validated_merge_that_conflicts_is_resolved_and_lands_with_both_changes():
         assert "<<<<<<<" not in landed, landed
 
         # The session was told what it needed: the ticket, and the file.
-        resolving = [one for one in machine.sessions() if "resolving that conflict" in one["prompt"]]
+        resolving = [
+            one for one in machine.sessions() if "resolving that conflict" in one["prompt"]
+        ]
         assert len(resolving) == 1, machine.sessions()
         assert "Le titre est faux." in resolving[0]["prompt"]
         assert "`FAKE.md`" in resolving[0]["prompt"]
-        assert "ce que l'autre ticket a écrit" in resolving[0]["prompt"] or "Un autre ticket" in resolving[0]["prompt"]
+        assert (
+            "ce que l'autre ticket a écrit" in resolving[0]["prompt"]
+            or "Un autre ticket" in resolving[0]["prompt"]
+        )
 
         # Traced on both sides: the pull request, and the ticket.
         commented = machine.pull_request_comments()
@@ -2312,9 +2399,7 @@ def _write(repository: Path, files: dict[str, str], message: str) -> None:
 
 def _adds(*parts: str) -> dict[str, str]:
     """The environment that has the session of each "Ajoute la partie X." write its part."""
-    return {
-        "FAKE_CLAUDE_ALSO": json.dumps({f"la partie {part}.": _adding(part) for part in parts})
-    }
+    return {"FAKE_CLAUDE_ALSO": json.dumps({f"la partie {part}.": _adding(part) for part in parts})}
 
 
 def _adding(part: str) -> dict[str, str]:
@@ -2417,7 +2502,9 @@ def a_conflict_in_code_is_resolved_by_a_session_that_is_not_told_about_generated
         results = machine.run()
 
         assert results and results[0]["status"] == "done", results
-        resolving = [one for one in machine.sessions() if "resolving that conflict" in one["prompt"]]
+        resolving = [
+            one for one in machine.sessions() if "resolving that conflict" in one["prompt"]
+        ]
         assert len(resolving) == 1, machine.sessions()
         assert "- `FAKE.md`" in resolving[0]["prompt"]
         assert "- `dist/bundle.js`" not in resolving[0]["prompt"]
@@ -2521,7 +2608,10 @@ def a_picture_chosen_in_the_console_is_the_cover_in_notion_and_the_other_way_rou
             assert not any(
                 "file_uploads" in line or line.startswith("PATCH") for line in board.requests[sent:]
             ), board.requests[sent:]
-            assert cache.picture(project, "cover", lambda: client.page(project)) == (png, "image/png")
+            assert cache.picture(project, "cover", lambda: client.page(project)) == (
+                png,
+                "image/png",
+            )
 
             # Changed in Notion, by hand: another file, and an emoji for the icon.
             board.files["theirs"] = (theirs, "image/jpeg")
@@ -2566,8 +2656,12 @@ def a_pass_started_during_an_update_runs_on_one_version_and_never_on_both():
             _git(["add", "-A"], work)
             _git(["commit", "--quiet", "-m", message], work)
             _git(["push", "--quiet", "origin", "HEAD:main"], work)
-            return subprocess.run(["git", "-C", str(work), "rev-parse", "HEAD"],
-                                  capture_output=True, text=True, check=True).stdout.strip()
+            return subprocess.run(
+                ["git", "-C", str(work), "rev-parse", "HEAD"],
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout.strip()
 
         first = land("one")
         # Installed the way install.sh does it: `app` a link to `app-<commit>`.
@@ -2579,8 +2673,12 @@ def a_pass_started_during_an_update_runs_on_one_version_and_never_on_both():
         # it: the units of the machine running the test are not the test's.
         launcher = home / ".local" / "bin" / "ponos"
         launcher.parent.mkdir(parents=True)
-        launcher.write_text((ROOT / "bin" / "ponos.in").read_text()
-                            .replace("@APP_DIR@", str(app)).replace("@PYTHON@", sys.executable))
+        launcher.write_text(
+            (ROOT / "bin" / "ponos.in")
+            .read_text()
+            .replace("@APP_DIR@", str(app))
+            .replace("@PYTHON@", sys.executable)
+        )
         launcher.chmod(0o755)
         tools = machine.root / "tools"
         tools.mkdir()
@@ -2597,8 +2695,12 @@ def a_pass_started_during_an_update_runs_on_one_version_and_never_on_both():
         }
 
         def started(*arguments: str) -> subprocess.Popen:
-            return subprocess.Popen([str(launcher), *arguments], stdout=subprocess.PIPE,
-                                    stderr=subprocess.STDOUT, text=True)
+            return subprocess.Popen(
+                [str(launcher), *arguments],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+            )
 
         project = machine.project("Lettre d'information")
         ticket = machine.ticket("Rédiger l'édito", "Deux paragraphes.", project)
@@ -2615,17 +2717,24 @@ def a_pass_started_during_an_update_runs_on_one_version_and_never_on_both():
             store_py = work / "src/ponos/store.py"
             store_py.write_text(store_py.read_text() + "\nHANDOVER = 'v2'\n")
             runner_py = work / "src/ponos/runner.py"
-            runner_py.write_text(runner_py.read_text().replace(
-                "from .ticket import Ticket\n",
-                "from .ticket import Ticket\nfrom .store import HANDOVER  # noqa: F401\n", 1))
+            runner_py.write_text(
+                runner_py.read_text().replace(
+                    "from .ticket import Ticket\n",
+                    "from .ticket import Ticket\nfrom .store import HANDOVER  # noqa: F401\n",
+                    1,
+                )
+            )
             init_py = work / "src/ponos/__init__.py"
-            init_py.write_text(init_py.read_text().replace('__version__ = "', '__version__ = "9.', 1))
+            init_py.write_text(
+                init_py.read_text().replace('__version__ = "', '__version__ = "9.', 1)
+            )
             second = land("two")
 
             # Started while the update copies, resets and checks the new version.
             during: list[str] = []
-            installing = threading.Thread(target=lambda: during.append(
-                update.install(update.check(app, "main"), 600, app)))
+            installing = threading.Thread(
+                target=lambda: during.append(update.install(update.check(app, "main"), 600, app))
+            )
             installing.start()
             meanwhile: list[subprocess.Popen] = []
             while installing.is_alive():
@@ -2655,7 +2764,9 @@ def a_pass_started_during_an_update_runs_on_one_version_and_never_on_both():
             assert machine.status(ticket) == "Done", machine.status(ticket)
 
             version = started("--version")
-            assert "9." in version.communicate(timeout=60)[0], "the next pass is not the new version"
+            assert "9." in version.communicate(timeout=60)[0], (
+                "the next pass is not the new version"
+            )
             after = started("run")
             said = after.communicate(timeout=120)[0]
             assert after.returncode == 0 and "Error" not in said, said
@@ -2689,8 +2800,9 @@ def a_worktree_left_in_the_middle_of_a_rebase_is_saved_and_the_ticket_starts_aga
         _git(["commit", "-am", "côté ticket"], worktree)
         machine.land(repository, "README.md", "# côté main\n")
         _git(["fetch", "origin"], worktree)
-        stopped = subprocess.run(["git", "rebase", "origin/main"], cwd=str(worktree),
-                                 capture_output=True, text=True)
+        stopped = subprocess.run(
+            ["git", "rebase", "origin/main"], cwd=str(worktree), capture_output=True, text=True
+        )
         assert stopped.returncode != 0, "the rebase was meant to stop on a conflict"
         (worktree / "a-moitie-fait.txt").write_text("du travail non commité\n", encoding="utf-8")
 
@@ -2699,15 +2811,30 @@ def a_worktree_left_in_the_middle_of_a_rebase_is_saved_and_the_ticket_starts_aga
 
         assert results[0]["status"] == "done", results
         said = "\n".join(machine.board.said(ticket))
-        assert "could not make the worktree" not in said and "pas pu créer le worktree" not in said, said
-        backups = [name for name in subprocess.run(
-            ["git", "branch", "--format=%(refname:short)"], cwd=str(repository),
-            capture_output=True, text=True).stdout.split() if name.startswith("ponos/backup/")]
+        assert (
+            "could not make the worktree" not in said and "pas pu créer le worktree" not in said
+        ), said
+        backups = [
+            name
+            for name in subprocess.run(
+                ["git", "branch", "--format=%(refname:short)"],
+                cwd=str(repository),
+                capture_output=True,
+                text=True,
+            ).stdout.split()
+            if name.startswith("ponos/backup/")
+        ]
         assert len(backups) == 1 and f"/{short_id(ticket)}-" in backups[0], backups
-        saved = subprocess.run(["git", "show", f"{backups[0]}:a-moitie-fait.txt"], cwd=str(repository),
-                               capture_output=True, text=True)
+        saved = subprocess.run(
+            ["git", "show", f"{backups[0]}:a-moitie-fait.txt"],
+            cwd=str(repository),
+            capture_output=True,
+            text=True,
+        )
         assert saved.stdout.strip() == "du travail non commité", saved
-        assert backups[0] in machine.sessions()[-1]["prompt"], "the session is not told of the backup"
+        assert backups[0] in machine.sessions()[-1]["prompt"], (
+            "the session is not told of the backup"
+        )
         assert backups[0] in said, said
 
 
@@ -2747,26 +2874,42 @@ def a_board_that_cannot_be_reached_marks_no_ticket_failed_and_the_run_does_not_f
 
     with bench() as machine:
         repository = machine.repository("site")
-        ticket = machine.ticket("Pendant la coupure", "Fais-le.", machine.project("Site", repository))
+        ticket = machine.ticket(
+            "Pendant la coupure", "Fais-le.", machine.project("Site", repository)
+        )
         patched, notion.time.sleep = notion.time.sleep, lambda seconds: None
         try:
-            with _environ({notion.API_ENV: "http://ponos-offline.invalid", "PONOS_CONFIG": str(machine.config)}):
-                code = command.command_run(argparse.Namespace(
-                    every=None, dry_run=False, limit=None, ticket=""))
+            with _environ(
+                {
+                    notion.API_ENV: "http://ponos-offline.invalid",
+                    "PONOS_CONFIG": str(machine.config),
+                }
+            ):
+                code = command.command_run(
+                    argparse.Namespace(every=None, dry_run=False, limit=None, ticket="")
+                )
         finally:
             notion.time.sleep = patched
         assert code == 0, "the service must not fail while the network is away"
         assert machine.status(ticket) == "Ready", machine.status(ticket)
-        assert not [page for page in machine.board.pages.values()
-                    if "Failed" in str(page["properties"].get("Status"))]
+        assert not [
+            page
+            for page in machine.board.pages.values()
+            if "Failed" in str(page["properties"].get("Status"))
+        ]
         assert not machine.sessions(), "nothing runs without a board"
-        assert machine.run()[0]["status"] == "done", "and the next pass, with the network back, runs it"
+        assert machine.run()[0]["status"] == "done", (
+            "and the next pass, with the network back, runs it"
+        )
 
 
 def _with_an_on_prompt(machine: Bench, ticket: str, prompt: str) -> None:
     """The board given its « On » column, and a ticket the prompt written in it."""
     database = machine.board.databases[machine.database]
-    database["properties"] = {**database["properties"], "On": {"type": "rich_text", "rich_text": {}}}
+    database["properties"] = {
+        **database["properties"],
+        "On": {"type": "rich_text", "rich_text": {}},
+    }
     machine.board.pages[ticket]["properties"]["On"] = _stored({"rich_text": _rich(prompt)})
 
 
@@ -2803,10 +2946,13 @@ def a_status_that_moves_runs_the_on_prompt_once_and_a_restart_does_not_run_it_ag
             assert machine.run() == [] and not machine.sessions(), "one execution per change"
 
         machine.move(ticket, "Failed")
-        assert len(machine.run()) == 1 and len(machine.sessions()) == 1, "the next change runs it again"
+        assert len(machine.run()) == 1 and len(machine.sessions()) == 1, (
+            "the next change runs it again"
+        )
         history = transitions.history(ticket)
         assert [(row["old"], row["new"], row["state"]) for row in history] == [
-            ("Blocked", "Failed", "ok"), ("Failed", "Blocked", "ok"),
+            ("Blocked", "Failed", "ok"),
+            ("Failed", "Blocked", "ok"),
         ], history
         assert history[0]["cost_usd"], "what an execution cost is kept"
         assert machine.status(ticket) == "Failed", "the prompt's own session moved nothing"

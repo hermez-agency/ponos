@@ -76,7 +76,9 @@ def commands(port: int) -> list[list[str]]:
     local = f"http://127.0.0.1:{port}"
     lines = [["serve", "--bg", f"--https={PRIVATE_PORT}", local]]
     for path in PUBLIC_PATHS:
-        lines.append(["funnel", "--bg", f"--https={PUBLIC_PORT}", f"--set-path={path}", local + path])
+        lines.append(
+            ["funnel", "--bg", f"--https={PUBLIC_PORT}", f"--set-path={path}", local + path]
+        )
     return lines
 
 
@@ -192,7 +194,9 @@ def watch(
                 waiting = False
                 if not in_place(port, current.name, run):
                     apply(port, run)
-                    log(f"serving https://{current.name}:{PRIVATE_PORT} (tailnet) and {PUBLIC_PATHS} on {PUBLIC_PORT} (funnel)")
+                    log(
+                        f"serving https://{current.name}:{PRIVATE_PORT} (tailnet) and {PUBLIC_PATHS} on {PUBLIC_PORT} (funnel)"
+                    )
                 last = ""
         except TailscaleError as error:
             if str(error) != last:

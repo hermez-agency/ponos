@@ -278,7 +278,9 @@ class Chat:
             },
             "dictation": {
                 "ready": bool(self.config.openrouter.key),
-                "why": "" if self.config.openrouter.key else (
+                "why": ""
+                if self.config.openrouter.key
+                else (
                     "Dictation is transcribed by OpenRouter: add an OpenRouter key in the settings"
                 ),
                 "send": self.config.web.send_after_transcription,
@@ -436,7 +438,9 @@ class Chat:
         which is what the person talking is reading; otherwise Whisper's guess.
         """
         asked = self.config.runner.language.strip()
-        language = voice.understood(asked) if asked else voice.understood(interface) if interface else ""
+        language = (
+            voice.understood(asked) if asked else voice.understood(interface) if interface else ""
+        )
         text = openrouter.transcribe(self.config.openrouter, audio, content_type, language)
         return {"text": text, "language": language}
 
@@ -513,7 +517,9 @@ class Chat:
                 cwd=self._cwd(),
                 log=log,
                 # A slug is OpenRouter's to name; Fable is Opus where it is not allowed.
-                model=chosen if provider.on_openrouter(chosen) else self.config.runner.allowed(chosen),
+                model=chosen
+                if provider.on_openrouter(chosen)
+                else self.config.runner.allowed(chosen),
                 permission_mode=self.config.runner.permission_mode,
                 timeout_minutes=self.config.web.chat_timeout_minutes,
                 session_id=self.session_id,
@@ -644,9 +650,7 @@ class Commands:
                 raise RuntimeError("a command is already running")
             self._busy = True
         self.publish("command", stage="started", argv=argv)
-        threading.Thread(
-            target=self._run, args=(argv,), name="tr-command", daemon=True
-        ).start()
+        threading.Thread(target=self._run, args=(argv,), name="tr-command", daemon=True).start()
         return {"argv": argv}
 
     def _run(self, argv: list[str]) -> None:

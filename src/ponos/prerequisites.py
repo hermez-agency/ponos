@@ -69,7 +69,13 @@ def check(state: Path, minimum_disk_mb: int) -> list[Need]:
     for tool, required in (("git", True), ("gh", False)):
         found = shutil.which(tool)
         needs.append(
-            Need(tool, bool(found), required, found or "not installed", "" if found else install_command(tool))
+            Need(
+                tool,
+                bool(found),
+                required,
+                found or "not installed",
+                "" if found else install_command(tool),
+            )
         )
     if not shutil.which("claude"):
         needs.append(Need("claude", False, True, "Claude Code is not installed", CLAUDE_INSTALL))
@@ -84,8 +90,13 @@ def check(state: Path, minimum_disk_mb: int) -> list[Need]:
         enough = minimum_disk_mb <= 0 or room[0] >= minimum_disk_mb
         needs.append(
             Need(
-                "disk", enough, True, f"{room[0]} MB free",
-                "" if enough else f"free {minimum_disk_mb - room[0]} MB — a ticket starts above "
+                "disk",
+                enough,
+                True,
+                f"{room[0]} MB free",
+                ""
+                if enough
+                else f"free {minimum_disk_mb - room[0]} MB — a ticket starts above "
                 f"{minimum_disk_mb} MB (runner.min_free_disk_mb)",
             )
         )

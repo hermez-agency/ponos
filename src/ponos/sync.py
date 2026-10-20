@@ -95,7 +95,9 @@ class Report:
     entries: list[Entry] = field(default_factory=list)
     problems: list[str] = field(default_factory=list)
 
-    def note(self, what: str, collection: str, page: str, title: str = "", detail: str = "") -> None:
+    def note(
+        self, what: str, collection: str, page: str, title: str = "", detail: str = ""
+    ) -> None:
         self.entries.append(Entry(what, collection, page, title, detail))
 
     def of(self, *kinds: str) -> list[Entry]:
@@ -342,9 +344,7 @@ class Mirror:
     def create_row(self, database_id: str, title: str, values: dict | None = None) -> str:
         page_id = self.primary.create_row(database_id, title, values)
         try:
-            self.mirror.create_row(
-                self._collection(database_id), title, values, page_id=page_id
-            )
+            self.mirror.create_row(self._collection(database_id), title, values, page_id=page_id)
         except StoreError:
             # The Notion page exists and is what the runner will work from. A
             # disk that would not take its twin is the next pass's problem, and
@@ -482,7 +482,10 @@ class Mirror:
                     # deleted in Notion over that — a file disappears for a
                     # hundred reasons and none of them is a decision.
                     report.note(
-                        "deleted-in-markdown", collection, page_id, left.title,
+                        "deleted-in-markdown",
+                        collection,
+                        page_id,
+                        left.title,
                         "the file is gone; the Notion page is left as it is",
                     )
                     continue
@@ -493,7 +496,10 @@ class Mirror:
                 assert right is not None
                 if marks.seen(page_id):
                     report.note(
-                        "deleted-in-notion", collection, page_id, right.title,
+                        "deleted-in-notion",
+                        collection,
+                        page_id,
+                        right.title,
                         "the Notion page is gone; the file is left as it is",
                     )
                     continue
@@ -640,7 +646,10 @@ class Mirror:
         moved_markdown = marks.seen(CONTEXT) and there != marks.markdown(CONTEXT)
         if moved_notion and moved_markdown:
             report.note(
-                "conflict", CONTEXT, CONTEXT, "the standing context",
+                "conflict",
+                CONTEXT,
+                CONTEXT,
+                "the standing context",
                 f"both were rewritten; Notion wins ({self.conflict})",
             )
         if moved_notion:

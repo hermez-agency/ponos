@@ -16,10 +16,33 @@ import urllib.parse
 
 # Notion rejects a code block whose language it does not know.
 LANGUAGES = {
-    "bash", "c", "c++", "c#", "css", "diff", "docker", "go", "graphql", "html",
-    "java", "javascript", "json", "kotlin", "makefile", "markdown", "php",
-    "python", "ruby", "rust", "shell", "sql", "swift", "toml", "typescript",
-    "xml", "yaml",
+    "bash",
+    "c",
+    "c++",
+    "c#",
+    "css",
+    "diff",
+    "docker",
+    "go",
+    "graphql",
+    "html",
+    "java",
+    "javascript",
+    "json",
+    "kotlin",
+    "makefile",
+    "markdown",
+    "php",
+    "python",
+    "ruby",
+    "rust",
+    "shell",
+    "sql",
+    "swift",
+    "toml",
+    "typescript",
+    "xml",
+    "yaml",
 }
 ALIASES = {"sh": "shell", "js": "javascript", "ts": "typescript", "py": "python", "yml": "yaml"}
 
@@ -209,8 +232,16 @@ def plain(block: dict) -> str:
 # What `plain` and `to_blocks` carry both ways without changing it: the block is
 # the same block once it has been through the text and back.
 ROUND_TRIP = {
-    "paragraph", "heading_1", "heading_2", "heading_3", "bulleted_list_item",
-    "numbered_list_item", "to_do", "quote", "code", "divider",
+    "paragraph",
+    "heading_1",
+    "heading_2",
+    "heading_3",
+    "bulleted_list_item",
+    "numbered_list_item",
+    "to_do",
+    "quote",
+    "code",
+    "divider",
 }
 # Blocks that only hold the ones that count: a table row or a column is lost
 # with its table or its column list, which is said once.
@@ -263,7 +294,9 @@ def attached(block: dict) -> str:
     """
     kind = block.get("type", "")
     payload = block.get(kind) or {}
-    source = (payload.get("external") or {}).get("url") or (payload.get("file") or {}).get("url", "")
+    source = (payload.get("external") or {}).get("url") or (payload.get("file") or {}).get(
+        "url", ""
+    )
     caption = "".join(part.get("plain_text", "") for part in payload.get("caption", [])).strip()
     name = urllib.parse.unquote(urllib.parse.urlsplit(source).path.rsplit("/", 1)[-1])
     label = " ".join((caption or name).split())

@@ -107,7 +107,6 @@ class Telegram(Channel):
             )
         return incoming, str(highest + 1) if highest >= 0 else cursor
 
-
     # -- diagnostics ---------------------------------------------------------
 
     def check(self) -> str:
@@ -137,8 +136,11 @@ def chats(token: str) -> list[tuple[str, str]]:
         identifier = str(chat.get("id", ""))
         if not identifier:
             continue
-        name = chat.get("title") or " ".join(
-            part for part in (chat.get("first_name"), chat.get("last_name")) if part
-        ) or chat.get("username") or "chat"
+        name = (
+            chat.get("title")
+            or " ".join(part for part in (chat.get("first_name"), chat.get("last_name")) if part)
+            or chat.get("username")
+            or "chat"
+        )
         found[identifier] = name
     return sorted(found.items())

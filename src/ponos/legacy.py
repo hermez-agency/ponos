@@ -47,15 +47,17 @@ def environment(environ: dict[str, str] | None = None) -> list[str]:
     for name in sorted(environ):
         if not name.startswith(OLD_PREFIX):
             continue
-        new = PREFIX + name[len(OLD_PREFIX):]
+        new = PREFIX + name[len(OLD_PREFIX) :]
         if new not in environ:
             environ[new] = environ[name]
             taken.append(name)
     if taken and not _warned:
         _warned = True
-        renamed = ", ".join(f"{name} → {PREFIX}{name[len(OLD_PREFIX):]}" for name in taken)
-        print(f"ponos: rename these variables, the old names will stop working: {renamed}",
-              file=sys.stderr)
+        renamed = ", ".join(f"{name} → {PREFIX}{name[len(OLD_PREFIX) :]}" for name in taken)
+        print(
+            f"ponos: rename these variables, the old names will stop working: {renamed}",
+            file=sys.stderr,
+        )
     return taken
 
 
@@ -74,7 +76,7 @@ def path(value: str) -> str:
     """
     for old, new in _bases():
         if value == str(old) or value.startswith(f"{old}/"):
-            return str(new) + value[len(str(old)):]
+            return str(new) + value[len(str(old)) :]
     return value
 
 
@@ -171,8 +173,9 @@ def _worktrees(root: Path) -> None:
     for worktree in sorted(root.iterdir()):
         if (worktree / ".git").is_file():
             try:
-                subprocess.run(["git", "worktree", "repair"], cwd=worktree,
-                               capture_output=True, timeout=30)
+                subprocess.run(
+                    ["git", "worktree", "repair"], cwd=worktree, capture_output=True, timeout=30
+                )
             except (OSError, subprocess.SubprocessError):
                 pass
 
@@ -191,7 +194,7 @@ def _sessions(old: Path, new: Path) -> None:
     except OSError:
         return
     for folder in folders:
-        target = projects / (after + folder.name[len(before):])
+        target = projects / (after + folder.name[len(before) :])
         if not target.exists():
             try:
                 folder.rename(target)

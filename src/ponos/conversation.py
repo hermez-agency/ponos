@@ -331,7 +331,9 @@ class Ledger:
 
     def known_pages(self) -> list[str]:
         """The pages it has spoken on, most recently first."""
-        return [page for page, _ in sorted(self.pages.items(), key=lambda item: item[1], reverse=True)]
+        return [
+            page for page, _ in sorted(self.pages.items(), key=lambda item: item[1], reverse=True)
+        ]
 
     def rotate(self, pages: list[str], limit: int) -> list[str]:
         """`limit` pages to look at now, taking the next ones each pass.
@@ -379,9 +381,7 @@ class Ledger:
         history in Notion, which is enough to start a fresh one from.
         """
         if discussion in self.threads:
-            self.threads[discussion] = {
-                **self.threads[discussion], "session": "", "at": _now()
-            }
+            self.threads[discussion] = {**self.threads[discussion], "session": "", "at": _now()}
 
 
 def _now() -> str:

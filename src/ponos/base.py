@@ -55,9 +55,7 @@ class Base:
         # directory of Markdown files, or the two kept in step. Nothing above
         # this line knows which — see store.py.
         self.client = store.open(config, dropped=self._dropped)
-        self.resolver = Resolver(
-            config.runner.workspace_root, config.projects, config.github
-        )
+        self.resolver = Resolver(config.runner.workspace_root, config.projects, config.github)
         self.agent_label = f"ponos@{socket.gethostname()}"
         self._workspace: workspace_module.Workspace | None = None
         # The comments of a page, read once per run. Three things want them —

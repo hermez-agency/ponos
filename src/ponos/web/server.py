@@ -131,12 +131,16 @@ HSTS = "max-age=31536000"
 # How long the token's cookie is kept. A sign-in's is `sessions.LIFETIME`.
 TOKEN_COOKIE_AGE = 31536000
 
-_INLINE_SCRIPT = re.compile(rb"<script(?![^>]*\bsrc=)[^>]*>(.*?)</script\s*>", re.IGNORECASE | re.DOTALL)
+_INLINE_SCRIPT = re.compile(
+    rb"<script(?![^>]*\bsrc=)[^>]*>(.*?)</script\s*>", re.IGNORECASE | re.DOTALL
+)
 _INLINE_STYLE = re.compile(rb"<style[^>]*>(.*?)</style\s*>", re.IGNORECASE | re.DOTALL)
 
 
 def _hashes(pattern: re.Pattern[bytes], page: bytes) -> str:
-    found = (base64.b64encode(hashlib.sha256(text).digest()).decode() for text in pattern.findall(page))
+    found = (
+        base64.b64encode(hashlib.sha256(text).digest()).decode() for text in pattern.findall(page)
+    )
     return "".join(f" 'sha256-{digest}'" for digest in dict.fromkeys(found))
 
 
@@ -177,7 +181,9 @@ def page_policy(page: bytes, *, bundle: bool = False, leaves: bool = False) -> s
     ]
     if not leaves:
         site = urlparse(github_app.web())
-        policy.append(f"form-action 'self' {site.scheme}://{site.netloc}" if bundle else "form-action 'self'")
+        policy.append(
+            f"form-action 'self' {site.scheme}://{site.netloc}" if bundle else "form-action 'self'"
+        )
     return "; ".join(policy)
 
 
@@ -264,7 +270,9 @@ class SignIn:
         Both compared before the answer is given: an early return here would
         answer "that email does not exist" by taking less time to say so.
         """
-        known_email = hmac.compare_digest(email.strip().lower().encode(), self.email.lower().encode())
+        known_email = hmac.compare_digest(
+            email.strip().lower().encode(), self.email.lower().encode()
+        )
         known_password = passwords.matches(password, self.digest)
         return known_email and known_password
 
@@ -307,6 +315,7 @@ def installation_code() -> str:
 
 def same_code(offered: str, expected: str) -> bool:
     """The code as somebody types it: any case, with or without its dash."""
+
     def bare(code: str) -> bytes:
         return re.sub(r"[^0-9A-Za-z]", "", code).upper().encode()
 
@@ -852,7 +861,10 @@ class Handler(BaseHTTPRequestHandler):
     def _get_project_image(self, query: dict, project_id: str, slot: str) -> None:
         data, kind = self.api.picture(project_id, slot)
         return self._send(
-            200, data, kind, {"Content-Security-Policy": PICTURE_POLICY},
+            200,
+            data,
+            kind,
+            {"Content-Security-Policy": PICTURE_POLICY},
             cache="private, max-age=86400",
         )
 
@@ -1079,9 +1091,7 @@ class Handler(BaseHTTPRequestHandler):
 
     @at(POSTS, r"/api/github/connect")
     def _post_github_connect(self, payload: dict) -> None:
-        return self._json(
-            github.connect(self._base(), str(payload.get("organisation", "")))
-        )
+        return self._json(github.connect(self._base(), str(payload.get("organisation", ""))))
 
     @at(POSTS, r"/api/github/token")
     def _post_github_token(self, payload: dict) -> None:
@@ -1217,9 +1227,7 @@ class Handler(BaseHTTPRequestHandler):
 
     @at(POSTS, r"/api/schedules")
     def _post_schedules(self, payload: dict) -> None:
-        return self._json(
-            self.api.create_schedule(str(payload.get("name", "")), payload)
-        )
+        return self._json(self.api.create_schedule(str(payload.get("name", "")), payload))
 
     @at(POSTS, r"/api/schedules/([0-9a-fA-F-]{32,36})/launch")
     def _post_schedule_launch(self, payload: dict, schedule_id: str) -> None:
@@ -1389,7 +1397,9 @@ class Handler(BaseHTTPRequestHandler):
         # Every kind but the PDF, which Chrome refuses to open in a sandbox at
         # all — and whose viewer is a sandbox of its own.
         if attachment.type != "application/pdf":
-            extra["Content-Security-Policy"] = "sandbox; default-src 'none'; img-src 'self'; media-src 'self'"
+            extra["Content-Security-Policy"] = (
+                "sandbox; default-src 'none'; img-src 'self'; media-src 'self'"
+            )
         self._send(200, body, attachment.type, extra)
 
     def _picture(self, page_id: str, slot: str) -> None:
@@ -1400,15 +1410,15 @@ class Handler(BaseHTTPRequestHandler):
             length = -1
         if length <= 0 or length > MAX_PICTURE:
             self.close_connection = True
-            return self._fail(413, f"a picture is sent whole, and under {MAX_PICTURE // (1024 * 1024)} MB")
+            return self._fail(
+                413, f"a picture is sent whole, and under {MAX_PICTURE // (1024 * 1024)} MB"
+            )
         data = self.rfile.read(length)
         kind = (self.headers.get("Content-Type") or "").split(";")[0].strip()
         name = re.sub(r"[^\w.\-]+", "-", unquote(self.headers.get("X-Filename") or ""))[:80]
         try:
             return self._json(
-                self.api.set_picture(
-                    page_id, slot, store.Picture(data=data, type=kind, name=name)
-                )
+                self.api.set_picture(page_id, slot, store.Picture(data=data, type=kind, name=name))
             )
         except ValueError as error:
             return self._fail(400, str(error))
@@ -1467,7 +1477,11 @@ class Handler(BaseHTTPRequestHandler):
                 said = json.loads(text or "{}")
             except ValueError:
                 return {}
-            return {str(key): str(value) for key, value in said.items()} if isinstance(said, dict) else {}
+            return (
+                {str(key): str(value) for key, value in said.items()}
+                if isinstance(said, dict)
+                else {}
+            )
         return {key: value for key, value in parse_qsl(text, keep_blank_values=True)}
 
     def _discovery(self, route: str) -> None:
@@ -1483,7 +1497,9 @@ class Handler(BaseHTTPRequestHandler):
                     "bearer_methods_supported": ["header"],
                 }
             )
-        if route.startswith(("/.well-known/oauth-authorization-server", "/.well-known/openid-configuration")):
+        if route.startswith(
+            ("/.well-known/oauth-authorization-server", "/.well-known/openid-configuration")
+        ):
             return self._json(
                 {
                     "issuer": base,
@@ -1545,12 +1561,19 @@ class Handler(BaseHTTPRequestHandler):
         try:
             message = json.loads(raw.decode("utf-8"))
         except (ValueError, UnicodeDecodeError):
-            return self._json({"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "not JSON"}}, 400)
+            return self._json(
+                {"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "not JSON"}},
+                400,
+            )
         answer = mcp.handle(self.api, grant, message, self._base())
         if answer is None:
             return self._send(202, b"", "application/json")
-        return self._json(answer) if isinstance(answer, dict) else self._send(
-            200, json.dumps(answer, ensure_ascii=False).encode(), "application/json"
+        return (
+            self._json(answer)
+            if isinstance(answer, dict)
+            else self._send(
+                200, json.dumps(answer, ensure_ascii=False).encode(), "application/json"
+            )
         )
 
     def _register(self) -> None:
@@ -1561,7 +1584,9 @@ class Handler(BaseHTTPRequestHandler):
             metadata = json.loads(raw.decode("utf-8") or "{}")
             return self._json(oauth.register(metadata), 201)
         except (ValueError, UnicodeDecodeError):
-            return self._json({"error": "invalid_client_metadata", "error_description": "not JSON"}, 400)
+            return self._json(
+                {"error": "invalid_client_metadata", "error_description": "not JSON"}, 400
+            )
         except oauth.OAuthError as error:
             return self._json(error.body(), error.status)
 
@@ -1588,7 +1613,8 @@ class Handler(BaseHTTPRequestHandler):
         language = self._language()
         if claimable(self.api.config, self.entry):
             return self._send(
-                403, consent_refused(language, "This console has not been set up yet.").encode(),
+                403,
+                consent_refused(language, "This console has not been set up yet.").encode(),
                 "text/html; charset=utf-8",
             )
         try:
@@ -1596,21 +1622,31 @@ class Handler(BaseHTTPRequestHandler):
         except oauth.OAuthError as error:
             if error.redirect:
                 location = oauth.back(
-                    error.redirect, error=error.error, error_description=error.description,
-                    state=error.state, iss=self._base(),
+                    error.redirect,
+                    error=error.error,
+                    error_description=error.description,
+                    state=error.state,
+                    iss=self._base(),
                 )
                 return self._send(302, b"", "text/plain", {"Location": location})
             return self._send(
-                400, consent_refused(language, error.description).encode(), "text/html; charset=utf-8"
+                400,
+                consent_refused(language, error.description).encode(),
+                "text/html; charset=utf-8",
             )
         needs = "" if self._authorised({}) else ("password" if self.entry else "token")
         page = consent_page(language, request, params, needs, said).encode()
         # The client that opened this page waits for its answer — in the
         # window it opened, as often as not: that one is not severed from it.
-        self._send(status, page, "text/html; charset=utf-8", {
-            "Content-Security-Policy": page_policy(page, leaves=True),
-            "Cross-Origin-Opener-Policy": "unsafe-none",
-        })
+        self._send(
+            status,
+            page,
+            "text/html; charset=utf-8",
+            {
+                "Content-Security-Policy": page_policy(page, leaves=True),
+                "Cross-Origin-Opener-Policy": "unsafe-none",
+            },
+        )
 
     def _consent(self) -> None:
         """The consent page, answered: a code back to the client, or a refusal.
@@ -1647,7 +1683,11 @@ class Handler(BaseHTTPRequestHandler):
                 wrong = "wrong email or password" if self.entry else "wrong token"
                 return self._authorize(form, _words(self._language())(wrong), 401)
             self.server.attempts.forgive(knocker)  # type: ignore[attr-defined]
-        scopes = (oauth.READ, oauth.WRITE) if form.get("write") and oauth.WRITE in request.scopes else (oauth.READ,)
+        scopes = (
+            (oauth.READ, oauth.WRITE)
+            if form.get("write") and oauth.WRITE in request.scopes
+            else (oauth.READ,)
+        )
         code = oauth.code(request, scopes)
         location = oauth.back(request.redirect_uri, code=code, state=request.state, iss=base)
         self._send(302, b"", "text/plain", {"Location": location})
@@ -1713,7 +1753,9 @@ class Handler(BaseHTTPRequestHandler):
             return self._fail(401, "wrong email or password")
         self.server.attempts.forgive(knocker)  # type: ignore[attr-defined]
         self._send(
-            200, b'{"ok": true}', "application/json",
+            200,
+            b'{"ok": true}',
+            "application/json",
             {"Set-Cookie": self._cookie(entry.session(), sessions.LIFETIME)},
         )
 
@@ -1937,26 +1979,19 @@ _FRENCH = {
     "Sign in to open the console.": "Connectez-vous pour ouvrir la console.",
     "wrong email or password": "e-mail ou mot de passe incorrect",
     "This console needs its token. <code>ponos serve --print-token</code> prints it, "
-    "and it is kept in {where}.":
-        "Cette console demande son jeton. <code>ponos serve --print-token</code> "
-        "l'affiche, et il est gardé dans {where}.",
-    "<code>PONOS_WEB_TOKEN</code> of <code>{path}</code>":
-        "le <code>PONOS_WEB_TOKEN</code> de <code>{path}</code>",
-    "the <code>PONOS_WEB_TOKEN</code> environment variable":
-        "la variable d'environnement <code>PONOS_WEB_TOKEN</code>",
+    "and it is kept in {where}.": "Cette console demande son jeton. <code>ponos serve --print-token</code> "
+    "l'affiche, et il est gardé dans {where}.",
+    "<code>PONOS_WEB_TOKEN</code> of <code>{path}</code>": "le <code>PONOS_WEB_TOKEN</code> de <code>{path}</code>",
+    "the <code>PONOS_WEB_TOKEN</code> environment variable": "la variable d'environnement <code>PONOS_WEB_TOKEN</code>",
     "The token this browser kept is not this console's: another console at this "
-    "address may have replaced it.":
-        "Le jeton gardé par ce navigateur n'est pas celui de cette console : une autre "
-        "console à la même adresse l'a peut-être remplacé.",
+    "address may have replaced it.": "Le jeton gardé par ce navigateur n'est pas celui de cette console : une autre "
+    "console à la même adresse l'a peut-être remplacé.",
     "connect": "connecter",
     "<strong>{client}</strong> asks to reach this Ponos.": "<strong>{client}</strong> demande l'accès à ce Ponos.",
-    "Read the tasks, the projects, the ideas and what the runner is doing":
-        "Lire les tâches, les projets, les idées et ce que fait le runner",
-    "Write: create tasks, answer the blocked ones, sort the ideas":
-        "Écrire : créer des tâches, répondre aux tâches bloquées, trier les idées",
-    "No tool runs a command, starts a session on the spot, changes the settings or deletes anything.":
-        "Aucun outil ne lance de commande, ne démarre de session sur-le-champ, ne modifie les "
-        "réglages ni ne supprime quoi que ce soit.",
+    "Read the tasks, the projects, the ideas and what the runner is doing": "Lire les tâches, les projets, les idées et ce que fait le runner",
+    "Write: create tasks, answer the blocked ones, sort the ideas": "Écrire : créer des tâches, répondre aux tâches bloquées, trier les idées",
+    "No tool runs a command, starts a session on the spot, changes the settings or deletes anything.": "Aucun outil ne lance de commande, ne démarre de session sur-le-champ, ne modifie les "
+    "réglages ni ne supprime quoi que ce soit.",
     "Allow": "Autoriser",
     "Refuse": "Refuser",
     "wrong token": "jeton incorrect",
@@ -2030,8 +2065,12 @@ def gate_page(language: str = "en", where: str = "", said: str = "") -> str:
         say("token"),
         f"""<form id="door">
   <h1>Ponos</h1>
-  <p>{say("This console needs its token. <code>ponos serve --print-token</code> prints it, "
-          "and it is kept in {where}.").format(where=where)}</p>
+  <p>{
+            say(
+                "This console needs its token. <code>ponos serve --print-token</code> prints it, "
+                "and it is kept in {where}."
+            ).format(where=where)
+        }</p>
   <label for="t">{say("Token")}</label>
   <input id="t" name="t" autofocus autocomplete="off" spellcheck="false">
   <button type="submit">{say("Open the console")}</button>
@@ -2111,14 +2150,20 @@ def consent_page(language: str, request, params: dict[str, str], needs: str, sai
     hidden = "".join(
         f'<input type="hidden" name="{html.escape(name)}" value="{html.escape(params.get(name, ""))}">'
         for name in (
-            "response_type", "client_id", "redirect_uri", "code_challenge",
-            "code_challenge_method", "scope", "state", "resource",
+            "response_type",
+            "client_id",
+            "redirect_uri",
+            "code_challenge",
+            "code_challenge_method",
+            "scope",
+            "state",
+            "resource",
         )
         if params.get(name)
     )
     write = (
         f'<label class="scope"><input type="checkbox" name="write" value="1" checked> '
-        f'{say("Write: create tasks, answer the blocked ones, sort the ideas")}</label>'
+        f"{say('Write: create tasks, answer the blocked ones, sort the ideas')}</label>"
         if oauth.WRITE in request.scopes
         else ""
     )
@@ -2167,7 +2212,7 @@ def consent_refused(language: str, why: str) -> str:
     say = _words(language)
     return _page(
         say("connect"),
-        f"<form><h1>Ponos</h1><p class=\"said\">{html.escape(say(why))}</p></form>\n",
+        f'<form><h1>Ponos</h1><p class="said">{html.escape(say(why))}</p></form>\n',
         language=language,
     )
 
@@ -2194,7 +2239,12 @@ def serve(
     # In a container the console listens to a network by nature — Docker's, and
     # behind it Traefik's — and what guards a console nobody has claimed there is
     # the installation code drawn below. Everywhere else, as it always was.
-    if host not in LOOPBACK and not config.web.token and entry is None and not config_module.in_container():
+    if (
+        host not in LOOPBACK
+        and not config.web.token
+        and entry is None
+        and not config_module.in_container()
+    ):
         print(
             f"refusing to listen on {host}: behind this port sits a runner that starts\n"
             "Claude Code sessions with bypassPermissions, and a generated token is not a\n"
@@ -2242,7 +2292,9 @@ def serve(
         print(f"Ponos console on {shown}")
         print(f"  open  {opening(shown)}")
         if code:
-            print(f"  code  {code}  —  asked by the first connection from anywhere but this machine")
+            print(
+                f"  code  {code}  —  asked by the first connection from anywhere but this machine"
+            )
         print("  stop  Ctrl-C\n", flush=True)
 
     thread = threading.Thread(target=server.serve_forever, name="tr-console", daemon=True)

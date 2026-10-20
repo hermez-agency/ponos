@@ -150,7 +150,9 @@ def figures(
         created = day_of(ticket.get("created", ""), zone)
         closed = None
         if ticket.get("column") in CLOSED:
-            closed = dated.get(str(ticket.get("id", ""))) if ticket.get("column") == "done" else None
+            closed = (
+                dated.get(str(ticket.get("id", ""))) if ticket.get("column") == "done" else None
+            )
             if closed:
                 from_history += 1
             else:
@@ -227,7 +229,11 @@ def figures(
     for entry in history:
         seconds_of[str(entry.get("id", "")).replace("-", "")] += float(entry.get("seconds") or 0)
     kinds_of_work = subtyped(
-        [(ticket, closed) for ticket, _, closed in known.values() if closed and first <= closed <= last],
+        [
+            (ticket, closed)
+            for ticket, _, closed in known.values()
+            if closed and first <= closed <= last
+        ],
         cost_of,
         seconds_of,
         first,
@@ -236,7 +242,10 @@ def figures(
 
     born = [ticket for ticket, created, _ in known.values() if created and first <= created <= last]
     made = created_by_kind(
-        [(ticket, created) for ticket, created, _ in known.values() if created], first, last, kind_of
+        [(ticket, created) for ticket, created, _ in known.values() if created],
+        first,
+        last,
+        kind_of,
     )
     statuses = Counter(str(ticket.get("column") or "draft") for ticket in born)
     projects = Counter(str(ticket.get("project") or "") for ticket in born)

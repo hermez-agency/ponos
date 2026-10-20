@@ -507,9 +507,7 @@ class Delivery(Base):
             return "base-red", said.say("checks-base-red", names=_named(failing), base=base)
         return "failed", said.say("checks-failed-on", names=_named(failing), base=base)
 
-    def _mend(
-        self, job: Job, url: str, checked: str
-    ) -> tuple[str, str, session.Outcome | None]:
+    def _mend(self, job: Job, url: str, checked: str) -> tuple[str, str, session.Outcome | None]:
         """A pull request red by its own fault: a session reads the log and tries once.
 
         The red `_checked` could not excuse — still red after the failed jobs
@@ -568,24 +566,30 @@ class Delivery(Base):
             return "failed", checked, outcome
         told = _report_of(outcome.answer)
         if not outcome.ok:
-            return "failed", said.paragraphs(
-                checked, said.say("repair-blocked", names=names), outcome.summary, told
-            ), outcome
+            return (
+                "failed",
+                said.paragraphs(
+                    checked, said.say("repair-blocked", names=names), outcome.summary, told
+                ),
+                outcome,
+            )
         if git.rebasing(job.workdir) or git.is_dirty(job.workdir):
-            return "failed", said.paragraphs(
-                checked, told, said.say("repair-unfinished")
-            ), outcome
+            return "failed", said.paragraphs(checked, told, said.say("repair-unfinished")), outcome
         fixed = git.head(job.workdir)
         if not fixed or fixed == head:
-            return "failed", said.paragraphs(
-                checked, said.say("repair-nothing", names=names), told
-            ), outcome
+            return (
+                "failed",
+                said.paragraphs(checked, said.say("repair-nothing", names=names), told),
+                outcome,
+            )
         state.mending(ticket.id, fixed)
         failure = git.push_leased(job.workdir, job.branch, head, accounts)
         if failure:
-            return "failed", said.paragraphs(
-                checked, told, said.say("repair-push-refused", error=failure)
-            ), outcome
+            return (
+                "failed",
+                said.paragraphs(checked, told, said.say("repair-push-refused", error=failure)),
+                outcome,
+            )
         pushed = said.say("repair-fixed", names=names)
         git.comment_pull_request(url, f"Ponos — {said.paragraphs(pushed, told)}", accounts)
         checks, again = self._checked(url, job.workdir, job.base)
@@ -738,8 +742,10 @@ class Delivery(Base):
         failure = git.replay_pushed(
             project.path, branch, base, workdir, self.config.github, generated.settle
         )
-        if failure and git.is_conflict(failure) and self.config.runner.resolves_conflicts(
-            project.name
+        if (
+            failure
+            and git.is_conflict(failure)
+            and self.config.runner.resolves_conflicts(project.name)
         ):
             if self.under_reserve():
                 # A resolution is a session, and waits for credit the way a
@@ -915,9 +921,7 @@ class Delivery(Base):
         said = self.voice
         accounts = self.config.github
         validated = self.config.notion.state("validated")
-        replay = git.begin_replay(
-            project.path, job.branch, job.base, job.workdir, generated.settle
-        )
+        replay = git.begin_replay(project.path, job.branch, job.base, job.workdir, generated.settle)
         if replay.error:
             return self._refused(ticket, url, replay.error)
         conflicts = replay.conflicts or []
@@ -1221,9 +1225,12 @@ class Delivery(Base):
         )
         job.workdir.mkdir(parents=True, exist_ok=True)
         try:
-            outcome = self._run_session(job, prompt_module.template(
-                self.config.runner.delivery_prompt_file, prompt_module.DELIVERY
-            ))
+            outcome = self._run_session(
+                job,
+                prompt_module.template(
+                    self.config.runner.delivery_prompt_file, prompt_module.DELIVERY
+                ),
+            )
         except (OSError, FileNotFoundError) as error:
             state.release(ticket.id)
             return self._fail(

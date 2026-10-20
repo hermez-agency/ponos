@@ -52,7 +52,9 @@ BATCH = 3
 OVERVIEW = 200
 
 _DECISION = re.compile(r"^\W*DECISION\s*:\s*(unblock|keep)\b", re.IGNORECASE | re.MULTILINE)
-_REASON = re.compile(r"^\W*REASON\s*:\s*(.+(?:\n(?!\W*DECISION\b).+)*)", re.IGNORECASE | re.MULTILINE)
+_REASON = re.compile(
+    r"^\W*REASON\s*:\s*(.+(?:\n(?!\W*DECISION\b).+)*)", re.IGNORECASE | re.MULTILINE
+)
 
 
 def decision(text: str) -> tuple[str, str]:
@@ -208,7 +210,9 @@ class Unblocking(Base):
             return None
         said = self.voice
         if verdict == "unblock":
-            self._set(ticket, **{self.config.notion.prop("status"): self.config.notion.state("ready")})
+            self._set(
+                ticket, **{self.config.notion.prop("status"): self.config.notion.state("ready")}
+            )
             self._comment(
                 ticket,
                 said.report(said.verdict("requeued"), said.say("unblocked", reason=reason)),

@@ -131,7 +131,10 @@ def cli_login() -> Check:
     try:
         answered = subprocess.run(
             [binary, "auth", "status"],
-            capture_output=True, text=True, timeout=CHECK_TIMEOUT, env=quiet,
+            capture_output=True,
+            text=True,
+            timeout=CHECK_TIMEOUT,
+            env=quiet,
         )
     except (OSError, subprocess.SubprocessError) as error:
         return Check(False, f"claude auth status: {error}")
@@ -212,7 +215,7 @@ def problem(config: Config) -> str:
     """What makes the chosen provider unusable from the file alone, or ""."""
     which = chosen(config)
     if which == "api_key" and not config.claude.api_key:
-        return "claude.provider = \"api_key\" with no key: claude.api_key, or ANTHROPIC_API_KEY"
+        return 'claude.provider = "api_key" with no key: claude.api_key, or ANTHROPIC_API_KEY'
     if which == "openrouter" and not config.openrouter.key:
-        return "claude.provider = \"openrouter\" with no key: openrouter.key, or OPENROUTER_API_KEY"
+        return 'claude.provider = "openrouter" with no key: openrouter.key, or OPENROUTER_API_KEY'
     return ""

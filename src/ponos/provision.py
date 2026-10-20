@@ -133,8 +133,7 @@ def _select(options, colours: dict[str, str] | None = None) -> dict:
     return {
         "select": {
             "options": [
-                {"name": name, "color": (colours or {}).get(name, "default")}
-                for name in options
+                {"name": name, "color": (colours or {}).get(name, "default")} for name in options
             ]
         }
     }
@@ -150,7 +149,16 @@ def status_options(settings: Notion) -> list[dict]:
     `review`, and the board simply has no validated column.
     """
     seen: dict[str, str] = {}
-    for key in ("ready", "running", "review", "validated", "done", "failed", "blocked", "cancelled"):
+    for key in (
+        "ready",
+        "running",
+        "review",
+        "validated",
+        "done",
+        "failed",
+        "blocked",
+        "cancelled",
+    ):
         name = settings.state(key).strip()
         if name and name not in seen:
             seen[name] = _STATUS_COLOURS[key]
@@ -334,8 +342,7 @@ def missing_options(database: dict, name: str, wanted: list[dict]) -> dict:
     if not absent:
         return {}
     kept = [
-        {"name": option.get("name"), "color": option.get("color", "default")}
-        for option in current
+        {"name": option.get("name"), "color": option.get("color", "default")} for option in current
     ]
     return {name: {"select": {"options": kept + absent}}}
 
@@ -343,9 +350,7 @@ def missing_options(database: dict, name: str, wanted: list[dict]) -> dict:
 # -- doing it ----------------------------------------------------------------
 
 
-def _database_in(
-    client: notion.Client, page: str, title: str, schema: dict, report: Report
-) -> str:
+def _database_in(client: notion.Client, page: str, title: str, schema: dict, report: Report) -> str:
     """The database of a workspace row, created or completed. Returns its ID."""
     # Any database in the row, not only one under the expected title: that is
     # what `resolve_database` will hand the runner at read time, so completing a
@@ -410,16 +415,25 @@ def provision(
     # name a database that does not exist yet. Projects and Agents are built
     # before the tickets, and Schedules after them.
     projects = _database_in(
-        client, _row(client, workspace, settings, "projects", report),
-        settings.page("projects"), projects_schema(), report,
+        client,
+        _row(client, workspace, settings, "projects", report),
+        settings.page("projects"),
+        projects_schema(),
+        report,
     )
     agents = _database_in(
-        client, _row(client, workspace, settings, "agents", report),
-        settings.page("agents"), agents_schema(settings), report,
+        client,
+        _row(client, workspace, settings, "agents", report),
+        settings.page("agents"),
+        agents_schema(settings),
+        report,
     )
     tickets = _database_in(
-        client, _row(client, workspace, settings, "tickets", report),
-        settings.page("tickets"), tickets_schema(settings, projects, agents), report,
+        client,
+        _row(client, workspace, settings, "tickets", report),
+        settings.page("tickets"),
+        tickets_schema(settings, projects, agents),
+        report,
     )
     report.tickets = tickets
 
@@ -446,8 +460,11 @@ def provision(
             )
 
     schedules = _database_in(
-        client, _row(client, workspace, settings, "schedules", report),
-        settings.page("schedules"), schedules_schema(settings, tickets, projects), report,
+        client,
+        _row(client, workspace, settings, "schedules", report),
+        settings.page("schedules"),
+        schedules_schema(settings, tickets, projects),
+        report,
     )
     # A cadence added by a later version reaches a database built by an earlier
     # one, and the cadences already there keep their place — the same merge the

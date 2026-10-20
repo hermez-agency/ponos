@@ -46,7 +46,12 @@ def _decoded(text: str) -> bytes:
 
 def _scrypt(password: str, salt: bytes, n: int, r: int, p: int, length: int) -> bytes:
     return hashlib.scrypt(
-        password.encode("utf-8"), salt=salt, n=n, r=r, p=p, dklen=length,
+        password.encode("utf-8"),
+        salt=salt,
+        n=n,
+        r=r,
+        p=p,
+        dklen=length,
         # The default ceiling is 32 MiB, which is exactly what these parameters
         # need — and a little more than that is what the computation takes.
         maxmem=2 * 128 * r * n + 1024 * 1024,

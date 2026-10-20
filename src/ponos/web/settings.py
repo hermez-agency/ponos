@@ -163,28 +163,34 @@ class Group:
 # file's, and `config.toml` did not move for any of this.
 GROUPS: tuple[Group, ...] = (
     Group(
-        "general", "General",
+        "general",
+        "General",
         "The runner itself: its languages, its updates, this console, and the room it takes.",
     ),
     Group(
-        "source", "Ticket source",
+        "source",
+        "Ticket source",
         "Where your tickets live, and how the runner finds its way in your Notion board.",
     ),
     Group(
-        "execution", "Execution",
+        "execution",
+        "Execution",
         "How tickets are picked up, what a session may do, and when your review is skipped.",
     ),
     Group(
-        "models", "Models and costs",
+        "models",
+        "Models and costs",
         "Who answers the sessions, which model works each ticket, and how much may be spent.",
     ),
     Group(
-        "code", "Code and repositories",
+        "code",
+        "Code and repositories",
         "What a Code ticket turns into: a branch, a pull request, and the merge once you "
         "validate it.",
     ),
     Group(
-        "communication", "Communication",
+        "communication",
+        "Communication",
         "How the runner reaches you, what a ticket shows while it runs, and its answers in "
         "comments.",
     ),
@@ -250,14 +256,20 @@ SECTIONS: tuple[Section, ...] = (
         "picked one.",
         fields=(
             Field(
-                "runner", "app_language", "choice", "Language of the console, by default for all",
+                "runner",
+                "app_language",
+                "choice",
+                "Language of the console, by default for all",
                 "The language the console opens in on every browser that has not picked its "
                 "own above. Not set: the language of the reports, or else the browser's.",
                 choices=voice.LANGUAGES,
                 options=(("en", "English"), ("fr", "French")),
             ),
             Field(
-                "runner", "language", "choice", "Language of the reports",
+                "runner",
+                "language",
+                "choice",
+                "Language of the reports",
                 "What the runner writes on tickets and sends to your phone, and the language "
                 "sessions are asked to answer in. Not set: reports in English, and each "
                 "session answers in the ticket's language.",
@@ -273,7 +285,10 @@ SECTIONS: tuple[Section, ...] = (
         blurb="Try a configuration out without the runner touching anything.",
         fields=(
             Field(
-                "runner", "dry_run", "bool", "Test mode (changes nothing)",
+                "runner",
+                "dry_run",
+                "bool",
+                "Test mode (changes nothing)",
                 "The runner says what it would do and does none of it: no branch, no commit, "
                 "no write to the board. Useful while you set things up.",
             ),
@@ -285,21 +300,36 @@ SECTIONS: tuple[Section, ...] = (
         title="Updates",
         blurb="The runner can update itself between two checks of the board.",
         fields=(
-            Field("runner", "auto_update", "bool", "Update automatically",
-                  "Installs the newest version as soon as there is one."),
-            Field("runner", "update_channel", "choice", "Follow",
-                  "Releases are versions that were tested; the branch brings every change as "
-                  "soon as it lands.",
-                  choices=UPDATE_CHANNELS,
-                  options=(
-                      ("release", "Releases (vX.Y.Z tags)"),
-                      ("main", "Every commit of the installed branch"),
-                  )),
-            Field("runner", "update_interval_seconds", "int", "Look for an update every",
-                  "3600 is an hour. 60 at the least.",
-                  minimum=60,
-                  unit="seconds",
-                  advanced=True),
+            Field(
+                "runner",
+                "auto_update",
+                "bool",
+                "Update automatically",
+                "Installs the newest version as soon as there is one.",
+            ),
+            Field(
+                "runner",
+                "update_channel",
+                "choice",
+                "Follow",
+                "Releases are versions that were tested; the branch brings every change as "
+                "soon as it lands.",
+                choices=UPDATE_CHANNELS,
+                options=(
+                    ("release", "Releases (vX.Y.Z tags)"),
+                    ("main", "Every commit of the installed branch"),
+                ),
+            ),
+            Field(
+                "runner",
+                "update_interval_seconds",
+                "int",
+                "Look for an update every",
+                "3600 is an hour. 60 at the least.",
+                minimum=60,
+                unit="seconds",
+                advanced=True,
+            ),
         ),
     ),
     Section(
@@ -311,57 +341,112 @@ SECTIONS: tuple[Section, ...] = (
             "only listens to this machine unless you set a token or a sign-in."
         ),
         fields=(
-            Field("web", "host", "text", "Listen address",
-                  "`127.0.0.1`: this machine only. Any other address needs a token, or an "
-                  "email and a password, below. Safer still: an ssh tunnel, `ssh -L "
-                  "8787:127.0.0.1:8787 <this machine>`.",
-                  after="the console has to be restarted"),
-            Field("web", "port", "int", "Port",
-                  "The console is then at `http://127.0.0.1:<port>`.",
-                  minimum=1,
-                  after="the console has to be restarted"),
-            Field("web", "token", "secret", "Console token",
-                  "Empty: one is drawn once and kept in "
-                  "`~/.local/state/ponos/web/token`. Needed to listen beyond this "
-                  "machine.",
-                  after="the console has to be restarted, and this page reopened with the new token"),
-            Field("web", "url", "text", "Public address",
-                  "Where the console is reached from elsewhere, `https://…` behind a proxy "
-                  "or a tunnel. The Claude connector is this address followed by `/mcp`."),
-            Field("web", "email", "text", "Sign-in email",
-                  "With a password, the console asks for the two instead of the token. "
-                  "`PONOS_WEB_EMAIL` wins over it.",
-                  after="the console has to be restarted",
-                  placeholder="e.g. you@example.com",
-                  environment=config_module.WEB_EMAIL_ENV),
-            Field("web", "password", "secret", "Sign-in password",
-                  "`PONOS_WEB_PASSWORD` wins over it. Changing it signs every browser "
-                  "out; the token keeps working, for scripts.",
-                  after="the console has to be restarted"),
-            Field("web", "send_after_transcription", "bool", "Send a dictated message right away",
-                  "Off: the transcription waits in the field, to be read over first. "
-                  "Dictation needs the OpenRouter key."),
-            Field("web", "poll_seconds", "int", "Refresh the board every",
-                  "Only while this page is open. 5 at the least.",
-                  minimum=5,
-                  unit="seconds",
-                  advanced=True),
-            Field("web", "chat_timeout_minutes", "int", "Time limit per discussion reply",
-                  "For the discussion with the workspace, in this console.",
-                  minimum=1,
-                  unit="minutes",
-                  advanced=True),
-            Field("web", "attachment_max_mb", "int", "Largest attached file",
-                  "Per file sent in the discussion. A larger one is refused, with the reason.",
-                  minimum=1,
-                  unit="MB",
-                  advanced=True),
-            Field("web", "attachment_days", "int", "Keep attached files",
-                  "Copies of what you sent in the discussion, deleted after this or with "
-                  "“new conversation”.",
-                  minimum=1,
-                  unit="days",
-                  advanced=True),
+            Field(
+                "web",
+                "host",
+                "text",
+                "Listen address",
+                "`127.0.0.1`: this machine only. Any other address needs a token, or an "
+                "email and a password, below. Safer still: an ssh tunnel, `ssh -L "
+                "8787:127.0.0.1:8787 <this machine>`.",
+                after="the console has to be restarted",
+            ),
+            Field(
+                "web",
+                "port",
+                "int",
+                "Port",
+                "The console is then at `http://127.0.0.1:<port>`.",
+                minimum=1,
+                after="the console has to be restarted",
+            ),
+            Field(
+                "web",
+                "token",
+                "secret",
+                "Console token",
+                "Empty: one is drawn once and kept in "
+                "`~/.local/state/ponos/web/token`. Needed to listen beyond this "
+                "machine.",
+                after="the console has to be restarted, and this page reopened with the new token",
+            ),
+            Field(
+                "web",
+                "url",
+                "text",
+                "Public address",
+                "Where the console is reached from elsewhere, `https://…` behind a proxy "
+                "or a tunnel. The Claude connector is this address followed by `/mcp`.",
+            ),
+            Field(
+                "web",
+                "email",
+                "text",
+                "Sign-in email",
+                "With a password, the console asks for the two instead of the token. "
+                "`PONOS_WEB_EMAIL` wins over it.",
+                after="the console has to be restarted",
+                placeholder="e.g. you@example.com",
+                environment=config_module.WEB_EMAIL_ENV,
+            ),
+            Field(
+                "web",
+                "password",
+                "secret",
+                "Sign-in password",
+                "`PONOS_WEB_PASSWORD` wins over it. Changing it signs every browser "
+                "out; the token keeps working, for scripts.",
+                after="the console has to be restarted",
+            ),
+            Field(
+                "web",
+                "send_after_transcription",
+                "bool",
+                "Send a dictated message right away",
+                "Off: the transcription waits in the field, to be read over first. "
+                "Dictation needs the OpenRouter key.",
+            ),
+            Field(
+                "web",
+                "poll_seconds",
+                "int",
+                "Refresh the board every",
+                "Only while this page is open. 5 at the least.",
+                minimum=5,
+                unit="seconds",
+                advanced=True,
+            ),
+            Field(
+                "web",
+                "chat_timeout_minutes",
+                "int",
+                "Time limit per discussion reply",
+                "For the discussion with the workspace, in this console.",
+                minimum=1,
+                unit="minutes",
+                advanced=True,
+            ),
+            Field(
+                "web",
+                "attachment_max_mb",
+                "int",
+                "Largest attached file",
+                "Per file sent in the discussion. A larger one is refused, with the reason.",
+                minimum=1,
+                unit="MB",
+                advanced=True,
+            ),
+            Field(
+                "web",
+                "attachment_days",
+                "int",
+                "Keep attached files",
+                "Copies of what you sent in the discussion, deleted after this or with "
+                "“new conversation”.",
+                minimum=1,
+                unit="days",
+                advanced=True,
+            ),
         ),
     ),
     Section(
@@ -371,17 +456,26 @@ SECTIONS: tuple[Section, ...] = (
         blurb="How long what the sessions leave behind stays on this machine.",
         fields=(
             Field(
-                "runner", "log_retention_days", "int", "Keep session logs",
+                "runner",
+                "log_retention_days",
+                "int",
+                "Keep session logs",
                 "How long each session's log stays on this machine. 0 keeps them forever.",
                 unit="days",
             ),
             Field(
-                "runner", "clean_done_worktrees", "bool", "Clean up after done tickets",
+                "runner",
+                "clean_done_worktrees",
+                "bool",
+                "Clean up after done tickets",
                 "Once a day, delete the working copies of tickets done for as many days as "
                 "the logs are kept. A blocked or in-review ticket keeps its own.",
             ),
             Field(
-                "runner", "stale_worktree_days", "int", "Drop forgotten working copies after",
+                "runner",
+                "stale_worktree_days",
+                "int",
+                "Drop forgotten working copies after",
                 "A working copy untouched for this many days is deleted, whatever its ticket, "
                 "unless the ticket is in progress or the copy holds work that is not pushed. "
                 "0 turns it off.",
@@ -389,7 +483,10 @@ SECTIONS: tuple[Section, ...] = (
                 unit="days",
             ),
             Field(
-                "runner", "worktree_exclude", "text", "Leave out of working copies",
+                "runner",
+                "worktree_exclude",
+                "text",
+                "Leave out of working copies",
                 "Comma-separated folders (docs/media, for instance) that new working copies are "
                 "made without, to spare the disk. A ticket that needs one runs "
                 "git sparse-checkout disable.",
@@ -407,7 +504,10 @@ SECTIONS: tuple[Section, ...] = (
         ),
         fields=(
             Field(
-                "storage", "mode", "choice", "Board kept in",
+                "storage",
+                "mode",
+                "choice",
+                "Board kept in",
                 "Markdown files need no Notion token and no network. Both writes to the two "
                 "and reconciles them.",
                 choices=MODES,
@@ -419,13 +519,19 @@ SECTIONS: tuple[Section, ...] = (
                 after="the console has to be restarted",
             ),
             Field(
-                "storage", "path", "path", "Markdown folder",
+                "storage",
+                "path",
+                "path",
+                "Markdown folder",
                 "The folder holding `tickets/`, `projects/`, `agents/`, `schedules/` and "
                 "`context.md`. You can put it under git.",
                 after="the console has to be restarted",
             ),
             Field(
-                "storage", "conflict", "choice", "When both sides changed",
+                "storage",
+                "conflict",
+                "choice",
+                "When both sides changed",
                 "A page edited in Notion and in the files since the last sync: the most "
                 "recent edit wins, the other is kept in the sync journal.",
                 choices=CONFLICTS,
@@ -433,7 +539,10 @@ SECTIONS: tuple[Section, ...] = (
                 advanced=True,
             ),
             Field(
-                "storage", "on_every_pass", "bool", "Sync before every check of the board",
+                "storage",
+                "on_every_pass",
+                "bool",
+                "Sync before every check of the board",
                 "Only for Both. Off: the two only sync when you run `ponos sync`.",
                 advanced=True,
             ),
@@ -449,19 +558,28 @@ SECTIONS: tuple[Section, ...] = (
         ),
         fields=(
             Field(
-                "notion", "token", "secret", "Integration token",
+                "notion",
+                "token",
+                "secret",
+                "Integration token",
                 "The secret starting with `ntn_`, from notion.so/profile/integrations. "
                 "Share your workspace page with the integration too: a token alone sees "
                 "nothing.",
             ),
             Field(
-                "notion", "workspace", "text", "Workspace page",
+                "notion",
+                "workspace",
+                "text",
+                "Workspace page",
                 "The Notion page that holds the Tickets, Projects, Agents and Context "
                 "databases. Paste its URL: only the identifier is kept.",
                 placeholder="https://www.notion.so/…",
             ),
             Field(
-                "notion", "tickets_database", "text", "Tickets database (without a workspace page)",
+                "notion",
+                "tickets_database",
+                "text",
+                "Tickets database (without a workspace page)",
                 "Only if the workspace page is empty: the tickets database on its own, by "
                 "URL or identifier.",
                 placeholder="its URL or its identifier",
@@ -488,12 +606,18 @@ SECTIONS: tuple[Section, ...] = (
                 "done": ("Done", "Finished and closed."),
                 "failed": ("Failed", "Something broke; a log says what."),
                 "blocked": ("Blocked", "The runner asked you a question and is waiting."),
-                "cancelled": ("Cancelled", "Given up on: never run, counted neither done nor open."),
+                "cancelled": (
+                    "Cancelled",
+                    "Given up on: never run, counted neither done nor open.",
+                ),
             },
         )
         + (
             Field(
-                "notion.status", "draft", "text", "Draft",
+                "notion.status",
+                "draft",
+                "text",
+                "Draft",
                 "Optional: the option your board already has for tickets still being "
                 "written. Never picked up. Empty: a draft has no status.",
             ),
@@ -517,18 +641,39 @@ SECTIONS: tuple[Section, ...] = (
                 "pull_request": ("Pull request", "Written by the runner when one is opened."),
                 "session": ("Session", "Written by the runner: the link that reopens the session."),
                 "model": ("Model", "This ticket's model, over the default one."),
-                "priority": ("Priority", "A score from 0 to 100: the highest Ready ticket goes first."),
+                "priority": (
+                    "Priority",
+                    "A score from 0 to 100: the highest Ready ticket goes first.",
+                ),
                 "cost": ("Cost", "Written by the runner, in dollars."),
                 "duration": ("Duration", "Written by the runner, in minutes."),
                 "progress": ("Progress", "Written by the runner: what the session is doing."),
                 "due": ("Scheduled for", "A date here holds the ticket until then."),
-                "waiting": ("Waiting for credit", "Ticked while the subscription limit is reached."),
+                "waiting": (
+                    "Waiting for credit",
+                    "Ticked while the subscription limit is reached.",
+                ),
                 "role": ("Agent", "Relation to the Agents database: who handles the ticket."),
-                "type": ("Type", "Code, Writing, External action or Publication; empty, it is guessed."),
-                "block": ("Block cause", "Written by the runner: why a stopped ticket stopped, as a code."),
-                "ci": ("CI", "Written by the runner: the state of the pull request's checks while it is in review."),
-                "subtype": ("Sub-type", "Bug, Feature, Amélioration… on a code ticket; empty, it is deduced."),
-                "on": ("Prompt on status change", "A prompt run at every change of the ticket's status; empty, nothing runs."),
+                "type": (
+                    "Type",
+                    "Code, Writing, External action or Publication; empty, it is guessed.",
+                ),
+                "block": (
+                    "Block cause",
+                    "Written by the runner: why a stopped ticket stopped, as a code.",
+                ),
+                "ci": (
+                    "CI",
+                    "Written by the runner: the state of the pull request's checks while it is in review.",
+                ),
+                "subtype": (
+                    "Sub-type",
+                    "Bug, Feature, Amélioration… on a code ticket; empty, it is deduced.",
+                ),
+                "on": (
+                    "Prompt on status change",
+                    "A prompt run at every change of the ticket's status; empty, nothing runs.",
+                ),
                 "cadence": ("Schedule: cadence", "Hourly, Daily, Weekly or Monthly."),
                 "at": ("Schedule: time", "The hour, written 09:00."),
                 "day": ("Schedule: day", "Monday… or 1 to 31."),
@@ -595,7 +740,10 @@ SECTIONS: tuple[Section, ...] = (
         ),
         fields=(
             Field(
-                "runner", "interval_seconds", "int", "Check the board every",
+                "runner",
+                "interval_seconds",
+                "int",
+                "Check the board every",
                 "The delay between two looks for Ready tickets. 10 starts a ticket within "
                 "ten seconds; a look that finds nothing costs one request.",
                 minimum=1,
@@ -603,40 +751,58 @@ SECTIONS: tuple[Section, ...] = (
                 after="`ponos enable` writes it into the systemd timer",
             ),
             Field(
-                "runner", "max_concurrent", "int", "Tickets in parallel",
+                "runner",
+                "max_concurrent",
+                "int",
+                "Tickets in parallel",
                 "How many Claude sessions run at the same time. Each is a full session: 2 "
                 "suits a laptop.",
                 minimum=1,
             ),
             Field(
-                "runner", "max_concurrent_per_project", "int", "Tickets in parallel per project",
+                "runner",
+                "max_concurrent_per_project",
+                "int",
+                "Tickets in parallel per project",
                 "How many of those sessions may work on the same project at once. Pull requests "
                 "written side by side on one repository touch the same files and conflict when "
                 "the first one lands: 2 keeps that rare.",
                 minimum=1,
             ),
             Field(
-                "runner", "timeout_minutes", "int", "Time limit per ticket",
+                "runner",
+                "timeout_minutes",
+                "int",
+                "Time limit per ticket",
                 "Past it, the session is stopped and the ticket fails, with the reason.",
                 minimum=1,
                 unit="minutes",
             ),
             Field(
-                "runner", "min_free_memory_mb", "int", "Memory to keep free",
+                "runner",
+                "min_free_memory_mb",
+                "int",
+                "Memory to keep free",
                 "No session is started while less memory than this is available; the ticket "
                 "waits in Ready. 0 turns the guard off.",
                 minimum=0,
                 unit="MB",
             ),
             Field(
-                "runner", "min_free_disk_mb", "int", "Disk space to keep free",
+                "runner",
+                "min_free_disk_mb",
+                "int",
+                "Disk space to keep free",
                 "Under it, old working copies are tidied first; if the space is still short, "
                 "no ticket is started and it waits in Ready. 0 turns the guard off.",
                 minimum=0,
                 unit="MB",
             ),
             Field(
-                "runner", "relaunch_delay_seconds", "int", "Wait before resuming a killed session",
+                "runner",
+                "relaunch_delay_seconds",
+                "int",
+                "Wait before resuming a killed session",
                 "A session killed from outside is resumed once after this delay, if the network "
                 "answers.",
                 minimum=0,
@@ -651,17 +817,25 @@ SECTIONS: tuple[Section, ...] = (
         blurb="Nobody is there to approve: what a session may do on its own.",
         fields=(
             Field(
-                "runner", "permission_mode", "choice", "What a session may do without asking",
+                "runner",
+                "permission_mode",
+                "choice",
+                "What a session may do without asking",
                 "Nobody is there to approve: anything but “Everything” leaves a session "
                 "waiting until it times out.",
                 choices=PERMISSION_MODES,
                 options=PERMISSION_OPTIONS,
             ),
-            Field("runner", "reply_permission_mode", "choice", "What an answer may do",
-                  "“Read only” is the guardrail: an answer that quietly changed a repository "
-                  "is the last thing anybody expects.",
-                  choices=PERMISSION_MODES,
-                  options=PERMISSION_OPTIONS),
+            Field(
+                "runner",
+                "reply_permission_mode",
+                "choice",
+                "What an answer may do",
+                "“Read only” is the guardrail: an answer that quietly changed a repository "
+                "is the last thing anybody expects.",
+                choices=PERMISSION_MODES,
+                options=PERMISSION_OPTIONS,
+            ),
         ),
     ),
     Section(
@@ -673,16 +847,26 @@ SECTIONS: tuple[Section, ...] = (
             "ticket runs; a type you chose is never changed."
         ),
         fields=(
-            Field("runner", "classify", "bool", "Guess the type when it is empty",
-                  "A short session reads the ticket, writes the type in its column and the "
-                  "reason in a comment. Off: a ticket without a type is worked as before, "
-                  "from what its project holds."),
-            Field("runner", "classify_confidence", "choice", "Least confidence to act on a guess",
-                  "Below it, the ticket is blocked and asks you for its type. A doubt "
-                  "between Code and another type takes the other one; any other doubt "
-                  "involving Publication or External action blocks.",
-                  choices=CONFIDENCES,
-                  options=(("low", "Low"), ("medium", "Medium"), ("high", "High"))),
+            Field(
+                "runner",
+                "classify",
+                "bool",
+                "Guess the type when it is empty",
+                "A short session reads the ticket, writes the type in its column and the "
+                "reason in a comment. Off: a ticket without a type is worked as before, "
+                "from what its project holds.",
+            ),
+            Field(
+                "runner",
+                "classify_confidence",
+                "choice",
+                "Least confidence to act on a guess",
+                "Below it, the ticket is blocked and asks you for its type. A doubt "
+                "between Code and another type takes the other one; any other doubt "
+                "involving Publication or External action blocks.",
+                choices=CONFIDENCES,
+                options=(("low", "Low"), ("medium", "Medium"), ("high", "High")),
+            ),
         ),
     ),
     Section(
@@ -694,16 +878,35 @@ SECTIONS: tuple[Section, ...] = (
             "runner validates it itself and says so. A failed or blocked ticket never is."
         ),
         fields=(
-            Field("runner", "force_validated_code", "bool", "Code tickets",
-                  "The pull request is opened, its CI waited for, then merged. A merge GitHub "
-                  "refuses leaves the ticket in review, with the reason."),
-            Field("runner", "force_validated_publication", "bool", "Publication tickets",
-                  "What was prepared is published straight away, without waiting for your "
-                  "review."),
-            Field("runner", "force_validated_writing", "bool", "Writing tickets",
-                  "No effect today: a Writing ticket already ends in Done."),
-            Field("runner", "force_validated_external", "bool", "External action tickets",
-                  "No effect today: an External action ticket already ends in Done."),
+            Field(
+                "runner",
+                "force_validated_code",
+                "bool",
+                "Code tickets",
+                "The pull request is opened, its CI waited for, then merged. A merge GitHub "
+                "refuses leaves the ticket in review, with the reason.",
+            ),
+            Field(
+                "runner",
+                "force_validated_publication",
+                "bool",
+                "Publication tickets",
+                "What was prepared is published straight away, without waiting for your review.",
+            ),
+            Field(
+                "runner",
+                "force_validated_writing",
+                "bool",
+                "Writing tickets",
+                "No effect today: a Writing ticket already ends in Done.",
+            ),
+            Field(
+                "runner",
+                "force_validated_external",
+                "bool",
+                "External action tickets",
+                "No effect today: an External action ticket already ends in Done.",
+            ),
         ),
     ),
     Section(
@@ -715,12 +918,27 @@ SECTIONS: tuple[Section, ...] = (
             "own. Empty: the built-in ones."
         ),
         fields=(
-            Field("runner", "prompt_file", "path", "Instructions for a ticket with a repository",
-                  "The path to a Markdown or text file."),
-            Field("runner", "document_prompt_file", "path", "Instructions for a ticket without one",
-                  "The path to a Markdown or text file."),
-            Field("runner", "delivery_prompt_file", "path", "Instructions for publishing a validated ticket",
-                  "The path to a Markdown or text file."),
+            Field(
+                "runner",
+                "prompt_file",
+                "path",
+                "Instructions for a ticket with a repository",
+                "The path to a Markdown or text file.",
+            ),
+            Field(
+                "runner",
+                "document_prompt_file",
+                "path",
+                "Instructions for a ticket without one",
+                "The path to a Markdown or text file.",
+            ),
+            Field(
+                "runner",
+                "delivery_prompt_file",
+                "path",
+                "Instructions for publishing a validated ticket",
+                "The path to a Markdown or text file.",
+            ),
         ),
     ),
     Section(
@@ -733,8 +951,13 @@ SECTIONS: tuple[Section, ...] = (
             "every one it missed."
         ),
         fields=(
-            Field("runner", "schedule", "bool", "Create recurring tickets",
-                  "Off: the Schedules database is ignored, and none of its rows is touched."),
+            Field(
+                "runner",
+                "schedule",
+                "bool",
+                "Create recurring tickets",
+                "Off: the Schedules database is ignored, and none of its rows is touched.",
+            ),
         ),
     ),
     Section(
@@ -746,11 +969,21 @@ SECTIONS: tuple[Section, ...] = (
             "your word — so it stops asking the same question twice. One rule per line."
         ),
         fields=(
-            Field("permissions", "allowed", "lines", "Done without asking",
-                  "One action per line, in your own words. Cleared: the session asks about "
-                  "everything that is not in the ticket."),
-            Field("permissions", "ask", "lines", "Always asks you first",
-                  "One action per line. A session that reaches one stops and asks you."),
+            Field(
+                "permissions",
+                "allowed",
+                "lines",
+                "Done without asking",
+                "One action per line, in your own words. Cleared: the session asks about "
+                "everything that is not in the ticket.",
+            ),
+            Field(
+                "permissions",
+                "ask",
+                "lines",
+                "Always asks you first",
+                "One action per line. A session that reaches one stops and asks you.",
+            ),
         ),
     ),
     # -- models --------------------------------------------------------------
@@ -764,27 +997,41 @@ SECTIONS: tuple[Section, ...] = (
         ),
         fields=(
             Field(
-                "claude", "provider", "choice", "Provider",
+                "claude",
+                "provider",
+                "choice",
+                "Provider",
                 "Only the CLI keeps Claude in Chrome and the wait for credits. Empty: "
                 "OpenRouter when its sessions are routed there, the CLI otherwise.",
                 choices=config_module.PROVIDERS,
                 options=PROVIDER_OPTIONS,
             ),
             Field(
-                "claude", "api_key", "secret", "Anthropic API key",
+                "claude",
+                "api_key",
+                "secret",
+                "Anthropic API key",
                 "From console.anthropic.com. Used only when the provider is the key; "
                 "empty, `ANTHROPIC_API_KEY` from the environment is.",
             ),
             Field(
-                "runner", "model", "text", "Default model",
+                "runner",
+                "model",
+                "text",
+                "Default model",
                 "`opus`, `sonnet` or `haiku`, for instance. Empty: Claude Code's own default. "
                 "A ticket's Model column wins over it.",
                 placeholder="Claude Code's own default",
             ),
-            Field("web", "chat_model", "text", "Model of a new session",
-                  "`opus`, `sonnet`, `haiku`, `fable`, or an OpenRouter model such as "
-                  "`openai/gpt-5`. Empty: the model above.",
-                  placeholder="The model above"),
+            Field(
+                "web",
+                "chat_model",
+                "text",
+                "Model of a new session",
+                "`opus`, `sonnet`, `haiku`, `fable`, or an OpenRouter model such as "
+                "`openai/gpt-5`. Empty: the model above.",
+                placeholder="The model above",
+            ),
         ),
     ),
     Section(
@@ -798,40 +1045,82 @@ SECTIONS: tuple[Section, ...] = (
         ),
         fields=(
             Field(
-                "runner", "auto_model", "bool", "Choose the model when it is empty",
+                "runner",
+                "auto_model",
+                "bool",
+                "Choose the model when it is empty",
                 "From the ticket's type, size, wording and priority: a small change runs on "
                 "a light model, an audit on a heavy one. The model and the reason go in a "
                 "comment. Off: the default model for every ticket. A Model on the ticket or "
                 "its agent is always kept.",
             ),
             Field(
-                "runner", "use_fable", "bool", "Use Claude Fable",
+                "runner",
+                "use_fable",
+                "bool",
+                "Use Claude Fable",
                 "Off by default: Fable costs far more than Opus. Off, every session runs on "
                 "Opus instead — the heaviest level, an escalation, a Model written on a ticket.",
             ),
             Field(
-                "runner", "auto_model_escalate", "bool", "One level up after a failure",
+                "runner",
+                "auto_model_escalate",
+                "bool",
+                "One level up after a failure",
                 "A ticket whose chosen model failed runs one level higher the next time, "
                 "once, and says so.",
             ),
             *(
-                Field("runner", f"auto_model_{level}", "text", label, help,
-                      grid="level", short=short, placeholder=_MODEL)
+                Field(
+                    "runner",
+                    f"auto_model_{level}",
+                    "text",
+                    label,
+                    help,
+                    grid="level",
+                    short=short,
+                    placeholder=_MODEL,
+                )
                 for level, short, label, help in (
-                    ("light", "Light work", "Model for light work", "A text to remove, a label "
-                     "to rename. Empty: the nearest level below or above."),
-                    ("standard", "Standard work", "Model for standard work", "A bug or a "
-                     "feature in one pull request."),
-                    ("heavy", "Heavy work", "Model for heavy work", "An audit, a refactor, a "
-                     "migration, a hard bug."),
-                    ("heaviest", "Heaviest work", "Model for the heaviest work", "A long "
-                     "request full of heavy work."),
+                    (
+                        "light",
+                        "Light work",
+                        "Model for light work",
+                        "A text to remove, a label "
+                        "to rename. Empty: the nearest level below or above.",
+                    ),
+                    (
+                        "standard",
+                        "Standard work",
+                        "Model for standard work",
+                        "A bug or a feature in one pull request.",
+                    ),
+                    (
+                        "heavy",
+                        "Heavy work",
+                        "Model for heavy work",
+                        "An audit, a refactor, a migration, a hard bug.",
+                    ),
+                    (
+                        "heaviest",
+                        "Heaviest work",
+                        "Model for the heaviest work",
+                        "A long request full of heavy work.",
+                    ),
                 )
             ),
             *(
-                Field("runner", f"auto_model_{kind}", "choice", label,
-                      "The level it starts from, before its size and its wording move it.",
-                      choices=models.LEVELS, options=LEVEL_OPTIONS, grid="type", short=short)
+                Field(
+                    "runner",
+                    f"auto_model_{kind}",
+                    "choice",
+                    label,
+                    "The level it starts from, before its size and its wording move it.",
+                    choices=models.LEVELS,
+                    options=LEVEL_OPTIONS,
+                    grid="type",
+                    short=short,
+                )
                 for kind, short, label in (
                     ("code", "Code", "Code tickets start at"),
                     ("writing", "Writing", "Writing tickets start at"),
@@ -842,11 +1131,17 @@ SECTIONS: tuple[Section, ...] = (
             # One per sub-type, read off the table: a sub-type added there is a
             # column here without a line more.
             *(
-                Field("runner", f"auto_model_subtype_{subtype.key}", "choice",
-                      f"{subtype.label} tickets start",
-                      "Where a code ticket of this sub-type starts, from the level of Code.",
-                      choices=tuple(subtypes.SHIFTS), options=SHIFT_OPTIONS, grid="subtype",
-                      short=subtype.label)
+                Field(
+                    "runner",
+                    f"auto_model_subtype_{subtype.key}",
+                    "choice",
+                    f"{subtype.label} tickets start",
+                    "Where a code ticket of this sub-type starts, from the level of Code.",
+                    choices=tuple(subtypes.SHIFTS),
+                    options=SHIFT_OPTIONS,
+                    grid="subtype",
+                    short=subtype.label,
+                )
                 for subtype in subtypes.SUBTYPES
             ),
         ),
@@ -858,12 +1153,18 @@ SECTIONS: tuple[Section, ...] = (
         blurb="How much of your subscription the runner may spend, and what it does at the limit.",
         fields=(
             Field(
-                "runner", "wait_for_credits", "bool", "Pause when the subscription limit is reached",
+                "runner",
+                "wait_for_credits",
+                "bool",
+                "Pause when the subscription limit is reached",
                 "On: the ticket waits, ticked Waiting for credit, and starts again when the "
                 "usage window resets. Off: every ticket fails until then.",
             ),
             Field(
-                "runner", "credit_reserve_percent", "int", "Share kept for your own use",
+                "runner",
+                "credit_reserve_percent",
+                "int",
+                "Share kept for your own use",
                 "At 5, no new ticket starts past 95 % of the session or weekly limit, so you "
                 "still have Claude for yourself. Running tickets finish. From 0 (use it all) "
                 "to 50.",
@@ -883,18 +1184,27 @@ SECTIONS: tuple[Section, ...] = (
         ),
         fields=(
             Field(
-                "openrouter", "key", "secret", "OpenRouter key",
+                "openrouter",
+                "key",
+                "secret",
+                "OpenRouter key",
                 "Starts with `sk-or-`, from openrouter.ai/keys. On its own it is only handed "
                 "to the sessions; nothing about the runner changes.",
             ),
             Field(
-                "openrouter", "route_sessions", "bool", "Run the sessions through OpenRouter",
+                "openrouter",
+                "route_sessions",
+                "bool",
+                "Run the sessions through OpenRouter",
                 "Claude Code then talks to OpenRouter instead of Anthropic: models are named "
                 "the OpenRouter way (`openai/gpt-5`), the bill is OpenRouter's rather than "
                 "your subscription's, and Claude in Chrome no longer loads.",
             ),
             Field(
-                "openrouter", "base_url", "text", "API address",
+                "openrouter",
+                "base_url",
+                "text",
+                "API address",
                 "Only for a gateway of your own that speaks the same API.",
                 advanced=True,
             ),
@@ -906,16 +1216,34 @@ SECTIONS: tuple[Section, ...] = (
         title="Specialised models",
         blurb="The short jobs that are not a ticket's own work, each on a model of its own.",
         fields=(
-            Field("runner", "resolve_model", "text", "Model that resolves conflicts",
-                  "Empty: the model the ticket was worked with.",
-                  placeholder="the ticket's own model"),
-            Field("runner", "classify_model", "text", "Model that guesses the type",
-                  "A light one is enough, e.g. `haiku`. Empty: Claude Code's own default."),
-            Field("runner", "ideas_model", "text", "Model that finds ideas",
-                  "Ten ideas per batch, in one short session. A light one is enough, "
-                  "e.g. `haiku`. Empty: Claude Code's own default."),
             Field(
-                "openrouter", "transcription_model", "text", "Dictation model",
+                "runner",
+                "resolve_model",
+                "text",
+                "Model that resolves conflicts",
+                "Empty: the model the ticket was worked with.",
+                placeholder="the ticket's own model",
+            ),
+            Field(
+                "runner",
+                "classify_model",
+                "text",
+                "Model that guesses the type",
+                "A light one is enough, e.g. `haiku`. Empty: Claude Code's own default.",
+            ),
+            Field(
+                "runner",
+                "ideas_model",
+                "text",
+                "Model that finds ideas",
+                "Ten ideas per batch, in one short session. A light one is enough, "
+                "e.g. `haiku`. Empty: Claude Code's own default.",
+            ),
+            Field(
+                "openrouter",
+                "transcription_model",
+                "text",
+                "Dictation model",
                 "Turns a message dictated in the console into text.",
             ),
         ),
@@ -928,7 +1256,10 @@ SECTIONS: tuple[Section, ...] = (
         blurb="Where your git repositories are found — and cloned, when one is missing.",
         fields=(
             Field(
-                "runner", "workspace_root", "path", "Repositories folder",
+                "runner",
+                "workspace_root",
+                "path",
+                "Repositories folder",
                 "Where your git repositories are, e.g. `~/workspace`. A project's repository "
                 "is looked for here — and cloned here when it is missing.",
             ),
@@ -968,20 +1299,29 @@ SECTIONS: tuple[Section, ...] = (
         ),
         fields=(
             Field(
-                "github_access", "mode", "choice", "Reach GitHub with",
+                "github_access",
+                "mode",
+                "choice",
+                "Reach GitHub with",
                 "Empty: the App when one is connected and reaches the repository, then the "
                 "token, then the `gh` accounts. Choosing one puts it first.",
                 choices=config_module.GITHUB_MODES,
                 options=GITHUB_ACCESS_OPTIONS,
             ),
             Field(
-                "github_access", "token", "secret", "Access token",
+                "github_access",
+                "token",
+                "secret",
+                "Access token",
                 "A fine-grained token with Contents and Pull requests on read and write. "
                 "The GitHub tab checks it before keeping it; here it is kept as typed. "
                 "Empty, `PONOS_GITHUB_TOKEN` from the environment is used.",
             ),
             Field(
-                "github_access", "token_item", "text", "Keep the token in a vault",
+                "github_access",
+                "token_item",
+                "text",
+                "Keep the token in a vault",
                 "Instead of `secrets.env`: where your vault holds it, e.g. `pass:ponos/github` "
                 "or `keyring:ponos-github`. The token can also come from "
                 "`PONOS_GITHUB_TOKEN` in the environment.",
@@ -996,39 +1336,79 @@ SECTIONS: tuple[Section, ...] = (
         title="Branches and pull requests",
         blurb="From the branch a ticket starts on to the merge of its pull request.",
         fields=(
-            Field("runner", "base_branch", "text", "Base branch",
-                  "The branch a ticket's branch starts from, e.g. `main`. Empty: the "
-                  "repository's default branch.",
-                  placeholder="the repository's default branch"),
-            Field("runner", "push", "bool", "Push the branch",
-                  "Send the ticket's branch to the remote once it has commits. Off: the work "
-                  "stays on this machine."),
-            Field("runner", "open_pull_request", "bool", "Open a pull request",
-                  "Once the session succeeds, on GitHub — needs `gh` installed and signed in. "
-                  "Opening one merges nothing."),
-            Field("runner", "merge_method", "choice", "Merge a validated pull request as",
-                  "Applied when you move a ticket to Validated.",
-                  choices=MERGE_METHODS,
-                  options=(
-                      ("squash", "One commit (squash)"),
-                      ("merge", "A merge commit (merge)"),
-                      ("rebase", "Commits replayed (rebase)"),
-                  )),
-            Field("runner", "branch_prefix", "text", "Branch name prefix",
-                  "`ticket/` gives `ticket/1a2b3c4d-remove-the-header`.",
-                  advanced=True),
-            Field("runner", "fetch", "bool", "Fetch the remote before branching",
-                  "So a ticket starts from the latest code rather than last week's.",
-                  advanced=True),
-            Field("runner", "rebase", "bool", "Rebase on the base branch before pushing",
-                  "The base branch moves while a session works: the branch is replayed on top "
-                  "of it before the push, and a merge refused for being behind is retried once.",
-                  advanced=True),
-            Field("runner", "checks_timeout_minutes", "int", "Wait for CI before merging",
-                  "After a resolved conflict, or with automatic validation. 0 does not wait — "
-                  "GitHub still refuses a merge a required check has not passed.",
-                  unit="minutes",
-                  advanced=True),
+            Field(
+                "runner",
+                "base_branch",
+                "text",
+                "Base branch",
+                "The branch a ticket's branch starts from, e.g. `main`. Empty: the "
+                "repository's default branch.",
+                placeholder="the repository's default branch",
+            ),
+            Field(
+                "runner",
+                "push",
+                "bool",
+                "Push the branch",
+                "Send the ticket's branch to the remote once it has commits. Off: the work "
+                "stays on this machine.",
+            ),
+            Field(
+                "runner",
+                "open_pull_request",
+                "bool",
+                "Open a pull request",
+                "Once the session succeeds, on GitHub — needs `gh` installed and signed in. "
+                "Opening one merges nothing.",
+            ),
+            Field(
+                "runner",
+                "merge_method",
+                "choice",
+                "Merge a validated pull request as",
+                "Applied when you move a ticket to Validated.",
+                choices=MERGE_METHODS,
+                options=(
+                    ("squash", "One commit (squash)"),
+                    ("merge", "A merge commit (merge)"),
+                    ("rebase", "Commits replayed (rebase)"),
+                ),
+            ),
+            Field(
+                "runner",
+                "branch_prefix",
+                "text",
+                "Branch name prefix",
+                "`ticket/` gives `ticket/1a2b3c4d-remove-the-header`.",
+                advanced=True,
+            ),
+            Field(
+                "runner",
+                "fetch",
+                "bool",
+                "Fetch the remote before branching",
+                "So a ticket starts from the latest code rather than last week's.",
+                advanced=True,
+            ),
+            Field(
+                "runner",
+                "rebase",
+                "bool",
+                "Rebase on the base branch before pushing",
+                "The base branch moves while a session works: the branch is replayed on top "
+                "of it before the push, and a merge refused for being behind is retried once.",
+                advanced=True,
+            ),
+            Field(
+                "runner",
+                "checks_timeout_minutes",
+                "int",
+                "Wait for CI before merging",
+                "After a resolved conflict, or with automatic validation. 0 does not wait — "
+                "GitHub still refuses a merge a required check has not passed.",
+                unit="minutes",
+                advanced=True,
+            ),
         ),
     ),
     Section(
@@ -1037,14 +1417,24 @@ SECTIONS: tuple[Section, ...] = (
         title="Conflicts",
         blurb="When a validated pull request no longer merges cleanly.",
         fields=(
-            Field("runner", "resolve_conflicts", "bool", "Resolve merge conflicts automatically",
-                  "When a validated pull request conflicts, a session resolves it, runs the "
-                  "project's checks, then merges. A conflict that needs a decision blocks the "
-                  "ticket with the question."),
-            Field("runner", "resolve_conflicts_except", "text", "Projects whose conflicts are left to you",
-                  "Project names, separated by commas. A conflict there blocks the ticket "
-                  "instead of being resolved.",
-                  placeholder="e.g. Website, Newsletter"),
+            Field(
+                "runner",
+                "resolve_conflicts",
+                "bool",
+                "Resolve merge conflicts automatically",
+                "When a validated pull request conflicts, a session resolves it, runs the "
+                "project's checks, then merges. A conflict that needs a decision blocks the "
+                "ticket with the question.",
+            ),
+            Field(
+                "runner",
+                "resolve_conflicts_except",
+                "text",
+                "Projects whose conflicts are left to you",
+                "Project names, separated by commas. A conflict there blocks the ticket "
+                "instead of being resolved.",
+                placeholder="e.g. Website, Newsletter",
+            ),
         ),
     ),
     Section(
@@ -1053,9 +1443,14 @@ SECTIONS: tuple[Section, ...] = (
         title="Worktrees",
         blurb="Each ticket works in a copy of its repository of its own, thrown away after.",
         fields=(
-            Field("runner", "keep_worktree_on_failure", "bool", "Keep a failed ticket's work folder",
-                  "Its worktree stays as the session left it, for you to look at. "
-                  "`ponos clean --force` removes them."),
+            Field(
+                "runner",
+                "keep_worktree_on_failure",
+                "bool",
+                "Keep a failed ticket's work folder",
+                "Its worktree stays as the session left it, for you to look at. "
+                "`ponos clean --force` removes them.",
+            ),
         ),
     ),
     # -- communication -------------------------------------------------------
@@ -1069,16 +1464,31 @@ SECTIONS: tuple[Section, ...] = (
             "a blocked one."
         ),
         fields=(
-            Field("notify", "events", "events", "Send a message when a ticket is",
-                  "Blocked: it asks you a question. Done: its work waits for your review. "
-                  "Failed: there is a log to read.",
-                  choices=EVENTS,
-                  options=(("blocked", "Blocked"), ("failed", "Failed"), ("done", "Done"))),
-            Field("notify", "desktop", "bool", "Notify on this computer's screen",
-                  "A desktop notification when a ticket finishes."),
-            Field("notify", "replies", "bool", "Read your replies",
-                  "Your replies on Telegram or Slack become comments on the ticket. Off: "
-                  "messages are sent, replies are ignored."),
+            Field(
+                "notify",
+                "events",
+                "events",
+                "Send a message when a ticket is",
+                "Blocked: it asks you a question. Done: its work waits for your review. "
+                "Failed: there is a log to read.",
+                choices=EVENTS,
+                options=(("blocked", "Blocked"), ("failed", "Failed"), ("done", "Done")),
+            ),
+            Field(
+                "notify",
+                "desktop",
+                "bool",
+                "Notify on this computer's screen",
+                "A desktop notification when a ticket finishes.",
+            ),
+            Field(
+                "notify",
+                "replies",
+                "bool",
+                "Read your replies",
+                "Your replies on Telegram or Slack become comments on the ticket. Off: "
+                "messages are sent, replies are ignored.",
+            ),
         ),
     ),
     Section(
@@ -1087,12 +1497,21 @@ SECTIONS: tuple[Section, ...] = (
         title="Telegram",
         blurb="A bot that writes to you, and reads what you answer.",
         fields=(
-            Field("notify.telegram", "token", "secret", "Telegram bot token",
-                  "From @BotFather (/newbot). `ponos notify --pair` then finds the "
-                  "chat ID."),
-            Field("notify.telegram", "chat", "text", "Telegram chat ID",
-                  "Only this chat is read: anybody can write to a bot.",
-                  placeholder="found by `ponos notify --pair`"),
+            Field(
+                "notify.telegram",
+                "token",
+                "secret",
+                "Telegram bot token",
+                "From @BotFather (/newbot). `ponos notify --pair` then finds the chat ID.",
+            ),
+            Field(
+                "notify.telegram",
+                "chat",
+                "text",
+                "Telegram chat ID",
+                "Only this chat is read: anybody can write to a bot.",
+                placeholder="found by `ponos notify --pair`",
+            ),
         ),
     ),
     Section(
@@ -1101,13 +1520,23 @@ SECTIONS: tuple[Section, ...] = (
         title="Slack",
         blurb="A bot in a channel of yours, which writes there and reads the thread.",
         fields=(
-            Field("notify.slack", "token", "secret", "Slack bot token",
-                  "The `xoxb-…` one. Scopes: `chat:write`, and `channels:history` "
-                  "(`groups:history`, `im:history`) to read your replies."),
-            Field("notify.slack", "channel", "text", "Slack channel ID",
-                  "In Slack, ··· → View channel details, at the bottom. Then `/invite "
-                  "@your-bot` in the channel — the step everyone forgets.",
-                  placeholder="e.g. C0123456789"),
+            Field(
+                "notify.slack",
+                "token",
+                "secret",
+                "Slack bot token",
+                "The `xoxb-…` one. Scopes: `chat:write`, and `channels:history` "
+                "(`groups:history`, `im:history`) to read your replies.",
+            ),
+            Field(
+                "notify.slack",
+                "channel",
+                "text",
+                "Slack channel ID",
+                "In Slack, ··· → View channel details, at the bottom. Then `/invite "
+                "@your-bot` in the channel — the step everyone forgets.",
+                placeholder="e.g. C0123456789",
+            ),
         ),
     ),
     Section(
@@ -1116,23 +1545,43 @@ SECTIONS: tuple[Section, ...] = (
         title="Live progress",
         blurb="What a ticket shows while its session is running, and where the session goes after.",
         fields=(
-            Field("runner", "progress", "bool", "Show progress on the ticket",
-                  "The session's steps are written on the ticket's page, the latest one in "
-                  "its Progress column."),
-            Field("runner", "attach_sessions", "bool", "File sessions under their project",
-                  "A finished session is moved under the project's folder, so `claude "
-                  "--resume` there finds it. Off: it can only be resumed by its ID."),
-            Field("runner", "progress_interval_seconds", "int", "Update progress every",
-                  "10 reads as live. 5 at the least, so two tickets at once do not spend "
-                  "Notion's rate limit on it.",
-                  minimum=5,
-                  unit="seconds",
-                  advanced=True),
-            Field("runner", "session_host", "text", "Machine the sessions run on (ssh)",
-                  "Only when the runner lives on a server, e.g. `me@server.example.com`: the "
-                  "ticket's Session link then opens the session over ssh.",
-                  placeholder="this machine",
-                  advanced=True),
+            Field(
+                "runner",
+                "progress",
+                "bool",
+                "Show progress on the ticket",
+                "The session's steps are written on the ticket's page, the latest one in "
+                "its Progress column.",
+            ),
+            Field(
+                "runner",
+                "attach_sessions",
+                "bool",
+                "File sessions under their project",
+                "A finished session is moved under the project's folder, so `claude "
+                "--resume` there finds it. Off: it can only be resumed by its ID.",
+            ),
+            Field(
+                "runner",
+                "progress_interval_seconds",
+                "int",
+                "Update progress every",
+                "10 reads as live. 5 at the least, so two tickets at once do not spend "
+                "Notion's rate limit on it.",
+                minimum=5,
+                unit="seconds",
+                advanced=True,
+            ),
+            Field(
+                "runner",
+                "session_host",
+                "text",
+                "Machine the sessions run on (ssh)",
+                "Only when the runner lives on a server, e.g. `me@server.example.com`: the "
+                "ticket's Session link then opens the session over ssh.",
+                placeholder="this machine",
+                advanced=True,
+            ),
         ),
     ),
     Section(
@@ -1144,29 +1593,54 @@ SECTIONS: tuple[Section, ...] = (
             "status — yours or the runner's — with the old status, the new one and the ticket."
         ),
         fields=(
-            Field("runner", "on", "bool", "Run the « On » prompt of a ticket",
-                  "A ticket whose « On » column holds a prompt runs it, in a session of its own, "
-                  "at every change of its status. Off: no prompt runs."),
-            Field("runner", "on_interval_seconds", "int", "Look for moved statuses every",
-                  "10 at the least; one request per hundred tickets that carry a prompt.",
-                  minimum=10,
-                  unit="seconds",
-                  advanced=True),
-            Field("runner", "on_max_depth", "int", "Generations of tickets created in a chain",
-                  "A ticket created by a prompt runs its own prompt only this many generations "
-                  "down. 0 stops the chain at once.",
-                  minimum=0,
-                  advanced=True),
-            Field("runner", "on_timeout_minutes", "int", "Time limit per prompt",
-                  "The session is stopped after this long.",
-                  minimum=1,
-                  unit="minutes",
-                  advanced=True),
-            Field("runner", "on_permission_mode", "choice", "What a prompt may do",
-                  "Empty: the same as a ticket's session, since a prompt is there to act.",
-                  choices=("", *PERMISSION_MODES),
-                  options=(("", "Like a ticket"), *PERMISSION_OPTIONS),
-                  advanced=True),
+            Field(
+                "runner",
+                "on",
+                "bool",
+                "Run the « On » prompt of a ticket",
+                "A ticket whose « On » column holds a prompt runs it, in a session of its own, "
+                "at every change of its status. Off: no prompt runs.",
+            ),
+            Field(
+                "runner",
+                "on_interval_seconds",
+                "int",
+                "Look for moved statuses every",
+                "10 at the least; one request per hundred tickets that carry a prompt.",
+                minimum=10,
+                unit="seconds",
+                advanced=True,
+            ),
+            Field(
+                "runner",
+                "on_max_depth",
+                "int",
+                "Generations of tickets created in a chain",
+                "A ticket created by a prompt runs its own prompt only this many generations "
+                "down. 0 stops the chain at once.",
+                minimum=0,
+                advanced=True,
+            ),
+            Field(
+                "runner",
+                "on_timeout_minutes",
+                "int",
+                "Time limit per prompt",
+                "The session is stopped after this long.",
+                minimum=1,
+                unit="minutes",
+                advanced=True,
+            ),
+            Field(
+                "runner",
+                "on_permission_mode",
+                "choice",
+                "What a prompt may do",
+                "Empty: the same as a ticket's session, since a prompt is there to act.",
+                choices=("", *PERMISSION_MODES),
+                options=(("", "Like a ticket"), *PERMISSION_OPTIONS),
+                advanced=True,
+            ),
         ),
     ),
     Section(
@@ -1178,45 +1652,76 @@ SECTIONS: tuple[Section, ...] = (
             "thread — having read the ticket and the repository, and changing nothing."
         ),
         fields=(
-            Field("runner", "reply", "bool", "Answer comments",
-                  "Off: comments get no answer. Answering a blocked ticket's question still "
-                  "starts it again."),
             Field(
-                "notion", "mention", "text", "Word that asks for an answer",
+                "runner",
+                "reply",
+                "bool",
+                "Answer comments",
+                "Off: comments get no answer. Answering a blocked ticket's question still "
+                "starts it again.",
+            ),
+            Field(
+                "notion",
+                "mention",
+                "text",
+                "Word that asks for an answer",
                 "Write it in a ticket's comment — `@claude what is blocking?` — and the "
                 "runner answers in the thread instead of working. The integration's own "
                 "name works too.",
             ),
-            Field("runner", "reply_interval_seconds", "int", "Look for new comments every",
-                  "10 at the least.",
-                  minimum=10,
-                  unit="seconds",
-                  advanced=True),
-            Field("runner", "reply_scan", "int", "Tickets looked at each time",
-                  "One request each; the next ones are looked at the time after.",
-                  minimum=1,
-                  advanced=True),
-            Field("runner", "unblock", "bool", "Look again at blocked tickets",
-                  "A session reads why each blocked ticket stopped and whether that still "
-                  "holds. Only a ticket whose cause is gone goes back to ready; the reason "
-                  "is written on it either way. It costs a session per ticket."),
-            Field("runner", "unblock_interval_seconds", "int", "Look at a blocked ticket every",
-                  "600 at the least.",
-                  minimum=600,
-                  unit="seconds",
-                  advanced=True),
-            Field("runner", "reply_timeout_minutes", "int", "Time limit per answer",
-                  "Somebody is waiting for it: keep it short.",
-                  minimum=1,
-                  unit="minutes",
-                  advanced=True),
+            Field(
+                "runner",
+                "reply_interval_seconds",
+                "int",
+                "Look for new comments every",
+                "10 at the least.",
+                minimum=10,
+                unit="seconds",
+                advanced=True,
+            ),
+            Field(
+                "runner",
+                "reply_scan",
+                "int",
+                "Tickets looked at each time",
+                "One request each; the next ones are looked at the time after.",
+                minimum=1,
+                advanced=True,
+            ),
+            Field(
+                "runner",
+                "unblock",
+                "bool",
+                "Look again at blocked tickets",
+                "A session reads why each blocked ticket stopped and whether that still "
+                "holds. Only a ticket whose cause is gone goes back to ready; the reason "
+                "is written on it either way. It costs a session per ticket.",
+            ),
+            Field(
+                "runner",
+                "unblock_interval_seconds",
+                "int",
+                "Look at a blocked ticket every",
+                "600 at the least.",
+                minimum=600,
+                unit="seconds",
+                advanced=True,
+            ),
+            Field(
+                "runner",
+                "reply_timeout_minutes",
+                "int",
+                "Time limit per answer",
+                "Somebody is waiting for it: keep it short.",
+                minimum=1,
+                unit="minutes",
+                advanced=True,
+            ),
         ),
     ),
 )
 
-FIELDS: dict[str, Field] = {
-    entry.name: entry for section in SECTIONS for entry in section.fields
-}
+FIELDS: dict[str, Field] = {entry.name: entry for section in SECTIONS for entry in section.fields}
 
 
 def _table(raw: dict, table: str) -> dict:
@@ -1351,7 +1856,9 @@ def describe(config: Config) -> dict:
                 shown["preview"] = _preview(config_module.secret(stored, entry.table, entry.key))
                 shown["variable"] = config_module.SECRETS[(entry.table, entry.key)]
             elif entry.kind in ("events", "lines"):
-                shown["value"] = [str(item) for item in stated] if isinstance(stated, list) else None
+                shown["value"] = (
+                    [str(item) for item in stated] if isinstance(stated, list) else None
+                )
             elif entry.kind == "bool":
                 shown["value"] = bool(stated) if stated is not None else None
             elif entry.kind == "int":

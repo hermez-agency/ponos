@@ -218,8 +218,11 @@ class Cleanup(Base):
                 # whose every ticket was deleted.
                 orphan = place == "scratch" and bool(known) and owner not in known
                 forgotten = (
-                    place == "worktrees" and stale > 0 and bool(known)
-                    and owner not in busy and _touched(directory) < stale_cutoff
+                    place == "worktrees"
+                    and stale > 0
+                    and bool(known)
+                    and owner not in busy
+                    and _touched(directory) < stale_cutoff
                 )
                 condemned = untouched and (owner in old or orphan)
                 if not condemned and not forgotten:

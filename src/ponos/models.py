@@ -73,16 +73,50 @@ RISKY = ("external", "publication")
 # What heavy work announces itself with, as the beginning of a word, accents
 # and capitals read away. French and English, since tickets come in both.
 HEAVY = (
-    "audit", "architectur", "migrat", "migrer", "refonte", "refactor", "debog",
-    "debug", "multi-depot", "multi-repo", "securite", "security", "vulnerab",
-    "performance", "rewrite", "reecri", "redesign", "investig", "diagnost",
+    "audit",
+    "architectur",
+    "migrat",
+    "migrer",
+    "refonte",
+    "refactor",
+    "debog",
+    "debug",
+    "multi-depot",
+    "multi-repo",
+    "securite",
+    "security",
+    "vulnerab",
+    "performance",
+    "rewrite",
+    "reecri",
+    "redesign",
+    "investig",
+    "diagnost",
 )
 
 # And what a small change does: remove, rename, reword — a label, a text, a typo.
 LIGHT = (
-    "retir", "supprim", "enlev", "renomm", "rename", "remov", "delet", "typo",
-    "coquille", "libelle", "label", "wording", "faute", "orthograph", "traduction",
-    "translat", "text", "couleur", "colou", "color", "icon",
+    "retir",
+    "supprim",
+    "enlev",
+    "renomm",
+    "rename",
+    "remov",
+    "delet",
+    "typo",
+    "coquille",
+    "libelle",
+    "label",
+    "wording",
+    "faute",
+    "orthograph",
+    "traduction",
+    "translat",
+    "text",
+    "couleur",
+    "colou",
+    "color",
+    "icon",
 )
 
 # Where short ends and long begins: a few lines, and more than a page. Measured
@@ -118,7 +152,7 @@ class Grid:
         not pay for, and the one under it is the closest to what they meant.
         """
         index = LEVELS.index(level)
-        for other in (*LEVELS[index::-1], *LEVELS[index + 1:]):
+        for other in (*LEVELS[index::-1], *LEVELS[index + 1 :]):
             if self.models.get(other):
                 return self.models[other]
         return ""
@@ -211,7 +245,9 @@ def claude_default() -> str:
     if named:
         return named
     directory = os.environ.get("CLAUDE_CONFIG_DIR", "").strip()
-    settings = (Path(directory).expanduser() if directory else Path.home() / ".claude") / "settings.json"
+    settings = (
+        Path(directory).expanduser() if directory else Path.home() / ".claude"
+    ) / "settings.json"
     try:
         value = json.loads(settings.read_text(encoding="utf-8")).get("model")
     except (OSError, ValueError, AttributeError):
@@ -290,13 +326,13 @@ def choose(
     moved = grid.shifts.get(subtype, 0) if started == "code" else 0
     if moved:
         level = min(max(level + moved, 0), len(LEVELS) - 1)
-        signals.append(("model-subtype-" + ("lower" if moved < 0 else "higher"), {"subtype": subtype}))
+        signals.append(
+            ("model-subtype-" + ("lower" if moved < 0 else "higher"), {"subtype": subtype})
+        )
 
     short = words <= SHORT_WORDS and steps <= SHORT_STEPS
     long = words >= LONG_WORDS or steps >= LONG_STEPS
-    small = bool(
-        (short and light) or (titled and words <= SMALL_WORDS and steps <= SMALL_STEPS)
-    )
+    small = bool((short and light) or (titled and words <= SMALL_WORDS and steps <= SMALL_STEPS))
     if heavy:
         quoted = ", ".join(_word(f"{title} {body}", stem) for stem in heavy[:3])
         level = max(level, 2)

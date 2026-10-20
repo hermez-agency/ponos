@@ -28,8 +28,6 @@ def test_pure(case) -> None:
 
 
 @pytest.mark.functional
-@pytest.mark.parametrize(
-    "case", functional.CASES, ids=[case.__name__ for case in functional.CASES]
-)
+@pytest.mark.parametrize("case", functional.CASES, ids=[case.__name__ for case in functional.CASES])
 def test_functional(case) -> None:
     case()

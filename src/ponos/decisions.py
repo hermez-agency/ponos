@@ -58,20 +58,101 @@ DEFAULTS = {
 # order is the order they are tried in: conflicts resolved under checks that
 # still fail are the checks' to answer for.
 _WORDS = (
-    ("split", ("split", "decoup", "too big", "trop gros", "sub-ticket", "sous-ticket", "sous ticket")),
-    ("credits", ("credit", "quota", "budget", "spending limit", "plafond", "usage limit", "rate limit")),
-    ("ci", ("checks", "check ", "ci ", "ci,", "ci.", "workflow", "verification", "pipeline",
-            "tests fail", "tests echouent", "build fail")),
-    ("conflict", ("conflict", "conflit", "rebase", "rejou", "replay", "keeps moving", "avance plus vite",
-                  "pushed to", "a pousse")),
-    ("access", ("access", "acces", "token", "jeton", "permission", "credential", "identifiant",
-                "password", "mot de passe", "api key", "cle api", "cle d'api", "ssh", "not allowed",
-                "pas autorise", "pas le droit", "forbidden", "unauthori", "401", "403", "sign in",
-                "log in", "login", "connexion", "se connecter", "secret", "oauth", "2fa", "captcha")),
-    ("manual", ("by hand", "a la main", "manual", "manuel", "install", "physical", "physique",
-                "reboot", "redemarr", "you need to", "you have to", "tu dois", "vous devez",
-                "il faut que tu", "il faut que vous", "on your machine", "sur ta machine",
-                "sur votre machine")),
+    (
+        "split",
+        ("split", "decoup", "too big", "trop gros", "sub-ticket", "sous-ticket", "sous ticket"),
+    ),
+    (
+        "credits",
+        ("credit", "quota", "budget", "spending limit", "plafond", "usage limit", "rate limit"),
+    ),
+    (
+        "ci",
+        (
+            "checks",
+            "check ",
+            "ci ",
+            "ci,",
+            "ci.",
+            "workflow",
+            "verification",
+            "pipeline",
+            "tests fail",
+            "tests echouent",
+            "build fail",
+        ),
+    ),
+    (
+        "conflict",
+        (
+            "conflict",
+            "conflit",
+            "rebase",
+            "rejou",
+            "replay",
+            "keeps moving",
+            "avance plus vite",
+            "pushed to",
+            "a pousse",
+        ),
+    ),
+    (
+        "access",
+        (
+            "access",
+            "acces",
+            "token",
+            "jeton",
+            "permission",
+            "credential",
+            "identifiant",
+            "password",
+            "mot de passe",
+            "api key",
+            "cle api",
+            "cle d'api",
+            "ssh",
+            "not allowed",
+            "pas autorise",
+            "pas le droit",
+            "forbidden",
+            "unauthori",
+            "401",
+            "403",
+            "sign in",
+            "log in",
+            "login",
+            "connexion",
+            "se connecter",
+            "secret",
+            "oauth",
+            "2fa",
+            "captcha",
+        ),
+    ),
+    (
+        "manual",
+        (
+            "by hand",
+            "a la main",
+            "manual",
+            "manuel",
+            "install",
+            "physical",
+            "physique",
+            "reboot",
+            "redemarr",
+            "you need to",
+            "you have to",
+            "tu dois",
+            "vous devez",
+            "il faut que tu",
+            "il faut que vous",
+            "on your machine",
+            "sur ta machine",
+            "sur votre machine",
+        ),
+    ),
 )
 
 # The ready-made reasons to send a pull request back, read off what the session
@@ -87,9 +168,25 @@ _REWORK = (
 # word, like `_WORDS`. Such a question is answered "yes, close it" in one click,
 # which files the ticket as done instead of starting a session to say so.
 _CLOSING = (
-    "clore", "clos", "cloture", "fermer", "ferme le", "ferme ce", "close", "closing",
-    "doublon", "duplicate", "rien a faire", "rien a changer", "nothing to do", "nothing to change",
-    "mark it done", "mark it as done", "marquer comme termine", "passer en done", "move it to done",
+    "clore",
+    "clos",
+    "cloture",
+    "fermer",
+    "ferme le",
+    "ferme ce",
+    "close",
+    "closing",
+    "doublon",
+    "duplicate",
+    "rien a faire",
+    "rien a changer",
+    "nothing to do",
+    "nothing to change",
+    "mark it done",
+    "mark it as done",
+    "marquer comme termine",
+    "passer en done",
+    "move it to done",
 )
 
 # How many of the session's points to check become a button of their own.
@@ -268,13 +365,11 @@ def delivered(comments: Iterable[str]) -> Delivered:
         for opening in openings
         if line.startswith(opening)
     ]
-    pull_request = next((line for line in lines[1:] if re.match(r"https?://\S+/pull/\d+\S*$", line)), "")
+    pull_request = next(
+        (line for line in lines[1:] if re.match(r"https?://\S+/pull/\d+\S*$", line)), ""
+    )
     summary = next(
-        (
-            line
-            for line in lines[1:]
-            if line != pull_request and not line.startswith(openings)
-        ),
+        (line for line in lines[1:] if line != pull_request and not line.startswith(openings)),
         "",
     )
     return Delivered(summary=summary, pull_request=pull_request, caveats=caveats, facts=facts)
@@ -346,7 +441,9 @@ def deciding(
     offered: set[str] = set()
     for number, caveat in enumerate(found.caveats[:CAVEATS], 1):
         folded = fold(caveat)
-        key = next((key for key, words in _REWORK if any(word in folded for word in words)), "caveat")
+        key = next(
+            (key for key, words in _REWORK if any(word in folded for word in words)), "caveat"
+        )
         if key in offered:
             continue
         if key != "caveat":
@@ -362,10 +459,29 @@ def deciding(
 
 
 KEYS = {
-    "blocked": ("yes", "close", "option", "answer", "instruct", "done-retry", "retry", "model", "split",
-                "abandon", "other"),
-    "review": ("validate", "rework", "fix-ci", "add-tests", "screenshots", "rebase", "caveat",
-               "reject"),
+    "blocked": (
+        "yes",
+        "close",
+        "option",
+        "answer",
+        "instruct",
+        "done-retry",
+        "retry",
+        "model",
+        "split",
+        "abandon",
+        "other",
+    ),
+    "review": (
+        "validate",
+        "rework",
+        "fix-ci",
+        "add-tests",
+        "screenshots",
+        "rebase",
+        "caveat",
+        "reject",
+    ),
 }
 
 

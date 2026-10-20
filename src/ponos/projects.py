@@ -205,7 +205,9 @@ class Resolver:
         # of the error on a project none did.
         failed: list[str] = []
 
-        def found(path: Path, how: str, wrong: list[str] | None = None, fetched: str = "") -> Project:
+        def found(
+            path: Path, how: str, wrong: list[str] | None = None, fetched: str = ""
+        ) -> Project:
             wrong = failed if wrong is None else wrong
             note = ""
             if wrong:
@@ -214,9 +216,7 @@ class Resolver:
                     + "; ".join(wrong)
                     + ". Correct it: the fallback is what its tickets run on."
                 )
-            return Project(
-                name, path, page_id, github, self.brief(backend, page_id), note, fetched
-            )
+            return Project(name, path, page_id, github, self.brief(backend, page_id), note, fetched)
 
         for source, declared in (
             ("[projects] in your configuration", self._overrides.get(name)),
