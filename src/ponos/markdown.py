@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import re
 import urllib.parse
+from typing import Any
 
 # Notion rejects a code block whose language it does not know.
 LANGUAGES = {
@@ -56,8 +57,10 @@ MAX_CONTENT = 1900
 MAX_BLOCKS = 100
 
 
-def _text(content: str, *, bold=False, italic=False, code=False, url="") -> dict:
-    item: dict = {"type": "text", "text": {"content": content[:MAX_CONTENT]}}
+def _text(
+    content: str, *, bold: bool = False, italic: bool = False, code: bool = False, url: str = ""
+) -> dict[str, Any]:
+    item: dict[str, Any] = {"type": "text", "text": {"content": content[:MAX_CONTENT]}}
     if url:
         item["text"]["link"] = {"url": url}
     annotations = {"bold": bold, "italic": italic, "code": code}
@@ -66,9 +69,9 @@ def _text(content: str, *, bold=False, italic=False, code=False, url="") -> dict
     return item
 
 
-def inline(line: str) -> list[dict]:
+def inline(line: str) -> list[dict[str, Any]]:
     """A line of markdown, as Notion rich text."""
-    parts: list[dict] = []
+    parts: list[dict[str, Any]] = []
     position = 0
     for match in INLINE.finditer(line):
         if match.start() > position:
@@ -87,12 +90,12 @@ def inline(line: str) -> list[dict]:
     return parts or [_text("")]
 
 
-def _block(kind: str, payload: dict) -> dict:
+def _block(kind: str, payload: dict[str, Any]) -> dict[str, Any]:
     return {"object": "block", "type": kind, kind: payload}
 
 
-def to_blocks(markdown: str) -> list[dict]:
-    blocks: list[dict] = []
+def to_blocks(markdown: str) -> list[dict[str, Any]]:
+    blocks: list[dict[str, Any]] = []
     lines = markdown.replace("\r\n", "\n").split("\n")
     index = 0
     while index < len(lines):
@@ -162,7 +165,7 @@ def to_blocks(markdown: str) -> list[dict]:
     return blocks
 
 
-def chunked(blocks: list[dict], size: int = MAX_BLOCKS) -> list[list[dict]]:
+def chunked(blocks: list[dict[str, Any]], size: int = MAX_BLOCKS) -> list[list[dict[str, Any]]]:
     """Notion accepts at most 100 blocks per append."""
     return [blocks[index : index + size] for index in range(0, len(blocks), size)] or [[]]
 
@@ -170,7 +173,7 @@ def chunked(blocks: list[dict], size: int = MAX_BLOCKS) -> list[list[dict]]:
 # -- and back again ----------------------------------------------------------
 
 
-def _rich(block: dict, kind: str) -> str:
+def _rich(block: dict[str, Any], kind: str) -> str:
     """The text of one block, whichever end of the wire it came from.
 
     Notion hands a piece of rich text back with `plain_text` on it; a block this
@@ -184,7 +187,7 @@ def _rich(block: dict, kind: str) -> str:
     )
 
 
-def plain(block: dict) -> str:
+def plain(block: dict[str, Any]) -> str:
     """One Notion block, as the markdown line it came from.
 
     The return journey, and it lives here rather than in the client because a
@@ -221,7 +224,7 @@ def plain(block: dict) -> str:
     if kind in ("image", "file", "pdf"):
         return attached(block)
     if kind == "bookmark":
-        return block.get(kind, {}).get("url", "")
+        return str(block.get(kind, {}).get("url", ""))
     if kind == "child_page":
         return f"[sub-page: {block.get(kind, {}).get('title', '')}]"
     if kind in ("table", "table_row", "column_list", "column"):
@@ -248,7 +251,7 @@ ROUND_TRIP = {
 HOLDERS = {"table_row", "column"}
 
 
-def lost(block: dict) -> list[str]:
+def lost(block: dict[str, Any]) -> list[str]:
     """What writing this block back as Markdown would drop, by name.
 
     The other half of `plain`'s docstring: that one says the conversion is
@@ -277,7 +280,7 @@ def lost(block: dict) -> list[str]:
     return found
 
 
-def attached(block: dict) -> str:
+def attached(block: dict[str, Any]) -> str:
     """An image, a file or a PDF on the page, as one line naming it.
 
     Never its URL. A file Notion keeps is behind an address signed for an hour,

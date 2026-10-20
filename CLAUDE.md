@@ -19,7 +19,7 @@ Deux mondes séparés, à ne pas mélanger :
 - **Cœur** — Python 3.11+, la bibliothèque standard et une seule dépendance
   d'exécution : **httpx** (`dependencies` dans `pyproject.toml`, exportée avec
   ses sommes dans `requirements.txt`). Le groupe `dev` porte l'outillage
-  (ruff, pytest, pytest-cov), le tout figé dans `uv.lock`. Chaque version
+  (ruff, mypy, pytest, pytest-cov), le tout figé dans `uv.lock`. Chaque version
   installée a son `.venv` (`environment.py`), qui reçoit `requirements.txt`
   avant la bascule ; l'image l'installe au build. Les suites de tests tournent
   dans le `.venv` de `uv sync`, ou avec un `python3` où `requirements.txt` est
@@ -40,6 +40,7 @@ uv run python tests/functional.py  # le parcours complet, sur des doublures loca
 uv run pytest                # les deux suites sous pytest (-m "not functional" : la partie pure)
 uv run ruff check .          # le lint de la CI
 uv run ruff format .         # le format, que la CI vérifie aussi (--check)
+uv run mypy                  # les types, comme la CI : strict partout sauf la liste d'exceptions
 uv run pre-commit install    # une fois par clone : ruff, format, uv.lock, requirements.txt et web/static avant chaque commit
 uv run --frozen pre-commit run --all-files  # les mêmes hooks sur tout l'arbre (--frozen : sinon uv met uv.lock à jour avant le hook)
 ```
@@ -64,7 +65,7 @@ npm run dev     # serveur de dev avec hot reload, proxy /api vers un console dé
 `.github/workflows/ci.yml` tourne sur chaque pull request et sur chaque push
 vers `main` : le job cœur installe `requirements.txt` (et rien d'autre), puis
 relance `python3 tests/run.py` et `python3 tests/functional.py` sous Python 3.11
-et 3.13 ; le job qualité fait `uv sync --locked`, `ruff check`, `ruff format --check`, vérifie que
+et 3.13 ; le job qualité fait `uv sync --locked`, `ruff check`, `ruff format --check`, `mypy`, vérifie que
 `requirements.txt` est l'export de `uv.lock`, puis `pytest --cov` ; le job frontend ne se déclenche que si `frontend/**` ou
 `src/ponos/web/**` a changé, et y
 fait `npm ci`, `npm run lint`, `npm test`, `npm run build` (sous Node 24),
@@ -202,3 +203,10 @@ deux suites, puis publie l'image sur `ghcr.io`.
   ligne. Le commit qui a passé `ruff format` sur tout le dépôt est dans
   `.git-blame-ignore-revs` (`git config blame.ignoreRevsFile
   .git-blame-ignore-revs` pour que `git blame` l'enjambe en local).
+- **mypy est strict partout, sauf une liste d'exceptions qui ne fait que
+  rétrécir.** `[tool.mypy]` met `strict` pour tout le cœur ; le premier
+  `[[tool.mypy.overrides]]` garde en mode souple les modules pas encore
+  stricts, le second ignore ceux qui ne passent même pas en souple. Un
+  nouveau module n'entre dans aucune des deux ; un module sorti d'une liste
+  n'y revient pas — un écart se corrige, ou se justifie par un
+  `# type: ignore[code]` sur sa ligne.

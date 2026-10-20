@@ -5,7 +5,7 @@
 # audit). It reaches installations as `requirements.txt`, the export of
 # `uv.lock`, which each version installs in its own `.venv` (environment.py):
 # `install.sh` still asks the machine for python3 and git and nothing else.
-# The rest is the tooling around the code — ruff, pytest — pinned in the same
+# The rest is the tooling around the code — ruff, mypy, pytest — pinned in the same
 # lockfile so that every machine and the CI lint and test with the same
 # versions. `uv sync` installs both in `.venv`, and the suites run there.
 #
@@ -31,6 +31,7 @@ Repository = "https://github.com/hermez-agency/ponos"
 
 [dependency-groups]
 dev = [
+    "mypy>=2.4.0",
     "pre-commit>=4.7",
     "pytest>=8.4",
     "pytest-cov>=6.2",
@@ -69,3 +70,137 @@ ignore = [
     # A nested `if` keeps apart two questions a comment tells apart.
     "SIM102",
 ]
+
+[tool.mypy]
+# Strict for every module, but two lists hold back those not there yet, and
+# they only ever shrink: a module leaves the first once `--strict` has nothing
+# to say about it, and never comes back. A new module is strict from its
+# first line. Started on the pure ones (ticket, naming, markdown, db, kinds,
+# priority), which nothing but the standard library stands behind, and on
+# those `--strict` already found nothing to say about.
+python_version = "3.11"
+mypy_path = "src"
+packages = ["ponos"]
+strict = true
+warn_unused_configs = true
+
+[[tool.mypy.overrides]]
+# Not strict yet: annotations are read as written, and an unannotated
+# function is trusted. Remove a line, run `uv run mypy`, fix what it says.
+module = [
+    "ponos.__main__",
+    "ponos.board",
+    "ponos.channels",
+    "ponos.channels.slack",
+    "ponos.channels.telegram",
+    "ponos.ci",
+    "ponos.cleanup",
+    "ponos.config",
+    "ponos.conversation",
+    "ponos.decisions",
+    "ponos.delivery",
+    "ponos.disk",
+    "ponos.execution",
+    "ponos.files",
+    "ponos.git",
+    "ponos.github_app",
+    "ponos.github_token",
+    "ponos.health",
+    "ponos.ideas",
+    "ponos.images",
+    "ponos.journal",
+    "ponos.legacy",
+    "ponos.log",
+    "ponos.models",
+    "ponos.notify",
+    "ponos.notion",
+    "ponos.openrouter",
+    "ponos.preparation",
+    "ponos.progress",
+    "ponos.project_settings",
+    "ponos.provider",
+    "ponos.provision",
+    "ponos.recurrence",
+    "ponos.replies",
+    "ponos.reports",
+    "ponos.runner",
+    "ponos.session",
+    "ponos.state",
+    "ponos.store",
+    "ponos.sync",
+    "ponos.transitions",
+    "ponos.unblocking",
+    "ponos.update",
+    "ponos.vault",
+    "ponos.voice",
+    "ponos.web.api",
+    "ponos.web.attachments",
+    "ponos.web.attempts",
+    "ponos.web.board",
+    "ponos.web.chats",
+    "ponos.web.console",
+    "ponos.web.creation",
+    "ponos.web.github",
+    "ponos.web.ideas",
+    "ponos.web.live",
+    "ponos.web.mcp",
+    "ponos.web.mcp_setup",
+    "ponos.web.oauth",
+    "ponos.web.removal",
+    "ponos.web.server",
+    "ponos.web.settings",
+    "ponos.web.setup",
+    "ponos.web.statistics",
+    "ponos.web.upgrade",
+    "ponos.workspace",
+    "ponos.worktime",
+]
+disallow_any_generics = false
+disallow_subclassing_any = false
+disallow_untyped_calls = false
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = false
+disallow_untyped_decorators = false
+warn_unused_ignores = false
+warn_return_any = false
+no_implicit_reexport = false
+strict_equality = false
+extra_checks = false
+
+[[tool.mypy.overrides]]
+# Not even that yet: what mypy finds there, lenient as above, is not read.
+# Each is a ticket of its own to clean up, and leaves this list for the one
+# above — or straight for strict.
+module = [
+    "ponos.__main__",
+    "ponos.board",
+    "ponos.cleanup",
+    "ponos.delivery",
+    "ponos.execution",
+    "ponos.github_app",
+    "ponos.health",
+    "ponos.ideas",
+    "ponos.legacy",
+    "ponos.models",
+    "ponos.notify",
+    "ponos.preparation",
+    "ponos.progress",
+    "ponos.recurrence",
+    "ponos.replies",
+    "ponos.reports",
+    "ponos.runner",
+    "ponos.session",
+    "ponos.transitions",
+    "ponos.unblocking",
+    "ponos.voice",
+    "ponos.web.api",
+    "ponos.web.board",
+    "ponos.web.console",
+    "ponos.web.ideas",
+    "ponos.web.server",
+    "ponos.web.settings",
+    "ponos.web.setup",
+    "ponos.web.statistics",
+]
+ignore_errors = true

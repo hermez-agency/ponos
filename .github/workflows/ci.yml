@@ -95,6 +95,9 @@ jobs:
       - name: Ruff format
         run: uv run ruff format --check .
 
+      - name: Mypy
+        run: uv run mypy
+
       - name: requirements.txt est l'export du lockfile
         run: |
           uv export --frozen --no-dev --no-emit-project --format requirements-txt -o requirements.txt
