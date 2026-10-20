@@ -4318,12 +4318,13 @@ The same cases also run under **pytest**, with the contributor's tools that
 them into `.venv`:
 
 ```sh
-uv sync                              # pytest, pytest-cov and ruff, at the locked versions
+uv sync                              # pytest, pytest-cov, ruff and mypy, at the locked versions
 uv run pytest                        # both suites: -k to pick a case, -x to stop at the first failure
 uv run pytest -m "not functional"    # the pure part only
 uv run pytest --cov=src/ponos        # with the coverage
 uv run ruff check .                  # the lint the CI runs
 uv run ruff format .                 # the format the CI checks
+uv run mypy                          # the types: strict, but for the modules pyproject.toml still lists
 ```
 
 The same checks can run before each commit rather than minutes after the push, with

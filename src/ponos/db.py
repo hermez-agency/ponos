@@ -152,6 +152,7 @@ import time
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Any
 
 from .config import RealStateRefused, refuse_real_state, state_dir
 
@@ -235,7 +236,7 @@ def _read_json(location: Path | None) -> object:
         return None
 
 
-def _read_lines(location: Path | None) -> list[dict]:
+def _read_lines(location: Path | None) -> list[dict[str, Any]]:
     """Every whole line of a JSONL file, a broken one skipped as it always was."""
     if location is None:
         return []
@@ -382,12 +383,12 @@ def _conversations(connection: sqlite3.Connection) -> AfterCommit:
     source = _beside(connection, "conversations.json")
     raw = _read_json(source)
     if isinstance(raw, dict):
-        pages = raw.get("pages") if isinstance(raw.get("pages"), dict) else {}
+        pages = raw["pages"] if isinstance(raw.get("pages"), dict) else {}
         connection.executemany(
             "INSERT OR REPLACE INTO conversation_pages (page, at) VALUES (?, ?)",
             [(str(page), str(at)) for page, at in pages.items()],
         )
-        threads = raw.get("threads") if isinstance(raw.get("threads"), dict) else {}
+        threads = raw["threads"] if isinstance(raw.get("threads"), dict) else {}
         connection.executemany(
             "INSERT OR REPLACE INTO conversation_threads (discussion, session, answered, at)"
             " VALUES (?, ?, ?, ?)",
