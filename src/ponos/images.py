@@ -44,16 +44,14 @@ from __future__ import annotations
 import hashlib
 import json
 import threading
-import urllib.error
 import urllib.parse
-import urllib.request
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from . import db
+from . import db, http
 from .store import SLOTS, Page, Picture, StoreError
 
 # What one picture may weigh, downloaded or uploaded: Notion's own ceiling for
@@ -74,10 +72,6 @@ SUFFIXES = {
     "image/avif": ".avif",
     "image/svg+xml": ".svg",
 }
-
-# What a picture at a URL somebody pasted will be fetched as. The console asks
-# the board for what it shows, not the other way round.
-USER_AGENT = "ponos"
 
 Push = Callable[[str, Picture], Page]
 
@@ -141,17 +135,14 @@ def face(raw: dict[str, Any], slot: str) -> Face:
 
 def download(url: str) -> tuple[bytes, str]:
     """The picture at that URL, and what it is. Raises StoreError."""
-    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     where = urllib.parse.urlsplit(url).netloc or url[:60]
     try:
-        with urllib.request.urlopen(request, timeout=20) as response:
-            declared = response.headers.get_content_type()
-            data = response.read(LIMIT + 1)
-    except urllib.error.HTTPError as error:
-        raise StoreError(f"{where} answered {error.code} for the picture") from error
-    except (urllib.error.URLError, OSError, ValueError) as error:
-        reason = getattr(error, "reason", error)
-        raise StoreError(f"the picture at {where} could not be fetched: {reason}") from error
+        answer = http.send("images", "GET", url, timeout=20, limit=LIMIT)
+    except http.Unanswered as error:
+        raise StoreError(f"the picture at {where} could not be fetched: {error}") from error
+    if answer.status >= 400:
+        raise StoreError(f"{where} answered {answer.status} for the picture")
+    declared, data = answer.kind, answer.body
     if len(data) > LIMIT:
         raise StoreError(f"the picture at {where} is larger than {LIMIT // (1024 * 1024)} MB")
     kind = sniff(data, declared)
@@ -564,4 +555,4 @@ def _digest(text: str) -> str:
 
 
 def _path(url: str) -> Path:
-    return Path(urllib.request.url2pathname(urllib.parse.urlsplit(url).path))
+    return Path(urllib.parse.unquote(urllib.parse.urlsplit(url).path))
