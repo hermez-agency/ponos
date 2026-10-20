@@ -39,6 +39,8 @@ uv sync                      # l'outillage, aux versions de uv.lock, dans .venv
 uv run pytest                # les deux suites sous pytest (-m "not functional" : la partie pure)
 uv run ruff check .          # le lint de la CI
 uv run ruff format .         # le format, que la CI vérifie aussi (--check)
+uv run pre-commit install    # une fois par clone : ruff, format, uv.lock, requirements.txt et web/static avant chaque commit
+uv run --frozen pre-commit run --all-files  # les mêmes hooks sur tout l'arbre (--frozen : sinon uv met uv.lock à jour avant le hook)
 ```
 
 Un nouveau cas s'écrit toujours avec `@case` dans `tests/run.py` ou

@@ -27,6 +27,7 @@ Repository = "https://github.com/hermez-agency/ponos"
 
 [dependency-groups]
 dev = [
+    "pre-commit>=4.7",
     "pytest>=8.4",
     "pytest-cov>=6.2",
     "ruff>=0.13",
