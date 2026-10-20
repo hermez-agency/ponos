@@ -32,7 +32,7 @@ import re
 import socket
 import threading
 import time
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from http.cookies import SimpleCookie
 from urllib.parse import parse_qsl, quote, unquote, urlparse
 
@@ -379,15 +379,17 @@ class Asking:
 
 
 def _asking(request: Request) -> Asking:
-    return request.state.asking
+    asking: Asking = request.state.asking
+    return asking
 
 
 def _console(request: Request) -> Console:
-    return request.app.state.console
+    console: Console = request.app.state.console
+    return console
 
 
 def _send(
-    code: int, body: bytes, kind: str, extra: dict | None = None, cache: str = "no-store"
+    code: int, body: bytes, kind: str, extra: dict[str, str] | None = None, cache: str = "no-store"
 ) -> Response:
     """An answer that is not the API's JSON — a page, a file, a redirect.
 
@@ -600,7 +602,7 @@ def _refused(asking: Asking, language: str) -> str:
     machine — a test one beside 8787 — overwrites the first one's, and the
     gate reappears with nothing to say why. Now it says.
     """
-    say = _words(language)
+    say: Callable[[str], str] = _words(language)
     if asking.request.query_params.get("token"):
         return say("wrong token")
     if asking.presented():
@@ -615,7 +617,7 @@ def _token_whereabouts(asking: Asking) -> str:
     """Where this console's token can be read, on this machine, as HTML."""
     configuration = asking.api.config
     if configuration.web.token:
-        say = _words(asking.language())
+        say: Callable[[str], str] = _words(asking.language())
         kept = config_module.secrets_path(configuration.path)
         if config_module.read_secrets(kept).get("PONOS_WEB_TOKEN", "").strip():
             return say("<code>PONOS_WEB_TOKEN</code> of <code>{path}</code>").format(

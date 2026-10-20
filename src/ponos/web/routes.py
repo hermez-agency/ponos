@@ -30,7 +30,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable, Coroutine
 from typing import Any
 from urllib.parse import unquote
 
@@ -61,7 +61,7 @@ MAX_PICTURE = 20 * 1024 * 1024
 PICTURE_POLICY = "default-src 'none'; style-src 'unsafe-inline'; sandbox"
 
 
-class _Pattern(Convertor):
+class _Pattern(Convertor[str]):
     """A path segment matched against a pattern, handed over as it is.
 
     The routes' identifiers are matched as `http.server` matched them: a path
@@ -70,7 +70,7 @@ class _Pattern(Convertor):
     """
 
     def __init__(self, regex: str) -> None:
-        self.regex = regex
+        self.regex = regex  # type: ignore[misc]  # one pattern per route, not per class
 
     def convert(self, value: str) -> str:
         return value
@@ -157,7 +157,7 @@ def _as_json(request: Request) -> Request:
 class Answered(APIRoute):
     """A route of the API: its failures answered, its body read as JSON."""
 
-    def get_route_handler(self) -> Callable[[Request], Awaitable[Response]]:
+    def get_route_handler(self) -> Callable[[Request], Coroutine[Any, Any, Response]]:
         handler = super().get_route_handler()
         reads_body = self.body_field is not None
 
@@ -186,7 +186,8 @@ router = APIRouter(route_class=Answered)
 
 
 def _api(request: Request) -> Api:
-    return request.app.state.console.api
+    api: Api = request.app.state.console.api
+    return api
 
 
 # -- what a write carries ------------------------------------------------------
