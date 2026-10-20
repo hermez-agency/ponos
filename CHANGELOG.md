@@ -2220,7 +2220,7 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
   page does — `/?page=live`, `/?page=settings`.
 - The board, the ticket page and the form are one declaration for
   [react-resource-view](https://github.com/SalvadorCardona/react-resource-view)
-  and [react-data-form](https://github.com/SalvadorCardona/react-data-form);
+  and [react-data-form](https://github.com/hermez-agency/react-data-form);
   the two transcripts are shadcn's `message` and `message-scroller`. A switch at
   the right of the header folds the second column away, for a board that wants
   the width.
