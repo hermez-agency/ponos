@@ -51,6 +51,16 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Changed
 
+- **A value `config.toml` cannot hold is said, with its key and its line.** The file is read against one model per
+  table (pydantic): a port that is not a number, a list where a word goes, a table written as a value used to stop the
+  runner with a traceback that named nothing, or to be read as something else in silence — they now stop it, the
+  console's save and `ponos doctor` with `config.toml, line 12: web.port = 'eighty' — Input should be a valid
+  integer`. What the runner always forgave it still forgives: a value under a key's floor is the floor, a word that is
+  none of a key's choices is the default (a typo in `update_channel` is still `release`), an amount left blank is no
+  limit, and a key nobody reads is left alone. One reading changes: a switch written as text, `push = "false"`, used to
+  be on — any text was — and is now off; text other than true/false, yes/no, on/off, 1/0 is refused. pydantic comes
+  with the version's environment, like httpx; on an installation from before environments, the first pass on the
+  machine's `python3` makes it and runs no ticket, and the next pass runs in it.
 - **Every service is asked again the way Notion always was.** GitHub, OpenRouter, Telegram and Slack, the pictures and
   the console's MCP test now go through one HTTP client, httpx, with Notion's policy: four attempts, the pause a "too
   many requests" asks for (a minute at most), and a request that adds something — a message, a comment — sent again

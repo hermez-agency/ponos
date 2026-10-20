@@ -118,6 +118,8 @@ def load_config() -> config_module.Config:
 def command_run(args: argparse.Namespace) -> int:
     if getattr(args, "every", None) is not None:
         return run_every(args)
+    if not config_module.readable() and update_module.app_dir().is_symlink():
+        return _environment_first()
     configuration = load_config()
     runner = Runner(configuration, dry_run=args.dry_run, announce_idle=sys.stdout.isatty())
     try:
@@ -139,6 +141,28 @@ def command_run(args: argparse.Namespace) -> int:
     # The timer should only see a failure if the whole run failed: one ticket
     # out of three going wrong is not a service outage.
     return 1 if results and failures == len(results) else 0
+
+
+def _environment_first() -> int:
+    """A pass on a Python that cannot read the configuration: the environment, and only that.
+
+    The machine's Python, running a version that an older one installed before
+    versions had an environment (see environment.py): it has no pydantic, so
+    no configuration and no ticket — but it can make the `.venv` that has it,
+    under the run lock as a pass would, and the launcher starts the next pass
+    in it.
+    """
+    try:
+        with state.lock():
+            problem = update_module.heal_environment()
+    except state.Busy as error:
+        print(f"{DIM}{error}{RESET}")
+        return 0
+    if problem:
+        print(f"{RED}error:{RESET} {problem}", file=sys.stderr)
+        return 1
+    print(f"{DIM}this version's environment is made — the next run starts in it{RESET}")
+    return 0
 
 
 # How often a loop waiting for its next run looks at the configuration. A file
