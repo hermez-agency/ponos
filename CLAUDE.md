@@ -37,7 +37,8 @@ python3 tests/run.py         # la partie pure : ne touche ni Notion, ni git, ni 
 python3 tests/functional.py  # le parcours complet, sur des doublures locales
 uv sync                      # l'outillage, aux versions de uv.lock, dans .venv
 uv run pytest                # les deux suites sous pytest (-m "not functional" : la partie pure)
-uv run ruff check .          # le lint de la CI ; ruff format n'est pas encore imposé
+uv run ruff check .          # le lint de la CI
+uv run ruff format .         # le format, que la CI vérifie aussi (--check)
 ```
 
 Un nouveau cas s'écrit toujours avec `@case` dans `tests/run.py` ou
@@ -60,7 +61,7 @@ npm run dev     # serveur de dev avec hot reload, proxy /api vers un console dé
 `.github/workflows/ci.yml` tourne sur chaque pull request et sur chaque push
 vers `main` : le job cœur relance `python3 tests/run.py` puis
 `python3 tests/functional.py` sous Python 3.11 et 3.13, sans installer quoi que
-ce soit ; le job qualité fait `uv sync --locked`, `ruff check`, vérifie que
+ce soit ; le job qualité fait `uv sync --locked`, `ruff check`, `ruff format --check`, vérifie que
 `requirements.txt` est l'export de `uv.lock`, puis `pytest --cov` ; le job frontend ne se déclenche que si `frontend/**` ou
 `src/ponos/web/**` a changé, et y
 fait `npm ci`, `npm run lint`, `npm test`, `npm run build` (sous Node 24),
@@ -186,6 +187,8 @@ deux suites, puis publie l'image sur `ghcr.io`.
   l'image l'installe au build.
 - **La version est écrite deux fois** : `__version__` et `pyproject.toml`.
   `scripts/release.py bump` écrit les deux, `check` et un test refusent un écart.
-- **La base d'exceptions de ruff ne fait que rétrécir.** Les entrées de
-  `[tool.ruff.lint.per-file-ignores]` décrivent l'existant d'octobre 2026 ; un
-  nouveau fichier n'y entre pas.
+- **Ruff n'a pas de base d'exceptions.** `[tool.ruff.lint.per-file-ignores]`
+  a été vidé ; un écart se corrige, ou se justifie par un `# noqa` sur sa
+  ligne. Le commit qui a passé `ruff format` sur tout le dépôt est dans
+  `.git-blame-ignore-revs` (`git config blame.ignoreRevsFile
+  .git-blame-ignore-revs` pour que `git blame` l'enjambe en local).
