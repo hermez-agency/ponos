@@ -60,8 +60,6 @@ import shutil
 import sys
 import threading
 import time
-import urllib.error
-import urllib.request
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from datetime import datetime
@@ -69,7 +67,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 from . import config as config_module
-from . import disk
+from . import disk, http
 
 API = "https://api.github.com"
 WEB = "https://github.com"
@@ -160,19 +158,14 @@ class App:
 
 def _send(method: str, url: str, headers: dict[str, str], body: bytes | None) -> tuple[int, bytes]:
     """One request to GitHub, as its status and its body. Replaced by the tests."""
-    request = urllib.request.Request(url, data=body, method=method, headers=headers)
-    try:
-        with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
-            return response.status, response.read()
-    except urllib.error.HTTPError as error:
-        return error.code, error.read()
+    answer = http.send("github", method, url, headers=headers, content=body, timeout=TIMEOUT)
+    return answer.status, answer.body
 
 
 def _call(method: str, path: str, *, bearer: str = "", payload: dict | None = None) -> dict | list:
     headers = {
         "Accept": "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",
-        "User-Agent": "ponos",
     }
     if bearer:
         headers["Authorization"] = f"Bearer {bearer}"
@@ -182,7 +175,7 @@ def _call(method: str, path: str, *, bearer: str = "", payload: dict | None = No
         headers["Content-Type"] = "application/json"
     try:
         status, raw = _send(method, f"{api()}{path}", headers, body)
-    except (OSError, ValueError) as error:
+    except (http.Unanswered, OSError, ValueError) as error:
         raise GitHubAppError(f"GitHub did not answer: {error}") from error
     try:
         answer = json.loads(raw.decode() or "{}")
