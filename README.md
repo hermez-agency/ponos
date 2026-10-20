@@ -146,7 +146,8 @@ built under that page, found on its own as soon as it is shared; GitHub in one c
 project; and a demonstration ticket, played there and then, which is the proof that every
 step holds. No Notion? The board can be [a folder of Markdown files](#without-notion-the-board-as-markdown-files).
 
-It needs Linux or macOS, `python3` ≥ 3.11 — standard library only, nothing to install —,
+It needs Linux or macOS, `python3` ≥ 3.11 — the one package it imports, httpx, goes into an
+environment of its own, made by the installer —,
 `git` and [Claude Code](https://claude.com/claude-code), which the installer offers to
 install when it is missing. `gh` is optional: the console connects GitHub itself. The rest is
 in [Installation](#installation) below.
@@ -377,8 +378,10 @@ installing, restarting — and the page reloads by itself from the new version:
   on the version it found; the previous version stays on disk beside the new one;
 - **each version has its own Python environment.** `app-<commit>/.venv` is made from the
   machine's `python3` before `app` points at the version, and holds what
-  `requirements.txt` lists — nothing yet: the runner still imports the standard library
-  alone. A version whose environment cannot be made is never pointed at, and the one in
+  `requirements.txt` lists — httpx and the few packages it pulls in, at the versions of
+  `uv.lock`, hashes checked; [uv](https://docs.astral.sh/uv/) installs them when the machine
+  has it, pip otherwise (on Debian and Ubuntu, pip in an environment comes with
+  `python3-venv`). A version whose environment cannot be made is never pointed at, and the one in
   use keeps its own. An installation updated by a version from before environments gets
   its `.venv` on its next pass, with nothing to do; until then, and on a `python3` that
   cannot make one at all, the launcher runs the machine's `python3` as it always has;
@@ -409,9 +412,9 @@ changes the hour; `runner.update_channel` chooses between releases and `main` �
 `ponos doctor` says which one is followed. An installation made from a local copy (`TR_SRC=.`) has no remote to
 compare itself against: it says so once per check and carries on.
 
-> **Requirements** — Linux or macOS, `python3` >= 3.11 (no dependencies to install,
-> everything is in the standard library; each version still gets a `.venv` of its own,
-> see above), `git`, [Claude Code](https://claude.com/claude-code),
+> **Requirements** — Linux or macOS, `python3` >= 3.11 (and `uv`, or `python3-venv` on
+> Debian and Ubuntu: each version installs httpx, the one package the runner imports, in a
+> `.venv` of its own — see above), `git`, [Claude Code](https://claude.com/claude-code),
 > and for pull requests either the GitHub App the console connects or `gh` authenticated.
 
 | Variable | Effect |
@@ -3974,7 +3977,7 @@ installation code then the password are what stand between the Internet and the 
 ## Docker
 
 The image is another way to install the runner, not another program: the same Python and
-the same standard library, with what `install.sh` would have found on the machine — git,
+the same packages, installed from `requirements.txt` when it is built, with what `install.sh` would have found on the machine — git,
 `gh`, Node and Claude Code. The console is not built in it; it is committed, built.
 
 ```sh
@@ -4298,12 +4301,17 @@ vector. Run it again after any change to the module, and commit what it writes.
 ## Tests
 
 ```sh
-python3 tests/run.py
-python3 tests/functional.py
+uv sync                        # httpx, the one package the runner imports, and the tools below
+uv run python tests/run.py
+uv run python tests/functional.py
 ```
 
-No framework and no dependency, for the same reason the runner has none: a suite that
-needs an install is a suite that stops being run.
+No framework, and no dependency beyond the runner's own: a suite that needs more of an
+install than the runner does is a suite that stops being run. `python3 tests/run.py` works
+just as well with `requirements.txt` installed in that Python — which is what the CI does.
+The requests the runner sends go through `ponos/http.py`, and the tests answer them with
+an `httpx.MockTransport` (`_http_answering` in `tests/run.py`); the functional suite keeps
+its own Notion, on a local port.
 
 The same cases also run under **pytest**, with the contributor's tools that
 `pyproject.toml` declares and `uv.lock` pins — [uv](https://docs.astral.sh/uv/) installs

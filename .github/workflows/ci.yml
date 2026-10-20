@@ -2,10 +2,11 @@
 # `main` — le runner ouvre lui-même ses PR, et les installations qui suivent
 # `update_channel = "main"` prennent chaque commit sans attendre un tag.
 #
-# Le job cœur tourne toujours : les deux suites n'ont pas de dépendance, elles
-# n'ont pas de raison d'être sautées. `tests/functional.py` a besoin de `git`,
-# que le runner GitHub a déjà, et de rien d'autre : son Notion, son dépôt et son
-# `claude` sont à lui. Il tourne sur la plus ancienne version de Python que le
+# Le job cœur tourne toujours : les deux suites n'ont pas de raison d'être
+# sautées. Il installe ce que le runner importe — `requirements.txt`, avec ses
+# sommes, comme une installation le met dans son `.venv` —, et rien d'autre.
+# `tests/functional.py` a besoin de `git`, que le runner GitHub a déjà : son
+# Notion, son dépôt et son `claude` sont à lui. Il tourne sur la plus ancienne version de Python que le
 # runner promet (3.11) et sur la plus récente, parce qu'une installation prend
 # le `python3` de la machine, quel qu'il soit.
 #
@@ -31,8 +32,8 @@
 # pyproject, puis `ruff format --check` —, vérifie que `requirements.txt`, ce que les
 # installations mettent dans leur environnement, est bien l'export du lockfile,
 # puis lance les deux suites sous pytest, avec la couverture et les dix cas les
-# plus lents. Le job cœur reste tel quel : c'est lui qui prouve que le runner et
-# ses tests tournent sans rien installer.
+# plus lents. Le job cœur reste à part : c'est lui qui prouve que le runner et
+# ses tests tournent avec ce que `requirements.txt` installe, et rien de plus.
 #
 # Le job image construit le `Dockerfile` et relance `tests/functional.py` dans
 # l'image qu'il vient de construire : c'est une autre façon d'installer le
@@ -65,6 +66,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+
+      - name: Ce que le runner importe
+        run: python3 -m pip install --disable-pip-version-check --require-hashes -r requirements.txt
 
       - name: La suite du cœur
         run: python3 tests/run.py
@@ -118,6 +122,16 @@ jobs:
           node-version: 24
           cache: npm
           cache-dependency-path: frontend/package-lock.json
+
+      - uses: actions/setup-python@v5
+        if: steps.changes.outputs.frontend == 'true'
+        with:
+          python-version: "3.13"
+
+      # Le `ponos serve` que les e2e ouvrent importe ce que le runner importe.
+      - name: Ce que le runner importe
+        if: steps.changes.outputs.frontend == 'true'
+        run: python3 -m pip install --disable-pip-version-check --require-hashes -r requirements.txt
 
       - name: Installation
         if: steps.changes.outputs.frontend == 'true'

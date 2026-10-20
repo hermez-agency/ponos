@@ -39,9 +39,8 @@ from __future__ import annotations
 import base64
 import json
 import time
-import urllib.error
-import urllib.request
 
+from . import http
 from .config import OPENROUTER_URL, OpenRouter
 
 # What the browser records in, as the transcription endpoint names it. Chrome
@@ -115,23 +114,25 @@ def transcribe(settings: OpenRouter, audio: bytes, content_type: str, language: 
     if language:
         body["language"] = language
     base = settings.base_url.rstrip("/") or OPENROUTER_URL
-    request = urllib.request.Request(
-        f"{base}/audio/transcriptions",
-        data=json.dumps(body).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {settings.key}",
-            "Content-Type": "application/json",
-            "X-Title": "ponos",
-        },
-        method="POST",
-    )
     try:
-        with urllib.request.urlopen(request, timeout=TRANSCRIPTION_TIMEOUT) as response:
-            answer = json.loads(response.read().decode("utf-8"))
-    except urllib.error.HTTPError as error:
-        raise TranscriptionError(f"OpenRouter refused the recording: {_said(error)}") from error
-    except (urllib.error.URLError, TimeoutError, OSError) as error:
+        sent = http.send(
+            "openrouter",
+            "POST",
+            f"{base}/audio/transcriptions",
+            content=json.dumps(body).encode("utf-8"),
+            headers={
+                "Authorization": f"Bearer {settings.key}",
+                "Content-Type": "application/json",
+                "X-Title": "ponos",
+            },
+            timeout=TRANSCRIPTION_TIMEOUT,
+        )
+    except http.Unanswered as error:
         raise TranscriptionError(f"OpenRouter could not be reached: {error}") from error
+    if sent.status >= 400:
+        raise TranscriptionError(f"OpenRouter refused the recording: {_said(sent)}")
+    try:
+        answer = json.loads(sent.body.decode("utf-8"))
     except ValueError as error:
         raise TranscriptionError("OpenRouter answered something that is not JSON") from error
     text = answer.get("text") if isinstance(answer, dict) else None
@@ -140,14 +141,14 @@ def transcribe(settings: OpenRouter, audio: bytes, content_type: str, language: 
     return text.strip()
 
 
-def _said(error: urllib.error.HTTPError) -> str:
+def _said(answer: http.Answer) -> str:
     """The sentence an HTTP error came with, rather than only its number."""
     try:
-        payload = json.loads(error.read().decode("utf-8"))
+        payload = json.loads(answer.body.decode("utf-8"))
         message = payload.get("error", {}).get("message") if isinstance(payload, dict) else ""
-    except (ValueError, OSError, AttributeError):
+    except (ValueError, AttributeError):
         message = ""
-    return f"{error.code} {message}".strip() if message else f"{error.code} {error.reason}"
+    return f"{answer.status} {message}".strip() if message else f"{answer.status} {answer.reason}"
 
 
 # The catalogue is a few hundred models and changes a few times a week: asked
@@ -167,17 +168,20 @@ def catalogue(settings: OpenRouter) -> list[dict]:
     kept = _catalogue.get(base)
     if kept and time.monotonic() - kept[0] < CATALOGUE_TTL:
         return kept[1]
-    request = urllib.request.Request(
-        f"{base}/models",
-        headers={"Authorization": f"Bearer {settings.key}", "X-Title": "ponos"},
-    )
     try:
-        with urllib.request.urlopen(request, timeout=CATALOGUE_TIMEOUT) as response:
-            answer = json.loads(response.read().decode("utf-8"))
-    except urllib.error.HTTPError as error:
-        raise Unavailable(f"OpenRouter refused the list of models: {_said(error)}") from error
-    except (urllib.error.URLError, TimeoutError, OSError) as error:
+        sent = http.send(
+            "openrouter",
+            "GET",
+            f"{base}/models",
+            headers={"Authorization": f"Bearer {settings.key}", "X-Title": "ponos"},
+            timeout=CATALOGUE_TIMEOUT,
+        )
+    except http.Unanswered as error:
         raise Unavailable(f"OpenRouter could not be reached: {error}") from error
+    if sent.status >= 400:
+        raise Unavailable(f"OpenRouter refused the list of models: {_said(sent)}")
+    try:
+        answer = json.loads(sent.body.decode("utf-8"))
     except ValueError as error:
         raise Unavailable("OpenRouter answered something that is not JSON") from error
     data = answer.get("data") if isinstance(answer, dict) else None

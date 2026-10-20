@@ -30,11 +30,9 @@ import re
 import socket
 import ssl
 import subprocess
-import urllib.error
-import urllib.request
 from urllib.parse import urlsplit
 
-from .. import session
+from .. import http, session
 from . import oauth
 
 # How long the test waits for an answer, and `claude mcp list` for its checks:
@@ -60,45 +58,48 @@ def probe(address: str) -> dict:
     if not address:
         return {"ok": False, "code": "no-address", "status": 0}
     try:
-        request = urllib.request.Request(
+        answer = http.send(
+            "mcp",
+            "POST",
             address,
-            data=json.dumps({"jsonrpc": "2.0", "id": 1, "method": "ping"}).encode(),
+            content=json.dumps({"jsonrpc": "2.0", "id": 1, "method": "ping"}).encode(),
             headers={
                 "Content-Type": "application/json",
                 "Accept": "application/json, text/event-stream",
             },
-            method="POST",
+            timeout=PROBE_TIMEOUT,
         )
-        try:
-            with urllib.request.urlopen(request, timeout=PROBE_TIMEOUT) as answer:
-                status, headers = answer.status, answer.headers
-        except urllib.error.HTTPError as error:
-            status, headers = error.code, error.headers
+        status = answer.status
         if status != 401:
             code = "not-found" if status == 404 else "misrouted" if status == 421 else "unexpected"
             return {"ok": False, "code": code, "status": status}
-        announced = re.search(r'resource_metadata="([^"]+)"', headers.get("WWW-Authenticate") or "")
+        announced = re.search(
+            r'resource_metadata="([^"]+)"', answer.headers.get("WWW-Authenticate") or ""
+        )
         if not announced:
             return {"ok": False, "code": "not-mcp", "status": status}
-        with urllib.request.urlopen(announced.group(1), timeout=PROBE_TIMEOUT) as metadata:
-            resource = json.load(metadata).get("resource", "")
+        metadata = http.send("mcp", "GET", announced.group(1), timeout=PROBE_TIMEOUT)
+        if metadata.status >= 400:
+            return {"ok": False, "code": "unreachable", "status": 0}
+        resource = json.loads(metadata.body).get("resource", "")
         if resource != address:
             return {"ok": False, "code": "address-mismatch", "status": status, "seen": resource}
         return {"ok": True, "code": "ok", "status": status}
-    except urllib.error.URLError as error:
-        reason = error.reason
+    except http.Unanswered as error:
+        reason = error.cause
         if isinstance(reason, ssl.SSLError):
             return {"ok": False, "code": "certificate", "status": 0}
         if isinstance(reason, (socket.timeout, TimeoutError)):
             return {"ok": False, "code": "timeout", "status": 0}
         if isinstance(reason, socket.gaierror):
             return {"ok": False, "code": "unknown-host", "status": 0}
-        return {"ok": False, "code": "unreachable", "status": 0}
-    except TimeoutError:
-        return {"ok": False, "code": "timeout", "status": 0}
-    except (OSError, ValueError, AttributeError):
+        if error.offline:
+            return {"ok": False, "code": "unreachable", "status": 0}
+        # A connection cut halfway through the answer.
+        return {"ok": False, "code": "not-mcp", "status": 0}
+    except (ValueError, AttributeError):
         # A reply that is not what a server of ours would say: JSON that is not
-        # an object, a connection cut halfway.
+        # an object, a body that is not JSON at all.
         return {"ok": False, "code": "not-mcp", "status": 0}
 
 

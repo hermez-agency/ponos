@@ -16,13 +16,14 @@ canaux (Telegram, Slack) permettent de suivre le travail ou d'y répondre.
 
 Deux mondes séparés, à ne pas mélanger :
 
-- **Cœur** — Python 3.11+, bibliothèque standard uniquement à ce jour
-  (`dependencies = []` dans `pyproject.toml`, `requirements.txt` vide). Le
-  `pyproject.toml` et `uv.lock` ne portent que l'outillage (groupe `dev` :
-  ruff, pytest, pytest-cov). Chaque version installée a son `.venv`
-  (`environment.py`), prêt pour le jour où une dépendance arrive — par un ticket
-  dédié, voir `docs/audit-technique-2026-10.md`. Les suites de tests tournent
-  toujours avec `python3` seul.
+- **Cœur** — Python 3.11+, la bibliothèque standard et une seule dépendance
+  d'exécution : **httpx** (`dependencies` dans `pyproject.toml`, exportée avec
+  ses sommes dans `requirements.txt`). Le groupe `dev` porte l'outillage
+  (ruff, pytest, pytest-cov), le tout figé dans `uv.lock`. Chaque version
+  installée a son `.venv` (`environment.py`), qui reçoit `requirements.txt`
+  avant la bascule ; l'image l'installe au build. Les suites de tests tournent
+  dans le `.venv` de `uv sync`, ou avec un `python3` où `requirements.txt` est
+  installé.
 - **`frontend/`** — sous-projet séparé : React 19, TypeScript, Vite 8,
   shadcn/ui sur Tailwind 4. Géré par npm (`package-lock.json`). Node n'est
   nécessaire que pour *modifier* la console, jamais pour l'installer ou
@@ -33,9 +34,9 @@ Deux mondes séparés, à ne pas mélanger :
 Cœur Python — pas de build :
 
 ```sh
-python3 tests/run.py         # la partie pure : ne touche ni Notion, ni git, ni le réseau
-python3 tests/functional.py  # le parcours complet, sur des doublures locales
-uv sync                      # l'outillage, aux versions de uv.lock, dans .venv
+uv sync                      # httpx et l'outillage, aux versions de uv.lock, dans .venv
+uv run python tests/run.py         # la partie pure : ne touche ni Notion, ni git, ni le réseau
+uv run python tests/functional.py  # le parcours complet, sur des doublures locales
 uv run pytest                # les deux suites sous pytest (-m "not functional" : la partie pure)
 uv run ruff check .          # le lint de la CI
 uv run ruff format .         # le format, que la CI vérifie aussi (--check)
@@ -61,9 +62,9 @@ npm run dev     # serveur de dev avec hot reload, proxy /api vers un console dé
 ## CI
 
 `.github/workflows/ci.yml` tourne sur chaque pull request et sur chaque push
-vers `main` : le job cœur relance `python3 tests/run.py` puis
-`python3 tests/functional.py` sous Python 3.11 et 3.13, sans installer quoi que
-ce soit ; le job qualité fait `uv sync --locked`, `ruff check`, `ruff format --check`, vérifie que
+vers `main` : le job cœur installe `requirements.txt` (et rien d'autre), puis
+relance `python3 tests/run.py` et `python3 tests/functional.py` sous Python 3.11
+et 3.13 ; le job qualité fait `uv sync --locked`, `ruff check`, `ruff format --check`, vérifie que
 `requirements.txt` est l'export de `uv.lock`, puis `pytest --cov` ; le job frontend ne se déclenche que si `frontend/**` ou
 `src/ponos/web/**` a changé, et y
 fait `npm ci`, `npm run lint`, `npm test`, `npm run build` (sous Node 24),
@@ -95,6 +96,9 @@ deux suites, puis publie l'image sur `ghcr.io`.
   le CLI connecté, une clé Anthropic ou OpenRouter), `voice.py` (les mots et la langue),
   `vault.py` (les clés que `[vault]` donne aux sessions d'un projet, et leur masquage partout où le runner écrit),
   `passwords.py` (le mot de passe de la console, gardé en digest scrypt),
+  `http.py` (le seul client HTTP : un `httpx.Client` par service et la
+  politique de réessai de Notion pour tous — les tests y branchent un
+  `httpx.MockTransport`),
   `log.py` (le journal `ponos.log` : un logger par module, la trace de chaque
   erreur rattrapée, le masquage des secrets avant l'écriture),
   `channels/` (Telegram, Slack), `web/` (serveur de la console et API ;
@@ -131,7 +135,9 @@ deux suites, puis publie l'image sur `ghcr.io`.
 
 - `from __future__ import annotations` en tête de chaque module du cœur, et
   des annotations de type partout.
-- Le cœur n'importe que la bibliothèque standard et ses propres modules. Un
+- Le cœur n'importe que la bibliothèque standard, ses propres modules et
+  httpx — et httpx seulement dans `http.py` : une requête passe par
+  `http.send`, jamais par `urllib.request`. Un autre
   paquet tiers n'entre que par le ticket qui le décide (voir l'audit), déclaré
   dans `pyproject.toml` et exporté dans `requirements.txt` — jamais au détour
   d'un autre changement.

@@ -29,11 +29,9 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-import urllib.error
-import urllib.request
 from dataclasses import dataclass
 
-from . import openrouter, session
+from . import http, openrouter, session
 from .config import OPENROUTER_URL, Config
 
 ANTHROPIC_MODELS = "https://api.anthropic.com/v1/models"
@@ -153,13 +151,11 @@ def cli_login() -> Check:
     return Check(True, f"{who} ({plan})" if plan else who)
 
 
-def _get(url: str, headers: dict[str, str]) -> tuple[int, dict]:
-    request = urllib.request.Request(url, headers={"User-Agent": "ponos", **headers})
-    try:
-        with urllib.request.urlopen(request, timeout=CHECK_TIMEOUT) as response:
-            return response.status, json.loads(response.read().decode("utf-8") or "{}")
-    except urllib.error.HTTPError as error:
-        return error.code, {}
+def _get(service: str, url: str, headers: dict[str, str]) -> tuple[int, dict]:
+    answer = http.send(service, "GET", url, headers=headers, timeout=CHECK_TIMEOUT)
+    if answer.status >= 400:
+        return answer.status, {}
+    return answer.status, json.loads(answer.body.decode("utf-8") or "{}")
 
 
 def api_key(key: str) -> Check:
@@ -167,8 +163,10 @@ def api_key(key: str) -> Check:
     if not key:
         return Check(False, "no key")
     try:
-        code, _ = _get(ANTHROPIC_MODELS, {"x-api-key": key, "anthropic-version": "2023-06-01"})
-    except (OSError, ValueError) as error:
+        code, _ = _get(
+            "anthropic", ANTHROPIC_MODELS, {"x-api-key": key, "anthropic-version": "2023-06-01"}
+        )
+    except (http.Unanswered, ValueError) as error:
         return Check(False, f"Anthropic could not be reached: {error}")
     if code == 200:
         return Check(True, f"accepted by Anthropic — {masked(key)}")
@@ -183,8 +181,8 @@ def openrouter_key(key: str, base_url: str = OPENROUTER_URL) -> Check:
         return Check(False, "no key")
     base = (base_url or OPENROUTER_URL).rstrip("/")
     try:
-        code, said = _get(f"{base}/key", {"Authorization": f"Bearer {key}"})
-    except (OSError, ValueError) as error:
+        code, said = _get("openrouter", f"{base}/key", {"Authorization": f"Bearer {key}"})
+    except (http.Unanswered, ValueError) as error:
         return Check(False, f"OpenRouter could not be reached: {error}")
     if code == 200:
         data = said.get("data") if isinstance(said.get("data"), dict) else {}

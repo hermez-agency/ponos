@@ -36,12 +36,10 @@ from __future__ import annotations
 import json
 import threading
 import time
-import urllib.error
-import urllib.request
 from urllib.parse import quote
 
 from . import config as config_module
-from . import github_app, vault
+from . import github_app, http, vault
 
 # Where a token for Ponos is made, with the permissions it needs already filled
 # in (GitHub reads them from the query string of this page).
@@ -206,30 +204,24 @@ def session_environment(owner: str) -> dict[str, str]:
 
 def _send(url: str, bearer: str) -> tuple[int, dict[str, str], bytes]:
     """One GET to GitHub: status, headers (lower-cased) and body. Replaced by the tests."""
-    request = urllib.request.Request(
+    answer = http.send(
+        "github",
+        "GET",
         url,
         headers={
             "Accept": "application/vnd.github+json",
             "X-GitHub-Api-Version": "2022-11-28",
-            "User-Agent": "ponos",
             "Authorization": f"Bearer {bearer}",
         },
+        timeout=TIMEOUT,
     )
-    try:
-        with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
-            return (
-                response.status,
-                {k.lower(): v for k, v in response.headers.items()},
-                response.read(),
-            )
-    except urllib.error.HTTPError as error:
-        return error.code, {k.lower(): v for k, v in error.headers.items()}, error.read()
+    return answer.status, {k.lower(): v for k, v in answer.headers.items()}, answer.body
 
 
 def _get(value: str, path: str) -> tuple[int, dict[str, str], object]:
     try:
         status, headers, raw = _send(f"{github_app.api()}{path}", value)
-    except (OSError, ValueError) as error:
+    except (http.Unanswered, OSError, ValueError) as error:
         raise GithubTokenError(f"GitHub did not answer: {error}") from error
     try:
         answer = json.loads(raw.decode() or "null")

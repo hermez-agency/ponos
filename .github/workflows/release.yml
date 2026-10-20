@@ -36,6 +36,9 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: What the runner imports
+        run: python3 -m pip install --disable-pip-version-check --require-hashes -r requirements.txt
+
       - name: The suite, at the tagged commit
         run: python3 tests/run.py
 
