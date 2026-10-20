@@ -4097,6 +4097,142 @@ def the_launcher_runs_the_environment_and_the_machines_python_without_one():
         assert Path(prefix()) == version / environment.VENV, "the environment was not used"
 
 
+@contextmanager
+def _bare_machine():
+    """A home of its own and a PATH with no uv on it — what a fresh Debian has.
+
+    Yields the directory the uv archive is "published" in: `file://` URLs are
+    what `fetch_uv` downloads from here, so no test of it touches the network.
+    """
+    from ponos import environment
+
+    kept = {name: os.environ.get(name) for name in ("HOME", "PATH")}
+    pinned = (environment.UV_RELEASES, dict(environment.UV_SHA256))
+    with tempfile.TemporaryDirectory() as directory:
+        home, published, tools = (Path(directory) / name for name in ("home", "releases", "bin"))
+        for made in (home, published, tools):
+            made.mkdir()
+        os.environ["HOME"], os.environ["PATH"] = str(home), str(tools)
+        environment.UV_RELEASES = published.as_uri()
+        try:
+            yield published
+        finally:
+            environment.UV_RELEASES, sums = pinned
+            environment.UV_SHA256.clear()
+            environment.UV_SHA256.update(sums)
+            for name, value in kept.items():
+                if value is None:
+                    os.environ.pop(name, None)
+                else:
+                    os.environ[name] = value
+
+
+def _publish_uv(published: Path, script: str) -> str:
+    """A uv release for this machine, whose `uv` is `script`. Its SHA-256."""
+    import hashlib
+    import tarfile
+
+    from ponos import environment
+
+    target = environment._platform()
+    folder = published / environment.UV_VERSION
+    folder.mkdir(parents=True, exist_ok=True)
+    archive = folder / f"uv-{target}.tar.gz"
+    payload = script.encode()
+    with tarfile.open(archive, "w:gz") as packed:
+        member = tarfile.TarInfo(f"uv-{target}/uv")
+        member.size, member.mode = len(payload), 0o755
+        packed.addfile(member, io.BytesIO(payload))
+    digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+    environment.UV_SHA256[target] = digest
+    return digest
+
+
+@case
+def a_machine_without_pip_fetches_uv_and_installs_with_it():
+    """Debian without `python3-venv`: no ensurepip, no uv, and a package to install.
+
+    The update used to be refused at every pass until somebody typed `sudo apt`.
+    The pinned uv is fetched, its sum checked, and the packages go through it;
+    a sum that does not match is never unpacked, and without the network the
+    version is simply not made — the one in use carries on.
+    """
+    from ponos import environment
+
+    with _bare_machine() as published, tempfile.TemporaryDirectory() as directory:
+        version = Path(directory) / "app-1"
+        version.mkdir()
+        (version / "requirements.txt").write_text(
+            'httpx==0.28.1 ; python_version >= "3.11" \\\n    --hash=sha256:00\n', encoding="utf-8"
+        )
+        assert environment._name(environment.required(version)[0]) == "httpx"
+        seen = Path(directory) / "uv-was-asked"
+        original = environment._has_ensurepip
+        environment._has_ensurepip = lambda base: False
+        try:
+            # Offline: nothing to fetch, nothing made.
+            problem = environment.create(version)
+            assert "uv could not be fetched" in problem, problem
+            assert not environment.python(version).exists()
+
+            # A release whose sum is not the pinned one is refused, and left packed.
+            _publish_uv(published, "#!/bin/sh\nexit 0\n")
+            environment.UV_SHA256[environment._platform()] = "0" * 64
+            assert "SHA-256" in environment.create(version)
+            assert environment.uv() == "", "an archive that failed its sum was unpacked"
+
+            _publish_uv(published, f'#!/bin/sh\necho "$@" > "{seen}"\n')
+            assert environment.create(version) == ""
+        finally:
+            environment._has_ensurepip = original
+        fetched = Path(os.environ["HOME"]) / ".local/share/ponos/uv/uv"
+        assert environment.uv() == str(fetched)
+        asked = seen.read_text()
+        assert "pip install" in asked and "--require-hashes" in asked, asked
+        assert ".venv.partial/bin/python" in asked, "installed into an environment in use"
+        assert environment.python(version).exists()
+        state, said = environment.diagnose(version)
+        assert state == "error" and "httpx" in said, (state, said)
+
+
+@case
+def an_environment_whose_python_the_distribution_replaced_is_made_again():
+    """A distribution upgrade takes away the Python `.venv` was made from.
+
+    Either its link leads nowhere, or it leads to a newer `python3` the
+    packages were not built for, and only `pyvenv.cfg` still names the one that
+    is gone. The next pass makes the environment again.
+    """
+    from ponos import environment
+
+    with tempfile.TemporaryDirectory() as directory:
+        version = Path(directory) / "app-1"
+        version.mkdir()
+        assert environment.stale(version) == "there is no environment"
+        assert environment.create(version) == ""
+        if not environment.python(version).exists():
+            return  # this python3 makes no environment at all: nothing to go stale
+        assert environment.stale(version) == ""
+        assert environment.diagnose(version)[0] == "ok"
+
+        settings = version / environment.VENV / "pyvenv.cfg"
+        settings.write_text(
+            "home = /nowhere/bin\nversion = 3.9.2\nexecutable = /nowhere/bin/python3.9\n",
+            encoding="utf-8",
+        )
+        assert "/nowhere/bin/python3.9" in environment.stale(version)
+        assert environment.ensure(version) == ""
+        assert environment.stale(version) == "", "the environment was not made again"
+
+        link = environment.python(version)
+        link.unlink()
+        link.symlink_to("/nowhere/bin/python3.9")
+        assert "leads nowhere" in environment.stale(version)
+        assert environment.diagnose(version)[0] == "warn", "nothing to install: no fault"
+        assert environment.ensure(version) == ""
+        assert environment.stale(version) == ""
+
+
 @case
 def the_header_does_not_offer_a_version_already_installed():
     """On 30 September 2026 the header said ↑ on an installation already on the

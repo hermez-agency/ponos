@@ -344,6 +344,7 @@ lands.
 ```sh
 ponos update --check   # what is available, changing nothing
 ponos update           # apply it now
+ponos update --environment  # make the version in use its .venv again, nothing else
 ```
 
 **From the console**, the version at the top right is the release number followed by the
@@ -381,6 +382,18 @@ installing, restarting — and the page reloads by itself from the new version:
   use keeps its own. An installation updated by a version from before environments gets
   its `.venv` on its next pass, with nothing to do; until then, and on a `python3` that
   cannot make one at all, the launcher runs the machine's `python3` as it always has;
+- **no `pip` is needed to install a package.** On Debian or Ubuntu without `python3-venv`,
+  `python3` cannot give an environment pip. When `requirements.txt` lists a package and the
+  machine has neither `uv` nor `ensurepip`, `install.sh` and the update fetch
+  [uv](https://docs.astral.sh/uv/) themselves — the official binary, at the version pinned
+  in `environment.py`, its SHA-256 checked before it is unpacked — into
+  `~/.local/share/ponos/uv`, without `sudo`, and install with it. Offline, the new version
+  is not made, and the one in use carries on; the next check tries again. An environment
+  whose Python a distribution upgrade took away (`.venv/bin/python` leading nowhere, or
+  `pyvenv.cfg` naming an interpreter that is gone) is made again by the next pass.
+  `ponos doctor` has an *Environment* section — there, its interpreter runs, and each
+  package of `requirements.txt` imports — and when it is not, the command that mends it:
+  `ponos update --environment`;
 - **the page chooses nothing.** `POST /api/update` takes no command, no version and no
   path; it asks the remote again, under the lock, for the newest version of the configured
   channel. It answers only a request from this machine carrying the console's guard header
@@ -3503,6 +3516,7 @@ ponos clean                  # empty worktree directories that are only root-own
 ponos clean --force          # remove worktrees, their branches, and scratch dirs
 ponos update       # move the installation to the newest version
 ponos update --check         # what is available, changing nothing
+ponos update --environment   # make the .venv of the version in use again
 ponos enable       # apply interval_seconds, start the timer and the console
 ponos disable      # stop the timer and the console
 ponos serve        # the web console, in this terminal (it already runs on its own)
