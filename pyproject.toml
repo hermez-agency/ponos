@@ -35,6 +35,7 @@ dev = [
     "pre-commit>=4.7",
     "pytest>=8.4",
     "pytest-cov>=6.2",
+    "pytest-xdist>=3.8",
     "ruff>=0.13",
 ]
 
@@ -45,7 +46,11 @@ package = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = ["-ra", "--strict-markers", "--durations=10"]
+# One file per module, plus the whole road; `conftest.py` collects their `@case`.
+python_files = ["test_*.py", "functional.py"]
+# One worker per core (pytest-xdist): no case may lean on another having run
+# first. `-n 0` runs them in one process, in order, for a debugger.
+addopts = ["-ra", "--strict-markers", "--durations=10", "-n", "auto"]
 markers = [
     "functional: the whole road, on local doubles (tests/functional.py) — slower",
 ]
@@ -204,3 +209,9 @@ module = [
     "ponos.web.statistics",
 ]
 ignore_errors = true
+
+[tool.coverage.run]
+# What a test runs as `python3 -m ponos` — the commands of `__main__.py`, an
+# update starting the new code — is code under test too: counted, it is what
+# takes the total over the 80 % the CI asks for (`--cov-fail-under`).
+patch = ["subprocess"]

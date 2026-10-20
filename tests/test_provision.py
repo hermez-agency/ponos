@@ -1,0 +1,184 @@
+"""`provision.py`: `ponos init`, building a board and completing one without breaking it."""
+
+from __future__ import annotations
+
+import tempfile
+from pathlib import Path
+
+from support import _Board, _settings, case
+
+from ponos import config as C
+from ponos import provision
+
+# -- provisioning ------------------------------------------------------------
+
+
+@case
+def a_bare_page_becomes_the_whole_board():
+    board = _Board()
+    report = provision.provision(board, _settings(), "root")
+
+    assert report.workspace == "db-ponos"
+    assert report.tickets == "db-tickets"
+    rows = board._rows["db-ponos"]
+    assert set(rows) == {"Tickets", "Projects", "Agents", "Context", "Schedules"}
+
+    schema = board._schemas["db-tickets"]
+    for expected in ("Status", "Project", "Agent", "Runner", "Session", "Scheduled"):
+        assert expected in schema, expected
+
+    # The relations point at databases that existed before the tickets did.
+    assert schema["Project"]["relation"]["database_id"] == "db-projects"
+    assert schema["Agent"]["relation"]["database_id"] == "db-agents"
+    # …and are spelled the way the API accepts: the kind is named *and* given
+    # its empty object, or the request is rejected as `undefined`.
+    for name in ("Project", "Agent"):
+        assert schema[name]["relation"]["type"] == "single_property"
+        assert schema[name]["relation"]["single_property"] == {}
+
+    # A status property cannot be created through the API; a select can, and the
+    # runner reads both. Every column must be there, validated included.
+    options = [option["name"] for option in schema["Status"]["select"]["options"]]
+    assert options == [
+        "Ready",
+        "In progress",
+        "In review",
+        "Validated",
+        "Done",
+        "Failed",
+        "Blocked",
+        "Cancelled",
+    ]
+    # And the credit is not one of them: a ticket nothing was started for has not
+    # moved, so it is ticked where it stands rather than sent to an eighth column.
+    assert schema["Waiting for credit"] == {"checkbox": {}}
+
+    assert board.appended, "the context page is seeded rather than left blank"
+
+
+@case
+def running_init_twice_changes_nothing():
+    board = _Board()
+    provision.provision(board, _settings(), "root")
+    before = dict(board._schemas["db-tickets"])
+    board.created.clear()
+
+    second = provision.provision(board, _settings(), "root")
+    assert board.created == [], "nothing is created a second time"
+    assert board._schemas["db-tickets"] == before
+    assert second.tickets == "db-tickets"
+    assert all(verb == "kept" for verb, _ in second.steps), second.steps
+
+
+@case
+def init_completes_a_board_that_predates_a_column():
+    """The second reason this command exists: adding what a version did not have.
+
+    A board built before `Scheduled` gets the column rather than a line in a
+    changelog telling its owner to add it by hand.
+    """
+    board = _Board(
+        databases={"root": {"ponos": "dir"}, "page-tickets": {"Tickets": "db-tickets"}},
+        rows={"dir": {"Tickets": "page-tickets"}},
+        schemas={
+            "db-tickets": {
+                "Name": {"title": {}},
+                "Status": {
+                    "select": {
+                        "options": [
+                            {"name": "Ready", "color": "blue"},
+                            {"name": "Mine", "color": "purple"},
+                        ]
+                    }
+                },
+            }
+        },
+    )
+    provision.provision(board, _settings(), "root")
+
+    schema = board._schemas["db-tickets"]
+    assert "Scheduled" in schema and "Cost" in schema
+
+    # Options are merged, never replaced: a column somebody added is still there.
+    options = [option["name"] for option in schema["Status"]["select"]["options"]]
+    assert "Mine" in options and "Blocked" in options
+    assert options.index("Mine") < options.index("Blocked"), "what exists keeps its place"
+
+
+@case
+def a_real_status_column_is_reported_rather_than_patched():
+    """The one thing the API cannot do, said out loud instead of discovered late.
+
+    A `status` property built in Notion's own interface accepts no new options
+    from the API. Silence here would surface as a ticket failing to be marked
+    "Blocked", weeks later, at the end of a session.
+    """
+    board = _Board(
+        databases={"root": {"ponos": "dir"}, "page-tickets": {"Tickets": "db-tickets"}},
+        rows={"dir": {"Tickets": "page-tickets"}},
+        schemas={
+            "db-tickets": {
+                "Name": {"title": {}},
+                "Status": {
+                    "status": {
+                        "options": [
+                            {"name": "Ready"},
+                            {"name": "In progress"},
+                        ]
+                    }
+                },
+            }
+        },
+    )
+    report = provision.provision(board, _settings(), "root")
+
+    assert not any(name == "Status" for _, names in board.patched for name in names)
+    told = [what for verb, what in report.steps if verb == "by hand"]
+    assert told and "In review" in told[0] and "Blocked" in told[0], told
+    assert "Ready" not in told[0], "only what is actually missing"
+
+
+@case
+def a_column_someone_retyped_is_left_alone():
+    board = _Board(
+        databases={"root": {"ponos": "dir"}, "page-tickets": {"Tickets": "db-tickets"}},
+        rows={"dir": {"Tickets": "page-tickets"}},
+        schemas={"db-tickets": {"Name": {"title": {}}, "Cost": {"rich_text": {}}}},
+    )
+    provision.provision(board, _settings(), "root")
+    assert board._schemas["db-tickets"]["Cost"] == {"rich_text": {}}, "not overruled"
+
+
+@case
+def two_states_on_one_column_produce_one_option():
+    """Notion refuses a select that lists the same option twice."""
+    settings = _settings()
+    settings.status = {"failed": "Needs you", "blocked": "Needs you"}
+    names = [option["name"] for option in provision.status_options(settings)]
+    assert names.count("Needs you") == 1
+    # Seven: the two that were merged count once, and renaming a failure column
+    # says nothing about the validated one, nor the cancelled one, which keep
+    # their defaults.
+    assert len(names) == 7 and "Validated" in names and "Cancelled" in names
+
+    settings.status = {"review": "Done", "done": "Done"}
+    names = [option["name"] for option in provision.status_options(settings)]
+    assert names.count("Done") == 1
+    assert "Validated" not in names, "a board that ends at the pull request has no gesture"
+
+
+@case
+def the_workspace_is_written_back_into_the_configuration():
+    path = Path(tempfile.mkdtemp()) / "config.toml"
+    path.write_text(
+        '[notion]\n# keep me\ntoken = "ntn_x"\nworkspace = ""\n\n[runner]\nfetch = true\n'
+    )
+
+    assert C.write_notion_value(path, "workspace", "abc") is True
+    assert C.write_notion_value(path, "workspace", "abc") is False, "already says that"
+
+    text = path.read_text()
+    assert 'workspace = "abc"' in text
+    assert "# keep me" in text, "a hand-edited file keeps its comments"
+    assert "[runner]\nfetch = true" in text, "other tables are untouched"
+    assert C.load(path).notion.workspace == "abc"
