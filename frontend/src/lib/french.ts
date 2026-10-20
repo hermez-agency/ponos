@@ -2356,6 +2356,52 @@ export const FRENCH: Record<string, string> = {
   "Installation status": "État de l'installation",
   "{{count}} thing(s) to fix before tickets can run": "{{count}} point(s) à corriger pour que les tickets partent",
   "Recheck": "Revérifier",
+  "no ticket can be claimed, moved or finished":
+    "aucun ticket ne peut être réclamé, déplacé ni terminé",
+  "no ticket is tied to a project, so none reaches a repository":
+    "aucun ticket n'est lié à un projet, donc aucun n'atteint un dépôt",
+  "which machine took a ticket is not written — fine on one machine, but a second one on this board would put back the tickets the first is running":
+    "la machine qui a pris un ticket n'est pas écrite — sans gravité avec une seule machine, mais une seconde sur ce tableau remettrait en file les tickets que la première exécute",
+  "the pull request is not linked from its ticket, so a validated one is not merged for you":
+    "la pull request n'est pas liée à son ticket, donc une PR validée n'est pas fusionnée pour vous",
+  "no link to the session behind a ticket":
+    "aucun lien vers la session derrière un ticket",
+  "no model per ticket — runner.model for every one":
+    "pas de modèle par ticket — runner.model pour tous",
+  "no ready ticket goes before another":
+    "aucun ticket prêt ne passe avant un autre",
+  "what a run cost is not written back":
+    "le coût d'une exécution n'est pas reporté",
+  "how long a run took is not written back":
+    "la durée d'une exécution n'est pas reportée",
+  "nothing says what a session is doing while it runs":
+    "rien ne dit ce que fait une session pendant qu'elle tourne",
+  "no ticket can be held until a date":
+    "aucun ticket ne peut être retenu jusqu'à une date",
+  "a ticket held back by the credit does not say so":
+    "un ticket retenu par le crédit ne le dit pas",
+  "no agent, and so no role, per ticket":
+    "pas d'agent, donc pas de rôle, par ticket",
+  "the kind a ticket was classified as is not kept on the board":
+    "le type d'un ticket n'est pas gardé sur le tableau",
+  "why a ticket stopped is not on the board, so no Notion view can filter blocks by cause":
+    "la raison d'un blocage n'est pas sur le tableau, donc aucune vue Notion ne peut filtrer les blocages par cause",
+  "the state of a pull request's checks is not on the board, so no Notion view can filter on it":
+    "l'état des vérifications d'une pull request n'est pas sur le tableau, donc aucune vue Notion ne peut filtrer dessus",
+  "a code ticket's sub-type is not kept, so its commit, its pull request and its CHANGELOG entry go by its title's prefix alone":
+    "le sous-type d'un ticket de code n'est pas gardé : son commit, sa pull request et son entrée de CHANGELOG ne suivent que le préfixe du titre",
+  "the prompt a ticket runs at each change of status is not read, so none runs":
+    "le prompt qu'un ticket exécute à chaque changement de statut n'est pas lu, donc aucun ne s'exécute",
+  "{{channel}} cannot find the channel, or the bot cannot see it.":
+    "{{channel}} ne trouve pas le canal, ou le bot ne le voit pas.",
+  "The bot is not in the {{channel}} channel.":
+    "Le bot n'est pas dans le canal {{channel}}.",
+  "The {{channel}} token lacks a permission.":
+    "Il manque une permission au jeton {{channel}}.",
+  "{{channel}} refused the bot token.":
+    "{{channel}} a refusé le jeton du bot.",
+  "Details":
+    "Détails",
   "Probable cause:": "Cause probable :",
   "Open the link": "Ouvrir le lien",
   "Configure automatically?": "Corriger automatiquement ?",

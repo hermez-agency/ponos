@@ -4,9 +4,10 @@ import { expect, test, type Page, type Route } from "@playwright/test"
  *
  * The checks themselves are the server's (`health.py`, held by tests/run.py);
  * here the answer is given, so that what is checked is what somebody sees: a
- * red board draws the band with each problem's cause and its way out, a fix is
- * asked for before it is made, the band goes when the recheck is green, and a
- * green board never draws it. Set `PONOS_E2E_SHOTS` to a folder to keep a
+ * red board draws the band folded on one line, unfolded one line per problem,
+ * each with a detail of its own (cause, steps), a fix is asked for before it is
+ * made, the band goes when the recheck is green, and a green board never draws
+ * it. Set `PONOS_E2E_SHOTS` to a folder to keep a
  * capture of each state.
  */
 
@@ -21,6 +22,7 @@ const check = (code: string, state: "ok" | "warn" | "error", extra: Record<strin
   steps: [],
   url: "",
   evidence: "",
+  notes: [],
   fix: null,
   ...extra,
 })
@@ -33,6 +35,10 @@ const RED = {
       said: "Properties missing on the tickets database: {{missing}}.",
       params: { missing: "“Runner”, “Progress”" },
       cause: "The board predates a version of Ponos, or a property was renamed or retyped.",
+      notes: [
+        { name: "Runner", said: ["which machine took a ticket is not written — fine on one machine, but a second one on this board would put back the tickets the first is running"] },
+        { name: "Progress", said: ["nothing says what a session is doing while it runs"] },
+      ],
       fix: {
         action: "notion_columns",
         label: "Configure",
@@ -67,7 +73,7 @@ const RED = {
 }
 const GREEN = { checks: RED.checks.map((one) => ({ ...one, state: "ok", fix: null })), problems: 0, checked_at: RED.checked_at }
 
-async function open(page: Page, answers: unknown[], fixed: string[] = []) {
+async function open(page: Page, answers: unknown[], fixed: string[] = [], unfolded = true) {
   let asked = 0
   await page.route("**/api/health", (route: Route) =>
     route.fulfill({ json: answers[Math.min(asked++, answers.length - 1)] })
@@ -77,6 +83,8 @@ async function open(page: Page, answers: unknown[], fixed: string[] = []) {
     return route.fulfill({ json: { done: "added Progress, Runner", ...GREEN } })
   })
   await page.context().addCookies([{ name: "ponos_token", value: "e2e", url: test.info().project.use.baseURL }])
+  // Folded is the default; a test that wants the lines asks for them.
+  if (unfolded) await page.addInitScript(() => localStorage.setItem("ponos-health-open", "open"))
   await page.goto("/")
   await expect(page.getByText("A long ticket").filter({ visible: true }).first()).toBeVisible()
 }
@@ -93,11 +101,16 @@ test("a red installation draws each problem with its way out, and a green one dr
   const columns = band.locator('[data-code="notion.columns"]')
   await expect(columns.getByTestId("health-fix")).toBeVisible()
   const repository = band.locator('[data-code="github.repository"]')
-  await expect(repository.getByRole("link")).toHaveAttribute("href", /installations\/new/)
-  await expect(repository.getByRole("listitem")).toHaveCount(1)
-  await expect(band.locator('[data-code="claude.login"]')).toContainText("claude auth login")
+  await expect(repository.getByRole("link", { name: "Open the link" })).toHaveAttribute("href", /installations\/new/)
   await expect(band.locator('[data-code="notion.token"]')).toHaveCount(0)
   await shot(page, "health-red")
+
+  // The steps and the cause are behind each problem's own toggle.
+  const login = band.locator('[data-code="claude.login"]')
+  await expect(login.getByTestId("health-detail")).toBeHidden()
+  await login.getByTestId("health-detail-toggle").click()
+  await expect(login.getByTestId("health-detail")).toContainText("claude auth login")
+  await shot(page, "health-detail")
 
   await band.getByTestId("health-recheck").click()
   await expect(page.getByTestId("health-band")).toHaveCount(0)
@@ -125,4 +138,33 @@ test("a fix is made only once it is confirmed", async ({ page }) => {
 test("a green installation never draws the band", async ({ page }) => {
   await open(page, [GREEN])
   await expect(page.getByTestId("health-band")).toHaveCount(0)
+})
+
+test("the band is one line by default, opens by keyboard and the choice is kept", async ({ page }) => {
+  await open(page, [RED], [], false)
+  const band = page.getByTestId("health-band")
+  const toggle = band.getByTestId("health-toggle")
+  await expect(toggle).toHaveAttribute("aria-expanded", "false")
+  await expect(band.getByTestId("health-check")).toHaveCount(0)
+  await expect(band.getByTestId("health-recheck")).toBeVisible()
+  expect((await band.boundingBox())?.height).toBeLessThan(80)
+  await shot(page, "health-folded")
+
+  await toggle.focus()
+  await page.keyboard.press("Enter")
+  await expect(band.getByTestId("health-check")).toHaveCount(4)
+  await page.reload()
+  await expect(page.getByTestId("health-band").getByTestId("health-check")).toHaveCount(4)
+  await page.getByTestId("health-toggle").click()
+  await expect(page.getByTestId("health-band").getByTestId("health-check")).toHaveCount(0)
+})
+
+test("the detail of a problem names each property once, and the raw error only there", async ({ page }) => {
+  await open(page, [RED])
+  const columns = page.locator('[data-code="notion.columns"]')
+  await columns.getByTestId("health-detail-toggle").focus()
+  await page.keyboard.press("Enter")
+  const detail = columns.getByTestId("health-detail")
+  await expect(detail.getByRole("listitem")).toHaveCount(2)
+  await expect(detail).toContainText("“Runner”")
 })

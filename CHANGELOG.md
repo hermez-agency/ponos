@@ -51,6 +51,11 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Changed
 
+- **The dashboard's "Installation status" band fits on one line.** Folded by default, it keeps the count of points to
+  fix and "Recheck"; unfolded, each problem is one line with its button, and a toggle of its own opens the probable
+  cause, the steps and the technical detail in small print. The choice is kept in the browser. A property two settings
+  name (“Agent”) is listed once, what each missing property costs and Slack's errors are translated, and the raw error
+  code stays in the detail ("Slack", not "slack").
 - **A ticket's CI block fits on one line.** The list of checks is folded behind a chevron, leaving the state, the
   count of checks passed ("5/5") and the link to GitHub; a click or the keyboard opens it, and the choice is kept for
   every ticket. When the CI failed the list is open until you choose otherwise, and a folded line names the checks that

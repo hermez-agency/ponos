@@ -35,6 +35,8 @@ export interface HealthCheck {
   steps: string[]
   url: string
   evidence: string
+  /** What each name in a list is worth: “Agent” and the sentences about it. */
+  notes: { name: string; said: string[] }[]
   fix: HealthFix | null
 }
 
