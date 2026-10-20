@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router"
 import {
   CircleCheck,
   CircleX,
+  ChevronRight,
   ExternalLink,
   LoaderCircle,
   GitMerge,
@@ -18,6 +19,7 @@ import { ProjectThumb } from "@/components/console/project-picture"
 import { projectHref } from "@/resources/projects"
 import { ConfirmDialog } from "@/components/console/confirm-dialog"
 import { Button } from "@/components/ui/button"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -253,11 +255,37 @@ const BUCKET: Record<string, CiState> = {
   cancel: "failed",
 }
 
+const CI_OPEN_KEY = "ponos-ci-open"
+
+/* Whether the list of checks is unfolded: one choice for every ticket, kept
+ * with the browser like the theme. Until it has been made, the list is folded —
+ * unless the checks failed, when the list is what you came for. */
+function useCiOpen(failed: boolean) {
+  const [chosen, setChosen] = React.useState<boolean | null>(() => {
+    try {
+      const stored = localStorage.getItem(CI_OPEN_KEY)
+      return stored === null ? null : stored === "open"
+    } catch {
+      return null
+    }
+  })
+  const choose = React.useCallback((next: boolean) => {
+    setChosen(next)
+    try {
+      localStorage.setItem(CI_OPEN_KEY, next ? "open" : "folded")
+    } catch {
+      // Storage off: the choice lasts as long as the tab.
+    }
+  }, [])
+  return [chosen ?? failed, choose] as const
+}
+
 /* Where a review's checks stand, as an icon and a colour: on the card it is
  * the whole of it, and the detail adds each check and the link to GitHub's
  * page. Nothing for a pull request without checks — `ci` is null then. */
 export function TicketCi({ ci, detailed = false }: { ci?: Ci | null; detailed?: boolean }) {
   useT()
+  const [open, choose] = useCiOpen(ci?.state === "failed")
   if (!ci) return null
   const { icon: Icon, color, spin } = CI_STATE[ci.state]
   const badge = (
@@ -273,10 +301,35 @@ export function TicketCi({ ci, detailed = false }: { ci?: Ci | null; detailed?: 
       </div>
     )
   }
+  const stateOf = (bucket: string): CiState => BUCKET[bucket] ?? "pending"
+  const failing = ci.checks.filter((check) => stateOf(check.bucket) === "failed")
+  const passing = ci.checks.filter((check) => stateOf(check.bucket) === "passed").length
   return (
-    <div className="flex flex-col gap-1.5" data-slot="ticket-ci" data-state={ci.state}>
-      <div className="flex flex-wrap items-center gap-2">
-        {badge}
+    <Collapsible
+      open={open}
+      onOpenChange={choose}
+      className="flex flex-col gap-1.5"
+      data-slot="ticket-ci"
+      data-state={ci.state}
+    >
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <CollapsibleTrigger className="focus-visible:ring-ring/50 flex min-w-0 items-center gap-1.5 rounded-md outline-none focus-visible:ring-2">
+          <ChevronRight
+            className={cn("text-muted-foreground size-3.5 shrink-0 transition-transform", open && "rotate-90")}
+            aria-hidden
+          />
+          {badge}
+          {ci.checks.length ? (
+            <span className="text-muted-foreground font-mono text-xs tabular-nums">
+              {passing}/{ci.checks.length}
+            </span>
+          ) : null}
+          {!open && failing.length ? (
+            <span className="text-tr-red min-w-0 truncate text-xs" data-slot="ticket-ci-failing">
+              {failing.map((check) => check.name).join(", ")}
+            </span>
+          ) : null}
+        </CollapsibleTrigger>
         <a
           href={ci.link}
           target="_blank"
@@ -287,26 +340,28 @@ export function TicketCi({ ci, detailed = false }: { ci?: Ci | null; detailed?: 
           <ExternalLink className="size-3" />
         </a>
       </div>
-      <ul className="flex flex-col gap-0.5 text-xs">
-        {ci.checks.map((check) => {
-          const state = BUCKET[check.bucket] ?? "pending"
-          const { icon: CheckIcon, color, spin } = CI_STATE[state]
-          const name = <span className="min-w-0 truncate">{check.name}</span>
-          return (
-            <li key={`${check.name}-${check.link}`} className="flex items-center gap-1.5" data-state={state}>
-              <CheckIcon className={cn("size-3 shrink-0", color, spin && "animate-spin")} />
-              {check.link ? (
-                <a href={check.link} target="_blank" rel="noreferrer noopener" className="min-w-0 hover:underline">
-                  {name}
-                </a>
-              ) : (
-                name
-              )}
-            </li>
-          )
-        })}
-      </ul>
-    </div>
+      <CollapsibleContent>
+        <ul className="flex flex-col gap-0.5 text-xs">
+          {ci.checks.map((check) => {
+            const state = stateOf(check.bucket)
+            const { icon: CheckIcon, color, spin } = CI_STATE[state]
+            const name = <span className="min-w-0 truncate">{check.name}</span>
+            return (
+              <li key={`${check.name}-${check.link}`} className="flex items-center gap-1.5" data-state={state}>
+                <CheckIcon className={cn("size-3 shrink-0", color, spin && "animate-spin")} />
+                {check.link ? (
+                  <a href={check.link} target="_blank" rel="noreferrer noopener" className="min-w-0 hover:underline">
+                    {name}
+                  </a>
+                ) : (
+                  name
+                )}
+              </li>
+            )
+          })}
+        </ul>
+      </CollapsibleContent>
+    </Collapsible>
   )
 }
 
