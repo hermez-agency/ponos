@@ -494,8 +494,9 @@ function Ponos({
 }
 
 /* The question a run stopped on, said once: what is done, why it stops, and
- * the question itself, in bold — the report's three parts, without its marks. */
-function Asked({ decision, when }: { decision: Decision; when: string }) {
+ * the question itself, in bold — the report's three parts, without its marks.
+ * The series of blocked tickets draws it too, over the choices. */
+export function Asked({ decision, when }: { decision: Decision; when: string }) {
   const t = useT()
   const ask = decision.question?.ask?.trim() ?? ""
   const reason = decision.reason?.trim() ?? ""

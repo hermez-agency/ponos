@@ -2699,6 +2699,23 @@ file it away. The MCP server's `list_solutions` still lists every choice a block
 offers — *it's done, run it again*, *split into sub-tickets* and the rest — for an assistant
 to pick from.
 
+**One after another.** From two blocked cards on, the *Blocked* column's heading offers
+**Unblock (N)**, and *In review*'s **Decide (N)**; Ctrl+K has them too (*Unblock the tickets*,
+*Decide on the tickets in review*), and the address keeps them — `/?series=blocked`,
+`/?series=review` — to come back to or to share. They open one window, the whole screen, that
+goes through the column a ticket at a time: at the top *2 / 5*, a progress bar and the list of
+its tickets — short title, project, cause — any of which a click jumps to; in the middle the
+ticket's title, project and cause, then the same choices as its *Decide* tab — on a blocked
+ticket, the question as its discussion says it and every way out the session's report offers,
+its own options numbered. Once one is sent the next comes, with *Ticket unblocked — Undo* over
+it, which puts the last one back in its column. *Previous*, *Skip* and *Open the ticket* (in a
+new tab) are under it, and the keys: → or J skips, ← or K goes back, 1 to 9 picks the session's
+option, Escape closes. The questions come first, then the missing accesses, then the rest, and
+last the stops Ponos tries again by itself or that wait for the base; inside each, the highest
+priority, then the oldest. A ticket that moves elsewhere meanwhile — its session, Notion,
+another tab — leaves the series as it happens. At the end, what was done — *4 tickets
+unblocked, 1 ticket skipped* — and *Review the skipped tickets*.
+
 All of it is read off the report the runner already writes. A session that stops names the
 kind of thing it stopped on (a `CATEGORY:` line beside `WHY:` and `QUESTION:`), which the
 report writes in front of why — `Missing access: I have no SSH key for the server`; a session

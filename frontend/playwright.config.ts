@@ -22,10 +22,11 @@ import { defineConfig } from "@playwright/test"
  * the statistics of Website then count, and it counts the ideas the chat's batch adds. The sessions' tests have one as well: they hold the console's one open conversation, and a turn running there is a turn the ideas' scoring waits behind. And the first connection
  * gets a console nobody has claimed, which its test claims — once. And the tests that
 delete projects get one of their own, with two projects to spare: the others count them —
- * and so do the tests that create some.
+ * and so do the tests that create some. And the series, which goes through a whole column
+ * and so counts every card of it, gets one with a board of its own, its tests one after another.
  *
  * The ports are free ones unless `PONOS_E2E_PORT` names the first (the
- * chat takes the next, the first connection the one after, deleting the one after that, the ideas and the sessions the last): two worktrees running these tests at once must not both
+ * chat takes the next, the first connection the one after, deleting the one after that, then the ideas, the sessions, and the series last): two worktrees running these tests at once must not both
  * ask for 8790. They are kept in the environment because Playwright reads this
  * file again in every worker, and a worker that drew its own would knock on a
  * port nobody serves.
@@ -49,6 +50,7 @@ if (!process.env.PONOS_E2E_CHAT_PORT) {
   process.env.PONOS_E2E_DELETE_PORT = String(given ? given + 3 : await free())
   process.env.PONOS_E2E_IDEAS_PORT = String(given ? given + 4 : await free())
   process.env.PONOS_E2E_SESSIONS_PORT = String(given ? given + 5 : await free())
+  process.env.PONOS_E2E_SERIES_PORT = String(given ? given + 6 : await free())
 }
 const PORT = Number(process.env.PONOS_E2E_PORT)
 const CHAT_PORT = Number(process.env.PONOS_E2E_CHAT_PORT)
@@ -56,6 +58,7 @@ const SETUP_PORT = Number(process.env.PONOS_E2E_SETUP_PORT)
 const DELETE_PORT = Number(process.env.PONOS_E2E_DELETE_PORT)
 const IDEAS_PORT = Number(process.env.PONOS_E2E_IDEAS_PORT)
 const SESSIONS_PORT = Number(process.env.PONOS_E2E_SESSIONS_PORT)
+const SERIES_PORT = Number(process.env.PONOS_E2E_SERIES_PORT)
 
 const PYTHON = existsSync("../.venv/bin/python") ? "../.venv/bin/python" : "python3"
 
@@ -83,7 +86,7 @@ export default defineConfig({
   projects: [
     {
       name: "console",
-      testIgnore: ["chat.spec.ts", "ideas.spec.ts", "ideas-page.spec.ts", "sessions.spec.ts", "setup.spec.ts", "project-delete.spec.ts", "project-new.spec.ts"],
+      testIgnore: ["chat.spec.ts", "ideas.spec.ts", "ideas-page.spec.ts", "sessions.spec.ts", "setup.spec.ts", "project-delete.spec.ts", "project-new.spec.ts", "series.spec.ts"],
       use: { baseURL: `http://127.0.0.1:${PORT}` },
     },
     {
@@ -107,10 +110,16 @@ export default defineConfig({
       use: { baseURL: `http://127.0.0.1:${SESSIONS_PORT}` },
     },
     {
+      name: "series",
+      testMatch: "series.spec.ts",
+      fullyParallel: false,
+      use: { baseURL: `http://127.0.0.1:${SERIES_PORT}` },
+    },
+    {
       name: "setup",
       testMatch: "setup.spec.ts",
       use: { baseURL: `http://127.0.0.1:${SETUP_PORT}` },
     },
   ],
-  webServer: [serve(PORT), serve(CHAT_PORT), serve(SETUP_PORT, "unclaimed"), serve(DELETE_PORT, "doomed"), serve(IDEAS_PORT), serve(SESSIONS_PORT)],
+  webServer: [serve(PORT), serve(CHAT_PORT), serve(SETUP_PORT, "unclaimed"), serve(DELETE_PORT, "doomed"), serve(IDEAS_PORT), serve(SESSIONS_PORT), serve(SERIES_PORT, "series")],
 })

@@ -28,7 +28,9 @@ The blocked ticket has two runs in the local journal, for the session tab that
 reads them.
 
 Given `doomed`, the same console with two more projects, for the tests that
-delete them. Given `unclaimed`, the same console with no token and no sign-in: what a
+delete them. Given `series`, a board of its own: three blocked tickets, each on
+another kind of stop, and two in review — the columns the series of
+`series.spec.ts` goes through whole, which no other test may move a card of. Given `unclaimed`, the same console with no token and no sign-in: what a
 fresh installation serves, its first connection.
 
 And a `claude` of its own, first in the PATH, for the conversation with the
@@ -136,6 +138,17 @@ DELIVERED = (
     "To check: not tried on Safari\n"
     "To check: the screenshots on mobile are missing"
 )
+# The board of the series: blocked on a question, on an access and on a stop
+# Ponos tries again by itself — the order the series takes them in, whatever
+# their priority — and two in review. One project, with an icon.
+SERIES = {
+    "000000000000000000000000005e0001": ("Pick the colour", "Blocked", "session.question", 30),
+    "000000000000000000000000005e0002": ("Give the deploy key", "Blocked", "access.credentials", 90),
+    "000000000000000000000000005e0003": ("Restart the build", "Blocked", "session.killed", 99),
+    "000000000000000000000000005e0004": ("Add the dark mode", "In review", "", 50),
+    "000000000000000000000000005e0005": ("Add the footer", "In review", "", 50),
+}
+SERIES_PROJECT = ("000000000000000000000000005e0caf", "Studio", "🎨")
 PAUSED = "00000000000000000000000000005ed1"
 DUE = "00000000000000000000000000005ed2"
 PROJECTS = {"0000000000000000000000000000cafe": "Website", "0000000000000000000000000000beef": "Newsletter"}
@@ -278,6 +291,30 @@ def board(root: Path, doomed: bool = False) -> None:
         (schedules / f"{name.lower().replace(' ', '-')}-{id[-8:]}.md").write_text(
             files.render(page, "Send it."), encoding="utf-8"
         )
+
+
+def series_board(root: Path) -> None:
+    """The board of `series.spec.ts`: nothing but the cards its series go through."""
+    tickets = root / "tickets"
+    tickets.mkdir(parents=True)
+    comments = root / "comments"
+    comments.mkdir()
+    projects = root / "projects"
+    projects.mkdir()
+    id, name, icon = SERIES_PROJECT
+    page = {"id": id, "title": name, "icon": icon}
+    (projects / f"{name.lower()}-{id[-8:]}.md").write_text(files.render(page, f"The brief of {name}."), encoding="utf-8")
+    for number, (id, (title, status, code, priority)) in enumerate(SERIES.items()):
+        page = {"id": id, "title": title, "Status": status, "Priority": priority, "Project": [SERIES_PROJECT[0]],
+                "created": f"2026-10-{10 + number}T10:00:00+00:00"}
+        if code:
+            page["Blocage"] = code
+        (tickets / f"{title.lower().replace(' ', '-')}-{id[-8:]}.md").write_text(
+            files.render(page, "A short brief."), encoding="utf-8"
+        )
+        said = {"id": f"r{id[-4:]}", "at": "2026-10-01T10:00:00+00:00", "by": "ponos", "discussion": f"r{id[-4:]}"}
+        report = DELIVERED if status == "In review" else STUCK
+        (comments / f"{id}.md").write_text(files.render(said, report), encoding="utf-8")
 
 
 # The session a message to the workspace starts: what it does, said the way
@@ -450,7 +487,10 @@ def main() -> None:
     mode = sys.argv[2] if len(sys.argv) > 2 else ""
     unclaimed = mode == "unclaimed"
     here = Path(tempfile.mkdtemp(prefix="ponos-e2e-"))
-    board(here / "board", doomed=mode == "doomed")
+    if mode == "series":
+        series_board(here / "board")
+    else:
+        board(here / "board", doomed=mode == "doomed")
     config = here / "config.toml"
     # No update checks of the console's own: they would ask the remote of this
     # checkout and write over the stamp below.

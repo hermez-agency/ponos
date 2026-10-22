@@ -5,10 +5,13 @@ import {
   CircleX,
   ExternalLink,
   GitPullRequest,
+  ListChecks,
   MessageCircleQuestion,
   Scale,
   type LucideIcon,
 } from "lucide-react"
+import { useLocation } from "@tanstack/react-router"
+import { useNavigate } from "react-resource-view"
 import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
@@ -41,6 +44,7 @@ import {
   tone,
 } from "@/lib/decision"
 import { useT } from "@/lib/i18n"
+import { SERIES_FROM, type SeriesColumn, withSeries } from "@/lib/series"
 import type { Decision, Solution, Ticket } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { tickets } from "@/resources/tickets"
@@ -60,7 +64,18 @@ import { tickets } from "@/resources/tickets"
  * `ticket-talk.tsx`. The button on a card opens the window on the tab, or on
  * the discussion; the same button on the ticket itself, in its window or on
  * its page, only switches to it.
+ *
+ * The series that goes through a column's tickets one after another
+ * (`ticket-series.tsx`) draws this panel for each, a blocked one too: its
+ * question as the discussion says it, and under it every way out the server
+ * offers, the session's own options numbered — the keys 1 to 9 there.
  */
+
+/* The question a blocked ticket stopped on, as its discussion draws it: with
+ * the discussion, which the first load does without. */
+const Asked = React.lazy(() =>
+  import("@/components/console/ticket-talk").then((module) => ({ default: module.Asked }))
+)
 
 /** How a ticket shown on screen goes to one of its tabs: none around a card, which opens the window instead. */
 /* The tab of a ticket opened in the window over a list, in the address. Not
@@ -117,12 +132,50 @@ export function DecideButton({
   )
 }
 
-/** The tab itself: why the ticket waits, and the choices. `onDone` is told once one is sent. */
-export function TicketDecision({ ticket, onDone }: { ticket: Ticket; onDone: () => void }) {
+/** Opens the series of a column's tickets over the page you are on: the address says it, so Back closes it. */
+export function useOpenSeries() {
+  const navigate = useNavigate()
+  const { pathname, searchStr } = useLocation()
+  return React.useCallback(
+    (column: SeriesColumn) => void navigate({ to: `${pathname}${withSeries(searchStr, column)}` }),
+    [navigate, pathname, searchStr]
+  )
+}
+
+/* The way through a whole column at once, in its heading: Unblock (3), Decide
+ * (2) — from two cards on, one being a card you would open anyway. Counted on
+ * the board, whatever the search keeps. */
+export function SeriesButton({ column }: { column: SeriesColumn }) {
+  const t = useT()
+  const board = useBoard()
+  const open = useOpenSeries()
+  const count = board.tickets.filter((ticket) => ticket.column === column).length
+  if (count < SERIES_FROM) return null
+  const blocked = column === "blocked"
+  const Icon = blocked ? ListChecks : Scale
+  return (
+    <Button
+      size="xs"
+      variant="outline"
+      data-series={column}
+      className={cn("shrink-0", blocked ? "text-tr-amber hover:text-tr-amber" : "text-tr-pink hover:text-tr-pink")}
+      onClick={(event) => {
+        event.stopPropagation()
+        open(column)
+      }}
+    >
+      <Icon />
+      {blocked ? t("Unblock ({{count}})", { count: String(count) }) : t("Decide ({{count}})", { count: String(count) })}
+    </Button>
+  )
+}
+
+/** The tab itself: why the ticket waits, and the choices. `onDone` is told which, once one is sent. */
+export function TicketDecision({ ticket, onDone }: { ticket: Ticket; onDone: (solution: Solution) => void }) {
   return <Panel key={ticket.id} id={ticket.id} ticket={ticket} onDone={onDone} />
 }
 
-function Panel({ id, ticket, onDone }: { id: string; ticket?: Ticket; onDone: () => void }) {
+function Panel({ id, ticket, onDone }: { id: string; ticket?: Ticket; onDone: (solution: Solution) => void }) {
   const t = useT()
   const [decision, setDecision] = React.useState<Decision | null>(null)
   const [problem, setProblem] = React.useState("")
@@ -155,7 +208,13 @@ function Panel({ id, ticket, onDone }: { id: string; ticket?: Ticket; onDone: ()
     )
   return (
     <div data-slot="ticket-decision" className="max-w-[75ch] space-y-8 text-base leading-relaxed">
-      <Delivered decision={decision} />
+      {decision.column === "review" ? (
+        <Delivered decision={decision} />
+      ) : (
+        <React.Suspense fallback={<Skeleton className="h-16 w-2/3" />}>
+          <Asked decision={decision} when="" />
+        </React.Suspense>
+      )}
       <Choices decision={decision} ticket={ticket} onDone={onDone} />
     </div>
   )
@@ -229,7 +288,15 @@ function Delivered({ decision }: { decision: Decision }) {
 }
 
 /* The choices, one button each. One that needs words opens its field under it. */
-function Choices({ decision, ticket, onDone }: { decision: Decision; ticket?: Ticket; onDone: () => void }) {
+function Choices({
+  decision,
+  ticket,
+  onDone,
+}: {
+  decision: Decision
+  ticket?: Ticket
+  onDone: (solution: Solution) => void
+}) {
   const t = useT()
   const board = useBoard()
   const [chosen, setChosen] = React.useState<Solution | null>(null)
@@ -256,7 +323,7 @@ function Choices({ decision, ticket, onDone }: { decision: Decision; ticket?: Ti
         }),
         { description: t(labelOf(solution)) }
       )
-      onDone()
+      onDone(solution)
     } catch (error) {
       toast.error(t("The decision was not sent"), { description: why(error) })
     } finally {
@@ -288,6 +355,7 @@ function Choices({ decision, ticket, onDone }: { decision: Decision; ticket?: Ti
               variant={same(solution, chosen) ? "secondary" : tone(solution, index)}
               disabled={busy}
               data-solution={solution.key}
+              data-number={solution.number}
               aria-expanded={immediate(solution) ? undefined : same(solution, chosen)}
               className={cn(
                 "h-auto min-h-11 w-full justify-start py-2 text-left text-base whitespace-normal",
