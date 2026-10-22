@@ -51,6 +51,9 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Changed
 
+- **Unblocking a ticket closes its window.** Answering Ponos, pressing a quick reply or running it again as it is
+  sends the ticket back to Ready and takes you back to the board; if the send fails, the window stays open with the
+  error.
 - **A value `config.toml` cannot hold is said, with its key and its line.** The file is read against one model per
   table (pydantic): a port that is not a number, a list where a word goes, a table written as a value used to stop the
   runner with a traceback that named nothing, or to be read as something else in silence — they now stop it, the
