@@ -16,8 +16,16 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-22
+
 ### Added
 
+- Une installation en une commande, et une première connexion guidée. L'installeur vérifie la machine et
+  nomme d'un coup tout ce qui manque, avec la commande qui l'installe (apt-get, dnf, pacman ou brew) ; il ne pose
+  plus de question dans le terminal et lance la console, puis l'ouvre dans le navigateur. La première connexion
+  commence par la langue, puis mène à un premier projet et à un ticket de démonstration créé et joué aussitôt. Le
+  pas Notion vérifie le jeton, et trouve seul la page partagée avec l'intégration. Le récapitulatif ajoute une ligne
+  pour la machine et lance `ponos doctor`, qui affiche la commande d'installation à côté de ce qui manque.
 - « Ponos travaille » revient après un déblocage : la carte d'un ticket en cours
   montre le robot au travail, et la fenêtre du ticket rouverte — rechargement
   compris — l'affiche tant que la session tourne.
