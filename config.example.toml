@@ -491,7 +491,7 @@ rebase = true
 # Needs `rebase = true`. Off, a conflict blocks the ticket as it always did.
 resolve_conflicts = true
 # Projects whose conflicts are always left to you, by their Notion name.
-#   resolve_conflicts_except = ["Animalink", "Site vitrine"]
+#   resolve_conflicts_except = ["Northwind", "Site vitrine"]
 resolve_conflicts_except = ""
 # The model that resolves. Empty: the ticket's own, as its session had it.
 # Its cost is added to the ticket's Cost column either way.
@@ -824,7 +824,7 @@ on_usd = 1.0
 # and the ticket starts again by itself when you answer « fait ».
 [permissions]
 allowed = [
-  "redéployer un service sur les Dokploy de Salva (dokploy.cardona.digital et le Dokploy d'Animalink), lire leurs logs, ajouter une variable d'environnement non secrète ou générer un secret aléatoire propre au service",
+  "redéployer un service sur les Dokploy de Salva (dokploy.cardona.digital et le Dokploy d'Northwind), lire leurs logs, ajouter une variable d'environnement non secrète ou générer un secret aléatoire propre au service",
   "taguer et publier une release d'un dépôt de SalvadorCardona ou de hermez-agency, après fusion sur main",
   "cloner un dépôt de SalvadorCardona ou de hermez-agency manquant dans le workspace et lui créer un projet Ponos",
   "relancer une CI",
@@ -1058,7 +1058,7 @@ send_after_transcription = false
 # GitHub) comes before this table for the owners it is installed on, and so does
 # an access token (see [github_access] below).
 [github]
-# "animalink" = "dev-animalink"
+# "northwind" = "dev-northwind"
 # "hermez-agency" = "hermez-bot"
 
 # How GitHub is reached without `gh`: a GitHub App, or a personal access token.

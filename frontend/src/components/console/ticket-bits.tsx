@@ -208,6 +208,9 @@ export const FAMILY_ICON: Record<BlockFamily, LucideIcon> = {
 /** The colour of a family — on its icon, never on the words beside it. */
 export const familyColor = (family: BlockFamily): string => `var(--family-${family})`
 
+/** A colour, softened — a chart's bars read as one shape sooner than as a wall of ink. */
+export const fade = (color: string, opacity = 75): string => `color-mix(in oklab, ${color} ${opacity}%, transparent)`
+
 /** A cause's words in the language the console is read in. Written by the server in both. */
 export function blockSaid(words: { en: string; fr: string }): string {
   return (currentLanguage() === "fr" ? words.fr : words.en) || words.en

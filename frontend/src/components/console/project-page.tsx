@@ -1,11 +1,11 @@
 import * as React from "react"
 import { useLocation, useRouter } from "@tanstack/react-router"
-import { ArrowLeft, ArrowUpRight, CopyIcon } from "lucide-react"
+import { ArrowLeft, ArrowUpRight, CopyIcon, Pencil } from "lucide-react"
 import { ActionList } from "react-data-form"
 import { Link, ResourceViewButton, useCurrentViewResourceContext, useNavigate } from "react-resource-view"
 import { toast } from "sonner"
 
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { why } from "@/lib/api"
@@ -25,6 +25,7 @@ import {
 } from "@/resources/projects"
 import { settingsHref } from "@/resources/settings"
 
+import { CONTEXT_ANCHOR } from "./context-block"
 import { Eyebrow, Fact, Facts } from "./frame"
 import { IdeasButton } from "./ideas-deck"
 import { ProjectBrief } from "./project-brief"
@@ -321,14 +322,26 @@ export function ProjectHead() {
             </p>
           ) : null}
           {panel && project ? (
-            <Link
-              to={projectHref(project.id, panel.tab)}
-              data-project-open
-              className="text-muted-foreground hover:text-foreground mt-1 inline-flex items-center gap-1 text-xs underline-offset-2 hover:underline"
-            >
-              {t("Open the project's page")}
-              <ArrowUpRight className="size-3.5" />
-            </Link>
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+              <Link
+                to={projectHref(project.id, panel.tab)}
+                data-project-open
+                className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs underline-offset-2 hover:underline"
+              >
+                {t("Open the project's page")}
+                <ArrowUpRight className="size-3.5" />
+              </Link>
+              {/* The panel's one header: the global context is a link back to
+                  it, not a second one drawn over this. */}
+              <Link
+                to={`${projectsHref()}#${CONTEXT_ANCHOR}`}
+                onClick={() => pick("")}
+                data-slot="context-link"
+                className="text-muted-foreground hover:text-foreground text-xs underline-offset-2 hover:underline"
+              >
+                {t("Inherits the global context ↑")}
+              </Link>
+            </div>
           ) : null}
         </div>
         <div className="flex w-full flex-wrap items-center gap-2 md:w-auto">
@@ -364,7 +377,7 @@ export function ProjectTitle() {
 export function ProjectActions() {
   const context = useShown()
   const project = context.project
-  useT()
+  const t = useT()
   const count = useTicketCount(project?.name ?? "")
   const navigate = useNavigate()
   if (!project) return null
@@ -372,24 +385,28 @@ export function ProjectActions() {
   const away = reachable(project.url) ? project.url : ""
   return (
     <>
-      <NewTicket project={project} />
-      {away ? <Away label="Notion" href={away} /> : null}
-      {isAPage(project.id) ? <IdeasButton project={project.id} name={project.name} /> : null}
+      {/* What the project is, before what can be done to it: a count, then a
+       * way out to Notion — both read-only, both the same small print. */}
       {count === null ? (
         <Skeleton className="h-5 w-16 rounded-full" />
       ) : count ? (
         <Chip>{counted(count, "{{count}} ticket", "{{count}} tickets")}</Chip>
       ) : null}
+      {away ? <Away label="Notion" href={away} /> : null}
+      {/* Then the actions, one height (`sm`) so the row reads as one group
+       * rather than four buttons that each picked their own size. */}
+      <NewTicket project={project} size="sm" />
+      {isAPage(project.id) ? <IdeasButton project={project.id} name={project.name} /> : null}
       {isAPage(project.id) ? (
         // One piece, so that on a phone the "…" wraps with the edit button
         // rather than alone on a line under it.
         <span className="flex items-center gap-2">
-          <ResourceViewButton
-            action={ActionList.update}
-            resource={context.resource}
-            id={project.id}
-            data={project}
-          />
+          <ResourceViewButton action={ActionList.update} resource={context.resource} id={project.id} data={project}>
+            <span className={cn(buttonVariants({ variant: "outline", size: "sm" }), "bg-card")}>
+              <Pencil />
+              {t("Edit")}
+            </span>
+          </ResourceViewButton>
           <ProjectMenu
             project={project}
             tickets={count}

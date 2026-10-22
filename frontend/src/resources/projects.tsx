@@ -647,8 +647,17 @@ export function RowMenu({ project, onDeleted, className }: { project: ProjectIte
 }
 
 /** “+ Ticket”, beside the link of a card or a row and not inside it: the dialog is the dashboard's
- * “New ticket”, with the project already in its field — and none to point at for a line of `config.toml`. */
-export function NewTicket({ project, className }: { project: ProjectItem; className?: string }) {
+ * “New ticket”, with the project already in its field — and none to point at for a line of `config.toml`.
+ * `xs`, floating in a card's corner; `sm`, the height of a project's own header actions. */
+export function NewTicket({
+  project,
+  className,
+  size = "xs",
+}: {
+  project: ProjectItem
+  className?: string
+  size?: "xs" | "sm"
+}) {
   const link = useViewLink({ resource: tickets, action: "create" })
   if (!isAPage(project.id)) return null
   return (
@@ -657,7 +666,7 @@ export function NewTicket({ project, className }: { project: ProjectItem; classN
         to={carrying(link.to, { project: project.id })}
         onClick={link.onOpen}
         data-project-new-ticket
-        className={cn(buttonVariants({ variant: "outline", size: "xs" }), "bg-card whitespace-nowrap")}
+        className={cn(buttonVariants({ variant: "outline", size }), "bg-card whitespace-nowrap")}
       >
         <Plus />
         {t("Ticket")}
@@ -1204,8 +1213,6 @@ export const projects = createViewResource<ProjectItem, ProjectWrite>(PROJECTS, 
 
   views: {
     list: {
-      description:
-        "What the tickets are about: where the work happens, and what conventions hold there. One with no repository is not a mistake — its tickets come back as a document.",
       /* The three layouts, each at the width of the page. Their labels go through the dictionary as the tabs
        * are drawn, and their address is their type: `cards`, `table`, in
        * every language. */

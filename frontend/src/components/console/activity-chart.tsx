@@ -250,7 +250,7 @@ export function ActivityChart({
                     width={bar}
                     height={Math.max(1, MARGIN.top + tall - top)}
                     rx={Math.min(2, bar / 3)}
-                    fill={one.color}
+                    fill={`color-mix(in oklab, ${one.color} 75%, transparent)`}
                   />
                 )
               })

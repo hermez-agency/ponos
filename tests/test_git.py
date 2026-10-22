@@ -558,12 +558,12 @@ def a_repository_is_worked_under_the_account_its_owner_names():
     """
 
     for reference in (
-        "https://github.com/Animalink/site/pull/12",
-        "git@github.com:animalink/site.git",
-        "https://github.com/animalink/site",
-        "animalink/site",
+        "https://github.com/Northwind/site/pull/12",
+        "git@github.com:northwind/site.git",
+        "https://github.com/northwind/site",
+        "northwind/site",
     ):
-        assert git_module.owner(reference) == "animalink", reference
+        assert git_module.owner(reference) == "northwind", reference
     assert git_module.owner("site") == "", "a name alone designates no owner"
 
     asked: list[str] = []
@@ -572,9 +572,9 @@ def a_repository_is_worked_under_the_account_its_owner_names():
         asked.append(account)
         return f"gho-{account}" if account != "nobody" else ""
 
-    accounts = {"animalink": "dev-animalink", "hermez-agency": "hermez-bot"}
+    accounts = {"northwind": "dev-northwind", "hermez-agency": "hermez-bot"}
     with _git_answering(account_token=token):
-        assert git_module.token_for("animalink/site", accounts) == "gho-dev-animalink"
+        assert git_module.token_for("northwind/site", accounts) == "gho-dev-northwind"
         assert (
             git_module.token_for("https://github.com/hermez-agency/x/pull/1", accounts)
             == "gho-hermez-bot"
@@ -582,11 +582,11 @@ def a_repository_is_worked_under_the_account_its_owner_names():
         # An owner nobody named, and a machine that names nobody: both are the
         # account `gh` is signed in as, which is what one GitHub always did.
         assert git_module.token_for("someone-else/x", accounts) == ""
-        assert git_module.token_for("animalink/site", {}) == ""
+        assert git_module.token_for("northwind/site", {}) == ""
         # And an account `gh` is not signed in as is not a ticket's problem:
         # `doctor` says so, the command runs as whoever is active.
         assert git_module.token_for("x/y", {"x": "nobody"}) == ""
-    assert asked == ["dev-animalink", "hermez-bot", "nobody"], asked
+    assert asked == ["dev-northwind", "hermez-bot", "nobody"], asked
 
 
 @case
@@ -615,7 +615,7 @@ def a_gh_call_about_a_repository_carries_that_account_and_nothing_else():
     try:
         with _git_answering(account_token=lambda account: "gho-secret"):
             git_module.pull_request_state(
-                "https://github.com/animalink/site/pull/3", {"animalink": "dev-animalink"}
+                "https://github.com/northwind/site/pull/3", {"northwind": "dev-northwind"}
             )
             git_module.pull_request_state("https://github.com/x/y/pull/3", {})
     finally:
@@ -1534,8 +1534,8 @@ def a_resolution_report_is_what_the_session_wrote_above_its_verdict():
 
 @case
 def conflicts_are_resolved_everywhere_but_where_the_file_says_not():
-    config = _config('[runner]\nresolve_conflicts_except = ["Animalink", "Site vitrine"]\n')
-    assert config.runner.resolve_conflicts_except == "Animalink, Site vitrine"
+    config = _config('[runner]\nresolve_conflicts_except = ["Northwind", "Site vitrine"]\n')
+    assert config.runner.resolve_conflicts_except == "Northwind, Site vitrine"
     assert not config.runner.resolves_conflicts("site vitrine")
     assert config.runner.resolves_conflicts("Trader IA")
     assert (

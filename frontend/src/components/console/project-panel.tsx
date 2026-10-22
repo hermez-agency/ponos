@@ -17,12 +17,12 @@ import { ProjectInPanel } from "./project-page"
 
 /* What sits beside the list of projects.
  *
- * The global context first — always, folded to a few lines, because it is what
- * every ticket is told and the one thing worth seeing without asking — then the
- * project picked in the list: its page, the same one its address opens, with
- * its tabs, its figures and its actions. It was a summary of its own, with a
- * link to the page for the rest: two views of one project, which said
- * different things. The page alone stays a link away, from the panel's header.
+ * Nothing picked, the global context — because it is what every ticket is
+ * told and the one thing worth seeing without asking. A project picked, its
+ * page instead: its tabs, its figures, its actions, and nothing else — the
+ * project's own header is the one header the panel draws, and the context is
+ * a link away (`ProjectHead`'s "Global context ↑"), not a second header the
+ * same size sitting over it.
  *
  * The row the list read draws it at once; the project as its page reads it —
  * the brief — replaces it as it arrives, read once for the panel and the page
@@ -37,10 +37,10 @@ export function ProjectAside() {
   const chosen = usePicked()
   const wide = useWide()
   const found = read?.projects.find((project) => idOf(project) === chosen)
+  const picked = found && wide
   return (
     <aside data-projects-aside className="flex min-w-0 flex-col gap-4 [&>[data-slot=context-block]]:mb-0">
-      <ContextBlock />
-      {found && wide ? <Picked key={chosen} id={chosen} row={found} /> : null}
+      {picked ? <Picked key={chosen} id={chosen} row={found} /> : <ContextBlock />}
     </aside>
   )
 }

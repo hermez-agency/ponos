@@ -412,7 +412,7 @@ def _schedule_page(page_id: str, **values) -> notion.Page:
                 "type": "relation",
                 "relation": [{"id": last_ticket}] if last_ticket else [],
             },
-            "Project": {"type": "relation", "relation": [{"id": "p-animalink"}]},
+            "Project": {"type": "relation", "relation": [{"id": "p-northwind"}]},
             "Priority": {"type": "number", "number": 40},
             **(
                 {"Type": {"type": "select", "select": {"name": values["type"]}}}

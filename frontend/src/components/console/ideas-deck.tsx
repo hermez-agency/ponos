@@ -36,10 +36,9 @@ export function IdeasButton({
   name?: string
   /** Once the deck is closed: what it decided may change a list drawn behind it. */
   onClose?: () => void
-  /** Drawn at the end of the runner's strip: a quiet button the strip's height,
-   * with the mascot small — and, in a strip narrower than 66rem (the nearest
-   * `@container`), the mascot alone, its words in a tooltip, so that the
-   * strip keeps its line. */
+  /** Drawn at the end of the runner's strip: a quiet icon button the strip's
+   * height, the mascot alone and its words in a tooltip — so the strip's one
+   * line stays the figures', not a second call for attention beside them. */
   inline?: boolean
   className?: string
 }) {
@@ -51,54 +50,53 @@ export function IdeasButton({
   const [eager, setEager] = React.useState(false)
   const wake = (on: boolean) =>
     setEager(on && !window.matchMedia("(prefers-reduced-motion: reduce)").matches)
-  // The tooltip says what the words would, and only when they are not shown.
-  const words = React.useRef<HTMLSpanElement>(null)
-  const [tip, setTip] = React.useState(false)
   const label = project ? t("Find me ideas for this project") : t("Ponos, find me ideas")
-  const button = (
+  const mascot = (
+    <span className="relative inline-flex shrink-0">
+      <Robot state={eager ? "thinking" : "idle"} size={inline ? 20 : 24} />
+      <Sparkles
+        aria-hidden="true"
+        className="absolute -top-0.5 -right-1 size-3 opacity-0 group-hover/ideas:opacity-100 group-focus-visible/ideas:opacity-100 motion-safe:group-hover/ideas:animate-pulse motion-safe:group-focus-visible/ideas:animate-pulse"
+      />
+    </span>
+  )
+  const shared = {
+    "data-slot": project ? "project-ideas-button" : "ideas-button",
+    onClick: () => setOpen(true),
+    onPointerEnter: () => wake(true),
+    onPointerLeave: () => wake(false),
+    onFocus: () => wake(true),
+    onBlur: () => wake(false),
+  } as const
+  const button = inline ? (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          className={cn("group/ideas text-primary hover:text-primary hover:bg-primary/10", className)}
+          aria-label={label}
+          {...shared}
+        >
+          {mascot}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
+  ) : (
     <Button
       size="sm"
       variant="outline"
-      className={cn(
-        "group/ideas",
-        ponosActionLook,
-        inline ? "pr-1.5 pl-1 @min-[66rem]:pr-3" : "pr-3 pl-1",
-        className
-      )}
-      data-slot={project ? "project-ideas-button" : "ideas-button"}
-      onClick={() => setOpen(true)}
-      onPointerEnter={() => wake(true)}
-      onPointerLeave={() => wake(false)}
-      onFocus={() => wake(true)}
-      onBlur={() => wake(false)}
+      className={cn("group/ideas", ponosActionLook, "pr-3 pl-1", className)}
+      {...shared}
     >
-      <span className="relative inline-flex shrink-0">
-        <Robot state={eager ? "thinking" : "idle"} size={24} />
-        <Sparkles
-          aria-hidden="true"
-          className="absolute -top-0.5 -right-1 size-3 opacity-0 group-hover/ideas:opacity-100 group-focus-visible/ideas:opacity-100 motion-safe:group-hover/ideas:animate-pulse motion-safe:group-focus-visible/ideas:animate-pulse"
-        />
-      </span>
-      <span ref={words} className={cn(inline && "sr-only @min-[66rem]:not-sr-only")}>
-        {label}
-      </span>
+      {mascot}
+      <span>{label}</span>
     </Button>
   )
   return (
     <>
-      {inline ? (
-        <Tooltip
-          open={tip}
-          onOpenChange={(on) =>
-            setTip(on && !!words.current && getComputedStyle(words.current).position === "absolute")
-          }
-        >
-          <TooltipTrigger asChild>{button}</TooltipTrigger>
-          <TooltipContent>{label}</TooltipContent>
-        </Tooltip>
-      ) : (
-        button
-      )}
+      {button}
       {open ? (
         <React.Suspense fallback={null}>
           <IdeasDialog

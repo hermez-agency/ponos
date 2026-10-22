@@ -1,13 +1,14 @@
 import { expect, test, type Page } from "@playwright/test"
 
-/* The Projects page in two columns: the list on the left, the global context and
+/* The Projects page in two columns: the list on the left, the global context or
  * the project picked on the right.
  *
  * What is tested is the way a person goes: a project picked fills the panel
  * with its page — the same one its address opens, tabs and actions included —
- * while the context stays folded above it; the tab picked there is kept from
- * one project to the next, and the page alone is a link away, on that tab; and
- * on a phone, where there is no room for a panel, a project picked is its page.
+ * and the context makes way for it, a link back rather than a second header
+ * the same size; the tab picked there is kept from one project to the next,
+ * and the page alone is a link away, on that tab; and on a phone, where there
+ * is no room for a panel, a project picked is its page.
  */
 
 const LIST = "/?view=console/projects/list"
@@ -25,7 +26,7 @@ const tab = (scope: Page | ReturnType<typeof panel>, name: string) => scope.getB
 test.describe("at 1440px", () => {
   test.use({ viewport: { width: 1440, height: 900 } })
 
-  test("the list is on the left, the context and the project picked on the right", async ({ page }) => {
+  test("the list is on the left, the context or the project picked on the right", async ({ page }) => {
     await open(page)
     const context = (await page.locator('[data-slot="context-block"]').boundingBox())!
     const first = (await item(page, "Website").boundingBox())!
@@ -38,8 +39,9 @@ test.describe("at 1440px", () => {
     await expect(panel(page)).toContainText("example/website")
     await expect(panel(page).getByRole("link", { name: /Ticket/ }).first()).toBeVisible()
     await expect(panel(page).getByRole("link", { name: "Edit" })).toBeVisible()
-    // The context is still there, over the project.
-    await expect(page.locator('[data-slot="context-block"]')).toBeVisible()
+    // The context made way for the project: a link back, not a second header.
+    await expect(page.locator('[data-slot="context-block"]')).toHaveCount(0)
+    await expect(panel(page).getByRole("link", { name: /global context/ })).toBeVisible()
 
     await item(page, "Journal").click()
     await expect(panel(page).getByRole("heading", { name: "Journal" })).toBeVisible()

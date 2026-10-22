@@ -64,16 +64,8 @@ test.describe("at 1440px", () => {
     await expect(origin(page, "Workspace").first()).toBeVisible()
   })
 
-  test("the swipe's button looks like the dashboard's, and New idea is at the top of the list", async ({ page }) => {
-    const look = (selector: string) =>
-      page.locator(selector).first().evaluate((el) => {
-        const css = getComputedStyle(el)
-        return [css.backgroundColor, css.borderTopColor, css.color, css.height].join("|")
-      })
-    await open(page, "/")
-    const dashboard = await look('[data-slot="ideas-button"]')
+  test("New idea is at the top of the list", async ({ page }) => {
     await open(page)
-    expect(await look('[data-slot="ideas-button"]')).toBe(dashboard)
     const header = page.locator('[data-slot="list-header"]')
     await expect(header.getByRole("link", { name: "New idea", exact: true })).toBeVisible()
   })

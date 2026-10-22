@@ -30,7 +30,7 @@ def a_runner_nobody_told_a_language_says_exactly_what_it_used_to():
     French ticket in English on the day this shipped.
     """
     common = dict(
-        project="Animalink", title="t", body="b", repo="/r", branch="br", base="main", url="u"
+        project="Northwind", title="t", body="b", repo="/r", branch="br", base="main", url="u"
     )
     assert prompt.build(prompt.DEFAULT, **common) == prompt.build(
         prompt.DEFAULT, **common, language=voice.Voice().instruction()
@@ -51,7 +51,7 @@ def a_conversation_is_told_the_language_too_and_so_is_its_next_turn():
     said = voice.Voice("fr")
     first = prompt.conversation(
         prompt.CONVERSATION,
-        project="Animalink",
+        project="Northwind",
         title="t",
         body="b",
         where="w",

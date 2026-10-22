@@ -130,7 +130,9 @@ test("one chart says the created, the closed and the open; the other what they w
 
   const made = band(page).locator('[data-slot="made-chart"]')
   await expect(made.getByText("Unclassified")).toBeVisible()
-  // A sub-type is its colour, the same on the legend's dot and in the bars — and no emoji.
+  // A sub-type is its colour, faded in the bars so a chart reads as one shape
+  // sooner than as a wall of ink — the same hue as the legend's dot, softened
+  // by the same `color-mix` the chart itself fades it with — and no emoji.
   const legend = made.locator("figure ul")
   await expect(legend).toHaveText(/^[\p{L}\p{N}\s]+$/u)
   for (const key of ["bug", "feature", "-"]) {
@@ -138,7 +140,15 @@ test("one chart says the created, the closed and the open; the other what they w
     const bar = made.locator(`[data-slot="made-bucket"] [data-subtype="${key}"]`).first()
     const colour = await dot.evaluate((element) => getComputedStyle(element).backgroundColor)
     expect(colour).not.toBe("rgba(0, 0, 0, 0)")
-    await expect(bar).toHaveCSS("background-color", colour)
+    const faded = await page.evaluate((colour) => {
+      const probe = document.createElement("div")
+      probe.style.background = `color-mix(in oklab, ${colour} 75%, transparent)`
+      document.body.append(probe)
+      const resolved = getComputedStyle(probe).backgroundColor
+      probe.remove()
+      return resolved
+    }, colour)
+    await expect(bar).toHaveCSS("background-color", faded)
   }
   // 3 bugs over 3 bugs and 4 features; the period before was all bugs.
   await expect(made.locator('[data-slot="regression-rate"]')).toContainText("43 %")

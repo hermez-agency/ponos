@@ -154,6 +154,16 @@
 }
 
 @layer utilities {
+  /* A layout switch's own words — `board`, `table`, `cards`, `split`,
+     `calendar` in `resources/*.tsx` — are lowercase: they are addresses
+     (`?view=…/split`) before they are read as labels, and the one word serves
+     both. react-resource-view capitalises them itself with a `.fc` rule, but
+     its stylesheet is not imported (see the note below), so the same rule is
+     stated here instead, on the shadcn trigger every tab is drawn from. */
+  [data-slot="tabs-trigger"] span::first-letter {
+    text-transform: uppercase;
+  }
+
   /* Every control on the page is a filled box, and every one of them is filled
      from here.
 
@@ -290,13 +300,6 @@
     [data-slot="board-column-cards"] {
       max-height: none;
     }
-  }
-
-  /* The sidebar's head is the bar's twin: the package gives both the same
-     height, but only the bar draws its lower edge, so the two lines stopped
-     short of each other. The same border puts the second one under the mark. */
-  [data-slot="sidebar-header"] {
-    border-bottom: 1px solid var(--border);
   }
 
   /* A window no taller than the screen. The console's own — a ticket's, a
