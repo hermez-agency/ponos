@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { useBoard } from "@/lib/board-store"
 import { dueOf, progressOf } from "@/lib/goal-search"
 import { useT } from "@/lib/i18n"
+import { count } from "@/lib/numbers"
 import { locale } from "@/lib/recurrence"
 import type { Goal } from "@/lib/types"
 import { cn } from "@/lib/utils"
@@ -34,7 +35,9 @@ function Progress({ goal }: { goal: Goal }) {
   const t = useT()
   const { done, total } = progressOf(goal)
   // Strings, not numbers: the dictionary leaves a parameter that is 0 unsaid.
-  const said = t("{{done}} of {{total}} tickets done", { done: String(done), total: String(total) })
+  // In the form the total asks for: « 0 sur 1 ticket fait », not « tickets faits ».
+  const form = count(total, "{{done}} of {{count}} ticket done", "{{done}} of {{count}} tickets done")
+  const said = t(form.key, { ...form.params, done: String(done) })
   return (
     <div className="flex flex-col gap-1.5" data-slot="goal-progress">
       <span className="text-muted-foreground text-xs tabular-nums">{said}</span>

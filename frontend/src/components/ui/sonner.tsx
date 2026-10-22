@@ -21,9 +21,12 @@ function Toaster({ ...props }: ToasterProps) {
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
       position="bottom-right"
-      // On a phone the bottom bar is the navigation: a toast laid over it
-      // took the tap meant for Projects or Settings. It sits above it instead.
-      mobileOffset={{ bottom: "calc(var(--bottom-nav) + 16px)" }}
+      // Above the button that opens the conversation (`talk-drawer.tsx`): a
+      // toast that stays — "New version available" — took every click meant
+      // for it, and covered the send button of the drawer once open. On a
+      // phone the bottom bar is the navigation, so above that as well.
+      offset={{ bottom: "5rem" }}
+      mobileOffset={{ bottom: "calc(var(--bottom-nav) + 5rem)" }}
       icons={ICONS}
       style={
         {
