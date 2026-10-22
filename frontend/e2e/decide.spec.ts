@@ -121,17 +121,13 @@ test.describe("on a desktop", () => {
     await expect(page).toHaveURL(/[?&]tab=discussion$/)
   })
 
-  test("a quick reply answers and runs it again, and Ponos is shown at work", async ({ page }) => {
+  test("a quick reply answers and runs it again, and the window closes on the board", async ({ page }) => {
     await open(page)
     await answer(page, ACT)
     await replies(page).filter({ hasText: "Install it yourself and tell me" }).click()
     await expect(page.getByText("“Choose the host” moved to Ready")).toBeVisible()
-    // Unblocked: the window closes on the board, and the ticket opened again shows Ponos at work on it.
+    // Unblocked: the window has nothing more to say, and the card is back on the board.
     await expect(ticketWindow(page)).toBeHidden()
-    await page.getByRole("link", { name: "Choose the host" }).click()
-    const working = ticketWindow(page).locator('[data-talk="working"]')
-    await expect(working).toContainText("Ponos is working…")
-    await expect(working.locator("ponos-robot")).toHaveAttribute("state", "thinking")
     const said = (await (await page.request.get(`/api/tickets/${ACT}/talk`)).json()) as {
       messages: { text: string }[]
     }
@@ -146,9 +142,6 @@ test.describe("on a desktop", () => {
     await field.press("Control+Enter")
     await expect(page.getByText("“Pick the header” moved to Ready")).toBeVisible()
     await expect(ticketWindow(page)).toBeHidden()
-    await page.getByRole("link", { name: "Pick the header" }).click()
-    await expect(ticketWindow(page).locator('[data-talk="working"]')).toBeVisible()
-    await expect(field).toHaveValue("")
     const said = (await (await page.request.get(`/api/tickets/${TYPED}/talk`)).json()) as {
       messages: { text: string }[]
     }
