@@ -3114,6 +3114,7 @@ cd frontend
 npm install
 npm run build      # writes ../src/ponos/web/static — commit what it writes
 npm run dev        # hot reload, proxying /api to a console you started yourself
+npm run dev:demo   # the same, on the made-up console of scripts/demo.py (below)
 npm run lint       # tsc, in the strict configuration the build uses
 npm run types      # src/lib/api-types.d.ts, from the schema — commit what it writes
 npm run test:e2e   # the built console in your Chrome, on a board of files of its own
@@ -3150,6 +3151,23 @@ completes to — kept in `src/lib/composer.ts`, which imports nothing for that r
 another address. Open the real console once first (`ponos serve`, then its URL with
 the token): the dev server borrows the cookie that URL sets, because the API refuses
 anything else.
+
+**Working on the console with nothing real behind it.** Three lines:
+
+```sh
+python3 scripts/demo.py            # a console on made-up data, port 8791, token "demo"
+cd frontend && npm run dev:demo    # the page, hot reloaded, proxying /api to it
+# open http://127.0.0.1:8791/?token=demo once (the cookie), then http://127.0.0.1:5173
+```
+
+`scripts/demo.py` is a real `ponos serve` on a throwaway Markdown board, under a temporary
+`XDG_STATE_HOME` and `HOME`, with a stand-in `claude`, `gh` and `systemctl` first in the
+`PATH` — no Notion, no network, nothing of yours read or written, and the directory removed
+when you press Ctrl-C. The board is drawn to be looked at: eight projects, sixty-odd tickets in
+every column, six weeks of sessions and costs, a stop of every family, recurrences, ideas, a
+bell and conversations. It is deterministic (one seed, dates counted back from the start),
+and it shares only its harness (`scripts/workbench.py`) with `e2e/console.py`, whose data stay
+the tests' own.
 
 **Adding a component.** The project is a plain shadcn/ui project — `frontend/components.json`
 is its configuration, and the components live in `frontend/src/components/ui/` where the CLI

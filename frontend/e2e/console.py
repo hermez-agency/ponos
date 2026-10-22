@@ -33,6 +33,9 @@ another kind of stop, and two in review — the columns the series of
 `series.spec.ts` goes through whole, which no other test may move a card of. Given `unclaimed`, the same console with no token and no sign-in: what a
 fresh installation serves, its first connection.
 
+The harness around the board — the stand-in `claude`, `gh` and `systemctl`, the state in a temporary
+directory — is `scripts/workbench.py`, shared with `scripts/demo.py`, whose data are its own.
+
 And a `claude` of its own, first in the PATH, for the conversation with the
 workspace: it reads a file, runs a command that fails, and answers — or, told
 to take its time, starts a command that would run for ten minutes, for Stop to
@@ -44,29 +47,19 @@ written by hand is signed with.
 
 from __future__ import annotations
 
-import importlib.util
-import json
-import os
-import subprocess
 import sys
 import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT / "scripts"))
+
+import workbench  # noqa: E402
+
+workbench.relaunch()
 
 from ponos import files  # noqa: E402
-
-# The console is served by FastAPI (web/app.py), which the machine's python3 may
-# not have: the checkout's environment does, once `uv sync` has made it.
-VENV = ROOT / ".venv" / "bin" / "python"
-if (
-    importlib.util.find_spec("fastapi") is None
-    and VENV.is_file()
-    and Path(sys.prefix).resolve() != VENV.parents[1].resolve()
-):
-    os.execv(VENV, [str(VENV), *sys.argv])
 
 # The token the tests open the console with: a board of fixtures has nothing to guard.
 TOKEN = "e2e"
@@ -317,113 +310,6 @@ def series_board(root: Path) -> None:
         (comments / f"{id}.md").write_text(files.render(said, report), encoding="utf-8")
 
 
-# The session a message to the workspace starts: what it does, said the way
-# Claude Code's stream-json says it.
-CLAUDE = """#!{python}
-import json, os, pathlib, sys, time
-
-args = sys.argv[1:]
-# What the health band at the top of the dashboard asks: a Claude Code that is
-# there, recent enough and signed in — nothing to fix on a board of fixtures.
-if args == ["--version"]:
-    print("2.1.0 (Claude Code)")
-    sys.exit(0)
-# Signed in, except for the first connection's console, whose test is about the
-# sign-in it asks for.
-if args[:2] == ["auth", "status"]:
-    print(json.dumps({{"loggedIn": {signed}, "authMethod": "claude.ai", "email": "ada@example.com"}}))
-    sys.exit(0)
-resumed = "--resume" in args
-session = args[args.index("--resume" if resumed else "--session-id") + 1]
-filed = pathlib.Path.home() / ".claude" / "projects" / "-e2e" / f"{{session}}.jsonl"
-filed.parent.mkdir(parents=True, exist_ok=True)
-filed.touch()
-prompt = sys.stdin.read()
-
-def say(event):
-    print(json.dumps(event), flush=True)
-    time.sleep(0.6)
-
-if "proposing ideas" in prompt:
-    # A batch of ten for the ideas deck: other words every time it is asked,
-    # so that none is dropped as one already proposed.
-    counter = pathlib.Path.home() / "ideas-asked"
-    asked = int(counter.read_text()) if counter.exists() else 0
-    counter.write_text(str(asked + 1))
-    nouns = ["calendar", "invoice", "gallery", "newsletter", "dashboard", "inventory", "booking",
-             "referral", "changelog", "playlist", "quotation", "timeline", "wishlist", "forum",
-             "podcast", "glossary", "roadmap", "checkout", "sitemap", "feedback"]
-    teams = ["sales", "support", "finance", "marketing", "legal"]
-    batch = [
-        {{"title": f"Build the {{nouns[n + 10 * (asked % 2)]}} module for {{teams[asked % 5]}}",
-          "description": f"Because the {{nouns[n + 10 * (asked % 2)]}} is what people ask for.",
-          "kind": "project" if n % 2 else "ticket", "where": "The web app.",
-          "category": ["ux", "feature", "security", "technical"][n % 4],
-          "score": [35, 88, 52, 71, 12, 64, 95, 40, 69, None][n],
-          "score_reason": "Worth it for the people who asked.",
-          "done": ["It works."], "out": ["Nothing else."]}}
-        for n in range(10)
-    ]
-    time.sleep(1)
-    say({{"type": "result", "result": json.dumps(batch), "session_id": session, "total_cost_usd": 0.01, "num_turns": 1}})
-    sys.exit(0)
-
-if "You are scoring ideas" in prompt:
-    # An idea written by hand, scored by the light model: 75 each, green.
-    import re
-    numbers = [int(found) for found in re.findall(r"^(\\d+)\\. ", prompt.split("# Ideas to score", 1)[1], re.M)]
-    scores = [{{"id": number, "score": 75, "score_reason": "Small and asked for."}} for number in numbers]
-    say({{"type": "result", "result": json.dumps(scores), "session_id": session, "total_cost_usd": 0.001, "num_turns": 1}})
-    sys.exit(0)
-
-def use(name, **given):
-    say({{"type": "assistant", "message": {{"content": [{{"type": "tool_use", "name": name, "input": given}}]}}}})
-
-say({{"type": "assistant", "message": {{"content": [{{"type": "text", "text": "Let me look."}}]}}}})
-use("Read", file_path="/home/me/app/src/api.py")
-use("Bash", command="python3 -m app.check")
-say({{"type": "user", "message": {{"content": [{{"type": "tool_result", "is_error": True,
-    "content": "Exit code 1\\nTraceback (most recent call last): boom"}}]}}}})
-if "slowly" in prompt:
-    use("Bash", command="sleep 600")
-    time.sleep(600)
-answer = ("Resumed, and done." if resumed else "Done.") + " The board has 13 tickets."
-say({{"type": "result", "result": answer, "session_id": session, "total_cost_usd": 0.0123, "num_turns": 3}})
-"""
-
-
-# The runner's systemd timer, which the dashboard's health band reads: a board of
-# fixtures arms none, and on a machine with systemd but no timer (GitHub's
-# runners) the band would push the charts down and fail the tests that point at
-# them.
-SYSTEMCTL = """#!{python}
-import sys
-
-args = sys.argv[1:]
-if "is-enabled" in args:
-    print("enabled")
-elif "show" in args:
-    print("SubState=waiting")
-    print("NextElapseUSecRealtime=Mon 2099-01-01 00:00:00 UTC")
-    print("NextElapseUSecMonotonic=infinity")
-elif "list-timers" in args:
-    print("NEXT LEFT LAST PASSED UNIT ACTIVATES")
-    print("Mon 2099-01-01 00:00:00 UTC 1h left n/a n/a ponos.timer ponos.service")
-"""
-
-# Who `gh api user` says it is; anything else it is asked fails, as a gh signed out would.
-GH = """#!{python}
-import json, sys
-
-if sys.argv[1:3] == ["auth", "status"]:
-    sys.exit(0)
-if sys.argv[1:3] == ["api", "user"]:
-    print(json.dumps({{"login": "ada", "name": "Ada Lovelace", "avatar_url": ""}}))
-    sys.exit(0)
-sys.exit(1)
-"""
-
-
 def journal_of(ticket: str) -> None:
     """Two runs of the blocked ticket in the local journal, the second long.
 
@@ -435,8 +321,8 @@ def journal_of(ticket: str) -> None:
 
     first = journal.Run.start(ticket=ticket, title="A ticket that asked", session="first")
     first.event({"type": "system", "subtype": "init", "model": "claude-sonnet-4-5-20250929"})
-    first.event(_said("I read the brief first."))
-    first.event(_tool("Bash", {"command": "make test"}))
+    first.event(workbench.said("I read the brief first."))
+    first.event(workbench.tool("Bash", {"command": "make test"}))
     first.event({"type": "user", "message": {"content": [
         {"type": "tool_result", "is_error": True, "content": "make: *** No rule to make target"}
     ]}})
@@ -444,10 +330,10 @@ def journal_of(ticket: str) -> None:
     first.end("failed", "the session ended badly")
     second = journal.Run.start(ticket=ticket, title="A ticket that asked", session="second")
     second.event({"type": "system", "subtype": "init", "model": "claude-opus-4-1-20250805"})
-    second.event(_said("Starting again, from the start."))
+    second.event(workbench.said("Starting again, from the start."))
     for index in range(1, 249):
-        second.event(_tool("Read", {"file_path": f"/repo/src/part-{index}.py"}))
-    second.event(_said("Which header — the dashboard's, or the public site's?"))
+        second.event(workbench.tool("Read", {"file_path": f"/repo/src/part-{index}.py"}))
+    second.event(workbench.said("Which header — the dashboard's, or the public site's?"))
     second.event({"type": "result", "total_cost_usd": 0.5})
     second.end("blocked", "which header", "session.question")
     # Fifteen minutes of work in all — ten, then five — and the hour between
@@ -473,14 +359,6 @@ def bell_of() -> None:
     db.close()
 
 
-def _said(text: str) -> dict:
-    return {"type": "assistant", "message": {"content": [{"type": "text", "text": text}]}}
-
-
-def _tool(name: str, payload: dict) -> dict:
-    return {"type": "assistant", "message": {"content": [{"type": "tool_use", "name": name, "input": payload}]}}
-
-
 def main() -> None:
     port = sys.argv[1] if len(sys.argv) > 1 else "8790"
     # `unclaimed`: no token and no sign-in, for the first connection's steps.
@@ -491,47 +369,11 @@ def main() -> None:
         series_board(here / "board")
     else:
         board(here / "board", doomed=mode == "doomed")
-    config = here / "config.toml"
-    # No update checks of the console's own: they would ask the remote of this
-    # checkout and write over the stamp below.
-    config.write_text(
-        f'[storage]\nmode = "markdown"\npath = "{here / "board"}"\n'
-        "\n[runner]\nauto_update = false\n",
-        encoding="utf-8",
-    )
-    if not unclaimed:
-        # Beside the file, where a secret lives — config.toml holds none.
-        (here / "secrets.env").write_text(f"PONOS_WEB_TOKEN={TOKEN}\n", encoding="utf-8")
-        (here / "secrets.env").chmod(0o600)
-    head = subprocess.run(
-        ["git", "-C", str(ROOT), "rev-parse", "HEAD"], capture_output=True, text=True
-    ).stdout.strip()
-    stamp = here / "state" / "ponos" / "update.json"
-    stamp.parent.mkdir(parents=True)
-    stamp.write_text(json.dumps({
-        "checked_at": 0, "current": head, "latest": NEWER, "tag": "",
-        "behind": 2, "commits": ["A second change", "A first change"],
-    }))
-    bin = here / "bin"
-    bin.mkdir()
-    (bin / "claude").write_text(CLAUDE.format(python=sys.executable, signed=not unclaimed), encoding="utf-8")
-    (bin / "claude").chmod(0o755)
-    (bin / "gh").write_text(GH.format(python=sys.executable), encoding="utf-8")
-    (bin / "gh").chmod(0o755)
-    (bin / "systemctl").write_text(SYSTEMCTL.format(python=sys.executable), encoding="utf-8")
-    (bin / "systemctl").chmod(0o755)
-    (here / "home").mkdir()
-    os.environ.update(
-        PATH=f"{bin}{os.pathsep}{os.environ.get('PATH', '')}",
-        HOME=str(here / "home"),
-        PONOS_CONFIG=str(config),
-        XDG_STATE_HOME=str(here / "state"),
-        PYTHONPATH=str(ROOT / "src"),
-    )
+    workbench.stage(here, here / "board", token=None if unclaimed else TOKEN, signed=not unclaimed, newer=NEWER)
     journal_of(ASKING)
     bell_of()
     checks_of()
-    os.execvp(sys.executable, [sys.executable, "-m", "ponos", "serve", "--port", port])
+    workbench.serve(port)
 
 
 if __name__ == "__main__":
