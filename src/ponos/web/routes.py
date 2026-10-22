@@ -209,6 +209,7 @@ class NewTicket(Payload):
     model: str = ""
     subtype: str = ""
     on: str = ""
+    goal: str = ""
 
 
 class On(Payload):
@@ -370,6 +371,11 @@ def schedules(request: Request) -> Response:
 @router.get("/api/schedules/{schedule_id:page}", response_model=answers.ScheduleDetail)
 def schedule(request: Request, schedule_id: str) -> Response:
     return answer(_api(request).schedule(schedule_id))
+
+
+@router.get("/api/goals", response_model=answers.Goals)
+def goals(request: Request) -> Response:
+    return answer(_api(request).goals())
 
 
 @router.get("/api/ideas", response_model=answers.Ideas)
@@ -680,6 +686,7 @@ def create_ticket(
             payload.model,
             payload.subtype,
             payload.on,
+            payload.goal,
         )
     )
 

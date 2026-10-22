@@ -41,8 +41,8 @@ export interface RecordWindowHead {
   /** The small line over the title: a ticket's short id. */
   eyebrow?: string
   title: string
-  /** The line under the title. */
-  description?: string
+  /** The line under the title: a sentence, or a link — a ticket's goal. */
+  description?: React.ReactNode
   /** What the record can be made to do, drawn before its page button. */
   actions?: React.ReactNode
 }

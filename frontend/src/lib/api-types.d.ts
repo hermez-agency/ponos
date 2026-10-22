@@ -238,6 +238,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/goals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Goals */
+        get: operations["goals_api_goals_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/ideas": {
         parameters: {
             query?: never;
@@ -1992,6 +2009,32 @@ export interface components {
             warnings: string[];
             ok: boolean;
         };
+        /** @description One row of the goals database, and how far its tickets have gone. */
+        Goal: {
+            id: string;
+            name: string;
+            url: string;
+            /** @description The row's own columns, as written in Notion — empty where it has none. */
+            description: string;
+            criterion: string;
+            due: string;
+            status: string;
+            priority: string;
+            /** @description The names of the projects it is for. */
+            projects: string[];
+            /**
+             * @description How many of the tickets pointing at it are in each column, by the column's key — counted
+             *     from the board, not read off a rollup. A column with none is not a key.
+             */
+            tickets: {
+                [key: string]: number;
+            };
+        };
+        Goals: {
+            goals: components["schemas"]["Goal"][];
+            /** @description Whether the workspace has a goals database at all. */
+            configured: boolean;
+        };
         HTTPValidationError: {
             detail?: components["schemas"]["ValidationError"][];
         };
@@ -2204,6 +2247,8 @@ export interface components {
             subtype: string;
             /** @default  */
             on: string;
+            /** @default  */
+            goal: string;
         } & {
             [key: string]: unknown;
         };
@@ -2884,6 +2929,10 @@ export interface components {
             project_id?: string;
             /** @description The project's icon, as `Project.icon` is: emoji, image or empty. */
             project_icon?: components["schemas"]["Picture"];
+            /** @description The name of the goal it serves, empty for a ticket that serves none — see `goals.py`. */
+            goal?: string;
+            /** @description That goal's page id, empty with it. */
+            goal_id?: string;
             /** @description The project's kind of work, `code` or `document`. */
             kind: string;
             /** @description The ticket's own type, as the board spells it: Code, Writing, External action… */
@@ -2935,6 +2984,8 @@ export interface components {
             type?: components["schemas"]["Choice"][];
             model?: components["schemas"]["Choice"][];
             subtype?: components["schemas"]["Choice"][];
+            /** @description The goals a new ticket may serve: only on a board with the column, and goals to point at. */
+            goal?: components["schemas"]["Choice"][];
         };
         /** @description A ticket, with the page under it: the brief, the report, the notes between. */
         TicketDetail: {
@@ -2950,6 +3001,10 @@ export interface components {
             project_id?: string;
             /** @description The project's icon, as `Project.icon` is: emoji, image or empty. */
             project_icon?: components["schemas"]["Picture"];
+            /** @description The name of the goal it serves, empty for a ticket that serves none — see `goals.py`. */
+            goal?: string;
+            /** @description That goal's page id, empty with it. */
+            goal_id?: string;
             /** @description The project's kind of work, `code` or `document`. */
             kind: string;
             /** @description The ticket's own type, as the board spells it: Code, Writing, External action… */
@@ -3736,6 +3791,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    goals_api_goals_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Goals"];
                 };
             };
         };

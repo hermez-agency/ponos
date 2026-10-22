@@ -162,6 +162,10 @@ class Ticket(Shape):
     """The project's page id, empty for a ticket without one."""
     project_icon: Picture = omitted()
     """The project's icon, as `Project.icon` is: emoji, image or empty."""
+    goal: str = omitted()
+    """The name of the goal it serves, empty for a ticket that serves none — see `goals.py`."""
+    goal_id: str = omitted()
+    """That goal's page id, empty with it."""
     kind: str
     """The project's kind of work, `code` or `document`."""
     type: str
@@ -249,6 +253,8 @@ class TicketChoices(Shape):
     type: list[Choice] = omitted()
     model: list[Choice] = omitted()
     subtype: list[Choice] = omitted()
+    goal: list[Choice] = omitted()
+    """The goals a new ticket may serve: only on a board with the column, and goals to point at."""
 
 
 class Board(Shape):
@@ -1153,6 +1159,34 @@ class Statistics(Shape):
     made: Made = omitted()
     """The tickets created in the period, by bucket, type, sub-type and project — see
     `lib/made.ts`."""
+
+
+# -- goals ---------------------------------------------------------------------
+
+
+class Goal(Shape):
+    """One row of the goals database, and how far its tickets have gone."""
+
+    id: str
+    name: str
+    url: str
+    description: str
+    """The row's own columns, as written in Notion — empty where it has none."""
+    criterion: str
+    due: str
+    status: str
+    priority: str
+    projects: list[str]
+    """The names of the projects it is for."""
+    tickets: dict[str, int]
+    """How many of the tickets pointing at it are in each column, by the column's key — counted
+    from the board, not read off a rollup. A column with none is not a key."""
+
+
+class Goals(Shape):
+    goals: list[Goal]
+    configured: bool
+    """Whether the workspace has a goals database at all."""
 
 
 # -- ideas ---------------------------------------------------------------------

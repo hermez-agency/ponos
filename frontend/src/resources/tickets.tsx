@@ -2,6 +2,7 @@ import * as React from "react"
 import { ChevronLeft, ChevronRight, LayoutGrid } from "lucide-react"
 import {
   ActionList,
+  SelectInputController,
   useFormContext,
   type FormInterface,
   type InputControllerComponentInterface,
@@ -171,6 +172,8 @@ export interface TicketWrite {
   type?: string
   model?: string
   subtype?: string
+  /** The page of the goal it serves; empty for none. */
+  goal?: string
 }
 
 const item = (ticket: Ticket | TicketDetail): TicketItem => ({
@@ -268,13 +271,13 @@ function useSendOnControlEnter(field: React.RefObject<HTMLElement | null>) {
  * which is there before a dialog over it can open. The empty one comes first,
  * and says in its tooltip what empty means. */
 function choiceInput(
-  key: "type" | "model" | "subtype",
+  key: "type" | "model" | "subtype" | "goal",
   empty: string,
   meaning: string,
   controller: InputControllerComponentInterface
 ) {
   return {
-    label: { type: "Type", model: "Model", subtype: "Sub-type" }[key],
+    label: { type: "Type", model: "Model", subtype: "Sub-type", goal: "Goal" }[key],
     controller,
     hidden: () => !currentBoard()?.choices?.[key]?.length,
     getValueOptions: async () => [
@@ -286,9 +289,9 @@ function choiceInput(
             label: subtype.label,
           }))
         : // The type in the console's language (`choiceWord`),
-          // their values the board's.
+          // their values the board's; a model and a goal by their own names.
           (currentBoard()?.choices?.[key] ?? []).map((choice) =>
-            key === "model" ? choice : { ...choice, label: choiceWord(choice.label) }
+            key === "model" || key === "goal" ? choice : { ...choice, label: choiceWord(choice.label) }
           )),
     ],
   }
@@ -371,6 +374,9 @@ const createForm: FormInterface = {
       "What kind of change a code ticket is: the prefix of its commit and its CHANGELOG section. Empty, the runner deduces it.",
       PillsInputController
     ),
+    // The goal it serves: none unless chosen, and drawn only where the board
+    // can point at one and there are goals to point at.
+    goal: choiceInput("goal", "no goal", "", SelectInputController),
     // A score, drawn only where the board has the column to keep it in.
     priority: {
       label: "Priority",
@@ -984,6 +990,7 @@ export async function createTicket(fresh: TicketWrite): Promise<TicketItem> {
     type: String(fresh.type ?? ""),
     model: String(fresh.model ?? ""),
     subtype: String(fresh.subtype ?? ""),
+    goal: String(fresh.goal ?? ""),
   })
   const projects = await api.projects().catch(() => ({ projects: [] }))
   const project = projects.projects.find((candidate) => candidate.id === fresh.project)
@@ -1003,6 +1010,8 @@ export async function createTicket(fresh: TicketWrite): Promise<TicketItem> {
     // The key was sent; the card says it as the board spells it.
     type: currentBoard()?.choices?.type?.find((choice) => choice.value === fresh.type)?.label ?? "",
     subtype: String(fresh.subtype ?? ""),
+    goal: currentBoard()?.choices?.goal?.find((choice) => choice.value === fresh.goal)?.label ?? "",
+    goal_id: String(fresh.goal ?? ""),
     // What the server wrote: the score given, or the middle one.
     priority: currentBoard()?.priority ? (score ?? DEFAULT_SCORE) : null,
     model: String(fresh.model ?? ""),

@@ -12,6 +12,7 @@ import {
   RefreshCw,
   Scale,
   Settings2,
+  Target,
 } from "lucide-react"
 import { ActionList } from "react-data-form"
 import { generateLinkByResource, useNavigate } from "react-resource-view"
@@ -31,6 +32,7 @@ import { hotkeyLabel, useHotkeys } from "@/hooks/use-hotkeys"
 import { titleOf, useBoard } from "@/lib/board-store"
 import { useT } from "@/lib/i18n"
 import { idOf, newProjectHref, projectHref, projectsHref, projectsOnce, useProjects } from "@/resources/projects"
+import { goalsHref } from "@/resources/goals"
 import { ideasHref } from "@/resources/ideas"
 import { schedulesHref } from "@/resources/schedules"
 import { settingsHref } from "@/resources/settings"
@@ -63,6 +65,7 @@ const PAGES = [
   { name: "Projects", icon: FolderGit2, href: projectsHref },
   { name: "Schedules", icon: CalendarClock, href: schedulesHref },
   { name: "Ideas", icon: Lightbulb, href: ideasHref },
+  { name: "Goals", icon: Target, href: goalsHref },
   { name: "Global context", icon: BookOpen, href: () => `${projectsHref()}#${CONTEXT_ANCHOR}` },
   { name: "Settings", icon: Settings2, href: () => settingsHref() },
 ]
