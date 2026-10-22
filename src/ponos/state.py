@@ -280,6 +280,19 @@ def repair_of(repository: str, base: str) -> str:
     return str(row[0]) if row else ""
 
 
+def is_repair(ticket_id: str) -> bool:
+    """Was this ticket opened by the runner to repair a red base?"""
+    try:
+        with db.transaction(immediate=False) as connection:
+            row = connection.execute(
+                "SELECT 1 FROM base_repairs WHERE REPLACE(ticket, '-', '') = ?",
+                (ticket_id.replace("-", ""),),
+            ).fetchone()
+    except db.ERRORS:
+        return False
+    return row is not None
+
+
 def repairing(repository: str, base: str, ticket_id: str) -> None:
     """Remember the ticket that repairs that base, so that a second is never opened."""
     try:

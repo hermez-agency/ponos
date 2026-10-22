@@ -1271,6 +1271,31 @@ def a_red_base_sets_the_pull_request_aside_and_opens_one_repair_for_all_of_them(
 
 
 @case
+def the_repair_of_a_base_is_a_high_priority_code_bug(state_home):
+    url = "https://github.com/x/y/pull/1"
+    page = _reviewed("p1", "In progress", url)
+    with _red_base():
+        runner = _board_runner([page], {})
+        _forced_on_red_base(runner, page, url)
+    _, values = runner.client.created[0]
+    assert values["Type"] == "Code" and values["Sous-type"] == "Bug", values
+    assert values["Priority"] == 75, values
+
+
+@case
+def the_pull_request_of_a_repair_is_validated_without_waiting_for_a_review(state_home):
+    """A repair opened by the runner is merged once green; any other code ticket still waits."""
+    project = projects.Project("Site", Path("/repo"))
+    runner = _board_runner([], {})
+    other = ticket_module.Ticket(_reviewed("p-other", "In progress", ""))
+    repair = ticket_module.Ticket(_reviewed("t-1", "In progress", ""))
+    state.repairing("x/y", "main", "t-1")  # the board spells ids with dashes
+    assert runner._forced("code", project, other) == ""
+    assert runner._forced("code", project, repair)
+    assert runner._forced("writing", project, repair) == ""
+
+
+@case
 def a_repair_that_is_done_is_followed_by_a_new_one_if_the_base_is_red_again(state_home):
     url = "https://github.com/x/y/pull/1"
     page = _reviewed("p1", "In progress", url)

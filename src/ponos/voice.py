@@ -256,6 +256,10 @@ _SAID: dict[str, dict[str, str]] = {
     # switch to turn off. See project_settings.py.
     "forced-by-project": {"en": "the project's setting", "fr": "réglage du projet"},
     "forced-by-global": {"en": "the global setting", "fr": "réglage global"},
+    "forced-by-repair": {
+        "en": "a ticket that repairs a red base",
+        "fr": "ticket de réparation d'une base rouge",
+    },
     "credits-out": {
         "en": "out of credit, back in “{status}” until {when}",
         "fr": "crédits épuisés, retour dans « {status} » jusqu'à {when}",

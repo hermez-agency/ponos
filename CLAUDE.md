@@ -235,6 +235,11 @@ deux suites, puis publie l'image sur `ghcr.io`.
   Elle s'ajoute avec `uv add`, puis `uv export --no-dev --no-emit-project
   --format requirements-txt -o requirements.txt` (la CI vérifie l'export), et
   l'image l'installe au build.
+- **Le ticket « Réparer main » est un ticket Code / Bug, validé sans attendre.**
+  `delivery._repair` le crée en type Code, sous-type Bug, priorité 75 ; sa PR, dont la CI doit être
+  entièrement verte (`_force_merge`), est fusionnée par le runner même sans *Force validated*
+  (`_forced`, via `state.is_repair`), puis les PR mises de côté sont rejouées par `_waits_for_base`.
+  Ne pas la laisser en *In review* : toutes les autres PR du dépôt attendent derrière elle.
 - **La version est écrite deux fois** : `__version__` et `pyproject.toml`.
   `scripts/release.py bump` écrit les deux, `check` et un test refusent un écart.
 - **Ruff n'a pas de base d'exceptions.** `[tool.ruff.lint.per-file-ignores]`

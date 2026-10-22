@@ -55,7 +55,7 @@ from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 
-from . import agents, generated, git, kinds, project_settings, session, state, store
+from . import agents, generated, git, kinds, project_settings, session, state, store, subtypes
 from . import prompt as prompt_module
 from . import voice as voice_module
 from .base import Base
@@ -374,14 +374,21 @@ class Delivery(Base):
         )
         return {"ticket": ticket.title, "id": ticket.id, "status": "done", "merged": url}
 
-    def _forced(self, kind: str, project: Project) -> str:
+    def _forced(self, kind: str, project: Project, ticket: Ticket | None = None) -> str:
         """The line saying a ticket of that type is validated without you, or "".
 
         The project's own automatic validation when it has one, the file's
         otherwise; the line says which of the two decided. Asked only once the
         session has succeeded — a failed or blocked ticket never gets this far.
+
+        The ticket that repairs a red base is validated whatever those say:
+        every other pull request of the repository waits behind it, and one
+        left in review for a person is how #331 stayed open, green, while the
+        rest stood still. `_force_merge` still waits for its CI to be green.
         """
         source = project_settings.forced_validation(self.config, kind, project.notion_id)
+        if not source and ticket and kind == "code" and state.is_repair(ticket.id):
+            source = "repair"
         if not source:
             return ""
         return self.voice.say(
@@ -617,8 +624,8 @@ class Delivery(Base):
     ) -> str:
         """The ticket that repairs a red base: the one already open, else a new one.
 
-        Ready and at priority 75 (`REPAIR_PRIORITY`), with the failing jobs and the link of their
-        run. One per base: the table remembers the ticket opened for a
+        Ready, a Code ticket of sub-type Bug, at priority 75 (`REPAIR_PRIORITY`), with the
+        failing jobs and the link of their run. One per base: the table remembers the ticket opened for a
         repository's base, and a second is only opened once that one is done or
         failed — a base still red after a repair deserves a new look, not
         silence. Under a lock, because two pull requests of one repository can
@@ -645,6 +652,8 @@ class Delivery(Base):
             values: dict[str, object] = {
                 settings.prop("status"): settings.state("ready"),
                 settings.prop("priority"): self.priority_cell(REPAIR_PRIORITY),
+                settings.prop("type"): self.kind_name("code"),
+                settings.prop("subtype"): subtypes.option("bug"),
             }
             if relation := store.read(ticket.page, settings.prop("project")):
                 values[settings.prop("project")] = relation
