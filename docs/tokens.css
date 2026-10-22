@@ -11,7 +11,7 @@
 /* The console's palette, as shadcn/ui names things.
  *
  * It is Hermez's, the design system every shadcn project of the agency shares
- * (SalvadorCardona/brand-assets, `site/src/styles.css`, the Portfolio theme):
+ * (hermez-agency/brand-assets, `site/src/styles.css`, the Portfolio theme):
  * warm "stone" greys, the brand's orange, and the values below are taken from
  * there rather than picked here. The brand's orange itself, `#e46212`, is the
  * focus ring and the first colour of a chart; a button wears the deeper
