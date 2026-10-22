@@ -12,6 +12,14 @@ it already holds. And **one unread notification per ticket and kind**: a ticket 
 asks twice before you looked is still one question waiting, and a bell that
 counted retries would be one nobody trusts.
 
+And **a bell lets go of a ticket that moved on**: a question answered, a pull
+request merged, a ticket the board now shows in another column asks for nothing
+any more, and a count that kept it would be one nobody looks at. The console
+settles them against every board it reads (`settle`), since it is the one that
+holds the board — the runner rings, and a ticket moved by hand in Notion moves
+without it. A bell just rung is left alone for a moment: the board read beside
+it may still be the one from before the move that rang it.
+
 Written by the runner, read by the console — two processes, one file — so every
 function here fails quietly, as `state.written_up` does: a bell that cannot be
 written is never a reason for a ticket to fail.
@@ -20,6 +28,7 @@ written is never a reason for a ticket to fail.
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Iterable, Mapping
 from datetime import UTC, datetime, timedelta
 
 from . import blocks, db
@@ -27,6 +36,20 @@ from . import blocks, db
 # In the order of what needs you most. `question` is the one that matters: a
 # session is stopped and only you can start it again.
 KINDS = ("question", "review", "ci", "failed", "blocked")
+
+# The columns in which a ticket still needs what its bell rang for. Blocked and
+# failed go together: a board that has one status for both draws one column.
+STILL = {
+    "question": ("blocked", "failed"),
+    "review": ("review",),
+    "ci": ("blocked", "failed"),
+    "failed": ("failed", "blocked"),
+    "blocked": ("blocked", "failed"),
+}
+
+# How long a bell is trusted over a board edited before it: longer than a read
+# of Notion may lag behind the move, shorter than anyone waits for the count.
+SETTLING = timedelta(minutes=2)
 
 # How long a notification you have read is kept.
 KEEP_DAYS = 30
@@ -82,6 +105,48 @@ def add(kind: str, ticket: str, title: str) -> None:
             _purge(connection)
     except db.ERRORS:
         pass
+
+
+def settle(tickets: Iterable[Mapping[str, object]]) -> None:
+    """Mark read what the board says no longer needs you.
+
+    `tickets` are the board's, as `Api.board` gives them: a notification whose
+    ticket is in a column `STILL` does not name for its kind is read — once the
+    board was edited after it rang, or `SETTLING` has passed. A ticket the board
+    does not hold is left as it is: a board read is not a deletion.
+    """
+    columns = {str(item.get("id", "")): item for item in tickets}
+    if not columns:
+        return
+    now = datetime.now(UTC)
+    try:
+        with db.transaction() as connection:
+            rows = connection.execute(
+                "SELECT id, kind, ticket, at FROM notifications WHERE read_at = ''"
+            ).fetchall()
+            done = []
+            for identifier, kind, ticket, at in rows:
+                item = columns.get(ticket)
+                if item is None or item.get("column") in STILL.get(kind, ()):
+                    continue
+                rung = _moment(at)
+                edited = _moment(item.get("edited"))
+                if rung is None or rung <= now - SETTLING or (edited and edited > rung):
+                    done.append((_now(), identifier))
+            if done:
+                connection.executemany(
+                    "UPDATE notifications SET read_at = ? WHERE id = ? AND read_at = ''", done
+                )
+    except db.ERRORS:
+        pass
+
+
+def _moment(value: object) -> datetime | None:
+    try:
+        moment = datetime.fromisoformat(str(value or ""))
+    except ValueError:
+        return None
+    return moment if moment.tzinfo else moment.replace(tzinfo=UTC)
 
 
 def _purge(connection: sqlite3.Connection) -> None:

@@ -273,6 +273,32 @@ def a_write_from_the_console_that_changed_nothing_sends_the_board_whole():
 
 
 @case
+def a_board_read_lets_the_bell_go_of_a_ticket_that_moved_on(state_home):
+    """The console holds the board: it is the one that settles the bell against it."""
+    from datetime import UTC, datetime, timedelta
+
+    from ponos import db, notifications
+
+    notifications.add("review", "a", "Alpha")
+    notifications.add("review", "b", "Beta")
+    old = (datetime.now(UTC) - timedelta(minutes=10)).isoformat(timespec="seconds")
+    with db.transaction() as connection:
+        connection.execute("UPDATE notifications SET at = ?", (old,))
+    hub = web_live.Hub()
+    watch = web_live.Watch(hub, lambda: _tickets(("a", "ready", "Alpha"), ("b", "review", "Beta")))
+    channel = hub.subscribe()
+    watch.refresh()
+    watch.ring()
+    bells = [
+        event
+        for event in (channel.get_nowait() for _ in range(channel.qsize()))
+        if event.kind == "notifications"
+    ]
+    assert bells and bells[-1].payload["unread"] == 1
+    assert [i["ticket"] for i in bells[-1].payload["items"] if not i["read"]] == ["b"]
+
+
+@case
 def a_notion_that_will_not_answer_reaches_the_console_as_a_notice():
     """Named `notice`: EventSource already fires an `error` of its own."""
     hub = web_live.Hub()
