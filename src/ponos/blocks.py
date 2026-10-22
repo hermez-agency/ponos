@@ -123,7 +123,7 @@ _CAUSES = (
         ("Checks failed", "Vérifications rouges"),
         (
             "The pull request's checks fail once its conflicts were resolved: look at what broke.",
-            "Les vérifications de la pull request échouent après la résolution des conflits : regarde ce qui a cassé.",
+            "Les vérifications de la pull request échouent après la résolution des conflits : regardez ce qui a cassé.",
         ),
         "checks-red",
     ),
@@ -136,7 +136,7 @@ _CAUSES = (
         ("Base moving too fast", "Base trop mouvante"),
         (
             "The base moved between every replay: merge it by hand, or run it again when it is quieter.",
-            "La base a bougé entre chaque rejeu : fusionne à la main, ou relance quand elle est plus calme.",
+            "La base a bougé entre chaque rejeu : fusionnez à la main, ou relancez quand elle est plus calme.",
         ),
         "rebased-too-often",
     ),
@@ -162,7 +162,7 @@ _CAUSES = (
         ("Conflict to decide", "Conflit à trancher"),
         (
             "The conflict with the base needs a choice only you can make: answer on the ticket.",
-            "Le conflit avec la base demande un choix que toi seul peux faire : réponds sur le ticket.",
+            "Le conflit avec la base demande un choix que vous seul pouvez faire : répondez sur le ticket.",
         ),
         "conflict-open",
     ),
@@ -188,7 +188,7 @@ _CAUSES = (
         ("Branch pushed meanwhile", "Branche poussée entre-temps"),
         (
             "Someone else pushed to the branch while it was being resolved: say which side wins.",
-            "Quelqu'un a poussé sur la branche pendant la résolution : dis quel côté l'emporte.",
+            "Quelqu'un a poussé sur la branche pendant la résolution : dites quel côté l'emporte.",
         ),
         "pushed-over",
     ),
@@ -227,7 +227,7 @@ _CAUSES = (
         ("Pull request closed", "Pull request fermée"),
         (
             "Its pull request was closed rather than merged: reopen it, or run the ticket again.",
-            "Sa pull request a été fermée au lieu d'être fusionnée : rouvre-la, ou relance le ticket.",
+            "Sa pull request a été fermée au lieu d'être fusionnée : rouvrez-la, ou relancez le ticket.",
         ),
         "pull-request-closed",
     ),
@@ -254,7 +254,7 @@ _CAUSES = (
         ("Session not started", "Session pas démarrée"),
         (
             "The Claude session would not start: check that the CLI runs on this machine.",
-            "La session Claude n'a pas voulu démarrer : vérifie que le CLI tourne sur cette machine.",
+            "La session Claude n'a pas voulu démarrer : vérifiez que le CLI tourne sur cette machine.",
         ),
         "no-session",
     ),
@@ -290,10 +290,10 @@ _CAUSES = (
         "user",
         "answer",
         "ask",
-        ("Question for you", "Question pour toi"),
+        ("Question for you", "Question pour vous"),
         (
             "The session stopped to ask you something: answer on the ticket and it carries on.",
-            "La session s'est arrêtée pour te poser une question : réponds sur le ticket et elle reprend.",
+            "La session s'est arrêtée pour vous poser une question : répondez sur le ticket et elle reprend.",
         ),
         "asked-something",
     ),
@@ -306,7 +306,7 @@ _CAUSES = (
         ("Spending limit reached", "Plafond de dépense atteint"),
         (
             "The session reached the ticket's spending limit: raise it or split the ticket, then answer.",
-            "La session a atteint le plafond du ticket : relève-le ou découpe le ticket, puis réponds.",
+            "La session a atteint le plafond du ticket : relevez-le ou découpez le ticket, puis répondez.",
         ),
         "over-ticket-budget",
     ),
@@ -333,7 +333,7 @@ _CAUSES = (
         ("Worktree in the way", "Worktree encombré"),
         (
             "The ticket's worktree could not be made, usually because of a folder left behind: ponos clean, then run it again.",
-            "Le worktree du ticket n'a pas pu être créé, souvent à cause d'un dossier resté là : ponos clean, puis relance.",
+            "Le worktree du ticket n'a pas pu être créé, souvent à cause d'un dossier resté là : ponos clean, puis relancez.",
         ),
         "no-worktree",
     ),
@@ -346,7 +346,7 @@ _CAUSES = (
         ("Work interrupted", "Travail interrompu"),
         (
             "A run on it stopped half-way: say whether to start it over.",
-            "Un passage s'est arrêté à mi-chemin : dis s'il faut le reprendre.",
+            "Un passage s'est arrêté à mi-chemin : dites s'il faut le reprendre.",
         ),
         "publication-interrupted",
     ),
@@ -423,7 +423,7 @@ _CAUSES = (
         ("Project not found", "Projet introuvable"),
         (
             "Its project's repository is not on this machine: fix the project's page, then run it again.",
-            "Le dépôt de son projet n'est pas sur cette machine : corrige la page du projet, puis relance.",
+            "Le dépôt de son projet n'est pas sur cette machine : corrigez la page du projet, puis relancez.",
         ),
         "no-project",
     ),
@@ -436,7 +436,7 @@ _CAUSES = (
         ("Empty ticket", "Ticket vide"),
         (
             "There is nothing to work from: give it a title or a description.",
-            "Il n'y a rien pour commencer : donne-lui un titre ou une description.",
+            "Il n'y a rien pour commencer : donnez-lui un titre ou une description.",
         ),
         "empty-ticket",
     ),
@@ -449,7 +449,7 @@ _CAUSES = (
         ("Type to choose", "Type à choisir"),
         (
             "Ponos could not tell which kind of ticket this is: choose it in the Type column.",
-            "Ponos n'a pas su dire de quel type est ce ticket : choisis-le dans la colonne Type.",
+            "Ponos n'a pas su dire de quel type est ce ticket : choisissez-le dans la colonne Type.",
         ),
         "kind-unknown",
         "kind-unsure",
