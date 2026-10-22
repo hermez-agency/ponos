@@ -70,7 +70,8 @@ test("a Ready ticket is set aside in one click, and made ready again once confir
   await expect(page.locator('[data-talk="question"]')).toContainText("Set aside by hand: no run said why.")
   await page.locator('[data-slot="quick-replies"]').getByRole("button", { name: "Run it again as it is" }).click()
   await expect(page.getByText("“A ticket to set aside” moved to Ready")).toBeVisible()
-  await expect(page.getByRole("button", { name: "set aside" })).toBeVisible()
+  // The window closes on the board, where every Ready card offers it: this one's.
+  await expect(page.getByRole("group", { name: "A ticket to set aside" }).getByRole("button", { name: "set aside" })).toBeVisible()
 })
 
 test("a ticket is given up from its menu, and lands in its own column", async ({ page }) => {

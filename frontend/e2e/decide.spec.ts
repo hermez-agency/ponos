@@ -126,6 +126,9 @@ test.describe("on a desktop", () => {
     await answer(page, ACT)
     await replies(page).filter({ hasText: "Install it yourself and tell me" }).click()
     await expect(page.getByText("“Choose the host” moved to Ready")).toBeVisible()
+    // Unblocked: the window closes on the board, and the ticket opened again shows Ponos at work on it.
+    await expect(ticketWindow(page)).toBeHidden()
+    await page.getByRole("link", { name: "Choose the host" }).click()
     const working = ticketWindow(page).locator('[data-talk="working"]')
     await expect(working).toContainText("Ponos is working…")
     await expect(working.locator("ponos-robot")).toHaveAttribute("state", "thinking")
@@ -142,6 +145,8 @@ test.describe("on a desktop", () => {
     await field.fill("Use the key in 1Password.")
     await field.press("Control+Enter")
     await expect(page.getByText("“Pick the header” moved to Ready")).toBeVisible()
+    await expect(ticketWindow(page)).toBeHidden()
+    await page.getByRole("link", { name: "Pick the header" }).click()
     await expect(ticketWindow(page).locator('[data-talk="working"]')).toBeVisible()
     await expect(field).toHaveValue("")
     const said = (await (await page.request.get(`/api/tickets/${TYPED}/talk`)).json()) as {
