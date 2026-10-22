@@ -18,10 +18,10 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { ConsoleProvider, useConsole } from "@/hooks/use-console"
 import { RunnerMoodProvider } from "@/hooks/use-mood"
 import { useBoard } from "@/lib/board-store"
-import { useLanguage, useT } from "@/lib/i18n"
+import { useLanguage } from "@/lib/i18n"
 import { SCOPE } from "@/lib/resource-view"
 import { consoleRouter, useRoute } from "@/lib/router"
-import { keepTheMenuLive, menuName, scopes } from "@/resources/scope"
+import { keepTheMenuLive, scopes } from "@/resources/scope"
 import { projectsHref } from "@/resources/projects"
 import { SESSIONS, sessionsHref } from "@/resources/sessions"
 import { SETTINGS, settingsHref } from "@/resources/settings"
@@ -86,19 +86,6 @@ function Page({ params }: { params: ViewResourceContextParams }) {
   )
 }
 
-/** What the tab says: where you are, so seven tabs of "Ponos" are not a row to open one by one. */
-function useTitle(params: ViewResourceContextParams, ticketShort?: string) {
-  const t = useT()
-  const resourceId = String(params.resourceId ?? TICKETS)
-  const here =
-    resourceId === TICKETS && params.resourceAction === ActionList.read && params.id
-      ? `#${ticketShort ?? String(params.id).slice(-8)}`
-      : (menuName(resourceId) ?? t("Dashboard"))
-  React.useEffect(() => {
-    document.title = here ? `${here} · Ponos` : "Ponos"
-  }, [here])
-}
-
 /* The address says which ticket is open — its page, or the window over a list,
  * which the address names under that list; the board says what it is, so the
  * discussion loads while the page is still being read.
@@ -117,7 +104,7 @@ const ticketOf = (opened?: ViewResourceContextParams): string | null =>
 
 function OpenTicket({ params }: { params: ViewResourceContextParams }) {
   const board = useBoard()
-  const { ticket, openTicket, closeTicket } = useConsole()
+  const { openTicket, closeTicket } = useConsole()
 
   const ticketId = ticketOf(params) ?? ticketOf(params.childViewResource)
   React.useEffect(() => {
@@ -129,7 +116,6 @@ function OpenTicket({ params }: { params: ViewResourceContextParams }) {
     if (known) openTicket(known)
   }, [ticketId, board, openTicket, closeTicket])
 
-  useTitle(params, ticket?.short)
   return null
 }
 

@@ -111,18 +111,14 @@ test("at the end of every page, nothing is under the bubble", async ({ page }) =
   }
 })
 
-test.describe("with a finger", () => {
-  test.use({ hasTouch: true })
-
-  test("the bar's one status pill says what the dots did, on a tap", async ({ page }) => {
-    await open(page)
-    const pill = page.getByRole("button", { name: "State of the console" })
-    await expect(pill).toHaveText(/live|connecting…|reconnecting…/)
-    await pill.tap()
-    const said = page.getByRole("tooltip")
-    await expect(said).toContainText("event stream")
-    await expect(said).toContainText(/v\d/)
-    await pill.tap()
-    await expect(said).toBeHidden()
-  })
+test("the version, the last read and the two buttons are behind More", async ({ page }) => {
+  await open(page)
+  // The bar's end says whether the stream is live, at every width.
+  await expect(page.locator("header").getByText(/^(live|connecting…|reconnecting…)$/)).toBeVisible()
+  await bar(page).getByRole("button", { name: "More", exact: true }).click()
+  const drawer = page.getByRole("dialog")
+  await expect(drawer.getByText(/^v\d+\.\d+\.\d+/)).toBeVisible()
+  await expect(drawer.getByText(/^synced /)).toBeVisible()
+  await expect(drawer.getByRole("button", { name: "Resynchronise now" })).toBeVisible()
+  await expect(drawer.getByRole("button", { name: /^(Light|Dark)$/ })).toBeVisible()
 })

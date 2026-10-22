@@ -859,8 +859,15 @@ def the_console_is_drawn_in_react_resource_view_s_admin_layout():
     """
     scope = (FRONTEND / "src/resources/scope.tsx").read_text(encoding="utf-8")
     assert "createAdminLayout" in scope, "the console draws its own frame again"
-    for resource in ("tickets", "projects", "schedules", "settings"):
-        assert f"entry({resource.upper()}" in scope, f"the menu has no entry for {resource}"
+    for resource in ("tickets", "projects", "schedules", "ideas", "sessions", "settings"):
+        assert f"entry({resource}.icon" in scope, f"the menu has no entry for {resource}"
+    # Configured by the places the layout leaves, not redrawn around it: the
+    # pages past the first three are its footer links, which a phone reaches
+    # by the More it draws, and the console's own state is its sidebar's foot.
+    for option in ("logo:", "topBarEnd:", "sidebarFooter:", "footerMenu:"):
+        assert option in scope, f"the layout is no longer given its {option[:-1]}"
+    shell = (FRONTEND / "src/components/console/shell.tsx").read_text(encoding="utf-8")
+    assert "matchMedia" not in shell + scope, "the console guesses the layout's phone width again"
     app = (FRONTEND / "src/App.tsx").read_text(encoding="utf-8")
     assert "ScopeProvider" in app, "the pages are no longer drawn in the scope's layout"
     assert "RouterProvider" in app, "TanStack Router no longer holds the history"
@@ -987,10 +994,12 @@ def the_console_menu_is_a_name_and_a_count():
     count, and a count fits beside a name.
     """
     shell = (FRONTEND / "src/components/console/shell.tsx").read_text(encoding="utf-8")
-    assert "badge?" in shell, "an entry can no longer carry a count"
+    assert "board.tickets.length" in shell, "the board's entry no longer counts its tickets"
     assert "detail" not in shell, "an entry carries a sentence again"
     scope = (FRONTEND / "src/resources/scope.tsx").read_text(encoding="utf-8")
-    assert "component: MenuEntry" in scope, "the menu is drawn without its counts again"
+    assert 'entry(tickets.icon, "Dashboard", boardHref, Board' in scope, (
+        "the menu is drawn without its count again"
+    )
 
 
 @case

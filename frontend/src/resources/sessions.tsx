@@ -53,7 +53,6 @@ export const sessions = createViewResource<SessionsItem>(SESSIONS, {
   views: {
     list: {
       components: { view: LazySessions },
-      fullWidth: true,
     },
   },
 })

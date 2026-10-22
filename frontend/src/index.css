@@ -204,15 +204,10 @@
      as wide as its sentence: at 1440px the row outgrew the pane and pushed the
      Open button off its right edge, and on a phone the title was the only
      column on the screen. The first column — the one that is a sentence —
-     wraps instead. And the cell holding a row's buttons is written `flex`,
-     which takes it out of the table's own layout; the buttons are already in
-     a flex box of their own inside it. */
+     wraps instead. */
   [data-slot="table-cell"]:first-child {
     white-space: normal;
     min-width: 10rem;
-  }
-  td[data-slot="table-cell"].flex {
-    display: table-cell;
   }
 
   /* Written twice, because it is two features. WebKit and Chrome take the
@@ -243,7 +238,8 @@
      column, but the page around it is a flex item, and a flex item grows to
      its content unless told otherwise: seven columns would take the bar over
      the page along with them, past the right edge, and the page would scroll
-     sideways instead of the board. */
+     sideways instead of the board. The package says it itself from
+     react-resource-view#136 on, and this goes with it. */
   [data-slot="sidebar-inset"]:has(> [data-full-width]) {
     min-width: 0;
   }
@@ -290,7 +286,7 @@
      package draws the create button the width of the screen, which put it on a
      row of its own and the first project 48px further down — under the fold,
      where `context.spec.ts` wants it. At the width of its name it sits next to
-     the switch. */
+     the switch — as the package draws it from react-resource-view#136 on. */
   @media (width < 48rem) {
     div:has(> [data-slot="tabs"]) > a.w-full {
       width: auto;
@@ -312,7 +308,8 @@
      a box a screen high less 14rem, so its last cards stay where the page's
      end cannot lift them out from under the discussion's bubble; left to
      grow, as they did before, the room under the content above does it. The
-     box has no `data-slot`, so it is found by the cap it carries. */
+     box has no `data-slot`, so it is found by the cap it carries — until
+     react-resource-view#136 gives it one, `board-column-cards`. */
   @media (width < 48rem) {
     [class*="max-h-[calc(100dvh-14rem)]"] {
       max-height: none;
@@ -324,7 +321,8 @@
      empty once the bar was down to four (see `resources/scope`); a quarter
      each, the padding the room between them rather than inside, and the
      longest name — Récurrences — still fits at 360px. The bar has no
-     `data-slot` of its own, so it is found by where the layout puts it. */
+     `data-slot` of its own, so it is found by where the layout puts it; from
+     react-resource-view#136 on the package shares the width itself. */
   @media (width < 48rem) {
     [data-slot="sidebar-wrapper"] > .fixed.bottom-0 > div > button {
       flex: 1 1 0;
@@ -337,7 +335,8 @@
      it in a row that scrolls sideways, and Base UI writes `min-width:
      fit-content` on that row, on the element itself: a bar that wraps (see
      `filter-bar.tsx`) was laid out on one line all the same, and a phone cut
-     "All types" or "Ticket" at its edge with nothing saying there was more. */
+     "All types" or "Ticket" at its edge with nothing saying there was more.
+     The package stops asking for it from react-resource-view#136 on. */
   [data-slot="scroll-area-content"]:has([data-list-filters]) {
     min-width: 0 !important;
   }
@@ -351,25 +350,16 @@
 
   /* The path in the bar cut at the room it has, rather than written under
      what the bar's end says. Its first steps never shrink, and on a phone the
-     settings' "Settings ›" ran under the status pill; the page's own heading
-     says the same thing a line below. */
+     settings' "Settings ›" ran under the bar's end; the page's own heading
+     says the same thing a line below. The package's own from
+     react-resource-view#136 on. */
   nav[aria-label="Breadcrumb"] {
     overflow: hidden;
   }
 
-  /* A row of tabs that sticks under the bar — as the package means it to.
-     Base UI writes `position: relative` on the scroll area it is drawn in, on
-     the element itself, which beats the package's `sticky`; `top-16` then
-     moved the row 64px down from where it sat instead of holding it there,
-     opening a blank band above the settings' sections and laying the row over
-     the section's own name. */
-  [data-slot="tabs"] > [data-slot="scroll-area"].sticky {
-    position: sticky !important;
-  }
-
   /* A list's icon beside its name, not beside its name and its sentence: the
      package centres the two, and a sentence of two lines on a phone took the
-     icon down to the middle of it. */
+     icon down to the middle of it — until react-resource-view#136. */
   [data-slot="list-header"] > div:first-child {
     align-items: flex-start;
   }
