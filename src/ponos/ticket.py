@@ -18,7 +18,7 @@ import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from . import agents, progress, store
+from . import agents, goals, progress, store
 from .projects import Project
 
 
@@ -58,6 +58,7 @@ class Job:
     chosen: bool = False
     escalated: bool = False
     agent: agents.Agent = field(default_factory=agents.Agent)
+    goal: goals.Goal = field(default_factory=goals.Goal)
     comments: list[str] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
     resumed: bool = False

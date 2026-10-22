@@ -864,6 +864,9 @@ _DEFAULT_PROPERTIES = {
     # Relation to the Agents database. It carries the same word as the database
     # it points at, because it is the same thing.
     "role": "Agent",
+    # Relation to the Objectifs database: what the ticket is for. Named in the
+    # singular for the same reason, and only its first page is read.
+    "goal": "Objectif",
     # The Schedules database, for what comes back on its own. The first four are
     # what you fill in; the last three are what a pass writes back. A workspace
     # without that database never reads any of them.
@@ -884,6 +887,9 @@ _DEFAULT_PAGES = {
     "agents": "Agents",
     "context": "Context",
     "schedules": "Schedules",
+    # The goals a ticket may serve. Named in French because the board it was
+    # built for says so: there is no older English row to stay compatible with.
+    "goals": "Objectifs",
 }
 
 # What those rows used to be called, or are called on a board built by hand. A

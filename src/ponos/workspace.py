@@ -38,6 +38,9 @@ class Workspace:
     # What comes back on its own. Absent means nothing repeats here, which is
     # not a fault: the row is optional exactly as the other two are.
     schedules: str = ""
+    # What a ticket is for — see goals.py. Absent is said, never failed: a
+    # ticket without its goal still runs, it just does not know why.
+    goals: str = ""
     context: str = ""
     # The page the context was read off, so that it can be written back: the
     # console edits it as a text area, and a text you can read but not save is
@@ -112,12 +115,17 @@ def from_notion(client: notion.Client, settings: Notion) -> Workspace:
         )
 
     # From here on, a failure is a missing feature, never a failed run.
-    for key in ("projects", "agents", "schedules"):
+    for key in ("projects", "agents", "schedules", "goals"):
         if page := row(key):
             try:
                 setattr(space, key, client.resolve_database(page))
             except notion.NotionError as error:
                 space.warnings.append(f"{key} database unreadable: {_first_line(error)}")
+        elif key == "goals":
+            space.warnings.append(
+                f"no “{settings.page('goals')}” page in the workspace — "
+                "no ticket is told what it is for"
+            )
 
     if page := row("context"):
         space.context_page = page

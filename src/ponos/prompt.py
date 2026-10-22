@@ -27,6 +27,12 @@ publishes it is yours. Both are added to a prompt file of your own as well, at
 its end when it has no `{kind}` to put them in: a template written before the
 types existed must not become the road by which a post goes out unread.
 
+A ticket may also point at a goal — see goals.py — and its frame sits between
+the project and the role: the goal is the intent of the task, the role's rules
+must stay the last ones read. A prompt file older than `{goal}` gets it at its
+end, the way it gets a type's section; a ticket with no goal gets nothing, not
+even a blank line.
+
 A code ticket's sub-type — see subtypes.py — goes in the same place of the
 first template: the prefix its commit and its pull request start with, the
 section of the CHANGELOG it goes under, and, for a bug, a test that reproduces
@@ -72,7 +78,7 @@ nobody to talk to: no one can answer a question while the session runs.
 
 {body}
 
-{comments}{context}{brief}{agent}{permissions}# Context
+{comments}{context}{brief}{goal}{agent}{permissions}# Context
 
 - Repository: {repo}
 - You are in a dedicated git worktree, on branch `{branch}`, created from \
@@ -115,7 +121,7 @@ your answer will be written back into the Notion ticket itself.
 
 {body}
 
-{comments}{context}{brief}{agent}{permissions}# Context
+{comments}{context}{brief}{goal}{agent}{permissions}# Context
 
 - Working directory: {repo} — empty and disposable, it is yours to use.
 - Notion ticket: {url}
@@ -164,7 +170,7 @@ slightly differently. What was validated is what goes out, word for word.
 
 {body}
 
-{comments}{context}{brief}{agent}{permissions}# Context
+{comments}{context}{brief}{goal}{agent}{permissions}# Context
 
 - Working directory: {repo} — empty and disposable, it is yours to use.
 - Notion ticket: {url}
@@ -334,7 +340,7 @@ nobody to talk to: no one can answer a question while the session runs.
 
 {body}
 
-{comments}{context}{brief}{agent}{permissions}# Context
+{comments}{context}{brief}{goal}{agent}{permissions}# Context
 
 - You are in a disposable worktree of {repo}, in the middle of \
 `git rebase origin/{base}` of the branch `{branch}`: git stopped on the \
@@ -390,7 +396,7 @@ nobody to talk to: no one can answer a question while the session runs.
 
 {body}
 
-{comments}{context}{brief}{agent}{permissions}# Context
+{comments}{context}{brief}{goal}{agent}{permissions}# Context
 
 - You are in a disposable worktree of {repo}, on the branch `{branch}`, at the \
 commit the red checks ran on.
@@ -640,6 +646,10 @@ def build(
     context: str = "",
     agent_name: str = "",
     agent_brief: str = "",
+    goal_name: str = "",
+    goal_brief: str = "",
+    goal_criterion: str = "",
+    goal_due: str = "",
     comments: list[str] | None = None,
     resumed: str = "",
     language: str = "",
@@ -648,8 +658,17 @@ def build(
     ask: Iterable[str] = (),
     secrets: Iterable[str] = (),
 ) -> str:
-    scope, frame, heading, role, discussion = _frames(
-        project, context, brief, agent_name, agent_brief, comments
+    scope, frame, heading, aim, role, discussion = _frames(
+        project,
+        context,
+        brief,
+        agent_name,
+        agent_brief,
+        comments,
+        goal_name,
+        goal_brief,
+        goal_criterion,
+        goal_due,
     )
     rules = permissions(allowed, ask)
     text = template.format(
@@ -657,6 +676,7 @@ def build(
         scope=scope,
         context=frame,
         brief=heading,
+        goal=aim,
         agent=role,
         permissions=rules,
         comments=discussion,
@@ -675,6 +695,10 @@ def build(
         # The same for the permissions: a file written before them must not be
         # the road by which a session asks what it was told it may do.
         text = f"{text.rstrip()}\n\n{rules.rstrip()}\n"
+    if aim and "{goal}" not in template:
+        # A prompt file of your own, older than the goals: the session still
+        # learns what it works for, at the end rather than not at all.
+        text = f"{text.rstrip()}\n\n{aim.rstrip()}\n"
     if kind and "{kind}" not in template:
         # A prompt file of your own, older than the types: see the docstring.
         text = f"{text.rstrip()}\n\n{kind}"
@@ -710,7 +734,7 @@ def conversation(
     and should sound like it. What differs is what sits closest to the answer:
     the thread it is being written into.
     """
-    scope, frame, heading, role, discussion = _frames(
+    scope, frame, heading, _, role, discussion = _frames(
         project, context, brief, agent_name, agent_brief, comments
     )
     # The thread is nearer than the page's discussion: it is the conversation
@@ -799,7 +823,11 @@ def _frames(
     agent_name: str,
     agent_brief: str,
     comments: list[str] | None,
-) -> tuple[str, str, str, str, str]:
+    goal_name: str = "",
+    goal_brief: str = "",
+    goal_criterion: str = "",
+    goal_due: str = "",
+) -> tuple[str, str, str, str, str, str]:
     """The blocks that surround a ticket, widest first. Shared by both prompts."""
     # A ticket may have no project at all: the sentence has to read either way.
     scope = f"for the {project} project" if project else "that belongs to no project"
@@ -811,6 +839,21 @@ def _frames(
     # before the `# Context` block so they read as the frame, not as an
     # afterthought — and after the page above, which frames them in turn.
     heading = f"# About {project}\n\n{brief.strip()}\n\n" if brief.strip() else ""
+    # The goal the ticket serves: the intent of the task, so after the project
+    # it happens in — and before the role, whose rules must be the last read.
+    aim = ""
+    if goal_name.strip():
+        said = [f"# L'objectif — {goal_name.strip()}\n\n"]
+        if goal_brief.strip():
+            said.append(f"{goal_brief.strip()}\n\n")
+        lines = [
+            f"- {label} : {value.strip()}\n"
+            for label, value in (("Critère", goal_criterion), ("Échéance", goal_due))
+            if value.strip()
+        ]
+        if lines:
+            said.append("".join(lines) + "\n")
+        aim = "".join(said)
     # The role, narrower than the project and narrower than you: a project says
     # where the work happens, an agent says what craft it takes.
     role = ""
@@ -830,7 +873,7 @@ def _frames(
             + "\n".join(f"- {line}" for line in comments)
             + "\n\n"
         )
-    return scope, frame, heading, role, discussion
+    return scope, frame, heading, aim, role, discussion
 
 
 def template(prompt_file: str, fallback: str = DEFAULT) -> str:

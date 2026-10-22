@@ -311,7 +311,9 @@ def the_occurrence_is_taken_before_it_is_made():
 @case
 def a_workspace_with_nothing_that_repeats_is_a_workspace_that_runs():
     """The whole feature is optional: no row, no warning, no difference."""
-    client = _FakeClient({"Tickets": "p-tickets", "Context": "p-context"}, text="x")
+    client = _FakeClient(
+        {"Tickets": "p-tickets", "Context": "p-context", "Objectifs": "p-goals"}, text="x"
+    )
     space = workspace.from_notion(client, _settings())
     assert space.schedules == ""
     assert not space.warnings

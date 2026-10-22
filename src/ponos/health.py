@@ -309,6 +309,8 @@ def _schema(
             )
         )
 
+    found.extend(_shared_names(settings))
+
     options = client.options(space.tickets, settings.prop("status"))
     wanted = {
         key: settings.state(key)
@@ -353,6 +355,37 @@ def _schema(
         )
     )
     return found
+
+
+def _shared_names(settings: config_module.Notion) -> list[Check]:
+    """Two settings that name one property of the tickets database, if any.
+
+    Not an error Notion would ever raise: the column is there, it is read — as
+    whatever the other setting expects. `agent = "Agent"` next to the default
+    `role` reads a text as a relation, and asks Notion for a page named after
+    its first character on every ticket taken back.
+    """
+    keys: dict[str, list[str]] = {}
+    for key in (*store.COLUMNS, "goal"):
+        keys.setdefault(settings.prop(key), []).append(key)
+    shared = {name: names for name, names in keys.items() if len(names) > 1}
+    if not shared:
+        return []
+    return [
+        _check(
+            "notion.shared",
+            WARN,
+            "Tickets properties",
+            "Several settings name the same property: {{shared}}.",
+            params={
+                "shared": "; ".join(
+                    f"“{name}” ({', '.join(names)})" for name, names in shared.items()
+                )
+            },
+            cause="Each setting reads the property as something else, so at most one of them is right.",
+            steps=["Give each one its own name under [notion.properties]."],
+        )
+    ]
 
 
 def _fix(

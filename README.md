@@ -1726,6 +1726,41 @@ guessing, live in the template, above anything a page can say.
 All of it is optional twice over: a tickets database with no `Agent` column behaves exactly
 as it always has, and a ticket that names no agent runs on the runner's own prompt.
 
+### The goals database — what the ticket is for
+
+A project says *where*, an agent says *who*. Neither says **what for**, and “add a column”
+is not the same task a month before a launch as on a cleanup nobody is waiting on.
+
+One more row of the workspace, named `Objectifs` by default, holds a database of goals.
+Add an `Objectif` relation column on your tickets, pointing at it. One row per goal, and
+**the body of its page is the goal's brief**, exactly as a project page is its brief; two
+columns of the row say what a session cannot guess:
+
+> **Lancer la v1** — Critère : dix clients payants · Échéance : 31/12
+> La version que l'on montre. Tout ce qui ne la rapproche pas attend.
+
+A ticket that points at one carries it into its prompt, under `# L'objectif — <name>`, with
+its criterion and its due date. Only the first goal of the relation is read. Its place is
+fixed:
+
+```
+the context page   who you are
+      ↓
+the project page   where the work happens
+      ↓
+the goal           what it is for
+      ↓
+the agent          what craft it takes, and its rules — read last
+```
+
+The goal is the intent of the task, not a rule: the role's rules stay the last thing read.
+A prompt file of your own written before `{goal}` existed still gets the goal, at its end.
+Nothing else uses it — a goal's `Priorité` does not order the queue.
+
+All of it is optional twice over: a tickets database with no `Objectif` column, an empty
+relation or a goal page the integration cannot read all give the prompt you had before, to
+the character. A workspace without the `Objectifs` row says so once per run, and runs.
+
 ### The discussion on a ticket
 
 The comments of a ticket go into the prompt, oldest first, which closes the loop the
