@@ -3256,7 +3256,7 @@ it. The *dialect* is twenty lines in
 
 **Adding a sentence.** The console is written in English and the sentence *is* the key:
 `t("Nothing is running.")` through
-[react-mini-i18n](https://github.com/SalvadorCardona/react-mini-i18n), whose dictionary for
+[react-mini-i18n](https://github.com/hermez-agency/react-mini-i18n), whose dictionary for
 French is `frontend/src/lib/french.ts` — one line per sentence, and a key nobody has
 translated is drawn as it was written rather than as a name nobody meant to read. The
 machinery is `frontend/src/lib/i18n.ts`: which language, how it was guessed, and `useT()`,
