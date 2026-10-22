@@ -84,9 +84,10 @@ export const FRENCH: Record<string, string> = {
   Select: "Sélectionner",
   "Select {{title}}": "Sélectionner {{title}}",
   "Selected records": "Éléments sélectionnés",
-  "{{count}} records deleted": "{{count}} élément(s) supprimé(s)",
-  "{{failed}} of {{total}} records could not be deleted":
-    "{{failed}} élément(s) sur {{total}} n'ont pas pu être supprimés",
+  // The package says these with a bare count, whatever it is: the French is
+  // turned so that one and many read the same.
+  "{{count}} records deleted": "Éléments supprimés : {{count}}",
+  "{{failed}} of {{total}} records could not be deleted": "Suppression impossible pour {{failed}} sur {{total}}",
   previous: "précédent",
   next: "suivant",
   Move: "Déplacer",
@@ -95,7 +96,7 @@ export const FRENCH: Record<string, string> = {
   "{{count}} cards": "{{count}} cartes",
   "No card could be moved.": "Aucune carte n'a pu être déplacée.",
   "They are back in their column.": "Elles sont revenues dans leur colonne.",
-  "{{failed}} of {{total}} cards could not be moved": "{{failed}} carte(s) sur {{total}} n'ont pas pu être déplacées",
+  "{{failed}} of {{total}} cards could not be moved": "Déplacement impossible pour {{failed}} sur {{total}} cartes",
   "Open in full page": "Ouvrir en pleine page",
   "No entries to show over this period.": "Rien à montrer sur cette période.",
   "An error occurred": "Une erreur est survenue",
@@ -1276,8 +1277,11 @@ export const FRENCH: Record<string, string> = {
     "Les journaux de plus de {{count}} jours sont supprimés une fois par jour.",
   "Clean up": "Faire le ménage",
   "Cleaning up…": "Ménage en cours…",
-  "{{removed}} folder(s) and {{logs}} log(s) removed, {{freed}} freed.":
-    "{{removed}} dossier(s) et {{logs}} journal(aux) supprimés, {{freed}} libérés.",
+  "{{folders}} and {{logs}} removed, {{freed}} freed.": "{{folders}} et {{logs}} supprimés, {{freed}} libérés.",
+  "{{count}} folder": "{{count}} dossier",
+  "{{count}} folders": "{{count}} dossiers",
+  "{{count}} log": "{{count}} journal",
+  "{{count}} logs": "{{count}} journaux",
   "Once a day, delete the working copies of tickets done for as many days as the logs are kept. A blocked or in-review ticket keeps its own.":
     "Une fois par jour, supprimer les copies de travail des tickets terminés depuis autant de jours que les journaux sont gardés. Un ticket bloqué ou en relecture garde la sienne.",
 
@@ -1762,7 +1766,8 @@ export const FRENCH: Record<string, string> = {
   "Missing: {{names}}": "Manque : {{names}}",
   "git, Claude Code and room on the disk": "git, Claude Code et de la place sur le disque",
   "Three gestures in Notion, and Ponos does the rest: it builds the Tickets and Projects databases itself, with every column spelled the way it reads them — there is no template to duplicate.": "Trois gestes dans Notion, et Ponos fait le reste : il construit lui-même les bases Tickets et Projets, chaque colonne écrite comme il la lit — aucun modèle à dupliquer.",
-  "A board is connected: {{count}} ticket(s) on it.": "Un tableau est connecté : {{count}} ticket(s) dessus.",
+  "A board is connected: {{count}} ticket on it.": "Un tableau est connecté : {{count}} ticket dessus.",
+  "A board is connected: {{count}} tickets on it.": "Un tableau est connecté : {{count}} tickets dessus.",
   "1. Create the Ponos integration": "1. Créez l'intégration Ponos",
   "Open Notion's integrations page, and click “New integration”.": "Ouvrez la page des intégrations de Notion, et cliquez sur « Nouvelle intégration ».",
   "Name it “Ponos”, choose your workspace, type “Internal”, and save.": "Nommez-la « Ponos », choisissez votre espace de travail, le type « Interne », et enregistrez.",
@@ -1885,8 +1890,6 @@ export const FRENCH: Record<string, string> = {
   "The board, in Notion": "Le tableau, dans Notion",
   "Create an internal integration on `notion.so/my-integrations`, share one page with it — the `···` menu → Connections — and paste the two here. The board, its databases and their columns are built under that page, as `ponos init` would.":
     "Créez une intégration interne sur `notion.so/my-integrations`, partagez une page avec elle — menu `···` → Connexions — et collez les deux ici. Le tableau, ses bases et leurs colonnes sont construits sous cette page, comme le ferait `ponos init`.",
-  "A board is already connected: {{count}} ticket(s) on it.":
-    "Un tableau est déjà connecté : {{count}} ticket(s) dessus.",
   "No board yet.": "Pas encore de tableau.",
   "Link of the page you shared": "Lien de la page partagée",
   "Only to build a second board: the one above stays where it is otherwise.":
@@ -1946,8 +1949,10 @@ export const FRENCH: Record<string, string> = {
   "{{app}} is disconnected: its keys are deleted from this machine. The app itself still exists on GitHub — delete it there:":
     "{{app}} est déconnectée : ses clés sont supprimées de cette machine. L'app elle-même existe toujours sur GitHub — supprimez-la là-bas :",
   // The access token, on the GitHub page and in the setup.
-  "Token of {{login}} ({{kind}}): {{count}} repository(ies) reached, {{writable}} writable.":
-    "Jeton de {{login}} ({{kind}}) : {{count}} dépôt(s) atteint(s), dont {{writable}} en écriture.",
+  "Token of {{login}} ({{kind}}): {{count}} repository reached, {{writable}} writable.":
+    "Jeton de {{login}} ({{kind}}) : {{count}} dépôt atteint, dont {{writable}} en écriture.",
+  "Token of {{login}} ({{kind}}): {{count}} repositories reached, {{writable}} writable.":
+    "Jeton de {{login}} ({{kind}}) : {{count}} dépôts atteints, dont {{writable}} en écriture.",
   classic: "classique",
   "fine-grained": "à granularité fine",
   "Missing: {{permission}} — {{level}}": "Manque : {{permission}} — {{level}}",
@@ -2022,8 +2027,8 @@ export const FRENCH: Record<string, string> = {
     "{{name}} — {{key}}, sessions toujours sur le CLI",
   "Markdown board in {{path}}": "Tableau Markdown dans {{path}}",
   "Notion workspace {{workspace}}": "Espace Notion {{workspace}}",
-  "Notion workspace {{workspace}} — {{count}} ticket(s)":
-    "Espace Notion {{workspace}} — {{count}} ticket(s)",
+  "Notion workspace {{workspace}} — {{count}} ticket": "Espace Notion {{workspace}} — {{count}} ticket",
+  "Notion workspace {{workspace}} — {{count}} tickets": "Espace Notion {{workspace}} — {{count}} tickets",
   "No board yet": "Pas encore de tableau",
   "{{model}} by default, chosen per ticket by the rules":
     "{{model}} par défaut, choisi par ticket selon les règles",
@@ -2033,7 +2038,8 @@ export const FRENCH: Record<string, string> = {
   "Board": "Tableau",
   "GitHub account": "Compte GitHub",
   "Not signed in": "Pas connecté",
-  "{{root}} — {{count}} repository(ies) found": "{{root}} — {{count}} dépôt(s) trouvé(s)",
+  "{{root}} — {{count}} repository found": "{{root}} — {{count}} dépôt trouvé",
+  "{{root}} — {{count}} repositories found": "{{root}} — {{count}} dépôts trouvés",
   "None — nothing reaches your phone": "Aucun — rien n'atteint votre téléphone",
   "Environment": "Environnement",
   "Container — Ponos {{version}}": "Conteneur — Ponos {{version}}",

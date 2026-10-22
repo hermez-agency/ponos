@@ -39,6 +39,27 @@ export function money(value: number, digits = 2): string {
   }).format(value)
 }
 
+/** A size, the way the runner's `doctor` says it — powers of 1000, one decimal
+ *  under ten — in the units the language writes: "4.2 GB" in English, « 4,2 Go »
+ *  in French. Bytes alone are spelled out: `Intl` has "12 byte" for the short
+ *  form, and nobody writes that. */
+export function bytes(size: number): string {
+  const units = ["byte", "kilobyte", "megabyte", "gigabyte"]
+  let unit = 0
+  while (size >= 1000 && unit < units.length - 1) {
+    size /= 1000
+    unit += 1
+  }
+  const digits = unit === 0 || size >= 10 ? 0 : 1
+  return new Intl.NumberFormat(locale, {
+    style: "unit",
+    unit: units[unit],
+    unitDisplay: unit === 0 ? "long" : "short",
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  }).format(size)
+}
+
 export interface Counted {
   /** The sentence, in English: it is also the key it is translated by. */
   key: string

@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { api } from "@/lib/api"
 import { useT } from "@/lib/i18n"
+import { count, number } from "@/lib/numbers"
 import type { GithubApp, GithubManifest, GithubToken, GithubTokenCheck } from "@/lib/types"
 
 /* The settings' GitHub page: the app Ponos works GitHub through, in one click.
@@ -85,15 +86,20 @@ export function ConnectGithub({ again = false }: { again?: boolean }) {
 /** What a token lacks, in the words of the permissions GitHub's form uses. */
 function Lacks({ check }: { check: GithubTokenCheck }) {
   const t = useT()
+  const reached = count(
+    check.repositories.length,
+    "Token of {{login}} ({{kind}}): {{count}} repository reached, {{writable}} writable.",
+    "Token of {{login}} ({{kind}}): {{count}} repositories reached, {{writable}} writable."
+  )
   return (
     <Alert variant={check.ok ? "success" : "destructive"} data-testid="github-token-check">
       <AlertDescription className="flex flex-col gap-1.5">
         <span>
-          {t("Token of {{login}} ({{kind}}): {{count}} repository(ies) reached, {{writable}} writable.", {
+          {t(reached.key, {
+            ...reached.params,
             login: check.login,
             kind: check.kind === "classic" ? t("classic") : t("fine-grained"),
-            count: check.repositories.length,
-            writable: check.writable.length,
+            writable: number(check.writable.length),
           })}
         </span>
         {check.missing.map((one) => (

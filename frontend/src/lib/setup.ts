@@ -2,11 +2,14 @@
  *
  * Which steps there are, which one an address opens on, what the account step
  * refuses before it asks the server, and what the summary says line by line.
- * Imports nothing, so `node --test` reads it as it stands (see setup.test.ts).
+ * Imports only `numbers.ts`, which imports nothing, so `node --test` reads it
+ * as it stands (see setup.test.ts).
  *
  * The sentences here are English, and they are the keys: the page hands each
  * to `t()` with its parameters, and `french.ts` holds the other language.
  */
+
+import { count, type Counted } from "./numbers.ts"
 
 /** The steps, in the order somebody would say them — and the first ticket
  * last, since it is the proof that every step before it holds. */
@@ -169,6 +172,11 @@ const PROVIDER_NAMES: Record<Provider, string> = {
   openrouter: "OpenRouter",
 }
 
+/** A row's sentence about a count, with the other things it names. */
+function withCount(said: Counted, params: Record<string, string>): Pick<Row, "value" | "params"> {
+  return { value: said.key, params: { ...params, ...said.params } }
+}
+
 /** The summary, one line per thing that has to work. */
 export function rows(summary: Summary): Row[] {
   const { provider, model, board, github, projects, channels, environment, machine } = summary
@@ -193,10 +201,14 @@ export function rows(summary: Summary): Row[] {
       : board.workspace
         ? board.tickets === null
           ? { value: "Notion workspace {{workspace}}", params: { workspace: board.workspace } }
-          : {
-              value: "Notion workspace {{workspace}} — {{count}} ticket(s)",
-              params: { workspace: board.workspace, count: String(board.tickets) },
-            }
+          : withCount(
+              count(
+                board.tickets,
+                "Notion workspace {{workspace}} — {{count}} ticket",
+                "Notion workspace {{workspace}} — {{count}} tickets"
+              ),
+              { workspace: board.workspace }
+            )
         : { value: "No board yet", params: {} }
 
   const lacking = machine.needs.filter((need) => !need.ok)
@@ -264,8 +276,14 @@ export function rows(summary: Summary): Row[] {
     {
       key: "projects",
       label: "Projects",
-      value: "{{root}} — {{count}} repository(ies) found",
-      params: { root: projects.root, count: String(projects.repositories) },
+      ...withCount(
+        count(
+          projects.repositories,
+          "{{root}} — {{count}} repository found",
+          "{{root}} — {{count}} repositories found"
+        ),
+        { root: projects.root }
+      ),
       state: projects.state,
       said: "",
       step: "summary",
