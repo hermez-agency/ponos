@@ -110,8 +110,9 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
   "The brief" no longer runs over it.
 - **The console's menu is the admin layout's own.** The version, the sync, "Resync" and the theme sit at the foot of
   the sidebar rather than in the top bar, which keeps the search, the bell and whether the stream is live. On a phone
-  the bottom bar holds the dashboard, the projects and the schedules, and its "More" opens Ideas, Sessions and Settings
-  with that same foot — no more sideways scroll at 390px. The tab names the page you are on, and the console moves to
+  the bottom bar holds the dashboard, the projects, the ideas and the sessions, and its "More" opens the schedules, the
+  goals and Settings with that same foot — every label is read whole at 360px, and there is no sideways scroll at 390px.
+  The tab names the page you are on, and the console moves to
   react-resource-view 1.2.
 - **Unblocking a ticket closes its window.** Answering Ponos, pressing a quick reply or running it again as it is
   sends the ticket back to Ready and takes you back to the board; if the send fails, the window stays open with the
