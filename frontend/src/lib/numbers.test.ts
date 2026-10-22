@@ -5,7 +5,7 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
 
-import { count, money, number, setNumberLocale } from "./numbers.ts"
+import { bytes, count, money, number, setNumberLocale } from "./numbers.ts"
 
 // French puts a narrow no-break space between thousands and before the sign:
 // what the page shows as a space is not the one typed on a keyboard.
@@ -31,6 +31,22 @@ test("a count has its thousands separated", () => {
   assert.equal(number(12), "12")
   setNumberLocale("en-GB")
   assert.equal(number(1178), "1,178")
+})
+
+test("a size is written in the units of each language", () => {
+  setNumberLocale("fr-FR")
+  assert.equal(spaced(bytes(4_200_000_000)), "4,2 Go")
+  assert.equal(spaced(bytes(3_000_000_000)), "3,0 Go")
+  assert.equal(spaced(bytes(915_000_000)), "915 Mo")
+  assert.equal(spaced(bytes(12_400)), "12 ko")
+  assert.equal(spaced(bytes(25_000_000_000_000)), "25 000 Go")
+  assert.equal(spaced(bytes(12)), "12 octets")
+  setNumberLocale("en-GB")
+  assert.equal(bytes(4_200_000_000), "4.2 GB")
+  assert.equal(bytes(3_000_000_000), "3.0 GB")
+  assert.equal(bytes(915_000_000), "915 MB")
+  assert.equal(bytes(12_400), "12 kB")
+  assert.equal(bytes(12), "12 bytes")
 })
 
 test("a plural is chosen, never written (s)", () => {

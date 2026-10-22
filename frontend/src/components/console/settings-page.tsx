@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useConsole } from "@/hooks/use-console"
 import { api } from "@/lib/api"
 import { counted, useT } from "@/lib/i18n"
+import { bytes } from "@/lib/numbers"
 import { SCOPE } from "@/lib/resource-view"
 import {
   cardId,
@@ -33,17 +34,6 @@ import { settingsHref } from "@/resources/settings"
  */
 
 /* -- the general page's state ------------------------------------------------ */
-
-/** A size the way the runner's `doctor` says it: 25 GB, 764 MB, 12 kB. */
-function bytes(size: number): string {
-  const units = ["B", "kB", "MB", "GB"]
-  let unit = 0
-  while (size >= 1000 && unit < units.length - 1) {
-    size /= 1000
-    unit += 1
-  }
-  return `${unit === 0 || size >= 10 ? Math.round(size) : size.toFixed(1)} ${units[unit]}`
-}
 
 /* The room the runner takes, and the button that applies its retention now.
  * A run tidies once a day on its own — the button is for the day you would
@@ -74,9 +64,9 @@ function DiskLine() {
       const done = await api.clean()
       setDisk(done)
       setSaid({
-        text: t("{{removed}} folder(s) and {{logs}} log(s) removed, {{freed}} freed.", {
-          removed: String(done.removed),
-          logs: String(done.logs),
+        text: t("{{folders}} and {{logs}} removed, {{freed}} freed.", {
+          folders: counted(done.removed, "{{count}} folder", "{{count}} folders"),
+          logs: counted(done.logs, "{{count}} log", "{{count}} logs"),
           freed: bytes(done.freed),
         }),
         bad: false,

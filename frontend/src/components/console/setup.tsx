@@ -35,7 +35,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { api, why, type Provisioned } from "@/lib/api"
-import { LANGUAGES, setLanguage, useLanguage, useT, type Language } from "@/lib/i18n"
+import { LANGUAGES, counted, setLanguage, useLanguage, useT, type Language } from "@/lib/i18n"
 import {
   accessProblem,
   demoOutcome,
@@ -843,7 +843,14 @@ function NotionStep({ storage, onNext }: { storage: string; onNext: () => void }
           gestures below are about, and the configuration's own words for it
           would only alarm somebody who has not started yet. */}
       {found ? (
-        <Said ok text={t("A board is connected: {{count}} ticket(s) on it.", { count: String(board.tickets ?? 0) })} />
+        <Said
+          ok
+          text={counted(
+            board.tickets ?? 0,
+            "A board is connected: {{count}} ticket on it.",
+            "A board is connected: {{count}} tickets on it."
+          )}
+        />
       ) : board?.state === "error" ? (
         <Said ok={false} text={board.said} />
       ) : null}
