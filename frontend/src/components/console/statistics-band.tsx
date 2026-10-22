@@ -96,6 +96,14 @@ function span(range: Exclude<Range, "custom">, today: Date): { from: string; to:
  * put the dashboard back on its week. */
 const kept = new Map<string, { range: Range; from: string; to: string }>()
 
+/* The figures last read, by scope and period, for a minute: a project's band is
+ * drawn in the panel beside the list and on the page alone, and going from one
+ * to the other — or back to a project picked a moment ago — draws them at once
+ * rather than asking the same question twice. */
+const FRESH = 60_000
+const answered = new Map<string, { at: number; figures: Statistics }>()
+const question = (scope: string, from: string, to: string) => `${scope}|${from}|${to}`
+
 /* Whether the band is folded, as the last person at this browser left it. Open
  * by default: the figures are why the dashboard is more than the board. */
 const FOLDED_KEY = "ponos-dashboard-statistics"
@@ -189,7 +197,9 @@ export function StatisticsBand({ project }: { project?: string }) {
   const [period, setPeriod] = React.useState(
     () => kept.get(scope) ?? { range: "7d" as Range, ...span("7d", new Date()) }
   )
-  const [figures, setFigures] = React.useState<Statistics | null>(null)
+  const [figures, setFigures] = React.useState<Statistics | null>(
+    () => answered.get(question(scope, period.from, period.to))?.figures ?? null
+  )
   const [problem, setProblem] = React.useState("")
   const asked = React.useRef(0)
 
@@ -201,9 +211,17 @@ export function StatisticsBand({ project }: { project?: string }) {
     // Only the answer to the last question asked is drawn: clicking through
     // three ranges must not end on the first one's figures.
     const mine = ++asked.current
+    const key = question(scope, period.from, period.to)
+    const known = answered.get(key)
+    if (known && Date.now() - known.at < FRESH) {
+      setFigures(known.figures)
+      setProblem("")
+      return
+    }
     api
       .statistics(period.from, period.to, project)
       .then((fresh) => {
+        answered.set(key, { at: Date.now(), figures: fresh })
         if (mine !== asked.current) return
         setFigures(fresh)
         setProblem("")

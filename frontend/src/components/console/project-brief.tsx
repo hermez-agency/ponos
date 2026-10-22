@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button"
 import { ApiError, api, why } from "@/lib/api"
 import { useT } from "@/lib/i18n"
 import type { ProjectBrief } from "@/lib/types"
-import { projectsHref, type ProjectItem } from "@/resources/projects"
+import { forgetProject, projectsHref, type ProjectItem } from "@/resources/projects"
 
 import { CONTEXT_ANCHOR } from "./context-block"
 import { Eyebrow } from "./frame"
@@ -121,6 +121,8 @@ function BriefEditor({
         base: opened.version,
         accept_losses: kinds.length > 0,
       })
+      // Read again by whoever draws this project next, the panel or the page alone.
+      forgetProject(id)
       toast.success(t("The brief is saved"), {
         description: t("The next ticket of this project is told this."),
       })

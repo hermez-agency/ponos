@@ -17,6 +17,7 @@ import { api, why } from "@/lib/api"
 import { useT } from "@/lib/i18n"
 import type { Picture, Pictures, Project } from "@/lib/types"
 import { cn } from "@/lib/utils"
+import { forgetProject } from "@/resources/projects"
 
 /* A project's pictures: the cover of its page, and its icon.
  *
@@ -133,7 +134,16 @@ function PictureNote({ pictures }: { pictures: Pick<Pictures, "cover" | "icon"> 
  * the way back, the name, the edit button — and this is the first thing under
  * it, not a second header.
  */
-export function ProjectCover({ project, editable }: { project: Project; editable: boolean }) {
+export function ProjectCover({
+  project,
+  editable,
+  compact = false,
+}: {
+  project: Project
+  editable: boolean
+  /** Lower, in the panel beside the list of projects. */
+  compact?: boolean
+}) {
   const t = useT()
   const [pictures, setPictures] = React.useState<Pick<Pictures, "cover" | "icon">>({
     cover: project.cover ?? { kind: "" },
@@ -149,9 +159,12 @@ export function ProjectCover({ project, editable }: { project: Project; editable
   const hue = hueOf(project.name)
 
   return (
-    <div className="mb-8">
+    <div className={compact ? "mb-6" : "mb-8"}>
       <div
-        className="group relative h-32 w-full overflow-visible rounded-xl border sm:h-44"
+        className={cn(
+          "group relative w-full overflow-visible rounded-xl border",
+          compact ? "h-24 sm:h-28" : "h-32 sm:h-44"
+        )}
         style={
           cover
             ? undefined
@@ -308,6 +321,8 @@ function PictureDialog({
     try {
       const answer = await send()
       onChange({ cover: answer.cover, icon: answer.icon })
+      // The panel and the page alone draw the same read: neither draws the old picture again.
+      forgetProject(project.id)
       if (answer[slot].pending) {
         toast.warning(t("Kept here, not yet in Notion"), {
           description: answer[slot].error || t("It is sent again at the next reading of the board."),
