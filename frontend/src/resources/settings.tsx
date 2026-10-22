@@ -199,6 +199,8 @@ export const settings = createViewResource<SettingsItem>(SETTINGS, {
   },
   views: {
     read: {
+      // The dashboard's width and margins, like every page of the menu.
+      fullWidth: true,
       components: {
         view: SettingsHead,
         // No header from the layout: it said the page twice over `SettingsHead`

@@ -5,6 +5,7 @@ import { toast } from "sonner"
 
 import { ConfirmDialog } from "@/components/console/confirm-dialog"
 import { EmptyState } from "@/components/console/empty-state"
+import { PageHead } from "@/components/console/frame"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -40,6 +41,7 @@ import { openTalk } from "@/lib/talk"
 export function SessionsPage() {
   const t = useT()
   const { runner } = useConsole()
+  const Icon = useCurrentViewResourceContext().resource?.icon
   const [query, setQuery] = React.useState("")
   const [sessions, setSessions] = React.useState<ChatSession[] | null>(null)
   const [problem, setProblem] = React.useState("")
@@ -95,7 +97,13 @@ export function SessionsPage() {
 
   return (
     <div data-sessions className="flex flex-col gap-2">
-      <SessionsHead action={newSession} />
+      <PageHead
+        icon={Icon}
+        title={t("Sessions")}
+        blurb={t("Every conversation with your workspace. Open one to carry on where it stopped.")}
+        action={newSession}
+        className="mb-0"
+      />
 
       <div className="relative my-2 max-w-md">
         <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
@@ -213,39 +221,6 @@ export function SessionsPage() {
         onClose={() => setDeleting(null)}
         onDone={() => void read(query)}
       />
-    </div>
-  )
-}
-
-/* The header the package draws over its lists — the icon, the name, the
- * sentence, the gesture against the right edge — drawn here because the
- * package lists nothing on this page: in its markup and under its slot, so
- * that it reads as the projects' and the ideas' do, and what `index.css`
- * says of theirs holds for it too. */
-function SessionsHead({ action }: { action: React.ReactNode }) {
-  const t = useT()
-  const Icon = useCurrentViewResourceContext().resource?.icon
-  return (
-    <div data-slot="list-header" className="flex flex-wrap items-center gap-x-4 gap-y-3 border-b pb-4">
-      <div className="flex min-w-0 flex-1 items-center gap-3">
-        {Icon ? (
-          <span className="bg-muted text-muted-foreground flex size-10 shrink-0 items-center justify-center rounded-xl">
-            <Icon className="size-5" />
-          </span>
-        ) : null}
-        <div className="min-w-0">
-          <h2 className="truncate text-base font-semibold tracking-tight">{t("Sessions")}</h2>
-          <p className="text-muted-foreground text-sm">
-            {t("Every conversation with your workspace. Open one to carry on where it stopped.")}
-          </p>
-        </div>
-      </div>
-      <div
-        data-slot="list-header-controls"
-        className="flex w-full flex-wrap items-center gap-2 md:ms-auto md:w-auto md:justify-end"
-      >
-        {action}
-      </div>
     </div>
   )
 }

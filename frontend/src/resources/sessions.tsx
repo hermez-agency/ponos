@@ -52,6 +52,8 @@ export const sessions = createViewResource<SessionsItem>(SESSIONS, {
   },
   views: {
     list: {
+      // The projects' width, like every list: the page is drawn by `SessionsPage`.
+      fullWidth: true,
       components: { view: LazySessions },
     },
   },

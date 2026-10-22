@@ -168,3 +168,23 @@ test("the detail of a problem names each property once, and the raw error only t
   await expect(detail.getByRole("listitem")).toHaveCount(2)
   await expect(detail).toContainText("“Runner”")
 })
+
+test("the band arriving late does not move the page", async ({ page }) => {
+  let release: () => void = () => {}
+  const late = new Promise<void>((resolve) => (release = resolve))
+  await page.route("**/api/health", async (route: Route) => {
+    await late
+    await route.fulfill({ json: RED })
+  })
+  await page.context().addCookies([{ name: "ponos_token", value: "e2e", url: test.info().project.use.baseURL }])
+  await page.goto("/")
+  const card = page.getByText("A long ticket").filter({ visible: true }).first()
+  await expect(card).toBeVisible()
+  const before = await card.boundingBox()
+  expect(await page.getByTestId("health-band").count()).toBe(0)
+
+  release()
+  await expect(page.getByTestId("health-band")).toBeVisible()
+  const after = await card.boundingBox()
+  expect(after?.y).toBe(before?.y)
+})
