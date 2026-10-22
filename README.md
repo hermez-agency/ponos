@@ -3757,6 +3757,22 @@ them on the program's normal path:
   the runner does none of them until a human has moved that ticket to *Validated*. A
   session cannot put itself there, and no configuration key merges a pull request the way
   `open_pull_request` opens one.
+- **A red job is never merged.** Before every merge the runner reads the pull request's
+  checks: one that failed blocks the ticket (`merge.checks-failed`, the jobs named), one
+  still running leaves it *Validated* for the next pass. That is the runner's own rule; the
+  repository's is the **branch protection** on its base, which also stops a merge made by
+  hand. On GitHub: *Settings → Branches → Add branch ruleset* (or classic protection) on
+  `main`, *Require status checks to pass*, and pick the jobs of your CI — or from a
+  terminal, with the names `gh pr checks` prints:
+
+  ```sh
+  gh api -X PUT repos/<owner>/<repo>/branches/main/protection --input - <<'EOF'
+  {"required_status_checks":{"strict":false,"contexts":["core (3.11)","quality"]},
+   "enforce_admins":false,"required_pull_request_reviews":null,"restrictions":null}
+  EOF
+  ```
+
+  This repository requires `core (3.11)`, `core (3.13)`, `quality`, `frontend` and `image`.
 
 One thing to know: by default the runner starts the session with
 `permission_mode = "bypassPermissions"`, because a session with nobody to ask cannot ask,

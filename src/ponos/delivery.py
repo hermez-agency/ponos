@@ -451,7 +451,12 @@ class Delivery(Base):
                     except git.GitError as error:
                         refusal = voice_module.line(error)
                         behind = rebase and git.is_behind(error)
-                        if checks == "pending" and not behind:
+                        if isinstance(error, git.ChecksNotGreen):
+                            refusal = self.voice.say(
+                                "forced-checks-red" if error.state == "failed" else "checks-pending"
+                            )
+                            later = error.state == "pending" and self.validated_column()
+                        elif checks == "pending" and not behind:
                             refusal = f"{self.voice.say('checks-pending')} {refusal}"
                         later = (behind or checks == "pending") and self.validated_column()
                     else:
@@ -700,10 +705,24 @@ class Delivery(Base):
         self._comment(ticket, self.voice.say("base-green-again", base=base))
         return False
 
-    def _refused(self, ticket: Ticket, url: str, refusal: object, *notes: str) -> dict:
+    def _refused(self, ticket: Ticket, url: str, refusal: object, *notes: str) -> dict | None:
         """A merge GitHub would not make, and nothing more the runner can do about it."""
         state.forget_rebases(ticket.id)
         said = self.voice
+        if isinstance(refusal, git.ChecksNotGreen):
+            names = _named(refusal.names)
+            if refusal.state == "pending":
+                # Not a refusal about the work: the next pass asks again.
+                self.say(f"    · {ticket.title} — {said.say('merge-checks-running', names=names)}")
+                return None
+            return self._fail(
+                ticket,
+                said.say("merge-checks-red"),
+                said.paragraphs(url, *notes, names),
+                code="merge.checks-failed",
+                blocked=True,
+                question=said.say("merge-checks-red-question", names=names, url=url),
+            )
         return self._fail(
             ticket,
             said.say("merge-refused"),

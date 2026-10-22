@@ -187,6 +187,13 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Fixed
 
+- **Ponos never merges a pull request with a red job, nor with one still running.** The check lived only on the forced
+  road; a validated pull request was handed to `gh pr merge` unread, and a repository without branch protection took it
+  — that is how #326 landed with its frontend job red. `merge_pull_request` now reads the checks first: a red job blocks
+  the ticket (`merge.checks-failed`, the jobs named), a running one leaves it validated for the next pass. The README
+  says how to protect `main` on a project; it is on for `hermez-agency/ponos` (`core (3.11)`, `core (3.13)`,
+  `quality`, `frontend`, `image`).
+
 - **The “Repair main” ticket is a Code / Bug ticket, and its pull request is merged on its own.** It was born without a
   type, so it was classified like any ticket and its green pull request waited in *In review* while every other pull
   request waited behind it. It is now created as *Code*, sub-type *Bug*, priority 75, and the pull request it opens is

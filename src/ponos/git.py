@@ -811,6 +811,18 @@ def open_pull_request(
 MERGE_FLAGS = {"squash": "--squash", "merge": "--merge", "rebase": "--rebase"}
 
 
+class ChecksNotGreen(GitError):
+    """A merge the runner itself refused: one of the pull request's jobs is not green.
+
+    `state` is `failed` (a job is red) or `pending` (one is still running);
+    `names` the jobs concerned.
+    """
+
+    def __init__(self, state: str, names: list[str]) -> None:
+        self.state, self.names = state, names
+        super().__init__(f"checks {state}: {', '.join(names) or '?'}")
+
+
 def merge_pull_request(url: str, method: str = "squash", accounts: Accounts | None = None) -> str:
     """Merge that pull request through `gh`. Returns what `gh` said of it.
 
@@ -822,9 +834,23 @@ def merge_pull_request(url: str, method: str = "squash", accounts: Accounts | No
 
     `--auto` is deliberately not used: a merge that lands quietly twenty minutes
     later, when a check goes green, is a merge nobody watched.
+
+    Nothing is merged while a job is red or still running, whoever asks and
+    whatever GitHub would have allowed: a repository whose branch is not
+    protected would let it through — that is how #326 landed with its frontend
+    job red. A job GitHub cannot be asked about is not read as red.
     """
     if not shutil.which("gh"):
         raise GitError("gh not found — cannot merge the pull request")
+    listed = checks(url, accounts)
+    if red := sorted(
+        {str(one.get("name") or "") for one in listed if one.get("bucket") in ("fail", "cancel")}
+    ):
+        raise ChecksNotGreen("failed", red)
+    if running := sorted(
+        {str(one.get("name") or "") for one in listed if one.get("bucket") == "pending"}
+    ):
+        raise ChecksNotGreen("pending", running)
     result = run(
         ["gh", "pr", "merge", url, MERGE_FLAGS.get(method, "--squash")],
         timeout=300,

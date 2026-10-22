@@ -962,3 +962,76 @@ def publishing_hands_the_page_as_it_stands_to_a_session_and_then_closes_it():
     assert "Le post d'annonce" in prompt_text, "the page as it stands is what goes out"
     assert "publishing, not producing" in prompt_text
     assert "publié sur le compte Instagram" in runner.client.comments_written[0]
+
+
+# -- a red job is never merged -----------------------------------------------
+
+
+@contextlib.contextmanager
+def _checks_of(listed: list[dict]):
+    """`gh` present, its checks as listed, and every merge it is asked for noted."""
+    asked: list[list[str]] = []
+    which, checks, run = git_module.shutil.which, git_module.checks, git_module.run
+    git_module.shutil.which = lambda name: "/usr/bin/gh"
+    git_module.checks = lambda url, accounts=None, timeout=60: listed
+
+    def merged(command, **kwargs):
+        asked.append(command)
+        return git_module.Result(0, "merged", "")
+
+    git_module.run = merged
+    try:
+        yield asked
+    finally:
+        git_module.shutil.which, git_module.checks, git_module.run = which, checks, run
+
+
+@case
+def a_pull_request_with_a_red_job_is_never_merged():
+    url = "https://github.com/x/y/pull/1"
+    listed = [{"name": "frontend", "bucket": "fail"}, {"name": "core", "bucket": "pass"}]
+    with _checks_of(listed) as asked:
+        try:
+            git_module.merge_pull_request(url)
+        except git_module.ChecksNotGreen as error:
+            assert (error.state, error.names) == ("failed", ["frontend"])
+        else:
+            raise AssertionError("merged with a red job")
+    assert asked == [], "gh pr merge was never run"
+
+
+@case
+def a_pull_request_with_a_job_still_running_is_not_merged_yet():
+    listed = [{"name": "core", "bucket": "pass"}, {"name": "image", "bucket": "pending"}]
+    with _checks_of(listed) as asked:
+        try:
+            git_module.merge_pull_request("https://github.com/x/y/pull/1")
+        except git_module.ChecksNotGreen as error:
+            assert (error.state, error.names) == ("pending", ["image"])
+        else:
+            raise AssertionError("merged with a job running")
+    assert asked == []
+
+
+@case
+def a_pull_request_whose_jobs_are_green_or_skipped_is_merged():
+    listed = [{"name": "core", "bucket": "pass"}, {"name": "docs", "bucket": "skipping"}]
+    with _checks_of(listed) as asked:
+        git_module.merge_pull_request("https://github.com/x/y/pull/1")
+    assert len(asked) == 1 and asked[0][:3] == ["gh", "pr", "merge"]
+
+
+@case
+def a_validated_pull_request_with_a_red_job_blocks_its_ticket_as_checks_failed():
+    url = "https://github.com/x/y/pull/1"
+    runner = _board_runner([_reviewed("ppr", "Validated", url)], {})
+
+    def merge(url, method="squash", accounts=None):
+        raise git_module.ChecksNotGreen("failed", ["frontend"])
+
+    with _github({url: "OPEN"}, merge=merge):
+        results = runner.deliver()
+    assert results and results[0]["status"] == "blocked"
+    assert runner.client.written == [
+        ("ppr", {"Status": "Blocked", "Blocage": "merge.checks-failed"})
+    ]
