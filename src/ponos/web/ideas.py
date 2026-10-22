@@ -38,7 +38,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from .. import ideas, log, provider, session, state, store
+from .. import goals, ideas, log, provider, session, state, store
 from ..config import state_dir
 
 logger = logging.getLogger(__name__)
@@ -173,6 +173,14 @@ class Ideas:
                 context = ""
         return name, brief, text, names, context
 
+    def _objectives(self, project: str) -> list[goals.Goal]:
+        """The goals being worked toward: the project's, or all of the workspace's."""
+        runner = self._api.runner
+        try:
+            return goals.active(runner.client, runner.workspace.goals, project)
+        except store.StoreError:
+            return []
+
     def _generate(self, project: str) -> dict:
         api = self._api
         configuration = api.config
@@ -187,6 +195,7 @@ class Ideas:
             tickets=tickets,
             projects=names,
             context=context,
+            objectives=self._objectives(project),
             known=known,
             language=LANGUAGES.get(api.runner.voice.language, "English"),
         )
@@ -381,6 +390,7 @@ class Ideas:
             brief=brief,
             tickets=self._tickets(name if project else ""),
             context=context,
+            objectives=self._objectives(project),
             known=ideas.known(project),
             language=LANGUAGES.get(api.runner.voice.language, "English"),
         )

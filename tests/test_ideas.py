@@ -16,6 +16,7 @@ from support import FRONTEND, _bare_api, _board, _ideas_api, _markdown_api, _sta
 from ponos import (
     db,
     files,
+    goals,
     ideas,
     kinds,
     markdown,
@@ -978,3 +979,47 @@ def the_live_report_writes_its_steps_into_the_file():
         assert "J'ai lu le fichier." in written
         # Cleared on the way out, exactly as on a Notion board.
         assert store.read(board.page(page_id), "Progress") == ""
+
+
+def _to_score() -> ideas.Idea:
+    return ideas.Idea(
+        id=1,
+        batch=None,
+        scope="global",
+        project="",
+        kind="ticket",
+        title="Un cache",
+        description="",
+    )
+
+
+@case
+def the_goals_of_the_moment_are_read_by_both_prompts_or_left_out():
+    """Material to read, never a criterion: without any, the prompt is what it was."""
+    caps = [
+        goals.Goal("Lancer la v1", criterion="Dix clients payants", due="2026-12-31"),
+        goals.Goal("Réduire la dette"),
+    ]
+    for asked in (
+        ideas.prompt(project="Usine", objectives=caps),
+        ideas.score_prompt([_to_score()], project="Usine", objectives=caps),
+    ):
+        assert "# Les caps du moment" in asked
+        assert "- Lancer la v1 (criterion: Dix clients payants; due: 2026-12-31)" in asked
+        assert "- Réduire la dette\n" in asked
+    assert "Les caps du moment" not in ideas.prompt(project="Usine", objectives=[])
+    assert ideas.prompt(project="Usine", objectives=[]) == ideas.prompt(project="Usine")
+    one = [_to_score()]
+    assert ideas.score_prompt(one, objectives=None) == ideas.score_prompt(one)
+    assert "Les caps du moment" not in ideas.score_prompt(one)
+
+
+@case
+def the_goals_of_the_moment_stop_at_their_limit():
+    many = [goals.Goal(f"Cap {number} " + "x" * 80) for number in range(100)]
+    asked = ideas.prompt(objectives=many)
+    section = asked.split("# Les caps du moment\n\n", 1)[1]
+    assert len(section.split("\n\n", 1)[0].strip()) <= ideas.OBJECTIVES_LIMIT
+    scoring = ideas.score_prompt([_to_score()], objectives=many)
+    assert "- Cap 0 " in scoring and "- Cap 99 " not in scoring
+    assert ideas.SCORE_OBJECTIVES_LIMIT < ideas.OBJECTIVES_LIMIT

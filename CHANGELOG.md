@@ -24,6 +24,12 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
   du tableau, pas lu dans un rollup Notion. La fenêtre d'un ticket rattaché
   montre son objectif, en lien vers sa page, et « Nouveau ticket » propose d'en
   choisir un (facultatif, vide par défaut).
+- Les idées lisent les caps du moment : la proposition d'un lot et la notation
+  reçoivent, sous « Les caps du moment », le nom, le `Critère` et l'`Échéance`
+  de chaque objectif actif (`Statut` vide, `Actif` ou `En cours`) — ceux dont la
+  relation `Projets` contient le projet, ou tous sur l'espace de travail. La
+  grille de notation ne change pas ; sans cap actif, le prompt reste celui
+  d'avant, au caractère près.
 - Un ticket peut pointer un objectif : la colonne `Objectif` (une relation vers
   la base `Objectifs` du workspace) met dans son prompt le nom du cap, le corps
   de sa page, son `Critère` et son `Échéance`, entre le projet et le rôle. Sans
