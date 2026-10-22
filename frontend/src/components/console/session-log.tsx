@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils"
 
 import { EmptyState } from "./empty-state"
 import { Markdown } from "./markdown"
+import { Robot } from "./robot"
 import { when } from "./ticket-bits"
 
 /* A ticket's session, read from the ticket.
@@ -581,6 +582,12 @@ export function CardLive({ ticket }: { ticket: Ticket }) {
 
   return (
     <div className="flex flex-col gap-1 text-xs" data-slot="card-live">
+      {/* Said first, and on every running card: a ticket just unblocked shows it
+          as soon as it runs again, and a reloaded board shows it still. */}
+      <div role="status" className="flex items-center gap-1.5 font-medium" data-slot="card-working">
+        <Robot state="thinking" size={28} className="shrink-0" />
+        {t("Ponos is working…")}
+      </div>
       {counter ? (
         <div className="text-muted-foreground flex items-center gap-1.5 font-mono text-[0.7rem] whitespace-nowrap">
           <Pulse />

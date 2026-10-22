@@ -18,6 +18,9 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Added
 
+- « Ponos travaille » revient après un déblocage : la carte d'un ticket en cours
+  montre le robot au travail, et la fenêtre du ticket rouverte — rechargement
+  compris — l'affiche tant que la session tourne.
 - La console a une page **Objectifs** : une carte par objectif de la base
   `Objectifs`, avec son échéance, son critère et « n sur m tickets faits »,
   filtrable par statut et par projet. L'avancement est compté sur les tickets

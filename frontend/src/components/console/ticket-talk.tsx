@@ -114,8 +114,12 @@ export function TicketTalk({ ticket, onSession }: { ticket: Ticket; onSession: (
   const last = loud[loud.length - 1]
   const moving = ticket.column === "ready" || ticket.column === "running"
   const failed = sent !== null && answers <= sent && ticket.column === "failed"
+  // A running ticket is at work whatever was said last: the window reopened
+  // after an unblock, or after a reload, has no memory of having sent.
   const working =
-    !failed && ((sent !== null && answers <= sent) || (sent === null && moving && last?.role === "you"))
+    !failed &&
+    ((sent !== null && answers <= sent) ||
+      (sent === null && (ticket.column === "running" || (moving && last?.role === "you"))))
 
   // Ponos spoke: it is no longer at work on what you said.
   React.useEffect(() => {
