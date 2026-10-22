@@ -126,6 +126,10 @@ mention = "@claude"
 #             role the session plays — its craft, its rules, its model
 #   schedules optional: the page holding a database of schedules — what comes
 #             back on its own. Absent, nothing repeats and nothing changes
+#   goals     optional: the page holding a database of goals. A ticket points
+#             at one through its `Objectif` column, and the session reads the
+#             goal's name, its page, its `Critère` and its `Échéance` before its
+#             role. Absent, the runner says so once per run and carries on
 #
 # Rows created under the older names — "Master Tickets", "Soul" — are still
 # found, as long as this table does not name them otherwise. Nothing to rename.
@@ -135,6 +139,7 @@ projects = "Projects"
 agents = "Agents"
 context = "Context"
 schedules = "Schedules"      # on the board this shipped against: "Master Scheluder"
+goals = "Objectifs"
 
 # Rename here if your Notion columns are named differently.
 # A property that does not exist in the database is skipped — and said: once
@@ -154,13 +159,14 @@ agent = "Runner"
 # opens the session; as a text column it holds the bare identifier.
 session = "Session"
 
-# All five are optional — a database without them behaves exactly as before.
+# All six are optional — a database without them behaves exactly as before.
 model = "Model"          # select: pick the model per ticket, over runner.model
 priority = "Priority"    # number, 0 to 100: the highest runs first, empty is 50 (a select
                          # of Urgent, High, Normal, Low still reads as 100, 75, 50, 25)
 cost = "Cost"            # number: what the run cost, written back
 duration = "Duration"    # number: how long it took, in minutes
 role = "Agent"           # relation → your agents database: who handles the ticket
+goal = "Objectif"        # relation → your goals database: what the ticket is for
 
 # text: what the session is doing right now, rewritten every ten seconds while
 # it runs and cleared when it ends — see runner.progress below.

@@ -1,0 +1,76 @@
+"""`goals.py`: the goal a ticket serves."""
+
+from __future__ import annotations
+
+from support import case
+
+from ponos import goals, notion
+
+# -- the goal a ticket serves ------------------------------------------------
+
+
+class _GoalClient:
+    def __init__(self, page: notion.Page | None, brief: str = "", broken: bool = False):
+        self._page, self._brief, self._broken = page, brief, broken
+
+    def page(self, page_id: str) -> notion.Page:
+        if self._page is None:
+            raise notion.NotionError("object not found")
+        return self._page
+
+    def blocks_text(self, page_id: str, depth: int = 0, *, live: bool = True) -> str:
+        if self._broken:
+            raise notion.NotionError("object not found")
+        return self._brief
+
+
+def _goal_page(title: str, criterion: str = "", due: str = "") -> notion.Page:
+    properties: dict = {"Nom": {"type": "title", "title": [{"plain_text": title}]}}
+    if criterion:
+        properties["Critère"] = {"type": "rich_text", "rich_text": [{"plain_text": criterion}]}
+    if due:
+        properties["Échéance"] = {"type": "date", "date": {"start": due, "end": None}}
+    return notion.Page(id="p-goal", url="", title=title, properties=properties)
+
+
+def _ticket(properties: dict) -> notion.Page:
+    return notion.Page(id="p-ticket", url="", title="t", properties=properties)
+
+
+@case
+def a_goal_is_a_page_with_its_criterion_and_its_date():
+    client = _GoalClient(
+        _goal_page("Lancer la v1", "Dix clients payants", "2026-12-31"),
+        brief="La version que l'on montre.",
+    )
+    goal = goals.resolve(client, "p-goal")
+    assert goal.name == "Lancer la v1"
+    assert goal.brief == "La version que l'on montre."
+    assert goal.criterion == "Dix clients payants"
+    assert goal.due == "2026-12-31"
+    assert goal, "a named goal is truthy"
+
+
+@case
+def an_unreadable_goal_is_no_goal_rather_than_a_failed_ticket():
+    assert not goals.resolve(_GoalClient(None), "p-goal")
+    # The page reads but its body does not: the brief is lost, the goal is not.
+    partial = goals.resolve(_GoalClient(_goal_page("Lancer la v1"), broken=True), "p-goal")
+    assert partial.name == "Lancer la v1" and partial.brief == ""
+    assert not goals.Goal(), "no goal at all is falsy"
+
+
+@case
+def a_board_without_the_goal_column_points_at_nothing():
+    assert goals.pointed(_ticket({}), "Objectif") == ""
+    # A column of another type under that name is not a relation to read.
+    text = {"Objectif": {"type": "rich_text", "rich_text": [{"plain_text": "p-goal"}]}}
+    assert goals.pointed(_ticket(text), "Objectif") == ""
+
+
+@case
+def an_empty_relation_points_at_nothing_and_a_full_one_at_its_first_page():
+    empty = {"Objectif": {"type": "relation", "relation": []}}
+    assert goals.pointed(_ticket(empty), "Objectif") == ""
+    full = {"Objectif": {"type": "relation", "relation": [{"id": "p-a"}, {"id": "p-b"}]}}
+    assert goals.pointed(_ticket(full), "Objectif") == "p-a"

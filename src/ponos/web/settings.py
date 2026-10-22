@@ -654,6 +654,7 @@ SECTIONS: tuple[Section, ...] = (
                     "Ticked while the subscription limit is reached.",
                 ),
                 "role": ("Agent", "Relation to the Agents database: who handles the ticket."),
+                "goal": ("Goal", "Relation to the Goals database: what the ticket is for."),
                 "type": (
                     "Type",
                     "Code, Writing, External action or Publication; empty, it is guessed.",
@@ -704,6 +705,7 @@ SECTIONS: tuple[Section, ...] = (
                 "agents": ("Agents database", "The roles a ticket can be handled by."),
                 "context": ("Context page", "Who the work is for, read by every session."),
                 "schedules": ("Schedules database", "Recurring tickets; absent, nothing recurs."),
+                "goals": ("Goals database", "What a ticket is for, read into its prompt."),
             },
         ),
     ),

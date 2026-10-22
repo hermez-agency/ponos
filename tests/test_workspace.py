@@ -12,7 +12,12 @@ from ponos import notion, workspace
 @case
 def the_rows_of_a_workspace_become_the_runners_databases():
     client = _FakeClient(
-        {"Tickets": "p-tickets", "Projects": "p-projects", "Context": "p-context"},
+        {
+            "Tickets": "p-tickets",
+            "Projects": "p-projects",
+            "Context": "p-context",
+            "Objectifs": "p-goals",
+        },
         text="Je suis Camille Martin.",
     )
     space = workspace.from_notion(client, _settings())
@@ -40,7 +45,12 @@ def a_board_built_before_the_names_were_settled_still_resolves():
     they meant.
     """
     client = _FakeClient(
-        {"Master Tickets": "p-tickets", "Master project": "p-projects", "Soul": "p-soul"},
+        {
+            "Master Tickets": "p-tickets",
+            "Master project": "p-projects",
+            "Soul": "p-soul",
+            "Objectifs": "p-goals",
+        },
         text="who I am",
     )
     space = workspace.from_notion(client, _settings())
@@ -103,3 +113,22 @@ def an_explicit_database_still_wins_over_the_workspace():
     legacy = workspace.from_notion(client, _settings(workspace="", tickets_database="chosen"))
     assert legacy.tickets == "db-of-chosen"
     assert legacy.rows == {} and not legacy.warnings
+
+
+@case
+def a_missing_goals_page_warns_but_never_fails_a_run():
+    client = _FakeClient({"Tickets": "p-tickets", "Context": "p-context"}, text="x")
+    space = workspace.from_notion(client, _settings())
+    assert space.tickets == "db-of-p-tickets" and space.goals == ""
+    assert [warning for warning in space.warnings if "Objectifs" in warning], space.warnings
+
+    present = _FakeClient({"Tickets": "p-t", "Context": "p-c", "Objectifs": "p-goals"}, text="x")
+    found = workspace.from_notion(present, _settings())
+    assert found.goals == "db-of-p-goals" and not found.warnings
+
+    unreadable = _FakeClient(
+        {"Tickets": "p-t", "Context": "p-c", "Objectifs": "p-goals"}, text="x", broken={"p-goals"}
+    )
+    space = workspace.from_notion(unreadable, _settings())
+    assert space.tickets == "db-of-p-t" and space.goals == ""
+    assert any("goals database unreadable" in warning for warning in space.warnings)

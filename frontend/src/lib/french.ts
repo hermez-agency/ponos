@@ -1675,6 +1675,9 @@ export const FRENCH: Record<string, string> = {
   Agent: "Agent",
   "Relation to the Agents database: who handles the ticket.":
     "Relation vers la base Agents : qui traite le ticket.",
+  Goal: "Objectif",
+  "Relation to the Goals database: what the ticket is for.":
+    "Relation vers la base Objectifs : ce à quoi sert le ticket.",
   "Schedule: cadence": "Récurrence : cadence",
   "Hourly, Daily, Weekly or Monthly.": "Hourly, Daily, Weekly ou Monthly.",
   "Schedule: time": "Récurrence : heure",
@@ -1698,6 +1701,9 @@ export const FRENCH: Record<string, string> = {
   "Where a ticket's repository is found.": "Là où l'on trouve le dépôt d'un ticket.",
   "Agents database": "Base des agents",
   "The roles a ticket can be handled by.": "Les rôles qui peuvent traiter un ticket.",
+  "Goals database": "Base des objectifs",
+  "What a ticket is for, read into its prompt.":
+    "Ce à quoi sert un ticket, lu dans son prompt.",
   "Context page": "Page de contexte",
   "Who the work is for, read by every session.":
     "Pour qui le travail est fait, lu par chaque session.",
@@ -2479,6 +2485,9 @@ export const FRENCH: Record<string, string> = {
   "Properties of the wrong type on the tickets database: {{wrong}}.": "Propriétés de mauvais type sur la base de tickets : {{wrong}}.",
   "The board predates a version of Ponos, or a property was renamed or retyped.": "Le tableau date d'une version antérieure de Ponos, ou une propriété a été renommée ou changée de type.",
   "Rename the property in Notion, or its name under [notion.properties].": "Renommez la propriété dans Notion, ou son nom sous [notion.properties].",
+  "Several settings name the same property: {{shared}}.": "Plusieurs réglages désignent la même propriété : {{shared}}.",
+  "Each setting reads the property as something else, so at most one of them is right.": "Chaque réglage lit la propriété comme autre chose : un seul d’entre eux, au plus, a raison.",
+  "Give each one its own name under [notion.properties].": "Donnez à chacun son propre nom sous [notion.properties].",
   "Add {{missing}} to the tickets database? Existing properties are left as they are.": "Ajouter {{missing}} à la base de tickets ? Les propriétés existantes ne sont pas touchées.",
   "Every status the runner moves tickets through is offered.": "Tous les statuts par lesquels le runner fait passer les tickets sont proposés.",
   "Statuses missing: {{missing}}.": "Statuts manquants : {{missing}}.",

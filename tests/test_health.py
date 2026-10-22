@@ -182,3 +182,22 @@ def health_reports_a_project_whose_folder_is_gone_and_one_with_no_remote():
     bare = health._project(config, {"id": "3", "name": "Bare", "repository": "", "path": str(repo)})
     assert [check.code for check in bare] == ["projects.path", "projects.remote"]
     assert bare[1].state == health.ERROR and bare[1].steps
+
+
+@case
+def health_warns_when_two_settings_name_one_property():
+    from ponos import health
+
+    settings, board = _health_board()
+    settings.properties["agent"] = "Agent"  # the machine, read off the agent's relation
+    config = _config("")
+    config.notion = settings
+    found = health._schema(
+        config, board, workspace.Workspace(tickets="db", projects="projects", agents="agents")
+    )
+    shared = next(check for check in found if check.code == "notion.shared")
+    assert shared.state == health.WARN
+    assert "“Agent” (agent, role)" in shared.params["shared"], shared.params
+    french = (FRONTEND / "src/lib/french.ts").read_text(encoding="utf-8")
+    for sentence in (shared.said, shared.cause, *shared.steps):
+        assert f'"{sentence}"' in french, f"nothing translates “{sentence}” — add it to french.ts"

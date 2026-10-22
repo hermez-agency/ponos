@@ -1497,7 +1497,7 @@ def _doctor_workspace(
                 f"“{configuration.notion.page('context')}” — {len(space.context)} characters "
                 f"in every prompt: {DIM}{first[:60]}{RESET}"
             )
-        for key in ("projects", "agents", "schedules"):
+        for key in ("projects", "agents", "schedules", "goals"):
             if resolved := getattr(space, key):
                 ok(f"“{configuration.notion.page(key)}” → database {resolved}")
     return space

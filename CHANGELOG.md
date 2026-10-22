@@ -18,6 +18,12 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Added
 
+- Un ticket peut pointer un objectif : la colonne `Objectif` (une relation vers
+  la base `Objectifs` du workspace) met dans son prompt le nom du cap, le corps
+  de sa page, son `Critère` et son `Échéance`, entre le projet et le rôle. Sans
+  objectif, le prompt reste celui d'avant, au caractère près. `ponos doctor`
+  signale aussi deux réglages de `[notion.properties]` qui désignent la même
+  colonne — `agent = "Agent"` à côté de `role`, par exemple.
 - Le choix du modèle d'un ticket (nouveau ticket, fiche, « autre modèle » d'un
   ticket bloqué, récurrences) est le sélecteur du chat : les modèles Claude, et
   avec une clé OpenRouter son catalogue avec une recherche, les modèles récents,

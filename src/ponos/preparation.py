@@ -25,6 +25,7 @@ import shutil
 from . import (
     agents,
     git,
+    goals,
     journal,
     kinds,
     models,
@@ -126,6 +127,10 @@ class Preparation(Base):
             if role
             else agents.Agent()
         )
+        # The same for the goal it serves, a relation too: no Objectif column,
+        # an empty one or an unreadable page all read as no goal.
+        pointed = goals.pointed(ticket.page, self.config.notion.prop("goal"))
+        goal = goals.resolve(self.client, pointed) if pointed else goals.Goal()
 
         # A ticket ticked as waiting for credit already has a session, stopped
         # mid-sentence by a spent window rather than finished. Carrying it on
@@ -145,6 +150,7 @@ class Preparation(Base):
             log=state.log_file(short),
             model=self._written_model(ticket),
             agent=agent,
+            goal=goal,
             comments=self.discussion(ticket),
             kind=kind,
             reference=reference,
