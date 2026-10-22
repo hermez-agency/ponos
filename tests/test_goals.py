@@ -74,3 +74,56 @@ def an_empty_relation_points_at_nothing_and_a_full_one_at_its_first_page():
     assert goals.pointed(_ticket(empty), "Objectif") == ""
     full = {"Objectif": {"type": "relation", "relation": [{"id": "p-a"}, {"id": "p-b"}]}}
     assert goals.pointed(_ticket(full), "Objectif") == "p-a"
+
+
+class _GoalsDatabase:
+    def __init__(self, pages: list[notion.Page], broken: bool = False):
+        self._pages, self._broken = pages, broken
+
+    def query(self, database_id: str, filter_: dict | None = None) -> list[notion.Page]:
+        if self._broken:
+            raise notion.NotionError("object not found")
+        return self._pages
+
+
+def _cap(title: str, status: str = "", projects: tuple[str, ...] | None = None) -> notion.Page:
+    page = _goal_page(title, "Dix clients payants", "2026-12-31")
+    if status:
+        page.properties["Statut"] = {"type": "select", "select": {"name": status}}
+    if projects is not None:
+        page.properties["Projets"] = {
+            "type": "relation",
+            "relation": [{"id": project} for project in projects],
+        }
+    return page
+
+
+@case
+def only_the_goals_being_worked_toward_are_active():
+    database = _GoalsDatabase(
+        [
+            _cap("Lancer la v1", "Actif"),
+            _cap("Sans statut"),
+            _cap("Plus tard", "En pause"),
+            _cap("Fait", "Atteint"),
+            _cap("Laissé", "Abandonné"),
+        ]
+    )
+    assert [goal.name for goal in goals.active(database, "db")] == ["Lancer la v1", "Sans statut"]
+    assert goals.active(database, "db")[0].criterion == "Dix clients payants"
+    assert goals.active(database, "") == [], "no goals database, no goal"
+    assert goals.active(_GoalsDatabase([], broken=True), "db") == []
+
+
+@case
+def a_project_only_sees_the_goals_that_name_it():
+    database = _GoalsDatabase(
+        [
+            _cap("Pour Usine", "Actif", ("aaaa-bbbb",)),
+            _cap("Pour une autre", "Actif", ("cccc",)),
+            _cap("Sans projet", "Actif", ()),
+            _cap("Sans colonne", "Actif"),
+        ]
+    )
+    assert [goal.name for goal in goals.active(database, "db", "aaaabbbb")] == ["Pour Usine"]
+    assert len(goals.active(database, "db")) == 4, "the workspace sees them all"

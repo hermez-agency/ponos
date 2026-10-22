@@ -72,7 +72,7 @@ import unicodedata
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
-from . import db
+from . import db, goals
 
 SCOPES = ("global", "project")
 KINDS = ("ticket", "project")
@@ -104,6 +104,7 @@ SCORE_USD_PER_TOKEN = 0.00001
 # The prompt of a score carries what lets it compare, not all of it.
 SCORE_BRIEF_LIMIT = 1500
 SCORE_CONTEXT_LIMIT = 800
+SCORE_OBJECTIVES_LIMIT = 800
 SCORE_TICKETS_SHOWN = 25
 SCORE_KNOWN_SHOWN = 60
 SCORE_TIMEOUT_MINUTES = 3
@@ -139,6 +140,7 @@ SAME_WORDS = 0.8
 README_LIMIT = 4000
 BRIEF_LIMIT = 4000
 CONTEXT_LIMIT = 2000
+OBJECTIVES_LIMIT = 2000
 TICKETS_SHOWN = 40
 KNOWN_SHOWN = 200
 
@@ -302,6 +304,20 @@ def bare(page_id: str) -> str:
 # -- the prompt ----------------------------------------------------------------
 
 
+def _objectives(objectives: list[goals.Goal] | None, limit: int) -> str:
+    """The active goals, one line each: name, criterion, due date.
+
+    Material to read, not a criterion: the grid is the same with or without
+    them, so scores already given stay comparable with the new ones.
+    """
+    lines = []
+    for goal in objectives or []:
+        details = [f"criterion: {goal.criterion}"] if goal.criterion else []
+        details += [f"due: {goal.due}"] if goal.due else []
+        lines.append(f"- {goal.name}" + (f" ({'; '.join(details)})" if details else ""))
+    return "\n".join(lines)[:limit]
+
+
 def prompt(
     *,
     project: str = "",
@@ -310,6 +326,7 @@ def prompt(
     tickets: list[tuple[str, str]] | None = None,
     projects: list[str] | None = None,
     context: str = "",
+    objectives: list[goals.Goal] | None = None,
     known: list[str] | None = None,
     language: str = "English",
     count: int = BATCH,
@@ -325,6 +342,8 @@ def prompt(
     sections: list[str] = []
     if context.strip():
         sections.append(_section("Who the ideas are for", context.strip()[:CONTEXT_LIMIT]))
+    if text := _objectives(objectives, OBJECTIVES_LIMIT):
+        sections.append(_section("Les caps du moment", text))
     if projects:
         sections.append(_section("Projects", "\n".join(f"- {name}" for name in projects)))
     if brief.strip():
@@ -381,6 +400,7 @@ def score_prompt(
     brief: str = "",
     tickets: list[tuple[str, str]] | None = None,
     context: str = "",
+    objectives: list[goals.Goal] | None = None,
     known: list[str] | None = None,
     language: str = "English",
 ) -> str:
@@ -399,6 +419,8 @@ def score_prompt(
     sections: list[str] = []
     if context.strip():
         sections.append(_section("Who the ideas are for", context.strip()[:SCORE_CONTEXT_LIMIT]))
+    if text := _objectives(objectives, SCORE_OBJECTIVES_LIMIT):
+        sections.append(_section("Les caps du moment", text))
     if brief.strip():
         sections.append(_section("The project's brief", brief.strip()[:SCORE_BRIEF_LIMIT]))
     if tickets:

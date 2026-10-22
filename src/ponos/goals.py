@@ -75,3 +75,55 @@ def resolve(
         str(store.read(page, criterion_property) or "").strip(),
         str(store.read(page, due_property) or "").strip(),
     )
+
+
+# What a goal's `Statut` says while it is still being worked toward. A goal
+# that is on hold, met or given up is not a cap: proposing work for it is
+# proposing work nobody is waiting on.
+ACTIVE = ("actif", "active", "en cours")
+
+
+def active(
+    backend: store.Store,
+    database_id: str,
+    project: str = "",
+    status_property: str = "Statut",
+    projects_property: str = "Projets",
+    criterion_property: str = "Critère",
+    due_property: str = "Échéance",
+) -> list[Goal]:
+    """The goals being worked toward now — those of a project, or all of them.
+
+    A goal with no status counts as active: a database that never had the
+    column is not one whose goals are all over. `project` keeps the goals whose
+    `Projets` relation holds it. An unreadable database is no goal at all, for
+    the same reason `resolve` gives: ideas are an accessory of the goals, not
+    the other way round.
+    """
+    if not database_id:
+        return []
+    try:
+        pages = backend.query(database_id)
+    except store.StoreError:
+        return []
+    wanted = project.replace("-", "")
+    found: list[Goal] = []
+    for page in pages:
+        name = page.title.strip()
+        status = str(store.read(page, status_property) or "").strip().lower()
+        if not name or (status and status not in ACTIVE):
+            continue
+        if wanted:
+            linked = store.read(page, projects_property)
+            if not isinstance(linked, list) or wanted not in (
+                str(item or "").replace("-", "") for item in linked
+            ):
+                continue
+        found.append(
+            Goal(
+                name,
+                criterion=str(store.read(page, criterion_property) or "").strip(),
+                due=str(store.read(page, due_property) or "").strip(),
+            )
+        )
+    return found
