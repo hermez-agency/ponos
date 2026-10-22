@@ -28,8 +28,8 @@ async function open(page: Page, path = "/") {
   await expect(page.getByRole("button", { name: "More", exact: true })).toBeVisible()
 }
 
-/** The package's bottom bar, found where the layout draws it. */
-const bar = (page: Page): Locator => page.locator('[data-slot="sidebar-wrapper"] > .fixed.bottom-0')
+/** The package's bottom bar. */
+const bar = (page: Page): Locator => page.locator('[data-slot="admin-mobile-nav"]')
 
 /** Go to a page the way a thumb would: the bar, or the bar's More. */
 async function go(page: Page, name: string) {
@@ -89,7 +89,7 @@ test("at the end of every page, nothing is under the bubble", async ({ page }) =
         const bubble = document.querySelector<HTMLElement>('button[aria-label^="open "][aria-keyshortcuts]')
         if (!bubble) return ["no bubble"]
         const over = bubble.getBoundingClientRect()
-        const nav = document.querySelector('[data-slot="sidebar-wrapper"] > .fixed.bottom-0')
+        const nav = document.querySelector('[data-slot="admin-mobile-nav"]')
         return Array.from(document.querySelectorAll<HTMLElement>("a, button, input, textarea, select, [role=tab]"))
           .filter((element) => element !== bubble && !nav?.contains(element) && element.checkVisibility())
           .filter((element) => {

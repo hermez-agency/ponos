@@ -21,7 +21,7 @@ import { useBoard } from "@/lib/board-store"
 import { useLanguage } from "@/lib/i18n"
 import { SCOPE } from "@/lib/resource-view"
 import { consoleRouter, useRoute } from "@/lib/router"
-import { keepTheMenuLive, scopes } from "@/resources/scope"
+import { scopes } from "@/resources/scope"
 import { projectsHref } from "@/resources/projects"
 import { SESSIONS, sessionsHref } from "@/resources/sessions"
 import { SETTINGS, settingsHref } from "@/resources/settings"
@@ -46,7 +46,6 @@ const ACTIONS = new Set<string>(Object.values(ActionList))
 function Page({ params }: { params: ViewResourceContextParams }) {
   const language = useLanguage()
   const scope = useScopeContext()?.scope
-  keepTheMenuLive(scope)
   const action =
     params.resourceAction && ACTIONS.has(params.resourceAction)
       ? params.resourceAction

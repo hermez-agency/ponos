@@ -1,13 +1,6 @@
 import * as React from "react"
 import { Moon, RefreshCw, Search, Sun } from "lucide-react"
-import {
-  Link,
-  getPorts,
-  useAdminPageTitle,
-  useIsActiveItemMenu,
-  useScopeContext,
-  type MenuItemInterface,
-} from "react-resource-view"
+import { Link, getPorts, useAdminPageTitle } from "react-resource-view"
 
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -29,8 +22,8 @@ import { VersionBadge } from "./version-badge"
  * The layout brings the frame — the sidebar built from the scope's menu, the
  * bar over the page, the bottom navigation on a phone, the page's heading —
  * and leaves the application its places: a logo, the end of the bar, the foot
- * of the sidebar. Everything here goes into one of those, or into the board's
- * menu entry. On a phone the layout puts the foot of the sidebar behind the
+ * of the sidebar. Everything here goes into one of those, or beside the board's
+ * name in the menu. On a phone the layout puts the foot of the sidebar behind the
  * last entry of its bottom bar, More, with the links pinned there.
  */
 
@@ -60,48 +53,17 @@ export function Mark() {
 
 /* -- the menu ------------------------------------------------------------- */
 
-/* The board's entry: its name, and the number of tickets on the board.
+/* The number of tickets on the board, beside the board's name in the menu.
  *
  * Seven entries of two lines each used to be a page to read rather than a menu
  * to use — a sentence under every name saying how many tickets were ready,
  * whether the timer was on. What is worth knowing at a glance is a count, and a
- * count fits beside a name.
- *
- * The package's own entry draws a name and an icon and nothing beside them, so
- * this one is the `component` an entry may bring, drawn in the package's own
- * shape. Whether it is lit is the package's answer, not this file's: the entry
- * links to the board, and a ticket opened from it is still the board's. From
- * react-resource-view#136 on, the count is the entry's `badge`, and the entry
- * the package's own.
+ * count fits beside a name: the entry's `badge`, drawn by the package at its
+ * end, the entry itself — its link, whether it is lit — staying the package's.
  */
-export function BoardEntry({ menuItem }: { menuItem: MenuItemInterface }) {
+export function BoardCount() {
   const { board } = useConsole()
-  const scope = useScopeContext()?.scope
-  const isActive = useIsActiveItemMenu(
-    scope && { ...scope.defaultViewResourceContextParams, scope: scope.name }
-  )
-  const active = isActive(menuItem)
-  const Icon = menuItem.icon
-  const count = board.tickets.length
-
-  return (
-    <Link
-      to={menuItem.href || "/"}
-      data-active={active || undefined}
-      aria-current={active ? "page" : undefined}
-      className={cn(
-        "flex w-full items-center gap-2 overflow-hidden rounded-xl px-3 py-2 text-left text-sm font-medium outline-hidden transition-colors",
-        "hover:bg-accent hover:text-accent-foreground focus-visible:ring-ring/30 focus-visible:ring-2",
-        "data-active:bg-primary data-active:text-primary-foreground [&_svg]:size-4 [&_svg]:shrink-0"
-      )}
-    >
-      {Icon ? <Icon /> : null}
-      <span className="truncate">{menuItem.name}</span>
-      {count ? (
-        <span className="ml-auto font-mono text-[0.7rem] tabular-nums opacity-80">{count}</span>
-      ) : null}
-    </Link>
-  )
+  return board.tickets.length || null
 }
 
 /* -- the end of the bar --------------------------------------------------- */

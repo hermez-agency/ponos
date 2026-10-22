@@ -2,12 +2,11 @@ import { ActionList } from "react-data-form"
 import {
   createAdminLayout,
   type MenuItemInterface,
-  type ResolvedScope,
   type ScopeConfig,
   type ScopeInterface,
 } from "react-resource-view"
 
-import { BoardEntry, Mark, SidebarFooter, TopBarEnd } from "@/components/console/shell"
+import { BoardCount, Mark, SidebarFooter, TopBarEnd } from "@/components/console/shell"
 import { t } from "@/lib/i18n"
 import { SCOPE } from "@/lib/resource-view"
 
@@ -29,17 +28,18 @@ import { TICKETS, boardHref, projectTickets, tickets } from "./tickets"
  * The names and the links are getters. A name is read from the dictionary as
  * the menu is drawn, so the language can change after this is declared; the
  * board's link carries the layout it was last worked in, which changes every
- * time somebody picks the table.
+ * time somebody picks the table. The package keeps the getters as it loads the
+ * scope, and reads them every time it draws the menu.
  */
 
 const entry = (
   icon: MenuItemInterface["icon"],
   name: string,
   href: () => string,
-  component?: MenuItemInterface["component"]
+  badge?: MenuItemInterface["badge"]
 ): MenuItemInterface => ({
   icon,
-  component,
+  badge,
   get name() {
     return t(name)
   },
@@ -51,7 +51,7 @@ const entry = (
 /* The pages you go to every day, down the left — and along the bottom of a
  * phone, where three of them and More are what fits a 360px screen. */
 const MENU: MenuItemInterface[] = [
-  entry(tickets.icon, "Dashboard", boardHref, BoardEntry),
+  entry(tickets.icon, "Dashboard", boardHref, BoardCount),
   entry(projects.icon, "Projects", projectsHref),
   // No count, here as under Projects: the only way to know is to ask the
   // board, and this menu is redrawn every time the board moves.
@@ -66,27 +66,6 @@ const FOOTER_MENU: MenuItemInterface[] = [
   entry(sessions.icon, "Sessions", sessionsHref),
   entry(settings.icon, "Settings", () => settingsHref()),
 ]
-
-/* The menu the layout draws is a copy: react-resource-view 1.1 resolves a
- * scope as it loads it, once, and spreads every entry into a new object — so
- * a getter is read there, and the menu would say its names in the language
- * the console opened in, and link the board in the layout it opened on. The
- * getters are put back on the copy, entry by entry: the copy is in the menu's
- * order. The package keeps them itself from the release of
- * hermez-agency/react-resource-view#136, and this goes with it. The
- * links pinned at the foot are not copied: they are these objects. */
-const live = new WeakSet<object>()
-
-export function keepTheMenuLive(scope: ResolvedScope | undefined) {
-  if (!scope?.menu || live.has(scope)) return
-  live.add(scope)
-  scope.menu.forEach((copy, index) => {
-    const original = MENU[index]
-    if (!original) return
-    for (const [key, said] of Object.entries(Object.getOwnPropertyDescriptors(original)))
-      if (said.get) Object.defineProperty(copy, key, said)
-  })
-}
 
 export const consoleScope: ScopeInterface = {
   name: SCOPE,
