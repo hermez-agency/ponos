@@ -18,7 +18,7 @@ const FIELD = "Ask the workspace, or type >status"
 async function openConsole(page: Page) {
   await page.context().addCookies([{ name: "ponos_token", value: "e2e", url: test.info().project.use.baseURL }])
   await page.goto("/")
-  await page.getByRole("button", { name: "open the console" }).click()
+  await page.getByRole("button", { name: "Open the console" }).click()
   await expect(page.getByRole("textbox", { name: FIELD })).toBeVisible()
 }
 

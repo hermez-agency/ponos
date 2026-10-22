@@ -284,7 +284,7 @@ const SecretController = ({ formInput, onChange }: InputControllerInterface) => 
         <button
           type="button"
           className="text-muted-foreground hover:text-foreground absolute inset-y-0 right-0 flex w-10 items-center justify-center rounded-r-md"
-          aria-label={shown ? t("hide") : t("show")}
+          aria-label={shown ? t("Hide") : t("Show")}
           title={t("Shows what you type: the saved one never leaves this machine.")}
           onClick={() => setShown(!shown)}
         >
@@ -293,12 +293,12 @@ const SecretController = ({ formInput, onChange }: InputControllerInterface) => 
       </div>
       {field.preview && !forgotten ? (
         <Button type="button" variant="outline" size="sm" onClick={() => onChange({ ...formInput, value: FORGOTTEN })}>
-          {t("forget")}
+          {t("Forget")}
         </Button>
       ) : null}
       {forgotten ? (
         <Button type="button" variant="ghost" size="sm" onClick={() => onChange({ ...formInput, value: "" })}>
-          {t("keep it")}
+          {t("Keep it")}
         </Button>
       ) : null}
     </div>

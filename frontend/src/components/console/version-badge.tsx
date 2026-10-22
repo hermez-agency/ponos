@@ -50,10 +50,10 @@ export function VersionBadge({ offerOnly = false }: { offerOnly?: boolean }) {
   const mode = badgeMode(upgrade)
   const label =
     mode === "working"
-      ? t("updating…")
+      ? t("Updating…")
       : mode === "failed"
-        ? t("update failed")
-        : t("v{{version}} → {{target}}, click to update", {
+        ? t("Update failed")
+        : t("Version {{version}} → {{target}}, click to update", {
             version: runner.version,
             target: target(upgrade),
           })

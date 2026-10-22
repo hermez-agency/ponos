@@ -20,7 +20,7 @@ const dialog = (page: Page) => page.getByRole("alertdialog")
 async function asking(page: Page) {
   await open(page, `/?view=console/tickets/read/${DONE}`)
   await page.getByRole("button", { name: "More actions" }).click()
-  await page.getByRole("menuitem", { name: "run again" }).click()
+  await page.getByRole("menuitem", { name: "Run again" }).click()
   await expect(dialog(page)).toBeVisible()
 }
 

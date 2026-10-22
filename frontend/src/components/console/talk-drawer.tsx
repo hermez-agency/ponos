@@ -137,7 +137,7 @@ export function TalkDrawer() {
                 and the page leaves room under its end for both (`index.css`). */}
             <Button
               size="icon-lg"
-              aria-label={t("open {{pane}}", { pane: label })}
+              aria-label={t("Open {{pane}}", { pane: label })}
               aria-keyshortcuts={shortcut.aria}
               className="fixed right-4 bottom-[calc(var(--bottom-nav)+1rem)] z-40 size-12 rounded-full shadow-lg data-[state=open]:hidden"
             >
@@ -145,7 +145,7 @@ export function TalkDrawer() {
             </Button>
           </SheetTrigger>
         </TooltipTrigger>
-        <TooltipContent side="left">{`${t("open {{pane}}", { pane: label })} · ${shortcut.label}`}</TooltipContent>
+        <TooltipContent side="left">{`${t("Open {{pane}}", { pane: label })} · ${shortcut.label}`}</TooltipContent>
       </Tooltip>
 
       <SheetContent

@@ -86,6 +86,10 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Changed
 
+- **Every button and menu entry starts with a capital.** « Mettre de côté », « Rouvrir », « Rendre prêt »,
+  « Relancer », « Abandonner le ticket » and the other lower-case labels of the cards, the windows and the
+  views now read like « Nouveau ticket » and « Fermer » beside them — « Set aside », « Reopen », « Make ready »,
+  « Run again » in English.
 - **Unblock and Decide: every choice numbered, none that looks already picked, the ways out apart.** All the
   choices are outlines until one is clicked — the first was drawn full, and read as chosen. Each has its number, and
   1–9 picks it in either series, Decide included. "Abandon" and "Reject" sit last, under a rule, still behind their

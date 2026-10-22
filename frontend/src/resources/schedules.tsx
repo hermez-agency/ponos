@@ -1050,11 +1050,11 @@ export const schedules = createViewResource<ScheduleItem, ScheduleWrite>(SCHEDUL
        * every language. At the width of the page, as the board and the
        * projects are. */
       layouts: [
-        layout.table({ label: "table", fullWidth: true, components: { list: ScheduleRows } }),
+        layout.table({ label: "List", fullWidth: true, components: { list: ScheduleRows } }),
         // Typed against the launches `ScheduleCalendar` hands the package, not
         // against the rows — hence the cast into the rows' list of layouts.
         layout.calendar<Launch>({
-          label: "calendar",
+          label: "Calendar",
           fullWidth: true,
           dateField: "when",
           titleField: "title",

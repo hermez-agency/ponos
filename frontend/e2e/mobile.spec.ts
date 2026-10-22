@@ -86,7 +86,7 @@ test("at the end of every page, nothing is under the bubble", async ({ page }) =
       await page.keyboard.press("End")
       await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
       const covered = await page.evaluate(() => {
-        const bubble = document.querySelector<HTMLElement>('button[aria-label^="open "][aria-keyshortcuts]')
+        const bubble = document.querySelector<HTMLElement>('button[aria-label^="Open "][aria-keyshortcuts]')
         if (!bubble) return ["no bubble"]
         const over = bubble.getBoundingClientRect()
         const nav = document.querySelector('[data-slot="admin-mobile-nav"]')
@@ -104,7 +104,7 @@ test("at the end of every page, nothing is under the bubble", async ({ page }) =
       const [end, bubbleTop] = await page.evaluate(() => {
         const content = document.querySelector<HTMLElement>('[data-slot="admin-content"]')!
         const end = content.getBoundingClientRect().bottom - parseFloat(getComputedStyle(content).paddingBottom)
-        return [end, document.querySelector('button[aria-label^="open "][aria-keyshortcuts]')!.getBoundingClientRect().top]
+        return [end, document.querySelector('button[aria-label^="Open "][aria-keyshortcuts]')!.getBoundingClientRect().top]
       })
       expect(end, `the end of ${name} runs under the bubble`).toBeLessThanOrEqual(bubbleTop)
     }).toPass()
