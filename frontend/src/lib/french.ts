@@ -751,8 +751,6 @@ export const FRENCH: Record<string, string> = {
   /* `Projects`, `Project`, `Repository`, `Where it is` and `The brief` are
      already said above, where the board and the configuration say them. */
   "What the tickets are about.": "Ce dont parlent les tickets.",
-  "What the tickets are about: where the work happens, and what conventions hold there. One with no repository is not a mistake — its tickets come back as a document.":
-    "Ce dont parlent les tickets : où se fait le travail, et quelles conventions y règnent. Un projet sans dépôt n'est pas une erreur — ses tickets reviennent sous forme de document.",
   "A project says where the work happens and what conventions hold there. One with no repository is not a mistake: its tickets come back as a document.":
     "Un projet dit où se fait le travail et quelles conventions y règnent. Un projet sans dépôt n'est pas une erreur : ses tickets reviennent sous forme de document.",
   cards: "cartes",
