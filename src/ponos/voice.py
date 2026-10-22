@@ -397,6 +397,16 @@ _SAID: dict[str, dict[str, str]] = {
         "en": "I could not find its project on this machine",
         "fr": "je n'ai pas trouvé son projet sur cette machine",
     },
+    "openrouter-key-missing": {
+        "en": "its model, {model}, runs on OpenRouter and the OpenRouter key is missing",
+        "fr": "son modèle, {model}, tourne sur OpenRouter et la clé OpenRouter est absente",
+    },
+    "openrouter-key-missing-detail": {
+        "en": "Add the key in the settings (openrouter.key), or give the ticket another "
+        "model, and back to the ready column.",
+        "fr": "Ajoute la clé dans les réglages (openrouter.key), ou donne un autre modèle au "
+        "ticket, puis retour dans la colonne prête.",
+    },
     "project-deleted": {
         "en": "Blocked: its project, “{project}”, was deleted from the console, so nothing "
         "will run on this ticket. Move it back to ready once it points at another project.",

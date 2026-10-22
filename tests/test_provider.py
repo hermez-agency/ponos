@@ -101,3 +101,20 @@ def doctor_says_which_provider_answers_and_counts_one_that_cannot():
         said = out.getvalue()
         assert 'claude.provider = "openrouter"' in said and "sk-or-…7890" in said
         assert "route_sessions = false" in said, "a provider whose sessions are not on it is said"
+
+
+@case
+def a_slug_session_reaches_claude_code_without_the_v1_it_adds_itself():
+    """`/api/v1` + Claude Code's `/v1/messages` was a 404, told as « issue with the selected model »."""
+    from ponos import provider
+
+    with _environment(ANTHROPIC_API_KEY=None, OPENROUTER_API_KEY=None):
+        _, keyed = _saved('\n[openrouter]\nkey = "sk-or-1234567890"\n')
+        given = provider.environment(keyed, model="deepseek/deepseek-v3.1-terminus")
+        assert given["ANTHROPIC_BASE_URL"] == "https://openrouter.ai/api"
+        assert given["OPENROUTER_BASE_URL"] == "https://openrouter.ai/api/v1"
+        _, own = _saved(
+            '\n[openrouter]\nkey = "sk-or-1234567890"\nbase_url = "https://gw.example/anthropic/"\n'
+        )
+        given = provider.environment(own, model="deepseek/deepseek-v3.1-terminus")
+        assert given["ANTHROPIC_BASE_URL"] == "https://gw.example/anthropic"

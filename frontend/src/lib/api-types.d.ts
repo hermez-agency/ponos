@@ -2226,9 +2226,18 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        OpenRouterModel: {
+            id: string;
+            name: string;
+            /** @description Dollars per million tokens read, None when OpenRouter does not say. */
+            input: number | null;
+            output: number | null;
+            /** @description Whether it can use tools: Claude Code needs them to work. */
+            tools: boolean;
+        };
         OpenRouterModels: {
             configured: boolean;
-            models: components["schemas"]["Named"][];
+            models: components["schemas"]["OpenRouterModel"][];
             error: string;
         };
         Organisation: {

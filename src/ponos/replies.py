@@ -271,7 +271,7 @@ class Replies(Base):
             timeout_minutes=self.config.runner.reply_timeout_minutes,
             session_id=session_id,
             resume=resume,
-            environment=self.environment,
+            environment=self.environment_for(chosen),
         )
         self._hold_credits(outcome)
         return outcome

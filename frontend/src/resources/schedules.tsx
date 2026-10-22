@@ -25,6 +25,7 @@ import {
 } from "react-resource-view"
 
 import { EmptyState } from "@/components/console/empty-state"
+import { ModelInputController } from "@/components/console/model-input"
 import { MarkdownInputController } from "@/components/console/markdown-editor"
 import { choiceWord } from "@/components/console/ticket-bits"
 import {
@@ -274,15 +275,6 @@ const CADENCES = (
     return t(words)
   },
 }))
-/* The model in the board's own words, which are the runner's vocabulary and
- * stay untranslated. None chosen is an answer: the ticket then takes the
- * runner's model. The priority is a score, typed as a new ticket's is. */
-const MODELS = [
-  { value: "haiku", label: "Haiku" },
-  { value: "sonnet", label: "Sonnet" },
-  { value: "opus", label: "Opus" },
-]
-
 /* The type and the sub-type its tickets are born with, as the server offers
  * them: only where the Schedules database has the column (`ponos init` adds
  * it), and in the board's words. Empty is an answer: the runner then guesses
@@ -324,7 +316,15 @@ const fields: FormInterface["inputs"] = {
   // Drawn only for a weekly or a monthly one, in the shape that cadence gives it.
   day: { label: "Day", controller: DayInputController },
   at: { label: "Time", controller: TimeInputController },
-  model: { label: "Model", controller: SegmentsInputController, valueOptions: MODELS },
+  // The chat's own picker: none chosen is an answer, the ticket then takes the
+  // runner's model. A slug written here is the board's word for it, untranslated.
+  model: {
+    label: "Model",
+    controller: ModelInputController,
+    get placeholder() {
+      return t("the runner's model")
+    },
+  },
   priority: {
     label: "Priority",
     controller: PriorityInputController,

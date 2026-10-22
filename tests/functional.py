@@ -542,7 +542,8 @@ if log:
         handle.write(json.dumps(
             {"cwd": os.getcwd(), "session": session, "model": model, "prompt": prompt,
              "budget": args[args.index("--max-budget-usd") + 1]
-             if "--max-budget-usd" in args else ""}
+             if "--max-budget-usd" in args else "",
+             "base_url": os.environ.get("ANTHROPIC_BASE_URL", "")}
         ) + "\\n")
 
 
@@ -1917,6 +1918,30 @@ def a_ticket_with_no_model_runs_on_the_one_chosen_for_it_and_a_model_written_as_
     assert machine.board.value(light, "Model") == "haiku", machine.board.value(light, "Model")
     assert machine.board.value(heavy, "Model") == "opus", machine.board.value(heavy, "Model")
     assert machine.board.value(forced, "Model") == "opus"
+
+
+@case
+def a_ticket_on_an_openrouter_model_runs_on_openrouter_and_is_blocked_without_its_key(machine):
+    project = machine.project("Notes", None)
+    routed = machine.ticket("Écrire l'annonce", "Trois lignes.", project)
+    machine.board.pages[routed]["properties"]["Model"] = _stored(
+        {"select": {"name": "openai/gpt-5"}}
+    )
+
+    # Without the key, the slug means nothing to the CLI: said as what it is.
+    machine.run()
+    assert machine.status(routed) == "Blocked"
+    assert "OpenRouter key is missing" in machine.board.said(routed)[-1], machine.board.said(routed)
+    assert not machine.sessions(), "nothing ran on a model nobody can reach"
+
+    with _environ({"OPENROUTER_API_KEY": "sk-or-functional-tests"}):
+        machine.move(routed, "Ready")
+        machine.run()
+    (entry,) = machine.sessions()
+    assert entry["model"] == "openai/gpt-5"
+    assert entry["base_url"].startswith("https://openrouter.ai"), entry
+    assert machine.status(routed) != "Blocked"
+    assert machine.board.value(routed, "Model") == "openai/gpt-5", "the slug stays on the ticket"
 
 
 @case

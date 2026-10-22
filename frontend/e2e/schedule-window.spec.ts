@@ -91,20 +91,23 @@ test("the day takes the shape of the cadence, and the summary follows", async ({
   await expect(summary).toContainText("ven. 16 oct. à 14:30")
 })
 
-test("the model is buttons in the board's words, the priority a score with its badge", async ({ page }) => {
+test("the model is the chat's picker, the priority a score with its badge", async ({ page }) => {
   const window_ = await open(page)
-  for (const word of ["Haiku", "Sonnet", "Opus"])
-    await expect(window_.getByRole("button", { name: word, exact: true })).toBeVisible()
   const priority = window_.getByRole("spinbutton", { name: "Priorité, de 0 à 100" })
   await expect(priority).toHaveAttribute("placeholder", "50")
   await priority.fill("90")
   await expect(window_.locator('[data-slot="priority-input"] [data-slot="priority-badge"]')).toHaveText("90")
-  const opus = window_.getByRole("button", { name: "Opus", exact: true })
-  await opus.click()
-  await expect(opus).toHaveAttribute("aria-pressed", "true")
-  // Pressed again, it lets go: the ticket then takes the runner's model.
-  await opus.click()
-  await expect(opus).toHaveAttribute("aria-pressed", "false")
+  // The chat's own picker: Claude's models first, the empty one letting go —
+  // the ticket then takes the runner's model.
+  const model = window_.locator("[data-model-choice]")
+  await model.click()
+  for (const word of ["haiku", "sonnet", "opus"])
+    await expect(page.locator(`[data-model-option="${word}"]`)).toBeVisible()
+  await page.locator('[data-model-option="opus"]').click()
+  await expect(model).toHaveText("Opus")
+  await model.click()
+  await page.locator('[data-model-option=""]').click()
+  await expect(model).not.toHaveText("Opus")
 })
 
 /* What the page sends, answered here. */

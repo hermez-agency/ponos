@@ -12,7 +12,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Message, MessageContent, MessageHeader } from "@/components/ui/message"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useConsole } from "@/hooks/use-console"
 import { api, why } from "@/lib/api"
@@ -34,6 +33,7 @@ import type { Decision, Solution, Ticket } from "@/lib/types"
 import { boardHref } from "@/resources/tickets"
 
 import { Composer } from "./composer"
+import { ModelChoice } from "./model-input"
 import { ConfirmDialog } from "./confirm-dialog"
 import { Markdown } from "./markdown"
 import { Robot } from "./robot"
@@ -371,26 +371,14 @@ export function TicketTalk({ ticket, onSession }: { ticket: Ticket; onSession: (
         }
         tools={
           models.length ? (
-            <Select value={model || SAME} onValueChange={(value) => setModel(value === SAME ? "" : value)}>
-              <SelectTrigger
-                size="sm"
-                data-slot="talk-model"
-                className="max-w-48 rounded-full border-transparent shadow-none"
-                aria-label={t("The model it runs on next")}
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={SAME}>
-                  {decision?.model ? t("Same model ({{model}})", { model: decision.model }) : t("Same model")}
-                </SelectItem>
-                {models.map((one) => (
-                  <SelectItem key={one.value} value={one.value}>
-                    {one.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <ModelChoice
+              value={model}
+              onChange={setModel}
+              extra={models.map((one) => one.value)}
+              label={t("The model it runs on next")}
+              className="max-w-48 rounded-full border-transparent shadow-none"
+              empty={decision?.model ? t("Same model ({{model}})", { model: decision.model }) : t("Same model")}
+            />
           ) : null
         }
       />
@@ -410,9 +398,6 @@ export function TicketTalk({ ticket, onSession }: { ticket: Ticket; onSession: (
     </div>
   )
 }
-
-/** The select's value for "the model it ran on": Radix keeps "" for no value at all. */
-const SAME = "same"
 
 /** Why a blocked ticket waits and what it offers, read when it is blocked and again when it is blocked anew. */
 function useDecision(ticket: Ticket, blocked: boolean): Decision | null {

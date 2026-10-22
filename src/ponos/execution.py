@@ -355,7 +355,7 @@ class Execution(Base):
             timeout_minutes=self.config.runner.timeout_minutes,
             session_id=job.session_id,
             resume=job.resume,
-            environment={**job.secrets, **self.environment, **self._github(job)},
+            environment={**job.secrets, **self.environment_for(model), **self._github(job)},
             on_event=_both(run.event, live.event if live else None),
             max_budget_usd=self.config.budget.per_ticket_usd,
         )
@@ -451,7 +451,7 @@ class Execution(Base):
             timeout_minutes=self.config.runner.timeout_minutes,
             session_id=outcome.session_id,
             resume=True,
-            environment={**job.secrets, **self.environment, **self._github(job)},
+            environment={**job.secrets, **self.environment_for(model), **self._github(job)},
             on_event=_both(run.event, live.event if live else None),
             max_budget_usd=self.config.budget.per_ticket_usd,
         )

@@ -18,6 +18,13 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Added
 
+- Le choix du modèle d'un ticket (nouveau ticket, fiche, « autre modèle » d'un
+  ticket bloqué, récurrences) est le sélecteur du chat : les modèles Claude, et
+  avec une clé OpenRouter son catalogue avec une recherche, les modèles récents,
+  le prix au million de tokens et un badge « sans outils » pour ceux que Claude
+  Code ne saurait pas faire travailler. Un ticket dont le modèle est un slug
+  `vendor/model` tourne sur OpenRouter ; sans clé, il se bloque en le disant
+  (`access.credentials`) au lieu d'échouer dans Claude Code.
 - **The blocked tickets, one after another.** "Unblock (N)" in the heading of the Blocked column — and "Decide (N)"
   in that of In review, from two cards on, in Ctrl+K too, and at `/?series=blocked` or `/?series=review` — opens
   one window over the page that goes through the column: the ticket, why it stops, its choices; one sent, the next
@@ -153,6 +160,10 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Fixed
 
+- **An OpenRouter model in the console answers again.** Claude Code adds `/v1/messages` to the address it is given, and
+  it was given `…/api/v1`: the request went to `/api/v1/v1/messages`, a 404 it reported as "issue with the selected
+  model". Sessions now get the address without its `/v1` (`https://openrouter.ai/api`); transcription, the model
+  catalogue and `OPENROUTER_BASE_URL` keep `/api/v1`.
 - **The installed app's icon is no longer on a black square.** The console's icons were opaque PNGs on the console's
   dark grey, so Chrome's install dialog, the launcher and the taskbar drew the robot on a black square. The icons a
   system draws as they are now are the robot alone on a transparent square, with a margin. The maskable icon (cropped
