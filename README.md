@@ -2107,9 +2107,11 @@ and the second no longer replays cleanly — “Pull Request has merge conflicts
    commit of the base — red there too, the base is the one that is broken, not the pull
    request. The ticket is then set aside in *Validated* (“the base is red, it is not this
    pull request”, `merge.base-red`), no session is started again and nobody is asked
-   anything; one ticket “Repair `<base>` of `<project>`” is opened in *Ready* at priority
-   75, with the failing jobs and the link of their run — never a second one while it
-   is open — and at every pass the base is read again: once those checks are no longer red
+   anything; one ticket “Repair `<base>` of `<project>`” is opened in *Ready*, type *Code*,
+   sub-type *Bug*, at priority 75, with the failing jobs and the link of their run — never
+   a second one while it is open. Its pull request is validated without waiting for you,
+   whatever *Force validated* says: once its CI is green it is merged by the runner, since
+   every other pull request of the repository waits behind it. And at every pass the base is read again: once those checks are no longer red
    there, the pull request goes on by itself. `ponos doctor` and `ponos projects` say when
    a repository's base has no CI run at push, or only skipped ones: that is how a red base
    goes unseen.

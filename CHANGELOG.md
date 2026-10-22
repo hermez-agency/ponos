@@ -178,6 +178,12 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Fixed
 
+- **The “Repair main” ticket is a Code / Bug ticket, and its pull request is merged on its own.** It was born without a
+  type, so it was classified like any ticket and its green pull request waited in *In review* while every other pull
+  request waited behind it. It is now created as *Code*, sub-type *Bug*, priority 75, and the pull request it opens is
+  validated without you — merged once its CI is green, whatever *Force validated* says — after which the pull requests
+  set aside for the red base are replayed as before.
+
 - **An OpenRouter model in the console answers again.** Claude Code adds `/v1/messages` to the address it is given, and
   it was given `…/api/v1`: the request went to `/api/v1/v1/messages`, a 404 it reported as "issue with the selected
   model". Sessions now get the address without its `/v1` (`https://openrouter.ai/api`); transcription, the model
