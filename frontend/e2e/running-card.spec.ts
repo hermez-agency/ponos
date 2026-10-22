@@ -36,3 +36,24 @@ test("the same on a narrow screen", async ({ page }) => {
   await open(page)
   await check(page)
 })
+
+/* « Ponos is working… », for a ticket a session has taken: on its card, and in
+ * its window opened again after a reload — the window of an unblocked ticket
+ * closes, and what it said while it was open is gone. */
+
+test("a running card shows the robot at work", async ({ page }) => {
+  await open(page)
+  const working = page.locator(`[data-ticket-card="${STARTING}"] [data-slot="card-working"]`)
+  await expect(working).toBeVisible()
+  await expect(working).toContainText("Ponos is working…")
+  await expect(working.locator("ponos-robot")).toHaveAttribute("state", "thinking")
+})
+
+test("its window says it too, reloaded", async ({ page }) => {
+  await open(page)
+  await page.goto(`/?view=console/tickets/read/${STARTING}&tab=unblock`)
+  const talking = page.locator('[data-talk="working"]')
+  await expect(talking).toContainText("Ponos is working…")
+  await page.reload()
+  await expect(talking).toContainText("Ponos is working…")
+})
