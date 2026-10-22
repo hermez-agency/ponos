@@ -72,6 +72,16 @@ test.describe("at 1440px", () => {
     await openLong(page)
     const title = window_(page).locator('[data-slot="dialog-title"]')
     const tab = window_(page).locator('[data-slot="ticket-talk-tab"]')
+    // The window zooms in when it opens: what is measured is where it stays.
+    let last = ""
+    await expect
+      .poll(async () => {
+        const now = JSON.stringify([await title.boundingBox(), await tab.boundingBox()])
+        const settled = now === last
+        last = now
+        return settled
+      })
+      .toBe(true)
     const before = [(await title.boundingBox())?.y, (await tab.boundingBox())?.y]
     await tab.click()
     await expect(tab).toHaveAttribute("data-state", "active")
