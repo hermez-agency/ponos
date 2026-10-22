@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { api, why } from "@/lib/api"
 import { failing, fixParams, shown, type HealthCheck, type HealthReport } from "@/lib/health"
-import { useT } from "@/lib/i18n"
+import { counted, useT } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 
 import { ConfirmDialog } from "./confirm-dialog"
@@ -112,7 +112,11 @@ export function HealthBand() {
             {chevron(open)}
             <Icon className={cn("size-4 shrink-0", errors ? "text-destructive" : "text-amber-600")} />
             <span className="min-w-0 truncate text-sm font-medium">
-              {t("{{count}} thing(s) to fix before tickets can run", { count: checks.length })}
+              {counted(
+                checks.length,
+                "{{count}} thing to fix before tickets can run",
+                "{{count}} things to fix before tickets can run"
+              )}
             </span>
           </CollapsibleTrigger>
           <Button variant="outline" size="sm" onClick={check} disabled={checking} data-testid="health-recheck">

@@ -86,6 +86,12 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Changed
 
+- **Small design fixes from an audit of the real console.** A toast that stays — "New version, reload?" — sits
+  above the conversation button instead of on it, so that button and the drawer's send button answer again. The
+  tables' "Properties" menu, their selection and the board's drag and drop say their words in French. "1 thing to
+  fix", "0 of 1 ticket done" and "older than 14 days" replace their "(s)". The Decide series no longer offers keys
+  1–9 it has no option for, an empty series no longer shows a full progress bar, and on a phone the hint beside
+  "The brief" no longer runs over it.
 - **The console's menu is the admin layout's own.** The version, the sync, "Resync" and the theme sit at the foot of
   the sidebar rather than in the top bar, which keeps the search, the bell and whether the stream is live. On a phone
   the bottom bar holds the dashboard, the projects and the schedules, and its "More" opens Ideas, Sessions and Settings

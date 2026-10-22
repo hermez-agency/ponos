@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useConsole } from "@/hooks/use-console"
 import { api } from "@/lib/api"
-import { useT } from "@/lib/i18n"
+import { counted, useT } from "@/lib/i18n"
 import { SCOPE } from "@/lib/resource-view"
 import {
   cardId,
@@ -92,12 +92,16 @@ function DiskLine() {
     disk.retention_days <= 0
       ? t("Nothing is tidied on its own: logs are kept forever.")
       : disk.clean_done_worktrees
-        ? t("Tidied once a day: logs, and done tickets’ folders, older than {{days}} day(s).", {
-            days: String(disk.retention_days),
-          })
-        : t("Logs older than {{days}} day(s) are dropped once a day.", {
-            days: String(disk.retention_days),
-          })
+        ? counted(
+            disk.retention_days,
+            "Tidied once a day: logs, and done tickets’ folders, older than {{count}} day.",
+            "Tidied once a day: logs, and done tickets’ folders, older than {{count}} days."
+          )
+        : counted(
+            disk.retention_days,
+            "Logs older than {{count}} day are dropped once a day.",
+            "Logs older than {{count}} days are dropped once a day."
+          )
 
   return (
     <div className="flex flex-col gap-1.5" data-testid="disk">

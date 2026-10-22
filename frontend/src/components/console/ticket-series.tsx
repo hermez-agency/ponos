@@ -265,19 +265,22 @@ function Series({ column, onClose }: { column: SeriesColumn; onClose: () => void
               <XIcon />
             </Button>
           </div>
-          <div
-            role="progressbar"
-            aria-label={t(words.description)}
-            aria-valuemin={0}
-            aria-valuemax={items.length}
-            aria-valuenow={counts.done + counts.skipped}
-            className="bg-muted h-1.5 overflow-hidden rounded-full"
-          >
+          {/* Drawn once there is a series to go through: full on an empty one, it said "done" about nothing. */}
+          {items.length ? (
             <div
-              className="bg-primary h-full rounded-full transition-[width] duration-300"
-              style={{ width: `${Math.round(progress * 100)}%` }}
-            />
-          </div>
+              role="progressbar"
+              aria-label={t(words.description)}
+              aria-valuemin={0}
+              aria-valuemax={items.length}
+              aria-valuenow={counts.done + counts.skipped}
+              className="bg-muted h-1.5 overflow-hidden rounded-full"
+            >
+              <div
+                className="bg-primary h-full rounded-full transition-[width] duration-300"
+                style={{ width: `${Math.round(progress * 100)}%` }}
+              />
+            </div>
+          ) : null}
           {items.length ? (
             <ol data-slot="series-list" className="scroll-thin -mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
               {items.map((id, index) => (
@@ -384,7 +387,10 @@ function Series({ column, onClose }: { column: SeriesColumn; onClose: () => void
               </a>
             </Button>
             <p className="text-muted-foreground ms-auto hidden font-mono text-xs lg:block">
-              {t("→ or J: skip · ← or K: previous · 1–9: an option · Esc: close")}
+              {/* The digits pick a session's option, which only a blocked ticket offers. */}
+              {column === "blocked"
+                ? t("→ or J: skip · ← or K: previous · 1–9: an option · Esc: close")
+                : t("→ or J: skip · ← or K: previous · Esc: close")}
             </p>
           </footer>
         )}

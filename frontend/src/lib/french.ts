@@ -74,6 +74,36 @@ export const FRENCH: Record<string, string> = {
   // another column, where it means "moved".
   Written: "Écrit",
   "Some fields need another look": "Quelques champs demandent une relecture",
+  // A table's "Properties" menu, its selection and its pages, a card dragged
+  // or moved from the board's selection bar, and what a view says when the
+  // server would not answer it: the schedules showed "Properties" in English.
+  Properties: "Propriétés",
+  "Reset to default": "Revenir au défaut",
+  "Select all": "Tout sélectionner",
+  "Deselect all": "Tout désélectionner",
+  Select: "Sélectionner",
+  "Select {{title}}": "Sélectionner {{title}}",
+  "Selected records": "Éléments sélectionnés",
+  "{{count}} records deleted": "{{count}} élément(s) supprimé(s)",
+  "{{failed}} of {{total}} records could not be deleted":
+    "{{failed}} élément(s) sur {{total}} n'ont pas pu être supprimés",
+  previous: "précédent",
+  next: "suivant",
+  Move: "Déplacer",
+  "Move to…": "Déplacer vers…",
+  "Drop here": "Déposer ici",
+  "{{count}} cards": "{{count}} cartes",
+  "No card could be moved.": "Aucune carte n'a pu être déplacée.",
+  "They are back in their column.": "Elles sont revenues dans leur colonne.",
+  "{{failed}} of {{total}} cards could not be moved": "{{failed}} carte(s) sur {{total}} n'ont pas pu être déplacées",
+  "Open in full page": "Ouvrir en pleine page",
+  "No entries to show over this period.": "Rien à montrer sur cette période.",
+  "An error occurred": "Une erreur est survenue",
+  "The data could not be loaded": "Les données n'ont pas pu être chargées",
+  "The server answered with an error.": "Le serveur a répondu par une erreur.",
+  "Access denied": "Accès refusé",
+  "You are not allowed to access this page.": "Vous n'avez pas accès à cette page.",
+  "The export failed. Please try again.": "L'export a échoué. Réessayez.",
 
   /* -- where you are ------------------------------------------------------- */
   workspace: "espace de travail",
@@ -1236,10 +1266,14 @@ export const FRENCH: Record<string, string> = {
     "worktrees {{worktrees}} · journaux {{logs}} · scratch {{scratch}}",
   "Nothing is tidied on its own: logs are kept forever.":
     "Rien n'est nettoyé tout seul : les journaux sont gardés pour toujours.",
-  "Tidied once a day: logs, and done tickets’ folders, older than {{days}} day(s).":
-    "Nettoyé une fois par jour : journaux et dossiers des tickets terminés de plus de {{days}} jour(s).",
-  "Logs older than {{days}} day(s) are dropped once a day.":
-    "Les journaux de plus de {{days}} jour(s) sont supprimés une fois par jour.",
+  "Tidied once a day: logs, and done tickets’ folders, older than {{count}} day.":
+    "Nettoyé une fois par jour : journaux et dossiers des tickets terminés de plus de {{count}} jour.",
+  "Tidied once a day: logs, and done tickets’ folders, older than {{count}} days.":
+    "Nettoyé une fois par jour : journaux et dossiers des tickets terminés de plus de {{count}} jours.",
+  "Logs older than {{count}} day are dropped once a day.":
+    "Les journaux de plus de {{count}} jour sont supprimés une fois par jour.",
+  "Logs older than {{count}} days are dropped once a day.":
+    "Les journaux de plus de {{count}} jours sont supprimés une fois par jour.",
   "Clean up": "Faire le ménage",
   "Cleaning up…": "Ménage en cours…",
   "{{removed}} folder(s) and {{logs}} log(s) removed, {{freed}} freed.":
@@ -2187,6 +2221,7 @@ export const FRENCH: Record<string, string> = {
   Decided: "Décidé",
   "→ or J: skip · ← or K: previous · 1–9: an option · Esc: close":
     "→ ou J : passer · ← ou K : précédent · 1–9 : une option · Échap : fermer",
+  "→ or J: skip · ← or K: previous · Esc: close": "→ ou J : passer · ← ou K : précédent · Échap : fermer",
   "{{count}} ticket unblocked": "{{count}} débloqué",
   "{{count}} tickets unblocked": "{{count}} débloqués",
   "{{count}} ticket decided": "{{count}} décidé",
@@ -2393,7 +2428,8 @@ export const FRENCH: Record<string, string> = {
   "local folder": "dossier local",
   /* -- the installation's health, over the dashboard (health.py) ----------- */
   "Installation status": "État de l'installation",
-  "{{count}} thing(s) to fix before tickets can run": "{{count}} point(s) à corriger pour que les tickets partent",
+  "{{count}} thing to fix before tickets can run": "{{count}} point à corriger pour que les tickets partent",
+  "{{count}} things to fix before tickets can run": "{{count}} points à corriger pour que les tickets partent",
   "Recheck": "Revérifier",
   "no ticket can be claimed, moved or finished":
     "aucun ticket ne peut être réclamé, déplacé ni terminé",
@@ -2581,7 +2617,8 @@ export const FRENCH: Record<string, string> = {
   "All statuses": "Tous les statuts",
   "This goal is no longer there.": "Cet objectif n'existe plus.",
   "What the tickets are for, and how many of them are done.": "Ce à quoi servent les tickets, et combien sont faits.",
-  "{{done}} of {{total}} tickets done": "{{done}} sur {{total}} tickets faits",
+  "{{done}} of {{count}} ticket done": "{{done}} sur {{count}} ticket fait",
+  "{{done}} of {{count}} tickets done": "{{done}} sur {{count}} tickets faits",
   Due: "Échéance",
   "Open in Notion": "Ouvrir dans Notion",
   "No goal matches these filters.": "Aucun objectif ne correspond à ces filtres.",

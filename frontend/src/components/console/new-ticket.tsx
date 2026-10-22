@@ -210,7 +210,8 @@ export function NewTicketFields() {
         <div className="flex min-w-0 flex-col gap-3">
           {field("title")}
           <div className="relative flex min-h-0 flex-1 flex-col">
-            <span className="text-muted-foreground absolute top-0.5 right-0 text-xs">
+            {/* Beside the label where there is room for both: on a phone it ran over "The brief". */}
+            <span className="text-muted-foreground absolute top-0.5 right-0 hidden text-xs sm:inline">
               {t("Markdown · read by the runner on the ticket's page")}
             </span>
             {field("body")}
