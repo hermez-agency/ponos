@@ -20,6 +20,7 @@ import {
   keyOf,
   labelOf,
   promptOf,
+  listed,
   quiet,
   repliesOf,
   typedOf,
@@ -170,4 +171,13 @@ test("what was done is split into its lines, without their bullets", () => {
   assert.deepEqual(itemsOf("branch ready"), ["branch ready"])
   assert.deepEqual(itemsOf("- one\n* two\n\n  three"), ["one", "two", "three"])
   assert.deepEqual(itemsOf("PR opened; CI green"), ["PR opened", "CI green"])
+})
+
+test("a report of more than two lines is read, not passed over, and its points to check are a list", () => {
+  const report = "⏸️ Waiting — PR #338 · 1 commit\nThe prompts were rewritten.\nTo check: the wording"
+  assert.ok(!quiet("runner", report))
+  assert.ok(quiet("runner", "⏸️ Waiting\n\nSince 10:00"))
+  assert.equal(answersIn([{ role: "runner", text: report }]), 1)
+  assert.match(listed(report), /\n- To check: the wording$/)
+  assert.equal(listed("Rien à vérifier"), "Rien à vérifier")
 })

@@ -22,6 +22,7 @@ import {
   askedAt,
   itemsOf,
   labelOf,
+  listed,
   quiet,
   repliesOf,
   typedOf,
@@ -282,7 +283,7 @@ export function TicketTalk({ ticket, onSession }: { ticket: Ticket; onSession: (
             .join(" · ")}
         </Quiet>
       ) : (
-        <Turn key={index} role={message.role} text={message.text} when={moment(message.at)} />
+        <Turn key={index} role={message.role} text={message.role === "runner" ? listed(message.text) : message.text} when={moment(message.at)} />
       )
     )
   })
