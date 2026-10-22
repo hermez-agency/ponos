@@ -2,7 +2,6 @@ import * as React from "react"
 import { ChevronLeft, ChevronRight, LayoutGrid } from "lucide-react"
 import {
   ActionList,
-  SelectInputController,
   useFormContext,
   type FormInterface,
   type InputControllerComponentInterface,
@@ -51,6 +50,7 @@ import {
 } from "@/components/console/new-ticket-lazy"
 import { EmptyState } from "@/components/console/empty-state"
 import { ProjectThumb } from "@/components/console/project-picture"
+import { ComboboxInputController } from "@/components/console/combobox"
 import { ModelInputController } from "@/components/console/model-input"
 import { PriorityBadge, PriorityInputController } from "@/components/console/priority"
 import { Robot, TicketRobot } from "@/components/console/robot"
@@ -376,22 +376,19 @@ const createForm: FormInterface = {
     ),
     // The goal it serves: none unless chosen, and drawn only where the board
     // can point at one and there are goals to point at.
-    goal: choiceInput("goal", "no goal", "", SelectInputController),
+    goal: choiceInput("goal", "no goal", "", ComboboxInputController),
     // A score, drawn only where the board has the column to keep it in.
     priority: {
       label: "Priority",
       controller: PriorityInputController,
       hidden: () => !currentBoard()?.priority,
     },
-    // On one line: label, then the select.
     model: {
       ...choiceInput("model", "the runner's model", "", ModelInputController),
-      // Empty is the runner's model, and the select says so rather than "Select…".
+      // Empty is the runner's model, and the field says so rather than "Select...".
       get placeholder() {
-        return t("the runner's model")
+        return t("The runner's model")
       },
-      className:
-        "[&>[data-slot=field]]:grid [&>[data-slot=field]]:grid-cols-[auto_minmax(0,1fr)] [&>[data-slot=field]]:items-center [&>[data-slot=field]]:gap-3 [&_[data-slot=field-label]]:mb-0 [&_[data-slot=select-trigger]]:h-8 [&_[data-slot=select-trigger]]:w-full",
     },
     // Said by the button that sends the form: "Draft" or "Launch the ticket".
     ready: { defaultValue: true, hidden: () => true },

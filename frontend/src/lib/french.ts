@@ -305,6 +305,7 @@ export const FRENCH: Record<string, string> = {
   "The road the ticket takes. Empty, the runner deduces it before the ticket runs.":
     "Le chemin que prend le ticket. Vide, le runner le déduit avant de le lancer.",
   "the runner's model": "le modèle du runner",
+  "The runner's model": "Le modèle du runner",
   "no project — a document": "aucun projet — un document",
   // The "New ticket" dialog, in two columns (new-ticket.tsx).
   "Markdown · read by the runner on the ticket's page": "Markdown · lu par le runner sur la page du ticket",
