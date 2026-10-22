@@ -15,6 +15,7 @@ import type {
   GithubToken,
   GithubTokenCheck,
   Found,
+  Goals,
   Idea,
   Unscored,
   IdeaList,
@@ -176,6 +177,7 @@ export const api = {
   state: () => request<RunnerState>("/api/state"),
   board: () => request<Board>("/api/board"),
   projects: () => request<Projects>("/api/projects"),
+  goals: () => request<Goals>("/api/goals"),
   context: () => request<Context>("/api/context"),
   schedules: () => request<Schedules>("/api/schedules"),
   schedule: (id: string) => request<ScheduleDetail>(`/api/schedules/${id}`),
@@ -227,6 +229,8 @@ export const api = {
     model?: string
     /** A sub-type's key — `bug`, `docs` — and only on a code ticket. */
     subtype?: string
+    /** The page of the goal it serves; empty for none. */
+    goal?: string
   }) => request<{ id: string; title: string }>("/api/tickets", ticket),
   /** `from` is the status the card showed: Notion saying anything else by the
    * time the write goes out is somebody else's move, not overwritten. */

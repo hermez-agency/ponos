@@ -10,6 +10,7 @@ import { BoardCount, Mark, SidebarFooter, TopBarEnd } from "@/components/console
 import { t } from "@/lib/i18n"
 import { SCOPE } from "@/lib/resource-view"
 
+import { goals, goalsHref } from "./goals"
 import { ideas, ideasHref, scopedIdeas } from "./ideas"
 import { pairResources } from "./pairs"
 import { projects, projectsHref } from "./projects"
@@ -57,6 +58,7 @@ const MENU: MenuItemInterface[] = [
   // board, and this menu is redrawn every time the board moves.
   entry(schedules.icon, "Schedules", schedulesHref),
   entry(ideas.icon, "Ideas", ideasHref),
+  entry(goals.icon, "Goals", goalsHref),
   entry(sessions.icon, "Sessions", sessionsHref),
 ]
 
@@ -75,6 +77,7 @@ export const consoleScope: ScopeInterface = {
     projects,
     schedules,
     ideas,
+    goals,
     sessions,
     settings,
     projectTickets,

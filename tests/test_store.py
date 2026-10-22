@@ -787,6 +787,6 @@ def a_ticket_created_from_the_console_carries_its_priority_type_and_model():
 
     # A board without those columns is offered none of them.
     api = _bare_api(_ColumnsClient(["Ready"]))
-    api._runner._workspace = type("W", (), {"projects": "", "tickets": "db"})()
+    api._runner._workspace = type("W", (), {"goals": "", "projects": "", "tickets": "db"})()
     api._schema_at = time.time()
     assert api.board()["choices"] == {}

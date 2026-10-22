@@ -18,6 +18,12 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Added
 
+- La console a une page **Objectifs** : une carte par objectif de la base
+  `Objectifs`, avec son échéance, son critère et « n sur m tickets faits »,
+  filtrable par statut et par projet. L'avancement est compté sur les tickets
+  du tableau, pas lu dans un rollup Notion. La fenêtre d'un ticket rattaché
+  montre son objectif, en lien vers sa page, et « Nouveau ticket » propose d'en
+  choisir un (facultatif, vide par défaut).
 - Un ticket peut pointer un objectif : la colonne `Objectif` (une relation vers
   la base `Objectifs` du workspace) met dans son prompt le nom du cap, le corps
   de sa page, son `Critère` et son `Échéance`, entre le projet et le rôle. Sans

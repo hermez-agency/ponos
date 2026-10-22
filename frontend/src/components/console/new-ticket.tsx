@@ -234,6 +234,7 @@ export function NewTicketFields() {
 
         <aside className="bg-muted/50 flex min-w-0 flex-col gap-3.5 rounded-2xl p-4 [&_[data-slot=field-label]]:text-muted-foreground [&_[data-slot=field-label]]:text-xs">
           {field("project")}
+          {field("goal")}
           {field("type")}
           {code ? field("subtype") : null}
           {field("priority")}

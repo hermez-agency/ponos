@@ -670,7 +670,7 @@ def a_ticket_read_on_its_own_is_the_card_and_the_page_under_it():
     brief you wrote, and the report a run appended under it.
     """
     api = _bare_api(_PageClient("# Brief\nRetirer le bandeau du dashboard.\n\n- [x] fait"))
-    api._runner._workspace = type("W", (), {"projects": ""})()
+    api._runner._workspace = type("W", (), {"goals": "", "projects": ""})()
     payload = api.ticket("1a2b3c4d000000000000000000000000")
     assert payload["id"] == "1a2b3c4d000000000000000000000000", "the id is the one the board uses"
     assert payload["short"] == "00000000", "the short id is the tail, where the entropy is"
@@ -680,7 +680,7 @@ def a_ticket_read_on_its_own_is_the_card_and_the_page_under_it():
     assert "- [x] fait" in payload["content"]
 
     elsewhere = _bare_api(_PageClient("", status="Parked"))
-    elsewhere._runner._workspace = type("W", (), {"projects": ""})()
+    elsewhere._runner._workspace = type("W", (), {"goals": "", "projects": ""})()
     assert elsewhere.ticket("1a2b3c4d000000000000000000000000")["column"] == "draft"
 
 
@@ -713,7 +713,7 @@ def a_ticket_page_is_read_again_only_when_notion_says_it_changed():
     """
     client = _EditedPageClient("first brief", "2026-09-01T09:00:00.000Z")
     api = _bare_api(client)
-    api._runner._workspace = type("W", (), {"projects": ""})()
+    api._runner._workspace = type("W", (), {"goals": "", "projects": ""})()
     ticket = "1a2b3c4d000000000000000000000000"
     assert api.ticket(ticket)["content"] == "first brief"
     assert api.ticket(ticket)["content"] == "first brief"
@@ -734,7 +734,7 @@ def a_ticket_page_is_read_again_only_when_notion_says_it_changed():
 
     files = _EditedPageClient("on disk", "2026-09-01T09:00:00.000Z")
     board = _bare_api(files)
-    board._runner._workspace = type("W", (), {"projects": ""})()
+    board._runner._workspace = type("W", (), {"goals": "", "projects": ""})()
     board._config.storage = C.Storage(mode="markdown")
     board.ticket(ticket)
     board.ticket(ticket)
@@ -760,7 +760,7 @@ def a_ticket_under_no_known_status_is_a_draft_and_no_column_is_added_for_it():
     the drafts have, on the left — no column is added for them.
     """
     api = _bare_api(_ColumnsClient(["Ready", "", "Parked"]))
-    api._runner._workspace = type("W", (), {"projects": "", "tickets": "db"})()
+    api._runner._workspace = type("W", (), {"goals": "", "projects": "", "tickets": "db"})()
     api._schema_at = time.time()
     board = api.board()
     keys = [column["key"] for column in board["columns"]]
@@ -793,7 +793,7 @@ def a_cancelled_ticket_has_its_column_where_the_board_offers_one():
     quiet = type("W", (), {"nudge": lambda self: None})()
 
     api = _bare_api(_CancelClient(["Ready", "Cancelled", "Done"], offered=True))
-    api._runner._workspace = type("W", (), {"projects": "", "tickets": "db"})()
+    api._runner._workspace = type("W", (), {"goals": "", "projects": "", "tickets": "db"})()
     api._schema_at = time.time()
     api.watch = quiet
     board = api.board()
@@ -804,7 +804,7 @@ def a_cancelled_ticket_has_its_column_where_the_board_offers_one():
     assert api.set_status("1" * 32, "cancelled")["status"] == "Cancelled"
 
     bare = _bare_api(_CancelClient(["Ready", "Done"], offered=False))
-    bare._runner._workspace = type("W", (), {"projects": "", "tickets": "db"})()
+    bare._runner._workspace = type("W", (), {"goals": "", "projects": "", "tickets": "db"})()
     bare._schema_at = time.time()
     bare.watch = quiet
     assert bare.board()["cancel"] is False
@@ -902,7 +902,7 @@ def a_ticket_with_no_status_is_a_draft_whether_or_not_the_board_names_them():
 
     api = _bare_api(_DraftClient(["draft", "Ready", ""]))
     api._config.notion.status = {"draft": "draft"}
-    api._runner._workspace = type("W", (), {"projects": "", "tickets": "db"})()
+    api._runner._workspace = type("W", (), {"goals": "", "projects": "", "tickets": "db"})()
     api._schema_at = time.time()
     api.watch = quiet
     board = api.board()
@@ -916,7 +916,7 @@ def a_ticket_with_no_status_is_a_draft_whether_or_not_the_board_names_them():
     assert api.set_status("1" * 32, "draft")["status"] == "draft"
 
     plain = _bare_api(_DraftClient(["draft", "Ready", ""]))
-    plain._runner._workspace = type("W", (), {"projects": "", "tickets": "db"})()
+    plain._runner._workspace = type("W", (), {"goals": "", "projects": "", "tickets": "db"})()
     plain._schema_at = time.time()
     plain.watch = quiet
     board = plain.board()
@@ -955,7 +955,7 @@ def a_ticket_without_a_title_is_named_by_the_console_in_its_language():
     to call it, through the dictionary like every other word it says.
     """
     api = _bare_api(_UntitledClient(["Ready"]))
-    api._runner._workspace = type("W", (), {"projects": "", "tickets": "db"})()
+    api._runner._workspace = type("W", (), {"goals": "", "projects": "", "tickets": "db"})()
     api._schema_at = time.time()
     assert [item["title"] for item in api.board()["tickets"]] == [""]
     store_ = (FRONTEND / "src/lib/board-store.ts").read_text(encoding="utf-8")

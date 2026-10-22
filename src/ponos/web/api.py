@@ -54,6 +54,7 @@ from .. import (
     worktime,
 )
 from .. import config as config_module
+from .. import goals as goals_module
 from .. import kinds as kinds_module
 from .. import priority as priority_module
 from .. import schedules as schedules_module
@@ -73,6 +74,18 @@ from . import upgrade as upgrade_module
 # project — and kept, because projects are renamed about as often as they are
 # created. Ten minutes is short enough that a new project appears on its own.
 PROJECT_TTL = 600
+
+# A goal's row, written by hand in Notion as a project's is: each column by the
+# names it is found under, the French first — the database is `Objectifs`. The
+# criterion and the due date are the ones `goals.resolve` reads into a prompt.
+GOAL_COLUMNS = {
+    "description": ("Description", "description"),
+    "criterion": ("Critère", "Criterion", "critère"),
+    "due": ("Échéance", "Due", "échéance"),
+    "status": ("Statut", "Status", "statut"),
+    "priority": ("Priorité", "Priority", "priorité"),
+    "projects": ("Projets", "Projects", "Projet", "Project"),
+}
 
 # And the board's own shape on the same cadence, for the same reason: the Notion
 # client caches a database for its lifetime, which for the console is days. A
@@ -108,6 +121,8 @@ class Api:
         self._runner: Runner | None = None
         self._projects: dict[str, dict] = {}
         self._projects_at = 0.0
+        self._goals: dict[str, dict] = {}
+        self._goals_at = 0.0
         self._schema_at = 0.0
         self._images: images.Cache | None = None
         self.hub = live.Hub()
@@ -246,6 +261,7 @@ class Api:
         keys = _keys(settings)
         names = _columns(settings)
         projects = self.projects()
+        goals = self._goal_index()
         host = self.config.runner.session_host
 
         writes = self.outbox.marks()
@@ -253,7 +269,7 @@ class Api:
         tickets = [
             board_module.settled(
                 board_module.overlay(
-                    self._ticket(page, names, projects, host),
+                    self._ticket(page, names, projects, host, goals),
                     writes.get(page.id.replace("-", "")),
                     lambda status: names.get(status, "draft"),
                 ),
@@ -358,6 +374,14 @@ class Api:
             choices["subtype"] = [
                 {"value": subtype.key, "label": subtype.option} for subtype in subtypes.SUBTYPES
             ]
+        # The goals a new ticket may serve, where the board can point at one.
+        if settings.prop("goal") in schema:
+            index = self._goal_index()
+            if index:
+                choices["goal"] = sorted(
+                    ({"value": goal["id"], "label": goal["name"]} for goal in index.values()),
+                    key=lambda choice: choice["label"].lower(),
+                )
         return choices
 
     def _scored(self) -> bool:
@@ -399,12 +423,24 @@ class Api:
                 ticket, noted, passing=passing, timer=timer, waits=clocks
             )
 
-    def _ticket(self, page: store.Page, names: dict[str, str], projects: dict, host: str) -> dict:
+    def _ticket(
+        self,
+        page: store.Page,
+        names: dict[str, str],
+        projects: dict,
+        host: str,
+        goals: dict | None = None,
+    ) -> dict:
         """One page of the tickets database, as a card reads it."""
         settings = self.config.notion
         status = str(store.read(page, settings.prop("status")) or "")
         relation = store.read(page, settings.prop("project")) or []
         project = projects.get(relation[0]) if relation else None
+        # The goal it serves, read as the runner reads it: the first of the
+        # relation. One the index does not know — unreadable, or another
+        # database's page — is no goal, and the window says nothing of it.
+        pointed = goals_module.pointed(page, settings.prop("goal"))
+        goal = (goals or {}).get(pointed) if pointed else None
         session_id = _session_id(str(store.read(page, settings.prop("session")) or ""))
         moment = scheduled_for(store.read(page, settings.prop("due")))
         return {
@@ -421,6 +457,8 @@ class Api:
             # without asking for the project: both are already in the index.
             "project_id": (project or {}).get("id", ""),
             "project_icon": (project or {}).get("icon") or {"kind": ""},
+            "goal": (goal or {}).get("name", ""),
+            "goal_id": (goal or {}).get("id", ""),
             "kind": (project or {}).get("kind", ""),
             # The ticket's type as the board spells it — `kind` is the project's.
             "type": str(store.read(page, settings.prop("type")) or ""),
@@ -470,7 +508,13 @@ class Api:
             self.forget()
             raise
         card = board_module.overlay(
-            self._ticket(page, names, self.projects(), self.config.runner.session_host),
+            self._ticket(
+                page,
+                names,
+                self.projects(),
+                self.config.runner.session_host,
+                self._goal_index(),
+            ),
             self.outbox.marks().get(page_id.replace("-", "")),
             lambda status: names.get(status, "draft"),
         )
@@ -567,6 +611,77 @@ class Api:
         self._projects = index
         self._projects_at = time.time()
         return index
+
+    def _goal_index(self) -> dict[str, dict]:
+        """{page id: {id, name}} — the goals, one query kept as the projects are.
+
+        A card names its goal from this, so the board reads the goals database
+        once every few minutes rather than a page per ticket. A workspace with
+        no goals, or one that cannot be read, is an empty index: the cards
+        lose their goal, never the board.
+        """
+        held: dict[str, dict] = getattr(self, "_goals", {})
+        # Kept empty too: a workspace whose goals are none is not asked again
+        # at every reading of the board.
+        if time.time() - getattr(self, "_goals_at", 0.0) < PROJECT_TTL:
+            return held
+        try:
+            return self._remember_goals(self._goal_pages())
+        except store.StoreError:
+            return held
+
+    def _goal_pages(self) -> list[store.Page]:
+        database = self.runner.workspace.goals
+        return self.runner.client.query(database) if database else []
+
+    def _remember_goals(self, pages: list[store.Page]) -> dict[str, dict]:
+        self._goals = {
+            page.id: {"id": page.id.replace("-", ""), "name": page.title}
+            for page in pages
+            if page.title
+        }
+        self._goals_at = time.time()
+        return self._goals
+
+    def goals(self) -> dict:
+        """Every goal, and how far its tickets have gone.
+
+        How far is counted, not read: Notion's rollup is not a column `store`
+        reads, and a board of Markdown files has none. The tickets the board
+        lists already say it — their column, and the goal they point at — so
+        a goal's progress is the same data the dashboard draws, column by
+        column, on either board.
+        """
+        pages = self._goal_pages()
+        # Read here, so the cards that follow name a goal created a minute ago.
+        self._remember_goals(pages)
+        projects = self.projects()
+        counts: dict[str, dict[str, int]] = {}
+        for ticket in self.board()["tickets"]:
+            if ticket.get("goal_id"):
+                column = counts.setdefault(ticket["goal_id"], {})
+                column[ticket["column"]] = column.get(ticket["column"], 0) + 1
+        rows = []
+        for page in pages:
+            if not page.title:
+                continue
+            bare = page.id.replace("-", "")
+            linked = _relation(page, *GOAL_COLUMNS["projects"])
+            rows.append(
+                {
+                    "id": bare,
+                    "name": page.title,
+                    "url": page.url,
+                    "description": _first(page, *GOAL_COLUMNS["description"]),
+                    "criterion": _first(page, *GOAL_COLUMNS["criterion"]),
+                    "due": _first(page, *GOAL_COLUMNS["due"]),
+                    "status": _first(page, *GOAL_COLUMNS["status"]),
+                    "priority": _first(page, *GOAL_COLUMNS["priority"]),
+                    "projects": [projects[one]["name"] for one in linked if one in projects],
+                    "tickets": counts.get(bare, {}),
+                }
+            )
+        return {"goals": rows, "configured": bool(self.runner.workspace.goals)}
 
     def forget_projects(self) -> None:
         """Read the projects again next time: one was created or renamed meanwhile."""
@@ -1347,6 +1462,7 @@ class Api:
         model: str = "",
         subtype: str = "",
         on: str = "",
+        goal: str = "",
     ) -> dict:
         title = title.strip()
         if not title:
@@ -1372,6 +1488,9 @@ class Api:
             values[settings.prop("status")] = _draft(settings)
         if project:
             values[settings.prop("project")] = [project]
+        # The goal it serves, only when one is chosen: most tickets serve none.
+        if goal.strip():
+            values[settings.prop("goal")] = [goal.strip()]
         # The score always, 50 when none is said, wherever the board has the
         # column: the card says where the ticket stands in the queue rather
         # than leave it to an empty cell.
@@ -1879,6 +1998,15 @@ def _first(page: store.Page, *names: str) -> str:
         if value not in (None, "", []):
             return str(value)
     return ""
+
+
+def _relation(page: store.Page, *names: str) -> list[str]:
+    """The page ids of the first of those relations the page carries."""
+    for name in names:
+        value = store.read(page, name)
+        if isinstance(value, list) and value:
+            return [str(one) for one in value if one]
+    return []
 
 
 def _column(page: store.Page, *names: str) -> str:

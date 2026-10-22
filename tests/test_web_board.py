@@ -358,7 +358,7 @@ def a_move_waiting_to_be_sent_survives_a_console_restart():
 def a_card_moved_from_the_console_is_drawn_waiting_until_notion_has_it():
     """The board the stream carries says it, so every tab says the same thing."""
     api = _bare_api(_ColumnsClient(["Ready", "Done"]))
-    api._runner._workspace = type("W", (), {"projects": "", "tickets": "db"})()
+    api._runner._workspace = type("W", (), {"goals": "", "projects": "", "tickets": "db"})()
     api._schema_at = time.time()
     api._reader = web_board.Reader(journal=lambda report: None)
     api._outbox = web_board.Outbox(journal=lambda report: None)
@@ -450,7 +450,7 @@ def a_blocked_ticket_on_a_board_where_failed_is_blocked_too_is_drawn_in_blocked(
         "blocked": "blocked",
         "failed": "blocked",
     }
-    api._runner._workspace = type("W", (), {"projects": "", "tickets": "db"})()
+    api._runner._workspace = type("W", (), {"goals": "", "projects": "", "tickets": "db"})()
     api._schema_at = time.time()
     api._reader = web_board.Reader(journal=lambda report: None)
     board = api.board()
