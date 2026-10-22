@@ -126,6 +126,8 @@ test("a fix is made only once it is confirmed", async ({ page }) => {
   await expect(dialog).toContainText("“Runner”, “Progress”")
   await shot(page, "health-confirm")
   await dialog.getByRole("button", { name: "Cancel" }).click()
+  // Gone, not closing: a second click under its fading overlay finds nothing.
+  await expect(page.getByRole("alertdialog")).toHaveCount(0)
   expect(fixed).toEqual([])
 
   await columns.getByTestId("health-fix").click()
@@ -178,8 +180,20 @@ test("the band arriving late does not move the page", async ({ page }) => {
   })
   await page.context().addCookies([{ name: "ponos_token", value: "e2e", url: test.info().project.use.baseURL }])
   await page.goto("/")
-  const card = page.getByText("A long ticket").filter({ visible: true }).first()
+  // The ticket's card, not the first text that says its title: a notification
+  // names it too, and which comes first changes with the band.
+  const card = page.locator('[data-ticket-card="000000000000000000000000000abcde"]')
   await expect(card).toBeVisible()
+  // The board is still loading around the card: what is measured is where it stays.
+  let last = ""
+  await expect
+    .poll(async () => {
+      const now = JSON.stringify(await card.boundingBox())
+      const settled = now === last
+      last = now
+      return settled
+    })
+    .toBe(true)
   const before = await card.boundingBox()
   expect(await page.getByTestId("health-band").count()).toBe(0)
 
