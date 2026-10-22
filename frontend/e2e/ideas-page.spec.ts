@@ -72,7 +72,7 @@ test.describe("at 1440px", () => {
 
   test("a project's ideas carry its name, and the filters narrow the list", async ({ page }) => {
     await open(page, PROJECT)
-    await page.getByRole("button", { name: "Find me ideas for this project" }).click()
+    await page.getByRole("button", { name: "Ponos, find me ideas", exact: true }).click()
     await expect(page.locator('[data-slot="ideas-card"]').first()).toBeVisible({ timeout: 20_000 })
     await page.keyboard.press("Escape")
 

@@ -37,7 +37,8 @@ test.describe("at 1440px", () => {
     await expect(item(page, "Website")).toHaveAttribute("aria-pressed", "true")
     await expect(panel(page).getByRole("heading", { name: "Website" })).toBeVisible()
     await expect(panel(page)).toContainText("example/website")
-    await expect(panel(page).getByRole("link", { name: /Ticket/ }).first()).toBeVisible()
+    // One "New ticket", the board's, not a second one in the header.
+    await expect(panel(page).getByText("New ticket", { exact: true })).toHaveCount(1)
     await expect(panel(page).getByRole("link", { name: "Edit" })).toBeVisible()
     // The context made way for the project: a link back, not a second header.
     await expect(page.locator('[data-slot="context-block"]')).toHaveCount(0)
@@ -65,6 +66,19 @@ test.describe("at 1440px", () => {
     // And the panel holds its page without pushing the page sideways.
     const width = await page.evaluate(() => document.documentElement.scrollWidth)
     expect(width, "no sideways scroll").toBeLessThanOrEqual(1440)
+  })
+
+  test("a project picked low in the list keeps its header in view, and the settings are one click away", async ({ page }) => {
+    await open(page)
+    await item(page, "Journal").scrollIntoViewIfNeeded()
+    await item(page, "Journal").click()
+    const head = panel(page).getByRole("heading", { name: "Journal" })
+    await expect(head).toBeInViewport()
+    const tabs = (await tab(panel(page), "Settings").boundingBox())!
+    expect(tabs.y + tabs.height, "the tabs sit in the first screen").toBeLessThanOrEqual(900)
+    await tab(panel(page), "Settings").click()
+    await expect(tab(panel(page), "Settings")).toHaveAttribute("aria-selected", "true")
+    await expect(head).toBeInViewport()
   })
 
   test("the tab picked is kept from one project to the next", async ({ page }) => {

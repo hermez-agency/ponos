@@ -13,7 +13,6 @@ import { counted, useT } from "@/lib/i18n"
 import { useRoute } from "@/lib/router"
 import { cn } from "@/lib/utils"
 import {
-  NewTicket,
   Repository,
   Where,
   isAPage,
@@ -136,30 +135,6 @@ export function ProjectPage() {
         )
       ) : (
         <>
-          {/* A project with a page has its pictures; one the configuration
-              alone names has neither page nor pictures to show. */}
-          {page ? <ProjectCover project={project} editable compact={Boolean(context.panel)} /> : null}
-
-          {project.source === "config" || project.configured ? (
-            <div className="flex flex-wrap items-center gap-1.5">
-              {project.source === "config" ? <Chip>{t("from the configuration")}</Chip> : null}
-              {project.configured && project.source === "board" ? (
-                <Chip>{t("path set in the configuration")}</Chip>
-              ) : null}
-            </div>
-          ) : null}
-
-          <Facts className="mt-4 first:mt-0">
-            <Fact label={t("repository")}>
-              <Repository declared={project.repository} />
-            </Fact>
-            <Fact label={t("on this machine")}>
-              <Where path={project.where} kind={project.kind} />
-            </Fact>
-          </Facts>
-
-          <StatisticsBand project={project.name} />
-
           <ProjectTabs project={project}>
             {page ? (
               <ProjectBrief project={project} />
@@ -194,7 +169,8 @@ export function ProjectPage() {
  * address that says nothing, and of one that says something else. Beside the
  * list, the panel holds the tab instead (see `ProjectInPanel`), and a project
  * with no such tab is shown on its tickets without forgetting the one picked.
- * The facts and the statistics stay above the tabs.
+ * The facts and the statistics open the tickets tab, under the tabs: the tabs
+ * sit right under the header, where the settings are one click away.
  */
 const TABS = ["tickets", "ideas", "brief", "settings"] as const
 type Tab = (typeof TABS)[number]
@@ -222,7 +198,7 @@ function ProjectTabs({ project, children }: { project: ProjectItem; children: Re
     router.history.replace(`${pathname}?${[...rest, `tab=${value}`].join("&")}`)
   }
   return (
-    <Tabs value={tab} onValueChange={pick} className={cn("gap-4", panel ? "mt-4" : "mt-6")}>
+    <Tabs value={tab} onValueChange={pick} className={cn("gap-4", panel ? "mt-0" : "mt-6")}>
       <TabsList className="w-full sm:w-fit">
         <TabsTrigger value="tickets" data-slot="project-tickets-tab">
           {t("Tickets")}
@@ -241,7 +217,25 @@ function ProjectTabs({ project, children }: { project: ProjectItem; children: Re
           </TabsTrigger>
         ) : null}
       </TabsList>
-      <TabsContent value="tickets">
+      <TabsContent value="tickets" className="flex flex-col gap-4">
+        {/* A project with a page has its pictures; one the configuration
+            alone names has neither page nor pictures to show. */}
+        {ideas ? <ProjectCover project={project} editable compact={Boolean(panel)} /> : null}
+        {project.source === "config" || project.configured ? (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {project.source === "config" ? <Chip>{t("from the configuration")}</Chip> : null}
+            {project.configured && project.source === "board" ? <Chip>{t("path set in the configuration")}</Chip> : null}
+          </div>
+        ) : null}
+        <Facts>
+          <Fact label={t("repository")}>
+            <Repository declared={project.repository} />
+          </Fact>
+          <Fact label={t("on this machine")}>
+            <Where path={project.where} kind={project.kind} />
+          </Fact>
+        </Facts>
+        <StatisticsBand project={project.name} />
         <ProjectTickets project={project} />
       </TabsContent>
       {ideas ? (
@@ -385,18 +379,16 @@ export function ProjectActions() {
   const away = reachable(project.url) ? project.url : ""
   return (
     <>
-      {/* What the project is, before what can be done to it: a count, then a
+      {/* What the project is, before what can be done to it: a count (not beside the list, which says it on the row), then a
        * way out to Notion — both read-only, both the same small print. */}
-      {count === null ? (
+      {context.panel ? null : count === null ? (
         <Skeleton className="h-5 w-16 rounded-full" />
       ) : count ? (
         <Chip>{counted(count, "{{count}} ticket", "{{count}} tickets")}</Chip>
       ) : null}
       {away ? <Away label="Notion" href={away} /> : null}
-      {/* Then the actions, one height (`sm`) so the row reads as one group
-       * rather than four buttons that each picked their own size. */}
-      <NewTicket project={project} size="sm" />
-      {isAPage(project.id) ? <IdeasButton project={project.id} name={project.name} /> : null}
+      {/* Then the actions, one height so the row reads as one group. */}
+      {isAPage(project.id) ? <IdeasButton project={project.id} name={project.name} inline /> : null}
       {isAPage(project.id) ? (
         // One piece, so that on a phone the "…" wraps with the edit button
         // rather than alone on a line under it.

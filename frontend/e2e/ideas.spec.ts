@@ -142,7 +142,7 @@ test.describe("at 1440px", () => {
 
   test("a project's page asks for that project's ideas, which are all tickets", async ({ page }) => {
     await open(page, PROJECT)
-    await page.getByRole("button", { name: "Find me ideas for this project" }).click()
+    await page.getByRole("button", { name: "Ponos, find me ideas", exact: true }).click()
     await expect(dialog(page).getByRole("heading", { name: "Ideas for Website" })).toBeVisible()
     await expect(top(page)).toBeVisible({ timeout: 20_000 })
     await expect(top(page).locator('[data-slot="ideas-kind"]')).toHaveText("Ticket")

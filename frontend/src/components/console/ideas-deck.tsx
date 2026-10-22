@@ -50,7 +50,7 @@ export function IdeasButton({
   const [eager, setEager] = React.useState(false)
   const wake = (on: boolean) =>
     setEager(on && !window.matchMedia("(prefers-reduced-motion: reduce)").matches)
-  const label = project ? t("Find me ideas for this project") : t("Ponos, find me ideas")
+  const label = t("Ponos, find me ideas")
   const mascot = (
     <span className="relative inline-flex shrink-0">
       <Robot state={eager ? "thinking" : "idle"} size={inline ? 20 : 24} />

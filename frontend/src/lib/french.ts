@@ -2044,7 +2044,6 @@ export const FRENCH: Record<string, string> = {
   "Change": "Modifier",
   "Find me ideas": "Trouve-moi des idées",
   "Ponos, find me ideas": "Ponos, trouve-moi des idées",
-  "Find me ideas for this project": "Trouve-moi des idées pour ce projet",
   "Ideas": "Idées",
   "Ideas for {{name}}": "Idées pour {{name}}",
   "Swipe right to keep an idea, left to throw it away.":

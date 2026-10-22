@@ -38,8 +38,13 @@ export function ProjectAside() {
   const wide = useWide()
   const found = read?.projects.find((project) => idOf(project) === chosen)
   const picked = found && wide
+  const aside = React.useRef<HTMLElement>(null)
+  // The panel scrolls on its own: a project picked starts at its header.
+  React.useEffect(() => {
+    aside.current?.scrollTo({ top: 0 })
+  }, [chosen])
   return (
-    <aside data-projects-aside className="flex min-w-0 flex-col gap-4 [&>[data-slot=context-block]]:mb-0">
+    <aside ref={aside} data-projects-aside className="flex min-w-0 flex-col gap-4 [&>[data-slot=context-block]]:mb-0">
       {picked ? <Picked key={chosen} id={chosen} row={found} /> : <ContextBlock />}
     </aside>
   )
