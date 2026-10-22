@@ -350,11 +350,21 @@ def journal_of(ticket: str) -> None:
 
 
 def bell_of() -> None:
-    """Three notifications on the bell: the question the blocked ticket asked, and two on the long one."""
+    """Four notifications on the bell, two of them for tickets that have moved on since.
+
+    A failure on the long ticket, now Ready again, and a pull request to read on
+    the finished one, rung ten minutes ago: the console's first board read lets
+    go of both. A pull request still in review and the question the blocked
+    ticket asked are what is left unread.
+    """
     from ponos import db, notifications
 
     notifications.add("failed", LONG, "A long ticket")
-    notifications.add("review", LONG, "A long ticket")
+    notifications.add("review", "0000000000000000000000000000d0e0", "A finished ticket")
+    rung = (datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat(timespec="seconds")
+    with db.transaction() as connection:
+        connection.execute("UPDATE notifications SET at = ?", (rung,))
+    notifications.add("review", "00000000000000000000000000c1c102", "Speed up the search")
     notifications.add("question", ASKING, "A ticket with a question")
     db.close()
 

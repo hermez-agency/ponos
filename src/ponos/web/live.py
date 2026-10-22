@@ -459,6 +459,9 @@ class Watch:
             return
         if self.status is not None:
             self.hub.publish("sync", **self.status(), error="")
+        # Every read, moved or not: a bell just rung is only let go of a moment
+        # later, by a board that may be the same as the last.
+        notifications.settle(payload.get("tickets") or ())
         fingerprint = json.dumps(payload, sort_keys=True, ensure_ascii=False)
         same = fingerprint == self._fingerprint
         if same and not force:

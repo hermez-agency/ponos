@@ -195,6 +195,11 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Fixed
 
+- **The bell lets go of a ticket that moved on.** A question answered, a pull request merged, a ticket the board now
+  shows in another column kept its notification unread for good, and the count grew to 200 of them. Every board the
+  console reads now settles them (`notifications.settle`): a notification whose ticket left the column it rang for —
+  blocked or failed for a question, a red CI, a block or a failure, in review for a pull request — is read, once the
+  board was edited after it or two minutes have passed. The 200 already there go the same way.
 - **Ponos never merges a pull request with a red job, nor with one still running.** The check lived only on the forced
   road; a validated pull request was handed to `gh pr merge` unread, and a repository without branch protection took it
   — that is how #326 landed with its frontend job red. `merge_pull_request` now reads the checks first: a red job blocks

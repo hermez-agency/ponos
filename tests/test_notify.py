@@ -1011,6 +1011,44 @@ def the_bell_keeps_what_is_unread_once_and_forgets_what_was_read_after_thirty_da
 
 
 @case
+def the_bell_lets_go_of_a_ticket_that_left_the_column_it_rang_for(state_home):
+    """Unblocked, merged, done: what rang for it no longer asks for anything."""
+    from ponos import notifications
+
+    notifications.add("question", "answered", "Les caps du moment")
+    notifications.add("review", "merged", "Une page Objectifs")
+    notifications.add("review", "reading", "Still to read")
+    notifications.add("ci", "red", "Still red")
+    notifications.add("failed", "shared", "Failed, on a board whose blocked and failed are one")
+    notifications.add("blocked", "gone", "Not on the board any more")
+    old = (datetime.now(UTC) - timedelta(minutes=10)).isoformat(timespec="seconds")
+    with db.transaction() as connection:
+        connection.execute("UPDATE notifications SET at = ?", (old,))
+    # Rung a moment ago: the board read may not show the block yet.
+    notifications.add("question", "early", "Asked just now")
+    # Rung a moment ago too, but the board was edited after it: it is the move.
+    notifications.add("question", "quick", "Answered at once")
+    later = (datetime.now(UTC) + timedelta(minutes=1)).isoformat(timespec="seconds")
+
+    notifications.settle(
+        [
+            {"id": "answered", "column": "done", "edited": old},
+            {"id": "merged", "column": "done", "edited": old},
+            {"id": "reading", "column": "review", "edited": old},
+            {"id": "red", "column": "blocked", "edited": old},
+            {"id": "shared", "column": "blocked", "edited": old},
+            {"id": "early", "column": "running", "edited": old},
+            {"id": "quick", "column": "ready", "edited": later.replace("+00:00", "Z")},
+        ]
+    )
+    heard = notifications.recent()
+    unread = {item["ticket"] for item in heard["items"] if not item["read"]}
+    assert unread == {"reading", "red", "shared", "gone", "early"}, unread
+    assert heard["unread"] == 5
+    assert len(heard["items"]) == 8, "read, not deleted"
+
+
+@case
 def a_question_a_review_and_a_failure_ring_the_bell_but_a_dry_run_does_not(state_home):
     from ponos import notifications
 
