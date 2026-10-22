@@ -28,6 +28,9 @@ import { recordWindow } from "./record-window"
 export const ticketWindow = recordWindow({
   type: "ticket-window",
   fallbackTitle: "Ticket",
+  // Anchored by its top edge, not centred on its own height: the title and the
+  // tabs stay under the cursor when a tab is a shorter page than the other.
+  className: "sm:top-[6dvh] sm:translate-y-0 sm:max-h-[calc(100dvh-6dvh-1rem)]",
   useHead: function useTicketHead(id) {
     const ticket = useBoard().tickets.find((item) => item.id === id)
     return {

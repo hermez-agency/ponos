@@ -124,20 +124,18 @@ export function TicketPage() {
 
           {/* Priority, model and date are the grid's: the tags the card wears
               would say them a second time, one line above. */}
-          <TicketTabContext.Provider value={tabs}>
-            <TicketActions ticket={ticket} className="-mx-1" />
-          </TicketTabContext.Provider>
-
           {/* Chosen once per ticket, not every time the column moves: a
               tab that switched itself under the reader would lose them. */}
-          <TicketTabs
-            key={ticket.id}
-            ticket={ticket}
-            brief={brief}
-            talking={open?.id === ticket.id}
-            asked={asked}
-            onTab={setShown}
-          />
+          <TicketTabContext.Provider value={tabs}>
+            <TicketTabs
+              key={ticket.id}
+              ticket={ticket}
+              brief={brief}
+              talking={open?.id === ticket.id}
+              asked={asked}
+              onTab={setShown}
+            />
+          </TicketTabContext.Provider>
         </>
       ) : context.error ? (
         // Why, as the server said it, and the two ways on from here: a
@@ -330,34 +328,36 @@ function TicketSummary({ ticket, onSession }: { ticket: TicketDetail; onSession:
             {took ? <span className="text-muted-foreground">{took}</span> : null}
           </div>
           {ticket.session || ticket.runner ? (
-            <div className={cn(line, "text-muted-foreground")}>
-              {ticket.session ? (
-                <span className="inline-flex items-center gap-1.5">
-                  {t("session")}
-                  <button
-                    type="button"
-                    onClick={onSession}
-                    className="text-foreground cursor-pointer font-mono text-xs underline-offset-2 hover:underline"
-                    title={ticket.session}
-                  >
-                    {ticket.session.slice(0, 8)}
-                  </button>
-                </span>
-              ) : null}
-              {/* Which machine has it, for the days two of them share a board
-                  — and the other half of the answer to "why has nothing
-                  happened": nobody claimed it. */}
-              {ticket.runner ? (
-                <>
-                  {ticket.session ? sep : null}
-                  <span>
+            // A separator leads the item it precedes and sits in a margin the
+            // line clips: where the item starts a row, it is out of sight
+            // rather than left at the end of the row above.
+            <div className="overflow-hidden">
+              <div className={cn(line, "text-muted-foreground -ml-4 gap-x-0")}>
+                {ticket.session ? (
+                  <span className="inline-flex items-center gap-1.5 pl-4">
+                    {t("session")}
+                    <button
+                      type="button"
+                      onClick={onSession}
+                      className="text-foreground cursor-pointer font-mono text-xs underline-offset-2 hover:underline"
+                      title={ticket.session}
+                    >
+                      {ticket.session.slice(0, 8)}
+                    </button>
+                  </span>
+                ) : null}
+                {/* Which machine has it, for the days two of them share a board
+                    — and the other half of the answer to "why has nothing
+                    happened": nobody claimed it. */}
+                {ticket.runner ? (
+                  <span className="relative pl-4 before:absolute before:left-1.5 before:text-muted-foreground/60 before:content-['·']">
                     {t("taken by")}{" "}
                     <span className="font-mono text-xs" title={ticket.runner}>
                       {ticket.runner}
                     </span>
                   </span>
-                </>
-              ) : null}
+                ) : null}
+              </div>
             </div>
           ) : null}
         </div>
@@ -519,7 +519,10 @@ function TicketTabs({
     >
       {/* The whole width on a phone, three equal thirds: a tab list sized to
           its words leaves the third one to be scrolled to. */}
-      <TabsList className="h-auto w-full justify-start gap-1 rounded-none border-b bg-transparent p-0 sm:w-fit">
+      {/* The ticket's gestures on the tabs' line, at its end: a row of their
+          own, for a "…" that most tickets hold alone, was a line lost. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b">
+      <TabsList className="h-auto w-full justify-start gap-1 rounded-none bg-transparent p-0 sm:w-fit">
         <TabsTrigger
           value="brief" data-slot="ticket-brief-tab"
           className="data-[state=active]:border-b-primary -mb-px h-9 flex-none rounded-none border-0 border-b-2 border-transparent bg-transparent px-3 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
@@ -570,6 +573,8 @@ function TicketTabs({
           </TabsTrigger>
         ) : null}
       </TabsList>
+      <TicketActions ticket={ticket} className="ml-auto pb-1" />
+      </div>
 
       <TabsContent value="brief">
         <section>
