@@ -54,6 +54,22 @@ const shown = (page: Page) => series(page).locator("[data-series-ticket]")
 const entries = (page: Page) => series(page).locator("[data-series-entry]")
 const recap = (page: Page) => series(page).locator('[data-slot="series-recap"]')
 
+/** Every choice numbered 1, 2, 3… with its key, none drawn as chosen, and the ways out apart, last. */
+async function numbered(page: Page) {
+  const choices = series(page).locator('[data-slot="decision-choices"] [data-solution]')
+  const drawn = await choices.evaluateAll((all) =>
+    all.map((one) => [one.getAttribute("data-key"), one.getAttribute("data-variant"), one.textContent?.trim() ?? ""])
+  )
+  expect(drawn.length).toBeGreaterThan(1)
+  drawn.forEach(([key, variant, text], index) => {
+    expect(key).toBe(String(index + 1))
+    expect(variant).toBe("outline")
+    expect(text?.startsWith(`${index + 1}.`)).toBe(true)
+  })
+  for (const away of await series(page).locator('[data-slot="decision-away"] [data-solution]').all())
+    expect(["abandon", "reject"]).toContain(await away.getAttribute("data-solution"))
+}
+
 /** The ticket on screen, and its panel read: its choices drawn. */
 async function on(page: Page, id: string, at: string) {
   await expect(shown(page)).toHaveAttribute("data-series-ticket", id)
@@ -85,6 +101,7 @@ test.describe("on a desktop", () => {
     await expect(shown(page)).toContainText("Studio")
     await expect(shown(page).locator('[data-slot="series-cause"]')).toHaveAttribute("data-code", "session.question")
     await expect(shown(page).locator('[data-talk="question"]')).toContainText("Which way do you prefer?")
+    await numbered(page)
 
     // The key 1 is the session's first option: answered, and on to the next.
     await page.keyboard.press("1")
@@ -158,8 +175,13 @@ test.describe("on a desktop", () => {
     await expect(shown(page).locator('[data-slot="decision-delivered"]')).toContainText(
       "Adds a share button under each article."
     )
-    const reject = () => series(page).getByRole("button", { name: "Reject", exact: true })
-    await reject().click()
+    await numbered(page)
+    // Reject is the last of all, apart: its key opens its note, and nothing moves before Confirm.
+    const reject = series(page).locator('[data-slot="decision-away"] [data-solution="reject"]')
+    const choices = series(page).locator('[data-slot="decision-choices"] [data-solution]')
+    await expect(choices.last()).toHaveAttribute("data-solution", "reject")
+    await page.keyboard.press((await reject.getAttribute("data-key")) ?? "")
+    await expect(reject).toHaveAttribute("data-variant", "destructive")
     await series(page).getByRole("button", { name: "Confirm" }).click()
     const settled = series(page).locator('[data-slot="series-settled"]')
     await expect(settled).toContainText("Ticket decided")

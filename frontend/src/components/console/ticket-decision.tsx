@@ -27,9 +27,11 @@ import {
   PROMPTS,
   type DecisionTab,
   actionOf,
+  arranged,
   away,
   decisionTabOf,
   immediate,
+  keyOf,
   labelOf,
   prefilled,
   promptOf,
@@ -62,7 +64,7 @@ import { tickets } from "@/resources/tickets"
  * The series that goes through a column's tickets one after another
  * (`ticket-series.tsx`) draws this panel for each, a blocked one too: its
  * question as the discussion says it, and under it every way out the server
- * offers, the session's own options numbered — the keys 1 to 9 there.
+ * offers, each numbered — the keys 1 to 9 there, in either column.
  */
 
 /* The question a blocked ticket stopped on, as its discussion draws it: with
@@ -281,7 +283,9 @@ function Delivered({ decision }: { decision: Decision }) {
   )
 }
 
-/* The choices, one button each. One that needs words opens its field under it. */
+/* The choices, one button each, numbered, and the ways out apart under a rule.
+ * One that needs words opens its field under it — Abandon and Reject too, a
+ * note and a Confirm between the click and the move. */
 function Choices({
   decision,
   ticket,
@@ -337,89 +341,98 @@ function Choices({
 
   const same = (one: Solution, other: Solution | null) =>
     other !== null && one.key === other.key && one.number === other.number
-  const buttons = decision.solutions
+  const { forward, out } = arranged(decision.solutions)
+
+  // One choice, at its place in the order they are numbered in.
+  const choice = (solution: Solution, place: number) => (
+    <li key={`${solution.key}-${solution.number}`}>
+      <Button
+        variant={tone(solution, same(solution, chosen))}
+        disabled={busy}
+        data-solution={solution.key}
+        data-number={solution.number}
+        data-key={keyOf(place) || undefined}
+        aria-keyshortcuts={keyOf(place) || undefined}
+        aria-expanded={immediate(solution) ? undefined : same(solution, chosen)}
+        className={cn(
+          "h-auto min-h-11 w-full justify-start py-2 text-left text-base whitespace-normal",
+          away(solution) && !same(solution, chosen) && "text-destructive hover:text-destructive"
+        )}
+        onClick={() => (same(solution, chosen) ? setChosen(null) : pick(solution))}
+      >
+        {/* Said by aria-keyshortcuts instead: the button keeps its name. */}
+        <span aria-hidden="true" className="text-xs tabular-nums opacity-70">
+          {place}.
+        </span>
+        <span className="min-w-0 break-words">
+          {t(labelOf(solution))}
+          {/* Which point, for the ones sent back on a point of their own. */}
+          {solution.key === "caveat" && decision.caveats?.[solution.number - 1] ? (
+            <span className="text-muted-foreground block text-sm">
+              {decision.caveats[solution.number - 1]}
+            </span>
+          ) : null}
+        </span>
+      </Button>
+      {same(solution, chosen) ? (
+        <form
+          className="mt-1.5 space-y-1.5"
+          onSubmit={(event) => {
+            event.preventDefault()
+            if (sendable(solution, text, model)) void apply(solution, text, model)
+          }}
+        >
+          {solution.needs === "model" ? (
+            <ModelChoice
+              value={model}
+              onChange={setModel}
+              extra={models.map((one) => one.value)}
+              empty={t(PROMPTS.model)}
+              label={t(PROMPTS.model)}
+              className="h-9 w-full"
+            />
+          ) : null}
+          <Textarea
+            autoFocus
+            value={text}
+            rows={solution.needs === "titles" ? 4 : 3}
+            aria-label={t(promptOf(solution))}
+            placeholder={t(promptOf(solution))}
+            onChange={(event) => setText(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+                event.preventDefault()
+                event.currentTarget.form?.requestSubmit()
+              }
+            }}
+            className="text-base md:text-base"
+          />
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="ghost" onClick={() => setChosen(null)}>
+              {t("Cancel")}
+            </Button>
+            <Button
+              type="submit"
+              variant={away(solution) ? "destructive" : "default"}
+              disabled={busy || !sendable(solution, text, model)}
+            >
+              {solution.column === "ready" ? t("Send and run again") : t("Confirm")}
+            </Button>
+          </div>
+        </form>
+      ) : null}
+    </li>
+  )
 
   return (
     <section data-slot="decision-choices">
       <Heading>{t("Your decision")}</Heading>
-      <ul className="space-y-2">
-        {buttons.map((solution, index) => (
-          <li key={`${solution.key}-${solution.number}`}>
-            <Button
-              variant={same(solution, chosen) ? "secondary" : tone(solution, index)}
-              disabled={busy}
-              data-solution={solution.key}
-              data-number={solution.number}
-              aria-expanded={immediate(solution) ? undefined : same(solution, chosen)}
-              className={cn(
-                "h-auto min-h-11 w-full justify-start py-2 text-left text-base whitespace-normal",
-                away(solution) && "text-destructive hover:text-destructive"
-              )}
-              onClick={() => (same(solution, chosen) ? setChosen(null) : pick(solution))}
-            >
-              {solution.key === "option" ? (
-                <span className="text-xs opacity-70">{solution.number}.</span>
-              ) : null}
-              <span className="min-w-0 break-words">
-                {t(labelOf(solution))}
-                {/* Which point, for the ones sent back on a point of their own. */}
-                {solution.key === "caveat" && decision.caveats?.[solution.number - 1] ? (
-                  <span className="text-muted-foreground block text-sm">
-                    {decision.caveats[solution.number - 1]}
-                  </span>
-                ) : null}
-              </span>
-            </Button>
-            {same(solution, chosen) ? (
-              <form
-                className="mt-1.5 space-y-1.5"
-                onSubmit={(event) => {
-                  event.preventDefault()
-                  if (sendable(solution, text, model)) void apply(solution, text, model)
-                }}
-              >
-                {solution.needs === "model" ? (
-                  <ModelChoice
-                    value={model}
-                    onChange={setModel}
-                    extra={models.map((one) => one.value)}
-                    empty={t(PROMPTS.model)}
-                    label={t(PROMPTS.model)}
-                    className="h-9 w-full"
-                  />
-                ) : null}
-                <Textarea
-                  autoFocus
-                  value={text}
-                  rows={solution.needs === "titles" ? 4 : 3}
-                  aria-label={t(promptOf(solution))}
-                  placeholder={t(promptOf(solution))}
-                  onChange={(event) => setText(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-                      event.preventDefault()
-                      event.currentTarget.form?.requestSubmit()
-                    }
-                  }}
-                  className="text-base md:text-base"
-                />
-                <div className="flex justify-end gap-2">
-                  <Button type="button" variant="ghost" onClick={() => setChosen(null)}>
-                    {t("Cancel")}
-                  </Button>
-                  <Button
-                    type="submit"
-                    variant={away(solution) ? "destructive" : "default"}
-                    disabled={busy || !sendable(solution, text, model)}
-                  >
-                    {solution.column === "ready" ? t("Send and run again") : t("Confirm")}
-                  </Button>
-                </div>
-              </form>
-            ) : null}
-          </li>
-        ))}
-      </ul>
+      <ul className="space-y-2">{forward.map((solution, index) => choice(solution, index + 1))}</ul>
+      {out.length ? (
+        <ul data-slot="decision-away" className="mt-4 space-y-2 border-t pt-4">
+          {out.map((solution, index) => choice(solution, forward.length + index + 1))}
+        </ul>
+      ) : null}
     </section>
   )
 }

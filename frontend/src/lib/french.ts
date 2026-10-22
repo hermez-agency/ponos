@@ -2219,9 +2219,8 @@ export const FRENCH: Record<string, string> = {
   "The ticket was not put back": "Le ticket n'a pas été remis en place",
   Skip: "Passer",
   Decided: "Décidé",
-  "→ or J: skip · ← or K: previous · 1–9: an option · Esc: close":
-    "→ ou J : passer · ← ou K : précédent · 1–9 : une option · Échap : fermer",
-  "→ or J: skip · ← or K: previous · Esc: close": "→ ou J : passer · ← ou K : précédent · Échap : fermer",
+  "→ or J: skip · ← or K: previous · 1–9: a choice · Esc: close":
+    "→ ou J : passer · ← ou K : précédent · 1–9 : un choix · Échap : fermer",
   "{{count}} ticket unblocked": "{{count}} débloqué",
   "{{count}} tickets unblocked": "{{count}} débloqués",
   "{{count}} ticket decided": "{{count}} décidé",
