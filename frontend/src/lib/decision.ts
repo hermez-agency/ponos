@@ -189,9 +189,24 @@ export const typedOf = <T extends Offer>(offers: T[]): T | null =>
  * of Ponos's — the marks are `voice.MARKS`. */
 const QUIET = ["🧠", "🏷️", "↩️", "⏸️"]
 
+/** The most lines a line in passing may take: a longer one is a report, which is read, not glanced at. */
+const PASSING = 2
+
 /** Whether a message is one of the run's lines in passing, rather than something it says to you. */
 export const quiet = (role: string, text: string): boolean =>
-  role === "runner" && QUIET.some((mark) => text.trimStart().startsWith(mark))
+  role === "runner" &&
+  QUIET.some((mark) => text.trimStart().startsWith(mark)) &&
+  text.split("\n").filter((line) => line.trim()).length <= PASSING
+
+/** What a session could not check, as a report opens each such line (`voice.py`, « caveat »). */
+const CAVEAT = /^(À vérifier|To check)\s*:/
+
+/** A long report as markdown: each point to check is an item of a list, rather than a line run into the next. */
+export const listed = (text: string): string =>
+  text
+    .split("\n")
+    .map((line) => (CAVEAT.test(line.trim()) ? `- ${line.trim()}` : line))
+    .join("\n")
 
 /** How many times Ponos has spoken to you in a discussion: its lines in passing do not count. */
 export const answersIn = (messages: { role: string; text: string }[]): number =>
