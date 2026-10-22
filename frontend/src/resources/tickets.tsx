@@ -497,6 +497,8 @@ function TicketCard({ row }: RowComponentPropsInterface) {
       <Link
         to={href}
         onClick={open}
+        // Picked up, the title carries the card, not its address.
+        draggable={false}
         className={cn(
           "text-[0.93rem] leading-snug font-semibold break-words hover:underline",
           ticket.column === "cancelled" && "text-muted-foreground line-through"
@@ -690,6 +692,10 @@ function BoardColumn({
   }, [rows, column])
   const drawn = TERMINAL.has(column) ? mine.slice(0, shown) : mine
   const left = mine.length - drawn.length
+  // The package's column finds the card dropped on it among the rows it is
+  // handed, and draws only those of its own column: handed the others too, a
+  // card carried from another column is one it knows.
+  const carried = [...rows.filter((row) => row.data?.column !== column), ...drawn]
 
   const more = () => {
     const next = shown + TERMINAL_PAGE
@@ -713,7 +719,7 @@ function BoardColumn({
         valueIdentifier={{ value: column, label: heading(column, label, mine.length, total) }}
         isDragging={dragging}
         handleDragging={onDragging}
-        rows={drawn}
+        rows={carried}
       />
       {left > 0 ? (
         <Button variant="outline" size="sm" onClick={more}>
@@ -1102,10 +1108,11 @@ const options: ResourceDefinition<TicketItem, TicketWrite> = {
   name: "Dashboard",
   path: "/api/board",
   icon: LayoutGrid,
-  // A card dropped in a column is written through the list itself (see
-  // `DropZone`), not through a form: nothing of a ticket is edited here, and
-  // nothing is deleted — Notion keeps it.
-  permissions: { update: false, delete: false, export: false },
+  // Nothing is deleted — Notion keeps it. `update` stays allowed: the package
+  // makes a card draggable, and writes its drop, only where a ticket may be
+  // updated. There is no form to edit one with (no `update` view): moving a
+  // card is the only update the board makes (see `updateItem`).
+  permissions: { delete: false, export: false },
 
   repository: {
     // The rows are the stream's; asking Notion again here would be asking it
