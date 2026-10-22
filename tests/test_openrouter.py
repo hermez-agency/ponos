@@ -36,14 +36,22 @@ def a_routed_session_is_told_where_to_go_and_with_what():
     """`ANTHROPIC_AUTH_TOKEN`, not `ANTHROPIC_API_KEY`: a gateway wants a bearer."""
     config = _config('[openrouter]\nkey = "sk-or-v1-secret"\nroute_sessions = true\n')
     variables = openrouter.environment(config.openrouter)
-    assert variables["ANTHROPIC_BASE_URL"] == "https://openrouter.ai/api/v1"
+    assert variables["ANTHROPIC_BASE_URL"] == "https://openrouter.ai/api"
+    assert variables["OPENROUTER_BASE_URL"] == "https://openrouter.ai/api/v1"
     assert variables["ANTHROPIC_AUTH_TOKEN"] == "sk-or-v1-secret"
     assert "ANTHROPIC_API_KEY" not in variables
     # A gateway of your own, and the trailing slash that would double up.
     own = _config(
         '[openrouter]\nkey = "k"\nroute_sessions = true\nbase_url = "https://gw.example/v1/"\n'
     )
-    assert openrouter.environment(own.openrouter)["ANTHROPIC_BASE_URL"] == "https://gw.example/v1"
+    assert openrouter.environment(own.openrouter)["ANTHROPIC_BASE_URL"] == "https://gw.example"
+    bare = _config(
+        '[openrouter]\nkey = "k"\nroute_sessions = true\nbase_url = "https://gw.example/anthropic"\n'
+    )
+    assert (
+        openrouter.environment(bare.openrouter)["ANTHROPIC_BASE_URL"]
+        == "https://gw.example/anthropic"
+    )
     blank = _config('[openrouter]\nkey = "k"\nbase_url = ""\n')
     assert blank.openrouter.base_url == C.OPENROUTER_URL, "emptied, the default answers"
 
