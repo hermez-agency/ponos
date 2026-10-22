@@ -22,7 +22,20 @@ from __future__ import annotations
 
 import shutil
 
-from . import agents, git, journal, kinds, models, naming, priority, session, state, store, subtypes
+from . import (
+    agents,
+    git,
+    journal,
+    kinds,
+    models,
+    naming,
+    priority,
+    provider,
+    session,
+    state,
+    store,
+    subtypes,
+)
 from . import voice as voice_module
 from .base import Base
 from .config import state_dir
@@ -145,6 +158,17 @@ class Preparation(Base):
             # the one it ran on would otherwise read as the runner's mistake.
             job.model = self.config.runner.allowed(written)
             job.notes.append(self.voice.say("fable-refused"))
+        if provider.on_openrouter(job.model or agent.model) and not self.config.openrouter.key:
+            # A slug means something only to OpenRouter: without its key the CLI
+            # would fail on a model it has never heard of, and say so obscurely.
+            self._fail(
+                ticket,
+                self.voice.say("openrouter-key-missing", model=job.model or agent.model),
+                self.voice.say("openrouter-key-missing-detail"),
+                code="access.credentials",
+                blocked=True,
+            )
+            return None
         if not job.model and not agent.model and self.config.runner.auto_model:
             self._choose_model(ticket, job)
         where = f"{project.path} · {branch}" if project.is_code else "document → the ticket's page"

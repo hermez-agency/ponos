@@ -383,7 +383,14 @@ def an_openrouter_model_goes_through_openrouter_whatever_the_provider():
 def the_catalogue_of_openrouter_is_read_once_and_a_failure_is_said():
     from ponos import openrouter as router
 
-    answers = [json.dumps({"data": [{"id": "a/b", "name": "A: B"}, {"name": "no id"}]}).encode()]
+    listed = {
+        "id": "a/b",
+        "name": "A: B",
+        "pricing": {"prompt": "0.000003", "completion": "0.000015"},
+        "supported_parameters": ["tools", "temperature"],
+    }
+    bare = {"id": "c/d", "pricing": {"prompt": "-1", "completion": "-1"}}
+    answers = [json.dumps({"data": [listed, bare, {"name": "no id"}]}).encode()]
     opened: list[str] = []
 
     def answer(request: httpx.Request) -> httpx.Response:
@@ -394,7 +401,10 @@ def the_catalogue_of_openrouter_is_read_once_and_a_failure_is_said():
     try:
         with _http_answering(answer):
             settings = _config('[openrouter]\nkey = "k"\n').openrouter
-            assert router.catalogue(settings) == [{"id": "a/b", "name": "A: B"}]
+            assert router.catalogue(settings) == [
+                {"id": "a/b", "name": "A: B", "input": 3.0, "output": 15.0, "tools": True},
+                {"id": "c/d", "name": "c/d", "input": None, "output": None, "tools": False},
+            ], "the price per million tokens, and whether it uses tools"
             router.catalogue(settings)
             assert len(opened) == 1, "kept for a while"
             router._catalogue = {}

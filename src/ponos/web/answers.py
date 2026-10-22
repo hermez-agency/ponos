@@ -593,9 +593,17 @@ class Named(Shape):
     name: str
 
 
+class OpenRouterModel(Named):
+    input: float | None
+    """Dollars per million tokens read, None when OpenRouter does not say."""
+    output: float | None
+    tools: bool
+    """Whether it can use tools: Claude Code needs them to work."""
+
+
 class OpenRouterModels(Shape):
     configured: bool
-    models: list[Named]
+    models: list[OpenRouterModel]
     error: str
 
 

@@ -2354,6 +2354,13 @@ export const FRENCH: Record<string, string> = {
   "Reading the models…": "Lecture des modèles…",
   "No such model": "Aucun modèle de ce nom",
   "Recently used": "Utilisés récemment",
+  "On the board": "Déjà sur le board",
+  "no tools": "sans outils",
+  "Cannot use tools, which Claude Code needs to work":
+    "Ne gère pas les outils, dont Claude Code a besoin pour travailler",
+  "Dollars per million tokens, read / written": "Dollars par million de tokens, lus / écrits",
+  "This model cannot use tools, which Claude Code needs to work: the ticket will probably fail.":
+    "Ce modèle ne gère pas les outils, dont Claude Code a besoin pour travailler : le ticket échouera probablement.",
   "Only the Claude models, until OpenRouter is configured.":
     "Seulement les modèles Claude, tant qu'OpenRouter n'est pas configuré.",
   "Set up OpenRouter": "Configurer OpenRouter",

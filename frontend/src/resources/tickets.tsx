@@ -2,7 +2,6 @@ import * as React from "react"
 import { ChevronLeft, ChevronRight, LayoutGrid } from "lucide-react"
 import {
   ActionList,
-  SelectInputController,
   useFormContext,
   type FormInterface,
   type InputControllerComponentInterface,
@@ -51,6 +50,7 @@ import {
 } from "@/components/console/new-ticket-lazy"
 import { EmptyState } from "@/components/console/empty-state"
 import { ProjectThumb } from "@/components/console/project-picture"
+import { ModelInputController } from "@/components/console/model-input"
 import { PriorityBadge, PriorityInputController } from "@/components/console/priority"
 import { Robot, TicketRobot } from "@/components/console/robot"
 import { RunnerStrip } from "@/components/console/runner-strip"
@@ -379,7 +379,7 @@ const createForm: FormInterface = {
     },
     // On one line: label, then the select.
     model: {
-      ...choiceInput("model", "the runner's model", "", SelectInputController),
+      ...choiceInput("model", "the runner's model", "", ModelInputController),
       // Empty is the runner's model, and the select says so rather than "Select…".
       get placeholder() {
         return t("the runner's model")

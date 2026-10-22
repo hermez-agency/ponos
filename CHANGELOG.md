@@ -18,6 +18,13 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Added
 
+- Le choix du modèle d'un ticket (nouveau ticket, fiche, « autre modèle » d'un
+  ticket bloqué, récurrences) est le sélecteur du chat : les modèles Claude, et
+  avec une clé OpenRouter son catalogue avec une recherche, les modèles récents,
+  le prix au million de tokens et un badge « sans outils » pour ceux que Claude
+  Code ne saurait pas faire travailler. Un ticket dont le modèle est un slug
+  `vendor/model` tourne sur OpenRouter ; sans clé, il se bloque en le disant
+  (`access.credentials`) au lieu d'échouer dans Claude Code.
 - **The blocked tickets, one after another.** "Unblock (N)" in the heading of the Blocked column — and "Decide (N)"
   in that of In review, from two cards on, in Ctrl+K too, and at `/?series=blocked` or `/?series=review` — opens
   one window over the page that goes through the column: the ticket, why it stops, its choices; one sent, the next

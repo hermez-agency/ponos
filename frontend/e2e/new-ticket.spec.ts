@@ -29,11 +29,6 @@ const choiceField = (dialog: ReturnType<Page["getByRole"]>, field: string) =>
     .filter({ hasText: new RegExp(`^${field}`) })
     .getByRole("combobox")
 
-async function choose(page: Page, dialog: ReturnType<Page["getByRole"]>, field: string, option: string) {
-  await choiceField(dialog, field).click()
-  await page.getByRole("option", { name: option, exact: true }).click()
-}
-
 /* The type is all in view, a button each; so is a code ticket's sub-type. */
 const segment = (dialog: ReturnType<Page["getByRole"]>, field: string, option: string) =>
   dialog.getByRole("group", { name: field, exact: true }).getByRole("button", { name: option, exact: true })
@@ -56,7 +51,8 @@ test("a new ticket carries its priority, type and model, and Ctrl+Enter launches
   await score(dialog).fill("80")
   await expect(dialog.locator('[data-slot="priority-input"] [data-slot="priority-badge"]')).toHaveText("80")
   await segment(dialog, "Type", "Code").click()
-  await choose(page, dialog, "Model", "haiku")
+  await choiceField(dialog, "Model").click()
+  await page.locator('[data-model-option="haiku"]').click()
   await segment(dialog, "Sub-type", "Bug").click()
   await dialog.getByLabel("Title").fill("Announce it")
   await page.screenshot({ path: "test-results/new-ticket.png" })
@@ -72,6 +68,50 @@ test("a new ticket carries its priority, type and model, and Ctrl+Enter launches
     ready: true,
   })
   await expect(dialog).toBeHidden()
+})
+
+/* The model is the chat's picker: with an OpenRouter key its catalogue is
+ * searched and priced, a model without tools says so, and the slug chosen is
+ * what the ticket is sent with — the board adds it to its Model column itself. */
+test("a new ticket can be given any model of the OpenRouter catalogue", async ({ page }) => {
+  const sent: Record<string, unknown>[] = []
+  await page.route("**/api/tickets", async (route) => {
+    if (route.request().method() !== "POST") return route.fallback()
+    sent.push(route.request().postDataJSON())
+    await route.fulfill({ json: { id: "0000000000000000000000000000f00d", title: "Announce it" } })
+  })
+  await page.route("**/api/chat/models", (route) =>
+    route.fulfill({
+      json: {
+        claude: [{ id: "sonnet", name: "Sonnet" }],
+        openrouter: {
+          configured: true,
+          error: "",
+          models: [
+            { id: "openai/gpt-5", name: "OpenAI: GPT-5", input: 1.25, output: 10, tools: true },
+            { id: "vendor/talker", name: "Vendor: Talker", input: 0.1, output: 0.4, tools: false },
+          ],
+        },
+        recent: [],
+        default: "",
+        in_use: "",
+      },
+    })
+  )
+  const dialog = await open(page)
+  await choiceField(dialog, "Model").click()
+  await page.getByPlaceholder("Search a model…").fill("gpt")
+  await expect(page.locator('[data-model-option="vendor/talker"]')).toHaveCount(0)
+  const gpt = page.locator('[data-model-option="openai/gpt-5"]')
+  await expect(gpt).toContainText("$1.25 / $10")
+  await page.getByPlaceholder("Search a model…").fill("talker")
+  await expect(page.locator('[data-model-option="vendor/talker"]')).toContainText("no tools")
+  await page.getByPlaceholder("Search a model…").fill("gpt")
+  await gpt.click()
+  await dialog.getByLabel("Title").fill("Announce it")
+  await dialog.getByLabel("Title").press("Control+Enter")
+  await expect.poll(() => sent.length).toBe(1)
+  expect(sent[0]).toMatchObject({ title: "Announce it", model: "openai/gpt-5" })
 })
 
 test("the sub-type is a code ticket's: shown for Code, hidden for any other type", async ({ page }) => {

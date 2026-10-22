@@ -16,15 +16,9 @@ import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
+import { ModelChoice } from "@/components/console/model-input"
 import { useOpensOverTheList } from "@/components/console/record-window"
 import { api, why } from "@/lib/api"
 import { titleOf, useBoard } from "@/lib/board-store"
@@ -385,18 +379,14 @@ function Choices({
                 }}
               >
                 {solution.needs === "model" ? (
-                  <Select value={model} onValueChange={setModel}>
-                    <SelectTrigger className="w-full" aria-label={t(PROMPTS.model)}>
-                      <SelectValue placeholder={t(PROMPTS.model)} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {models.map((one) => (
-                        <SelectItem key={one.value} value={one.value}>
-                          {one.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <ModelChoice
+                    value={model}
+                    onChange={setModel}
+                    extra={models.map((one) => one.value)}
+                    empty={t(PROMPTS.model)}
+                    label={t(PROMPTS.model)}
+                    className="h-9 w-full"
+                  />
                 ) : null}
                 <Textarea
                   autoFocus

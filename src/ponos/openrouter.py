@@ -151,6 +151,21 @@ def _said(answer: http.Answer) -> str:
     return f"{answer.status} {message}".strip() if message else f"{answer.status} {answer.reason}"
 
 
+def _per_million(item: dict, which: str) -> float | None:
+    """What a model's `which` tokens cost per million, in dollars — None when unsaid.
+
+    OpenRouter prices a token, as a string (`"0.000003"`); a million of them is
+    the unit anyone reads a price in. A negative price is its router's own
+    ("auto"), not a cost.
+    """
+    pricing = item.get("pricing")
+    try:
+        price = float(pricing[which]) if isinstance(pricing, dict) else -1.0
+    except (KeyError, TypeError, ValueError):
+        return None
+    return round(price * 1_000_000, 4) if price >= 0 else None
+
+
 # The catalogue is a few hundred models and changes a few times a week: asked
 # once in a while, not once per page opened.
 CATALOGUE_TTL = 600
@@ -159,7 +174,11 @@ _catalogue: dict[str, tuple[float, list[dict]]] = {}
 
 
 def catalogue(settings: OpenRouter) -> list[dict]:
-    """Every model OpenRouter offers, `{id, name}` each, as its API lists them.
+    """Every model OpenRouter offers, as its API lists them.
+
+    `{id, name, input, output, tools}` each: the price per million tokens read
+    and written, and whether the model can use tools — which Claude Code cannot
+    work without.
 
     Raises `Unavailable` with a sentence when it cannot be read — the console
     still offers the Claude models then, and says why the rest is missing.
@@ -186,7 +205,13 @@ def catalogue(settings: OpenRouter) -> list[dict]:
         raise Unavailable("OpenRouter answered something that is not JSON") from error
     data = answer.get("data") if isinstance(answer, dict) else None
     models = [
-        {"id": str(item["id"]), "name": str(item.get("name") or item["id"])}
+        {
+            "id": str(item["id"]),
+            "name": str(item.get("name") or item["id"]),
+            "input": _per_million(item, "prompt"),
+            "output": _per_million(item, "completion"),
+            "tools": "tools" in (item.get("supported_parameters") or []),
+        }
         for item in data or []
         if isinstance(item, dict) and item.get("id")
     ]

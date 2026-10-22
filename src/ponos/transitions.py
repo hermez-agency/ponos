@@ -369,20 +369,21 @@ class Transitions(Base):
             language=self.voice.instruction(reply=True),
         )
         limit = self.config.budget.on_usd
+        model = self.config.runner.allowed(
+            str(store.read(ticket.page, settings.prop("model")) or "")
+            or agent.model
+            or self.config.runner.model
+        )
         outcome = session.run(
             text,
             cwd=workdir,
             log=state.log_file(f"{short}-on"),
-            model=self.config.runner.allowed(
-                str(store.read(ticket.page, settings.prop("model")) or "")
-                or agent.model
-                or self.config.runner.model
-            ),
+            model=model,
             permission_mode=self.config.runner.on_permission_mode
             or self.config.runner.permission_mode,
             timeout_minutes=self.config.runner.on_timeout_minutes,
             session_id=session.new_id(),
-            environment=self.environment,
+            environment=self.environment_for(model),
             max_budget_usd=limit,
         )
         self._hold_credits(outcome)
