@@ -157,6 +157,15 @@ class Base:
         """
         return provider.environment(self.config)
 
+    def environment_for(self, model: str) -> dict[str, str]:
+        """`environment`, for a session about to run on `model`.
+
+        A model named as an OpenRouter slug (`openai/gpt-5`) is only reachable
+        through OpenRouter, whichever provider answers the other sessions: the
+        ticket's Model column says where it goes.
+        """
+        return provider.environment(self.config, model)
+
     def say(self, message: str) -> None:
         if not self.quiet:
             # Onto the standard output, which the systemd journal keeps, and into
