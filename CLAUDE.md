@@ -68,7 +68,15 @@ npm run test:e2e  # Playwright dans le Chrome installé, sur un vrai `serve` et 
 npm run test:e2e:ci  # le même, avec les deux workers de la CI : c’est lui qui montre une dépendance à l’ordre
 npm test        # node --test src/lib/*.test.ts — la logique de la barre de message, sans navigateur
 npm run dev     # serveur de dev avec hot reload, proxy /api vers un console déjà lancé
+npm run dev:demo  # le même, sur la console de démo (ci-dessous) : fausses données, ni Notion ni réseau
 ```
+
+Travailler la console sans rien de réel, en trois lignes : `python3 scripts/demo.py`
+(un vrai `ponos serve` sur un board jetable, port 8791, jeton `demo`, état temporaire effacé à
+l'arrêt) ; `cd frontend && npm run dev:demo` ; ouvrir une fois
+`http://127.0.0.1:8791/?token=demo` (le cookie), puis `http://127.0.0.1:5173`. Ses données
+(`scripts/demo.py`) ne sont pas celles des e2e (`frontend/e2e/console.py`) : les deux ne
+partagent que `scripts/workbench.py`, le harnais (faux `claude`, `gh`, `systemctl`, état à part).
 
 ## CI
 
