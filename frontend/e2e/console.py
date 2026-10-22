@@ -17,9 +17,9 @@ the discussion its page opens on and the mark its card wears. Two more blocked
 on a report that names its kind of stop, three more on the same report for
 the Unblock gestures that move a ticket, and one in review with points to
 check, for the Unblock and Decide tabs. Three projects, for the list whose cards
-open them: two with a repository, and one without, an emoji for its icon. Five tickets for the gestures a card offers — one Done, one
+open them: two with a repository, and one without, an emoji for its icon. Seven tickets for the gestures a card offers — one Done, one
 Validated, one Ready to be set aside and made ready again, one Ready to be
-given up, and one Cancelled to be reopened. Two schedules a pass
+given up, one Cancelled to be reopened, and two Blocked to be dragged to Ready. Two schedules a pass
 last read weeks ago, one of them turned off. And a check that found a newer
 version than this checkout, for the version at the top right to offer it — a
 commit that exists nowhere, so that a click on "Update now" could only ever fail;
@@ -77,6 +77,8 @@ GESTURES = {
     "0000000000000000000000000000a51d": ("A ticket to set aside", "Ready"),
     "0000000000000000000000000000c0de": ("A ticket to give up", "Ready"),
     "0000000000000000000000000000c0ff": ("A ticket given up", "Cancelled"),
+    "0000000000000000000000000000d7a1": ("A card dragged by its title", "Blocked"),
+    "0000000000000000000000000000d7a2": ("A card dragged by its foot", "Blocked"),
 }
 # Cards waiting on you, for a blocked ticket's discussion and the Decide tab:
 # blocked on a report that names its kind of stop — one to read, and one for

@@ -136,6 +136,14 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
   its order — the words read as 100, 75, 50 and 25 — until its column is replaced. A repair ticket is born at 75, and a
   ticket at 75 or more is never run on the lightest model.
 
+### Fixed
+
+- **A card is dragged to another column again.** Since the move to react-resource-view 1.0, the board declared its
+  tickets not updatable, and the package only lets a card be picked up, and writes its drop, where a record may be
+  updated: no card moved. Each column also only knew its own cards, so a card dropped in another drawn column was
+  ignored. A card now moves wherever it is picked up — its title, its foot, its body — and the ticket changes status in
+  Notion through the outbox, as the "Move" menu does, put back in its column when the write is refused.
+
 ### Added
 
 - **One command, then the browser.** The installer checks the machine first and says everything missing at once,
