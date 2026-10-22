@@ -96,7 +96,7 @@ test("the model is the chat's picker, the priority a score with its badge", asyn
   const priority = window_.getByRole("spinbutton", { name: "Priorité, de 0 à 100" })
   await expect(priority).toHaveAttribute("placeholder", "50")
   await priority.fill("90")
-  await expect(window_.locator('[data-slot="priority-input"] [data-slot="priority-badge"]')).toHaveText("90")
+  await expect(priority).toHaveValue("90")
   // The chat's own picker: Claude's models first, the empty one letting go —
   // the ticket then takes the runner's model.
   const model = window_.locator("[data-model-choice]")

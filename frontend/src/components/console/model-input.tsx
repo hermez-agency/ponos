@@ -106,7 +106,9 @@ export const ModelInputController: InputControllerComponentInterface = ({ formIn
     name={formInput.name}
     value={String(formInput.value ?? "")}
     extra={(formInput.valueOptions ?? []).map((option) => String(option.value ?? ""))}
-    empty={t(formInput.placeholder ?? "the runner's model")}
+    empty={t(formInput.placeholder ?? "The runner's model")}
+    // The height of the other selects of a form (`ComboboxInputController`).
+    className="h-9"
     onChange={(value) => onChange({ ...formInput, value, violations: [] })}
   />
 )

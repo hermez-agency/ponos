@@ -65,7 +65,7 @@ export const SegmentedInputController: InputControllerComponentInterface = ({ fo
       role="group"
       aria-label={t(String(formInput.label ?? ""))}
       data-slot="segmented"
-      className="bg-field flex flex-wrap gap-0.5 rounded-lg border p-0.5"
+      className="bg-field flex gap-0.5 rounded-lg border p-0.5"
     >
       {(formInput.valueOptions ?? []).map((option) => {
         const key = String(option.value ?? "")
@@ -78,7 +78,7 @@ export const SegmentedInputController: InputControllerComponentInterface = ({ fo
             title={option.description}
             onClick={() => onChange({ ...formInput, value: key, violations: [] })}
             className={cn(
-              "text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring/50 min-w-0 flex-auto rounded-md px-2.5 py-1 text-xs font-medium transition-colors outline-none focus-visible:ring-[3px]",
+              "text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring/50 min-w-0 flex-auto rounded-md px-1.5 py-1 text-xs whitespace-nowrap font-medium transition-colors outline-none focus-visible:ring-[3px]",
               chosen && "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground"
             )}
           >
@@ -233,7 +233,7 @@ export function NewTicketFields() {
           </div>
         </div>
 
-        <aside className="bg-muted/50 flex min-w-0 flex-col gap-3.5 rounded-2xl p-4 [&_[data-slot=field-label]]:text-muted-foreground [&_[data-slot=field-label]]:text-xs">
+        <aside className="flex min-w-0 flex-col gap-3.5 min-[760px]:bg-muted/50 min-[760px]:rounded-2xl min-[760px]:p-4 [&_[data-slot=field-label]]:text-muted-foreground [&_[data-slot=field-label]]:text-xs">
           {field("project")}
           {field("goal")}
           {field("type")}
@@ -276,7 +276,7 @@ export function NewTicketFoot() {
   const busy = Boolean(context.form.loading) || asked !== null
 
   return (
-    <div className="mt-5 flex flex-col-reverse gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="bg-popover sticky bottom-0 z-10 mt-5 flex flex-col-reverse gap-3 border-t py-4 sm:flex-row sm:items-center sm:justify-between">
       <p className="text-muted-foreground text-xs">
         {seconds
           ? t("Launched, the ticket starts at the next pass, within {{every}}.", { every: every(seconds) })

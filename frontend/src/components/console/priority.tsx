@@ -33,7 +33,7 @@ export function PriorityBadge({ score, className }: { score: number; className?:
   )
 }
 
-/* The score, typed or slid, with the badge it will wear beside it. Empty is
+/* The score, slid or typed — said once, not again in a badge beside it. Empty is
  * an answer, and the field says which: the middle score, 50, the one a ticket
  * nobody ranked waits its turn at. What is not a score from 0 to 100 is said
  * under the field as it is typed, and refused when the form is sent. */
@@ -70,7 +70,6 @@ export const PriorityInputController: InputControllerComponentInterface = ({ for
           onChange={(event) => set(event.target.value)}
           className="h-8 w-16 px-2 text-center tabular-nums"
         />
-        <PriorityBadge score={score ?? DEFAULT_SCORE} className={cn(score === undefined && "opacity-40")} />
       </div>
       <p className={cn("text-xs", score === undefined ? "text-destructive" : "text-muted-foreground")}>
         {score === undefined
