@@ -70,6 +70,17 @@ class TranscriptionError(RuntimeError):
     """OpenRouter was asked and did not answer with text."""
 
 
+def anthropic_url(settings: OpenRouter) -> str:
+    """Where Claude Code is pointed: the base URL without its `/v1`.
+
+    Claude Code adds `/v1/messages` to `ANTHROPIC_BASE_URL` itself, so the
+    `/api/v1` the rest of OpenRouter's API lives under would be asked for
+    `/api/v1/v1/messages` — a 404 it reports as a model that does not exist.
+    """
+    base = settings.base_url.rstrip("/") or OPENROUTER_URL
+    return base.removesuffix("/v1")
+
+
 def environment(settings: OpenRouter) -> dict[str, str]:
     """What a session is started with, on top of the environment it inherits."""
     if not settings.key:
@@ -80,7 +91,7 @@ def environment(settings: OpenRouter) -> dict[str, str]:
         # `ANTHROPIC_AUTH_TOKEN` and not `ANTHROPIC_API_KEY`: the first is sent
         # as a bearer token, which is what a gateway in front of the Messages
         # API expects, and it is the one Claude Code documents for exactly this.
-        variables["ANTHROPIC_BASE_URL"] = base
+        variables["ANTHROPIC_BASE_URL"] = anthropic_url(settings)
         variables["ANTHROPIC_AUTH_TOKEN"] = settings.key
     return variables
 

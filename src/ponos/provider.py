@@ -98,7 +98,7 @@ def environment(config: Config, model: str = "") -> dict[str, str]:
         variables.pop("ANTHROPIC_BASE_URL", None)
         variables.pop("ANTHROPIC_AUTH_TOKEN", None)
     if model and on_openrouter(model) and config.openrouter.key:
-        variables["ANTHROPIC_BASE_URL"] = config.openrouter.base_url.rstrip("/") or OPENROUTER_URL
+        variables["ANTHROPIC_BASE_URL"] = openrouter.anthropic_url(config.openrouter)
         variables["ANTHROPIC_AUTH_TOKEN"] = config.openrouter.key
     return variables
 

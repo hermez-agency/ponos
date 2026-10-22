@@ -153,6 +153,10 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Fixed
 
+- **An OpenRouter model in the console answers again.** Claude Code adds `/v1/messages` to the address it is given, and
+  it was given `…/api/v1`: the request went to `/api/v1/v1/messages`, a 404 it reported as "issue with the selected
+  model". Sessions now get the address without its `/v1` (`https://openrouter.ai/api`); transcription, the model
+  catalogue and `OPENROUTER_BASE_URL` keep `/api/v1`.
 - **The installed app's icon is no longer on a black square.** The console's icons were opaque PNGs on the console's
   dark grey, so Chrome's install dialog, the launcher and the taskbar drew the robot on a black square. The icons a
   system draws as they are now are the robot alone on a transparent square, with a margin. The maskable icon (cropped
