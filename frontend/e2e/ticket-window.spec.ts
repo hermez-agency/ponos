@@ -67,6 +67,20 @@ test.describe("at 1440px", () => {
     expect(new URL(page.url()).searchParams.get("view")).toBe("console/tickets/list/board")
   })
 
+  test("changing tab moves neither the header nor the tabs", async ({ page }) => {
+    await open(page)
+    await openLong(page)
+    const title = window_(page).locator('[data-slot="dialog-title"]')
+    const tab = window_(page).locator('[data-slot="ticket-talk-tab"]')
+    const before = [(await title.boundingBox())?.y, (await tab.boundingBox())?.y]
+    await tab.click()
+    await expect(tab).toHaveAttribute("data-state", "active")
+    await window_(page).locator('[data-slot="ticket-brief-tab"]').click()
+    await window_(page).locator('[data-slot="ticket-live-tab"]').click()
+    await expect(window_(page).locator('[data-slot="ticket-live-tab"]')).toHaveAttribute("data-state", "active")
+    expect([(await title.boundingBox())?.y, (await tab.boundingBox())?.y]).toEqual(before)
+  })
+
   test("the table opens the same window from a ticket's title", async ({ page }) => {
     await open(page, "/?view=console/tickets/list/table")
     await openLong(page)
