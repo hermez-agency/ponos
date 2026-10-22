@@ -59,6 +59,7 @@ import { StatisticsBand } from "@/components/console/statistics"
 import { CardLive } from "@/components/console/session-log"
 import { TicketHead, TicketPage } from "@/components/console/ticket-page"
 import { useOpensOverTheList } from "@/components/console/record-window"
+import { SeriesButton } from "@/components/console/ticket-decision"
 import { ticketWindow } from "@/components/console/ticket-window"
 import {
   Marked,
@@ -629,8 +630,10 @@ function NoProjectTicket() {
  * the cards it is handed, and a column that is handed its thirty latest is not
  * a column of thirty: the count is the column's own, drawn here, and the
  * package's is hidden (see `BoardColumn`). While a search is on, it says how
- * many of them it kept, out of how many: "3 / 12". */
-function heading(key: string, name: string, count?: number, total?: number) {
+ * many of them it kept, out of how many: "3 / 12". On the board, Blocked and
+ * In review end on the way through all of their cards at once — see
+ * `SeriesButton`. */
+function heading(key: string, name: string, count?: number, total?: number, series = false) {
   return (
     <span className="flex items-center gap-2">
       <span className={cn("size-1.5 shrink-0 rounded-full", SEED[key] ?? "bg-muted-foreground")} />
@@ -640,6 +643,7 @@ function heading(key: string, name: string, count?: number, total?: number) {
           {total === undefined ? count : `${count} / ${total}`}
         </span>
       )}
+      {series && (key === "blocked" || key === "review") ? <SeriesButton column={key} /> : null}
     </span>
   )
 }
@@ -674,6 +678,7 @@ function BoardColumn({
   label,
   rows,
   total,
+  series,
   dragging,
   onDragging,
 }: {
@@ -682,6 +687,8 @@ function BoardColumn({
   rows: RowInterface[]
   /** How many the column holds, search or not — said only while one is on. */
   total?: number
+  /** The board's own columns, not a project's: they offer to go through their cards. */
+  series: boolean
   dragging: boolean
   onDragging: (dragging: boolean) => void
 }) {
@@ -716,7 +723,7 @@ function BoardColumn({
     >
       <RowWrapperColumnComponent
         identifierKey="column"
-        valueIdentifier={{ value: column, label: heading(column, label, mine.length, total) }}
+        valueIdentifier={{ value: column, label: heading(column, label, mine.length, total, series) }}
         isDragging={dragging}
         handleDragging={onDragging}
         rows={carried}
@@ -906,6 +913,7 @@ function BoardColumns({ rows: all = [] }: ListComponentPropsInterface) {
                 label={name}
                 rows={rows}
                 total={totals(column.key)}
+                series={resource["@id"] !== PROJECT_TICKETS}
                 dragging={dragging}
                 onDragging={setDragging}
               />

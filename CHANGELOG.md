@@ -18,6 +18,13 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Added
 
+- **The blocked tickets, one after another.** "Unblock (N)" in the heading of the Blocked column — and "Decide (N)"
+  in that of In review, from two cards on, in Ctrl+K too, and at `/?series=blocked` or `/?series=review` — opens
+  one window over the page that goes through the column: the ticket, why it stops, its choices; one sent, the next
+  comes, with "Ticket unblocked — Undo". Questions first, then missing accesses, then the rest, by priority and age;
+  Skip, Previous, the arrows, J and K, 1 to 9 for the session's options; a ticket moved elsewhere leaves it as it
+  happens, and the end says how many were done and offers the skipped ones again.
+
 - **The dashboard says what is misconfigured, and mends it when it can.** An "Installation status" band opens the
   page whenever something would stop a ticket: the Notion token, the Tickets and Projects databases (shared with the
   integration, with every property and status the runner uses), GitHub (App installed or `gh` signed in, access to each

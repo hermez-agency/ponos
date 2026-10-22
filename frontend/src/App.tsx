@@ -133,13 +133,16 @@ function OpenTicket({ params }: { params: ViewResourceContextParams }) {
   return null
 }
 
-/* Both wait for a key or a button, so neither is in the first load, which has a
- * budget: they are fetched once the page is up. */
+/* All three wait for a key, a button or an address, so none is in the first
+ * load, which has a budget: they are fetched once the page is up. */
 const TalkDrawer = React.lazy(() =>
   import("@/components/console/talk-drawer").then((module) => ({ default: module.TalkDrawer }))
 )
 const CommandPalette = React.lazy(() =>
   import("@/components/console/command-palette").then((module) => ({ default: module.CommandPalette }))
+)
+const TicketSeries = React.lazy(() =>
+  import("@/components/console/ticket-series").then((module) => ({ default: module.TicketSeries }))
 )
 
 function Console() {
@@ -162,6 +165,12 @@ function Console() {
         <TalkDrawer />
         {/* Ctrl+K, from every page: inside the router, which its links go through. */}
         <CommandPalette />
+      </React.Suspense>
+      {/* `?series=blocked`, over whatever page: the blocked tickets, one after
+          another. A boundary of its own: the palette and the drawer listen for
+          their keys as soon as they are there, not once this has loaded too. */}
+      <React.Suspense fallback={null}>
+        <TicketSeries />
       </React.Suspense>
     </>
   )

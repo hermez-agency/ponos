@@ -4,11 +4,13 @@ import {
   CalendarClock,
   FolderGit2,
   FolderPlus,
+  ListChecks,
   LayoutGrid,
   Lightbulb,
   MessageCircle,
   Plus,
   RefreshCw,
+  Scale,
   Settings2,
 } from "lucide-react"
 import { ActionList } from "react-data-form"
@@ -35,13 +37,15 @@ import { settingsHref } from "@/resources/settings"
 import { boardHref, ticketHref, tickets } from "@/resources/tickets"
 
 import { CONTEXT_ANCHOR } from "./context-block"
+import { useOpenSeries } from "./ticket-decision"
 import { toggleTalk } from "@/lib/talk"
 
 /* Ctrl+K: everywhere the console can take you, typed rather than clicked.
  *
  * What it lists is what the console already has — its pages, the projects, the
  * tickets on the board — and the few things done from anywhere: a new ticket,
- * a new project, the conversation, a resynchronisation. Nothing in it is a page of its own;
+ * a new project, the conversation, a resynchronisation, the series of blocked
+ * tickets or of those in review. Nothing in it is a page of its own;
  * an entry is a link the menu or a card already offers, found by its name.
  *
  * The pages are said again here rather than read off the scope's menu, icons
@@ -69,6 +73,9 @@ export function CommandPalette() {
   const board = useBoard()
   const listed = useProjects()
   const { refresh } = useConsole()
+  const openSeries = useOpenSeries()
+  const blocked = board.tickets.filter((ticket) => ticket.column === "blocked").length
+  const review = board.tickets.filter((ticket) => ticket.column === "review").length
   const [open, setOpen] = React.useState(false)
   // What had the focus before the palette opened, and gets it back: the
   // dialog has no trigger to hand it to.
@@ -165,6 +172,29 @@ export function CommandPalette() {
             <RefreshCw />
             {t("Resynchronise now")}
           </CommandItem>
+          {/* The columns waiting on you, gone through one ticket after another — see `ticket-series.tsx`. */}
+          {blocked ? (
+            <CommandItem
+              value={t("Unblock the tickets")}
+              keywords={["unblock", "blocked", "series"]}
+              onSelect={() => run(() => openSeries("blocked"))}
+            >
+              <ListChecks />
+              {t("Unblock the tickets")}
+              <CommandShortcut className="tracking-normal">{blocked}</CommandShortcut>
+            </CommandItem>
+          ) : null}
+          {review ? (
+            <CommandItem
+              value={t("Decide on the tickets in review")}
+              keywords={["decide", "review", "series"]}
+              onSelect={() => run(() => openSeries("review"))}
+            >
+              <Scale />
+              {t("Decide on the tickets in review")}
+              <CommandShortcut className="tracking-normal">{review}</CommandShortcut>
+            </CommandItem>
+          ) : null}
         </CommandGroup>
 
         <CommandSeparator />
