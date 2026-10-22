@@ -86,6 +86,10 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Changed
 
+- **Unblock and Decide: every choice numbered, none that looks already picked, the ways out apart.** All the
+  choices are outlines until one is clicked — the first was drawn full, and read as chosen. Each has its number, and
+  1–9 picks it in either series, Decide included. "Abandon" and "Reject" sit last, under a rule, still behind their
+  note and a Confirm.
 - **Small design fixes from an audit of the real console.** A toast that stays — "New version, reload?" — sits
   above the conversation button instead of on it, so that button and the drawer's send button answer again. The
   tables' "Properties" menu, their selection and the board's drag and drop say their words in French. "1 thing to

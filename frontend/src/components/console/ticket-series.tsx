@@ -203,7 +203,7 @@ function Series({ column, onClose }: { column: SeriesColumn; onClose: () => void
     setCurrent(skipped[0] ?? null)
   }
 
-  // The keys: → and J pass, ← and K go back, a digit picks the session's option. Escape is the dialog's.
+  // The keys: → and J pass, ← and K go back, a digit picks the choice it numbers. Escape is the dialog's.
   const panel = React.useRef<HTMLDivElement>(null)
   const onKeyDown = (event: React.KeyboardEvent) => {
     if (event.ctrlKey || event.metaKey || event.altKey || isTyping(event.target as HTMLElement)) return
@@ -211,11 +211,9 @@ function Series({ column, onClose }: { column: SeriesColumn; onClose: () => void
     if (key === "arrowright" || key === "j") skip()
     else if (key === "arrowleft" || key === "k") back()
     else if (/^[1-9]$/.test(key)) {
-      const option = panel.current?.querySelector<HTMLButtonElement>(
-        `[data-solution="option"][data-number="${key}"]:not(:disabled)`
-      )
-      if (!option) return
-      option.click()
+      const choice = panel.current?.querySelector<HTMLButtonElement>(`[data-key="${key}"]:not(:disabled)`)
+      if (!choice) return
+      choice.click()
     } else return
     event.preventDefault()
   }
@@ -387,10 +385,7 @@ function Series({ column, onClose }: { column: SeriesColumn; onClose: () => void
               </a>
             </Button>
             <p className="text-muted-foreground ms-auto hidden font-mono text-xs lg:block">
-              {/* The digits pick a session's option, which only a blocked ticket offers. */}
-              {column === "blocked"
-                ? t("→ or J: skip · ← or K: previous · 1–9: an option · Esc: close")
-                : t("→ or J: skip · ← or K: previous · Esc: close")}
+              {t("→ or J: skip · ← or K: previous · 1–9: a choice · Esc: close")}
             </p>
           </footer>
         )}

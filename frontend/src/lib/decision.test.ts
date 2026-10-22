@@ -10,12 +10,14 @@ import {
   LABELS,
   actionOf,
   answersIn,
+  arranged,
   askedAt,
   away,
   decisionTabOf,
   categoryOf,
   immediate,
   itemsOf,
+  keyOf,
   labelOf,
   promptOf,
   quiet,
@@ -97,13 +99,23 @@ test("a ready-made instruction and the proposed sub-tickets open the field, noth
   assert.deepEqual(titlesIn(" A \n\nB\n"), ["A", "B"])
 })
 
-test("the way forward stands out and the way out reads as one", () => {
-  assert.equal(tone(offer("option", "", "x", 1), 0), "default")
-  assert.equal(tone(offer("option", "", "y", 2), 1), "outline")
-  assert.equal(tone(offer("abandon", "note"), 3), "outline")
-  assert.equal(tone(offer("reject", "note"), 0), "outline")
+test("no button looks chosen before a click, and the one chosen is full — in red for a way out", () => {
+  for (const one of [offer("option", "", "x", 1), offer("validate"), offer("other", "text"), offer("reject", "note")])
+    assert.equal(tone(one, false), "outline", one.key)
+  assert.equal(tone(offer("rework", "text"), true), "default")
+  assert.equal(tone(offer("abandon", "note"), true), "destructive")
   assert.ok(away(offer("reject", "note")) && away(offer("abandon", "note")) && !away(offer("retry")))
-  assert.equal(tone(offer("other", "text"), 0), "outline")
+})
+
+test("the ways out come last, apart, and every button has its key up to 9", () => {
+  const offers = [offer("option", "", "x", 1), offer("abandon", "note"), offer("option", "", "y", 2), offer("other", "text")]
+  const { forward, out } = arranged(offers)
+  assert.deepEqual(forward.map((one) => one.text || one.key), ["x", "y", "other"])
+  assert.deepEqual(out.map((one) => one.key), ["abandon"])
+  assert.deepEqual(arranged([offer("validate"), offer("rework", "text")]).out, [])
+  assert.equal(keyOf(1), "1")
+  assert.equal(keyOf(9), "9")
+  assert.equal(keyOf(10), "")
 })
 
 test("a yes-no question is answered yes or no, and run again as it is", () => {

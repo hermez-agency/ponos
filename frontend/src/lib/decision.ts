@@ -104,10 +104,23 @@ export function sendable(offer: Offer, text: string, model = ""): boolean {
 /** Whether an offer files the ticket away: drawn quieter, in the colour of a way out. */
 export const away = (offer: Offer): boolean => offer.key === "abandon" || offer.key === "reject"
 
-/** How a button looks: the way forward stands out, the rest are outlines. */
-export function tone(offer: Offer, index: number): "default" | "outline" {
-  return index === 0 && offer.key !== "other" && !away(offer) ? "default" : "outline"
+/* How a button looks: an outline, each of them, until it is the one chosen.
+ * The first used to be drawn full, the way forward standing out — and read as
+ * already chosen. Full is what a click did, and a way out is full in its red. */
+export function tone(offer: Offer, chosen: boolean): "default" | "destructive" | "outline" {
+  return !chosen ? "outline" : away(offer) ? "destructive" : "default"
 }
+
+/* The order the buttons are drawn in: the server's, the ways out last, apart —
+ * a click on Abandon or Reject is one too many, in the middle of the others.
+ * Each is numbered in that order, its key the same: see `keyOf`. */
+export const arranged = <T extends Offer>(offers: T[]): { forward: T[]; out: T[] } => ({
+  forward: offers.filter((offer) => !away(offer)),
+  out: offers.filter(away),
+})
+
+/** The key that picks the button drawn at this place, from 1: none past 9. */
+export const keyOf = (place: number): string => (place >= 1 && place <= 9 ? String(place) : "")
 
 /* Where the CI of a pull request's repository is read: its Actions page, from
  * the pull request's own address. */
