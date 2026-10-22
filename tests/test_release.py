@@ -867,7 +867,13 @@ def the_console_is_drawn_in_react_resource_view_s_admin_layout():
     for option in ("logo:", "topBarEnd:", "sidebarFooter:", "footerMenu:"):
         assert option in scope, f"the layout is no longer given its {option[:-1]}"
     shell = (FRONTEND / "src/components/console/shell.tsx").read_text(encoding="utf-8")
-    assert "matchMedia" not in shell + scope, "the console guesses the layout's phone width again"
+    # The layout decides where a phone starts and does not export its hook: the
+    # one question the scope asks is the menu's, which pages the bar keeps, and
+    # it asks it at the layout's own breakpoint (`md`, 48rem).
+    assert "matchMedia" not in shell, "the console guesses the layout's phone width again"
+    assert scope.count("matchMedia") == 1 and 'matchMedia("(width < 48rem)")' in scope, (
+        "the scope asks for a phone width other than the layout's"
+    )
     app = (FRONTEND / "src/App.tsx").read_text(encoding="utf-8")
     assert "ScopeProvider" in app, "the pages are no longer drawn in the scope's layout"
     assert "RouterProvider" in app, "TanStack Router no longer holds the history"
