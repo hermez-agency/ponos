@@ -486,3 +486,16 @@
 .milkdown .ProseMirror h2 { font-size: 1.4em; margin-top: 0.875rem; }
 .milkdown .ProseMirror h3 { font-size: 1.15em; margin-top: 0.75rem; }
 .milkdown .ProseMirror > :first-child { margin-top: 0; }
+
+/* The package's bottom bar at 360px: five entries share 344px, and its gap and
+   inset cut "Dashboard" (the widest label) at 56px of its 62. A phone's bar
+   drops both, so each entry has its share and every label is read whole. Not
+   in a layer: the package's own utilities are, and they would win over it. */
+@media (width < 48rem) {
+  [data-slot="admin-mobile-nav"] > div {
+    gap: 0;
+  }
+  [data-slot="admin-mobile-nav"] button {
+    padding-inline: 0;
+  }
+}

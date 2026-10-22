@@ -56,6 +56,19 @@ test("the bottom bar fits the screen and scrolls nowhere", async ({ page }) => {
   }
 })
 
+test("each label of the bottom bar is read whole, at 360 and at 390", async ({ page }) => {
+  for (const width of [360, 390]) {
+    await page.setViewportSize({ width, height: PHONE.height })
+    await open(page)
+    const labels = await bar(page).getByRole("button").locator("span").allTextContents()
+    expect(labels, `the bar's labels at ${width}px`).toEqual(["Dashboard", "Projects", "Ideas", "Sessions", "More"])
+    for (const label of await bar(page).getByRole("button").locator("span").all()) {
+      const [scroll, client] = await label.evaluate((element) => [element.scrollWidth, element.clientWidth])
+      expect(scroll, `${await label.textContent()} is cut at ${width}px`).toBeLessThanOrEqual(client)
+    }
+  }
+})
+
 test("every page is a tap or two away", async ({ page }) => {
   await open(page)
   for (const [name, address] of PAGES) {

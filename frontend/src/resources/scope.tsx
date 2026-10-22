@@ -33,14 +33,26 @@ import { TICKETS, boardHref, projectTickets, tickets } from "./tickets"
  * scope, and reads them every time it draws the menu.
  */
 
+/* A phone's bar holds five entries at 360px, More included, and a label cut in
+ * two is worse than a page one tap further away: the bar's entries are the
+ * four a phone reaches for, and the two behind More are the same pages in the
+ * menu's order. The sidebar is never drawn on a phone, so what is hidden there
+ * is only out of the bar; the footer's copy of the two is hidden on a desktop,
+ * where the sidebar has them already. */
+const phone = () => window.matchMedia("(width < 48rem)").matches
+
 const entry = (
   icon: MenuItemInterface["icon"],
   name: string,
   href: () => string,
-  badge?: MenuItemInterface["badge"]
+  badge?: MenuItemInterface["badge"],
+  hidden?: () => boolean
 ): MenuItemInterface => ({
   icon,
   badge,
+  get hidden() {
+    return hidden?.()
+  },
   get name() {
     return t(name)
   },
@@ -50,22 +62,27 @@ const entry = (
 })
 
 /* The pages you go to every day, down the left — and along the bottom of a
- * phone, where three of them and More are what fits a 360px screen. */
+ * phone, where four of them and More are what fits a 360px screen. */
 const MENU: MenuItemInterface[] = [
   entry(tickets.icon, "Dashboard", boardHref, BoardCount),
   entry(projects.icon, "Projects", projectsHref),
   // No count, here as under Projects: the only way to know is to ask the
   // board, and this menu is redrawn every time the board moves.
-  entry(schedules.icon, "Schedules", schedulesHref),
+  entry(schedules.icon, "Schedules", schedulesHref, undefined, phone),
   entry(ideas.icon, "Ideas", ideasHref),
-  entry(goals.icon, "Goals", goalsHref),
+  entry(goals.icon, "Goals", goalsHref, undefined, phone),
   entry(sessions.icon, "Sessions", sessionsHref),
 ]
 
 /* The rest, pinned at the foot of the sidebar, over its version and its
  * buttons; on a phone the layout lists them behind the bar's last entry, More,
- * with the same version and buttons under them. */
-const FOOTER_MENU: MenuItemInterface[] = [entry(settings.icon, "Settings", () => settingsHref())]
+ * with the same version and buttons under them. Schedules and Goals are the
+ * two that a phone reaches from there rather than from the bar. */
+const FOOTER_MENU: MenuItemInterface[] = [
+  entry(schedules.icon, "Schedules", schedulesHref, undefined, () => !phone()),
+  entry(goals.icon, "Goals", goalsHref, undefined, () => !phone()),
+  entry(settings.icon, "Settings", () => settingsHref()),
+]
 
 export const consoleScope: ScopeInterface = {
   name: SCOPE,
