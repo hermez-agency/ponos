@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Search } from "lucide-react"
+import { Search, Settings2 } from "lucide-react"
 import { useCurrentViewResourceContext, useNavigate } from "react-resource-view"
 
 import { PageHead } from "@/components/console/frame"
@@ -218,7 +218,9 @@ export function SettingsHead() {
   return (
     <>
       <PageHead
-        title={t("Configure the runner")}
+        icon={Settings2}
+        title={t("Settings")}
+        blurb={t("Configure the runner")}
         action={
           <div className="flex w-full flex-wrap items-center gap-x-4 gap-y-2 sm:w-auto">
             <SettingsSearch />

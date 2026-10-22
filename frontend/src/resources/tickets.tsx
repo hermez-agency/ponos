@@ -1071,6 +1071,9 @@ function matches(ticket: Ticket, filter: Record<string, unknown> = {}): boolean 
  * table reads: said once, for the board and for a project's tickets. */
 const viewsOf = (form: FormInterface, empty: React.FC): ResourceDefinition<TicketItem, TicketWrite>["views"] => ({
   list: {
+    // The page is the Dashboard everywhere else — the menu, the bar — so the
+    // section under its figures is the board, not the same word a third time.
+    title: "Board",
     // The resource's name and the line under it are what the list's own header
     // says, next to its icon: the board opens on its own words. What the board
     // is, without naming where it is kept: the same console

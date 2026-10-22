@@ -165,7 +165,7 @@ export const goals = createViewResource<GoalItem>(GOALS, {
   views: {
     list: {
       description: "What the tickets are for, and how many of them are done.",
-      layouts: [layout.cards({ label: "cards", components: { list: LazyCards } })],
+      layouts: [layout.cards({ label: "cards", fullWidth: true, components: { list: LazyCards } })],
       rowActions: [],
       filters,
       components: { empty: LazyEmpty },

@@ -53,17 +53,18 @@ export function Mark() {
 
 /* -- the menu ------------------------------------------------------------- */
 
-/* The number of tickets on the board, beside the board's name in the menu.
+/* What waits for you, beside the board's name in the menu: the tickets blocked
+ * and the ones in review.
  *
- * Seven entries of two lines each used to be a page to read rather than a menu
- * to use — a sentence under every name saying how many tickets were ready,
- * whether the timer was on. What is worth knowing at a glance is a count, and a
- * count fits beside a name: the entry's `badge`, drawn by the package at its
- * end, the entry itself — its link, whether it is lit — staying the package's.
+ * The count of every ticket on the board was mostly finished work — a number
+ * that grew and said nothing. What is worth knowing at a glance is how many
+ * cards want a decision, and none is a number not drawn at all. It is the
+ * entry's `badge`, drawn by the package at its end, the entry itself — its
+ * link, whether it is lit — staying the package's.
  */
 export function BoardCount() {
   const { board } = useConsole()
-  return board.tickets.length || null
+  return board.tickets.filter((ticket) => ticket.column === "blocked" || ticket.column === "review").length || null
 }
 
 /* -- the end of the bar --------------------------------------------------- */

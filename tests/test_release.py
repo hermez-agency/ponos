@@ -991,10 +991,11 @@ def the_console_menu_is_a_name_and_a_count():
     Every entry used to carry a sentence under its name — how many tickets were
     ready, whether the timer was on — which is what the pages themselves say,
     said again in the smaller type. What is worth knowing at a glance is a
-    count, and a count fits beside a name.
+    count, and a count fits beside a name — the tickets that wait for somebody
+    (blocked, in review), not the finished ones the board piles up.
     """
     shell = (FRONTEND / "src/components/console/shell.tsx").read_text(encoding="utf-8")
-    assert "board.tickets.length" in shell, "the board's entry no longer counts its tickets"
+    assert 'ticket.column === "blocked"' in shell, "the board's entry no longer counts what waits"
     assert "detail" not in shell, "an entry carries a sentence again"
     scope = (FRONTEND / "src/resources/scope.tsx").read_text(encoding="utf-8")
     assert 'entry(tickets.icon, "Dashboard", boardHref, Board' in scope, (

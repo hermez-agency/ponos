@@ -34,21 +34,27 @@ export function Eyebrow({
   )
 }
 
-/* How a pane opens: what this page is for in one line you can read from across
- * the room, what it is for in the line under that, and — at the right edge —
- * the one gesture the page exists to offer.
+/* How a page opens: its icon, its name, the line under it, and — at the right
+ * edge — the gesture the page exists to offer.
+ *
+ * It is the header react-resource-view draws over its own lists (the projects,
+ * the ideas, the schedules), in the same markup and under the same slot, so
+ * that a page the package does not list — the settings, the sessions — opens
+ * like the ones it does, and what `index.css` says of theirs holds for it too.
  *
  * Where you are is not said here: the bar above every pane already says it, and
  * a path printed twice, one line under the other, reads as a page that has lost
  * count of itself. This is the same reason the board opens on the package's own
  * header rather than on a `PageHead` of its own. */
 export function PageHead({
+  icon: Icon,
   title,
   blurb,
   action,
   children,
   className,
 }: {
+  icon?: React.ElementType<{ className?: string }>
   title: string
   blurb?: string
   /** The page's own gesture, against the right edge on anything wider than a phone. */
@@ -59,18 +65,26 @@ export function PageHead({
 }) {
   return (
     <div className={cn("mb-6", className)}>
-      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
-        <div className="min-w-0">
-          <h2 className="text-2xl leading-tight font-bold tracking-[-0.03em] text-balance sm:text-[1.75rem]">
-            {title}
-          </h2>
-          {blurb ? (
-            <p className="text-muted-foreground mt-1.5 max-w-prose text-sm leading-relaxed">
-              {blurb}
-            </p>
+      <div data-slot="list-header" className="flex flex-wrap items-center gap-x-4 gap-y-3 border-b pb-4">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          {Icon ? (
+            <span className="bg-muted text-muted-foreground flex size-10 shrink-0 items-center justify-center rounded-xl">
+              <Icon className="size-5" />
+            </span>
           ) : null}
+          <div className="min-w-0">
+            <h2 className="truncate text-base font-semibold tracking-tight">{title}</h2>
+            {blurb ? <p className="text-muted-foreground text-sm">{blurb}</p> : null}
+          </div>
         </div>
-        {action ? <div className="flex max-w-full min-w-0 shrink-0 items-center gap-2">{action}</div> : null}
+        {action ? (
+          <div
+            data-slot="list-header-controls"
+            className="flex w-full flex-wrap items-center gap-2 md:ms-auto md:w-auto md:justify-end"
+          >
+            {action}
+          </div>
+        ) : null}
       </div>
       {children ? <div className="mt-4 flex flex-wrap items-center gap-2">{children}</div> : null}
     </div>

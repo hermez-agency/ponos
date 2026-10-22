@@ -18,7 +18,7 @@ async function open(page: Page, path: string) {
 
 const settingsPage = async (page: Page) => {
   await expect.poll(() => new URL(page.url()).searchParams.get("view")).toMatch(/^console\/settings\/read\/config/)
-  await expect(page.getByRole("heading", { name: "Configure the runner" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Settings", exact: true })).toBeVisible()
   await expect(page.getByText("Something went wrong")).toHaveCount(0)
 }
 

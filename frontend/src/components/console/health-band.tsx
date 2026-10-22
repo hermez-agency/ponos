@@ -20,6 +20,10 @@ import { ConfirmDialog } from "./confirm-dialog"
  * nothing at all while everything is green: a band that is always there is a
  * band nobody reads.
  *
+ * The answer comes a second or two after the rest of the page, so the band is
+ * laid over the page, in a slot of no height, rather than in its flow: pushed
+ * in, it moved the whole dashboard down while somebody was aiming at a card.
+ *
  * The band is one line while folded — a count, "Recheck" — so that the
  * statistics under it stay on the first screen; unfolded, each failing check is
  * a line of its own (what is wrong, and the button that mends it), and its own
@@ -102,37 +106,39 @@ export function HealthBand() {
   const Icon = errors ? OctagonAlert : AlertTriangle
 
   return (
-    <section className="py-3" data-testid="health-band">
-      <Collapsible open={open} onOpenChange={choose} className="bg-card rounded-xl border">
-        <div className="flex items-center justify-between gap-3 px-4 py-2.5">
-          <CollapsibleTrigger
-            className="focus-visible:ring-ring/50 flex min-w-0 items-center gap-2 rounded-md text-left outline-none focus-visible:ring-2"
-            data-testid="health-toggle"
-          >
-            {chevron(open)}
-            <Icon className={cn("size-4 shrink-0", errors ? "text-destructive" : "text-amber-600")} />
-            <span className="min-w-0 truncate text-sm font-medium">
-              {counted(
-                checks.length,
-                "{{count}} thing to fix before tickets can run",
-                "{{count}} things to fix before tickets can run"
-              )}
-            </span>
-          </CollapsibleTrigger>
-          <Button variant="outline" size="sm" onClick={check} disabled={checking} data-testid="health-recheck">
-            {checking ? <Loader2 className="animate-spin" /> : <RefreshCw />}
-            {t("Recheck")}
-          </Button>
-        </div>
-        <CollapsibleContent>
-          <ul className="flex flex-col gap-2 px-4 pb-3">
-            {checks.map((one) => (
-              <Problem key={`${one.code}:${one.params.project ?? ""}:${one.params.repository ?? ""}`} check={one} onFix={fix} />
-            ))}
-          </ul>
-        </CollapsibleContent>
-      </Collapsible>
-    </section>
+    <div className="relative z-30 h-0">
+      <section className="absolute inset-x-0 top-0 py-3" data-testid="health-band">
+        <Collapsible open={open} onOpenChange={choose} className="bg-card rounded-xl border shadow-lg">
+          <div className="flex items-center justify-between gap-3 px-4 py-2.5">
+            <CollapsibleTrigger
+              className="focus-visible:ring-ring/50 flex min-w-0 items-center gap-2 rounded-md text-left outline-none focus-visible:ring-2"
+              data-testid="health-toggle"
+            >
+              {chevron(open)}
+              <Icon className={cn("size-4 shrink-0", errors ? "text-destructive" : "text-amber-600")} />
+              <span className="min-w-0 truncate text-sm font-medium">
+                {counted(
+                  checks.length,
+                  "{{count}} thing to fix before tickets can run",
+                  "{{count}} things to fix before tickets can run"
+                )}
+              </span>
+            </CollapsibleTrigger>
+            <Button variant="outline" size="sm" onClick={check} disabled={checking} data-testid="health-recheck">
+              {checking ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+              {t("Recheck")}
+            </Button>
+          </div>
+          <CollapsibleContent>
+            <ul className="flex flex-col gap-2 px-4 pb-3">
+              {checks.map((one) => (
+                <Problem key={`${one.code}:${one.params.project ?? ""}:${one.params.repository ?? ""}`} check={one} onFix={fix} />
+              ))}
+            </ul>
+          </CollapsibleContent>
+        </Collapsible>
+      </section>
+    </div>
   )
 }
 
