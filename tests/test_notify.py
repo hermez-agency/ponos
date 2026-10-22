@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import shutil
 import subprocess
 import tempfile
@@ -857,27 +858,28 @@ def the_icon_of_ponos_is_cut_out_in_the_sizes_a_desktop_asks_for():
 
 
 def _png_pixels(data: bytes) -> list[tuple[int, int, int, int]]:
-    """The pixels of an 8-bit RGBA PNG, unfiltered — enough to read a colour."""
+    """The pixels of an 8-bit RGB or RGBA PNG, unfiltered — enough to read a colour."""
     import struct
     import zlib
 
     width, height, depth, colour = struct.unpack(">IIBB", data[16:26])
-    assert depth == 8 and colour == 6, "an 8-bit RGBA PNG"
+    assert depth == 8 and colour in (2, 6), "an 8-bit RGB or RGBA PNG"
+    step = 4 if colour == 6 else 3
     chunks, at = b"", 8
     while at < len(data):
         length, kind = struct.unpack(">I4s", data[at : at + 8])
         if kind == b"IDAT":
             chunks += data[at + 8 : at + 8 + length]
         at += 12 + length
-    raw, stride, rows, previous = zlib.decompress(chunks), width * 4, [], bytearray(width * 4)
+    raw, stride, rows, previous = zlib.decompress(chunks), width * step, [], bytearray(width * step)
     for y in range(height):
         kind, line = (
             raw[y * (stride + 1)],
             bytearray(raw[y * (stride + 1) + 1 : (y + 1) * (stride + 1)]),
         )
         for x in range(stride):
-            left = line[x - 4] if x >= 4 else 0
-            up, corner = previous[x], previous[x - 4] if x >= 4 else 0
+            left = line[x - step] if x >= step else 0
+            up, corner = previous[x], previous[x - step] if x >= step else 0
             if kind == 1:
                 line[x] = (line[x] + left) & 255
             elif kind == 2:
@@ -895,7 +897,11 @@ def _png_pixels(data: bytes) -> list[tuple[int, int, int, int]]:
                 line[x] = (line[x] + near[1]) & 255
         rows.append(line)
         previous = line
-    return [tuple(row[x : x + 4]) for row in rows for x in range(0, stride, 4)]
+    return [
+        (*row[x : x + 3], row[x + 3] if step == 4 else 255)
+        for row in rows
+        for x in range(0, stride, step)
+    ]
 
 
 @case
@@ -916,6 +922,39 @@ def the_icon_of_a_notification_is_the_orange_mascot_and_the_mascot_script_draws_
         )
     script = (ROOT / "scripts/mascot.mjs").read_text(encoding="utf-8")
     assert "'src', 'ponos', 'icons'" in script, "the desktop icons are not written from the mascot"
+
+
+@case
+def the_app_icons_that_may_be_drawn_on_any_ground_are_cut_out_not_black_squares():
+    """Chrome drew the installed app on a black square: the "any" icons had a #141414 ground.
+
+    An "any" icon is drawn as it is, so it is RGBA with transparent corners and a
+    margin around the robot; the maskable one and the iOS one keep a ground (the
+    platform crops or fills them), the brand's, the same for both.
+    """
+    pwa = ROOT / "frontend/public/pwa"
+    manifest = json.loads(
+        (ROOT / "frontend/public/manifest.webmanifest").read_text(encoding="utf-8")
+    )
+    kept = {icon["src"].rsplit("/", 1)[1] for icon in manifest["icons"] if icon["purpose"] == "any"}
+    assert kept == {"icon-192.png", "icon-512.png"}, kept
+    for name in sorted(kept):
+        assert (pwa / name).read_bytes()[25] == 6, f"{name} has no alpha channel"
+        pixels = _png_pixels((pwa / name).read_bytes())
+        side = int(len(pixels) ** 0.5)
+        for x, y in ((0, 0), (side - 1, 0), (0, side - 1), (side - 1, side - 1)):
+            assert pixels[y * side + x][3] == 0, f"{name} has an opaque corner at {x},{y}"
+        margin = side // 40
+        edge = [pixels[y * side + x] for y in (margin,) for x in range(side)]
+        assert all(p[3] == 0 for p in edge), f"{name}: the robot touches the top edge"
+    grounds = set()
+    for name in ("icon-maskable-512.png", "apple-touch-icon.png"):
+        pixels = _png_pixels((pwa / name).read_bytes())
+        assert all(p[3] == 255 for p in pixels[:64]), f"{name} must keep a plain ground"
+        grounds.add(pixels[0])
+    assert len(grounds) == 1, f"the maskable and the iOS icon differ in ground: {grounds}"
+    colour = "#{:02x}{:02x}{:02x}".format(*grounds.pop()[:3])
+    assert colour == manifest["background_color"] == manifest["theme_color"], colour
 
 
 # -- the bell ----------------------------------------------------------------

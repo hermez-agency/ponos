@@ -7,7 +7,7 @@
  *   docs/mascot/favicon.svg   the face alone, following the browser's colour scheme
  *   docs/mascot/og.png        the Open Graph card, 1200 × 630
  *   docs/mascot/states.png    every state, light and dark, and the sizes
- *   frontend/public/pwa/*     the app icons: the robot on the dark ground
+ *   frontend/public/pwa/*     the app icons: cut out, but the maskable and iOS ones on a ground
  *   docs/apple-touch-icon.png the same, at the root where an iPhone looks for it
  *   docs/favicon.ico          the face at 16, 32 and 48 px, for whoever asks /favicon.ico
  *   src/ponos/icons/*         the desktop's icons: the robot cut out, for the dock
@@ -117,15 +117,21 @@ function ico(pngs) {
   return Buffer.concat([header, ...pngs.map(([, data]) => data)]);
 }
 
-/* An app icon is the robot on the dark ground of the console, filling the
-   square. The maskable one keeps the robot inside the safe zone the platform
-   crops to, so a round or squircle mask never cuts an arm. */
+/* An icon the system draws as it is ("any": the install dialog, the launcher,
+   the taskbar) is the robot alone on a transparent square, with a margin so it
+   never touches an edge — an opaque one is drawn as a black square. The two
+   that the platform fills or crops keep a ground, chosen rather than inherited
+   from the console: the maskable one (a round or squircle mask, so the robot
+   stays inside the safe zone) and iOS's (which fills transparency with black).
+   The ground is the brand's warm cream, on which the orange robot reads; the
+   manifest's background_color and theme_color say the same. */
 const pwa = join(root, 'frontend', 'public', 'pwa');
-const icon = (px, fill) => `<!doctype html><meta charset="utf-8"><style>
-  html, body { margin: 0; width: ${px}px; height: ${px}px; overflow: hidden; background: #141414; }
+const GROUND = '#FFE1CC';
+const icon = (px, fill, ground) => `<!doctype html><meta charset="utf-8"><style>
+  html, body { margin: 0; width: ${px}px; height: ${px}px; overflow: hidden; background: ${ground ?? 'transparent'}; }
   div { width: 100%; height: 100%; display: grid; place-items: center; }
   .bot { width: ${fill}%; }
-</style><div><div class="bot">${standalone({ theme: 'dark' })}</div></div>`;
+</style><div><div class="bot">${standalone({ theme: 'light' })}</div></div>`;
 
 /* A desktop icon has no ground: the robot alone, on a transparent square that
    a dock or a notification draws on its own colour — an opaque one is drawn as
@@ -138,10 +144,10 @@ const cutout = (px, svg) => `<!doctype html><meta charset="utf-8"><style>
 try {
   shoot(og, join(out, 'og.png'), 1200, 630);
   shoot(sheet, join(out, 'states.png'), 1200, 696);
-  shoot(icon(512, 84), join(pwa, 'icon-512.png'), 512, 512);
-  shoot(icon(192, 84), join(pwa, 'icon-192.png'), 192, 192);
-  shoot(icon(180, 84), join(pwa, 'apple-touch-icon.png'), 180, 180);
-  shoot(icon(512, 62), join(pwa, 'icon-maskable-512.png'), 512, 512);
+  shoot(icon(512, 84), join(pwa, 'icon-512.png'), 512, 512, { clear: true });
+  shoot(icon(192, 84), join(pwa, 'icon-192.png'), 192, 192, { clear: true });
+  shoot(icon(180, 84, GROUND), join(pwa, 'apple-touch-icon.png'), 180, 180);
+  shoot(icon(512, 62, GROUND), join(pwa, 'icon-maskable-512.png'), 512, 512);
   copyFileSync(join(pwa, 'apple-touch-icon.png'), join(root, 'docs', 'apple-touch-icon.png'));
   for (const px of [48, 64, 128, 256]) {
     shoot(cutout(px, standalone({ theme: 'light' })), join(desktop, `ponos-${px}.png`), px, px, { clear: true });

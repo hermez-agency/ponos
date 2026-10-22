@@ -141,6 +141,11 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Fixed
 
+- **The installed app's icon is no longer on a black square.** The console's icons were opaque PNGs on the console's
+  dark grey, so Chrome's install dialog, the launcher and the taskbar drew the robot on a black square. The icons a
+  system draws as they are now are the robot alone on a transparent square, with a margin. The maskable icon (cropped
+  to a circle or a squircle) and the iPhone's (which fills transparency with black) keep a ground, now the brand's warm
+  cream rather than the console's grey, and the manifest's colours say the same.
 - **A card is dragged to another column again.** Since the move to react-resource-view 1.0, the board declared its
   tickets not updatable, and the package only lets a card be picked up, and writes its drop, where a record may be
   updated: no card moved. Each column also only knew its own cards, so a card dropped in another drawn column was
