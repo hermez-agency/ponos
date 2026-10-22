@@ -2823,8 +2823,12 @@ It is drawn in **three layouts**, and the tab you are on is in the address. *Col
 it opens on, puts the list on the left, one compact line per project (icon, name, type, tickets,
 last activity), and on the right the global context folded to a few lines — always in view, with
 *See all*, *Edit* and its character count — and, under it, the project picked in the list: its
-repository, its folder, its brief, *+ Ticket* and the “…” menu, with a link to its page. On a
-phone the list comes first and the project picked opens full screen over it. *Cards* is for a
+page, the very one its address opens — the same header (*+ Ticket*, *Edit*, the “…” menu), the
+same figures and the same *Tickets*, *Ideas*, *Brief* and *Settings* tabs — without the way back
+to a list that is right there, and with *Open the project's page ↗* to see it alone, on the tab
+the panel is on (`&tab=ideas`). The tab picked is kept from one project to the next, and a
+project is read once for the panel and the page alone. On a screen too narrow for two columns,
+a phone, a project picked opens its page. *Cards* is for a
 workspace you half remember: a project is recognised by its name and its shape rather than
 read. *Table* is for comparing them — which of these eleven has no repository, which has
 no path on this machine — because that is a question a grid of cards will not answer.

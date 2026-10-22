@@ -1,6 +1,6 @@
 import * as React from "react"
 import { useLocation, useRouter } from "@tanstack/react-router"
-import { ArrowLeft, CopyIcon } from "lucide-react"
+import { ArrowLeft, ArrowUpRight, CopyIcon } from "lucide-react"
 import { ActionList } from "react-data-form"
 import { Link, ResourceViewButton, useCurrentViewResourceContext, useNavigate } from "react-resource-view"
 import { toast } from "sonner"
@@ -11,10 +11,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { why } from "@/lib/api"
 import { counted, useT } from "@/lib/i18n"
 import { useRoute } from "@/lib/router"
+import { cn } from "@/lib/utils"
 import {
+  NewTicket,
   Repository,
   Where,
   isAPage,
+  pick,
+  projectHref,
   projectsHref,
   useTicketCount,
   type ProjectItem,
@@ -38,6 +42,58 @@ const ProjectSettingsTab = React.lazy(() =>
   import("./project-settings").then((module) => ({ default: module.ProjectSettingsTab }))
 )
 
+/* Where the page of a project finds its project.
+ *
+ * On its own address, in the context the package gives the `read` view: the
+ * record, or why it could not be read. Beside the list of projects, in the
+ * panel — which is the same page, drawn in a column of the list's frame, where
+ * the context is the list's: so the panel says it here instead, with the tab
+ * it is on, which is kept from one project to the next rather than written in
+ * an address that is the list's. */
+interface Shown {
+  project?: ProjectItem
+  error?: boolean
+  loadError?: unknown
+  /** The tab, and the hand that changes it — beside the list only. */
+  panel?: { tab: string; onTab: (tab: string) => void }
+}
+
+const ShownProject = React.createContext<Shown | null>(null)
+
+/** The project to draw, and whether it is drawn in the panel. */
+function useShown(): Shown & { resource: ReturnType<typeof useCurrentViewResourceContext>["resource"] } {
+  const shown = React.useContext(ShownProject)
+  const context = useCurrentViewResourceContext()
+  if (shown) return { ...shown, resource: context.resource }
+  return {
+    project: context.data as ProjectItem | undefined,
+    error: Boolean(context.error),
+    loadError: context.loadError,
+    resource: context.resource,
+  }
+}
+
+/** The page of a project, beside the list: its header, then the page itself. */
+export function ProjectInPanel({
+  project,
+  tab,
+  onTab,
+}: {
+  project?: ProjectItem
+  tab: string
+  onTab: (tab: string) => void
+}) {
+  const shown = React.useMemo(() => ({ project, panel: { tab, onTab } }), [project, tab, onTab])
+  return (
+    <ShownProject.Provider value={shown}>
+      <section data-project-panel className="bg-card flex min-w-0 flex-col gap-5 rounded-xl border p-4">
+        <ProjectHead />
+        <ProjectPage />
+      </section>
+    </ShownProject.Provider>
+  )
+}
+
 /* One project, as a page.
  *
  * The `read` view of the projects resource: the page's cover and icon, what
@@ -50,8 +106,8 @@ const ProjectSettingsTab = React.lazy(() =>
  */
 
 export function ProjectPage() {
-  const context = useCurrentViewResourceContext()
-  const project = context.data as ProjectItem | undefined
+  const context = useShown()
+  const project = context.project
   const t = useT()
   const page = project ? isAPage(project.id) : false
 
@@ -81,7 +137,7 @@ export function ProjectPage() {
         <>
           {/* A project with a page has its pictures; one the configuration
               alone names has neither page nor pictures to show. */}
-          {page ? <ProjectCover project={project} editable /> : null}
+          {page ? <ProjectCover project={project} editable compact={Boolean(context.panel)} /> : null}
 
           {project.source === "config" || project.configured ? (
             <div className="flex flex-wrap items-center gap-1.5">
@@ -134,8 +190,10 @@ export function ProjectPage() {
  * ideas tab; nor a page for its settings to be kept under, and no settings tab
  * either — no ticket points at it to be validated anyway. The one picked is written in the address (`&tab=brief`), so a
  * reload or a pasted link comes back to it; the tickets are the tab of an
- * address that says nothing, and of one that says something else. The facts and
- * the statistics stay above the tabs.
+ * address that says nothing, and of one that says something else. Beside the
+ * list, the panel holds the tab instead (see `ProjectInPanel`), and a project
+ * with no such tab is shown on its tickets without forgetting the one picked.
+ * The facts and the statistics stay above the tabs.
  */
 const TABS = ["tickets", "ideas", "brief", "settings"] as const
 type Tab = (typeof TABS)[number]
@@ -145,14 +203,16 @@ function ProjectTabs({ project, children }: { project: ProjectItem; children: Re
   const { pathname, searchStr } = useLocation()
   const router = useRouter()
   const { params } = useRoute()
+  const { panel } = useShown()
   const mine = params.resourceAction === ActionList.read && String(params.id ?? "") === project.id
-  const named = new URLSearchParams(searchStr).get("tab")
+  const named = panel ? panel.tab : mine ? new URLSearchParams(searchStr).get("tab") : null
   const ideas = isAPage(project.id)
   const tab: Tab =
-    mine && TABS.includes(named as Tab) && ((named !== "ideas" && named !== "settings") || ideas)
+    TABS.includes(named as Tab) && ((named !== "ideas" && named !== "settings") || ideas)
       ? (named as Tab)
       : "tickets"
   const pick = (value: string) => {
+    if (panel) return panel.onTab(value)
     if (!mine) return
     const rest = searchStr
       .replace(/^\?/, "")
@@ -161,7 +221,7 @@ function ProjectTabs({ project, children }: { project: ProjectItem; children: Re
     router.history.replace(`${pathname}?${[...rest, `tab=${value}`].join("&")}`)
   }
   return (
-    <Tabs value={tab} onValueChange={pick} className="mt-6 gap-4">
+    <Tabs value={tab} onValueChange={pick} className={cn("gap-4", panel ? "mt-4" : "mt-6")}>
       <TabsList className="w-full sm:w-fit">
         <TabsTrigger value="tickets" data-slot="project-tickets-tab">
           {t("Tickets")}
@@ -214,7 +274,7 @@ function ProjectTabs({ project, children }: { project: ProjectItem; children: Re
  * ticket's, with a button that copies the long one.
  */
 export function ProjectHead() {
-  const project = useCurrentViewResourceContext().data as ProjectItem | undefined
+  const { project, panel } = useShown()
   const t = useT()
   const page = project && isAPage(project.id) ? project.id.replace(/-/g, "") : ""
   const copy = () => {
@@ -226,15 +286,24 @@ export function ProjectHead() {
   }
   return (
     <header data-slot="admin-header" className="w-full">
-      <div className="border-border flex flex-wrap items-end gap-x-6 gap-y-4 border-b pb-5">
+      <div
+        className={cn(
+          "border-border flex flex-wrap items-end gap-x-6 border-b",
+          panel ? "gap-y-3 pb-4" : "gap-y-4 pb-5"
+        )}
+      >
         <div className="min-w-0 flex-1">
-          <Link
-            to={projectsHref()}
-            className="text-muted-foreground hover:text-foreground mb-1.5 inline-flex items-center gap-1 text-sm transition-colors"
-          >
-            <ArrowLeft className="size-4" />
-            {t("Projects")}
-          </Link>
+          {/* Beside the list, the way back is the list itself: the panel
+              offers the page alone instead, on the tab it is on. */}
+          {panel ? null : (
+            <Link
+              to={projectsHref()}
+              className="text-muted-foreground hover:text-foreground mb-1.5 inline-flex items-center gap-1 text-sm transition-colors"
+            >
+              <ArrowLeft className="size-4" />
+              {t("Projects")}
+            </Link>
+          )}
           <ProjectTitle />
           {page ? (
             <p data-slot="project-id" className="text-muted-foreground mt-1 flex items-center gap-1 text-sm">
@@ -251,6 +320,16 @@ export function ProjectHead() {
               </Button>
             </p>
           ) : null}
+          {panel && project ? (
+            <Link
+              to={projectHref(project.id, panel.tab)}
+              data-project-open
+              className="text-muted-foreground hover:text-foreground mt-1 inline-flex items-center gap-1 text-xs underline-offset-2 hover:underline"
+            >
+              {t("Open the project's page")}
+              <ArrowUpRight className="size-3.5" />
+            </Link>
+          ) : null}
         </div>
         <div className="flex w-full flex-wrap items-center gap-2 md:w-auto">
           <ProjectActions />
@@ -262,12 +341,12 @@ export function ProjectHead() {
 
 /** The name, under the kind of work it is. */
 export function ProjectTitle() {
-  const project = useCurrentViewResourceContext().data as ProjectItem | undefined
+  const { project, panel } = useShown()
   const t = useT()
   return (
     <div className="min-w-0">
       {project ? <Eyebrow>{project.work}</Eyebrow> : null}
-      <h2 className="truncate text-2xl font-semibold tracking-tight">
+      <h2 className={cn("truncate font-semibold tracking-tight", panel ? "text-xl" : "text-2xl")} title={project?.name}>
         {project ? project.name : t("Project")}
       </h2>
     </div>
@@ -283,8 +362,8 @@ export function ProjectTitle() {
  * none — the page says where it is changed instead.
  */
 export function ProjectActions() {
-  const context = useCurrentViewResourceContext()
-  const project = context.data as ProjectItem | undefined
+  const context = useShown()
+  const project = context.project
   useT()
   const count = useTicketCount(project?.name ?? "")
   const navigate = useNavigate()
@@ -293,6 +372,7 @@ export function ProjectActions() {
   const away = reachable(project.url) ? project.url : ""
   return (
     <>
+      <NewTicket project={project} />
       {away ? <Away label="Notion" href={away} /> : null}
       {isAPage(project.id) ? <IdeasButton project={project.id} name={project.name} /> : null}
       {count === null ? (
@@ -313,7 +393,8 @@ export function ProjectActions() {
           <ProjectMenu
             project={project}
             tickets={count}
-            onDeleted={() => void navigate({ to: projectsHref() })}
+            // Beside the list, the list is already there: the panel empties.
+            onDeleted={() => (context.panel ? pick("") : void navigate({ to: projectsHref() }))}
           />
         </span>
       ) : null}

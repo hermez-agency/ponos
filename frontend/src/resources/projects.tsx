@@ -16,6 +16,7 @@ import {
   open,
   useCurrentViewResourceContext,
   useListViewContext,
+  useNavigate,
   useViewLink,
   type ListComponentPropsInterface,
 } from "react-resource-view"
@@ -119,7 +120,8 @@ export const idOf = (project: Project): string => project.id || `${FILE}${projec
 /** Whether that address is a page — the only kind this console writes to. */
 export const isAPage = (id: string): boolean => Boolean(id) && !id.startsWith(FILE)
 
-const item = (project: Project & { content?: string }): ProjectItem => ({
+/** A project as the views hold it, from the row the server sent. */
+export const projectItem = (project: Project & { content?: string }): ProjectItem => ({
   ...project,
   id: idOf(project),
   "@id": `/api/projects/${idOf(project)}`,
@@ -235,17 +237,67 @@ const createdFirst = (rows: Project[]) => {
   return first ? [first, ...rows.filter((project) => project !== first)] : rows
 }
 
+/* -- one project, read once ------------------------------------------------ */
+
+/* A project is drawn in two places — the panel beside the list, and its own
+ * page — and both draw the same page from the same read. So the read is kept,
+ * by id, for whichever asks next: the page opened from the panel, the panel
+ * coming back to a project picked before. What changes a project here forgets
+ * it (`forgetProject`) — a save, a brief, a picture — and whoever draws it
+ * reads it again. */
+const held = new Map<string, Promise<ProjectItem>>()
+const heldListeners = new Set<() => void>()
+
+/** Forget what was read of a project, for the next reader to read it again. */
+export function forgetProject(id: string) {
+  held.delete(id)
+  heldListeners.forEach((listener) => listener())
+}
+
 /** One project, from wherever it is held: its page, or the line that names it. */
-export async function readProject(id: string): Promise<ProjectItem> {
-  if (isAPage(id)) return item(await api.project(id))
+export function readProject(id: string): Promise<ProjectItem> {
+  let read = held.get(id)
+  if (!read) {
+    read = readOne(id)
+    held.set(id, read)
+    // A refusal is not kept: the next one to ask asks again.
+    read.catch(() => held.get(id) === read && held.delete(id))
+  }
+  return read
+}
+
+async function readOne(id: string): Promise<ProjectItem> {
+  if (isAPage(id)) return projectItem(await api.project(id))
   // No page to read: the row is a line in the file, and the list is where it
-  // was read from. Read again rather than taken from what is held, so a link
-  // opened cold — a tab that has never listed anything — answers too.
-  const read = await api.projects()
-  publish(read)
+  // was read from — read again where nothing was, so a link opened cold, in a
+  // tab that has never listed anything, answers too.
+  const read = drawn ?? (await readAgain())
   const found = read.projects.find((project) => idOf(project) === id)
   if (!found) throw new Error(t("No project called “{{name}}”.", { name: id.slice(FILE.length) }))
-  return item(found)
+  return projectItem(found)
+}
+
+/** One project as it was read, read where it has not been: `null` until it is. */
+export function useProject(id: string): ProjectItem | null {
+  const [version, setVersion] = React.useState(0)
+  const [shown, setShown] = React.useState<{ id: string; project: ProjectItem } | null>(null)
+  React.useEffect(() => {
+    const listener = () => setVersion((count) => count + 1)
+    heldListeners.add(listener)
+    return () => {
+      heldListeners.delete(listener)
+    }
+  }, [])
+  React.useEffect(() => {
+    let current = true
+    readProject(id)
+      .then((project) => current && setShown({ id, project }))
+      .catch(() => current && setShown(null))
+    return () => {
+      current = false
+    }
+  }, [id, version])
+  return shown?.id === id ? shown.project : null
 }
 
 /* -- the forms ------------------------------------------------------------ */
@@ -755,14 +807,16 @@ function ProjectRows({ rows = [] }: ListComponentPropsInterface) {
 /* -- the list beside its panel ----------------------------------------------- */
 
 /* The third layout, and the one the list opens on: the projects on the left, one
- * line each, and on the right what the page around them holds — the global
- * context folded, and the project picked, with its repository, its folder, its
- * brief and its actions. Picking is not navigating: the page of a project is a
- * click further, from the panel, and the list stays where it was.
+ * line each, and on the right the global context folded, and under it the
+ * project picked — its page, the very one its address opens, tabs and all, in
+ * a column. Picking is not navigating: the page alone is a link from the
+ * panel, and the list stays where it was. On a screen too narrow for two
+ * columns there is no panel, and a project picked is its page.
  *
  * Which project is picked is kept here, like the one just created, because the
  * list and the panel are two components of the package's frame that share
- * nothing else. */
+ * nothing else; and the tab the panel is on with it, kept from one project to
+ * the next and carried to the page alone. */
 let picked = ""
 const pickedListeners = new Set<() => void>()
 
@@ -784,6 +838,41 @@ export function pick(id: string) {
   pickedListeners.forEach((listener) => listener())
 }
 
+let tabbed = ""
+const tabbedListeners = new Set<() => void>()
+
+/** The tab the panel is on, by its name in the address; empty for the first. */
+export function usePanelTab(): string {
+  return React.useSyncExternalStore(
+    (listener) => {
+      tabbedListeners.add(listener)
+      return () => {
+        tabbedListeners.delete(listener)
+      }
+    },
+    () => tabbed
+  )
+}
+
+export function pickTab(tab: string) {
+  tabbed = tab
+  tabbedListeners.forEach((listener) => listener())
+}
+
+const WIDE = "(min-width: 64rem)"
+
+/** Whether the screen is wide enough for the panel to sit beside the list. */
+export function useWide(): boolean {
+  return React.useSyncExternalStore(
+    (listener) => {
+      const query = window.matchMedia(WIDE)
+      query.addEventListener("change", listener)
+      return () => query.removeEventListener("change", listener)
+    },
+    () => window.matchMedia(WIDE).matches
+  )
+}
+
 /** The split layout's name in the address and in the switch. */
 export const SPLIT = "split"
 
@@ -791,6 +880,9 @@ export const SPLIT = "split"
 function ProjectMaster({ rows = [] }: ListComponentPropsInterface) {
   const chosen = usePicked()
   const fresh = useLastCreated()
+  const tab = usePanelTab()
+  const wide = useWide()
+  const navigate = useNavigate()
   return (
     <div className="w-full">
       <ul className="flex flex-col gap-1.5">
@@ -806,7 +898,9 @@ function ProjectMaster({ rows = [] }: ListComponentPropsInterface) {
                 data-selected={on || undefined}
                 data-fresh={fresh === project.id || undefined}
                 aria-pressed={on}
-                onClick={() => pick(on ? "" : project.id)}
+                onClick={() =>
+                  wide ? pick(on ? "" : project.id) : void navigate({ to: projectHref(project.id, tab) })
+                }
                 className={cn(
                   "bg-card flex w-full min-w-0 items-center gap-3 rounded-xl border px-3 py-2.5 text-left",
                   "hover:border-primary/50 hover:bg-accent/40",
@@ -1052,7 +1146,7 @@ export const projects = createViewResource<ProjectItem, ProjectWrite>(PROJECTS, 
         data: createResourceCollection({
           id: "/api/projects",
           items: createdFirst(read.projects)
-            .map((project) => item(project))
+            .map((project) => projectItem(project))
             .filter((row) => keeps(row, filter)),
         }),
       } as never
@@ -1080,7 +1174,9 @@ export const projects = createViewResource<ProjectItem, ProjectWrite>(PROJECTS, 
       // The list is drawn from what was last read, and a rename that only showed
       // on the page you renamed it on would be a rename made twice.
       await api.projects().then(publish)
-      return { data: item(written) }
+      held.set(id, Promise.resolve(projectItem(written)))
+      heldListeners.forEach((listener) => listener())
+      return { data: projectItem(written) }
     },
     createItem: async (fresh) => {
       const kind = fresh.kind === "document" ? "document" : "code"
@@ -1097,7 +1193,7 @@ export const projects = createViewResource<ProjectItem, ProjectWrite>(PROJECTS, 
       markCreated(written.id)
       // Read again, for the count over the list and the names everywhere else.
       await readAgain().catch(() => undefined)
-      return { data: item(written) }
+      return { data: projectItem(written) }
     },
     removeItem: async () => {
       // Deleting asks for more than an id — the project's name, and what becomes
@@ -1182,6 +1278,8 @@ export const newProjectHref = () =>
     childViewResource: { resource: projects, resourceAction: ActionList.create },
   })
 
-/** Where one project is. */
-export const projectHref = (id: string) =>
-  generateLinkByResource({ resource: projects, resourceAction: ActionList.read, id })
+/** Where one project is — on one of its tabs, where one is named. */
+export const projectHref = (id: string, tab = "") => {
+  const to = generateLinkByResource({ resource: projects, resourceAction: ActionList.read, id })
+  return tab ? `${to}${to.includes("?") ? "&" : "?"}tab=${tab}` : to
+}

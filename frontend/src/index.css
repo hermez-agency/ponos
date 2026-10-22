@@ -249,9 +249,12 @@
   }
 
   /* The projects' split layout: the list on the left, the global context and the
-     project picked on the right. The list's frame and the panel are siblings,
-     so the grid is the parent's, found by the panel it holds. On a phone the
-     panel comes after the list, and a picked project opens over it as a sheet. */
+     project picked on the right — its whole page, tabs and the board of its
+     tickets included, so the list gives it the room: narrow on a middling
+     screen, a little wider where there is plenty. The list's frame and the
+     panel are siblings, so the grid is the parent's, found by the panel it
+     holds. Not sticky: a page scrolls with the list. Narrower there is no panel,
+     and a project picked opens its page. */
   div:has(> [data-projects-aside]) {
     display: flex;
     flex-direction: column;
@@ -263,7 +266,7 @@
   @media (width >= 64rem) {
     div:has(> [data-projects-aside]) {
       display: grid;
-      grid-template-columns: minmax(20rem, 26rem) minmax(0, 1fr);
+      grid-template-columns: minmax(16rem, 19rem) minmax(0, 1fr);
       grid-template-rows: auto 1fr;
       align-items: start;
       column-gap: 2rem;
@@ -275,8 +278,11 @@
       grid-column: 2;
       grid-row: 1 / span 2;
       order: 0;
-      position: sticky;
-      top: 1rem;
+    }
+  }
+  @media (width >= 96rem) {
+    div:has(> [data-projects-aside]) {
+      grid-template-columns: minmax(18rem, 22rem) minmax(0, 1fr);
     }
   }
 
