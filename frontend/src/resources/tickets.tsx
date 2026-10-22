@@ -1083,7 +1083,7 @@ const viewsOf = (form: FormInterface, empty: React.FC): ResourceDefinition<Ticke
      * in every language. */
     layouts: [
       layout.board({
-        label: "board",
+        label: "Board",
         // The page's whole width, for the board and the table alike: switching
         // between them must not move the page. The forms keep the column every
         // other page is drawn in.
@@ -1094,7 +1094,7 @@ const viewsOf = (form: FormInterface, empty: React.FC): ResourceDefinition<Ticke
         columns: [],
         components: { list: BoardColumns, row: TicketCard },
       }),
-      layout.table({ label: "table", fullWidth: true, components: { list: TicketTable } }),
+      layout.table({ label: "List", fullWidth: true, components: { list: TicketTable } }),
     ],
     // A row of the table opens the ticket by its title, as a card does, in
     // the window over the list (see `TitleCell`). The package's own read

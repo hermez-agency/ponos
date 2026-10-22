@@ -584,7 +584,7 @@ export function TicketFoot({ ticket }: { ticket: Ticket }) {
           target="_blank"
           rel="noreferrer noopener"
           className="text-muted-foreground hover:text-foreground ms-auto shrink-0"
-          aria-label={t("open in Notion")}
+          aria-label={t("Open in Notion")}
           onClick={(event) => event.stopPropagation()}
         >
           <ExternalLink className="size-3.5" />
@@ -724,20 +724,20 @@ export function TicketActions({
         <Button variant="outline" size="sm" asChild className="text-tr-amber hover:text-tr-amber">
           <Link to={answer.href} onClick={answer.onClick} data-slot="block-action">
             <MessageCircleQuestion />
-            {t("answer")}
+            {t("Answer")}
           </Link>
         </Button>
       ) : block.action === "open-pr" && ticket.pull_request ? (
         <Button variant="outline" size="sm" asChild>
           <a href={ticket.pull_request} target="_blank" rel="noreferrer noopener" data-slot="block-action">
-            {t("see the pull request")}
+            {t("See the pull request")}
             <ExternalLink />
           </a>
         </Button>
       ) : ci ? (
         <Button variant="outline" size="sm" asChild>
           <a href={ci} target="_blank" rel="noreferrer noopener" data-slot="block-action">
-            {t("see the base's CI")}
+            {t("See the base's CI")}
             <ExternalLink />
           </a>
         </Button>
@@ -748,7 +748,7 @@ export function TicketActions({
   // the way back is on the cancelled card itself.
   const cancel =
     board.cancel && ticket.column !== "cancelled" ? (
-      <DropdownMenuItem onSelect={() => void move(ticket, "cancelled")}>{t("cancel the ticket")}</DropdownMenuItem>
+      <DropdownMenuItem onSelect={() => void move(ticket, "cancelled")}>{t("Cancel the ticket")}</DropdownMenuItem>
     ) : null
   // Validating is the gesture the runner acts on — it merges the pull request,
   // or publishes what the ticket holds — where "done" only files the ticket
@@ -828,21 +828,21 @@ export function TicketActions({
           title={t("Back to the drafts: the runner does not touch it until it is made ready.")}
           onClick={() => void move(ticket, "draft")}
         >
-          {t("reopen")}
+          {t("Reopen")}
         </Button>
       ) : null}
       {ticket.column === "done" ? (
         <>
           {menu(
             <>
-              <DropdownMenuItem onSelect={() => setAsked(true)}>{t("run again")}</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setAsked(true)}>{t("Run again")}</DropdownMenuItem>
               {cancel}
             </>
           )}
           <Confirmed open={asked} onOpenChange={setAsked} {...ready} />
         </>
       ) : ticket.column !== "ready" ? (
-        <Confirmed label={again ? t("run again") : t("make ready")} {...ready} />
+        <Confirmed label={again ? t("Run again") : t("Make ready")} {...ready} />
       ) : null}
       {ticket.column === "ready" ? (
         <Button
@@ -851,7 +851,7 @@ export function TicketActions({
           title={t("The runner no longer touches it, until it is made ready again.")}
           onClick={() => void move(ticket, "blocked")}
         >
-          {t("set aside")}
+          {t("Set aside")}
         </Button>
       ) : null}
       {cancel && ticket.column !== "done" ? menu(cancel) : null}

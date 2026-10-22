@@ -306,7 +306,7 @@ export function TicketTalk({ ticket, onSession }: { ticket: Ticket; onSession: (
           title={t("read the discussion again")}
         >
           <RotateCw className={talkLoading ? "animate-spin" : undefined} />
-          {talkLoading ? t("reading…") : t("reread")}
+          {talkLoading ? t("Reading…") : t("Reread")}
         </Button>
         {/* The rarer gestures, out of the way of the answer. */}
         <DropdownMenu>

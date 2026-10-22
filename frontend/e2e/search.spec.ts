@@ -58,7 +58,7 @@ test("words and a status combine, the columns stay and count, and the address ke
   await expect(card(page, "Ticket 2")).toBeHidden()
 
   // The table is handed the same search.
-  await page.getByRole("tab", { name: "table" }).click()
+  await page.getByRole("tab", { name: "List" }).click()
   await expect(page).toHaveURL(/variant=table.*q=TICKET/)
   await expect(card(page, "Ticket 10")).toBeVisible()
   await expect(card(page, "Ticket 2")).toBeHidden()

@@ -598,8 +598,8 @@ const options: ResourceDefinition<IdeaItem, IdeaWrite> = {
        * every language. In the layout's column, both: an idea is a few lines
        * to read, and the filters wrap rather than run past its edge. */
       layouts: [
-        layout.cards({ label: "cards", fullWidth: true, components: { list: IdeaCards } }),
-        layout.table({ label: "table", fullWidth: true, components: { list: IdeaRows } }),
+        layout.cards({ label: "Cards", fullWidth: true, components: { list: IdeaCards } }),
+        layout.table({ label: "List", fullWidth: true, components: { list: IdeaRows } }),
       ],
       // Every card carries its own gestures (see `idea-cards.tsx`).
       rowActions: [],

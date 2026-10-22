@@ -1217,9 +1217,9 @@ export const projects = createViewResource<ProjectItem, ProjectWrite>(PROJECTS, 
        * are drawn, and their address is their type: `cards`, `table`, in
        * every language. */
       layouts: [
-        layout.cards({ id: SPLIT, label: "split", icon: Columns2, fullWidth: true, components: { list: ProjectMaster } }),
-        layout.cards({ label: "cards", icon: LayoutGrid, fullWidth: true, components: { list: ProjectCards } }),
-        layout.table({ label: "table", fullWidth: true, components: { list: ProjectRows } }),
+        layout.cards({ id: SPLIT, label: "Split", icon: Columns2, fullWidth: true, components: { list: ProjectMaster } }),
+        layout.cards({ label: "Cards", icon: LayoutGrid, fullWidth: true, components: { list: ProjectCards } }),
+        layout.table({ label: "List", fullWidth: true, components: { list: ProjectRows } }),
       ],
       // A card, or a row, is a link to the project's page: no button under it.
       rowActions: [],

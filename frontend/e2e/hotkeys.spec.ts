@@ -91,7 +91,7 @@ test("the palette opens the console, and its field takes the focus", async ({ pa
 
 test("the bubble's tooltip says the shortcut", async ({ page }) => {
   await open(page)
-  const bubble = page.getByRole("button", { name: "open the console" })
+  const bubble = page.getByRole("button", { name: "Open the console" })
   await expect(bubble).toHaveAttribute("aria-keyshortcuts", "Control+J")
   await bubble.hover()
   await expect(page.getByRole("tooltip")).toContainText("Ctrl+J")

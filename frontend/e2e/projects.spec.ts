@@ -374,10 +374,10 @@ test.describe("the page of a project", () => {
     await dialog.getByLabel("Title").fill("Rows of the table")
     await dialog.getByRole("button", { name: "Launch the ticket" }).click()
     await expect(dialog).toBeHidden()
-    const layouts = page.getByRole("tablist").filter({ hasText: "table" })
+    const layouts = page.getByRole("tablist").filter({ hasText: "List" })
     await expect(layouts).toBeVisible()
 
-    await layouts.getByRole("tab", { name: "table" }).click()
+    await layouts.getByRole("tab", { name: "List" }).click()
     const heads = page.getByRole("columnheader")
     for (const name of ["Id", "Ticket", "Status", "Priority", "Type", "Cost", "Last modified"])
       await expect(heads.filter({ hasText: name }).first()).toBeVisible()

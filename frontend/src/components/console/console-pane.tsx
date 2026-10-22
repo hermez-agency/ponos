@@ -103,7 +103,7 @@ export function ConsolePane() {
               variant="ghost"
               size="icon-sm"
               className="opacity-70 hover:opacity-100"
-              aria-label={t("start a new conversation")}
+              aria-label={t("Start a new conversation")}
               disabled={busy}
               onClick={resetChat}
             >

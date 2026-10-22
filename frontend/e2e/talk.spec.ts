@@ -86,5 +86,5 @@ test("its page opens on the discussion, marked, the question in it once, and the
   await expect(page.locator('[data-slot="composer"]').filter({ has: field })).toBeVisible()
 
   // The bubble is the workspace's, here as anywhere.
-  await expect(page.getByRole("button", { name: "open the console" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Open the console" })).toBeVisible()
 })
