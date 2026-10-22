@@ -352,7 +352,7 @@ def a_pass_that_is_turned_off_or_too_soon_asks_notion_nothing(state_home):
 def a_conversation_prompt_says_what_it_is_not_allowed_to_do():
     text = prompt.conversation(
         prompt.CONVERSATION,
-        project="Animalink",
+        project="Northwind",
         title="t",
         body="b",
         where="Repository: /r",
@@ -413,7 +413,7 @@ def an_answer_too_long_for_a_comment_is_cut_where_it_breathes():
 def the_role_sits_between_the_project_and_the_mechanics():
     text = prompt.build(
         prompt.DEFAULT,
-        project="Animalink",
+        project="Northwind",
         title="t",
         body="b",
         repo="/r",
@@ -444,7 +444,7 @@ def the_role_sits_between_the_project_and_the_mechanics():
 @case
 def a_ticket_with_no_agent_and_no_comments_reads_as_before():
     common = dict(
-        project="Animalink", title="t", body="b", repo="/r", branch="br", base="main", url="u"
+        project="Northwind", title="t", body="b", repo="/r", branch="br", base="main", url="u"
     )
     bare = prompt.build(prompt.DEFAULT, **common)
     assert "# Your role" not in bare and "already been said" not in bare

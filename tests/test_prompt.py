@@ -13,10 +13,10 @@ from ponos import prompt
 def the_prompt_reads_from_the_widest_frame_to_the_narrowest():
     text = prompt.build(
         prompt.DEFAULT,
-        project="Animalink",
+        project="Northwind",
         title="Retirer l'entête",
         body="Le header prend trop de place.",
-        repo="/home/x/animalink",
+        repo="/home/x/northwind",
         branch="ticket/x",
         base="main",
         url="https://notion.so/x",
@@ -33,7 +33,7 @@ def the_prompt_reads_from_the_widest_frame_to_the_narrowest():
 @case
 def a_workspace_without_a_context_page_changes_nothing():
     common = dict(
-        project="Animalink", title="t", body="b", repo="/r", branch="br", base="main", url="u"
+        project="Northwind", title="t", body="b", repo="/r", branch="br", base="main", url="u"
     )
     bare = prompt.build(prompt.DEFAULT, **common)
     assert "# Who you are working for" not in bare

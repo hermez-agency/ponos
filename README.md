@@ -891,7 +891,7 @@ gh auth status     # lists what it knows
 
 ```toml
 [github]
-"animalink" = "dev-animalink"        # the owner in the URL = the gh account
+"northwind" = "dev-northwind"        # the owner in the URL = the gh account
 "hermez-agency" = "hermez-bot"
 ```
 
@@ -1038,7 +1038,7 @@ Le titre déborde sur deux lignes en dessous de 380px.
 
 Six keys are the page's own — `id`, `title`, `created`, `edited`, and the page's `cover`
 and `icon` — and everything else is a column. A picture is a file beside the page
-(`cover: animalink-b05e7e3a.cover.webp`), a URL, or — for an icon — an emoji. The column *types* are not declared twice: they come from `provision.py`, which
+(`cover: northwind-b05e7e3a.cover.webp`), a URL, or — for an icon — an emoji. The column *types* are not declared twice: they come from `provision.py`, which
 is the same place the Notion databases are built from, so a property the runner learns to
 read is one both boards read the same day. Moving a ticket to the ready column is changing
 one word in one file, which is the whole point: `git`, `grep` and `$EDITOR` become the
@@ -1681,7 +1681,7 @@ the ticket         the task
 From the widest frame to the narrowest, so the specific is read last and wins when the two
 disagree. What belongs there:
 
-> Je suis <prénom>, développeur web depuis 13 ans. Je travaille sur Animalink.
+> Je suis <prénom>, développeur web depuis 13 ans. Je travaille sur Northwind.
 > Stack: PHP/Symfony, React, Docker. `pnpm`, jamais `npm`.
 > Réponses courtes, pas d'emoji, la commande plutôt que l'explication.
 

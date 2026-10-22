@@ -37,6 +37,11 @@ import { Robot } from "./robot"
  *
  * It is drawn folded — a few lines, so that a long text does not push the
  * projects off a phone — and opened by "See all" or by "Edit".
+ *
+ * Beside a project picked in the panel, it is not drawn at all — the project's
+ * own header is the page's one header there, and a link back to this block
+ * (`ProjectHead`'s "Global context ↑", by `CONTEXT_ANCHOR`) is what a project
+ * offers instead of a second one the same size.
  */
 
 /** The address a project's brief links back to. */

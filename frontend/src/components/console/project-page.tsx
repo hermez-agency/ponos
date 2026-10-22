@@ -25,6 +25,7 @@ import {
 } from "@/resources/projects"
 import { settingsHref } from "@/resources/settings"
 
+import { CONTEXT_ANCHOR } from "./context-block"
 import { Eyebrow, Fact, Facts } from "./frame"
 import { IdeasButton } from "./ideas-deck"
 import { ProjectBrief } from "./project-brief"
@@ -321,14 +322,26 @@ export function ProjectHead() {
             </p>
           ) : null}
           {panel && project ? (
-            <Link
-              to={projectHref(project.id, panel.tab)}
-              data-project-open
-              className="text-muted-foreground hover:text-foreground mt-1 inline-flex items-center gap-1 text-xs underline-offset-2 hover:underline"
-            >
-              {t("Open the project's page")}
-              <ArrowUpRight className="size-3.5" />
-            </Link>
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+              <Link
+                to={projectHref(project.id, panel.tab)}
+                data-project-open
+                className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs underline-offset-2 hover:underline"
+              >
+                {t("Open the project's page")}
+                <ArrowUpRight className="size-3.5" />
+              </Link>
+              {/* The panel's one header: the global context is a link back to
+                  it, not a second one drawn over this. */}
+              <Link
+                to={`${projectsHref()}#${CONTEXT_ANCHOR}`}
+                onClick={() => pick("")}
+                data-slot="context-link"
+                className="text-muted-foreground hover:text-foreground text-xs underline-offset-2 hover:underline"
+              >
+                {t("Inherits the global context ↑")}
+              </Link>
+            </div>
           ) : null}
         </div>
         <div className="flex w-full flex-wrap items-center gap-2 md:w-auto">

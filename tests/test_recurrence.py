@@ -107,7 +107,7 @@ def a_machine_that_was_off_for_three_days_produces_one_ticket_and_not_twelve():
     title_, values = runner.client.created[0]
     assert title_.startswith("Revue des dépendances — ")
     assert values["Status"] == "Ready"
-    assert values["Project"] == "p-animalink" and values["Priority"] == 40
+    assert values["Project"] == "p-northwind" and values["Priority"] == 40
 
     # The next moment is computed from now, never by stacking up what was lost.
     ahead = schedules.scheduled_for(_written(runner.client, "Next"))

@@ -1389,7 +1389,7 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
   active, so a pull request on the other one used to be refused for reasons that
   read like a bug: a repository GitHub says does not exist, a merge nobody is
   allowed to make. A new `[github]` table says which owner is worked under which
-  account — `"animalink" = "dev-animalink"` — and everything that leaves the
+  account — `"northwind" = "dev-northwind"` — and everything that leaves the
   machine about that repository, the clone, the push, the pull request, the
   merge, the question “has this been merged yet?”, goes out under it. Log each
   account in once with `gh auth login` and they stay signed in side by side; no

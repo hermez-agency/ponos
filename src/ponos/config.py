@@ -669,7 +669,7 @@ class Budget:
 # list rather than in the prompt, so that the page can show them and change them.
 ALLOWED = (
     "redéployer un service sur les Dokploy de Salva (dokploy.cardona.digital et le "
-    "Dokploy d'Animalink), lire leurs logs, ajouter une variable d'environnement non "
+    "Dokploy d'Northwind), lire leurs logs, ajouter une variable d'environnement non "
     "secrète ou générer un secret aléatoire propre au service",
     "taguer et publier une release d'un dépôt de SalvadorCardona ou de hermez-agency, "
     "après fusion sur main",

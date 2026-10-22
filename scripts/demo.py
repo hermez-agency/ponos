@@ -76,9 +76,9 @@ PROJECTS = {
         "The runner that works the tickets, and its console.",
     ),
     "app": (
-        "Animalink App",
+        "Northwind App",
         "🐾",
-        "acme/animalink-app",
+        "acme/northwind-app",
         "The mobile app for pet owners: React Native, a Node API, Postgres.",
     ),
     "leadz": (
@@ -139,7 +139,7 @@ TICKETS = [
     ("website", "Translate the legal pages into Spanish", WRITING, "", "Ready", ""),
     ("website", "Add structured data to the product pages", CODE, "Feature", "Backlog", ""),
     ("website", "Upgrade Astro to the next major", CODE, "Chore", "Done", ""),
-    ("website", "Case study: the Animalink launch", WRITING, "", "In review", ""),
+    ("website", "Case study: the Northwind launch", WRITING, "", "In review", ""),
     ("ponos", "Show the cost of a ticket on its card", CODE, "Feature", "Done", ""),
     ("ponos", "Retry a failed merge from the card", CODE, "Amélioration", "Validated", ""),
     ("ponos", "Redact tokens in the session log", CODE, "Sécurité", "Done", ""),
@@ -623,7 +623,7 @@ CHATS = [
     (
         "Why did the dashboard ticket fail?",
         "opus",
-        "Animalink App",
+        "Northwind App",
         1,
         [
             (

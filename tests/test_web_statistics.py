@@ -557,7 +557,7 @@ def the_console_draws_what_comes_back_on_its_own():
         schedule=False,
     )
     api._config = api._runner.config
-    api._projects = {"p-animalink": {"id": "panimalink", "name": "Animalink", "kind": "code"}}
+    api._projects = {"p-northwind": {"id": "pnorthwind", "name": "Northwind", "kind": "code"}}
     api._projects_at = clock.time()
 
     payload = api.schedules()
@@ -569,8 +569,8 @@ def the_console_draws_what_comes_back_on_its_own():
     assert first["name"] == "Revue des dépendances"
     assert (first["cadence"], first["at"], first["active"]) == ("Daily", "09:00", True)
     assert schedules.scheduled_for(first["next"]) == ahead
-    assert first["project"] == "Animalink", "the relation is resolved, as it is on a card"
-    assert first["project_id"] == "panimalink", "and the page, for a name not known yet"
+    assert first["project"] == "Northwind", "the relation is resolved, as it is on a card"
+    assert first["project_id"] == "pnorthwind", "and the page, for a name not known yet"
     assert first["ticket"] == "aaaaaaaabbbbccccddddeeeeeeeeeeee", "addressed as the board does"
     assert not first["problem"]
 
@@ -584,7 +584,7 @@ def the_console_draws_what_comes_back_on_its_own():
     api._projects = {}
     api.projects = lambda: (_ for _ in ()).throw(AssertionError("the projects were read"))
     first = api.schedules()["schedules"][0]
-    assert first["project"] == "" and first["project_id"] == "panimalink"
+    assert first["project"] == "" and first["project_id"] == "pnorthwind"
 
 
 @case

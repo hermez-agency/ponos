@@ -23,6 +23,7 @@ import {
   blockSaid,
   capital,
   columnTitle,
+  fade,
   familyColor,
   lasted,
   subtypeColor,
@@ -625,7 +626,7 @@ function MadeChart({ made, project }: { made: Made; project?: string }) {
                       <span
                         key={key || NONE}
                         className={cn("block min-h-[2px] w-full", index === parts.length - 1 && "rounded-t")}
-                        style={{ flexGrow: one.counts[key], background: subtypeColor(key) }}
+                        style={{ flexGrow: one.counts[key], background: fade(subtypeColor(key)) }}
                         data-subtype={key || NONE}
                       />
                     ))}
@@ -791,7 +792,7 @@ function BlocksChart({ blocks }: { blocks: NonNullable<Statistics["blocks"]> }) 
                     <span
                       key={part.family}
                       className={cn("block min-h-[2px] w-full", index === parts.length - 1 && "rounded-t")}
-                      style={{ flexGrow: part.count, background: familyColor(part.family) }}
+                      style={{ flexGrow: part.count, background: fade(familyColor(part.family)) }}
                     />
                   ))}
               </div>
@@ -825,7 +826,7 @@ function BlocksChart({ blocks }: { blocks: NonNullable<Statistics["blocks"]> }) 
               <span className="bg-muted h-2 overflow-hidden rounded-full">
                 <span
                   className="block h-full rounded-full"
-                  style={{ width: `${(cause.count / widest) * 100}%`, background: familyColor(cause.family) }}
+                  style={{ width: `${(cause.count / widest) * 100}%`, background: fade(familyColor(cause.family)) }}
                 />
               </span>
               <span className="font-mono text-xs font-semibold tabular-nums">{number(cause.count)}</span>
@@ -887,7 +888,7 @@ function SubtypesChart({ subtypes }: { subtypes: NonNullable<Statistics["subtype
                     <span
                       key={part.key}
                       className={cn("block min-h-[2px] w-full", index === parts.length - 1 && "rounded-t")}
-                      style={{ flexGrow: part.count, background: subtypeColor(part.key) }}
+                      style={{ flexGrow: part.count, background: fade(subtypeColor(part.key)) }}
                     />
                   ))}
               </div>
@@ -959,7 +960,7 @@ function Bars({ rows, most }: { rows: { label: string; count: number }[]; most: 
           <span className="bg-muted h-2 overflow-hidden rounded-full">
             <span
               className="block h-full rounded-full"
-              style={{ width: `${(row.count / most) * 100}%`, background: "var(--series-1)" }}
+              style={{ width: `${(row.count / most) * 100}%`, background: fade("var(--series-1)") }}
             />
           </span>
           <span className="font-mono text-xs font-semibold tabular-nums">{number(row.count)}</span>

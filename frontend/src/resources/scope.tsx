@@ -56,16 +56,14 @@ const MENU: MenuItemInterface[] = [
   // No count, here as under Projects: the only way to know is to ask the
   // board, and this menu is redrawn every time the board moves.
   entry(schedules.icon, "Schedules", schedulesHref),
+  entry(ideas.icon, "Ideas", ideasHref),
+  entry(sessions.icon, "Sessions", sessionsHref),
 ]
 
 /* The rest, pinned at the foot of the sidebar, over its version and its
  * buttons; on a phone the layout lists them behind the bar's last entry, More,
  * with the same version and buttons under them. */
-const FOOTER_MENU: MenuItemInterface[] = [
-  entry(ideas.icon, "Ideas", ideasHref),
-  entry(sessions.icon, "Sessions", sessionsHref),
-  entry(settings.icon, "Settings", () => settingsHref()),
-]
+const FOOTER_MENU: MenuItemInterface[] = [entry(settings.icon, "Settings", () => settingsHref())]
 
 export const consoleScope: ScopeInterface = {
   name: SCOPE,

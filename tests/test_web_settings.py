@@ -245,7 +245,7 @@ def the_tables_that_are_mappings_gain_and_lose_rows():
     """
     path, config = _saved(
         '\n[projects]\n"Site vitrine" = "~/work/site"\nold = "~/work/old"\n'
-        '\n[github]\nanimalink = "dev-animalink"\nold = "nobody"\n'
+        '\n[github]\nnorthwind = "dev-northwind"\nold = "nobody"\n'
     )
     web_settings.save(
         config,
@@ -254,16 +254,16 @@ def the_tables_that_are_mappings_gain_and_lose_rows():
                 {"name": "Site vitrine", "value": "~/work/site-v2"},
                 {"name": "Trader IA", "value": "~/work/trader"},
             ],
-            "github": [{"name": "Animalink", "value": "dev-animalink"}],
+            "github": [{"name": "Northwind", "value": "dev-northwind"}],
         },
     )
     saved = C.load(path)
     assert set(saved.projects) == {"Site vitrine", "Trader IA"}, "the row you removed is gone"
     assert saved.projects["Site vitrine"].endswith("site-v2")
-    assert saved.github == {"animalink": "dev-animalink"}, "and an owner is read lowercased"
+    assert saved.github == {"northwind": "dev-northwind"}, "and an owner is read lowercased"
 
     drawn = web_settings.describe(C.load(path))
-    assert {"name": "Animalink", "value": "dev-animalink"} in drawn["github"]
+    assert {"name": "Northwind", "value": "dev-northwind"} in drawn["github"]
     assert any(section["pairs"] == "github" for section in drawn["sections"])
 
 
