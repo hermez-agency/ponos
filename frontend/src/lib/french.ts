@@ -170,8 +170,6 @@ export const FRENCH: Record<string, string> = {
   "connecting…": "connexion…",
   "reconnecting…": "reconnexion…",
   // The one pill a phone's bar says the stream, the last read and the version in.
-  "State of the console": "État de la console",
-  "event stream: {{state}}": "flux d'événements : {{state}}",
   // The menu is a name and a count; the sentences that used to sit under each
   // name are gone, and the words they were made of with them.
   "{{count}} turn": "{{count}} tour",

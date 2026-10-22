@@ -28,8 +28,8 @@ async function open(page: Page, path = "/") {
   await expect(page.getByRole("button", { name: "More", exact: true })).toBeVisible()
 }
 
-/** The package's bottom bar, found where the layout draws it. */
-const bar = (page: Page): Locator => page.locator('[data-slot="sidebar-wrapper"] > .fixed.bottom-0')
+/** The package's bottom bar. */
+const bar = (page: Page): Locator => page.locator('[data-slot="admin-mobile-nav"]')
 
 /** Go to a page the way a thumb would: the bar, or the bar's More. */
 async function go(page: Page, name: string) {
@@ -89,7 +89,7 @@ test("at the end of every page, nothing is under the bubble", async ({ page }) =
         const bubble = document.querySelector<HTMLElement>('button[aria-label^="open "][aria-keyshortcuts]')
         if (!bubble) return ["no bubble"]
         const over = bubble.getBoundingClientRect()
-        const nav = document.querySelector('[data-slot="sidebar-wrapper"] > .fixed.bottom-0')
+        const nav = document.querySelector('[data-slot="admin-mobile-nav"]')
         return Array.from(document.querySelectorAll<HTMLElement>("a, button, input, textarea, select, [role=tab]"))
           .filter((element) => element !== bubble && !nav?.contains(element) && element.checkVisibility())
           .filter((element) => {
@@ -111,18 +111,14 @@ test("at the end of every page, nothing is under the bubble", async ({ page }) =
   }
 })
 
-test.describe("with a finger", () => {
-  test.use({ hasTouch: true })
-
-  test("the bar's one status pill says what the dots did, on a tap", async ({ page }) => {
-    await open(page)
-    const pill = page.getByRole("button", { name: "State of the console" })
-    await expect(pill).toHaveText(/live|connecting…|reconnecting…/)
-    await pill.tap()
-    const said = page.getByRole("tooltip")
-    await expect(said).toContainText("event stream")
-    await expect(said).toContainText(/v\d/)
-    await pill.tap()
-    await expect(said).toBeHidden()
-  })
+test("the version, the last read and the two buttons are behind More", async ({ page }) => {
+  await open(page)
+  // The bar's end says whether the stream is live, at every width.
+  await expect(page.locator("header").getByText(/^(live|connecting…|reconnecting…)$/)).toBeVisible()
+  await bar(page).getByRole("button", { name: "More", exact: true }).click()
+  const drawer = page.getByRole("dialog")
+  await expect(drawer.getByText(/^v\d+\.\d+\.\d+/)).toBeVisible()
+  await expect(drawer.getByText(/^synced /)).toBeVisible()
+  await expect(drawer.getByRole("button", { name: "Resynchronise now" })).toBeVisible()
+  await expect(drawer.getByRole("button", { name: /^(Light|Dark)$/ })).toBeVisible()
 })

@@ -206,9 +206,6 @@ export const settings = createViewResource<SettingsItem>(SETTINGS, {
         // the one file does not have.
         navigation: NoHeader,
       },
-      // The page's whole width rather than the layout's column: the column of
-      // tabs and the column of fields side by side.
-      fullWidth: true,
       tabs: {
         // Six pages read as a short column beside the fields; on a phone the
         // package lays them out as a row that scrolls.

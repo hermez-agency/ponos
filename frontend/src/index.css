@@ -204,15 +204,10 @@
      as wide as its sentence: at 1440px the row outgrew the pane and pushed the
      Open button off its right edge, and on a phone the title was the only
      column on the screen. The first column — the one that is a sentence —
-     wraps instead. And the cell holding a row's buttons is written `flex`,
-     which takes it out of the table's own layout; the buttons are already in
-     a flex box of their own inside it. */
+     wraps instead. */
   [data-slot="table-cell"]:first-child {
     white-space: normal;
     min-width: 10rem;
-  }
-  td[data-slot="table-cell"].flex {
-    display: table-cell;
   }
 
   /* Written twice, because it is two features. WebKit and Chrome take the
@@ -236,16 +231,6 @@
       scrollbar-width: thin;
       scrollbar-color: var(--border) transparent;
     }
-  }
-
-  /* A page drawn at the width of the screen no wider than the screen beside
-     the menu. The board says `fullWidth` and the admin layout lets go of its
-     column, but the page around it is a flex item, and a flex item grows to
-     its content unless told otherwise: seven columns would take the bar over
-     the page along with them, past the right edge, and the page would scroll
-     sideways instead of the board. */
-  [data-slot="sidebar-inset"]:has(> [data-full-width]) {
-    min-width: 0;
   }
 
   /* The projects' split layout: the list on the left, the global context and the
@@ -286,17 +271,6 @@
     }
   }
 
-  /* The list's "New project" beside its cards / table switch on a phone. The
-     package draws the create button the width of the screen, which put it on a
-     row of its own and the first project 48px further down — under the fold,
-     where `context.spec.ts` wants it. At the width of its name it sits next to
-     the switch. */
-  @media (width < 48rem) {
-    div:has(> [data-slot="tabs"]) > a.w-full {
-      width: auto;
-    }
-  }
-
   /* The end of a page clear of the discussion's bubble on a phone. The
      package leaves room under the content for its bottom bar, and the bubble
      floats over the corner above that bar: the last card's cost and link, a
@@ -308,38 +282,14 @@
     }
   }
 
-  /* A board's columns whole on a phone. Since 0.15 each column scrolls inside
-     a box a screen high less 14rem, so its last cards stay where the page's
-     end cannot lift them out from under the discussion's bubble; left to
-     grow, as they did before, the room under the content above does it. The
-     box has no `data-slot`, so it is found by the cap it carries. */
+  /* A board's columns whole on a phone. The package lets each column scroll
+     inside a box a screen high less 14rem, so its last cards stay where the
+     page's end cannot lift them out from under the discussion's bubble; left
+     to grow, the room under the content above does it. */
   @media (width < 48rem) {
-    [class*="max-h-[calc(100dvh-14rem)]"] {
+    [data-slot="board-column-cards"] {
       max-height: none;
     }
-  }
-
-  /* The bottom bar's entries share its width. The package lays them out from
-     the left at the width of their names, which left the right end of a phone
-     empty once the bar was down to four (see `resources/scope`); a quarter
-     each, the padding the room between them rather than inside, and the
-     longest name — Récurrences — still fits at 360px. The bar has no
-     `data-slot` of its own, so it is found by where the layout puts it. */
-  @media (width < 48rem) {
-    [data-slot="sidebar-wrapper"] > .fixed.bottom-0 > div > button {
-      flex: 1 1 0;
-      min-width: 0;
-      padding-inline: 0.25rem;
-    }
-  }
-
-  /* A list's filter bar as wide as the list, and no wider. The package draws
-     it in a row that scrolls sideways, and Base UI writes `min-width:
-     fit-content` on that row, on the element itself: a bar that wraps (see
-     `filter-bar.tsx`) was laid out on one line all the same, and a phone cut
-     "All types" or "Ticket" at its edge with nothing saying there was more. */
-  [data-slot="scroll-area-content"]:has([data-list-filters]) {
-    min-width: 0 !important;
   }
 
   /* The sidebar's head is the bar's twin: the package gives both the same
@@ -349,36 +299,12 @@
     border-bottom: 1px solid var(--border);
   }
 
-  /* The path in the bar cut at the room it has, rather than written under
-     what the bar's end says. Its first steps never shrink, and on a phone the
-     settings' "Settings ›" ran under the status pill; the page's own heading
-     says the same thing a line below. */
-  nav[aria-label="Breadcrumb"] {
-    overflow: hidden;
-  }
-
-  /* A row of tabs that sticks under the bar — as the package means it to.
-     Base UI writes `position: relative` on the scroll area it is drawn in, on
-     the element itself, which beats the package's `sticky`; `top-16` then
-     moved the row 64px down from where it sat instead of holding it there,
-     opening a blank band above the settings' sections and laying the row over
-     the section's own name. */
-  [data-slot="tabs"] > [data-slot="scroll-area"].sticky {
-    position: sticky !important;
-  }
-
-  /* A list's icon beside its name, not beside its name and its sentence: the
-     package centres the two, and a sentence of two lines on a phone took the
-     icon down to the middle of it. */
-  [data-slot="list-header"] > div:first-child {
-    align-items: flex-start;
-  }
-
-  /* A dialog no taller than the screen. The package caps what scrolls inside
-     it at 90vh and puts a title and padding around that, so a long brief on a
-     phone pushed the dialog's corners past both edges. Capped as a whole, the
-     title keeps its row and the form takes what is left, scrolling in it. Only
-     the dialogs drawn that way, a title then a form: the rows are theirs. */
+  /* A window no taller than the screen. The console's own — a ticket's, a
+     schedule's, the palette — are shadcn's dialog, which centres itself and
+     grows with what it holds, so a long brief on a phone pushed its corners
+     past both edges. Capped as a whole, the title keeps its row and what is
+     under it takes what is left, scrolling in it. Only the dialogs drawn that
+     way, a title then a body: the rows are theirs. */
   [data-slot="dialog-content"]:has(> [data-slot="dialog-header"]) {
     max-height: calc(100dvh - 2rem);
     grid-template-rows: auto minmax(0, 1fr);

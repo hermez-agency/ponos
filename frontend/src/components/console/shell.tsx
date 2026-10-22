@@ -1,6 +1,6 @@
 import * as React from "react"
 import { Moon, RefreshCw, Search, Sun } from "lucide-react"
-import { Link, type MenuItemInterface } from "react-resource-view"
+import { Link, getPorts, useAdminPageTitle } from "react-resource-view"
 
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -9,9 +9,7 @@ import { hotkeyLabel } from "@/hooks/use-hotkeys"
 import { useRunnerMood } from "@/hooks/use-mood"
 import { useTheme } from "@/hooks/use-theme"
 import { counted, useT } from "@/lib/i18n"
-import { useRoute } from "@/lib/router"
 import { cn } from "@/lib/utils"
-import { TICKETS } from "@/resources/tickets"
 
 import { openPalette } from "./command-palette"
 import { NotificationBell } from "./notification-bell"
@@ -23,8 +21,10 @@ import { VersionBadge } from "./version-badge"
  *
  * The layout brings the frame — the sidebar built from the scope's menu, the
  * bar over the page, the bottom navigation on a phone, the page's heading —
- * and leaves two places for the application: a logo, and the end of the bar.
- * Everything here goes into one of those two, or into a menu entry.
+ * and leaves the application its places: a logo, the end of the bar, the foot
+ * of the sidebar. Everything here goes into one of those, or beside the board's
+ * name in the menu. On a phone the layout puts the foot of the sidebar behind the
+ * last entry of its bottom bar, More, with the links pinned there.
  */
 
 /** The mark and the name, in the sidebar's corner — and in the bar, on a phone. */
@@ -53,66 +53,17 @@ export function Mark() {
 
 /* -- the menu ------------------------------------------------------------- */
 
-/* An entry of the menu: a name, and a number where something is waiting there.
+/* The number of tickets on the board, beside the board's name in the menu.
  *
  * Seven entries of two lines each used to be a page to read rather than a menu
  * to use — a sentence under every name saying how many tickets were ready,
  * whether the timer was on. What is worth knowing at a glance is a count, and a
- * count fits beside a name.
- *
- * The package's own entry draws a name and an icon and nothing beside them, and
- * lights itself when the address *starts with* its link — so the board's entry
- * went dark the moment a ticket was opened from it, and the projects' when a
- * project was. The package's answer to both is the `component` an entry may
- * bring; this is that component, drawn in the package's own shape.
+ * count fits beside a name: the entry's `badge`, drawn by the package at its
+ * end, the entry itself — its link, whether it is lit — staying the package's.
  */
-export interface ConsoleMenuItem extends MenuItemInterface {
-  /** The resource the entry opens: it stays lit on every address of that resource. */
-  resource: string
-  /** A number worth showing beside the name — the tickets on the board. */
-  badge?: "board"
-}
-
-/* Where the package's layout trades its sidebar for a bar along the bottom —
- * its own query, word for word, so the menu and the layout never disagree on
- * which of the two is on screen. */
-const PHONE = "(max-width: 767px)"
-
-/** Whether the screen is a phone's, as the admin layout decides it. */
-export const onPhone = () => window.matchMedia(PHONE).matches
-
-/** The resource the address names; an address that names none is the board. */
-export function useCurrentResourceId(): string {
-  const { params } = useRoute()
-  return String(params.resourceId ?? TICKETS)
-}
-
-export function MenuEntry({ menuItem }: { menuItem: MenuItemInterface }) {
-  const item = menuItem as ConsoleMenuItem
+export function BoardCount() {
   const { board } = useConsole()
-  const current = useCurrentResourceId()
-  const active = current === item.resource
-  const Icon = item.icon
-  const count = item.badge === "board" ? board.tickets.length : 0
-
-  return (
-    <Link
-      to={item.href || "/"}
-      data-active={active || undefined}
-      aria-current={active ? "page" : undefined}
-      className={cn(
-        "flex w-full items-center gap-2 overflow-hidden rounded-xl px-3 py-2 text-left text-sm font-medium outline-hidden transition-colors",
-        "hover:bg-accent hover:text-accent-foreground focus-visible:ring-ring/30 focus-visible:ring-2",
-        "data-active:bg-primary data-active:text-primary-foreground [&_svg]:size-4 [&_svg]:shrink-0"
-      )}
-    >
-      {Icon ? <Icon /> : null}
-      <span className="truncate">{item.name}</span>
-      {count ? (
-        <span className="ml-auto font-mono text-[0.7rem] tabular-nums opacity-80">{count}</span>
-      ) : null}
-    </Link>
-  )
+  return board.tickets.length || null
 }
 
 /* -- the end of the bar --------------------------------------------------- */
@@ -198,125 +149,52 @@ function useConnectionWord(): string {
       : t("reconnecting…")
 }
 
-/* The same three things on a phone, said once.
- *
- * The bar of a phone has room for the mark and three buttons, and the stream,
- * the version and the last read had shrunk to two green dots and nothing —
- * their words hidden for want of room, their tooltips out of reach of a
- * finger. So they become one: a dot and one short word, green when the stream
- * is live and nothing is out of step, amber otherwise; and a tap on it opens
- * what the three said on a wider screen. A tooltip rather than a menu, because
- * there is nothing in it to press — only told on a tap rather than a hover. */
-function PhoneStatus() {
-  const { connection } = useStatus()
-  const { runner } = useConsole()
-  const sync = useSyncSummary()
-  const word = useConnectionWord()
+/* What the tab says: where you are, so seven tabs of "Ponos" are not a row to
+ * open one by one — the record on screen by its name, a page by the name of
+ * its view, read the way the layout's own heading reads it. */
+function useDocumentTitle() {
+  const { viewName, recordTitle, recordId } = useAdminPageTitle()
   const t = useT()
-  const [open, setOpen] = React.useState(false)
-  // Whether it was open when the finger came down: the tooltip closes itself
-  // on that press, before the click that is meant to toggle it.
-  const wasOpen = React.useRef(false)
-  const live = connection === "live"
-  const troubled = Boolean(sync?.troubled)
-
-  return (
-    <Tooltip open={open} onOpenChange={setOpen}>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          aria-label={t("State of the console")}
-          aria-expanded={open}
-          // The tooltip opens on a hover and closes on a press: a finger has
-          // no hover, so the press is what opens and closes it.
-          onPointerDown={() => {
-            wasOpen.current = open
-          }}
-          onClick={(event) => {
-            event.preventDefault()
-            setOpen(!wasOpen.current)
-          }}
-          className={cn(
-            "flex h-8 items-center gap-1.5 rounded-md px-2 font-mono text-[0.7rem] outline-hidden",
-            "focus-visible:ring-ring/30 focus-visible:ring-2",
-            !live || troubled ? "text-tr-amber" : "text-tr-green"
-          )}
-        >
-          <span
-            className={cn(
-              "size-1.5 shrink-0 rounded-full",
-              !live ? "bg-tr-amber animate-pulse" : troubled ? "bg-tr-amber" : "bg-tr-green"
-            )}
-          />
-          {word}
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side="bottom" align="end" className="max-w-[calc(100vw-2rem)]">
-        <div>{t("event stream: {{state}}", { state: word })}</div>
-        {sync ? <div>{t("synced {{age}}", { age: sync.age })}</div> : null}
-        {sync?.said.map((line) => (
-          <div key={line} className="text-muted-foreground">
-            {line}
-          </div>
-        ))}
-        {runner ? <div className="mt-1 font-mono">v{runner.version}</div> : null}
-      </TooltipContent>
-    </Tooltip>
-  )
+  const here = recordTitle ?? (recordId ? `#${recordId}` : viewName ? t(viewName) : "")
+  const { appName } = getPorts()
+  React.useEffect(() => {
+    document.title = here ? `${here} · ${appName}` : appName
+  }, [here, appName])
 }
 
-/* The machine's own state, and the two gestures that are about the console
- * rather than about a page: reread the board, change the light.
- *
- * They sat at the foot of the menu. The package's sidebar keeps its foot for
- * itself, and its bar keeps its right end for exactly this — so the stream's
- * dot, the version and the day a newer one is waiting are said there, once,
- * over every page.
- */
+/* The end of the bar, over every page: whether the stream is live, and the
+ * ways in that are about the console rather than a page — install it, search
+ * it, read what it has to tell you. The same at every width: the bar of a
+ * phone has room for them, and what it has no room for is at the foot of the
+ * sidebar, which a phone reaches by More. */
 export function TopBarEnd() {
-  const { refresh } = useConsole()
   const { connection } = useStatus()
   const word = useConnectionWord()
-  const { theme, toggle } = useTheme()
   const t = useT()
   const palette = hotkeyLabel("palette")
+  useDocumentTitle()
 
   return (
     <>
-      {/* Beside a menu, each said on its own; on a phone, once. */}
-      <div className="hidden items-center md:flex">
-        <Tooltip>
-          <TooltipTrigger asChild>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            className={cn(
+              "flex items-center gap-1.5 px-2 font-mono text-[0.7rem]",
+              connection === "live" ? "text-tr-green" : "text-muted-foreground"
+            )}
+          >
             <span
               className={cn(
-                "flex items-center gap-1.5 px-2 font-mono text-[0.7rem]",
-                connection === "live" ? "text-tr-green" : "text-muted-foreground"
+                "size-1.5 shrink-0 rounded-full",
+                connection === "live" ? "bg-tr-green" : "bg-tr-amber animate-pulse"
               )}
-            >
-              <span
-                className={cn(
-                  "size-1.5 shrink-0 rounded-full",
-                  connection === "live" ? "bg-tr-green" : "bg-tr-amber animate-pulse"
-                )}
-              />
-              <span>{word}</span>
-            </span>
-          </TooltipTrigger>
-          <TooltipContent>{t("event stream")}</TooltipContent>
-        </Tooltip>
-
-        {/* The number this console is running — and, the day a newer one is
-            waiting, the button that installs it. */}
-        <VersionBadge />
-
-        <SyncLine />
-      </div>
-      <div className="flex items-center md:hidden">
-        <PhoneStatus />
-        {/* An update waiting is a button, and a button stays where a finger
-            can reach it; the version alone is in the pill. */}
-        <VersionBadge offerOnly />
-      </div>
+            />
+            <span>{word}</span>
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>{t("event stream")}</TooltipContent>
+      </Tooltip>
 
       <InstallApp />
 
@@ -337,39 +215,53 @@ export function TopBarEnd() {
       </Tooltip>
 
       <NotificationBell />
-
-      <Tooltip>
-        <TooltipTrigger asChild>
-          {/* Not on a phone, where the bell took its place in the bar; the palette
-              (⌘K) still offers it there. */}
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="max-md:hidden"
-            onClick={refresh}
-            aria-label={t("Resynchronise now")}
-          >
-            <RefreshCw />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>
-          {t("resynchronise now: the whole board read again, the refused moves sent again")}
-        </TooltipContent>
-      </Tooltip>
-
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={toggle}
-            aria-label={theme === "dark" ? t("Light") : t("Dark")}
-          >
-            {theme === "dark" ? <Sun /> : <Moon />}
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>{theme === "dark" ? t("go light") : t("go dark")}</TooltipContent>
-      </Tooltip>
     </>
+  )
+}
+
+/* -- the foot of the sidebar ---------------------------------------------- */
+
+/* The machine's own state, and the two gestures about the board as a whole
+ * rather than about a page: reread it, change the light. The version — and,
+ * the day a newer one is waiting, the button that installs it — and when the
+ * board last agreed with Notion, over the two buttons. */
+export function SidebarFooter() {
+  const { refresh } = useConsole()
+  const { theme, toggle } = useTheme()
+  const t = useT()
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex flex-wrap items-center gap-1">
+        <VersionBadge />
+        <SyncLine />
+      </div>
+      <div className="flex items-center gap-1">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon-sm" onClick={refresh} aria-label={t("Resynchronise now")}>
+              <RefreshCw />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            {t("resynchronise now: the whole board read again, the refused moves sent again")}
+          </TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={toggle}
+              aria-label={theme === "dark" ? t("Light") : t("Dark")}
+            >
+              {theme === "dark" ? <Sun /> : <Moon />}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{theme === "dark" ? t("go light") : t("go dark")}</TooltipContent>
+        </Tooltip>
+      </div>
+    </div>
   )
 }
