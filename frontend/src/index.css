@@ -248,8 +248,9 @@
      tickets included, so the list gives it the room: narrow on a middling
      screen, a little wider where there is plenty. The list's frame and the
      panel are siblings, so the grid is the parent's, found by the panel it
-     holds. Not sticky: a page scrolls with the list. Narrower there is no panel,
-     and a project picked opens its page. */
+     holds. Wide, the panel sticks to the top of the screen and scrolls on its own
+     (see `ProjectAside`), so a project picked low in a long list keeps its header
+     in view. Narrower there is no panel, and a project picked opens its page. */
   div:has(> [data-projects-aside]) {
     display: flex;
     flex-direction: column;
@@ -273,6 +274,10 @@
       grid-column: 2;
       grid-row: 1 / span 2;
       order: 0;
+      position: sticky;
+      top: 1rem;
+      max-height: calc(100dvh - 2rem);
+      overflow-y: auto;
     }
   }
   @media (width >= 96rem) {
