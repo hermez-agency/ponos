@@ -1,6 +1,7 @@
 import * as React from "react"
 import { MoreHorizontal, RotateCw } from "lucide-react"
 import { toast } from "sonner"
+import { useNavigate } from "react-resource-view"
 
 import { Bubble, BubbleContent } from "@/components/ui/bubble"
 import { Button } from "@/components/ui/button"
@@ -15,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton"
 import { useConsole } from "@/hooks/use-console"
 import { api, why } from "@/lib/api"
-import { titleOf, useBoard } from "@/lib/board-store"
+import { currentBoard, titleOf, useBoard } from "@/lib/board-store"
 import {
   type Reply,
   answersIn,
@@ -29,6 +30,8 @@ import {
 import { currentLanguage, t as translate, useT } from "@/lib/i18n"
 import { secretsIn } from "@/lib/secrets"
 import type { Decision, Solution, Ticket } from "@/lib/types"
+
+import { boardHref } from "@/resources/tickets"
 
 import { Composer } from "./composer"
 import { ConfirmDialog } from "./confirm-dialog"
@@ -87,7 +90,10 @@ const REREAD = 20_000
 export function TicketTalk({ ticket, onSession }: { ticket: Ticket; onSession: () => void }) {
   const { talk, mention, tell, rereadTalk, talkLoading, talkWaiting, runner, move } = useConsole()
   const board = useBoard()
+  const navigate = useNavigate()
   const t = useT()
+  // Unblocked: the window has nothing more to say, the card is back on the board.
+  const backToBoard = () => void navigate({ to: boardHref() })
   const [problem, setProblem] = React.useState("")
   // The message held back once for a secret in it: sent, masked, if pressed again as it is.
   const [warned, setWarned] = React.useState("")
@@ -148,7 +154,10 @@ export function TicketTalk({ ticket, onSession }: { ticket: Ticket; onSession: (
         })
       )
       setAnswered(true)
-      if (offer.column === "ready") setSent(answers)
+      if (offer.column === "ready") {
+        setSent(answers)
+        backToBoard()
+      }
       return true
     } catch (error) {
       toast.error(t("The decision was not sent"), { description: why(error) })
@@ -169,6 +178,8 @@ export function TicketTalk({ ticket, onSession }: { ticket: Ticket; onSession: (
       await move(ticket, "ready")
       setAnswered(true)
       setSent(answers)
+      // A move that failed was put back by the board, and said so: the window stays.
+      if (currentBoard()?.tickets.find((item) => item.id === ticket.id)?.column === "ready") backToBoard()
     } finally {
       setBusy(false)
     }
