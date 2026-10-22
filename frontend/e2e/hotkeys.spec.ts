@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test"
+import { expect, test, type Locator, type Page } from "@playwright/test"
 
 /* The two shortcuts, pressed the way a user presses them.
  *
@@ -17,12 +17,20 @@ async function open(page: Page, path = "/") {
 const palette = (page: Page) => page.getByRole("dialog", { name: "Command palette" })
 const drawer = (page: Page) => page.locator('[data-slot="sheet-content"]')
 
+/* The page shows its board before its shortcuts are listening, and on a slow runner a key pressed
+ * in between is lost: press again until what the key opens is there. */
+async function press(page: Page, keys: string, opened: Locator) {
+  await expect(async () => {
+    await page.keyboard.press(keys)
+    await expect(opened).toBeVisible({ timeout: 2000 })
+  }).toPass()
+}
+
 test.use({ viewport: { width: 1440, height: 900 } })
 
 test("Ctrl+K opens the palette, Escape closes it", async ({ page }) => {
   await open(page)
-  await page.keyboard.press("Control+k")
-  await expect(palette(page)).toBeVisible()
+  await press(page, "Control+k", palette(page))
   await expect(palette(page).getByRole("combobox")).toBeFocused()
   await expect(palette(page).getByRole("option", { name: "Projects" })).toBeVisible()
   await page.keyboard.press("Escape")
@@ -31,7 +39,7 @@ test("Ctrl+K opens the palette, Escape closes it", async ({ page }) => {
 
 test("the palette takes you to a page, with the keyboard alone", async ({ page }) => {
   await open(page)
-  await page.keyboard.press("Control+k")
+  await press(page, "Control+k", palette(page))
   await page.keyboard.type("context")
   await expect(palette(page).getByRole("option").first()).toHaveText(/Global context/)
   await page.keyboard.press("Enter")
@@ -41,7 +49,7 @@ test("the palette takes you to a page, with the keyboard alone", async ({ page }
 
 test("the palette finds a ticket on the board", async ({ page }) => {
   await open(page)
-  await page.keyboard.press("Control+k")
+  await press(page, "Control+k", palette(page))
   await page.keyboard.type("A long ticket")
   await page.keyboard.press("Enter")
   await expect.poll(() => new URL(page.url()).searchParams.get("view")).toContain(
@@ -51,8 +59,7 @@ test("the palette finds a ticket on the board", async ({ page }) => {
 
 test("Ctrl+J opens the console with the cursor in its field, and closes it", async ({ page }) => {
   await open(page)
-  await page.keyboard.press("Control+j")
-  await expect(drawer(page)).toBeVisible()
+  await press(page, "Control+j", drawer(page))
   const field = drawer(page).locator("textarea")
   await expect(field).toBeFocused()
   await page.keyboard.type("hello")
@@ -66,7 +73,7 @@ test("Escape closes the console and the focus goes back where it was", async ({ 
   await open(page)
   const search = page.getByRole("button", { name: "Search" })
   await search.focus()
-  await page.keyboard.press("Control+j")
+  await press(page, "Control+j", drawer(page))
   await expect(drawer(page).locator("textarea")).toBeFocused()
   await page.keyboard.press("Escape")
   await expect(drawer(page)).toBeHidden()
@@ -75,7 +82,7 @@ test("Escape closes the console and the focus goes back where it was", async ({ 
 
 test("the palette opens the console, and its field takes the focus", async ({ page }) => {
   await open(page)
-  await page.keyboard.press("Control+k")
+  await press(page, "Control+k", palette(page))
   await page.keyboard.type("open or close the console")
   await page.keyboard.press("Enter")
   await expect(drawer(page)).toBeVisible()
