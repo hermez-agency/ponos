@@ -579,6 +579,18 @@ _SAID: dict[str, dict[str, str]] = {
         "en": "the pull request would not merge",
         "fr": "la pull request n'a pas voulu fusionner",
     },
+    "merge-checks-red": {
+        "en": "its checks fail, so it was not merged",
+        "fr": "ses vérifications échouent, elle n'a donc pas été fusionnée",
+    },
+    "merge-checks-red-question": {
+        "en": "Ponos does not merge a pull request with a red job ({names}): {url}",
+        "fr": "Ponos ne fusionne pas une pull request dont un job est rouge ({names}) : {url}",
+    },
+    "merge-checks-running": {
+        "en": "CI still running ({names}): left validated, asked again at the next pass",
+        "fr": "CI encore en cours ({names}) : laissée validée, redemandée à la prochaine passe",
+    },
     "merge-rebased": {
         "en": (
             "The merge was refused for being behind, so `{branch}` was replayed onto "
