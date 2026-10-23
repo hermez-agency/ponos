@@ -1053,6 +1053,22 @@ class Api:
         self.save_schedule(page_id, {**values, "active": False})
         return {"id": page_id.replace("-", ""), "name": name}
 
+    def delete_schedule(self, page_id: str) -> dict:
+        """Take a schedule off the board: into its trash, where it can be brought back.
+
+        Trashed rather than destroyed, as a project is: the row leaves every
+        query, so the pass stops reading it and nothing more is born from it,
+        and a mistake is one move away from undone. The tickets it already made
+        are rows of another database and are not touched.
+        """
+        wanted = page_id.replace("-", "")
+        row = next((item for item in self.schedules()["schedules"] if item["id"] == wanted), None)
+        if row is None:
+            raise LookupError(f"no schedule with id {wanted}")
+        self.runner.client.trash(page_id)
+        self.hub.publish("schedules", deleted=wanted)
+        return {"id": wanted, "name": row["name"]}
+
     def launch_schedule(self, page_id: str) -> dict:
         """Run one schedule now, once however many times the button is pressed.
 

@@ -299,6 +299,8 @@ export const api = {
     request<{ id: string }>(`/api/schedules/${id}`, values),
   launchSchedule: (id: string) =>
     request<{ ticket: string; title: string }>(`/api/schedules/${id}/launch`, {}),
+  deleteSchedule: (id: string) =>
+    request<{ id: string; name: string }>(`/api/schedules/${id}/delete`, {}),
   createSchedule: (values: Record<string, unknown>) =>
     request<{ id: string; name: string }>("/api/schedules", values),
   ideas: (project = "") =>

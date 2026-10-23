@@ -1,5 +1,5 @@
 import * as React from "react"
-import { CalendarCheck, CalendarClock, CalendarOff, ExternalLink, Loader2, Play, SearchX, X } from "lucide-react"
+import { CalendarCheck, CalendarClock, CalendarOff, ExternalLink, Loader2, Play, SearchX, Trash2, X } from "lucide-react"
 import { toast } from "sonner"
 import {
   ActionList,
@@ -24,6 +24,7 @@ import {
   type RowInterface,
 } from "react-resource-view"
 
+import { ConfirmDialog } from "@/components/console/confirm-dialog"
 import { EmptyState } from "@/components/console/empty-state"
 import { ModelInputController } from "@/components/console/model-input"
 import { MarkdownInputController } from "@/components/console/markdown-editor"
@@ -236,11 +237,69 @@ function LaunchButton({ id, className }: { id: string; className?: string }) {
   )
 }
 
+/* The trash can: the schedule goes to the board's trash after a confirmation, and
+ * nothing more is born from it. The tickets it already made stay where they are.
+ * Drawn wherever a schedule is — the row, the card, the window, the calendar's
+ * preview — so that no layout is without the gesture. */
+function DeleteButton({ id, name, className }: { id: string; name: string; className?: string }) {
+  const navigate = useNavigate()
+  const label = t("Delete the schedule")
+  const confirm = async () => {
+    try {
+      await api.deleteSchedule(id)
+    } catch (error) {
+      toast.error(t("The schedule could not be deleted"), { description: why(error) })
+      return false
+    }
+    toast.success(t("Schedule “{{name}}” deleted", { name }))
+    const fresh = await load().catch(() => null)
+    schedules.onChange.publish({
+      data: item(fresh?.schedules.find((schedule) => schedule.id === id) ?? ({ id, name } as Schedule)),
+      action: ActionList.delete,
+    })
+    // On the schedule's own page or in its window there is nothing left to show.
+    void navigate({ to: schedulesHref() })
+  }
+  return (
+    <ConfirmDialog
+      title={t("Delete “{{name}}”?", { name })}
+      description={t("Ponos will stop creating this ticket. The tickets it already made stay where they are.")}
+      destructive
+      confirm={
+        <>
+          <Trash2 />
+          {t("Delete the schedule")}
+        </>
+      }
+      onConfirm={confirm}
+      trigger={
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          className={className}
+          title={label}
+          aria-label={`${label} — ${name}`}
+          data-delete-schedule
+          onClick={(event) => event.stopPropagation()}
+        >
+          <Trash2 />
+        </Button>
+      }
+    />
+  )
+}
+
 /* The row's own: the cell is handed the row it belongs to, as the name's is. */
 const RunNow: InputControllerComponentInterface = () => {
   const { form } = useFormContext()
   const id = String((form?.data as { id?: string } | undefined)?.id ?? "")
-  return id ? <LaunchButton id={id} /> : null
+  return id ? (
+    <span className="inline-flex items-center gap-1">
+      <LaunchButton id={id} />
+      <DeleteButton id={id} name={String(rowOf(form).name ?? "")} />
+    </span>
+  ) : null
 }
 
 /* On the schedule's own page the button is the top of the form; in the window
@@ -251,8 +310,9 @@ function LaunchOnThePage() {
   const id = String(context.id ?? "")
   const here = params.resourceAction === ActionList.update && String(params.id ?? "") === id
   return id && here ? (
-    <div className="mb-4 flex justify-end">
+    <div className="mb-4 flex justify-end gap-1">
       <LaunchButton id={id} />
+      <DeleteButton id={id} name={String((context.data as { name?: string } | undefined)?.name ?? "")} />
     </div>
   ) : null
 }
@@ -608,6 +668,7 @@ function ScheduleCard({ schedule }: { schedule: ScheduleItem }) {
         </span>
         <span className="flex shrink-0 items-center gap-1">
           <LaunchButton id={schedule.id} />
+          <DeleteButton id={schedule.id} name={schedule.name} />
           <ActiveSwitch id={schedule.id} on={schedule.active} name={schedule.name} />
         </span>
       </div>
@@ -673,7 +734,15 @@ const scheduleWindow = recordWindow({
       eyebrow: drawn?.schedules.find((schedule) => schedule.id === id)?.name ?? "",
       title: t("Edit the schedule"),
       description: t(SUBTITLE),
-      actions: id ? <LaunchButton id={id} /> : null,
+      actions: id ? (
+        <>
+          <LaunchButton id={id} />
+          <DeleteButton
+            id={id}
+            name={drawn?.schedules.find((schedule) => schedule.id === id)?.name ?? ""}
+          />
+        </>
+      ) : null,
     }
   },
 })
@@ -837,6 +906,7 @@ const hour = (instant: number) =>
 /** What the window over a launch says: whether it has happened, when, and the way to the schedule. */
 const LaunchPreview = ({ row }: RowComponentPropsInterface<Launch>) => {
   const launch = row?.data
+  const { drawn } = useSchedules()
   const open = useOpensOverTheList(schedules, "update", launch?.schedule ?? "")
   if (!launch) return null
   return (
@@ -855,6 +925,9 @@ const LaunchPreview = ({ row }: RowComponentPropsInterface<Launch>) => {
       >
         {t("Open the schedule")}
       </Link>
+      <span className="flex">
+        <DeleteButton id={launch.schedule} name={drawn?.schedules.find((schedule) => schedule.id === launch.schedule)?.name ?? ""} className="w-auto px-2" />
+      </span>
     </div>
   )
 }
@@ -941,12 +1014,15 @@ export const schedules = createViewResource<ScheduleItem, ScheduleWrite>(SCHEDUL
   name: "Schedules",
   path: "/api/schedules",
   icon: CalendarClock,
-  // A row is opened in its form, and never deleted — unticking it stops it. A
-  // new one is offered where the board has a database to write it to.
+  // A row is opened in its form, and deleted to the board's trash; unticking
+  // it only stops it. A new one is offered where the board has a database to write it to.
   permissions: {
     read: false,
     create: () => Boolean(read.drawn?.database),
-    delete: false,
+    // Not a button of the package's on each row (`rowActions` is empty): the
+    // trash can is `DeleteButton`, drawn in every layout. What the package
+    // adds is the selection, and its bar to delete several at once.
+    delete: true,
     export: false,
   },
   repository: {
@@ -1019,8 +1095,9 @@ export const schedules = createViewResource<ScheduleItem, ScheduleWrite>(SCHEDUL
       const found = after.schedules.find((schedule) => schedule.id === made.id)
       return { data: found ? item(found) : ({ ...fresh, ...made } as unknown as ScheduleItem) }
     },
-    removeItem: async () => {
-      throw new Error("a schedule is not deleted from the console; unticking it stops it")
+    removeItem: async ({ id }) => {
+      await api.deleteSchedule(String(id))
+      await load().catch(() => null)
     },
   },
   views: {
@@ -1042,6 +1119,7 @@ export const schedules = createViewResource<ScheduleItem, ScheduleWrite>(SCHEDUL
       // The switch in the row is one gesture, the name opening the form in a
       // window is the other: no button of the package's beside them.
       rowActions: [],
+      bulkActions: ["delete"],
       // The search is the package's own: it lives in the address (`q`,
       // `project`, `state`), and the rows are kept by `keeps`, as the list is read.
       filters: formFilter,

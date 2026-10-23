@@ -834,6 +834,11 @@ def launch_schedule(request: Request, schedule_id: str) -> Response:
     return answer(_api(request).launch_schedule(schedule_id))
 
 
+@router.post("/api/schedules/{schedule_id:page}/delete")
+def delete_schedule(request: Request, schedule_id: str) -> Response:
+    return answer(_api(request).delete_schedule(schedule_id))
+
+
 @router.post("/api/schedules/{schedule_id:page}")
 def save_schedule(
     request: Request, schedule_id: str, payload: Fields = Body(default_factory=dict)

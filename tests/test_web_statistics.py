@@ -612,6 +612,36 @@ def a_second_launch_of_the_same_schedule_is_refused_while_the_first_runs():
 
 
 @case
+def a_schedule_deleted_from_the_console_goes_to_the_trash_and_is_no_longer_read():
+    """Deleting is the board's trash, not a tick: the row leaves every query.
+
+    Its tickets are not touched — only the schedule goes — and the page is not
+    destroyed, since the trash keeps it restorable.
+    """
+    api = _bare_api(_TalkClient([]))
+    api._runner = _recurring([_schedule_page("s-1", name="Test email"), _schedule_page("s-2")])
+    api._config = api._runner.config
+    api._projects = {}
+    api.projects = lambda: {"projects": []}
+    client = api._runner.client
+
+    answer = api.delete_schedule("s-1")
+    assert answer == {"id": "s1", "name": "Test email"}
+    assert client.trashed == ["s-1"]
+    assert client.written == [], "nothing else on the board is written"
+    assert [row["id"] for row in api.schedules()["schedules"]] == ["s2"]
+    # What the pass reads is what the console reads: it no longer fires.
+    assert [row.name for row in api._runner.schedules()] == ["Revue des dépendances"]
+
+    try:
+        api.delete_schedule("s-1")
+    except LookupError:
+        pass
+    else:
+        raise AssertionError("a schedule already gone has nothing to delete")
+
+
+@case
 def the_console_never_shows_a_next_occurrence_already_behind_us():
     """`Next` is the pass's bookmark; the list says when a ticket is born.
 
