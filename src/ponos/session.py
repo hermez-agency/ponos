@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import IO
 from urllib.parse import parse_qs, quote, urlparse
 
-from . import credits, disk, legacy, vault
+from . import credits, disk, leftovers, legacy, vault
 from .question import Question, caveats, parse
 
 logger = logging.getLogger(__name__)
@@ -179,8 +179,10 @@ def run(
     inherited = {
         **os.environ,
         "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+        **leftovers.environment(cwd),
         **(environment or {}),
     }
+    leftovers.warn_pinned(cwd)
     started = time.monotonic()
     log.parent.mkdir(parents=True, exist_ok=True)
     stderr_path = log.with_suffix(".err")
@@ -242,6 +244,10 @@ def run(
             process.wait()
         finally:
             watchdog.cancel()
+            # Whatever the way out — a result, a timeout, a Stop, an exception —
+            # nothing the session started stays behind it.
+            reap(process)
+            leftovers.sweep(cwd)
     # Written by the CLI itself, so masked once it has let go of it.
     vault.scrub(stderr_path)
 
@@ -434,6 +440,30 @@ def halt(process: subprocess.Popen) -> None:
         process.wait(timeout=GRACE_SECONDS)
     except subprocess.TimeoutExpired:
         pass
+    try:
+        os.killpg(process.pid, signal.SIGKILL)
+    except (ProcessLookupError, PermissionError):
+        pass
+
+
+def reap(process: subprocess.Popen) -> None:
+    """End what is left of a session's process group once its leader is gone.
+
+    `halt` is for a session still running; this is for the one that ended, and
+    whose `pnpm dev` did not. Nothing to wait for when the group is empty, so a
+    session that cleaned up after itself costs nothing.
+    """
+    try:
+        os.killpg(process.pid, signal.SIGTERM)
+    except (ProcessLookupError, PermissionError):
+        return
+    deadline = time.monotonic() + GRACE_SECONDS
+    while time.monotonic() < deadline:
+        try:
+            os.killpg(process.pid, 0)
+        except (ProcessLookupError, PermissionError):
+            return
+        time.sleep(0.1)
     try:
         os.killpg(process.pid, signal.SIGKILL)
     except (ProcessLookupError, PermissionError):
