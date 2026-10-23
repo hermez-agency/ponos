@@ -21,6 +21,7 @@ import { PriorityInputController } from "@/components/console/priority"
 import { api, why } from "@/lib/api"
 import { boardOnce, titleOf } from "@/lib/board-store"
 import { keeps, valuesOf } from "@/lib/goal-search"
+import { onGoalsMoved } from "@/lib/goals-store"
 import { t } from "@/lib/i18n"
 import { readScore } from "@/lib/priority"
 import type { Goal } from "@/lib/types"
@@ -329,3 +330,12 @@ export const goalsHref = () => generateLinkByResource({ resource: goals, resourc
 
 /** One goal's page. */
 export const goalHref = (id: string) => generateLinkByResource({ resource: goals, resourceAction: ActionList.read, id })
+
+/* Something moved a goal outside the package's forms — another tab, the
+ * assistant, a card of one dropped in Done: read again, and said the way the
+ * package says it after a form, so every list of them and a goal opened over
+ * one read themselves again from that same request. */
+onGoalsMoved(() => {
+  void readAgain().catch(() => null)
+  goals.onChange.publish({ data: {} as GoalItem, action: ActionList.update })
+})
