@@ -64,3 +64,25 @@ def blocks_are_chunked_below_notions_append_limit():
     assert all(len(batch) <= 100 for batch in batches)
     assert sum(len(batch) for batch in batches) == len(blocks)
     assert markdown.chunked([]) == [[]]
+
+
+@case
+def a_long_text_is_split_into_pieces_and_never_cut():
+    """Notion caps one piece of rich text, not the block: nothing past it is lost."""
+    body = "".join(f"ligne {index:05d}\n" for index in range(834))[:10_000]
+    for text in (f"```python\n{body}\n```", body.replace("\n", " ").strip()):
+        blocks = markdown.to_blocks(text)
+        assert len(blocks) == 1
+        assert markdown.plain(blocks[0]) == text
+        parts = blocks[0][blocks[0]["type"]]["rich_text"]
+        assert all(len(part["text"]["content"]) <= markdown.MAX_CONTENT for part in parts)
+
+
+@case
+def past_a_hundred_pieces_the_text_goes_on_in_the_next_block():
+    body = "x" * (markdown.MAX_CONTENT * 250)
+    blocks = markdown.to_blocks(f"```python\n{body}\n```\n\nfin")
+    assert [block["type"] for block in blocks] == ["code"] * 3 + ["paragraph"]
+    assert all(len(block["code"]["rich_text"]) <= 100 for block in blocks[:3])
+    assert all(block["code"]["language"] == "python" for block in blocks[:3])
+    assert "".join(markdown._rich(block, "code") for block in blocks[:3]) == body
