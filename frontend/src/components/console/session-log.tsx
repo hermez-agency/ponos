@@ -10,9 +10,11 @@ import { counted, useT } from "@/lib/i18n"
 import { money } from "@/lib/numbers"
 import { clock } from "@/lib/composer"
 import { FOLDED, everythingOpen, isOpen, outline, toggled, type Line, type Unfolded } from "@/lib/outline"
+import { reading } from "@/lib/phase"
 import { doing } from "@/lib/thinking"
 import type { Run, Step, Ticket } from "@/lib/types"
 import { cn } from "@/lib/utils"
+import { brief } from "@/lib/worktime"
 
 import { EmptyState } from "./empty-state"
 import { Markdown } from "./markdown"
@@ -560,17 +562,38 @@ export function Pulse({ className }: { className?: string }) {
 
 /* What a running card says, redrawn with every step: the dot, what the agent
  * is on, and how many steps it has taken. A card whose session this console
- * has not heard from yet says what the board last said, as it always did. */
+ * has not heard from yet says what the board last said, as it always did.
+ * Between two sessions — a rebase, the CI here or on GitHub — it says that
+ * phase and how long it has lasted instead: the steps of the session before
+ * it are over (see `phase.ts`). « starting… » lasts as long as a start does. */
 export function CardLive({ ticket }: { ticket: Ticket }) {
   const t = useT()
   const { sessions } = useSteps()
-  const session = sessions.find((candidate) => candidate.source === ticket.short)
+  const now = useMinute(Boolean(ticket.phase))
+  const phase = reading(ticket.phase, now)
+  const quiet = Boolean(phase?.quiet)
+  const session = quiet ? undefined : sessions.find((candidate) => candidate.source === ticket.short)
   const last = session ? lastWord(session.steps) : undefined
+  // A session that has just started has nothing to say yet, and what the
+  // board says is the session before it.
+  const fresh = Boolean(phase && phase.young && !phase.said)
   const line = last
     ? last.said
       ? shorten(last.label).replace(/[*_`#>]+/g, "").replace(/\s+/g, " ")
       : `${last.label}${last.detail ? ` · ${shorten(last.detail)}` : ""}`
-    : ticket.progress
+    : quiet || fresh
+      ? ""
+      : ticket.progress
+  const span = phase ? brief(phase.seconds) : null
+  const lasted = span ? t("for {{span}}", { span: t(span.key, span.params) }) : ""
+  const fallback = !phase
+    ? t("starting…")
+    : phase.said
+      ? ""
+      : phase.young
+        ? t("starting…")
+        : `${t("no step from the session yet")} · ${lasted}`
+  const shown = line || fallback
 
   // Without a step yet there is no counter to put on its own line: the dot
   // goes in front of what the card says instead of standing alone above it.
@@ -579,6 +602,12 @@ export function CardLive({ ticket }: { ticket: Ticket }) {
       {counted(session.count, "{{count}} step", "{{count}} steps")}
     </span>
   ) : null
+  const dot = (
+    <>
+      <Pulse />
+      <span className="sr-only">{t("writing now")}</span>
+    </>
+  )
 
   return (
     <div className="flex flex-col gap-1 text-xs" data-slot="card-live">
@@ -590,23 +619,40 @@ export function CardLive({ ticket }: { ticket: Ticket }) {
       </div>
       {counter ? (
         <div className="text-muted-foreground flex items-center gap-1.5 font-mono text-[0.7rem] whitespace-nowrap">
-          <Pulse />
-          <span className="sr-only">{t("writing now")}</span>
+          {dot}
           {counter}
         </div>
       ) : null}
-      <p
-        className="text-muted-foreground flex items-center gap-1.5"
-        title={line || undefined}
-      >
-        {counter ? null : (
-          <>
-            <Pulse />
-            <span className="sr-only">{t("writing now")}</span>
-          </>
-        )}
-        <span className="min-w-0 truncate">{line || t("starting…")}</span>
-      </p>
+      {phase?.said ? (
+        <p
+          className="text-muted-foreground flex items-center gap-1.5"
+          data-slot="card-phase"
+          title={ticket.phase?.detail || undefined}
+        >
+          {counter ? null : dot}
+          <span className="min-w-0 truncate">
+            {t(phase.said.key, phase.said.params)} · {lasted}
+          </span>
+        </p>
+      ) : null}
+      {shown ? (
+        <p className="text-muted-foreground flex items-center gap-1.5" title={line || undefined}>
+          {counter || phase?.said ? null : dot}
+          <span className="min-w-0 truncate">{shown}</span>
+        </p>
+      ) : null}
     </div>
   )
+}
+
+/** The time, again every half minute while `on`: a phase's length, and the end of « starting… ». */
+function useMinute(on: boolean): number {
+  const [now, setNow] = React.useState(() => Date.now())
+  React.useEffect(() => {
+    if (!on) return
+    setNow(Date.now())
+    const timer = window.setInterval(() => setNow(Date.now()), 30_000)
+    return () => window.clearInterval(timer)
+  }, [on])
+  return now
 }

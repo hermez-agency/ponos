@@ -2842,6 +2842,21 @@ export interface components {
             value: string;
         };
         /**
+         * @description What a ticket in progress is going through, as the runner last wrote it — see
+         *     `state.enter`.
+         */
+        Phase: {
+            /** @enum {string} */
+            key: "starting" | "session" | "rebase" | "local-ci" | "checks" | "repair" | "resolve";
+            /**
+             * @description The base for a rebase or a resolution, the command for the local CI, the pull request for
+             *     its checks or their repair.
+             */
+            detail: string;
+            /** @description When it began, ISO 8601 in UTC. */
+            since: string;
+        };
+        /**
          * @description One of a project's two pictures, as the console draws it.
          *
          *     `src` is the console's own address for the image, never the board's: a
@@ -3788,6 +3803,11 @@ export interface components {
             block?: components["schemas"]["Block"] | null;
             /** @description In review with a pull request that has checks only: where they stand — see `ci.py`. */
             ci?: components["schemas"]["Ci"] | null;
+            /**
+             * @description In progress only: what it is going through now, and since when — null when the runner
+             *     wrote nothing about it.
+             */
+            phase?: components["schemas"]["Phase"] | null;
             /** @description A code ticket's sub-type, by its key — `bug`, `docs` — or empty: see `subtypes.py`. */
             subtype?: string;
             /**
@@ -3865,6 +3885,11 @@ export interface components {
             block?: components["schemas"]["Block"] | null;
             /** @description In review with a pull request that has checks only: where they stand — see `ci.py`. */
             ci?: components["schemas"]["Ci"] | null;
+            /**
+             * @description In progress only: what it is going through now, and since when — null when the runner
+             *     wrote nothing about it.
+             */
+            phase?: components["schemas"]["Phase"] | null;
             /** @description A code ticket's sub-type, by its key — `bug`, `docs` — or empty: see `subtypes.py`. */
             subtype?: string;
             /**

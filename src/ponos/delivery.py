@@ -442,7 +442,7 @@ class Delivery(Base):
         """
         accounts = self.config.github
         rebase = self.config.runner.rebase
-        checks, checked = self._checked(url, job.workdir, job.base)
+        checks, checked = self._checked(job.ticket, url, job.workdir, job.base)
         later = False
         if checks in ("failed", "unstarted"):
             refusal = checked or self.voice.say("forced-checks-red")
@@ -481,7 +481,7 @@ class Delivery(Base):
         )
         return refusal, later
 
-    def _checked(self, url: str, workdir: Path, base: str) -> tuple[str, str]:
+    def _checked(self, ticket: Ticket, url: str, workdir: Path, base: str) -> tuple[str, str]:
         """The pull request's CI, read for what it says about *this* pull request.
 
         Red is not one thing, and only one of its kinds is a question. A flaky
@@ -503,6 +503,7 @@ class Delivery(Base):
         """
         accounts = self.config.github
         said = self.voice
+        state.enter(ticket.id, "checks", url)
         checks = git.wait_for_checks(
             url, workdir, self.config.runner.checks_timeout_minutes, accounts
         )
@@ -580,7 +581,7 @@ class Delivery(Base):
             resume=False,
         )
         try:
-            outcome = self._run_session(repairing, prompt_module.REPAIR)
+            outcome = self._run_session(repairing, prompt_module.REPAIR, phase="repair", detail=url)
         except (OSError, FileNotFoundError) as error:
             self.say(f"    ! the repair could not start: {error}")
             return "failed", checked, None
@@ -616,7 +617,7 @@ class Delivery(Base):
             )
         pushed = said.say("repair-fixed", names=names)
         git.comment_pull_request(url, f"Ponos — {said.paragraphs(pushed, told)}", accounts)
-        checks, again = self._checked(url, job.workdir, job.base)
+        checks, again = self._checked(ticket, url, job.workdir, job.base)
         if checks == "failed":
             again = said.paragraphs(said.say("repair-still-red"), again)
         return checks, said.paragraphs(pushed, told, again), outcome
@@ -975,6 +976,7 @@ class Delivery(Base):
         said = self.voice
         accounts = self.config.github
         validated = self.config.notion.state("validated")
+        state.enter(ticket.id, "rebase", job.base)
         replay = git.begin_replay(project.path, job.branch, job.base, job.workdir, generated.settle)
         if replay.error:
             return self._refused(ticket, url, replay.error)
@@ -990,7 +992,9 @@ class Delivery(Base):
         if conflicts:
             job.body = self._conflict_brief(job, url, replay)
             try:
-                outcome = self._run_session(job, prompt_module.RESOLVE)
+                outcome = self._run_session(
+                    job, prompt_module.RESOLVE, phase="resolve", detail=job.base
+                )
             except (OSError, FileNotFoundError) as error:
                 return self._fail(
                     ticket, said.say("no-session"), str(error), code="session.not-started"
@@ -1048,7 +1052,7 @@ class Delivery(Base):
         count = self._replayed(ticket, url)
         record = said.paragraphs(facts, told)
         git.comment_pull_request(url, f"Ponos — {record}", accounts)
-        checks, checked = self._checked(url, job.workdir, job.base)
+        checks, checked = self._checked(ticket, url, job.workdir, job.base)
         repair: session.Outcome | None = None
         if checks == "failed":
             checks, checked, repair = self._mend(job, url, checked)

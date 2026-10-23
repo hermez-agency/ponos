@@ -680,6 +680,17 @@ export const FRENCH: Record<string, string> = {
   "waiting for credit": "en attente de crédit",
   "Follow the session": "Suivre la session",
   "starting…": "démarrage…",
+  "no step from the session yet": "la session n'a encore rien écrit",
+  "for {{span}}": "depuis {{span}}",
+  "rebasing onto {{base}}": "rebase sur {{base}}",
+  rebasing: "rebase en cours",
+  "running the CI here": "lance la CI en local",
+  "waiting for the CI of PR #{{number}}": "attend la CI de la PR #{{number}}",
+  "waiting for the CI of the pull request": "attend la CI de la PR",
+  "fixing the CI of PR #{{number}}": "répare la CI de la PR #{{number}}",
+  "fixing the CI": "répare la CI",
+  "resolving the conflicts with {{base}}": "résout les conflits avec {{base}}",
+  "resolving the conflicts": "résout les conflits",
   "The session has not written anything yet. Its first step appears here as it happens.":
     "La session n'a encore rien écrit. Sa première étape apparaît ici dès qu'elle a lieu.",
   "No journal is left for this ticket: its session log is gone, or it never ran.":
