@@ -25,6 +25,7 @@ def _api(board):
             "tickets": [
                 {
                     "id": page.id,
+                    "short": page.id[:6],
                     "title": page.title,
                     "column": "ready",
                     "goal_id": (store.read(page, "Objectif") or [""])[0],
@@ -95,6 +96,9 @@ def tickets_are_tied_to_a_goal_from_the_goal_and_from_the_ticket():
         row = {item["name"]: item for item in api.goals()["goals"]}["Lancer la v1"]
         assert sorted(ticket["id"] for ticket in row["linked"]) == sorted([one, two]), row
         assert sum(row["tickets"].values()) == 2, row
+        # The goal's page lists them by column, each a way into its window.
+        first = next(ticket for ticket in row["linked"] if ticket["id"] == one)
+        assert first == {"id": one, "short": one[:6], "title": "un", "column": "ready"}, first
 
         # From the ticket: moved to the other goal, then released.
         api.set_ticket_goal(one, other)

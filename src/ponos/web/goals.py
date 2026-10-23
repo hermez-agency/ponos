@@ -82,7 +82,12 @@ class Goals(Base):
                 column = counts.setdefault(ticket["goal_id"], {})
                 column[ticket["column"]] = column.get(ticket["column"], 0) + 1
                 serving.setdefault(ticket["goal_id"], []).append(
-                    {"id": ticket["id"].replace("-", ""), "title": ticket.get("title", "")}
+                    {
+                        "id": ticket["id"].replace("-", ""),
+                        "short": ticket.get("short", ""),
+                        "title": ticket.get("title", ""),
+                        "column": ticket["column"],
+                    }
                 )
         rows = []
         for page in pages:

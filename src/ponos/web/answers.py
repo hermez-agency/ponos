@@ -1510,7 +1510,10 @@ class Statistics(Shape):
 
 class GoalTicket(Shape):
     id: str
+    short: str
     title: str
+    column: str
+    """The key of the board's column it stands in, as `Goal.tickets` counts it."""
 
 
 class Goal(Shape):
@@ -1533,7 +1536,7 @@ class Goal(Shape):
     """How many of the tickets pointing at it are in each column, by the column's key — counted
     from the board, not read off a rollup. A column with none is not a key."""
     linked: list[GoalTicket] = omitted()
-    """The tickets pointing at it, as the form lists them."""
+    """The tickets pointing at it, as the form lists them and its page draws them."""
 
 
 class Goals(Shape):

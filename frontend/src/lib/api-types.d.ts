@@ -2396,7 +2396,7 @@ export interface components {
             tickets: {
                 [key: string]: number;
             };
-            /** @description The tickets pointing at it, as the form lists them. */
+            /** @description The tickets pointing at it, as the form lists them and its page draws them. */
             linked?: components["schemas"]["GoalTicket"][];
         };
         GoalNamed: {
@@ -2408,7 +2408,10 @@ export interface components {
         };
         GoalTicket: {
             id: string;
+            short: string;
             title: string;
+            /** @description The key of the board's column it stands in, as `Goal.tickets` counts it. */
+            column: string;
         };
         Goals: {
             goals: components["schemas"]["Goal"][];
