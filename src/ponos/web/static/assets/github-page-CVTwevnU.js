@@ -1,0 +1,1 @@
+export{n as GithubPage}from"./github-page-CN3H60yV.js";
