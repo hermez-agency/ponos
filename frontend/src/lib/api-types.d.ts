@@ -2427,6 +2427,8 @@ export interface components {
         };
         Goals: {
             goals: components["schemas"]["Goal"][];
+            /** @description The options of the goals' status column, in the database's order. */
+            statuses: string[];
             /** @description Whether the workspace has a goals database at all. */
             configured: boolean;
             /** @description `storage.mode`: which board these came off. */

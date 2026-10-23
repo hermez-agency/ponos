@@ -69,13 +69,15 @@ const item = (goal: Goal): GoalItem => ({ ...goal, "@id": `/api/goals/${goal.id}
  * too: the statuses and the projects it offers are every goal's. */
 interface LastRead {
   goals: Goal[] | null
+  /** The options of the database's status column, which the form offers. */
+  statuses: string[]
   configured: boolean
   /** `storage.mode`: a Markdown board's goals are files, with no Notion to send to. */
   storage: string
   problem: string
 }
 
-let read: LastRead = { goals: null, configured: true, storage: "", problem: "" }
+let read: LastRead = { goals: null, statuses: [], configured: true, storage: "", problem: "" }
 const listeners = new Set<() => void>()
 
 function subscribe(listener: () => void) {
@@ -99,7 +101,13 @@ function readAgain(): Promise<Goal[]> {
   asked ??= api
     .goals()
     .then((fresh) => {
-      read = { goals: fresh.goals, configured: fresh.configured, storage: fresh.storage ?? "", problem: "" }
+      read = {
+        goals: fresh.goals,
+        statuses: fresh.statuses,
+        configured: fresh.configured,
+        storage: fresh.storage ?? "",
+        problem: "",
+      }
       listeners.forEach((listener) => listener())
       return fresh.goals
     })
@@ -179,9 +187,9 @@ const LazyEmpty = () => (
 
 /* The columns of the Objectifs database, in the order they are read; the
  * server writes the ones it finds under their names there. The statuses are
- * the database's own options, and the projects and tickets are those the
- * console already holds — a goal is tied to tickets from either side. */
-const STATUSES = ["actif", "en pause", "atteint", "abandonné"]
+ * the database's own options, as the last read found them, and the projects
+ * and tickets are those the console already holds — a goal is tied to tickets
+ * from either side. */
 
 const fields: FormInterface["inputs"] = {
   name: {
@@ -213,10 +221,10 @@ const fields: FormInterface["inputs"] = {
   status: {
     label: "Status",
     controller: SelectInputController,
-    getValueOptions: async () => [
-      { value: "", label: t("No status") },
-      ...STATUSES.map((value) => ({ value, label: value })),
-    ],
+    getValueOptions: async () => {
+      if (read.goals === null) await readAgain()
+      return [{ value: "", label: t("No status") }, ...read.statuses.map((value) => ({ value, label: value }))]
+    },
   },
   priority: {
     label: "Priority",

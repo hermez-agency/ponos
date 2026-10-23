@@ -188,11 +188,14 @@ class _Notion:
     what is under test is what the console asks of Notion, not what it shows.
     `refuse` makes the next PATCH of a page's columns answer 400, as Notion
     does to an option a status column does not offer — a refusal `update` does
-    not ask again, unlike a column whose type changed.
+    not ask again, unlike a column whose type changed. `options` are those of
+    the goals' status column: given, a row is made with the first, as Notion
+    does with a column's default, and a name it does not offer is a 400.
     """
 
-    def __init__(self, schema: dict[str, str]) -> None:
+    def __init__(self, schema: dict[str, str], options: list[str] | None = None) -> None:
         self.schemas = {"goals": schema, "projects": {"Name": "title"}}
+        self.options = options
         self.pages: dict[str, dict] = {}
         self.patches: list[tuple[str, dict]] = []
         self.refuse = False
@@ -210,6 +213,13 @@ class _Notion:
                 if kind == "title"
             },
         }
+        if self.options and database == "goals":
+            for name, kind in self.schemas[database].items():
+                if kind == "status":
+                    self.pages[page_id]["properties"][name] = {
+                        "type": kind,
+                        "status": {"name": self.options[0]},
+                    }
         return page_id
 
     def _write(self, page: dict, properties: dict) -> None:
@@ -229,7 +239,12 @@ class _Notion:
                 200,
                 json={
                     "id": parts[1],
-                    "properties": {name: {"type": kind} for name, kind in schema.items()},
+                    "properties": {
+                        name: {"type": kind}
+                        if kind != "status" or self.options is None
+                        else {"type": kind, kind: {"options": [{"name": o} for o in self.options]}}
+                        for name, kind in schema.items()
+                    },
                 },
             )
         if request.method == "POST" and parts[0] == "databases" and parts[-1] == "query":
@@ -256,6 +271,11 @@ class _Notion:
                 if self.refuse:
                     self.refuse = False
                     return httpx.Response(400, json={"message": "Invalid status option."})
+                offered = self.options
+                for name, value in body["properties"].items():
+                    if offered is not None and "status" in value:
+                        if (value["status"] or {}).get("name", "") not in offered:
+                            return httpx.Response(400, json={"message": "Invalid status option."})
                 self._write(page, body["properties"])
             if body.get("archived"):
                 page["archived"] = True
@@ -376,3 +396,24 @@ def a_goal_whose_columns_cannot_be_written_is_not_left_behind():
         # Asked again, as whoever saw the error would: one goal, not two.
         api.create_goal("Lancer la v1", {"status": "Actif", "priority": 80})
         assert [row["name"] for row in api.goals()["goals"]] == ["Lancer la v1"]
+
+
+@case
+def a_goal_created_without_a_status_takes_the_one_its_notion_status_column_defaults_to():
+    fake = _Notion(_GOALS_SCHEMA, options=["Actif", "En pause", "Atteint"])
+    with _http_answering(fake):
+        api = _notion_api(fake)
+        # What the form sends when "No status" is left: every field, the status empty.
+        values = {"name": "Lancer la v1", "description": "", "status": "", "projects": []}
+        created = api.create_goal("Lancer la v1", values)
+        listed = api.goals()
+        assert [row["name"] for row in listed["goals"]] == ["Lancer la v1"], listed
+        assert listed["goals"][0]["status"] == "Actif", "the status column's own default"
+        # The form offers the column's own options, not a word list of its own.
+        assert listed["statuses"] == ["Actif", "En pause", "Atteint"], listed
+
+        api.save_goal(created["id"], {"status": "Atteint"})
+        assert api.goals()["goals"][0]["status"] == "Atteint"
+        # A status cannot be emptied: saying none leaves the one it has.
+        api.save_goal(created["id"], {"status": "", "name": "Lancer la v2"})
+        assert api.goals()["goals"][0]["status"] == "Atteint"

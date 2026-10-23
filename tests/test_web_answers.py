@@ -80,6 +80,12 @@ def _text(value: str) -> dict:
 class _GoalsClient:
     """A workspace with two goals and a project, and nothing that reaches out."""
 
+    def schema(self, database: str) -> dict[str, str]:
+        return {"Statut": "status"} if database == "goals-db" else {}
+
+    def options(self, database: str, name: str) -> list[str]:
+        return ["À faire", "En cours", "Fait"] if (database, name) == ("goals-db", "Statut") else []
+
     def query(self, database: str, *args, **kwargs) -> list[notion.Page]:
         if database == "goals-db":
             return [
@@ -127,6 +133,7 @@ def a_goal_counts_the_tickets_the_board_lists_column_by_column():
     assert said["configured"] is True
     # Which board, for the page that would say "Notion" on a board of files.
     assert said["storage"] == "notion", said
+    assert said["statuses"] == ["À faire", "En cours", "Fait"], said
     assert [goal["name"] for goal in said["goals"]] == ["Lancer la v1", "Ranger"], said
     launch, tidy = said["goals"]
     assert launch["tickets"] == {"done": 2, "running": 1}, launch
