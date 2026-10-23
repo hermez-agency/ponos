@@ -203,7 +203,7 @@ export function ModelPicker({
           <ChevronsUpDown className="size-3 shrink-0 opacity-60" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-80 p-0" data-model-list>
+      <PopoverContent align="end" className="w-96 max-w-[calc(100vw-2rem)] p-0" data-model-list>
         <ModelList
           model={model}
           models={models}
@@ -241,7 +241,23 @@ function Choice({
   return (
     <CommandItem value={`${id} ${name}`} onSelect={() => pick(id)} data-model-option={id}>
       <Check className={cn("size-4", model === id ? "opacity-100" : "opacity-0")} />
-      <span className="truncate">{name}</span>
+      <span data-model-text="" className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="leading-snug break-words">{name}</span>
+        {name !== id || price ? (
+          <span className="text-muted-foreground flex items-baseline gap-2 font-mono text-[0.65rem] leading-tight">
+            {name !== id ? (
+              <span className="min-w-0 flex-1 truncate" title={id}>
+                {id}
+              </span>
+            ) : null}
+            {price ? (
+              <span className="shrink-0" title={t("Dollars per million tokens, read / written")}>
+                {t("{{price}} per million tokens", { price })}
+              </span>
+            ) : null}
+          </span>
+        ) : null}
+      </span>
       {listed?.tools === false ? (
         <Badge
           variant="outline"
@@ -250,12 +266,6 @@ function Choice({
         >
           {t("no tools")}
         </Badge>
-      ) : null}
-      {name !== id || price ? (
-        <span className="text-muted-foreground ml-auto flex shrink-0 flex-col items-end pl-2 font-mono text-[0.65rem] leading-tight">
-          {name !== id ? <span className="max-w-40 truncate">{id}</span> : null}
-          {price ? <span title={t("Dollars per million tokens, read / written")}>{price}</span> : null}
-        </span>
       ) : null}
     </CommandItem>
   )
