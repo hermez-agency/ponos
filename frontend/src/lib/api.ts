@@ -1,94 +1,9 @@
-import type {
-  Attached,
-  Bell,
-  Board,
-  Chat,
-  ChatSessions,
-  ChatThread,
-  ChannelsProvisioned,
-  Claimed,
-  ClaudeLogin,
-  CommandAccepted,
-  ContextSaved,
-  Decided,
-  Decision,
-  Demo,
-  Detached,
-  Doctor,
-  Github,
-  GithubDisconnected,
-  GithubTokenForgotten,
-  GithubTokenSaved,
-  HealthFixed,
-  HealthReport,
-  GoalCreated,
-  GoalNamed,
-  GoalSaved,
-  Logs,
-  LogSteps,
-  Moved,
-  NotionProvisioned,
-  Ok,
-  ProjectChoices,
-  ProviderChecked,
-  Runs,
-  ScheduleLaunched,
-  ScheduleNamed,
-  ScheduleSaved,
-  ServiceLog,
-  SetupGithub,
-  SetupState,
-  Shared,
-  Summary,
-  TicketCreated,
-  TicketGoal,
-  TicketOn,
-  Transcribed,
-  Transitions,
-  Undone,
-  Cleaned,
-  McpOverview,
-  McpServers,
-  McpTest,
-  Disk,
-  Folder,
-  GithubManifest,
-  Found,
-  IdeasPlan,
-  IdeasSettings,
-  Goals,
-  Idea,
-  Unscored,
-  IdeaList,
-  Ideas,
-  ChatModels,
-  ChatState,
-  Context,
-  Message,
-  Pair,
-  Pictures,
-  Project,
-  ProjectBrief,
-  ProjectCheck,
-  ProjectDeleted,
-  ProjectDetail,
-  Projects,
-  ProjectSettings,
-  RunnerState,
-  RunSteps,
-  UpgradeProgress,
-  Saved,
-  ScheduleActivity,
-  ScheduleDetail,
-  Schedules,
-  Settings,
-  Statistics,
-  SettingValue,
-  Talk,
-  TicketDetail,
-} from "./types"
+import createClient from "openapi-fetch"
+
+import type { components, paths } from "./api-types"
 import { t } from "./i18n"
 import { SILENT, refusalOf } from "./refusals"
+import type { Idea, IdeasSettings, Pair, ProjectSettings, SettingValue } from "./types"
 
 /* Talking to the server.
  *
@@ -100,9 +15,14 @@ import { SILENT, refusalOf } from "./refusals"
  *   never answers. The header is the difference between "the console asked" and
  *   "some page you had open asked".
  * - `credentials: "same-origin"`, which is what sends that cookie at all.
+ *
+ * The rest is openapi-fetch reading `api-types.d.ts`: a path, its method, its
+ * parameters, its body and what it answers are one entry of the schema, so a
+ * call to a route that does not exist, or a shape the route does not answer,
+ * fails to compile rather than at the first click.
  */
 
-const GUARD = { "X-Ponos": "1" }
+const client = createClient<paths>({ headers: { "X-Ponos": "1" }, credentials: "same-origin" })
 
 export class ApiError extends Error {
   readonly status: number
@@ -141,11 +61,7 @@ function backToTheDoor() {
 /** Whether the server still knows this browser — asked when the stream closes. */
 export async function signedOut(): Promise<boolean> {
   try {
-    const response = await fetch("/api/state", {
-      headers: { ...GUARD },
-      credentials: "same-origin",
-    })
-    if (response.status !== 401) return false
+    if ((await client.GET("/api/state")).response.status !== 401) return false
   } catch {
     // The server is down, not the session: the stream is tried again.
     return false
@@ -154,119 +70,120 @@ export async function signedOut(): Promise<boolean> {
   return true
 }
 
-async function request<T>(path: string, body?: unknown): Promise<T> {
-  const options: RequestInit = body
-    ? {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...GUARD },
-        body: JSON.stringify(body),
-      }
-    : { headers: { ...GUARD } }
-  return answer<T>(await fetch(path, { ...options, credentials: "same-origin" }))
-}
-
-/* A picture is sent as the file it is rather than as JSON: base64 would make
- * it a third heavier, and the server reads it straight into the upload. */
-async function upload<T>(path: string, file: Blob, name: string): Promise<T> {
-  const response = await fetch(path, {
-    method: "POST",
-    headers: { "Content-Type": file.type, "X-Filename": encodeURIComponent(name), ...GUARD },
-    body: file,
-    credentials: "same-origin",
-  })
-  return answer<T>(response)
-}
+type Violations = ApiError["data"]["violations"]
 
 /* The refusal of a server that said no sentence — kept in English like the
  * rest, and translated where it is shown. */
 const silent = (status: number) => SILENT.replace("{{status}}", String(status))
 
-async function answer<T>(response: Response): Promise<T> {
+/* What a call answered, whichever route it was: openapi-fetch gives the
+ * route's own shape as `data` when the answer is a success, and leaves it out
+ * otherwise. */
+type Answered<T> = { data?: T; error?: unknown; response: Response }
+
+async function answer<T>(pending: Promise<Answered<T>>): Promise<T> {
+  const { data, error, response } = await pending
   // Signed out underneath the page — a password changed, a cookie expired, the
   // console restarted with another token. Every call after this one would fail
   // the same way, each with its own toast: the page goes back to the door.
   if (response.status === 401) backToTheDoor()
-  const payload = await response.json().catch(() => ({}) as Record<string, unknown>)
-  if (!response.ok) {
-    const said = payload as { error?: string; violations?: ApiError["data"]["violations"] }
+  if (!response.ok || data === undefined) {
+    const said = refusal(error)
     throw new ApiError(said.error || silent(response.status), response.status, said.violations)
   }
-  return payload as T
+  return data
 }
 
-/* A body that is not JSON — a file, a recording — sent as it is, under its own
- * type. One file a request: the server streams it to disk rather than parsing
- * a multipart form the standard library no longer reads. */
-async function send<T>(path: string, body: Blob): Promise<T> {
-  const response = await fetch(path, {
-    method: "POST",
-    headers: { "Content-Type": body.type || "application/octet-stream", ...GUARD },
-    body,
-    credentials: "same-origin",
-  })
-  if (response.status === 401) backToTheDoor()
-  const payload = await response.json().catch(() => ({}) as Record<string, unknown>)
-  if (!response.ok) {
-    const said = (payload as { error?: string }).error
-    throw new ApiError(said || silent(response.status), response.status)
-  }
-  return payload as T
+/* The sentence a refusal carries. The schema describes what each route answers
+ * when it works, not the `{"error": …}` every one of them answers when it does
+ * not: it is read here, field by field, from whatever came back. */
+function refusal(payload: unknown): { error: string; violations?: Violations } {
+  if (typeof payload !== "object" || payload === null) return { error: "" }
+  const error = "error" in payload && typeof payload.error === "string" ? payload.error : ""
+  if (!("violations" in payload) || !Array.isArray(payload.violations)) return { error }
+  return { error, violations: payload.violations }
 }
+
+/* A body that is not JSON — a picture, a file, a recording — sent as it is,
+ * under its own type: base64 would make a picture a third heavier, and the
+ * server streams the bytes to disk rather than parsing a multipart form the
+ * standard library no longer reads. One file a request.
+ *
+ * The schema has no body for these routes — the server reads the raw stream,
+ * not a model, and the picture's route reads JSON from it too when what comes
+ * is not an image — so openapi-fetch builds the request without one, and the
+ * body is put in it on the way out, under the type the call already set. */
+const carrying = (body: Blob | string) => (request: Request) => fetch(new Request(request, { body }))
 
 /** Where a file of the conversation is served back from, for its thumbnail. */
 export const attachmentUrl = (id: string) => `/api/chat/attachments/${id}`
 
+/* A body's fields with a default on the server are required in the schema's
+ * types — openapi-typescript reads a default as a value always there — so a
+ * call that may leave one out sends it as that default, the one the server
+ * would have used: `createTicket` and `decide` below. */
 export const api = {
-  state: () => request<RunnerState>("/api/state"),
-  board: () => request<Board>("/api/board"),
-  projects: () => request<Projects>("/api/projects"),
-  goals: () => request<Goals>("/api/goals"),
-  context: () => request<Context>("/api/context"),
-  createGoal: (values: Record<string, unknown>) => request<GoalCreated>("/api/goals", values),
+  state: () => answer(client.GET("/api/state")),
+  board: () => answer(client.GET("/api/board")),
+  projects: () => answer(client.GET("/api/projects")),
+  goals: () => answer(client.GET("/api/goals")),
+  context: () => answer(client.GET("/api/context")),
+  createGoal: (values: Record<string, unknown>) => answer(client.POST("/api/goals", { body: values })),
   saveGoal: (id: string, values: Record<string, unknown>) =>
-    request<GoalSaved>(`/api/goals/${id}`, values),
-  deleteGoal: (id: string) => request<GoalNamed>(`/api/goals/${id}/delete`, {}),
+    answer(client.POST("/api/goals/{goal_id}", { params: { path: { goal_id: id } }, body: values })),
+  deleteGoal: (id: string) =>
+    answer(client.POST("/api/goals/{goal_id}/delete", { params: { path: { goal_id: id } } })),
   setTicketGoal: (ticket: string, goal: string) =>
-    request<TicketGoal>(`/api/tickets/${ticket}/goal`, { goal }),
-  schedules: () => request<Schedules>("/api/schedules"),
-  schedule: (id: string) => request<ScheduleDetail>(`/api/schedules/${id}`),
-  scheduleActivity: (id: string) => request<ScheduleActivity>(`/api/schedules/${id}/activity`),
-  chat: () => request<Chat>("/api/chat"),
-  chatThread: (threadId: string) =>
-    request<ChatThread>(`/api/chat/agui?threadId=${encodeURIComponent(threadId)}`),
-  runChat: (input: Record<string, unknown>) => request<ChatState>("/api/chat/agui", input),
-  settings: () => request<Settings>("/api/settings"),
-  folder: (path: string) => request<Folder>(`/api/settings/folder?path=${encodeURIComponent(path)}`),
+    answer(client.POST("/api/tickets/{ticket_id}/goal", { params: { path: { ticket_id: ticket } }, body: { goal } })),
+  schedules: () => answer(client.GET("/api/schedules")),
+  schedule: (id: string) =>
+    answer(client.GET("/api/schedules/{schedule_id}", { params: { path: { schedule_id: id } } })),
+  scheduleActivity: (id: string) =>
+    answer(client.GET("/api/schedules/{schedule_id}/activity", { params: { path: { schedule_id: id } } })),
+  chat: () => answer(client.GET("/api/chat")),
+  chatThread: (threadId: string) => answer(client.GET("/api/chat/agui", { params: { query: { threadId } } })),
+  runChat: (input: components["schemas"]["RunAgentInput"]) => answer(client.POST("/api/chat/agui", { body: input })),
+  settings: () => answer(client.GET("/api/settings")),
+  folder: (path: string) => answer(client.GET("/api/settings/folder", { params: { query: { path } } })),
   statistics: (from: string, to: string, project?: string) =>
-    request<Statistics>(
-      `/api/statistics?from=${from}&to=${to}` +
-        (project === undefined ? "" : `&project=${encodeURIComponent(project)}`)
-    ),
-  project: (id: string) => request<ProjectDetail>(`/api/projects/${id}`),
-  createProject: (values: Record<string, unknown>) => request<Project>("/api/projects", values),
+    answer(client.GET("/api/statistics", { params: { query: { from, to, project } } })),
+  project: (id: string) =>
+    answer(client.GET("/api/projects/{project_id}", { params: { path: { project_id: id } } })),
+  createProject: (values: Record<string, unknown>) => answer(client.POST("/api/projects", { body: values })),
   checkProject: (repository: string, path: string) =>
-    request<ProjectCheck>(
-      `/api/projects/check?repository=${encodeURIComponent(repository)}&path=${encodeURIComponent(path)}`
-    ),
-  projectBrief: (id: string) => request<ProjectBrief>(`/api/projects/${id}/brief`),
-  projectSettings: (id: string) => request<ProjectSettings>(`/api/projects/${id}/settings`),
-  ticket: (id: string) => request<TicketDetail>(`/api/tickets/${id}`),
-  talk: (id: string) => request<Talk>(`/api/tickets/${id}/talk`),
+    answer(client.GET("/api/projects/check", { params: { query: { repository, path } } })),
+  projectBrief: (id: string) =>
+    answer(client.GET("/api/projects/{project_id}/brief", { params: { path: { project_id: id } } })),
+  projectSettings: (id: string) =>
+    answer(client.GET("/api/projects/{project_id}/settings", { params: { path: { project_id: id } } })),
+  ticket: (id: string) =>
+    answer(client.GET("/api/tickets/{ticket_id}", { params: { path: { ticket_id: id } } })),
+  talk: (id: string) =>
+    answer(client.GET("/api/tickets/{ticket_id}/talk", { params: { path: { ticket_id: id } } })),
   logs: (ticket = "") =>
-    request<Logs>(ticket ? `/api/logs?ticket=${encodeURIComponent(ticket)}` : "/api/logs"),
-  log: (name: string) =>
-    request<LogSteps>(`/api/logs/${encodeURIComponent(name)}`),
-  runs: (id: string) => request<Runs>(`/api/tickets/${id}/runs`),
+    answer(client.GET("/api/logs", { params: { query: { ticket: ticket || undefined } } })),
+  log: (name: string) => answer(client.GET("/api/logs/{name}", { params: { path: { name } } })),
+  runs: (id: string) =>
+    answer(client.GET("/api/tickets/{ticket_id}/runs", { params: { path: { ticket_id: id } } })),
   /** The executions of a ticket's « On » prompt, newest first. */
   transitions: (id: string) =>
-    request<Transitions>(`/api/tickets/${id}/transitions`),
+    answer(client.GET("/api/tickets/{ticket_id}/transitions", { params: { path: { ticket_id: id } } })),
   /** Write the prompt run at every change of the ticket's status; empty removes it. */
-  setOn: (id: string, on: string) => request<TicketOn>(`/api/tickets/${id}/on`, { on }),
+  setOn: (id: string, on: string) =>
+    answer(client.POST("/api/tickets/{ticket_id}/on", { params: { path: { ticket_id: id } }, body: { on } })),
   /** A run's last steps; `before`, those older than a position; `after`, those newer. */
   runSteps: (run: number, page: { before?: number; after?: number } = {}) =>
-    request<RunSteps>(
-      `/api/runs/${run}/steps` +
-        (page.after ? `?after=${page.after}` : page.before ? `?before=${page.before}` : "")
+    answer(
+      client.GET("/api/runs/{run}/steps", {
+        params: {
+          path: { run },
+          query: page.after
+            ? { after: String(page.after) }
+            : page.before
+              ? { before: String(page.before) }
+              : {},
+        },
+      })
     ),
 
   createTicket: (ticket: {
@@ -284,61 +201,98 @@ export const api = {
     subtype?: string
     /** The page of the goal it serves; empty for none. */
     goal?: string
-  }) => request<TicketCreated>("/api/tickets", ticket),
+  }) =>
+    answer(
+      client.POST("/api/tickets", {
+        body: { priority: "", type: "", model: "", subtype: "", on: "", goal: "", ...ticket },
+      })
+    ),
   /** `from` is the status the card showed: Notion saying anything else by the
    * time the write goes out is somebody else's move, not overwritten. */
   setStatus: (id: string, column: string, from?: string) =>
-    request<Moved>(`/api/tickets/${id}/status`, {
-      column,
-      from,
-    }),
+    answer(
+      client.POST("/api/tickets/{ticket_id}/status", {
+        params: { path: { ticket_id: id } },
+        body: { column, from },
+      })
+    ),
   tell: (id: string, text: string) =>
-    request<Message>(`/api/tickets/${id}/talk`, { text }),
+    answer(client.POST("/api/tickets/{ticket_id}/talk", { params: { path: { ticket_id: id } }, body: { text } })),
   /** What a blocked card, or one in review, offers to do about it. */
-  decision: (id: string) => request<Decision>(`/api/tickets/${id}/decision`),
+  decision: (id: string) =>
+    answer(client.GET("/api/tickets/{ticket_id}/decision", { params: { path: { ticket_id: id } } })),
   decide: (
     id: string,
     choice: { key: string; number?: number; text?: string; model?: string; titles?: string[] }
   ) =>
-    request<Decided>(
-      `/api/tickets/${id}/decision`,
-      choice
+    answer(
+      client.POST("/api/tickets/{ticket_id}/decision", {
+        params: { path: { ticket_id: id } },
+        body: { number: 0, text: "", model: "", ...choice },
+      })
     ),
-  command: (line: string) => request<CommandAccepted>("/api/command", { line }),
+  command: (line: string) => answer(client.POST("/api/command", { body: { line } })),
   send: (text: string, attachments: string[] = []) =>
-    request<ChatState>("/api/chat", { text, attachments }),
+    answer(client.POST("/api/chat", { body: { text, attachments } })),
   attach: (file: File, name: string) =>
-    send<Attached>(`/api/chat/attachments?name=${encodeURIComponent(name)}`, file),
-  detach: (id: string) => request<Detached>(`/api/chat/attachments/${id}/remove`, {}),
-  transcribe: (audio: Blob, language: string) =>
-    send<Transcribed>(
-      `/api/chat/transcribe?lang=${encodeURIComponent(language)}`,
-      audio
+    answer(
+      client.POST("/api/chat/attachments", {
+        params: { query: { name } },
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+        fetch: carrying(file),
+      })
     ),
-  resetChat: () => request<ChatState>("/api/chat/reset", {}),
-  sessions: (query = "") =>
-    request<ChatSessions>(`/api/chat/sessions?q=${encodeURIComponent(query)}`),
-  openSession: (id: string) => request<ChatState>(`/api/chat/sessions/${id}/open`, {}),
+  detach: (id: string) =>
+    answer(
+      client.POST("/api/chat/attachments/{identifier}/remove", { params: { path: { identifier: id } } })
+    ),
+  transcribe: (audio: Blob, language: string) =>
+    answer(
+      client.POST("/api/chat/transcribe", {
+        params: { query: { lang: language } },
+        headers: { "Content-Type": audio.type || "application/octet-stream" },
+        fetch: carrying(audio),
+      })
+    ),
+  resetChat: () => answer(client.POST("/api/chat/reset")),
+  sessions: (query = "") => answer(client.GET("/api/chat/sessions", { params: { query: { q: query } } })),
+  openSession: (id: string) =>
+    answer(client.POST("/api/chat/sessions/{identifier}/open", { params: { path: { identifier: id } } })),
   renameSession: (id: string, title: string) =>
-    request<ChatState>(`/api/chat/sessions/${id}/rename`, { title }),
-  deleteSession: (id: string) => request<ChatState>(`/api/chat/sessions/${id}/delete`, {}),
-  chatModels: () => request<ChatModels>("/api/chat/models"),
-  setChatModel: (model: string) => request<ChatState>("/api/chat/model", { model }),
+    answer(
+      client.POST("/api/chat/sessions/{identifier}/rename", {
+        params: { path: { identifier: id } },
+        body: { title },
+      })
+    ),
+  deleteSession: (id: string) =>
+    answer(client.POST("/api/chat/sessions/{identifier}/delete", { params: { path: { identifier: id } } })),
+  chatModels: () => answer(client.GET("/api/chat/models")),
+  setChatModel: (model: string) => answer(client.POST("/api/chat/model", { body: { model } })),
   linkSession: (id: string, project: string) =>
-    request<ChatState>(`/api/chat/sessions/${id}/project`, { project }),
-  stopChat: () => request<ChatState>("/api/chat/stop", {}),
-  unqueue: (id: string) => request<ChatState>(`/api/chat/queue/${id}/remove`, {}),
-  amend: (id: string, text: string) => request<ChatState>(`/api/chat/queue/${id}/edit`, { text }),
-  releaseQueue: () => request<ChatState>("/api/chat/queue/send", {}),
-  discardQueue: () => request<ChatState>("/api/chat/queue/discard", {}),
+    answer(
+      client.POST("/api/chat/sessions/{identifier}/project", {
+        params: { path: { identifier: id } },
+        body: { project },
+      })
+    ),
+  stopChat: () => answer(client.POST("/api/chat/stop")),
+  unqueue: (id: string) =>
+    answer(client.POST("/api/chat/queue/{identifier}/remove", { params: { path: { identifier: id } } })),
+  amend: (id: string, text: string) =>
+    answer(
+      client.POST("/api/chat/queue/{identifier}/edit", { params: { path: { identifier: id } }, body: { text } })
+    ),
+  releaseQueue: () => answer(client.POST("/api/chat/queue/send")),
+  discardQueue: () => answer(client.POST("/api/chat/queue/discard")),
   saveSettings: (payload: {
     settings: Record<string, SettingValue>
     projects?: Pair[]
     github?: Pair[]
-  }) => request<Saved>("/api/settings", payload),
-  saveContext: (text: string) => request<ContextSaved>("/api/context", { text }),
+  }) => answer(client.POST("/api/settings", { body: payload })),
+  saveContext: (text: string) => answer(client.POST("/api/context", { body: { text } })),
   saveProject: (id: string, values: Record<string, unknown>) =>
-    request<ProjectDetail>(`/api/projects/${id}`, values),
+    answer(client.POST("/api/projects/{project_id}", { params: { path: { project_id: id } }, body: values })),
   saveProjectSettings: (
     id: string,
     values: {
@@ -346,37 +300,58 @@ export const api = {
       ideas?: { enabled: boolean }
       local_ci?: { enabled: boolean; command: string }
     }
-  ) => request<ProjectSettings>(`/api/projects/${id}/settings`, values),
+  ) =>
+    answer(
+      client.POST("/api/projects/{project_id}/settings", { params: { path: { project_id: id } }, body: values })
+    ),
   deleteProject: (id: string, values: { confirm: string; trash_tickets: boolean }) =>
-    request<ProjectDeleted>(`/api/projects/${id}/delete`, values),
+    answer(
+      client.POST("/api/projects/{project_id}/delete", { params: { path: { project_id: id } }, body: values })
+    ),
   setPicture: (
     id: string,
     slot: "cover" | "icon",
     value: { url: string } | { emoji: string } | { remove: true }
-  ) => request<Pictures>(`/api/projects/${id}/image/${slot}`, value),
+  ) =>
+    answer(
+      client.POST("/api/projects/{project_id}/image/{slot}", {
+        params: { path: { project_id: id, slot } },
+        headers: { "Content-Type": "application/json" },
+        fetch: carrying(JSON.stringify(value)),
+      })
+    ),
   uploadPicture: (id: string, slot: "cover" | "icon", file: Blob, name: string) =>
-    upload<Pictures>(`/api/projects/${id}/image/${slot}`, file, name),
+    answer(
+      client.POST("/api/projects/{project_id}/image/{slot}", {
+        params: { path: { project_id: id, slot } },
+        headers: { "Content-Type": file.type, "X-Filename": encodeURIComponent(name) },
+        fetch: carrying(file),
+      })
+    ),
   saveSchedule: (id: string, values: Record<string, unknown>) =>
-    request<ScheduleSaved>(`/api/schedules/${id}`, values),
+    answer(
+      client.POST("/api/schedules/{schedule_id}", { params: { path: { schedule_id: id } }, body: values })
+    ),
   launchSchedule: (id: string) =>
-    request<ScheduleLaunched>(`/api/schedules/${id}/launch`, {}),
+    answer(client.POST("/api/schedules/{schedule_id}/launch", { params: { path: { schedule_id: id } } })),
   deleteSchedule: (id: string) =>
-    request<ScheduleNamed>(`/api/schedules/${id}/delete`, {}),
-  createSchedule: (values: Record<string, unknown>) =>
-    request<ScheduleNamed>("/api/schedules", values),
+    answer(client.POST("/api/schedules/{schedule_id}/delete", { params: { path: { schedule_id: id } } })),
+  createSchedule: (values: Record<string, unknown>) => answer(client.POST("/api/schedules", { body: values })),
   ideas: (project = "") =>
-    request<Ideas>(`/api/ideas${project ? `?project=${encodeURIComponent(project)}` : ""}`),
+    answer(client.GET("/api/ideas", { params: { query: { project: project || undefined } } })),
   /** When ideas are found on their own, for which projects, and how the last pass went. */
-  ideasPlan: () => request<IdeasPlan>("/api/ideas/schedule"),
+  ideasPlan: () => answer(client.GET("/api/ideas/schedule")),
   /** The settings the dialog changed, and the ids of the projects ticked when only some are covered. */
   saveIdeasPlan: (values: Partial<IdeasSettings> & { projects?: string[] }) =>
-    request<IdeasPlan>("/api/ideas/schedule", values),
+    answer(client.POST("/api/ideas/schedule", { body: values })),
   /** An empty `project` is the workspace's ideas. */
-  findIdeas: (project = "") => request<Found>("/api/ideas/generate", { project }),
+  findIdeas: (project = "") => answer(client.POST("/api/ideas/generate", { body: { project } })),
   /** Every idea of one scope, thrown away and turned into tickets included. */
   allIdeas: (project = "", everywhere = false) =>
-    request<IdeaList>(
-      `/api/ideas/all${everywhere ? "?scope=all" : project ? `?project=${encodeURIComponent(project)}` : ""}`
+    answer(
+      client.GET("/api/ideas/all", {
+        params: { query: everywhere ? { scope: "all" } : { project: project || undefined } },
+      })
     ),
   /** An idea written by hand; an empty `project` is the workspace's. */
   writeIdea: (values: {
@@ -385,84 +360,86 @@ export const api = {
     project: string
     kind?: Idea["kind"]
     category?: Idea["category"]
-  }) => request<Idea>("/api/ideas", values),
+  }) => answer(client.POST("/api/ideas", { body: values })),
   editIdea: (id: number, values: { title: string; description: string; category?: Idea["category"] }) =>
-    request<Idea>(`/api/ideas/${id}`, values),
+    answer(client.POST("/api/ideas/{number}", { params: { path: { number: id } }, body: values })),
   /** Kept for later: nothing is written on the board. */
-  keepIdea: (id: number) => request<Idea>(`/api/ideas/${id}/keep`, {}),
-  discardIdea: (id: number) => request<Idea>(`/api/ideas/${id}/discard`, {}),
+  keepIdea: (id: number) =>
+    answer(client.POST("/api/ideas/{number}/keep", { params: { path: { number: id } } })),
+  discardIdea: (id: number) =>
+    answer(client.POST("/api/ideas/{number}/discard", { params: { path: { number: id } } })),
   /** A draft ticket — or, for the idea of a project, the project and its first ticket. */
-  ticketIdea: (id: number) => request<Idea>(`/api/ideas/${id}/ticket`, {}),
-  reopenIdea: (id: number) => request<Idea>(`/api/ideas/${id}/reopen`, {}),
+  ticketIdea: (id: number) =>
+    answer(client.POST("/api/ideas/{number}/ticket", { params: { path: { number: id } } })),
+  reopenIdea: (id: number) =>
+    answer(client.POST("/api/ideas/{number}/reopen", { params: { path: { number: id } } })),
   /** How many ideas have no score, and what scoring them may cost at most — said before it starts.
    * `project` null is every scope's, "" the workspace's. */
   unscoredIdeas: (project: string | null = null) =>
-    request<Unscored>(
-      `/api/ideas/unscored${project === null ? "?scope=all" : project ? `?project=${encodeURIComponent(project)}` : ""}`
+    answer(
+      client.GET("/api/ideas/unscored", {
+        params: { query: project === null ? { scope: "all" } : { project: project || undefined } },
+      })
     ),
   /** Scores them, behind the answer: the list is told as each batch is done. */
   scoreIdeas: (project: string | null = null) =>
-    request<Unscored>("/api/ideas/score", project === null ? {} : { project }),
+    answer(client.POST("/api/ideas/score", { body: project === null ? {} : { project } })),
   /** Takes back the last decision of one scope. */
-  undoIdea: (project = "") => request<Undone>("/api/ideas/undo", { project }),
-  refresh: () => request<Ok>("/api/refresh", {}),
+  undoIdea: (project = "") => answer(client.POST("/api/ideas/undo", { body: { project } })),
+  refresh: () => answer(client.POST("/api/refresh")),
   /** One notification read, or all of them; the bell it leaves is the answer. */
   readNotifications: (id?: number) =>
-    request<Bell>("/api/notifications/read", id === undefined ? {} : { id }),
+    answer(client.POST("/api/notifications/read", { body: id === undefined ? {} : { id } })),
   /** What is wrong with the installation: as checked a few minutes ago at most, or now when `fresh`. */
-  health: (fresh = false) => request<HealthReport>(fresh ? "/api/health?fresh=true" : "/api/health"),
+  health: (fresh = false) => answer(client.GET("/api/health", { params: { query: fresh ? { fresh } : {} } })),
   /** One fix a check offered — the page has asked first, and says so. */
   fixHealth: (action: string, target: string) =>
-    request<HealthFixed>("/api/health/fix", { action, target, confirmed: true }),
-  disk: () => request<Disk>("/api/disk"),
-  clean: () => request<Cleaned>("/api/disk/clean", {}),
-  mcp: () => request<McpOverview>("/api/mcp"),
-  githubApps: () => request<Github>("/api/github"),
-  saveGithubToken: (token: string) =>
-    request<GithubTokenSaved>("/api/github/token", { token }),
-  forgetGithubToken: () =>
-    request<GithubTokenForgotten>("/api/github/token/forget", {}),
+    answer(client.POST("/api/health/fix", { body: { action, target, confirmed: true } })),
+  disk: () => answer(client.GET("/api/disk")),
+  clean: () => answer(client.POST("/api/disk/clean")),
+  mcp: () => answer(client.GET("/api/mcp")),
+  githubApps: () => answer(client.GET("/api/github")),
+  saveGithubToken: (token: string) => answer(client.POST("/api/github/token", { body: { token } })),
+  forgetGithubToken: () => answer(client.POST("/api/github/token/forget")),
   connectGithub: (organisation: string) =>
-    request<GithubManifest>("/api/github/connect", { organisation }),
-  disconnectGithub: (slug: string) =>
-    request<GithubDisconnected>("/api/github/disconnect", { slug }),
+    answer(client.POST("/api/github/connect", { body: { organisation } })),
+  disconnectGithub: (slug: string) => answer(client.POST("/api/github/disconnect", { body: { slug } })),
   /* Slow, and so its own call: Claude Code starts every server to see if it answers. */
-  mcpServers: () => request<McpServers>("/api/mcp/servers"),
-  testMcp: (target: "local" | "public") => request<McpTest>("/api/mcp/test", { target }),
+  mcpServers: () => answer(client.GET("/api/mcp/servers")),
+  testMcp: (target: "local" | "public") => answer(client.POST("/api/mcp/test", { body: { target } })),
   /* Nothing in the body: which version, and how it is installed, is the
    * server's to know. */
-  upgrade: () => request<UpgradeProgress>("/api/update", {}),
-  cancelUpgrade: () => request<UpgradeProgress>("/api/update/cancel", {}),
+  upgrade: () => answer(client.POST("/api/update")),
+  cancelUpgrade: () => answer(client.POST("/api/update/cancel")),
 
   /* The first connection. Its own state is asked without the door's reload:
    * a console nobody has claimed answers it to anybody, and a 401 there is an
    * answer to draw — the sign-in — not a page to leave. */
-  setupState: async (): Promise<SetupState | null> => {
-    const response = await fetch("/api/setup", { headers: { ...GUARD }, credentials: "same-origin" })
-    return response.ok ? ((await response.json()) as SetupState) : null
-  },
+  setupState: async () => (await client.GET("/api/setup")).data ?? null,
   claim: (typed: { code: string; email: string; password: string; confirm: string; language?: string }) =>
-    request<Claimed>("/api/setup", typed),
-  summary: () => request<Summary>("/api/setup/summary"),
-  setupDone: () => request<{ ok: boolean }>("/api/setup/done", {}),
-  claudeLogin: () => request<ClaudeLogin>("/api/setup/claude"),
+    answer(client.POST("/api/setup", { body: typed })),
+  summary: () => answer(client.GET("/api/setup/summary")),
+  setupDone: () => answer(client.POST("/api/setup/done")),
+  claudeLogin: () => answer(client.GET("/api/setup/claude")),
   /* `save: false` only tries the key — the settings' Test button — and writes nothing. */
   saveProvider: (chosen: { provider: string; key?: string; route_sessions?: boolean; save?: boolean }) =>
-    request<ProviderChecked>("/api/setup/provider", chosen),
+    answer(client.POST("/api/setup/provider", { body: chosen })),
   saveNotion: (typed: { token: string; page: string; workspace?: string }) =>
-    request<NotionProvisioned>("/api/setup/notion", typed),
+    answer(client.POST("/api/setup/notion", { body: typed })),
   /* Asked again every few seconds while somebody is in Notion sharing a page. */
   sharedWithNotion: (token: string) =>
-    token ? request<Shared>("/api/setup/notion/shared", { token }) : request<Shared>("/api/setup/notion"),
-  setupProjects: () => request<ProjectChoices>("/api/setup/projects"),
+    token
+      ? answer(client.POST("/api/setup/notion/shared", { body: { token } }))
+      : answer(client.GET("/api/setup/notion")),
+  setupProjects: () => answer(client.GET("/api/setup/projects")),
   startDemo: (chosen: { project: string; language: string }) =>
-    request<TicketCreated>("/api/setup/demo", chosen),
-  demo: (id: string) => request<Demo>(`/api/setup/demo?id=${encodeURIComponent(id)}`),
-  doctor: () => request<Doctor>("/api/setup/doctor"),
-  serviceLog: () => request<ServiceLog>("/api/service-log"),
-  github: () => request<SetupGithub>("/api/setup/github"),
+    answer(client.POST("/api/setup/demo", { body: chosen })),
+  demo: (id: string) => answer(client.GET("/api/setup/demo", { params: { query: { id } } })),
+  doctor: () => answer(client.GET("/api/setup/doctor")),
+  serviceLog: () => answer(client.GET("/api/service-log")),
+  github: () => answer(client.GET("/api/setup/github")),
   saveChannels: (typed: Record<string, string>) =>
-    request<ChannelsProvisioned>("/api/setup/channels", typed),
+    answer(client.POST("/api/setup/channels", { body: typed })),
 }
 
 /** The message of whatever went wrong, however it went wrong — in the page's language when it is one the server is known to say. */

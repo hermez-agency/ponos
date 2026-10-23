@@ -661,7 +661,9 @@ def the_console_is_downloaded_once_and_compressed():
     # (501 kB since pausing a ticket: the first load was 35 bytes under; 502 kB
     # since the billing cause, whose French renamed the lazy chunks the bundle
     # names — main was 1 byte under, and the new names were 1 byte heavier;
-    # and 503 kB since the plan's bar on a running card).
+    # and 503 kB since the plan's bar on a running card, and api.ts naming each
+    # route by its path in the schema, for openapi-fetch to hold the call to it
+    # — 0.4 kB the first load could not do without).
     # For a reader of French, that is with the dictionary the page then asks
     # for: the heavier of the two first loads is the one held to the budget.
     page = (STATIC / "index.html").read_text(encoding="utf-8")
@@ -1539,10 +1541,11 @@ def no_two_routes_of_the_console_answer_one_path():
 def the_console_route_of_one_project_is_the_one_the_page_asks_for():
     """The address the browser builds has to be an address the server answers.
 
-    They are written in two languages and checked by nobody at build time: the
-    page asks `/api/projects/<id>`, and the server matches that route with a
-    pattern of its own. A 404 there reads, in the browser, as a project that
-    could not be read.
+    They are written in two languages: the page asks `/api/projects/{project_id}`
+    — a path of the schema, which the compiler holds it to — and the server
+    matches that route with a pattern of its own, which the schema does not
+    carry. A 404 there reads, in the browser, as a project that could not be
+    read.
     """
     from ponos.web import routes
 
@@ -1553,9 +1556,9 @@ def the_console_route_of_one_project_is_the_one_the_page_asks_for():
         if "GET" in route.methods and route.path_regex.fullmatch(asked)
     ]
     assert routed == ["project"], f"{asked} is not a route this server answers: {routed}"
-    assert "`/api/projects/${id}`" in (FRONTEND / "src/lib/api.ts").read_text(encoding="utf-8"), (
-        "the console asks for a project somewhere else now"
-    )
+    assert 'client.GET("/api/projects/{project_id}"' in (FRONTEND / "src/lib/api.ts").read_text(
+        encoding="utf-8"
+    ), "the console asks for a project somewhere else now"
 
 
 @case
