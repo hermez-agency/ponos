@@ -120,10 +120,17 @@ def a_command_that_runs_too_long_takes_what_it_started_with_it():
     assert events[-1] == ("command", {"stage": "ended", "code": events[-1][1]["code"]})
     assert events[-1][1]["code"] != 0
     assert any("stopped after" in said.get("text", "") for _, said in events), events
-    try:
-        stat = Path(f"/proc/{child}/stat").read_text()
-    except OSError:
-        return  # gone entirely
+    # SIGKILL is delivered, not instantaneous: the child may still be scheduled
+    # for a moment after the group's leader was reaped.
+    deadline = time.monotonic() + 5
+    while True:
+        try:
+            stat = Path(f"/proc/{child}/stat").read_text()
+        except OSError:
+            return  # gone entirely
+        if stat.split(")")[-1].split()[0] in ("Z", "X") or time.monotonic() > deadline:
+            break
+        time.sleep(0.05)
     assert stat.split(")")[-1].split()[0] in ("Z", "X"), f"the child is still running: {stat}"
 
 
