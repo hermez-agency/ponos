@@ -368,6 +368,11 @@ def schedules(request: Request) -> Response:
     return answer(_api(request).schedules())
 
 
+@router.get("/api/schedules/{schedule_id:page}/activity", response_model=answers.ScheduleActivity)
+def schedule_activity(request: Request, schedule_id: str) -> Response:
+    return answer(_api(request).schedule_activity(schedule_id))
+
+
 @router.get("/api/schedules/{schedule_id:page}", response_model=answers.ScheduleDetail)
 def schedule(request: Request, schedule_id: str) -> Response:
     return answer(_api(request).schedule(schedule_id))

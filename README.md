@@ -2932,9 +2932,22 @@ it**, without deleting anything and without opening a form. *Calendar* is for th
 question a schedule really answers — when the next one lands: the occurrences are laid out
 by day, week or month, and clicking one opens what it will make.
 
+*Split*, the layout the page opens on, is the projects' two columns: the schedules on the
+left — rule, switch, next run, project, a badge when something is wrong — and on the right
+the one picked, in the address (`&schedule=<id>`) so a link opens on it: its header and its
+actions (run now, edit, delete, the switch that pauses it), what it made — tickets, their
+standing, their total and average cost, their average duration, how many of those that
+finished are done, a chart by week — and three tabs under them: *Tickets*, every ticket it
+made, newest first, each opening in its window; *Runs*, every pass, with the ticket it made
+or why it made none (skipped because the last one was still open, or refused by the board);
+*Settings*, its form, written on the spot. On a phone the one picked takes the whole screen,
+with a way back to the list. The runner keeps a line per occurrence in `ponos.db` for this;
+the tickets made before it did are found by its history and by their dated title
+(`web/lineage.py`), and the passes that made none before it are not known.
+
 *New schedule* and the name of a row open the window that writes the six columns a schedule
-is written in — the cadence, the hour, the day, the tick, and the model and priority the
-ticket inherits — as buttons rather than selects: the day only appears for a weekly or a
+is written in — the cadence, the hour, the day, the tick, and the project, model and priority
+the ticket inherits — as buttons rather than selects: the day only appears for a weekly or a
 monthly one, the hour is a time field, and a line under them says when the next ticket is born.
 Never `Next`, `Last` or the ticket the last occurrence made: those are what a *pass* writes
 back, and a console that let you edit them would let you make an occurrence happen twice.

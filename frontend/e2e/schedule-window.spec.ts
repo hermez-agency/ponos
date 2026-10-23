@@ -10,7 +10,7 @@ import { expect, test, type Page } from "@playwright/test"
  * the board: a schedule more is one more row for `schedules.spec.ts` to count.
  */
 
-const LIST = "/?view=console/schedules/list"
+const LIST = "/?view=console/schedules/list&variant=table"
 
 test.use({ locale: "fr-FR", timezoneId: "Europe/Paris" })
 

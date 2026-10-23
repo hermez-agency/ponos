@@ -1,5 +1,16 @@
 import * as React from "react"
-import { CalendarCheck, CalendarClock, CalendarOff, ExternalLink, Loader2, Play, SearchX, Trash2, X } from "lucide-react"
+import {
+  CalendarCheck,
+  CalendarClock,
+  CalendarOff,
+  Columns2,
+  ExternalLink,
+  Loader2,
+  Play,
+  SearchX,
+  Trash2,
+  X,
+} from "lucide-react"
 import { toast } from "sonner"
 import {
   ActionList,
@@ -13,19 +24,16 @@ import {
   createViewResource,
   generateLinkByResource,
   Link,
-  ListCalendar,
-  ListTable,
   layout,
   useCurrentViewResourceContext,
   useListViewContext,
   useNavigate,
-  type ListComponentPropsInterface,
-  type RowComponentPropsInterface,
   type RowInterface,
 } from "react-resource-view"
 
 import { ConfirmDialog } from "@/components/console/confirm-dialog"
 import { EmptyState } from "@/components/console/empty-state"
+import { listFilters } from "@/components/console/filter-bar"
 import { ModelInputController } from "@/components/console/model-input"
 import { MarkdownInputController } from "@/components/console/markdown-editor"
 import { choiceWord } from "@/components/console/ticket-bits"
@@ -53,7 +61,7 @@ import { useRoute } from "@/lib/router"
 import { setRunnerZone } from "@/lib/runner-zone"
 import { STATES, filtering, keeps } from "@/lib/schedule-search"
 import type { Schedule, Schedules } from "@/lib/types"
-import { ideasHref } from "@/resources/ideas"
+import type { Launch } from "@/components/console/schedule-lists"
 import { projectsOnce, projectsRead, useProjects } from "@/resources/projects"
 import { projectChoices, ticketHref } from "@/resources/tickets"
 
@@ -112,7 +120,7 @@ export interface ScheduleWrite {
   body?: string
 }
 
-const item = (schedule: Schedule & { body?: string }): ScheduleItem => ({
+export const item = (schedule: Schedule & { body?: string }): ScheduleItem => ({
   ...schedule,
   "@id": `/api/schedules/${schedule.id}`,
   "@type": SCHEDULES,
@@ -152,12 +160,12 @@ function subscribe(listener: () => void) {
 }
 
 /** What the list last read, redrawn with it. */
-function useSchedules(): LastRead {
+export function useSchedules(): LastRead {
   return React.useSyncExternalStore(subscribe, () => read)
 }
 
 /** The rows, and the three facts that travel with them. */
-async function load(): Promise<Schedules> {
+export async function load(): Promise<Schedules> {
   try {
     const fresh = await api.schedules()
     publish({ drawn: fresh, problem: "" })
@@ -198,8 +206,9 @@ function useLaunching(id: string) {
   return all.has(id)
 }
 
-/** The play button: the schedule's occurrence made now, `Next` left where it was. */
-function LaunchButton({ id, className }: { id: string; className?: string }) {
+/** The play button: the schedule's occurrence made now, `Next` left where it was.
+ * `labelled`, in a schedule's own header, where there is room to say it. */
+export function LaunchButton({ id, className, labelled = false }: { id: string; className?: string; labelled?: boolean }) {
   const busy = useLaunching(id)
   const navigate = useNavigate()
   const label = t("Run now")
@@ -226,8 +235,8 @@ function LaunchButton({ id, className }: { id: string; className?: string }) {
   return (
     <Button
       type="button"
-      variant="ghost"
-      size="icon-sm"
+      variant={labelled ? "outline" : "ghost"}
+      size={labelled ? "sm" : "icon-sm"}
       className={className}
       disabled={busy}
       onClick={launch}
@@ -236,6 +245,7 @@ function LaunchButton({ id, className }: { id: string; className?: string }) {
       data-launch
     >
       {busy ? <Loader2 className="animate-spin" /> : <Play />}
+      {labelled ? label : null}
     </Button>
   )
 }
@@ -244,7 +254,17 @@ function LaunchButton({ id, className }: { id: string; className?: string }) {
  * nothing more is born from it. The tickets it already made stay where they are.
  * Drawn wherever a schedule is — the row, the card, the window, the calendar's
  * preview — so that no layout is without the gesture. */
-function DeleteButton({ id, name, className }: { id: string; name: string; className?: string }) {
+export function DeleteButton({
+  id,
+  name,
+  className,
+  labelled = false,
+}: {
+  id: string
+  name: string
+  className?: string
+  labelled?: boolean
+}) {
   const navigate = useNavigate()
   const label = t("Delete the schedule")
   const confirm = async () => {
@@ -278,8 +298,8 @@ function DeleteButton({ id, name, className }: { id: string; name: string; class
       trigger={
         <Button
           type="button"
-          variant="ghost"
-          size="icon-sm"
+          variant={labelled ? "outline" : "ghost"}
+          size={labelled ? "sm" : "icon-sm"}
           className={className}
           title={label}
           aria-label={`${label} — ${name}`}
@@ -287,6 +307,7 @@ function DeleteButton({ id, name, className }: { id: string; name: string; class
           onClick={(event) => event.stopPropagation()}
         >
           <Trash2 />
+          {labelled ? t("Delete") : null}
         </Button>
       }
     />
@@ -464,7 +485,7 @@ const editForm: FormInterface = {
  * where its history is (the comments, the edits, what Notion draws that a form
  * does not), one icon further. The table's cell and the phone's card draw the
  * same one. */
-function ScheduleName({ id, name, url }: { id: string; name: string; url: string }) {
+export function ScheduleName({ id, name, url }: { id: string; name: string; url: string }) {
   const open = useOpensOverTheList(schedules, "update", id)
   return (
     <span className="inline-flex min-w-0 items-center gap-1.5">
@@ -505,7 +526,7 @@ const PageLink: InputControllerComponentInterface = ({ formInput }) => {
  * columns — the cadence, the hour, the day — that said an hourly schedule ran
  * "at 00:00" on no day at all. A cadence the runner does not know has no
  * sentence: it is drawn as the board says it. */
-const ruleSaid = (schedule: Partial<Schedule>) => {
+export const ruleSaid = (schedule: Partial<Schedule>) => {
   const cadence = String(schedule.cadence ?? "")
   const rule = ruleOf({ cadence, at: String(schedule.at ?? ""), day: String(schedule.day ?? "") })
   return rule || (cadence ? t(cadence) : "")
@@ -519,7 +540,7 @@ const RuleCell: InputControllerComponentInterface = () => {
 /* A date as the package's table says one, on one line: the package's own breaks
  * between the year's digits on a narrow screen. Nothing at all where there is
  * no date — "never yet" is an empty cell, not a dash in a badge. */
-function Moment({ value }: { value: string }) {
+export function Moment({ value }: { value: string }) {
   const date = value ? new Date(value) : null
   if (!date || Number.isNaN(date.getTime())) return null
   const day = new Intl.DateTimeFormat(locale()).format(date)
@@ -534,7 +555,7 @@ function Moment({ value }: { value: string }) {
 /* When the next ticket is born. The server sends nothing for a schedule that is
  * off, since nothing will be; said here in a word rather than left blank, so an
  * empty cell is not read as a date that failed to load. */
-function NextOf({ schedule }: { schedule: Partial<Schedule> }) {
+export function NextOf({ schedule }: { schedule: Partial<Schedule> }) {
   if (schedule.active !== true) return <span className="text-muted-foreground">{t("paused")}</span>
   return <Moment value={String(schedule.next ?? "")} />
 }
@@ -553,7 +574,7 @@ const LastMoment: InputControllerComponentInterface = ({ formInput }) => <Moment
  * is not known yet is drawn with a skeleton in its place, filled in once the
  * list the projects page reads has arrived — asked once, whatever the number
  * of rows. */
-function ProjectOf({ said, page }: { said: string; page: string }) {
+export function ProjectOf({ said, page }: { said: string; page: string }) {
   const known = useProjects()
   const wanted = !said && Boolean(page)
   const [unread, setUnread] = React.useState(false)
@@ -579,7 +600,7 @@ const ProjectName: InputControllerComponentInterface = ({ formInput }) => {
  * those, so the hour and the day the rule column says in a sentence, and the
  * model a row does not show, would be written back empty. It moves as it is
  * pressed, and back if the board refuses. */
-function ActiveSwitch({ id, on, name }: { id: string; on: boolean; name: string }) {
+export function ActiveSwitch({ id, on, name }: { id: string; on: boolean; name: string }) {
   const [pressed, setPressed] = React.useState<boolean | null>(null)
   const flip = async (wanted: boolean) => {
     setPressed(wanted)
@@ -639,84 +660,58 @@ const rowForm: FormInterface = {
 
 /* -- the list, at both widths --------------------------------------------- */
 
-/* The package's table where it fits, and a card per schedule where it does
- * not: nine columns do not fit 390px, and folding them away left the dates
- * broken over two lines and the project and the problem nowhere. A card says
- * all of it, the switch and the run button in reach of a thumb. One or the
- * other, never both hidden by turns: a name drawn twice is a link found twice. */
-const NARROW = "(max-width: 39.99rem)"
-
-/** Whether the screen is too narrow for the table: a phone's. */
-function useNarrow(): boolean {
-  return React.useSyncExternalStore(
-    (listener) => {
-      const query = window.matchMedia(NARROW)
-      query.addEventListener("change", listener)
-      return () => query.removeEventListener("change", listener)
-    },
-    () => window.matchMedia(NARROW).matches
+/** A component read the first time it is drawn, and nothing in its place until then. */
+function later<P extends object>(load: () => Promise<React.ComponentType<P>>): React.FC<P> {
+  const Lazy = React.lazy(() => load().then((component) => ({ default: component })))
+  return (props: P) => (
+    <React.Suspense fallback={null}>
+      <Lazy {...(props as P & React.JSX.IntrinsicAttributes)} />
+    </React.Suspense>
   )
 }
 
-function ScheduleRows({ rows = [] }: ListComponentPropsInterface<ScheduleItem>) {
-  const narrow = useNarrow()
-  if (!narrow) return <ListTable rows={rows} />
-  return (
-    <ul className="flex w-full flex-col gap-2">
-      {rows.map((row) => (row.data ? <ScheduleCard key={row.data.id} schedule={row.data} /> : null))}
-    </ul>
-  )
-}
+// A chunk of its own, with the calendar (`schedule-lists.tsx`): the list opens
+// beside its panel, and its first load has a weight it answers for.
+const lists = () => import("@/components/console/schedule-lists")
+const ScheduleRows = later(() => lists().then((module) => module.ScheduleRows))
 
-function ScheduleCard({ schedule }: { schedule: ScheduleItem }) {
-  const said = ruleSaid(schedule)
-  return (
-    <li data-schedule-card className="bg-card flex flex-col gap-2 rounded-xl border p-3 text-sm">
-      <div className="flex items-start justify-between gap-3">
-        <span className="min-w-0 font-medium break-words">
-          <ScheduleName id={schedule.id} name={schedule.name} url={schedule.url} />
-        </span>
-        <span className="flex shrink-0 items-center gap-1">
-          <LaunchButton id={schedule.id} />
-          <DeleteButton id={schedule.id} name={schedule.name} />
-          <ActiveSwitch id={schedule.id} on={schedule.active} name={schedule.name} />
-        </span>
-      </div>
-      {said ? <p className="text-muted-foreground">{said}</p> : null}
-      <dl className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1 text-xs">
-        <dt className="text-muted-foreground">{t("Next")}</dt>
-        <dd>
-          <NextOf schedule={schedule} />
-        </dd>
-        {schedule.last ? (
-          <>
-            <dt className="text-muted-foreground">{t("Last")}</dt>
-            <dd>
-              <Moment value={schedule.last} />
-            </dd>
-          </>
-        ) : null}
-        {schedule.project || schedule.project_id ? (
-          <>
-            <dt className="text-muted-foreground">{t("Project")}</dt>
-            <dd className="min-w-0 break-words">
-              <ProjectOf said={schedule.project} page={schedule.project_id} />
-            </dd>
-          </>
-        ) : null}
-      </dl>
-      {schedule.problem ? <p className="text-destructive text-xs">{schedule.problem}</p> : null}
-    </li>
-  )
-}
+/* -- the list beside its panel ----------------------------------------------- */
+
+/* The layout the list opens on, as the projects' does: the schedules on the
+ * left, one line each, and on the right the one picked — its tickets, what they
+ * cost, its passes (see `schedule-panel.tsx`). Picking is not navigating: the
+ * list stays where it was, and the panel is the page.
+ *
+ * Unlike a project's, the one picked is written in the address — `&schedule=`,
+ * and the panel's tab with it, `&tab=` — so a link to it is a link to that
+ * schedule, and a reload keeps it. Replaced beside the list, where picking is
+ * not a step to go back through; pushed on a phone, where the panel is the
+ * whole screen and Back is the way back to the list. */
+
+// A chunk of its own: only the split layout shows it, and it imports this file.
+// The list too: its picking and the address it writes are only the split layout's.
+const panel = () => import("@/components/console/schedule-panel")
+const ScheduleAside = later(() => panel().then((module) => module.ScheduleAside))
+const ScheduleMaster = later(() => panel().then((module) => module.ScheduleMaster))
+
+export const SPLIT = "split"
 
 /* -- what sits around the list -------------------------------------------- */
 
-/** How many of them are on, said where the list opens — and why nothing was read, where nothing was. */
+/** How many of them are on, said where the list opens — and why nothing was read, where nothing was.
+ * In the split layout, the schedule picked beside the list: see `ScheduleAside`. */
 function SchedulesTop() {
   const { drawn, problem } = useSchedules()
+  const { viewVariant } = useCurrentViewResourceContext()
   useLayoutInTheAddress(SCHEDULES)
-  return <SchedulesCount drawn={drawn} problem={problem} />
+  return (
+    <>
+      <SchedulesCount drawn={drawn} problem={problem} />
+      {viewVariant === SPLIT ? (
+        <ScheduleAside />
+      ) : null}
+    </>
+  )
 }
 
 /* The window a schedule is written in, new or opened from the list: the one a
@@ -845,144 +840,9 @@ function NoSchedule() {
 
 /* -- the calendar ---------------------------------------------------------- */
 
-/* What the calendar lays out is not the rows. A row says one date — `Next` — and
- * a schedule that fires every day is on the calendar every day, so the rows are
- * unfolded into their launches first (`lib/occurrences.ts`, the runner's own
- * rule walked forward from the very `Next` the list shows): the ones to come,
- * and `Last` as the one that has happened, drawn greyed. A schedule that is
- * off has no launch to come, whatever date it was left with.
- *
- * An hourly one is twenty-four a day, which no cell holds: a day with four
- * launches or more of the same schedule is one event, "24 launches", and its
- * hours are in the window it opens.
- */
-const PAST_COLOR = "#94a3b8"
-
-interface Launch {
-  id: string
-  "@id": string
-  title: string
-  when: string
-  color?: string
-  kind: "past" | "upcoming"
-  schedule: string
-  times: number[]
-  cadence: string
-  at: string
-  day: string
-  /** The search for ideas, which is drawn here to be seen and not to be changed. */
-  ideas?: boolean
-}
-
-const ScheduleCalendar = ({ rows }: ListComponentPropsInterface<ScheduleItem>) => {
-  const { drawn } = useSchedules()
-  const zone = drawn?.timezone
-  // Read when the calendar is first drawn, not with the page: the table is
-  // what the list opens on, and its first load has a weight it answers for.
-  const [walk, setWalk] = React.useState<typeof import("@/lib/occurrences") | null>(null)
-  React.useEffect(() => {
-    void import("@/lib/occurrences").then(setWalk)
-  }, [])
-  const launches = React.useMemo(() => {
-    if (!walk) return []
-    const found = rows.map((row) => row.data)
-    const byId = new Map(found.map((schedule) => [schedule.id, schedule]))
-    const pass = drawn?.ideas_pass
-    const own = walk.entries(found, Date.now(), walk.zoneOf(zone))
-    // The scheduled search for ideas: the server walks its rule (a cron line has no
-    // cadence to walk here) and the page draws the passes it is given, read only.
-    const searching = pass && (pass.active || pass.last) ? walk.listed(pass.active ? pass.upcoming : [], pass.last) : []
-    const ideas = searching.map((entry): RowInterface<Launch> => {
-      const name = t("Ponos finds ideas")
-      const several = entry.times.length > 1
-      return {
-        data: {
-          id: entry.key,
-          "@id": entry.key,
-          title: several ? t("{{count}} launches · {{name}}", { name, count: String(entry.times.length) }) : name,
-          when: new Date(entry.start).toISOString(),
-          color: entry.kind === "past" ? PAST_COLOR : undefined,
-          kind: entry.kind,
-          schedule: entry.schedule,
-          times: entry.times,
-          cadence: "",
-          at: "",
-          day: "",
-          ideas: true,
-        },
-      }
-    })
-    const calendar = own.map((entry): RowInterface<Launch> => {
-      const schedule = byId.get(entry.schedule)!
-      const folded = entry.times.length > 1
-      return {
-        data: {
-          id: entry.key,
-          "@id": entry.key,
-          title: folded
-            ? t("{{count}} launches · {{name}}", { name: schedule.name, count: String(entry.times.length) })
-            : schedule.name,
-          when: new Date(entry.start).toISOString(),
-          color: entry.kind === "past" ? PAST_COLOR : undefined,
-          kind: entry.kind,
-          schedule: schedule.id,
-          times: entry.times,
-          cadence: schedule.cadence,
-          at: schedule.at,
-          day: schedule.day,
-        },
-      }
-    })
-    return [...calendar, ...ideas]
-  }, [rows, zone, walk, drawn?.ideas_pass])
-  return <ListCalendar rows={launches} />
-}
-
-const hour = (instant: number) =>
-  new Date(instant).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", hour12: false })
-
-/** What the window over a launch says: whether it has happened, when, and the way to the schedule. */
-const LaunchPreview = ({ row }: RowComponentPropsInterface<Launch>) => {
-  const launch = row?.data
-  const { drawn } = useSchedules()
-  const open = useOpensOverTheList(schedules, "update", launch?.schedule ?? "")
-  if (!launch) return null
-  if (launch.ideas)
-    return (
-      <div className="flex w-full flex-col gap-2 text-sm" data-slot="ideas-pass-launch">
-        <p className="text-muted-foreground text-xs">
-          {launch.kind === "past" ? t("Last pass: it has happened.") : t("Due: Ponos looks for ideas then.")}
-        </p>
-        {launch.times.length > 1 ? (
-          <p className="font-mono text-xs leading-relaxed">{launch.times.map(hour).join(" · ")}</p>
-        ) : null}
-        <Link to={ideasHref()} className="text-primary underline-offset-2 hover:underline">
-          {t("Change it in the Ideas page's Settings")}
-        </Link>
-      </div>
-    )
-  return (
-    <div className="flex w-full flex-col gap-2 text-sm">
-      <p className="text-muted-foreground text-xs">
-        {launch.kind === "past" ? t("Last launch: it has happened.") : t("Due: not born yet.")}
-        {launch.cadence ? ` ${t(launch.cadence)}` : ""}
-      </p>
-      {launch.times.length > 1 ? (
-        <p className="font-mono text-xs leading-relaxed">{launch.times.map(hour).join(" · ")}</p>
-      ) : null}
-      <Link
-        to={scheduleHref(launch.schedule)}
-        onClick={open}
-        className="text-primary underline-offset-2 hover:underline"
-      >
-        {t("Open the schedule")}
-      </Link>
-      <span className="flex">
-        <DeleteButton id={launch.schedule} name={drawn?.schedules.find((schedule) => schedule.id === launch.schedule)?.name ?? ""} className="w-auto px-2" />
-      </span>
-    </div>
-  )
-}
+// With the table, in `schedule-lists.tsx`.
+const ScheduleCalendar = later(() => lists().then((module) => module.ScheduleCalendar))
+const LaunchPreview = later(() => lists().then((module) => module.LaunchPreview))
 
 /* -- the search ------------------------------------------------------------ */
 
@@ -1012,7 +872,10 @@ const projectNameOf = (schedule: Schedule) =>
 // placed past the bar's edge widened the whole page.
 const FILTER = "relative [&_[data-slot=field-label]]:sr-only"
 
+// Laid out as the projects' bar is, wrapping rather than scrolling: beside the
+// panel, the list's column is narrower than its three fields.
 const formFilter: FormInterface = {
+  components: { formInputs: listFilters({ lead: "q", grow: true }) },
   inputs: {
     q: {
       label: "Search",
@@ -1183,6 +1046,13 @@ export const schedules = createViewResource<ScheduleItem, ScheduleWrite>(SCHEDUL
        * every language. At the width of the page, as the board and the
        * projects are. */
       layouts: [
+        layout.table({
+          id: SPLIT,
+          label: "Split",
+          icon: Columns2,
+          fullWidth: true,
+          components: { list: ScheduleMaster },
+        }),
         layout.table({ label: "List", fullWidth: true, components: { list: ScheduleRows } }),
         // Typed against the launches `ScheduleCalendar` hands the package, not
         // against the rows — hence the cast into the rows' list of layouts.
@@ -1233,5 +1103,5 @@ export const schedulesHref = () =>
   })
 
 /** A schedule's own page: its form, as the window over the list draws it. */
-const scheduleHref = (id: string) =>
+export const scheduleHref = (id: string) =>
   generateLinkByResource({ resource: schedules, resourceAction: ActionList.update, id })
