@@ -751,6 +751,15 @@ somebody has just typed and checked must not lose to one a compose file was star
 An Anthropic key is handed to a session only when it is the provider: given to a CLI
 session, it would quietly take the place of the subscription.
 
+In the console the key is **Settings › Models and costs › Provider and default model ›
+Anthropic API key**, with the provider just above it — choose *Anthropic API key* there, or the
+sessions keep running on the CLI. The key is written to `secrets.env`, never to
+`config.toml`, and never comes back to the browser: the field says *set · ends …abcd*,
+typing a new one replaces it, and **Forget** removes it. **Test the connection** asks Anthropic whether
+the key works — the one just typed, or with an empty field the one the runner uses — and
+saves nothing. On a server, `ANTHROPIC_API_KEY` in the environment (a Dokploy variable)
+does the same job; the page says when the environment is where the key comes from.
+
 The [first connection](#the-first-connection) asks this in its second step and tries the
 key before writing it; `ponos doctor` says which provider is in use, where the choice
 came from, and — for the CLI — whether `claude auth status` finds an account signed in.

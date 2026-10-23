@@ -432,7 +432,8 @@ export const api = {
   summary: () => request<Summary>("/api/setup/summary"),
   setupDone: () => request<{ ok: boolean }>("/api/setup/done", {}),
   claudeLogin: () => request<ClaudeLogin>("/api/setup/claude"),
-  saveProvider: (chosen: { provider: string; key?: string; route_sessions?: boolean }) =>
+  /* `save: false` only tries the key — the settings' Test button — and writes nothing. */
+  saveProvider: (chosen: { provider: string; key?: string; route_sessions?: boolean; save?: boolean }) =>
     request<ProviderChecked>("/api/setup/provider", chosen),
   saveNotion: (typed: { token: string; page: string; workspace?: string }) =>
     request<NotionProvisioned>("/api/setup/notion", typed),
