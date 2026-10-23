@@ -5,7 +5,7 @@ import { Link } from "react-resource-view"
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { api, why } from "@/lib/api"
-import { patchTicket } from "@/lib/board-store"
+import { patchTicket, useBoard } from "@/lib/board-store"
 import { offeredTo } from "@/lib/goal-search"
 import { useT } from "@/lib/i18n"
 import type { Goal, Ticket } from "@/lib/types"
@@ -16,13 +16,16 @@ import { goalHref, goalsOnce } from "@/resources/goals"
  * for the whole console; a workspace without any draws nothing, and a ticket
  * that serves none draws only the choice. Offered are those still worked
  * toward, the ticket's project's first, and the one it serves even once it is
- * over (`offeredTo`). Written at once, and the card is redrawn before the
- * board is read again. */
+ * over (`offeredTo`). The choice is offered only where the board can point a
+ * ticket at a goal — the server gives the goal choices then, as it does to the
+ * New ticket form — or writing it would only fail. Written at once, and the
+ * card is redrawn before the board is read again. */
 
 const NONE = "none"
 
 export function TicketGoal({ ticket }: { ticket: Ticket }) {
   const t = useT()
+  const pointable = Boolean(useBoard().choices?.goal)
   const [goals, setGoals] = React.useState<Goal[]>([])
   React.useEffect(() => {
     let live = true
@@ -33,7 +36,7 @@ export function TicketGoal({ ticket }: { ticket: Ticket }) {
       live = false
     }
   }, [])
-  if (!goals.length && !ticket.goal_id) return null
+  if ((!pointable || !goals.length) && !ticket.goal_id) return null
   const offered = offeredTo(goals, ticket.project_id ?? "", ticket.goal_id ?? "")
   const choose = async (value: string) => {
     const goal = goals.find((one) => one.id === value)
@@ -60,19 +63,21 @@ export function TicketGoal({ ticket }: { ticket: Ticket }) {
           <span className="truncate">{ticket.goal}</span>
         </Link>
       ) : null}
-      <Select value={ticket.goal_id || NONE} onValueChange={(value) => void choose(value === NONE ? "" : value)}>
-        <SelectTrigger size="sm" className="h-6 w-auto gap-1 px-2 text-xs" aria-label={t("Change the goal")} data-slot="ticket-goal-select">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={NONE}>{t("No goal")}</SelectItem>
-          {offered.map((goal) => (
-            <SelectItem key={goal.id} value={goal.id}>
-              {goal.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      {pointable ? (
+        <Select value={ticket.goal_id || NONE} onValueChange={(value) => void choose(value === NONE ? "" : value)}>
+          <SelectTrigger size="sm" className="h-6 w-auto gap-1 px-2 text-xs" aria-label={t("Change the goal")} data-slot="ticket-goal-select">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NONE}>{t("No goal")}</SelectItem>
+            {offered.map((goal) => (
+              <SelectItem key={goal.id} value={goal.id}>
+                {goal.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ) : null}
     </span>
   )
 }
