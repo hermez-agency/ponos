@@ -210,6 +210,28 @@ def a_token_comes_before_gh_and_after_or_before_the_app_as_the_mode_says():
 
 
 @case
+def no_case_inherits_the_github_access_or_the_provider_of_the_machine_that_runs_it():
+    # A laptop where `gh` is set up, or a cloud session, exports these: what a
+    # case sees of GitHub and of who answers its sessions is what it poses.
+    names = (
+        "GH_TOKEN",
+        "GITHUB_TOKEN",
+        "GIT_CONFIG_COUNT",
+        "GIT_CONFIG_KEY_0",
+        "GIT_CONFIG_VALUE_0",
+        C.GITHUB_TOKEN_ENV,
+        github_app.APPS_ENV,
+        github_app.WEB_ENV,
+        "PONOS_GITHUB_OWNER",
+        "PONOS_GITHUB_LAPSES",
+        C.OPENROUTER_KEY_ENV,
+        C.ANTHROPIC_KEY_ENV,
+        "CLAUDE_CODE_OAUTH_TOKEN",
+    )
+    assert not [name for name in names if name in os.environ], os.environ.keys() & set(names)
+
+
+@case
 def a_token_is_read_from_the_environment_or_a_vault_and_masked():
     with _token_answering(lambda *_: (200, {}, {})):
         os.environ[C.GITHUB_TOKEN_ENV] = "github_pat_from_the_container"
