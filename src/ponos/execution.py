@@ -46,7 +46,9 @@ from . import (
     git,
     github_token,
     journal,
+    local_ci,
     progress,
+    project_settings,
     resources,
     session,
     state,
@@ -592,6 +594,11 @@ class Execution(Base):
         replayed = False
         if self.config.runner.push and self.config.runner.rebase:
             replayed = self._replay_branch(job)
+        # After the replay, so that what passes here is what is pushed.
+        outcome, refused = self._local_ci(job, outcome)
+        if refused:
+            return refused
+        commits = git.commits_ahead(job.workdir, job.base)
         if self.config.runner.push:
             if failure := self._push_branch(job, outcome, force=worktree.reused or replayed):
                 return failure
@@ -599,6 +606,153 @@ class Execution(Base):
                 pull_request = self._open_pull_request(job, outcome, commits)
 
         return self._code_delivered(job, outcome, commits, pull_request)
+
+    # -- the local CI, before the push ------------------------------------------
+
+    def _local_ci(
+        self, job: Job, outcome: session.Outcome
+    ) -> tuple[session.Outcome, dict[str, Any] | None]:
+        """The project's CI run here, and handed back to the session while it is red.
+
+        Returns the session as it now stands — the fixes cost what they cost —
+        and, when the ticket cannot go on, what `_fail` or `_code_stopped`
+        made of it. Off, without Docker, or with nothing to run, the ticket
+        goes on exactly as it did before: see local_ci.py.
+        """
+        project = job.project
+        own = project_settings.local_ci(project.notion_id)
+        enabled = own["enabled"] if own["enabled"] is not None else self.config.runner.local_ci
+        if not enabled:
+            return outcome, None
+        docker = local_ci.docker()
+        if not docker.available:
+            self.say("    · local CI skipped: Docker does not answer here")
+            return outcome, None
+        chosen = local_ci.plan(own["command"], job.workdir, job.ticket.id)
+        said = self.voice
+        if not chosen:
+            self.say("    · local CI skipped: no command declared, and no act to run workflows")
+            job.notes.append(said.say("local-ci-none"))
+            return outcome, None
+        attempts = self.config.runner.local_ci_attempts
+        log = job.log or state.log_file(short_id(job.ticket.id))
+        ran: local_ci.Run | None = None
+        for attempt in range(1, attempts + 1):
+            ran = self._run_local_ci(job, chosen, log.with_name(f"{log.stem}-ci-{attempt}.log"))
+            if ran.ok:
+                job.notes.append(
+                    said.say("local-ci-ok")
+                    if attempt == 1
+                    else said.say("local-ci-fixed", count=attempt)
+                )
+                return outcome, None
+            if attempt == attempts:
+                break
+            outcome = self._fix_local_ci(job, outcome, chosen, ran, attempt, attempts, log)
+            if not outcome.ok:
+                return outcome, self._code_stopped(job, outcome)
+        assert ran is not None
+        detail = (
+            said.say(
+                "local-ci-timed-out",
+                command=chosen.shown,
+                minutes=self.config.runner.timeout_minutes,
+            )
+            if ran.timed_out
+            else said.say("local-ci-detail", command=chosen.shown, code=ran.code)
+        )
+        kept = ""
+        if self.config.runner.keep_worktree_on_failure:
+            kept = said.say("worktree-kept", path=job.workdir, branch=job.branch)
+        else:
+            assert project.path is not None
+            git.remove_worktree(project.path, job.workdir)
+        return outcome, self._fail(
+            job.ticket,
+            said.say("local-ci-failed", count=attempts),
+            detail,
+            code="merge.local-ci-failed",
+            blocked=True,
+            question=said.say("local-ci-question", command=chosen.shown, count=attempts),
+            note=self._filed(job, outcome, kept),
+            outcome=outcome,
+        )
+
+    def _run_local_ci(self, job: Job, chosen: local_ci.Plan, log: Path) -> local_ci.Run:
+        """One run of the CI, in one of the machine's places, and its containers gone after."""
+        ci_name = local_ci.name(job.ticket.id)
+        places = self.config.runner.local_ci_concurrent
+        with local_ci.place(
+            places, lambda: self.say(f"    · local CI waiting for a place ({places} at a time)")
+        ):
+            self.say(f"    · local CI: {chosen.shown} → {log}")
+            try:
+                ran = local_ci.run(
+                    chosen,
+                    job.workdir,
+                    ci_name,
+                    log,
+                    timeout_minutes=self.config.runner.timeout_minutes,
+                    secrets=job.secrets,
+                )
+            finally:
+                removed = local_ci.clean(ci_name)
+                if removed:
+                    self.say(
+                        f"    · local CI: {removed} container(s), network(s) or volume(s) removed"
+                    )
+        self.say(
+            f"    · local CI {'green' if ran.ok else 'red'} in {ran.seconds:.0f}s"
+            + ("" if ran.ok else f" (exit {ran.code})")
+        )
+        return ran
+
+    def _fix_local_ci(
+        self,
+        job: Job,
+        outcome: session.Outcome,
+        chosen: local_ci.Plan,
+        ran: local_ci.Run,
+        attempt: int,
+        attempts: int,
+        log: Path,
+    ) -> session.Outcome:
+        """The same session, picked up to fix what the CI said — what both halves cost, added up."""
+        self.say(f"    ↻ local CI red — asking session {outcome.session_id} to fix it")
+        # Filed under the project once it ended: brought back beside its
+        # worktree for as long as it is carried on, and filed again after.
+        session.relocate(outcome.session_id, job.workdir)
+        model = self.config.runner.allowed(job.model or job.agent.model or self.config.runner.model)
+        run = self._journals.get(job.ticket.id)
+        fixed = self._paid(
+            job.ticket.id,
+            prompt_module.local_ci(
+                chosen.shown, ran.tail, attempt, attempts, self.voice.instruction()
+            ),
+            cwd=job.workdir,
+            log=log.with_name(f"{log.stem}-fix-{attempt}{log.suffix}"),
+            model=model,
+            permission_mode=self.config.runner.permission_mode,
+            timeout_minutes=self.config.runner.timeout_minutes,
+            session_id=outcome.session_id,
+            resume=True,
+            environment={**job.secrets, **self.environment_for(model), **self._github(job)},
+            on_event=run.event if run else None,
+            max_budget_usd=self.config.budget.per_ticket_usd,
+        )
+        if job.session_home:
+            session.relocate(outcome.session_id, job.session_home)
+        return replace(
+            fixed,
+            cost_usd=outcome.cost_usd + fixed.cost_usd,
+            seconds=outcome.seconds + fixed.seconds,
+            turns=outcome.turns + fixed.turns,
+            # What the ticket's report says it did is what the first half
+            # said: the fix is a footnote to it, said by the note.
+            summary=outcome.summary if fixed.ok else fixed.summary,
+            answer=outcome.answer if fixed.ok else fixed.answer,
+            caveats=[*outcome.caveats, *fixed.caveats],
+        )
 
     def _halted(self, job: Job, outcome: session.Outcome) -> dict[str, Any] | None:
         """A session the console asked to end: the ticket is theirs from here on.

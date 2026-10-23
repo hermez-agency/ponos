@@ -331,6 +331,7 @@ export const api = {
     values: {
       validation?: { own: boolean; values?: Partial<ProjectSettings["validation"]["values"]> }
       ideas?: { enabled: boolean }
+      local_ci?: { enabled: boolean; command: string }
     }
   ) => request<ProjectSettings>(`/api/projects/${id}/settings`, values),
   deleteProject: (id: string, values: { confirm: string; trash_tickets: boolean }) =>

@@ -633,6 +633,9 @@ for reading rather than for filling in.
 | `runner.resolve_conflicts_except` | `""` | projects, by name and comma-separated, whose conflicts are always left to you |
 | `runner.resolve_model` | `""` | the model that resolves — empty: the ticket's own |
 | `runner.checks_timeout_minutes` | `20` | how long a resolved pull request's CI is waited for before the merge; `0` does not wait |
+| `runner.local_ci` | `false` | run the project's CI on this machine, in Docker, once the session has committed and before the push — the command the project's Settings tab declares, else its workflows through `act`; a red one goes back to the same session to be fixed. Needs Docker; a project may say otherwise for itself. GitHub's CI still runs |
+| `runner.local_ci_attempts` | `3` | how many times the local CI runs, the first included; still red after the last, the ticket is blocked (`merge.local-ci-failed`) and no pull request is opened |
+| `runner.local_ci_concurrent` | `1` | how many local CIs run at once on this machine; the next waits for a place. Containers, networks and compose volumes are named `ponos-ci-<ticket>` and removed after each run |
 | `runner.merge_method` | `"squash"` | how a **validated** pull request is merged — `squash`, `merge`, `rebase` |
 | `runner.force_validated_code` | `false` | merge a Code ticket's pull request as soon as its session succeeds, then *Done* — see [*Force validated*](#force-validated-skipping-the-review) |
 | `runner.force_validated_publication` | `false` | publish a Publication as soon as it is prepared, without waiting in review |

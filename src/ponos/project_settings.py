@@ -42,6 +42,10 @@ VALIDATION = "validation"
 # Whether ideas are found for it on a schedule, against what the file says for
 # all — see idea_schedule.py. A boolean: absent, the file decides.
 IDEAS = "ideas"
+# Its local CI before the pull request — see local_ci.py: `enabled`, a boolean
+# when the project says its own word against `runner.local_ci`, and `command`,
+# what runs it. Either may be absent.
+LOCAL_CI = "local_ci"
 
 
 def key(project: str) -> str:
@@ -125,6 +129,44 @@ def every_ideas() -> dict[str, bool]:
         if isinstance(held, dict) and isinstance(held.get(IDEAS), bool):
             said[str(project)] = held[IDEAS]
     return said
+
+
+def local_ci(project: str) -> dict[str, Any]:
+    """The project's own word on its local CI: `enabled` (bool or None, the file's) and `command`.
+
+    Nothing readable is a project that said nothing: the file's switch, and no
+    command — the side that changes nothing from what the runner did before.
+    """
+    own: object = None
+    if key(project):
+        try:
+            own = _read(project).get(LOCAL_CI)
+        except db.ERRORS:
+            own = None
+    held = own if isinstance(own, dict) else {}
+    enabled = held.get("enabled")
+    command = held.get("command")
+    return {
+        "enabled": enabled if isinstance(enabled, bool) else None,
+        "command": command.strip() if isinstance(command, str) else "",
+    }
+
+
+def set_local_ci(project: str, name: str, enabled: bool | None, command: str) -> None:
+    """Say yes or no for the project (None hands it back to the file), and what runs its CI."""
+
+    def change(settings: dict[str, Any]) -> None:
+        held: dict[str, Any] = {}
+        if enabled is not None:
+            held["enabled"] = enabled
+        if command.strip():
+            held["command"] = command.strip()
+        if held:
+            settings[LOCAL_CI] = held
+        else:
+            settings.pop(LOCAL_CI, None)
+
+    _write(project, name, change)
 
 
 def _write(project: str, name: str, change: Callable[[dict[str, Any]], None]) -> None:

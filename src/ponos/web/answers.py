@@ -460,12 +460,30 @@ class ProjectIdeas(Shape):
     """`runner.ideas_schedule`, so the page can say that nothing is scheduled at all."""
 
 
+class ProjectLocalCi(Shape):
+    """Whether a project's CI runs on this machine before its pull request — see local_ci.py."""
+
+    enabled: bool
+    """What applies to it: its own word, or the file's."""
+    own: bool
+    """Whether the project says so itself, against `runner.local_ci` saying for it."""
+    global_: bool = Field(alias="global")
+    """`runner.local_ci`, whatever the project says."""
+    command: str
+    """What runs its CI; empty, its GitHub workflows through `act` when it is installed."""
+    docker: bool
+    """Whether Docker answers on this machine."""
+    unavailable: str
+    """Why it cannot be turned on here, or empty when it can."""
+
+
 class ProjectSettings(Shape):
     """What a project decides for itself — see project_settings.py."""
 
     id: str
     validation: Validation
     ideas: ProjectIdeas
+    local_ci: ProjectLocalCi
 
 
 class ProjectDeleted(Shape):
@@ -1081,6 +1099,8 @@ class SettingField(Shape):
     moves it."""
     short: str = omitted()
     """The word heading its row or its column in that table."""
+    unavailable: str = omitted()
+    """Why it cannot be turned on on this machine — Docker missing — or empty when it can."""
 
 
 class SettingSection(Shape):
@@ -1137,6 +1157,13 @@ class Pair(Shape):
     value: str
 
 
+class Docker(Shape):
+    """Whether Docker is installed on the runner's machine, and whether its daemon answers."""
+
+    available: bool
+    installed: bool
+
+
 class OwnValidation(Shape):
     id: str
     name: str
@@ -1151,6 +1178,8 @@ class Settings(Shape):
     sections: list[SettingSection]
     projects: list[Pair]
     github: list[Pair]
+    docker: Docker = omitted()
+    """Whether Docker answers here, which the local CI needs."""
     own_validation: list[OwnValidation] = omitted()
     """The projects that decide their automatic validation for themselves."""
 

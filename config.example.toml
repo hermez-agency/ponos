@@ -516,6 +516,27 @@ resolve_model = ""
 # that the base branch fails too is not held against the pull request.
 checks_timeout_minutes = 20
 
+# Local CI before the pull request: once the session has committed, the
+# project's CI runs on this machine, and a red one goes back to the same
+# session to be fixed — then runs again — before anything is pushed. Off by
+# default, and only possible where Docker answers (`ponos doctor` says
+# whether it does): without it, tickets run exactly as before. A project may
+# turn it on or off for itself, in its Settings tab.
+#
+# What runs, in this order: the command the project's Settings tab declares
+# (`make ci`, `npm run ci`…), otherwise its GitHub workflows through `act`
+# (nektos/act) when it is installed; neither, and nothing runs. The containers
+# and networks it starts are named after the ticket — COMPOSE_PROJECT_NAME
+# and PONOS_CI_NAME are set for the command — and removed once it ends. The
+# CI on GitHub still runs, and stays the check that counts.
+local_ci = false
+# How many times the CI runs before the ticket is blocked on it, the first
+# included.
+local_ci_attempts = 3
+# How many local CIs run at once on this machine, whatever the number of
+# tickets in flight: the next one waits for a place.
+local_ci_concurrent = 1
+
 # How a *validated* pull request is merged — see `validated` above. Nothing
 # is ever merged without that gesture; this only says what the gesture does.
 #   squash | merge | rebase

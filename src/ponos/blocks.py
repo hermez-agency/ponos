@@ -128,6 +128,21 @@ _CAUSES = (
         "checks-red",
     ),
     _cause(
+        "merge.local-ci-failed",
+        "merge",
+        "user",
+        "answer",
+        "ask",
+        ("Local CI red", "CI locale rouge"),
+        (
+            "The project's CI, run on this machine before the pull request, still fails after "
+            "every attempt: say what to fix, or turn the local CI off for the project.",
+            "La CI du projet, lancée sur cette machine avant la pull request, échoue encore "
+            "après toutes les tentatives : dites quoi corriger, ou désactivez la CI locale du "
+            "projet.",
+        ),
+    ),
+    _cause(
         "merge.base-moving",
         "merge",
         "ponos",

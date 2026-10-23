@@ -337,6 +337,17 @@ class Runner:
     # asked. Zero does not wait: GitHub still refuses a merge a required check
     # has not passed.
     checks_timeout_minutes: int = 20
+    # Run the project's CI on this machine before the pull request is opened,
+    # in Docker — a red CI found here is fixed by the same session, rather than
+    # by another one once GitHub has said it. Off, nothing changes; a project
+    # may say otherwise for itself. See local_ci.py.
+    local_ci: bool = False
+    # How many times the CI is run before the ticket is blocked on it — the
+    # first run included, every other one after the session has fixed it.
+    local_ci_attempts: int = 3
+    # How many local CIs this machine runs at once, whatever the number of
+    # tickets in flight: each one is a set of containers.
+    local_ci_concurrent: int = 1
     keep_worktree_on_failure: bool = True
     attach_sessions: bool = True
     session_host: str = ""
