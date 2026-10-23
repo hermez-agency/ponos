@@ -1244,14 +1244,20 @@ _SAID: dict[str, dict[str, str]] = {
             "and anything you write back into the ticket — even when the ticket is written "
             "in another language; only the words `RESULT:`, `ok` and `blocked` stay as "
             "they are. Code, commit messages and identifiers keep the language the "
-            "repository already uses."
+            "repository already uses. The same goes for what you say between two steps "
+            "while you work: it is shown live on the ticket's card, so say it as a short, "
+            "whole sentence in English — what you are doing and why — not a note to "
+            "yourself."
         ),
         "fr": (
             "Write in French — your report, any question you ask, the final line below, "
             "and anything you write back into the ticket — even when the ticket is written "
             "in another language; only the words `RESULT:`, `ok` and `blocked` stay as "
             "they are. Code, commit messages and identifiers keep the language the "
-            "repository already uses."
+            "repository already uses. The same goes for what you say between two steps "
+            "while you work: it is shown live on the ticket's card, so say it as a short, "
+            "whole sentence in French — what you are doing and why — not a note to "
+            "yourself."
         ),
     },
     "instruction-reply": {
