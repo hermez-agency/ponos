@@ -74,6 +74,31 @@ test("the ticket names its goal, and another can be chosen from it", async ({ pa
   await expect(page.locator('[data-slot="goals-item"]', { hasText: "Lancer la v2" })).toContainText("0 sur 0 ticket")
 })
 
+test("a ticket of a goal moved elsewhere moves its progress on the open page", async ({ page }) => {
+  // Written as another tab would: the page open here draws nothing of it itself.
+  const write = (path: string, data: Record<string, unknown>) =>
+    page.request.post(path, { headers: { "X-Ponos": "1" }, data })
+  const ticket = `${7}`.padStart(32, "0")
+  const made = await write("/api/goals", { name: "Ouvrir la boutique", tickets: [ticket] })
+  expect(made.ok()).toBeTruthy()
+
+  await page.goto(LIST)
+  const card = page.locator('[data-slot="goals-item"]', { hasText: "Ouvrir la boutique" })
+  await expect(card).toContainText("0 sur 1 ticket fait")
+
+  expect((await write(`/api/tickets/${ticket}/status`, { column: "done" })).ok()).toBeTruthy()
+  await expect(card).toContainText("1 sur 1 ticket fait", { timeout: 15_000 })
+
+  // Tied from the ticket's window, elsewhere, while the goal's page is open: the server says `goals`.
+  await card.locator('[data-slot="goals-title"]').click()
+  const listed = page.locator('[data-slot="goal-tickets"]')
+  await expect(listed.locator("[data-goal-ticket]", { hasText: "Ticket 7" })).toBeVisible()
+  expect((await write(`/api/tickets/${`${8}`.padStart(32, "0")}/goal`, { goal: (await made.json()).id })).ok()).toBeTruthy()
+  await expect(listed.locator("[data-goal-ticket]", { hasText: "Ticket 8" })).toBeVisible({ timeout: 15_000 })
+  await page.goBack()
+  await expect(card).toContainText("1 sur 2 tickets faits")
+})
+
 test("a goal is archived after a confirmation", async ({ page }) => {
   await page.goto(LIST)
   await page.locator('[data-slot="goals-title"]', { hasText: "Lancer la v2" }).click()

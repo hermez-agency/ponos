@@ -4,6 +4,7 @@ import { toast } from "sonner"
 import { api, why } from "@/lib/api"
 import { applyChanges, currentBoard, moveTicket, publishBoard, titleOf } from "@/lib/board-store"
 import { t } from "@/lib/i18n"
+import { goalsMoved, movesGoals } from "@/lib/goals-store"
 import { ideasScored } from "@/lib/ideas-store"
 import { publishBell } from "@/lib/notifications-store"
 import type {
@@ -376,6 +377,7 @@ export function ConsoleProvider({ children }: { children: React.ReactNode }) {
     // Whole: on connecting, and when the columns changed.
     board: (fresh: Board) => {
       const before = syncs()
+      if (movesGoals(currentBoard(), fresh)) goalsMoved()
       // The same board, where the resource views read it from.
       publishBoard(fresh)
       boardMoved(fresh, fresh.tickets, before)
@@ -386,8 +388,11 @@ export function ConsoleProvider({ children }: { children: React.ReactNode }) {
     // board is asked for again.
     changes: (changes: BoardChanges) => {
       const before = syncs()
+      const held = currentBoard()
       const fresh = applyChanges(changes)
       if (!fresh) return askBoard()
+      // A card of a goal changed column: the progress its page shows did too.
+      if (movesGoals(held, fresh)) goalsMoved()
       boardMoved(
         fresh,
         changes.changed.map((entry) => entry.ticket),
@@ -409,6 +414,9 @@ export function ConsoleProvider({ children }: { children: React.ReactNode }) {
       if (event?.scored || event?.scoring || event?.planned) ideasScored()
       if (event?.failed) toast.error(t("The ideas could not be scored"), { description: event.failed })
     },
+
+    // A goal written — here, in another tab, by the assistant — or a ticket tied to one.
+    goals: () => goalsMoved(),
 
     // A turn of the conversation, as AG-UI: for the panel's `useChat`.
     agui: (event: AguiEvent) => publishAgui(event.event),

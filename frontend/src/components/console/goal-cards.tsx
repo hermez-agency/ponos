@@ -1,3 +1,4 @@
+import * as React from "react"
 import { CalendarDays, ExternalLink, Pencil, Plus, SearchX, Target, Trash2, X } from "lucide-react"
 import { toast } from "sonner"
 import { ActionList } from "react-data-form"
@@ -19,6 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { api, why } from "@/lib/api"
 import { useBoard } from "@/lib/board-store"
 import { dueOf, progressOf } from "@/lib/goal-search"
+import { onGoalsMoved } from "@/lib/goals-store"
 import { useT } from "@/lib/i18n"
 import { count } from "@/lib/numbers"
 import { locale } from "@/lib/recurrence"
@@ -129,7 +131,13 @@ export function GoalCards({ rows = [] }: ListComponentPropsInterface) {
 /* -- the page --------------------------------------------------------------- */
 
 export function GoalPage() {
-  const goal = useCurrentViewResourceContext().data as GoalItem | undefined
+  const view = useCurrentViewResourceContext()
+  const goal = view.data as GoalItem | undefined
+  // The package reads a list again when the goals move, not a page: this one
+  // does it itself, from the request the lists are read again by.
+  const fetchData = React.useRef(view.fetchData)
+  fetchData.current = view.fetchData
+  React.useEffect(() => onGoalsMoved(() => void fetchData.current?.()), [])
   if (!goal) return <Skeleton className="h-40 w-full" />
   return <GoalWhole goal={goal} />
 }
