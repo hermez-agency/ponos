@@ -2,14 +2,16 @@
  *
  * Which steps there are, which one an address opens on, what the account step
  * refuses before it asks the server, and what the summary says line by line.
- * Imports only `numbers.ts`, which imports nothing, so `node --test` reads it
- * as it stands (see setup.test.ts).
+ * Imports only `numbers.ts`, which imports nothing, and the schema's shapes
+ * (`types.ts`), which `node --test` strips: it reads it as it stands (see
+ * setup.test.ts).
  *
  * The sentences here are English, and they are the keys: the page hands each
  * to `t()` with its parameters, and `french.ts` holds the other language.
  */
 
 import { count, type Counted } from "./numbers.ts"
+import type { Demo, Provider, SetupHealth, SetupState, Summary } from "./types.ts"
 
 /** The steps, in the order somebody would say them — and the first ticket
  * last, since it is the proof that every step before it holds. */
@@ -26,87 +28,6 @@ export const STEPS = [
 ] as const
 export type StepKey = (typeof STEPS)[number]
 
-/** What the server says before a step is drawn — `GET /api/setup`. */
-export interface SetupState {
-  /** Somebody already said how this console is opened: the account step is done. */
-  claimed: boolean
-  signed_in: boolean
-  /** The first connection comes from outside this machine and has to give the code. */
-  code: boolean
-  /** The console drew a code when it started — without one, outside is refused. */
-  code_drawn: boolean
-  container: boolean
-  version: string
-  storage: string
-}
-
-export type Health = "ok" | "missing" | "error"
-
-export const PROVIDERS = ["cli", "api_key", "openrouter"] as const
-export type Provider = (typeof PROVIDERS)[number]
-
-/** What the installation amounts to — `GET /api/setup/summary`. */
-export interface Summary {
-  provider: {
-    state: Health
-    provider: Provider
-    stated: string
-    account: string
-    key: string
-    route_sessions: boolean
-    said: string
-  }
-  model: { state: Health; model: string; auto: boolean; said: string }
-  board: {
-    state: Health
-    storage: string
-    workspace: string
-    path: string
-    tickets: number | null
-    said: string
-  }
-  github: { state: Health; account: string; via: string; said: string; command: string; create_url?: string }
-  projects: { state: Health; root: string; repositories: number; configured: number }
-  channels: { state: Health; active: string[] }
-  environment: { state: Health; container: boolean; version: string }
-  /** git, Claude Code and its sign-in, the disk — what `doctor` checks under Tools. */
-  machine: { state: Health; needs: Need[] }
-}
-
-/** One thing the machine needs, and the command that installs it when it is missing. */
-export interface Need {
-  name: string
-  ok: boolean
-  required: boolean
-  said: string
-  fix: string
-}
-
-/** What `GET /api/setup/notion` found shared with the integration. */
-export interface Shared {
-  ok: boolean
-  said: string
-  /** Notion said the token is not one of its own: the page says it, translated. */
-  refused?: boolean
-  /** The integration's name, as Notion shows it in the Connections menu. */
-  name: string
-  pages: { id: string; title: string; url: string }[]
-  boards: { id: string; url: string }[]
-}
-
-/** Where the demonstration ticket stands — `GET /api/setup/demo`. */
-export interface Demo {
-  id: string
-  title: string
-  url: string
-  column: string
-  status: string
-  progress: string
-  running: boolean
-  code: number | null
-  said: string
-}
-
 /** The columns a ticket's run can end in, and what the page makes of each. */
 export function demoOutcome(demo: Pick<Demo, "column" | "running" | "code">): "waiting" | "done" | "stuck" | "failed" {
   if (["review", "validated", "done"].includes(demo.column)) return "done"
@@ -121,7 +42,7 @@ export interface Row {
   label: string
   value: string
   params: Record<string, string>
-  state: Health
+  state: SetupHealth
   /** What went wrong, as the server said it — untranslated. */
   said: string
   /** The step of the first connection that changes it. */

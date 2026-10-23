@@ -305,7 +305,7 @@ def board(request: Request) -> Response:
     return answer(_api(request).board())
 
 
-@router.get("/api/notifications")
+@router.get("/api/notifications", response_model=answers.Bell)
 def recent_notifications() -> Response:
     return answer(notifications.recent())
 
@@ -335,7 +335,7 @@ def project_settings(request: Request, project_id: str) -> Response:
     return answer(_api(request).project_settings(project_id))
 
 
-@router.get("/api/projects/{project_id:page}/image/{slot:slot}")
+@router.get("/api/projects/{project_id:page}/image/{slot:slot}", response_class=Response)
 def project_image(request: Request, project_id: str, slot: str) -> Response:
     data, kind = _api(request).picture(project_id, slot)
     return Response(
@@ -348,7 +348,7 @@ def project_image(request: Request, project_id: str, slot: str) -> Response:
     )
 
 
-@router.get("/api/files/{file_id:page}")
+@router.get("/api/files/{file_id:page}", response_class=Response)
 def file(request: Request, file_id: str) -> Response:
     return Response(
         b"",
@@ -401,7 +401,7 @@ def ideas_unscored(request: Request, project: str = "", scope: str = "") -> Resp
     return answer(_api(request).ideas.unscored(None if scope == "all" else project))
 
 
-@router.get("/api/history")
+@router.get("/api/history", response_model=answers.History)
 def history(request: Request) -> Response:
     return answer(_api(request).history())
 
@@ -411,7 +411,7 @@ def disk(request: Request) -> Response:
     return answer(_api(request).disk())
 
 
-@router.get("/api/health")
+@router.get("/api/health", response_model=answers.HealthReport)
 def health(request: Request) -> Response:
     return answer(_api(request).health())
 
@@ -469,37 +469,37 @@ def settings_folder(request: Request, path: str = "") -> Response:
         return fail(400, str(error))
 
 
-@router.get("/api/setup/summary")
+@router.get("/api/setup/summary", response_model=answers.SetupSummary)
 def setup_summary(request: Request) -> Response:
     return answer(setup.summary(_api(request)))
 
 
-@router.get("/api/setup/claude")
+@router.get("/api/setup/claude", response_model=answers.ClaudeLogin)
 def setup_claude() -> Response:
     return answer(setup.claude_login())
 
 
-@router.get("/api/setup/github")
+@router.get("/api/setup/github", response_model=answers.SetupGithub)
 def setup_github() -> Response:
     return answer(setup.github())
 
 
-@router.get("/api/setup/notion")
+@router.get("/api/setup/notion", response_model=answers.Shared)
 def setup_notion(request: Request) -> Response:
     return answer(setup.notion_shared(_api(request), {}))
 
 
-@router.get("/api/setup/projects")
+@router.get("/api/setup/projects", response_model=answers.ProjectChoices)
 def setup_projects(request: Request) -> Response:
     return answer(setup.project_choices(_api(request)))
 
 
-@router.get("/api/setup/demo")
+@router.get("/api/setup/demo", response_model=answers.Demo)
 def setup_demo(request: Request, id: str = "") -> Response:  # noqa: A002
     return answer(setup.demo_state(_api(request), id))
 
 
-@router.get("/api/setup/doctor")
+@router.get("/api/setup/doctor", response_model=answers.Doctor)
 def setup_doctor() -> Response:
     return answer(setup.doctor())
 
@@ -563,7 +563,7 @@ def logs(request: Request, ticket: str = "") -> Response:
     return answer(_api(request).logs(ticket))
 
 
-@router.get("/api/service-log")
+@router.get("/api/service-log", response_model=answers.ServiceLog)
 def service_log(request: Request, lines: str = "500") -> Response:
     return answer(_api(request).service_log(int(lines) if lines.isdigit() else 500))
 
@@ -629,27 +629,27 @@ async def _small(request: Request) -> bytes:
     return await request.body()
 
 
-@router.post("/api/setup/provider")
+@router.post("/api/setup/provider", response_model=answers.ProviderChecked)
 def setup_provider(request: Request, payload: Fields = Body(default_factory=dict)) -> Response:
     return answer(setup.save_provider(_api(request), payload))
 
 
-@router.post("/api/setup/notion")
+@router.post("/api/setup/notion", response_model=answers.NotionProvisioned)
 def setup_save_notion(request: Request, payload: Fields = Body(default_factory=dict)) -> Response:
     return answer(setup.save_notion(_api(request), payload))
 
 
-@router.post("/api/setup/notion/shared")
+@router.post("/api/setup/notion/shared", response_model=answers.Shared)
 def setup_notion_shared(request: Request, payload: Fields = Body(default_factory=dict)) -> Response:
     return answer(setup.notion_shared(_api(request), payload))
 
 
-@router.post("/api/setup/demo")
+@router.post("/api/setup/demo", response_model=answers.TicketCreated)
 def setup_start_demo(request: Request, payload: Fields = Body(default_factory=dict)) -> Response:
     return answer(setup.demo(_api(request), payload))
 
 
-@router.post("/api/setup/channels")
+@router.post("/api/setup/channels", response_model=answers.ChannelsProvisioned)
 def setup_channels(request: Request, payload: Fields = Body(default_factory=dict)) -> Response:
     return answer(setup.save_channels(_api(request), payload))
 
@@ -661,22 +661,22 @@ def github_connect(
     return answer(github.connect(request.state.asking.base(), payload.organisation))
 
 
-@router.post("/api/github/token")
+@router.post("/api/github/token", response_model=answers.GithubTokenSaved)
 def github_token(request: Request, payload: Fields = Body(default_factory=dict)) -> Response:
     return answer(github.save_token(_api(request), payload))
 
 
-@router.post("/api/github/token/forget")
+@router.post("/api/github/token/forget", response_model=answers.GithubTokenForgotten)
 def github_token_forget(request: Request) -> Response:
     return answer(github.forget_token(_api(request)))
 
 
-@router.post("/api/github/disconnect")
+@router.post("/api/github/disconnect", response_model=answers.GithubDisconnected)
 def github_disconnect(payload: Slug = Body(default_factory=Slug)) -> Response:
     return answer(github.disconnect(payload.slug))
 
 
-@router.post("/api/tickets")
+@router.post("/api/tickets", response_model=answers.TicketCreated)
 def create_ticket(
     request: Request, payload: NewTicket = Body(default_factory=NewTicket)
 ) -> Response:
@@ -696,28 +696,28 @@ def create_ticket(
     )
 
 
-@router.post("/api/tickets/{ticket_id:page}/on")
+@router.post("/api/tickets/{ticket_id:page}/on", response_model=answers.TicketOn)
 def set_ticket_on(
     request: Request, ticket_id: str, payload: On = Body(default_factory=On)
 ) -> Response:
     return answer(_api(request).set_on(ticket_id, payload.on))
 
 
-@router.post("/api/tickets/{ticket_id:page}/status")
+@router.post("/api/tickets/{ticket_id:page}/status", response_model=answers.Moved)
 def set_ticket_status(
     request: Request, ticket_id: str, payload: Move = Body(default_factory=Move)
 ) -> Response:
     return answer(_api(request).set_status(ticket_id, payload.column, payload.seen))
 
 
-@router.post("/api/tickets/{ticket_id:page}/talk")
+@router.post("/api/tickets/{ticket_id:page}/talk", response_model=answers.Message)
 def tell_ticket(
     request: Request, ticket_id: str, payload: Text = Body(default_factory=Text)
 ) -> Response:
     return answer(_api(request).tell(ticket_id, payload.text))
 
 
-@router.post("/api/tickets/{ticket_id:page}/decision")
+@router.post("/api/tickets/{ticket_id:page}/decision", response_model=answers.Decided)
 def decide_ticket(
     request: Request, ticket_id: str, payload: Chosen = Body(default_factory=Chosen)
 ) -> Response:
@@ -733,49 +733,51 @@ def decide_ticket(
     )
 
 
-@router.post("/api/command")
+@router.post("/api/command", response_model=answers.CommandAccepted)
 def command(request: Request, payload: Line = Body(default_factory=Line)) -> Response:
     return answer(_api(request).commands.start(payload.line))
 
 
-@router.post("/api/chat")
+@router.post("/api/chat", response_model=answers.ChatState)
 def send_chat(request: Request, payload: Sent = Body(default_factory=Sent)) -> Response:
     return answer(_api(request).chat.send(payload.text, payload.attachments or []))
 
 
-@router.post("/api/chat/attachments/{identifier:attachment}/remove")
+@router.post(
+    "/api/chat/attachments/{identifier:attachment}/remove", response_model=answers.Detached
+)
 def remove_chat_attachment(request: Request, identifier: str) -> Response:
     return answer(_api(request).chat.detach(identifier))
 
 
-@router.post("/api/chat/queue/send")
+@router.post("/api/chat/queue/send", response_model=answers.ChatState)
 def send_queue(request: Request) -> Response:
     return answer(_api(request).chat.release())
 
 
-@router.post("/api/chat/queue/discard")
+@router.post("/api/chat/queue/discard", response_model=answers.ChatState)
 def discard_queue(request: Request) -> Response:
     return answer(_api(request).chat.discard())
 
 
-@router.post("/api/chat/queue/{identifier:attachment}/remove")
+@router.post("/api/chat/queue/{identifier:attachment}/remove", response_model=answers.ChatState)
 def remove_queued(request: Request, identifier: str) -> Response:
     return answer(_api(request).chat.unqueue(identifier))
 
 
-@router.post("/api/chat/queue/{identifier:attachment}/edit")
+@router.post("/api/chat/queue/{identifier:attachment}/edit", response_model=answers.ChatState)
 def edit_queued(
     request: Request, identifier: str, payload: Sent = Body(default_factory=Sent)
 ) -> Response:
     return answer(_api(request).chat.amend(identifier, payload.text))
 
 
-@router.post("/api/chat/stop")
+@router.post("/api/chat/stop", response_model=answers.ChatState)
 def stop_chat(request: Request) -> Response:
     return answer(_api(request).chat.stop())
 
 
-@router.post("/api/chat/reset")
+@router.post("/api/chat/reset", response_model=answers.ChatState)
 def reset_chat(request: Request) -> Response:
     return answer(_api(request).chat.reset())
 
@@ -846,27 +848,27 @@ def save_settings(request: Request, payload: Fields = Body(default_factory=dict)
     return answer(_api(request).save_settings(payload))
 
 
-@router.post("/api/context")
+@router.post("/api/context", response_model=answers.ContextSaved)
 def save_context(request: Request, payload: Text = Body(default_factory=Text)) -> Response:
     return answer(_api(request).save_context(payload.text))
 
 
-@router.post("/api/schedules")
+@router.post("/api/schedules", response_model=answers.ScheduleNamed)
 def create_schedule(request: Request, payload: Fields = Body(default_factory=dict)) -> Response:
     return answer(_api(request).create_schedule(str(payload.get("name", "")), payload))
 
 
-@router.post("/api/schedules/{schedule_id:page}/launch")
+@router.post("/api/schedules/{schedule_id:page}/launch", response_model=answers.ScheduleLaunched)
 def launch_schedule(request: Request, schedule_id: str) -> Response:
     return answer(_api(request).launch_schedule(schedule_id))
 
 
-@router.post("/api/schedules/{schedule_id:page}/delete")
+@router.post("/api/schedules/{schedule_id:page}/delete", response_model=answers.ScheduleNamed)
 def delete_schedule(request: Request, schedule_id: str) -> Response:
     return answer(_api(request).delete_schedule(schedule_id))
 
 
-@router.post("/api/schedules/{schedule_id:page}")
+@router.post("/api/schedules/{schedule_id:page}", response_model=answers.ScheduleSaved)
 def save_schedule(
     request: Request, schedule_id: str, payload: Fields = Body(default_factory=dict)
 ) -> Response:
@@ -896,7 +898,7 @@ def score_ideas(request: Request, payload: Scope = Body(default_factory=Scope)) 
     return answer(_api(request).ideas.score_unscored(payload.project))
 
 
-@router.post("/api/ideas/undo")
+@router.post("/api/ideas/undo", response_model=answers.Undone)
 def undo_idea(request: Request, payload: Scope = Body(default_factory=Scope)) -> Response:
     # A `project` (empty for the workspace's) takes back that scope's
     # last decision; none at all, the last decision of any.
@@ -935,7 +937,7 @@ def clean_disk(request: Request) -> Response:
     return answer(_api(request).clean())
 
 
-@router.post("/api/health/fix")
+@router.post("/api/health/fix", response_model=answers.HealthFixed)
 def fix_health(request: Request, payload: Fields = Body(default_factory=dict)) -> Response:
     return answer(_api(request).fix_health(payload))
 
@@ -955,7 +957,7 @@ def read_notifications(request: Request, payload: Read = Body(default_factory=Re
     return answer(_api(request).read_notifications(payload.id))
 
 
-@router.post("/api/refresh")
+@router.post("/api/refresh", response_model=answers.Ok)
 def refresh(request: Request) -> Response:
     _api(request).resynchronise()
     return answer({"ok": True})

@@ -318,6 +318,29 @@ class Transitions(Shape):
     transitions: list[Transition]
 
 
+class TicketCreated(Shape):
+    """A ticket written on the board: its page, and the title it was given."""
+
+    id: str
+    title: str
+
+
+class TicketOn(Shape):
+    id: str
+    on: str
+    """The prompt now run at every change of status, empty once removed."""
+
+
+class Moved(Shape):
+    """A move queued for the board: the status it goes to."""
+
+    id: str
+    status: str
+    """The status as the board spells it."""
+    sync: Literal["pending"] = omitted()
+    """On its way to Notion, and not there yet: see `web/board.py`."""
+
+
 # -- projects ------------------------------------------------------------------
 
 
@@ -464,6 +487,12 @@ class Context(Shape):
     editable: bool
 
 
+class ContextSaved(Shape):
+    ok: bool
+    text: str
+    """What the page now says, trimmed."""
+
+
 # -- schedules -----------------------------------------------------------------
 
 
@@ -501,6 +530,24 @@ class ScheduleDetail(Schedule):
     """One schedule opened: the row, and its page body — the brief of every ticket it makes."""
 
     body: str
+
+
+class ScheduleSaved(Shape):
+    id: str
+
+
+class ScheduleNamed(Shape):
+    """A schedule created, or taken off the board: its row, and what it was called."""
+
+    id: str
+    name: str
+
+
+class ScheduleLaunched(Shape):
+    """The ticket a schedule launched by hand was born as."""
+
+    ticket: str
+    title: str
 
 
 class ScheduleChoices(Shape):
@@ -669,6 +716,24 @@ class Talk(Shape):
     """The last word on the page is a question a run asked, still unanswered."""
 
 
+class Detached(Shape):
+    removed: str
+    """The file taken off the message, by its identifier."""
+
+
+class Transcribed(Shape):
+    """What a recording said, and the language it was heard in — empty: Whisper's guess."""
+
+    text: str
+    language: str
+
+
+class CommandAccepted(Shape):
+    """A command started: what runs, as the stream's `started` says it again."""
+
+    argv: list[str]
+
+
 # -- the runner ----------------------------------------------------------------
 
 
@@ -830,6 +895,75 @@ class LogSteps(Shape):
     name: str
     count: int
     steps: list[Step]
+
+
+class History(Shape):
+    """The last lines of `ponos history`, newest first.
+
+    Each is the entry a pass recorded — a run, a merge, a ticket a schedule made
+    — and its keys are its kind's: `at`, `id` and `status` on every one.
+    """
+
+    entries: list[dict[str, Any]]
+
+
+class ServiceLog(Shape):
+    """The end of `ponos.log`, masked: what `ponos logs --service` prints."""
+
+    path: str
+    lines: list[str]
+
+
+# -- the installation's health -------------------------------------------------
+
+
+class HealthFix(Shape):
+    """A fix Ponos can make itself — always asked for before it is made."""
+
+    action: str
+    label: str
+    confirm: str
+    missing: str
+    target: str
+
+
+class HealthNote(Shape):
+    name: str
+    said: list[str]
+
+
+class HealthCheck(Shape):
+    """One check of `health.py`: a sentence with `{{name}}` holes, and the params that fill them."""
+
+    code: str
+    group: Literal["notion", "github", "claude", "projects", "machine"]
+    state: Literal["ok", "warn", "error"]
+    title: str
+    said: str
+    params: dict[str, str]
+    cause: str
+    steps: list[str]
+    url: str
+    evidence: str
+    """What a tool printed, quoted — never translated."""
+    notes: list[HealthNote]
+    """What each name in a list is worth: “Agent” and the sentences about it."""
+    fix: HealthFix | None
+
+
+class HealthReport(Shape):
+    """What is wrong with the installation, checked now — the band over the dashboard."""
+
+    checks: list[HealthCheck]
+    problems: int
+    checked_at: str
+
+
+class HealthFixed(HealthReport):
+    """The report again, once a fix was made."""
+
+    done: str
+    """What the fix did."""
 
 
 # -- settings ------------------------------------------------------------------
@@ -1087,6 +1221,25 @@ class GithubManifest(Shape):
     state: str
 
 
+class GithubTokenSaved(GithubTokenCheck):
+    """A pasted token, checked: kept only when a code ticket can work with it."""
+
+    saved: bool
+
+
+class GithubTokenForgotten(Shape):
+    forgotten: bool
+    tokens_url: str
+    """Where GitHub revokes it: forgetting it here does not."""
+
+
+class GithubDisconnected(Shape):
+    forgotten: str
+    """The app's slug."""
+    settings_url: str
+    """Where GitHub deletes it: forgetting it here does not."""
+
+
 # -- statistics ----------------------------------------------------------------
 
 
@@ -1328,6 +1481,13 @@ class Found(Shape):
     error: str
 
 
+class Undone(Shape):
+    """The last decision taken back: the idea proposed again, and what it had been."""
+
+    idea: Idea
+    was: IdeaStatus
+
+
 class IdeasSettings(Shape):
     """The keys of `[runner]` that say how ideas are found on their own, as the dialog has them."""
 
@@ -1442,6 +1602,16 @@ class Decision(Shape):
     caveats: list[str] = omitted()
 
 
+class Decided(Moved):
+    """What a decision did: the move, and what was said or made on the way."""
+
+    column: ColumnKey
+    told: list[str]
+    """The lines written on the ticket, after the one that says who relayed them."""
+    created: list[str]
+    """The tickets it made, by their page ids."""
+
+
 # -- the bell ------------------------------------------------------------------
 
 
@@ -1459,6 +1629,227 @@ class Bell(Shape):
 
     items: list[Notification]
     unread: int
+
+
+# -- signing in, and the first connection --------------------------------------
+
+
+class Ok(Shape):
+    ok: bool
+
+
+class SetupState(Shape):
+    """What the first connection's page needs before it draws a step."""
+
+    claimed: bool
+    """Somebody already said how this console is opened: the account step is done."""
+    signed_in: bool
+    code: bool
+    """The first connection comes from outside this machine and has to give the code."""
+    code_drawn: bool
+    """The console drew a code when it started — without one, outside is refused."""
+    container: bool
+    version: str
+    storage: str
+
+
+SetupHealth = Literal["ok", "missing", "error"]
+
+
+class Provisioned(Shape):
+    """What a step that builds something did, line by line, and what it could not."""
+
+    steps: list[tuple[str, str]]
+    """Each a kind — `created`, `kept` — and the sentence that says it."""
+    problem: str
+
+
+class Claimed(Provisioned):
+    """The first connection made: the browser that made it is signed in as `email`."""
+
+    email: str
+
+
+class Checked(Shape):
+    """A check of the first connection: does it work, and who, or why not."""
+
+    ok: bool
+    said: str
+
+
+class ProviderChecked(Checked):
+    command: str = omitted()
+    """For the CLI only: what to run in a terminal to sign it in."""
+
+
+class ClaudeLogin(Checked):
+    command: str
+    """What to run in a terminal to sign it in."""
+
+
+class SetupProvider(Shape):
+    state: SetupHealth
+    provider: Literal["cli", "api_key", "openrouter"]
+    """The provider in use: the one the file names, else the one it behaved as."""
+    stated: str
+    """The one the file names, empty for none."""
+    account: str
+    key: str
+    """The key, masked: its first and last letters."""
+    route_sessions: bool
+    said: str
+
+
+class SetupModel(Shape):
+    state: SetupHealth
+    model: str
+    auto: bool
+    said: str
+
+
+class SetupBoard(Shape):
+    state: SetupHealth
+    storage: str
+    workspace: str
+    path: str
+    tickets: int | None
+    """Null when the board could not be counted."""
+    said: str
+
+
+class SetupGithub(Shape):
+    """Which GitHub account a pull request would be opened as — or why none."""
+
+    state: SetupHealth
+    account: str
+    via: Literal["token", "app", "GH_TOKEN", "gh"]
+    said: str
+    command: str
+    create_url: str
+    """Where GitHub makes a personal access token."""
+
+
+class SetupProjects(Shape):
+    state: SetupHealth
+    root: str
+    repositories: int
+    configured: int
+
+
+class SetupChannels(Shape):
+    state: SetupHealth
+    active: list[str]
+
+
+class SetupEnvironment(Shape):
+    state: SetupHealth
+    container: bool
+    version: str
+
+
+class Need(Shape):
+    """One thing the machine needs, and the command that installs it when it is missing."""
+
+    name: str
+    ok: bool
+    required: bool
+    said: str
+    fix: str
+
+
+class SetupMachine(Shape):
+    """git, Claude Code and its sign-in, the disk — what `doctor` checks under Tools."""
+
+    state: SetupHealth
+    needs: list[Need]
+
+
+class SetupSummary(Shape):
+    """What the installation amounts to: one entry per thing that has to work."""
+
+    machine: SetupMachine
+    provider: SetupProvider
+    model: SetupModel
+    board: SetupBoard
+    github: SetupGithub
+    projects: SetupProjects
+    channels: SetupChannels
+    environment: SetupEnvironment
+
+
+class NotionProvisioned(Provisioned):
+    board: SetupBoard
+
+
+class SharedPage(Shape):
+    id: str
+    title: str
+    url: str
+
+
+class SharedBoard(Shape):
+    id: str
+    url: str
+
+
+class Shared(Shape):
+    """What Notion has shared with the integration so far."""
+
+    ok: bool
+    said: str
+    refused: bool = omitted()
+    """Notion said the token is not one of its own: the page says it, translated."""
+    name: str
+    """The integration's name, as Notion shows it in the Connections menu."""
+    pages: list[SharedPage]
+    boards: list[SharedBoard]
+
+
+class Repository(Shape):
+    name: str
+    path: str
+    remote: str
+
+
+class ProjectChoices(Shape):
+    """The repositories this machine already has, and the projects already on the board."""
+
+    root: str
+    said: str
+    repositories: list[Repository]
+    projects: list[Named]
+
+
+class Demo(Shape):
+    """Where the demonstration ticket stands, and — once its run ended badly — why."""
+
+    id: str
+    title: str
+    url: str
+    column: ColumnKey
+    status: str
+    progress: str
+    running: bool
+    code: int | None
+    """The run's exit code, null while it runs or when it was not started here."""
+    said: str
+
+
+class Doctor(Shape):
+    """`ponos doctor`, as the terminal prints it."""
+
+    code: int
+    text: str
+
+
+class ChannelCheck(Shape):
+    name: str
+    ok: bool
+    said: str
+
+
+class ChannelsProvisioned(Provisioned):
+    channels: list[ChannelCheck]
 
 
 # -- what the stream carries ---------------------------------------------------

@@ -3157,7 +3157,9 @@ every route — the token or the session cookie, the `Host`, the `X-Ponos` heade
 the headers every answer carries — then the pages, the event stream (a `StreamingResponse`),
 the first connection, the update and the MCP server. `routes.py` is the API the page reads
 and writes, its bodies described by pydantic models; `answers.py` describes what it answers,
-the models its routes name. The schema of all of it is served at
+the models its routes name — every route that answers JSON names one, and a test holds it;
+the three that answer bytes (a project's picture, a file of the board, a file of the
+conversation) say none. The schema of all of it is served at
 **`/openapi.json`**, behind the same token as the rest — the schema only: the pages that draw
 one load their scripts from a CDN, which the console's policy refuses.
 

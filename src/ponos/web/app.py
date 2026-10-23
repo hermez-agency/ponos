@@ -807,7 +807,7 @@ def _usable(console: Console) -> bool:
 # -- signing in, and the first connection ------------------------------------
 
 
-@doors.post("/api/login")
+@doors.post("/api/login", response_model=answers.Ok)
 def login(request: Request, payload: routes.Fields = Body(default_factory=dict)) -> Response:
     """An email and a password against the configured ones. Nothing else."""
     console, asking = _console(request), _asking(request)
@@ -831,7 +831,7 @@ def login(request: Request, payload: routes.Fields = Body(default_factory=dict))
     )
 
 
-@doors.get("/api/setup")
+@doors.get("/api/setup", response_model=answers.SetupState)
 def setup_state(request: Request) -> Response:
     """What the first connection's page needs before it draws a step."""
     console, asking = _console(request), _asking(request)
@@ -849,7 +849,7 @@ def setup_state(request: Request) -> Response:
     )
 
 
-@doors.post("/api/setup")
+@doors.post("/api/setup", response_model=answers.Claimed)
 def claim(request: Request, payload: routes.Fields = Body(default_factory=dict)) -> Response:
     """The first connection: everything at once, and a way in at the end.
 
@@ -1008,7 +1008,7 @@ def upload(request: Request, name: str = "") -> Response:
     return answer(said)
 
 
-@doors.post("/api/chat/transcribe")
+@doors.post("/api/chat/transcribe", response_model=answers.Transcribed)
 def transcribe(request: Request, lang: str = "") -> Response:
     try:
         length = int(request.headers.get("content-length") or 0)
@@ -1029,7 +1029,7 @@ def transcribe(request: Request, lang: str = "") -> Response:
     return answer(said)
 
 
-@doors.get("/api/chat/attachments/{identifier:attachment}")
+@doors.get("/api/chat/attachments/{identifier:attachment}", response_class=Response)
 def attachment(request: Request, identifier: str) -> Response:
     """A file of the conversation, served back for its thumbnail.
 

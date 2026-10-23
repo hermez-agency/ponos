@@ -41,6 +41,29 @@ def the_schema_says_what_each_route_answers_and_what_the_stream_carries():
     assert "Decision" in shapes and "Chosen" in shapes, sorted(shapes)
 
 
+@case
+def every_route_that_answers_json_names_its_shape():
+    """No route left for the page to type by hand — but the three that answer bytes.
+
+    A picture, a file of the board (a redirect to it) and a file of the
+    conversation are not JSON, and their schema does not say they are.
+    """
+    from ponos.web import app
+
+    unnamed = []
+    for path, operations in app.schema()["paths"].items():
+        for method, operation in operations.items():
+            content = operation["responses"]["200"].get("content", {})
+            if not content.get("application/json", {}).get("schema"):
+                assert not content, (method, path, content)
+                unnamed.append(f"{method} {path}")
+    assert sorted(unnamed) == [
+        "get /api/chat/attachments/{identifier}",
+        "get /api/files/{file_id}",
+        "get /api/projects/{project_id}/image/{slot}",
+    ], unnamed
+
+
 # -- the goals -----------------------------------------------------------------
 
 

@@ -34,7 +34,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { api, why, type Provisioned } from "@/lib/api"
+import { api, why } from "@/lib/api"
 import { LANGUAGES, counted, setLanguage, useLanguage, useT, type Language } from "@/lib/i18n"
 import {
   accessProblem,
@@ -43,15 +43,10 @@ import {
   rows,
   stepFrom,
   stepsFor,
-  type Demo,
-  type Health,
-  type Provider,
   type Row,
-  type SetupState,
-  type Shared,
   type StepKey,
-  type Summary,
 } from "@/lib/setup"
+import type { ChannelsProvisioned, Demo, Provider, Provisioned, SetupHealth, SetupState, Shared, Summary } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 /* The first connection, in steps.
@@ -1032,7 +1027,7 @@ function GithubStep({ container, onNext }: { container: boolean; onNext: () => v
     try {
       setGithub(await api.github())
     } catch (error) {
-      setGithub({ state: "error", account: "", via: "", said: why(error), command: "" })
+      setGithub({ state: "error", account: "", via: "gh", said: why(error), command: "", create_url: "" })
     } finally {
       setBusy(false)
     }
@@ -1402,9 +1397,7 @@ function ChannelsStep({ container, onNext }: { container: boolean; onNext: () =>
     slack_channel: "",
   })
   const [busy, setBusy] = React.useState(false)
-  const [done, setDone] = React.useState<
-    (Provisioned & { channels: { name: string; ok: boolean; said: string }[] }) | null
-  >(null)
+  const [done, setDone] = React.useState<ChannelsProvisioned | null>(null)
   const [problem, setProblem] = React.useState("")
   const set = (key: keyof typeof typed) => (event: React.ChangeEvent<HTMLInputElement>) =>
     setTyped({ ...typed, [key]: event.target.value })
@@ -1642,7 +1635,7 @@ export function ServiceLog() {
 
 /* -- the summary, wherever it is drawn -------------------------------------- */
 
-const STATES: Record<Health, { label: string; icon: React.ComponentType<{ className?: string }>; tone: string }> = {
+const STATES: Record<SetupHealth, { label: string; icon: React.ComponentType<{ className?: string }>; tone: string }> = {
   ok: { label: "OK", icon: CircleCheck, tone: "text-tr-green border-tr-green/40" },
   missing: { label: "Missing", icon: CircleDashed, tone: "text-tr-amber border-tr-amber/40" },
   error: { label: "Error", icon: CircleAlert, tone: "text-destructive border-destructive/40" },

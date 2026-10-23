@@ -2,18 +2,52 @@ import type {
   Attached,
   Bell,
   Board,
-  ColumnKey,
+  Chat,
+  ChatSessions,
+  ChannelsProvisioned,
+  Claimed,
+  ClaudeLogin,
+  CommandAccepted,
+  ContextSaved,
+  Decided,
   Decision,
+  Demo,
+  Detached,
+  Doctor,
+  Github,
+  GithubDisconnected,
+  GithubTokenForgotten,
+  GithubTokenSaved,
+  HealthFixed,
+  HealthReport,
+  Logs,
+  LogSteps,
+  Moved,
+  NotionProvisioned,
+  Ok,
+  ProjectChoices,
+  ProviderChecked,
+  Runs,
+  ScheduleLaunched,
+  ScheduleNamed,
+  ScheduleSaved,
+  ServiceLog,
+  SetupGithub,
+  SetupState,
+  Shared,
+  Summary,
+  TicketCreated,
+  TicketOn,
+  Transcribed,
+  Transitions,
+  Undone,
   Cleaned,
   McpOverview,
   McpServers,
   McpTest,
   Disk,
   Folder,
-  GithubApp,
   GithubManifest,
-  GithubToken,
-  GithubTokenCheck,
   Found,
   IdeasPlan,
   IdeasSettings,
@@ -22,9 +56,7 @@ import type {
   Unscored,
   IdeaList,
   Ideas,
-  LogEntry,
   ChatModels,
-  ChatSession,
   ChatState,
   Context,
   Message,
@@ -37,8 +69,6 @@ import type {
   ProjectDetail,
   Projects,
   ProjectSettings,
-  Run,
-  Transition,
   RunnerState,
   RunSteps,
   UpgradeProgress,
@@ -48,12 +78,9 @@ import type {
   Settings,
   Statistics,
   SettingValue,
-  Step,
   Talk,
   TicketDetail,
 } from "./types"
-import type { HealthReport } from "./health"
-import type { Demo, SetupState, Shared, Summary } from "./setup"
 
 /* Talking to the server.
  *
@@ -183,7 +210,7 @@ export const api = {
   context: () => request<Context>("/api/context"),
   schedules: () => request<Schedules>("/api/schedules"),
   schedule: (id: string) => request<ScheduleDetail>(`/api/schedules/${id}`),
-  chat: () => request<{ messages: Message[] } & ChatState & { busy?: boolean }>("/api/chat"),
+  chat: () => request<Chat>("/api/chat"),
   settings: () => request<Settings>("/api/settings"),
   folder: (path: string) => request<Folder>(`/api/settings/folder?path=${encodeURIComponent(path)}`),
   statistics: (from: string, to: string, project?: string) =>
@@ -202,15 +229,15 @@ export const api = {
   ticket: (id: string) => request<TicketDetail>(`/api/tickets/${id}`),
   talk: (id: string) => request<Talk>(`/api/tickets/${id}/talk`),
   logs: (ticket = "") =>
-    request<{ logs: LogEntry[] }>(ticket ? `/api/logs?ticket=${encodeURIComponent(ticket)}` : "/api/logs"),
+    request<Logs>(ticket ? `/api/logs?ticket=${encodeURIComponent(ticket)}` : "/api/logs"),
   log: (name: string) =>
-    request<{ name: string; count: number; steps: Step[] }>(`/api/logs/${encodeURIComponent(name)}`),
-  runs: (id: string) => request<{ runs: Run[] }>(`/api/tickets/${id}/runs`),
+    request<LogSteps>(`/api/logs/${encodeURIComponent(name)}`),
+  runs: (id: string) => request<Runs>(`/api/tickets/${id}/runs`),
   /** The executions of a ticket's « On » prompt, newest first. */
   transitions: (id: string) =>
-    request<{ transitions: Transition[] }>(`/api/tickets/${id}/transitions`),
+    request<Transitions>(`/api/tickets/${id}/transitions`),
   /** Write the prompt run at every change of the ticket's status; empty removes it. */
-  setOn: (id: string, on: string) => request<{ id: string; on: string }>(`/api/tickets/${id}/on`, { on }),
+  setOn: (id: string, on: string) => request<TicketOn>(`/api/tickets/${id}/on`, { on }),
   /** A run's last steps; `before`, those older than a position; `after`, those newer. */
   runSteps: (run: number, page: { before?: number; after?: number } = {}) =>
     request<RunSteps>(
@@ -233,40 +260,40 @@ export const api = {
     subtype?: string
     /** The page of the goal it serves; empty for none. */
     goal?: string
-  }) => request<{ id: string; title: string }>("/api/tickets", ticket),
+  }) => request<TicketCreated>("/api/tickets", ticket),
   /** `from` is the status the card showed: Notion saying anything else by the
    * time the write goes out is somebody else's move, not overwritten. */
   setStatus: (id: string, column: string, from?: string) =>
-    request<{ id: string; status: string; sync?: string }>(`/api/tickets/${id}/status`, {
+    request<Moved>(`/api/tickets/${id}/status`, {
       column,
       from,
     }),
   tell: (id: string, text: string) =>
-    request<unknown>(`/api/tickets/${id}/talk`, { text }),
+    request<Message>(`/api/tickets/${id}/talk`, { text }),
   /** What a blocked card, or one in review, offers to do about it. */
   decision: (id: string) => request<Decision>(`/api/tickets/${id}/decision`),
   decide: (
     id: string,
     choice: { key: string; number?: number; text?: string; model?: string; titles?: string[] }
   ) =>
-    request<{ id: string; status: string; column: ColumnKey; told: string[]; created: string[] }>(
+    request<Decided>(
       `/api/tickets/${id}/decision`,
       choice
     ),
-  command: (line: string) => request<unknown>("/api/command", { line }),
+  command: (line: string) => request<CommandAccepted>("/api/command", { line }),
   send: (text: string, attachments: string[] = []) =>
-    request<unknown>("/api/chat", { text, attachments }),
+    request<ChatState>("/api/chat", { text, attachments }),
   attach: (file: File, name: string) =>
     send<Attached>(`/api/chat/attachments?name=${encodeURIComponent(name)}`, file),
-  detach: (id: string) => request<unknown>(`/api/chat/attachments/${id}/remove`, {}),
+  detach: (id: string) => request<Detached>(`/api/chat/attachments/${id}/remove`, {}),
   transcribe: (audio: Blob, language: string) =>
-    send<{ text: string; language: string }>(
+    send<Transcribed>(
       `/api/chat/transcribe?lang=${encodeURIComponent(language)}`,
       audio
     ),
-  resetChat: () => request<unknown>("/api/chat/reset", {}),
+  resetChat: () => request<ChatState>("/api/chat/reset", {}),
   sessions: (query = "") =>
-    request<{ sessions: ChatSession[] }>(`/api/chat/sessions?q=${encodeURIComponent(query)}`),
+    request<ChatSessions>(`/api/chat/sessions?q=${encodeURIComponent(query)}`),
   openSession: (id: string) => request<ChatState>(`/api/chat/sessions/${id}/open`, {}),
   renameSession: (id: string, title: string) =>
     request<ChatState>(`/api/chat/sessions/${id}/rename`, { title }),
@@ -275,7 +302,7 @@ export const api = {
   setChatModel: (model: string) => request<ChatState>("/api/chat/model", { model }),
   linkSession: (id: string, project: string) =>
     request<ChatState>(`/api/chat/sessions/${id}/project`, { project }),
-  stopChat: () => request<unknown>("/api/chat/stop", {}),
+  stopChat: () => request<ChatState>("/api/chat/stop", {}),
   unqueue: (id: string) => request<ChatState>(`/api/chat/queue/${id}/remove`, {}),
   amend: (id: string, text: string) => request<ChatState>(`/api/chat/queue/${id}/edit`, { text }),
   releaseQueue: () => request<ChatState>("/api/chat/queue/send", {}),
@@ -285,7 +312,7 @@ export const api = {
     projects?: Pair[]
     github?: Pair[]
   }) => request<Saved>("/api/settings", payload),
-  saveContext: (text: string) => request<{ text: string }>("/api/context", { text }),
+  saveContext: (text: string) => request<ContextSaved>("/api/context", { text }),
   saveProject: (id: string, values: Record<string, unknown>) =>
     request<ProjectDetail>(`/api/projects/${id}`, values),
   saveProjectSettings: (
@@ -305,13 +332,13 @@ export const api = {
   uploadPicture: (id: string, slot: "cover" | "icon", file: Blob, name: string) =>
     upload<Pictures>(`/api/projects/${id}/image/${slot}`, file, name),
   saveSchedule: (id: string, values: Record<string, unknown>) =>
-    request<{ id: string }>(`/api/schedules/${id}`, values),
+    request<ScheduleSaved>(`/api/schedules/${id}`, values),
   launchSchedule: (id: string) =>
-    request<{ ticket: string; title: string }>(`/api/schedules/${id}/launch`, {}),
+    request<ScheduleLaunched>(`/api/schedules/${id}/launch`, {}),
   deleteSchedule: (id: string) =>
-    request<{ id: string; name: string }>(`/api/schedules/${id}/delete`, {}),
+    request<ScheduleNamed>(`/api/schedules/${id}/delete`, {}),
   createSchedule: (values: Record<string, unknown>) =>
-    request<{ id: string; name: string }>("/api/schedules", values),
+    request<ScheduleNamed>("/api/schedules", values),
   ideas: (project = "") =>
     request<Ideas>(`/api/ideas${project ? `?project=${encodeURIComponent(project)}` : ""}`),
   /** When ideas are found on their own, for which projects, and how the last pass went. */
@@ -352,8 +379,8 @@ export const api = {
   scoreIdeas: (project: string | null = null) =>
     request<Unscored>("/api/ideas/score", project === null ? {} : { project }),
   /** Takes back the last decision of one scope. */
-  undoIdea: (project = "") => request<{ idea: Idea; was: string }>("/api/ideas/undo", { project }),
-  refresh: () => request<unknown>("/api/refresh", {}),
+  undoIdea: (project = "") => request<Undone>("/api/ideas/undo", { project }),
+  refresh: () => request<Ok>("/api/refresh", {}),
   /** One notification read, or all of them; the bell it leaves is the answer. */
   readNotifications: (id?: number) =>
     request<Bell>("/api/notifications/read", id === undefined ? {} : { id }),
@@ -361,19 +388,19 @@ export const api = {
   health: () => request<HealthReport>("/api/health"),
   /** One fix a check offered — the page has asked first, and says so. */
   fixHealth: (action: string, target: string) =>
-    request<HealthReport>("/api/health/fix", { action, target, confirmed: true }),
+    request<HealthFixed>("/api/health/fix", { action, target, confirmed: true }),
   disk: () => request<Disk>("/api/disk"),
   clean: () => request<Cleaned>("/api/disk/clean", {}),
   mcp: () => request<McpOverview>("/api/mcp"),
-  githubApps: () => request<{ apps: GithubApp[]; token: GithubToken }>("/api/github"),
+  githubApps: () => request<Github>("/api/github"),
   saveGithubToken: (token: string) =>
-    request<GithubTokenCheck & { saved: boolean }>("/api/github/token", { token }),
+    request<GithubTokenSaved>("/api/github/token", { token }),
   forgetGithubToken: () =>
-    request<{ forgotten: boolean; tokens_url: string }>("/api/github/token/forget", {}),
+    request<GithubTokenForgotten>("/api/github/token/forget", {}),
   connectGithub: (organisation: string) =>
     request<GithubManifest>("/api/github/connect", { organisation }),
   disconnectGithub: (slug: string) =>
-    request<{ forgotten: string; settings_url: string }>("/api/github/disconnect", { slug }),
+    request<GithubDisconnected>("/api/github/disconnect", { slug }),
   /* Slow, and so its own call: Claude Code starts every server to see if it answers. */
   mcpServers: () => request<McpServers>("/api/mcp/servers"),
   testMcp: (target: "local" | "public") => request<McpTest>("/api/mcp/test", { target }),
@@ -390,46 +417,25 @@ export const api = {
     return response.ok ? ((await response.json()) as SetupState) : null
   },
   claim: (typed: { code: string; email: string; password: string; confirm: string; language?: string }) =>
-    request<{ steps: [string, string][]; problem: string; email: string }>("/api/setup", typed),
+    request<Claimed>("/api/setup", typed),
   summary: () => request<Summary>("/api/setup/summary"),
-  claudeLogin: () => request<Checked & { command: string }>("/api/setup/claude"),
+  claudeLogin: () => request<ClaudeLogin>("/api/setup/claude"),
   saveProvider: (chosen: { provider: string; key?: string; route_sessions?: boolean }) =>
-    request<Checked & { command?: string }>("/api/setup/provider", chosen),
+    request<ProviderChecked>("/api/setup/provider", chosen),
   saveNotion: (typed: { token: string; page: string; workspace?: string }) =>
-    request<Provisioned & { board: Summary["board"] }>("/api/setup/notion", typed),
+    request<NotionProvisioned>("/api/setup/notion", typed),
   /* Asked again every few seconds while somebody is in Notion sharing a page. */
   sharedWithNotion: (token: string) =>
     token ? request<Shared>("/api/setup/notion/shared", { token }) : request<Shared>("/api/setup/notion"),
-  setupProjects: () =>
-    request<{
-      root: string
-      said: string
-      repositories: { name: string; path: string; remote: string }[]
-      projects: { id: string; name: string }[]
-    }>("/api/setup/projects"),
+  setupProjects: () => request<ProjectChoices>("/api/setup/projects"),
   startDemo: (chosen: { project: string; language: string }) =>
-    request<{ id: string; title: string }>("/api/setup/demo", chosen),
+    request<TicketCreated>("/api/setup/demo", chosen),
   demo: (id: string) => request<Demo>(`/api/setup/demo?id=${encodeURIComponent(id)}`),
-  doctor: () => request<{ code: number; text: string }>("/api/setup/doctor"),
-  serviceLog: () => request<{ path: string; lines: string[] }>("/api/service-log"),
-  github: () => request<Summary["github"]>("/api/setup/github"),
+  doctor: () => request<Doctor>("/api/setup/doctor"),
+  serviceLog: () => request<ServiceLog>("/api/service-log"),
+  github: () => request<SetupGithub>("/api/setup/github"),
   saveChannels: (typed: Record<string, string>) =>
-    request<Provisioned & { channels: { name: string; ok: boolean; said: string }[] }>(
-      "/api/setup/channels",
-      typed
-    ),
-}
-
-/** A check of the first connection: does it work, and who, or why not. */
-export interface Checked {
-  ok: boolean
-  said: string
-}
-
-/** What a step that builds something did, line by line, and what it could not. */
-export interface Provisioned {
-  steps: [string, string][]
-  problem: string
+    request<ChannelsProvisioned>("/api/setup/channels", typed),
 }
 
 /** The message of whatever went wrong, however it went wrong. */

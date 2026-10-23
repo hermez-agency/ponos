@@ -10,6 +10,7 @@ from support import ROOT, _environment, _Fresh, _saved, case
 
 from ponos import config as C
 from ponos import notion
+from ponos.web import answers
 from ponos.web import api as web_api
 
 # -- what a message to the workspace carries ----------------------------------
@@ -78,6 +79,7 @@ def the_first_connection_finds_what_notion_shares_and_keeps_only_a_token_it_acce
         notion.Client.my_name = refused
         said = web_setup.notion_shared(api, {"token": "ntn_wrong"})
         assert said["ok"] is False and "notion.so/my-integrations" in said["said"], said
+        answers.Shared.model_validate(said)
         assert C.read_secrets(C.secrets_path(path))["PONOS_NOTION_TOKEN"] == "ntn_real"
 
         notion.Client.my_name = lambda self: "Ponos"
@@ -177,6 +179,7 @@ def the_first_project_step_makes_the_workspace_folder_and_offers_its_repositorie
     said = web_setup.project_choices(api)
     assert [repository["name"] for repository in said["repositories"]] == ["app"]
     assert said["projects"] == [{"id": "p1", "name": "Site"}], "a project the board has"
+    answers.ProjectChoices.model_validate(said)
 
 
 @case
