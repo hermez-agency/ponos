@@ -1,7 +1,8 @@
 /* The installation's health, without a DOM.
  *
- * What the server found wrong (`GET /api/health`, from `health.py`) and how the
- * band over the dashboard groups it. Imports nothing, so `node --test` reads it
+ * How the band over the dashboard groups what the server found wrong
+ * (`GET /api/health`, from `health.py`): the shapes are the schema's, in
+ * `types.ts`. Imports only types, which `node --test` strips, so it reads it
  * as it stands (see health.test.ts).
  *
  * The sentences arrive as English templates with `{{name}}` holes and the
@@ -9,44 +10,10 @@
  * the other language. What a tool printed (`evidence`) is quoted, not translated.
  */
 
-export type HealthState = "ok" | "warn" | "error"
+import type { HealthCheck, HealthGroup } from "./types.ts"
 
 /** The groups, in the order the band lists them. */
-export const HEALTH_GROUPS = ["notion", "github", "claude", "projects", "machine"] as const
-export type HealthGroup = (typeof HEALTH_GROUPS)[number]
-
-/** A fix Ponos can make itself — always asked for before it is made. */
-export interface HealthFix {
-  action: string
-  label: string
-  confirm: string
-  missing: string
-  target: string
-}
-
-export interface HealthCheck {
-  code: string
-  group: HealthGroup
-  state: HealthState
-  title: string
-  said: string
-  params: Record<string, string>
-  cause: string
-  steps: string[]
-  url: string
-  evidence: string
-  /** What each name in a list is worth: “Agent” and the sentences about it. */
-  notes: { name: string; said: string[] }[]
-  fix: HealthFix | null
-}
-
-export interface HealthReport {
-  checks: HealthCheck[]
-  problems: number
-  checked_at: string
-  /** What a fix just did, when the report answers one. */
-  done?: string
-}
+export const HEALTH_GROUPS: readonly HealthGroup[] = ["notion", "github", "claude", "projects", "machine"]
 
 /** The checks that are not green, errors before warnings, each group in its place. */
 export function failing(checks: HealthCheck[]): HealthCheck[] {

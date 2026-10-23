@@ -1766,6 +1766,20 @@ export interface components {
             after: string;
             ticket: components["schemas"]["Ticket"];
         };
+        ChannelCheck: {
+            name: string;
+            ok: boolean;
+            said: string;
+        };
+        ChannelsProvisioned: {
+            /** @description Each a kind — `created`, `kept` — and the sentence that says it. */
+            steps: [
+                string,
+                string
+            ][];
+            problem: string;
+            channels: components["schemas"]["ChannelCheck"][];
+        };
         /** @description The conversation as the page opens it: what was said, and where it stands. */
         Chat: {
             /** @description The console's own identifier of the open session, not Claude Code's. */
@@ -1952,6 +1966,22 @@ export interface components {
             /** @description GitHub's page listing the checks. */
             link: string;
         };
+        /** @description The first connection made: the browser that made it is signed in as `email`. */
+        Claimed: {
+            /** @description Each a kind — `created`, `kept` — and the sentence that says it. */
+            steps: [
+                string,
+                string
+            ][];
+            problem: string;
+            email: string;
+        };
+        ClaudeLogin: {
+            ok: boolean;
+            said: string;
+            /** @description What to run in a terminal to sign it in. */
+            command: string;
+        };
         /** @description What a tidy asked from the console removed, and the room left after it. */
         Cleaned: {
             sizes: components["schemas"]["Sizes"];
@@ -1974,6 +2004,10 @@ export interface components {
             /** @enum {string} */
             key: "draft" | "ready" | "running" | "blocked" | "review" | "validated" | "failed" | "done" | "cancelled";
             name: string;
+        };
+        /** @description A command started: what runs, as the stream's `started` says it again. */
+        CommandAccepted: {
+            argv: string[];
         };
         CommandEnded: {
             /** @constant */
@@ -2000,9 +2034,31 @@ export interface components {
             storage: string;
             editable: boolean;
         };
+        ContextSaved: {
+            ok: boolean;
+            /** @description What the page now says, trimmed. */
+            text: string;
+        };
         Dated: {
             history: number;
             edited: number;
+        };
+        /** @description What a decision did: the move, and what was said or made on the way. */
+        Decided: {
+            id: string;
+            /** @description The status as the board spells it. */
+            status: string;
+            /**
+             * @description On its way to Notion, and not there yet: see `web/board.py`.
+             * @constant
+             */
+            sync?: "pending";
+            /** @enum {string} */
+            column: "draft" | "ready" | "running" | "blocked" | "review" | "validated" | "failed" | "done" | "cancelled";
+            /** @description The lines written on the ticket, after the one that says who relayed them. */
+            told: string[];
+            /** @description The tickets it made, by their page ids. */
+            created: string[];
         };
         /**
          * @description Why a blocked ticket waits, or what a ticket in review brought back.
@@ -2031,6 +2087,24 @@ export interface components {
             checks?: components["schemas"]["Checks"];
             caveats?: string[];
         };
+        /** @description Where the demonstration ticket stands, and — once its run ended badly — why. */
+        Demo: {
+            id: string;
+            title: string;
+            url: string;
+            /** @enum {string} */
+            column: "draft" | "ready" | "running" | "blocked" | "review" | "validated" | "failed" | "done" | "cancelled";
+            status: string;
+            progress: string;
+            running: boolean;
+            /** @description The run's exit code, null while it runs or when it was not started here. */
+            code: number | null;
+            said: string;
+        };
+        Detached: {
+            /** @description The file taken off the message, by its identifier. */
+            removed: string;
+        };
         Dictation: {
             ready: boolean;
             why: string;
@@ -2050,6 +2124,11 @@ export interface components {
             tidied_at: string;
             retention_days: number;
             clean_done_worktrees: boolean;
+        };
+        /** @description `ponos doctor`, as the terminal prints it. */
+        Doctor: {
+            code: number;
+            text: string;
         };
         Edited: {
             name: string;
@@ -2090,6 +2169,12 @@ export interface components {
             installations: components["schemas"]["GithubInstallation"][];
             error: string;
         };
+        GithubDisconnected: {
+            /** @description The app's slug. */
+            forgotten: string;
+            /** @description Where GitHub deletes it: forgetting it here does not. */
+            settings_url: string;
+        };
         /** @description One account a GitHub App is installed on, and what it reaches there. */
         GithubInstallation: {
             id: number;
@@ -2126,6 +2211,23 @@ export interface components {
             warnings: string[];
             ok: boolean;
         };
+        GithubTokenForgotten: {
+            forgotten: boolean;
+            /** @description Where GitHub revokes it: forgetting it here does not. */
+            tokens_url: string;
+        };
+        /** @description A pasted token, checked: kept only when a code ticket can work with it. */
+        GithubTokenSaved: {
+            login: string;
+            /** @enum {string} */
+            kind: "classic" | "fine-grained";
+            repositories: string[];
+            writable: string[];
+            missing: components["schemas"]["Missing"][];
+            warnings: string[];
+            ok: boolean;
+            saved: boolean;
+        };
         /** @description One row of the goals database, and how far its tickets have gone. */
         Goal: {
             id: string;
@@ -2155,9 +2257,67 @@ export interface components {
         HTTPValidationError: {
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** @description One check of `health.py`: a sentence with `{{name}}` holes, and the params that fill them. */
+        HealthCheck: {
+            code: string;
+            /** @enum {string} */
+            group: "notion" | "github" | "claude" | "projects" | "machine";
+            /** @enum {string} */
+            state: "ok" | "warn" | "error";
+            title: string;
+            said: string;
+            params: {
+                [key: string]: string;
+            };
+            cause: string;
+            steps: string[];
+            url: string;
+            /** @description What a tool printed, quoted — never translated. */
+            evidence: string;
+            /** @description What each name in a list is worth: “Agent” and the sentences about it. */
+            notes: components["schemas"]["HealthNote"][];
+            fix: components["schemas"]["HealthFix"] | null;
+        };
+        /** @description A fix Ponos can make itself — always asked for before it is made. */
+        HealthFix: {
+            action: string;
+            label: string;
+            confirm: string;
+            missing: string;
+            target: string;
+        };
+        /** @description The report again, once a fix was made. */
+        HealthFixed: {
+            checks: components["schemas"]["HealthCheck"][];
+            problems: number;
+            checked_at: string;
+            /** @description What the fix did. */
+            done: string;
+        };
+        HealthNote: {
+            name: string;
+            said: string[];
+        };
+        /** @description What is wrong with the installation, checked now — the band over the dashboard. */
+        HealthReport: {
+            checks: components["schemas"]["HealthCheck"][];
+            problems: number;
+            checked_at: string;
+        };
         Held: {
             reason: string;
             detail: string;
+        };
+        /**
+         * @description The last lines of `ponos history`, newest first.
+         *
+         *     Each is the entry a pass recorded — a run, a merge, a ticket a schedule made
+         *     — and its keys are its kind's: `at`, `id` and `status` on every one.
+         */
+        History: {
+            entries: {
+                [key: string]: unknown;
+            }[];
         };
         /** @description One idea, Ponos's or written by hand, as `/api/ideas` says it. */
         Idea: {
@@ -2398,9 +2558,28 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** @description A move queued for the board: the status it goes to. */
+        Moved: {
+            id: string;
+            /** @description The status as the board spells it. */
+            status: string;
+            /**
+             * @description On its way to Notion, and not there yet: see `web/board.py`.
+             * @constant
+             */
+            sync?: "pending";
+        };
         Named: {
             id: string;
             name: string;
+        };
+        /** @description One thing the machine needs, and the command that installs it when it is missing. */
+        Need: {
+            name: string;
+            ok: boolean;
+            required: boolean;
+            said: string;
+            fix: string;
         };
         NewTicket: {
             /** @default  */
@@ -2438,6 +2617,18 @@ export interface components {
             title: string;
             at: string;
             read: boolean;
+        };
+        NotionProvisioned: {
+            /** @description Each a kind — `created`, `kept` — and the sentence that says it. */
+            steps: [
+                string,
+                string
+            ][];
+            problem: string;
+            board: components["schemas"]["SetupBoard"];
+        };
+        Ok: {
+            ok: boolean;
         };
         On: {
             /** @default  */
@@ -2566,6 +2757,13 @@ export interface components {
             origin?: string;
             path_error?: string;
         };
+        /** @description The repositories this machine already has, and the projects already on the board. */
+        ProjectChoices: {
+            root: string;
+            said: string;
+            repositories: components["schemas"]["Repository"][];
+            projects: components["schemas"]["Named"][];
+        };
         ProjectCount: {
             name: string;
             count: number;
@@ -2641,6 +2839,12 @@ export interface components {
             /** @description `storage.mode`: which board these came off. */
             storage: string;
         };
+        ProviderChecked: {
+            ok: boolean;
+            said: string;
+            /** @description For the CLI only: what to run in a terminal to sign it in. */
+            command?: string;
+        };
         Question: {
             ask: string;
             /** @enum {string} */
@@ -2658,6 +2862,11 @@ export interface components {
             id?: number | null;
         } & {
             [key: string]: unknown;
+        };
+        Repository: {
+            name: string;
+            path: string;
+            remote: string;
         };
         /** @description One run of a ticket, as the local journal keeps it — see `journal.py`. */
         Run: {
@@ -2810,6 +3019,19 @@ export interface components {
             problem: string;
             body: string;
         };
+        /** @description The ticket a schedule launched by hand was born as. */
+        ScheduleLaunched: {
+            ticket: string;
+            title: string;
+        };
+        /** @description A schedule created, or taken off the board: its row, and what it was called. */
+        ScheduleNamed: {
+            id: string;
+            name: string;
+        };
+        ScheduleSaved: {
+            id: string;
+        };
         Schedules: {
             /** @description `runner.schedule`: off, and nothing is born however the rows are ticked. */
             enabled: boolean;
@@ -2840,6 +3062,11 @@ export interface components {
             attachments?: string[] | null;
         } & {
             [key: string]: unknown;
+        };
+        /** @description The end of `ponos.log`, masked: what `ponos logs --service` prints. */
+        ServiceLog: {
+            path: string;
+            lines: string[];
         };
         /** @description The sessions running now — a state, replayed to every tab that connects. */
         SessionsEvent: {
@@ -2916,6 +3143,119 @@ export interface components {
             github: components["schemas"]["Pair"][];
             /** @description The projects that decide their automatic validation for themselves. */
             own_validation?: components["schemas"]["OwnValidation"][];
+        };
+        SetupBoard: {
+            /** @enum {string} */
+            state: "ok" | "missing" | "error";
+            storage: string;
+            workspace: string;
+            path: string;
+            /** @description Null when the board could not be counted. */
+            tickets: number | null;
+            said: string;
+        };
+        SetupChannels: {
+            /** @enum {string} */
+            state: "ok" | "missing" | "error";
+            active: string[];
+        };
+        SetupEnvironment: {
+            /** @enum {string} */
+            state: "ok" | "missing" | "error";
+            container: boolean;
+            version: string;
+        };
+        /** @description Which GitHub account a pull request would be opened as — or why none. */
+        SetupGithub: {
+            /** @enum {string} */
+            state: "ok" | "missing" | "error";
+            account: string;
+            /** @enum {string} */
+            via: "token" | "app" | "GH_TOKEN" | "gh";
+            said: string;
+            command: string;
+            /** @description Where GitHub makes a personal access token. */
+            create_url: string;
+        };
+        /** @description git, Claude Code and its sign-in, the disk — what `doctor` checks under Tools. */
+        SetupMachine: {
+            /** @enum {string} */
+            state: "ok" | "missing" | "error";
+            needs: components["schemas"]["Need"][];
+        };
+        SetupModel: {
+            /** @enum {string} */
+            state: "ok" | "missing" | "error";
+            model: string;
+            auto: boolean;
+            said: string;
+        };
+        SetupProjects: {
+            /** @enum {string} */
+            state: "ok" | "missing" | "error";
+            root: string;
+            repositories: number;
+            configured: number;
+        };
+        SetupProvider: {
+            /** @enum {string} */
+            state: "ok" | "missing" | "error";
+            /**
+             * @description The provider in use: the one the file names, else the one it behaved as.
+             * @enum {string}
+             */
+            provider: "cli" | "api_key" | "openrouter";
+            /** @description The one the file names, empty for none. */
+            stated: string;
+            account: string;
+            /** @description The key, masked: its first and last letters. */
+            key: string;
+            route_sessions: boolean;
+            said: string;
+        };
+        /** @description What the first connection's page needs before it draws a step. */
+        SetupState: {
+            /** @description Somebody already said how this console is opened: the account step is done. */
+            claimed: boolean;
+            signed_in: boolean;
+            /** @description The first connection comes from outside this machine and has to give the code. */
+            code: boolean;
+            /** @description The console drew a code when it started — without one, outside is refused. */
+            code_drawn: boolean;
+            container: boolean;
+            version: string;
+            storage: string;
+        };
+        /** @description What the installation amounts to: one entry per thing that has to work. */
+        SetupSummary: {
+            machine: components["schemas"]["SetupMachine"];
+            provider: components["schemas"]["SetupProvider"];
+            model: components["schemas"]["SetupModel"];
+            board: components["schemas"]["SetupBoard"];
+            github: components["schemas"]["SetupGithub"];
+            projects: components["schemas"]["SetupProjects"];
+            channels: components["schemas"]["SetupChannels"];
+            environment: components["schemas"]["SetupEnvironment"];
+        };
+        /** @description What Notion has shared with the integration so far. */
+        Shared: {
+            ok: boolean;
+            said: string;
+            /** @description Notion said the token is not one of its own: the page says it, translated. */
+            refused?: boolean;
+            /** @description The integration's name, as Notion shows it in the Connections menu. */
+            name: string;
+            pages: components["schemas"]["SharedPage"][];
+            boards: components["schemas"]["SharedBoard"][];
+        };
+        SharedBoard: {
+            id: string;
+            url: string;
+        };
+        SharedPage: {
+            id: string;
+            title: string;
+            url: string;
         };
         Sizes: {
             worktrees: number;
@@ -3179,6 +3519,11 @@ export interface components {
             /** @description The goals a new ticket may serve: only on a board with the column, and goals to point at. */
             goal?: components["schemas"]["Choice"][];
         };
+        /** @description A ticket written on the board: its page, and the title it was given. */
+        TicketCreated: {
+            id: string;
+            title: string;
+        };
         /** @description A ticket, with the page under it: the brief, the report, the notes between. */
         TicketDetail: {
             id: string;
@@ -3250,6 +3595,11 @@ export interface components {
             /** @description The prompt run at every change of the ticket's status, empty for none. */
             on?: string;
         };
+        TicketOn: {
+            id: string;
+            /** @description The prompt now run at every change of status, empty once removed. */
+            on: string;
+        };
         Title: {
             /** @default  */
             title: string;
@@ -3261,6 +3611,11 @@ export interface components {
             closed: number;
             created: number;
             cost: number;
+        };
+        /** @description What a recording said, and the language it was heard in — empty: Whisper's guess. */
+        Transcribed: {
+            text: string;
+            language: string;
         };
         /**
          * @description One change of status met on a ticket that carries an « On » prompt, and what running it
@@ -3285,6 +3640,12 @@ export interface components {
         };
         Transitions: {
             transitions: components["schemas"]["Transition"][];
+        };
+        /** @description The last decision taken back: the idea proposed again, and what it had been. */
+        Undone: {
+            idea: components["schemas"]["Idea"];
+            /** @enum {string} */
+            was: "proposed" | "kept" | "discarded" | "ticket";
         };
         /** @description The ideas with no score, and what scoring them may cost at most. */
         Unscored: {
@@ -3457,7 +3818,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["Bell"];
                 };
             };
         };
@@ -3733,9 +4094,7 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": unknown;
-                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -3796,9 +4155,7 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": unknown;
-                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -3850,7 +4207,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ContextSaved"];
                 };
             };
             /** @description Validation Error */
@@ -3905,7 +4262,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ScheduleNamed"];
                 };
             };
             /** @description Validation Error */
@@ -3973,7 +4330,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ScheduleSaved"];
                 };
             };
             /** @description Validation Error */
@@ -4207,7 +4564,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["History"];
                 };
             };
         };
@@ -4247,7 +4604,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["HealthReport"];
                 };
             };
         };
@@ -4324,7 +4681,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ChatState"];
                 };
             };
             /** @description Validation Error */
@@ -4530,7 +4887,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SetupSummary"];
                 };
             };
         };
@@ -4550,7 +4907,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ClaudeLogin"];
                 };
             };
         };
@@ -4570,7 +4927,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SetupGithub"];
                 };
             };
         };
@@ -4590,7 +4947,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["Shared"];
                 };
             };
         };
@@ -4616,7 +4973,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["NotionProvisioned"];
                 };
             };
             /** @description Validation Error */
@@ -4645,7 +5002,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ProjectChoices"];
                 };
             };
         };
@@ -4667,7 +5024,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["Demo"];
                 };
             };
             /** @description Validation Error */
@@ -4702,7 +5059,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["TicketCreated"];
                 };
             };
             /** @description Validation Error */
@@ -4731,7 +5088,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["Doctor"];
                 };
             };
         };
@@ -4839,7 +5196,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["Message"];
                 };
             };
             /** @description Validation Error */
@@ -4905,7 +5262,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["Decided"];
                 };
             };
             /** @description Validation Error */
@@ -5064,7 +5421,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ServiceLog"];
                 };
             };
             /** @description Validation Error */
@@ -5130,7 +5487,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ProviderChecked"];
                 };
             };
             /** @description Validation Error */
@@ -5165,7 +5522,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["Shared"];
                 };
             };
             /** @description Validation Error */
@@ -5200,7 +5557,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ChannelsProvisioned"];
                 };
             };
             /** @description Validation Error */
@@ -5268,7 +5625,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["GithubTokenSaved"];
                 };
             };
             /** @description Validation Error */
@@ -5297,7 +5654,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["GithubTokenForgotten"];
                 };
             };
         };
@@ -5321,7 +5678,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["GithubDisconnected"];
                 };
             };
             /** @description Validation Error */
@@ -5354,7 +5711,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["TicketCreated"];
                 };
             };
             /** @description Validation Error */
@@ -5389,7 +5746,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["TicketOn"];
                 };
             };
             /** @description Validation Error */
@@ -5424,7 +5781,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["Moved"];
                 };
             };
             /** @description Validation Error */
@@ -5457,7 +5814,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CommandAccepted"];
                 };
             };
             /** @description Validation Error */
@@ -5488,7 +5845,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["Detached"];
                 };
             };
             /** @description Validation Error */
@@ -5517,7 +5874,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ChatState"];
                 };
             };
         };
@@ -5537,7 +5894,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ChatState"];
                 };
             };
         };
@@ -5559,7 +5916,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ChatState"];
                 };
             };
             /** @description Validation Error */
@@ -5594,7 +5951,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ChatState"];
                 };
             };
             /** @description Validation Error */
@@ -5623,7 +5980,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ChatState"];
                 };
             };
         };
@@ -5643,7 +6000,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ChatState"];
                 };
             };
         };
@@ -5867,7 +6224,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ScheduleLaunched"];
                 };
             };
             /** @description Validation Error */
@@ -5898,7 +6255,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ScheduleNamed"];
                 };
             };
             /** @description Validation Error */
@@ -5997,7 +6354,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["Undone"];
                 };
             };
             /** @description Validation Error */
@@ -6213,7 +6570,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["HealthFixed"];
                 };
             };
             /** @description Validation Error */
@@ -6308,7 +6665,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["Ok"];
                 };
             };
         };
@@ -6334,7 +6691,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["Ok"];
                 };
             };
             /** @description Validation Error */
@@ -6363,7 +6720,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SetupState"];
                 };
             };
         };
@@ -6389,7 +6746,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["Claimed"];
                 };
             };
             /** @description Validation Error */
@@ -6523,7 +6880,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["Transcribed"];
                 };
             };
             /** @description Validation Error */
@@ -6553,9 +6910,7 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": unknown;
-                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

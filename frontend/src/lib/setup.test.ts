@@ -7,7 +7,8 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
 
-import { accessProblem, demoOutcome, nextStep, rows, stepFrom, stepsFor, type Summary } from "./setup.ts"
+import { accessProblem, demoOutcome, nextStep, rows, stepFrom, stepsFor } from "./setup.ts"
+import type { Summary } from "./types.ts"
 
 test("the language comes first, and a claimed console skips the account", () => {
   assert.deepEqual(stepsFor({ claimed: false }).slice(0, 2), ["language", "access"])
@@ -46,7 +47,7 @@ const summary: Summary = {
   provider: { state: "ok", provider: "openrouter", stated: "openrouter", account: "", key: "sk-or-…7890", route_sessions: true, said: "" },
   model: { state: "ok", model: "", auto: true, said: "" },
   board: { state: "ok", storage: "notion", workspace: "abc", path: "", tickets: 12, said: "" },
-  github: { state: "missing", account: "", via: "gh", said: "not signed in", command: "gh auth login" },
+  github: { state: "missing", account: "", via: "gh", said: "not signed in", command: "gh auth login", create_url: "" },
   projects: { state: "ok", root: "/workspace", repositories: 3, configured: 0 },
   channels: { state: "ok", active: ["telegram"] },
   environment: { state: "ok", container: true, version: "0.1.0" },

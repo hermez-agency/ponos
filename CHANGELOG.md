@@ -29,6 +29,7 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 ### Changed
 
 - L'écran Idées s'ouvre sur l'onglet Nouvelles, pour trier sans cliquer d'abord. Un filtre déjà dans l'adresse l'emporte, « Tout » reste un choix qu'on garde, et sans idée nouvelle la liste le dit avec un lien vers « Tout ».
+- Le schéma `/openapi.json` de la console décrit maintenant la réponse de chaque route qui répond du JSON — les écritures (tickets, conversation, récurrences, GitHub…), la santé de l'installation, l'historique, le journal du service et toute la première connexion — et plus seulement celle des lectures. Seules les trois routes qui servent des octets (image d'un projet, fichier du board, fichier de la conversation) n'en ont pas.
 
 ## [0.2.0] - 2026-10-22
 

@@ -5,7 +5,8 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
 
-import { byGroup, failing, fixParams, shown, type HealthCheck } from "./health.ts"
+import { byGroup, failing, fixParams, shown } from "./health.ts"
+import type { HealthCheck } from "./types.ts"
 
 const check = (code: string, state: HealthCheck["state"], extra: Partial<HealthCheck> = {}): HealthCheck => ({
   code,
