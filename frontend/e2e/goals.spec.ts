@@ -42,6 +42,25 @@ test("a goal is created from the list, then changed, and both show", async ({ pa
   await expect(page.locator('[data-slot="goals-item"]', { hasText: "Lancer la v1" })).toHaveCount(0)
 })
 
+test("a goal's page lists its tickets by column, and makes one more for it", async ({ page }) => {
+  await page.goto(LIST)
+  await page.locator('[data-slot="goals-title"]', { hasText: "Lancer la v2" }).click()
+  const listed = page.locator('[data-slot="goal-tickets"]')
+  const row = listed.locator("[data-goal-ticket]", { hasText: "Ticket 3" })
+  await expect(row).toBeVisible()
+  const column = listed.locator("[data-goal-column]", { has: page.locator("[data-goal-ticket]", { hasText: "Ticket 3" }) })
+  await expect(column).toContainText("1")
+
+  await listed.locator('[data-slot="goal-new-ticket"]').click()
+  const form = page.getByRole("dialog", { name: "Nouveau ticket" })
+  await expect(form).toBeVisible()
+  await expect(form).toContainText("Lancer la v2")
+  // Back on the goal's page, which the form was opened over.
+  await page.goBack()
+  await row.getByRole("link").click()
+  await expect(page.getByRole("dialog").locator('[data-slot="ticket-goal"]')).toContainText("Lancer la v2")
+})
+
 test("the ticket names its goal, and another can be chosen from it", async ({ page }) => {
   await page.goto("/?view=console/tickets/list")
   await page.getByRole("link", { name: /Ticket 3$/ }).first().click()

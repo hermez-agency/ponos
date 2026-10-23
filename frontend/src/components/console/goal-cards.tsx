@@ -1,12 +1,14 @@
-import { CalendarDays, ExternalLink, Pencil, SearchX, Target, Trash2, X } from "lucide-react"
+import { CalendarDays, ExternalLink, Pencil, Plus, SearchX, Target, Trash2, X } from "lucide-react"
 import { toast } from "sonner"
 import { ActionList } from "react-data-form"
 import {
+  Link,
   ListPagination,
   ResourceViewButton,
   useCurrentViewResourceContext,
   useListViewContext,
   useNavigate,
+  useViewLink,
   type ListComponentPropsInterface,
 } from "react-resource-view"
 
@@ -20,11 +22,15 @@ import { dueOf, progressOf } from "@/lib/goal-search"
 import { useT } from "@/lib/i18n"
 import { count } from "@/lib/numbers"
 import { locale } from "@/lib/recurrence"
+import { carrying } from "@/lib/resource-view"
 import type { Goal } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { goals, goalsHref, goalsOnce, useGoals, type GoalItem } from "@/resources/goals"
+import { ticketHref, tickets } from "@/resources/tickets"
 
 import { EmptyState } from "./empty-state"
+import { useOpensOverTheList } from "./record-window"
+import { SEED, columnTitle } from "./ticket-bits"
 
 /* One goal, as the list of the goals draws it — a card, or the page it opens on.
  *
@@ -130,11 +136,6 @@ export function GoalPage() {
 
 function GoalWhole({ goal }: { goal: Goal }) {
   const t = useT()
-  const { columns } = useBoard()
-  // In the board's order, under the board's words for its columns.
-  const counted = columns
-    .map((column) => ({ key: column.key, name: column.name || t("Draft"), count: goal.tickets[column.key] ?? 0 }))
-    .filter((column) => column.count)
   const facts = [
     { label: t("Done when"), value: goal.criterion },
     { label: t("Priority"), value: goal.priority },
@@ -161,18 +162,7 @@ function GoalWhole({ goal }: { goal: Goal }) {
         </dl>
       ) : null}
       <Progress goal={goal} />
-      {counted.length ? (
-        <ul className="flex flex-wrap gap-1.5" data-slot="goal-columns">
-          {counted.map((column) => (
-            <li key={column.key}>
-              <Badge variant="outline" className="gap-1.5">
-                {column.name}
-                <span className="text-muted-foreground tabular-nums">{column.count}</span>
-              </Badge>
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      <GoalTickets goal={goal} />
       <div className="flex flex-wrap items-center gap-2">
         <ResourceViewButton action={ActionList.update} id={goal.id}>
           <span data-slot="goal-edit" className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
@@ -194,6 +184,76 @@ function GoalWhole({ goal }: { goal: Goal }) {
         ) : null}
       </div>
     </article>
+  )
+}
+
+/* The tickets that serve it, under the board's columns and in the board's
+ * order — each one a way into its window over the page — and "+ Ticket" for
+ * one more: the dashboard's "New ticket", with the goal already in its field. */
+function GoalTickets({ goal }: { goal: Goal }) {
+  const t = useT()
+  const { columns } = useBoard()
+  const create = useViewLink({ resource: tickets, action: ActionList.create })
+  const linked = goal.linked ?? []
+  // A column the board no longer draws still says where its tickets stand, after the others.
+  const keys = [...new Set([...columns.map((column) => column.key), ...linked.map((ticket) => ticket.column)])]
+  const groups = keys
+    .map((key) => ({
+      key,
+      name: columns.find((column) => column.key === key)?.name || (key ? columnTitle(key) : t("Draft")),
+      tickets: linked.filter((ticket) => ticket.column === key),
+    }))
+    .filter((group) => group.tickets.length)
+  return (
+    <section className="flex flex-col gap-3" data-slot="goal-tickets">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-medium">{t("Tickets")}</h3>
+        <Link
+          to={carrying(create.to, { goal: goal.id })}
+          onClick={create.onOpen}
+          data-slot="goal-new-ticket"
+          className={cn(buttonVariants({ variant: "outline", size: "sm" }), "whitespace-nowrap")}
+        >
+          <Plus />
+          {t("Ticket")}
+        </Link>
+      </div>
+      {groups.length ? (
+        <div className="flex flex-col gap-3" data-slot="goal-columns">
+          {groups.map((group) => (
+            <div key={group.key} data-goal-column={group.key} className="flex flex-col gap-1.5">
+              <span className="text-muted-foreground inline-flex items-center gap-1.5 text-xs">
+                <span className={cn("size-1.5 rounded-full", SEED[group.key] ?? "bg-muted-foreground")} />
+                {group.name}
+                <span className="tabular-nums">{group.tickets.length}</span>
+              </span>
+              <ul className="overflow-hidden rounded-md border">
+                {group.tickets.map((ticket) => (
+                  <GoalTicketRow key={ticket.id} ticket={ticket} />
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-muted-foreground text-sm">{t("No ticket serves this goal yet.")}</p>
+      )}
+    </section>
+  )
+}
+
+function GoalTicketRow({ ticket }: { ticket: NonNullable<Goal["linked"]>[number] }) {
+  const open = useOpensOverTheList(tickets, "read", ticket.id)
+  return (
+    <li
+      data-goal-ticket={ticket.id}
+      className="flex min-w-0 items-baseline gap-2 border-b px-3 py-2 text-sm last:border-b-0"
+    >
+      {ticket.short ? <span className="text-muted-foreground shrink-0 font-mono text-xs">#{ticket.short}</span> : null}
+      <Link to={ticketHref(ticket.id)} onClick={open} className="truncate hover:underline" title={ticket.title}>
+        {ticket.title}
+      </Link>
+    </li>
   )
 }
 
