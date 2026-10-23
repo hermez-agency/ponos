@@ -10,6 +10,10 @@
 # `publish` is idempotent, so a re-run of a failed job is safe, and so is doing
 # it by hand: `python3 scripts/release.py publish` from a checkout of the tag.
 #
+# A tag pushed with the workflow token starts no other workflow, so when ci.yml
+# tags a version merged on main it starts this one itself, on the tag: a
+# `workflow_dispatch` run on a tag ref sees the same `GITHUB_REF_NAME` as a push.
+#
 # The image goes out with it, to ghcr.io: `ghcr.io/<owner>/ponos:<version>` and
 # `:latest`, built from the same commit, once the suites have passed — a
 # container is updated by pulling it, so a tag is also what `docker compose
@@ -21,6 +25,7 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
 
 permissions:
   contents: write
