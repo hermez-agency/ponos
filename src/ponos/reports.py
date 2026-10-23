@@ -24,6 +24,7 @@ import time
 from collections.abc import Callable
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 from . import (
     blocks,
@@ -538,7 +539,7 @@ class Reports(Base):
         question: str | question_module.Question | None = "",
         note: str = "",
         outcome: session.Outcome | None = None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """A run that did not get there, said in as few lines as it takes.
 
         A blocked ticket is laid out as its **question** — what is done, why it
@@ -569,7 +570,7 @@ class Reports(Base):
             code = question.code
         blocks.cause(code)
         spent = {**(self._measures(outcome) if outcome else {}), **self._blocked_by(code)}
-        ended = (
+        ended: dict[str, object] = (
             {"seconds": round(outcome.seconds, 1), "cost_usd": outcome.cost_usd} if outcome else {}
         )
         if blocked:
@@ -605,7 +606,7 @@ class Reports(Base):
         spent: dict[str, object],
         ended: dict[str, object],
         code: str,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """A ticket that stopped on a question, asked in four lines at most.
 
         Nothing under it says how to answer — the question does, by its kind —
@@ -666,8 +667,8 @@ class Reports(Base):
         }
 
     def _guarded(
-        self, ticket: Ticket, work: Callable[..., dict | None], *arguments: object
-    ) -> dict | None:
+        self, ticket: Ticket, work: Callable[..., dict[str, Any] | None], *arguments: object
+    ) -> dict[str, Any] | None:
         """Run one ticket's work so that whatever it raises is that ticket's alone.
 
         A pass runs several tickets at once, and an exception from any of them
@@ -723,7 +724,7 @@ class Reports(Base):
         self._journal_end(ticket, result)
         return result
 
-    def _journal_end(self, ticket: Ticket, result: dict | None) -> None:
+    def _journal_end(self, ticket: Ticket, result: dict[str, Any] | None) -> None:
         """The run this ticket's session opened, closed on what the ticket came to.
 
         Here, where every road out of a ticket's work meets — a pull request, a
@@ -812,7 +813,7 @@ class Reports(Base):
         outcome: session.Outcome,
         note: str = "",
         home: Path | None = None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Put a ticket back in the column it came from, ticked, and say why.
 
         The one way out of a run that is neither a success nor a failure:
@@ -1035,7 +1036,7 @@ class Reports(Base):
             )
         return until
 
-    def park(self, tickets: list[Ticket], until: float = 0.0) -> list[dict]:
+    def park(self, tickets: list[Ticket], until: float = 0.0) -> list[dict[str, Any]]:
         """Tick the tickets nothing could be started for, and leave them be.
 
         Said on the board rather than only in a journal nobody reads: a ready
@@ -1061,7 +1062,7 @@ class Reports(Base):
         # The day's limit has its own sentence: "the credit comes back" would be
         # a lie about money that is not missing, only not to be spent.
         parked_for = "budget-parked" if self.budget_reached() else "credit-parked"
-        parked: list[dict] = []
+        parked: list[dict[str, Any]] = []
         for ticket in tickets:
             if store.read(ticket.page, flag):
                 continue

@@ -30,6 +30,7 @@ from __future__ import annotations
 import re
 import time
 from datetime import UTC, datetime
+from typing import Any
 
 from . import agents, conversation, credits, session, state, store
 from . import prompt as prompt_module
@@ -74,7 +75,7 @@ def decision(text: str) -> tuple[str, str]:
 class Unblocking(Base):
     """The runner reading its blocked column again."""
 
-    def unblock(self) -> list[dict]:
+    def unblock(self) -> list[dict[str, Any]]:
         """Examine a few blocked tickets, and move back the ones that can go.
 
         Never raises, and never a reason to fail a ticket: it is a pass about
@@ -91,7 +92,7 @@ class Unblocking(Base):
             self.say(f"  ! blocked tickets not examined: {voice_module.line(error)}")
             return []
 
-    def _unblock(self) -> list[dict]:
+    def _unblock(self) -> list[dict[str, Any]]:
         settings = self.config.notion
         status = settings.prop("status")
         kind = self.client.schema(self.database).get(status, "status")
@@ -102,7 +103,7 @@ class Unblocking(Base):
         if not due:
             return []
         board = self._overview()
-        results: list[dict] = []
+        results: list[dict[str, Any]] = []
         for ticket in due[:BATCH]:
             if self.under_reserve():
                 break
@@ -149,7 +150,7 @@ class Unblocking(Base):
         more = f"\n(and {len(pages) - OVERVIEW} more)" if len(pages) > OVERVIEW else ""
         return "\n".join(lines) + more
 
-    def _examine(self, ticket: Ticket, board: str) -> dict | None:
+    def _examine(self, ticket: Ticket, board: str) -> dict[str, Any] | None:
         project = self._project_of(ticket)
         short = short_id(ticket.id)
         if project.is_code and project.path:

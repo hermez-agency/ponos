@@ -34,6 +34,7 @@ way they are rather than held at arm's length.
 from __future__ import annotations
 
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
+from typing import Any
 
 from . import (
     base,
@@ -72,7 +73,7 @@ class Runner(
 ):
     """One pass of the runner, over everything a pass is made of."""
 
-    def tick(self, *, limit: int | None = None, reference: str = "") -> list[dict]:
+    def tick(self, *, limit: int | None = None, reference: str = "") -> list[dict[str, Any]]:
         # At the top, under the run lock, before a single ticket is claimed:
         # what makes an update land between two sessions — see update.py.
         if not self.dry_run:
@@ -82,10 +83,10 @@ class Runner(
         # touched would come back as a failure of its own. The run that put the
         # wait there said so; these ones are quiet, because at a ten-second
         # cadence saying it again is six lines a minute for four hours.
-        waiting = self.waiting_for_credits()
-        if waiting:
+        resets = self.waiting_for_credits()
+        if resets:
             if self.announce_idle:
-                self.say(f"Out of credit — nothing is run until {credits.when(waiting)}.")
+                self.say(f"Out of credit — nothing is run until {credits.when(resets)}.")
             return []
         # The comments are read afresh: a run is where the board is looked at,
         # and a Runner kept alive by the console would otherwise answer a
@@ -107,7 +108,7 @@ class Runner(
         reserved = self.under_reserve()
         # What the board asked for before any new work: tickets you validated
         # (merged, published on their way to done) and « On » prompts that woke.
-        delivered: list[dict] = [] if reference else self.transitions()
+        delivered: list[dict[str, Any]] = [] if reference else self.transitions()
         if reference:
             tickets = self.requested(reference)
         else:
@@ -165,7 +166,9 @@ class Runner(
         results = self._work(tickets, limit, refill=not reference and not self.dry_run)
         return delivered + replies + results
 
-    def _work(self, ready: list[Ticket], ceiling: int | None, *, refill: bool) -> list[dict]:
+    def _work(
+        self, ready: list[Ticket], ceiling: int | None, *, refill: bool
+    ) -> list[dict[str, Any]]:
         """Run the ready tickets, `max_concurrent` sessions in flight throughout.
 
         A queue rather than a batch. A pass used to prepare the first
@@ -208,7 +211,7 @@ class Runner(
         if ceiling is not None:
             width = max(1, min(width, ceiling))
         remaining = ceiling  # None: as many tickets as the board offers
-        results: list[dict] = []
+        results: list[dict[str, Any]] = []
         hand = board.InHand()  # the tickets a session of this pass is on — see board.py
         # The validated tickets this pass has taken off their column, kept apart
         # from `hand`: a ticket run by this very pass and validated while it
@@ -216,7 +219,7 @@ class Runner(
         carried: set[str] = set()
         queued = list(ready)
         publishing: list[tuple[Ticket, Project]] = []
-        flight: set[Future] = set()
+        flight: set[Future[dict[str, Any] | None]] = set()
         stalled = False  # the credits ran out: nothing more is begun
 
         with ThreadPoolExecutor(max_workers=width) as pool:
@@ -248,9 +251,10 @@ class Runner(
                     and (remaining is None or remaining > 0)
                     and self.room_for_a_session()
                 ):
-                    ticket = self.pick(queued, hand)
-                    if ticket is None:
+                    picked = self.pick(queued, hand)
+                    if picked is None:
                         break
+                    ticket = picked
                     if remaining is not None:
                         remaining -= 1
                     # Claimed here, in the one thread that does it, so that two

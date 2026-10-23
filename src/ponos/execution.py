@@ -38,6 +38,7 @@ from collections.abc import Callable
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from . import config as config_module
 from . import (
@@ -56,14 +57,15 @@ from . import (
 from . import prompt as prompt_module
 from . import voice as voice_module
 from .base import Base
+from .question import Question
 from .ticket import Job, short_id
 
 logger = logging.getLogger(__name__)
 
 
 def _both(
-    first: Callable[[dict], None], second: Callable[[dict], None] | None
-) -> Callable[[dict], None]:
+    first: Callable[[dict[str, Any]], None], second: Callable[[dict[str, Any]], None] | None
+) -> Callable[[dict[str, Any]], None]:
     """One listener for the session's events, out of the journal and the page.
 
     Each is kept from the other's failures: `session.run` drops a listener
@@ -73,7 +75,7 @@ def _both(
 
     listeners = [listener for listener in (first, second) if listener is not None]
 
-    def listen(event: dict) -> None:
+    def listen(event: dict[str, Any]) -> None:
         for listener in list(listeners):
             try:
                 listener(event)
@@ -144,7 +146,7 @@ def _answered_anyway(job: Job, outcome: session.Outcome) -> bool:
 class Execution(Base):
     """A session started, and what its outcome makes of the ticket."""
 
-    def execute(self, job: Job) -> dict:
+    def execute(self, job: Job) -> dict[str, Any] | None:
         if self.dry_run:
             target = f"{job.branch} from {job.base}" if job.project.is_code else "document"
             self.say(f"    (dry run) {target}")
@@ -513,7 +515,7 @@ class Execution(Base):
             say=self.say,
         )
 
-    def _question(self, outcome: session.Outcome, detail: str) -> str | object:
+    def _question(self, outcome: session.Outcome, detail: str) -> str | Question:
         """What a ticket that stopped asks: the session's own question, or ours."""
         if outcome.killed:
             return self.voice.say("session-killed-question")
@@ -521,8 +523,9 @@ class Execution(Base):
 
     # -- a ticket on a repository ----------------------------------------------
 
-    def _execute_code(self, job: Job) -> dict:
+    def _execute_code(self, job: Job) -> dict[str, Any] | None:
         ticket, project = job.ticket, job.project
+        assert project.path is not None
 
         if self.config.runner.fetch:
             git.fetch(project.path)
@@ -611,9 +614,10 @@ class Execution(Base):
             job.notes.append(self.voice.backup_note(worktree, job.base))
             job.backup = worktree.backup
 
-    def _code_stopped(self, job: Job, outcome: session.Outcome) -> dict:
+    def _code_stopped(self, job: Job, outcome: session.Outcome) -> dict[str, Any]:
         """A session that did not succeed: blocked on a question, or killed."""
         ticket, project = job.ticket, job.project
+        assert project.path is not None
         said = self.voice
         code, reason, detail = self._why_stopped(
             outcome, "session.question" if outcome.blocked else "session.killed"
@@ -637,9 +641,10 @@ class Execution(Base):
             outcome=outcome,
         )
 
-    def _nothing_committed(self, job: Job, outcome: session.Outcome) -> dict:
+    def _nothing_committed(self, job: Job, outcome: session.Outcome) -> dict[str, Any] | None:
         """A session that succeeded with no commit: done outside, or blocked."""
         ticket, project = job.ticket, job.project
+        assert project.path is not None
         said = self.voice
         dirty = git.is_dirty(job.workdir)
         if not dirty and _done_elsewhere(outcome.answer):
@@ -672,6 +677,7 @@ class Execution(Base):
     def _replay_branch(self, job: Job) -> bool:
         """The branch replayed onto where its base is now; True when it moved."""
         project = job.project
+        assert project.path is not None
         said = self.voice
         replayed = False
         # The base has moved under this session: the ticket started on the
@@ -700,7 +706,9 @@ class Execution(Base):
             job.notes.append(said.say("rebased-onto", base=start))
         return replayed
 
-    def _push_branch(self, job: Job, outcome: session.Outcome, *, force: bool) -> dict | None:
+    def _push_branch(
+        self, job: Job, outcome: session.Outcome, *, force: bool
+    ) -> dict[str, Any] | None:
         """The branch pushed — or the ticket failed on the refusal, as `_fail` returns it."""
         ticket = job.ticket
         said = self.voice
@@ -749,9 +757,10 @@ class Execution(Base):
 
     def _code_delivered(
         self, job: Job, outcome: session.Outcome, commits: int, pull_request: str
-    ) -> dict:
+    ) -> dict[str, Any]:
         """A branch with commits: merged when forced, the board moved, and the ticket told."""
         ticket, project = job.ticket, job.project
+        assert project.path is not None
         said = self.voice
         # Force validated: the merge that moving the ticket to validated would
         # have asked for, asked now — before the worktree goes, since the CI it
@@ -858,7 +867,7 @@ class Execution(Base):
 
     # -- a ticket that has none -------------------------------------------------
 
-    def _execute_document(self, job: Job) -> dict:
+    def _execute_document(self, job: Job) -> dict[str, Any] | None:
         """A ticket with no repository: the deliverable is the ticket's own page."""
         ticket = job.ticket
         job.workdir.mkdir(parents=True, exist_ok=True)
@@ -952,7 +961,7 @@ class Execution(Base):
         kept: Path | None = None,
         note: str = "",
         pull_request: str = "",
-    ) -> dict:
+    ) -> dict[str, Any] | None:
         """A ticket whose deliverable is a text, written into its page.
 
         `review` sends it to be read rather than to done; `kept` is where the

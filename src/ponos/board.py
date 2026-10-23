@@ -22,6 +22,7 @@ from __future__ import annotations
 import time
 from concurrent.futures import Future
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from . import conversation, git, kinds, priority, state, store, subtypes
 from . import voice as voice_module
@@ -60,7 +61,7 @@ class InHand:
         self._working: set[str] = set()
         self._projects: dict[str, str] = {}
         self._left: dict[str, float] = {}
-        self._futures: dict[Future, str] = {}
+        self._futures: dict[Future[dict[str, Any] | None], str] = {}
 
     def take(self, ticket_id: str, project: str = "") -> None:
         """`project` is the repository it works in, if any: see `holding`."""
@@ -78,12 +79,14 @@ class InHand:
         self._projects.pop(ticket_id, None)
         self._left[ticket_id] = time.monotonic()
 
-    def carry(self, future: Future, ticket_id: str) -> Future:
+    def carry(
+        self, future: Future[dict[str, Any] | None], ticket_id: str
+    ) -> Future[dict[str, Any] | None]:
         """The ticket's session, followed to its end — see `land`."""
         self._futures[future] = ticket_id
         return future
 
-    def land(self, done: set[Future]) -> None:
+    def land(self, done: set[Future[dict[str, Any] | None]]) -> None:
         for future in done:
             if future in self._futures:
                 self.leave(self._futures.pop(future))
@@ -162,12 +165,12 @@ class Board(Base):
     def ready(self) -> list[Ticket]:
         return self.queue()[0]
 
-    def _ready_filter(self) -> dict:
+    def _ready_filter(self) -> dict[str, Any]:
         status_property = self.config.notion.prop("status")
         kind = self.client.schema(self.database).get(status_property, "status")
         return {"property": status_property, kind: {"equals": self.config.notion.state("ready")}}
 
-    def _woken_filter(self) -> dict:
+    def _woken_filter(self) -> dict[str, Any]:
         """Every status but the ones that already speak for a ticket.
 
         Ready is on its way, running is in flight, in review is waiting on a

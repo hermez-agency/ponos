@@ -58,6 +58,7 @@ import re
 import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from . import priority as priority_module
 
@@ -186,7 +187,7 @@ class Choice:
 
     model: str
     level: str
-    signals: tuple[tuple[str, dict], ...] = ()
+    signals: tuple[tuple[str, dict[str, Any]], ...] = ()
     escalated: bool = False
 
 
@@ -255,7 +256,7 @@ def claude_default() -> str:
     return value.strip() if isinstance(value, str) else ""
 
 
-def describe(ticket: str, announced: str = "", configured: str = "") -> dict:
+def describe(ticket: str, announced: str = "", configured: str = "") -> dict[str, Any]:
     """The model a ticket runs on, for its page: what it is and how sure we are.
 
     In order of trust: the model its last session announced about itself (the
@@ -280,6 +281,7 @@ def _found(stems: tuple[str, ...], text: str) -> list[str]:
 
 def _word(text: str, stem: str) -> str:
     """The word a stem was found as, accents and all, for the reason to quote it."""
+    word: str
     for word in re.findall(r"[\w-]+", text.lower()):
         if _fold(word).startswith(stem):
             return word
@@ -309,8 +311,8 @@ def choose(
         # session is carried on, and it carries on with the model it began on.
         key = "model-kept" if earlier.escalated else "model-resumed"
         index = grid.level_of(earlier.model)
-        level = LEVELS[index] if index is not None else "standard"
-        return Choice(earlier.model, level, ((key, {"model": earlier.model}),), earlier.escalated)
+        kept = LEVELS[index] if index is not None else "standard"
+        return Choice(earlier.model, kept, ((key, {"model": earlier.model}),), earlier.escalated)
 
     text = _fold(f"{title}\n{body}")
     words = len(text.split())
@@ -322,7 +324,7 @@ def choose(
     light = titled or _found(LIGHT, text)
     started = kind or ("code" if code else "writing")
     level = grid.start(started)
-    signals: list[tuple[str, dict]] = [("model-type", {"kind": started})]
+    signals: list[tuple[str, dict[str, Any]]] = [("model-type", {"kind": started})]
     moved = grid.shifts.get(subtype, 0) if started == "code" else 0
     if moved:
         level = min(max(level + moved, 0), len(LEVELS) - 1)

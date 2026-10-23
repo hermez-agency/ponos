@@ -23,6 +23,7 @@ import os
 import re
 import subprocess
 import sys
+from collections.abc import Callable, MutableMapping
 from pathlib import Path
 
 # Migration filet: the name Ponos was installed under, before the rename.
@@ -34,7 +35,7 @@ PREFIX = "PONOS_"
 _warned = False
 
 
-def environment(environ: dict[str, str] | None = None) -> list[str]:
+def environment(environ: MutableMapping[str, str] | None = None) -> list[str]:
     """Read every old variable under its new name, unless that one is set.
 
     Returns the old names that were taken over, and says so once per process
@@ -80,7 +81,7 @@ def path(value: str) -> str:
     return value
 
 
-def directories(say=None) -> list[str]:
+def directories(say: Callable[[str], None] | None = None) -> list[str]:
     """Move the old configuration and state directories under the new name.
 
     A new directory that already exists is not overwritten: what it lacks is

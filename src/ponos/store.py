@@ -278,6 +278,10 @@ class Store(Protocol):
 
     def replace_markdown(self, page_id: str, markdown: str) -> int: ...
 
+    def append_blocks(self, block_id: str, blocks: list[dict[str, Any]]) -> list[str]: ...
+
+    def update_block(self, block_id: str, payload: dict[str, Any]) -> None: ...
+
     def losses(self, block_id: str, depth: int = 0) -> dict[str, int]:
         """What `replace_markdown` would drop of this page, by kind and count.
 

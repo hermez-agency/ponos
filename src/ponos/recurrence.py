@@ -16,6 +16,7 @@ clock it all reads.
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 
 from . import priority, state, store
 from . import schedules as schedules_module
@@ -35,7 +36,7 @@ class Recurrence(Base):
         settings = self.config.notion
         return [schedules_module.read(page, settings) for page in self.client.query(database)]
 
-    def born(self) -> list[dict]:
+    def born(self) -> list[dict[str, Any]]:
         """`recur`, with each birth written into the history — none in a dry run.
 
         Before the queue, so a ticket born at 09:00 is claimed by the very pass
@@ -58,7 +59,7 @@ class Recurrence(Base):
             state.record(entry)
         return newborns
 
-    def recur(self) -> list[dict]:
+    def recur(self) -> list[dict[str, Any]]:
         """The schedules whose moment has come, turned into tickets.
 
         A pass of its own, between `deliver` and the queue — before the queue on
@@ -89,7 +90,7 @@ class Recurrence(Base):
         """
         if not self.config.runner.schedule:
             return []
-        born: list[dict] = []
+        born: list[dict[str, Any]] = []
         now = datetime.now().astimezone()
         for schedule in self.schedules():
             if not schedule.active or schedule.problem:
@@ -139,7 +140,7 @@ class Recurrence(Base):
                 born.append(entry)
         return born
 
-    def launch(self, page_id: str) -> dict:
+    def launch(self, page_id: str) -> dict[str, Any]:
         """One schedule's occurrence, now, whatever its clock says.
 
         What the console's “Run now” presses. The ticket is the one `recur`
@@ -190,7 +191,9 @@ class Recurrence(Base):
             settings.state("cancelled"),
         )
 
-    def _born(self, schedule: schedules_module.Schedule, *, strict: bool = False) -> dict | None:
+    def _born(
+        self, schedule: schedules_module.Schedule, *, strict: bool = False
+    ) -> dict[str, Any] | None:
         """One schedule, one ticket, in the ready column.
 
         The body is a line saying where it came from, then the schedule page's
