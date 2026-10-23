@@ -64,6 +64,18 @@ export function ProjectSettingsTab({ project }: { project: string }) {
     }
   }
 
+  const saveIdeas = async (enabled: boolean) => {
+    setSaving(true)
+    try {
+      setSettings(await api.saveProjectSettings(project, { ideas: { enabled } }))
+      setProblem("")
+    } catch (error) {
+      setProblem(why(error))
+    } finally {
+      setSaving(false)
+    }
+  }
+
   if (!settings)
     return problem ? (
       <p className="text-destructive text-sm">{problem}</p>
@@ -74,7 +86,7 @@ export function ProjectSettingsTab({ project }: { project: string }) {
       </div>
     )
 
-  const { validation } = settings
+  const { validation, ideas } = settings
   return (
     <div className="flex max-w-[720px] min-w-0 flex-col gap-5" data-slot="project-settings">
       {problem ? (
@@ -128,6 +140,32 @@ export function ProjectSettingsTab({ project }: { project: string }) {
               />
             ))}
           </div>
+        </CardContent>
+      </Card>
+      <Card data-card="project-ideas" className="gap-0 py-0">
+        <CardHeader className="gap-1 px-5 pt-5 pb-2 sm:px-6">
+          <CardTitle className="text-base">{t("Ideas on a schedule")}</CardTitle>
+          <CardDescription className="text-[13px] leading-relaxed">
+            {t(
+              "Ponos can look for ideas for this project on its own, at the times set in the Ideas page's Settings. The button on this page works whatever is set here."
+            )}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="px-5 pb-4 sm:px-6">
+          <Row
+            id="project-ideas-scheduled"
+            label={t("Find ideas for this project on the schedule")}
+            line={
+              ideas.schedule === "off"
+                ? t("No schedule is set: only the button finds ideas.")
+                : ideas.own
+                  ? t("This project's own choice, whatever the general settings say.")
+                  : t("Follows the general settings.")
+            }
+            checked={ideas.enabled}
+            disabled={saving}
+            onChange={(enabled) => void saveIdeas(enabled)}
+          />
         </CardContent>
       </Card>
     </div>

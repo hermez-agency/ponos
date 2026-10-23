@@ -693,6 +693,7 @@ def serve(
         print("  stop  Ctrl-C\n", flush=True)
 
     api.upgrade.watch()
+    api.planned.watch()
     try:
         # In this thread: uvicorn answers Ctrl-C and systemd's SIGTERM itself,
         # lets the requests in flight finish, and gives the signal back.

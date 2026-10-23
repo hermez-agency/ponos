@@ -2645,4 +2645,155 @@ export const FRENCH: Record<string, string> = {
   "The workspace has no Goals database: add one in Notion, and its rows show here.":
     "L'espace de travail n'a pas de base Objectifs : ajoutez-en une dans Notion, et ses lignes s'affichent ici.",
   "The goal this ticket serves": "L'objectif que sert ce ticket",
+  /* -- ideas on a schedule -------------------------------------------------- */
+  "Finding ideas on a schedule":
+    "Recherche d'idées planifiée",
+  "Ponos proposes ideas without being asked, while the console runs. The button on the Ideas page keeps working whatever is set here; the same settings are in its Settings window.":
+    "Ponos propose des idées sans qu'on le lui demande, tant que la console tourne. Le bouton de la page Idées marche quoi qu'on règle ici ; les mêmes réglages sont dans sa fenêtre Réglages.",
+  "How often":
+    "À quelle fréquence",
+  "Off: only the button finds ideas.":
+    "Désactivé : seul le bouton cherche des idées.",
+  "Never — only when asked":
+    "Jamais — seulement sur demande",
+  "Every 4 hours":
+    "Toutes les 4 heures",
+  "Every N hours":
+    "Toutes les N heures",
+  "A cron expression":
+    "Une expression cron",
+  "At what time":
+    "À quelle heure",
+  "For every day and every week, in this machine's timezone: 09:00.":
+    "Pour chaque jour et chaque semaine, dans le fuseau de cette machine : 09:00.",
+  "On which day":
+    "Quel jour",
+  "For every week.":
+    "Pour chaque semaine.",
+  "Every":
+    "Toutes les",
+  "hours":
+    "heures",
+  "For “Every N hours”: counted from the last pass.":
+    "Pour « Toutes les N heures » : comptées depuis la dernière passe.",
+  "Cron expression":
+    "Expression cron",
+  "Five fields — minute hour day month weekday — with `*`, lists, ranges and steps: `0 9 * * 1-5` is weekdays at nine.":
+    "Cinq champs — minute heure jour mois jour de la semaine — avec `*`, listes, plages et pas : `0 9 * * 1-5` veut dire les jours ouvrés à neuf heures.",
+  "Which projects":
+    "Quels projets",
+  "All of them includes the ones added later. A project's own page can still turn it off, or on.":
+    "Tous inclut ceux ajoutés plus tard. La page d'un projet peut toujours le désactiver, ou l'activer.",
+  "Selected projects":
+    "Projets sélectionnés",
+  "The selected projects":
+    "Les projets sélectionnés",
+  "Project ids or names, separated by commas. The Ideas page's window lists them with check boxes.":
+    "Identifiants ou noms de projets, séparés par des virgules. La fenêtre de la page Idées les liste avec des cases à cocher.",
+  "Ideas for the workspace":
+    "Idées pour l'espace de travail",
+  "Ideas that belong to no project, and may propose a project of its own.":
+    "Les idées qui ne relèvent d'aucun projet, et peuvent proposer un projet à part entière.",
+  "Ideas per pass and per project":
+    "Idées par passe et par projet",
+  "Ten by default, twenty at the most.":
+    "Dix par défaut, vingt au plus.",
+  "Skip a project that has this many new ideas":
+    "Sauter un projet qui a déjà autant d'idées nouvelles",
+  "New ideas nobody has sorted yet. The skip is written in the journal. 0: never skipped.":
+    "Des idées nouvelles que personne n'a encore triées. Le saut est écrit dans le journal. 0 : jamais sauté.",
+  "Most a pass may spend":
+    "Le plus qu'une passe puisse dépenser",
+  "In dollars, read between two projects. Empty: no ceiling.":
+    "En dollars, lu entre deux projets. Vide : pas de plafond.",
+  "e.g. 1.50":
+    "p. ex. 1.50",
+  "Tell me about new ideas":
+    "Me prévenir des nouvelles idées",
+  "One message on your channels after a pass that found some.":
+    "Un message sur vos canaux après une passe qui en a trouvé.",
+  "At":
+    "À",
+  "09:00":
+    "09:00",
+  "0 9 * * 1-5":
+    "0 9 * * 1-5",
+  "Next pass: {{when}}":
+    "Prochaine passe : {{when}}",
+  "No automatic search: ideas are found when you ask.":
+    "Pas de recherche automatique : les idées se cherchent à la demande.",
+  "Last pass: {{when}} - {{ideas}}":
+    "Dernière passe : {{when}} - {{ideas}}",
+  "{{count}} idea found":
+    "{{count}} idée trouvée",
+  "{{count}} ideas found":
+    "{{count}} idées trouvées",
+  "{{count}} project skipped":
+    "{{count}} projet sauté",
+  "{{count}} projects skipped":
+    "{{count}} projets sautés",
+  "No pass yet.":
+    "Aucune passe pour l'instant.",
+  "Never, only when I ask":
+    "Jamais, seulement quand je le demande",
+  "Ideas settings saved.":
+    "Réglages des idées enregistrés.",
+  "Ideas settings":
+    "Réglages des idées",
+  "When Ponos looks for ideas on its own, for which projects, and how much it may do. The button still works whatever is set here.":
+    "Quand Ponos cherche des idées de lui-même, pour quels projets, et jusqu'où il peut aller. Le bouton marche toujours, quoi qu'on règle ici.",
+  "Frequency":
+    "Fréquence",
+  "Every (hours)":
+    "Toutes les (heures)",
+  "Minute, hour, day, month, weekday: 0 9 * * 1-5 is weekdays at nine.":
+    "Minute, heure, jour, mois, jour de la semaine : 0 9 * * 1-5 veut dire les jours ouvrés à neuf heures.",
+  "Hours are this machine's{{zone}}. The searches run while the console does.":
+    "Les heures sont celles de cette machine{{zone}}. Les recherches tournent tant que la console tourne.",
+  "All projects, the ones added later too":
+    "Tous les projets, ceux ajoutés plus tard aussi",
+  "No project yet.":
+    "Aucun projet pour l'instant.",
+  "A project's own page can still turn it off: it is unticked there.":
+    "La page d'un projet peut encore le désactiver : il est alors décoché ici.",
+  "Ideas for the workspace, the ones that belong to no project":
+    "Idées pour l'espace de travail, celles qui ne relèvent d'aucun projet",
+  "Limits":
+    "Garde-fous",
+  "Ideas per project":
+    "Idées par projet",
+  "Skip above":
+    "Sauter au-delà de",
+  "Budget per pass ($)":
+    "Budget par passe ($)",
+  "none":
+    "aucun",
+  "A project with that many new ideas nobody has sorted is skipped, and the journal says so (0: never). The budget is read between two projects; empty is no ceiling.":
+    "Un projet qui a autant d'idées nouvelles non triées est sauté, et le journal le dit (0 : jamais). Le budget est lu entre deux projets ; vide, pas de plafond.",
+  "Last pass: {{cost}}.":
+    "Dernière passe : {{cost}}.",
+  "Tell me on my channels when a pass finds new ideas":
+    "Me prévenir sur mes canaux quand une passe trouve de nouvelles idées",
+  "The CLI's own model":
+    "Le modèle propre au CLI",
+  "Ideas on a schedule":
+    "Idées planifiées",
+  "Ponos can look for ideas for this project on its own, at the times set in the Ideas page's Settings. The button on this page works whatever is set here.":
+    "Ponos peut chercher des idées pour ce projet de lui-même, aux heures réglées dans les Réglages de la page Idées. Le bouton de cette page marche quoi qu'on règle ici.",
+  "Find ideas for this project on the schedule":
+    "Chercher des idées pour ce projet selon le planning",
+  "No schedule is set: only the button finds ideas.":
+    "Aucun planning n'est réglé : seul le bouton cherche des idées.",
+  "This project's own choice, whatever the general settings say.":
+    "Le choix propre à ce projet, quoi que disent les réglages généraux.",
+  "Follows the general settings.":
+    "Suit les réglages généraux.",
+  "Ponos finds ideas":
+    "Ponos cherche des idées",
+  "Last pass: it has happened.":
+    "Dernière passe : elle a eu lieu.",
+  "Due: Ponos looks for ideas then.":
+    "À venir : Ponos cherche des idées à ce moment.",
+  "Change it in the Ideas page's Settings":
+    "À modifier dans les Réglages de la page Idées",
 }

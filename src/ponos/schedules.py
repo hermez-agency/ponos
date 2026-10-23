@@ -227,6 +227,100 @@ def next_occurrence(
     return _local(moment) if after.tzinfo else moment
 
 
+def every(hours: int, *, after: datetime) -> datetime:
+    """`hours` hours after `after`, to the minute.
+
+    An interval rather than a calendar: "every four hours" is four hours from
+    the last time, not the next multiple of four on the clock, which would give
+    a pass started at 10:30 a second one at 12:00. The caller keeps the moment
+    it fired at and hands it back, so the spacing holds across a restart.
+    """
+    return after.replace(second=0, microsecond=0) + timedelta(hours=max(1, hours))
+
+
+# The five fields of a crontab line and what each may hold. Day of week takes
+# 0 and 7 for Sunday, as cron does.
+_CRON_FIELDS = ((0, 59), (0, 23), (1, 31), (1, 12), (0, 7))
+
+
+def _cron_field(text: str, low: int, high: int) -> set[int] | None:
+    """One field of a cron line as the values it stands for, None if it is not one."""
+    values: set[int] = set()
+    for part in text.split(","):
+        body, _, step_text = part.partition("/")
+        if step_text and not step_text.isdigit():
+            return None
+        step = int(step_text) if step_text else 1
+        if step < 1:
+            return None
+        if body == "*":
+            start, stop = low, high
+        elif re.fullmatch(r"\d+", body):
+            start = stop = int(body)
+            if step_text:
+                stop = high
+        elif re.fullmatch(r"\d+-\d+", body):
+            start, stop = (int(number) for number in body.split("-"))
+        else:
+            return None
+        if not low <= start <= stop <= high:
+            return None
+        values.update(range(start, stop + 1, step))
+    return values
+
+
+def _cron(expression: str) -> tuple[list[set[int]], bool, bool] | None:
+    """A cron line as its five sets, and whether the day of month and of week are restricted."""
+    fields = expression.split()
+    if len(fields) != 5:
+        return None
+    sets: list[set[int]] = []
+    for text, (low, high) in zip(fields, _CRON_FIELDS, strict=True):
+        found = _cron_field(text, low, high)
+        if not found:
+            return None
+        sets.append(found)
+    sets[4] = {day % 7 for day in sets[4]}
+    return sets, fields[2] != "*", fields[4] != "*"
+
+
+def cron_problem(expression: str) -> str:
+    """Why this is not a cron line the runner reads, in the words `doctor` prints; empty if it is one."""
+    if _cron(expression) is None:
+        return f"“{expression}” is not a cron line — five fields: minute hour day month weekday"
+    return ""
+
+
+def cron(expression: str, *, after: datetime) -> datetime | None:
+    """The first moment a cron line falls on, strictly after `after`.
+
+    The usual five fields with `*`, lists, ranges and steps, no names. As in
+    cron, a day of the month and a day of the week that are both given mean
+    either of them. `None` for a line nobody can read, and for one that never
+    falls — the 31st of February.
+    """
+    parsed = _cron(expression)
+    if parsed is None:
+        return None
+    (minutes, hours, days, months, weekdays), dated, weekly = parsed
+    base = (after.replace(tzinfo=None) if after.tzinfo else after).replace(
+        second=0, microsecond=0
+    ) + timedelta(minutes=1)
+    for offset in range(366 * 8):
+        day = (base + timedelta(days=offset)).date()
+        if day.month not in months:
+            continue
+        in_month, in_week = day.day in days, (day.weekday() + 1) % 7 in weekdays
+        if not (in_month or in_week if dated and weekly else in_month and in_week):
+            continue
+        for hour in sorted(hours):
+            for minute in sorted(minutes):
+                moment = datetime(day.year, day.month, day.day, hour, minute)
+                if moment >= base:
+                    return _local(moment) if after.tzinfo else moment
+    return None
+
+
 def _local(moment: datetime) -> datetime:
     """A wall-clock moment read in this machine's timezone, the same on every Python.
 

@@ -140,6 +140,10 @@ on it; NULL is "not scored", which is what every idea from before it is, and
 stays until somebody asks for it to be scored. The line that says why is
 read, never sorted on, so it goes into `detail` with the rest of what an idea
 says.
+
+Migration 27 is what finding ideas on a schedule remembers — see
+idea_schedule.py. `idea_plan` holds the moment of the next pass (a single row,
+with the timing keys it was drawn from), `idea_passes` one row per pass done.
 """
 
 from __future__ import annotations
@@ -564,6 +568,30 @@ def _ideas(connection: sqlite3.Connection) -> None:
     connection.execute("CREATE INDEX ideas_by_decision ON ideas (decided_at)")
 
 
+def _idea_passes(connection: sqlite3.Connection) -> None:
+    connection.execute(
+        """
+        CREATE TABLE idea_plan (
+            signature  TEXT NOT NULL,
+            next_at    TEXT NOT NULL
+        )
+        """
+    )
+    connection.execute(
+        """
+        CREATE TABLE idea_passes (
+            id        INTEGER PRIMARY KEY,
+            at        TEXT NOT NULL,
+            found     INTEGER NOT NULL DEFAULT 0,
+            cost_usd  REAL NOT NULL DEFAULT 0,
+            projects  INTEGER NOT NULL DEFAULT 0,
+            skipped   TEXT NOT NULL DEFAULT '{}',
+            error     TEXT NOT NULL DEFAULT ''
+        )
+        """
+    )
+
+
 def _mcp(connection: sqlite3.Connection) -> None:
     connection.execute(
         """
@@ -846,6 +874,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     _ideas_have_a_score,
     _chats,
     _transitions,
+    _idea_passes,
 )
 
 # Any way a read or a write of the database can fail. A note the runner keeps

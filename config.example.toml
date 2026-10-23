@@ -717,6 +717,38 @@ classify_confidence = "medium"   # low, medium or high: the least a guess is act
 # tickets — never one already kept or thrown away. Its cost is recorded per batch.
 ideas_model = "haiku"            # empty: the CLI's own — routed through OpenRouter, name a slug
 
+# Finding ideas without being asked, while the console runs (`ponos serve`): the
+# "Ponos, find me ideas" button keeps working whatever is set here. The same
+# keys are in the Settings window of the Ideas page.
+#   "off"       only the button finds ideas (the default)
+#   "every_4h"  four hours after the last pass
+#   "daily"     every day at `ideas_at`
+#   "weekly"    every week on `ideas_day`, at `ideas_at`
+#   "hours"     every `ideas_every_hours` hours after the last pass
+#   "cron"      the five-field line of `ideas_cron`
+# Hours are this machine's, as a recurrence's are; a pass missed while the
+# console was off is run once when it comes back, never once for each.
+ideas_schedule = "off"
+ideas_at = "09:00"               # "daily" and "weekly": the hour, as 09:00
+ideas_day = "Monday"             # "weekly": a day of the week
+ideas_every_hours = 6            # "hours": at least 1
+ideas_cron = ""                  # "cron": minute hour day month weekday, e.g. "0 9 * * 1-5"
+# Which projects a pass covers: "all" (the ones added later too) or "selected"
+# (those of `ideas_projects`, by page id or name: ["Website", "Newsletter"]).
+# A project's own page can still turn itself off or on, and what it says wins.
+ideas_scope = "all"
+ideas_projects = ""
+ideas_workspace = false          # also ideas for the workspace, the ones with no project
+# What a pass may do. Ideas per project and per pass (1 to 20); a project that
+# already has this many new, unsorted ideas is skipped and the journal says so
+# (0: never skipped); the most a pass may spend, in dollars, read between two
+# projects (0: no ceiling); and a message on the channels after a pass that
+# found some.
+ideas_per_batch = 10
+ideas_skip_above = 20
+ideas_budget_usd = 0
+ideas_notify = false
+
 # A ticket whose Model is empty (and whose agent names none) gets a model chosen
 # for it before it runs — by rules, not by a session, so it costs nothing: its
 # type sets the level it starts from, its size and its wording move it (remove,

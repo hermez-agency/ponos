@@ -424,8 +424,10 @@ export function ConsoleProvider({ children }: { children: React.ReactNode }) {
     notifications: (event: Bell) => publishBell(event),
 
     // Scores the light model wrote behind the page: the lists of ideas read again.
-    ideas: (event: { scored?: number; scoring?: number; failed?: string }) => {
-      if (event?.scored || event?.scoring) ideasScored()
+    ideas: (event: { scored?: number; scoring?: number; failed?: string; planned?: number; settings?: boolean }) => {
+      // A scheduled pass found some, or the schedule was changed: the lists and the banner read again.
+      if (event?.planned !== undefined || event?.settings) window.dispatchEvent(new CustomEvent("ponos:ideas-plan"))
+      if (event?.scored || event?.scoring || event?.planned) ideasScored()
       if (event?.failed) toast.error(t("The ideas could not be scored"), { description: event.failed })
     },
 

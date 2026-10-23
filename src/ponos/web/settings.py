@@ -33,7 +33,16 @@ from pathlib import Path
 
 from .. import config as config_module
 from .. import models, subtypes, voice
-from ..config import CONFIDENCES, EVENTS, MERGE_METHODS, UPDATE_CHANNELS, Config
+from ..config import (
+    CONFIDENCES,
+    EVENTS,
+    IDEAS_SCHEDULES,
+    IDEAS_SCOPES,
+    MERGE_METHODS,
+    UPDATE_CHANNELS,
+    WEEKDAYS,
+    Config,
+)
 from ..store import CONFLICTS, MODES
 
 # What Claude Code accepts, and what each of them means for a runner nobody is
@@ -1247,6 +1256,130 @@ SECTIONS: tuple[Section, ...] = (
                 "text",
                 "Dictation model",
                 "Turns a message dictated in the console into text.",
+            ),
+        ),
+    ),
+    Section(
+        key="ideas",
+        group="models",
+        title="Finding ideas on a schedule",
+        blurb=(
+            "Ponos proposes ideas without being asked, while the console runs. The button "
+            "on the Ideas page keeps working whatever is set here; the same settings are "
+            "in its Settings window."
+        ),
+        fields=(
+            Field(
+                "runner",
+                "ideas_schedule",
+                "choice",
+                "How often",
+                "Off: only the button finds ideas.",
+                choices=IDEAS_SCHEDULES,
+                options=(
+                    ("off", "Never — only when asked"),
+                    ("every_4h", "Every 4 hours"),
+                    ("daily", "Every day"),
+                    ("weekly", "Every week"),
+                    ("hours", "Every N hours"),
+                    ("cron", "A cron expression"),
+                ),
+            ),
+            Field(
+                "runner",
+                "ideas_at",
+                "text",
+                "At what time",
+                "For every day and every week, in this machine's timezone: 09:00.",
+                placeholder="09:00",
+            ),
+            Field(
+                "runner",
+                "ideas_day",
+                "choice",
+                "On which day",
+                "For every week.",
+                choices=WEEKDAYS,
+            ),
+            Field(
+                "runner",
+                "ideas_every_hours",
+                "int",
+                "Every",
+                "For “Every N hours”: counted from the last pass.",
+                minimum=1,
+                unit="hours",
+            ),
+            Field(
+                "runner",
+                "ideas_cron",
+                "text",
+                "Cron expression",
+                "Five fields — minute hour day month weekday — with `*`, lists, ranges and "
+                "steps: `0 9 * * 1-5` is weekdays at nine.",
+                placeholder="0 9 * * 1-5",
+            ),
+            Field(
+                "runner",
+                "ideas_scope",
+                "choice",
+                "Which projects",
+                "All of them includes the ones added later. A project's own page can still "
+                "turn it off, or on.",
+                choices=IDEAS_SCOPES,
+                options=(
+                    ("all", "All projects"),
+                    ("selected", "Selected projects"),
+                ),
+            ),
+            Field(
+                "runner",
+                "ideas_projects",
+                "text",
+                "The selected projects",
+                "Project ids or names, separated by commas. The Ideas page's window "
+                "lists them with check boxes.",
+                placeholder="e.g. Website, Newsletter",
+            ),
+            Field(
+                "runner",
+                "ideas_workspace",
+                "bool",
+                "Ideas for the workspace",
+                "Ideas that belong to no project, and may propose a project of its own.",
+            ),
+            Field(
+                "runner",
+                "ideas_per_batch",
+                "int",
+                "Ideas per pass and per project",
+                "Ten by default, twenty at the most.",
+                minimum=1,
+                maximum=20,
+            ),
+            Field(
+                "runner",
+                "ideas_skip_above",
+                "int",
+                "Skip a project that has this many new ideas",
+                "New ideas nobody has sorted yet. The skip is written in the journal. "
+                "0: never skipped.",
+                minimum=0,
+            ),
+            Field(
+                "runner",
+                "ideas_budget_usd",
+                "text",
+                "Most a pass may spend",
+                "In dollars, read between two projects. Empty: no ceiling.",
+                placeholder="e.g. 1.50",
+            ),
+            Field(
+                "runner",
+                "ideas_notify",
+                "bool",
+                "Tell me about new ideas",
+                "One message on your channels after a pass that found some.",
             ),
         ),
     ),

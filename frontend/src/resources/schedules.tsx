@@ -53,6 +53,7 @@ import { useRoute } from "@/lib/router"
 import { setRunnerZone } from "@/lib/runner-zone"
 import { STATES, filtering, keeps } from "@/lib/schedule-search"
 import type { Schedule, Schedules } from "@/lib/types"
+import { ideasHref } from "@/resources/ideas"
 import { projectsOnce, projectsRead, useProjects } from "@/resources/projects"
 import { ticketHref } from "@/resources/tickets"
 
@@ -860,6 +861,8 @@ interface Launch {
   cadence: string
   at: string
   day: string
+  /** The search for ideas, which is drawn here to be seen and not to be changed. */
+  ideas?: boolean
 }
 
 const ScheduleCalendar = ({ rows }: ListComponentPropsInterface<ScheduleItem>) => {
@@ -875,7 +878,32 @@ const ScheduleCalendar = ({ rows }: ListComponentPropsInterface<ScheduleItem>) =
     if (!walk) return []
     const found = rows.map((row) => row.data)
     const byId = new Map(found.map((schedule) => [schedule.id, schedule]))
-    return walk.entries(found, Date.now(), walk.zoneOf(zone)).map((entry): RowInterface<Launch> => {
+    const pass = drawn?.ideas_pass
+    const own = walk.entries(found, Date.now(), walk.zoneOf(zone))
+    // The scheduled search for ideas: the server walks its rule (a cron line has no
+    // cadence to walk here) and the page draws the passes it is given, read only.
+    const searching = pass && (pass.active || pass.last) ? walk.listed(pass.active ? pass.upcoming : [], pass.last) : []
+    const ideas = searching.map((entry): RowInterface<Launch> => {
+      const name = t("Ponos finds ideas")
+      const several = entry.times.length > 1
+      return {
+        data: {
+          id: entry.key,
+          "@id": entry.key,
+          title: several ? t("{{count}} launches · {{name}}", { name, count: String(entry.times.length) }) : name,
+          when: new Date(entry.start).toISOString(),
+          color: entry.kind === "past" ? PAST_COLOR : undefined,
+          kind: entry.kind,
+          schedule: entry.schedule,
+          times: entry.times,
+          cadence: "",
+          at: "",
+          day: "",
+          ideas: true,
+        },
+      }
+    })
+    const calendar = own.map((entry): RowInterface<Launch> => {
       const schedule = byId.get(entry.schedule)!
       const folded = entry.times.length > 1
       return {
@@ -896,7 +924,8 @@ const ScheduleCalendar = ({ rows }: ListComponentPropsInterface<ScheduleItem>) =
         },
       }
     })
-  }, [rows, zone, walk])
+    return [...calendar, ...ideas]
+  }, [rows, zone, walk, drawn?.ideas_pass])
   return <ListCalendar rows={launches} />
 }
 
@@ -909,6 +938,20 @@ const LaunchPreview = ({ row }: RowComponentPropsInterface<Launch>) => {
   const { drawn } = useSchedules()
   const open = useOpensOverTheList(schedules, "update", launch?.schedule ?? "")
   if (!launch) return null
+  if (launch.ideas)
+    return (
+      <div className="flex w-full flex-col gap-2 text-sm" data-slot="ideas-pass-launch">
+        <p className="text-muted-foreground text-xs">
+          {launch.kind === "past" ? t("Last pass: it has happened.") : t("Due: Ponos looks for ideas then.")}
+        </p>
+        {launch.times.length > 1 ? (
+          <p className="font-mono text-xs leading-relaxed">{launch.times.map(hour).join(" · ")}</p>
+        ) : null}
+        <Link to={ideasHref()} className="text-primary underline-offset-2 hover:underline">
+          {t("Change it in the Ideas page's Settings")}
+        </Link>
+      </div>
+    )
   return (
     <div className="flex w-full flex-col gap-2 text-sm">
       <p className="text-muted-foreground text-xs">

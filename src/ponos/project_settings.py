@@ -30,14 +30,17 @@ undone from: the ticket waits in review, as it would have without any setting.
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 
 from . import db
 from .config import Config
 from .kinds import KINDS
 
-# The key of the one setting a project may hold today. The next ones are keys
-# beside it in the same JSON object.
+# The keys a project may hold: one JSON object, the settings beside each other.
 VALIDATION = "validation"
+# Whether ideas are found for it on a schedule, against what the file says for
+# all — see idea_schedule.py. A boolean: absent, the file decides.
+IDEAS = "ideas"
 
 
 def key(project: str) -> str:
@@ -75,6 +78,56 @@ def validation(project: str) -> dict[str, bool] | None:
 
 def set_validation(project: str, name: str, values: dict[str, bool] | None) -> None:
     """Give a project its own automatic validation, or hand it back to the file (None)."""
+
+    def change(settings: dict) -> None:
+        if values is None:
+            settings.pop(VALIDATION, None)
+        else:
+            settings[VALIDATION] = {kind: bool(values.get(kind, False)) for kind in KINDS}
+
+    _write(project, name, change)
+
+
+def ideas(project: str) -> bool | None:
+    """Whether ideas are found for the project on a schedule, if it says — None, the file's word."""
+    if not key(project):
+        return None
+    own = _read(project).get(IDEAS)
+    return own if isinstance(own, bool) else None
+
+
+def set_ideas(project: str, name: str, value: bool | None) -> None:
+    """Say yes or no for the project, or hand the question back to the file (None)."""
+
+    def change(settings: dict) -> None:
+        if value is None:
+            settings.pop(IDEAS, None)
+        else:
+            settings[IDEAS] = value
+
+    _write(project, name, change)
+
+
+def every_ideas() -> dict[str, bool]:
+    """What each project that says its own word about ideas says, by project id."""
+    try:
+        with db.transaction(immediate=False) as connection:
+            rows = connection.execute("SELECT project, settings FROM project_settings").fetchall()
+    except db.ERRORS:
+        return {}
+    said: dict[str, bool] = {}
+    for project, settings in rows:
+        try:
+            held = json.loads(settings or "{}")
+        except ValueError:
+            continue
+        if isinstance(held, dict) and isinstance(held.get(IDEAS), bool):
+            said[str(project)] = held[IDEAS]
+    return said
+
+
+def _write(project: str, name: str, change: Callable[[dict], None]) -> None:
+    """Change one project's settings object, and drop the row when nothing is left in it."""
     if not key(project):
         raise ValueError("only a project with a page can have settings of its own")
     with db.transaction() as connection:
@@ -87,10 +140,7 @@ def set_validation(project: str, name: str, values: dict[str, bool] | None) -> N
             settings = {}
         if not isinstance(settings, dict):
             settings = {}
-        if values is None:
-            settings.pop(VALIDATION, None)
-        else:
-            settings[VALIDATION] = {kind: bool(values.get(kind, False)) for kind in KINDS}
+        change(settings)
         if settings:
             connection.execute(
                 "INSERT INTO project_settings (project, name, settings) VALUES (?, ?, ?) "

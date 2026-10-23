@@ -593,6 +593,30 @@ if "say what kind of change it is" in prompt:
           "session_id": session, "num_turns": 1, "total_cost_usd": 0.001})
     raise SystemExit(0)
 
+# The short session that proposes ideas answers a JSON array and nothing more:
+# three of them, named after the project it is told the scope of, and different
+# from one call to the next — by how many are already listed in the prompt —
+# since what is repeated is dropped.
+if "You are proposing ideas" in prompt:
+    import re
+
+    named = re.search(r"one project, (.+?): ideas", prompt)
+    known = prompt.count("- Ajouter ")
+    topics = (
+        ["le mode sombre", "l'export csv", "la recherche globale", "les raccourcis clavier",
+         "un tableau de bord", "les notifications push", "un journal d'audit", "le partage par lien",
+         "les modèles de tickets", "une corbeille", "un tutoriel guidé", "les filtres enregistrés"]
+    )[known % 10:][:3]
+    said = json.dumps([
+        {"title": "Ajouter " + topic + " à " + (named.group(1) if named else "l'espace"),
+         "description": "Parce que.", "kind": "ticket", "where": "src", "done": ["ok"], "out": []}
+        for topic in topics
+    ])
+    emit({"type": "assistant", "message": {"content": [{"type": "text", "text": said}]}})
+    emit({"type": "result", "subtype": "success", "is_error": False, "result": said,
+          "session_id": session, "num_turns": 1, "total_cost_usd": 0.01})
+    raise SystemExit(0)
+
 # What a session says on its way, before it says how it ended — the sentence
 # the live report writes into the ticket, and nothing else does.
 narrated = os.environ.get("FAKE_CLAUDE_SAY", "")
@@ -1309,6 +1333,65 @@ def machine(case):
 
 
 # -- the scenarios -----------------------------------------------------------
+
+
+@case
+@runner_settings(ideas_schedule="every_4h", ideas_scope="selected", ideas_per_batch=3)
+def a_scheduled_pass_finds_ideas_for_the_projects_ticked_and_for_those_only(machine):
+    """Every four hours, two projects of three ticked: ideas for them at each pass.
+
+    The whole road of the pass, on the doubles: the fake Notion's project index,
+    the fake `claude` answering ten at a time, the console's own `Api` reading
+    the configuration the machine wrote. A project that turns itself off from its
+    page is left out of the next pass; one added after the schedule was set is
+    covered as soon as the scope is "all".
+    """
+    from ponos import idea_schedule, ideas
+    from ponos.web import api as web_api
+
+    alpha = machine.project("Alpha").replace("-", "")
+    beta = machine.project("Beta").replace("-", "")
+    gamma = machine.project("Gamma").replace("-", "")
+    C.edit(machine.config, [("runner", "ideas_projects", f"{alpha}, {gamma}")])
+    api = web_api.Api(C.load(machine.config))
+    # The fake Notion has no workspace page to find the projects database under,
+    # so the console is given the index it would have read from it.
+    api._projects = {
+        identifier: {
+            "id": identifier,
+            "name": name,
+            "kind": "code",
+            "url": "",
+            "repository": "",
+            "path": "",
+        }
+        for identifier, name in ((alpha, "Alpha"), (beta, "Beta"), (gamma, "Gamma"))
+    }
+    api._projects_at = time.time()
+    try:
+        start = datetime.now().astimezone()
+        assert api.planned.look(start) is None, "the first moment is drawn, not fired"
+        first = api.planned.look(start + timedelta(hours=4, minutes=1))
+        assert first is not None and first.projects == 2 and first.found == 6
+        assert [len(ideas.listed(project)) for project in (alpha, beta, gamma)] == [3, 0, 3]
+        assert api.planned.look(start + timedelta(hours=4, minutes=2)) is None
+        second = api.planned.look(start + timedelta(hours=8, minutes=5))
+        assert second is not None and second.found == 6
+        assert [len(ideas.listed(project)) for project in (alpha, beta, gamma)] == [6, 0, 6]
+        assert idea_schedule.last().found == 6
+        calls = [call for call in machine.sessions() if "You are proposing ideas" in call["prompt"]]
+        assert len(calls) == 4, "one session per project and per pass"
+
+        api.save_project_settings(alpha, {"ideas": {"enabled": False}})
+        third = api.planned.look(start + timedelta(hours=12, minutes=10))
+        assert third is not None and third.projects == 1
+        assert [len(ideas.listed(project)) for project in (alpha, beta, gamma)] == [6, 0, 9]
+
+        planned = api.planned.save({"schedule": "off"})
+        assert planned["next"] == "" and planned["settings"]["schedule"] == "off"
+        assert api.planned.look(start + timedelta(days=3)) is None, "off is no pass at all"
+    finally:
+        api.watch.stop()
 
 
 @case

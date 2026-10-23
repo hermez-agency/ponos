@@ -47,10 +47,13 @@ from .config import (
     CONFIDENCES,
     EVENTS,
     GITHUB_MODES,
+    IDEAS_SCHEDULES,
+    IDEAS_SCOPES,
     MERGE_METHODS,
     MOST_RESERVED,
     PROVIDERS,
     UPDATE_CHANNELS,
+    WEEKDAYS,
     Budget,
     ConfigError,
     OpenRouter,
@@ -280,6 +283,25 @@ class RunnerTable(Table):
     # every ticket.
     classify_confidence: Annotated[str, _one_of(CONFIDENCES)] = Runner.classify_confidence
     ideas_model: Text = Runner.ideas_model
+    ideas_schedule: Annotated[str, _one_of(IDEAS_SCHEDULES)] = Runner.ideas_schedule
+    ideas_at: Text = Runner.ideas_at
+    ideas_day: Annotated[
+        str, _one_of(tuple(day.lower() for day in WEEKDAYS)), AfterValidator(str.capitalize)
+    ] = Runner.ideas_day
+    ideas_every_hours: AtLeast1 = Runner.ideas_every_hours
+    ideas_cron: Text = Runner.ideas_cron
+    ideas_scope: Annotated[str, _one_of(IDEAS_SCOPES)] = Runner.ideas_scope
+    ideas_projects: Names = Runner.ideas_projects
+    ideas_workspace: bool = Runner.ideas_workspace
+    # Ten is what a batch asks for; more than twenty is a prompt the model
+    # answers badly, and none is a pass that does nothing.
+    ideas_per_batch: Annotated[Integer, AfterValidator(lambda value: min(20, max(1, value)))] = (
+        Runner.ideas_per_batch
+    )
+    # Zero: never skipped, however many are waiting.
+    ideas_skip_above: AtLeast0 = Runner.ideas_skip_above
+    ideas_budget_usd: Dollars = Runner.ideas_budget_usd
+    ideas_notify: bool = Runner.ideas_notify
     auto_model: bool = Runner.auto_model
     # Empty is allowed: a level that names no model borrows the nearest one
     # that does — see `models.Grid.model`.

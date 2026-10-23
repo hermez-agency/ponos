@@ -29,6 +29,7 @@ from . import (
     github_app,
     github_token,
     health,
+    idea_schedule,
     journal,
     kinds,
     leftovers,
@@ -1691,6 +1692,7 @@ def _doctor_model(configuration: config_module.Config) -> int:
         and runner_settings.ideas_model in {"haiku", "sonnet", "opus", "fable"}
     ):
         warn("sessions go through OpenRouter — name its slug in runner.ideas_model")
+    problems += _doctor_ideas(runner_settings)
     _doctor_fable(runner_settings)
     interval = configuration.runner.interval_seconds
     if config_module.in_container():
@@ -1710,6 +1712,27 @@ def _doctor_model(configuration: config_module.Config) -> int:
     else:
         print(f"  {DIM}runner.progress = false — the ticket says nothing until the end{RESET}")
     return problems
+
+
+def _doctor_ideas(settings: config_module.Runner) -> int:
+    """Finding ideas on a schedule: that it can fire, and that it has projects to fire on."""
+    wanted = idea_schedule.plan(settings)
+    if not wanted.on:
+        print(f"  {DIM}runner.ideas_schedule = off — ideas are found when asked{RESET}")
+        return 0
+    cause = idea_schedule.problem(wanted)
+    if cause:
+        bad(f"runner.ideas_schedule = {wanted.schedule}: {cause}")
+        return 1
+    following = idea_schedule.next_after(wanted, datetime.now().astimezone())
+    when = following.strftime("%Y-%m-%d %H:%M") if following else "never"
+    ok(f"ideas are found on a schedule ({wanted.schedule}), next pass {when} — see runner.ideas_*")
+    if wanted.scope == "selected" and not wanted.projects and not wanted.workspace:
+        warn("runner.ideas_scope = selected names no project: only a project's own switch counts")
+    if wanted.budget_usd:
+        print(f"  {DIM}a pass spends ${wanted.budget_usd:.2f} at the most{RESET}")
+    print(f"  {DIM}the passes run in the console (ponos serve), not in the timer's run{RESET}")
+    return 0
 
 
 def _doctor_health(configuration: config_module.Config) -> int:
