@@ -344,9 +344,9 @@ def a_ticket_is_never_closed_on_an_answer_github_did_not_give():
 @case
 def the_columns_are_read_in_one_order_with_blocked_right_after_running():
     """The console, its filters and the MCP tools share one order, cancelled last."""
-    from ponos.web import api, mcp
+    from ponos.web import mcp, tickets
 
-    order = api.COLUMNS
+    order = tickets.COLUMNS
     assert order.index("blocked") == order.index("running") + 1, order
     assert order[-2:] == ("done", "cancelled"), order
     assert [key for key in order if key not in ("blocked",)] == [

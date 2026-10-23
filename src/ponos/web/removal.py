@@ -28,27 +28,21 @@ from here would be a second gesture hidden in the first one.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from .. import config as config_module
 from .. import ideas, state, store
 from ..ticket import short_id
 from . import live
-
-if TYPE_CHECKING:
-    from .api import Api
+from .base import Base
 
 
-class Removal:
-    def __init__(self, api: Api) -> None:
-        self._api = api
-
+class Removal(Base):
     def tickets_of(self, project: str) -> list[store.Page]:
         """The tickets whose project relation names that page."""
-        api = self._api
-        settings = api.config.notion
+        settings = self.config.notion
         wanted = project.replace("-", "")
-        pages = api.reader.read(api.runner.client, api.runner.database, settings.prop("status"))
+        pages = self.reader.read(self.runner.client, self.runner.database, settings.prop("status"))
         relation = settings.prop("project")
         return [
             page
@@ -56,11 +50,10 @@ class Removal:
             if wanted in [str(one).replace("-", "") for one in store.read(page, relation) or []]
         ]
 
-    def delete(self, page_id: str, payload: dict[str, Any]) -> dict:
+    def delete_project(self, page_id: str, payload: dict[str, Any]) -> dict:
         """Delete one project. Refuses, with its reason, before anything is changed."""
-        api = self._api
         bare = page_id.replace("-", "")
-        row = next((one for one in api.projects().values() if one["id"] == bare), None)
+        row = next((one for one in self.projects().values() if one["id"] == bare), None)
         if row is None:
             raise LookupError(f"no project with id {bare}")
         name = row["name"]
@@ -81,11 +74,11 @@ class Removal:
                 f"a ticket of “{name}”: stop it or wait for it to end, then delete the project"
             )
 
-        client = api.runner.client
-        settings = api.config.notion
+        client = self.runner.client
+        settings = self.config.notion
         blocked = settings.state("blocked")
         trash = bool(payload.get("trash_tickets"))
-        said = api.runner.voice.say("project-deleted", project=name)
+        said = self.runner.voice.say("project-deleted", project=name)
         stopped = trashed = 0
         # The tickets first: if the board refuses one, the project is still
         # there and the same request can be made again.
@@ -93,28 +86,28 @@ class Removal:
             state.release(page.id)
             if trash:
                 client.trash(page.id)
-                api.reader.forget(page.id)
+                self.reader.forget(page.id)
                 trashed += 1
                 continue
             if store.read(page, settings.prop("status")) in (
                 settings.state("ready"),
                 settings.state("running"),
             ):
-                client.update(api.runner.database, page.id, {settings.prop("status"): blocked})
+                client.update(self.runner.database, page.id, {settings.prop("status"): blocked})
                 client.comment(page.id, said)
-                api.reader.hold(client.page(page.id))
+                self.reader.hold(client.page(page.id))
                 stopped += 1
 
         url = client.trash(bare)
         dropped = ideas.forget(bare)
-        removed, kept = api.runner.drop_for(shorts)
-        if name in api.config.projects:
-            config_module.edit(api.config.path, [("projects", name, None)])
+        removed, kept = self.runner.drop_for(shorts)
+        if name in self.config.projects:
+            config_module.edit(self.config.path, [("projects", name, None)])
         # Shown gone at once: the index is read again, the tickets with it, and
         # every open console hears of it without waiting for the next poll.
-        api.forget_projects()
-        api.hub.publish("projects", deleted=bare)
-        api.watch.nudge()
+        self.forget_projects()
+        self.hub.publish("projects", deleted=bare)
+        self.watch.nudge()
         return {
             "id": bare,
             "name": name,

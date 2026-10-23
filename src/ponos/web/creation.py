@@ -27,13 +27,11 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 from urllib.parse import urlparse
 
 from .. import git, store
-
-if TYPE_CHECKING:
-    from .api import Api
+from .base import Base
 
 # GitHub's own rules, near enough: an owner is letters, digits and inner
 # hyphens; a repository adds dots and underscores.
@@ -41,7 +39,7 @@ OWNER = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?")
 NAME = re.compile(r"[A-Za-z0-9._-]{1,100}")
 HOSTS = ("github.com", "www.github.com")
 
-# The columns each value goes to, in the order `api.projects` reads them back.
+# The columns each value goes to, in the order `self.projects` reads them back.
 # The first is the name a database of `ponos init`'s own makes.
 COLUMNS = {
     "repository": ("Repository", "repository", "github", "repo"),
@@ -98,16 +96,13 @@ def _column(schema: dict[str, str], used: dict[str, str], key: str) -> str:
     return names[0]
 
 
-class Creation:
-    def __init__(self, api: Api) -> None:
-        self._api = api
-
+class Creation(Base):
     def _say(self, key: str, **values: object) -> str:
-        return self._api.runner.voice.say(key, **values)
+        return self.runner.voice.say(key, **values)
 
     # -- what the form asks while it is filled in ---------------------------
 
-    def check(self, repository: str = "", path: str = "") -> dict:
+    def check_project(self, repository: str = "", path: str = "") -> dict:
         """What a repository and a folder turn out to be, before anything is created.
 
         The repository, written the way it will be kept, and where this machine
@@ -120,7 +115,7 @@ class Creation:
         if str(repository).strip():
             url = github_url(repository)
             if url:
-                located = self._api.runner.resolver.locate("", "", url)
+                located = self.runner.resolver.locate("", "", url)
                 answer.update(repository=url, cloned=str(located) if located else "")
             else:
                 answer["repository_error"] = self._say(
@@ -128,7 +123,7 @@ class Creation:
                 )
         if str(path).strip():
             try:
-                folder = self._folder(path)
+                folder = self._project_folder(path)
             except Refused as error:
                 answer["path_error"] = str(error)
             else:
@@ -136,7 +131,7 @@ class Creation:
                 answer.update(path=str(folder), origin=github_url(origin) or origin)
         return answer
 
-    def _folder(self, given: str) -> Path:
+    def _project_folder(self, given: str) -> Path:
         """The folder a path names, refused unless it is a git repository here."""
         typed = str(given).strip()
         folder = Path(typed).expanduser()
@@ -150,16 +145,15 @@ class Creation:
 
     # -- creating -----------------------------------------------------------
 
-    def create(self, payload: dict[str, Any]) -> dict:
+    def create_project(self, payload: dict[str, Any]) -> dict:
         """Create one project page, and hand it back as the list draws it."""
-        api = self._api
-        database = api.runner.workspace.projects
+        database = self.runner.workspace.projects
         if not database:
             raise Refused("name", self._say("project-no-database"))
         name = " ".join(str(payload.get("name") or "").split())
         if not name:
             raise Refused("name", self._say("project-needs-name"))
-        for row in api.all_projects()["projects"]:
+        for row in self.all_projects()["projects"]:
             if row["name"].strip().casefold() == name.casefold():
                 raise Refused("name", self._say("project-name-taken", name=row["name"]))
 
@@ -174,7 +168,7 @@ class Creation:
                     raise Refused("repository", self._say("project-github-invalid", given=given))
             if str(payload.get("path") or "").strip():
                 path = str(payload["path"]).strip().rstrip("/") or "/"
-                folder = self._folder(path)
+                folder = self._project_folder(path)
                 # The page names its repository as well as its folder, so that
                 # another machine — which has no such folder — finds it too.
                 repository = repository or github_url(git.remote_url(folder))
@@ -185,7 +179,7 @@ class Creation:
         if site and not is_site(site):
             raise Refused("site", self._say("project-site-invalid", given=site))
 
-        client = api.runner.client
+        client = self.runner.client
         schema = client.schema(database)
         used = {
             name.lower(): name
@@ -212,8 +206,8 @@ class Creation:
         bare = page_id.replace("-", "")
         # Read again next time, with this one in it — and every open console
         # told now rather than at the end of the index's ten minutes.
-        api.forget_projects()
-        api.hub.publish("projects", saved=bare)
+        self.forget_projects()
+        self.hub.publish("projects", saved=bare)
         return {
             "id": bare,
             "name": name,
@@ -223,7 +217,7 @@ class Creation:
             "path": path,
             "description": written.get(_column(schema, used, "description"), ""),
             "site": site,
-            **api._shown(bare),
+            **self._shown(bare),
             "configured": "",
             "source": "board",
         }

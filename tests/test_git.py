@@ -29,6 +29,7 @@ from ponos import notion, projects, state, voice, workspace
 from ponos import ticket as ticket_module
 from ponos.runner import Runner
 from ponos.web import api as web_api
+from ponos.web import base as web_base
 
 # -- worktrees ---------------------------------------------------------------
 
@@ -383,7 +384,7 @@ def the_console_measures_the_disk_and_cleans_only_between_runs(state_home):
     _aged(state_home / "scratch" / "notes-1a2b3c4d", 30)
     console = web_api.Api.__new__(web_api.Api)
     console._config = _config("")
-    console._stamp = web_api._stamp(console._config.path)
+    console._stamp = web_base._stamp(console._config.path)
     console._runner = _tidying([_aged_page("page-1a2b3c4d", "Done", 30)])
     measured = console.disk()
     assert measured["sizes"]["scratch"] >= 1000 and measured["retention_days"] == 14

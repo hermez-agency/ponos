@@ -45,8 +45,8 @@ from .. import __version__, db, ideas, journal, log, state, store, systemd
 from .. import config as config_module
 from .. import kinds as kinds_module
 from . import live
-from .api import COLUMNS
 from .oauth import READ, WRITE, Grant
+from .tickets import COLUMNS
 
 logger = logging.getLogger(__name__)
 
@@ -968,17 +968,17 @@ def create_idea(
     category: str = "",
 ) -> dict:
     scope = _project(api, project)["id"] if project else ""
-    return _idea(api.ideas.write(scope, kind, title, description, category))
+    return _idea(api.write_idea(scope, kind, title, description, category))
 
 
 def set_idea_state(api: Api, idea: int, state: str) -> dict:
     if state == "keep":
-        return _idea(api.ideas.keep(idea))
+        return _idea(api.keep_idea(idea))
     if state == "ticket":
-        return _idea(api.ideas.ticket(idea))
+        return _idea(api.idea_ticket(idea))
     if state == "discard":
-        return _idea(api.ideas.discard(idea))
-    return _idea(api.ideas.reopen(idea))
+        return _idea(api.discard_idea(idea))
+    return _idea(api.reopen_idea(idea))
 
 
 def _short(text: str, limit: int) -> str:

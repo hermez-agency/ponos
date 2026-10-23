@@ -3185,6 +3185,26 @@ conversation) say none. The schema of all of it is served at
 **`/openapi.json`**, behind the same token as the rest — the schema only: the pages that draw
 one load their scripts from a CDN, which the console's policy refuses.
 
+What the routes call is one object, `Api`, built the way a run is: one holder of the
+state — the configuration reread when its file changes, the project index, the tickets
+database ID, the tickets held between two readings, the moves queued for Notion — in
+`web/base.py`, and the work split into chapters that add their methods to it. `web/api.py`
+puts them together and says why:
+
+| File | What it holds |
+| --- | --- |
+| `web/tickets.py` | the board and its tickets: reading, opening, creating, moving one |
+| `web/projects.py` | the project index, a project's page and its pictures |
+| `web/creation.py`, `web/removal.py` | creating a project, deleting one |
+| `web/goals.py` | the goals, and how far their tickets have gone |
+| `web/schedules.py` | the schedules, and launching one now |
+| `web/configuration.py` | the settings, a project's own, the standing context |
+| `web/overview.py` | the header's state and the statistics |
+| `web/upkeep.py` | the health checks and their fixes, the disk and the tidy |
+| `web/journals.py` | the history, the session logs, the runs of a ticket |
+| `web/discussion.py` | a ticket's discussion, the decisions a card waits on, the chat's frame |
+| `web/ideas.py` | finding ideas, scoring them, turning the kept ones into tickets |
+
 ```sh
 curl -H "Authorization: Bearer $(ponos serve --print-token)" http://127.0.0.1:8787/openapi.json
 ```

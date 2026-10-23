@@ -12,6 +12,7 @@ from ponos import config as C
 from ponos import notion
 from ponos.web import answers
 from ponos.web import api as web_api
+from ponos.web import base as web_base
 
 # -- what a message to the workspace carries ----------------------------------
 
@@ -194,7 +195,7 @@ def a_token_written_alone_is_read_by_the_console_without_a_restart():
     path, _ = _saved()
     console = web_api.Api.__new__(web_api.Api)
     console._config = C.load(path)
-    console._stamp = web_api._stamp(path)
+    console._stamp = web_base._stamp(path)
 
     class Chat:
         config = None

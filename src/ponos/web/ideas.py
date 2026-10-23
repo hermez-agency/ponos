@@ -2,12 +2,13 @@
 
 `ideas.py` knows what an idea is and remembers it; this is the half that
 reaches out — one session to propose a batch, the board to read what is
-already there and to write a kept idea onto it. It holds no state of its own
-beyond the lock that keeps two batches for the same scope from being asked
-for at once: the second click of an impatient person would otherwise pay for
-ten ideas the first one was already writing.
+already there and to write a kept idea onto it. What it keeps is kept in
+`base.py` with the rest of the console's state: the lock that keeps two
+batches for the same scope from being asked for at once — the second click of
+an impatient person would otherwise pay for ten ideas the first one was
+already writing — and who signs an idea written here.
 
-An idea turned into a ticket goes through `Api.create_ticket`, the console's own "New ticket",
+An idea turned into a ticket goes through `create_ticket`, the console's own "New ticket",
 as a draft with no model: the same road as a ticket typed by hand, so that it
 reads the same on the board and the runner treats it the same way — classified
 and given a model when somebody moves it to ready, not before.
@@ -36,15 +37,12 @@ import threading
 import uuid
 from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from .. import goals, ideas, log, provider, session, state, store
 from ..config import state_dir
+from .base import Base
 
 logger = logging.getLogger(__name__)
-
-if TYPE_CHECKING:
-    from .api import Api
 
 # The README is read for what the project is; these are the names it goes by.
 READMES = ("README.md", "README", "readme.md", "README.rst", "README.txt")
@@ -58,7 +56,7 @@ WHO_TIMEOUT = 5
 # Language names as the prompt says them — see `voice.understood`.
 LANGUAGES = {"en": "English", "fr": "French"}
 
-# What `_busy` holds while ideas already there are being scored: no scope has
+# What `_ideas_busy` holds while ideas already there are being scored: no scope has
 # this id, since a page id is hexadecimal.
 SCORING = "scoring"
 
@@ -71,19 +69,15 @@ class ScoreFailed(Exception):
     """A scoring call that gave no score, and the reason in a sentence — kept on the ideas it was for."""
 
 
-class Ideas:
-    def __init__(self, api: Api) -> None:
-        self._api = api
-        self._lock = threading.Lock()
-        self._busy: set[str] = set()
-        self._person: tuple[str, str] | None = None
-        # How work that should not hold up an answer is run: a thread of its
-        # own here, and in place in a test, which wants to read what it wrote.
-        self.later: Callable[[Callable[[], None]], None] = _thread
+class Ideas(Base):
+    def ideas_later(self, work: Callable[[], None]) -> None:
+        """How work that should not hold up an answer is run: in a thread of its
+        own — and in place in a test, which replaces this to read what it wrote."""
+        _thread(work)
 
     # -- reading --------------------------------------------------------------
 
-    def proposed(self, project: str = "") -> dict:
+    def proposed_ideas(self, project: str = "") -> dict:
         """The ideas still waiting for a decision in one scope, and what finding them cost."""
         project = ideas.bare(project)
         batches, cost = ideas.spent(project)
@@ -92,13 +86,13 @@ class Ideas:
             "scope": ideas.scope_of(project),
             "project": project,
             "ideas": [idea.shown() for idea in ideas.listed(project)],
-            "decided": [idea.shown() for idea in self._decided(project)],
+            "decided": [idea.shown() for idea in self._decided_ideas(project)],
             "batches": batches,
             "cost_usd": round(cost, 6),
             "undo": last.shown() if last else None,
         }
 
-    def every(self, project: str | None = "") -> dict:
+    def every_idea(self, project: str | None = "") -> dict:
         """Every idea of one scope, thrown away and turned into tickets included,
         and how many there are in each status — the list on a project's page.
         With None, those of every scope at once: the Ideas page's."""
@@ -115,7 +109,7 @@ class Ideas:
         }
 
     @staticmethod
-    def _decided(project: str) -> list[ideas.Idea]:
+    def _decided_ideas(project: str) -> list[ideas.Idea]:
         """The last ideas decided on, the most recent first: the history tab's."""
         decided = ideas.listed(project, ("kept", "discarded", "ticket"))
         decided.sort(key=lambda idea: (idea.decided_at or "", idea.id), reverse=True)
@@ -123,7 +117,7 @@ class Ideas:
 
     # -- finding --------------------------------------------------------------
 
-    def generate(self, project: str = "", count: int | None = None) -> dict:
+    def generate_ideas(self, project: str = "", count: int | None = None) -> dict:
         """Ask for one batch, store what is new in it, and say what it cost.
 
         `count` ideas, `runner.ideas_per_batch` when the caller names no number.
@@ -132,20 +126,21 @@ class Ideas:
         written, and when the subscription is out of credit — the server's 409.
         """
         project = ideas.bare(project)
-        with self._lock:
-            if project in self._busy:
+        with self._ideas_lock:
+            if project in self._ideas_busy:
                 raise RuntimeError("ideas are already being found for this scope")
-            self._busy.add(project)
+            self._ideas_busy.add(project)
         try:
-            return self._generate(project, count)
+            return self._generate_ideas(project, count)
         finally:
-            with self._lock:
-                self._busy.discard(project)
+            with self._ideas_lock:
+                self._ideas_busy.discard(project)
 
-    def _about(self, project: str, *, readme: bool = True) -> tuple[str, str, str, list[str], str]:
+    def _idea_scope(
+        self, project: str, *, readme: bool = True
+    ) -> tuple[str, str, str, list[str], str]:
         """What a scope is: its name, its brief and its README for a project;
         the names of every project and the workspace's context for the workspace."""
-        api = self._api
         name, brief, text = "", "", ""
         names: list[str] = []
         context = ""
@@ -153,42 +148,41 @@ class Ideas:
             # The list's row rather than the board's: it carries the path the
             # configuration maps the project to, which is where its README is.
             row = next(
-                (row for row in api.all_projects()["projects"] if row["id"] == project), None
+                (row for row in self.all_projects()["projects"] if row["id"] == project), None
             )
             if row is None:
                 raise LookupError(f"no project with id {project}")
             name = row["name"]
-            brief = api.runner.resolver.brief(api.runner.client, project)
+            brief = self.runner.resolver.brief(self.runner.client, project)
             if readme:
                 text = _readme(
-                    api.runner.resolver.locate(
+                    self.runner.resolver.locate(
                         name,
                         row.get("configured") or row.get("path") or "",
                         row.get("repository") or "",
                     )
                 )
         else:
-            names = sorted((row["name"] for row in api.projects().values()), key=str.lower)
+            names = sorted((row["name"] for row in self.projects().values()), key=str.lower)
             try:
-                context = api.runner.workspace.context
+                context = self.runner.workspace.context
             except store.StoreError:
                 context = ""
         return name, brief, text, names, context
 
-    def _objectives(self, project: str) -> list[goals.Goal]:
+    def _idea_objectives(self, project: str) -> list[goals.Goal]:
         """The goals being worked toward: the project's, or all of the workspace's."""
-        runner = self._api.runner
+        runner = self.runner
         try:
             return goals.active(runner.client, runner.workspace.goals, project)
         except store.StoreError:
             return []
 
-    def _generate(self, project: str, count: int | None = None) -> dict:
-        api = self._api
-        configuration = api.config
+    def _generate_ideas(self, project: str, count: int | None = None) -> dict:
+        configuration = self.config
         count = configuration.runner.ideas_per_batch if count is None else count
-        name, brief, readme, names, context = self._about(project)
-        tickets = self._tickets(name if project else "")
+        name, brief, readme, names, context = self._idea_scope(project)
+        tickets = self._idea_tickets(name if project else "")
         known = ideas.known(project)
         model = configuration.runner.allowed(configuration.runner.ideas_model)
         asked = ideas.prompt(
@@ -198,9 +192,9 @@ class Ideas:
             tickets=tickets,
             projects=names,
             context=context,
-            objectives=self._objectives(project),
+            objectives=self._idea_objectives(project),
             known=known,
-            language=LANGUAGES.get(api.runner.voice.language, "English"),
+            language=LANGUAGES.get(self.runner.voice.language, "English"),
             count=count,
         )
 
@@ -234,7 +228,7 @@ class Ideas:
         kept, dropped = ideas.fresh(found, [*known, *(title for title, _ in tickets)])
         error = "" if kept else (outcome.error or "the session proposed nothing new")
         batch, stored = ideas.record(project, model, outcome.cost_usd, kept[:count], error)
-        api.hub.publish("ideas", project=project, batch=batch)
+        self.hub.publish("ideas", project=project, batch=batch)
         return {
             "batch": batch,
             "ideas": [idea.shown() for idea in stored],
@@ -244,7 +238,7 @@ class Ideas:
             "error": error,
         }
 
-    def _tickets(self, project: str) -> list[tuple[str, str]]:
+    def _idea_tickets(self, project: str) -> list[tuple[str, str]]:
         """The latest tickets of a project — of the board, for the workspace.
 
         Latest first, every column but the drafts and those nobody named: what
@@ -253,7 +247,7 @@ class Ideas:
         batch without its ideas.
         """
         try:
-            tickets = self._api.board()["tickets"]
+            tickets = self.board()["tickets"]
         except store.StoreError:
             return []
         chosen = [
@@ -276,16 +270,16 @@ class Ideas:
 
     # -- scoring --------------------------------------------------------------
 
-    def unscored(self, project: str | None = None) -> dict:
+    def unscored_ideas(self, project: str | None = None) -> dict:
         """How many ideas have no score yet, and what scoring them may cost at most.
 
         With None, those of every scope — the Ideas page's.
         """
         waiting = ideas.unscored(project)
         calls = sum(-(-len(group) // ideas.SCORE_BATCH) for group in _by_scope(waiting).values())
-        configuration = self._api.config
-        with self._lock:
-            busy = SCORING in self._busy
+        configuration = self.config
+        with self._ideas_lock:
+            busy = SCORING in self._ideas_busy
         return {
             "count": len(waiting),
             "calls": calls,
@@ -294,27 +288,27 @@ class Ideas:
             "running": busy,
         }
 
-    def score_unscored(self, project: str | None = None) -> dict:
+    def score_unscored_ideas(self, project: str | None = None) -> dict:
         """Score every idea that has none, behind the answer: say what was started.
 
         Raises RuntimeError when a pass is already scoring — the server's 409.
         """
-        with self._lock:
-            if SCORING in self._busy:
+        with self._ideas_lock:
+            if SCORING in self._ideas_busy:
                 raise RuntimeError("ideas are already being scored")
-            self._busy.add(SCORING)
+            self._ideas_busy.add(SCORING)
 
         def done() -> None:
-            with self._lock:
-                self._busy.discard(SCORING)
+            with self._ideas_lock:
+                self._ideas_busy.discard(SCORING)
 
         try:
             waiting = ideas.unscored(project)
             for idea in waiting:
                 ideas.scoring(idea.id)
             if waiting:
-                self._api.hub.publish("ideas", project=project or "", scoring=len(waiting))
-            started = self.unscored(project)
+                self.hub.publish("ideas", project=project or "", scoring=len(waiting))
+            started = self.unscored_ideas(project)
         except Exception:
             done()
             raise
@@ -322,16 +316,18 @@ class Ideas:
         def work() -> None:
             failures: list[str] = []
             try:
-                self.score([idea.id for idea in waiting], failures)
+                self.score_ideas([idea.id for idea in waiting], failures)
             finally:
                 done()
                 if failures:
-                    self._api.hub.publish("ideas", project=project or "", failed=failures[0])
+                    self.hub.publish("ideas", project=project or "", failed=failures[0])
 
-        self.later(work)
+        self.ideas_later(work)
         return started
 
-    def score(self, identifiers: list[int], failures: list[str] | None = None) -> dict[int, int]:
+    def score_ideas(
+        self, identifiers: list[int], failures: list[str] | None = None
+    ) -> dict[int, int]:
         """Score these ideas on the light model, a scope and twenty at a time.
 
         What a call left without a score is no longer said to be scored — it
@@ -352,7 +348,7 @@ class Ideas:
                 chunk = group[start : start + ideas.SCORE_BATCH]
                 error = ""
                 try:
-                    scores = self._score(project, chunk)
+                    scores = self._score_ideas(project, chunk)
                 except ScoreFailed as failure:
                     scores, error = {}, str(failure)
                 except Exception as failure:  # a score is never worth a crash
@@ -381,22 +377,21 @@ class Ideas:
                         continue
                     if score is not None:
                         found[idea.id] = score
-                self._api.hub.publish("ideas", project=project, scored=len(chunk))
+                self.hub.publish("ideas", project=project, scored=len(chunk))
         return found
 
-    def _score(self, project: str, chunk: list[ideas.Idea]) -> dict[int, tuple[int, str]]:
-        api = self._api
-        configuration = api.config
-        name, brief, _, _, context = self._about(project, readme=False)
+    def _score_ideas(self, project: str, chunk: list[ideas.Idea]) -> dict[int, tuple[int, str]]:
+        configuration = self.config
+        name, brief, _, _, context = self._idea_scope(project, readme=False)
         asked = ideas.score_prompt(
             chunk,
             project=name,
             brief=brief,
-            tickets=self._tickets(name if project else ""),
+            tickets=self._idea_tickets(name if project else ""),
             context=context,
-            objectives=self._objectives(project),
+            objectives=self._idea_objectives(project),
             known=ideas.known(project),
-            language=LANGUAGES.get(api.runner.voice.language, "English"),
+            language=LANGUAGES.get(self.runner.voice.language, "English"),
         )
         estimate = ideas.score_estimate(asked)
         if estimate > ideas.SCORE_CEILING_USD:
@@ -432,14 +427,14 @@ class Ideas:
             raise ScoreFailed("The answer could not be read as scores")
         return found
 
-    def _score_later(self, idea: ideas.Idea) -> None:
+    def _score_idea_later(self, idea: ideas.Idea) -> None:
         """Score one idea written by hand, behind the answer that saved it."""
         ideas.scoring(idea.id)
-        self.later(lambda: self.score([idea.id]))
+        self.ideas_later(lambda: self.score_ideas([idea.id]))
 
     # -- deciding -------------------------------------------------------------
 
-    def ticket(self, identifier: int) -> dict:
+    def idea_ticket(self, identifier: int) -> dict:
         """Turn an idea into a draft ticket, or a new project and its first ticket.
 
         An idea turned into one before — and taken back since — already has its
@@ -448,70 +443,69 @@ class Ideas:
         idea = ideas.get(identifier)
         if idea.status == "ticket":
             return idea.shown()
-        api = self._api
-        say = api.runner.voice.say
+        say = self.runner.voice.say
         created, ticket = idea.created, idea.ticket
         if idea.kind == "project":
             if not created:
-                database = api.runner.workspace.projects
+                database = self.runner.workspace.projects
                 if not database:
                     raise ValueError("this workspace has no projects database")
-                created = ideas.bare(api.runner.client.create_row(database, idea.title, {}))
+                created = ideas.bare(self.runner.client.create_row(database, idea.title, {}))
                 if idea.description.strip():
-                    api.runner.client.append_markdown(created, idea.description.strip())
-                api.forget_projects()
-                api.hub.publish("projects", saved=created)
+                    self.runner.client.append_markdown(created, idea.description.strip())
+                self.forget_projects()
+                self.hub.publish("projects", saved=created)
             if not ticket:
-                ticket = api.create_ticket(
+                ticket = self.create_ticket(
                     say("idea-frame", name=idea.title),
                     ideas.framing(idea, say),
                     project=created,
                     ready=False,
                 )["id"]
         elif not ticket:
-            ticket = api.create_ticket(
+            ticket = self.create_ticket(
                 idea.title, ideas.body(idea, say), project=idea.project, ready=False
             )["id"]
         made = ideas.decide(identifier, "ticket", ticket=ideas.bare(ticket), created=created)
-        api.hub.publish("ideas", project=idea.project, ticket=identifier)
+        self.hub.publish("ideas", project=idea.project, ticket=identifier)
         return made.shown()
 
-    def keep(self, identifier: int) -> dict:
+    def keep_idea(self, identifier: int) -> dict:
         """Keep an idea for later: a decision, and nothing on the board yet."""
-        return self._mark(identifier, "kept")
+        return self._mark_idea(identifier, "kept")
 
-    def discard(self, identifier: int) -> dict:
+    def discard_idea(self, identifier: int) -> dict:
         """Throw an idea away. Nothing else: it stays known, never to be proposed again."""
-        return self._mark(identifier, "discarded")
+        return self._mark_idea(identifier, "discarded")
 
-    def reopen(self, identifier: int) -> dict:
+    def reopen_idea(self, identifier: int) -> dict:
         """Make an idea new again, whatever was decided about it.
 
-        One that became a ticket leaves its ticket on the board, as `undo` does.
+        One that became a ticket leaves its ticket on the board, as `undo_idea` does.
         """
         idea = ideas.get(identifier)
         back = ideas.decide(identifier, "proposed")
-        self._api.hub.publish("ideas", project=idea.project, reopened=identifier)
+        self.hub.publish("ideas", project=idea.project, reopened=identifier)
         return back.shown()
 
-    def _mark(self, identifier: int, status: str) -> dict:
+    def _mark_idea(self, identifier: int, status: str) -> dict:
         idea = ideas.get(identifier)
         if idea.status == "ticket":
             raise ValueError("this idea is a ticket now — make it new again first")
         marked = ideas.decide(identifier, status)
-        self._api.hub.publish("ideas", project=idea.project, **{status: identifier})
+        self.hub.publish("ideas", project=idea.project, **{status: identifier})
         return marked.shown()
 
     # -- writing by hand -------------------------------------------------------
 
-    def create(self, payload: dict) -> dict:
+    def create_idea(self, payload: dict) -> dict:
         """An idea somebody wrote: its title, its description, its category, the project it is for."""
         project = ideas.bare(str(payload.get("project") or ""))
         if project and not any(
-            ideas.bare(row["id"]) == project for row in self._api.all_projects()["projects"]
+            ideas.bare(row["id"]) == project for row in self.all_projects()["projects"]
         ):
             raise LookupError(f"no project with id {project}")
-        name, avatar = self.person()
+        name, avatar = self.idea_person()
         idea = ideas.written(
             project,
             str(payload.get("title") or ""),
@@ -521,13 +515,13 @@ class Ideas:
             author=name,
             avatar=avatar,
         )
-        self._score_later(idea)
-        self._api.hub.publish("ideas", project=project, written=idea.id)
+        self._score_idea_later(idea)
+        self.hub.publish("ideas", project=project, written=idea.id)
         return ideas.get(idea.id).shown()
 
-    def edit(self, identifier: int, payload: dict) -> dict:
+    def edit_idea(self, identifier: int, payload: dict) -> dict:
         """Reword an idea, signed by whoever did."""
-        name, avatar = self.person()
+        name, avatar = self.idea_person()
         idea = ideas.edit(
             identifier,
             str(payload.get("title") or ""),
@@ -536,17 +530,17 @@ class Ideas:
             editor=name,
             avatar=avatar,
         )
-        self._api.hub.publish("ideas", project=idea.project, edited=identifier)
+        self.hub.publish("ideas", project=idea.project, edited=identifier)
         return idea.shown()
 
-    def person(self) -> tuple[str, str]:
+    def idea_person(self) -> tuple[str, str]:
         """The name and the picture an idea written here is signed with."""
-        with self._lock:
-            if self._person is None:
-                self._person = who()
-            return self._person
+        with self._ideas_lock:
+            if self._ideas_person is None:
+                self._ideas_person = who()
+            return self._ideas_person
 
-    def write(
+    def write_idea(
         self, project: str, kind: str, title: str, description: str = "", category: str = ""
     ) -> dict:
         """An idea an MCP client had, signed like one written in the console."""
@@ -556,15 +550,15 @@ class Ideas:
             raise ValueError(f"an idea is {', '.join(ideas.CATEGORIES)} — not {category}")
         if kind == "project" and ideas.scope_of(ideas.bare(project)) == "project":
             raise ValueError("an idea for a project is a ticket, never a project of its own")
-        name, avatar = self.person()
+        name, avatar = self.idea_person()
         idea = ideas.written(
             project, title, description, kind=kind, category=category, author=name, avatar=avatar
         )
-        self._score_later(idea)
-        self._api.hub.publish("ideas", project=idea.project, written=idea.id)
+        self._score_idea_later(idea)
+        self.hub.publish("ideas", project=idea.project, written=idea.id)
         return ideas.get(idea.id).shown()
 
-    def undo(self, project: str | None = None) -> dict:
+    def undo_idea(self, project: str | None = None) -> dict:
         """Take the last decision back — in one scope, or the last of all when None.
 
         The idea is proposed again. What one turned into a ticket became stays
@@ -576,7 +570,7 @@ class Ideas:
         if last is None:
             raise LookupError("no decision to take back")
         back = ideas.decide(last.id, "proposed")
-        self._api.hub.publish("ideas", project=last.project, undone=last.id)
+        self.hub.publish("ideas", project=last.project, undone=last.id)
         return {"idea": back.shown(), "was": last.status}
 
 

@@ -10,8 +10,8 @@ from support import FRONTEND, _nameless, _naming_session, _saved, _state_home, _
 
 from ponos import config as C
 from ponos import files, models, notion, prompt, provision, state, subtypes
-from ponos.web import api as web_api
 from ponos.web import statistics as web_statistics
+from ponos.web import tickets as web_tickets
 
 # -- the sub-type of a code ticket --------------------------------------------
 
@@ -296,11 +296,11 @@ def the_backfill_fills_the_code_tickets_from_their_prefix_alone(state_home):
         "e",
     ], "a done ticket only when asked: an edit moves its closing date"
     settings = C.Notion()
-    assert web_api._subtype(done, settings) == "bug", (
+    assert web_tickets._subtype(done, settings) == "bug", (
         "the console reads the prefix it was not given"
     )
-    assert web_api._subtype(pages[2], settings) == "feature", "the column wins"
-    assert web_api._subtype(pages[4], settings) == "", "never on another type"
+    assert web_tickets._subtype(pages[2], settings) == "feature", "the column wins"
+    assert web_tickets._subtype(pages[4], settings) == "", "never on another type"
 
 
 @case

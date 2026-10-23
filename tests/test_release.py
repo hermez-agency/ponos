@@ -22,7 +22,7 @@ from ponos import __version__, update
 from ponos import config as C
 from ponos.__main__ import banner, build_parser, subcommands, welcome
 from ponos.__main__ import main as cli_main
-from ponos.web import api as web_api
+from ponos.web import overview as web_overview
 from ponos.web import settings as web_settings
 
 # -- releases ----------------------------------------------------------------
@@ -345,10 +345,10 @@ def the_console_header_and_the_command_line_agree_on_the_version(state_home):
     assert number == __version__ and len(short) >= 7 and _head(ROOT).startswith(short), running
     assert running["commit"] == _head(ROOT), "the tooltip names another commit"
     assert running["date"] and running["subject"], "the tooltip has nothing to say"
-    assert web_api._update_available() == "", "nothing checked yet is not an update"
+    assert web_overview._update_available() == "", "nothing checked yet is not an update"
     # Compared against what is on disk: the stamp has to be about this checkout.
     update.remember(update.Status(current=_head(ROOT), latest="b" * 40))
-    assert web_api._update_available() == "b" * 8
+    assert web_overview._update_available() == "b" * 8
 
 
 @case

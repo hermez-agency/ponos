@@ -46,10 +46,10 @@ from ponos import (
 from ponos import config as C
 from ponos import ticket as ticket_module
 from ponos.runner import Runner
-from ponos.web import api as web_api
 from ponos.web import live as web_live
 from ponos.web import settings as web_settings
 from ponos.web import statistics as web_statistics
+from ponos.web import tickets as web_tickets
 
 # -- statistics --------------------------------------------------------------
 
@@ -960,7 +960,7 @@ def a_ticket_with_no_status_is_a_draft_whether_or_not_the_board_names_them():
 
     assert C.Notion().state("draft") == "", "nothing is defaulted"
     assert C.Notion(status={"draft": "Ready"}).state("draft") == "Ready"
-    assert web_api._draft(C.Notion(status={"draft": "Ready"})) == "", (
+    assert web_tickets._draft(C.Notion(status={"draft": "Ready"})) == "", (
         "a draft that is the runner's ready is no draft"
     )
 

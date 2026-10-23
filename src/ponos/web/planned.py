@@ -172,7 +172,7 @@ class Planned:
                 logger.info("ideas: %s skipped — %s", label, skipped[label])
                 continue
             try:
-                batch = api.ideas.generate(project, wanted.per_batch)
+                batch = api.generate_ideas(project, wanted.per_batch)
             except RuntimeError as failure:  # already being found, or out of credit
                 skipped[label] = str(failure)
                 logger.info("ideas: %s skipped — %s", label, failure)

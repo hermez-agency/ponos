@@ -16,8 +16,8 @@ from support import FRONTEND, ROOT, _board_runner, _reviewed, case
 from ponos import config as C
 from ponos import db, files, journal, provision, session, state, store, voice
 from ponos import ticket as ticket_module
-from ponos.web import api as web_api
 from ponos.web import statistics as web_statistics
+from ponos.web import tickets as web_tickets
 
 # -- why a ticket stopped -----------------------------------------------------
 
@@ -330,7 +330,7 @@ def a_stopped_card_carries_its_cause_from_the_board_or_else_from_the_history(sta
         # Left the stopped columns: whatever the column still said, it is not drawn.
         {"id": "c4", "column": "ready", "block": blocks.describe("merge.refused")},
     ]
-    web_api._causes(cards)
+    web_tickets._causes(cards)
     assert [(card["block"] or {}).get("code") for card in cards] == [
         "session.question",
         "merge.refused",
