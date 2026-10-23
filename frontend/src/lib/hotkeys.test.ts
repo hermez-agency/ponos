@@ -67,3 +67,12 @@ test("a shortcut is written the way the machine writes it", () => {
   assert.equal(ariaLabel(HOTKEYS.console, true), "Meta+J")
   assert.equal(ariaLabel(HOTKEYS.console, false), "Control+J")
 })
+
+test("Ctrl+Shift+O starts a new conversation, and only with the Shift", () => {
+  assert.equal(hotkeyFor(press("O", { ctrlKey: true, shiftKey: true }), { tagName: "TEXTAREA" }), "newChat")
+  assert.equal(hotkeyFor(press("o", { metaKey: true, shiftKey: true }), null), "newChat")
+  assert.equal(hotkeyFor(press("o", { ctrlKey: true }), null), null)
+  assert.equal(label(HOTKEYS.newChat, false), "Ctrl+Shift+O")
+  assert.equal(label(HOTKEYS.newChat, true), "⌘⇧O")
+  assert.equal(ariaLabel(HOTKEYS.newChat, false), "Control+Shift+O")
+})

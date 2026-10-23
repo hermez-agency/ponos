@@ -322,11 +322,16 @@ class Chat:
         return [message.as_dict() for message in self.messages]
 
     def reset(self) -> dict:
-        """Start a new conversation. The old one stays in the list, to be reopened."""
+        """Start a new conversation. The old one stays in the list, to be reopened.
+
+        The model stays the one chosen: starting over is not changing one's mind.
+        """
         with self._lock:
             if self._busy:
                 raise RuntimeError("a turn is in flight — let it finish first")
+            model = self.model
             self._blank()
+            self.model = model
         self.publish("chat", stage="reset")
         return self.state()
 

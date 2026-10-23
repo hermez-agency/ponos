@@ -334,7 +334,7 @@ def a_conversation_keeps_its_model_and_the_settings_name_the_default():
         _said_to(chat)
         first = chat.id
         chat.reset()
-        assert chat.effective_model() == "haiku", "a new session starts on the default again"
+        assert chat.effective_model() == "opus", "a new session keeps the model that was chosen"
         chat.open(first)
         assert chat.effective_model() == "opus", "and the other one remembers its own"
         chat.choose("")
