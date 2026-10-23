@@ -7,7 +7,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { api, why } from "@/lib/api"
 import { failing, fixParams, shown } from "@/lib/health"
 import type { HealthCheck, HealthReport } from "@/lib/types"
-import { counted, useT } from "@/lib/i18n"
+import { counted, useFrench, useT } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 
 import { ConfirmDialog } from "./confirm-dialog"
@@ -40,6 +40,9 @@ import { ConfirmDialog } from "./confirm-dialog"
  */
 
 const OPEN_KEY = "ponos-health-open"
+
+/* The checks' own sentences, in French: fetched when the band is drawn, see `health-french.ts`. */
+const words = () => import("@/lib/health-french").then((module) => module.HEALTH_FRENCH)
 
 /* Whether the list is unfolded: folded until chosen otherwise, and the choice
  * outlives the page. */
@@ -74,6 +77,7 @@ export function HealthBand() {
   const [report, setReport] = React.useState<HealthReport | null>(null)
   const [checking, setChecking] = React.useState(false)
   const [open, choose] = useOpen()
+  const worded = useFrench(words)
   // The newest request wins: an answer that arrives after a later one is stale.
   const asked = React.useRef(0)
 
@@ -101,7 +105,7 @@ export function HealthBand() {
     }
   }
 
-  if (!report || !shown(report.checks)) return null
+  if (!report || !worded || !shown(report.checks)) return null
   const checks = failing(report.checks)
   const errors = checks.some((one) => one.state === "error")
   const Icon = errors ? OctagonAlert : AlertTriangle
@@ -133,7 +137,7 @@ export function HealthBand() {
           <CollapsibleContent>
             <ul className="flex flex-col gap-2 px-4 pb-3">
               {checks.map((one) => (
-                <Problem key={`${one.code}:${one.params.project ?? ""}:${one.params.repository ?? ""}`} check={one} onFix={fix} />
+                <Problem key={`${one.code}:${Object.values(one.params).join(":")}`} check={one} onFix={fix} />
               ))}
             </ul>
           </CollapsibleContent>

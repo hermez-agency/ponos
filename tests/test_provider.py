@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import contextlib
-import io
 import json
 import subprocess
 
@@ -83,24 +81,6 @@ def only_the_cli_waits_for_credits():
         assert not Runner(keyed, quiet=True)._waits_for_credits
         routed = _saved('\n[openrouter]\nkey = "sk-or-1234567890"\nroute_sessions = true\n')[1]
         assert not Runner(routed, quiet=True)._waits_for_credits
-
-
-@case
-def doctor_says_which_provider_answers_and_counts_one_that_cannot():
-    from ponos.__main__ import _doctor_provider
-
-    with _environment(ANTHROPIC_API_KEY=None, OPENROUTER_API_KEY=None):
-        out = io.StringIO()
-        with contextlib.redirect_stdout(out):
-            assert _doctor_provider(_saved('\n[claude]\nprovider = "api_key"\n')[1]) == 1
-        assert "Anthropic API key" in out.getvalue() and "ANTHROPIC_API_KEY" in out.getvalue()
-        out = io.StringIO()
-        with contextlib.redirect_stdout(out):
-            routed = '\n[claude]\nprovider = "openrouter"\n[openrouter]\nkey = "sk-or-1234567890"\n'
-            assert _doctor_provider(_saved(routed)[1]) == 0
-        said = out.getvalue()
-        assert 'claude.provider = "openrouter"' in said and "sk-or-…7890" in said
-        assert "route_sessions = false" in said, "a provider whose sessions are not on it is said"
 
 
 @case

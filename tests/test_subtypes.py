@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import contextlib
-import io
 from datetime import UTC, date
 
 from support import FRONTEND, _nameless, _naming_session, _saved, _state_home, _TypedClient, case
@@ -244,12 +242,10 @@ def init_offers_the_sub_type_column_and_doctor_names_it_when_it_is_missing():
         "Sécurité",
     ]
     assert files.schemas(settings)["tickets"]["Sous-type"] == "select"
-    out = io.StringIO()
-    with contextlib.redirect_stdout(out):
-        from ponos.__main__ import _doctor_columns
+    from test_health import _columns
 
-        _doctor_columns({"Status": "status"}, settings)
-    assert "“Sous-type” missing" in out.getvalue(), out.getvalue()
+    columns = _columns(settings, {"Status": "status"})
+    assert "“Sous-type”" in columns.params["missing"], columns.params
 
 
 @case

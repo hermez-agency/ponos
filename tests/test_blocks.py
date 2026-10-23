@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import ast
-import contextlib
-import io
 import json
 import re
 import tempfile
@@ -247,12 +245,10 @@ def the_board_offers_the_column_and_doctor_names_it_when_it_is_missing():
     assert options == list(blocks.CODES), options
     assert "block" in store.COLUMNS and store.COLUMNS["block"][0] == ("select",)
     assert files.schemas(settings)["tickets"]["Blocage"] == "select"
-    out = io.StringIO()
-    with contextlib.redirect_stdout(out):
-        from ponos.__main__ import _doctor_columns
+    from test_health import _columns
 
-        missing = _doctor_columns({"Status": "status"}, settings)
-    assert "Blocage" in out.getvalue() and missing >= 1, out.getvalue()
+    columns = _columns(settings, {"Status": "status"})
+    assert "“Blocage”" in columns.params["missing"], columns.params
 
 
 @case
