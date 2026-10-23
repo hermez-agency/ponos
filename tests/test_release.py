@@ -489,6 +489,41 @@ def the_console_and_the_landing_page_draw_one_robot():
     assert "'still'" in source, "a board of robots cannot hold them still"
 
 
+@case
+def the_icon_is_the_logo_and_the_robot_is_flat():
+    """The app's icon is the logo, a file of its own; the robot is three flat shapes.
+
+    The favicon used to be the robot's face, and the robot wore gradients, a
+    tunic, a sash and a brooch. The logo is drawn in `ponos-logo.js` and written
+    out by `scripts/mascot.mjs` — the favicon in both schemes, the Dokploy
+    template's icon — and the robot keeps nothing of its old dress.
+    """
+    mascot = ROOT / "docs/mascot"
+    assert (mascot / "ponos-logo.js").is_file(), "the logo has no source of its own"
+    favicon = (mascot / "favicon.svg").read_text(encoding="utf-8")
+    assert 'viewBox="0 0 120 120"' in favicon and "prefers-color-scheme: dark" in favicon, (
+        "the favicon is not the logo, light and dark"
+    )
+    assert "#1c1917" in favicon and "#0c0a09" in favicon and "#44403c" in favicon
+    logo = (mascot / "logo.svg").read_text(encoding="utf-8")
+    assert (ROOT / "docker/dokploy/ponos.svg").read_text(encoding="utf-8") == logo, (
+        "the Dokploy template does not show the logo"
+    )
+    script = (ROOT / "scripts/mascot.mjs").read_text(encoding="utf-8")
+    assert "'ponos-logo.js'" in script and "'dokploy', 'ponos.svg'" in script
+    source = (mascot / "ponos-robot.js").read_text(encoding="utf-8")
+    assert 'viewBox="0 0 120 140"' in source
+    for gone in (
+        "Gradient",
+        "--robot-gold",
+        "--robot-tunic",
+        "--robot-sash",
+        "--robot-pink",
+        "--robot-glint",
+    ):
+        assert gone not in source, f"the robot still draws {gone}"
+
+
 LANDING = ROOT / "docs/index.html"
 
 

@@ -905,11 +905,11 @@ def _png_pixels(data: bytes) -> list[tuple[int, int, int, int]]:
 
 
 @case
-def the_icon_of_a_notification_is_the_orange_mascot_and_the_mascot_script_draws_it():
+def the_icon_of_a_notification_is_the_orange_logo_and_the_mascot_script_draws_it():
     """The desktop icons were cut by hand once, and stayed blue when the robot went orange.
 
-    They are the mascot's like the app icons are, so `scripts/mascot.mjs` writes
-    them with the rest — and a vivid pixel of the robot is Hermez orange, red
+    They are the logo, like the app icons are, so `scripts/mascot.mjs` writes
+    them with the rest — and a vivid pixel of the logo is Hermez orange, red
     well above blue, never the blue it used to be.
     """
     for size in (48, 256):
@@ -918,10 +918,10 @@ def the_icon_of_a_notification_is_the_orange_mascot_and_the_mascot_script_draws_
         assert vivid, f"ponos-{size}.png has no colour at all"
         orange = sum(1 for r, g, b in vivid if r > b + 60)
         assert orange > len(vivid) * 0.6, (
-            f"ponos-{size}.png is not the orange mascot ({orange}/{len(vivid)})"
+            f"ponos-{size}.png is not the orange logo ({orange}/{len(vivid)})"
         )
     script = (ROOT / "scripts/mascot.mjs").read_text(encoding="utf-8")
-    assert "'src', 'ponos', 'icons'" in script, "the desktop icons are not written from the mascot"
+    assert "'src', 'ponos', 'icons'" in script, "the desktop icons are not written from the logo"
 
 
 @case
@@ -929,7 +929,7 @@ def the_app_icons_that_may_be_drawn_on_any_ground_are_cut_out_not_black_squares(
     """Chrome drew the installed app on a black square: the "any" icons had a #141414 ground.
 
     An "any" icon is drawn as it is, so it is RGBA with transparent corners and a
-    margin around the robot; the maskable one and the iOS one keep a ground (the
+    margin around the logo; the maskable one and the iOS one keep a ground (the
     platform crops or fills them), the brand's, the same for both.
     """
     pwa = ROOT / "frontend/public/pwa"
@@ -946,7 +946,7 @@ def the_app_icons_that_may_be_drawn_on_any_ground_are_cut_out_not_black_squares(
             assert pixels[y * side + x][3] == 0, f"{name} has an opaque corner at {x},{y}"
         margin = side // 40
         edge = [pixels[y * side + x] for y in (margin,) for x in range(side)]
-        assert all(p[3] == 0 for p in edge), f"{name}: the robot touches the top edge"
+        assert all(p[3] == 0 for p in edge), f"{name}: the logo touches the top edge"
     grounds = set()
     for name in ("icon-maskable-512.png", "apple-touch-icon.png"):
         pixels = _png_pixels((pwa / name).read_bytes())

@@ -57,8 +57,8 @@ ACTION = "Open the ticket"
 # within the hour.
 LIFETIME = 3600
 
-# Ponos's own face, rather than the information sign every application has: the
-# mascot cut out on a transparent background, which ships with the runner — the
+# Ponos's own mark, rather than the information sign every application has: the
+# logo cut out on a transparent background, which ships with the runner — the
 # console's icons are opaque squares, and a desktop draws that square as a black
 # one. `install.sh` puts the same drawing in the icon theme for the dock. A
 # checkout or an install that lost it falls back on the system's icons, never on

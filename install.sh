@@ -318,7 +318,7 @@ if [ -d "$APP_DIR/desktop" ]; then
     fi
 fi
 
-# The mascot, cut out on a transparent background, in the sizes a desktop asks
+# The logo, cut out on a transparent background, in the sizes a desktop asks
 # for: the notifications and the dock both look it up by the name `ponos`.
 ICON_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/icons/hicolor"
 if [ -d "$APP_DIR/src/ponos/icons" ]; then

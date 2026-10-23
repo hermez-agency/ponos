@@ -23,7 +23,7 @@ since every tool reads the board fresh. `initialize`, `tools/list`,
 `tools/call`, `ping`, and the notifications, which are acknowledged.
 
 **Pasted, and it works.** Adding the connector is its address and nothing
-else, as for Leadz: what Claude shows of it — a name, a sentence, the robot —
+else, as for Leadz: what Claude shows of it — a name, a sentence, the logo —
 is in `initialize`, every tool has a title a person reads in the list, and
 `whoami` is the first call to try, the one that says the connection holds:
 whose console, which client, read or read and write.

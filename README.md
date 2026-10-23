@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://the-ponos.app/"><img src="docs/mascot/robot.svg" width="144" height="144" alt="Ponos, the robot, in his Greek tunic"></a>
+  <a href="https://the-ponos.app/"><img src="docs/mascot/robot.svg" width="144" height="144" alt="Ponos, the robot: a flame, a head with a screen for a face, a small body"></a>
 </p>
 
 <h1 align="center">Ponos</h1>
@@ -2401,7 +2401,7 @@ A desktop notification names its ticket, and clicking it opens that ticket's Not
 — the notification is where you act from, not a title you then go and look for on the
 board. It is not the comment: the title says what happened and on which project (*Ponos has a question — Leadz*,
 *Ticket done — Adam*), the body gives the ticket's name and one sentence, and a **See the PR** button comes with
-a pull request. A ticket has one notification, replaced as it moves on rather than stacked, and the mascot is
+a pull request. A ticket has one notification, replaced as it moves on rather than stacked, and its icon, the logo, is
 drawn on a transparent background, in the icon theme too so the dock shows the same one. But it only works if you are in front of that desktop, and the two moments that
 need you are exactly the two you are least likely to be there for: the agent
 asked a question, and a pull request is waiting. So the runner can also write to
@@ -4275,8 +4275,9 @@ accordingly.
 ![Ponos in every state, light and dark, and the same SVG from 24 to 160 px](docs/mascot/states.png)
 
 The product is called **Ponos**, and so is its face: a small robot named after the Greek god
-of toil, whose mood follows a ticket — a flame on his head, an ivory tunic, a terracotta
-sash and a gold brooch at the shoulder, and nothing more Greek than that. What a machine runs or addresses keeps the first
+of toil, whose mood follows a ticket. He is flat, and made of three shapes in two oranges —
+a flame, a head whose screen is his face, a small body with its arms and feet — and every
+state is said by the face alone. What a machine runs or addresses keeps the first
 name — the command, the package, the repository, the paths and the element's tag all stay
 `ponos`. He lives in one file,
 [`docs/mascot/ponos-robot.js`](docs/mascot/ponos-robot.js) — a Web
@@ -4292,29 +4293,38 @@ build step and has to load it from a `<script>` tag:
 |---|---|
 | `state` | `idle` (default), `thinking`, `working`, `success`, `error`, `sleep`, `waiting` — any key of `STATES` |
 | `theme` | `auto` (default, follows `prefers-color-scheme`), `light`, `dark` |
-| `size` | a width in pixels; without it the robot takes the width of its container |
-| `accessories` | space-separated keys of `ACCESSORIES`, e.g. `bowtie headset` |
+| `size` | a width in pixels; without it the robot takes the width of its container (the element is a square, the robot centred in it) |
 | `still` | present, and the robot holds the pose of its state: no animation, no blinking — for a list of many |
 
-| State | On the board | What it does |
+| State | On the board | The face |
 |---|---|---|
-| `idle` | waiting for a ticket | a small smile, breathes, head bobs, the flame sways and wavers, blinks at random |
-| `thinking` | a ticket is in progress | hand to the face, eyes sweep up, a wavy mouth, the flame pulses |
-| `working` | Claude Code is at it | eyes narrowed, arms type, head nods, the flame burns high and flickers |
-| `success` | the pull request is open | hops with a squash on landing, happy eyes, open smile, waves, the flame bounces, stars and a heart |
-| `error` | the ticket is blocked | sad eyes, a pout, a tear, the flame droops and glows red |
-| `sleep` | the queue is empty | eyes closed, head down, a small snoring mouth, the flame down to an ember, floating *Z*s |
-| `waiting` | a person has the next move — a review, the credits | looks up over its shoulder at three dots that tick, taps its foot |
+| `idle` | waiting for a ticket | round eyes, a small smile; breathes, the flame wavers, blinks at random |
+| `thinking` | a ticket is in progress | eyes up to the right, a flat mouth; the flame wavers faster |
+| `working` | Claude Code is at it | eyes narrowed to bars, a flat mouth; breathes quicker, the flame flickers |
+| `success` | the pull request is open | eyes in arcs, a wide smile, an orange spark that twinkles |
+| `error` | the ticket is blocked | small eyes, a pout, the flame grey and still — a fire gone out |
+| `sleep` | the queue is empty | eyes closed, a small round mouth, the flame down to an ember, two *z*s drifting |
+| `waiting` | a person has the next move — a review, the credits | three dots that tick |
 
-With `prefers-reduced-motion`, every animation stops and the robot holds the pose of its
-state — closed eyes, the ember and *Z*s for `sleep`, raised arms for `success`, the tear
-and the red flame for `error` — so the state still reads.
+The animations stay small — a breath, a blink, the flame in a draught. With
+`prefers-reduced-motion`, every one of them stops and the robot holds the pose of its
+state, which the face says on its own.
 
-Under 40 pixels wide — a card, a toast, the bar, the favicon — arms, legs and a tunic are a
-smudge, so the robot is only its face, zoomed to fill the same box, and the flame one fatter
-orange shape: the state still reads from the eyes, the mouth and the flame. It is a container query on the element (and a media
+Under 40 pixels wide — a card, a toast, the bar — arms and feet are a smudge, so the robot
+is only its head and its flame, zoomed to fill the same box, the strokes of the face
+thicker: the state still reads. It is a container query on the element (and a media
 query in the standalone SVG, or `standalone({ small: true })` to force it), so nothing has to
 ask for it.
+
+### The logo
+
+The app's icon is not the robot: it is the **logo**, the robot's flame and screen in the
+frame of the Hermez symbol — a white rounded square with an orange border, or, in its dark
+version, a `#1c1917` square whose darker screen has a thin `#44403c` outline. It lives in
+[`docs/mascot/ponos-logo.js`](docs/mascot/ponos-logo.js), and is written out as
+`docs/mascot/logo.svg` (light), `logo-dark.svg` (dark) and `favicon.svg` (both, following
+`prefers-color-scheme`). It is the favicon of the site and of the console, the icon an
+installed app, a home screen, a dock and a notification show, and the Dokploy template's.
 
 ### In the console
 
@@ -4322,7 +4332,7 @@ The web console bundles the same file — `frontend/` imports it through the `@m
 and its favicon is `docs/mascot/favicon.svg` — so the robot is never drawn twice. It is the
 mark at the top of the menu — in the bar, on a phone — in the runner's mood right now
 (asleep on an empty queue, thinking while a ticket is claimed, working while a session runs,
-jumping for a few seconds when a ticket comes back, upset when one has just been blocked or
+happy for a few seconds when a ticket comes back, put out when one has just been blocked or
 the stream is lost, waiting when the credits are out), with its name beside it; one per card
 and per row of the board, in the mood of its column; and the face of every empty list,
 loading page, error and toast. Only a ticket in progress moves on the board — the others are
@@ -4332,100 +4342,78 @@ only — the stream, the version, the sync with Notion — and no face.
 
 ### Layers
 
-The drawing sits on a 128 × 128 grid, and every group carries a `data-layer`:
+The drawing sits on a 120 × 140 grid, flat colours only, and its groups carry a `data-layer`:
 
 ```
-frame                          everything — what the small face zooms
-├── base                       the shadow — stays on the floor
-├── rig                        everything that moves with the robot
-│   ├── body                   leg-left, leg-right, torso, dress (tunic, sash), brooch
-│   ├── head
-│   │   ├── flame ── fire
-│   │   ├── eyes ── eye-left / eye-right
-│   │   │           └── eye-open-*, eye-joy-*, eye-closed-*
-│   │   ├── eyelids ── lid-left / lid-right
-│   │   ├── mouth ── mouth-smile, mouth-open, mouth-frown, mouth-o, mouth-flat
-│   │   └── tear
-│   ├── arm-left ── forearm-left
-│   ├── arm-right ── forearm-right
-│   └── accessories            empty until ACCESSORIES fills it
-└── fx                         fx-zzz (z1 z2 z3), fx-dots (dot1 dot2 dot3), fx-stars
+frame                          everything — what the small head zooms
+├── rig                        everything that breathes
+│   ├── body                   arms, feet, torso
+│   └── head
+│       ├── flame
+│       ├── the head and its screen
+│       └── a face per state   [data-face="idle"]… — only the state's own is shown
+└── fx                         what a state draws around the head: the spark, the z's
 ```
 
-The volume — the darker bottom, the gloss on the head, the glow of the screen — comes from
-gradients of white and of dark brown laid over the shapes, so the colours stay in the variables below.
-The dress is clipped to the torso and belongs to `body`, so it hops, sighs and jiggles with it.
-
-Each layer that turns has its pivot in `PIVOTS`, in the grid's own units, so a state
-rotates an arm without knowing how big the robot is drawn.
+Each layer that turns or scales has its pivot in `PIVOTS`, in the grid's own units, so a
+state scales the flame without knowing how big the robot is drawn.
 
 ### Colours
 
 Colours are CSS variables, never literal fills in the drawing; `PALETTES` holds a
-`light` and a `dark` set. A page can override any of them on the element itself:
+`light` and a `dark` set — the same values, since the orange head reads on both grounds.
+A page can override any of them on the element itself:
 
-| Variable | Used for | Light | Dark |
-|---|---|---|---|
-| `--robot-body` | head and torso | `#E8611A` | `#F2803F` |
-| `--robot-body-shade` | ears, arms, legs, *Z*s, dots | `#BF4A02` | `#E8611A` |
-| `--robot-screen` | face screen, eyelids | `#18181B` | `#141414` |
-| `--robot-eye` | eyes, mouth, tear | `#FFE1CC` | `#FFE1CC` |
-| `--robot-accent` | stars, the accessories | `#ffcf5c` | `#ffd36b` |
-| `--robot-flame` | the flame | `#FFA524` | `#FFA524` |
-| `--robot-flame-core` | the flame's yellow heart | `#FFE08A` | `#FFE08A` |
-| `--robot-gold` | the brooch, the flame's socket | `#f2c65a` | `#f2c65a` |
-| `--robot-gold-deep` | the brooch's pin | `#b8861f` | `#b8861f` |
-| `--robot-tunic` | the tunic | `#f3ecdc` | `#f3ecdc` |
-| `--robot-sash` | the sash | `#18181B` | `#141414` |
-| `--robot-pink` | tongue, heart | `#ff8fb0` | `#ff8fb0` |
-| `--robot-glint` | the lights in the eyes and on the head | `#ffffff` | `#ffffff` |
-| `--robot-alert` | `error`: the flame | `#ff6b86` | `#ff7d93` |
-| `--robot-ink` | the headset | `#8A3206` | `#FFB38A` |
-| `--robot-shadow` | the shadow on the floor | 16 % ink | 16 % orange |
+| Variable | Used for | Value |
+|---|---|---|
+| `--robot-body` | the head | `#E8611A` |
+| `--robot-body-shade` | torso, arms, feet | `#BF4A02` |
+| `--robot-screen` | the screen | `#1c1917` |
+| `--robot-eye` | eyes and mouth | `#FFE1CC` |
+| `--robot-flame` | the flame, the spark, the *z*s | `#E8611A` |
+| `--robot-ash` | `error`: the flame gone out | `#a8a29e` |
 
 ```css
-ponos-robot.holiday { --robot-body: #4ade80; --robot-accent: #fde047; }
+ponos-robot.holiday { --robot-body: #4ade80; --robot-flame: #fde047; }
 ```
 
-### Adding a state or an accessory
+### Adding a state
 
 A state is one entry in `STATES`, never a copy of the drawing: a label, what it means,
-and a map of layer → CSS declarations. The plain declarations are the pose;
-`animation` names a keyframe from `KEYFRAMES` (without its `robot-` prefix);
-`blink: true` lets the component close the eyelids at random moments.
+its `face` — SVG on the screen, inked with the classes `ink` (a fill) and `line` (a
+stroke) — an optional `fx` around the head, and a map of layer → CSS declarations. The
+plain declarations are the pose; `animation` names a keyframe from `KEYFRAMES` (without
+its `robot-` prefix); `blink: true` lets the component close the eyes — the group of class
+`eyes` — at random moments.
 
 ```js
 // in STATES
 surprised: {
   label: 'Surprised',
   means: 'a comment just arrived',
-  layers: {
-    eyes: { transform: 'scale(1.2)' },
-    fire: { animation: 'boing .5s ease-out infinite' },
-  },
+  blink: true,
+  face: `<g class="eyes"><circle class="ink" cx="48" cy="58" r="7"/><circle class="ink" cx="72" cy="58" r="7"/></g>
+    <circle class="ink" cx="60" cy="72" r="4"/>`,
+  layers: { flame: { animation: 'boing .5s ease-out infinite' } },
 },
 // in KEYFRAMES
 boing: '0%, 100% { transform: scaleY(1) } 40% { transform: scaleY(1.25) }',
 ```
 
-An accessory is one entry in `ACCESSORIES`: SVG on the same grid, coloured with the same
-variables, drawn above the body and the head — `bowtie` and `headset` are there as
-examples. A new body part a state has to reach gets a `data-layer` in `DRAWING`, and a
-pivot in `PIVOTS` if it turns.
-
 ### Regenerating the files
 
-The favicon, a standalone SVG, the Open Graph card and the sheet above are all written
-from the same module — none of them is drawn by hand:
+The standalone SVGs, the favicons, the Open Graph card, the sheet above and every icon are
+written from the two modules — none of them is drawn by hand:
 
 ```bash
-node scripts/mascot.mjs   # robot.svg, favicon.svg, og.png, states.png in docs/mascot/; the app icons in frontend/public/pwa/;
-                          # favicon.ico and apple-touch-icon.png in docs/; the desktop icons in src/ponos/icons/
+node scripts/mascot.mjs   # robot.svg, logo.svg, logo-dark.svg, favicon.svg, og.png, states.png in docs/mascot/;
+                          # the app icons in frontend/public/pwa/; favicon.ico and apple-touch-icon.png in docs/;
+                          # the desktop icons in src/ponos/icons/; docker/dokploy/ponos.svg
 ```
 
 The PNGs are screenshots from headless Chrome (`$CHROME`, or `google-chrome` on the
 `PATH`), only for the places that will not take an SVG; on the page, the robot is always
-vector. Run it again after any change to the module, and commit what it writes.
+vector. Run it again after any change to either module, and commit what it writes.
 
 ---
 
