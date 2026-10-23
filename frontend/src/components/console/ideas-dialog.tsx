@@ -303,7 +303,7 @@ function Waiting() {
       role="status"
       className="flex flex-1 flex-col items-center justify-center gap-3 py-8"
     >
-      {/* The flame pulses and the eyes scan: the mascot's own "thinking". */}
+      {/* Eyes up, the flame in a draught: the mascot's own "thinking". */}
       <Robot state="thinking" size={96} />
       <p className="text-muted-foreground text-sm">{t("Ponos is looking for ideas…")}</p>
     </div>

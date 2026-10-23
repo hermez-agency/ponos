@@ -16,6 +16,10 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ## [Unreleased]
 
+### Added
+
+- Une nouvelle identité : un logo et une mascotte simplifiée. Le logo — la flamme et l'écran du robot dans le cadre du symbole Hermez, en clair et en sombre — devient le favicon (il suit le thème du système), l'icône de l'app installée, de l'écran d'accueil iOS, du bureau, des notifications et du template Dokploy, et reste lisible en 16 px. La mascotte passe à plat : trois formes, deux oranges, un visage par état sur son écran (sept états, les mêmes noms), sans dégradé ni tunique, et des animations sobres — respiration, clignement, flamme qui ondule — qui s'arrêtent sous `prefers-reduced-motion`.
+
 ### Fixed
 
 - Sur mobile, la barre de navigation du bas affiche ses libellés en entier (« Dashboard », « Récurrences », « Objectifs », « Sessions ») au lieu de les tronquer.

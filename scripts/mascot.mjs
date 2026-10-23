@@ -1,17 +1,19 @@
 #!/usr/bin/env node
 /*
- * Writes every file of the mascot from its one source,
- * docs/mascot/ponos-robot.js:
+ * Writes every file of the mascot and of the logo from their two sources,
+ * docs/mascot/ponos-robot.js (the robot) and docs/mascot/ponos-logo.js (the icon):
  *
  *   docs/mascot/robot.svg     the whole robot, layers and variables kept
- *   docs/mascot/favicon.svg   the face alone, following the browser's colour scheme
+ *   docs/mascot/logo.svg      the logo, light; logo-dark.svg, dark
+ *   docs/mascot/favicon.svg   the logo, following the browser's colour scheme
  *   docs/mascot/og.png        the Open Graph card, 1200 × 630
  *   docs/mascot/states.png    every state, light and dark, and the sizes
- *   frontend/public/pwa/*     the app icons: cut out, but the maskable and iOS ones on a ground
+ *   frontend/public/pwa/*     the app icons: the logo cut out, but the maskable and iOS ones on a ground
  *   docs/apple-touch-icon.png the same, at the root where an iPhone looks for it
- *   docs/favicon.ico          the face at 16, 32 and 48 px, for whoever asks /favicon.ico
- *   src/ponos/icons/*         the desktop's icons: the robot cut out, for the dock
+ *   docs/favicon.ico          the logo at 16, 32 and 48 px, for whoever asks /favicon.ico
+ *   src/ponos/icons/*         the desktop's icons: the logo cut out, for the dock
  *                             and the notifications
+ *   docker/dokploy/ponos.svg  the logo, for the Dokploy template
  *
  *   node scripts/mascot.mjs
  *
@@ -31,11 +33,15 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const out = join(root, 'docs', 'mascot');
-const source = readFileSync(join(out, 'ponos-robot.js'), 'utf8');
-const { STATES, standalone } = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
+const load = (name) => import(`data:text/javascript;base64,${readFileSync(join(out, name)).toString('base64')}`);
+const { STATES, standalone } = await load('ponos-robot.js');
+const { logo } = await load('ponos-logo.js');
 
 writeFileSync(join(out, 'robot.svg'), standalone({ title: 'Ponos' }));
-writeFileSync(join(out, 'favicon.svg'), standalone({ small: true }));
+writeFileSync(join(out, 'logo.svg'), logo({ theme: 'light' }));
+writeFileSync(join(out, 'logo-dark.svg'), logo({ theme: 'dark' }));
+writeFileSync(join(out, 'favicon.svg'), logo({ theme: 'auto' }));
+writeFileSync(join(root, 'docker', 'dokploy', 'ponos.svg'), logo({ theme: 'light' }));
 
 /* The cards are drawn in the product's own tokens — the file the console and
    the landing page share — rather than in colours written here a third time. */
@@ -118,47 +124,44 @@ function ico(pngs) {
 }
 
 /* An icon the system draws as it is ("any": the install dialog, the launcher,
-   the taskbar) is the robot alone on a transparent square, with a margin so it
+   the taskbar) is the logo alone on a transparent square, with a margin so it
    never touches an edge — an opaque one is drawn as a black square. The two
    that the platform fills or crops keep a ground, chosen rather than inherited
-   from the console: the maskable one (a round or squircle mask, so the robot
+   from the console: the maskable one (a round or squircle mask, so the logo
    stays inside the safe zone) and iOS's (which fills transparency with black).
-   The ground is the brand's warm cream, on which the orange robot reads; the
-   manifest's background_color and theme_color say the same. */
+   The ground is the logo's own orange border, carried to the edge, so the mask
+   cuts orange and the white frame stays whole; the manifest's background_color
+   and theme_color say the same. */
 const pwa = join(root, 'frontend', 'public', 'pwa');
-const GROUND = '#FFE1CC';
+const GROUND = '#E8611A';
 const icon = (px, fill, ground) => `<!doctype html><meta charset="utf-8"><style>
   html, body { margin: 0; width: ${px}px; height: ${px}px; overflow: hidden; background: ${ground ?? 'transparent'}; }
   div { width: 100%; height: 100%; display: grid; place-items: center; }
-  .bot { width: ${fill}%; }
-</style><div><div class="bot">${standalone({ theme: 'light' })}</div></div>`;
+  svg { display: block; width: ${fill}%; height: auto; }
+</style><div>${logo({ theme: 'light' })}</div>`;
 
-/* A desktop icon has no ground: the robot alone, on a transparent square that
-   a dock or a notification draws on its own colour — an opaque one is drawn as
-   a black square. The tab's icon is the face of favicon.svg, cut out the same. */
+/* A desktop icon has no ground either: the logo, on a transparent square that
+   a dock or a notification draws on its own colour. The tab's icon is the
+   logo at full size, its rounded corners cut out the same. */
 const desktop = join(root, 'src', 'ponos', 'icons');
-const cutout = (px, svg) => `<!doctype html><meta charset="utf-8"><style>
-  html, body { margin: 0; width: ${px}px; height: ${px}px; overflow: hidden; background: transparent; }
-  svg { display: block; width: 100%; height: 100%; }
-</style>${svg}`;
 try {
   shoot(og, join(out, 'og.png'), 1200, 630);
-  shoot(sheet, join(out, 'states.png'), 1200, 696);
+  shoot(sheet, join(out, 'states.png'), 1200, 760);
   shoot(icon(512, 84), join(pwa, 'icon-512.png'), 512, 512, { clear: true });
   shoot(icon(192, 84), join(pwa, 'icon-192.png'), 192, 192, { clear: true });
-  shoot(icon(180, 84, GROUND), join(pwa, 'apple-touch-icon.png'), 180, 180);
+  shoot(icon(180, 100, GROUND), join(pwa, 'apple-touch-icon.png'), 180, 180);
   shoot(icon(512, 62, GROUND), join(pwa, 'icon-maskable-512.png'), 512, 512);
   copyFileSync(join(pwa, 'apple-touch-icon.png'), join(root, 'docs', 'apple-touch-icon.png'));
   for (const px of [48, 64, 128, 256]) {
-    shoot(cutout(px, standalone({ theme: 'light' })), join(desktop, `ponos-${px}.png`), px, px, { clear: true });
+    shoot(icon(px, 92), join(desktop, `ponos-${px}.png`), px, px, { clear: true });
   }
-  const faces = [16, 32, 48].map((px) => {
+  const tabs = [16, 32, 48].map((px) => {
     const target = join(scratch, `favicon-${px}.png`);
-    shoot(cutout(px, standalone({ small: true, theme: 'light' })), target, px, px, { clear: true });
+    shoot(icon(px, 100), target, px, px, { clear: true });
     return [px, readFileSync(target)];
   });
-  writeFileSync(join(root, 'docs', 'favicon.ico'), ico(faces));
+  writeFileSync(join(root, 'docs', 'favicon.ico'), ico(tabs));
 } finally {
   rmSync(scratch, { recursive: true, force: true });
 }
-console.log('docs/mascot: robot.svg, favicon.svg, og.png, states.png; frontend/public/pwa: the app icons; docs: favicon.ico, apple-touch-icon.png; src/ponos/icons: the desktop icons');
+console.log('docs/mascot: robot.svg, logo.svg, logo-dark.svg, favicon.svg, og.png, states.png; frontend/public/pwa: the app icons; docs: favicon.ico, apple-touch-icon.png; src/ponos/icons: the desktop icons; docker/dokploy: ponos.svg');
