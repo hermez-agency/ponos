@@ -31,6 +31,14 @@ are built. Declaring it a second time here is how the two would drift.
 asks for one: a board you edit with a text editor is a board where a file
 disappears for a hundred reasons, and none of them should be echoed anywhere.
 
+**One writer at a time, and never half a file.** The runner and the console
+are two processes writing the same tickets — a status moved from the board
+while a report is appended — and every write reads the file, changes it and
+writes it back. So each of those is done under a `flock` on the board's own
+directory, which leaves no lock file in a directory somebody commits, and the
+file is replaced whole by a rename rather than rewritten in place: a reader
+sees the old page or the new one, never a frontmatter not written yet.
+
 The YAML is a subset, written by hand for the same reason the rest of the core
 has no dependencies: scalars, quoted strings, and `- item` lists. Anything this
 cannot read comes back as the string it was written as, which is the one failure
@@ -39,17 +47,24 @@ mode that loses nothing.
 
 from __future__ import annotations
 
+import contextlib
+import fcntl
+import functools
 import glob
 import json
+import os
 import re
 import unicodedata
 import uuid
+from collections.abc import Callable, Iterator
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
 
-from . import vault
+from . import disk, vault
 from .store import SLOTS, Comment, Page, Picture, StoreError, read, written
+
+T = TypeVar("T")
 
 # The collections a board is made of, and the file that is not one of them.
 COLLECTIONS = ("tickets", "projects", "agents", "schedules", "goals")
@@ -244,6 +259,17 @@ def schemas(settings) -> dict[str, dict[str, str]]:
     }
 
 
+def _exclusive(method: Callable[..., T]) -> Callable[..., T]:
+    """A write that reads the page first, done while no other process writes."""
+
+    @functools.wraps(method)
+    def locked(board: Board, *arguments: Any, **keywords: Any) -> T:
+        with board._locked():
+            return method(board, *arguments, **keywords)
+
+    return locked
+
+
 def _matches(page: Page, filter_: dict | None) -> bool:
     """Does this page satisfy one of the filters the runner builds?
 
@@ -314,6 +340,26 @@ class Board:
 
     def comments_file(self, page_id: str) -> Path:
         return self._root / "comments" / f"{_bare(page_id)}.md"
+
+    @contextlib.contextmanager
+    def _locked(self) -> Iterator[None]:
+        """The board to ourselves, against every other process and thread.
+
+        On the directory rather than on a file beside the pages: nothing to
+        leave behind, to ignore or to commit. Each call opens its own
+        descriptor, so two threads of the console exclude each other too —
+        and the kernel drops the lock with a process killed holding it.
+        """
+        try:
+            self._root.mkdir(parents=True, exist_ok=True)
+            descriptor = os.open(self._root, os.O_RDONLY)
+        except OSError as error:
+            raise StoreError(f"{self._root}: {error}") from error
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_EX)
+            yield
+        finally:
+            os.close(descriptor)
 
     def _files(self, collection: str) -> list[Path]:
         directory = self.directory(collection)
@@ -527,6 +573,7 @@ class Board:
 
     # -- writing -------------------------------------------------------------
 
+    @_exclusive
     def create_row(
         self, database_id: str, title: str, values: dict | None = None, page_id: str = ""
     ) -> str:
@@ -550,6 +597,7 @@ class Board:
         _write(path, render(front, ""))
         return identifier
 
+    @_exclusive
     def update(self, database_id: str, page_id: str, values: dict[str, Any]) -> None:
         """Write properties by name. The title is a property like the others here."""
         if not values:
@@ -565,6 +613,7 @@ class Board:
         front["edited"] = now()
         _write(path, render(front, body))
 
+    @_exclusive
     def set_picture(self, page_id: str, slot: str, picture: Picture) -> Page:
         """A page's cover or icon, written beside it. See `store.Store.set_picture`.
 
@@ -602,6 +651,7 @@ class Board:
         _write(path, render(front, body))
         return self._page_of(collection, path)
 
+    @_exclusive
     def trash(self, page_id: str) -> str:
         """Move a page's file, and its pictures, under `trash/<collection>/`.
 
@@ -620,6 +670,7 @@ class Board:
             raise StoreError(f"{path}: {error}") from error
         return ""
 
+    @_exclusive
     def rename(self, collection: str, page_id: str, fresh: str) -> None:
         """Give a page another identifier, file and all.
 
@@ -649,6 +700,7 @@ class Board:
             _write(self.comments_file(fresh), _text(old_comments))
             old_comments.unlink(missing_ok=True)
 
+    @_exclusive
     def append_markdown(self, page_id: str, markdown: str) -> int:
         """Add to a page's body. Returns a block count, for what says so."""
         if _bare(page_id) == CONTEXT_PAGE:
@@ -665,6 +717,7 @@ class Board:
         """Nothing: a page here is its Markdown, and writing it back is writing it."""
         return {}
 
+    @_exclusive
     def replace_markdown(self, page_id: str, markdown: str) -> int:
         """Make a page's body say this and nothing else. See the Notion client."""
         if _bare(page_id) == CONTEXT_PAGE:
@@ -678,6 +731,7 @@ class Board:
         _write(path, render(front, markdown))
         return _blocks(markdown)
 
+    @_exclusive
     def comment(self, page_id: str, text: str, discussion_id: str = "") -> None:
         """Say something on a page, into a thread or opening one."""
         identifier = new_id()
@@ -694,6 +748,7 @@ class Board:
         joined = f"{existing.rstrip()}\n---comment---\n{block}" if existing.strip() else block
         _write(self.comments_file(page_id), joined)
 
+    @_exclusive
     def append_blocks(self, block_id: str, blocks: list[dict]) -> list[str]:
         """Notion blocks, flattened back into the Markdown they came from.
 
@@ -751,6 +806,7 @@ class Board:
     def context(self) -> str:
         return _text(self.context_file()).strip()
 
+    @_exclusive
     def set_context(self, text: str) -> None:
         _write(self.context_file(), text.strip() + "\n")
 
@@ -798,8 +854,11 @@ def _text(path: Path) -> str:
 def _write(path: Path, text: str) -> None:
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        # The board's one writer, so its one place to mask: see vault.py.
-        path.write_text(vault.mask(text), encoding="utf-8")
+        # The board's one writer, so its one place to mask: see vault.py. The
+        # mode is what `write_text` would have left, the umask applied by the
+        # kernel: the board is the person's files, not the runner's secrets.
+        mode = path.stat().st_mode & 0o777 if path.exists() else 0o666
+        disk.write_atomic(path, vault.mask(text), mode)
     except OSError as error:
         raise StoreError(f"{path}: {error}") from error
 

@@ -204,3 +204,52 @@ def the_whole_runner_runs_against_files_with_no_notion_at_all(state_home):
         assert "Voilà." in board.blocks_text(page_id), board.blocks_text(page_id)
         # The report went into the ticket's discussion, as it does on Notion.
         assert any(voice.is_report(comment.text) for comment in board.comments(page_id))
+
+
+@case
+def two_processes_writing_one_ticket_lose_nothing():
+    """The runner and the console are two processes, and both write tickets.
+
+    The console moves a status while the runner appends its report: each one
+    reads the file, changes it and writes it back. Without a lock between them
+    the last writer wins and the other's change is gone; written in place, a
+    reader caught in the middle reads a frontmatter that is not there yet.
+    """
+    import os
+
+    rounds = 60
+    with _board() as board:
+        page_id = board.create_row("tickets", "Corriger l'entête", {"Status": "Ready"})
+
+        def writer(which: str) -> None:
+            for index in range(rounds):
+                if which == "console":
+                    board.update("tickets", page_id, {"Status": f"S{index}"})
+                board.append_markdown(page_id, f"{which}-{index}.")
+
+        def reader() -> None:
+            for _ in range(rounds * 4):
+                assert files.parse(files._text(board._find(page_id)[1]))[0].get("id")
+
+        children = []
+        for job in (lambda: writer("runner"), lambda: writer("console"), reader):
+            child = os.fork()
+            if child == 0:
+                code = 1
+                try:
+                    job()
+                    code = 0
+                finally:
+                    os._exit(code)
+            children.append(child)
+        codes = [os.waitstatus_to_exitcode(os.waitpid(child, 0)[1]) for child in children]
+        assert codes == [0, 0, 0], codes
+        body = board.blocks_text(page_id)
+        lost = [
+            f"{which}-{index}."
+            for which in ("runner", "console")
+            for index in range(rounds)
+            if f"{which}-{index}." not in body
+        ]
+        assert not lost, f"{len(lost)} writes lost: {lost[:5]}"
+        assert store.read(board.page(page_id), "Status") == f"S{rounds - 1}"
