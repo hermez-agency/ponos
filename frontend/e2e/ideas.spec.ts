@@ -159,6 +159,8 @@ test.describe("at 1440px", () => {
     const tab = page.locator('[data-slot="ideas-list"]')
     await expect(page.getByRole("tab", { name: "Ideas" })).toHaveAttribute("aria-selected", "true")
     const filter = (status: string) => tab.locator(`[data-slot="ideas-filter"][data-status="${status}"]`)
+    // The tab opens on the new ideas.
+    await expect(filter("proposed")).toHaveAttribute("aria-pressed", "true")
     await expect(filter("ticket").locator('[data-slot="ideas-count"]')).toHaveText("1")
     await expect(tab.locator('[data-slot="ideas-item"][data-author="ponos"]').first()).toContainText("Ponos")
 
@@ -173,6 +175,8 @@ test.describe("at 1440px", () => {
     await expect(mine.locator('[data-slot="ideas-author"]')).toContainText("Ada Lovelace")
     await expect(mine).toHaveAttribute("data-status", "proposed")
 
+    // This one follows the idea through all its states.
+    await filter("all").click()
     await choose(page, mine, "Keep")
     await expect(mine).toHaveAttribute("data-status", "kept")
     await choose(page, mine, "Throw away")
@@ -202,6 +206,8 @@ test.describe("at 1440px", () => {
       .toBe("draft")
 
     await page.reload()
+    // The tab, drawn inside the project's page, writes nothing in the address: it opens on the new ideas again.
+    await filter("all").click()
     await expect(page.locator('[data-slot="ideas-item"]', { hasText: "in two languages" })).toHaveAttribute("data-status", "ticket")
   })
 })

@@ -17,10 +17,10 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { api, why } from "@/lib/api"
 import { useT } from "@/lib/i18n"
-import { toneOf, type Tone } from "@/lib/idea-search"
+import { EVERY_STATUS, keeps, statusOf, toneOf, type Tone } from "@/lib/idea-search"
 import type { Idea, IdeaAuthor, IdeaCategory, IdeaStatus } from "@/lib/types"
 import { cn } from "@/lib/utils"
-import { SCOPED_IDEAS, ideaOf, ideasChanged, type IdeaItem } from "@/resources/ideas"
+import { SCOPED_IDEAS, ideaOf, ideasChanged, useIdeas, type IdeaItem } from "@/resources/ideas"
 import { projectHref } from "@/resources/projects"
 import { ticketHref } from "@/resources/tickets"
 
@@ -598,6 +598,25 @@ export function NewIdeaButton({ className }: { className?: string }) {
 export function NoIdea() {
   const t = useT()
   const { filterContext } = useListViewContext()
+  const { ideas: known } = useIdeas()
+  // The list rests on the new ideas: with none, the others are one click away, and never shown unasked.
+  if (
+    statusOf(filterContext.filter) === "proposed" &&
+    known?.some((idea) => keeps(idea, { ...filterContext.filter, status: EVERY_STATUS }))
+  )
+    return (
+      <EmptyState
+        robot="sleep"
+        title={t("No new idea.")}
+        action={
+          <Button variant="outline" size="sm" onClick={() => filterContext.updateFilter({ status: EVERY_STATUS })}>
+            {t("Show all")}
+          </Button>
+        }
+      >
+        {t("Every idea is sorted: kept, thrown away or turned into a ticket.")}
+      </EmptyState>
+    )
   if (!filterContext.filterIsEmpty)
     return (
       <EmptyState

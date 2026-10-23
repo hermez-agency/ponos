@@ -47,6 +47,7 @@ import { counted, t, useT } from "@/lib/i18n"
 import {
   AUTHORS,
   CATEGORIES,
+  EVERY_STATUS,
   ORDERS,
   STATUSES,
   TONES,
@@ -57,6 +58,7 @@ import {
   orderOf,
   ordered,
   scopes,
+  statusOf,
 } from "@/lib/idea-search"
 import { onIdeasScored } from "@/lib/ideas-store"
 import { money, number } from "@/lib/numbers"
@@ -193,7 +195,8 @@ const StatusFilter: InputControllerComponentInterface = ({ formInput, onChange }
   const known = useIdeas().ideas ?? []
   const words = useStatusWords()
   const counted = counts(known, filter ?? {})
-  const value = String(formInput.value ?? "")
+  // The address says nothing for the new ideas, where the list rests, and "all" for every idea.
+  const value = statusOf({ status: formInput.value })
   return (
     <div className="flex flex-wrap gap-1" role="group" aria-label={t("Status")}>
       {(["", ...STATUSES] as const).map((key) => (
@@ -206,7 +209,7 @@ const StatusFilter: InputControllerComponentInterface = ({ formInput, onChange }
           data-slot="ideas-filter"
           data-status={key || "all"}
           className="h-8 gap-1.5 px-2.5 text-xs"
-          onClick={() => onChange({ ...formInput, value: key })}
+          onClick={() => onChange({ ...formInput, value: key || EVERY_STATUS })}
         >
           {key ? words.many[key] : t("All")}
           <span className="text-muted-foreground tabular-nums" data-slot="ideas-count">

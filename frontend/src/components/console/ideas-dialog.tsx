@@ -285,7 +285,7 @@ export function IdeasDialog({
             </div>
           </TabsContent>
           <TabsContent value="history" className="min-h-0 flex-1 overflow-y-auto">
-            <ScopedIdeas project={project} name={name} />
+            <ScopedIdeas project={project} name={name} every />
           </TabsContent>
         </Tabs>
       </DialogContent>

@@ -19,6 +19,9 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 ### Fixed
 
 - Une récurrence se supprime depuis la console : une corbeille sur chaque ligne de la liste, sur chaque carte, dans la fenêtre de la récurrence et dans la fiche du calendrier, après confirmation, et une sélection multiple pour en retirer plusieurs d'un coup. La page part dans la corbeille du board (Notion ou dossier `trash/`), plus aucun ticket n'en naît, et ceux déjà créés restent en place.
+### Changed
+
+- L'écran Idées s'ouvre sur l'onglet Nouvelles, pour trier sans cliquer d'abord. Un filtre déjà dans l'adresse l'emporte, « Tout » reste un choix qu'on garde, et sans idée nouvelle la liste le dit avec un lien vers « Tout ».
 
 ## [0.2.0] - 2026-10-22
 
