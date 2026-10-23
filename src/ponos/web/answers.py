@@ -546,6 +546,10 @@ class ChatState(Shape):
     """What a message may carry: the extensions the server keeps, and how heavy."""
     dictation: Dictation = omitted()
     """Whether the microphone can be offered, and why not when it cannot."""
+    queue: list[Queued] = omitted()
+    """What was said while a turn ran, in order: sent one by one after it."""
+    held: bool = omitted()
+    """A turn ended before its time: the queue waits to be sent or thrown away."""
 
 
 class Attached(Shape):
@@ -556,6 +560,15 @@ class Attached(Shape):
     kind: Literal["image", "video", "document"]
     type: str
     size: int
+
+
+class Queued(Shape):
+    """A message sent while the workspace was answering: waiting for its turn."""
+
+    id: str
+    text: str
+    at: str
+    attachments: list[Attached] = omitted()
 
 
 class Message(Shape):
@@ -1412,6 +1425,12 @@ class ChatSent(Shape):
     session_id: str
 
 
+class ChatQueue(Shape):
+    stage: Literal["queue"]
+    queue: list[Queued]
+    held: bool
+
+
 class ChatStep(Step):
     stage: Literal["step"]
 
@@ -1490,6 +1509,7 @@ class Stream(Shape):
         | ChatDeleted
         | ChatModel
         | ChatSent
+        | ChatQueue
         | ChatStep
         | ChatStopping
         | ChatStopped

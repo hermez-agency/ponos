@@ -274,6 +274,10 @@ export const api = {
   linkSession: (id: string, project: string) =>
     request<ChatState>(`/api/chat/sessions/${id}/project`, { project }),
   stopChat: () => request<unknown>("/api/chat/stop", {}),
+  unqueue: (id: string) => request<ChatState>(`/api/chat/queue/${id}/remove`, {}),
+  amend: (id: string, text: string) => request<ChatState>(`/api/chat/queue/${id}/edit`, { text }),
+  releaseQueue: () => request<ChatState>("/api/chat/queue/send", {}),
+  discardQueue: () => request<ChatState>("/api/chat/queue/discard", {}),
   saveSettings: (payload: {
     settings: Record<string, SettingValue>
     projects?: Pair[]

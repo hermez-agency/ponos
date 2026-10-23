@@ -547,14 +547,16 @@ export function Composer({
                 </Tooltip>
               ) : null}
               {busy && onStop ? (
-                /* What the arrow is while a turn runs. Pressed twice, it was
-                   pressed once: the second click lands on a button already
-                   saying it is stopping. */
+                /* Beside the arrow and not in its place: Ponos can be told
+                   something more while it works, and Stop stays where it was
+                   pressed. Pressed twice, it was pressed once: the second click
+                   lands on a button already saying it is stopping. */
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
                       type="button"
                       size="icon-sm"
+                      variant="outline"
                       data-slot="composer-stop"
                       data-stopping={stopping || undefined}
                       className="rounded-full"
@@ -574,25 +576,20 @@ export function Composer({
                     {stopping ? t("Stopping…") : `${t("Stop")} · Esc`}
                   </TooltipContent>
                 </Tooltip>
-              ) : (
-                <Button
-                  type="button"
-                  size="icon-sm"
-                  data-slot="composer-send"
-                  data-busy={busy || undefined}
-                  className="rounded-full"
-                  aria-label={busy ? t("The workspace is answering") : t("Send")}
-                  title={busy ? t("The workspace is answering") : t("Send")}
-                  disabled={!ready}
-                  onClick={() => void send()}
-                >
-                  {busy || sending ? (
-                    <Loader2Icon className="animate-spin" />
-                  ) : (
-                    <ArrowUpIcon className="size-4.5" />
-                  )}
-                </Button>
-              )}
+              ) : null}
+              <Button
+                type="button"
+                size="icon-sm"
+                data-slot="composer-send"
+                data-busy={busy || undefined}
+                className="rounded-full"
+                aria-label={t("Send")}
+                title={busy && !command ? t("Send — it waits for Ponos to finish") : t("Send")}
+                disabled={!ready}
+                onClick={() => void send()}
+              >
+                {sending ? <Loader2Icon className="animate-spin" /> : <ArrowUpIcon className="size-4.5" />}
+              </Button>
             </>
           )}
         </div>

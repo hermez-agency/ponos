@@ -768,3 +768,84 @@ def the_message_bar_is_one_block_with_its_gestures_inside():
     assert accepted == set(web_attachments.ACCEPTED), (
         "the page and the server accept different files"
     )
+
+
+def _drained(chat, turns: int) -> None:
+    for _ in range(500):
+        if len(chat.prompts) >= turns and not chat.busy and not chat.queue:
+            return
+        time.sleep(0.01)
+    raise AssertionError("the queue never drained")
+
+
+@case
+def messages_sent_during_a_turn_wait_and_are_sent_in_order_after_it():
+    with _chat() as chat:
+        gate = threading.Event()
+        original = session.run
+
+        def run(prompt, **rest):
+            chat.prompts.append(prompt)
+            if len(chat.prompts) == 1:
+                gate.wait(5)
+            return session.Outcome(
+                True, False, rest["session_id"], "", Path("/dev/null"), answer="seen"
+            )
+
+        session.run = run
+        try:
+            chat.send("the first part")
+            chat.send("one more thing")
+            state = chat.send("and another")
+            assert [item["text"] for item in state["queue"]] == ["one more thing", "and another"]
+            assert [message["text"] for message in chat.history()] == ["the first part"]
+            waiting = state["queue"][1]["id"]
+            chat.amend(state["queue"][0]["id"], "one more thing, reworded")
+            chat.unqueue(waiting)
+            chat.send("and the last")
+            gate.set()
+            _drained(chat, 3)
+            assert [prompt.rsplit("\n", 1)[-1] for prompt in chat.prompts] == [
+                "the first part",
+                "one more thing, reworded",
+                "and the last",
+            ]
+            assert [m["role"] for m in chat.history()] == ["you", "workspace"] * 3
+            stages = [said["stage"] for kind, said in chat.events if kind == "chat"]
+            assert "queue" in stages
+        finally:
+            session.run = original
+
+
+@case
+def a_stop_holds_the_queue_until_it_is_sent_or_thrown_away():
+    original = session.exists
+    try:
+        with _chat() as chat:
+            _halting(chat)
+            chat.send("rewrite everything")
+            chat.send("and the tests")
+            chat.stop()
+            _settled(chat)
+            state = chat.state()
+            assert state["held"] is True and len(state["queue"]) == 1
+            assert len(chat.prompts) == 1, "nothing is sent on its own"
+            released = chat.release()
+            assert released["queue"] == [] and released["held"] is False
+            assert chat.prompts[-1].endswith("and the tests")
+            chat.stop()
+            _settled(chat)
+            chat.send("one for the bin")
+            chat.send("and another")
+            chat.stop()
+            _settled(chat)
+            assert chat.discard()["queue"] == []
+            assert len(chat.prompts) == 3
+            try:
+                chat.unqueue("0123456789ab")
+            except LookupError:
+                pass
+            else:
+                raise AssertionError("a message already gone is not found")
+    finally:
+        session.exists = original

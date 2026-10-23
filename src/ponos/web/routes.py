@@ -743,6 +743,28 @@ def remove_chat_attachment(request: Request, identifier: str) -> Response:
     return answer(_api(request).chat.detach(identifier))
 
 
+@router.post("/api/chat/queue/send")
+def send_queue(request: Request) -> Response:
+    return answer(_api(request).chat.release())
+
+
+@router.post("/api/chat/queue/discard")
+def discard_queue(request: Request) -> Response:
+    return answer(_api(request).chat.discard())
+
+
+@router.post("/api/chat/queue/{identifier:attachment}/remove")
+def remove_queued(request: Request, identifier: str) -> Response:
+    return answer(_api(request).chat.unqueue(identifier))
+
+
+@router.post("/api/chat/queue/{identifier:attachment}/edit")
+def edit_queued(
+    request: Request, identifier: str, payload: Sent = Body(default_factory=Sent)
+) -> Response:
+    return answer(_api(request).chat.amend(identifier, payload.text))
+
+
 @router.post("/api/chat/stop")
 def stop_chat(request: Request) -> Response:
     return answer(_api(request).chat.stop())

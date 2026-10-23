@@ -10,6 +10,7 @@ import { settingsHref } from "@/resources/settings"
 
 import { Composer, type ComposerHandle } from "./composer"
 import { ModelPicker } from "./model-picker"
+import { Waiting } from "./queued"
 import { Flow } from "./text"
 import { Thinking } from "./thinking"
 import { Line, Transcript } from "./transcript"
@@ -33,8 +34,18 @@ const transcribe = async (audio: Blob) => (await api.transcribe(audio, currentLa
 const carriesFiles = (event: React.DragEvent) => event.dataTransfer.types.includes("Files")
 
 export function ConsolePane() {
-  const { transcript, busy, stopping, submit, resetChat, stopChat, runner, reloadState } =
-    useConsole()
+  const {
+    transcript,
+    busy,
+    stopping,
+    queue,
+    held,
+    submit,
+    resetChat,
+    stopChat,
+    runner,
+    reloadState,
+  } = useConsole()
   const t = useT()
   const composer = React.useRef<ComposerHandle>(null)
   const [dragging, setDragging] = React.useState(false)
@@ -118,6 +129,11 @@ export function ConsolePane() {
         {transcript.map((entry) => (
           <Said key={entry.id} entry={entry} />
         ))}
+        {queue.length ? (
+          <Line id="queue">
+            <Waiting queue={queue} held={held} />
+          </Line>
+        ) : null}
       </Transcript>
 
       <div className="px-3 pt-1 pb-3">
