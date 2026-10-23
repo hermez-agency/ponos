@@ -55,18 +55,30 @@ INLINE = re.compile(
 )
 MAX_CONTENT = 1900
 MAX_BLOCKS = 100
+MAX_PIECES = 100
 
 
 def _text(
     content: str, *, bold: bool = False, italic: bool = False, code: bool = False, url: str = ""
-) -> dict[str, Any]:
-    item: dict[str, Any] = {"type": "text", "text": {"content": content[:MAX_CONTENT]}}
-    if url:
-        item["text"]["link"] = {"url": url}
-    annotations = {"bold": bold, "italic": italic, "code": code}
-    if any(annotations.values()):
-        item["annotations"] = annotations
-    return item
+) -> list[dict[str, Any]]:
+    """One run of text, in as many pieces as Notion needs to take all of it.
+
+    Notion caps a piece of rich text, not the block that holds it: a long run is
+    split, never cut, and every piece keeps the run's annotations and link.
+    """
+    pieces: list[dict[str, Any]] = []
+    for start in range(0, max(len(content), 1), MAX_CONTENT):
+        item: dict[str, Any] = {
+            "type": "text",
+            "text": {"content": content[start : start + MAX_CONTENT]},
+        }
+        if url:
+            item["text"]["link"] = {"url": url}
+        annotations = {"bold": bold, "italic": italic, "code": code}
+        if any(annotations.values()):
+            item["annotations"] = annotations
+        pieces.append(item)
+    return pieces
 
 
 def inline(line: str) -> list[dict[str, Any]]:
@@ -75,23 +87,35 @@ def inline(line: str) -> list[dict[str, Any]]:
     position = 0
     for match in INLINE.finditer(line):
         if match.start() > position:
-            parts.append(_text(line[position : match.start()]))
+            parts += _text(line[position : match.start()])
         if match.group("bold"):
-            parts.append(_text(match.group("bold"), bold=True))
+            parts += _text(match.group("bold"), bold=True)
         elif match.group("code"):
-            parts.append(_text(match.group("code"), code=True))
+            parts += _text(match.group("code"), code=True)
         elif match.group("label"):
-            parts.append(_text(match.group("label"), url=match.group("url")))
+            parts += _text(match.group("label"), url=match.group("url"))
         elif match.group("italic"):
-            parts.append(_text(match.group("italic"), italic=True))
+            parts += _text(match.group("italic"), italic=True)
         position = match.end()
     if position < len(line):
-        parts.append(_text(line[position:]))
-    return parts or [_text("")]
+        parts += _text(line[position:])
+    return parts or _text("")
 
 
 def _block(kind: str, payload: dict[str, Any]) -> dict[str, Any]:
     return {"object": "block", "type": kind, kind: payload}
+
+
+def _blocks(kind: str, rich_text: list[dict[str, Any]], **payload: Any) -> list[dict[str, Any]]:
+    """A block whose text Notion would refuse in one, as successive blocks of its kind.
+
+    Past a hundred pieces of rich text, a block is turned away whole; the rest
+    goes on in the next block, so that the text still reaches the page entire.
+    """
+    return [
+        _block(kind, {"rich_text": rich_text[start : start + MAX_PIECES], **payload})
+        for start in range(0, len(rich_text), MAX_PIECES)
+    ]
 
 
 def to_blocks(markdown: str) -> list[dict[str, Any]]:
@@ -113,14 +137,10 @@ def to_blocks(markdown: str) -> list[dict[str, Any]]:
                 body.append(lines[index])
                 index += 1
             index += 1  # the closing fence
-            blocks.append(
-                _block(
-                    "code",
-                    {
-                        "rich_text": [_text("\n".join(body))],
-                        "language": language if language in LANGUAGES else "plain text",
-                    },
-                )
+            blocks += _blocks(
+                "code",
+                _text("\n".join(body)),
+                language=language if language in LANGUAGES else "plain text",
             )
             continue
 
@@ -131,36 +151,31 @@ def to_blocks(markdown: str) -> list[dict[str, Any]]:
         heading = re.match(r"^(#{1,3})\s+(.*)$", line)
         if heading:
             level = len(heading.group(1))
-            blocks.append(_block(f"heading_{level}", {"rich_text": inline(heading.group(2))}))
+            blocks += _blocks(f"heading_{level}", inline(heading.group(2)))
             continue
 
         todo = re.match(r"^[-*+]\s+\[([ xX])\]\s+(.*)$", line)
         if todo:
-            blocks.append(
-                _block(
-                    "to_do",
-                    {"rich_text": inline(todo.group(2)), "checked": todo.group(1).lower() == "x"},
-                )
-            )
+            blocks += _blocks("to_do", inline(todo.group(2)), checked=todo.group(1).lower() == "x")
             continue
 
         bullet = re.match(r"^[-*+]\s+(.*)$", line)
         if bullet:
-            blocks.append(_block("bulleted_list_item", {"rich_text": inline(bullet.group(1))}))
+            blocks += _blocks("bulleted_list_item", inline(bullet.group(1)))
             continue
 
         numbered = re.match(r"^\d+[.)]\s+(.*)$", line)
         if numbered:
-            blocks.append(_block("numbered_list_item", {"rich_text": inline(numbered.group(1))}))
+            blocks += _blocks("numbered_list_item", inline(numbered.group(1)))
             continue
 
         if line.startswith("> "):
-            blocks.append(_block("quote", {"rich_text": inline(line[2:])}))
+            blocks += _blocks("quote", inline(line[2:]))
             continue
 
         # A table would need its own block type and a fixed column count; as a
         # paragraph the row still reads, pipes and all.
-        blocks.append(_block("paragraph", {"rich_text": inline(line)}))
+        blocks += _blocks("paragraph", inline(line))
 
     return blocks
 
