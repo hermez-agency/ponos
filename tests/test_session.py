@@ -227,3 +227,30 @@ def a_link_cannot_slip_an_option_into_ssh_or_claude():
     assert command[:4] == ["ssh", "-t", "--", "salva@vps.example.org"], command
     assert command[4].endswith(f"claude --resume {identifier}"), command
     assert bracketed[3] == "me@[::1]", bracketed
+
+
+@case
+def a_session_cut_short_keeps_what_its_last_event_said_it_cost():
+    """The watchdog's kill and the console's Stop do not make a session free."""
+
+    def ended(final: dict, **flags) -> session.Outcome:
+        return session._outcome(
+            final,
+            ["half of it"],
+            session_id="s",
+            log=Path("x"),
+            stderr_path=Path("/nowhere/stderr"),
+            seconds=1800.0,
+            code=-9,
+            interrupted=flags.get("interrupted", False),
+            timed_out=flags.get("timed_out", False),
+            timeout_minutes=30,
+        )
+
+    final = {"type": "result", "total_cost_usd": 4.2, "num_turns": 37}
+    timed_out = ended(final, timed_out=True)
+    assert timed_out.timed_out and timed_out.resulted
+    assert timed_out.cost_usd == 4.2 and timed_out.turns == 37, timed_out
+    assert ended({}, timed_out=True).cost_usd == 0.0, "no last event, no price to keep"
+    stopped = ended({}, interrupted=True)
+    assert stopped.stopped and stopped.cost_usd == 0.0

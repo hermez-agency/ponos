@@ -89,6 +89,16 @@ def _both(
     return listen
 
 
+def _added(first: session.Outcome, then: session.Outcome) -> session.Outcome:
+    """The second try, carrying what the first one cost: both were paid for."""
+    return replace(
+        then,
+        cost_usd=first.cost_usd + then.cost_usd,
+        seconds=first.seconds + then.seconds,
+        turns=first.turns + then.turns,
+    )
+
+
 # What a report says when the work it describes happened outside the repository:
 # a hosting dashboard, a DNS zone, the board, a browser. Read on a code ticket that
 # committed nothing and changed nothing, to tell a ticket done elsewhere from one
@@ -250,7 +260,7 @@ class Execution(Base):
                 # with "w" and truncate the very transcript that explains it.
                 log = log.with_name(f"{log.stem}-again{log.suffix}")
                 run.again(job.session_id, log)
-                outcome = self._session(job, text, log, chosen, live, run)
+                outcome = _added(outcome, self._session(job, text, log, chosen, live, run))
             if reason := self._died(outcome):
                 outcome = self._relaunch(job, text, log, chosen, live, run, outcome, reason)
             if self._report_missing(job, outcome):
@@ -344,7 +354,7 @@ class Execution(Base):
         run.again(job.session_id, log)
         again = self._session(job, text, log, model, live, run)
         again.killed = self._died(again)
-        return again
+        return _added(outcome, again)
 
     def _session(
         self,

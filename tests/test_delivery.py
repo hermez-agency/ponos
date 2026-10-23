@@ -600,6 +600,54 @@ def a_death_by_signal_is_told_from_a_failure_and_named():
 
 
 @case
+def a_relaunched_session_adds_up_what_both_tries_cost():
+    """The killed try was paid for too: its price is not overwritten by the second's."""
+    from types import SimpleNamespace
+
+    from ponos import journal, resources
+
+    runner = _board_runner([], {})
+    runner.config.runner.relaunch_delay_seconds = 0
+    runner.say = lambda message: None
+    runner._died = lambda outcome: ""
+    killed = session.Outcome(
+        ok=False,
+        blocked=False,
+        session_id="s",
+        summary="",
+        log=Path("x"),
+        cost_usd=1.5,
+        turns=10,
+        seconds=600.0,
+        code=-9,
+        resulted=False,
+    )
+    again = session.Outcome(
+        ok=True,
+        blocked=False,
+        session_id="s",
+        summary="",
+        log=Path("y"),
+        cost_usd=0.5,
+        turns=3,
+        seconds=60.0,
+    )
+    runner._session = lambda *arguments: again
+    job = SimpleNamespace(session_id="s", resume=False)
+    original = resources.reachable, session.exists
+    try:
+        resources.reachable = lambda: True
+        session.exists = lambda identifier: True
+        outcome = runner._relaunch(
+            job, "text", Path("x.log"), "", None, journal.Run(None), killed, "SIGKILL"
+        )
+    finally:
+        resources.reachable, session.exists = original
+    assert outcome.ok and outcome.log == Path("y"), "the second try is what the ticket is judged on"
+    assert (outcome.cost_usd, outcome.turns, outcome.seconds) == (2.0, 13, 660.0), outcome
+
+
+@case
 def a_runner_short_of_memory_starts_nothing_and_says_so_once():
     runner = _board_runner([], {})
     runner.config.runner.min_free_memory_mb = 2048
