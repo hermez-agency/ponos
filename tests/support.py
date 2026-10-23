@@ -753,11 +753,15 @@ def _board_runner(
 
 
 @contextmanager
-def _github(states: dict[str, str], merge=None, blockers: dict[str, str] | None = None):
+def _github(
+    states: dict[str, str], merge=None, blockers: dict[str, str] | None = None, unstarted=None
+):
     """`gh`, replaced by what it would have said.
 
     `blockers` is what GitHub says stands in a pull request's way before a merge
     is asked — see `git.merge_blocker`. Nothing, unless a test says otherwise.
+    `unstarted` reads why the red jobs of a refused merge never started — see
+    `git.unstarted_checks`: they all ran, unless a test says otherwise.
     """
 
     asked, original = git_module.pull_request_state, git_module.merge_pull_request
@@ -767,6 +771,8 @@ def _github(states: dict[str, str], merge=None, blockers: dict[str, str] | None 
     # Nothing is asked of GitHub about the checks of the pull requests still open.
     head = git_module.pull_request_head
     git_module.pull_request_head = lambda url, accounts=None: ""
+    started = git_module.unstarted_checks
+    git_module.unstarted_checks = unstarted or (lambda url, accounts=None: "")
     if merge is not None:
         git_module.merge_pull_request = merge
     try:
@@ -776,6 +782,7 @@ def _github(states: dict[str, str], merge=None, blockers: dict[str, str] | None 
         git_module.merge_pull_request = original
         git_module.merge_blocker = blocker
         git_module.pull_request_head = head
+        git_module.unstarted_checks = started
 
 
 def _closing(pages: list[notion.Page], states: dict[str, str], status: dict[str, str]):

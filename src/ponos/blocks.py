@@ -22,7 +22,8 @@ act on it later, in one place rather than in every caller:
 - the **action** the card offers: run it again, answer, clean, look at the CI
   or at the pull request;
 - a **policy**, which is what the runner may do on its own: try again `n`
-  times (`retry:n`), wait for the base to be green (`wait-base`), or ask
+  times (`retry:n`), wait for the base to be green (`wait-base`), wait for
+  the account's GitHub billing to be settled (`wait-billing`), or ask
   (`ask`). Written down here so that the next tickets read it rather than
   decide it again.
 
@@ -126,6 +127,21 @@ _CAUSES = (
             "Les vérifications de la pull request échouent après la résolution des conflits : regardez ce qui a cassé.",
         ),
         "checks-red",
+    ),
+    _cause(
+        "ci.billing",
+        "merge",
+        "user",
+        "open-pr",
+        "wait-billing",
+        ("GitHub billing", "Facturation GitHub"),
+        (
+            "GitHub Actions starts no job on this account until its billing is settled: "
+            "its merges wait, and go on once the CI runs again.",
+            "GitHub Actions ne démarre aucun job sur ce compte tant que sa facturation n'est "
+            "pas réglée : ses fusions attendent, et reprennent dès que la CI tourne de nouveau.",
+        ),
+        "checks-billing",
     ),
     _cause(
         "merge.local-ci-failed",
@@ -519,6 +535,8 @@ def describe(code: str) -> dict[str, object] | None:
 # Frozen: the migration that reclasses the history reads it, and a migration
 # does not change once it has run.
 _HEARD: tuple[tuple[str, str], ...] = (
+    ("billing of the", "ci.billing"),
+    ("facturation du compte", "ci.billing"),
     ("checks fail", "merge.checks-failed"),
     ("verifications echouent", "merge.checks-failed"),
     ("keeps moving faster", "merge.base-moving"),

@@ -309,6 +309,124 @@ def forget_base_wait(ticket_id: str) -> None:
         pass
 
 
+def hold_billing(account: str, name: str, reason: str) -> bool:
+    """An account whose GitHub Actions billing refuses its jobs. Whether it is news.
+
+    True only for the first ticket to find it: the one that says it out loud.
+    The others of the same account, in this pass or the next, find it held.
+    """
+    try:
+        with db.transaction() as connection:
+            added = connection.execute(
+                "INSERT OR IGNORE INTO billing_holds (account, name, reason, since, probed) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (
+                    account,
+                    name,
+                    reason,
+                    datetime.now(UTC).isoformat(timespec="seconds"),
+                    time.time(),
+                ),
+            )
+            return bool(added.rowcount)
+    except db.ERRORS:
+        return False
+
+
+def billing_holds() -> list[dict[str, Any]]:
+    """The accounts held by their billing, oldest first."""
+    try:
+        with db.transaction(immediate=False) as connection:
+            rows = connection.execute(
+                "SELECT account, name, reason, since, probed FROM billing_holds ORDER BY since"
+            ).fetchall()
+    except db.ERRORS:
+        return []
+    return [
+        {"account": row[0], "name": row[1], "reason": row[2], "since": row[3], "probed": row[4]}
+        for row in rows
+    ]
+
+
+def billing_hold(account: str) -> dict[str, Any] | None:
+    """The hold on that account, or nothing when its CI runs."""
+    return next((one for one in billing_holds() if one["account"] == account), None)
+
+
+def billing_probed(account: str, moment: float) -> None:
+    """The refused jobs of that account were just asked to run again."""
+    try:
+        with db.transaction() as connection:
+            connection.execute(
+                "UPDATE billing_holds SET probed = ? WHERE account = ?", (moment, account)
+            )
+    except db.ERRORS:
+        pass
+
+
+def lift_billing(account: str) -> None:
+    """The account's jobs start again: nothing of it waits any more."""
+    try:
+        with db.transaction() as connection:
+            connection.execute("DELETE FROM billing_holds WHERE account = ?", (account,))
+    except db.ERRORS:
+        pass
+
+
+def wait_for_billing(ticket_id: str, account: str) -> None:
+    """A validated ticket whose merge waits on its account's billing."""
+    try:
+        with db.transaction() as connection:
+            connection.execute(
+                "INSERT OR REPLACE INTO billing_waits (ticket, account, at) VALUES (?, ?, ?)",
+                (ticket_id, account, time.time()),
+            )
+    except db.ERRORS:
+        pass
+
+
+def waiting_for_billing(ticket_id: str) -> str:
+    """The account a ticket waits on, or nothing."""
+    try:
+        with db.transaction(immediate=False) as connection:
+            row = connection.execute(
+                "SELECT account FROM billing_waits WHERE ticket = ?", (ticket_id,)
+            ).fetchone()
+    except db.ERRORS:
+        return ""
+    return str(row[0]) if row else ""
+
+
+def forget_billing_wait(ticket_id: str) -> None:
+    """Its merge no longer waits on the billing: it ran, or it landed."""
+    try:
+        with db.transaction() as connection:
+            connection.execute("DELETE FROM billing_waits WHERE ticket = ?", (ticket_id,))
+    except db.ERRORS:
+        pass
+
+
+def settle_billing(validated: set[str], older_than: float) -> None:
+    """Let go of the waits of tickets no longer validated, and of holds nothing waits on.
+
+    A ticket moved out by hand waits on nothing; an account none of whose
+    merges waits is no longer worth a warning. A wait younger than
+    `older_than` is kept: the ticket is being moved to validated as it is read.
+    """
+    try:
+        with db.transaction() as connection:
+            for (ticket,) in connection.execute(
+                "SELECT ticket FROM billing_waits WHERE at < ?", (older_than,)
+            ).fetchall():
+                if ticket not in validated:
+                    connection.execute("DELETE FROM billing_waits WHERE ticket = ?", (ticket,))
+            connection.execute(
+                "DELETE FROM billing_holds WHERE account NOT IN (SELECT account FROM billing_waits)"
+            )
+    except db.ERRORS:
+        pass
+
+
 def repair_of(repository: str, base: str) -> str:
     """The ticket opened to repair that base, or nothing."""
     try:

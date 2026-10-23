@@ -796,6 +796,35 @@ _SAID: dict[str, dict[str, str]] = {
         "en": "CI: did not start — GitHub says: {reason}",
         "fr": "CI : pas démarrée — GitHub dit : {reason}",
     },
+    "checks-billing": {
+        "en": (
+            "CI: not started — GitHub Actions is blocked by the billing of the {account} "
+            "account. The merge waits until it is settled."
+        ),
+        "fr": (
+            "CI : pas démarrée — GitHub Actions est bloqué par la facturation du compte "
+            "{account}. La fusion attend qu'elle soit réglée."
+        ),
+    },
+    "billing-held": {
+        "en": "GitHub Actions is blocked by the billing of the {account} account",
+        "fr": "GitHub Actions est bloqué par la facturation du compte {account}",
+    },
+    "billing-held-detail": {
+        "en": (
+            "No job of its repositories starts: settle the payment or raise the spending "
+            "limit on GitHub. Its merges wait in validated, and go on once the CI runs again."
+        ),
+        "fr": (
+            "Aucun job de ses dépôts ne démarre : réglez le paiement ou relevez le plafond "
+            "de dépense sur GitHub. Ses fusions attendent en validé, et reprennent dès que la "
+            "CI tourne de nouveau."
+        ),
+    },
+    "billing-settled": {
+        "en": "GitHub Actions runs again on {account} — the merge goes on.",
+        "fr": "GitHub Actions tourne de nouveau sur {account} — la fusion reprend.",
+    },
     "checks-pending": {
         "en": "CI: still running when the merge was asked.",
         "fr": "CI : encore en cours au moment de la fusion.",

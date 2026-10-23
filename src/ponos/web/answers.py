@@ -116,7 +116,7 @@ class Block(Shape):
     action: Literal["retry", "answer", "clean", "base-ci", "open-pr"]
     """What a stopped card offers: run it again, answer, clean, the base's CI, the pull request."""
     policy: str
-    """What the runner may do on its own: `retry:n`, `wait-base` or `ask`."""
+    """What the runner may do on its own: `retry:n`, `wait-base`, `wait-billing` or `ask`."""
     label: Words
     help: Words
 

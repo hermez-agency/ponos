@@ -15,6 +15,13 @@ saying it only delays the one thing worth knowing.
 
 Followed while the ticket is in review and no longer: the day it is validated,
 merged or done, the row goes, and so does the reading of it.
+
+One red is not the code's at all: jobs GitHub refused to start because the
+account's Actions billing failed (`billing`). It is read off the annotation
+GitHub leaves on such a job, and it is a fact about an account, not about a
+pull request — every repository of it says the same sentence, and saying it
+ticket by ticket, in GitHub's English, was six tickets going round in circles
+on one unpaid invoice.
 """
 
 from __future__ import annotations
@@ -46,6 +53,11 @@ SETTLED_SECONDS = 300
 # the very state a push is meant to set back to running.
 APPEAR_SECONDS = git.CHECKS_APPEAR_SECONDS
 
+# What GitHub writes on a job it never started for the account's billing: a
+# payment that failed, or a spending limit reached. Lower case, as `billing`
+# compares them.
+BILLING = ("recent account payments have failed", "spending limit needs to be increased")
+
 
 def deduce(checks: list[dict[str, Any]]) -> str:
     """`pending`, `passed`, `failed` — or nothing when the pull request has no check."""
@@ -57,6 +69,12 @@ def deduce(checks: list[dict[str, Any]]) -> str:
     if any(bucket in RUNNING or not bucket for bucket in buckets):
         return PENDING
     return PASSED
+
+
+def billing(reason: str) -> bool:
+    """Is that annotation GitHub refusing a job for the account's billing?"""
+    said = reason.lower()
+    return any(fragment in said for fragment in BILLING)
 
 
 def link(url: str) -> str:

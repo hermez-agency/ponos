@@ -33,7 +33,10 @@ moment it is not sure: a conflict that is a decision, checks that stay red, a
 branch somebody else pushed to, a base that keeps moving. Checks that stay red
 means red twice and red only here — a flaky test is run again before anything
 is concluded, and a check `main` fails too is not the pull request's to answer
-for — it waits for the base to be green again instead: see `_checked`. The branch it pushes is the pull request's own, on a
+for — it waits for the base to be green again instead: see `_checked`. Jobs GitHub
+never started because the account's billing failed are no question either: the
+merge waits in this column, the account is said once, and its refused jobs are
+asked to run again now and then — see `_billing_held`. The branch it pushes is the pull request's own, on a
 lease; the base is never touched. Before any session, the replay settles what
 has only one answer — generated files and the changelog, see generated.py — and
 the merges of one repository go through a line, one at a time: see `_queue`.
@@ -50,6 +53,7 @@ from __future__ import annotations
 
 import shutil
 import threading
+import time
 from collections.abc import Container
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
@@ -57,7 +61,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from . import agents, generated, git, kinds, project_settings, session, state, store, subtypes
+from . import agents, ci, generated, git, kinds, project_settings, session, state, store, subtypes
 from . import prompt as prompt_module
 from . import voice as voice_module
 from .base import Base
@@ -74,6 +78,12 @@ MOST_REBASES = 2
 # The score of the ticket that repairs a red base: ahead of ordinary work, the
 # other tickets of that repository waiting on it, but behind what was said urgent.
 REPAIR_PRIORITY = 75
+
+# How long the merges of an account held by its GitHub billing wait before its
+# refused jobs are asked to run again; and how long a wait just written is
+# trusted over a reading of the column it is being moved into.
+BILLING_PROBE_SECONDS = 3600
+BILLING_SETTLING_SECONDS = 600
 
 # What a merge refusal would have said, for a pull request GitHub already calls
 # conflicting or behind before one is asked — see `git.merge_blocker`.
@@ -271,6 +281,10 @@ class Delivery(Base):
                 continue
             publishing.append((ticket, project))
         self._deferred = sorted(held, key=lambda pair: pair[1])
+        if not self.dry_run:
+            state.settle_billing(
+                {Ticket(page).id for page in pages}, time.time() - BILLING_SETTLING_SECONDS
+            )
         return results, publishing
 
     def validated(self) -> list[store.Page]:
@@ -346,7 +360,7 @@ class Delivery(Base):
             )
         if state_of == "MERGED":
             return self._merged(ticket, url, said.say("merged-before"))
-        if self._waits_for_base(ticket, url):
+        if self._waits_for_base(ticket, url) or self._waits_for_billing(ticket, url):
             return None
         method = self.config.runner.merge_method
         with self._queue(url):
@@ -375,6 +389,7 @@ class Delivery(Base):
         """Done, and said so: the pull request is in."""
         state.forget_rebases(ticket.id)
         state.forget_base_wait(ticket.id)
+        state.forget_billing_wait(ticket.id)
         self._landed_in(url)
         said = self.voice
         self.say(f"  ✓ {ticket.title} — pull request merged, moved to done")
@@ -440,8 +455,10 @@ class Delivery(Base):
         review, where you would have found it without the option: the work is
         done and the pull request is open. The card says which, in the words
         `_checked` found for it: “its checks fail” told nobody whether to look
-        at the code or at the account. On a board with no validated column,
-        everything waits there.
+        at the code or at the account. Jobs refused by the account's billing
+        are the exception: nothing in review would answer them, so the ticket
+        waits in validated with the others of its account. On a board with no
+        validated column, everything waits there.
         """
         accounts = self.config.github
         rebase = self.config.runner.rebase
@@ -449,6 +466,8 @@ class Delivery(Base):
         later = False
         if checks in ("failed", "unstarted"):
             refusal = checked or self.voice.say("forced-checks-red")
+        elif checks == "billing":
+            refusal, later = checked, self.validated_column()
         elif checks == "base-red" and self.validated_column():
             self._set_aside(job.ticket, job.project, url, job.base)
             refusal, later = self.voice.say("forced-base-red"), True
@@ -497,12 +516,14 @@ class Delivery(Base):
         What is left is red here and only here, and that is the one answer that
         still stops the merge — with the checks named, rather than “CI: red”.
 
-        And a red that is no verdict at all: jobs GitHub refused to start, an
-        account's billing rather than the code. That is `unstarted`, with
-        GitHub's own reason, and it is neither run again nor blamed on anybody.
+        And a red that is no verdict at all: jobs GitHub refused to start. When
+        the account's billing is why, that is `billing`, said in our words and
+        held for the whole account (`_billing_held`); any other refusal is
+        `unstarted`, with GitHub's own reason. Neither is run again nor blamed
+        on anybody.
 
-        Returns `passed`, `pending`, `none`, `base-red`, `unstarted` or
-        `failed`, and the sentence that says it.
+        Returns `passed`, `pending`, `none`, `base-red`, `billing`, `unstarted`
+        or `failed`, and the sentence that says it.
         """
         accounts = self.config.github
         said = self.voice
@@ -517,6 +538,8 @@ class Delivery(Base):
             # Not red: never run. A second run is refused the same way, and the
             # base has nothing to say about an account.
             self.say(f"    · checks never started — {unstarted}")
+            if ci.billing(unstarted):
+                return "billing", self._billing_held(ticket, url, unstarted)
             return "unstarted", said.say("checks-unstarted", reason=unstarted)
         if git.rerun_failed_checks(url, accounts):
             self.say(f"    · checks red ({', '.join(failing) or '?'}) — run again once")
@@ -721,6 +744,69 @@ class Delivery(Base):
         self._comment(ticket, self.voice.say("base-green-again", base=base))
         return False
 
+    def _billing_held(self, ticket: Ticket, url: str, reason: str) -> str:
+        """A merge stopped by the account's GitHub billing: it waits, and the account is said once.
+
+        The refusal is the account's, not the pull request's: every repository
+        of it is refused the same way, and nothing a session or a person
+        answering on the ticket does changes it. So the ticket is not blocked —
+        it waits in validated, its card says why (`ci.billing`), and
+        `_waits_for_billing` looks again. The account is said out loud by the
+        first ticket that finds it held, on the phone and in the health of the
+        installation, and by none of the ones after. Returns what the ticket says.
+        """
+        account = git.owner(url)
+        parts = git.reference_parts(url)
+        name = parts[1] if len(parts) > 2 and "." in parts[0] else account
+        state.wait_for_billing(ticket.id, account)
+        self._hold_billing(account, name, reason)
+        self._set(ticket, **self._blocked_by("ci.billing"))
+        return self.voice.say("checks-billing", account=name)
+
+    def _hold_billing(self, account: str, name: str, reason: str) -> None:
+        """Hold the account, and say it — only when it was not held already."""
+        if not state.hold_billing(account, name, reason):
+            return
+        said = self.voice
+        self.say(f"  ⏸ GitHub Actions is blocked by the billing of {name} — its merges wait")
+        self._announce(said.say("billing-held", account=name), said.say("billing-held-detail"))
+
+    def _waits_for_billing(self, ticket: Ticket, url: str) -> bool:
+        """Is this validated ticket still waiting on its account's GitHub billing?
+
+        Asked at the top of `_merge`. GitHub does not start a refused job again
+        by itself once the bill is paid, so the runner asks it to — once every
+        `BILLING_PROBE_SECONDS` for the whole account, on the pull request whose
+        turn it is. Refused again, the ticket waits on; started, the hold is
+        lifted, the card says so, and the merge goes on as any other — on CI
+        still running, that is the next pass.
+        """
+        account = state.waiting_for_billing(ticket.id)
+        if not account:
+            return False
+        accounts = self.config.github
+        hold = state.billing_hold(account)
+        now = time.time()
+        if hold and now - float(hold["probed"]) < BILLING_PROBE_SECONDS:
+            self.say(f"  · {ticket.title} — GitHub Actions still blocked on {hold['name']}, waits")
+            return True
+        if hold:
+            state.billing_probed(account, now)
+        name = str(hold["name"]) if hold else account
+        git.rerun_failed_checks(url, accounts)
+        reason = git.unstarted_checks(url, accounts)
+        if reason and ci.billing(reason):
+            self.say(f"  · {ticket.title} — GitHub Actions still refuses its jobs, waits")
+            self._hold_billing(account, name, reason)
+            return True
+        state.lift_billing(account)
+        state.forget_billing_wait(ticket.id)
+        block = self.config.notion.prop("block")
+        if store.read(ticket.page, block):
+            self._set(ticket, **{block: ""})
+        self._comment(ticket, self.voice.say("billing-settled", account=name))
+        return False
+
     def _refused(
         self, ticket: Ticket, url: str, refusal: object, *notes: str
     ) -> dict[str, Any] | None:
@@ -741,6 +827,11 @@ class Delivery(Base):
             self._set(ticket, **cleared)
         if isinstance(refusal, git.ChecksNotGreen):
             names = _named(refusal.names)
+            unstarted = git.unstarted_checks(url, self.config.github)
+            if unstarted and ci.billing(unstarted):
+                # Not about the work either: the account's, said once for all of it.
+                self._comment(ticket, self._billing_held(ticket, url, unstarted))
+                return None
             return self._fail(
                 ticket,
                 said.say("merge-checks-red"),
@@ -1069,6 +1160,15 @@ class Delivery(Base):
             checks, checked, repair = self._mend(job, url, checked)
             if repair and self._out_of_credit(repair):
                 return self._requeue(ticket, validated, repair)
+        if checks == "billing":
+            # Resolved and pushed, and nothing ran: back to validated, to wait
+            # there with the account's other merges.
+            self._set(
+                ticket,
+                **{self.config.notion.prop("status"): validated, **self._blocked_by("ci.billing")},
+            )
+            self._comment(ticket, said.report(record, checked))
+            return {"ticket": ticket.title, "id": ticket.id, "status": "validated"}
         if checks in ("failed", "unstarted"):
             state.forget_rebases(ticket.id)
             return self._fail(
