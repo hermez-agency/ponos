@@ -1269,23 +1269,28 @@ class Delivery(Base):
                 ),
             )
         except (OSError, FileNotFoundError) as error:
-            state.release(ticket.id)
-            return self._fail(
+            failed = self._fail(
                 ticket, self.voice.say("no-session"), str(error), code="session.not-started"
             )
-        # Every road from here writes a status that is not "in progress", so the
-        # note about where it came from has done its work.
-        state.release(ticket.id)
+            state.release(ticket.id)
+            return failed
+        # Every road from here writes a status that is not "in progress", and
+        # the note about where it came from is let go once that write is in —
+        # not before: a write Notion never received leaves the ticket in
+        # progress, and without the note `sweep` would put a post that is
+        # already out back to ready, to be published a second time.
         said = self.voice
         if self._out_of_credit(outcome):
             # Back to validated, not to ready: the decision to publish it has
             # already been taken, and the wait does not take it back.
-            return self._requeue(ticket, self.config.notion.state("validated"), outcome)
+            requeued = self._requeue(ticket, self.config.notion.state("validated"), outcome)
+            state.release(ticket.id)
+            return requeued
 
         if not outcome.ok:
             # Kept, always: a publication that half happened is exactly the log
             # somebody is going to want to read before trying again.
-            return self._fail(
+            failed = self._fail(
                 ticket,
                 said.say("not-published"),
                 outcome.summary or outcome.error,
@@ -1298,6 +1303,8 @@ class Delivery(Base):
                 ),
                 outcome=outcome,
             )
+            state.release(ticket.id)
+            return failed
 
         shutil.rmtree(job.workdir, ignore_errors=True)
         self._set(
@@ -1311,6 +1318,7 @@ class Delivery(Base):
                 **self._measures(outcome),
             },
         )
+        state.release(ticket.id)
         facts = said.spent(outcome.seconds, outcome.cost_usd)
         brief = said.brief(outcome.summary)
         self._comment(ticket, said.report(said.verdict("published", *facts), brief, forced))

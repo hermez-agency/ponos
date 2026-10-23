@@ -964,6 +964,49 @@ def publishing_hands_the_page_as_it_stands_to_a_session_and_then_closes_it():
     assert "publié sur le compte Instagram" in runner.client.comments_written[0]
 
 
+@case
+def a_publication_whose_closing_write_found_notion_down_is_not_put_back_to_ready(state_home):
+    """The post is out; only "done" could not be written. Ready would post it twice."""
+    page = _reviewed("ppost", "Validated", None)
+    runner = _board_runner([page], {})
+    runner.config.runner.progress = False
+    runner.config.runner.attach_sessions = False
+    runner.resolver = None
+    written = runner.client.update
+
+    def update(database_id, page_id, values):
+        if values.get("Status") == "Done":
+            raise notion.Offline("PATCH /pages: connection refused")
+        written(database_id, page_id, values)
+
+    runner.client.update = update
+    original = session.run
+    session.run = lambda prompt_text, **kwargs: session.Outcome(
+        ok=True,
+        blocked=False,
+        session_id=kwargs.get("session_id", "s-1"),
+        summary="publié",
+        log=Path("/tmp/none.jsonl"),
+        seconds=9.0,
+        turns=1,
+    )
+    try:
+        runner.deliver()
+    finally:
+        session.run = original
+    assert state.claims() == {"ppost": "Validated"}, "the note outlives the unwritten close"
+
+    # The next run: the ticket is where the claim left it, in progress.
+    page.properties["Status"] = {"type": "status", "status": {"name": "In progress"}}
+    page.raw = {"last_edited_time": "2020-01-01T00:00:00.000+00:00"}
+    runner._claimed = set()
+    runner.client.written.clear()
+    assert runner.sweep() == 1
+    assert runner.client.written == [
+        ("ppost", {"Status": "Blocked", "Blocage": "worktree.interrupted"})
+    ]
+
+
 # -- a red job is never merged -----------------------------------------------
 
 

@@ -665,7 +665,9 @@ class Reports(Base):
             # network: it is marked nothing. Left where it is, it is put back to
             # ready by the sweep of the first pass that can reach the board, and
             # its branch — commits and all — is picked up by the attempt after.
-            state.release(ticket.id)
+            # Its claim is kept, though: a ticket taken from the validated
+            # column has to be found as one, and asked about rather than
+            # requeued — its post may already be out (see `state.claim`).
             self.say(
                 f"    ⏸ {ticket.title} — unreachable ({voice_module.line(error)}); "
                 "not marked failed, the next pass carries on"
