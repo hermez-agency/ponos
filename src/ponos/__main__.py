@@ -31,6 +31,7 @@ from . import (
     health,
     journal,
     kinds,
+    leftovers,
     legacy,
     log,
     models,
@@ -1068,6 +1069,9 @@ def command_doctor(args: argparse.Namespace) -> int:
     title("Memory")
     _doctor_memory(configuration)
 
+    title("Left running")
+    _doctor_stray_work()
+
     title("Installation health")
     problems += _doctor_health(configuration)
 
@@ -1340,6 +1344,15 @@ def _doctor_repositories(configuration: config_module.Config) -> int:
         )
         problems += 1
     return problems
+
+
+def _doctor_stray_work() -> None:
+    projects, held = _stray_work()
+    if not projects and not held:
+        ok("no container or process left running from a worktree")
+        return
+    _report_stray_work(projects, held)
+    print(f"  {DIM}ponos clean --force stops them, once no run is in progress{RESET}")
 
 
 def _doctor_disk(configuration: config_module.Config) -> None:
@@ -2177,8 +2190,44 @@ def _clear_residues(directories: list[Path]) -> list[Path]:
     return kept
 
 
+def _stray_work() -> tuple[list[leftovers.Project], list[tuple[int, str]]]:
+    """The containers and processes still running from a worktree."""
+    root = leftovers.worktrees()
+    return leftovers.compose_projects(root), leftovers.processes(root)
+
+
+def _report_stray_work(projects: list[leftovers.Project], held: list[tuple[int, str]]) -> None:
+    for project in projects:
+        warn(f"compose project {project.name} still has containers — {project.directory}")
+    for pid, command in held:
+        warn(f"process {pid} still runs in a worktree — {command[:100]}")
+
+
+def _stop_stray_work() -> int:
+    """Stop what a session left running, once the run lock says no session is in progress."""
+    projects, held = _stray_work()
+    if not projects and not held:
+        return 0
+    title(f"{len(projects)} compose project(s), {len(held)} process(es) left running")
+    _report_stray_work(projects, held)
+    try:
+        with state.lock():
+            for project in projects:
+                if leftovers.stop_project(project):
+                    ok(f"compose project {project.name} brought down")
+                else:
+                    bad(f"compose project {project.name} could not be brought down")
+            leftovers.kill([pid for pid, _ in held])
+    except state.Busy:
+        bad("a run is in progress, and these may be the ones it works with")
+        return 1
+    return 0
+
+
 def command_clean(args: argparse.Namespace) -> int:
     """Remove what failures left behind: worktrees, branches and scratch dirs."""
+    if args.force and _stop_stray_work():
+        return 1
     state_root = config_module.state_dir()
     directories = [
         directory
@@ -2195,6 +2244,8 @@ def command_clean(args: argparse.Namespace) -> int:
     except state.Busy:
         pass  # the sweep below says so, when it is asked to remove anything
     if not directories:
+        if not args.force:
+            _report_stray_work(*_stray_work())
         print("Nothing left behind.")
         return 0
     title(f"{len(directories)} directory(ies) kept")
@@ -2203,6 +2254,7 @@ def command_clean(args: argparse.Namespace) -> int:
         branch = git.git(["rev-parse", "--abbrev-ref", "HEAD"], directory).out if repo else ""
         print(f"  {directory}  {DIM}{branch or 'no repository'}{RESET}")
     if not args.force:
+        _report_stray_work(*_stray_work())
         print(f"\n{DIM}ponos clean --force to remove them{RESET}")
         return 0
     # Under the run lock, or not at all: a worktree kept by a failure and the

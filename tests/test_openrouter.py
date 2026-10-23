@@ -65,6 +65,7 @@ def what_the_runner_adds_wins_over_the_shell_it_was_started_from():
         stdin = io.StringIO()
         stdout: list[str] = []
         returncode = 0
+        pid = 2**22 + 1  # past pid_max: no group to reap, and none of ours to hit
 
         def wait(self) -> None:
             pass
