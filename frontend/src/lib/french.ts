@@ -2428,6 +2428,7 @@ export const FRENCH: Record<string, string> = {
   "Cannot use tools, which Claude Code needs to work":
     "Ne gère pas les outils, dont Claude Code a besoin pour travailler",
   "Dollars per million tokens, read / written": "Dollars par million de tokens, lus / écrits",
+  "{{price}} per million tokens": "{{price}} par million de tokens",
   "This model cannot use tools, which Claude Code needs to work: the ticket will probably fail.":
     "Ce modèle ne gère pas les outils, dont Claude Code a besoin pour travailler : le ticket échouera probablement.",
   "Only the Claude models, until OpenRouter is configured.":
