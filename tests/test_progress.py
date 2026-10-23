@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import io
+import json
+import threading
+import time
 import uuid
 
 from support import _Clock, _run_on, case
 
-from ponos import markdown, notion, progress, voice
+from ponos import markdown, notion, progress, session, voice
 
 # -- the live report ---------------------------------------------------------
 
@@ -212,6 +216,62 @@ def the_steps_are_written_on_the_cadence_and_not_before():
     live.add(progress.Step("Bash", "pytest"))
     assert client.titles[-1].startswith("⏳ Live — 6 steps"), "one write, counting all that waited"
     assert client.properties[-1] == "Bash · pytest", "the board column shows the last step"
+
+
+class _Stuck(_Live):
+    """A Notion that holds every write until it is let go — a 429, waited out."""
+
+    def __init__(self):
+        super().__init__()
+        self.free = threading.Event()
+        self.held = threading.Event()
+
+    def append_blocks(self, block_id, blocks):
+        self.held.set()
+        assert self.free.wait(10), "never let go"
+        return super().append_blocks(block_id, blocks)
+
+
+class _Session:
+    """What `session._read` reads: a process, reduced to its output."""
+
+    def __init__(self, lines):
+        self.stdout = iter(lines)
+
+
+@case
+def a_notion_that_takes_minutes_does_not_hold_up_reading_the_session():
+    """The report used to be written from the loop that reads the CLI's output.
+
+    A write waiting out a 429 stopped that loop, the pipe filled, and the CLI
+    stopped on its next write while its timeout kept running. The writing has
+    its own thread now: the stream is read through as if nobody listened, and
+    what waited goes down in one write when Notion answers.
+    """
+    clock, client = _Clock(), _Stuck()
+    live = progress.Live(client, "page", interval=10.0, clock=clock, background=True)
+    said = [
+        json.dumps(_assistant({"type": "text", "text": f"Étape {index}."})) + "\n"
+        for index in range(200)
+    ]
+
+    def ticking():
+        for line in said:
+            clock.now += 1  # a write comes due every ten lines
+            yield line
+
+    started = time.monotonic()
+    final, texts = session._read(_Session(ticking()), io.StringIO(), live.event)
+    elapsed = time.monotonic() - started
+
+    assert client.held.wait(5), "the writer had started its first write"
+    assert len(texts) == 200 and client.blocks == [], "read to the end, Notion still stuck"
+    assert elapsed < 2, f"reading took {elapsed:.1f}s behind a stuck Notion"
+
+    client.free.set()
+    live.close("done")
+    assert client.titles[-1].startswith("✓ 200 steps"), "every step counted"
+    assert client.blocks == [f"Étape {index}." for index in range(200)], "none lost, in order"
 
 
 @case
