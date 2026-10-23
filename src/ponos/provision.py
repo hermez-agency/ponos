@@ -43,6 +43,8 @@ _STATUS_COLOURS = {
     "done": "green",
     "failed": "red",
     "blocked": "orange",
+    # Brown, between the runner's yellow and the grey of a ticket given up on.
+    "paused": "brown",
     # Grey, and not done's green: given up on is not finished.
     "cancelled": "gray",
 }
@@ -157,6 +159,7 @@ def status_options(settings: Notion) -> list[dict]:
         "done",
         "failed",
         "blocked",
+        "paused",
         "cancelled",
     ):
         name = settings.state(key).strip()

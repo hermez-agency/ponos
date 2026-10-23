@@ -1976,6 +1976,7 @@ ticket.
 | `done` | **Done** | that pull request has been merged — or the ticket produced a document, which has nothing to wait for. |
 | `failed` | **Failed** | something broke: the session, the push, the worktree. |
 | `blocked` | **Blocked** | the agent would not guess and asked a question instead — or its project could not be located. Answer in a comment and the ticket runs again. |
+| `paused` | **Paused** | you stopped it on purpose, from the console, while it was in progress: its session is ended and its worktree and branch kept. The runner **never takes it back by itself** — not from a comment either; only moving it to *Ready* (**Resume**) runs it again, and the new session opens on the work already there, as for any ticket that has run before. *Optional*, like *Cancelled*: `ponos doctor` says so, and `ponos init` adds it to a select. |
 | `cancelled` | **Cancelled** | you gave up on it. **Terminal**, like *Done*, and not *Done*: the runner never runs it — not from *Ready*, not woken by a comment, not even named with `ponos run --ticket` — and the statistics count it neither closed nor open, though what its sessions spent stays in the spending. *Optional*: a board without the option simply has no such gesture; `ponos doctor` says so, and `ponos init` adds it to a select (on a Notion *status* property, add the option by hand). |
 
 <a id="why-a-ticket-stopped"></a>**Why a ticket stopped** is a code, not only a sentence. Every
@@ -2029,6 +2030,17 @@ through; a card offers **cancel the ticket** behind its "…", a cancelled one o
 **reopen**, which sends it back to the drafts — not to *Ready*, since a ready ticket starts
 a session that is paid for. *Abandon* on a blocked ticket and *Reject* on one in review
 file it there too, on a board that has the column.
+
+*Paused* and *Abandon* are the two gestures of a ticket in progress, on its card and on its
+page. Both go through the same move as any other: the console first asks the run that holds
+the session to end it (a file under the state directory, `stops/` — the session is a child of
+another process, and a signal from outside would be read as a kill and retried), waits for it
+to say the session is gone, and only then touches the worktree. **Pause** commits what the
+worktree holds, as a save, and keeps it; **Abandon** asks first, removes the worktree and
+files the ticket under *Cancelled*. A session already dead, or stuck, is not waited for, and
+the same move works — a ticket moved to *Paused* or *Cancelled* from anywhere else, a dragged
+card included, is stopped the same way. One short line is left on the ticket (« Mis en pause »,
+« Abandonné »), nothing of the machinery.
 
 *Validated* is the fourth, and the odd one: every other column **reports**, this one
 **asks**. It is the answer to the question *In review* puts — is this what you wanted? —

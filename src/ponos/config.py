@@ -959,6 +959,10 @@ _TYPE_ALIASES = {
 # has not moved, so nothing on the board should say it did. It stays where it
 # was and is ticked — see `waiting` in `_DEFAULT_PROPERTIES`.
 #
+# "Paused" is a ticket you stopped on purpose, with its worktree and its branch
+# kept: the runner never takes it back by itself, and only moving it to ready
+# runs it again — from the work already there, as any ticket that has run before.
+#
 # "Cancelled" is the other end of a ticket, beside Done: given up on, not
 # finished. Terminal like it — the runner never runs it, never takes it back —
 # and apart from it, because a board that files the tickets nobody wanted any
@@ -971,6 +975,7 @@ _DEFAULT_STATUS = {
     "done": "Done",
     "failed": "Failed",
     "blocked": "Blocked",
+    "paused": "Paused",
     "cancelled": "Cancelled",
 }
 

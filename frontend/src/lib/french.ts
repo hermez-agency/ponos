@@ -441,6 +441,7 @@ export const FRENCH: Record<string, string> = {
   "Ticket created": "Ticket créé",
   "could not move “{{title}}”": "impossible de déplacer « {{title}} »",
   "“{{title}}” moved to {{column}}": "« {{title}} » déplacé dans {{column}}",
+  Resume: "Reprendre",
   "Set aside": "Mettre de côté",
   "The runner no longer touches it, until it is made ready again.":
     "Le runner n'y touche plus, jusqu'à ce qu'il soit remis prêt.",

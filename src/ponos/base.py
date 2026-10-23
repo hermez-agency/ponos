@@ -27,7 +27,18 @@ import threading
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Protocol
 
-from . import channels, conversation, journal, legacy, notify, provider, session, state, store
+from . import (
+    channels,
+    conversation,
+    journal,
+    legacy,
+    notify,
+    provider,
+    session,
+    state,
+    stopping,
+    store,
+)
 from . import voice as voice_module
 from . import workspace as workspace_module
 from .config import Config
@@ -300,7 +311,13 @@ class Base(Chapters):
         ticket never got as far as its line, Notion down or the run crashed
         under it — used never to reach it, paid all the same. See `state.spend`.
         """
-        outcome = session.run(prompt, **options)
+        # Every session of a ticket can be ended from the console — see stopping.py.
+        over = threading.Event()
+        options.setdefault("stop", stopping.watch(ticket, over))
+        try:
+            outcome = session.run(prompt, **options)
+        finally:
+            over.set()
         state.spend(outcome.cost_usd, ticket)
         return outcome
 

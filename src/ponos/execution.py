@@ -50,6 +50,7 @@ from . import (
     resources,
     session,
     state,
+    stopping,
     store,
     subtypes,
     vault,
@@ -553,6 +554,9 @@ class Execution(Base):
                 ticket, self.voice.say("no-session"), str(error), code="session.not-started"
             )
 
+        if stopped := self._halted(job, outcome):
+            return stopped
+
         said = self.voice
 
         if self._out_of_credit(outcome):
@@ -595,6 +599,22 @@ class Execution(Base):
                 pull_request = self._open_pull_request(job, outcome, commits)
 
         return self._code_delivered(job, outcome, commits, pull_request)
+
+    def _halted(self, job: Job, outcome: session.Outcome) -> dict[str, Any] | None:
+        """A session the console asked to end: the ticket is theirs from here on.
+
+        Neither a failure nor an answer, so nothing is written on the board —
+        the console moves the ticket, and keeps or removes its worktree once the
+        acknowledgement below says the session is gone. See stopping.py.
+        """
+        ticket = job.ticket
+        action = stopping.requested(ticket.id)
+        if not (outcome.stopped and action):
+            return None
+        self.say(f"    ■ {ticket.title} — ended on request ({action})")
+        state.release(ticket.id)
+        stopping.acknowledge(ticket.id)
+        return {"ticket": ticket.title, "id": ticket.id, "status": "stopped", "reason": action}
 
     def _note_worktree(self, job: Job, worktree: git.Worktree) -> None:
         """What the session is about to meet in its worktree, said before it starts."""
@@ -882,6 +902,9 @@ class Execution(Base):
             return self._fail(
                 ticket, self.voice.say("no-session"), str(error), code="session.not-started"
             )
+
+        if stopped := self._halted(job, outcome):
+            return stopped
 
         said = self.voice
         if self._out_of_credit(outcome):

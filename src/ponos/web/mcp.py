@@ -162,7 +162,7 @@ TOOLS: list[dict] = [
         "le runner le prendra à sa prochaine passe), running (session en cours), "
         "blocked (« vous attend » : une session pose une question), review (travail "
         "livré, attend une relecture), validated (relu, en cours de fusion ou de publication), "
-        "failed (échec), done "
+        "paused (en pause : arrêtée par vous, jamais reprise seule), failed (échec), done "
         "(terminé), cancelled (abandonné, jamais repris). Pour « ce qui m'attend » ou « les tâches bloquées », passer "
         "waiting_for_you=true. Ne renvoie pas le détail d'une tâche : utiliser get_task.",
         "inputSchema": _schema(

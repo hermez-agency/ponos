@@ -295,6 +295,12 @@ last_ticket = "Last ticket"
 #   blocked  the agent could not settle the ticket and asked a question instead
 #            of guessing — or the project could not be located. Its own column:
 #            "waiting for you" and "something is wrong" are different days
+#   paused   a ticket you stopped on purpose, from the console: its session is
+#            ended, its worktree and its branch are kept. The runner never takes
+#            it back by itself, answers under it never wake it — move it to
+#            ready and the next session carries on from the work already there.
+#            Optional: a board that does not offer the option has no such
+#            gesture (`doctor` says so, `init` adds it to a select)
 #   cancelled  a ticket you gave up on. Terminal, like done, and not done: the
 #            runner never runs it, never takes it back, never answers it into
 #            work again, and the statistics count it neither closed nor open —
@@ -316,6 +322,7 @@ validated = "Validated"
 done = "Done"
 failed = "Failed"
 blocked = "Blocked"
+paused = "Paused"
 cancelled = "Cancelled"
 # draft = "Draft"
 

@@ -179,8 +179,10 @@ class Board(Base):
         the work, not a request to do it again. Cancelled is given up on, and a
         word under it is not the runner's to take as an order — only on a board
         that offers it, since a filter on an option Notion does not know is
-        refused. What is left is where a run leaves a ticket it could not
-        finish — which is precisely where an answer is expected.
+        refused. The same for paused, which you stopped on purpose: a word under
+        it is not the order to carry on. What is left is where a run leaves a
+        ticket it could not finish — which is precisely where an answer is
+        expected.
         """
         status_property = self.config.notion.prop("status")
         kind = self.client.schema(self.database).get(status_property, "status")
@@ -190,6 +192,8 @@ class Board(Base):
         }
         if self.cancelled_column():
             settled.add(self.config.notion.state("cancelled"))
+        if self.paused_column():
+            settled.add(self.config.notion.state("paused"))
         return {
             "and": [
                 {"property": status_property, kind: {"does_not_equal": value}}
@@ -470,10 +474,26 @@ class Board(Base):
         """
         settings = self.config.notion
         cancelled = settings.state("cancelled")
-        others = ("ready", "running", "review", "validated", "done", "failed", "blocked")
+        others = ("ready", "running", "review", "validated", "done", "failed", "blocked", "paused")
         if not cancelled or cancelled in (settings.state(key) for key in others):
             return False
         return cancelled in self.client.options(self.database, settings.prop("status"))
+
+    def paused_column(self) -> bool:
+        """Does this board offer a paused option of its own?
+
+        Optional like cancelled, and for the same reasons: a board without it
+        cannot be told to leave a ticket alone, and a `paused` that is a status
+        the runner moves tickets through would be a ticket stopped and run
+        anyway. Asked before every filter on it — Notion refuses an option it
+        does not know.
+        """
+        settings = self.config.notion
+        paused = settings.state("paused")
+        others = ("ready", "running", "review", "validated", "done", "failed", "blocked")
+        if not paused or paused in (settings.state(key) for key in others):
+            return False
+        return paused in self.client.options(self.database, settings.prop("status"))
 
     def requested(self, reference: str) -> list[Ticket]:
         """The one ticket `run --ticket` names, whatever its status — but cancelled.
