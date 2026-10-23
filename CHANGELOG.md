@@ -16,6 +16,10 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ## [Unreleased]
 
+### Fixed
+
+- Une récurrence se supprime depuis la console : une corbeille sur chaque ligne de la liste, sur chaque carte, dans la fenêtre de la récurrence et dans la fiche du calendrier, après confirmation, et une sélection multiple pour en retirer plusieurs d'un coup. La page part dans la corbeille du board (Notion ou dossier `trash/`), plus aucun ticket n'en naît, et ceux déjà créés restent en place.
+
 ## [0.2.0] - 2026-10-22
 
 ### Added
