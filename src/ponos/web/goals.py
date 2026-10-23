@@ -95,6 +95,8 @@ class Goals(Base):
                 continue
             bare = page.id.replace("-", "")
             linked = _relation(page, *GOAL_COLUMNS["projects"])
+            # A score whatever the column holds: a select still says "High".
+            ranked = _first(page, *GOAL_COLUMNS["priority"])
             rows.append(
                 {
                     "id": bare,
@@ -104,7 +106,7 @@ class Goals(Base):
                     "criterion": _first(page, *GOAL_COLUMNS["criterion"]),
                     "due": _first(page, *GOAL_COLUMNS["due"]),
                     "status": _first(page, *GOAL_COLUMNS["status"]),
-                    "priority": _first(page, *GOAL_COLUMNS["priority"]),
+                    "priority": priority_module.score(ranked) if ranked else None,
                     "projects": [projects[one]["name"] for one in linked if one in projects],
                     "project_ids": [one.replace("-", "") for one in linked if one in projects],
                     "tickets": counts.get(bare, {}),
@@ -141,7 +143,9 @@ class Goals(Base):
         for key in ("description", "criterion", "due", "status"):
             if key in values:
                 written[self._goal_column(database, *columns[key])] = str(values[key] or "")
-        if "priority" in values:
+        # The form sends every field back: an empty priority is one nobody
+        # gave, not the 50 `given` would make of it.
+        if str(values.get("priority") or "").strip():
             name = self._goal_column(database, *columns["priority"])
             kind = self.runner.client.schema(database).get(name)
             written[name] = priority_module.cell(priority_module.given(values["priority"]), kind)

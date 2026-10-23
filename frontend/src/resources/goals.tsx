@@ -53,7 +53,7 @@ export interface GoalWrite {
   criterion?: string
   due?: string
   status?: string
-  /** A score from 0 to 100, as typed: empty is 50. */
+  /** A score from 0 to 100, as typed: empty leaves the column as it is. */
   priority?: string | number | null
   projects?: string[]
   tickets?: string[]

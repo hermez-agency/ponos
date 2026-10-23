@@ -138,7 +138,7 @@ function GoalWhole({ goal }: { goal: Goal }) {
   const t = useT()
   const facts = [
     { label: t("Done when"), value: goal.criterion },
-    { label: t("Priority"), value: goal.priority },
+    { label: t("Priority"), value: goal.priority === null ? "" : String(goal.priority) },
     { label: t("Projects"), value: goal.projects.join(", ") },
   ].filter((fact) => fact.value)
   return (

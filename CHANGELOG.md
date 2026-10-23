@@ -31,6 +31,7 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Fixed
 
+- Modifier un objectif sans priorité n'y écrit plus 50 : une priorité laissée vide dans le formulaire ne touche plus la colonne. Et un objectif dont la colonne « Priorité » est encore un select (« High ») s'enregistre de nouveau : la console lit sa priorité en score de 0 à 100 (« High » vaut 75) au lieu de refuser le mot.
 - En `storage.mode = "both"`, « Configurer » sur la vérification des colonnes du tableau de bord ajoute enfin les propriétés manquantes côté Notion, au lieu d'échouer : la correction cherchait `add_properties` sur le miroir, qui n'en a pas. Trouvé en passant `health.py` en mypy strict.
 - Le sélecteur de modèle de la conversation se lit enfin : le nom du modèle OpenRouter ou Claude s'affiche en entier sur sa propre ligne, l'identifiant technique (complet au survol) et le prix (« $0.29 / $1 par million de tokens ») passent dessous en petit et en gris, et le menu, plus large, ne dépasse plus de l'écran.
 - Une récurrence se rattache enfin à un projet depuis la console : son formulaire, à la création comme à l'édition, n'avait pas de champ Projet, si bien que chacun de ses tickets naissait sans projet et revenait en document — une récurrence de code ne s'écrivait que dans Notion. Le projet se choisit comme pour un nouveau ticket, parmi ceux qui ont une page, et une récurrence créée depuis la liste filtrée sur un projet est d'emblée celle de ce projet.
