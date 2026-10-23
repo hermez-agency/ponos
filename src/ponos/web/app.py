@@ -756,9 +756,10 @@ def healthz() -> Response:
 
 @doors.get("/", include_in_schema=False)
 def index(request: Request) -> Response:
-    # The bare address of a console with no board yet leads to its first
-    # steps, rather than to an empty board.
-    if not request.url.query and not _usable(_console(request)):
+    # The bare address of a console with no board yet — or of a fresh container
+    # whose steps nobody has gone through — leads to its first steps, rather
+    # than to an empty board.
+    if not request.url.query and (not _usable(_console(request)) or setup.pending()):
         return _send(303, b"", "text/plain", {"Location": "/setup"})
     return _static(_asking(request), "index.html")
 
