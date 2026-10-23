@@ -57,3 +57,13 @@ test("its window says it too, reloaded", async ({ page }) => {
   await page.reload()
   await expect(talking).toContainText("Ponos is working…")
 })
+
+/* A card in progress between two sessions says which phase it is in, and for
+ * how long — not « starting… » for as long as its CI runs. */
+
+test("a card waiting for its CI says so, and since when", async ({ page }) => {
+  await open(page)
+  const live = page.locator('[data-ticket-card="0000000000000000000000000000c1a1"] [data-slot="card-live"]')
+  await expect(live.locator('[data-slot="card-phase"]')).toHaveText(/waiting for the CI of PR #417 · for /)
+  await expect(live).not.toContainText("starting…")
+})

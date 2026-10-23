@@ -154,6 +154,47 @@ def claims() -> dict[str, str]:
     return {str(ticket): str(status) for ticket, status in rows}
 
 
+def enter(ticket_id: str, phase: str, detail: str = "") -> None:
+    """Write down what a ticket in progress is going through now, and since when.
+
+    A ticket in progress is not always in a session: it is replayed onto its
+    base, its CI is run here or waited for on GitHub, a session is sent after a
+    red check. None of that writes a log, so the console, which reads the logs
+    for what is happening, had nothing to say for an hour but « starting… ».
+    One row a ticket, replaced at every phase — the console reads it beside the
+    board, as it reads `ci`.
+    """
+    try:
+        with db.transaction() as connection:
+            connection.execute(
+                "INSERT OR REPLACE INTO phases (ticket, phase, detail, since) VALUES (?, ?, ?, ?)",
+                (ticket_id, phase, detail, datetime.now(UTC).isoformat(timespec="seconds")),
+            )
+    except db.ERRORS:
+        pass
+
+
+def leave(ticket_id: str) -> None:
+    """The ticket has left "in progress": no phase of it is current any more."""
+    try:
+        with db.transaction() as connection:
+            connection.execute("DELETE FROM phases WHERE ticket = ?", (ticket_id,))
+    except db.ERRORS:
+        pass
+
+
+def phases() -> dict[str, tuple[str, str, str]]:
+    """What `enter` last wrote, by ticket: the phase, its detail, and since when."""
+    try:
+        with db.transaction(immediate=False) as connection:
+            rows = connection.execute("SELECT ticket, phase, detail, since FROM phases").fetchall()
+    except db.ERRORS:
+        return {}
+    return {
+        str(ticket): (str(phase), str(detail), str(since)) for ticket, phase, detail, since in rows
+    }
+
+
 def hold(reasons: dict[str, tuple[str, str]]) -> None:
     """Write down why each of these ready tickets was left in its column.
 

@@ -127,6 +127,7 @@ class Tickets(Base):
         ]
         _causes(tickets)
         _checks(tickets)
+        _phases(tickets)
         _times(tickets)
         self._synced = board_module.describe(self.reader, tickets)
         self._hold(tickets)
@@ -374,6 +375,7 @@ class Tickets(Base):
         )
         _causes([card])
         _checks([card])
+        _phases([card])
         _times([card])
         # A board without the duration column still ran the session: its log
         # says how long. Only here, where one ticket is read — on the board it
@@ -774,6 +776,18 @@ def _checks(tickets: list[dict[str, Any]]) -> None:
     for ticket in tickets:
         row = rows.get(str(ticket.get("id", ""))) if ticket.get("column") == "review" else None
         ticket["ci"] = ci.read(row, str(ticket.get("pull_request") or ""))
+
+
+def _phases(tickets: list[dict[str, Any]]) -> None:
+    """What every card in progress is going through, from `ponos.db` in one read.
+
+    Only there: the row of a ticket that has left is the last thing it went
+    through, not what it is going through.
+    """
+    rows = state.phases()
+    for ticket in tickets:
+        row = rows.get(str(ticket.get("id", ""))) if ticket.get("column") == "running" else None
+        ticket["phase"] = {"key": row[0], "detail": row[1], "since": row[2]} if row else None
 
 
 def _status(settings: Notion, key: str) -> str:

@@ -116,6 +116,12 @@ class Reports(Base):
             self.client.update(self.database, ticket.page.id, {status: values[status]})
         if status in values:
             self._remember(ticket, str(values[status]))
+            # Taken: it starts. Moved anywhere else: whatever it was going
+            # through is over — see `state.enter`.
+            if values[status] == self.config.notion.state("running"):
+                state.enter(ticket.id, "starting")
+            else:
+                state.leave(ticket.id)
 
     def _blocked_by(self, code: str) -> dict[str, object]:
         """The board's « Blocage » column, saying which cause a ticket stopped on."""

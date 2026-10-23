@@ -156,13 +156,22 @@ class Execution(Base):
             return {"ticket": job.ticket.title, "id": job.ticket.id, "status": "dry-run"}
         return self._execute_code(job) if job.project.is_code else self._execute_document(job)
 
-    def _run_session(self, job: Job, template: str, subtype: bool = False) -> session.Outcome:
+    def _run_session(
+        self,
+        job: Job,
+        template: str,
+        subtype: bool = False,
+        phase: str = "session",
+        detail: str = "",
+    ) -> session.Outcome:
         """The session of a job, on that template.
 
         `subtype` is for the template a code ticket is worked on, and no other:
         a conflict resolved or a CI repaired is not where a CHANGELOG entry or
-        a test reproducing a bug are asked for.
+        a test reproducing a bug are asked for. `phase` is what the console
+        says the ticket is going through meanwhile — see `state.enter`.
         """
+        state.enter(job.ticket.id, phase, detail)
         section = subtypes.section(job.subtype) if subtype else ""
         job.secrets = self._secrets(job)
         text = prompt_module.build(
@@ -682,6 +691,7 @@ class Execution(Base):
         """One run of the CI, in one of the machine's places, and its containers gone after."""
         ci_name = local_ci.name(job.ticket.id)
         places = self.config.runner.local_ci_concurrent
+        state.enter(job.ticket.id, "local-ci", chosen.shown)
         with local_ci.place(
             places, lambda: self.say(f"    · local CI waiting for a place ({places} at a time)")
         ):
@@ -719,6 +729,7 @@ class Execution(Base):
     ) -> session.Outcome:
         """The same session, picked up to fix what the CI said — what both halves cost, added up."""
         self.say(f"    ↻ local CI red — asking session {outcome.session_id} to fix it")
+        state.enter(job.ticket.id, "repair", chosen.shown)
         # Filed under the project once it ended: brought back beside its
         # worktree for as long as it is carried on, and filed again after.
         session.relocate(outcome.session_id, job.workdir)
@@ -870,6 +881,7 @@ class Execution(Base):
         start = (
             f"origin/{job.base}" if git.has_ref(project.path, f"origin/{job.base}") else job.base
         )
+        state.enter(job.ticket.id, "rebase", job.base)
         was = git.head(job.workdir)
         if failure := git.rebase(job.workdir, start, generated.settle):
             self.say(f"    ! not replayed onto {start}: {failure}")

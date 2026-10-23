@@ -981,7 +981,9 @@ def _reading_checks(
         rerun_failed_checks=again,
         failing_on=lambda url, base, accounts=None: asked.append(f"base {base}") or on_base,
     ):
-        checks, said = runner._checked(url, Path("/work"), "main")
+        checks, said = runner._checked(
+            ticket_module.Ticket(_reviewed("t-1", "In progress", "")), url, Path("/work"), "main"
+        )
     return checks, said, asked
 
 
@@ -1058,7 +1060,7 @@ def a_forced_merge_says_on_the_ticket_why_the_ci_stopped_it():
         ("unstarted", f"CI: did not start — GitHub says: {_NOT_STARTED}"),
     ):
         runner = _board_runner([], {})
-        runner._checked = lambda url, workdir, base, said=(checks, sentence): said
+        runner._checked = lambda ticket, url, workdir, base, said=(checks, sentence): said
         job = SimpleNamespace(
             ticket=SimpleNamespace(id="p-forced"), workdir=Path("/work"), base="main"
         )
@@ -1157,7 +1159,7 @@ def _forcing(checks: str, refuses: str = "", blocker: str = "", options=None):
 
     url = "https://github.com/x/y/pull/1"
     runner = _board_runner([], {}, options)
-    runner._checked = lambda url, workdir, base: (checks, "")
+    runner._checked = lambda ticket, url, workdir, base: (checks, "")
     job = SimpleNamespace(ticket=SimpleNamespace(id="p-forced"), workdir=Path("/work"), base="main")
     merges: list[str] = []
 
@@ -1277,7 +1279,7 @@ def _red_base(*, names=("frontend",)):
 def _forced_on_red_base(runner, page, url):
     from types import SimpleNamespace
 
-    runner._checked = lambda url, workdir, base: ("base-red", "")
+    runner._checked = lambda ticket, url, workdir, base: ("base-red", "")
     job = SimpleNamespace(
         ticket=ticket_module.Ticket(page),
         project=projects.Project("Site", Path("/repo")),
@@ -1376,7 +1378,7 @@ def _repairing(heads: list[str], ok: bool = True, then: str = "passed", pushed: 
     sessions: list[tuple] = []
     heads = list(heads)
 
-    def work(job, template):
+    def work(job, template, phase="session", detail=""):
         sessions.append((job.body, template))
         return session_module.Outcome(
             ok=ok,
@@ -1388,7 +1390,7 @@ def _repairing(heads: list[str], ok: bool = True, then: str = "passed", pushed: 
         )
 
     runner._run_session = work
-    runner._checked = lambda url, workdir, base: (then, "CI: " + then)
+    runner._checked = lambda ticket, url, workdir, base: (then, "CI: " + then)
     job = SimpleNamespace(
         ticket=ticket_module.Ticket(page),
         workdir=Path("/work"),
@@ -1485,7 +1487,7 @@ def a_merge_that_took_a_repair_carries_its_cost_into_the_history(state_home):
         seconds=30.0,
         cost_usd=0.4,
     )
-    runner._checked = lambda url, workdir, base: ("failed", "CI: red.")
+    runner._checked = lambda ticket, url, workdir, base: ("failed", "CI: red.")
     runner._mend = lambda job, url, checked: ("passed", "CI: passed.", repair)
     job = ticket_module.Job(
         ticket_module.Ticket(page),

@@ -108,7 +108,12 @@ if TYPE_CHECKING:
 
         # execution.py
         def _run_session(
-            self, job: Job, template: str, subtype: bool = False
+            self,
+            job: Job,
+            template: str,
+            subtype: bool = False,
+            phase: str = "session",
+            detail: str = "",
         ) -> session.Outcome: ...
 
         # reports.py

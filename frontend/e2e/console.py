@@ -105,6 +105,8 @@ NAMES = {
 # A card in progress that no session has written a step for yet, on a model
 # whose name is longer than the card is wide.
 STARTING = ("000000000000000000000000000057a1", "Warm up the engine", "qwen/qwen-2.5-coder-32b-instruct")
+# A card in progress between two sessions: its pull request opened, its CI waited for.
+WAITING_CI = ("0000000000000000000000000000c1a1", "Wait for the checks")
 # Code tickets with a sub-type, written as the board writes it: the card wears
 # its badge, and the search filters on it.
 SUBTYPED = {
@@ -179,6 +181,7 @@ def checks_of() -> None:
                 "asked": time.time(),
             },
         )
+    state.enter(WAITING_CI[0], "checks", pull_request(WAITING_CI[0]))
     db.close()
 
 
@@ -228,6 +231,11 @@ def board(root: Path, doomed: bool = False) -> None:
         (comments / f"{id}.md").write_text(
             files.render(said, REPORTS.get(id, STUCK) if column == "blocked" else DELIVERED), encoding="utf-8"
         )
+    id, title = WAITING_CI
+    page = {"id": id, "title": title, "Status": "In progress", "Pull Request": pull_request(id)}
+    (tickets / f"{title.lower().replace(' ', '-')}-{id[-8:]}.md").write_text(
+        files.render(page, "A short brief."), encoding="utf-8"
+    )
     id, title, model = STARTING
     page = {"id": id, "title": title, "Status": "In progress", "Model": model}
     (tickets / f"{title.lower().replace(' ', '-')}-{id[-8:]}.md").write_text(

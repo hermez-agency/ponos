@@ -12,6 +12,7 @@ from support import (
     _board_runner,
     _closing,
     _config,
+    _git_answering,
     _github,
     _in_progress,
     _reviewed,
@@ -135,6 +136,32 @@ def a_ticket_in_review_carries_its_ci_on_the_board_and_stops_when_it_leaves(stat
         assert cards[0]["ci"] is None
     finally:
         git_module.pull_request_head, git_module.checks = head, listed
+
+
+@case
+def a_ticket_in_progress_carries_the_phase_it_is_in_and_drops_it_when_it_leaves(state_home):
+    """A ticket waiting for its CI says so on its card, not « starting… » for an hour."""
+    url = "https://github.com/x/y/pull/371"
+    runner = _board_runner([], {"review": "In review", "done": "Done"})
+    ticket = ticket_module.Ticket(_reviewed("p-wait", "Ready", ""))
+    settings = runner.config.notion
+    runner._write(ticket, {settings.prop("status"): settings.state("running")})
+    assert state.phases()["pwait"][0] == "starting", state.phases()
+
+    with _git_answering(wait_for_checks=lambda *args, **kwargs: "passed"):
+        assert runner._checked(ticket, url, Path("/work"), "main")[0] == "passed"
+    cards = [
+        {"id": "pwait", "column": "running"},
+        {"id": "pwait", "column": "review"},
+    ]
+    web_tickets._phases(cards)
+    assert cards[0]["phase"]["key"] == "checks" and cards[0]["phase"]["detail"] == url
+    assert cards[0]["phase"]["since"], cards[0]
+    # Only a card in progress is going through anything.
+    assert cards[1]["phase"] is None
+
+    runner._write(ticket, {settings.prop("status"): settings.state("review")})
+    assert state.phases() == {}
 
 
 @case

@@ -896,6 +896,19 @@ def _occurrences(connection: sqlite3.Connection) -> None:
     connection.execute("CREATE INDEX occurrences_by_schedule ON occurrences (schedule, id)")
 
 
+def _phases(connection: sqlite3.Connection) -> None:
+    connection.execute(
+        """
+        CREATE TABLE phases (
+            ticket  TEXT PRIMARY KEY,
+            phase   TEXT NOT NULL,
+            detail  TEXT NOT NULL DEFAULT '',
+            since   TEXT NOT NULL
+        )
+        """
+    )
+
+
 # Appended to, never edited or renamed: a file remembers each of these by name,
 # and the version of a file is how many of them it has been through. Statements go through `execute` one at a time — `executescript`
 # commits whatever transaction is open before it starts, which would apply half
@@ -934,6 +947,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     _spending,
     _stamps_print_the_file,
     _occurrences,
+    _phases,
 )
 
 # Any way a read or a write of the database can fail. A note the runner keeps

@@ -145,6 +145,18 @@ class Held(Shape):
     detail: str
 
 
+class Phase(Shape):
+    """What a ticket in progress is going through, as the runner last wrote it — see
+    `state.enter`."""
+
+    key: Literal["starting", "session", "rebase", "local-ci", "checks", "repair", "resolve"]
+    detail: str
+    """The base for a rebase or a resolution, the command for the local CI, the pull request for
+    its checks or their repair."""
+    since: str
+    """When it began, ISO 8601 in UTC."""
+
+
 class WorkTime(Shape):
     """`worktime` on a ticket: how long Ponos worked on it — see `worktime.py`."""
 
@@ -209,6 +221,9 @@ class Ticket(Shape):
     """On a blocked or failed card only: why it stopped — see `blocks.py`."""
     ci: Ci | None = omitted()
     """In review with a pull request that has checks only: where they stand — see `ci.py`."""
+    phase: Phase | None = omitted()
+    """In progress only: what it is going through now, and since when — null when the runner
+    wrote nothing about it."""
     subtype: str = omitted()
     """A code ticket's sub-type, by its key — `bug`, `docs` — or empty: see `subtypes.py`."""
     worktime: WorkTime | None = omitted()
