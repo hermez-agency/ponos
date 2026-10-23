@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test"
 
 /* The goals, written from the console: created, changed, tied to a ticket and
- * archived — each one a request the board takes, and a card the list shows.
+ * closed or deleted — each one a request the board takes, and a card the list shows.
  *
  * Served by the console the project deletions have: a goal more is one more
  * card, and a ticket tied to it is a ticket the others would see change.
@@ -99,17 +99,37 @@ test("a ticket of a goal moved elsewhere moves its progress on the open page", a
   await expect(card).toContainText("1 sur 2 tickets faits")
 })
 
-test("a goal is archived after a confirmation", async ({ page }) => {
+test("a goal marked reached leaves the list, and comes back under every status", async ({ page }) => {
+  await page.goto(LIST)
+  await page.locator('[data-slot="goals-title"]', { hasText: "Ouvrir la boutique" }).click()
+  const whole = page.locator('[data-slot="goals-page"]')
+  await whole.locator('[data-close-goal="atteint"]').click()
+  await expect(whole).toContainText("atteint")
+  await expect(whole.locator('[data-close-goal="atteint"]')).toHaveCount(0)
+  await expect(whole).toContainText("1 sur 2 tickets faits")
+
+  await page.goto(LIST)
+  const card = page.locator('[data-slot="goals-item"]', { hasText: "Ouvrir la boutique" })
+  await expect(page.locator('[data-slot="goals-item"]', { hasText: "Lancer la v2" })).toBeVisible()
+  await expect(card).toHaveCount(0)
+  await page.locator('[data-slot="goals-status-filter"]').click()
+  await page.getByRole("option", { name: "Tous les statuts" }).click()
+  await expect(card).toBeVisible()
+  await expect(card).toContainText("1 sur 2 tickets faits")
+})
+
+test("a goal is deleted after a confirmation that says so", async ({ page }) => {
   await page.goto(LIST)
   await page.locator('[data-slot="goals-title"]', { hasText: "Lancer la v2" }).click()
-  await page.locator("[data-archive-goal]").click()
+  await page.locator("[data-delete-goal]").click()
   const dialog = page.getByRole("alertdialog")
-  await expect(dialog).toContainText("Archiver « Lancer la v2 » ?")
+  await expect(dialog).toContainText("Supprimer « Lancer la v2 » ?")
+  await expect(dialog).toContainText("corbeille")
   await dialog.getByRole("button", { name: "Annuler" }).click()
   await expect(dialog).toBeHidden()
-  await expect(page.locator("[data-archive-goal]")).toBeVisible()
-  await page.locator("[data-archive-goal]").click()
-  await page.getByRole("alertdialog").getByRole("button", { name: "Archiver l'objectif" }).click()
+  await expect(page.locator("[data-delete-goal]")).toBeVisible()
+  await page.locator("[data-delete-goal]").click()
+  await page.getByRole("alertdialog").getByRole("button", { name: "Supprimer l'objectif" }).click()
   await expect(page.locator('[data-slot="goals-item"]', { hasText: "Lancer la v2" })).toHaveCount(0)
 })
 

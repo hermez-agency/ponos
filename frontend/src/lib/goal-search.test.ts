@@ -5,7 +5,7 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
 
-import { dueOf, keeps, offeredTo, progressOf, projectFirst, valuesOf } from "./goal-search.ts"
+import { EVERY_STATUS, dueOf, keeps, offeredTo, progressOf, projectFirst, valuesOf } from "./goal-search.ts"
 
 const LAUNCH = {
   status: "En cours",
@@ -25,7 +25,17 @@ test("the filters keep a goal by its status and by one of its projects", () => {
   assert.ok(keeps(LAUNCH, { status: "En cours", project: "Ponos" }))
   assert.ok(!keeps(LAUNCH, { status: "Pas commencé" }))
   assert.ok(!keeps(TIDY, { project: "Website" }))
-  assert.ok(keeps(TIDY, { status: "", project: "" }), "empty is all")
+  assert.ok(keeps(TIDY, { status: EVERY_STATUS, project: "" }), "all is all")
+})
+
+test("the list rests on the active goals, and keeps the closed ones for those who ask", () => {
+  const met = { ...LAUNCH, status: "atteint", active: false }
+  assert.ok(keeps({ ...LAUNCH, active: true }, {}))
+  assert.ok(keeps(TIDY, { status: "" }), "a goal the server did not judge is active")
+  assert.ok(!keeps(met, {}))
+  assert.ok(!keeps(met, { status: "" }))
+  assert.ok(keeps(met, { status: EVERY_STATUS }))
+  assert.ok(keeps(met, { status: "atteint" }))
 })
 
 test("the filters offer the values the goals have, once each", () => {

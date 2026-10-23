@@ -6,17 +6,26 @@
  * out of the total — a goal whose last ticket was dropped is not short of one.
  *
  * The filters live in the address, as everywhere: "" is "all" for each, the
- * status as the goals database spells it, the project by its name.
+ * status as the goals database spells it, the project by its name. The status
+ * is the exception, as the ideas' is: the list is opened to see what is being
+ * worked toward, so "" is the active goals — no status, or one the server
+ * counts as active —, and "all" is written in the address to see the met and
+ * given-up ones too.
  */
+
+/** The status filter's value for every goal; the address says nothing for the active ones, where the list rests. */
+export const EVERY_STATUS = "all"
 
 /** A goal, as much of it as the filters and the count read. */
 export interface Counted {
   status?: string
+  /** Whether the server counts its status as still worked toward; unsaid is active. */
+  active?: boolean
   projects?: string[]
   tickets?: Record<string, number | undefined>
 }
 
-/** What the list is asked for: one status, one project — "" for all of each. */
+/** What the list is asked for: one status ("" for the active ones, "all" for every one), one project ("" for all). */
 export interface GoalFilter {
   status?: unknown
   project?: unknown
@@ -34,7 +43,8 @@ export function progressOf(goal: Counted): { done: number; total: number } {
 export function keeps(goal: Counted, filter: GoalFilter = {}): boolean {
   const status = String(filter.status ?? "")
   const project = String(filter.project ?? "")
-  if (status && (goal.status ?? "") !== status) return false
+  if (!status && goal.active === false) return false
+  if (status && status !== EVERY_STATUS && (goal.status ?? "") !== status) return false
   if (project && !(goal.projects ?? []).includes(project)) return false
   return true
 }
