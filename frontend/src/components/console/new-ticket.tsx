@@ -15,7 +15,9 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useConsole } from "@/hooks/use-console"
 import { api } from "@/lib/api"
+import { currentBoard } from "@/lib/board-store"
 import { enterLabel } from "@/lib/confirm"
+import { projectFirst } from "@/lib/goal-search"
 import { isMac } from "@/lib/hotkeys"
 import { t } from "@/lib/i18n"
 import type { Project } from "@/lib/types"
@@ -149,6 +151,21 @@ export const ProjectInputController: InputControllerComponentInterface = (props)
       ) : null}
     </div>
   )
+}
+
+/* The goal, typed into like the project, those of the project chosen above
+ * it first: the server offers only the goals still worked toward, each with
+ * its projects (`Tickets._choices`). The rest stay offered under them — a
+ * goal no project claims is anybody's. "No goal" stays on top. */
+export const GoalInputController: InputControllerComponentInterface = (props) => {
+  const { form } = useFormContext()
+  const project = String((form.data as Record<string, unknown> | undefined)?.project ?? "")
+  const projects = new Map((currentBoard()?.choices?.goal ?? []).map((goal) => [goal.value, goal.projects]))
+  const [none, ...goals] = props.formInput.valueOptions ?? []
+  const valueOptions = none
+    ? [none, ...projectFirst(goals, project, (goal) => projects.get(String(goal.value)) ?? [])]
+    : []
+  return <ComboboxInputController {...props} formInput={{ ...props.formInput, valueOptions }} />
 }
 
 /* -- the dialog's two columns ------------------------------------------------ */

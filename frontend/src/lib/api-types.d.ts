@@ -2384,6 +2384,11 @@ export interface components {
             criterion: string;
             due: string;
             status: string;
+            /**
+             * @description Whether its status says it is still worked toward (`goals.ACTIVE`, or none): only those are
+             *     offered to a ticket that does not already serve it.
+             */
+            active: boolean;
             /** @description A score from 0 to 100, a select's word read as its score — none where the cell is empty. */
             priority: number | null;
             /** @description The names of the projects it is for. */
@@ -2399,6 +2404,12 @@ export interface components {
             };
             /** @description The tickets pointing at it, as the form lists them and its page draws them. */
             linked?: components["schemas"]["GoalTicket"][];
+        };
+        GoalChoice: {
+            value: string;
+            label: string;
+            /** @description The page ids of the projects the goal is for: the form puts the chosen project's first. */
+            projects: string[];
         };
         GoalNamed: {
             id: string;
@@ -3824,8 +3835,11 @@ export interface components {
             type?: components["schemas"]["Choice"][];
             model?: components["schemas"]["Choice"][];
             subtype?: components["schemas"]["Choice"][];
-            /** @description The goals a new ticket may serve: only on a board with the column, and goals to point at. */
-            goal?: components["schemas"]["Choice"][];
+            /**
+             * @description The goals a new ticket may serve: only on a board with the column, and goals still worked
+             *     toward to point at.
+             */
+            goal?: components["schemas"]["GoalChoice"][];
         };
         /** @description A ticket written on the board: its page, and the title it was given. */
         TicketCreated: {

@@ -6,6 +6,7 @@ import { Link } from "react-resource-view"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { api, why } from "@/lib/api"
 import { patchTicket } from "@/lib/board-store"
+import { offeredTo } from "@/lib/goal-search"
 import { useT } from "@/lib/i18n"
 import type { Goal, Ticket } from "@/lib/types"
 import { goalHref, goalsOnce } from "@/resources/goals"
@@ -13,8 +14,10 @@ import { goalHref, goalsOnce } from "@/resources/goals"
 /* The goal a ticket serves, under its title: the link to the goal's page, and
  * the choice of another. The goals are those of the Goals database, read once
  * for the whole console; a workspace without any draws nothing, and a ticket
- * that serves none draws only the choice. Written at once, and the card is
- * redrawn before the board is read again. */
+ * that serves none draws only the choice. Offered are those still worked
+ * toward, the ticket's project's first, and the one it serves even once it is
+ * over (`offeredTo`). Written at once, and the card is redrawn before the
+ * board is read again. */
 
 const NONE = "none"
 
@@ -31,6 +34,7 @@ export function TicketGoal({ ticket }: { ticket: Ticket }) {
     }
   }, [])
   if (!goals.length && !ticket.goal_id) return null
+  const offered = offeredTo(goals, ticket.project_id ?? "", ticket.goal_id ?? "")
   const choose = async (value: string) => {
     const goal = goals.find((one) => one.id === value)
     const before = { goal: ticket.goal, goal_id: ticket.goal_id }
@@ -62,7 +66,7 @@ export function TicketGoal({ ticket }: { ticket: Ticket }) {
         </SelectTrigger>
         <SelectContent>
           <SelectItem value={NONE}>{t("No goal")}</SelectItem>
-          {goals.map((goal) => (
+          {offered.map((goal) => (
             <SelectItem key={goal.id} value={goal.id}>
               {goal.name}
             </SelectItem>

@@ -150,6 +150,40 @@ def a_card_names_the_goal_it_serves_and_a_card_without_one_says_nothing():
         assert (card["goal"], card["goal_id"]) == ("", ""), card
 
 
+class _ClosedGoalsClient(_GoalsClient):
+    """The same goals, a met one beside them, on a board that can point at a goal."""
+
+    def query(self, database: str, *args, **kwargs) -> list[notion.Page]:
+        found = super().query(database, *args, **kwargs)
+        if database == "goals-db":
+            met = {"type": "status", "status": {"name": "Atteint"}}
+            found.append(_row("dddd-goal", "Livrer la bêta", Statut=met))
+        return found
+
+    def schema(self, database: str) -> dict[str, str]:
+        return {"Objectif": "relation"} if database == "tickets-db" else {}
+
+
+@case
+def a_new_ticket_is_offered_the_goals_still_worked_toward_with_their_projects():
+    """A met goal waits on no ticket; one without a status is not one that is over."""
+    api = _goals_api()
+    api._runner.client = _ClosedGoalsClient()
+    index = api._goal_index()
+    assert index["dddd-goal"]["status"] == "Atteint" and not index["dddd-goal"]["active"]
+    assert index["aaaa-goal"]["project_ids"] == ["ppppsite"], index
+    offered = api._choices()["goal"]
+    assert offered == [
+        {"value": "aaaagoal", "label": "Lancer la v1", "projects": ["ppppsite"]},
+        {"value": "bbbbgoal", "label": "Ranger", "projects": []},
+    ], offered
+    answers.TicketChoices.model_validate({"goal": offered})
+    # The goals page still lists it, and says it is over.
+    api.board = lambda: {"tickets": []}
+    rows = {goal["name"]: goal["active"] for goal in api.goals()["goals"]}
+    assert rows == {"Lancer la v1": True, "Ranger": True, "Livrer la bêta": False}, rows
+
+
 @case
 def the_goals_route_answers_the_goals_with_their_counts(state_home):
     """`GET /api/goals`, through the console: the shape it names is the one it sends."""
