@@ -25,7 +25,7 @@ import logging
 import socket
 import threading
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol, TypeVar
 
 from . import (
     channels,
@@ -55,6 +55,8 @@ if TYPE_CHECKING:
     from .ticket import Job
 
 logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
 
 
 if TYPE_CHECKING:
@@ -158,8 +160,8 @@ if TYPE_CHECKING:
             outcome: session.Outcome | None = None,
         ) -> dict[str, Any]: ...
         def _guarded(
-            self, ticket: Ticket, work: Callable[..., dict[str, Any] | None], *arguments: object
-        ) -> dict[str, Any] | None: ...
+            self, ticket: Ticket, work: Callable[..., T], *arguments: object
+        ) -> T | dict[str, Any] | None: ...
         def _filed(self, job: Job, outcome: session.Outcome, *rest: object) -> str: ...
         def _out_of_credit(self, outcome: session.Outcome) -> bool: ...
         def _hold_credits(self, outcome: session.Outcome) -> None: ...

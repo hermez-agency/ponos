@@ -736,3 +736,70 @@ def every_session_of_a_run_is_started_through_the_door_that_counts_its_cost():
     assert len(chapters) > 5, chapters
     direct = [path.name for path in chapters if "session.run(" in path.read_text(encoding="utf-8")]
     assert direct == [], f"session.run called beside Base._paid in {direct}"
+
+
+@case
+def a_claim_the_board_refuses_fails_that_ticket_and_not_the_pass(state_home):
+    """The audit of the 23rd of October: `prepare` ran in the pass's own thread
+    with nothing around it, so a 400 on the claim of one ticket left the pass,
+    waited for every session still in flight — hours, sometimes — and never
+    recorded what they came to: missing from `ponos history`, and from the
+    daily ceiling.
+
+    Here: two places, a session on A, and B whose claim is refused. B fails
+    alone, C takes the place, and A is recorded when it ends.
+    """
+    c_started = threading.Event()
+    started: list[str] = []
+
+    runner = _long_runner([_ready("p-a"), _ready("p-b"), _ready("p-c")])
+    runner.config.runner.max_concurrent = 2
+    prepared = runner.prepare
+
+    def prepare(ticket):
+        if ticket.page.id == "p-b":
+            raise store.StoreError("400 Bad Request: the claim was refused")
+        return prepared(ticket)
+
+    def execute(job):
+        name = job.ticket.page.id
+        started.append(name)
+        if name == "p-a":
+            c_started.wait(5)
+        else:
+            c_started.set()
+        return {"ticket": name, "id": name, "status": "done", "cost_usd": 1.5}
+
+    runner.prepare, runner.execute = prepare, execute
+    results = runner._work(runner.queue()[0], None, refill=False)
+
+    assert c_started.is_set(), "C started while A was still running"
+    assert sorted(started) == ["p-a", "p-c"], started
+    statuses = {result["id"]: result["status"] for result in results}
+    assert statuses == {"p-a": "done", "pb": "failed", "p-c": "done"}, statuses
+    recorded = {entry.get("id") for entry in state.history(limit=10)}
+    assert {"p-a", "pb", "p-c"} <= recorded, recorded
+
+
+@case
+def a_merge_that_raises_fails_its_ticket_and_the_next_one_is_merged(state_home):
+    """The merges of the validated column happen in the pass's own thread too:
+    one that raised used to end the pass, and leave the rest of the column."""
+    first, second = "https://github.com/x/y/pull/1", "https://github.com/x/y/pull/2"
+    runner = _long_runner(
+        [_reviewed("p-one", "Validated", first), _reviewed("p-two", "Validated", second)]
+    )
+    merges: list[str] = []
+
+    def merge(url: str, method: str = "squash", accounts=None) -> str:
+        if url == first:
+            raise store.StoreError("400 Bad Request")
+        merges.append(url)
+        return "merged"
+
+    with _github({first: "OPEN", second: "OPEN"}, merge=merge):
+        settled, _ = runner.delivering()
+
+    assert merges == [second], merges
+    statuses = {entry["id"]: entry["status"] for entry in settled}
+    assert statuses == {"pone": "failed", "ptwo": "done"}, statuses

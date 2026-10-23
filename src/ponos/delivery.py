@@ -236,7 +236,9 @@ class Delivery(Base):
                 results.append({"ticket": ticket.title, "id": ticket.id, "status": "dry-run"})
                 continue
             if url.startswith("http"):
-                done = self._merge(ticket, url, publishing)
+                # Guarded one by one: this runs in the pass's own thread, and a
+                # merge that raised would take the pass down with it.
+                done = self._guarded(ticket, self._merge, ticket, url, publishing)
                 if done:
                     results.append(done)
                 continue
