@@ -152,6 +152,12 @@ line per *ticket*, written once the ticket is closed, and the sessions that
 name it, classify it or repair its CI, or whose ticket never got as far as its
 line, were paid without ever reaching it. What the history said was spent is
 copied in, so that the day the migration runs keeps its figure.
+
+Migration 29 gives a sync stamp the file's own fingerprint — see `sync.Stamps`.
+A file changed in an editor keeps the `edited` it had, and the timestamp alone
+never saw it; what the file said when the two boards last agreed does. Empty
+for the stamps written before it, filled in by the next pass that finds both
+sides still agreeing.
 """
 
 from __future__ import annotations
@@ -866,6 +872,10 @@ def _spending(connection: sqlite3.Connection) -> None:
     )
 
 
+def _stamps_print_the_file(connection: sqlite3.Connection) -> None:
+    connection.execute("ALTER TABLE sync_stamps ADD COLUMN content TEXT NOT NULL DEFAULT ''")
+
+
 # Appended to, never edited or renamed: a file remembers each of these by name,
 # and the version of a file is how many of them it has been through. Statements go through `execute` one at a time — `executescript`
 # commits whatever transaction is open before it starts, which would apply half
@@ -902,6 +912,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     _transitions,
     _idea_passes,
     _spending,
+    _stamps_print_the_file,
 )
 
 # Any way a read or a write of the database can fail. A note the runner keeps

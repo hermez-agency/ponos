@@ -23,6 +23,14 @@ edit. Each stamp therefore carries a fingerprint of the Notion page's
 properties as well, and a page whose fingerprint moved has moved, whatever its
 timestamp claims.
 
+**A file's `edited` is only what Ponos wrote there.** A person who changes a
+word in `$EDITOR` leaves it as it was, and a file compared on it alone was never
+seen to move — then written over by the next change in Notion, without a line
+in the journal. So the stamp keeps the file's fingerprint too, its properties
+and its body, and a file that no longer says what it said when the two sides
+last agreed has moved; when it moved by hand, the newer of `edited` and the
+file's modification time is when.
+
 Three rules decide everything else, and they are the ones worth arguing about:
 
 - **the newest wins, and the loser is written down.** A page edited on both
@@ -159,11 +167,12 @@ class Stamps:
 
     Without this there is no telling a change from a difference: two pages that
     differ tell you nothing about *who* moved. `{page id: [notion edited,
-    markdown edited, notion fingerprint]}`, written after every reconciliation,
-    and a page it has never heard of is a page that has never been reconciled —
-    which is what makes "created" and "deleted" distinguishable at all. The
-    fingerprint is absent from stamps written before it existed, and empty when
-    it is not known; the timestamps alone decide then, as they used to.
+    markdown edited, notion fingerprint, file fingerprint]}`, written after
+    every reconciliation, and a page it has never heard of is a page that has
+    never been reconciled — which is what makes "created" and "deleted"
+    distinguishable at all. A fingerprint is absent from stamps written before
+    it existed, and empty when it is not known; the timestamps alone decide
+    then, as they used to.
     """
 
     def __init__(self, database: Path | None = None) -> None:
@@ -172,10 +181,11 @@ class Stamps:
         self._database = database
         with db.transaction(immediate=False, location=database) as connection:
             rows = connection.execute(
-                "SELECT page, notion, markdown, printed FROM sync_stamps"
+                "SELECT page, notion, markdown, printed, content FROM sync_stamps"
             ).fetchall()
         self._known: dict[str, list[str]] = {
-            str(page): [notion, markdown, printed] for page, notion, markdown, printed in rows
+            str(page): [notion, markdown, printed, content]
+            for page, notion, markdown, printed, content in rows
         }
 
     def seen(self, page_id: str) -> bool:
@@ -191,8 +201,19 @@ class Stamps:
         known = self._known.get(page_id) or []
         return known[2] if len(known) > 2 else ""
 
-    def agreed(self, page_id: str, notion_at: str, markdown_at: str, printed: str = "") -> None:
-        self._known[page_id] = [notion_at, markdown_at, printed]
+    def content(self, page_id: str) -> str:
+        known = self._known.get(page_id) or []
+        return known[3] if len(known) > 3 else ""
+
+    def agreed(
+        self,
+        page_id: str,
+        notion_at: str,
+        markdown_at: str,
+        printed: str = "",
+        content: str = "",
+    ) -> None:
+        self._known[page_id] = [notion_at, markdown_at, printed, content]
 
     def forget_nothing(self) -> None:
         """Deliberately not a method: a page is never dropped from the stamps.
@@ -207,10 +228,10 @@ class Stamps:
             # "deleted on one side" back into "created on the other".
             with db.transaction(location=self._database) as connection:
                 connection.executemany(
-                    "INSERT OR REPLACE INTO sync_stamps (page, notion, markdown, printed)"
-                    " VALUES (?, ?, ?, ?)",
+                    "INSERT OR REPLACE INTO sync_stamps"
+                    " (page, notion, markdown, printed, content) VALUES (?, ?, ?, ?, ?)",
                     [
-                        (page, *(list(known) + ["", "", ""])[:3])
+                        (page, *(list(known) + ["", "", "", ""])[:4])
                         for page, known in self._known.items()
                     ],
                 )
@@ -240,6 +261,32 @@ def fingerprint(page: Page) -> str:
     }
     body = json.dumps(kept, sort_keys=True, ensure_ascii=False, default=str)
     return hashlib.sha1(body.encode("utf-8")).hexdigest()[:16]
+
+
+def content(page: Page) -> str:
+    """What a file says, properties and body, in a few characters.
+
+    Its fingerprint and its text, and nothing of `edited`: that line is the one
+    a person in an editor never touches, and the one Ponos rewrites on every
+    write whether or not anything else changed.
+    """
+    body = f"{fingerprint(page)}\n{page.raw.get('body') or ''}"
+    return hashlib.sha1(body.encode("utf-8")).hexdigest()[:16]
+
+
+def _touched(page: Page) -> str:
+    """When a file was last written: by Ponos, or by whoever else opened it.
+
+    The newer of its `edited` and its modification time, because an edit made
+    by hand moves only the second.
+    """
+    edited = _edited(page)
+    try:
+        modified = Path(str(page.raw.get("path") or "")).stat().st_mtime
+    except OSError:
+        return edited
+    on_disk = datetime.fromtimestamp(modified, UTC).isoformat(timespec="microseconds")
+    return on_disk if _newer(on_disk, edited) else edited
 
 
 def _edited(page: Page) -> str:
@@ -490,7 +537,9 @@ class Mirror:
                     )
                     continue
                 self._write_file(collection, left)
-                marks.agreed(page_id, _edited(left), _now(), fingerprint(left))
+                marks.agreed(
+                    page_id, _edited(left), _now(), fingerprint(left), self._content(page_id)
+                )
                 report.note("created-in-markdown", collection, page_id, left.title)
             else:
                 assert right is not None
@@ -505,7 +554,7 @@ class Mirror:
                     continue
                 created = self._write_page(collection, database, right)
                 if created:
-                    marks.agreed(created, _now(), _now())
+                    marks.agreed(created, _now(), _now(), "", self._content(created))
                     report.note("created-in-notion", collection, created, right.title)
 
     def _settle(
@@ -520,7 +569,7 @@ class Mirror:
     ) -> None:
         """One page that exists on both sides. Who moved, and what to do about it."""
         notion_at, markdown_at = _edited(left), _edited(right)
-        printed = fingerprint(left)
+        printed, said = fingerprint(left), content(right)
         moved_notion = (
             _newer(notion_at, marks.notion(page_id))
             or printed != (marks.printed(page_id) or printed)
@@ -528,8 +577,12 @@ class Mirror:
             else True
         )
         moved_markdown = (
-            _newer(markdown_at, marks.markdown(page_id)) if marks.seen(page_id) else False
+            _newer(markdown_at, marks.markdown(page_id)) or said != (marks.content(page_id) or said)
+            if marks.seen(page_id)
+            else False
         )
+        if moved_markdown:
+            markdown_at = _touched(right)
 
         if moved_notion and moved_markdown:
             # `storage.conflict` names the rule; "newest" is the only one there
@@ -548,16 +601,16 @@ class Mirror:
         elif moved_markdown:
             wins_notion = False
         else:
-            if not marks.printed(page_id):
+            if not marks.printed(page_id) or not marks.content(page_id):
                 # A stamp from before fingerprints: the two sides agree, so
-                # this is what Notion says when they do.
-                marks.agreed(page_id, marks.notion(page_id), marks.markdown(page_id), printed)
+                # this is what each of them says when they do.
+                marks.agreed(page_id, marks.notion(page_id), marks.markdown(page_id), printed, said)
             return
 
         if wins_notion:
             self._write_file(collection, left)
             report.note("notion→markdown", collection, page_id, left.title)
-            marks.agreed(page_id, notion_at, _now(), printed)
+            marks.agreed(page_id, notion_at, _now(), printed, self._content(page_id))
         else:
             self._push(collection, database, page_id, right, report)
             # What the push left in Notion, read back: its edit time is the
@@ -567,7 +620,14 @@ class Mirror:
                 pushed = fingerprint(self.primary.page(page_id))
             except StoreError:
                 pushed = ""
-            marks.agreed(page_id, _now(), markdown_at, pushed)
+            marks.agreed(page_id, _now(), markdown_at, pushed, said)
+
+    def _content(self, page_id: str) -> str:
+        """The fingerprint of the file as it now stands, or nothing if it cannot be read."""
+        try:
+            return content(self.mirror.page(page_id))
+        except StoreError:
+            return ""
 
     @staticmethod
     def _carried(page: Page, schema: dict[str, str]) -> dict[str, Any]:
