@@ -1661,6 +1661,9 @@ export const FRENCH: Record<string, string> = {
   "Public address": "Adresse publique",
   "Where the console is reached from elsewhere, `https://…` behind a proxy or a tunnel. The Claude connector is this address followed by `/mcp`.":
     "L'adresse où la console est jointe depuis ailleurs, `https://…` derrière un proxy ou un tunnel. Le connecteur Claude est cette adresse suivie de `/mcp`.",
+  "Trusted proxies": "Proxys de confiance",
+  "One address or network per line: the proxies believed about whom they relay, so that a wrong password is counted against the visitor. Behind Traefik, its address. Anybody else is counted by its own.":
+    "Une adresse ou un réseau par ligne : les proxys crus sur qui ils relaient, pour qu'un mauvais mot de passe soit compté au visiteur. Derrière Traefik, son adresse. Tout autre pair est compté à sa propre adresse.",
   "Sign-in email": "Adresse e-mail de connexion",
   "With a password, the console asks for the two instead of the token. `PONOS_WEB_EMAIL` wins over it.":
     "Avec un mot de passe, la console demande les deux au lieu du jeton. `PONOS_WEB_EMAIL` l'emporte.",

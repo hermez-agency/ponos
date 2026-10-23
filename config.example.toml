@@ -1036,6 +1036,17 @@ port = 8787
 # relay such as `tailscale serve` passes on.
 # url = "https://ponos.example.com"
 
+# Who may say, in X-Forwarded-For, whom it relays: addresses or networks. A
+# wrong password, code or token is counted per address, and anybody else is
+# counted by its own — being on a private network is not enough, or a published
+# Docker port, a neighbouring container or a LAN could announce a new address
+# with every guess. The default is this machine, where `tailscale serve` relays
+# from. Behind Traefik, add its address on the container's network (on Dokploy:
+# `docker inspect dokploy-traefik`); without it, every visitor shares Traefik's.
+# In a container, PONOS_WEB_TRUSTED_PROXIES (comma-separated) says it when this
+# line is absent. An entry that is neither is left out, and `ponos doctor` says so.
+trusted_proxies = ["127.0.0.1", "::1"]
+
 # The token is PONOS_WEB_TOKEN, in secrets.env or the environment. None = one is
 # drawn on first start and kept in ~/.local/state/ponos/web/token, so the
 # bookmark keeps working. Setting it is also what unlocks a non-loopback host.

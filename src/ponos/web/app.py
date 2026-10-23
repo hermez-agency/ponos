@@ -268,7 +268,9 @@ class Asking:
         """Who the attempts are counted against — see `attempts.address_of`."""
         client = self.request.client
         return attempts.address_of(
-            str(client.host) if client else "", self.headers.get("X-Forwarded-For") or ""
+            str(client.host) if client else "",
+            self.headers.get("X-Forwarded-For") or "",
+            attempts.proxies(self.console.api.config.web.trusted_proxies),
         )
 
     def same_origin(self) -> bool:

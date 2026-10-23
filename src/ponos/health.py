@@ -84,6 +84,7 @@ from . import config as config_module
 from . import schedules as schedules_module
 from . import update as update_module
 from . import workspace as workspace_module
+from .web import attempts
 
 logger = logging.getLogger(__name__)
 
@@ -2980,6 +2981,20 @@ def _console(config: config_module.Config) -> list[Check]:
                 "web.email and web.password, the two, to sign in instead.",
             )
         )
+    # An entry that is neither an address nor a network is left out — which
+    # counts whatever it meant to trust as one address, and says nothing.
+    for entry in web.trusted_proxies:
+        if attempts.network(entry) is None:
+            found.append(
+                _check(
+                    "settings.console",
+                    WARN,
+                    "Console",
+                    "web.trusted_proxies: {{entry}} is neither an address nor a network, and is left out.",
+                    params={"entry": entry},
+                    steps=["Write an address (10.0.1.5) or a network (10.0.1.0/24)."],
+                )
+            )
     # The MCP connector is pasted by its address: the one claude.ai reaches
     # has to be HTTPS, and Claude Code on this machine takes the loopback one.
     public = web.url

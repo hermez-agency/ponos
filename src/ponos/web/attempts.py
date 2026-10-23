@@ -15,10 +15,14 @@ failure doubles the wait, from one second; the tenth locks the address out for
 a quarter of an hour. Nothing is written to disk: a restart forgets, and a
 restart is not something a guesser can ask for.
 
-An address is the peer's, unless the peer is a proxy on this machine or its
-network — Traefik in front of the container, `tailscale serve` — which is the
-only one allowed to say who it is relaying, in the last `X-Forwarded-For` it
-appended. An IPv6 address counts by its /64: one machine is given a whole one.
+An address is the peer's, unless the peer is a proxy somebody declared —
+`web.trusted_proxies`, this machine alone by default, where `tailscale serve`
+relays from — which is the only one allowed to say who it is relaying, in the
+last `X-Forwarded-For` it appended. Being on a private network is not enough:
+a port Docker publishes is reached through its bridge, a neighbouring container
+of Dokploy's network reaches the console without Traefik, a LAN is a LAN — and
+any of them, believed, could announce a new address with every guess and never
+wait. An IPv6 address counts by its /64: one machine is given a whole one.
 """
 
 from __future__ import annotations
@@ -26,7 +30,7 @@ from __future__ import annotations
 import ipaddress
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 
 # The tenth failure in a row is not somebody who forgot.
@@ -56,13 +60,42 @@ def wait_after(failures: int) -> float:
     return min(2 ** (failures - 1), LONGEST_WAIT)
 
 
-def address_of(peer: str, forwarded: str = "") -> str:
-    """Who is knocking: the peer, or who a proxy on this side says it relays."""
+Network = ipaddress.IPv4Network | ipaddress.IPv6Network
+
+# The proxies believed when nobody declared any: this machine.
+LOOPBACK: tuple[Network, ...] = (
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("::1/128"),
+)
+
+
+def network(written: str) -> Network | None:
+    """An entry of `web.trusted_proxies` — an address or a network — or None for neither."""
+    try:
+        return ipaddress.ip_network(written.strip(), strict=False)
+    except ValueError:
+        return None
+
+
+def proxies(written: Iterable[str]) -> tuple[Network, ...]:
+    """The proxies `web.trusted_proxies` declares; an entry that is neither is left out.
+
+    Left out rather than refused: what it would have trusted is then counted as
+    one address, which is a stricter door, not a wider one — and `ponos doctor`
+    says which entry it was.
+    """
+    return tuple(found for entry in written if (found := network(entry)))
+
+
+def address_of(peer: str, forwarded: str = "", trusted: Iterable[Network] = LOOPBACK) -> str:
+    """Who is knocking: the peer, or who a declared proxy says it relays."""
     try:
         direct = ipaddress.ip_address(peer)
     except ValueError:
         return peer
-    if forwarded and (direct.is_loopback or direct.is_private):
+    if isinstance(direct, ipaddress.IPv6Address) and direct.ipv4_mapped:
+        direct = direct.ipv4_mapped
+    if forwarded and any(direct in proxy for proxy in trusted):
         relayed = forwarded.split(",")[-1].strip()
         try:
             direct = ipaddress.ip_address(relayed)
