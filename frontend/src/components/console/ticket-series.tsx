@@ -6,6 +6,7 @@ import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog"
+import { Robot } from "@/components/console/robot"
 import { ProjectThumb } from "@/components/console/project-picture"
 import { FAMILY_ICON, blockSaid, familyColor } from "@/components/console/ticket-bits"
 import { TicketDecision } from "@/components/console/ticket-decision"
@@ -474,6 +475,9 @@ function Recap({
   onClose: () => void
 }) {
   const t = useT()
+  // Enter closes only here, at the end: the Close button holds the focus, so the key is the button's own.
+  const close = React.useRef<HTMLButtonElement>(null)
+  React.useEffect(() => close.current?.focus({ preventScroll: true }), [])
   const said =
     column === "blocked"
       ? counted(done, "{{count}} ticket unblocked", "{{count}} tickets unblocked")
@@ -481,9 +485,12 @@ function Recap({
   return (
     <section
       data-slot="series-recap"
-      className="animate-in fade-in mx-auto flex max-w-xl flex-col items-center gap-4 px-4 py-16 text-center"
+      className="mx-auto flex max-w-xl flex-col items-center gap-4 px-4 py-16 text-center"
     >
-      <CircleCheck className="text-tr-green size-10" />
+      {/* The mascot arrives with a small rise; the robot itself stops moving under prefers-reduced-motion. */}
+      <div className="animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-500 motion-reduce:animate-none">
+        <Robot state="success" size={128} />
+      </div>
       <p role="status" className="text-xl font-semibold">
         {done || skipped
           ? [said, skipped ? counted(skipped, "{{count}} ticket skipped", "{{count}} tickets skipped") : ""]
@@ -497,8 +504,8 @@ function Recap({
             {t("Review the skipped tickets")}
           </Button>
         ) : null}
-        <Button variant="outline" onClick={onClose}>
-          {t("Close")}
+        <Button ref={close} variant="outline" onClick={onClose} aria-keyshortcuts="Enter">
+          {t("Close")} <kbd className="font-mono text-xs opacity-60">↵</kbd>
         </Button>
       </div>
     </section>
