@@ -62,6 +62,7 @@ test("a goal is archived after a confirmation", async ({ page }) => {
   const dialog = page.getByRole("alertdialog")
   await expect(dialog).toContainText("Archiver « Lancer la v2 » ?")
   await dialog.getByRole("button", { name: "Annuler" }).click()
+  await expect(dialog).toBeHidden()
   await expect(page.locator("[data-archive-goal]")).toBeVisible()
   await page.locator("[data-archive-goal]").click()
   await page.getByRole("alertdialog").getByRole("button", { name: "Archiver l'objectif" }).click()
