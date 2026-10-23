@@ -12,7 +12,7 @@ from pathlib import Path
 from support import _board_runner, _github, _in_progress, _ready, _reviewed, case
 
 from ponos import config as C
-from ponos import credits, notion, projects, state
+from ponos import credits, notion, projects, state, store, workspace
 from ponos import ticket as ticket_module
 from ponos.runner import Runner
 from ponos.web import board as web_board
@@ -427,6 +427,83 @@ def an_orphan_claim_is_let_go_of_by_the_sweep(state_home):
     state.claim("pgone", "Validated")
     assert runner.sweep() == 0, "too recent to be called abandoned"
     assert state.claims() == {"plive": "Validated"}
+
+
+@case
+def a_schedules_database_that_answers_404_does_not_hold_the_queue_up(state_home):
+    """A side feature down costs a line of the journal, not the whole board.
+
+    The Schedules database was taken out of the integration: every reading of
+    it is a 404. The pass says so and goes on, and the ticket in ready starts.
+    """
+    runner = _board_runner([_ready("p-1")], {})
+    runner.config.runner.auto_update = False
+    runner.config.runner.reply = False
+    runner.announce_idle = False
+    runner._workspace = workspace.Workspace(
+        tickets="db", projects="projects", agents="agents", schedules="db-schedules"
+    )
+    read = runner.client.query
+
+    def query(database_id, filter_=None):
+        if database_id == "db-schedules":
+            raise notion.NotionError("POST /databases/db-schedules/query: 404 object_not_found")
+        return read(database_id, filter_)
+
+    runner.client.query = query
+    said: list[str] = []
+    runner.say = said.append
+    started: list[str] = []
+    runner.prepare = lambda ticket: started.append(ticket.id)
+    runner.tick()
+    assert started == ["p1"], (started, said)
+    assert any("404" in line for line in said), said
+
+    # A network that is down is still the pass's own business: it stops.
+    def unreachable(database_id, filter_=None):
+        raise store.Unreachable("POST /databases/db-schedules/query: no DNS answer")
+
+    runner.client.query = unreachable
+    try:
+        runner.born()
+    except store.Unreachable:
+        pass
+    else:
+        raise AssertionError("an unreachable board must stop the pass")
+
+
+@case
+def a_ticket_that_refuses_a_write_does_not_stop_the_sweep_or_the_closing(state_home):
+    """One page Notion will not write leaves the others to be put right."""
+    stale = "2020-01-01T00:00:00+00:00"
+    first, second = _in_progress("p-a", None), _in_progress("p-b", None)
+    first.raw["last_edited_time"] = second.raw["last_edited_time"] = stale
+    runner = _board_runner([first, second], {})
+    written = runner.client.update
+
+    def update(database_id, page_id, values):
+        if page_id == "p-a":
+            raise notion.NotionError(f"PATCH /pages/{page_id}: 403 restricted_resource")
+        written(database_id, page_id, values)
+
+    runner.client.update = update
+    said: list[str] = []
+    runner.say = said.append
+    assert runner.sweep() == 1
+    assert [page for page, _ in runner.client.written] == ["p-b"]
+    assert any("403" in line for line in said), said
+
+    url = "https://github.com/x/y/pull/"
+    runner = _board_runner(
+        [_reviewed("p-a", "In review", url + "1"), _reviewed("p-b", "In review", url + "2")],
+        {"review": "In review", "done": "Done"},
+    )
+    written = runner.client.update
+    runner.client.update = update
+    runner.say = said.append
+    with _github({url + "1": "MERGED", url + "2": "MERGED"}):
+        assert runner.close_merged() == 1
+    assert [page for page, _ in runner.client.written] == ["p-b"]
 
 
 @case

@@ -112,8 +112,17 @@ class Delivery(Base):
         is, and `ponos history` should say so. It runs in a dry run too,
         where it only says what it would do — the one gesture that cannot be
         taken back is the one worth rehearsing — and a rehearsal is not history.
+
+        A refusal from the board on the way stops the delivering, not the pass:
+        the queue after it still runs, and the next pass delivers again.
         """
-        done = self.deliver()
+        try:
+            done = self.deliver()
+        except store.Unreachable:
+            raise
+        except store.StoreError as error:
+            self.say(f"  ! the validated column was not carried out: {voice_module.line(error)}")
+            return []
         for entry in done:
             if entry.get("status") != "dry-run":
                 state.record(entry)
