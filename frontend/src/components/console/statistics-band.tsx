@@ -15,9 +15,10 @@ import { money, number } from "@/lib/numbers"
 import type { BlockFamily, Made, Statistics, StatisticsDay } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
-import { Eyebrow, Panel, Tile } from "./frame"
+import { Eyebrow, Panel } from "./frame"
 import { ActivityChart } from "./activity-chart"
 import { Robot } from "./robot"
+import { Tile } from "./tile"
 import {
   FAMILY_ICON,
   blockSaid,

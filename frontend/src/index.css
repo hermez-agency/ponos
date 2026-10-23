@@ -250,28 +250,27 @@
      panel are siblings, so the grid is the parent's, found by the panel it
      holds. Wide, the panel sticks to the top of the screen and scrolls on its own
      (see `ProjectAside`), so a project picked low in a long list keeps its header
-     in view. Narrower there is no panel, and a project picked opens its page.
-     The schedules' split layout is the same grid (see `ScheduleAside`). */
-  div:has(> :is([data-projects-aside], [data-schedules-aside])) {
+     in view. Narrower there is no panel, and a project picked opens its page. */
+  div:has(> [data-projects-aside]) {
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
   }
-  div:has(> :is([data-projects-aside], [data-schedules-aside])) > :is([data-projects-aside], [data-schedules-aside]) {
+  div:has(> [data-projects-aside]) > [data-projects-aside] {
     order: 1;
   }
   @media (width >= 64rem) {
-    div:has(> :is([data-projects-aside], [data-schedules-aside])) {
+    div:has(> [data-projects-aside]) {
       display: grid;
       grid-template-columns: minmax(16rem, 19rem) minmax(0, 1fr);
       grid-template-rows: auto 1fr;
       align-items: start;
       column-gap: 2rem;
     }
-    div:has(> :is([data-projects-aside], [data-schedules-aside])) > :not([data-projects-aside], [data-schedules-aside]) {
+    div:has(> [data-projects-aside]) > :not([data-projects-aside]) {
       grid-column: 1;
     }
-    div:has(> :is([data-projects-aside], [data-schedules-aside])) > :is([data-projects-aside], [data-schedules-aside]) {
+    div:has(> [data-projects-aside]) > [data-projects-aside] {
       grid-column: 2;
       grid-row: 1 / span 2;
       order: 0;
@@ -282,7 +281,7 @@
     }
   }
   @media (width >= 96rem) {
-    div:has(> :is([data-projects-aside], [data-schedules-aside])) {
+    div:has(> [data-projects-aside]) {
       grid-template-columns: minmax(18rem, 22rem) minmax(0, 1fr);
     }
   }

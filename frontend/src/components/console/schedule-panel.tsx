@@ -1,7 +1,8 @@
 import * as React from "react"
-import { ArrowLeft, ExternalLink, GitPullRequest, Pencil } from "lucide-react"
+import { useLocation, useRouter } from "@tanstack/react-router"
+import { ArrowLeft, ExternalLink, GitPullRequest, Pencil, TriangleAlert } from "lucide-react"
 import { ActionList } from "react-data-form"
-import { Link, ViewResourceContextProvider } from "react-resource-view"
+import { Link, ViewResourceContextProvider, type ListComponentPropsInterface } from "react-resource-view"
 
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -25,18 +26,17 @@ import {
   ruleSaid,
   scheduleHref,
   schedules,
-  useLeaveSchedule,
-  usePickedSchedule,
-  useScheduleTab,
+  type ScheduleItem,
   useSchedules,
 } from "@/resources/schedules"
 import { ticketHref, tickets } from "@/resources/tickets"
 
 import { ActivityChart } from "./activity-chart"
 import { EmptyState } from "./empty-state"
-import { Eyebrow, Panel, Tile } from "./frame"
+import { Eyebrow, Panel } from "./frame"
 import { useOpensOverTheList } from "./record-window"
 import { Robot } from "./robot"
+import { Tile } from "./tile"
 import { SEED, ago, columnTitle, lasted, reachable } from "./ticket-bits"
 
 /* What sits beside the list of schedules: the one picked, as the projects have
@@ -52,6 +52,124 @@ import { SEED, ago, columnTitle, lasted, reachable } from "./ticket-bits"
  * when its `Last` moves — a launch, a pass: see `web/lineage.py`, which also
  * says how the tickets born before Ponos kept the link are found.
  */
+
+const PICKED = "schedule"
+const TAB = "tab"
+
+/** The address, with these parameters changed — an empty one taken out. */
+function addressWith(pathname: string, searchStr: string, changes: Record<string, string>): string {
+  const kept = searchStr
+    .replace(/^\?/, "")
+    .split("&")
+    .filter((part) => part && !(part.split("=")[0] in changes))
+  const added = Object.entries(changes)
+    .filter(([, value]) => value)
+    .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
+  return `${pathname}?${[...kept, ...added].join("&")}`
+}
+
+/** The schedule picked in the split layout, by its id; empty when none is. */
+export function usePickedSchedule(): string {
+  return new URLSearchParams(useLocation().searchStr).get(PICKED) ?? ""
+}
+
+/* Whether the panel over the list on a phone was put there by a push of ours:
+ * then the way back is Back, which a reload or a pasted link has none of. */
+let pushed = false
+
+/** Pick a schedule, or none with "". */
+export function usePickSchedule(): (id: string) => void {
+  const { pathname, searchStr } = useLocation()
+  const router = useRouter()
+  const wide = useWide()
+  return (id: string) => {
+    const to = addressWith(pathname, searchStr, { [PICKED]: id, [TAB]: "" })
+    if (wide || !id) return router.history.replace(to)
+    pushed = true
+    router.history.push(to)
+  }
+}
+
+/** The way back to the list, from the schedule open over it on a phone. */
+export function useLeaveSchedule(): () => void {
+  const pick = usePickSchedule()
+  const router = useRouter()
+  return () => {
+    if (pushed) {
+      pushed = false
+      return router.history.back()
+    }
+    pick("")
+  }
+}
+
+/** The tab the panel is on, by its name in the address, and the hand that changes it. */
+export function useScheduleTab(): [string, (tab: string) => void] {
+  const { pathname, searchStr } = useLocation()
+  const router = useRouter()
+  const tab = new URLSearchParams(searchStr).get(TAB) ?? ""
+  return [tab, (value: string) => router.history.replace(addressWith(pathname, searchStr, { [TAB]: value }))]
+}
+
+/** The list on the left: a line per schedule, each one a button that fills the panel. */
+export function ScheduleMaster({ rows = [] }: ListComponentPropsInterface<ScheduleItem>) {
+  const t = useT()
+  const chosen = usePickedSchedule()
+  const pick = usePickSchedule()
+  const wide = useWide()
+  return (
+    <ul className="flex w-full flex-col gap-1.5">
+      {rows.map((row) => {
+        const schedule = row.data
+        if (!schedule) return null
+        const on = chosen === schedule.id
+        const rule = ruleSaid(schedule)
+        return (
+          <li key={schedule.id} className="relative">
+            <button
+              type="button"
+              data-schedule-item
+              data-selected={on || undefined}
+              aria-pressed={on}
+              onClick={() => pick(on && wide ? "" : schedule.id)}
+              className={cn(
+                "bg-card flex w-full min-w-0 flex-col gap-1 rounded-xl border px-3 py-2.5 pr-14 text-left",
+                "hover:border-primary/50 hover:bg-accent/40",
+                "focus-visible:ring-ring/50 focus-visible:border-ring outline-none transition-colors focus-visible:ring-[3px]",
+                on && "border-primary bg-accent/40 ring-primary/30 ring-[3px]"
+              )}
+            >
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="truncate text-sm font-semibold" title={schedule.name}>
+                  {schedule.name}
+                </span>
+                {schedule.problem ? (
+                  <Badge variant="destructive" className="shrink-0 px-1.5 py-0 text-[0.65rem]" title={schedule.problem}>
+                    <TriangleAlert />
+                    {t("Problem")}
+                  </Badge>
+                ) : null}
+              </span>
+              {rule ? <span className="text-muted-foreground truncate text-xs">{rule}</span> : null}
+              <span className="text-muted-foreground flex min-w-0 items-center justify-between gap-3 text-xs">
+                <span className="min-w-0 truncate">
+                  <ProjectOf said={schedule.project} page={schedule.project_id} />
+                </span>
+                <span className="shrink-0 [&_[data-slot=badge]]:text-[0.65rem]">
+                  <NextOf schedule={schedule} />
+                </span>
+              </span>
+            </button>
+            {/* Beside the button and not in it: a switch in a button is a click on both. */}
+            <span className="absolute top-2.5 right-3">
+              <ActiveSwitch id={schedule.id} on={schedule.active} name={schedule.name} />
+            </span>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
 
 export function ScheduleAside() {
   const t = useT()
@@ -76,7 +194,8 @@ export function ScheduleAside() {
       </div>
     ) : null
   return (
-    <aside ref={aside} data-schedules-aside className="flex min-w-0 flex-col gap-4">
+    // Laid out by the projects' rules (`index.css`): the same grid, the same column.
+    <aside ref={aside} data-projects-aside data-schedules-aside className="flex min-w-0 flex-col gap-4">
       {found ? (
         <SchedulePanel key={id} schedule={found} />
       ) : (
