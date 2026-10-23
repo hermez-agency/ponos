@@ -130,11 +130,15 @@ deux suites, puis publie l'image sur `ghcr.io`.
   `answers.py` les formes de ce qu'elle répond, d'où viennent les types de la page ;
   `web/attempts.py` compte les tentatives ratées par adresse, `web/sessions.py` date et
   révoque les connexions ;
-  `web/console.py` tient la conversation avec l'espace de travail, et
+  `web/console.py` tient la conversation avec l'espace de travail,
+  `web/agui.py` la traduit en AG-UI pour le `useChat` de la page, et
   `web/attachments.py` les fichiers qu'un message y emporte).
 - `src/ponos/web/static/` — **généré**, pas du code source à modifier
   à la main (voir Pièges connus).
-- `frontend/` — sous-projet React/TypeScript/Vite de la console web. La barre
+- `frontend/` — sous-projet React/TypeScript/Vite de la console web. La
+  conversation est `useChat` de TanStack AI (`src/lib/agui.ts` : la connexion,
+  abonnée aux événements AG-UI de `/api/events`), dessinée par le kit de chat
+  de Brand Assets, repris et adapté dans `src/components/chat/`. La barre
   de message est un composant réutilisable,
   `frontend/src/components/console/composer.tsx` ; ses décisions sans DOM
   (fichiers acceptés, collage, bouton d'envoi, autocomplétion `>`) vivent dans

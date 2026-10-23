@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test"
 
-/* The conversation with the workspace: Ponos while it works, the steps folded,
- * and Stop.
+/* The conversation with the workspace: what Ponos says and does as it streams,
+ * the turn kept that way, and Stop.
  *
  * The session is `e2e/console.py`'s own `claude`, which reads a file, runs a
  * command that fails and answers — or, asked to go slowly, starts a command
@@ -28,45 +28,39 @@ async function ask(page: Page, text: string) {
   await field.press("Enter")
 }
 
-test("a turn shows Ponos at work, then the answer, with its steps as a timeline", async ({ page }) => {
+test("a turn streams what Ponos says and does, then the answer, and is kept that way", async ({ page }) => {
   await openConsole(page)
   await ask(page, "what is on the board?")
 
-  const thinking = page.locator("[data-slot=thinking]:not([data-done])")
-  await expect(thinking.locator("ponos-robot")).toBeVisible()
-  // The steps are there as they come, in plain words — never the command.
-  await expect(thinking.getByText("I read the project’s code").first()).toBeVisible()
+  // Ponos at work, and what it does as it does it: each tool a card, its state on it.
+  await expect(page.locator("[data-slot=working] ponos-robot")).toBeVisible()
   await expect(page.getByRole("button", { name: "Stop" })).toBeVisible()
-  await expect(page.getByText("python3 -m app.check")).toBeHidden()
-  await expect(page.getByRole("button", { name: /Show the steps|Hide the steps/ })).toHaveCount(0)
+  const turn = page.locator("[data-slot=said][data-role=workspace]").last()
+  await expect(turn.getByText("Let me look.")).toBeVisible()
+  const read = turn.locator("[data-slot=chat-tool-call]").filter({ hasText: "Read" })
+  await expect(read).toBeVisible()
 
   await expect(page.getByText("Done. The board has 13 tickets.")).toBeVisible()
-  await expect(thinking).toHaveCount(0)
-  // Signed by Ponos, with its face — not by "the workspace".
-  const answer = page.locator("[data-slot=message]").filter({ hasText: "Done. The board has 13 tickets." })
-  await expect(answer.locator("[data-slot=message-header]")).toHaveText(/^\s*Ponos/)
-  await expect(answer.locator("[data-slot=turn-avatar] ponos-robot")).toBeVisible()
-  const summary = page.locator("[data-slot=steps]").last()
-  await expect(summary).toContainText("3 steps")
-  await expect(summary).toContainText("$0.0123")
-  // One card per step, closed; the one that failed says so, with its mark.
-  const read = page.getByRole("button", { name: /I read the project’s code/ }).last()
-  const failed = page.getByRole("button", { name: /failed.*I work on the project/ }).last()
-  await expect(read).toHaveAttribute("aria-expanded", "false")
-  await expect(failed).toHaveAttribute("aria-expanded", "false")
-  await expect(page.getByText("python3 -m app.check")).toBeHidden()
+  await expect(page.locator("[data-slot=working]")).toHaveCount(0)
+  await expect(page.getByRole("button", { name: "Stop" })).toHaveCount(0)
+  // Signed by Ponos, with its face.
+  await expect(turn).toContainText(/^\s*Ponos/)
+  await expect(turn.locator("ponos-robot").first()).toBeVisible()
+  // A tool that answered is done, one that failed says so — with what it answered.
+  await expect(read).toHaveAttribute("data-status", "done")
+  const check = turn.locator("[data-slot=chat-tool-call]").filter({ hasText: "python3 -m app.check" })
+  await expect(check).toHaveAttribute("data-status", "error")
+  await expect(turn.locator("[data-slot=chat-tool-result][data-state=error]")).toContainText("boom")
+  await expect(turn.locator("[data-slot=said-footer]")).toContainText("$0.0123")
 
-  // The technical detail is one click down.
-  await failed.click()
-  await expect(failed).toHaveAttribute("aria-expanded", "true")
-  await expect(page.getByText("python3 -m app.check")).toBeVisible()
-  await failed.press("Enter")
-  await expect(failed).toHaveAttribute("aria-expanded", "false")
-
-  await summary.getByRole("button", { name: "Expand all" }).click()
-  await expect(read).toHaveAttribute("aria-expanded", "true")
-  await summary.getByRole("button", { name: "Collapse all" }).click()
-  await expect(read).toHaveAttribute("aria-expanded", "false")
+  // Read again from the server, the conversation is drawn as it was watched.
+  await page.reload()
+  await page.getByRole("button", { name: "Open the console" }).click()
+  const kept = page.locator("[data-slot=said][data-role=workspace]").last()
+  await expect(kept.getByText("Done. The board has 13 tickets.")).toBeVisible()
+  await expect(kept.locator("[data-slot=chat-tool-call]")).toHaveCount(2)
+  await expect(kept.locator("[data-slot=said-footer]")).toContainText("$0.0123")
+  await expect(page.locator("[data-slot=said][data-role=you]").last()).toContainText("what is on the board?")
 })
 
 test("Stop ends the turn, says so, and the conversation carries on", async ({ page }) => {
@@ -78,8 +72,8 @@ test("Stop ends the turn, says so, and the conversation carries on", async ({ pa
   expect(session).toBeTruthy()
 
   await ask(page, "take it slowly")
-  await expect(page.getByText("fixing an error…")).toBeVisible({ timeout: 10_000 })
-  await expect(page.locator("[data-slot=step][data-state=running]")).toBeVisible()
+  const sleeping = page.locator("[data-slot=chat-tool-call][data-status=running]").filter({ hasText: "sleep 600" })
+  await expect(sleeping).toBeVisible({ timeout: 10_000 })
   const stop = page.getByRole("button", { name: "Stop" })
   await stop.click()
   // The double click: the second lands on a button already stopping, or gone.
@@ -88,7 +82,12 @@ test("Stop ends the turn, says so, and the conversation carries on", async ({ pa
   await expect(page.getByText("stopped by you")).toBeVisible()
   await expect(page.getByRole("button", { name: "Stop" })).toHaveCount(0)
   await expect(page.getByRole("textbox", { name: FIELD })).toBeFocused()
-  await expect(page.locator("[data-slot=steps]").last()).toContainText("4 steps")
+  // The command it was in is not left running on the page.
+  const stopped = page.locator("[data-slot=said][data-role=stopped]").last()
+  await expect(stopped.locator("[data-slot=chat-tool-call]").filter({ hasText: "sleep 600" })).toHaveAttribute(
+    "data-status",
+    "error"
+  )
 
   await ask(page, "just the count, then")
   await expect(page.getByText("Resumed, and done. The board has 13 tickets.")).toBeVisible()
@@ -99,8 +98,9 @@ test("Escape from the empty field stops the turn, and leaves the drawer open", a
   await openConsole(page)
   const stopped = await page.getByText("stopped by you").count()
   await ask(page, "slowly, please")
-  await expect(page.getByText("fixing an error…")).toBeVisible({ timeout: 10_000 })
-  await expect(page.locator("[data-slot=step][data-state=running]")).toBeVisible()
+  await expect(
+    page.locator("[data-slot=chat-tool-call][data-status=running]").filter({ hasText: "sleep 600" })
+  ).toBeVisible({ timeout: 10_000 })
   const field = page.getByRole("textbox", { name: FIELD })
   await field.focus()
   await field.press("Escape")
@@ -142,7 +142,7 @@ test("messages sent while Ponos answers wait, then are sent in order", async ({ 
   await expect(page.getByText("Resumed, and done. The board has 13 tickets.")).toHaveCount(answered + 2, {
     timeout: 30_000,
   })
-  const mine = page.locator("[data-slot=message]").filter({ hasText: /^\s*you/i })
+  const mine = page.locator("[data-slot=said][data-role=you]")
   const texts = await mine.allInnerTexts()
   const sent = texts.filter((text) => /addition/.test(text))
   expect(sent[sent.length - 2]).toContain("first addition")
@@ -152,7 +152,9 @@ test("messages sent while Ponos answers wait, then are sent in order", async ({ 
 test("Stop keeps the waiting messages: they are sent, or thrown away", async ({ page }) => {
   await openConsole(page)
   await ask(page, "take it slowly")
-  await expect(page.getByText("fixing an error…")).toBeVisible({ timeout: 10_000 })
+  await expect(
+    page.locator("[data-slot=chat-tool-call][data-status=running]").filter({ hasText: "sleep 600" })
+  ).toBeVisible({ timeout: 10_000 })
   await ask(page, "kept after the stop")
   const waiting = page.locator("[data-slot=queued]")
   await expect(waiting).toHaveCount(1)
@@ -174,7 +176,9 @@ test("Stop keeps the waiting messages: they are sent, or thrown away", async ({ 
 
   // And thrown away, the other way.
   await ask(page, "take it slowly again")
-  await expect(page.getByText("fixing an error…").last()).toBeVisible({ timeout: 10_000 })
+  await expect(
+    page.locator("[data-slot=chat-tool-call][data-status=running]").filter({ hasText: "sleep 600" })
+  ).toBeVisible({ timeout: 10_000 })
   await ask(page, "never sent")
   await expect(waiting).toHaveCount(1)
   await page.getByRole("button", { name: "Stop" }).click()

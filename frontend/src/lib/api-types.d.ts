@@ -463,6 +463,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/chat/agui": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Chat Thread
+         * @description A conversation as `useChat` hydrates it, from Ponos's own storage.
+         */
+        get: operations["chat_thread_api_chat_agui_get"];
+        put?: never;
+        /**
+         * Run Chat
+         * @description The chat's AG-UI door: a `RunAgentInput` in, the run's events out.
+         *
+         *     The console's own page asks for JSON and reads the events where it reads
+         *     everything else, on `/api/events` — one stream per tab, whatever it
+         *     watches. Any other AG-UI client asks for `text/event-stream` and is
+         *     answered the run itself, from `RUN_STARTED` to `RUN_FINISHED`: waiting
+         *     behind the turn in flight first, if there is one.
+         */
+        post: operations["run_chat_api_chat_agui_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/chat/sessions": {
         parameters: {
             query?: never;
@@ -1744,6 +1774,12 @@ export interface components {
             accepted: string[];
             ffmpeg: boolean;
         };
+        /** @description One AG-UI event of a turn of the workspace, for the page's `useChat`. */
+        AguiEvent: {
+            event: {
+                [key: string]: unknown;
+            };
+        };
         /** @description A file kept by the server for a message: what the transcript draws it from. */
         Attached: {
             id: string;
@@ -2014,6 +2050,20 @@ export interface components {
         ChatStopping: {
             /** @constant */
             stage: "stopping";
+        };
+        /**
+         * @description A conversation as `useChat` hydrates it (TanStack AI's `ChatHydrationResult`).
+         *
+         *     The messages are TanStack AI's `UIMessage`s, typed by the package and not
+         *     here; what Ponos adds rides in `metadata.ponos`.
+         */
+        ChatThread: {
+            messages: {
+                [key: string]: unknown;
+            }[];
+            /** @description Never a run to rejoin: its events come on `/api/events`. */
+            activeRun: null;
+            interrupts: null;
         };
         Check: {
             name: string;
@@ -2649,6 +2699,15 @@ export interface components {
             text: string;
             at?: string;
             attachments?: components["schemas"]["Attached"][];
+            /** @description The id the page gave a message it sent, or the one of a turn's answer. */
+            id?: string;
+            /** @description What a turn of the workspace streamed, as TanStack AI's `UIMessage` parts. */
+            parts?: {
+                [key: string]: unknown;
+            }[];
+            seconds?: number;
+            /** @description In dollars, what the turn cost. */
+            cost?: number;
         };
         Missing: {
             permission: string;
@@ -3021,6 +3080,19 @@ export interface components {
             reported?: string;
             /** @description Whichever of the two is known, as `provider/model`. */
             model_label?: string;
+        };
+        /** @description What an AG-UI client posts to start a run: see `run_chat`. */
+        RunAgentInput: {
+            /** @default  */
+            threadId: string;
+            /** @default  */
+            runId: string;
+            messages?: unknown[];
+            forwardedProps?: {
+                [key: string]: unknown;
+            } | null;
+        } & {
+            [key: string]: unknown;
         };
         /** @description A page of a run's steps. `more`: there are older ones than the first here. */
         RunSteps: {
@@ -3570,6 +3642,7 @@ export interface components {
             notifications: components["schemas"]["Bell"];
             step: components["schemas"]["StepEvent"];
             chat: components["schemas"]["ChatReset"] | components["schemas"]["ChatOpened"] | components["schemas"]["ChatRenamed"] | components["schemas"]["ChatDeleted"] | components["schemas"]["ChatModel"] | components["schemas"]["ChatSent"] | components["schemas"]["ChatQueue"] | components["schemas"]["ChatStep"] | components["schemas"]["ChatStopping"] | components["schemas"]["ChatStopped"] | components["schemas"]["ChatAnswer"];
+            agui: components["schemas"]["AguiEvent"];
             command: components["schemas"]["CommandStarted"] | components["schemas"]["CommandLine"] | components["schemas"]["CommandEnded"];
             talk: components["schemas"]["TalkEvent"];
             sync: components["schemas"]["SyncEvent"];
@@ -3642,6 +3715,15 @@ export interface components {
             text: string;
             at?: string;
             attachments?: components["schemas"]["Attached"][];
+            /** @description The id the page gave a message it sent, or the one of a turn's answer. */
+            id?: string;
+            /** @description What a turn of the workspace streamed, as TanStack AI's `UIMessage` parts. */
+            parts?: {
+                [key: string]: unknown;
+            }[];
+            seconds?: number;
+            /** @description In dollars, what the turn cost. */
+            cost?: number;
             ticket: string;
         };
         Text: {
@@ -5013,6 +5095,70 @@ export interface operations {
         requestBody?: {
             content: {
                 "application/json": components["schemas"]["Sent"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    chat_thread_api_chat_agui_get: {
+        parameters: {
+            query?: {
+                threadId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatThread"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_chat_api_chat_agui_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RunAgentInput"];
             };
         };
         responses: {

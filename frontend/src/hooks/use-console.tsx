@@ -7,6 +7,7 @@ import { t } from "@/lib/i18n"
 import { ideasScored } from "@/lib/ideas-store"
 import { publishBell } from "@/lib/notifications-store"
 import type {
+  AguiEvent,
   Attached,
   Bell,
   Board,
@@ -30,6 +31,7 @@ import type {
   Upgrade,
   UpgradeProgress,
 } from "@/lib/types"
+import { publishAgui } from "@/lib/agui"
 import { justUpdated, type UpgradePhase } from "@/lib/upgrade"
 import { useStream, type Connection } from "./use-stream"
 
@@ -59,23 +61,20 @@ const KEPT = 200
 /** Where a page reloaded after an update leaves the version it came back on. */
 const UPDATED = "ponos:updated"
 
+/* What the console's transcript holds besides the conversation: the `>`
+ * commands run from it and the problems it met on the way. The conversation
+ * itself is `useChat`'s (see `ConsolePane`); these are drawn among its
+ * messages by the time they were said — `at`, by this page's clock. */
 export type Entry =
-  | { id: number; kind: "turn"; role: Role; text: string; attachments?: Attached[] }
+  | { id: number; at: number; kind: "turn"; role: Role; text: string }
   | {
       id: number
-      kind: "steps"
-      steps: Step[]
-      done: boolean
-      /** When the turn began, by this page's clock: what its timer counts from. */
-      started: number
-      /** Once it has ended: how long it took and what it cost, as the server says. */
-      seconds?: number
-      cost?: number
-      /** Stop was pressed, and the turn has not ended yet. */
-      stopping?: boolean
-      stopped?: boolean
+      at: number
+      kind: "command"
+      argv: string[]
+      lines: string[]
+      code: number | null
     }
-  | { id: number; kind: "command"; argv: string[]; lines: string[]; code: number | null }
 
 export interface Session {
   source: string
@@ -86,11 +85,6 @@ export interface Session {
 
 let counter = 0
 const nextId = () => ++counter
-
-/* One literal rather than two joined: it is also the key it is looked up by,
- * and a key nobody can search for is a key nobody translates. */
-const WELCOME =
-  "Ask me anything about your workspace — I can read your repositories, look at the board and create tickets. Type > followed by a command (>status, >list, >doctor) to use the CLI directly."
 
 interface ConsoleValue {
   board: Board
@@ -220,7 +214,10 @@ export function ConsoleProvider({ children }: { children: React.ReactNode }) {
   const asked = React.useRef(new Set<string>())
 
   const say = React.useCallback((role: Role, text: string) => {
-    setTranscript((entries) => [...entries, { id: nextId(), kind: "turn", role, text }])
+    setTranscript((entries) => [
+      ...entries,
+      { id: nextId(), at: Date.now(), kind: "turn", role, text },
+    ])
   }, [])
 
   /* -- the sessions --------------------------------------------------------- */
@@ -256,32 +253,14 @@ export function ConsoleProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  /* The open session, read from the server: its transcript, and a turn already
-   * running when the page opened — Ponos thinks from now on, its earlier steps
-   * were said to a page that was not there. Also what a session opened, deleted
-   * or started in another tab leaves this one to draw. */
+  /* Where the open session stands: a turn running, a queue waiting. What was
+   * said in it is `useChat`'s, hydrated from the server (see `lib/agui.ts`).
+   * Also what a session opened, deleted or started in another tab leaves this
+   * one to draw — the commands run in the one before are not this one's. */
   const loadChat = React.useCallback(async () => {
     try {
       const payload = await api.chat()
-      const said: Entry[] = payload.messages.length
-        ? payload.messages.map((message) => ({
-            id: nextId(),
-            kind: "turn" as const,
-            role: message.role,
-            text: message.text,
-            attachments: message.attachments,
-          }))
-        : [{ id: nextId(), kind: "turn", role: "workspace", text: t(WELCOME) }]
-      if (payload.busy)
-        said.push({
-          id: nextId(),
-          kind: "steps",
-          steps: [],
-          done: false,
-          started: Date.now(),
-          stopping: Boolean(payload.stopping),
-        })
-      setTranscript(said)
+      setTranscript([])
       setBusy(Boolean(payload.busy))
       setStopping(Boolean(payload.stopping))
       setQueue(payload.queue ?? [])
@@ -431,6 +410,9 @@ export function ConsoleProvider({ children }: { children: React.ReactNode }) {
       if (event?.failed) toast.error(t("The ideas could not be scored"), { description: event.failed })
     },
 
+    // A turn of the conversation, as AG-UI: for the panel's `useChat`.
+    agui: (event: AguiEvent) => publishAgui(event.event),
+
     step: (event: StepEvent) => {
       const line: Step = { label: event.label, detail: event.detail, said: event.said }
       setSteps((current) => ({
@@ -453,7 +435,8 @@ export function ConsoleProvider({ children }: { children: React.ReactNode }) {
         return
       }
       if (event.stage === "reset") {
-        setTranscript([{ id: nextId(), kind: "turn", role: "workspace", text: t(WELCOME) }])
+        setTranscript([])
+        void reloadState()
         setBusy(false)
         setStopping(false)
         setQueue([])
@@ -465,62 +448,19 @@ export function ConsoleProvider({ children }: { children: React.ReactNode }) {
         setHeld(event.held)
         return
       }
+      // What was said comes as AG-UI, to `useChat` (the `agui` events below);
+      // here, only whether a turn is running, and being stopped.
       if (event.stage === "sent") {
-        setTranscript((entries) => [
-          ...entries,
-          {
-            id: nextId(),
-            kind: "turn",
-            role: "you",
-            text: event.text,
-            attachments: event.attachments,
-          },
-          { id: nextId(), kind: "steps", steps: [], done: false, started: Date.now() },
-        ])
         setBusy(true)
         setStopping(false)
         return
       }
-      if (event.stage === "step") {
-        const line: Step = { label: event.label, detail: event.detail, said: event.said }
-        setTranscript((entries) => {
-          const last = entries[entries.length - 1]
-          if (last?.kind === "steps" && !last.done)
-            return [...entries.slice(0, -1), { ...last, steps: [...last.steps, line] }]
-          return [
-            ...entries,
-            { id: nextId(), kind: "steps", steps: [line], done: false, started: Date.now() },
-          ]
-        })
-        return
-      }
+      if (event.stage === "step") return
       if (event.stage === "stopping") {
         setStopping(true)
-        setTranscript((entries) =>
-          entries.map((entry) =>
-            entry.kind === "steps" && !entry.done ? { ...entry, stopping: true } : entry
-          )
-        )
         return
       }
-      // "answer", "failed" or "stopped": the steps fold away under what was
-      // said, and keep how long the turn took and what it cost.
-      const stopped = event.stage === "stopped"
-      const role: Role = stopped
-        ? "stopped"
-        : event.stage === "answer" && event.ok !== false
-          ? "workspace"
-          : "error"
-      const seconds = "seconds" in event ? event.seconds : undefined
-      const cost = "cost_usd" in event ? event.cost_usd : undefined
-      setTranscript((entries) => [
-        ...entries.map((entry) =>
-          entry.kind === "steps" && !entry.done
-            ? { ...entry, done: true, stopping: false, stopped, seconds, cost }
-            : entry
-        ),
-        { id: nextId(), kind: "turn", role, text: event.text },
-      ])
+      // "answer", "failed" or "stopped": the turn is over.
       setBusy(false)
       setStopping(false)
       void reloadState()
@@ -530,7 +470,14 @@ export function ConsoleProvider({ children }: { children: React.ReactNode }) {
       if (event.stage === "started") {
         setTranscript((entries) => [
           ...entries,
-          { id: nextId(), kind: "command", argv: event.argv, lines: [], code: null },
+          {
+            id: nextId(),
+            at: Date.now(),
+            kind: "command",
+            argv: event.argv,
+            lines: [],
+            code: null,
+          },
         ])
         setBusy(true)
         return

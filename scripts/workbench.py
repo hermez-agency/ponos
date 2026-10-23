@@ -101,16 +101,20 @@ if "You are scoring ideas" in prompt:
     say({{"type": "result", "result": json.dumps(scores), "session_id": session, "total_cost_usd": 0.001, "num_turns": 1}})
     sys.exit(0)
 
-def use(name, **given):
-    say({{"type": "assistant", "message": {{"content": [{{"type": "tool_use", "name": name, "input": given}}]}}}})
+def use(name, call, **given):
+    say({{"type": "assistant", "message": {{"content": [{{"type": "tool_use", "id": call, "name": name, "input": given}}]}}}})
+
+def answered(call, content, failed=False):
+    say({{"type": "user", "message": {{"content": [{{"type": "tool_result", "tool_use_id": call,
+        "is_error": failed, "content": content}}]}}}})
 
 say({{"type": "assistant", "message": {{"content": [{{"type": "text", "text": "Let me look."}}]}}}})
-use("Read", file_path="/home/me/app/src/api.py")
-use("Bash", command="python3 -m app.check")
-say({{"type": "user", "message": {{"content": [{{"type": "tool_result", "is_error": True,
-    "content": "Exit code 1\\nTraceback (most recent call last): boom"}}]}}}})
+use("Read", "toolu_read", file_path="/home/me/app/src/api.py")
+answered("toolu_read", "def api():\\n    return board()")
+use("Bash", "toolu_check", command="python3 -m app.check")
+answered("toolu_check", "Exit code 1\\nTraceback (most recent call last): boom", failed=True)
 if "slowly" in prompt:
-    use("Bash", command="sleep 600")
+    use("Bash", "toolu_sleep", command="sleep 600")
     time.sleep(600)
 if "hold-the-line" in prompt:
     time.sleep(4)

@@ -750,6 +750,13 @@ class Message(Shape):
     text: str
     at: str = omitted()
     attachments: list[Attached] = omitted()
+    id: str = omitted()
+    """The id the page gave a message it sent, or the one of a turn's answer."""
+    parts: list[dict[str, Any]] = omitted()
+    """What a turn of the workspace streamed, as TanStack AI's `UIMessage` parts."""
+    seconds: float = omitted()
+    cost: float = omitted()
+    """In dollars, what the turn cost."""
 
 
 class Chat(ChatState):
@@ -773,6 +780,25 @@ class ChatSession(Shape):
     """The one the console is talking to now."""
     matched: Literal["title", "content"] = omitted()
     """With a search: found in the title, or deeper in the transcript."""
+
+
+class ChatThread(Shape):
+    """A conversation as `useChat` hydrates it (TanStack AI's `ChatHydrationResult`).
+
+    The messages are TanStack AI's `UIMessage`s, typed by the package and not
+    here; what Ponos adds rides in `metadata.ponos`.
+    """
+
+    messages: list[dict[str, Any]]
+    activeRun: None  # noqa: N815 — TanStack AI's names
+    """Never a run to rejoin: its events come on `/api/events`."""
+    interrupts: None
+
+
+class AguiEvent(Shape):
+    """One AG-UI event of a turn of the workspace, for the page's `useChat`."""
+
+    event: dict[str, Any]
 
 
 class ChatSessions(Shape):
@@ -2123,6 +2149,7 @@ class Stream(Shape):
         | ChatStopped
         | ChatAnswer
     )
+    agui: AguiEvent
     command: CommandStarted | CommandLine | CommandEnded
     talk: TalkEvent
     sync: SyncEvent

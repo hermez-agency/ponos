@@ -32,6 +32,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import queue
 import re
 import secrets
 import shlex
@@ -48,8 +49,8 @@ from pathlib import Path
 from .. import log as log_module
 from .. import openrouter, progress, provider, session, voice
 from ..config import Config, state_dir
+from . import agui, chats
 from . import attachments as files
-from . import chats
 
 logger = logging.getLogger(__name__)
 
@@ -127,12 +128,93 @@ class Message:
     # What came with it, as the page draws it: name, kind, size, and the id the
     # file is served back under for as long as the conversation keeps it.
     attachments: list[dict] = field(default_factory=list)
+    # The page's own name for it: the id `useChat` gave the message you typed,
+    # so that the conversation it is sent back in does not draw it twice.
+    id: str = ""
+    # What a turn of the workspace streamed, kept in the shape it was drawn in
+    # (see agui.py) — and how long it took, and what it cost.
+    parts: list[dict] = field(default_factory=list)
+    seconds: float | None = None
+    cost: float | None = None
 
     def as_dict(self) -> dict:
-        said = {"role": self.role, "text": self.text, "at": self.at}
+        said: dict = {"role": self.role, "text": self.text, "at": self.at}
         if self.attachments:
             said["attachments"] = self.attachments
+        if self.id:
+            said["id"] = self.id
+        if self.parts:
+            said["parts"] = self.parts
+        if self.seconds is not None:
+            said["seconds"] = self.seconds
+        if self.cost is not None:
+            said["cost"] = self.cost
         return said
+
+    def as_ui(self, fallback: str) -> dict:
+        """The message as `useChat` holds it: a `UIMessage`, with its parts.
+
+        A message from before there were parts is its text, in one part. What
+        Ponos alone knows — who said it in its own words (an answer, a problem,
+        a turn you stopped), the files, the time and the cost — rides in
+        `metadata.ponos`, which TanStack AI carries without reading.
+        """
+        ponos: dict = {"role": self.role, "at": self.at}
+        if self.attachments:
+            ponos["attachments"] = self.attachments
+        if self.seconds is not None:
+            ponos["seconds"] = self.seconds
+        if self.cost is not None:
+            ponos["cost"] = self.cost
+        if self.role == "you":
+            parts: list[dict] = [{"type": "text", "content": self.text}] if self.text else []
+            role = "user"
+        elif self.role == "error":
+            # A problem is said apart from what streamed before it: the page
+            # draws it as a problem, under the parts.
+            parts = list(self.parts)
+            ponos["error"] = self.text
+            role = "assistant"
+        else:
+            parts = list(self.parts)
+            # An answer whose words are not in its parts — the session said
+            # them in its result alone, or the message is older than parts.
+            if self.text and not any(part.get("type") == "text" for part in parts):
+                parts.append({"type": "text", "content": self.text})
+            role = "assistant"
+        return {
+            "id": self.id or fallback,
+            "role": role,
+            "parts": parts,
+            "createdAt": self.at,
+            "metadata": {"ponos": ponos},
+        }
+
+
+def _messages(row: dict) -> list[Message]:
+    """The transcript of a conversation's row, as messages."""
+    return [
+        Message(
+            str(item.get("role", "")),
+            str(item.get("text", "")),
+            str(item.get("at", "")),
+            [entry for entry in item.get("attachments") or [] if isinstance(entry, dict)],
+            id=str(item.get("id") or ""),
+            parts=[part for part in item.get("parts") or [] if isinstance(part, dict)],
+            seconds=item.get("seconds"),
+            cost=item.get("cost"),
+        )
+        for item in row.get("messages", [])
+        # A turn you stopped before it said anything is still a turn: the
+        # transcript says it was stopped, with nothing under it.
+        if item.get("role")
+        and (
+            item.get("text")
+            or item.get("attachments")
+            or item.get("parts")
+            or item.get("role") == "stopped"
+        )
+    ]
 
 
 @dataclass
@@ -142,6 +224,10 @@ class Queued:
     text: str
     carried: list[files.Attachment]
     id: str = field(default_factory=lambda: secrets.token_hex(6))
+    # The run and the message `useChat` named, when it is the page that sent
+    # it through AG-UI: kept until the turn starts, so it starts under them.
+    run_id: str = ""
+    message_id: str = ""
     at: str = field(default_factory=lambda: datetime.now(UTC).isoformat(timespec="seconds"))
 
     def as_dict(self) -> dict:
@@ -176,6 +262,12 @@ class Chat:
         # A turn that ended before its time (Stop, or an error) leaves the queue
         # alone until somebody chooses between sending it and throwing it away.
         self.held = False
+        # The turn in flight, as AG-UI says it (see agui.py): what a page that
+        # opens mid-turn is drawn, and what the events of the session go through.
+        self.turn: agui.Turn | None = None
+        # Whoever follows the turns in AG-UI on a stream of their own, besides
+        # the pages that read them on `/api/events` — see `listen`.
+        self._listeners: set[queue.Queue] = set()
         self._blank()
         self._load()
         files.prune(attachments_dir(), self.config.web.attachment_days)
@@ -245,19 +337,7 @@ class Chat:
         self.session_id = str(row.get("claude") or "")
         self.turns = int(row.get("turns") or 0)
         self.folder_name = str(row.get("folder") or "")
-        self.messages = [
-            Message(
-                str(item.get("role", "")),
-                str(item.get("text", "")),
-                str(item.get("at", "")),
-                [entry for entry in item.get("attachments") or [] if isinstance(entry, dict)],
-            )
-            for item in row.get("messages", [])
-            # A turn you stopped before it said anything is still a turn: the
-            # transcript says it was stopped, with nothing under it.
-            if item.get("role")
-            and (item.get("text") or item.get("attachments") or item.get("role") == "stopped")
-        ]
+        self.messages = _messages(row)
 
     def _save(self) -> None:
         if not self.messages:
@@ -320,6 +400,69 @@ class Chat:
 
     def history(self) -> list[dict]:
         return [message.as_dict() for message in self.messages]
+
+    # -- in AG-UI ------------------------------------------------------------
+
+    def ui(self) -> list[dict]:
+        """The open conversation as `useChat` holds it — the turn in flight included."""
+        said = [message.as_ui(f"{self.id}-{index}") for index, message in enumerate(self.messages)]
+        turn = self.turn
+        if turn is not None:
+            said.append(
+                {
+                    "id": turn.message_id,
+                    "role": "assistant",
+                    "parts": list(turn.parts),
+                    "metadata": {"ponos": {"role": "workspace"}},
+                }
+            )
+        return said
+
+    def thread(self, identifier: str) -> dict:
+        """What `useChat` hydrates a conversation from: Ponos's own storage.
+
+        The open one is read from memory, its turn in flight included; another
+        one from its row. Never a run to rejoin: the events of the one in
+        flight come on the stream every page already has open.
+        """
+        if not identifier or identifier == self.id:
+            messages = self.ui()
+        else:
+            row = chats.load(identifier)
+            if row is None:
+                raise LookupError("no such session")
+            messages = [
+                message.as_ui(f"{identifier}-{index}")
+                for index, message in enumerate(_messages(row))
+            ]
+        return {"messages": messages, "activeRun": None, "interrupts": None}
+
+    def listen(self) -> queue.Queue:
+        """A channel for every AG-UI event of the turns from now on."""
+        channel: queue.Queue = queue.Queue(maxsize=1000)
+        with self._lock:
+            self._listeners.add(channel)
+        return channel
+
+    def unlisten(self, channel: queue.Queue) -> None:
+        with self._lock:
+            self._listeners.discard(channel)
+
+    def _emit(self, events: list[dict]) -> None:
+        """AG-UI events, to every page (`/api/events`) and every listener."""
+        listeners = list(self._listeners)
+        for event in events:
+            self.publish("agui", event=event)
+            for channel in listeners:
+                try:
+                    channel.put_nowait(event)
+                except queue.Full:
+                    # A client that stopped reading went away: its stream ends
+                    # without the turn waiting for it.
+                    pass
+
+    def _snapshot(self) -> None:
+        self._emit([agui.snapshot(self.ui())])
 
     def reset(self) -> dict:
         """Start a new conversation. The old one stays in the list, to be reopened.
@@ -482,7 +625,19 @@ class Chat:
 
     # -- one turn ------------------------------------------------------------
 
-    def send(self, text: str, attached: list[str] | None = None) -> dict:
+    def send(
+        self,
+        text: str,
+        attached: list[str] | None = None,
+        run_id: str = "",
+        message_id: str = "",
+    ) -> dict:
+        """Say something to the workspace — now, or behind the turn in flight.
+
+        `run_id` and `message_id` are the names `useChat` gave the run and the
+        message, when they came through AG-UI (see `run`): the turn is said
+        under them, so the page that sent it recognises its own.
+        """
         text = text.strip()
         # Every id resolved before anything moves: a message whose file is gone
         # is refused whole, rather than sent without what it was about.
@@ -499,16 +654,43 @@ class Chat:
         with self._lock:
             if self._busy or self.queue:
                 # Behind the turn in flight, and behind whatever already waits.
-                self.queue.append(Queued(text, carried))
+                self.queue.append(Queued(text, carried, run_id=run_id, message_id=message_id))
                 queued = True
             else:
-                self._begin(text, carried)
+                self._begin(text, carried, run_id, message_id)
                 queued = False
         if queued:
             self._announce_queue()
         return self.state()
 
-    def _begin(self, text: str, carried: list[files.Attachment]) -> None:
+    def run(self, given: dict) -> dict:
+        """A run asked for in AG-UI (`RunAgentInput`): its last user message, said.
+
+        The conversation is the server's, not the page's: of the messages the
+        run carries, only the last one the user wrote is new, and the rest is
+        what this conversation already holds. A run for a conversation that is
+        not the open one is refused rather than said in the wrong place.
+        """
+        thread = str(given.get("threadId") or "")
+        if thread and thread != self.id:
+            raise RuntimeError("another conversation is open — reload it first")
+        message = agui.last_user(list(given.get("messages") or []))
+        forwarded = given.get("forwardedProps")
+        attached = forwarded.get("attachments") if isinstance(forwarded, dict) else None
+        return self.send(
+            agui.user_text(message),
+            [str(item) for item in attached or []],
+            run_id=str(given.get("runId") or ""),
+            message_id=str(message.get("id") or ""),
+        )
+
+    def _begin(
+        self,
+        text: str,
+        carried: list[files.Attachment],
+        run_id: str = "",
+        message_id: str = "",
+    ) -> None:
         """Start a turn on `text`. The lock is held, and nothing is running."""
         self._busy = True
         self._stop = threading.Event()
@@ -516,13 +698,24 @@ class Chat:
         if first:
             self.session_id = session.new_id()
         said = [attachment.as_dict() for attachment in carried]
-        self.messages.append(Message("you", text, attachments=said))
+        self.messages.append(
+            Message("you", text, attachments=said, id=message_id or agui.new_id("you"))
+        )
         if not self.title:
             self.title = chats.titled(text) or (said[0]["name"] if said else "")
         self._save()
         self.publish("chat", stage="sent", text=text, attachments=said, session_id=self.session_id)
+        # The conversation first, with the message that starts the turn in it:
+        # every page has it before the first word of the answer arrives.
+        self._snapshot()
+        turn = agui.Turn(self.id, run_id)
+        self.turn = turn
+        self._emit(turn.started())
         thread = threading.Thread(
-            target=self._turn, args=(text, first, carried, self._stop), name="tr-chat", daemon=True
+            target=self._turn,
+            args=(text, first, carried, self._stop, turn),
+            name="tr-chat",
+            daemon=True,
         )
         thread.start()
 
@@ -545,7 +738,7 @@ class Chat:
             # Taken off the list before it is said in the transcript: the page
             # must not show it twice, waiting and sent.
             self._announce_queue()
-            self._begin(waiting.text, waiting.carried)
+            self._begin(waiting.text, waiting.carried, waiting.run_id, waiting.message_id)
 
     def _waiting(self, identifier: str) -> Queued:
         found = next((queued for queued in self.queue if queued.id == identifier), None)
@@ -611,8 +804,10 @@ class Chat:
         first: bool,
         carried: list[files.Attachment] | None = None,
         stop: threading.Event | None = None,
+        turn: agui.Turn | None = None,
     ) -> None:
         started = time.monotonic()
+        turn = turn or agui.Turn(self.id)
         log = web_dir() / f"chat-{time.strftime('%Y%m%d-%H%M%S')}.jsonl"
         # Drawn here and not in `send`: taking frames from a video is seconds of
         # ffmpeg, and the page is waiting for `send` to say the message left.
@@ -635,47 +830,68 @@ class Chat:
                 session_id=self.session_id,
                 resume=not first,
                 environment=provider.environment(self.config, chosen),
-                on_event=self._on_event,
+                on_event=lambda event: self._on_event(event, turn),
                 stop=stop,
             )
         except Exception as error:
             logger.exception("console: the turn failed", extra=log_module.FILE_ONLY)
             with self._lock:
                 self._stop = None
-                self.messages.append(Message("error", str(error)))
+                self.messages.append(
+                    Message("error", str(error), id=turn.message_id, parts=turn.parts)
+                )
                 # Written before the turn is said to be over: whoever waits for
                 # `busy` to drop (a test, a restart) finds the transcript saved.
                 self._save()
+                self.turn = None
                 self._busy = False
                 self.held = bool(self.queue)
+            self._emit(turn.failed(str(error)))
+            self._snapshot()
             self.publish("chat", stage="failed", text=str(error))
             if self.held:
                 self._announce_queue()
             return
 
         if outcome.stopped:
-            self._stopped(outcome, first, started)
+            self._stopped(outcome, first, started, turn)
             return
 
         answer = outcome.answer or outcome.error or "(no answer)"
+        seconds = round(time.monotonic() - started, 1)
+        last = turn.concluded(outcome.answer) if outcome.ok else []
         with self._lock:
             self._stop = None
             self.turns += 1
-            self.messages.append(Message("workspace" if outcome.ok else "error", answer))
+            self.messages.append(
+                Message(
+                    "workspace" if outcome.ok else "error",
+                    answer,
+                    id=turn.message_id,
+                    parts=turn.parts,
+                    seconds=seconds,
+                    cost=round(outcome.cost_usd, 4),
+                )
+            )
             self._save()
+            self.turn = None
             self._busy = False
+        self._emit([*last, *turn.finished()])
+        self._snapshot()
         self.publish(
             "chat",
             stage="answer",
             text=answer,
             ok=outcome.ok,
             cost_usd=round(outcome.cost_usd, 4),
-            seconds=round(time.monotonic() - started, 1),
+            seconds=seconds,
             session_id=self.session_id,
         )
         self._advance()
 
-    def _stopped(self, outcome: session.Outcome, first: bool, started: float) -> None:
+    def _stopped(
+        self, outcome: session.Outcome, first: bool, started: float, turn: agui.Turn
+    ) -> None:
         """A turn you ended: what it had said is kept, and so is the session.
 
         Unless there was none to keep — a first turn stopped before Claude Code
@@ -689,21 +905,35 @@ class Chat:
                 self.session_id = ""
             else:
                 self.turns += 1
-            self.messages.append(Message("stopped", outcome.answer))
+            seconds = round(time.monotonic() - started, 1)
+            self.messages.append(
+                Message(
+                    "stopped",
+                    outcome.answer,
+                    id=turn.message_id,
+                    parts=turn.parts,
+                    seconds=seconds,
+                )
+            )
             self._save()
+            self.turn = None
             self._busy = False
             self.held = bool(self.queue)
+        self._emit(turn.finished(stopped=True))
+        self._snapshot()
         self.publish(
             "chat",
             stage="stopped",
             text=outcome.answer,
-            seconds=round(time.monotonic() - started, 1),
+            seconds=seconds,
             session_id=self.session_id,
         )
         if self.held:
             self._announce_queue()
 
-    def _on_event(self, event: dict) -> None:
+    def _on_event(self, event: dict, turn: agui.Turn | None = None) -> None:
+        if turn is not None:
+            self._emit(turn.read(event))
         for step in progress.describe(event):
             self.publish("chat", stage="step", label=step.label, detail=step.detail, said=step.said)
 
