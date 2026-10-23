@@ -33,6 +33,7 @@ import re
 import shutil
 import subprocess
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
@@ -195,7 +196,7 @@ class Bitwarden:
 
 
 # Every provider `[vault]` may name. Adding one is a class above and a line here.
-PROVIDERS: dict[str, Any] = {
+PROVIDERS: dict[str, Callable[..., SecretProvider]] = {
     "env": Environment,
     "keyring": Keyring,
     "pass": Pass,

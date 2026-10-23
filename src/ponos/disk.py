@@ -22,13 +22,14 @@ from __future__ import annotations
 
 import os
 import threading
+from collections.abc import Callable
 from pathlib import Path
 from typing import IO
 
 PRIVATE = 0o600
 
 
-def opener(mode: int = PRIVATE):
+def opener(mode: int = PRIVATE) -> Callable[[str, int], int]:
     """An `opener` for `open()`: created with `mode`, not with the umask's.
 
     A file that already existed is tightened to it too, before a byte is

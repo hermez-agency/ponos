@@ -14,8 +14,10 @@ import sqlite3
 import subprocess
 import sys
 import time
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from . import (
     __version__,
@@ -250,11 +252,11 @@ def command_list(args: argparse.Namespace) -> int:
     births = (
         sorted(
             (
-                schedule
+                (schedule, moment)
                 for schedule in runner.schedules()
-                if schedule.active and schedule.next and not schedule.problem
+                if schedule.active and (moment := schedule.next) and not schedule.problem
             ),
-            key=lambda schedule: schedule.next,
+            key=lambda born: born[1],
         )
         if configuration.runner.schedule
         else []
@@ -292,11 +294,11 @@ def command_list(args: argparse.Namespace) -> int:
 
     if births:
         title(f"\n{len(births)} ticket(s) not written yet")
-        for schedule in births:
+        for schedule, moment in births:
             cadence = " · ".join(
                 part for part in (schedule.cadence, schedule.day, schedule.at) if part
             )
-            print(f"  {schedule.name}\n     {DIM}{_when(schedule.next, now)} · {cadence}{RESET}")
+            print(f"  {schedule.name}\n     {DIM}{_when(moment, now)} · {cadence}{RESET}")
     return 0
 
 
@@ -513,17 +515,20 @@ def command_sync(args: argparse.Namespace) -> int:
         print(f'  {DIM}set storage.mode = "both" to keep Notion and Markdown in step{RESET}')
         return 2
 
+    from .sync import Mirror
+
     backend = store.open(configuration)
+    assert isinstance(backend, Mirror)  # what `storage.mode = "both"` opens
     title("Reconciling")
     report = backend.synchronise(configuration.notion)
     for problem in report.problems:
         bad(problem)
-    for entry in report.carried:
-        ok(f"{entry.what}  {entry.title or entry.page}")
-    for entry in report.conflicts:
-        warn(f"{entry.title or entry.page} — {entry.detail}")
-    for entry in report.deletions:
-        warn(f"{entry.title or entry.page} — {entry.detail}")
+    for moved in report.carried:
+        ok(f"{moved.what}  {moved.title or moved.page}")
+    for conflict in report.conflicts:
+        warn(f"{conflict.title or conflict.page} — {conflict.detail}")
+    for deletion in report.deletions:
+        warn(f"{deletion.title or deletion.page} — {deletion.detail}")
     if not report:
         print(f"  {DIM}nothing to carry across — the two boards agree{RESET}")
     print(
@@ -666,7 +671,7 @@ def command_status(args: argparse.Namespace) -> int:
     return 0
 
 
-def _journal_runs(ticket: str = "") -> list[dict]:
+def _journal_runs(ticket: str = "") -> list[dict[str, Any]]:
     """A ticket's runs from the local journal, newest first — none if it cannot be read."""
     try:
         return journal.runs(ticket)
@@ -675,7 +680,7 @@ def _journal_runs(ticket: str = "") -> list[dict]:
         return []
 
 
-def _print_runs(runs: list[dict]) -> int:
+def _print_runs(runs: list[dict[str, Any]]) -> int:
     """`ponos logs --runs`: one line per run, and the log that holds all of it."""
     if not runs:
         print("No run in the journal yet.")
@@ -1792,12 +1797,13 @@ def main(argv: list[str] | None = None) -> int:
     # Whatever the command, what it logs is kept in ponos.log — see log.py.
     log.setup()
     try:
-        return args.function(args)
+        code: int = args.function(args)
+        return code
     except KeyboardInterrupt:
         return 130
 
 
-def secrets_out_of_config(say=None) -> None:
+def secrets_out_of_config(say: Callable[[str], None] | None = None) -> None:
     """Move the secrets `config.toml` still holds into `secrets.env`, and say so.
 
     Said on stderr, once — the launch that moves them is the only one that has

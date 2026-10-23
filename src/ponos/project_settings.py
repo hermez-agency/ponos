@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
+from typing import Any
 
 from . import db
 from .config import Config
@@ -48,7 +49,7 @@ def key(project: str) -> str:
     return project.replace("-", "").strip().lower()
 
 
-def _read(project: str) -> dict:
+def _read(project: str) -> dict[str, Any]:
     with db.transaction(immediate=False) as connection:
         row = connection.execute(
             "SELECT settings FROM project_settings WHERE project = ?", (key(project),)
@@ -79,7 +80,7 @@ def validation(project: str) -> dict[str, bool] | None:
 def set_validation(project: str, name: str, values: dict[str, bool] | None) -> None:
     """Give a project its own automatic validation, or hand it back to the file (None)."""
 
-    def change(settings: dict) -> None:
+    def change(settings: dict[str, Any]) -> None:
         if values is None:
             settings.pop(VALIDATION, None)
         else:
@@ -99,7 +100,7 @@ def ideas(project: str) -> bool | None:
 def set_ideas(project: str, name: str, value: bool | None) -> None:
     """Say yes or no for the project, or hand the question back to the file (None)."""
 
-    def change(settings: dict) -> None:
+    def change(settings: dict[str, Any]) -> None:
         if value is None:
             settings.pop(IDEAS, None)
         else:
@@ -126,7 +127,7 @@ def every_ideas() -> dict[str, bool]:
     return said
 
 
-def _write(project: str, name: str, change: Callable[[dict], None]) -> None:
+def _write(project: str, name: str, change: Callable[[dict[str, Any]], None]) -> None:
     """Change one project's settings object, and drop the row when nothing is left in it."""
     if not key(project):
         raise ValueError("only a project with a page can have settings of its own")

@@ -57,11 +57,16 @@ import json
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from . import db
 from .files import COLLECTIONS, Board
-from .store import Page, Picture, StoreError, read
+from .store import Comment, Page, Picture, StoreError, read
+
+if TYPE_CHECKING:
+    from .config import Notion
+    from .notion import Client
+    from .workspace import Workspace
 
 # What the reconciliation walks, and the order it walks it in: a ticket's
 # relations point at projects, agents and goals, so those exist on both sides first.
@@ -144,7 +149,7 @@ def write_journal(report: Report, database: Path | None = None) -> None:
         report.problems.append(f"the journal could not be written: {error}")
 
 
-def journal(limit: int = 50, database: Path | None = None) -> list[dict]:
+def journal(limit: int = 50, database: Path | None = None) -> list[dict[str, Any]]:
     """The last entries of the journal, oldest first."""
     try:
         with db.transaction(immediate=False, location=database) as connection:
@@ -315,7 +320,7 @@ class Mirror:
     by carrying across whatever was changed elsewhere.
     """
 
-    def __init__(self, primary, mirror: Board, *, conflict: str = "newest") -> None:
+    def __init__(self, primary: Client, mirror: Board, *, conflict: str = "newest") -> None:
         self.primary = primary
         self.mirror = mirror
         self.conflict = conflict
@@ -338,7 +343,7 @@ class Mirror:
     def title_property(self, database_id: str) -> str:
         return self.primary.title_property(database_id)
 
-    def query(self, database_id: str, filter_: dict | None = None) -> list[Page]:
+    def query(self, database_id: str, filter_: dict[str, Any] | None = None) -> list[Page]:
         return self.primary.query(database_id, filter_)
 
     def page(self, page_id: str) -> Page:
@@ -347,7 +352,7 @@ class Mirror:
     def blocks_text(self, block_id: str, depth: int = 0, *, live: bool = True) -> str:
         return self.primary.blocks_text(block_id, depth, live=live)
 
-    def comments(self, page_id: str):
+    def comments(self, page_id: str) -> list[Comment]:
         return self.primary.comments(page_id)
 
     def attachment(self, block_id: str) -> str:
@@ -359,7 +364,7 @@ class Mirror:
     def my_name(self) -> str:
         return self.primary.my_name()
 
-    def workspace(self, settings):
+    def workspace(self, settings: Notion) -> Workspace:
         """Notion's own, and the collection names it maps onto on disk.
 
         Remembered as it is resolved, because every write below has to know
@@ -388,7 +393,7 @@ class Mirror:
         self.primary.update(database_id, page_id, values)
         self._mirror_update(self._collection(database_id), page_id, values)
 
-    def create_row(self, database_id: str, title: str, values: dict | None = None) -> str:
+    def create_row(self, database_id: str, title: str, values: dict[str, Any] | None = None) -> str:
         page_id = self.primary.create_row(database_id, title, values)
         try:
             self.mirror.create_row(self._collection(database_id), title, values, page_id=page_id)
@@ -453,12 +458,12 @@ class Mirror:
             pass
         return url
 
-    def append_blocks(self, block_id: str, blocks: list[dict]) -> list[str]:
+    def append_blocks(self, block_id: str, blocks: list[dict[str, Any]]) -> list[str]:
         # Only Notion's IDs come back, and only Notion has anything to hand
         # back: a block is not addressable in a file. See `files.append_blocks`.
         return self.primary.append_blocks(block_id, blocks)
 
-    def update_block(self, block_id: str, payload: dict) -> None:
+    def update_block(self, block_id: str, payload: dict[str, Any]) -> None:
         self.primary.update_block(block_id, payload)
 
     def _mirror_update(self, collection: str, page_id: str, values: dict[str, Any]) -> None:
@@ -483,7 +488,7 @@ class Mirror:
 
     # -- the reconciliation ---------------------------------------------------
 
-    def synchronise(self, settings, *, stamps: Stamps | None = None) -> Report:
+    def synchronise(self, settings: Notion, *, stamps: Stamps | None = None) -> Report:
         """Carry every change across, both ways, and say what happened.
 
         Never raises for one page: a ticket Notion refuses is one line in
@@ -514,7 +519,7 @@ class Mirror:
         return report
 
     def _reconcile(
-        self, collection: str, database: str, settings, marks: Stamps, report: Report
+        self, collection: str, database: str, settings: Notion, marks: Stamps, report: Report
     ) -> None:
         here = {_bare(page.id): page for page in self.primary.query(database)}
         there = {_bare(page.id): page for page in self.mirror.query(collection)}
@@ -687,7 +692,9 @@ class Mirror:
             self.primary.replace_markdown(page_id, body)
         report.note("markdown→notion", collection, page_id, page.title)
 
-    def _reconcile_context(self, space, settings, marks: Stamps, report: Report) -> None:
+    def _reconcile_context(
+        self, space: Workspace, settings: Notion, marks: Stamps, report: Report
+    ) -> None:
         """The standing context: one body, on both sides, no properties at all.
 
         Its Notion page is a row of the workspace rather than a row of a

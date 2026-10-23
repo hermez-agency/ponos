@@ -217,7 +217,7 @@ class Cache:
         self._clock = clock or (lambda: datetime.now(UTC))
         self._lock = threading.Lock()
         self._locks: dict[str, threading.Lock] = {}
-        self._known: dict[str, dict] | None = None
+        self._known: dict[str, dict[str, Any]] | None = None
 
     # -- the index -----------------------------------------------------------
 
@@ -225,7 +225,7 @@ class Cache:
     def directory(self) -> Path:
         return self._dir
 
-    def _index(self) -> dict[str, dict]:
+    def _index(self) -> dict[str, dict[str, Any]]:
         if self._known is None:
             try:
                 with db.transaction(immediate=False, location=self._database) as connection:
@@ -239,12 +239,15 @@ class Cache:
         with self._lock:
             return self._locks.setdefault(key, threading.Lock())
 
-    def entry(self, page_id: str, slot: str) -> dict:
+    def entry(self, page_id: str, slot: str) -> dict[str, Any]:
         """A copy of what is known of one picture. Changing it changes nothing."""
         with self._lock:
-            return json.loads(json.dumps(self._index().get(_key(page_id, slot), {})))
+            copy: dict[str, Any] = json.loads(
+                json.dumps(self._index().get(_key(page_id, slot), {}))
+            )
+            return copy
 
-    def _commit(self, key: str, entry: dict) -> None:
+    def _commit(self, key: str, entry: dict[str, Any]) -> None:
         with self._lock:
             known = self._index()
             if known.get(key) == entry:
@@ -281,7 +284,9 @@ class Cache:
                 self._settle(entry, face(page.raw, slot), _edited(page), slot, push)
                 self._commit(key, entry)
 
-    def _settle(self, entry: dict, seen: Face, edited: str, slot: str, push: Push) -> None:
+    def _settle(
+        self, entry: dict[str, Any], seen: Face, edited: str, slot: str, push: Push
+    ) -> None:
         pending = entry.get("pending")
         moved = "agreed" in entry and entry["agreed"] != seen.identity
         if pending:
@@ -310,7 +315,7 @@ class Cache:
             entry["edited"] = edited
             entry["stale"] = True
 
-    def _agree(self, entry: dict, seen: Face, edited: str) -> None:
+    def _agree(self, entry: dict[str, Any], seen: Face, edited: str) -> None:
         """Take what the board shows as the picture, forgetting a copy of another."""
         if entry.get("agreed") != seen.identity:
             self._forget_file(entry.get("file", ""))
@@ -326,13 +331,13 @@ class Cache:
             stale=False,
         )
 
-    def _drop(self, entry: dict) -> None:
+    def _drop(self, entry: dict[str, Any]) -> None:
         pending = entry.pop("pending", None) or {}
         if pending.get("file") and pending["file"] != entry.get("file"):
             self._forget_file(pending["file"])
         entry.pop("error", None)
 
-    def _push(self, entry: dict, slot: str, push: Push) -> bool:
+    def _push(self, entry: dict[str, Any], slot: str, push: Push) -> bool:
         """Send the pending change to the board, and agree on what it answers."""
         pending = entry.get("pending") or {}
         picture = Picture(
@@ -370,7 +375,7 @@ class Cache:
 
     # -- the console's own changes -------------------------------------------
 
-    def change(self, page_id: str, slot: str, picture: Picture, push: Push) -> dict:
+    def change(self, page_id: str, slot: str, picture: Picture, push: Push) -> dict[str, Any]:
         """Make that the picture: here at once, and on the board if it answers.
 
         What the board refuses stays pending — shown here, and sent again at the
@@ -512,7 +517,9 @@ class Cache:
             self._commit(key, entry)
             return data, kind_of
 
-    def _download(self, entry: dict, slot: str, reread: Callable[[], Page]) -> tuple[bytes, str]:
+    def _download(
+        self, entry: dict[str, Any], slot: str, reread: Callable[[], Page]
+    ) -> tuple[bytes, str]:
         """Fetch the agreed picture, asking the page for a new URL if its hour is up."""
         url = entry.get("url", "")
         expires = entry.get("expires", "")

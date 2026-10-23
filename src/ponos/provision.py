@@ -28,7 +28,9 @@ somebody retyped on purpose is never overruled — only what is missing is added
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
+from typing import Any
 
 from . import blocks, ci, notion, subtypes
 from .config import Notion
@@ -131,7 +133,7 @@ class Report:
 # -- the shapes --------------------------------------------------------------
 
 
-def _select(options, colours: dict[str, str] | None = None) -> dict:
+def _select(options: Iterable[str], colours: dict[str, str] | None = None) -> dict[str, Any]:
     return {
         "select": {
             "options": [
@@ -141,7 +143,7 @@ def _select(options, colours: dict[str, str] | None = None) -> dict:
     }
 
 
-def status_options(settings: Notion) -> list[dict]:
+def status_options(settings: Notion) -> list[dict[str, Any]]:
     """The status column's options, in board order, without duplicates.
 
     A configuration is free to point two states at one column — `failed` and
@@ -168,7 +170,7 @@ def status_options(settings: Notion) -> list[dict]:
     return [{"name": name, "color": colour} for name, colour in seen.items()]
 
 
-def projects_schema() -> dict:
+def projects_schema() -> dict[str, Any]:
     """A project is a name, and where its code lives — if it has any.
 
     A project with neither Repository nor Path is not a mistake: its tickets
@@ -181,7 +183,7 @@ def projects_schema() -> dict:
     }
 
 
-def goals_schema(projects: str = "") -> dict:
+def goals_schema(projects: str = "") -> dict[str, Any]:
     """A goal is a name, what meets it and when — the Objectifs database as Notion has it.
 
     Not built by `provision`: the database is made in Notion, by hand, with the
@@ -189,7 +191,7 @@ def goals_schema(projects: str = "") -> dict:
     which has no rollup and counts them itself (see `Api.goals`): the tickets
     point at the goal, never the other way round.
     """
-    schema: dict = {
+    schema: dict[str, Any] = {
         "Name": {"title": {}},
         "Description": {"rich_text": {}},
         "Critère": {"rich_text": {}},
@@ -203,7 +205,7 @@ def goals_schema(projects: str = "") -> dict:
     return schema
 
 
-def agents_schema(settings: Notion) -> dict:
+def agents_schema(settings: Notion) -> dict[str, Any]:
     """An agent is a page — its body is the role. The columns are the exceptions."""
     return {
         "Name": {"title": {}},
@@ -211,8 +213,8 @@ def agents_schema(settings: Notion) -> dict:
     }
 
 
-def tickets_schema(settings: Notion, projects: str = "", agents: str = "") -> dict:
-    schema: dict = {
+def tickets_schema(settings: Notion, projects: str = "", agents: str = "") -> dict[str, Any]:
+    schema: dict[str, Any] = {
         "Name": {"title": {}},
         settings.prop("status"): {"select": {"options": status_options(settings)}},
         settings.prop("agent"): {"rich_text": {}},
@@ -257,7 +259,7 @@ def tickets_schema(settings: Notion, projects: str = "", agents: str = "") -> di
     return schema
 
 
-def type_select(settings: Notion) -> dict:
+def type_select(settings: Notion) -> dict[str, Any]:
     """The Type column, the same on a ticket and on the schedule it is born of."""
     return _select(
         [settings.kind(key) for key in _TYPE_COLOURS],
@@ -265,7 +267,7 @@ def type_select(settings: Notion) -> dict:
     )
 
 
-def subtype_select() -> dict:
+def subtype_select() -> dict[str, Any]:
     """The Sous-type column, the same on a ticket and on the schedule it is born of."""
     return _select(
         [subtype.option for subtype in subtypes.SUBTYPES],
@@ -273,7 +275,7 @@ def subtype_select() -> dict:
     )
 
 
-def cadence_options() -> list[dict]:
+def cadence_options() -> list[dict[str, Any]]:
     """The cadences a schedule may carry. A select, not a status.
 
     A status property cannot be created through the API at all — and here that
@@ -282,7 +284,7 @@ def cadence_options() -> list[dict]:
     return [{"name": name, "color": "default"} for name in CADENCES]
 
 
-def schedules_schema(settings: Notion, tickets: str = "", projects: str = "") -> dict:
+def schedules_schema(settings: Notion, tickets: str = "", projects: str = "") -> dict[str, Any]:
     """A schedule is the recipe for a ticket, and how often it is born.
 
     Twelve columns beside the title: the nine you fill in — cadence, hour, day,
@@ -295,7 +297,7 @@ def schedules_schema(settings: Notion, tickets: str = "", projects: str = "") ->
     classifier, and a schedule whose tickets are code has to be able to say so
     rather than leave it to how each occurrence happens to read.
     """
-    schema: dict = {
+    schema: dict[str, Any] = {
         "Name": {"title": {}},
         settings.prop("cadence"): {"select": {"options": cadence_options()}},
         settings.prop("at"): {"rich_text": {}},
@@ -318,7 +320,7 @@ def schedules_schema(settings: Notion, tickets: str = "", projects: str = "") ->
     return schema
 
 
-def _relation(database: str) -> dict:
+def _relation(database: str) -> dict[str, Any]:
     """A one-way relation, in the shape the API insists on.
 
     Naming the kind under `type` is not enough: the API also wants the empty
@@ -334,7 +336,7 @@ def _relation(database: str) -> dict:
     }
 
 
-def missing_properties(existing: dict[str, str], wanted: dict) -> dict:
+def missing_properties(existing: dict[str, str], wanted: dict[str, Any]) -> dict[str, Any]:
     """What `wanted` declares that the database does not have yet.
 
     By name only. A property that exists under a type nobody expected is left
@@ -344,14 +346,16 @@ def missing_properties(existing: dict[str, str], wanted: dict) -> dict:
     return {name: shape for name, shape in wanted.items() if name not in existing}
 
 
-def offered(database: dict, name: str) -> set[str]:
+def offered(database: dict[str, Any], name: str) -> set[str]:
     """The options a select or status column already carries."""
     prop = (database.get("properties") or {}).get(name) or {}
     kind = prop.get("type", "")
     return {option.get("name") for option in (prop.get(kind) or {}).get("options", [])}
 
 
-def missing_options(database: dict, name: str, wanted: list[dict]) -> dict:
+def missing_options(
+    database: dict[str, Any], name: str, wanted: list[dict[str, Any]]
+) -> dict[str, Any]:
     """The select options a column is missing, merged onto the ones it has.
 
     Notion replaces the whole option list on a PATCH, so the existing ones are
@@ -375,7 +379,9 @@ def missing_options(database: dict, name: str, wanted: list[dict]) -> dict:
 # -- doing it ----------------------------------------------------------------
 
 
-def _database_in(client: notion.Client, page: str, title: str, schema: dict, report: Report) -> str:
+def _database_in(
+    client: notion.Client, page: str, title: str, schema: dict[str, Any], report: Report
+) -> str:
     """The database of a workspace row, created or completed. Returns its ID."""
     # Any database in the row, not only one under the expected title: that is
     # what `resolve_database` will hand the runner at read time, so completing a

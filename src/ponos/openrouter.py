@@ -39,6 +39,7 @@ from __future__ import annotations
 import base64
 import json
 import time
+from typing import Any
 
 from . import http
 from .config import OPENROUTER_URL, OpenRouter
@@ -115,7 +116,7 @@ def transcribe(settings: OpenRouter, audio: bytes, content_type: str, language: 
         )
     if not audio:
         raise ValueError("the recording is empty")
-    body: dict = {
+    body: dict[str, Any] = {
         "model": settings.transcription_model,
         "input_audio": {
             "data": base64.b64encode(audio).decode("ascii"),
@@ -162,7 +163,7 @@ def _said(answer: http.Answer) -> str:
     return f"{answer.status} {message}".strip() if message else f"{answer.status} {answer.reason}"
 
 
-def _per_million(item: dict, which: str) -> float | None:
+def _per_million(item: dict[str, Any], which: str) -> float | None:
     """What a model's `which` tokens cost per million, in dollars — None when unsaid.
 
     OpenRouter prices a token, as a string (`"0.000003"`); a million of them is
@@ -181,10 +182,10 @@ def _per_million(item: dict, which: str) -> float | None:
 # once in a while, not once per page opened.
 CATALOGUE_TTL = 600
 CATALOGUE_TIMEOUT = 15
-_catalogue: dict[str, tuple[float, list[dict]]] = {}
+_catalogue: dict[str, tuple[float, list[dict[str, Any]]]] = {}
 
 
-def catalogue(settings: OpenRouter) -> list[dict]:
+def catalogue(settings: OpenRouter) -> list[dict[str, Any]]:
     """Every model OpenRouter offers, as its API lists them.
 
     `{id, name, input, output, tools}` each: the price per million tokens read

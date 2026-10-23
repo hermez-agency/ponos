@@ -48,7 +48,9 @@ from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
+from functools import partial
 from pathlib import Path
+from typing import Any, Protocol, runtime_checkable
 
 from . import (
     __version__,
@@ -147,7 +149,7 @@ class Check:
     evidence: str = ""
     # What each name in a list is worth: {"name", "said": [sentences]}, the
     # sentences templates like the rest, the name a thing of the user's own.
-    notes: list[dict] = field(default_factory=list)
+    notes: list[dict[str, Any]] = field(default_factory=list)
     # {"action", "label", "confirm", "target"} when Ponos can make the fix.
     fix: dict[str, str] | None = None
 
@@ -157,11 +159,11 @@ class Check:
             r"\{\{(\w+)\}\}", lambda hole: str(self.params.get(hole[1], hole[0])), template
         )
 
-    def asdict(self) -> dict:
+    def asdict(self) -> dict[str, Any]:
         return asdict(self)
 
 
-def _check(code: str, state: str, title: str, said: str, **rest) -> Check:
+def _check(code: str, state: str, title: str, said: str, **rest: Any) -> Check:
     return Check(code, code.split(".", 1)[0], state, title, said, **rest)
 
 
@@ -172,7 +174,7 @@ def _first_line(error: object) -> str:
 INSTALL_STEP = "Install it: `{{command}}`."
 
 
-def _installing(tool: str, *steps: str) -> dict:
+def _installing(tool: str, *steps: str) -> dict[str, Any]:
     """The steps of a check whose tool is missing: the command that installs it here first.
 
     Spread into `_check`, with the `params` that fill it — none when no package
@@ -782,7 +784,7 @@ def _schedules(
             )
         )
         return found
-    missing: list[dict] = []
+    missing: list[dict[str, Any]] = []
     for key, preferred, why in SCHEDULE_COLUMNS:
         name = settings.prop(key)
         kind = schema.get(name)
@@ -3126,7 +3128,7 @@ def run(
         notion_found, space = _guard_notion(config, client)
         rows = _project_rows(client, space)
         per_project = [
-            pool.submit(_guarded("projects", lambda row=row: _project(config, row))) for row in rows
+            pool.submit(_guarded("projects", partial(_project, config, row))) for row in rows
         ]
         found = [check for future in futures for check in future.result()]
         project_found = [check for future in per_project for check in future.result()]
@@ -3185,6 +3187,30 @@ def problems(checks: list[Check]) -> int:
 # -- fixing --------------------------------------------------------------------
 
 
+@runtime_checkable
+class _Shaped(Protocol):
+    """A board whose databases can be read whole and given new properties: Notion's."""
+
+    def database(self, database_id: str) -> dict[str, Any]: ...
+
+    def add_properties(self, database_id: str, properties: dict[str, Any]) -> None: ...
+
+
+def _shaped(client: store.Store) -> _Shaped:
+    """The board a column or a status is added to: Notion, mirrored or not.
+
+    A mirrored board reads its schema from Notion, so it is offered the same
+    fixes as a Notion one — and makes them on its Notion side, the only one
+    with a schema to change.
+    """
+    from .sync import Mirror
+
+    board: object = client.primary if isinstance(client, Mirror) else client
+    if not isinstance(board, _Shaped):
+        raise ValueError("this board has no properties to add")
+    return board
+
+
 def fix(
     config: config_module.Config,
     client: store.Store,
@@ -3203,17 +3229,18 @@ def fix(
     if action in ("notion_columns", "notion_statuses"):
         space = workspace_module.resolve(client, config.notion)
         settings = config.notion
+        board = _shaped(client)
         if action == "notion_columns":
             wanted = provision.tickets_schema(settings, space.projects, space.agents)
             absent = provision.missing_properties(client.schema(space.tickets), wanted)
-            client.add_properties(space.tickets, absent)
+            board.add_properties(space.tickets, absent)
             return "added " + ", ".join(sorted(absent)) if absent else "nothing to add"
         widened = provision.missing_options(
-            client.database(space.tickets),
+            board.database(space.tickets),
             settings.prop("status"),
             provision.status_options(settings),
         )
-        client.add_properties(space.tickets, widened)
+        board.add_properties(space.tickets, widened)
         return "statuses added" if widened else "nothing to add"
     if action == "project_branch":
         space = workspace_module.resolve(client, config.notion)

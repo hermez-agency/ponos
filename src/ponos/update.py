@@ -61,6 +61,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from . import disk, environment, git
 from .config import Runner, in_container, state_dir
@@ -279,7 +280,7 @@ def check(app: Path | None = None, channel: str = "release", *, clock: bool = Tr
     return status
 
 
-def running() -> dict:
+def running() -> dict[str, Any]:
     """The version this code is, as the header prints it: the number and the commit.
 
     The number in `__init__` only moves at a release, and between two releases

@@ -16,10 +16,11 @@ import fcntl
 import json
 import os
 import time
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from . import db, disk
 from .config import state_dir
@@ -45,7 +46,7 @@ class Busy(Exception):
 
 
 @contextmanager
-def lock():
+def lock() -> Iterator[None]:
     """Hold the run lock for as long as the block lasts, or raise Busy.
 
     The file is never deleted, and that is the point. Unlinking it on release
@@ -372,7 +373,7 @@ def forget_mending(ticket_id: str, head: str) -> None:
         pass
 
 
-def ci_rows() -> dict[str, dict]:
+def ci_rows() -> dict[str, dict[str, Any]]:
     """{ticket id without dashes: what the runner last read of its pull request's checks}.
 
     What a card is drawn with: read with the list, from here, so that opening
@@ -386,7 +387,7 @@ def ci_rows() -> dict[str, dict]:
             ).fetchall()
     except db.ERRORS:
         return {}
-    found: dict[str, dict] = {}
+    found: dict[str, dict[str, Any]] = {}
     for ticket, url, head, status, checks, since, asked in rows:
         try:
             listed = json.loads(checks)
@@ -403,7 +404,7 @@ def ci_rows() -> dict[str, dict]:
     return found
 
 
-def keep_ci(ticket_id: str, row: dict) -> None:
+def keep_ci(ticket_id: str, row: dict[str, Any]) -> None:
     """Write what was read of that ticket's checks, in place of what was there."""
     try:
         with db.transaction() as connection:
@@ -442,7 +443,7 @@ def _number(value: object) -> float | None:
         return None
 
 
-def record(entry: dict) -> None:
+def record(entry: dict[str, Any]) -> None:
     """One line of history: the whole entry, and beside it what one sorts and sums on."""
     entry = {"at": datetime.now(UTC).isoformat(timespec="seconds"), **entry}
     with db.transaction() as connection:
@@ -464,7 +465,7 @@ def record(entry: dict) -> None:
         )
 
 
-def record_all(entries: Iterable[dict | None]) -> list[dict]:
+def record_all(entries: Iterable[dict[str, Any] | None]) -> list[dict[str, Any]]:
     """Record every entry there is, and hand them back as a list.
 
     A `None` is skipped rather than written: it is what a publication that had
@@ -503,7 +504,7 @@ def occurred(
         pass
 
 
-def occurrences(schedule: str) -> list[dict]:
+def occurrences(schedule: str) -> list[dict[str, Any]]:
     """Every occurrence of a schedule kept, the latest first."""
     try:
         with db.transaction(immediate=False) as connection:
@@ -593,7 +594,7 @@ def causes() -> dict[str, str]:
     return {str(ticket).replace("-", ""): str(code) for ticket, code in rows}
 
 
-def history(limit: int = 20) -> list[dict]:
+def history(limit: int = 20) -> list[dict[str, Any]]:
     """The last `limit` entries, oldest first."""
     with db.transaction(immediate=False) as connection:
         rows = connection.execute(

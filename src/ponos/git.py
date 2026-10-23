@@ -36,6 +36,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from . import github_app, github_token
 from .config import state_dir
@@ -1248,7 +1249,7 @@ def wait_for_checks(
 RERUN_SETTLE_SECONDS = 20
 
 
-def checks(url: str, accounts: Accounts | None = None, timeout: int = 60) -> list[dict]:
+def checks(url: str, accounts: Accounts | None = None, timeout: int = 60) -> list[dict[str, Any]]:
     """The pull request's checks, as `gh pr checks --json` lists them.
 
     Read whatever the exit code: `gh` answers 1 when a check failed, and the
@@ -1289,7 +1290,9 @@ _BUCKETS = {
 }
 
 
-def _rolled_up(url: str, accounts: Accounts | None = None, timeout: int = 60) -> list[dict]:
+def _rolled_up(
+    url: str, accounts: Accounts | None = None, timeout: int = 60
+) -> list[dict[str, Any]]:
     """The checks of a pull request, for a `gh` that has no `pr checks --json`.
 
     `--json` came to `gh pr checks` in 2.48, and Ubuntu ships 2.46: on such a
@@ -1326,7 +1329,7 @@ def _rolled_up(url: str, accounts: Accounts | None = None, timeout: int = 60) ->
     return listed
 
 
-def _failing(url: str, accounts: Accounts | None = None) -> list[dict]:
+def _failing(url: str, accounts: Accounts | None = None) -> list[dict[str, Any]]:
     """The pull request's checks that failed — see `checks`."""
     return [one for one in checks(url, accounts) if one.get("bucket") in ("fail", "cancel")]
 

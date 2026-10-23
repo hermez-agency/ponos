@@ -25,8 +25,9 @@ one, `im:history` for a direct message. And it has to be *in* the channel:
 from __future__ import annotations
 
 import urllib.parse
+from typing import Any
 
-from . import Ask, Channel, ChannelError, Incoming, request
+from . import Ask, Channel, ChannelError, Incoming, Reply, request
 
 API = "https://slack.com/api"
 
@@ -53,10 +54,12 @@ class Slack(Channel):
         self._channel = str(channel).strip()
         self.allowed = frozenset(allowed)
 
-    def _headers(self) -> dict:
+    def _headers(self) -> dict[str, Any]:
         return {"Authorization": f"Bearer {self._token}"}
 
-    def _call(self, method: str, payload: dict | None = None, **query: str) -> dict:
+    def _call(
+        self, method: str, payload: dict[str, Any] | None = None, **query: str
+    ) -> dict[str, Any]:
         url = f"{API}/{method}"
         if query:
             url = f"{url}?{urllib.parse.urlencode({k: v for k, v in query.items() if v})}"
@@ -69,12 +72,16 @@ class Slack(Channel):
 
     # -- outbound ------------------------------------------------------------
 
-    def _thread_of(self, reply) -> str:
+    def _thread_of(self, reply: Reply) -> str:
         """A thread is counted from its first message, not from the last one."""
         return reply.thread or reply.ref
 
     def _post(self, text: str, thread: str = "") -> str:
-        payload: dict = {"channel": self._channel, "text": text[:LIMIT], "unfurl_links": False}
+        payload: dict[str, Any] = {
+            "channel": self._channel,
+            "text": text[:LIMIT],
+            "unfurl_links": False,
+        }
         if thread:
             payload["thread_ts"] = thread
         body = self._call("chat.postMessage", payload)
@@ -131,7 +138,7 @@ class Slack(Channel):
         incoming.sort(key=lambda message: message.ref)
         return incoming, latest
 
-    def _read(self, message: dict, cursor: str) -> Incoming | None:
+    def _read(self, message: dict[str, Any], cursor: str) -> Incoming | None:
         """One raw Slack message, or None when it is not somebody talking.
 
         Our own posts carry a `bot_id`, and joins, pins and file comments carry

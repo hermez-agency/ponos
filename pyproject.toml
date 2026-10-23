@@ -101,32 +101,6 @@ warn_unused_configs = true
 # Not strict yet: annotations are read as written, and an unannotated
 # function is trusted. Remove a line, run `uv run mypy`, fix what it says.
 module = [
-    "ponos.__main__",
-    "ponos.channels",
-    "ponos.channels.slack",
-    "ponos.channels.telegram",
-    "ponos.config",
-    "ponos.disk",
-    "ponos.files",
-    "ponos.git",
-    "ponos.github_app",
-    "ponos.github_token",
-    "ponos.health",
-    "ponos.ideas",
-    "ponos.images",
-    "ponos.journal",
-    "ponos.log",
-    "ponos.notion",
-    "ponos.openrouter",
-    "ponos.project_settings",
-    "ponos.provider",
-    "ponos.provision",
-    "ponos.state",
-    "ponos.store",
-    "ponos.sync",
-    "ponos.update",
-    "ponos.vault",
-    "ponos.voice",
     "ponos.web.attachments",
     "ponos.web.attempts",
     "ponos.web.board",
@@ -145,8 +119,6 @@ module = [
     "ponos.web.setup",
     "ponos.web.statistics",
     "ponos.web.upgrade",
-    "ponos.workspace",
-    "ponos.worktime",
 ]
 disallow_any_generics = false
 disallow_subclassing_any = false
@@ -166,11 +138,6 @@ extra_checks = false
 # Each is a ticket of its own to clean up, and leaves this list for the one
 # above — or straight for strict.
 module = [
-    "ponos.__main__",
-    "ponos.github_app",
-    "ponos.health",
-    "ponos.ideas",
-    "ponos.voice",
     "ponos.web.board",
     "ponos.web.console",
     "ponos.web.ideas",

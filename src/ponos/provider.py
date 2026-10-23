@@ -30,6 +30,7 @@ import json
 import os
 import subprocess
 from dataclasses import dataclass
+from typing import Any
 
 from . import http, openrouter, session
 from .config import OPENROUTER_URL, Config
@@ -151,7 +152,7 @@ def cli_login() -> Check:
     return Check(True, f"{who} ({plan})" if plan else who)
 
 
-def _get(service: str, url: str, headers: dict[str, str]) -> tuple[int, dict]:
+def _get(service: str, url: str, headers: dict[str, str]) -> tuple[int, dict[str, Any]]:
     answer = http.send(service, "GET", url, headers=headers, timeout=CHECK_TIMEOUT)
     if answer.status >= 400:
         return answer.status, {}
