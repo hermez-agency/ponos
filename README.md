@@ -1459,6 +1459,13 @@ Two places, and they answer two different questions.
   is still reading. It is cleared when the run ends: the comment, the status and the pull
   request speak from then on.
 
+What the agent *said* is shown as it said it, on the page, in that column and on the
+console's card under *Ponos is working…*: the run does not rewrite it into a step of its
+own. So it is the prompt that sees to its language — with `runner.language` set, the
+sentence that asks for the report in that language asks for these lines too, as short,
+whole sentences rather than notes the agent leaves itself (“Now delivery around the
+claim.”). Without it, the agent keeps its own habits, which are often English.
+
 ```
 ⏳ Live — 12 steps · 3 minutes
    I will remove the banner from the template and the stylesheet rules that
@@ -1573,7 +1580,8 @@ command that resumes it, with the log path, is folded into the block the run wri
 steps into, on the days a run went wrong. On the other days nobody has ever needed them.
 
 The same line also travels into every prompt, so the summary at the top of a report, the
-document a ticket with no repository produces and the answers given in the comments are
+document a ticket with no repository produces, the answers given in the comments and the
+sentences the session says while it works — the `Progress` column, the live block — are
 written in it too. What it does *not* touch is the repository: commit messages, code and
 identifiers keep the language the repository already uses, because a branch is read by
 whoever works on it and not by whoever asked for it.

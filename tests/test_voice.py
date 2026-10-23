@@ -42,6 +42,7 @@ def a_runner_nobody_told_a_language_says_exactly_what_it_used_to():
     assert "Write in French" in asked
     assert asked.index("Write in French") < asked.index("End with a final line")
     assert "commit messages" in asked, "and the repository keeps its own language"
+    assert "while you work" in asked, "the live line under the card is written in it too"
 
 
 @case
