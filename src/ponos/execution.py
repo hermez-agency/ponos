@@ -350,7 +350,8 @@ class Execution(Base):
             text = prompt_module.carry_on(self.voice.instruction())
         opening = "picking session" if job.resume else "Claude session"
         self.say(f"    {opening} {job.session_id}{' · ' + model if model else ''} → {log}")
-        return session.run(
+        return self._paid(
+            job.ticket.id,
             text,
             cwd=job.workdir,
             log=log,
@@ -443,7 +444,8 @@ class Execution(Base):
         """
         state.wrote_up(job.ticket.id)
         self.say(f"    ↻ stopped without its report — asking session {outcome.session_id} for it")
-        asked = session.run(
+        asked = self._paid(
+            job.ticket.id,
             prompt_module.write_up(
                 "" if job.project.is_code else job.workdir, self.voice.instruction()
             ),
@@ -1016,7 +1018,7 @@ class Execution(Base):
                 # One report for the two sessions, the publication's: a ticket
                 # saying “to validate” a second before it says “published”
                 # would be telling you to do what is already being done.
-                return self._publish(ticket, job.project, forced=following)
+                return self._publish(ticket, job.project, forced=following, prepared=outcome)
             following = said.paragraphs(following, said.say("forced-postponed"))
         elif prepared and self.validated_column():
             following = said.say("prepared-next", validated=self.config.notion.state("validated"))

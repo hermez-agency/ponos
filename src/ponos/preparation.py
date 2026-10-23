@@ -308,7 +308,8 @@ class Preparation(Base):
         workdir = state_dir() / "scratch" / f"name-{short}"
         try:
             workdir.mkdir(parents=True, exist_ok=True)
-            outcome = session.run(
+            outcome = self._paid(
+                ticket.id,
                 naming.prompt(body),
                 cwd=workdir,
                 log=state.log_file(f"{short}-name"),
@@ -440,7 +441,8 @@ class Preparation(Base):
         workdir = state_dir() / "scratch" / f"subtype-{short}"
         try:
             workdir.mkdir(parents=True, exist_ok=True)
-            outcome = session.run(
+            outcome = self._paid(
+                ticket.id,
                 subtypes.prompt(ticket.title, body),
                 cwd=workdir,
                 log=state.log_file(f"{short}-subtype"),
@@ -471,7 +473,8 @@ class Preparation(Base):
         answer = ""
         try:
             workdir.mkdir(parents=True, exist_ok=True)
-            outcome = session.run(
+            outcome = self._paid(
+                ticket.id,
                 kinds.prompt(
                     ticket.title,
                     body,

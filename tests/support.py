@@ -847,8 +847,9 @@ def _nameless(title: str, body: str, refuse: bool = False):
 
 
 @contextmanager
-def _naming_session(answer: str, missing: bool = False):
-    """The one-line session that names a ticket, replaced by what it said."""
+def _naming_session(answer: str, missing: bool = False, cost: float = 0.0):
+    """The one-line session that names a ticket, replaced by what it said — and,
+    when `cost` says so, by what it was paid."""
     asked: list[str] = []
 
     def fake_run(prompt_text, **kwargs):
@@ -862,6 +863,7 @@ def _naming_session(answer: str, missing: bool = False):
             summary="",
             log=Path("/tmp/none.jsonl"),
             answer=answer,
+            cost_usd=cost,
         )
 
     original = session.run

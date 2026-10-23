@@ -25,8 +25,9 @@ import logging
 import socket
 import threading
 from datetime import datetime
+from typing import Any
 
-from . import channels, conversation, journal, legacy, notify, provider, store
+from . import channels, conversation, journal, legacy, notify, provider, session, state, store
 from . import voice as voice_module
 from . import workspace as workspace_module
 from .config import Config
@@ -165,6 +166,19 @@ class Base:
         ticket's Model column says where it goes.
         """
         return provider.environment(self.config, model)
+
+    def _paid(self, ticket: str, prompt: str, **options: Any) -> session.Outcome:
+        """`session.run`, and what it cost written down before anything else.
+
+        The one door every session of a run goes through, for the day's limit:
+        a ticket's line in the history is written once the ticket is closed,
+        and the sessions that name it, classify it or repair its CI — or whose
+        ticket never got as far as its line, Notion down or the run crashed
+        under it — used never to reach it, paid all the same. See `state.spend`.
+        """
+        outcome = session.run(prompt, **options)
+        state.spend(outcome.cost_usd, ticket)
+        return outcome
 
     def say(self, message: str) -> None:
         if not self.quiet:

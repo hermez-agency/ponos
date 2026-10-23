@@ -476,11 +476,33 @@ def record_all(entries: Iterable[dict | None]) -> list[dict]:
     return kept
 
 
-def spent_today() -> float:
-    """What the sessions have cost since local midnight, from the history.
+def spend(cost_usd: float, ticket: str = "") -> None:
+    """What one session cost, written down the moment it ends.
 
-    The history records a run when it ends, so a session still in flight is not
-    in the figure yet: the daily limit is read where a session is about to
+    Every session the runner starts comes through here — see `Base._paid` —
+    whatever becomes of its ticket after: one that names or classifies it, one
+    that repairs its CI, one whose report Notion never took. The history keeps
+    a line per ticket and could not say all of that; this is what the day's
+    limit adds up. Nothing to write when nothing was paid: a subscription
+    reports no cost.
+    """
+    if not cost_usd:
+        return
+    try:
+        with db.transaction() as connection:
+            connection.execute(
+                "INSERT INTO spending (at, ticket, cost_usd) VALUES (?, ?, ?)",
+                (datetime.now(UTC).isoformat(timespec="seconds"), ticket, float(cost_usd)),
+            )
+    except db.ERRORS:
+        pass
+
+
+def spent_today() -> float:
+    """What the sessions have cost since local midnight — see `spend`.
+
+    A session is written down when it ends, so one still in flight is not in
+    the figure yet: the daily limit is read where a session is about to
     *start*, and one that began under it is left to finish.
     """
     midnight = datetime.now().astimezone().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -488,7 +510,7 @@ def spent_today() -> float:
     try:
         with db.transaction(immediate=False) as connection:
             (total,) = connection.execute(
-                "SELECT COALESCE(SUM(cost_usd), 0) FROM history WHERE at >= ?", (since,)
+                "SELECT COALESCE(SUM(cost_usd), 0) FROM spending WHERE at >= ?", (since,)
             ).fetchone()
     except db.ERRORS:
         return 0.0

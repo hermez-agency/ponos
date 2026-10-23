@@ -183,7 +183,8 @@ class Unblocking(Base):
             comments=self.discussion(ticket),
             language=self.voice.instruction(reply=True),
         )
-        outcome = session.run(
+        outcome = self._paid(
+            ticket.id,
             text,
             cwd=workdir,
             log=state.log_file(f"{short}-unblock"),

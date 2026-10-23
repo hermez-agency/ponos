@@ -932,8 +932,8 @@ class Reports(Base):
     def budget_reached(self) -> float:
         """The next midnight, once `budget.daily_usd` has been spent; 0.0 before.
 
-        What the sessions cost is read off the history, so a session still in
-        flight counts when it ends, not before: the limit is a gate on starting,
+        What the sessions cost is written down as each one ends (`state.spend`),
+        so a session still in flight counts when it ends, not before: the limit is a gate on starting,
         and a session that began under it is left to finish. Said once — by the
         note, as the reserve is — to the journal and to the phone, because
         a ready column that stays full with nothing running reads as a broken

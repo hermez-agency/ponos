@@ -9,7 +9,7 @@ from datetime import UTC, date
 from support import FRONTEND, _nameless, _naming_session, _saved, _state_home, _TypedClient, case
 
 from ponos import config as C
-from ponos import files, models, notion, prompt, provision, subtypes
+from ponos import files, models, notion, prompt, provision, state, subtypes
 from ponos.web import api as web_api
 from ponos.web import statistics as web_statistics
 
@@ -62,6 +62,15 @@ def a_prefix_says_the_sub_type_without_asking_anybody(state_home):
     assert asked == [], "a prefix costs no session"
     assert job is not None and job.subtype == "bug"
     assert _subtype_written(runner) == ["Bug"]
+
+
+@case
+def the_sub_type_session_counts_against_the_daily_limit(state_home):
+    runner, ticket = _subtyped("Le bouton Envoyer ne répond plus")
+    answer = '{"subtype": "bug", "reason": "Il ne marche plus.", "confidence": "high"}'
+    with _naming_session(answer, cost=0.25):
+        runner.prepare(ticket)
+    assert state.spent_today() == 0.25, state.spent_today()
 
 
 @case
