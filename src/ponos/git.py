@@ -22,6 +22,14 @@ as, exactly as before. A GitHub App connected from the console comes before
 both, for the owners it is installed on — see github_app.py. A personal access
 token (github_token.py) takes the same door: after the App, or before it when
 `[github_access] mode` says so.
+
+And a last one for the threads: **one repository, one writer at a time**. The
+pool runs two tickets of the same project side by side, and every fetch,
+worktree add, remove or prune takes a lock file in the `.git` they share — a
+ref, `.git/config` with `--track`, the worktrees' registry. git does not wait
+for those, it fails: "cannot lock ref", "could not lock config file", a
+prune that takes a worktree still being made. `_writing` makes the second one
+wait instead.
 """
 
 from __future__ import annotations
@@ -31,8 +39,10 @@ import os
 import re
 import shutil
 import subprocess
+import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -273,8 +283,24 @@ def default_branch(repo: Path) -> str:
     return result.out or "main"
 
 
+# One per repository, by its resolved path. Reentrant: `add_worktree` makes room
+# with `remove_worktree`, and `replay_pushed` fetches before it adds.
+_writers: dict[Path, threading.RLock] = {}
+_writers_lock = threading.Lock()
+
+
+@contextmanager
+def _writing(repo: Path) -> Iterator[None]:
+    """`repo`'s `.git`, held by this thread until the block is done."""
+    with _writers_lock:
+        held = _writers.setdefault(Path(os.path.realpath(repo)), threading.RLock())
+    with held:
+        yield
+
+
 def fetch(repo: Path) -> None:
-    git(["fetch", "--quiet", "origin"], repo, timeout=180)
+    with _writing(repo):
+        git(["fetch", "--quiet", "origin"], repo, timeout=180)
 
 
 @dataclass
@@ -433,6 +459,13 @@ def add_worktree(
 
     `exclude` names directories the worktree is made without — see `_leave_out`.
     """
+    with _writing(repo):
+        return _add_worktree(repo, path, branch, base, exclude)
+
+
+def _add_worktree(
+    repo: Path, path: Path, branch: str, base: str, exclude: list[str] | None
+) -> Worktree:
     start = base
     deferred = ["--no-checkout"] if exclude else []
     if git(["rev-parse", "--verify", "--quiet", f"origin/{base}"], repo).ok:
@@ -651,13 +684,14 @@ def repository_of(worktree: Path) -> Path | None:
 
 
 def remove_worktree(repo: Path, path: Path) -> None:
-    git(["worktree", "remove", "--force", str(path)], repo)
-    if path.exists():
-        try:
-            discard(path)
-        except GitError:
-            pass  # still there: the next worktree asked for here says so, loudly
-    git(["worktree", "prune"], repo)
+    with _writing(repo):
+        git(["worktree", "remove", "--force", str(path)], repo)
+        if path.exists():
+            try:
+                discard(path)
+            except GitError:
+                pass  # still there: the next worktree asked for here says so, loudly
+        git(["worktree", "prune"], repo)
 
 
 # Where a directory nobody could empty is put aside. Not `tidied`: that name is
@@ -749,7 +783,8 @@ def delete_branch(repo: Path, branch: str) -> Result:
     checkout happens to be sitting on, which is nobody's base branch in
     particular.
     """
-    return git(["branch", "--delete", "--force", branch], repo)
+    with _writing(repo):
+        return git(["branch", "--delete", "--force", branch], repo)
 
 
 def commits_ahead(worktree: Path, base: str) -> int:
@@ -953,23 +988,27 @@ def replay_pushed(
     lease on the very commit that was replayed, so a branch somebody pushed to
     in the meantime is left alone and the merge stays refused.
 
-    Says why it could not, or nothing.
+    Says why it could not, or nothing. The rebase runs outside the repository's
+    lock — `settle` may build — and the push, which moves `origin/<branch>`
+    here, back inside it.
     """
-    fetch(repo)
-    was = git(["rev-parse", f"origin/{branch}"], repo).out
-    if not was:
-        return f"origin/{branch} is not here to replay"
-    if not has_ref(repo, f"origin/{onto}"):
-        return f"origin/{onto} is not here to replay onto"
-    git(["worktree", "prune"], repo)
-    workdir.parent.mkdir(parents=True, exist_ok=True)
-    added = git(["worktree", "add", "--detach", str(workdir), was], repo)
-    if not added.ok:
-        return f"git worktree add: {added.err or added.out}"
+    with _writing(repo):
+        fetch(repo)
+        was = git(["rev-parse", f"origin/{branch}"], repo).out
+        if not was:
+            return f"origin/{branch} is not here to replay"
+        if not has_ref(repo, f"origin/{onto}"):
+            return f"origin/{onto} is not here to replay onto"
+        git(["worktree", "prune"], repo)
+        workdir.parent.mkdir(parents=True, exist_ok=True)
+        added = git(["worktree", "add", "--detach", str(workdir), was], repo)
+        if not added.ok:
+            return f"git worktree add: {added.err or added.out}"
     try:
         if failure := rebase(workdir, f"origin/{onto}", settle):
             return failure
-        return push_leased(workdir, branch, was, accounts)
+        with _writing(repo):
+            return push_leased(workdir, branch, was, accounts)
     finally:
         remove_worktree(repo, workdir)
 
@@ -1081,26 +1120,29 @@ def begin_replay(
     off the list the session is given — and a replay it carries to its end has
     no conflict left, and no session to pay for.
     """
-    fetch(repo)
     replay = Replay(workdir=workdir)
-    replay.was = git(["rev-parse", f"origin/{branch}"], repo).out
-    replay.onto = git(["rev-parse", f"origin/{onto}"], repo).out
-    if not replay.was or not replay.onto:
-        missing = branch if not replay.was else onto
-        replay.error = f"origin/{missing} is not here to replay"
-        return replay
-    fork = git(["merge-base", replay.was, replay.onto], repo).out
-    replay.arrived = git(["log", "--oneline", "--no-decorate", f"{fork}..{replay.onto}"], repo).out
-    diff = git(["diff", f"{fork}..{replay.was}"], repo).out
-    replay.diff = diff if len(diff) <= DIFF_LIMIT else diff[:DIFF_LIMIT] + "\n[… cut]"
-    git(["worktree", "prune"], repo)
-    workdir.parent.mkdir(parents=True, exist_ok=True)
-    if workdir.exists():
-        remove_worktree(repo, workdir)
-    added = git(["worktree", "add", "--detach", str(workdir), replay.was], repo)
-    if not added.ok:
-        replay.error = f"git worktree add: {added.err or added.out}"
-        return replay
+    with _writing(repo):
+        fetch(repo)
+        replay.was = git(["rev-parse", f"origin/{branch}"], repo).out
+        replay.onto = git(["rev-parse", f"origin/{onto}"], repo).out
+        if not replay.was or not replay.onto:
+            missing = branch if not replay.was else onto
+            replay.error = f"origin/{missing} is not here to replay"
+            return replay
+        fork = git(["merge-base", replay.was, replay.onto], repo).out
+        replay.arrived = git(
+            ["log", "--oneline", "--no-decorate", f"{fork}..{replay.onto}"], repo
+        ).out
+        diff = git(["diff", f"{fork}..{replay.was}"], repo).out
+        replay.diff = diff if len(diff) <= DIFF_LIMIT else diff[:DIFF_LIMIT] + "\n[… cut]"
+        git(["worktree", "prune"], repo)
+        workdir.parent.mkdir(parents=True, exist_ok=True)
+        if workdir.exists():
+            remove_worktree(repo, workdir)
+        added = git(["worktree", "add", "--detach", str(workdir), replay.was], repo)
+        if not added.ok:
+            replay.error = f"git worktree add: {added.err or added.out}"
+            return replay
     result = git(["rebase", f"origin/{onto}"], workdir, environment=identity(workdir))
     if not result.ok and settle and conflicted(workdir):
         failure = settle(workdir, f"origin/{onto}")

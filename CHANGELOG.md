@@ -32,6 +32,7 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Fixed
 
+- Deux tickets du même dépôt lancés ensemble (`max_concurrent_per_project` vaut 2) ne se disputent plus son `.git` : `fetch`, la création et la suppression des worktrees, le `prune`, la suppression d'une branche et le rejeu d'une branche poussée attendent leur tour, dépôt par dépôt. Ils échouaient de temps à autre sur « cannot lock ref », « could not lock config file », ou un `prune` qui retirait une worktree en cours de création.
 - Une réponse de plus de 100 blocs n'est plus publiée à moitié dans Notion : quand un lot est refusé en cours d'écriture, les blocs déjà écrits sont retirés avant que le ticket passe en Échec. La tentative suivante écrivait jusqu'ici sa réponse entière sous une réponse tronquée.
 - La fenêtre d'un ticket ne propose plus de choisir son objectif sur un board sans colonne « Objectif » : le sélecteur n'y apparaît plus, au lieu d'échouer sur un message d'erreur à chaque choix. Comme dans le formulaire « Nouveau ticket », il n'est là que si le board peut relier un ticket à un objectif.
 - La page Objectifs se met à jour toute seule : un objectif créé, modifié ou archivé dans un autre onglet, un ticket lié depuis sa fenêtre, ou un ticket d'un objectif qui change de colonne (passé en Done, par exemple) relit la liste et la page ouverte d'un objectif — « n sur m tickets faits » avance sans recharger la page. Jusqu'ici, les objectifs n'étaient relus qu'en naviguant.

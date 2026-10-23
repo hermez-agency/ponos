@@ -1783,3 +1783,98 @@ def only_a_replayed_branch_is_ever_force_pushed():
     pushes = [args for args in sent if args[0] == "push"]
     assert "--force-with-lease" not in pushes[0]
     assert "--force-with-lease" in pushes[1] and "--force" not in pushes[1]
+
+
+@case
+def two_tickets_of_one_repository_never_write_its_git_directory_at_once():
+    """The pool runs two sessions of one project side by side, by default.
+
+    Each one fetches, prunes and adds its worktree in the shared `.git`, and
+    git takes a lock file for every one of those: two at once ended on
+    "cannot lock ref", "could not lock config file", or a prune that took
+    away a worktree still being made. Every command that writes there waits for
+    the other ticket's to be done.
+    """
+
+    import threading
+
+    busy: dict[str, int] = {}
+    most: list[int] = []
+    counting = threading.Lock()
+
+    def fake(args, cwd, timeout=300, **_):
+        where = str(cwd)
+        with counting:
+            busy[where] = busy.get(where, 0) + 1
+            most.append(busy[where])
+        time.sleep(0.005)
+        with counting:
+            busy[where] -= 1
+        if args[:3] == ["rev-parse", "--verify", "--quiet"]:
+            return git_module.Result(0 if args[3] == "origin/main" else 1, "", "")
+        return git_module.Result(0, "", "")
+
+    with tempfile.TemporaryDirectory() as home:
+        repo = Path(home) / "repo"
+
+        def one(index: int) -> None:
+            path = Path(home) / "worktrees" / f"site-{index}"
+            git_module.fetch(repo)
+            git_module.add_worktree(repo, path, f"ticket/t-{index}", "main")
+            git_module.remove_worktree(repo, path)
+
+        with _git_answering(git=fake):
+            threads = [threading.Thread(target=one, args=(index,)) for index in range(4)]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join()
+    assert max(most) == 1, f"{max(most)} git commands ran at once in the same repository"
+
+
+@case
+def four_worktrees_made_at_once_on_one_repository_all_come_out():
+    """The load the pool puts on one repository, with a real git.
+
+    Four tickets whose branches only exist on origin: each one fetches, then
+    adds its worktree with `--track`, which writes `.git/config` — the one
+    file two of them cannot hold at the same time.
+    """
+
+    from concurrent.futures import ThreadPoolExecutor
+
+    with tempfile.TemporaryDirectory() as home:
+        origin, repo = Path(home) / "origin.git", Path(home) / "repo"
+        assert git_module.git(["init", "-q", "--bare", "-b", "main", str(origin)], home).ok
+        assert git_module.git(["clone", "-q", str(origin), str(repo)], home).ok
+        for step in (
+            ["config", "user.email", "t@t"],
+            ["config", "user.name", "t"],
+            ["commit", "-q", "--allow-empty", "-m", "first"],
+            ["push", "-q", "origin", "main"],
+        ):
+            assert git_module.git(step, repo).ok, step
+        for index in range(4):
+            assert git_module.git(
+                ["push", "-q", "origin", f"main:refs/heads/ticket/t-{index}"], repo
+            ).ok
+        assert git_module.git(["fetch", "-q", "origin"], repo).ok
+        for index in range(4):
+            git_module.git(["update-ref", "-d", f"refs/remotes/origin/ticket/t-{index}"], repo)
+
+        def one(index: int) -> Path:
+            path = Path(home) / "worktrees" / f"site-{index}"
+            git_module.fetch(repo)
+            git_module.add_worktree(repo, path, f"ticket/t-{index}", "main")
+            return path
+
+        for _ in range(5):
+            with ThreadPoolExecutor(4) as pool:
+                made = list(pool.map(one, range(4)))
+            assert all((path / ".git").is_file() for path in made)
+            listed = git_module.git(["worktree", "list", "--porcelain"], repo).out
+            assert all(f"branch refs/heads/ticket/t-{index}" in listed for index in range(4))
+            for index, path in enumerate(made):
+                git_module.remove_worktree(repo, path)
+                git_module.delete_branch(repo, f"ticket/t-{index}")
+                git_module.git(["config", "--remove-section", f"branch.ticket/t-{index}"], repo)
