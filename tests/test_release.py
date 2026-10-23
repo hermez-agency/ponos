@@ -139,8 +139,84 @@ def the_dokploy_template_keeps_to_the_catalogues_rules():
     assert given == read, given ^ read
     secrets = {"PONOS_WEB_PASSWORD", "PONOS_WEB_TOKEN"}
     assert all(env[name].startswith("${") for name in secrets), "generated, never written"
-    for name in ("CLAUDE_CODE_OAUTH_TOKEN", "ANTHROPIC_API_KEY", "GH_TOKEN", "PONOS_NOTION_TOKEN"):
+    for name in (
+        "CLAUDE_CODE_OAUTH_TOKEN",
+        "ANTHROPIC_API_KEY",
+        "OPENROUTER_API_KEY",
+        "GH_TOKEN",
+        "PONOS_NOTION_TOKEN",
+        "PONOS_TELEGRAM_TOKEN",
+        "PONOS_SLACK_TOKEN",
+    ):
         assert env[name] == "", f"{name} is the user's to give"
+    lines = (release.BLUEPRINT / "template.toml").read_text(encoding="utf-8").splitlines()
+    for index, line in enumerate(lines):
+        if re.match(r'\s*"\w+=', line):
+            above = lines[index - 1].strip()
+            assert above.startswith("#") or re.match(r'"\w+=', above), (
+                f"{line.strip()} has no comment saying what it is"
+            )
+
+
+@case
+def the_dokploy_template_deploys_a_console_that_answers_on_its_domain():
+    """The template loaded the way Dokploy loads it: every variable, the port, a compose.
+
+    Every `${NAME}` of the compose is given by template.toml — a missing one is an
+    empty variable nobody was asked about. The domain points at the port the console
+    listens on, and the healthcheck asks it the one question it answers without a key.
+    `docker compose config` says whether the file is one at all, where Docker is.
+    """
+    import tomllib
+
+    path = release.BLUEPRINT / "docker-compose.yml"
+    compose = path.read_text(encoding="utf-8")
+    template = tomllib.loads((release.BLUEPRINT / "template.toml").read_text(encoding="utf-8"))
+    env = dict(entry.split("=", 1) for entry in template["config"]["env"])
+    missing = set(re.findall(r"\$\{(\w+)\}", compose)) - set(env)
+    assert not missing, f"the compose reads {sorted(missing)}, which template.toml never gives"
+    for value in env.values():
+        for name in re.findall(r"\$\{(\w+)(?::\d+)?\}", value):
+            assert name in template["variables"] or name in ("domain", "password"), (
+                f"{value} names a variable [variables] does not define"
+            )
+
+    port = C.Web().port
+    assert [domain["port"] for domain in template["config"]["domains"]] == [port]
+    assert f'- "{port}"' in compose, "the compose does not expose the console's port"
+    assert f"http://127.0.0.1:{port}/healthz" in compose, "the healthcheck asks elsewhere"
+    assert re.search(r"^    user: ponos$", compose, re.MULTILINE), "the service would run as root"
+    assert re.search(r"^          memory: \d+[gm]$", compose, re.MULTILINE), "no memory ceiling"
+    # The four volumes of the image (Dockerfile, README "Docker"), by name.
+    volumes = re.findall(r"^      - (ponos-[a-z]+):(\S+)$", compose, re.MULTILINE)
+    assert dict(volumes) == {
+        "ponos-data": "/data",
+        "ponos-workspace": "/workspace",
+        "ponos-claude": "/home/ponos/.claude",
+        "ponos-gh": "/home/ponos/.config/gh",
+    }
+    declared = compose.split("\nvolumes:\n", 1)[1]
+    assert re.findall(r"^  (ponos-[a-z]+):$", declared, re.MULTILINE) == [v for v, _ in volumes]
+
+    docker = shutil.which("docker")
+    if not docker or subprocess.run([docker, "compose", "version"], capture_output=True).returncode:
+        return
+    # Dokploy's own substitution, with a value in place of each helper.
+    given = {
+        name: re.sub(r"\$\{[^}]+\}", "ponos.example.com", value) for name, value in env.items()
+    }
+    checked = subprocess.run(
+        [docker, "compose", "-f", str(path), "-p", "ponos", "config", "--format", "json"],
+        capture_output=True,
+        text=True,
+        env={**os.environ, **given},
+        cwd=tempfile.mkdtemp(),
+    )
+    assert checked.returncode == 0, checked.stderr
+    service = json.loads(checked.stdout)["services"]["ponos"]
+    assert service["image"] == f"ghcr.io/hermez-agency/ponos:{release.read_version()}"
+    assert service["environment"]["TZ"] == "UTC"
+    assert service["healthcheck"]["test"][-1].endswith("/healthz")
 
 
 @case

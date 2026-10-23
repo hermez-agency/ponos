@@ -529,6 +529,21 @@
   .install-grid .card > pre { margin-inline: 1.5rem; padding-inline: 1rem 4.5rem; }
   .install-grid .card > p + p { margin-top: -.75rem; font-size: .875rem; }
   .install-grid li { margin: .25rem 0; }
+  /* On a server: Dokploy's mark, and its three steps side by side. */
+  .server { margin-top: 2.5rem; gap: 1.25rem; }
+  .server .card-header { grid-template-columns: auto 1fr; align-items: center; column-gap: 1rem; }
+  .server .card-header img { display: block; width: 44px; height: 40px; }
+  .dark .server .light, html:not(.dark) .server .dark { display: none; }
+  .server .card-header p, .server-foot { margin: 0; color: var(--muted-foreground); font-size: .9375rem; }
+  .server-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin: 0; padding: 0 1.5rem; list-style: none; counter-reset: step; }
+  @media (max-width: 860px) { .server-steps { grid-template-columns: minmax(0, 1fr); } }
+  .server-steps li { counter-increment: step; color: var(--muted-foreground); font-size: .9375rem; }
+  .server-steps li::before { content: counter(step); display: inline-grid; place-items: center; width: 1.5rem; height: 1.5rem; margin-right: .5rem; border-radius: 999px; background: var(--primary); color: var(--primary-foreground); font: 600 .75rem var(--mono); }
+  .server-steps b { color: var(--foreground); }
+  .server-steps pre { margin: .5rem 0; }
+  .server-foot { padding: 0 1.5rem; }
+  .server-foot a { color: var(--primary); font-weight: 500; text-decoration: none; }
+  .server-foot a:hover { text-decoration: underline; text-underline-offset: 3px; }
   .docs { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); gap: .5rem; margin-top: 1rem; }
   .docs a {
     display: flex; align-items: center; justify-content: space-between; gap: .75rem; text-decoration: none;
@@ -994,6 +1009,24 @@
       </div>
     </div>
 
+    <div class="card server" id="server">
+      <div class="card-header">
+        <img class="light" src="media/dokploy/dokploy-black.svg" width="44" height="40" alt="Dokploy">
+        <img class="dark" src="media/dokploy/dokploy-white.svg" width="44" height="40" alt="Dokploy">
+        <div>
+          <h3 class="card-title">Install on a server, with Dokploy</h3>
+          <p>Ponos is in <a href="https://dokploy.com" target="_blank" rel="noopener">Dokploy</a>’s template catalogue: HTTPS on a domain of its own, and your data on named volumes, so a restart or a new version keeps it.</p>
+        </div>
+      </div>
+      <ol class="server-steps">
+        <li><b>Create it.</b> In Dokploy, <em>Templates</em> › search <em>Ponos</em> › <em>Create</em>. The domain, the password and the token are generated for you.</li>
+        <li><b>Give it a way to reach Claude</b> — the only thing required — in the <em>Environment</em> tab: the token this prints, into <code>CLAUDE_CODE_OAUTH_TOKEN</code>, or an Anthropic key into <code>ANTHROPIC_API_KEY</code>.
+          <pre data-copy><span class="p">$ </span>claude setup-token</pre></li>
+        <li><b>Deploy, and open the domain.</b> Sign in with <code>PONOS_WEB_EMAIL</code> and <code>PONOS_WEB_PASSWORD</code>, shown in the <em>Environment</em> tab. The console says what is still missing.</li>
+      </ol>
+      <p class="server-foot"><a href="https://templates.dokploy.com/?q=ponos" target="_blank" rel="noopener">Ponos in the Dokploy catalogue →</a> · <a href="https://github.com/hermez-agency/ponos#install-with-dokploy">Every variable, and the import without the catalogue →</a></p>
+    </div>
+
     <div id="faq">
       <h3 style="margin:3rem 0 0;font-size:1.25rem">Questions, answered</h3>
       <div class="card faq">
@@ -1013,21 +1046,17 @@
         </details>
         <details id="dokploy">
           <summary>
-            <h3>Can I install Ponos on a server, with Dokploy?</h3>
+            <h3>What does the Dokploy template set up, and what can I add?</h3>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
           </summary>
           <div class="faq-body">
-            <p>Yes, in one click: Ponos has a <a href="https://dokploy.com" target="_blank" rel="noopener">Dokploy</a> template. The image carries everything a ticket needs — Claude Code, git, <code>gh</code>, Node — and your data lives on named volumes, so a restart or a new version keeps it.</p>
-            <ol>
-              <li><b>Create it.</b> In Dokploy, <em>Templates</em>, search <em>Ponos</em>, <em>Create</em>. Until it is in the catalogue: a <em>Compose</em> service, <em>Advanced › Import</em>, and the Base64 the <a href="https://github.com/hermez-agency/ponos#install-with-dokploy">documentation</a> prints.</li>
-              <li>
-                <b>Give it a way to reach Claude</b> — the only thing required — in the <em>Environment</em> tab. Your subscription, with the token this prints on any machine with a browser:
-                <pre data-copy><span class="p">$ </span>claude setup-token</pre>
-                into <code>CLAUDE_CODE_OAUTH_TOKEN</code> — or an Anthropic key into <code>ANTHROPIC_API_KEY</code>.
-              </li>
-              <li><b>Optional:</b> <code>GH_TOKEN</code> for the pull requests, <code>PONOS_NOTION_TOKEN</code> for a board in Notion — without it, the board is Markdown files and the console is all you need. <code>PONOS_LANGUAGE</code> is <code>en</code> or <code>fr</code>.</li>
-              <li><b>Deploy, and open the domain.</b> Sign in with <code>PONOS_WEB_EMAIL</code> and <code>PONOS_WEB_PASSWORD</code>: the template generated both, and the <em>Environment</em> tab shows them. The console says what is still missing, and where to add it.</li>
-            </ol>
+            <p>The three steps are <a href="#server">above</a>. The image carries everything a ticket needs — Claude Code, git, <code>gh</code>, Node —, pinned to the release the template was published with, and runs as a user of its own, never root. Four named volumes keep the configuration and the board, the clones, and the sign-ins of Claude Code and <code>gh</code>; a healthcheck asks <code>/healthz</code>; memory is capped at 4 GB.</p>
+            <ul>
+              <li><b>Required:</b> <code>CLAUDE_CODE_OAUTH_TOKEN</code> (your subscription) or <code>ANTHROPIC_API_KEY</code>.</li>
+              <li><b>Optional:</b> <code>OPENROUTER_API_KEY</code> for every other model; <code>GH_TOKEN</code> for the pull requests — or a GitHub App, created from the console; <code>PONOS_NOTION_TOKEN</code> for a board in Notion — without it, the board is Markdown files; <code>PONOS_TELEGRAM_TOKEN</code> and <code>PONOS_SLACK_TOKEN</code> for your phone.</li>
+              <li><b>Generated or set:</b> <code>PONOS_WEB_EMAIL</code>, <code>PONOS_WEB_PASSWORD</code> and <code>PONOS_WEB_TOKEN</code>; <code>PONOS_LANGUAGE</code>, <code>en</code> or <code>fr</code>; <code>TZ</code>, the zone a schedule’s hours are read in.</li>
+            </ul>
+            <p>A Dokploy without Ponos in its catalogue imports it: a <em>Compose</em> service, <em>Advanced › Import</em>, and the Base64 the <a href="https://github.com/hermez-agency/ponos#install-with-dokploy">documentation</a> prints.</p>
           </div>
         </details>
         <details id="remote-access" open>
@@ -1122,6 +1151,7 @@ url = "https://&lt;machine&gt;.&lt;tailnet&gt;.ts.net"</pre>
       <a href="https://github.com/hermez-agency/ponos#readme">Documentation</a>
       <a href="https://github.com/hermez-agency/ponos">Repository</a>
       <a href="https://github.com/hermez-agency/ponos/blob/main/CHANGELOG.md">Changelog</a>
+      <a href="#server">Install with Dokploy</a>
       <a href="https://github.com/hermez-agency/ponos/issues">Report a bug</a>
       <a href="llms.txt">llms.txt</a>
     </nav>

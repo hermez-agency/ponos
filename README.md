@@ -21,7 +21,12 @@
   <a href="https://the-ponos.app/"><b>📖 The documentation, online</b></a> ·
   <a href="https://the-ponos.app/#video"><b>▶ The one-minute video</b></a> ·
   <a href="#install-it"><b>Install</b></a> ·
+  <a href="#docker"><b>Docker</b></a> ·
   <a href="CHANGELOG.md"><b>CHANGELOG</b></a>
+</p>
+
+<p align="center">
+  <a href="#install-with-dokploy"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/media/dokploy/deploy-on-dokploy-dark.svg"><img src="docs/media/dokploy/deploy-on-dokploy-light.svg" width="140" height="28" alt="Deploy on Dokploy"></picture></a>
 </p>
 
 **A harness around [Claude Code](https://claude.com/claude-code) that runs your tasks on
@@ -4211,21 +4216,42 @@ and `latest`.
 
 ## Install with Dokploy
 
-Dokploy runs a compose file behind Traefik, with HTTPS and a domain, and that is the whole
-of what the console needs. Ponos has a template for it, in
-[`docker/dokploy/`](docker/dokploy/): **Templates**, search *Ponos*, **Create**, fill in a
-way to reach Claude, **Deploy** — and open the domain it was given.
+<p>
+  <a href="https://templates.dokploy.com/?q=ponos"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/media/dokploy/deploy-on-dokploy-dark.svg"><img src="docs/media/dokploy/deploy-on-dokploy-light.svg" width="190" height="40" alt="Deploy on Dokploy"></picture></a>
+</p>
+
+[Dokploy](https://dokploy.com) runs a compose file behind Traefik, with HTTPS and a domain,
+and that is the whole of what the console needs. Ponos is in its template catalogue — the
+[Ponos card](https://templates.dokploy.com/?q=ponos) —, from the files in
+[`docker/dokploy/`](docker/dokploy/). Three steps:
+
+1. **Create it.** In your Dokploy, a project, then **Templates** › search *Ponos* ›
+   **Create**. Dokploy draws a domain, a password and a token, and writes them in the
+   service's *Environment* tab.
+2. **Give it a way to reach Claude** — the only thing required — in that *Environment* tab:
+   your subscription, with the token `claude setup-token` prints on any machine with a
+   browser, in `CLAUDE_CODE_OAUTH_TOKEN`; or an Anthropic key in `ANTHROPIC_API_KEY`. The
+   rest is optional, and can be added later the same way.
+3. **Deploy, and open the domain** (*Domains* tab; turn HTTPS on). Sign in with
+   `PONOS_WEB_EMAIL` and `PONOS_WEB_PASSWORD`, shown in the *Environment* tab. The console's
+   *Summary* says what is still missing, and the step that fills it in.
+
+Every variable, as `template.toml` gives it — each one carries the same comment there:
 
 | Variable | Filled in by | What it does |
 |---|---|---|
-| `PONOS_WEB_EMAIL` | the template: `admin@<the domain>` | the console's sign-in — change it to yours if you like |
+| `PONOS_WEB_EMAIL` | the template: `admin@<the domain>` | the console's sign-in — only a login, never written to; change it to yours if you like |
 | `PONOS_WEB_PASSWORD` | the template: `${password:32}` | its password; the *Environment* tab shows it whenever you need it |
 | `PONOS_WEB_TOKEN` | the template: `${password:48}` | what a script carries in `Authorization: Bearer` |
-| `PONOS_LANGUAGE` | the template: `en` | `en` or `fr` — the reports, and the console until you pick another |
 | `CLAUDE_CODE_OAUTH_TOKEN` | **you**, or the next one | your Claude subscription: `claude setup-token`, run once on a machine with a browser, prints it |
-| `ANTHROPIC_API_KEY` | **you**, or the previous one | an Anthropic key, billed by the token |
-| `GH_TOKEN` | you, optional | the account pull requests are opened as (`repo` scope); without it the console's GitHub step says so |
+| `ANTHROPIC_API_KEY` | **you**, or the previous one | an Anthropic key, billed by the token; given without the token above, the provider is `api_key` from the first start |
+| `OPENROUTER_API_KEY` | you, optional | an OpenRouter key, in every session's environment for the other models a ticket calls; the sessions run there only once *Settings › OpenRouter* says so — see [Every other model](#every-other-model) |
+| `GH_TOKEN` | you, optional | the account pull requests are opened as (`repo` scope, or fine-grained with Contents and Pull requests on read and write). Empty: create a GitHub App from the console instead, *Settings › GitHub › Connect GitHub* — see [Connect GitHub in one click](#connect-github-in-one-click) |
 | `PONOS_NOTION_TOKEN` | you, optional | a Notion integration; without one the board is Markdown files on the data volume |
+| `PONOS_TELEGRAM_TOKEN` | you, optional | a bot from @BotFather; say anything to it, then `ponos notify --pair` in Dokploy's *Terminal* tab finds your chat |
+| `PONOS_SLACK_TOKEN` | you, optional | a Slack bot (`xoxb-…`); the channel's ID goes in *Settings › Slack* |
+| `PONOS_LANGUAGE` | the template: `en` | `en` or `fr` — the reports, and the console until you pick another |
+| `TZ` | the template: `UTC` | the zone a schedule's hours are read in — `Europe/Paris`, say: 09:00 is then nine in Paris |
 
 **Only Claude is required**, and one way to it is enough. With nothing else, the container
 starts on a board of Markdown files and the console is the whole of the interface: sign in,
@@ -4233,33 +4259,40 @@ add a project, write a ticket. Everything not given yet is said in the console's
 — `missing`, and the step that fills it in — rather than by a container restarting in a loop;
 the image answers its healthcheck on `/healthz` whatever is configured. A Notion token given
 later goes in the *Environment* tab, then *Settings › Board kept in › notion*, then the
-*Notion* step of `/setup`, which builds the board under the page you shared.
+*Notion* step of `/setup`, which builds the board under the page you shared. A variable
+changed in the *Environment* tab is read at the next **Deploy**.
 
 What the template decides for you, and why:
 
 - **the image is pinned** to a release, `ghcr.io/hermez-agency/ponos:<version>`, never
-  `latest`: `scripts/release.py bump` moves the pin in the same commit as `__version__`, so
-  the template of a release pulls the image that release published. A new version is a new
-  pin: change the tag in the *General* tab's compose, then **Deploy**;
+  `latest`, and `meta.json` says the same version: `scripts/release.py bump` moves both in the
+  same commit as `__version__`, and `release.py check` and the tests refuse a tree where they
+  lag. A new version is a new pin: change the tag in the *General* tab's compose, then
+  **Deploy**;
 - **the four volumes** of [Docker](#docker) — the configuration, the board and the
   journal on `ponos-data`, the clones and their worktrees on `ponos-workspace`, and the
-  sign-ins of Claude Code and `gh` — so a restart, a redeploy or a new image keep
-  everything;
-- **the domain** on port `8787` of the `ponos` service; turn HTTPS on and every cookie the
-  console sets is `Secure`. `https://<the domain>/mcp` is then what you paste in Claude — see
-  [Connect Ponos to Claude](#connect-ponos-to-claude);
-- **with an Anthropic key and no subscription token**, the provider is `api_key` from the first
-  start; with the token, the CLI runs on your subscription. Either can be changed in the
-  console afterwards.
+  sign-ins of Claude Code and `gh` on `ponos-claude` and `ponos-gh` — so a restart, a
+  redeploy or a new image keep everything;
+- **the `ponos` user**, as in the image, never root: Claude Code refuses `bypassPermissions`
+  to root;
+- **a healthcheck** on `/healthz`, which needs no key, with a minute of grace for the first
+  start;
+- **a memory ceiling of 4 GB** (`deploy.resources.limits.memory`): a ceiling, not a
+  reservation — enough for the two sessions `runner.max_concurrent` allows by default. Raise
+  it in the compose with that number;
+- **the domain** on port `8787` of the `ponos` service, the port the console listens on;
+  turn HTTPS on and every cookie the console sets is `Secure`. `https://<the domain>/mcp`
+  is then what you paste in Claude — see [Connect Ponos to Claude](#connect-ponos-to-claude).
 
-Until the template is in Dokploy's catalogue, the same thing is one import away: a
-**Compose** service, *Advanced › Import*, and the Base64 of the two files —
+**When the catalogue is not there** — a Dokploy too old to have Ponos in it, or a template
+newer than the catalogue's copy —, the same thing is one import away: a **Compose** service,
+*Advanced › Import*, and the Base64 of the two files —
 
 ```sh
 python3 -c 'import base64, json; print(base64.b64encode(json.dumps({"compose": open("docker/dokploy/docker-compose.yml").read(), "config": open("docker/dokploy/template.toml").read()}, indent=2).encode()).decode())'
 ```
 
-— which is what the catalogue's own *Copy Base64* button produces.
+— which is what the catalogue's own *Copy Base64* button produces. Then steps 2 and 3 above.
 
 ### From this repository instead
 
