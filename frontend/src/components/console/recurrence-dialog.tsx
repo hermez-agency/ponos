@@ -6,7 +6,9 @@ import {
   useFormContext,
   type InputControllerComponentInterface,
 } from "react-data-form"
+import { useChildViewRoute } from "react-resource-view"
 
+import { WithProjects } from "@/components/console/new-ticket-lazy"
 import { useCloseWindow } from "@/components/console/record-window"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -225,6 +227,8 @@ export function RecurrenceFields() {
   const cadence = String(data.cadence ?? "")
   const day = String(data.day ?? "")
   const type = String(data.type ?? "")
+  // The list it was opened over, narrowed to one project: the schedule is for that one.
+  const narrowed = String(useChildViewRoute()?.parentParams.filter?.project ?? "")
 
   const field = (name: string) => {
     const input = inputs.find((candidate) => candidate.name === name)
@@ -245,6 +249,16 @@ export function RecurrenceFields() {
     if (input) latest.current.onChange({ ...input, value: fixed })
   }, [cadence, day])
 
+  // A new schedule written from a list showing one project's is that project's,
+  // as a ticket made under a project's page is — said once, and let go of as
+  // any other choice. One opened already keeps the project it has.
+  React.useEffect(() => {
+    const { form: now } = latest.current
+    if (!narrowed || (now.originalData as { id?: string } | undefined)?.id || now.data?.project_id) return
+    const input = getFormInputsFromForm(now).find((candidate) => candidate.name === "project_id")
+    if (input) latest.current.onChange({ ...input, value: narrowed })
+  }, [narrowed])
+
   return (
     <div
       data-recurrence-form
@@ -264,6 +278,7 @@ export function RecurrenceFields() {
         </div>
         <Summary data={data} original={form.originalData as Record<string, unknown> | undefined} />
       </Section>
+      <WithProjects>{field("project_id")}</WithProjects>
       <div className="grid gap-4 sm:grid-cols-2">
         {field("model")}
         {field("priority")}

@@ -199,3 +199,71 @@ test("the type its tickets are born with is a button, and code says its sub-type
   await expect(window_).not.toBeAttached()
   expect(sent[0].body).toMatchObject({ name: "Revue", type: "code", subtype: "bug" })
 })
+
+/* The project its tickets are for: chosen as a new ticket's is, from the
+ * board's projects. Without one, every ticket the schedule makes comes back as
+ * a document — a schedule of code work could only be written in Notion. */
+const WEBSITE = "0000000000000000000000000000cafe"
+// Neither renamed by `projects.spec.ts`, which shares this board.
+const JOURNAL = "0000000000000000000000000000f00d"
+
+test("the project its tickets are for is chosen, written, and said by the list", async ({ page }) => {
+  const sent = await creation(page)
+  const window_ = await open(page)
+  // Read again after the creation, the list holds the new row: answered here,
+  // with the page the server would have written and no name, as it says one
+  // whose project it has not read yet.
+  await page.route(/\/api\/schedules$/, async (route) => {
+    if (route.request().method() !== "GET" || !sent.length) return route.fallback()
+    try {
+      const response = await route.fetch()
+      const body = await response.json()
+      const made = { ...body.schedules[0], id: "new0000", name: "Revue", url: "", active: false, project: "", project_id: WEBSITE, problem: "" }
+      await route.fulfill({ response, json: { ...body, timezone: "Europe/Paris", schedules: [...body.schedules, made] } })
+    } catch {
+      // Read again once more, still on its way when the test ends.
+    }
+  })
+  await window_.getByPlaceholder("Revue hebdomadaire des dépendances").fill("Revue")
+  const project = window_.getByRole("combobox", { name: "Projet" })
+  await project.click()
+  await page.getByRole("option", { name: /Website/ }).click()
+  await expect(project).toContainText("Website")
+  await expect(window_.locator('[data-slot="project-repository"]')).toHaveText("git")
+  await window_.getByRole("button", { name: "Créer la récurrence" }).click()
+  await expect(window_).not.toBeAttached()
+  expect(sent[0].body).toMatchObject({ name: "Revue", project: WEBSITE })
+  await expect(page.locator('[data-slot="table-row"]', { hasText: "Revue" })).toContainText("Website")
+})
+
+test("opened from a project, the new schedule is for that project", async ({ page }) => {
+  const sent = await creation(page)
+  await page.context().addCookies([{ name: "ponos_token", value: "e2e", url: test.info().project.use.baseURL }])
+  await page.goto(`${LIST}&filter=${encodeURIComponent(JSON.stringify({ project: JOURNAL }))}`)
+  await page.getByText("Nouvelle récurrence").click()
+  const window_ = page.getByRole("dialog")
+  await expect(window_.getByRole("combobox", { name: "Projet" })).toContainText("Journal")
+  await window_.getByPlaceholder("Revue hebdomadaire des dépendances").fill("Revue")
+  await window_.getByRole("button", { name: "Créer la récurrence" }).click()
+  await expect(window_).not.toBeAttached()
+  expect(sent[0].body).toMatchObject({ name: "Revue", project: JOURNAL })
+})
+
+test("an opened schedule changes project", async ({ page }) => {
+  const saved: Record<string, unknown>[] = []
+  await page.route(/\/api\/schedules\/[0-9a-f]+$/, async (route) => {
+    if (route.request().method() !== "POST") return route.fallback()
+    saved.push(route.request().postDataJSON())
+    await route.fulfill({ json: { id: "x" } })
+  })
+  await page.context().addCookies([{ name: "ponos_token", value: "e2e", url: test.info().project.use.baseURL }])
+  await page.goto(LIST)
+  await page.getByRole("link", { name: "Test email" }).click()
+  const window_ = page.getByRole("dialog")
+  const project = window_.getByRole("combobox", { name: "Projet" })
+  await project.click()
+  await page.getByRole("option", { name: /Journal/ }).click()
+  await window_.getByRole("button", { name: "Enregistrer" }).click()
+  await expect.poll(() => saved.length).toBe(1)
+  expect(saved[0]).toMatchObject({ name: "Test email", project: JOURNAL })
+})

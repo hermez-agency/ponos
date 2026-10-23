@@ -51,6 +51,11 @@ function useProjects(): Project[] {
   return projects
 }
 
+/** The board's projects, for a `ProjectInputController` drawn in another form: a schedule's. */
+export function WithProjects({ children }: { children: React.ReactNode }) {
+  return <Projects value={useProjects()}>{children}</Projects>
+}
+
 const hasRepository = (project?: Project) => project?.kind === "code"
 
 /* -- the fields ------------------------------------------------------------- */
