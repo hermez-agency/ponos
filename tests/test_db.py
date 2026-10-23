@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import sqlite3
@@ -570,3 +571,46 @@ def what_the_console_asks_of_runs_ideas_history_and_the_bell_is_searched_on_an_i
         assert [run["title"] for run in journal.runs("e9024ae5")] == ["Same tail"]
     finally:
         db.close()
+
+
+@case
+def a_checkout_does_not_migrate_the_installations_database_from_a_direct_import(state_home):
+    if C.checkout() is None:
+        return  # a copy without its .git: an installation, which this is not about
+    home = Path(tempfile.mkdtemp())
+    real = home / ".local" / "state" / "ponos" / "ponos.db"
+    real.parent.mkdir(parents=True)
+    behind = sqlite3.connect(real, isolation_level=None)
+    db.migrate(behind, db.MIGRATIONS[:-1])
+    behind.close()
+    previous = os.environ["HOME"], os.environ["XDG_STATE_HOME"]
+    # What a launcher does that means the installation's state: the variable
+    # alone no longer lets a branch's migrations into it.
+    os.environ.update(HOME=str(home), XDG_STATE_HOME=str(home / ".local" / "state"))
+    try:
+        for opening in (lambda: db.open_at(real), db.connect):
+            try:
+                opening().close()
+            except db.DatabaseError as error:
+                assert "installation" in str(error), str(error)
+            else:
+                raise AssertionError("a checkout must not migrate the installation's database")
+        with contextlib.closing(sqlite3.connect(f"file:{real}?mode=ro", uri=True)) as left:
+            assert db.version(left) == len(db.MIGRATIONS) - 1, "left untouched"
+        fresh = home / "elsewhere" / ".local" / "state" / "ponos" / "ponos.db"
+        os.environ["HOME"] = str(home / "elsewhere")
+        try:
+            db.open_at(fresh).close()
+        except db.DatabaseError:
+            pass
+        else:
+            raise AssertionError("nor create one")
+        assert not fresh.exists(), "nothing written"
+        os.environ["HOME"] = str(home)
+        current = sqlite3.connect(real, isolation_level=None)
+        db.migrate(current)
+        current.close()
+        db.open_at(real).close()  # brought up to date by the installation: opened as it is
+    finally:
+        db.close()
+        os.environ["HOME"], os.environ["XDG_STATE_HOME"] = previous

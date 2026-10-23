@@ -172,7 +172,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
-from .config import RealStateRefused, refuse_real_state, state_dir
+from .config import RealStateRefused, checkout, refuse_real_state, state_dir
 
 # How long a writer waits for the other process to finish before it gives up.
 # A run's write is a row or two; the console's, the same. Five seconds is many
@@ -1207,12 +1207,59 @@ def _switch_to_wal(connection: sqlite3.Connection) -> None:
             time.sleep(0.01)
 
 
+def _installations(location: Path) -> bool:
+    """Whether a checkout's code is about to open the installation's own database.
+
+    The installation's, whatever `XDG_STATE_HOME` says: a launcher that sets it
+    to ~/.local/state, or a session importing this module, reaches the same
+    file as the timer and the console, which `refuse_real_state` alone did not
+    keep a branch's migrations out of.
+    """
+    if checkout() is None:
+        return False
+    installed = Path.home() / ".local" / "state" / "ponos" / "ponos.db"
+    return location.resolve() == installed.resolve()
+
+
+def _branch_refused(location: Path, doing: str) -> str:
+    return (
+        f"ponos runs from the repository {checkout()}, not from its installation, "
+        f"and would {doing}: {location} is the installation's database, which only "
+        "the installed code migrates — set XDG_STATE_HOME=$(mktemp -d) for a state of its own"
+    )
+
+
+def _refuse_branch_migration(
+    connection: sqlite3.Connection, location: Path, migrations: Sequence[Migration]
+) -> None:
+    """Raise DatabaseError when a checkout would migrate the installation's database.
+
+    The real `ponos.db` was migrated by a branch's code once more, a launcher
+    having pointed `XDG_STATE_HOME` at it: no other version could open it
+    afterwards. Reading it is no harm, so a file the installation has brought
+    to this code's schema is opened as it is; only a migration is refused.
+    """
+    names = [name(migration) for migration in migrations]
+    _refuse_newer(connection, names)
+    done = applied(connection)
+    pending = (
+        names[version(connection) :]
+        if done is None
+        else [migration for migration in names if migration not in done]
+    )
+    if pending:
+        raise DatabaseError(_branch_refused(location, f"apply {', '.join(pending)} to it"))
+
+
 def open_at(location: Path, migrations: Sequence[Migration] = MIGRATIONS) -> sqlite3.Connection:
     """A new connection to `location`, set up and migrated. Prefer `connect()`.
 
     The file is created private before SQLite opens it: SQLite gives its `-wal`
     and `-shm` companions the database's own mode, so they are private too.
     """
+    guarded = _installations(location)
+    if guarded and not location.exists():
+        raise DatabaseError(_branch_refused(location, "create it"))
     location.parent.mkdir(parents=True, exist_ok=True)
     try:
         os.close(os.open(location, os.O_CREAT | os.O_RDWR, 0o600))
@@ -1225,6 +1272,8 @@ def open_at(location: Path, migrations: Sequence[Migration] = MIGRATIONS) -> sql
         raise DatabaseError(f"cannot open {location}: {error}") from error
     try:
         connection.execute(f"PRAGMA busy_timeout = {BUSY_TIMEOUT_MS}")
+        if guarded:
+            _refuse_branch_migration(connection, location, migrations)
         _switch_to_wal(connection)
         connection.execute("PRAGMA synchronous = NORMAL")
         connection.execute("PRAGMA foreign_keys = ON")
