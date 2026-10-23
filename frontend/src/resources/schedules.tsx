@@ -36,7 +36,7 @@ import {
   SegmentsInputController,
   TimeInputController,
 } from "@/components/console/recurrence-dialog-lazy"
-import { PillsInputController } from "@/components/console/new-ticket-lazy"
+import { PillsInputController, ProjectInputController } from "@/components/console/new-ticket-lazy"
 import { PriorityInputController } from "@/components/console/priority"
 import { recordWindow, useOpensOverTheList } from "@/components/console/record-window"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -55,7 +55,7 @@ import { STATES, filtering, keeps } from "@/lib/schedule-search"
 import type { Schedule, Schedules } from "@/lib/types"
 import { ideasHref } from "@/resources/ideas"
 import { projectsOnce, projectsRead, useProjects } from "@/resources/projects"
-import { ticketHref } from "@/resources/tickets"
+import { projectChoices, ticketHref } from "@/resources/tickets"
 
 /* What comes back on its own, declared once for react-resource-view.
  *
@@ -107,6 +107,8 @@ export interface ScheduleWrite {
   priority?: string | number | null
   type?: string
   subtype?: string
+  /** The page of the project its tickets are for, written as `project`: empty, they come back as documents. */
+  project_id?: string
   body?: string
 }
 
@@ -343,7 +345,7 @@ const CADENCES = (
  * what a classifier reads as writing, which is why a schedule can say. */
 const choicesOf = (key: "type" | "subtype") => read.drawn?.choices?.[key] ?? []
 
-/* The seven fields a schedule is written in, drawn by `RecurrenceFields` in
+/* The eight fields a schedule is written in, drawn by `RecurrenceFields` in
  * the window the list opens (see `recurrence-dialog.tsx`).
  *
  * A label is translated by the package as it draws it; the sentence under a
@@ -411,6 +413,13 @@ const fields: FormInterface["inputs"] = {
     // Drawn only beside an empty type or code (see `RecurrenceFields`): it is
     // ignored on a ticket of another type, as on the board.
     hidden: () => !choicesOf("subtype").length,
+  },
+  // The project its tickets are for, chosen as a new ticket's is: by its page,
+  // which is what the row holds beside the name the list says.
+  project_id: {
+    label: "Project",
+    controller: ProjectInputController,
+    getValueOptions: projectChoices,
   },
   // The page body, and the part of a schedule that says what to do: every
   // occurrence is born with it copied under its first line.
@@ -1098,9 +1107,10 @@ export const schedules = createViewResource<ScheduleItem, ScheduleWrite>(SCHEDUL
       const id = String(patch.id ?? "")
       // Written field by field rather than as the row arrived: a row carries the
       // three columns a pass writes back, and the project it points at as a name
-      // rather than as the page the column holds. The body only when the row
-      // came with one — the switch in the list saves a row read without it, and
-      // an absent body is not an empty page.
+      // beside the page the column holds — the page is what is written, and only
+      // when the row came with it. The body too, only when the row came with
+      // one — the switch in the list saves a row read without it, and an absent
+      // body is not an empty page.
       await api.saveSchedule(id, {
         name: patch.name ?? "",
         cadence: patch.cadence ?? "",
@@ -1111,6 +1121,7 @@ export const schedules = createViewResource<ScheduleItem, ScheduleWrite>(SCHEDUL
         priority: readScore(patch.priority) ?? "",
         type: patch.type ?? "",
         subtype: patch.subtype ?? "",
+        ...(patch.project_id === undefined ? {} : { project: patch.project_id }),
         ...(patch.body === undefined ? {} : { body: patch.body }),
       })
       const fresh = await load()
@@ -1129,6 +1140,7 @@ export const schedules = createViewResource<ScheduleItem, ScheduleWrite>(SCHEDUL
         priority: readScore(fresh.priority) ?? "",
         type: fresh.type ?? "",
         subtype: fresh.subtype ?? "",
+        project: fresh.project_id ?? "",
         ...(fresh.body ? { body: fresh.body } : {}),
       })
       // The server writes a new row unticked, whatever it is sent; "Turn on

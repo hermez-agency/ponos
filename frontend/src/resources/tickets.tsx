@@ -306,6 +306,30 @@ class FieldProblem extends Error {
     this.data = { error: message, violations: [{ propertyPath: field, message }] }
   }
 }
+/** The projects a ticket can point at — those with a page — and none, which makes it a document. */
+export async function projectChoices() {
+  const { projects } = await api.projects().catch(() => ({ projects: [] }))
+  return [
+    { value: "", label: "no project — a document" },
+    // The kind said the way the rest of the console says it: the list of
+    // projects says "code work", and this said "code".
+    // Behind the project's mark, as the list draws it: the label is
+    // drawn as it is given, an element as well as a sentence.
+    ...projects
+      // One the configuration alone names has no page to point at.
+      .filter((project) => project.id)
+      .map((project) => ({
+        value: project.id,
+        label: (
+          <span className="inline-flex min-w-0 items-center gap-2">
+            <ProjectThumb project={project} className="size-5 rounded" />
+            {`${project.name} — ${project.kind === "code" ? t("code work") : t("document work")}`}
+          </span>
+        ),
+      })),
+  ]
+}
+
 /* What a new ticket asks for. Drawn by react-data-form, submitted to
  * `createItem` — in the two columns of `NewTicketFields`, with the draft and
  * launch buttons of `NewTicketFoot` under them (see `new-ticket.tsx`).
@@ -342,25 +366,7 @@ const createForm: FormInterface = {
       label: "Project",
       // A board can hold many projects: typed into, not scrolled through.
       controller: ProjectInputController,
-      getValueOptions: async () => {
-        const { projects } = await api.projects().catch(() => ({ projects: [] }))
-        return [
-          { value: "", label: "no project — a document" },
-          // The kind said the way the rest of the console says it: the list of
-          // projects says "code work", and this said "code".
-          // Behind the project's mark, as the list draws it: the label is
-          // drawn as it is given, an element as well as a sentence.
-          ...projects.map((project) => ({
-            value: project.id,
-            label: (
-              <span className="inline-flex min-w-0 items-center gap-2">
-                <ProjectThumb project={project} className="size-5 rounded" />
-                {`${project.name} — ${project.kind === "code" ? t("code work") : t("document work")}`}
-              </span>
-            ),
-          })),
-        ]
-      },
+      getValueOptions: projectChoices,
     },
     type: choiceInput(
       "type",
