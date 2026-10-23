@@ -120,6 +120,63 @@ def an_mcp_client_lists_what_waits_creates_a_task_and_answers_a_question(state_h
         assert all(line["client"] == "c-1" and line["at"] for line in journal_lines)
 
 
+# -- the goals ----------------------------------------------------------------
+
+
+@case
+def an_mcp_client_lists_the_goals_and_creates_a_task_for_one(state_home):
+    """A goal named as a person names it, in any case — and a task that serves it.
+
+    How far a goal has gone is the console's count: done, out of every task but
+    those given up. A goal nobody has is refused with the ones there are.
+    """
+    from ponos.web import oauth as web_oauth
+
+    with _board() as board:
+        project = board.create_row("projects", "Usine", {"Repository": "user/usine"})
+        launch = board.create_row(
+            "goals",
+            "Lancer la v1",
+            {"Statut": "actif", "Échéance": "2026-12-31", "Projets": [project]},
+        )
+        board.create_row("goals", "Ranger", {"Statut": "atteint"})
+        settings = C.Notion()
+        for title, column in (("Fait", "done"), ("En cours", "running"), ("Laissé", "cancelled")):
+            ticket = board.create_row("tickets", title, {"Status": settings.state(column)})
+            board.update("tickets", ticket, {"Objectif": [launch]})
+        api = _ideas_api(board)
+        grant = web_oauth.Grant(client="c-1", name="claude.ai", scopes=frozenset({"read", "write"}))
+
+        listed = _mcp_call(api, grant, "list_goals")["structuredContent"]
+        goals = {goal["name"]: goal for goal in listed["goals"]}
+        assert set(goals) == {"Lancer la v1", "Ranger"}, listed
+        goal = goals["Lancer la v1"]
+        assert goal["active"] and goal["status"] == "actif" and goal["due"] == "2026-12-31"
+        assert goal["projects"] == ["Usine"]
+        assert (goal["progress"]["done"], goal["progress"]["total"]) == (1, 2), goal
+        assert not goals["Ranger"]["active"] and goals["Ranger"]["progress"]["total"] == 0
+
+        tasks = _mcp_call(api, grant, "list_tasks")["structuredContent"]["tasks"]
+        assert {task["title"]: task["goal"] for task in tasks}["Fait"] == "Lancer la v1"
+
+        created = _mcp_call(
+            api, grant, "create_task", title="Brancher le domaine", goal="lancer LA V1"
+        )
+        assert not created["isError"], created
+        made = created["structuredContent"]
+        assert made["goal"] == "Lancer la v1"
+        assert store.read(board.page(made["id"]), "Objectif") == [goal["id"]]
+        api._goals_at = 0.0  # the index the cards are named from, read again
+        detail = _mcp_call(api, grant, "get_task", task=made["id"])["structuredContent"]
+        assert detail["goal"] == "Lancer la v1", detail
+
+        unknown = _mcp_call(api, grant, "create_task", title="X", goal="Conquérir le monde")
+        assert unknown["isError"], unknown
+        said = unknown["content"][0]["text"]
+        assert "Conquérir le monde" in said and "Lancer la v1" in said
+        assert "X" not in [task.title for task in board.query("tickets")], "nothing created"
+
+
 # -- deciding on a card that waits on you -------------------------------------
 
 
@@ -224,6 +281,7 @@ def a_read_only_mcp_client_sees_and_can_call_no_tool_that_writes(state_home):
             "get_task",
             "runner_status",
             "list_ideas",
+            "list_goals",
             "list_solutions",
         }
         assert all(tool["annotations"]["readOnlyHint"] for tool in listed["result"]["tools"])
@@ -264,6 +322,7 @@ def no_mcp_tool_starts_a_run_runs_a_command_or_deletes_anything():
         "get_task",
         "runner_status",
         "list_ideas",
+        "list_goals",
         "create_task",
         "answer_question",
         "list_solutions",

@@ -3687,11 +3687,12 @@ back is a task, a project, an idea, an amount — never a page or a property.
 | --- | --- | --- | --- |
 | `whoami` | Mon compte | read | the console, the email that opens it, the connected client and its access, where the board lives, how many projects and how many tasks wait for you |
 | `list_projects` | Projets | read | the projects: name, icon, repository |
-| `list_tasks` | Tâches | read | the tasks, filtered by project, by status, or `waiting_for_you` (the blocked ones) |
-| `get_task` | Détail d'une tâche | read | one task: its brief, the last turns of its discussion and the question it waits on, the pull request, the cost, the session, the last runs |
+| `list_tasks` | Tâches | read | the tasks, each with its goal, filtered by project, by status, or `waiting_for_you` (the blocked ones) |
+| `get_task` | Détail d'une tâche | read | one task: its goal, its brief, the last turns of its discussion and the question it waits on, the pull request, the cost, the session, the last runs |
 | `runner_status` | Runner et dépenses | read | the timer, the sessions in flight, the tasks running, what was spent today, over the period and project by project |
 | `list_ideas` | Idées | read | the ideas of a project, or of the workspace, by state, each with its score and why |
-| `create_task` | Créer une tâche | write | a task, *draft* or *ready*, with its description, project, type and priority — through the console's *New ticket*, so the same rules as any other |
+| `list_goals` | Objectifs | read | the goals: status, due date, criterion, projects and progress — tasks done out of all but the cancelled ones |
+| `create_task` | Créer une tâche | write | a task, *draft* or *ready*, with its description, project, type, priority and goal (by name, whatever the case, or id) — through the console's *New ticket*, so the same rules as any other |
 | `answer_question` | Répondre à une tâche bloquée | write | an answer under a blocked task's question, as the console's discussion writes it; `ready: true` also moves it back to *ready* |
 | `list_solutions` | Solutions d'une tâche en attente | read | why a blocked task stopped (its kind, its reason, what is done) or what a task in review delivered (sentence, pull request, checks, points to check), and the choices the console offers on a blocked ticket's discussion and its Decide tab |
 | `apply_solution` | Appliquer une solution | write | one of those choices: the decision and its instruction in the task's discussion, then the move — *ready*, *validated* or *done* |
