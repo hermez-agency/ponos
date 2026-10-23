@@ -186,6 +186,8 @@ class Tickets(Base):
             "subtypes": [subtype.as_dict() for subtype in subtypes.SUBTYPES],
             # What a ticket with no model of its own runs on — empty, the CLI's.
             "model": self.config.runner.model,
+            # How many run at once: the column of work in flight reads its fill against it.
+            "places": self.config.runner.max_concurrent,
         }
 
     def _choices(self) -> dict[str, list[dict[str, str]]]:

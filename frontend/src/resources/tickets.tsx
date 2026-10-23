@@ -641,15 +641,26 @@ function NoProjectTicket() {
  * package's is hidden (see `BoardColumn`). While a search is on, it says how
  * many of them it kept, out of how many: "3 / 12". On the board, Blocked and
  * In review end on the way through all of their cards at once — see
- * `SeriesButton`. */
-function heading(key: string, name: string, count?: number, total?: number, series = false) {
+ * `SeriesButton`.
+ *
+ * In progress is read against the places the runner has — `places`, its
+ * `max_concurrent` — as "5/5", and goes amber when the queue is full. A search
+ * does not change how full the runner is, so that figure is never the kept one. */
+function heading(key: string, name: string, count?: number, total?: number, series = false, places?: number) {
+  const filled = total ?? count
+  const full = filled !== undefined && places !== undefined && key === "running"
   return (
     <span className="flex items-center gap-2">
       <span className={cn("size-1.5 shrink-0 rounded-full", SEED[key] ?? "bg-muted-foreground")} />
       <span className="truncate">{capital(name)}</span>
-      {count === undefined ? null : (
-        <span className="bg-background text-muted-foreground ms-auto shrink-0 rounded-full px-2 py-0.5 text-xs font-normal tabular-nums">
-          {total === undefined ? count : `${count} / ${total}`}
+      {count === undefined && !full ? null : (
+        <span
+          className={cn(
+            "bg-background ms-auto shrink-0 rounded-full px-2 py-0.5 text-xs font-normal tabular-nums",
+            full && filled >= places ? "text-tr-amber" : "text-muted-foreground"
+          )}
+        >
+          {full ? `${filled}/${places}` : total === undefined ? count : `${count} / ${total}`}
         </span>
       )}
       {series && (key === "blocked" || key === "review") ? <SeriesButton column={key} /> : null}
@@ -688,6 +699,7 @@ function BoardColumn({
   rows,
   total,
   series,
+  places,
   dragging,
   onDragging,
 }: {
@@ -698,6 +710,8 @@ function BoardColumn({
   total?: number
   /** The board's own columns, not a project's: they offer to go through their cards. */
   series: boolean
+  /** How many tickets the runner takes at once — the board's, so only on the board. */
+  places?: number
   dragging: boolean
   onDragging: (dragging: boolean) => void
 }) {
@@ -732,7 +746,7 @@ function BoardColumn({
     >
       <RowWrapperColumnComponent
         identifierKey="column"
-        valueIdentifier={{ value: column, label: heading(column, label, mine.length, total, series) }}
+        valueIdentifier={{ value: column, label: heading(column, label, mine.length, total, series, places) }}
         isDragging={dragging}
         handleDragging={onDragging}
         rows={carried}
@@ -923,6 +937,7 @@ function BoardColumns({ rows: all = [] }: ListComponentPropsInterface) {
                 rows={rows}
                 total={totals(column.key)}
                 series={resource["@id"] !== PROJECT_TICKETS}
+                places={resource["@id"] !== PROJECT_TICKETS ? board.places : undefined}
                 dragging={dragging}
                 onDragging={setDragging}
               />

@@ -1830,6 +1830,11 @@ export interface components {
              *     own.
              */
             model?: string;
+            /**
+             * @description How many tickets the runner takes at once: `runner.max_concurrent`, what the
+             *     column of work in flight is counted against.
+             */
+            places?: number;
             /** @description Which board the stream sent, for the changes that follow it. */
             version?: number;
         };

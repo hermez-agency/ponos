@@ -283,6 +283,9 @@ class Board(Shape):
     model: str = omitted()
     """What a ticket with no model of its own runs on: `runner.model`, empty for Claude Code's
     own."""
+    places: int = omitted()
+    """How many tickets the runner takes at once: `runner.max_concurrent`, what the
+    column of work in flight is counted against."""
     version: int = omitted()
     """Which board the stream sent, for the changes that follow it."""
 
