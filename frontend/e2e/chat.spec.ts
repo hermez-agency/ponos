@@ -107,3 +107,79 @@ test("Escape from the empty field stops the turn, and leaves the drawer open", a
   await expect(page.getByText("stopped by you")).toHaveCount(stopped + 1)
   await expect(field).toBeVisible()
 })
+
+test("messages sent while Ponos answers wait, then are sent in order", async ({ page }) => {
+  await openConsole(page)
+  const field = page.getByRole("textbox", { name: FIELD })
+  const answered = await page.getByText("Resumed, and done. The board has 13 tickets.").count()
+  await ask(page, "hold-the-line")
+  // Stop stays, and so does the arrow: the field is never locked.
+  await expect(page.getByRole("button", { name: "Stop" })).toBeVisible()
+  await expect(field).toBeEnabled()
+
+  await ask(page, "first addition")
+  await ask(page, "second addition")
+  const waiting = page.locator("[data-slot=queued]")
+  await expect(waiting).toHaveCount(2)
+  await expect(waiting.first()).toContainText("first addition")
+  await expect(waiting.last()).toContainText("second addition")
+  await expect(waiting.first()).toContainText("waiting")
+  await expect(page.getByRole("button", { name: "Stop" })).toBeVisible()
+
+  // A waiting message can be changed, and taken back; the page knows it from the server.
+  await waiting.last().getByRole("button", { name: "Edit the waiting message" }).click()
+  const edit = waiting.last().getByRole("textbox", { name: "Edit the waiting message" })
+  await edit.fill("second addition, reworded")
+  await edit.press("Enter")
+  await expect(waiting.last()).toContainText("second addition, reworded")
+  await page.reload()
+  await page.getByRole("button", { name: "Open the console" }).click()
+  await expect(waiting).toHaveCount(2)
+  await expect(waiting.last()).toContainText("second addition, reworded")
+
+  // Both are sent once the turn is over, one after the other, and both answered.
+  await expect(waiting).toHaveCount(0, { timeout: 30_000 })
+  await expect(page.getByText("Resumed, and done. The board has 13 tickets.")).toHaveCount(answered + 2, {
+    timeout: 30_000,
+  })
+  const mine = page.locator("[data-slot=message]").filter({ hasText: /^\s*you/i })
+  const texts = await mine.allInnerTexts()
+  const sent = texts.filter((text) => /addition/.test(text))
+  expect(sent[sent.length - 2]).toContain("first addition")
+  expect(sent[sent.length - 1]).toContain("second addition, reworded")
+})
+
+test("Stop keeps the waiting messages: they are sent, or thrown away", async ({ page }) => {
+  await openConsole(page)
+  await ask(page, "take it slowly")
+  await expect(page.getByText("fixing an error…")).toBeVisible({ timeout: 10_000 })
+  await ask(page, "kept after the stop")
+  const waiting = page.locator("[data-slot=queued]")
+  await expect(waiting).toHaveCount(1)
+  const stopped = await page.getByText("stopped by you").count()
+  await page.getByRole("button", { name: "Stop" }).click()
+  await expect(page.getByText("stopped by you")).toHaveCount(stopped + 1)
+
+  // Nothing went on its own; the choice is offered, and another tab sees it too.
+  const held = page.locator("[data-slot=queue-held]")
+  await expect(held).toContainText("1 message is waiting")
+  await expect(waiting).toHaveCount(1)
+  const fresh = await (await page.request.get("/api/chat")).json()
+  expect(fresh.held).toBe(true)
+  expect(fresh.queue.map((item: { text: string }) => item.text)).toEqual(["kept after the stop"])
+
+  await held.getByRole("button", { name: "Send" }).click()
+  await expect(waiting).toHaveCount(0)
+  await expect(page.getByText("Resumed, and done. The board has 13 tickets.").last()).toBeVisible()
+
+  // And thrown away, the other way.
+  await ask(page, "take it slowly again")
+  await expect(page.getByText("fixing an error…").last()).toBeVisible({ timeout: 10_000 })
+  await ask(page, "never sent")
+  await expect(waiting).toHaveCount(1)
+  await page.getByRole("button", { name: "Stop" }).click()
+  await held.getByRole("button", { name: "Discard" }).click()
+  await expect(waiting).toHaveCount(0)
+  await expect(held).toHaveCount(0)
+  await expect(page.getByText("never sent")).toHaveCount(0)
+})

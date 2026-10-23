@@ -17,6 +17,7 @@ import type {
   Message,
   NoticeEvent,
   Project,
+  Queued,
   Role,
   Running,
   RunnerState,
@@ -99,6 +100,10 @@ interface ConsoleValue {
   busy: boolean
   /** The workspace's turn is being stopped: Stop was pressed, the end is on its way. */
   stopping: boolean
+  /** Said while a turn ran, and not sent yet: the server's list, in order. */
+  queue: Queued[]
+  /** The turn ended before its time: the queue waits for Send or Discard. */
+  held: boolean
   ticket: Ticket | null
   talk: Message[]
   mention: string
@@ -193,6 +198,8 @@ export function ConsoleProvider({ children }: { children: React.ReactNode }) {
   const [transcript, setTranscript] = React.useState<Entry[]>([])
   const [busy, setBusy] = React.useState(false)
   const [stopping, setStopping] = React.useState(false)
+  const [queue, setQueue] = React.useState<Queued[]>([])
+  const [held, setHeld] = React.useState(false)
   const [running, setRunning] = React.useState<Running[]>([])
   const [synced, setSynced] = React.useState<SyncEvent | null>(null)
   const [steps, setSteps] = React.useState<Record<string, Step[]>>({})
@@ -277,6 +284,8 @@ export function ConsoleProvider({ children }: { children: React.ReactNode }) {
       setTranscript(said)
       setBusy(Boolean(payload.busy))
       setStopping(Boolean(payload.stopping))
+      setQueue(payload.queue ?? [])
+      setHeld(Boolean(payload.held))
     } catch (error) {
       say("error", why(error))
     }
@@ -445,6 +454,13 @@ export function ConsoleProvider({ children }: { children: React.ReactNode }) {
         setTranscript([{ id: nextId(), kind: "turn", role: "workspace", text: t(WELCOME) }])
         setBusy(false)
         setStopping(false)
+        setQueue([])
+        setHeld(false)
+        return
+      }
+      if (event.stage === "queue") {
+        setQueue(event.queue)
+        setHeld(event.held)
         return
       }
       if (event.stage === "sent") {
@@ -609,7 +625,6 @@ export function ConsoleProvider({ children }: { children: React.ReactNode }) {
         return true
       } catch (error) {
         say("error", why(error))
-        setBusy(false)
         return false
       }
     },
@@ -707,6 +722,8 @@ export function ConsoleProvider({ children }: { children: React.ReactNode }) {
       transcript,
       busy,
       stopping,
+      queue,
+      held,
       ticket,
       talk,
       mention,
@@ -733,6 +750,8 @@ export function ConsoleProvider({ children }: { children: React.ReactNode }) {
       transcript,
       busy,
       stopping,
+      queue,
+      held,
       ticket,
       talk,
       mention,

@@ -127,7 +127,9 @@ export const settled = (list: Pending[], key: string, change: Partial<Pending>) 
  * ponos command. */
 export const isCommand = (text: string) => text.trimStart().startsWith(">")
 
-/** Whether the arrow would send anything — and it is drawn disabled when not. */
+/* Whether the arrow would send anything — and it is drawn disabled when not.
+ * A sentence can be sent while Ponos answers: it waits its turn. A command
+ * cannot: it runs at once, and one command at a time. */
 export function canSend({
   text,
   attachments,
@@ -139,8 +141,8 @@ export function canSend({
   busy: boolean
   sending?: boolean
 }): boolean {
-  if (busy || sending) return false
-  if (isCommand(text)) return text.trim().replace(/^>\s*/, "").length > 0
+  if (sending) return false
+  if (isCommand(text)) return !busy && text.trim().replace(/^>\s*/, "").length > 0
   if (attachments.some((item) => item.state === "uploading")) return false
   return text.trim().length > 0 || attachments.some((item) => item.state === "done")
 }

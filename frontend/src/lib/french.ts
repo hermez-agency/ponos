@@ -581,6 +581,15 @@ export const FRENCH: Record<string, string> = {
   "The workspace is answering": "L'espace de travail répond",
   // The Stop the arrow becomes while a turn runs, and what a stopped turn says.
   "Stopping…": "Arrêt en cours…",
+  // Said while Ponos answers: the message waits, and can be changed or taken back.
+  "Send — it waits for Ponos to finish": "Envoyer — le message attend la fin de la réponse de Ponos",
+  "Edit the waiting message": "Modifier le message en attente",
+  "Remove the waiting message": "Retirer le message en attente",
+  "1 message is waiting. Send it, or throw it away?":
+    "1 message est en attente. L'envoyer, ou le jeter ?",
+  "{{count}} messages are waiting. Send them, or throw them away?":
+    "{{count}} messages sont en attente. Les envoyer, ou les jeter ?",
+  Discard: "Jeter",
   "stopped by you": "interrompu par vous",
   // Ponos, while the workspace answers: one line about the last step. See `thinking.ts`.
   "thinking…": "réfléchit…",

@@ -88,7 +88,8 @@ test("the arrow is off while there is nothing to send, or an answer is being wri
   assert.equal(canSend({ text: "", attachments: [], busy: false }), false)
   assert.equal(canSend({ text: "   \n ", attachments: [], busy: false }), false)
   assert.equal(canSend({ text: "hello", attachments: [], busy: false }), true)
-  assert.equal(canSend({ text: "hello", attachments: [], busy: true }), false)
+  assert.equal(canSend({ text: "hello", attachments: [], busy: true }), true, "it waits its turn")
+  assert.equal(canSend({ text: ">status", attachments: [], busy: true }), false, "a command runs at once")
   assert.equal(canSend({ text: "hello", attachments: [], busy: false, sending: true }), false)
   assert.equal(
     canSend({ text: "", attachments: [image("x", "error")], busy: false }),

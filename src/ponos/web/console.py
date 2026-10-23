@@ -135,6 +135,22 @@ class Message:
         return said
 
 
+@dataclass
+class Queued:
+    """A message sent while the workspace was still answering: it waits its turn."""
+
+    text: str
+    carried: list[files.Attachment]
+    id: str = field(default_factory=lambda: secrets.token_hex(6))
+    at: str = field(default_factory=lambda: datetime.now(UTC).isoformat(timespec="seconds"))
+
+    def as_dict(self) -> dict:
+        said = {"id": self.id, "text": self.text, "at": self.at}
+        if self.carried:
+            said["attachments"] = [attachment.as_dict() for attachment in self.carried]
+        return said
+
+
 class Chat:
     """One conversation with the whole workspace, kept across restarts."""
 
@@ -153,6 +169,13 @@ class Chat:
         # Set by Stop, read by the session of the turn in flight: one per turn,
         # so a stop that arrives late cannot reach the next one.
         self._stop: threading.Event | None = None
+        # What was said while a turn ran, in the order it was said. Kept in
+        # memory and not in the row: a turn does not survive a restart, and a
+        # queue for a turn that is gone would be sent by nobody.
+        self.queue: list[Queued] = []
+        # A turn that ended before its time (Stop, or an error) leaves the queue
+        # alone until somebody chooses between sending it and throwing it away.
+        self.held = False
         self._blank()
         self._load()
         files.prune(attachments_dir(), self.config.web.attachment_days)
@@ -171,6 +194,8 @@ class Chat:
         # The folder this conversation's files are kept in: named when the
         # first one arrives, and emptied with the conversation.
         self.folder_name = ""
+        self.queue = []
+        self.held = False
 
     # -- persistence ---------------------------------------------------------
 
@@ -274,6 +299,8 @@ class Chat:
             "turns": self.turns,
             "busy": self._busy,
             "stopping": bool(self._stop and self._stop.is_set()),
+            "queue": [queued.as_dict() for queued in self.queue],
+            "held": self.held,
             "resume_command": f"claude --resume {self.session_id}" if self.session_id else "",
             "attachments": {
                 "max_mb": self.config.web.attachment_max_mb,
@@ -464,24 +491,98 @@ class Chat:
                 f"{self.effective_model()} runs on OpenRouter, which has no key: "
                 "pick a Claude model, or add the key in the settings"
             )
-        said = [attachment.as_dict() for attachment in carried]
         with self._lock:
-            if self._busy:
-                raise RuntimeError("the workspace is still answering the previous message")
-            self._busy = True
-            self._stop = threading.Event()
-            first = not self.session_id
-            if first:
-                self.session_id = session.new_id()
-            self.messages.append(Message("you", text, attachments=said))
-            if not self.title:
-                self.title = chats.titled(text) or (said[0]["name"] if said else "")
-            self._save()
+            if self._busy or self.queue:
+                # Behind the turn in flight, and behind whatever already waits.
+                self.queue.append(Queued(text, carried))
+                queued = True
+            else:
+                self._begin(text, carried)
+                queued = False
+        if queued:
+            self._announce_queue()
+        return self.state()
+
+    def _begin(self, text: str, carried: list[files.Attachment]) -> None:
+        """Start a turn on `text`. The lock is held, and nothing is running."""
+        self._busy = True
+        self._stop = threading.Event()
+        first = not self.session_id
+        if first:
+            self.session_id = session.new_id()
+        said = [attachment.as_dict() for attachment in carried]
+        self.messages.append(Message("you", text, attachments=said))
+        if not self.title:
+            self.title = chats.titled(text) or (said[0]["name"] if said else "")
+        self._save()
         self.publish("chat", stage="sent", text=text, attachments=said, session_id=self.session_id)
         thread = threading.Thread(
             target=self._turn, args=(text, first, carried, self._stop), name="tr-chat", daemon=True
         )
         thread.start()
+
+    # -- the queue -----------------------------------------------------------
+
+    def _announce_queue(self) -> None:
+        self.publish(
+            "chat",
+            stage="queue",
+            queue=[queued.as_dict() for queued in self.queue],
+            held=self.held,
+        )
+
+    def _advance(self) -> None:
+        """Start the next waiting message, once the turn before it is over."""
+        with self._lock:
+            if self._busy or self.held or not self.queue:
+                return
+            waiting = self.queue.pop(0)
+            # Taken off the list before it is said in the transcript: the page
+            # must not show it twice, waiting and sent.
+            self._announce_queue()
+            self._begin(waiting.text, waiting.carried)
+
+    def _waiting(self, identifier: str) -> Queued:
+        found = next((queued for queued in self.queue if queued.id == identifier), None)
+        if found is None:
+            # Already sent, or already taken back — from another tab, say.
+            raise LookupError("no such waiting message")
+        return found
+
+    def unqueue(self, identifier: str) -> dict:
+        """Take a waiting message back: it is never sent."""
+        with self._lock:
+            self.queue.remove(self._waiting(identifier))
+            if not self.queue:
+                self.held = False
+        self._announce_queue()
+        return self.state()
+
+    def amend(self, identifier: str, text: str) -> dict:
+        """Change the words of a message that has not been sent yet."""
+        text = text.strip()
+        with self._lock:
+            waiting = self._waiting(identifier)
+            if not text and not waiting.carried:
+                raise ValueError("nothing to send")
+            waiting.text = text
+        self._announce_queue()
+        return self.state()
+
+    def release(self) -> dict:
+        """Send what waits, after a turn that ended before its time."""
+        with self._lock:
+            self.held = False
+        self._advance()
+        self._announce_queue()
+        return self.state()
+
+    def discard(self) -> dict:
+        """Throw away everything that waits."""
+        with self._lock:
+            self.queue = []
+            self.held = False
+        self._announce_queue()
         return self.state()
 
     def stop(self) -> dict:
@@ -541,7 +642,10 @@ class Chat:
                 # `busy` to drop (a test, a restart) finds the transcript saved.
                 self._save()
                 self._busy = False
+                self.held = bool(self.queue)
             self.publish("chat", stage="failed", text=str(error))
+            if self.held:
+                self._announce_queue()
             return
 
         if outcome.stopped:
@@ -564,6 +668,7 @@ class Chat:
             seconds=round(time.monotonic() - started, 1),
             session_id=self.session_id,
         )
+        self._advance()
 
     def _stopped(self, outcome: session.Outcome, first: bool, started: float) -> None:
         """A turn you ended: what it had said is kept, and so is the session.
@@ -582,6 +687,7 @@ class Chat:
             self.messages.append(Message("stopped", outcome.answer))
             self._save()
             self._busy = False
+            self.held = bool(self.queue)
         self.publish(
             "chat",
             stage="stopped",
@@ -589,6 +695,8 @@ class Chat:
             seconds=round(time.monotonic() - started, 1),
             session_id=self.session_id,
         )
+        if self.held:
+            self._announce_queue()
 
     def _on_event(self, event: dict) -> None:
         for step in progress.describe(event):

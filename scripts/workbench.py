@@ -112,6 +112,8 @@ say({{"type": "user", "message": {{"content": [{{"type": "tool_result", "is_erro
 if "slowly" in prompt:
     use("Bash", command="sleep 600")
     time.sleep(600)
+if "hold-the-line" in prompt:
+    time.sleep(4)
 answer = ("Resumed, and done." if resumed else "Done.") + " The board has 13 tickets."
 say({{"type": "result", "result": answer, "session_id": session, "total_cost_usd": 0.0123, "num_turns": 3}})
 """
