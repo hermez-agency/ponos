@@ -615,6 +615,7 @@ SECTIONS: tuple[Section, ...] = (
                 "done": ("Done", "Finished and closed."),
                 "failed": ("Failed", "Something broke; a log says what."),
                 "blocked": ("Blocked", "The runner asked you a question and is waiting."),
+                "paused": ("Paused", ""),
                 "cancelled": (
                     "Cancelled",
                     "Given up on: never run, counted neither done nor open.",

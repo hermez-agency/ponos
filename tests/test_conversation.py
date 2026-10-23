@@ -132,6 +132,21 @@ def waking_looks_everywhere_but_where_a_status_already_speaks():
         condition["status"]["does_not_equal"] for condition in runner._woken_filter()["and"]
     }
     assert excluded == {"In review", "Validated", "Done", "Ready", "In progress", "Cancelled"}
+    # And so is a paused one, which you stopped on purpose: only moving it to
+    # ready runs it again.
+    offered.append("Paused")
+    excluded = {
+        condition["status"]["does_not_equal"] for condition in runner._woken_filter()["and"]
+    }
+    assert excluded == {
+        "In review",
+        "Validated",
+        "Done",
+        "Ready",
+        "In progress",
+        "Cancelled",
+        "Paused",
+    }
 
 
 # -- talking in the comments -------------------------------------------------

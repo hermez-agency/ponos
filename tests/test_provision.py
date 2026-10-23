@@ -47,6 +47,7 @@ def a_bare_page_becomes_the_whole_board():
         "Done",
         "Failed",
         "Blocked",
+        "Paused",
         "Cancelled",
     ]
     # And the credit is not one of them: a ticket nothing was started for has not
@@ -156,10 +157,10 @@ def two_states_on_one_column_produce_one_option():
     settings.status = {"failed": "Needs you", "blocked": "Needs you"}
     names = [option["name"] for option in provision.status_options(settings)]
     assert names.count("Needs you") == 1
-    # Seven: the two that were merged count once, and renaming a failure column
-    # says nothing about the validated one, nor the cancelled one, which keep
-    # their defaults.
-    assert len(names) == 7 and "Validated" in names and "Cancelled" in names
+    # Eight: the two that were merged count once, and renaming a failure column
+    # says nothing about the validated one, nor the paused or cancelled ones,
+    # which keep their defaults.
+    assert len(names) == 8 and {"Validated", "Paused", "Cancelled"} <= set(names)
 
     settings.status = {"review": "Done", "done": "Done"}
     names = [option["name"] for option in provision.status_options(settings)]

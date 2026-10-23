@@ -1063,6 +1063,10 @@ _SAID: dict[str, dict[str, str]] = {
         "fr": "abandonné, classé sans suite",
     },
     "decided-other": {"en": "an instruction", "fr": "une consigne"},
+    # The one line the console writes on a ticket it was asked to stop: what was
+    # done, and nothing of how.
+    "ticket-paused": {"en": "Paused", "fr": "Mis en pause"},
+    "ticket-abandoned": {"en": "Abandoned", "fr": "Abandonné"},
     "decided-validate": {"en": "validated", "fr": "validé"},
     "decided-rework": {
         "en": "back to work with an instruction",

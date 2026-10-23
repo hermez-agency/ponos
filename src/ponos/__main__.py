@@ -1577,6 +1577,19 @@ def _doctor_statuses(
                 f"cancelled → “{cancelled}” not offered — no column to give a ticket up in. "
                 "`init` adds it to a select; on a Notion status, add the option by hand"
             )
+        # Optional too, and for the same reason: a board without it has no
+        # gesture to stop a ticket for later, and the console offers none.
+        paused = configuration.notion.state("paused")
+        if paused in moved:
+            bad(f"paused → “{paused}” is also a status the runner moves tickets through")
+            problems += 1
+        elif paused in options:
+            ok(f"paused → “{paused}” — never run by itself")
+        else:
+            warn(
+                f"paused → “{paused}” not offered — no column to pause a ticket in. "
+                "`init` adds it to a select; on a Notion status, add the option by hand"
+            )
         # The one status the runner never writes nor reads, and that nothing
         # defaults: named, it has to be an option the board already offers, and
         # one apart from the runner's own — a draft that is `ready` is taken.

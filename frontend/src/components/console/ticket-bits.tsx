@@ -50,6 +50,7 @@ export const LABEL: Record<string, string> = {
   ready: "Ready",
   running: "In progress",
   blocked: "Blocked",
+  paused: "Paused",
   review: "In review",
   validated: "Validated",
   failed: "Failed",
@@ -594,6 +595,11 @@ export function TicketFoot({ ticket }: { ticket: Ticket }) {
   )
 }
 
+/* The gestures of a ticket in progress and of one put aside — pause, abandon,
+ * resume — are kept out of the first load, which has a budget (see
+ * `new-ticket-lazy.tsx`). */
+const StopGestures = React.lazy(() => import("@/components/console/ticket-stop"))
+
 /* A gesture that costs something once it is made — a pull request merged, a
  * paid session started — asked for twice: once on the card, once in a dialog
  * that says what is about to happen. The others are one click, because moving
@@ -663,9 +669,16 @@ export function TicketActions({
   const t = useT()
   const [asked, setAsked] = React.useState(false)
   const [validating, setValidating] = React.useState(false)
-  // A ticket the runner has in hand is not one you move: drawing an empty row
-  // for it would leave a gap on the card where the gestures would have been.
-  if (ticket.column === "running") return null
+  // A ticket the runner has in hand is not one you move: it is one you stop.
+  // Pausing keeps what was done and is one click; abandoning loses it, and asks.
+  // Where the board has neither column, nothing is drawn — an empty row would
+  // leave a gap on the card where the gestures would have been.
+  if (ticket.column === "running" || ticket.column === "paused")
+    return (
+      <React.Suspense fallback={null}>
+        <StopGestures ticket={ticket} className={className} />
+      </React.Suspense>
+    )
   // A blocked card has one gesture, Unblock: it opens the ticket's discussion,
   // where its question is answered — by a quick reply, a sentence, or running
   // it again as it is — see `ticket-talk.tsx`. Three buttons that all put it

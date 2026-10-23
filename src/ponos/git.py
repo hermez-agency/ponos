@@ -573,6 +573,27 @@ def rescue(repo: Path, path: Path, branch: str) -> str:
     return name
 
 
+def save(worktree: Path, message: str) -> bool:
+    """Commit whatever a worktree holds, so that a session stopped mid-work loses none.
+
+    Like `rescue`, with no hook — one that fails on half-done work is the
+    reason to save it — but on the ticket's own branch, which is what the next
+    session picks up. Not in the middle of a rebase or a merge: a commit there
+    would be taken for its resolution, and `rescue` saves that one when the
+    worktree is next asked for. True when a commit was made.
+    """
+    if not (worktree / ".git").exists() or interrupted(worktree) or not is_dirty(worktree):
+        return False
+    git(["add", "-A"], worktree)
+    result = git(
+        ["-c", "core.hooksPath=/dev/null", "-c", "commit.gpgsign=false", "commit", "--no-verify"]
+        + ["-m", message],
+        worktree,
+        environment=identity(worktree),
+    )
+    return result.ok
+
+
 def _make_room(repo: Path, path: Path, base: str) -> None:
     """Clear the ticket's directory, unless what is in it is somebody's work.
 

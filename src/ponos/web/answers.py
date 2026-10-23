@@ -58,7 +58,16 @@ class Shape(BaseModel):
 
 
 ColumnKey = Literal[
-    "draft", "ready", "running", "blocked", "review", "validated", "failed", "done", "cancelled"
+    "draft",
+    "ready",
+    "running",
+    "blocked",
+    "paused",
+    "review",
+    "validated",
+    "failed",
+    "done",
+    "cancelled",
 ]
 TicketKind = Literal["code", "publication", "writing", "external"]
 IdeaStatus = Literal["proposed", "kept", "discarded", "ticket"]

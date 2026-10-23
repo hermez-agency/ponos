@@ -11,19 +11,24 @@ itself: a button for a column Notion does not have is a button that fails.
 
 from __future__ import annotations
 
+import logging
+import shutil
 import time
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from .. import (
     blocks,
     ci,
     credits,
+    git,
     journal,
     models,
     provision,
     session,
     state,
+    stopping,
     store,
     subtypes,
     sync,
@@ -35,7 +40,7 @@ from .. import goals as goals_module
 from .. import kinds as kinds_module
 from .. import priority as priority_module
 from .. import transitions as transitions_module
-from ..config import Notion
+from ..config import Notion, state_dir
 from ..schedules import scheduled_for
 from ..ticket import short_id
 from . import board as board_module
@@ -47,6 +52,14 @@ from .base import Base
 # column added in Notion — the validated one, most of all — has to appear
 # without anyone restarting anything.
 SCHEMA_TTL = 600
+
+logger = logging.getLogger(__name__)
+
+# How long a pause or an abandon waits for the run to say the session is gone.
+# The session is given its grace to end on SIGTERM, then its containers are
+# taken down: a minute covers a slow one, and a run that is not there costs
+# nothing because it is not waited for.
+STOP_WAIT_SECONDS = 60
 
 
 # How many ticket pages are kept, read, while their `last_edited_time` holds.
@@ -60,10 +73,21 @@ BRIEFS = 200
 # carries that is none of them is a draft, so it is never hidden. The drafts
 # come before them, whether or not the board names its own — see `_keys`.
 # Blocked follows running: a ticket waiting on an answer is a ticket in
-# progress that stopped, so it is read next to it. Cancelled closes the row,
-# beside done: the two ends a ticket can come to. This is the one order — the
-# console, the filters and the MCP tools all take it from here.
-COLUMNS = ("ready", "running", "blocked", "review", "validated", "failed", "done", "cancelled")
+# progress that stopped, so it is read next to it, and so is paused, which is
+# one that you stopped. Cancelled closes the row, beside done: the two ends a
+# ticket can come to. This is the one order — the console, the filters and the
+# MCP tools all take it from here.
+COLUMNS = (
+    "ready",
+    "running",
+    "blocked",
+    "paused",
+    "review",
+    "validated",
+    "failed",
+    "done",
+    "cancelled",
+)
 
 
 class Tickets(Base):
@@ -133,6 +157,7 @@ class Tickets(Base):
                 item["title"].lower(),
             )
         )
+        pauses = self._pauses()
         columns = [
             {"key": key, "name": _status(settings, key)}
             for key in keys
@@ -141,6 +166,9 @@ class Tickets(Base):
             if key == "draft"
             or _status(settings, key)
             not in [_status(settings, other) for other in keys[: keys.index(key)]]
+            # And a paused column only where the board has the option: the
+            # console offers to pause, and to resume, by the column being there.
+            if key != "paused" or pauses
         ]
         return {
             "tickets": tickets,
@@ -495,6 +523,22 @@ class Tickets(Base):
         if key not in _keys(self.config.notion):
             raise ValueError(f"unknown column “{key}”")
         settings = self.config.notion
+        # A ticket in progress has a session: moving it to paused or cancelled
+        # ends that session first, and the worktree is kept or removed with it.
+        # Writing the status alone would leave the session going on.
+        if key in ("paused", "cancelled") and (
+            seen if seen is not None else self._status_of(page_id)
+        ) == settings.state("running"):
+            return self._stop(page_id, "pause" if key == "paused" else "abandon")
+        return self._move(page_id, key, seen)
+
+    def _move(self, page_id: str, key: str, seen: str | None) -> dict[str, Any]:
+        """The write of `set_status`, queued: once the board is known to take it."""
+        settings = self.config.notion
+        if key == "paused" and not self._pauses():
+            raise ValueError(
+                f"this board has no “{settings.state('paused')}” option to pause a ticket into"
+            )
         if key == "cancelled" and not self._cancels():
             raise ValueError(
                 f"this board has no “{settings.state('cancelled')}” option to cancel a ticket into"
@@ -515,6 +559,58 @@ class Tickets(Base):
         self.watch.nudge()
         return {"id": page_id, "status": status, "sync": "pending"}
 
+    def _stop(self, page_id: str, action: str) -> dict[str, Any]:
+        """A ticket in progress, paused or abandoned — whatever state its session is in.
+
+        The run that holds the session is asked through a file (see stopping.py)
+        and answers once the session and what it started are gone; only then is
+        the worktree touched. A session that was dead already, or a run that is
+        not going, answers nothing: nobody is waited for, and the worktree is
+        dealt with all the same — which is why this is not left to the run.
+        """
+        settings = self.config.notion
+        key = "paused" if action == "pause" else "cancelled"
+        if key == "paused" and not self._pauses():
+            raise ValueError(
+                f"this board has no “{settings.state('paused')}” option to pause a ticket into"
+            )
+        if key == "cancelled" and not self._cancels():
+            raise ValueError(
+                f"this board has no “{settings.state('cancelled')}” option to cancel a ticket into"
+            )
+        page = self.runner.client.page(page_id)
+        status = str(store.read(page, settings.prop("status")) or "")
+        if status != settings.state("running"):
+            raise ValueError(f"only a ticket in progress can be stopped, not one in “{status}”")
+        ticket_id = page_id.replace("-", "")
+        stopping.request(ticket_id, action)
+        try:
+            if stopping.held(ticket_id):
+                stopping.wait(ticket_id, STOP_WAIT_SECONDS)
+        finally:
+            stopping.clear(ticket_id)
+        for path in _worktrees(short_id(page_id)):
+            if action == "pause":
+                git.save(path, "ponos: sauvegarde avant la mise en pause")
+            else:
+                _remove(path)
+        state.release(page_id)
+        said = self.runner.voice
+        try:
+            self.runner.client.comment(
+                page_id, said.say("ticket-paused" if action == "pause" else "ticket-abandoned")
+            )
+            self.runner.forget_comments(page_id)
+        except store.StoreError as error:
+            # A line of courtesy: the move below is the answer, and does not wait for it.
+            logger.warning("%s: the line was not written: %s", page_id, error)
+        return self._move(page_id, key, status)
+
+    def _status_of(self, page_id: str) -> str:
+        """The status the console last read a ticket in, or "" when it holds none."""
+        held = self.reader.get(page_id)
+        return str(store.read(held, self.config.notion.prop("status")) or "") if held else ""
+
     def _send(self, write: board_module.Write) -> store.Page:
         """One attempt at one queued move, and the page it left, held."""
         page = board_module.send(
@@ -532,6 +628,13 @@ class Tickets(Base):
         except store.StoreError:
             return False
 
+    def _pauses(self) -> bool:
+        """Whether this board has a paused column of its own — see `paused_column`."""
+        try:
+            return self.runner.paused_column()
+        except store.StoreError:
+            return False
+
     def _validates(self) -> bool:
         """Whether this board has a validated column the runner would honour."""
         try:
@@ -545,6 +648,32 @@ class Tickets(Base):
             return self.config.notion.prop(key) in self.runner.client.schema(self.runner.database)
         except store.StoreError:
             return False
+
+
+def _worktrees(short: str) -> list[Path]:
+    """The directories the runner made for a ticket: its worktree, or its scratch one.
+
+    Found by the ticket's short identifier, which ends their names, rather than
+    by recomputing the project's part of it: a ticket worked in another project
+    than its own (see `kinds.worked_in`) is named after that one.
+    """
+    return [
+        path
+        for folder in ("worktrees", "scratch")
+        for path in sorted((state_dir() / folder).glob(f"*-{short}"))
+        if path.is_dir()
+    ]
+
+
+def _remove(path: Path) -> None:
+    """Take a ticket's directory away, worktree registration and residue included."""
+    repo = git.repository_of(path)
+    if repo is not None:
+        git.remove_worktree(repo, path)
+    if path.exists():
+        shutil.rmtree(path, ignore_errors=True)
+    if path.exists():
+        git.discard(path)
 
 
 def _session_id(value: str) -> str:

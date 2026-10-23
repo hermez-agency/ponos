@@ -349,7 +349,7 @@ def the_columns_are_read_in_one_order_with_blocked_right_after_running():
     order = tickets.COLUMNS
     assert order.index("blocked") == order.index("running") + 1, order
     assert order[-2:] == ("done", "cancelled"), order
-    assert [key for key in order if key not in ("blocked",)] == [
+    assert [key for key in order if key not in ("blocked", "paused")] == [
         "ready",
         "running",
         "review",
