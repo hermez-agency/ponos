@@ -443,9 +443,15 @@ class _ScheduleClient:
         self.written: list[tuple[str, dict]] = []
         self.created: list[tuple[str, dict]] = []
         self.appended: list[tuple[str, str]] = []
+        self.trashed: list[str] = []
 
     def schema(self, database_id):
         return {"Status": "status"}
+
+    def trash(self, page_id):
+        self.trashed.append(page_id)
+        self._pages = [page for page in self._pages if page.id != page_id]
+        return f"https://notion.so/{page_id}"
 
     def query(self, database_id, filter_=None):
         return list(self._pages)

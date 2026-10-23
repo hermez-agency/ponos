@@ -1146,6 +1146,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/schedules/{schedule_id}/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Delete Schedule */
+        post: operations["delete_schedule_api_schedules__schedule_id__delete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/ideas/generate": {
         parameters: {
             query?: never;
@@ -5498,6 +5515,37 @@ export interface operations {
         };
     };
     launch_schedule_api_schedules__schedule_id__launch_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                schedule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_schedule_api_schedules__schedule_id__delete_post: {
         parameters: {
             query?: never;
             header?: never;
