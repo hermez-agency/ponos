@@ -551,64 +551,80 @@ class Board(Base):
         """
         status_property = self.config.notion.prop("status")
         agent = self.config.notion.prop("agent")
-        schema = self.client.schema(self.database)
-        kind = schema.get(status_property, "status")
-        signed = agent in schema
-        running = self.client.query(
-            self.database,
-            {"property": status_property, kind: {"equals": self.config.notion.state("running")}},
-        )
+        try:
+            schema = self.client.schema(self.database)
+            kind = schema.get(status_property, "status")
+            signed = agent in schema
+            running = self.client.query(
+                self.database,
+                {
+                    "property": status_property,
+                    kind: {"equals": self.config.notion.state("running")},
+                },
+            )
+        except store.Unreachable:
+            raise
+        except store.StoreError as error:
+            self.say(f"  ! the tickets in progress could not be read: {voice_module.line(error)}")
+            return 0
         recovered = 0
         for page in running:
             ticket = Ticket(page)
-            if ticket.id in self._claimed:
-                continue
-            if signed and store.read(page, agent) not in self.agent_labels:
-                continue
-            edited = page.raw.get("last_edited_time", "")
+            # One page that refuses a write is that page's business: the others
+            # are seen to all the same.
             try:
-                age = datetime.now(UTC) - datetime.fromisoformat(edited)
-            except ValueError:
-                age = timedelta(days=1)
-            if age < timedelta(minutes=2):
-                continue
-            origin = state.claims().get(ticket.id, "")
-            said = self.voice
-            stopped = said.say("abandoned", minutes=said.minutes(age.total_seconds()))
-            if origin and origin != self.config.notion.state("ready"):
-                self.say(
-                    f"  ↺ {ticket.title} — publication interrupted, asking rather than redoing"
-                )
-                interrupted = said.say("publication-interrupted", origin=origin)
-                self._set(
+                if ticket.id in self._claimed:
+                    continue
+                if signed and store.read(page, agent) not in self.agent_labels:
+                    continue
+                edited = page.raw.get("last_edited_time", "")
+                try:
+                    age = datetime.now(UTC) - datetime.fromisoformat(edited)
+                except ValueError:
+                    age = timedelta(days=1)
+                if age < timedelta(minutes=2):
+                    continue
+                origin = state.claims().get(ticket.id, "")
+                said = self.voice
+                stopped = said.say("abandoned", minutes=said.minutes(age.total_seconds()))
+                if origin and origin != self.config.notion.state("ready"):
+                    self.say(
+                        f"  ↺ {ticket.title} — publication interrupted, asking rather than redoing"
+                    )
+                    interrupted = said.say("publication-interrupted", origin=origin)
+                    self._set(
+                        ticket,
+                        **{
+                            status_property: self.config.notion.state("blocked"),
+                            **self._blocked_by("worktree.interrupted"),
+                        },
+                    )
+                    asked = said.question(Question(ask=said.sentence(interrupted)))
+                    self._comment(ticket, said.report(said.verdict("blocked"), *asked))
+                    self._tell(
+                        "blocked",
+                        ticket,
+                        "blocked",
+                        "\n".join(asked),
+                        ask=True,
+                        code="worktree.interrupted",
+                        summary=interrupted,
+                    )
+                    state.release(ticket.id)
+                    recovered += 1
+                    continue
+                self.say(f"  ↺ {ticket.title} — claimed but no run alive, put back")
+                self._set(ticket, **{status_property: self.config.notion.state("ready")})
+                self._comment(
                     ticket,
-                    **{
-                        status_property: self.config.notion.state("blocked"),
-                        **self._blocked_by("worktree.interrupted"),
-                    },
-                )
-                asked = said.question(Question(ask=said.sentence(interrupted)))
-                self._comment(ticket, said.report(said.verdict("blocked"), *asked))
-                self._tell(
-                    "blocked",
-                    ticket,
-                    "blocked",
-                    "\n".join(asked),
-                    ask=True,
-                    code="worktree.interrupted",
-                    summary=interrupted,
+                    said.report(said.verdict("requeued", stopped), said.say("abandoned-requeued")),
                 )
                 state.release(ticket.id)
                 recovered += 1
-                continue
-            self.say(f"  ↺ {ticket.title} — claimed but no run alive, put back")
-            self._set(ticket, **{status_property: self.config.notion.state("ready")})
-            self._comment(
-                ticket,
-                said.report(said.verdict("requeued", stopped), said.say("abandoned-requeued")),
-            )
-            state.release(ticket.id)
-            recovered += 1
+            except store.Unreachable:
+                raise
+            except store.StoreError as error:
+                self.say(f"  ! {ticket.title} — not put back: {voice_module.line(error)}")
         # A note of a claim whose ticket is no longer in progress: let go of
         # some other way — moved by hand, or by a run that died before it could
         # say so. Kept, it would go on holding a worktree (see cleanup.py) and
@@ -638,10 +654,16 @@ class Board(Base):
         if review == self.config.notion.state("done"):
             return 0
         status_property = self.config.notion.prop("status")
-        kind = self.client.schema(self.database).get(status_property, "status")
-        pages = self.client.query(
-            self.database, {"property": status_property, kind: {"equals": review}}
-        )
+        try:
+            kind = self.client.schema(self.database).get(status_property, "status")
+            pages = self.client.query(
+                self.database, {"property": status_property, kind: {"equals": review}}
+            )
+        except store.Unreachable:
+            raise
+        except store.StoreError as error:
+            self.say(f"  ! the tickets in review could not be read: {voice_module.line(error)}")
+            return 0
         closed = 0
         waiting: list[store.Page] = []
         for page in pages:
@@ -652,15 +674,23 @@ class Board(Base):
                 waiting.append(page)
                 continue
             ticket = Ticket(page)
-            said = self.voice
-            self.say(f"  ✓ {ticket.title} — pull request merged, moved to done")
-            self._set(
-                ticket,
-                **{status_property: self.config.notion.state("done")},
-                **self._refusal_cleared(ticket),
-            )
-            self._comment(ticket, said.report(said.verdict("merged", said.pull_request(url)), url))
-            closed += 1
+            # As in `sweep`: a refusal stops this ticket, not the others.
+            try:
+                said = self.voice
+                self.say(f"  ✓ {ticket.title} — pull request merged, moved to done")
+                self._set(
+                    ticket,
+                    **{status_property: self.config.notion.state("done")},
+                    **self._refusal_cleared(ticket),
+                )
+                self._comment(
+                    ticket, said.report(said.verdict("merged", said.pull_request(url)), url)
+                )
+                closed += 1
+            except store.Unreachable:
+                raise
+            except store.StoreError as error:
+                self.say(f"  ! {ticket.title} — not closed: {voice_module.line(error)}")
         # The ones still open are the ones whose CI is worth knowing.
         self.follow_ci(waiting)
         return closed

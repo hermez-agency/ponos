@@ -41,8 +41,19 @@ class Recurrence(Base):
         Before the queue, so a ticket born at 09:00 is claimed by the very pass
         that made it rather than by the next one. A birth is an entry of its own
         kind: `ponos history` shows it as it shows a merge.
+
+        A Schedules database that no longer answers — taken out of the
+        integration, say — costs a line here and nothing else: the queue that
+        follows is the runner's own business, not this one's.
         """
-        newborns = [entry for entry in self.recur() if entry.get("status") != "dry-run"]
+        try:
+            born = self.recur()
+        except store.Unreachable:
+            raise
+        except store.StoreError as error:
+            self.say(f"  ! the schedules could not be read: {voice_module.line(error)}")
+            return []
+        newborns = [entry for entry in born if entry.get("status") != "dry-run"]
         for entry in newborns:
             state.record(entry)
         return newborns
