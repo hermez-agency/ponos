@@ -2530,6 +2530,8 @@ export const FRENCH: Record<string, string> = {
   "Installation status": "État de l'installation",
   "{{count}} thing to fix before tickets can run": "{{count}} point à corriger pour que les tickets partent",
   "{{count}} things to fix before tickets can run": "{{count}} points à corriger pour que les tickets partent",
+  "{{count}} warning": "{{count}} avertissement",
+  "{{count}} warnings": "{{count}} avertissements",
   "Recheck": "Revérifier",
   "Details":
     "Détails",

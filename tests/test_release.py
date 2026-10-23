@@ -665,7 +665,9 @@ def the_console_is_downloaded_once_and_compressed():
     # route by its path in the schema, for openapi-fetch to hold the call to it
     # — 0.4 kB the first load could not do without; and 504 kB since a ticket's
     # page keeps, dated, the line its card in ready no longer draws: main was
-    # 57 bytes under, the line and its two French sentences 135 bytes).
+    # 57 bytes under, the line and its two French sentences 135 bytes — a
+    # budget the band's title, telling its warnings from what stops the
+    # tickets, in French too, then fits under).
     # For a reader of French, that is with the dictionary the page then asks
     # for: the heavier of the two first loads is the one held to the budget.
     page = (STATIC / "index.html").read_text(encoding="utf-8")

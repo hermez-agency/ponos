@@ -224,8 +224,19 @@ test("in French, the checks' own sentences arrive with the band, fetched apart",
   await open(page, [RED])
   const columns = page.locator('[data-code="notion.columns"]')
   await expect(columns).toContainText("Propriétés manquantes sur la base de tickets : “Runner”, “Progress”.")
-  await expect(page.getByTestId("health-toggle")).toContainText("4 points à corriger")
+  // Three errors stop tickets; the warning is counted beside them, not among them.
+  await expect(page.getByTestId("health-toggle")).toContainText(
+    "3 points à corriger pour que les tickets partent · 1 avertissement"
+  )
   expect(fetched).toHaveLength(1)
+})
+
+test("warnings alone never say the tickets are stopped", async ({ page }) => {
+  const warned = { ...RED, checks: RED.checks.filter((one) => one.state !== "error"), problems: 0 }
+  await open(page, [warned])
+  const toggle = page.getByTestId("health-toggle")
+  await expect(toggle).toContainText("1 warning")
+  await expect(toggle).not.toContainText("before tickets can run")
 })
 
 test("the band shows what the server itself found: a schedule nobody fired, nothing merely said", async ({ page }) => {

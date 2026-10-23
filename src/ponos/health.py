@@ -437,6 +437,8 @@ def _schema(
     costs: dict[str, list[str]] = {}
     for key, (accepted, cost) in store.COLUMNS.items():
         name = settings.prop(key)
+        if not name:
+            continue  # a setting turned off reads no column, so none can be missing
         kind = schema.get(name)
         if kind is None:
             # Two settings may name one property (`agent` and `role` both say "Agent"): said once.
@@ -444,7 +446,8 @@ def _schema(
                 missing.append(name)
             costs.setdefault(name, []).append(cost)
         elif kind not in accepted:
-            wrong.append(f"“{name}” is a {kind}, not {' or '.join(accepted)}")
+            # In Notion's words alone, the one language both pages speak.
+            wrong.append(f"“{name}” ({kind} ≠ {' / '.join(accepted)})")
             costs.setdefault(name, []).append(cost)
     wanted_columns = provision.tickets_schema(settings, space.projects, space.agents)
     addable = sorted(provision.missing_properties(schema, wanted_columns))
@@ -493,7 +496,7 @@ def _schema(
             )
         )
 
-    found.extend(_shared_names(settings))
+    found.extend(_shared_names(settings, schema))
 
     options = client.options(space.tickets, settings.prop("status"))
     wanted = {key: settings.state(key) for key in RUNNER_STATUSES}
@@ -1110,20 +1113,28 @@ def _comments(
     return found
 
 
-def _shared_names(settings: config_module.Notion) -> list[Check]:
+def _shared_names(settings: config_module.Notion, schema: dict[str, str]) -> list[Check]:
     """Two settings that name one property of the tickets database, if any.
 
     Not an error Notion would ever raise: the column is there, it is read — as
-    whatever the other setting expects. `agent = "Agent"` next to the default
-    `role` reads a text as a relation, and asks Notion for a page named after
-    its first character on every ticket taken back.
+    whatever the other setting expects. `agent = "Agent"` next to `role =
+    "Agent"` reads a text as a relation, and asks Notion for a page named after
+    its first character on every ticket taken back. That one is mended from
+    here: a role on a column that is no relation was never a role, and turning
+    it off (`role = ""`) leaves the column to the setting that reads it right.
     """
     keys: dict[str, list[str]] = {}
     for key in (*store.COLUMNS, "goal"):
-        keys.setdefault(settings.prop(key), []).append(key)
+        if settings.prop(key):
+            keys.setdefault(settings.prop(key), []).append(key)
     shared = {name: names for name, names in keys.items() if len(names) > 1}
     if not shared:
         return []
+    misread = [
+        name
+        for name, names in shared.items()
+        if "role" in names and schema.get(name, "relation") != "relation"
+    ]
     return [
         _check(
             "notion.shared",
@@ -1136,7 +1147,20 @@ def _shared_names(settings: config_module.Notion) -> list[Check]:
                 )
             },
             cause="Each setting reads the property as something else, so at most one of them is right.",
-            steps=["Give each one its own name under [notion.properties]."],
+            steps=(
+                ["Empty role under [notion.properties]: the property is not a relation."]
+                if misread
+                else ["Give each one its own name under [notion.properties]."]
+            ),
+            fix=_fix(
+                "notion_shared",
+                "Fix",
+                "Stop reading {{missing}} as the ticket's agent? "
+                "An empty role is written under [notion.properties] in config.toml.",
+                misread,
+            )
+            if misread
+            else None,
         )
     ]
 
@@ -3561,6 +3585,10 @@ def fix(
         loose = disk.open_to_others(config_module.state_dir(), CHECKOUTS)
         tightened = sum(disk.tighten(path) for path in loose)
         return f"{tightened} entries tightened"
+    if action == "notion_shared":
+        # Nothing to ask the board: the column stays as it is, read by one setting.
+        changed = config_module.edit(config.path, [("notion.properties", "role", "")])
+        return "role turned off" if changed else "nothing to change"
     if action == "project_branch":
         space = workspace_module.resolve(client, config.notion)
         row = next((row for row in _project_rows(client, space) if row["id"] == target), None)

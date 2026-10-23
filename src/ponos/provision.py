@@ -254,7 +254,7 @@ def tickets_schema(settings: Notion, projects: str = "", agents: str = "") -> di
     # projects database is not given a back-reference it would never read.
     if projects:
         schema[settings.prop("project")] = _relation(projects)
-    if agents:
+    if agents and settings.prop("role"):
         schema[settings.prop("role")] = _relation(agents)
     return schema
 
