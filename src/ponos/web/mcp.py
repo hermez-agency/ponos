@@ -107,7 +107,9 @@ class ToolError(Exception):
 # -- the tools ----------------------------------------------------------------
 
 
-def _schema(properties: dict | None = None, required: tuple[str, ...] = ()) -> dict:
+def _schema(
+    properties: dict[str, Any] | None = None, required: tuple[str, ...] = ()
+) -> dict[str, Any]:
     schema: dict[str, Any] = {
         "type": "object",
         "properties": properties or {},
@@ -130,7 +132,7 @@ PROJECT_FILTER = {
     "casse) ou son identifiant.",
 }
 
-TOOLS: list[dict] = [
+TOOLS: list[dict[str, Any]] = [
     {
         "name": "whoami",
         "title": "Mon compte",
@@ -435,7 +437,7 @@ _ANNOTATIONS = {
 }
 
 
-def listed(grant: Grant) -> list[dict]:
+def listed(grant: Grant) -> list[dict[str, Any]]:
     """The tools this client may call — a read-only client is not shown the others."""
     return [
         {
@@ -453,11 +455,11 @@ def listed(grant: Grant) -> list[dict]:
 # -- the protocol -------------------------------------------------------------
 
 
-def _error(identifier: Any, code: int, message: str) -> dict:
+def _error(identifier: Any, code: int, message: str) -> dict[str, Any]:
     return {"jsonrpc": "2.0", "id": identifier, "error": {"code": code, "message": message}}
 
 
-def _result(identifier: Any, result: dict) -> dict:
+def _result(identifier: Any, result: dict[str, Any]) -> dict[str, Any]:
     return {"jsonrpc": "2.0", "id": identifier, "result": result}
 
 
@@ -517,7 +519,9 @@ def handle(api: Api, grant: Grant, message: Any, address: str = "") -> Any:
     return _error(identifier, -32601, f"method not found: {method}")
 
 
-def call(api: Api, grant: Grant, tool: dict, arguments: dict, address: str = "") -> dict:
+def call(
+    api: Api, grant: Grant, tool: dict[str, Any], arguments: dict[str, Any], address: str = ""
+) -> dict[str, Any]:
     """One tool, answered as MCP wants it: text for the model, and the same as data.
 
     A tool that refuses says why in its result, flagged as an error, rather
@@ -566,11 +570,11 @@ def call(api: Api, grant: Grant, tool: dict, arguments: dict, address: str = "")
     }
 
 
-def _refusal(text: str) -> dict:
+def _refusal(text: str) -> dict[str, Any]:
     return {"content": [{"type": "text", "text": text}], "isError": True}
 
 
-def _arguments(tool: dict, arguments: dict) -> dict:
+def _arguments(tool: dict[str, Any], arguments: dict[str, Any]) -> dict[str, Any]:
     """The arguments a tool declares, checked against its schema's types and enums."""
     schema = tool["inputSchema"]
     properties = schema["properties"]
@@ -611,7 +615,7 @@ def _arguments(tool: dict, arguments: dict) -> dict:
 # -- the journal --------------------------------------------------------------
 
 
-def record(grant: Grant, tool: str, arguments: dict, outcome: str) -> None:
+def record(grant: Grant, tool: str, arguments: dict[str, Any], outcome: str) -> None:
     """One write asked for: the tool, when, by which client, and how it ended.
 
     Arguments shortened, not dropped: a task's description can be a page, and
@@ -642,7 +646,7 @@ def record(grant: Grant, tool: str, arguments: dict, outcome: str) -> None:
         pass  # a journal that cannot be written costs the line, never the call
 
 
-def calls(limit: int = 30) -> list[dict]:
+def calls(limit: int = 30) -> list[dict[str, Any]]:
     """The last writes asked for, newest first — for `ponos mcp list`."""
     with db.transaction(immediate=False) as connection:
         rows = connection.execute(
@@ -669,11 +673,11 @@ def _bare(reference: str) -> str:
     return reference.replace("-", "").strip().lower()
 
 
-def _projects(api: Api) -> list[dict]:
+def _projects(api: Api) -> list[dict[str, Any]]:
     return sorted(api.projects().values(), key=lambda project: project["name"].lower())
 
 
-def _project(api: Api, reference: str) -> dict:
+def _project(api: Api, reference: str) -> dict[str, Any]:
     """The project a name or an id designates — or a refusal that lists the known ones."""
     wanted = reference.strip()
     for project in _projects(api):
@@ -683,14 +687,14 @@ def _project(api: Api, reference: str) -> dict:
     raise ToolError(f"Aucun projet « {wanted} ». Projets connus : {known}.")
 
 
-def _icon(project: dict) -> str:
+def _icon(project: dict[str, Any]) -> str:
     icon = project.get("icon") or {}
     if icon.get("kind") == "emoji":
         return str(icon.get("emoji") or "")
     return str(icon.get("url") or "")
 
 
-def _task(card: dict) -> dict:
+def _task(card: dict[str, Any]) -> dict[str, Any]:
     """A card of the board, as a task: what any board says, and nothing of Notion's."""
     return {
         "id": card["id"],
@@ -710,26 +714,29 @@ def _task(card: dict) -> dict:
     }
 
 
-def _goal(api: Api, reference: str) -> dict:
+def _goal(api: Api, reference: str) -> dict[str, Any]:
     """The goal a name or an id designates — or a refusal that lists the known ones."""
     said = api.goals()
     if not said["configured"]:
         raise ToolError("Cet espace de travail n'a pas de base d'objectifs.")
     wanted = reference.strip()
-    for goal in said["goals"]:
+    known_goals: list[dict[str, Any]] = said["goals"]
+    for goal in known_goals:
         if _bare(wanted) == goal["id"] or wanted.lower() == goal["name"].lower():
             return goal
-    known = ", ".join(goal["name"] for goal in said["goals"]) or "aucun"
+    known = ", ".join(goal["name"] for goal in known_goals) or "aucun"
     raise ToolError(f"Aucun objectif « {wanted} ». Objectifs connus : {known}.")
 
 
-def _card(api: Api, reference: str) -> dict:
+def _card(api: Api, reference: str) -> dict[str, Any]:
     """The board's card for a task, found by its long or its short id."""
     wanted = re.sub(r"[^0-9a-f]", "", _bare(reference))
     if not wanted:
         raise ToolError("Donner l'identifiant d'une tâche, tel que list_tasks le renvoie.")
     tickets = api.board()["tickets"]
-    found = [card for card in tickets if card["id"] == wanted or card["short"] == wanted]
+    found: list[dict[str, Any]] = [
+        card for card in tickets if card["id"] == wanted or card["short"] == wanted
+    ]
     if not found and len(wanted) >= 6:
         found = [card for card in tickets if card["id"].startswith(wanted)]
     if not found:
@@ -739,7 +746,7 @@ def _card(api: Api, reference: str) -> dict:
     return found[0]
 
 
-def whoami(api: Api, grant: Grant, address: str = "") -> dict:
+def whoami(api: Api, grant: Grant, address: str = "") -> dict[str, Any]:
     configuration = api.config
     try:
         projects: int | None = len(api.projects())
@@ -763,7 +770,7 @@ def whoami(api: Api, grant: Grant, address: str = "") -> dict:
     }
 
 
-def list_projects(api: Api) -> dict:
+def list_projects(api: Api) -> dict[str, Any]:
     return {
         "projects": [
             {
@@ -784,7 +791,7 @@ def list_tasks(
     status: str = "",
     waiting_for_you: bool = False,
     limit: int = LISTED,
-) -> dict:
+) -> dict[str, Any]:
     cards = api.board()["tickets"]
     if project:
         name = _project(api, project)["name"]
@@ -799,7 +806,7 @@ def list_tasks(
     return {"count": len(cards), "tasks": [_task(card) for card in cards[:limit]]}
 
 
-def get_task(api: Api, task: str) -> dict:
+def get_task(api: Api, task: str) -> dict[str, Any]:
     card = _card(api, task)
     detail = api.ticket(card["id"])
     talk = api.talk(card["id"])
@@ -836,7 +843,7 @@ def get_task(api: Api, task: str) -> dict:
     }
 
 
-def runner_status(api: Api, days: int = 30) -> dict:
+def runner_status(api: Api, days: int = 30) -> dict[str, Any]:
     configuration = api.config
     held = state.running()
     sessions = live.active(held=lambda: held)
@@ -878,7 +885,7 @@ def runner_status(api: Api, days: int = 30) -> dict:
     }
 
 
-def list_ideas(api: Api, project: str = "", status: str = "proposed") -> dict:
+def list_ideas(api: Api, project: str = "", status: str = "proposed") -> dict[str, Any]:
     scope = _project(api, project)["id"] if project else ""
     return {
         "scope": "project" if scope else "workspace",
@@ -886,7 +893,7 @@ def list_ideas(api: Api, project: str = "", status: str = "proposed") -> dict:
     }
 
 
-def list_goals(api: Api) -> dict:
+def list_goals(api: Api) -> dict[str, Any]:
     said = api.goals()
     rows = []
     for goal in said["goals"]:
@@ -916,7 +923,7 @@ def list_goals(api: Api) -> dict:
     return {"configured": said["configured"], "goals": rows}
 
 
-def _idea(shown: dict) -> dict:
+def _idea(shown: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": shown["id"],
         "title": shown["title"],
@@ -944,7 +951,7 @@ def create_task(
     priority: int | str = "",
     goal: str = "",
     status: str = "draft",
-) -> dict:
+) -> dict[str, Any]:
     if not title.strip():
         raise ToolError("Une tâche a besoin d'un titre.")
     chosen = _project(api, project) if project else None
@@ -967,7 +974,7 @@ def create_task(
     }
 
 
-def answer_question(api: Api, task: str, answer: str, ready: bool = False) -> dict:
+def answer_question(api: Api, task: str, answer: str, ready: bool = False) -> dict[str, Any]:
     card = _card(api, task)
     if card["column"] != "blocked":
         raise ToolError(
@@ -988,7 +995,7 @@ def answer_question(api: Api, task: str, answer: str, ready: bool = False) -> di
     }
 
 
-def list_solutions(api: Api, task: str) -> dict:
+def list_solutions(api: Api, task: str) -> dict[str, Any]:
     card = _card(api, task)
     if card["column"] not in ("blocked", "review"):
         raise ToolError(
@@ -1006,7 +1013,7 @@ def apply_solution(
     text: str = "",
     model: str = "",
     titles: list[str] | None = None,
-) -> dict:
+) -> dict[str, Any]:
     card = _card(api, task)
     if card["column"] not in ("blocked", "review"):
         raise ToolError(
@@ -1031,12 +1038,12 @@ def create_idea(
     project: str = "",
     kind: str = "ticket",
     category: str = "",
-) -> dict:
+) -> dict[str, Any]:
     scope = _project(api, project)["id"] if project else ""
     return _idea(api.write_idea(scope, kind, title, description, category))
 
 
-def set_idea_state(api: Api, idea: int, state: str) -> dict:
+def set_idea_state(api: Api, idea: int, state: str) -> dict[str, Any]:
     if state == "keep":
         return _idea(api.keep_idea(idea))
     if state == "ticket":
@@ -1050,7 +1057,7 @@ def _short(text: str, limit: int) -> str:
     return text if len(text) <= limit else text[:limit].rstrip() + "…"
 
 
-HANDLERS: dict[str, Callable[..., dict]] = {
+HANDLERS: dict[str, Callable[..., dict[str, Any]]] = {
     "whoami": whoami,
     "list_projects": list_projects,
     "list_tasks": list_tasks,

@@ -49,9 +49,10 @@ the board, which nobody can say a project for.
 
 from __future__ import annotations
 
-from collections import Counter
+from collections import Counter, defaultdict
 from collections.abc import Callable
 from datetime import date, datetime, timedelta, tzinfo
+from typing import Any
 
 from .. import blocks, subtypes
 
@@ -87,7 +88,7 @@ def day_of(stamp: str, zone: tzinfo | None = None) -> date | None:
     return moment.astimezone(zone).date()
 
 
-def closings(history: list[dict], zone: tzinfo | None = None) -> dict[str, date]:
+def closings(history: list[dict[str, Any]], zone: tzinfo | None = None) -> dict[str, date]:
     """{ticket id: the last day the runner itself moved it to done}."""
     closed: dict[str, date] = {}
     for entry in history:
@@ -114,14 +115,14 @@ def period(start: str, end: str, today: date) -> tuple[date, date]:
 
 
 def figures(
-    tickets: list[dict],
-    history: list[dict],
+    tickets: list[dict[str, Any]],
+    history: list[dict[str, Any]],
     first: date,
     last: date,
     zone: tzinfo | None = None,
     project: str | None = None,
     kind_of: Callable[[str], str] = lambda option: "",
-) -> dict:
+) -> dict[str, Any]:
     """The cards, the curves and the breakdowns of one period.
 
     `tickets` are the board's, as `Api.board` builds them, with `edited`.
@@ -142,7 +143,7 @@ def figures(
         mine = {str(ticket.get("id", "")) for ticket in tickets}
         history = [entry for entry in history if str(entry.get("id", "")).replace("-", "") in mine]
     dated = closings(history, zone)
-    known = {}
+    known: dict[str, tuple[dict[str, Any], date | None, date | None]] = {}
     # The day each cancelled ticket left the open ones — see above.
     dropped_on_day: dict[str, date] = {}
     from_history = from_edit = 0
@@ -180,14 +181,17 @@ def figures(
     # What was open the evening before the period: the curve starts from the
     # board as it stood, not from zero.
     def open_on(day: date) -> int:
-        ended = {key: closed or dropped_on_day.get(key) for key, (_, _, closed) in known.items()}
+        ended = {
+            key: closed or dropped_on_day.get(key) or date.max
+            for key, (_, _, closed) in known.items()
+        }
         return sum(
             1
             for key, (_, created, _) in known.items()
-            if (created is None or created <= day) and (ended[key] is None or ended[key] > day)
+            if (created is None or created <= day) and ended[key] > day
         )
 
-    spent_on: Counter[date] = Counter()
+    spent_on: defaultdict[date, float] = defaultdict(float)
     for entry in history:
         day = day_of(str(entry.get("at", "")), zone)
         if day and first <= day <= last:
@@ -214,7 +218,7 @@ def figures(
     # What the tickets closed in the period cost in all, sessions from before
     # the period included: a ticket is not cheaper for having been started
     # last month.
-    cost_of: Counter[str] = Counter()
+    cost_of: defaultdict[str, float] = defaultdict(float)
     for entry in history:
         cost_of[str(entry.get("id", "")).replace("-", "")] += float(entry.get("cost_usd") or 0)
     shut = [
@@ -225,7 +229,7 @@ def figures(
     average = round(sum(cost_of[key] for key in shut) / len(shut), 2) if shut else None
 
     stops = blocked(history, first, last, zone)
-    seconds_of: Counter[str] = Counter()
+    seconds_of: defaultdict[str, float] = defaultdict(float)
     for entry in history:
         seconds_of[str(entry.get("id", "")).replace("-", "")] += float(entry.get("seconds") or 0)
     kinds_of_work = subtyped(
@@ -270,11 +274,11 @@ def figures(
 
 
 def created_by_kind(
-    tickets: list[tuple[dict, date]],
+    tickets: list[tuple[dict[str, Any], date]],
     first: date,
     last: date,
     kind_of: Callable[[str], str],
-) -> dict:
+) -> dict[str, Any]:
     """The tickets created in a period, as cells: bucket, type, sub-type, project, count.
 
     A bucket is a day, or a week named by its Monday past `DAILY` days; every
@@ -284,7 +288,10 @@ def created_by_kind(
     none: the ticket is unclassified, still counted.
     """
     weekly = (last - first).days + 1 > DAILY
-    start = (lambda day: day - timedelta(days=day.weekday())) if weekly else (lambda day: day)
+
+    def start(day: date) -> date:
+        return day - timedelta(days=day.weekday()) if weekly else day
+
     buckets = []
     bucket = start(first)
     while bucket <= last:
@@ -319,12 +326,12 @@ def created_by_kind(
 
 
 def subtyped(
-    closed: list[tuple[dict, date]],
-    cost_of: Counter[str],
-    seconds_of: Counter[str],
+    closed: list[tuple[dict[str, Any], date]],
+    cost_of: defaultdict[str, float],
+    seconds_of: defaultdict[str, float],
     first: date,
     last: date,
-) -> dict:
+) -> dict[str, Any]:
     """The tickets closed in a period, by sub-type and by week, and what each kind took.
 
     A ticket's duration is its sessions' (the history's seconds), and the
@@ -374,7 +381,9 @@ def subtyped(
     }
 
 
-def blocked(history: list[dict], first: date, last: date, zone: tzinfo | None = None) -> dict:
+def blocked(
+    history: list[dict[str, Any]], first: date, last: date, zone: tzinfo | None = None
+) -> dict[str, Any]:
     """The stops of a period, by cause and by week — see blocks.py.
 
     A week is named by its Monday, and every week the period touches is there,

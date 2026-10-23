@@ -23,6 +23,7 @@ from __future__ import annotations
 import json
 import re
 from datetime import UTC, datetime
+from typing import Any
 
 from .. import db
 
@@ -43,7 +44,7 @@ def titled(text: str) -> str:
     return line[: TITLE_LENGTH - 1].rstrip() + "…"
 
 
-def _summary(row: tuple) -> dict:
+def _summary(row: tuple[Any, ...]) -> dict[str, Any]:
     identifier, title, model, project, turns, updated, created = row
     return {
         "id": identifier,
@@ -55,7 +56,7 @@ def _summary(row: tuple) -> dict:
     }
 
 
-def save(chat: dict) -> None:
+def save(chat: dict[str, Any]) -> None:
     """Write one conversation, whole — created by the first time it is saved."""
     try:
         with db.transaction() as connection:
@@ -82,7 +83,7 @@ def save(chat: dict) -> None:
         pass
 
 
-def load(identifier: str) -> dict | None:
+def load(identifier: str) -> dict[str, Any] | None:
     try:
         with db.transaction(immediate=False) as connection:
             row = connection.execute(
@@ -95,7 +96,7 @@ def load(identifier: str) -> dict | None:
     return _chat(row) if row else None
 
 
-def latest() -> dict | None:
+def latest() -> dict[str, Any] | None:
     """The conversation spoken in last, which is the one the console reopens on."""
     try:
         with db.transaction(immediate=False) as connection:
@@ -108,7 +109,7 @@ def latest() -> dict | None:
     return _chat(row) if row else None
 
 
-def _chat(row: tuple) -> dict:
+def _chat(row: tuple[Any, ...]) -> dict[str, Any]:
     identifier, title, model, project, claude, turns, folder, created, updated, messages = row
     try:
         said = json.loads(messages or "[]")
@@ -128,7 +129,7 @@ def _chat(row: tuple) -> dict:
     }
 
 
-def listing(query: str = "") -> list[dict]:
+def listing(query: str = "") -> list[dict[str, Any]]:
     """Every conversation, the latest first; those that mention `query` when there is one.
 
     `matched` says where the words were found — the title, or deeper in the

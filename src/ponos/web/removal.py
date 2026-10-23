@@ -50,7 +50,7 @@ class Removal(Base):
             if wanted in [str(one).replace("-", "") for one in store.read(page, relation) or []]
         ]
 
-    def delete_project(self, page_id: str, payload: dict[str, Any]) -> dict:
+    def delete_project(self, page_id: str, payload: dict[str, Any]) -> dict[str, Any]:
         """Delete one project. Refuses, with its reason, before anything is changed."""
         bare = page_id.replace("-", "")
         row = next((one for one in self.projects().values() if one["id"] == bare), None)

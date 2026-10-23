@@ -49,6 +49,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 from .. import (
     __version__,
@@ -78,11 +79,11 @@ logger = logging.getLogger(__name__)
 SHORTEST_PASSWORD = 8
 
 
-def _text(payload: dict, key: str) -> str:
+def _text(payload: dict[str, Any], key: str) -> str:
     return str(payload.get(key, "") or "").strip()
 
 
-def apply(api: Api, payload: dict) -> dict:
+def apply(api: Api, payload: dict[str, Any]) -> dict[str, Any]:
     """Do the first connection, and say what it did, step by step.
 
     Returns the report the page draws — `steps` in the order they happened, and
@@ -210,7 +211,7 @@ def _telegram(api: Api, report: provision.Report, token: str) -> str:
 # -- the steps after the account ----------------------------------------------
 
 
-def save_provider(api: Api, payload: dict) -> dict:
+def save_provider(api: Api, payload: dict[str, Any]) -> dict[str, Any]:
     """The provider step: checked first, written only once it answers.
 
     The CLI is the exception, because what it needs is not typed here: it is
@@ -248,13 +249,13 @@ def save_provider(api: Api, payload: dict) -> dict:
     return {"ok": check.ok, "said": check.said}
 
 
-def claude_login() -> dict:
+def claude_login() -> dict[str, Any]:
     """Has somebody run `claude auth login` yet? Asked again on every click."""
     check = provider.cli_login()
     return {"ok": check.ok, "said": check.said, "command": provider.LOGIN}
 
 
-def save_notion(api: Api, payload: dict) -> dict:
+def save_notion(api: Api, payload: dict[str, Any]) -> dict[str, Any]:
     """The board step: the token, then the page `ponos init` builds under.
 
     Nothing to type when the board is already there — the step says what it
@@ -285,7 +286,7 @@ def save_notion(api: Api, payload: dict) -> dict:
     }
 
 
-def notion_shared(api: Api, payload: dict) -> dict:
+def notion_shared(api: Api, payload: dict[str, Any]) -> dict[str, Any]:
     """Is this token Notion's, and what has been shared with it so far?
 
     Asked once when the token is pasted and then every few seconds by the page,
@@ -323,7 +324,7 @@ def notion_shared(api: Api, payload: dict) -> dict:
     return {"ok": True, "said": "", "name": name, "pages": pages, "boards": boards}
 
 
-def project_choices(api: Api) -> dict:
+def project_choices(api: Api) -> dict[str, Any]:
     """The repositories this machine already has, to make a first project of one.
 
     Looked for under `runner.workspace_root`, the folder every ticket's
@@ -377,10 +378,10 @@ DEMO = {
 }
 
 # The runs started from here, by ticket: whether one has ended, and how.
-_PLAYED: dict[str, subprocess.Popen] = {}
+_PLAYED: dict[str, subprocess.Popen[bytes]] = {}
 
 
-def demo(api: Api, payload: dict) -> dict:
+def demo(api: Api, payload: dict[str, Any]) -> dict[str, Any]:
     """Write the demonstration ticket, and play it now rather than at the next pass.
 
     The timer would pick it up — in half an hour, or never on a machine with no
@@ -418,7 +419,7 @@ def play(ticket: str) -> None:
         )
 
 
-def demo_state(api: Api, ticket: str) -> dict:
+def demo_state(api: Api, ticket: str) -> dict[str, Any]:
     """Where the demonstration ticket stands, and — once its run ended badly — why."""
     ticket = ticket.replace("-", "")
     found = next((row for row in api.board().get("tickets", []) if row["id"] == ticket), None)
@@ -444,7 +445,7 @@ def demo_state(api: Api, ticket: str) -> dict:
     }
 
 
-def doctor() -> dict:
+def doctor() -> dict[str, Any]:
     """`ponos doctor`, as the terminal prints it — to read, or to copy for support."""
     environment = {
         **os.environ,
@@ -465,7 +466,7 @@ def doctor() -> dict:
     return {"code": answered.returncode, "text": answered.stdout + answered.stderr}
 
 
-def _github_token(held: str) -> dict:
+def _github_token(held: str) -> dict[str, Any]:
     """The token's owner, asked of GitHub — or why it does not answer."""
     try:
         return {
@@ -479,12 +480,12 @@ def _github_token(held: str) -> dict:
         return {"state": "error", "account": "", "via": "token", "said": str(error), "command": ""}
 
 
-def github() -> dict:
+def github() -> dict[str, Any]:
     """What the GitHub step shows: who answers (`_github`), and where a token is made."""
     return {**_github(), "create_url": github_token.CREATE_URL}
 
 
-def _github() -> dict:
+def _github() -> dict[str, Any]:
     """Which GitHub account a pull request would be opened as — or why none.
 
     `GH_TOKEN` in the environment is how a container is usually given one, and
@@ -538,7 +539,7 @@ def _github() -> dict:
     return {"state": "missing", "account": "", "via": via, "said": said, "command": "gh auth login"}
 
 
-def save_channels(api: Api, payload: dict) -> dict:
+def save_channels(api: Api, payload: dict[str, Any]) -> dict[str, Any]:
     """The channels step: what was typed, the Telegram chat found, each one asked."""
     bot = _text(payload, "telegram_token")
     chat = _text(payload, "telegram_chat")
@@ -563,7 +564,7 @@ def save_channels(api: Api, payload: dict) -> dict:
     }
 
 
-def _channels(api: Api) -> list[dict]:
+def _channels(api: Api) -> list[dict[str, Any]]:
     answered = []
     for channel in channels.open(api.config.notify):
         try:
@@ -595,7 +596,7 @@ def pending() -> bool:
     return config_module.in_container() and not _seen().exists()
 
 
-def finish() -> dict:
+def finish() -> dict[str, Any]:
     """Remember that the steps were gone through: they are not offered again."""
     seen = _seen()
     seen.parent.mkdir(parents=True, exist_ok=True)
@@ -603,10 +604,10 @@ def finish() -> dict:
     return {"ok": True}
 
 
-def _board(api: Api) -> dict:
+def _board(api: Api) -> dict[str, Any]:
     """The board this console reads, and how many tickets are on it."""
     configuration = api.config
-    drawn = {
+    drawn: dict[str, Any] = {
         "state": "ok",
         "storage": configuration.storage.mode,
         "workspace": configuration.notion.workspace or configuration.notion.tickets_database,
@@ -626,7 +627,7 @@ def _board(api: Api) -> dict:
     return drawn
 
 
-def summary(api: Api) -> dict:
+def summary(api: Api) -> dict[str, Any]:
     """The installation at a glance: one entry per thing that has to work.
 
     Each has a `state` — ok, missing, or error — and what the page needs to say
@@ -636,7 +637,7 @@ def summary(api: Api) -> dict:
     """
     configuration = api.config
     which = provider.chosen(configuration)
-    claude: dict = {
+    claude: dict[str, Any] = {
         "state": "ok",
         "provider": which,
         "stated": configuration.claude.provider,

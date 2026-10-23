@@ -45,6 +45,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from .. import disk, openrouter, progress, provider, session, voice
 from .. import log as log_module
@@ -125,18 +126,18 @@ class Message:
     at: str = field(default_factory=lambda: datetime.now(UTC).isoformat(timespec="seconds"))
     # What came with it, as the page draws it: name, kind, size, and the id the
     # file is served back under for as long as the conversation keeps it.
-    attachments: list[dict] = field(default_factory=list)
+    attachments: list[dict[str, Any]] = field(default_factory=list)
     # The page's own name for it: the id `useChat` gave the message you typed,
     # so that the conversation it is sent back in does not draw it twice.
     id: str = ""
     # What a turn of the workspace streamed, kept in the shape it was drawn in
     # (see agui.py) — and how long it took, and what it cost.
-    parts: list[dict] = field(default_factory=list)
+    parts: list[dict[str, Any]] = field(default_factory=list)
     seconds: float | None = None
     cost: float | None = None
 
-    def as_dict(self) -> dict:
-        said: dict = {"role": self.role, "text": self.text, "at": self.at}
+    def as_dict(self) -> dict[str, Any]:
+        said: dict[str, Any] = {"role": self.role, "text": self.text, "at": self.at}
         if self.attachments:
             said["attachments"] = self.attachments
         if self.id:
@@ -149,7 +150,7 @@ class Message:
             said["cost"] = self.cost
         return said
 
-    def as_ui(self, fallback: str) -> dict:
+    def as_ui(self, fallback: str) -> dict[str, Any]:
         """The message as `useChat` holds it: a `UIMessage`, with its parts.
 
         A message from before there were parts is its text, in one part. What
@@ -157,7 +158,7 @@ class Message:
         a turn you stopped), the files, the time and the cost — rides in
         `metadata.ponos`, which TanStack AI carries without reading.
         """
-        ponos: dict = {"role": self.role, "at": self.at}
+        ponos: dict[str, Any] = {"role": self.role, "at": self.at}
         if self.attachments:
             ponos["attachments"] = self.attachments
         if self.seconds is not None:
@@ -165,7 +166,9 @@ class Message:
         if self.cost is not None:
             ponos["cost"] = self.cost
         if self.role == "you":
-            parts: list[dict] = [{"type": "text", "content": self.text}] if self.text else []
+            parts: list[dict[str, Any]] = (
+                [{"type": "text", "content": self.text}] if self.text else []
+            )
             role = "user"
         elif self.role == "error":
             # A problem is said apart from what streamed before it: the page
@@ -189,7 +192,7 @@ class Message:
         }
 
 
-def _messages(row: dict) -> list[Message]:
+def _messages(row: dict[str, Any]) -> list[Message]:
     """The transcript of a conversation's row, as messages."""
     return [
         Message(
@@ -228,8 +231,8 @@ class Queued:
     message_id: str = ""
     at: str = field(default_factory=lambda: datetime.now(UTC).isoformat(timespec="seconds"))
 
-    def as_dict(self) -> dict:
-        said = {"id": self.id, "text": self.text, "at": self.at}
+    def as_dict(self) -> dict[str, Any]:
+        said: dict[str, Any] = {"id": self.id, "text": self.text, "at": self.at}
         if self.carried:
             said["attachments"] = [attachment.as_dict() for attachment in self.carried]
         return said
@@ -265,7 +268,7 @@ class Chat:
         self.turn: agui.Turn | None = None
         # Whoever follows the turns in AG-UI on a stream of their own, besides
         # the pages that read them on `/api/events` — see `listen`.
-        self._listeners: set[queue.Queue] = set()
+        self._listeners: set[queue.Queue[dict[str, Any]]] = set()
         self._blank()
         self._load()
         files.prune(attachments_dir(), self.config.web.attachment_days)
@@ -301,21 +304,23 @@ class Chat:
         if row is not None:
             self._adopt(row)
 
-    def _imported(self) -> dict | None:
+    def _imported(self) -> dict[str, Any] | None:
         try:
             raw = json.loads(self.path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             return None
         if not isinstance(raw, dict) or not raw.get("messages"):
             return None
-        row = {
+        row: dict[str, Any] = {
             "id": secrets.token_hex(6),
             "claude": str(raw.get("session_id") or ""),
             "turns": int(raw.get("turns") or 0),
             "folder": str(raw.get("files") or ""),
             "messages": [item for item in raw.get("messages", []) if isinstance(item, dict)],
         }
-        first = next((item for item in row["messages"] if item.get("role") == "you"), {})
+        first: dict[str, Any] = next(
+            (item for item in row["messages"] if item.get("role") == "you"), {}
+        )
         row["title"] = chats.titled(str(first.get("text", "")))
         stamp = next((str(item["at"]) for item in reversed(row["messages"]) if item.get("at")), "")
         row["created"] = row["updated"] = stamp or chats.now()
@@ -326,7 +331,7 @@ class Chat:
             pass
         return chats.load(row["id"])
 
-    def _adopt(self, row: dict) -> None:
+    def _adopt(self, row: dict[str, Any]) -> None:
         self.id = str(row["id"])
         self.title = str(row.get("title") or "")
         self.model = str(row.get("model") or "")
@@ -366,7 +371,7 @@ class Chat:
     def busy(self) -> bool:
         return self._busy
 
-    def state(self) -> dict:
+    def state(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "title": self.title,
@@ -396,12 +401,12 @@ class Chat:
             },
         }
 
-    def history(self) -> list[dict]:
+    def history(self) -> list[dict[str, Any]]:
         return [message.as_dict() for message in self.messages]
 
     # -- in AG-UI ------------------------------------------------------------
 
-    def ui(self) -> list[dict]:
+    def ui(self) -> list[dict[str, Any]]:
         """The open conversation as `useChat` holds it — the turn in flight included."""
         said = [message.as_ui(f"{self.id}-{index}") for index, message in enumerate(self.messages)]
         turn = self.turn
@@ -416,7 +421,7 @@ class Chat:
             )
         return said
 
-    def thread(self, identifier: str) -> dict:
+    def thread(self, identifier: str) -> dict[str, Any]:
         """What `useChat` hydrates a conversation from: Ponos's own storage.
 
         The open one is read from memory, its turn in flight included; another
@@ -435,18 +440,18 @@ class Chat:
             ]
         return {"messages": messages, "activeRun": None, "interrupts": None}
 
-    def listen(self) -> queue.Queue:
+    def listen(self) -> queue.Queue[dict[str, Any]]:
         """A channel for every AG-UI event of the turns from now on."""
-        channel: queue.Queue = queue.Queue(maxsize=1000)
+        channel: queue.Queue[dict[str, Any]] = queue.Queue(maxsize=1000)
         with self._lock:
             self._listeners.add(channel)
         return channel
 
-    def unlisten(self, channel: queue.Queue) -> None:
+    def unlisten(self, channel: queue.Queue[dict[str, Any]]) -> None:
         with self._lock:
             self._listeners.discard(channel)
 
-    def _emit(self, events: list[dict]) -> None:
+    def _emit(self, events: list[dict[str, Any]]) -> None:
         """AG-UI events, to every page (`/api/events`) and every listener."""
         listeners = list(self._listeners)
         for event in events:
@@ -462,7 +467,7 @@ class Chat:
     def _snapshot(self) -> None:
         self._emit([agui.snapshot(self.ui())])
 
-    def reset(self) -> dict:
+    def reset(self) -> dict[str, Any]:
         """Start a new conversation. The old one stays in the list, to be reopened.
 
         The model stays the one chosen: starting over is not changing one's mind.
@@ -478,14 +483,14 @@ class Chat:
 
     # -- the conversations ---------------------------------------------------
 
-    def sessions(self, query: str = "") -> list[dict]:
+    def sessions(self, query: str = "") -> list[dict[str, Any]]:
         """Every conversation, the latest first, flagged for the one that is open."""
         found = chats.listing(query)
         for item in found:
             item["current"] = item["id"] == self.id
         return found
 
-    def open(self, identifier: str) -> dict:
+    def open(self, identifier: str) -> dict[str, Any]:
         """Make another conversation the one the console talks to."""
         with self._lock:
             if self._busy:
@@ -499,7 +504,7 @@ class Chat:
         self.publish("chat", stage="opened")
         return self.state()
 
-    def rename(self, identifier: str, title: str) -> dict:
+    def rename(self, identifier: str, title: str) -> dict[str, Any]:
         title = " ".join(title.split())
         if not title:
             raise ValueError("a session needs a title")
@@ -515,7 +520,7 @@ class Chat:
         self.publish("chat", stage="renamed", id=identifier)
         return self.state()
 
-    def delete(self, identifier: str) -> dict:
+    def delete(self, identifier: str) -> dict[str, Any]:
         """Forget a conversation and the files that were dropped in it."""
         with self._lock:
             if identifier == self.id:
@@ -534,7 +539,7 @@ class Chat:
         self.publish("chat", stage="deleted", id=identifier)
         return self.state()
 
-    def link(self, identifier: str, project: str) -> dict:
+    def link(self, identifier: str, project: str) -> dict[str, Any]:
         """Say which project a conversation is about — or none, with an empty name."""
         project = " ".join(project.split())[:200]
         with self._lock:
@@ -555,7 +560,7 @@ class Chat:
         """What a turn runs on: the conversation's own, else the settings' default."""
         return self.model or self.config.web.chat_model.strip() or self.config.runner.model
 
-    def choose(self, model: str) -> dict:
+    def choose(self, model: str) -> dict[str, Any]:
         """Run this conversation on `model` from the next turn on; empty: the default."""
         model = model.strip()
         if model and not MODEL_NAME.match(model):
@@ -568,10 +573,10 @@ class Chat:
         self.publish("chat", stage="model", model=self.effective_model())
         return self.state()
 
-    def models(self) -> dict:
+    def models(self) -> dict[str, Any]:
         """What the picker offers: Claude's, and OpenRouter's when it has a key."""
         configured = bool(self.config.openrouter.key)
-        listed: list[dict] = []
+        listed: list[dict[str, Any]] = []
         why = ""
         if configured:
             try:
@@ -591,7 +596,7 @@ class Chat:
     def folder(self) -> files.Folder:
         return files.Folder(attachments_dir(), self.folder_name or "none")
 
-    def attach(self, name: str, source, length: int) -> dict:
+    def attach(self, name: str, source: files.Source, length: int) -> dict[str, Any]:
         """Keep one file for the message being written; say what it became."""
         files.prune(attachments_dir(), self.config.web.attachment_days)
         with self._lock:
@@ -601,14 +606,14 @@ class Chat:
         limit = self.config.web.attachment_max_mb * 1024 * 1024
         return self.folder().save(name, source, length, limit).as_dict()
 
-    def detach(self, identifier: str) -> dict:
+    def detach(self, identifier: str) -> dict[str, Any]:
         self.folder().remove(identifier)
         return {"removed": identifier}
 
     def attachment(self, identifier: str) -> files.Attachment:
         return self.folder().find(identifier)
 
-    def transcribe(self, audio: bytes, content_type: str, interface: str = "") -> dict:
+    def transcribe(self, audio: bytes, content_type: str, interface: str = "") -> dict[str, Any]:
         """What was said, as text, in the language the runner speaks.
 
         `runner.language` when it names one; otherwise the page's own language,
@@ -629,7 +634,7 @@ class Chat:
         attached: list[str] | None = None,
         run_id: str = "",
         message_id: str = "",
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Say something to the workspace — now, or behind the turn in flight.
 
         `run_id` and `message_id` are the names `useChat` gave the run and the
@@ -661,7 +666,7 @@ class Chat:
             self._announce_queue()
         return self.state()
 
-    def run(self, given: dict) -> dict:
+    def run(self, given: dict[str, Any]) -> dict[str, Any]:
         """A run asked for in AG-UI (`RunAgentInput`): its last user message, said.
 
         The conversation is the server's, not the page's: of the messages the
@@ -745,7 +750,7 @@ class Chat:
             raise LookupError("no such waiting message")
         return found
 
-    def unqueue(self, identifier: str) -> dict:
+    def unqueue(self, identifier: str) -> dict[str, Any]:
         """Take a waiting message back: it is never sent."""
         with self._lock:
             self.queue.remove(self._waiting(identifier))
@@ -754,7 +759,7 @@ class Chat:
         self._announce_queue()
         return self.state()
 
-    def amend(self, identifier: str, text: str) -> dict:
+    def amend(self, identifier: str, text: str) -> dict[str, Any]:
         """Change the words of a message that has not been sent yet."""
         text = text.strip()
         with self._lock:
@@ -765,7 +770,7 @@ class Chat:
         self._announce_queue()
         return self.state()
 
-    def release(self) -> dict:
+    def release(self) -> dict[str, Any]:
         """Send what waits, after a turn that ended before its time."""
         with self._lock:
             self.held = False
@@ -773,7 +778,7 @@ class Chat:
         self._announce_queue()
         return self.state()
 
-    def discard(self) -> dict:
+    def discard(self) -> dict[str, Any]:
         """Throw away everything that waits."""
         with self._lock:
             self.queue = []
@@ -781,7 +786,7 @@ class Chat:
         self._announce_queue()
         return self.state()
 
-    def stop(self) -> dict:
+    def stop(self) -> dict[str, Any]:
         """Interrupt the turn in flight; the conversation carries on after it.
 
         Asking twice, or after the turn has ended on its own, is not an error:
@@ -929,7 +934,7 @@ class Chat:
         if self.held:
             self._announce_queue()
 
-    def _on_event(self, event: dict, turn: agui.Turn | None = None) -> None:
+    def _on_event(self, event: dict[str, Any], turn: agui.Turn | None = None) -> None:
         if turn is not None:
             self._emit(turn.read(event))
         for step in progress.describe(event):
@@ -989,7 +994,7 @@ class Commands:
             return [word for word in argv if word not in ("-f", "--follow")]
         return argv
 
-    def start(self, line: str) -> dict:
+    def start(self, line: str) -> dict[str, Any]:
         argv = self.parse(line)
         with self._lock:
             if self._busy:
@@ -1061,7 +1066,7 @@ class Commands:
         self.publish("command", stage="ended", code=code)
 
 
-def _end(process: subprocess.Popen, expired: threading.Event) -> None:
+def _end(process: subprocess.Popen[str], expired: threading.Event) -> None:
     """Stop a command's whole process group: asked first, then made to.
 
     The group, and not the process: with `start_new_session` its id is the

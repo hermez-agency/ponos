@@ -30,6 +30,7 @@ import re
 import socket
 import ssl
 import subprocess
+from typing import Any
 from urllib.parse import urlsplit
 
 from .. import http, session
@@ -41,7 +42,7 @@ PROBE_TIMEOUT = 8
 LIST_TIMEOUT = 60
 
 
-def overview(local: str, public: str) -> dict:
+def overview(local: str, public: str) -> dict[str, Any]:
     """The addresses to paste and the clients that already hold a key — no key."""
     return {
         "local": f"{local}/mcp",
@@ -53,7 +54,7 @@ def overview(local: str, public: str) -> dict:
     }
 
 
-def probe(address: str) -> dict:
+def probe(address: str) -> dict[str, Any]:
     """Ask `address` (ending in `/mcp`) for the 401 a live server gives."""
     if not address:
         return {"ok": False, "code": "no-address", "status": 0}
@@ -120,7 +121,7 @@ def _described(target: str) -> str:
     return target.split(" ", 1)[0]
 
 
-def parse(output: str) -> list[dict]:
+def parse(output: str) -> list[dict[str, Any]]:
     """The servers `claude mcp list` printed, each ok, to authenticate, or failing."""
     servers = []
     for line in output.splitlines():
@@ -135,7 +136,7 @@ def parse(output: str) -> list[dict]:
     return servers
 
 
-def servers() -> dict:
+def servers() -> dict[str, Any]:
     """The MCP servers Claude Code holds — those a session of Ponos starts with."""
     binary = session.available()
     if not binary:

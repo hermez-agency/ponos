@@ -102,7 +102,7 @@ class Creation(Base):
 
     # -- what the form asks while it is filled in ---------------------------
 
-    def check_project(self, repository: str = "", path: str = "") -> dict:
+    def check_project(self, repository: str = "", path: str = "") -> dict[str, Any]:
         """What a repository and a folder turn out to be, before anything is created.
 
         The repository, written the way it will be kept, and where this machine
@@ -145,7 +145,7 @@ class Creation(Base):
 
     # -- creating -----------------------------------------------------------
 
-    def create_project(self, payload: dict[str, Any]) -> dict:
+    def create_project(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Create one project page, and hand it back as the list draws it."""
         database = self.runner.workspace.projects
         if not database:

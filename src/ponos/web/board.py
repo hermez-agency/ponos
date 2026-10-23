@@ -105,7 +105,7 @@ class Reader:
         self.synced_at = ""
         self.reconciled_at = ""
         # What the last full read found the incremental ones had wrong.
-        self.drift: list[dict] = []
+        self.drift: list[dict[str, Any]] = []
 
     def reconcile_next(self) -> None:
         """Make the next read a full one — what "Resynchronise now" asks for."""
@@ -132,7 +132,7 @@ class Reader:
             self._pages.pop(_key(page_id), None)
             self._held.pop(_key(page_id), None)
 
-    def read(self, client, database: str, status: str) -> list[store.Page]:
+    def read(self, client: store.Store, database: str, status: str) -> list[store.Page]:
         """Every ticket, as current as Notion will say. Raises `StoreError`."""
         started = self._clock()
         with self._lock:
@@ -154,13 +154,13 @@ class Reader:
             now = self._clock()
             self._held = {key: until for key, until in self._held.items() if until > now}
             if full:
-                pages = {_key(page.id): page for page in fresh}
+                known = {_key(page.id): page for page in fresh}
                 for key in self._held:
                     if key in before:
-                        pages[key] = before[key]
+                        known[key] = before[key]
                 if before:
-                    self.drift = self._compare(before, pages, status, report)
-                self._pages = pages
+                    self.drift = self._compare(before, known, status, report)
+                self._pages = known
                 self._full_at = started
                 self.reconciled_at = _stamp(started)
             else:
@@ -186,14 +186,14 @@ class Reader:
         truth: dict[str, store.Page],
         status: str,
         report: sync.Report,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """What the incremental reads had wrong, as the full read found it.
 
         A status that differs, or a ticket they never brought in. A ticket that
         is gone is not one: archiving a page is a thing a window cannot see by
         construction, and the full read exists to catch it.
         """
-        found: list[dict] = []
+        found: list[dict[str, Any]] = []
         for key, page in truth.items():
             mine = held.get(key)
             said = store.read(mine, status) if mine is not None else None
@@ -442,7 +442,7 @@ class Conflict(Exception):
         self.found = found
 
 
-def send(client, database: str, status: str, write: Write) -> store.Page:
+def send(client: store.Store, database: str, status: str, write: Write) -> store.Page:
     """Read, write, read back. What one attempt of one move is.
 
     Read first, because a page somebody moved in Notion since the console showed
@@ -464,7 +464,9 @@ def send(client, database: str, status: str, write: Write) -> store.Page:
     return confirmed
 
 
-def overlay(ticket: dict, write: Write | None, column_of: Callable[[str], str]) -> dict:
+def overlay(
+    ticket: dict[str, Any], write: Write | None, column_of: Callable[[str], str]
+) -> dict[str, Any]:
     """A card, as the console's own pending write leaves it.
 
     Pending: where it is going, and saying it has not arrived. Failed or in
@@ -484,20 +486,20 @@ def overlay(ticket: dict, write: Write | None, column_of: Callable[[str], str]) 
     return {**ticket, "sync": write.state, "sync_error": write.error, "sync_status": write.status}
 
 
-def conflicts(entries: list[dict]) -> dict[str, dict]:
+def conflicts(entries: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     """The runner's refusals to overwrite, by ticket, from the journal.
 
     The console shows one until the page is edited again after it — someone
     looked, and did something about it.
     """
-    found: dict[str, dict] = {}
+    found: dict[str, dict[str, Any]] = {}
     for entry in entries:
         if entry.get("what") == "conflict" and entry.get("collection") == "tickets":
             found[_key(entry.get("page", ""))] = entry
     return found
 
 
-def settled(ticket: dict, entry: dict | None) -> dict:
+def settled(ticket: dict[str, Any], entry: dict[str, Any] | None) -> dict[str, Any]:
     """A card, with the runner's last refusal on it if nothing happened since."""
     if entry is None or ticket.get("sync"):
         return ticket
@@ -518,7 +520,7 @@ def _moment(stamp: str) -> datetime | None:
     return moment if moment.tzinfo else moment.replace(tzinfo=UTC)
 
 
-def describe(reader: Reader, tickets: list[dict]) -> dict[str, Any]:
+def describe(reader: Reader, tickets: list[dict[str, Any]]) -> dict[str, Any]:
     """The line over the board: when it last agreed with Notion, and what does not.
 
     Counted off the cards rather than off the outbox, so that the runner's own
@@ -536,7 +538,7 @@ def describe(reader: Reader, tickets: list[dict]) -> dict[str, Any]:
 
 
 def held(
-    ticket: dict,
+    ticket: dict[str, Any],
     noted: dict[str, tuple[str, str]],
     *,
     passing: bool,

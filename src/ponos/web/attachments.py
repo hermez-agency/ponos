@@ -40,7 +40,7 @@ import subprocess
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import BinaryIO
+from typing import Any, Protocol
 
 from .. import disk
 
@@ -98,6 +98,12 @@ def safe_name(name: str) -> str:
     return cleaned[:120] or UNNAMED
 
 
+class Source(Protocol):
+    """What a file is copied from: an open file, or a request's body read as it comes."""
+
+    def read(self, size: int, /) -> bytes: ...
+
+
 @dataclass
 class Attachment:
     id: str
@@ -119,7 +125,7 @@ class Attachment:
         except OSError:
             return 0
 
-    def as_dict(self) -> dict:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "name": self.name,
@@ -141,7 +147,7 @@ class Folder:
         self.conversation = conversation
         self.path = root / conversation
 
-    def save(self, name: str, source: BinaryIO, length: int, limit: int) -> Attachment:
+    def save(self, name: str, source: Source, length: int, limit: int) -> Attachment:
         """Copy `length` bytes from `source` into the folder, or refuse them.
 
         The limit is checked against what the request announces *and* against

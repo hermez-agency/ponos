@@ -54,7 +54,7 @@ ENDING_BYTES = 64 * 1024
 @dataclass
 class Event:
     kind: str
-    payload: dict
+    payload: dict[str, Any]
     id: int = 0
     at: float = field(default_factory=time.time)
 
@@ -68,7 +68,7 @@ class Hub:
 
     def __init__(self, backlog: int = BACKLOG) -> None:
         self._lock = threading.Lock()
-        self._clients: set[queue.Queue] = set()
+        self._clients: set[queue.Queue[Event]] = set()
         self._backlog: deque[Event] = deque(maxlen=backlog)
         # Every event is numbered, and the number is the SSE id. A browser
         # reconnecting after a suspend hands back the last one it saw, and gets
@@ -96,7 +96,7 @@ class Hub:
                 # Dropping the event beats blocking the runner behind it.
                 pass
 
-    def publish_board(self, board: dict, changes: dict | None = None) -> None:
+    def publish_board(self, board: dict[str, Any], changes: dict[str, Any] | None = None) -> None:
         """The board, kept whole for the next browser, sent as what changed.
 
         Sent whole, a board of five hundred tickets weighs a third of a
@@ -121,7 +121,7 @@ class Hub:
                 # holds, and it asks for the board again — see `use-console`.
                 pass
 
-    def subscribe(self, after: int = 0, board: bool = False) -> queue.Queue:
+    def subscribe(self, after: int = 0, board: bool = False) -> queue.Queue[Event]:
         """A channel, primed with what this browser has not seen.
 
         A first connection (`after` is zero) is given the current board and
@@ -131,7 +131,7 @@ class Hub:
         board included only if it moved since, or if the browser says (`board`)
         that what it holds no longer follows from what it was sent.
         """
-        channel: queue.Queue = queue.Queue(maxsize=1000)
+        channel: queue.Queue[Event] = queue.Queue(maxsize=1000)
         with self._lock:
             replay = [
                 event
@@ -148,7 +148,7 @@ class Hub:
             self._clients.add(channel)
         return channel
 
-    def unsubscribe(self, channel: queue.Queue) -> None:
+    def unsubscribe(self, channel: queue.Queue[Event]) -> None:
         with self._lock:
             self._clients.discard(channel)
 
@@ -180,7 +180,7 @@ class Tail:
         # The sessions last announced, so that a pass which changes nothing
         # says nothing. `None` until the first pass, which always speaks: a
         # browser connecting must be told "none" as much as "these two".
-        self._running: list[dict] | None = None
+        self._running: list[dict[str, Any]] | None = None
 
     def pass_once(self) -> int:
         published = 0
@@ -271,7 +271,7 @@ def answered(path: Path) -> bool:
     except OSError:
         return False
     try:
-        return json.loads(last).get("type") == "result"
+        return bool(json.loads(last).get("type") == "result")
     except (ValueError, AttributeError):
         # Still being written: the type is the first thing on the line, and
         # the opening of it is enough to tell.
@@ -323,7 +323,9 @@ def _last_line(handle: BinaryIO) -> bytes:
     return tail.rstrip(b"\r\n")
 
 
-def active(directory: Path | None = None, held: Callable[[], str] | None = None) -> list[dict]:
+def active(
+    directory: Path | None = None, held: Callable[[], str] | None = None
+) -> list[dict[str, Any]]:
     """The sessions running now, newest first, as `[{source, log}]`.
 
     Three things have to agree. The log was written in the last few minutes; its
@@ -334,7 +336,7 @@ def active(directory: Path | None = None, held: Callable[[], str] | None = None)
     directory = directory or state.logs_dir()
     if not (held or state.running)():
         return []
-    found: list[tuple[float, dict]] = []
+    found: list[tuple[float, dict[str, Any]]] = []
     for path in _live_logs(directory):
         if answered(path):
             continue
@@ -373,12 +375,12 @@ class Watch:
     def __init__(
         self,
         hub: Hub,
-        board: Callable[[], dict],
+        board: Callable[[], dict[str, Any]],
         *,
         interval: int = 15,
         directory: Path | None = None,
         held: Callable[[], str] | None = None,
-        status: Callable[[], dict] | None = None,
+        status: Callable[[], dict[str, Any]] | None = None,
     ) -> None:
         self.hub = hub
         self.board = board
@@ -396,7 +398,7 @@ class Watch:
         self._sent: dict[str, Any] | None = None
         self._version = 0
         # The board last read, and when: what `recent` hands out again.
-        self._read: tuple[float, dict] | None = None
+        self._read: tuple[float, dict[str, Any]] | None = None
         self._nudged = threading.Event()
         # How many writes from the console asked for a read: a board read
         # before the last of them is not one to hand out again (`Tickets.board`).
@@ -426,7 +428,7 @@ class Watch:
         self.nudges += 1
         self._nudged.set()
 
-    def recent(self, age: float) -> dict:
+    def recent(self, age: float) -> dict[str, Any]:
         """The board as last read, when that is under `age` seconds ago; read again otherwise.
 
         For what asks for the whole board and can live with it a few seconds
@@ -441,7 +443,7 @@ class Watch:
         self._read = (time.monotonic(), board)
         return board
 
-    def remember(self, at: float, board: dict) -> None:
+    def remember(self, at: float, board: dict[str, Any]) -> None:
         """Hold a board read elsewhere — `/api/board` — as if this thread had read it."""
         self._read = (at, board)
 
@@ -531,7 +533,7 @@ class Watch:
                 return
 
 
-def difference(before: dict | None, after: dict) -> dict | None:
+def difference(before: dict[str, Any] | None, after: dict[str, Any]) -> dict[str, Any] | None:
     """What a page holding `before` needs to be told to hold `after`.
 
     The tickets that changed or appeared, each with the one it now follows —
@@ -544,7 +546,7 @@ def difference(before: dict | None, after: dict) -> dict | None:
     `after`, in its order, are not sent.
     """
 
-    def frame(board: dict) -> dict:
+    def frame(board: dict[str, Any]) -> dict[str, Any]:
         return {key: value for key, value in board.items() if key != "tickets"}
 
     if before is None or frame(before) != frame(after):
@@ -554,7 +556,7 @@ def difference(before: dict | None, after: dict) -> dict | None:
     if len(held) != len(before["tickets"]) or len(set(now)) != len(now):
         return None
     removed = sorted(set(held) - set(now))
-    changed: list[dict] = []
+    changed: list[dict[str, Any]] = []
     previous = ""
     for ticket in after["tickets"]:
         if held.get(ticket["id"]) != ticket:
