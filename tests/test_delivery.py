@@ -859,3 +859,49 @@ def a_validated_pull_request_with_a_red_job_blocks_its_ticket_as_checks_failed()
     assert runner.client.written == [
         ("ppr", {"Status": "Blocked", "Blocage": "merge.checks-failed"})
     ]
+
+
+@case
+def a_pull_request_validated_while_its_ci_is_red_is_blocked_without_its_review_line():
+    """Refused in review, validated all the same: the card says what its column does.
+
+    The forced merge left "not merged" on the card; validated with the CI
+    still red, the ticket goes to blocked as checks failed — and the line
+    written for review is emptied rather than left to contradict it.
+    """
+    url = "https://github.com/x/y/pull/1"
+    page = _reviewed("ppr", "Validated", url)
+    page.properties["Progress"] = {
+        "type": "rich_text",
+        "rich_text": [{"plain_text": "Not merged: CI: red."}],
+    }
+    runner = _board_runner([page], {})
+
+    def merge(url, method="squash", accounts=None):
+        raise git_module.ChecksNotGreen("failed", ["frontend"])
+
+    with _github({url: "OPEN"}, merge=merge):
+        results = runner.deliver()
+    assert [result["status"] for result in results] == ["blocked"]
+    assert runner.client.written == [
+        ("ppr", {"Progress": ""}),
+        ("ppr", {"Status": "Blocked", "Blocage": "merge.checks-failed"}),
+    ]
+
+
+@case
+def a_validated_pull_request_whose_ci_still_runs_stays_validated_with_its_line():
+    url = "https://github.com/x/y/pull/1"
+    page = _reviewed("ppr", "Validated", url)
+    page.properties["Progress"] = {
+        "type": "rich_text",
+        "rich_text": [{"plain_text": "Merge postponed to the next pass, left validated"}],
+    }
+    runner = _board_runner([page], {})
+
+    def merge(url, method="squash", accounts=None):
+        raise git_module.ChecksNotGreen("pending", ["frontend"])
+
+    with _github({url: "OPEN"}, merge=merge):
+        assert runner.deliver() == []
+    assert runner.client.written == []

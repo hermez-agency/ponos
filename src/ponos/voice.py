@@ -610,6 +610,10 @@ _SAID: dict[str, dict[str, str]] = {
         "en": "Not merged, left in review: {error}",
         "fr": "Pas fusionnée, laissée en relecture : {error}",
     },
+    "forced-merge-refused-card": {
+        "en": "Not merged: {error}",
+        "fr": "Pas fusionnée : {error}",
+    },
     "forced-merge-postponed": {
         "en": "Merge postponed to the next pass, left validated: {reason}",
         "fr": "Fusion reportée au passage suivant, laissée validée : {reason}",

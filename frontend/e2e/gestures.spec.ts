@@ -41,6 +41,24 @@ test("making a Validated ticket ready says the validation goes", async ({ page }
   await expect(dialog(page)).toBeHidden()
 })
 
+test("a validated pull request goes back to review without a session", async ({ page }) => {
+  await open(page, "00000000000000000000000000fe4901", "A pull request waiting for its merge")
+  const back = page.getByRole("button", { name: "Back to review" })
+  await expect(back).toHaveAttribute("title", /no session is started/)
+  await back.click()
+  await expect(page.getByText("“A pull request waiting for its merge” moved to In review")).toBeVisible()
+})
+
+test("a merge refused on a red CI is retried without a session, once confirmed", async ({ page }) => {
+  await open(page, "00000000000000000000000000fe4902", "A merge refused on a red CI")
+  await expect(page.getByRole("button", { name: "Back to review" })).toBeVisible()
+  await page.getByRole("button", { name: "Retry the merge" }).click()
+  await expect(dialog(page)).toContainText("No session is started")
+  await expect(dialog(page)).not.toContainText("paid for")
+  await dialog(page).getByRole("button", { name: "Retry the merge" }).click()
+  await expect(page.getByText("“A merge refused on a red CI” moved to Validated")).toBeVisible()
+})
+
 test("a Ready ticket is set aside in one click, and made ready again once confirmed", async ({ page }) => {
   await open(page, "0000000000000000000000000000a51d", "A ticket to set aside")
   const aside = page.getByRole("button", { name: "Set aside" })

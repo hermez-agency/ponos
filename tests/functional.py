@@ -1849,6 +1849,7 @@ def a_forced_merge_github_refuses_leaves_the_ticket_in_review_with_the_reason(ma
     assert "is failing" in said[-1], said[-1]
     card = str(machine.board.value(ticket, "Progress") or "")
     assert "Not merged" in card and "is failing" in card, card
+    assert "left in review" not in card, card
 
 
 def _check_runs(*verdicts: str) -> str:
