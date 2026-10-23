@@ -1421,10 +1421,16 @@ def hash_password(path: Path) -> bool:
 
 
 def secret(stored: dict[str, str], table: str, key: str) -> str:
-    """One secret, from `secrets.env` or the environment — see the docstring."""
+    """One secret, from `secrets.env` or the environment — see the docstring.
+
+    Both remembered, to be masked wherever the runner writes (see vault.py):
+    the one that loses is no less a secret for it.
+    """
     name = SECRETS[(table, key)]
     environment = os.environ.get(name, "").strip()
     written = stored.get(name, "").strip()
+    vault.remember(environment)
+    vault.remember(written)
     if name in _ENVIRONMENT_FIRST:
         return environment or written
     return written or environment

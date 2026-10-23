@@ -12,7 +12,7 @@ from pathlib import Path
 
 from support import case
 
-from ponos import session
+from ponos import config, session, vault
 
 # -- session outcome ---------------------------------------------------------
 
@@ -124,6 +124,71 @@ def a_prompt_never_reaches_the_command_line():
                     assert all(len(word) < 100 for word in got["args"]), got["args"]
         finally:
             os.environ["PATH"] = previous
+
+
+@case
+def a_session_is_not_given_the_runners_own_secrets():
+    """A container holds every secret as a variable: none of them is the session's.
+
+    An `env` run by the session printed them all into its transcript, the steps
+    written into the ticket and the pull request. What the caller hands over —
+    the vault's keys, the provider's — still arrives, and what the runner has
+    read is masked in what the session prints.
+    """
+    own = {
+        "PONOS_WEB_PASSWORD": "password-of-the-console",
+        "PONOS_WEB_TOKEN": "token-of-the-console",
+        "PONOS_NOTION_TOKEN": "ntn_token-of-notion",
+        "PONOS_TELEGRAM_TOKEN": "token-of-telegram",
+        "PONOS_SLACK_TOKEN": "xoxb-token-of-slack",
+        "TICKET_RUNNER_NOTION_TOKEN": "ntn_token-of-old-notion",
+    }
+    with tempfile.TemporaryDirectory() as directory:
+        home = Path(directory)
+        seen = home / "seen.json"
+        (home / "claude").write_text(
+            "#!" + sys.executable + "\n"
+            "import json, os, sys\n"
+            "sys.stdin.read()\n"
+            f"open({str(seen)!r}, 'w').write(json.dumps(dict(os.environ)))\n"
+            # What `env` would have printed, had the variable been there.
+            f"said = {own['PONOS_SLACK_TOKEN']!r} + ' ' + {own['PONOS_NOTION_TOKEN']!r}\n"
+            "print(json.dumps({'type': 'assistant', 'message': {'content': "
+            "[{'type': 'text', 'text': said}]}}))\n"
+            "print(json.dumps({'type': 'result', 'result': 'RESULT: ok', 'session_id': 's'}))\n"
+        )
+        (home / "claude").chmod(0o755)
+        previous = {name: os.environ.get(name) for name in [*own, "PATH", "UNRELATED"]}
+        os.environ.update(own, UNRELATED="kept")
+        os.environ["PATH"] = f"{home}{os.pathsep}{previous['PATH']}"
+        try:
+            # Read as `config.load` reads them: from now on, masked.
+            config.secret({}, "notify.slack", "token")
+            config.secret({"PONOS_NOTION_TOKEN": own["PONOS_NOTION_TOKEN"]}, "notion", "token")
+            outcome = session.run(
+                "env",
+                cwd=home,
+                log=home / "session.jsonl",
+                timeout_minutes=1,
+                environment={"NPM_TOKEN": "granted-by-the-vault"},
+            )
+            assert outcome.ok, outcome.error
+            got = json.loads(seen.read_text())
+            for name in own:
+                assert name not in got, name
+            assert got["UNRELATED"] == "kept"
+            assert got["NPM_TOKEN"] == "granted-by-the-vault"
+            transcript = (home / "session.jsonl").read_text()
+            assert own["PONOS_SLACK_TOKEN"] not in transcript, transcript
+            assert own["PONOS_NOTION_TOKEN"] not in transcript, transcript
+            assert vault.MASK in transcript
+        finally:
+            vault.forget()
+            for name, value in previous.items():
+                if value is None:
+                    os.environ.pop(name, None)
+                else:
+                    os.environ[name] = value
 
 
 @case

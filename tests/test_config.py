@@ -12,7 +12,7 @@ from pathlib import Path
 from support import _board, _config, _environment, _markdown_api, _saved, _state, _state_home, case
 
 from ponos import config as C
-from ponos import db, project_settings, state, update, voice
+from ponos import db, project_settings, state, update, vault, voice
 from ponos import git as git_module
 from ponos.__main__ import build_parser
 from ponos.web import settings as web_settings
@@ -552,6 +552,28 @@ def a_typed_key_wins_over_the_environment_and_the_environment_over_a_password():
     assert config.claude.api_key == "typed"
     assert config.web.password == "from the unit"
     assert config.notify.slack == {"token": "xoxb-env"}, "the environment alone is enough"
+
+
+@case
+def every_secret_the_runner_reads_is_masked():
+    """From the environment or from secrets.env, a value read is a value masked.
+
+    Even the one that loses to the other: a session that prints it leaks it all
+    the same. See vault.py.
+    """
+    path, _ = _saved()
+    C.write_secrets(C.secrets_path(path), {"PONOS_NOTION_TOKEN": "ntn_written-in-the-file"})
+    try:
+        with _environ(
+            PONOS_NOTION_TOKEN="ntn_set-by-compose",
+            PONOS_WEB_PASSWORD="password-set-by-compose",
+            PONOS_TELEGRAM_TOKEN="123456:telegram-token",
+        ):
+            C.load(path)
+        said = "ntn_written-in-the-file ntn_set-by-compose password-set-by-compose 123456:telegram-token"
+        assert vault.mask(said) == " ".join([vault.MASK] * 4), vault.mask(said)
+    finally:
+        vault.forget()
 
 
 @case

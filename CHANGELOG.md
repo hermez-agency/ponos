@@ -50,6 +50,10 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 - Sur mobile, la barre de navigation du bas affiche ses libellés en entier (« Dashboard », « Récurrences », « Objectifs », « Sessions ») au lieu de les tronquer.
 - Une version fusionnée sur `main` reçoit son tag et sa release toute seule : la 0.2.0 était restée sans tag, donc sans release GitHub ni image `:0.2.0` / `:latest`. La CI pose désormais le tag `v<version>` quand il manque et lance le workflow de release.
 - Une récurrence se supprime depuis la console : une corbeille sur chaque ligne de la liste, sur chaque carte, dans la fenêtre de la récurrence et dans la fiche du calendrier, après confirmation, et une sélection multiple pour en retirer plusieurs d'un coup. La page part dans la corbeille du board (Notion ou dossier `trash/`), plus aucun ticket n'en naît, et ceux déjà créés restent en place.
+### Security
+
+- Une session Claude ne reçoit plus les secrets propres au runner : le mot de passe et le jeton de la console, les jetons de Notion, de Telegram et de Slack, les clés Anthropic et OpenRouter et le jeton GitHub de Ponos sont retirés de l'environnement qu'elle hérite — en Docker, un `env` lancé par une session les écrivait en clair dans sa transcription, le ticket et la pull request. Elle garde ce que le coffre accorde à son projet et ce que son fournisseur lui donne. Chacun de ces secrets, lu dans l'environnement ou dans `secrets.env`, est aussi masqué partout où le runner écrit.
+
 ### Changed
 
 - Le choix de l'objectif d'un ticket — dans « Nouveau ticket » comme dans la fenêtre d'un ticket — ne propose plus que les objectifs encore actifs (statut vide, « Actif » ou « En cours ») : ceux atteints ou abandonnés n'y sont plus, sauf l'objectif que le ticket sert déjà. Ceux du projet choisi viennent en premier, les autres suivent. La liste des objectifs dit pour cela si chacun est actif (`active`), et les choix d'un nouveau ticket portent les projets de chaque objectif.
