@@ -129,7 +129,8 @@ def a_goal_counts_the_tickets_the_board_lists_column_by_column():
     launch, tidy = said["goals"]
     assert launch["tickets"] == {"done": 2, "running": 1}, launch
     assert launch["criterion"] == "dix clients payants" and launch["due"] == "2026-12-31"
-    assert launch["status"] == "En cours" and launch["priority"] == "Haute"
+    # A word `priority.WORDS` does not know is read as an empty cell would be.
+    assert launch["status"] == "En cours" and launch["priority"] == 50
     assert launch["projects"] == ["Website"] and launch["id"] == "aaaagoal"
     assert [ticket["id"] for ticket in launch["linked"]] == ["t1", "t2", "t3"], launch
     assert tidy["tickets"] == {} and tidy["description"] == "" and tidy["projects"] == []

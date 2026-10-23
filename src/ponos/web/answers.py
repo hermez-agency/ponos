@@ -1527,7 +1527,8 @@ class Goal(Shape):
     criterion: str
     due: str
     status: str
-    priority: str
+    priority: int | None
+    """A score from 0 to 100, a select's word read as its score — none where the cell is empty."""
     projects: list[str]
     """The names of the projects it is for."""
     project_ids: list[str] = omitted()

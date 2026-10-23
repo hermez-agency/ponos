@@ -61,7 +61,7 @@ def the_console_creates_and_edits_a_goal_in_its_database():
         row = next(goal for goal in api.goals()["goals"] if goal["id"] == created["id"])
         assert row["name"] == "Lancer la v1" and row["description"] == "La première version"
         assert row["criterion"] == "dix clients payants" and row["due"] == "2026-12-31"
-        assert row["status"] == "actif" and row["priority"] == "80"
+        assert row["status"] == "actif" and row["priority"] == 80
         assert row["projects"] == ["Website"] and row["project_ids"] == [site]
 
         api.save_goal(created["id"], {"name": "Lancer la v2", "status": "en pause", "due": ""})
@@ -136,3 +136,28 @@ def a_goal_is_archived_and_leaves_the_list():
             pass
         else:
             raise AssertionError("an archived goal is not there to archive again")
+
+
+@case
+def renaming_a_goal_with_no_priority_gives_it_none():
+    with _board() as board:
+        api = _api(board)
+        goal = api.create_goal("Lancer la v1", {"priority": ""})["id"]
+        assert api.goals()["goals"][0]["priority"] is None
+
+        # The form sends every field back, the empty priority with the rest.
+        api.save_goal(goal, {"name": "Lancer la v2", "priority": "", "status": ""})
+        row = api.goals()["goals"][0]
+        assert row["name"] == "Lancer la v2" and row["priority"] is None, row
+        page = next(page for page in board.query("goals") if page.id.replace("-", "") == goal)
+        assert store.read(page, "Priorité") in (None, ""), "no priority is written"
+
+
+@case
+def a_goal_s_priority_is_read_as_a_score_whatever_its_column_holds():
+    with _board() as board:
+        api = _api(board)
+        goal = api.create_goal("Lancer la v1", {})["id"]
+        for cell, score in (("High", 75), ("haute", 50), ("150", 100), ("80", 80)):
+            board.update("goals", goal, {"Priorité": cell})
+            assert api.goals()["goals"][0]["priority"] == score, (cell, api.goals())

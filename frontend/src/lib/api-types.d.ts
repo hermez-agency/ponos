@@ -2384,7 +2384,8 @@ export interface components {
             criterion: string;
             due: string;
             status: string;
-            priority: string;
+            /** @description A score from 0 to 100, a select's word read as its score — none where the cell is empty. */
+            priority: number | null;
             /** @description The names of the projects it is for. */
             projects: string[];
             /** @description Those projects' page ids, as the form sends them back. */
