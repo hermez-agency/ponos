@@ -157,8 +157,8 @@ TOOLS: list[dict] = [
         "title": "Tâches",
         "scope": READ,
         "description": "Liste les tâches de Ponos, les plus récemment modifiées d'abord, avec "
-        "pour chacune son identifiant, son titre, son projet, son statut, son type, sa priorité, "
-        "sa pull request et son coût. Statuts : draft (brouillon, jamais lancé), ready (en file, "
+        "pour chacune son identifiant, son titre, son projet, son objectif, son statut, son type, "
+        "sa priorité, sa pull request et son coût. Statuts : draft (brouillon, jamais lancé), ready (en file, "
         "le runner le prendra à sa prochaine passe), running (session en cours), "
         "blocked (« vous attend » : une session pose une question), review (travail "
         "livré, attend une relecture), validated (relu, en cours de fusion ou de publication), "
@@ -242,6 +242,17 @@ TOOLS: list[dict] = [
         ),
     },
     {
+        "name": "list_goals",
+        "title": "Objectifs",
+        "scope": READ,
+        "description": "Liste les objectifs de Ponos — ce pour quoi les tâches sont faites : "
+        "identifiant, nom, description, critère d'atteinte, statut (actif ou non), échéance, "
+        "priorité, projets concernés et avancement (tâches terminées sur le total, les tâches "
+        "abandonnées mises à part, et le nombre de tâches par statut). À appeler pour connaître "
+        "le nom exact d'un objectif avant create_task, ou pour « où en est l'objectif X ? ».",
+        "inputSchema": _schema(),
+    },
+    {
         "name": "create_task",
         "title": "Créer une tâche",
         "scope": WRITE,
@@ -250,7 +261,8 @@ TOOLS: list[dict] = [
         "attend qu'on la relise ; en ready, le runner la lancera à sa prochaine passe — ne choisir "
         "ready que si la personne le demande. Le projet décide du dépôt où le travail se fait : "
         "vérifier son nom avec list_projects. Sans type, Ponos le déduit lui-même avant de lancer "
-        "la tâche. Renvoie l'identifiant de la tâche créée.",
+        "la tâche. Un objectif donné rattache la tâche à cet objectif (vérifier son nom avec "
+        "list_goals). Renvoie l'identifiant de la tâche créée.",
         "inputSchema": _schema(
             {
                 "title": {
@@ -276,6 +288,11 @@ TOOLS: list[dict] = [
                     "maximum": 100,
                     "description": "Un score de 0 (vraiment pas important) à 100 (à faire tout de "
                     "suite) : la file passe du plus haut au plus bas. 50 par défaut.",
+                },
+                "goal": {
+                    "type": "string",
+                    "description": "L'objectif que la tâche sert : son nom (tel que list_goals "
+                    "le renvoie, sans tenir compte de la casse) ou son identifiant.",
                 },
                 "status": {
                     "type": "string",
@@ -680,6 +697,7 @@ def _task(card: dict) -> dict:
         "short": card["short"],
         "title": card["title"] or "(sans titre)",
         "project": card["project"],
+        "goal": card.get("goal") or "",
         "status": card["column"],
         "waiting_for_you": card["column"] == "blocked",
         "type": card["type"],
@@ -690,6 +708,19 @@ def _task(card: dict) -> dict:
         "created": card["created"],
         "edited": card["edited"],
     }
+
+
+def _goal(api: Api, reference: str) -> dict:
+    """The goal a name or an id designates — or a refusal that lists the known ones."""
+    said = api.goals()
+    if not said["configured"]:
+        raise ToolError("Cet espace de travail n'a pas de base d'objectifs.")
+    wanted = reference.strip()
+    for goal in said["goals"]:
+        if _bare(wanted) == goal["id"] or wanted.lower() == goal["name"].lower():
+            return goal
+    known = ", ".join(goal["name"] for goal in said["goals"]) or "aucun"
+    raise ToolError(f"Aucun objectif « {wanted} ». Objectifs connus : {known}.")
 
 
 def _card(api: Api, reference: str) -> dict:
@@ -855,6 +886,36 @@ def list_ideas(api: Api, project: str = "", status: str = "proposed") -> dict:
     }
 
 
+def list_goals(api: Api) -> dict:
+    said = api.goals()
+    rows = []
+    for goal in said["goals"]:
+        # Counted as the console's Goals page counts it: done, out of every
+        # ticket but those given up.
+        counts = goal["tickets"]
+        rows.append(
+            {
+                "id": goal["id"],
+                "name": goal["name"],
+                "description": goal["description"],
+                "criterion": goal["criterion"],
+                "status": goal["status"],
+                "active": goal["active"],
+                "due": goal["due"],
+                "priority": goal["priority"],
+                "projects": goal["projects"],
+                "progress": {
+                    "done": counts.get("done", 0),
+                    "total": sum(
+                        count for column, count in counts.items() if column != "cancelled"
+                    ),
+                    "by_status": counts,
+                },
+            }
+        )
+    return {"configured": said["configured"], "goals": rows}
+
+
 def _idea(shown: dict) -> dict:
     return {
         "id": shown["id"],
@@ -881,11 +942,13 @@ def create_task(
     project: str = "",
     type: str = "",  # noqa: A002 — the name the tool gives it
     priority: int | str = "",
+    goal: str = "",
     status: str = "draft",
 ) -> dict:
     if not title.strip():
         raise ToolError("Une tâche a besoin d'un titre.")
     chosen = _project(api, project) if project else None
+    served = _goal(api, goal) if goal.strip() else None
     created = api.create_ticket(
         title,
         description,
@@ -893,11 +956,13 @@ def create_task(
         ready=status == "ready",
         priority=priority,
         kind=type,
+        goal=served["id"] if served else "",
     )
     return {
         "id": created["id"].replace("-", ""),
         "title": created["title"],
         "project": chosen["name"] if chosen else "",
+        "goal": served["name"] if served else "",
         "status": status,
     }
 
@@ -992,6 +1057,7 @@ HANDLERS: dict[str, Callable[..., dict]] = {
     "get_task": get_task,
     "runner_status": runner_status,
     "list_ideas": list_ideas,
+    "list_goals": list_goals,
     "create_task": create_task,
     "answer_question": answer_question,
     "list_solutions": list_solutions,
