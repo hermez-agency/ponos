@@ -26,13 +26,13 @@ import subprocess
 import threading
 import time
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import IO, Any
 from urllib.parse import parse_qs, quote, urlparse
 
-from . import credits, disk, leftovers, legacy, vault
+from . import config, credits, disk, leftovers, legacy, vault
 from .question import Question, caveats, parse
 
 logger = logging.getLogger(__name__)
@@ -177,7 +177,7 @@ def run(
     # runner is meant to win over one that happens to be in this shell. See
     # openrouter.py.
     inherited = {
-        **os.environ,
+        **inheritable(os.environ),
         "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
         **leftovers.environment(cwd),
         **(environment or {}),
@@ -264,6 +264,20 @@ def run(
         timed_out=timed_out.is_set(),
         timeout_minutes=timeout_minutes,
     )
+
+
+def inheritable(environ: Mapping[str, str]) -> dict[str, str]:
+    """The runner's environment, less the secrets that are the runner's own.
+
+    In a container every one of them is a variable — the console's password and
+    token, Notion's, the channels', the providers' keys — and a session handed
+    the whole environment had them all, for an `env` to print into its
+    transcript and the ticket. A session is given what `[vault]` grants its
+    project and what its provider needs, by the caller: the rest stays here.
+    """
+    withheld = set(config.SECRETS.values())
+    withheld |= {legacy.OLD_PREFIX + name.removeprefix(legacy.PREFIX) for name in withheld}
+    return {name: value for name, value in environ.items() if name not in withheld}
 
 
 def _command(
