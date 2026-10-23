@@ -490,3 +490,57 @@ def tool_calls_by_the_hundred_do_not_cost_the_prose_its_place():
     clock.now += 11
     live.flush()
     assert client.blocks == ["Tout est lu ; je lance les tests."]
+
+
+# -- the plan ----------------------------------------------------------------
+
+
+def _todos(*tasks) -> dict:
+    return _tool(
+        "TodoWrite",
+        todos=[
+            {"content": f"Do {name}", "activeForm": f"Doing {name}", "status": status}
+            for name, status in tasks
+        ],
+    )
+
+
+@case
+def a_todo_list_becomes_a_plan_step_and_the_board_says_how_far_it_is():
+    """3/5, and the task under way — never a share of tool calls."""
+    live, client, clock = _reporting()
+    plan = progress.describe(
+        _assistant(
+            _todos(
+                ("a", "completed"),
+                ("b", "completed"),
+                ("c", "completed"),
+                ("d", "in_progress"),
+                ("e", "pending"),
+            )
+        )
+    )
+    assert [step.label for step in plan] == ["Plan"]
+    assert [task["status"] for task in progress.read_plan(plan[0].detail)][:4] == [
+        "completed",
+        "completed",
+        "completed",
+        "in_progress",
+    ]
+    live.add(plan[0])
+    live.add(progress.Step("Bash", "npm test"))
+    clock.now += 11
+    live.flush()
+    assert client.properties[-1] == "3/5 — Doing d"
+
+
+@case
+def a_session_without_a_plan_publishes_its_last_step_and_no_figure():
+    live, client, clock = _reporting()
+    live.add(progress.Step("Bash", "npm test"))
+    clock.now += 11
+    live.flush()
+    assert client.properties[-1] == "Bash · npm test"
+    assert progress.summary([]) == "" and progress.read_plan("not json") == []
+    assert progress.summary(progress.plan_of([{"content": "x", "status": "completed"}])) == "1/1"
+    assert progress.describe(_assistant(_tool("TodoWrite", todos=[]))) == []

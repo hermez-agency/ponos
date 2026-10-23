@@ -1,7 +1,8 @@
 import * as React from "react"
-import { ArrowDown, ArrowUp, ChevronRight, ChevronsDownUp, ChevronsUpDown, TriangleAlert } from "lucide-react"
+import { ArrowDown, ArrowUp, ChevronRight, ChevronsDownUp, ChevronsUpDown, Circle, CircleCheck, LoaderCircle, TriangleAlert } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { Progress } from "@/components/ui/progress"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useSteps } from "@/hooks/use-console"
@@ -11,6 +12,7 @@ import { money } from "@/lib/numbers"
 import { clock } from "@/lib/composer"
 import { FOLDED, everythingOpen, isOpen, outline, toggled, type Line, type Unfolded } from "@/lib/outline"
 import { reading } from "@/lib/phase"
+import { advance, planOf, readPlan, type Task } from "@/lib/plan"
 import { doing } from "@/lib/thinking"
 import type { Run, Step, Ticket } from "@/lib/types"
 import { cn } from "@/lib/utils"
@@ -63,7 +65,9 @@ const NEAR = 24
 
 /** One tool call, folded to a line; a click unfolds it. */
 function ToolLine({ step }: { step: Step }) {
-  const detail = shorten(step.detail)
+  const plan = step.label === "Plan" ? advance(readPlan(step.detail)) : null
+  // The list is drawn by the plan itself; its line only says how far it is.
+  const detail = plan ? `${plan.done}/${plan.total}` : shorten(step.detail)
   const failed = step.label === "Error"
   return (
     <details className="group">
@@ -438,12 +442,22 @@ export function TicketLive({ ticket }: { ticket: Ticket }) {
   // A ticket whose runs all came before the journal: its last log, as it
   // always was read.
   if (!runs.length) return <LogLive ticket={ticket} live={live} />
-  return <JournalLive runs={runs} live={live} signal={session?.count ?? 0} />
+  return <JournalLive runs={runs} live={live} signal={session?.count ?? 0} plan={session?.plan ?? []} />
 }
 
 /* The runs of a ticket, from the journal: the newest open, the others a
  * choice away. Only the newest can be live, and only while it has no end. */
-function JournalLive({ runs, live, signal }: { runs: Run[]; live: boolean; signal: number }) {
+function JournalLive({
+  runs,
+  live,
+  signal,
+  plan,
+}: {
+  runs: Run[]
+  live: boolean
+  signal: number
+  plan: Task[]
+}) {
   const t = useT()
   const [chosen, setChosen] = React.useState<number | null>(null)
   const run = runs.find((candidate) => candidate.id === chosen) ?? runs[0]
@@ -500,6 +514,7 @@ function JournalLive({ runs, live, signal }: { runs: Run[]; live: boolean; signa
               {t("Earlier steps")}
             </Button>
           ) : null}
+          <PlanList tasks={writing && plan.length ? plan : planOf(read.steps)} />
           <SessionLog key={run.id} steps={read.steps} live={writing} cut={read.more} />
         </>
       )}
@@ -545,8 +560,49 @@ function LogLive({ ticket, live }: { ticket: Ticket; live: boolean }) {
         <span>·</span>
         {counted(session?.count || steps.length, "{{count}} step", "{{count}} steps")}
       </p>
+      <PlanList tasks={session?.plan.length ? session.plan : planOf(steps)} />
       <SessionLog steps={steps} live={live} offset={offset} cut={offset > 0} />
     </div>
+  )
+}
+
+/* The agent's plan, task by task: ticked once done, the one under way marked. */
+export function PlanList({ tasks }: { tasks: Task[] }) {
+  const t = useT()
+  const progress = advance(tasks)
+  if (!progress) return null
+  return (
+    <section data-slot="plan" aria-label={t("Plan")} className="bg-card rounded-lg border px-3 py-2">
+      <div className="flex items-center justify-between gap-2 text-xs font-medium">
+        <span>{t("Plan")}</span>
+        <span className="text-muted-foreground font-mono tabular-nums">
+          {progress.done} / {progress.total} · {progress.percent} %
+        </span>
+      </div>
+      <Progress value={progress.percent} className="my-2" />
+      <ul className="flex flex-col gap-1 text-sm">
+        {tasks.map((task, index) => (
+          <li
+            key={index}
+            data-status={task.status}
+            className={cn(
+              "flex items-start gap-1.5",
+              task.status === "completed" && "text-muted-foreground line-through",
+              task.status === "pending" && "text-muted-foreground"
+            )}
+          >
+            {task.status === "completed" ? (
+              <CircleCheck className="text-tr-green mt-0.5 size-3.5 shrink-0" />
+            ) : task.status === "in_progress" ? (
+              <LoaderCircle className="text-tr-violet mt-0.5 size-3.5 shrink-0 motion-safe:animate-spin" />
+            ) : (
+              <Circle className="mt-0.5 size-3.5 shrink-0" />
+            )}
+            <span className="min-w-0 break-words">{task.content}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }
 
@@ -573,11 +629,14 @@ export function CardLive({ ticket }: { ticket: Ticket }) {
   const phase = reading(ticket.phase, now)
   const quiet = Boolean(phase?.quiet)
   const session = quiet ? undefined : sessions.find((candidate) => candidate.source === ticket.short)
-  const last = session ? lastWord(session.steps) : undefined
+  const last = session ? lastWord(session.steps.filter((step) => step.label !== "Plan")) : undefined
+  const advanced = advance(session?.plan ?? [])
   // A session that has just started has nothing to say yet, and what the
   // board says is the session before it.
   const fresh = Boolean(phase && phase.young && !phase.said)
-  const line = last
+  const line = advanced?.current
+    ? advanced.current
+    : last
     ? last.said
       ? shorten(last.label).replace(/[*_`#>]+/g, "").replace(/\s+/g, " ")
       : `${last.label}${last.detail ? ` · ${shorten(last.detail)}` : ""}`
@@ -635,6 +694,17 @@ export function CardLive({ ticket }: { ticket: Ticket }) {
           </span>
         </p>
       ) : null}
+      {/* A plan gives a figure; without one the bar only moves, it never guesses. */}
+      {quiet ? null : (
+        <div data-slot="card-plan" className="flex flex-col gap-1">
+          <Progress value={advanced?.percent} />
+          {advanced ? (
+            <span className="text-muted-foreground font-mono text-[0.7rem] tabular-nums">
+              {advanced.done} / {advanced.total} · {advanced.percent} %
+            </span>
+          ) : null}
+        </div>
+      )}
       {shown ? (
         <p className="text-muted-foreground flex items-center gap-1.5" title={line || undefined}>
           {counter || phase?.said ? null : dot}

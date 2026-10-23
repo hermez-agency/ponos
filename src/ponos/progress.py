@@ -28,6 +28,13 @@ Two things keep it from becoming noise, and they are the whole design:
   `Progress` column; their detail is the run journal's (journal.py, which the
   console reads) and the log's (`ponos logs -f`) — `describe` feeds both.
 
+**A percentage only from a plan.** The agent cannot know how many tool calls it
+will make, so a share of steps would be a guess dressed as a figure. What it does
+know is its todo list: `TodoWrite` becomes a `Plan` step whose detail is the
+list, and the board's `Progress` column says “3/5 — writing the tests” from it.
+No plan, no figure: the column keeps saying the last thing done, and the console
+draws a bar that does not claim a length.
+
 Nothing here can fail a ticket. Every call to Notion is caught, and a page that
 refuses three writes in a row switches the whole thing off for the rest of the
 session — the work carries on, unreported.
@@ -44,6 +51,7 @@ tool calls are only counted.
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 import threading
@@ -107,9 +115,14 @@ _TOOLS: dict[str, tuple[str, tuple[str, ...]]] = {
     "Task": ("Sub-agent", ("description", "prompt")),
     "WebFetch": ("Web", ("url",)),
     "WebSearch": ("Web", ("query",)),
-    "TodoWrite": ("Plan", ()),
     "SlashCommand": ("Command", ("command",)),
 }
+
+# The plan a session keeps, and what survives of each task: a task is a sentence,
+# not a paragraph, and a list that long is not a plan any more.
+PLAN = "Plan"
+MAX_TASKS = 40
+TASK = 120
 
 _HINTS = ("file_path", "command", "pattern", "query", "url", "description", "path", "prompt")
 
@@ -129,6 +142,53 @@ def _prose(text: str) -> str:
     lines = [" ".join(line.split()) for line in str(text).splitlines()]
     flat = "\n".join(line for line in lines if line)
     return flat if len(flat) <= SAID else flat[: SAID - 1].rstrip() + "…"
+
+
+def plan_of(todos: Any) -> list[dict[str, str]]:
+    """The tasks of a `TodoWrite` call: `content`, `active` (what is being done) and `status`.
+
+    Also reads its own output back, which is how a `Plan` step's detail is read.
+    """
+    if not isinstance(todos, list):
+        return []
+    tasks: list[dict[str, str]] = []
+    for todo in todos[:MAX_TASKS]:
+        if not isinstance(todo, dict) or not str(todo.get("content") or "").strip():
+            continue
+        status = str(todo.get("status") or "pending")
+        tasks.append(
+            {
+                "content": _one_line(todo["content"], TASK),
+                "active": _one_line(todo.get("activeForm") or todo.get("active") or "", TASK),
+                "status": status
+                if status in ("pending", "in_progress", "completed")
+                else "pending",
+            }
+        )
+    return tasks
+
+
+def read_plan(detail: str) -> list[dict[str, str]]:
+    """The tasks a `Plan` step carries, or none when its detail is not a plan."""
+    try:
+        return plan_of(json.loads(detail))
+    except ValueError:
+        return []
+
+
+def summary(tasks: list[dict[str, str]]) -> str:
+    """“3/5 — writing the tests”: how far the plan is, and the task under way.
+
+    Without the task once nothing is under way — all done, or none started.
+    """
+    if not tasks:
+        return ""
+    done = sum(1 for task in tasks if task["status"] == "completed")
+    current = next((task for task in tasks if task["status"] == "in_progress"), None)
+    head = f"{done}/{len(tasks)}"
+    if current is None:
+        return head
+    return f"{head} — {_one_line(current['active'] or current['content'], LINE - len(head) - 3)}"
 
 
 def _hint(payload: dict[str, Any]) -> str:
@@ -164,6 +224,13 @@ def describe(event: dict[str, Any]) -> list[Step]:
                     if payload.get(key):
                         detail = _one_line(payload[key])
                         break
+                if name == "TodoWrite":
+                    # The list itself is the detail, whole: the console draws it,
+                    # and `Live` reads the progress off it.
+                    tasks = plan_of(payload.get("todos"))
+                    if tasks:
+                        steps.append(Step(PLAN, json.dumps(tasks, ensure_ascii=False)))
+                    continue
                 steps.append(Step(label, detail or _hint(payload)))
     elif kind == "user":
         for block in event.get("message", {}).get("content", []):
@@ -269,6 +336,7 @@ class Live:
         self._due = threading.Event()
         self._writer: threading.Thread | None = None
         self._closing = False
+        self._plan: list[dict[str, str]] = []
         self._toggle = ""
         self._paragraphs = 0
         self._failures = 0
@@ -292,6 +360,8 @@ class Live:
                 return
             self._latest = step.line
             self._waiting += 1
+            if step.label == PLAN:
+                self._plan = read_plan(step.detail)
             if step.said and len(self._pending) < MAX_STEPS:
                 self._pending.append(step)
         if self.clock() - self._last_flush < self.interval:
@@ -352,7 +422,7 @@ class Live:
         self.written += count
         self._paragraphs += len(said)
         self._retitle(f"⏳ {self.heading} — {self._tally()}")
-        self._publish(_one_line(last))
+        self._publish(summary(self._plan) or _one_line(last))
         if self._paragraphs >= MAX_STEPS:
             self._cap()
         return count
