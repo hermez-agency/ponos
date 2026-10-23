@@ -1223,9 +1223,7 @@ def mcp_message(request: Request) -> Response:
     said = mcp.handle(_console(request).api, grant, message, _asking(request).base())
     if said is None:
         return _send(202, b"", "application/json")
-    if isinstance(said, dict):
-        return answer(said)
-    return _send(200, json.dumps(said, ensure_ascii=False).encode(), "application/json")
+    return answer(said)  # one message or a batch, masked the same
 
 
 @doors.post("/oauth/register", include_in_schema=False)
