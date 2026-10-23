@@ -13,6 +13,7 @@ from support import _board_runner, _github, _in_progress, _ready, _reviewed, cas
 
 from ponos import config as C
 from ponos import credits, notion, projects, state, store, workspace
+from ponos import git as git_module
 from ponos import ticket as ticket_module
 from ponos.runner import Runner
 from ponos.web import board as web_board
@@ -587,6 +588,46 @@ def a_pull_request_validated_mid_pass_is_merged_without_waiting_for_the_session(
     assert merges == ["https://github.com/x/y/pull/1"], "and merged once, not at every look"
     assert sorted(result["id"] for result in results) == ["p-long", "pvalidated"]
     assert ("p-validated", {"Status": "Done"}) in runner.client.written
+
+
+@case
+def a_merge_refused_then_retried_mid_pass_is_asked_for_again(state_home):
+    """The cards of the 23rd of October: red at 15:00, blocked, validated
+    again by "Retry the merge" — and never looked at by a pass that went on
+    until night, which had settled them once and held them out ever after."""
+    url = "https://github.com/x/y/pull/1"
+    asked: list[str] = []
+    merged = threading.Event()
+    with _settling(0.1):
+        runner = _long_runner([_ready("p-long")])
+        runner.config.runner.max_concurrent = 1
+        page = _reviewed("p-validated", "Validated", url)
+
+        def execute(job):
+            runner.client._pages.append(page)
+            merged.wait(10)
+            return {"id": job.ticket.page.id, "status": "done"}
+
+        def merge(url: str, method: str = "squash", accounts=None) -> str:
+            asked.append(url)
+            if len(asked) == 1:
+                # Red: the ticket is blocked, and somebody validates it again.
+                _moved(page, "Blocked")
+                threading.Timer(0.5, _moved, (page, "Validated")).start()
+                raise git_module.ChecksNotGreen("failed", ["frontend"])
+            merged.set()
+            return "merged"
+
+        runner.execute = execute
+        with _github({url: "OPEN"}, merge=merge):
+            results = runner._work(runner.queue()[0], None, refill=True)
+
+    assert merged.is_set(), "asked for again within the same pass"
+    assert asked == [url, url], asked
+    assert [result["status"] for result in results if result["id"] == "pvalidated"] == [
+        "blocked",
+        "done",
+    ]
 
 
 @case

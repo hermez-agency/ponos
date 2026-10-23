@@ -75,6 +75,12 @@ GESTURES = {
     "0000000000000000000000000000d7a1": ("A card dragged by its title", "Blocked"),
     "0000000000000000000000000000d7a2": ("A card dragged by its foot", "Blocked"),
 }
+# Pull requests whose merge did not happen, and what their cards offer instead
+# of a session: validated and waiting, and blocked on a red CI.
+MERGES = {
+    "00000000000000000000000000fe4901": ("A pull request waiting for its merge", "Validated", ""),
+    "00000000000000000000000000fe4902": ("A merge refused on a red CI", "Blocked", "merge.checks-failed"),
+}
 # Cards waiting on you, for a blocked ticket's discussion and the Decide tab:
 # blocked on a report that names its kind of stop — one to read, and one for
 # each gesture that moves it, one of them proposing to close the ticket — and
@@ -248,6 +254,13 @@ def board(root: Path, doomed: bool = False) -> None:
         )
     for id, (title, status) in GESTURES.items():
         page = {"id": id, "title": title, "Status": status}
+        (tickets / f"{title.lower().replace(' ', '-')}-{id[-8:]}.md").write_text(
+            files.render(page, "A short brief."), encoding="utf-8"
+        )
+    for id, (title, status, code) in MERGES.items():
+        page = {"id": id, "title": title, "Status": status, "Pull Request": pull_request(id)}
+        if code:
+            page["Blocage"] = code
         (tickets / f"{title.lower().replace(' ', '-')}-{id[-8:]}.md").write_text(
             files.render(page, "A short brief."), encoding="utf-8"
         )

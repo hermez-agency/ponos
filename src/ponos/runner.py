@@ -216,7 +216,10 @@ class Runner(
         # The validated tickets this pass has taken off their column, kept apart
         # from `hand`: a ticket run by this very pass and validated while it
         # was still running is delivered by it too, not held over to the next.
-        carried: set[str] = set()
+        # A merge settled here is held out only `SETTLE` seconds, as `hand`
+        # holds a session's ticket: one refused at 15:00 and validated again at
+        # 18:00 is asked for again at 18:00, not when a pass of hours ends.
+        carried = board.InHand()
         queued = list(ready)
         publishing: list[tuple[Ticket, Project]] = []
         flight: set[Future[dict[str, Any] | None]] = set()
@@ -306,7 +309,10 @@ class Runner(
                 # status that was just written over.
                 settled, fresh = self.delivering(carried)
                 results += state.record_all(settled)
-                carried |= {entry["id"] for entry in settled} | {ticket.id for ticket, _ in fresh}
+                for entry in settled:
+                    carried.leave(entry["id"])
+                for ticket, _ in fresh:
+                    carried.take(ticket.id)
                 publishing += fresh
                 if fresh:
                     self.say(

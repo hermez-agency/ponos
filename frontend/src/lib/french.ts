@@ -459,6 +459,13 @@ export const FRENCH: Record<string, string> = {
     "Le runner fusionne sa pull request à sa prochaine passe. Une fusion ne se défait pas d'ici.",
   "The runner publishes what the ticket holds on its next pass.":
     "Le runner publie le contenu du ticket à sa prochaine passe.",
+  "Retry the merge": "Réessayer la fusion",
+  "Retry the merge of “{{title}}”?": "Réessayer la fusion de « {{title}} » ?",
+  "No session is started: the ticket goes back to {{column}}, and the runner merges its pull request on its next pass once its checks are green. A merge is not taken back from here.":
+    "Aucune session n'est lancée : le ticket retourne dans {{column}}, et le runner fusionne sa pull request à sa prochaine passe, dès que sa CI est verte. Une fusion ne se défait pas d'ici.",
+  "Back to review": "Renvoyer en revue",
+  "Back to {{column}}, to be decided on again: nothing is merged, and no session is started.":
+    "De retour dans {{column}}, pour en décider à nouveau : rien n'est fusionné, et aucune session n'est lancée.",
   Validate: "Valider",
   "Try again": "Réessayer",
   "Back to the board": "Retour au tableau",

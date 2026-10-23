@@ -50,6 +50,7 @@ from __future__ import annotations
 
 import shutil
 import threading
+from collections.abc import Container
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from datetime import datetime
@@ -172,7 +173,7 @@ class Delivery(Base):
         return results + self._publish_all(publishing)
 
     def delivering(
-        self, taken: set[str] | None = None
+        self, taken: Container[str] | None = None
     ) -> tuple[list[dict[str, Any]], list[tuple[Ticket, Project]]]:
         """Sort the validated column: what is settled here, what needs a session.
 
@@ -721,15 +722,23 @@ class Delivery(Base):
     def _refused(
         self, ticket: Ticket, url: str, refusal: object, *notes: str
     ) -> dict[str, Any] | None:
-        """A merge GitHub would not make, and nothing more the runner can do about it."""
+        """A merge GitHub would not make, and nothing more the runner can do about it.
+
+        The card is emptied of a forced merge's refusal first: the ticket leaves
+        validated for blocked, and the cause now says why — a line left from
+        review would contradict the column it lands in.
+        """
         state.forget_rebases(ticket.id)
         said = self.voice
+        if isinstance(refusal, git.ChecksNotGreen) and refusal.state == "pending":
+            # Not a refusal about the work: the next pass asks again.
+            names = _named(refusal.names)
+            self.say(f"    · {ticket.title} — {said.say('merge-checks-running', names=names)}")
+            return None
+        if cleared := self._refusal_cleared(ticket):
+            self._set(ticket, **cleared)
         if isinstance(refusal, git.ChecksNotGreen):
             names = _named(refusal.names)
-            if refusal.state == "pending":
-                # Not a refusal about the work: the next pass asks again.
-                self.say(f"    · {ticket.title} — {said.say('merge-checks-running', names=names)}")
-                return None
             return self._fail(
                 ticket,
                 said.say("merge-checks-red"),

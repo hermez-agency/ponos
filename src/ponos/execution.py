@@ -984,7 +984,11 @@ class Execution(Base):
                 if later
                 else said.say("forced-merge-refused", error=refused)
             )
-            values[self.config.notion.prop("progress")] = said.brief(refusal)
+            # The card's line outlives the column it was written in: you
+            # validate from review, and a line saying "left in review" would
+            # then stand in validated. So it says what happened, not where.
+            card = refusal if later else said.say("forced-merge-refused-card", error=refused)
+            values[self.config.notion.prop("progress")] = said.brief(card)
         values[self.config.notion.prop("session")] = self._session_value(
             outcome.session_id, job.session_home or project.path
         )

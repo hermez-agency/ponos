@@ -643,6 +643,53 @@ function Confirmed({
   )
 }
 
+// The stops a merge comes back from without any work: GitHub said no — a job
+// red when it was validated, a rule of the branch — and asking again once that
+// has changed is the whole remedy. Any other stop is answered in its discussion.
+const MERGE_REFUSED = new Set(["merge.checks-failed", "merge.refused"])
+
+/** What a pull request whose merge did not happen offers, besides running it again.
+ *
+ * Neither starts a session. Retrying puts the ticket back in validated, where
+ * the runner asks GitHub for the merge on its next pass and merges once the
+ * checks are green — confirmed, since a merge is not taken back. Sending it back
+ * to review withdraws the validation, for the pull request to be decided on
+ * again. "Make ready", the only gesture these cards used to show, starts a new
+ * session and pays for it: never what a red CI or a refused merge asked for.
+ */
+function MergeGestures({ ticket, retry }: { ticket: Ticket; retry: boolean }) {
+  const board = useBoard()
+  const t = useT()
+  const named = (key: string) =>
+    columnTitle(key, board.columns.find((column) => column.key === key)?.name)
+  return (
+    <>
+      {retry ? (
+        <Confirmed
+          label={t("Retry the merge")}
+          title={t("Retry the merge of “{{title}}”?", { title: titleOf(ticket) })}
+          body={t(
+            "No session is started: the ticket goes back to {{column}}, and the runner merges its pull request on its next pass once its checks are green. A merge is not taken back from here.",
+            { column: named("validated") }
+          )}
+          confirm={t("Retry the merge")}
+          onConfirm={() => void move(ticket, "validated")}
+        />
+      ) : null}
+      <Button
+        variant="outline"
+        size="sm"
+        title={t("Back to {{column}}, to be decided on again: nothing is merged, and no session is started.", {
+          column: named("review"),
+        })}
+        onClick={() => void move(ticket, "review")}
+      >
+        {t("Back to review")}
+      </Button>
+    </>
+  )
+}
+
 /** The gestures a ticket offers where it stands, or nothing at all where it offers none.
  *
  * Drawn as buttons — an outline, 32 pixels high — rather than as grey words:
@@ -683,6 +730,8 @@ export function TicketActions({
   // where its question is answered — by a quick reply, a sentence, or running
   // it again as it is — see `ticket-talk.tsx`. Three buttons that all put it
   // back to work left you to guess which one was yours.
+  // Except a merge GitHub refused: asking it again is the gesture, and it
+  // needs neither an answer nor a session — see `MergeGestures`.
   if (ticket.column === "blocked")
     return (
       <div className={cn("flex flex-wrap items-center gap-1.5", className)}>
@@ -695,6 +744,9 @@ export function TicketActions({
               : undefined
           }
         />
+        {board.validate && ticket.pull_request && MERGE_REFUSED.has(ticket.block?.code ?? "") ? (
+          <MergeGestures ticket={ticket} retry />
+        ) : null}
       </div>
     )
   const named = (key: string) =>
@@ -855,7 +907,15 @@ export function TicketActions({
           <Confirmed open={asked} onOpenChange={setAsked} {...ready} />
         </>
       ) : ticket.column !== "ready" ? (
-        <Confirmed label={again ? t("Run again") : t("Make ready")} {...ready} />
+        <>
+          {/* A validated pull request waits for its merge, which the runner
+              asks for again on each pass: what is left to you is to take the
+              validation back, without paying for a session. */}
+          {ticket.column === "validated" && ticket.pull_request ? (
+            <MergeGestures ticket={ticket} retry={false} />
+          ) : null}
+          <Confirmed label={again ? t("Run again") : t("Make ready")} {...ready} />
+        </>
       ) : null}
       {ticket.column === "ready" ? (
         <Button
