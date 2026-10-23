@@ -119,7 +119,7 @@ test.describe("on a desktop", () => {
       messages: { text: string }[]
     }
     expect(said.messages[said.messages.length - 1].text).toContain("Decision: option 1, “Give me an SSH key”.")
-    await recap(page).getByRole("button", { name: "Close" }).click()
+    await page.keyboard.press("Enter")
     await expect(series(page)).toBeHidden()
     await expect(page).not.toHaveURL(/series=/)
   })
