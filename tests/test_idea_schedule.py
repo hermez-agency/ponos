@@ -11,7 +11,7 @@ from support import _board, _ideas_api, _saved, case
 
 from ponos import config as C
 from ponos import db, idea_schedule, ideas, project_settings, schedules, session
-from ponos.web import api as web_api
+from ponos.web import base as web_base
 
 NOW = datetime.fromisoformat("2026-10-21T10:30:00")  # a Wednesday
 
@@ -402,7 +402,7 @@ def the_dialog_saves_into_the_file_and_the_projects_ticked_replace_what_each_sai
         run = _Pass(board)
         api = run.api
         api._config = config
-        api._stamp = web_api._stamp(path)
+        api._stamp = web_base._stamp(path)
         alpha, beta = run.ids["Alpha"], run.ids["Beta"]
         project_settings.set_ideas(beta, "Beta", True)
 

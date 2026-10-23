@@ -214,11 +214,11 @@ def an_idea_written_by_hand_is_scored_behind_the_answer_that_saved_it(state_home
         project = board.create_row("projects", "Usine", {})
         board.replace_markdown(project, "Un jeu d'usine en navigateur.")
         api = _ideas_api(board)
-        api.ideas._person = ("Salva", "")
+        api._ideas_person = ("Salva", "")
         put_aside: list = []
-        api.ideas.later = put_aside.append
+        api.ideas_later = put_aside.append
         ideas.written(project, "Un mode sombre")
-        written = api.ideas.create(
+        written = api.create_idea(
             {"project": project, "title": "Une carte des usines", "description": "Pour voir."}
         )
         assert written["score"] is None and written["scoring"] is True, "the pill says …"
@@ -255,7 +255,7 @@ def an_idea_written_by_hand_is_scored_behind_the_answer_that_saved_it(state_home
         assert (scored["score"], scored["tone"], scored["scoring"]) == (82, "green", False)
         assert scored["score_reason"] == "Utile et petit."
 
-        mcp_one = api.ideas.write(project, "ticket", "Un tutoriel")
+        mcp_one = api.write_idea(project, "ticket", "Un tutoriel")
         assert mcp_one["scoring"] is True, "an idea an MCP client wrote is scored the same way"
         original, session.run = (
             session.run,
@@ -283,7 +283,7 @@ def a_scoring_that_fails_says_why_on_the_idea_instead_of_staying_silent(state_ho
         project = board.create_row("projects", "Usine", {})
         api = _ideas_api(board)
         put_aside: list = []
-        api.ideas.later = put_aside.append
+        api.ideas_later = put_aside.append
         published: list = []
         original_publish = api.hub.publish
         api.hub.publish = lambda topic, **rest: published.append((topic, rest))
@@ -303,7 +303,7 @@ def a_scoring_that_fails_says_why_on_the_idea_instead_of_staying_silent(state_ho
             lambda text, **rest: outcome(over_budget=True, cost_usd=0.1356),
         )
         try:
-            api.ideas.score_unscored(project)
+            api.score_unscored_ideas(project)
             put_aside.pop()()
         finally:
             session.run = original
@@ -317,7 +317,7 @@ def a_scoring_that_fails_says_why_on_the_idea_instead_of_staying_silent(state_ho
             lambda text, **rest: outcome(error="credit balance too low"),
         )
         try:
-            api.ideas.score([second.id])
+            api.score_ideas([second.id])
         finally:
             session.run = original
         assert ideas.get(second.id).shown()["score_error"] == "credit balance too low"
@@ -334,7 +334,7 @@ def a_scoring_that_fails_says_why_on_the_idea_instead_of_staying_silent(state_ho
             ),
         )
         try:
-            api.ideas.score([second.id])
+            api.score_ideas([second.id])
         finally:
             session.run = original
         assert "could not be read" in ideas.get(second.id).shown()["score_error"]
@@ -344,7 +344,7 @@ def a_scoring_that_fails_says_why_on_the_idea_instead_of_staying_silent(state_ho
 
         original, session.run = session.run, crash
         try:
-            api.ideas.score([second.id])
+            api.score_ideas([second.id])
         finally:
             session.run = original
         assert "no claude" in ideas.get(second.id).shown()["score_error"], (
@@ -363,7 +363,7 @@ def a_scoring_that_fails_says_why_on_the_idea_instead_of_staying_silent(state_ho
             ),
         )
         try:
-            api.ideas.score([second.id])
+            api.score_ideas([second.id])
         finally:
             session.run = original
         done = ideas.get(second.id).shown()
@@ -408,7 +408,7 @@ def the_ideas_with_no_score_are_scored_in_batches_under_a_ceiling_said_first(sta
         for number in range(25):
             ideas.written(project, f"Idée du projet {number}")
         ideas.written("", "Idée de l'espace")
-        told = api.ideas.unscored(None)
+        told = api.unscored_ideas(None)
         assert (told["count"], told["calls"]) == (26, 3), (
             "two calls for the project, one for the workspace"
         )
@@ -416,14 +416,14 @@ def the_ideas_with_no_score_are_scored_in_batches_under_a_ceiling_said_first(sta
             told["ceiling_usd"] == round(3 * ideas.SCORE_CEILING_USD, 2)
             and told["model"] == "haiku"
         )
-        assert api.ideas.unscored("")["count"] == 1
+        assert api.unscored_ideas("")["count"] == 1
 
         put_aside: list = []
-        api.ideas.later = put_aside.append
-        started = api.ideas.score_unscored(None)
+        api.ideas_later = put_aside.append
+        started = api.score_unscored_ideas(None)
         assert started["running"] is True and started["count"] == 26
         try:
-            api.ideas.score_unscored(None)
+            api.score_unscored_ideas(None)
         except RuntimeError:
             pass
         else:
@@ -454,7 +454,7 @@ def the_ideas_with_no_score_are_scored_in_batches_under_a_ceiling_said_first(sta
         finally:
             session.run = original
         assert sorted(sizes) == [1, 5, 20], sizes
-        assert api.ideas.unscored(None) == {
+        assert api.unscored_ideas(None) == {
             "count": 0,
             "calls": 0,
             "ceiling_usd": 0,
@@ -490,11 +490,11 @@ def ideas_for_a_project_are_found_in_one_call_and_never_proposed_twice(state_hom
         fake_run, asked = _proposing([first, again])
         original, session.run = session.run, fake_run
         try:
-            batch = api.ideas.generate(project)
-            listed = api.ideas.proposed(project)
+            batch = api.generate_ideas(project)
+            listed = api.proposed_ideas(project)
             thrown = listed["ideas"][0]
-            api.ideas.discard(thrown["id"])
-            second = api.ideas.generate(project)
+            api.discard_idea(thrown["id"])
+            second = api.generate_ideas(project)
         finally:
             session.run = original
             shutil.rmtree(clone, ignore_errors=True)
@@ -517,8 +517,8 @@ def ideas_for_a_project_are_found_in_one_call_and_never_proposed_twice(state_hom
         assert [idea["title"] for idea in second["ideas"]] == ["Une sauvegarde dans le cloud"]
         assert second["dropped"] == ["Idée numéro un !"], "and never proposed again"
         assert ideas.get(thrown["id"]).status == "discarded"
-        assert thrown["id"] not in [idea["id"] for idea in api.ideas.proposed(project)["ideas"]]
-        history = api.ideas.proposed(project)["decided"]
+        assert thrown["id"] not in [idea["id"] for idea in api.proposed_ideas(project)["ideas"]]
+        history = api.proposed_ideas(project)["decided"]
         assert [idea["id"] for idea in history] == [thrown["id"]], (
             "the history holds what was decided"
         )
@@ -529,8 +529,8 @@ def ideas_for_a_project_are_found_in_one_call_and_never_proposed_twice(state_hom
                 "SELECT count, cost_usd FROM idea_batches ORDER BY id"
             ).fetchall()
         assert costs == [(9, 0.02), (1, 0.02)], costs
-        assert api.ideas.proposed(project)["cost_usd"] == 0.04
-        assert api.ideas.proposed("")["ideas"] == [], "the workspace's ideas are another scope"
+        assert api.proposed_ideas(project)["cost_usd"] == 0.04
+        assert api.proposed_ideas("")["ideas"] == [], "the workspace's ideas are another scope"
 
 
 @case
@@ -558,8 +558,8 @@ def an_idea_turned_into_a_ticket_is_a_draft_and_a_project_idea_a_project(state_h
         )
         original, session.run = session.run, fake_run
         try:
-            mine = api.ideas.generate(project)["ideas"][0]
-            general = api.ideas.generate("")["ideas"]
+            mine = api.generate_ideas(project)["ideas"][0]
+            general = api.generate_ideas("")["ideas"]
         finally:
             session.run = original
         assert asked[0]["model"] == "sonnet", "the model is a setting"
@@ -567,7 +567,7 @@ def an_idea_turned_into_a_ticket_is_a_draft_and_a_project_idea_a_project(state_h
         assert '"project" for a new project' in asked[1]["prompt"]
 
         settings = api.config.notion
-        kept = api.ideas.ticket(mine["id"])
+        kept = api.idea_ticket(mine["id"])
         assert kept["status"] == "ticket" and kept["ticket"]
         ticket = board.page(kept["ticket"])
         assert ticket.title == "Un mode sombre"
@@ -580,7 +580,7 @@ def an_idea_turned_into_a_ticket_is_a_draft_and_a_project_idea_a_project(state_h
         assert "- [ ] Le thème bascule" in text
 
         club = next(idea for idea in general if idea["kind"] == "project")
-        made = api.ideas.ticket(club["id"])
+        made = api.idea_ticket(club["id"])
         assert made["created"], "the project itself"
         assert board.page(made["created"]).title == "Un site pour le club"
         assert "Les inscriptions." in board.blocks_text(made["created"])
@@ -590,21 +590,21 @@ def an_idea_turned_into_a_ticket_is_a_draft_and_a_project_idea_a_project(state_h
         assert "## Done when" in board.blocks_text(made["ticket"])
 
         thrown = next(idea for idea in general if idea["kind"] == "ticket")
-        assert api.ideas.discard(thrown["id"])["status"] == "discarded"
+        assert api.discard_idea(thrown["id"])["status"] == "discarded"
         tickets_before = len(board.query("tickets"))
 
-        undone = api.ideas.undo()
+        undone = api.undo_idea()
         assert undone["was"] == "discarded" and undone["idea"]["status"] == "proposed"
         assert len(board.query("tickets")) == tickets_before, "throwing away wrote nothing"
-        back = api.ideas.undo("")
+        back = api.undo_idea("")
         assert back["idea"]["id"] == club["id"] and back["was"] == "ticket"
-        assert club["id"] in [idea["id"] for idea in api.ideas.proposed("")["ideas"]]
-        again = api.ideas.ticket(club["id"])
+        assert club["id"] in [idea["id"] for idea in api.proposed_ideas("")["ideas"]]
+        again = api.idea_ticket(club["id"])
         assert (again["ticket"], again["created"]) == (made["ticket"], made["created"])
         assert len(board.query("tickets")) == tickets_before, "turned again, written once"
-        assert api.ideas.undo(project)["idea"]["id"] == mine["id"], "a scope's own last choice"
+        assert api.undo_idea(project)["idea"]["id"] == mine["id"], "a scope's own last choice"
         try:
-            api.ideas.undo(project)
+            api.undo_idea(project)
         except LookupError:
             pass
         else:
@@ -623,39 +623,39 @@ def an_idea_is_kept_thrown_reopened_and_nothing_is_ever_deleted(state_home):
         )
         original, session.run = session.run, fake_run
         try:
-            dark, export, tutorial = api.ideas.generate(project)["ideas"]
+            dark, export, tutorial = api.generate_ideas(project)["ideas"]
         finally:
             session.run = original
         tickets_before = len(board.query("tickets"))
-        kept = api.ideas.keep(dark["id"])
+        kept = api.keep_idea(dark["id"])
         assert kept["status"] == "kept" and not kept["ticket"]
         assert len(board.query("tickets")) == tickets_before, "kept is not yet a ticket"
-        thrown = api.ideas.discard(export["id"])
+        thrown = api.discard_idea(export["id"])
         assert thrown["status"] == "discarded" and thrown["decided_at"]
-        made = api.ideas.ticket(tutorial["id"])
+        made = api.idea_ticket(tutorial["id"])
         try:
-            api.ideas.discard(tutorial["id"])
+            api.discard_idea(tutorial["id"])
         except ValueError:
             pass
         else:
             raise AssertionError("a ticket is made new again before it is thrown away")
 
-        every = api.ideas.every(project)
+        every = api.every_idea(project)
         assert every["counts"] == {"proposed": 0, "kept": 1, "discarded": 1, "ticket": 1}
         assert {idea["id"] for idea in every["ideas"]} == {dark["id"], export["id"], tutorial["id"]}
 
         # The Ideas page asks for every scope at once, the workspace's included.
-        api.ideas.write("", "ticket", "Une idée de l'espace")
-        everywhere = api.ideas.every(None)
+        api.write_idea("", "ticket", "Une idée de l'espace")
+        everywhere = api.every_idea(None)
         assert everywhere["scope"] == "all" and len(everywhere["ideas"]) == 4
         assert {idea["project"] for idea in everywhere["ideas"]} == {"", ideas.bare(project)}
         assert everywhere["counts"]["proposed"] == 1
 
-        back = api.ideas.reopen(tutorial["id"])
+        back = api.reopen_idea(tutorial["id"])
         assert back["status"] == "proposed" and back["ticket"] == made["ticket"]
         assert back["changed_at"] >= made["changed_at"] and back["decided_at"] is None
-        assert api.ideas.discard(tutorial["id"])["status"] == "discarded"
-        assert api.ideas.every(project)["counts"]["discarded"] == 2
+        assert api.discard_idea(tutorial["id"])["status"] == "discarded"
+        assert api.every_idea(project)["counts"]["discarded"] == 2
         assert [idea.title for idea in ideas.listed(project, ("discarded",))] == [
             "Un export CSV",
             "Un tutoriel",
@@ -669,8 +669,8 @@ def an_idea_written_by_hand_is_signed_and_never_proposed_again(state_home):
     with _board() as board:
         project = board.create_row("projects", "Usine", {})
         api = _ideas_api(board)
-        api.ideas._person = ("Salva", "https://example.com/salva.png")
-        written = api.ideas.create(
+        api._ideas_person = ("Salva", "https://example.com/salva.png")
+        written = api.create_idea(
             {
                 "project": project,
                 "title": "  Une carte  des usines ",
@@ -691,19 +691,19 @@ def an_idea_written_by_hand_is_signed_and_never_proposed_again(state_home):
         assert written["project"] == project.replace("-", "")
         for wrong in ({"project": project, "title": "  "}, {"project": "f" * 32, "title": "Rien"}):
             try:
-                api.ideas.create(wrong)
+                api.create_idea(wrong)
             except (ValueError, LookupError):
                 pass
             else:
                 raise AssertionError(f"refused: {wrong}")
-        workspace = api.ideas.create({"title": "Un site", "kind": "project", "category": "feature"})
+        workspace = api.create_idea({"title": "Un site", "kind": "project", "category": "feature"})
         assert workspace["scope"] == "global" and workspace["kind"] == "project"
         assert workspace["category"] == "feature" and written["category"] == ""
 
         fake_run, asked = _proposing([[_idea("Une carte des usines !"), _idea("Un mode sombre")]])
         original, session.run = session.run, fake_run
         try:
-            found = api.ideas.generate(project)
+            found = api.generate_ideas(project)
         finally:
             session.run = original
         assert "Une carte des usines" in asked[0]["prompt"], (
@@ -713,8 +713,8 @@ def an_idea_written_by_hand_is_signed_and_never_proposed_again(state_home):
         ponos = found["ideas"][0]
         assert ponos["origin"] == "ponos" and ponos["author"]["kind"] == "ponos"
 
-        api.ideas._person = ("Quelqu'un", "")
-        edited = api.ideas.edit(
+        api._ideas_person = ("Quelqu'un", "")
+        edited = api.edit_idea(
             ponos["id"],
             {"title": "Un mode sombre, partout", "description": "Oui.", "category": "ux"},
         )
@@ -724,7 +724,7 @@ def an_idea_written_by_hand_is_signed_and_never_proposed_again(state_home):
 
         db.close()
         assert ideas.get(written["id"]).author == "Salva", "it survives a restart"
-        assert len(api.ideas.every(project)["ideas"]) == 2
+        assert len(api.every_idea(project)["ideas"]) == 2
 
 
 @case

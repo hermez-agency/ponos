@@ -25,7 +25,7 @@ from ponos import channels, notion, projects, session, state, store, voice
 from ponos import config as C
 from ponos import git as git_module
 from ponos import ticket as ticket_module
-from ponos.web import api as web_api
+from ponos.web import tickets as web_tickets
 
 # -- a merged pull request closes its ticket ---------------------------------
 
@@ -120,7 +120,7 @@ def a_ticket_in_review_carries_its_ci_on_the_board_and_stops_when_it_leaves(stat
         # Written to the board, and kept for the list to read without GitHub.
         assert runner.client.written == [("p-open", {"CI": "en cours"})], runner.client.written
         cards = [{"id": "popen", "column": "review", "pull_request": url}]
-        web_api._checks(cards)
+        web_tickets._checks(cards)
         assert cards[0]["ci"]["state"] == "pending" and len(cards[0]["ci"]["checks"]) == 2
         assert cards[0]["ci"]["link"] == url + "/checks"
         # Asked again at once: not due, so GitHub is not.
@@ -133,7 +133,7 @@ def a_ticket_in_review_carries_its_ci_on_the_board_and_stops_when_it_leaves(stat
         runner.follow_ci([])
         assert state.ci_rows() == {}
         cards = [{"id": "popen", "column": "validated", "pull_request": url}]
-        web_api._checks(cards)
+        web_tickets._checks(cards)
         assert cards[0]["ci"] is None
     finally:
         git_module.pull_request_head, git_module.checks = head, listed

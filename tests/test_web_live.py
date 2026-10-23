@@ -315,7 +315,7 @@ def a_notion_that_will_not_answer_reaches_the_console_as_a_notice():
 @case
 def a_session_identifier_is_read_from_either_shape_of_the_column():
     """A URL column holds a link, a text column holds the bare ID. Same session."""
-    from ponos.web.api import _session_id
+    from ponos.web.tickets import _session_id
 
     identifier = "6f1c2b70-1c39-4f0a-9a52-1f3c1a2b3c4d"
     assert _session_id(identifier) == identifier

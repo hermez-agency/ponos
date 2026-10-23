@@ -64,7 +64,6 @@ from ponos import ticket as ticket_module
 from ponos.runner import Runner
 from ponos.web import api as web_api
 from ponos.web import board as web_board
-from ponos.web import ideas as web_ideas
 from ponos.web import live as web_live
 from ponos.web import settings as web_settings
 
@@ -1353,10 +1352,12 @@ def _ideas_api(board: files.Board) -> web_api.Api:
     api._reader = web_board.Reader(journal=lambda report: None)
     api._outbox = web_board.Outbox(journal=lambda report: None)
     api.watch = _Nudged()
-    api.ideas = web_ideas.Ideas(api)
+    api._ideas_lock = threading.Lock()
+    api._ideas_busy = set()
+    api._ideas_person = None
     # Never a session of the real `claude` behind a test's back: a test that
     # wants an idea scored runs what was put aside itself.
-    api.ideas.later = lambda work: None
+    api.ideas_later = lambda work: None
     return api
 
 

@@ -317,7 +317,7 @@ def projects(request: Request) -> Response:
 
 @router.get("/api/projects/check", response_model=answers.ProjectCheck)
 def projects_check(request: Request, repository: str = "", path: str = "") -> Response:
-    return answer(_api(request).creation.check(repository, path))
+    return answer(_api(request).check_project(repository, path))
 
 
 @router.get("/api/projects/{project_id:page}", response_model=answers.ProjectDetail)
@@ -403,13 +403,13 @@ def save_goal(
 @router.get("/api/ideas", response_model=answers.Ideas)
 def ideas(request: Request, project: str = "") -> Response:
     # No `project` is the workspace's ideas, the dashboard's.
-    return answer(_api(request).ideas.proposed(project))
+    return answer(_api(request).proposed_ideas(project))
 
 
 @router.get("/api/ideas/all", response_model=answers.IdeaList)
 def ideas_all(request: Request, project: str = "", scope: str = "") -> Response:
     # `scope=all` is every project's ideas and the workspace's together.
-    return answer(_api(request).ideas.every(None if scope == "all" else project))
+    return answer(_api(request).every_idea(None if scope == "all" else project))
 
 
 @router.get("/api/ideas/schedule", response_model=answers.IdeasPlan)
@@ -420,7 +420,7 @@ def ideas_schedule(request: Request) -> Response:
 @router.get("/api/ideas/unscored", response_model=answers.Unscored)
 def ideas_unscored(request: Request, project: str = "", scope: str = "") -> Response:
     # What scoring the ideas with none would take: said before it is started.
-    return answer(_api(request).ideas.unscored(None if scope == "all" else project))
+    return answer(_api(request).unscored_ideas(None if scope == "all" else project))
 
 
 @router.get("/api/history", response_model=answers.History)
@@ -848,7 +848,7 @@ def delete_chat_session(request: Request, identifier: str) -> Response:
 @router.post("/api/projects", response_model=answers.Project)
 def create_project(request: Request, payload: Fields = Body(default_factory=dict)) -> Response:
     try:
-        return answer(_api(request).creation.create(payload))
+        return answer(_api(request).create_project(payload))
     except creation.Refused as error:
         # Under the field it is about, as the form draws a refusal.
         said = str(error)
@@ -860,7 +860,7 @@ def create_project(request: Request, payload: Fields = Body(default_factory=dict
 def delete_project(
     request: Request, project_id: str, payload: Fields = Body(default_factory=dict)
 ) -> Response:
-    return answer(_api(request).removal.delete(project_id, payload))
+    return answer(_api(request).delete_project(project_id, payload))
 
 
 @router.post("/api/projects/{project_id:page}/settings", response_model=answers.ProjectSettings)
@@ -913,7 +913,7 @@ def save_schedule(
 def generate_ideas(
     request: Request, payload: ProjectLink = Body(default_factory=ProjectLink)
 ) -> Response:
-    return answer(_api(request).ideas.generate(payload.project))
+    return answer(_api(request).generate_ideas(payload.project))
 
 
 @router.post("/api/ideas/schedule", response_model=answers.IdeasPlan)
@@ -923,47 +923,47 @@ def save_ideas_schedule(request: Request, payload: Fields = Body(default_factory
 
 @router.post("/api/ideas", response_model=answers.Idea)
 def create_idea(request: Request, payload: Fields = Body(default_factory=dict)) -> Response:
-    return answer(_api(request).ideas.create(payload))
+    return answer(_api(request).create_idea(payload))
 
 
 @router.post("/api/ideas/score", response_model=answers.Unscored)
 def score_ideas(request: Request, payload: Scope = Body(default_factory=Scope)) -> Response:
     # No `project` at all is every scope's; "" the workspace's.
-    return answer(_api(request).ideas.score_unscored(payload.project))
+    return answer(_api(request).score_unscored_ideas(payload.project))
 
 
 @router.post("/api/ideas/undo", response_model=answers.Undone)
 def undo_idea(request: Request, payload: Scope = Body(default_factory=Scope)) -> Response:
     # A `project` (empty for the workspace's) takes back that scope's
     # last decision; none at all, the last decision of any.
-    return answer(_api(request).ideas.undo(payload.project))
+    return answer(_api(request).undo_idea(payload.project))
 
 
 @router.post("/api/ideas/{number:int}", response_model=answers.Idea)
 def edit_idea(
     request: Request, number: int, payload: Fields = Body(default_factory=dict)
 ) -> Response:
-    return answer(_api(request).ideas.edit(number, payload))
+    return answer(_api(request).edit_idea(number, payload))
 
 
 @router.post("/api/ideas/{number:int}/keep", response_model=answers.Idea)
 def keep_idea(request: Request, number: int) -> Response:
-    return answer(_api(request).ideas.keep(number))
+    return answer(_api(request).keep_idea(number))
 
 
 @router.post("/api/ideas/{number:int}/discard", response_model=answers.Idea)
 def discard_idea(request: Request, number: int) -> Response:
-    return answer(_api(request).ideas.discard(number))
+    return answer(_api(request).discard_idea(number))
 
 
 @router.post("/api/ideas/{number:int}/ticket", response_model=answers.Idea)
 def ticket_idea(request: Request, number: int) -> Response:
-    return answer(_api(request).ideas.ticket(number))
+    return answer(_api(request).idea_ticket(number))
 
 
 @router.post("/api/ideas/{number:int}/reopen", response_model=answers.Idea)
 def reopen_idea(request: Request, number: int) -> Response:
-    return answer(_api(request).ideas.reopen(number))
+    return answer(_api(request).reopen_idea(number))
 
 
 @router.post("/api/disk/clean", response_model=answers.Cleaned)

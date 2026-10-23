@@ -28,7 +28,6 @@ from ponos.web import api as web_api
 from ponos.web import board as web_board
 from ponos.web import creation as web_creation
 from ponos.web import live as web_live
-from ponos.web import removal as web_removal
 
 # -- the configuration that chooses a board -----------------------------------
 
@@ -194,7 +193,6 @@ def _creatable(board: files.Board, language: str = "fr") -> web_api.Api:
     api = _markdown_api(board)
     api._config.runner = C.Runner(language=language)
     api._runner.config = api._config
-    api.creation = web_creation.Creation(api)
     api.watch = type("Watch", (), {"nudge": lambda self: None})()
     return api
 
@@ -240,7 +238,7 @@ def a_project_is_created_from_the_console_with_what_its_page_says():
         board.create_row("projects", "Existant", {"github": "someone/else"})
         api = _creatable(board)
 
-        made = api.creation.create(
+        made = api.create_project(
             {
                 "name": "  Site   vitrine ",
                 "description": "La page d'accueil.",
@@ -260,7 +258,7 @@ def a_project_is_created_from_the_console_with_what_its_page_says():
         assert not store.read(page, "github")
         assert board.blocks_text(made["id"]) == "# Voix\n\nÉcris court."
 
-        code = api.creation.create(
+        code = api.create_project(
             {"name": "Ponos", "kind": "code", "repository": "hermez-agency/ponos"}
         )
         assert code["kind"] == "code"
@@ -319,11 +317,11 @@ def a_project_is_created_from_a_folder_and_names_its_remote():
         )
         api = _creatable(board)
 
-        checked = api.creation.check(path=str(clone))
+        checked = api.check_project(path=str(clone))
         assert checked["path"] == str(clone)
         assert checked["origin"] == "https://github.com/SalvadorCardona/jeu"
 
-        made = api.creation.create({"name": "Jeu", "kind": "code", "path": f"{clone}/"})
+        made = api.create_project({"name": "Jeu", "kind": "code", "path": f"{clone}/"})
         assert made["path"] == str(clone)
         assert made["repository"] == "https://github.com/SalvadorCardona/jeu"
         assert store.read(board.page(made["id"]), "Path") == str(clone)
@@ -339,7 +337,7 @@ def a_project_the_console_cannot_create_is_refused_before_anything_is_written():
     with _board() as board, tempfile.TemporaryDirectory() as directory:
         board.create_row("projects", "Ponos", {})
         api = _creatable(board)
-        create = api.creation.create
+        create = api.create_project
 
         said = _refused(lambda: create({"name": "PONOS", "kind": "document"}), "name")
         assert said == "Un projet s'appelle déjà « Ponos »."
@@ -363,13 +361,13 @@ def a_project_the_console_cannot_create_is_refused_before_anything_is_written():
         assert [page.title for page in board.query("projects")] == ["Ponos"]
 
         # In English for a runner that speaks it.
-        said = _refused(lambda: _creatable(board, "en").creation.create({"name": "ponos"}), "name")
+        said = _refused(lambda: _creatable(board, "en").create_project({"name": "ponos"}), "name")
         assert said == "A project is already called “Ponos”."
 
         # What the form is told as it is filled in: a refusal said, not raised.
-        checked = api.creation.check("not a repository", missing)
+        checked = api.check_project("not a repository", missing)
         assert "repository_error" in checked and "path_error" in checked
-        checked = api.creation.check("owner/name")
+        checked = api.check_project("owner/name")
         assert checked == {"repository": "https://github.com/owner/name", "cloned": ""}
 
 
@@ -437,7 +435,6 @@ def _deletable(board: files.Board):
     api._config.notion = settings
     api._runner.config = api._config
     api._reader = web_board.Reader(journal=lambda report: None)
-    api.removal = web_removal.Removal(api)
     api.watch = type("Watch", (), {"nudge": lambda self: None})()
     return api, code, tickets
 
@@ -448,7 +445,7 @@ def deleting_a_project_needs_its_name_and_changes_nothing_without_it():
         api, code, tickets = _deletable(board)
         for confirm in ("", "Ponos", "ponosx"):
             try:
-                api.removal.delete(code, {"confirm": confirm})
+                api.delete_project(code, {"confirm": confirm})
             except ValueError as error:
                 assert "ponos" in str(error)
             else:
@@ -457,7 +454,7 @@ def deleting_a_project_needs_its_name_and_changes_nothing_without_it():
         status = board.settings().prop("status")
         assert store.read(board.page(tickets["Prêt"]), status) == board.settings().state("ready")
         try:
-            api.removal.delete("f" * 32, {"confirm": "ponos"})
+            api.delete_project("f" * 32, {"confirm": "ponos"})
         except LookupError:
             pass
         else:
@@ -476,7 +473,7 @@ def a_deleted_project_leaves_the_console_and_its_tickets_are_stopped_not_lost():
         ideas.record(code, "haiku", 0.5, [{"kind": "ticket", "title": "Une idée"}])
         state.record({"id": tickets["Fini"], "status": "done", "project": "ponos", "cost_usd": 2.0})
 
-        done = api.removal.delete(code, {"confirm": "ponos"})
+        done = api.delete_project(code, {"confirm": "ponos"})
 
         assert (done["tickets"], done["blocked"], done["trashed"]) == (3, 2, 0)
         assert [one["name"] for one in api.all_projects()["projects"]] == ["Site vitrine"]
@@ -510,7 +507,7 @@ def a_deleted_project_leaves_the_console_and_its_tickets_are_stopped_not_lost():
 def deleting_a_project_may_trash_its_tickets_too():
     with _board() as board, _state_home():
         api, code, tickets = _deletable(board)
-        done = api.removal.delete(code, {"confirm": "ponos", "trash_tickets": True})
+        done = api.delete_project(code, {"confirm": "ponos", "trash_tickets": True})
         assert (done["trashed"], done["blocked"]) == (3, 0)
         titles = {page.title for page in board.query("tickets")}
         assert titles == {"Ailleurs"}
@@ -527,7 +524,7 @@ def a_project_with_a_session_running_is_not_deleted():
             {"source": ticket_module.short_id(tickets["En cours"]), "log": "x"}
         ]
         try:
-            api.removal.delete(code, {"confirm": "ponos"})
+            api.delete_project(code, {"confirm": "ponos"})
         except RuntimeError as error:
             assert "En cours" in str(error)
         else:
