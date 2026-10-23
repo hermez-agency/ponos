@@ -52,7 +52,7 @@ from . import vault
 from .store import SLOTS, Comment, Page, Picture, StoreError, read, written
 
 # The collections a board is made of, and the file that is not one of them.
-COLLECTIONS = ("tickets", "projects", "agents", "schedules")
+COLLECTIONS = ("tickets", "projects", "agents", "schedules", "goals")
 CONTEXT = "context.md"
 
 # The standing context is the one page that is not in a collection, so it has no
@@ -231,10 +231,16 @@ def schemas(settings) -> dict[str, dict[str, str]]:
         return {name: next(iter(shape)) for name, shape in schema.items()}
 
     return {
-        "tickets": kinds(provision.tickets_schema(settings, "projects", "agents")),
+        # The goal a ticket serves is a column Notion boards add by hand, so
+        # `tickets_schema` does not declare it; a board of files has it too.
+        "tickets": {
+            **kinds(provision.tickets_schema(settings, "projects", "agents")),
+            settings.prop("goal"): "relation",
+        },
         "projects": kinds(provision.projects_schema()),
         "agents": kinds(provision.agents_schema(settings)),
         "schedules": kinds(provision.schedules_schema(settings, "tickets", "projects")),
+        "goals": kinds(provision.goals_schema("projects")),
     }
 
 
@@ -452,6 +458,7 @@ class Board:
             projects="projects",
             agents="agents",
             schedules="schedules",
+            goals="goals",
             rows={name: name for name in COLLECTIONS},
             context_page=CONTEXT_PAGE,
         )

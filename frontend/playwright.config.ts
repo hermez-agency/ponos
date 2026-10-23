@@ -86,7 +86,7 @@ export default defineConfig({
   projects: [
     {
       name: "console",
-      testIgnore: ["chat.spec.ts", "ideas.spec.ts", "ideas-page.spec.ts", "ideas-schedule.spec.ts", "sessions.spec.ts", "setup.spec.ts", "project-delete.spec.ts", "project-new.spec.ts", "series.spec.ts"],
+      testIgnore: ["chat.spec.ts", "ideas.spec.ts", "ideas-page.spec.ts", "ideas-schedule.spec.ts", "sessions.spec.ts", "setup.spec.ts", "project-delete.spec.ts", "project-new.spec.ts", "goals.spec.ts", "series.spec.ts"],
       use: { baseURL: `http://127.0.0.1:${PORT}` },
     },
     {
@@ -96,7 +96,7 @@ export default defineConfig({
     },
     {
       name: "delete",
-      testMatch: ["project-delete.spec.ts", "project-new.spec.ts"],
+      testMatch: ["project-delete.spec.ts", "project-new.spec.ts", "goals.spec.ts"],
       use: { baseURL: `http://127.0.0.1:${DELETE_PORT}` },
     },
     {

@@ -2645,6 +2645,26 @@ export const FRENCH: Record<string, string> = {
   "The workspace has no Goals database: add one in Notion, and its rows show here.":
     "L'espace de travail n'a pas de base Objectifs : ajoutez-en une dans Notion, et ses lignes s'affichent ici.",
   "The goal this ticket serves": "L'objectif que sert ce ticket",
+  "New goal": "Nouvel objectif",
+  "Edit the goal": "Modifier l'objectif",
+  "Launch v1": "Lancer la v1",
+  "A goal needs a name": "Un objectif a besoin d'un nom",
+  "One line: what this goal means.": "Une ligne : ce que cet objectif veut dire.",
+  "How we know it is met. Observable, not an intention.":
+    "Comment on sait qu'il est atteint. Observable, pas une intention.",
+  "No status": "Aucun statut",
+  "The tickets that serve this goal; its progress is counted from them.":
+    "Les tickets qui servent cet objectif ; son avancement se compte à partir d'eux.",
+  Archive: "Archiver",
+  "Archive the goal": "Archiver l'objectif",
+  "Archive “{{name}}”?": "Archiver « {{name}} » ?",
+  "The goal goes to Notion's trash. Its tickets stay where they are, and serve no goal.":
+    "L'objectif part dans la corbeille de Notion. Ses tickets restent où ils sont, sans objectif.",
+  "The goal could not be archived": "L'objectif n'a pas pu être archivé",
+  "Goal “{{name}}” archived": "Objectif « {{name}} » archivé",
+  "The goal could not be changed": "L'objectif n'a pas pu être changé",
+  "Change the goal": "Changer d'objectif",
+  "No goal": "Aucun objectif",
   /* -- ideas on a schedule -------------------------------------------------- */
   "Finding ideas on a schedule":
     "Recherche d'idées planifiée",

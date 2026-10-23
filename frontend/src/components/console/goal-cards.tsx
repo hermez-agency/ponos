@@ -1,16 +1,20 @@
-import { CalendarDays, ExternalLink, SearchX, Target, X } from "lucide-react"
+import { CalendarDays, ExternalLink, Pencil, SearchX, Target, Trash2, X } from "lucide-react"
+import { toast } from "sonner"
 import { ActionList } from "react-data-form"
 import {
   ListPagination,
   ResourceViewButton,
   useCurrentViewResourceContext,
   useListViewContext,
+  useNavigate,
   type ListComponentPropsInterface,
 } from "react-resource-view"
 
+import { ConfirmDialog } from "@/components/console/confirm-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { api, why } from "@/lib/api"
 import { useBoard } from "@/lib/board-store"
 import { dueOf, progressOf } from "@/lib/goal-search"
 import { useT } from "@/lib/i18n"
@@ -18,7 +22,7 @@ import { count } from "@/lib/numbers"
 import { locale } from "@/lib/recurrence"
 import type { Goal } from "@/lib/types"
 import { cn } from "@/lib/utils"
-import { useGoals, type GoalItem } from "@/resources/goals"
+import { goals, goalsHref, goalsOnce, useGoals, type GoalItem } from "@/resources/goals"
 
 import { EmptyState } from "./empty-state"
 
@@ -67,6 +71,7 @@ function Due({ due }: { due: string }) {
 }
 
 function GoalCard({ goal }: { goal: Goal }) {
+  const t = useT()
   return (
     <li
       data-slot="goals-item"
@@ -80,7 +85,14 @@ function GoalCard({ goal }: { goal: Goal }) {
               {goal.name}
             </span>
           </ResourceViewButton>
-          {goal.status ? <Badge variant="secondary">{goal.status}</Badge> : null}
+          <div className="flex shrink-0 items-center gap-1">
+            {goal.status ? <Badge variant="secondary">{goal.status}</Badge> : null}
+            <ResourceViewButton action={ActionList.update} id={goal.id}>
+              <span data-slot="goals-edit" title={t("Edit the goal")} aria-label={`${t("Edit the goal")} — ${goal.name}`}>
+                <Pencil className="text-muted-foreground hover:text-foreground size-3.5" />
+              </span>
+            </ResourceViewButton>
+          </div>
         </div>
         <Due due={goal.due} />
       </div>
@@ -161,18 +173,67 @@ function GoalWhole({ goal }: { goal: Goal }) {
           ))}
         </ul>
       ) : null}
-      {goal.url ? (
-        <a
-          href={goal.url}
-          target="_blank"
-          rel="noreferrer"
-          className={cn(buttonVariants({ variant: "outline", size: "sm" }), "self-start")}
-        >
-          <ExternalLink />
-          {t("Open in Notion")}
-        </a>
-      ) : null}
+      <div className="flex flex-wrap items-center gap-2">
+        <ResourceViewButton action={ActionList.update} id={goal.id}>
+          <span data-slot="goal-edit" className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
+            <Pencil />
+            {t("Edit")}
+          </span>
+        </ResourceViewButton>
+        <ArchiveGoal goal={goal} />
+        {goal.url ? (
+          <a
+            href={goal.url}
+            target="_blank"
+            rel="noreferrer"
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+          >
+            <ExternalLink />
+            {t("Open in Notion")}
+          </a>
+        ) : null}
+      </div>
     </article>
+  )
+}
+
+/* Archived after a confirmation: the goal goes to Notion's trash, where it can
+ * be brought back, and the tickets that served it simply serve none. */
+function ArchiveGoal({ goal }: { goal: Goal }) {
+  const t = useT()
+  const navigate = useNavigate()
+  const confirm = async () => {
+    try {
+      await api.deleteGoal(goal.id)
+    } catch (error) {
+      toast.error(t("The goal could not be archived"), { description: why(error) })
+      return false
+    }
+    toast.success(t("Goal “{{name}}” archived", { name: goal.name }))
+    await goalsOnce().catch(() => null)
+    // The list holds the card it drew: told it is gone, it draws without it.
+    goals.onChange.publish({ data: goal as GoalItem, action: ActionList.delete })
+    void navigate({ to: goalsHref() })
+  }
+  return (
+    <ConfirmDialog
+      title={t("Archive “{{name}}”?", { name: goal.name })}
+      description={t("The goal goes to Notion's trash. Its tickets stay where they are, and serve no goal.")}
+      destructive
+      confirm={
+        <>
+          <Trash2 />
+          {t("Archive the goal")}
+        </>
+      }
+      onConfirm={confirm}
+      trigger={
+        <Button type="button" variant="outline" size="sm" data-archive-goal>
+          <Trash2 />
+          {t("Archive")}
+        </Button>
+      }
+    />
   )
 }
 

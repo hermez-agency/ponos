@@ -116,10 +116,10 @@ def a_goal_counts_the_tickets_the_board_lists_column_by_column():
     """The progress is the board's, counted: no rollup read, a Markdown board has none."""
     api = _goals_api()
     tickets = [
-        {"goal_id": "aaaagoal", "column": "done"},
-        {"goal_id": "aaaagoal", "column": "done"},
-        {"goal_id": "aaaagoal", "column": "running"},
-        {"goal_id": "", "column": "done"},
+        {"id": "t1", "goal_id": "aaaagoal", "column": "done"},
+        {"id": "t2", "goal_id": "aaaagoal", "column": "done"},
+        {"id": "t3", "goal_id": "aaaagoal", "column": "running"},
+        {"id": "t4", "goal_id": "", "column": "done"},
         {"column": "ready"},
     ]
     api.board = lambda: {"tickets": tickets}
@@ -131,6 +131,7 @@ def a_goal_counts_the_tickets_the_board_lists_column_by_column():
     assert launch["criterion"] == "dix clients payants" and launch["due"] == "2026-12-31"
     assert launch["status"] == "En cours" and launch["priority"] == "Haute"
     assert launch["projects"] == ["Website"] and launch["id"] == "aaaagoal"
+    assert [ticket["id"] for ticket in launch["linked"]] == ["t1", "t2", "t3"], launch
     assert tidy["tickets"] == {} and tidy["description"] == "" and tidy["projects"] == []
     answers.Goals.model_validate(said)
 
@@ -163,7 +164,7 @@ def the_goals_route_answers_the_goals_with_their_counts(state_home):
 
     api = _goals_api()
     api.config.web.token = "tok"
-    api.board = lambda: {"tickets": [{"goal_id": "bbbbgoal", "column": "done"}]}
+    api.board = lambda: {"tickets": [{"id": "t1", "goal_id": "bbbbgoal", "column": "done"}]}
     console = app.Console(("127.0.0.1", 0), api, "tok", None, "")
     threading.Thread(target=console.serve_forever, daemon=True).start()
     try:

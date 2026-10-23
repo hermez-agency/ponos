@@ -769,7 +769,8 @@ def _encode(kind: str | None, value: Any) -> dict | None:
     if kind == "number":
         return {"number": value}
     if kind == "date":
-        return {"date": {"start": str(value)}}
+        # Emptied by `null`, as a select is: a due date taken off a goal.
+        return {"date": {"start": str(value)} if str(value) else None}
     if kind == "relation":
         # A relation is written as a list of page IDs, and accepts one on its
         # own: a ticket created from the console names its project, and naming

@@ -178,6 +178,28 @@ def projects_schema() -> dict:
     }
 
 
+def goals_schema(projects: str = "") -> dict:
+    """A goal is a name, what meets it and when — the Objectifs database as Notion has it.
+
+    Not built by `provision`: the database is made in Notion, by hand, with the
+    rollups that count its tickets. This is its shape for a board of files,
+    which has no rollup and counts them itself (see `Api.goals`): the tickets
+    point at the goal, never the other way round.
+    """
+    schema: dict = {
+        "Name": {"title": {}},
+        "Description": {"rich_text": {}},
+        "Critère": {"rich_text": {}},
+        "Échéance": {"date": {}},
+        "Statut": _select(["actif", "en pause", "atteint", "abandonné"]),
+        # A score from 0 to 100, as on a ticket: see priority.py.
+        "Priorité": {"number": {"format": "number"}},
+    }
+    if projects:
+        schema["Projets"] = _relation(projects)
+    return schema
+
+
 def agents_schema(settings: Notion) -> dict:
     """An agent is a page — its body is the role. The columns are the exceptions."""
     return {

@@ -56,8 +56,8 @@ from .files import COLLECTIONS, Board
 from .store import Page, Picture, StoreError, read
 
 # What the reconciliation walks, and the order it walks it in: a ticket's
-# relations point at projects and agents, so those exist on both sides first.
-ORDER = ("projects", "agents", "tickets", "schedules")
+# relations point at projects, agents and goals, so those exist on both sides first.
+ORDER = ("projects", "agents", "goals", "tickets", "schedules")
 
 # The standing context is a page rather than a collection, and is reconciled on
 # its body alone — it has no properties and no identity beyond being itself.

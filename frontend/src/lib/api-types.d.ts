@@ -248,7 +248,42 @@ export interface paths {
         /** Goals */
         get: operations["goals_api_goals_get"];
         put?: never;
-        post?: never;
+        /** Create Goal */
+        post: operations["create_goal_api_goals_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/goals/{goal_id}/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Delete Goal */
+        post: operations["delete_goal_api_goals__goal_id__delete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/goals/{goal_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Save Goal */
+        post: operations["save_goal_api_goals__goal_id__post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -954,6 +989,23 @@ export interface paths {
         put?: never;
         /** Set Ticket On */
         post: operations["set_ticket_on_api_tickets__ticket_id__on_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tickets/{ticket_id}/goal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set Ticket Goal */
+        post: operations["set_ticket_goal_api_tickets__ticket_id__goal_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2241,6 +2293,8 @@ export interface components {
             priority: string;
             /** @description The names of the projects it is for. */
             projects: string[];
+            /** @description Those projects' page ids, as the form sends them back. */
+            project_ids?: string[];
             /**
              * @description How many of the tickets pointing at it are in each column, by the column's key — counted
              *     from the board, not read off a rollup. A column with none is not a key.
@@ -2248,6 +2302,19 @@ export interface components {
             tickets: {
                 [key: string]: number;
             };
+            /** @description The tickets pointing at it, as the form lists them. */
+            linked?: components["schemas"]["GoalTicket"][];
+        };
+        GoalNamed: {
+            id: string;
+            name: string;
+        };
+        GoalSaved: {
+            id: string;
+        };
+        GoalTicket: {
+            id: string;
+            title: string;
         };
         Goals: {
             goals: components["schemas"]["Goal"][];
@@ -3595,6 +3662,11 @@ export interface components {
             /** @description The prompt run at every change of the ticket's status, empty for none. */
             on?: string;
         };
+        TicketGoal: {
+            id: string;
+            /** @description Empty when the ticket now serves none. */
+            goal_id: string;
+        };
         TicketOn: {
             id: string;
             /** @description The prompt now run at every change of status, empty once removed. */
@@ -4360,6 +4432,109 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Goals"];
+                };
+            };
+        };
+    };
+    create_goal_api_goals_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalNamed"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_goal_api_goals__goal_id__delete_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalNamed"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_goal_api_goals__goal_id__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalSaved"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -5747,6 +5922,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TicketOn"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_ticket_goal_api_tickets__ticket_id__goal_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ticket_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketGoal"];
                 };
             };
             /** @description Validation Error */
