@@ -766,6 +766,11 @@ class Delivery(Base):
         unless the project is one whose conflicts are left to you. And a base
         that moves faster than the replays is not chased for ever: past
         `MOST_REBASES`, the ticket asks.
+
+        Asked a second time at once only on a repository without CI of its
+        own: elsewhere the pushed commit has not been tested yet, and the
+        merge is left to the next pass — see `merge_pull_request`, for which
+        no check at all is no check red.
         """
         branch, base = git.pull_request_branches(url, self.config.github)
         project = self._project_of(ticket)
@@ -796,6 +801,13 @@ class Delivery(Base):
             self.say(f"    ! {branch} not replayed: {failure}")
             return self._refused(ticket, url, refusal, failure)
         count = self._replayed(ticket, url)
+        if project.path and (project.path / ".github" / "workflows").is_dir():
+            # The commit just pushed has no check yet: GitHub takes a few
+            # seconds to declare them, and `merge_pull_request` reads that
+            # empty list as nothing red. Waiting here would hold the queue for
+            # a build, so the next pass merges what CI has seen.
+            self.say(f"    · {branch} replayed — left validated for its checks")
+            return None
         replayed = self.voice.say("merge-rebased", branch=branch, base=base)
         method = self.config.runner.merge_method
         try:

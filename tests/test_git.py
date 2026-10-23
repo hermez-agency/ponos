@@ -696,6 +696,46 @@ def a_merge_refused_for_being_behind_is_replayed_and_asked_again():
 
 
 @case
+def a_replay_pushed_on_a_repository_with_ci_is_not_merged_before_its_checks(state_home):
+    """The commit just pushed has no check yet: an empty list is not a green one.
+
+    GitHub takes a few seconds to declare the checks of a new head, and
+    `merge_pull_request` read that silence as nothing red and nothing running —
+    on a branch nobody protects, the replayed commit landed on `main` untested.
+    So the ticket stays validated, and the next pass merges what CI has seen.
+    """
+    url = "https://github.com/x/y/pull/1"
+    repo = state_home / "repo"
+    (repo / ".github" / "workflows").mkdir(parents=True)
+    runner = _board_runner([_reviewed("pfresh", "Validated", url)], {})
+    runner.config.runner.rebase = True
+    runner._project_of = lambda ticket: projects.Project("Site", repo)
+    attempts: list[str] = []
+    replayed: list[tuple] = []
+
+    def merge(url: str, method: str = "squash", accounts=None) -> str:
+        attempts.append(url)
+        if len(attempts) == 1:
+            raise git_module.GitError("gh pr merge: Pull request is not mergeable")
+        return "merged"
+
+    with (
+        _github({url: "OPEN"}, merge=merge),
+        _git_answering(
+            pull_request_branches=lambda url, accounts=None: ("ticket/x-9d2cb790", "main"),
+            replay_pushed=lambda *args, **kwargs: replayed.append(args) or "",
+        ),
+    ):
+        first = runner.deliver()
+        assert len(replayed) == 1 and len(attempts) == 1, (replayed, attempts)
+        assert first == [], "merged in the same breath as the push"
+        second = runner.deliver()
+
+    assert len(replayed) == 1, "the next pass replays nothing GitHub did not refuse"
+    assert second[0]["status"] == "done", second
+
+
+@case
 def a_merge_refused_for_anything_else_is_still_a_question():
     """Nothing is pushed again to answer a review that has not happened."""
 
