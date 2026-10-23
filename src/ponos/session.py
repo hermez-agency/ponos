@@ -29,7 +29,7 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import IO
+from typing import IO, Any
 from urllib.parse import parse_qs, quote, urlparse
 
 from . import credits, disk, leftovers, legacy, vault
@@ -155,7 +155,7 @@ def run(
     session_id: str = "",
     resume: bool = False,
     environment: dict[str, str] | None = None,
-    on_event: Callable[[dict], None] | None = None,
+    on_event: Callable[[dict[str, Any]], None] | None = None,
     stop: threading.Event | None = None,
     max_budget_usd: float = 0.0,
 ) -> Outcome:
@@ -308,10 +308,12 @@ def _command(
 
 
 def _read(
-    process: subprocess.Popen, journal: IO[str], on_event: Callable[[dict], None] | None
-) -> tuple[dict, list[str]]:
+    process: subprocess.Popen[str],
+    journal: IO[str],
+    on_event: Callable[[dict[str, Any]], None] | None,
+) -> tuple[dict[str, Any], list[str]]:
     """The stream, written to the journal as it comes: its last event, and what was said."""
-    final: dict = {}
+    final: dict[str, Any] = {}
     texts: list[str] = []
     for line in process.stdout:  # type: ignore[union-attr]
         # Masked before anything reads it: the transcript, the steps
@@ -342,14 +344,14 @@ def _read(
 
 
 def _outcome(
-    final: dict,
+    final: dict[str, Any],
     texts: list[str],
     *,
     session_id: str,
     log: Path,
     stderr_path: Path,
     seconds: float,
-    code: int | None,
+    code: int,
     interrupted: bool,
     timed_out: bool,
     timeout_minutes: int,
@@ -425,7 +427,7 @@ def _outcome(
 GRACE_SECONDS = 5
 
 
-def halt(process: subprocess.Popen) -> None:
+def halt(process: subprocess.Popen[str]) -> None:
     """End a session's whole process group: asked first, then made to.
 
     By the group id, which with `start_new_session` is the leader's pid and
@@ -446,7 +448,7 @@ def halt(process: subprocess.Popen) -> None:
         pass
 
 
-def reap(process: subprocess.Popen) -> None:
+def reap(process: subprocess.Popen[str]) -> None:
     """End what is left of a session's process group once its leader is gone.
 
     `halt` is for a session still running; this is for the one that ended, and
@@ -531,7 +533,7 @@ def relocate(session_id: str, destination: Path) -> Path | None:
 
 
 SCHEME = "ponos"
-TERMINALS = (
+TERMINALS: tuple[tuple[str, Callable[[str, list[str]], list[str]]], ...] = (
     (
         "gnome-terminal",
         lambda cwd, args: ["gnome-terminal", f"--working-directory={cwd}", "--", *args],
@@ -645,7 +647,7 @@ def open_link(uri: str) -> int:
     preferred = os.environ.get("PONOS_TERMINAL", "")
     candidates = list(TERMINALS)
     if preferred:
-        candidates.insert(0, (preferred, lambda cwd, args, p=preferred: [p, "-e", *args]))
+        candidates.insert(0, (preferred, lambda cwd, args: [preferred, "-e", *args]))
     for name, build in candidates:
         if shutil.which(name):
             # Detached: the click must not keep the desktop handler alive.
@@ -701,7 +703,7 @@ def pull_requests(log: Path) -> list[str]:
     return found
 
 
-def _feed(process: subprocess.Popen, prompt: str) -> None:
+def _feed(process: subprocess.Popen[str], prompt: str) -> None:
     """Hand the prompt to the session on stdin, then close it: that is the end."""
     try:
         process.stdin.write(prompt)  # type: ignore[union-attr]

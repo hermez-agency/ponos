@@ -20,6 +20,7 @@ merged or done, the row goes, and so does the reading of it.
 from __future__ import annotations
 
 import time
+from typing import Any
 
 from . import git, state, store
 from .base import Base
@@ -46,7 +47,7 @@ SETTLED_SECONDS = 300
 APPEAR_SECONDS = git.CHECKS_APPEAR_SECONDS
 
 
-def deduce(checks: list[dict]) -> str:
+def deduce(checks: list[dict[str, Any]]) -> str:
     """`pending`, `passed`, `failed` — or nothing when the pull request has no check."""
     buckets = [str(one.get("bucket") or "") for one in checks]
     if not buckets:
@@ -63,7 +64,7 @@ def link(url: str) -> str:
     return f"{url.rstrip('/')}/checks"
 
 
-def read(row: dict | None, url: str) -> dict | None:
+def read(row: dict[str, Any] | None, url: str) -> dict[str, Any] | None:
     """What a card shows of a stored row: nothing when there is none worth drawing."""
     if not row or not row.get("state") or row.get("url") != url:
         return None
@@ -75,7 +76,9 @@ def read(row: dict | None, url: str) -> dict | None:
     }
 
 
-def settle(row: dict | None, url: str, head: str, checks: list[dict], now: float) -> dict:
+def settle(
+    row: dict[str, Any] | None, url: str, head: str, checks: list[dict[str, Any]], now: float
+) -> dict[str, Any]:
     """The row after reading `checks` of the commit `head`.
 
     A head that is not the one last read is a push: the state goes back to
@@ -99,12 +102,12 @@ def settle(row: dict | None, url: str, head: str, checks: list[dict], now: float
     }
 
 
-def due(row: dict | None, url: str, now: float) -> bool:
+def due(row: dict[str, Any] | None, url: str, now: float) -> bool:
     """Is it time to ask GitHub again about that pull request?"""
     if not row or row.get("url") != url:
         return True
     wait = RUNNING_SECONDS if row["state"] in ("", PENDING) else SETTLED_SECONDS
-    return now - row["asked"] >= wait
+    return bool(now - row["asked"] >= wait)
 
 
 class Checks(Base):

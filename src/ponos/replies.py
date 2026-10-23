@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from typing import Any
 
 from . import agents, conversation, session, state, store
 from . import prompt as prompt_module
@@ -31,7 +32,7 @@ from .ticket import Ticket, short_id
 class Replies(Base):
     """The runner answering, in the thread it was spoken to in."""
 
-    def converse(self) -> list[dict]:
+    def converse(self) -> list[dict[str, Any]]:
         """Answer the comments that are waiting for an answer.
 
         A pass, not a run: nothing is claimed, no status moves, no worktree is
@@ -122,7 +123,7 @@ class Replies(Base):
                 break
         return pending
 
-    def _answer(self, me: str, page_id: str, thread: conversation.Thread) -> dict | None:
+    def _answer(self, me: str, page_id: str, thread: conversation.Thread) -> dict[str, Any] | None:
         """Answer one comment, in its thread. Never raises."""
         try:
             return self._answer_thread(me, page_id, thread)
@@ -132,7 +133,9 @@ class Replies(Base):
             self.say(f"    ! comment not answered: {error}")
         return None
 
-    def _answer_thread(self, me: str, page_id: str, thread: conversation.Thread) -> dict | None:
+    def _answer_thread(
+        self, me: str, page_id: str, thread: conversation.Thread
+    ) -> dict[str, Any] | None:
         ticket = Ticket(self.client.page(page_id))
         spellings = self.spellings()
         message = conversation.strip_mention(thread.last.text, spellings)

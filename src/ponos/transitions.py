@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import time
 from datetime import UTC, datetime
+from typing import Any
 
 from . import agents, conversation, db, session, state, store
 from . import prompt as prompt_module
@@ -171,7 +172,7 @@ def abandon(older_than_seconds: float) -> int:
         return 0
 
 
-def pending(limit: int) -> list[dict]:
+def pending(limit: int) -> list[dict[str, Any]]:
     with db.transaction(immediate=False) as connection:
         rows = connection.execute(
             "SELECT id, ticket, title, project, old, new, depth FROM transitions"
@@ -220,7 +221,7 @@ def finish(
         )
 
 
-def history(ticket: str, limit: int = 50) -> list[dict]:
+def history(ticket: str, limit: int = 50) -> list[dict[str, Any]]:
     """The executions of one ticket's prompt, newest first. Empty when unreadable."""
     keys = (
         "id",
@@ -254,7 +255,7 @@ class Transitions(Base):
     # `Base.__init__`: it is this chapter's own and nobody else reads it.
     _on_read = float("-inf")
 
-    def transitions(self) -> list[dict]:
+    def transitions(self) -> list[dict[str, Any]]:
         """See what moved since the last reading, and run the prompts it wakes.
 
         Never raises and never touches a status: it is a pass about what the
@@ -300,8 +301,8 @@ class Transitions(Base):
             if found:
                 self.say(f"  ⇄ {ticket.title} — {old} → {current}")
 
-    def _run_pending(self) -> list[dict]:
-        results: list[dict] = []
+    def _run_pending(self) -> list[dict[str, Any]]:
+        results: list[dict[str, Any]] = []
         for row in pending(BATCH):
             if self.under_reserve():
                 break
@@ -319,7 +320,7 @@ class Transitions(Base):
                 results.append(result)
         return results
 
-    def _complain(self, row: dict, reason: str) -> None:
+    def _complain(self, row: dict[str, Any], reason: str) -> None:
         """Say on the ticket that its prompt failed. The status is not touched."""
         try:
             page = self.client.page(row["ticket"])
@@ -328,7 +329,7 @@ class Transitions(Base):
         said = self.voice.say("on-failed", old=row["old"], new=row["new"], reason=reason)
         self._comment(Ticket(page), said)
 
-    def _fire(self, row: dict) -> dict | None:
+    def _fire(self, row: dict[str, Any]) -> dict[str, Any] | None:
         """Run one change's prompt. The row is finished here, whatever happens."""
         settings = self.config.notion
         ticket = Ticket(self.client.page(row["ticket"]))
@@ -442,7 +443,7 @@ class Transitions(Base):
             "cost_usd": outcome.cost_usd,
         }
 
-    def _describe(self, ticket: Ticket, row: dict, prompt: str, project: str) -> str:
+    def _describe(self, ticket: Ticket, row: dict[str, Any], prompt: str, project: str) -> str:
         """What the session is shown of the change: the facts, then the prompt."""
         settings = self.config.notion
         page = ticket.page
@@ -475,7 +476,7 @@ class Transitions(Base):
             for page in self.client.query(self.database)
         }
 
-    def _settle(self, before: dict[str, str], row: dict) -> None:
+    def _settle(self, before: dict[str, str], row: dict[str, Any]) -> None:
         """Adopt whatever the execution changed, so that none of it runs a prompt."""
         try:
             after = self._statuses()

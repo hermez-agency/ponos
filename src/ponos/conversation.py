@@ -41,6 +41,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from . import db, store, voice
 from .config import state_dir
@@ -251,7 +252,7 @@ class Ledger:
     """
 
     pages: dict[str, str] = field(default_factory=dict)
-    threads: dict[str, dict] = field(default_factory=dict)
+    threads: dict[str, dict[str, Any]] = field(default_factory=dict)
     cursor: int = 0
     at: float = 0.0
     database: Path | None = None
@@ -393,7 +394,7 @@ def _newest(entries: dict[str, str], keep: int) -> dict[str, str]:
     return dict(ordered[:keep])
 
 
-def _newest_threads(entries: dict[str, dict], keep: int) -> dict[str, dict]:
+def _newest_threads(entries: dict[str, dict[str, Any]], keep: int) -> dict[str, dict[str, Any]]:
     ordered = sorted(entries.items(), key=lambda item: str(item[1].get("at", "")), reverse=True)
     return dict(ordered[:keep])
 

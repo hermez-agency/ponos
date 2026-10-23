@@ -34,6 +34,7 @@ import re
 import unicodedata
 from collections.abc import Iterable
 from dataclasses import dataclass, field
+from typing import Any
 
 from . import question as question_module
 from . import voice as voice_module
@@ -237,7 +238,7 @@ class Solution:
     # The option it is, counted from 1, for the session's own options.
     number: int = 0
 
-    def as_dict(self) -> dict:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "key": self.key,
             "column": self.column,
@@ -532,7 +533,7 @@ def told(
     return lines
 
 
-def checks_state(checks: list[dict]) -> str:
+def checks_state(checks: list[dict[str, Any]]) -> str:
     """`passed`, `failed`, `pending`, or `none` — what a pull request's checks say together."""
     buckets = {str(check.get("bucket") or "") for check in checks}
     if not buckets:

@@ -54,6 +54,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from . import agents, generated, git, kinds, project_settings, session, state, store, subtypes
 from . import prompt as prompt_module
@@ -105,7 +106,7 @@ def _named(checks: list[str]) -> str:
 class Delivery(Base):
     """What a validated ticket sets off, and how far it is taken."""
 
-    def delivered(self) -> list[dict]:
+    def delivered(self) -> list[dict[str, Any]]:
         """`deliver`, with what it did written into the history.
 
         Merged, published, or refused: as much a run of this ticket as a session
@@ -128,7 +129,7 @@ class Delivery(Base):
                 state.record(entry)
         return done
 
-    def deliver(self) -> list[dict]:
+    def deliver(self) -> list[dict[str, Any]]:
         """Carry out the tickets you have validated.
 
         The last column, and with *Ready* one of the only two where moving a
@@ -172,7 +173,7 @@ class Delivery(Base):
 
     def delivering(
         self, taken: set[str] | None = None
-    ) -> tuple[list[dict], list[tuple[Ticket, Project]]]:
+    ) -> tuple[list[dict[str, Any]], list[tuple[Ticket, Project]]]:
         """Sort the validated column: what is settled here, what needs a session.
 
         Two kinds of work sit in that column, and only one of them costs a
@@ -196,7 +197,7 @@ class Delivery(Base):
         """
         settings = self.config.notion
         taken = taken or set()
-        results: list[dict] = []
+        results: list[dict[str, Any]] = []
         publishing: list[tuple[Ticket, Project]] = []
         held: list[tuple[Ticket, datetime]] = []
         now = datetime.now().astimezone()
@@ -317,7 +318,7 @@ class Delivery(Base):
 
     def _merge(
         self, ticket: Ticket, url: str, resolving: list[tuple[Ticket, Project]]
-    ) -> dict | None:
+    ) -> dict[str, Any] | None:
         """A validated pull request: merge it, and take the ticket to done.
 
         `resolving` is where a pull request whose conflicts need a session is
@@ -365,7 +366,9 @@ class Delivery(Base):
                 return self._refused(ticket, url, error)
         return self._merged(ticket, url, said.say("merged-with", method=method))
 
-    def _merged(self, ticket: Ticket, url: str, *facts: str, notes: tuple = ()) -> dict:
+    def _merged(
+        self, ticket: Ticket, url: str, *facts: str, notes: tuple[str, ...] = ()
+    ) -> dict[str, Any]:
         """Done, and said so: the pull request is in."""
         state.forget_rebases(ticket.id)
         state.forget_base_wait(ticket.id)
@@ -714,7 +717,9 @@ class Delivery(Base):
         self._comment(ticket, self.voice.say("base-green-again", base=base))
         return False
 
-    def _refused(self, ticket: Ticket, url: str, refusal: object, *notes: str) -> dict | None:
+    def _refused(
+        self, ticket: Ticket, url: str, refusal: object, *notes: str
+    ) -> dict[str, Any] | None:
         """A merge GitHub would not make, and nothing more the runner can do about it."""
         state.forget_rebases(ticket.id)
         said = self.voice
@@ -747,7 +752,7 @@ class Delivery(Base):
         url: str,
         refusal: object,
         resolving: list[tuple[Ticket, Project]],
-    ) -> dict | None:
+    ) -> dict[str, Any] | None:
         """Put the branch back on top of its base, when that is what was wrong.
 
         A pull request opened this morning is behind by noon on a repository
@@ -774,7 +779,7 @@ class Delivery(Base):
         """
         branch, base = git.pull_request_branches(url, self.config.github)
         project = self._project_of(ticket)
-        if not branch or not project.is_code:
+        if not branch or project.path is None:  # `not is_code`, spelled out for mypy to narrow
             return self._refused(ticket, url, refusal)
         self._forgiven(ticket, url)
         if state.rebases(ticket.id) >= MOST_REBASES:
@@ -873,7 +878,7 @@ class Delivery(Base):
             self._replayed_after[ticket.id] = self._landed.get(_repository(url), 0)
         return state.rebased(ticket.id)
 
-    def _too_often(self, ticket: Ticket, url: str, base: str) -> dict:
+    def _too_often(self, ticket: Ticket, url: str, base: str) -> dict[str, Any]:
         """A base that moves faster than the replays: asked, rather than chased."""
         state.forget_rebases(ticket.id)
         said = self.voice
@@ -886,7 +891,7 @@ class Delivery(Base):
             question=said.say("rebased-too-often-question", count=MOST_REBASES, base=base),
         )
 
-    def _carry_out(self, ticket: Ticket, project: Project) -> dict | None:
+    def _carry_out(self, ticket: Ticket, project: Project) -> dict[str, Any] | None:
         """A validated ticket that needs a session: a publication, or a conflict.
 
         The two things of the validated column that cost a place, told apart by
@@ -898,7 +903,7 @@ class Delivery(Base):
             return self._resolve(ticket, project, url)
         return self._publish(ticket, project)
 
-    def _resolve(self, ticket: Ticket, project: Project, url: str) -> dict | None:
+    def _resolve(self, ticket: Ticket, project: Project, url: str) -> dict[str, Any] | None:
         """Resolve a validated pull request's conflicts, then merge it.
 
         The replay `_catch_up` gave up on, taken to its end: the branch as
@@ -963,7 +968,7 @@ class Delivery(Base):
             if project.path:
                 git.remove_worktree(project.path, job.workdir)
 
-    def _resolved(self, job: Job, url: str) -> dict | None:
+    def _resolved(self, job: Job, url: str) -> dict[str, Any] | None:
         """`_resolve`, once the ticket is claimed: every road out of it."""
         ticket, project = job.ticket, job.project
         assert project.path is not None
@@ -1097,7 +1102,7 @@ class Delivery(Base):
 
     def _left_for_base(
         self, ticket: Ticket, project: Project, url: str, base: str, *notes: str
-    ) -> dict:
+    ) -> dict[str, Any]:
         """A resolved pull request whose checks fail where its base fails too.
 
         Back to the validated column with the line on its card, and no question
@@ -1190,7 +1195,7 @@ class Delivery(Base):
         except store.StoreError as error:
             self.say(f"    ! the cost could not be written: {voice_module.line(error)}")
 
-    def _publish_all(self, publishing: list[tuple[Ticket, Project]]) -> list[dict]:
+    def _publish_all(self, publishing: list[tuple[Ticket, Project]]) -> list[dict[str, Any]]:
         """Every validated publication of this pass, up to `max_concurrent` at once.
 
         A batch, unlike the ticket queue in `_work`, and deliberately so: the
@@ -1218,7 +1223,7 @@ class Delivery(Base):
         project: Project,
         forced: str = "",
         prepared: session.Outcome | None = None,
-    ) -> dict | None:
+    ) -> dict[str, Any] | None:
         """A validated ticket with no pull request: publish what it holds.
 
         The Instagram post drafted last week, the email written into the page,

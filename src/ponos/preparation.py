@@ -110,7 +110,7 @@ class Preparation(Base):
         subtype, note = self._subtype(ticket, body, answer) if project.is_code else ("", "")
 
         stem = f"{slugify(project.name, 24)}-{short}"
-        if project.is_code:
+        if project.path is not None:  # `is_code`, spelled out for mypy to narrow
             base = self.config.runner.base_branch or git.default_branch(project.path)
             branch = f"{self.config.runner.branch_prefix}{slugify(ticket.title)}-{short}"
             workdir = state_dir() / "worktrees" / stem

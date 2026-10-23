@@ -39,6 +39,7 @@ import re
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any
 
 from . import markdown, store
 from . import voice as voice_module
@@ -117,7 +118,7 @@ def _prose(text: str) -> str:
     return flat if len(flat) <= SAID else flat[: SAID - 1].rstrip() + "…"
 
 
-def _hint(payload: dict) -> str:
+def _hint(payload: dict[str, Any]) -> str:
     for key in _HINTS:
         value = payload.get(key)
         if value:
@@ -125,7 +126,7 @@ def _hint(payload: dict) -> str:
     return ""
 
 
-def describe(event: dict) -> list[Step]:
+def describe(event: dict[str, Any]) -> list[Step]:
     """The steps a stream-json event is worth, in reading order.
 
     Assistant events carry both what the agent said and what it decided to do;
@@ -169,7 +170,7 @@ def describe(event: dict) -> list[Step]:
 _LIVE_TITLE = re.compile(r"⏳ .+|✓ \d+ .+|⚠️ .+ — \d+ .+", re.DOTALL)
 
 
-def is_live(block: dict) -> bool:
+def is_live(block: dict[str, Any]) -> bool:
     """Whether a block of a page is one of the toggles this module wrote.
 
     A ticket keeps the story of every run, and a page read as a brief must not:
@@ -193,13 +194,13 @@ def is_live(block: dict) -> bool:
     return bool(_LIVE_TITLE.fullmatch(title.strip()))
 
 
-def _paragraph(step: Step) -> dict:
+def _paragraph(step: Step) -> dict[str, Any]:
     """A sentence the agent wrote, as a sentence — whole, and in its own words.
 
     Notion caps one piece of rich text at two thousand characters, not the block
     that holds them, so a long turn is a handful of pieces and not a cut.
     """
-    parts: list[dict] = []
+    parts: list[dict[str, Any]] = []
     for start in range(0, len(step.label), markdown.MAX_CONTENT):
         parts += markdown.inline(step.label[start : start + markdown.MAX_CONTENT])
     return {"object": "block", "type": "paragraph", "paragraph": {"rich_text": parts}}
@@ -251,7 +252,7 @@ class Live:
 
     # -- feeding ------------------------------------------------------------
 
-    def event(self, payload: dict) -> None:
+    def event(self, payload: dict[str, Any]) -> None:
         """One stream-json event. Writes only if the cadence has come round."""
         for step in describe(payload):
             self.add(step)

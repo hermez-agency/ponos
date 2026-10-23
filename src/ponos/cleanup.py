@@ -78,7 +78,7 @@ def worktree_sizes() -> list[tuple[str, int]]:
     return sorted(held, key=lambda item: item[1], reverse=True)
 
 
-def human(size: int) -> str:
+def human(size: float) -> str:
     """A size the way a person reads it: 25 GB, 764 MB, 12 kB."""
     for unit in ("B", "kB", "MB", "GB"):
         if size < 1000 or unit == "GB":

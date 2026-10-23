@@ -216,7 +216,7 @@ def follow(
         if watcher
         else ""
     )
-    if not identifier:
+    if not identifier or watcher is None:
         if watcher:
             watcher.terminate()
         _plain(title, body, urgent=urgent, warning=warning, key=key)
@@ -289,7 +289,7 @@ def _remember(key: str, identifier: str, previous: dict[str, str]) -> None:
         pass
 
 
-def _watch() -> subprocess.Popen | None:
+def _watch() -> subprocess.Popen[str] | None:
     """`dbus-monitor` on the notification signals, reading as they arrive."""
     try:
         return subprocess.Popen(
@@ -372,7 +372,7 @@ def _text(value: str) -> str:
     return f'"{value}"'
 
 
-def _clicked(watcher: subprocess.Popen, identifier: str) -> str:
+def _clicked(watcher: subprocess.Popen[str], identifier: str) -> str:
     """Which action of that notification was clicked — "" when it was dismissed.
 
     `dbus-monitor` writes a signal over several lines — its name on the first,
@@ -383,6 +383,7 @@ def _clicked(watcher: subprocess.Popen, identifier: str) -> str:
     """
     signal = ""
     invoked = False
+    assert watcher.stdout is not None  # opened with stdout=PIPE, see `_watch`
     for line in watcher.stdout:
         if invoked:
             found = re.search(r'string "(.*)"', line)

@@ -25,7 +25,7 @@ import logging
 import socket
 import threading
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any, Protocol
 
 from . import channels, conversation, journal, legacy, notify, provider, session, state, store
 from . import voice as voice_module
@@ -34,10 +34,134 @@ from .config import Config
 from .projects import Resolver
 from .ticket import Ticket
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from pathlib import Path
+
+    from . import question as question_module
+    from .cleanup import Tidied
+    from .projects import Project
+    from .ticket import Job
+
 logger = logging.getLogger(__name__)
 
 
-class Base:
+if TYPE_CHECKING:
+
+    class Chapters(Protocol):
+        """What one chapter of a run calls on another, as the type checker sees it.
+
+        Each chapter is written against `Base` alone, and only `Runner` puts them
+        all together: read on its own, `Delivery` has no `_fail` — `Reports` brings
+        it. Typing every `self` as the full `Runner` would make each chapter import
+        the class built out of it; this lists instead what crosses from one to the
+        other, with the signature of the chapter it comes from — which mypy holds
+        that chapter to. Only the type checker sees it: at run time `Base` stands on
+        `object`, and nothing here exists.
+
+        A method a second chapter starts calling joins this list; one called only
+        inside its own chapter stays out of it.
+        """
+
+        # board.py
+        def _moment(self, ticket: Ticket) -> datetime | None: ...
+        def waiting_flag(self) -> str: ...
+        def type_column(self) -> str: ...
+        def subtype_column(self) -> str: ...
+        def kind(self, ticket: Ticket) -> str: ...
+        def kind_name(self, key: str) -> str: ...
+        def priority_cell(self, score: int) -> int | str: ...
+        def _answered(self, ticket: Ticket) -> bool: ...
+        def myself(self) -> str: ...
+        def spellings(self) -> tuple[str, ...]: ...
+        def _project_of(self, ticket: Ticket) -> Project: ...
+        def _body(self, ticket: Ticket) -> str: ...
+
+        # ci.py
+        def follow_ci(self, pages: list[store.Page]) -> int: ...
+
+        # cleanup.py
+        def tidy(self, *, now: bool = False) -> Tidied | None: ...
+
+        # delivery.py
+        def validated_column(self) -> bool: ...
+        def _forced(self, kind: str, project: Project, ticket: Ticket | None = None) -> str: ...
+        def _force_merge(self, job: Job, url: str) -> tuple[str, bool]: ...
+        def _publish(
+            self,
+            ticket: Ticket,
+            project: Project,
+            forced: str = "",
+            prepared: session.Outcome | None = None,
+        ) -> dict[str, Any] | None: ...
+
+        # execution.py
+        def _run_session(
+            self, job: Job, template: str, subtype: bool = False
+        ) -> session.Outcome: ...
+
+        # reports.py
+        def _set(self, ticket: Ticket, **values: object) -> None: ...
+        def _claim(self, ticket: Ticket, **values: object) -> bool: ...
+        def _blocked_by(self, code: str) -> dict[str, object]: ...
+        def _refusal_cleared(self, ticket: Ticket) -> dict[str, object]: ...
+        def _measures(self, outcome: session.Outcome) -> dict[str, object]: ...
+        def _session_value(self, session_id: str, home: Path | None) -> str: ...
+        def _carried_session(self, ticket: Ticket) -> str: ...
+        def _comment(self, ticket: Ticket, text: str, discussion: str = "") -> None: ...
+        def comments(self, page_id: str) -> list[store.Comment]: ...
+        @property
+        def ledger(self) -> conversation.Ledger: ...
+        def discussion(self, ticket: Ticket) -> list[str]: ...
+        def _tell(
+            self,
+            event: str,
+            ticket: Ticket,
+            verdict: str,
+            body: str,
+            *,
+            ask: bool = False,
+            code: str = "",
+            project: str = "",
+            facts: tuple[object, ...] = (),
+            summary: str = "",
+            pull_request: str = "",
+        ) -> None: ...
+        def answers(self) -> int: ...
+        def _why_stopped(self, outcome: session.Outcome, code: str) -> tuple[str, str, str]: ...
+        def _fail(
+            self,
+            ticket: Ticket,
+            reason: str,
+            detail: str = "",
+            *,
+            code: str,
+            blocked: bool = False,
+            question: str | question_module.Question | None = "",
+            note: str = "",
+            outcome: session.Outcome | None = None,
+        ) -> dict[str, Any]: ...
+        def _guarded(
+            self, ticket: Ticket, work: Callable[..., dict[str, Any] | None], *arguments: object
+        ) -> dict[str, Any] | None: ...
+        def _filed(self, job: Job, outcome: session.Outcome, *rest: object) -> str: ...
+        def _out_of_credit(self, outcome: session.Outcome) -> bool: ...
+        def _hold_credits(self, outcome: session.Outcome) -> None: ...
+        def _requeue(
+            self,
+            ticket: Ticket,
+            status: str,
+            outcome: session.Outcome,
+            note: str = "",
+            home: Path | None = None,
+        ) -> dict[str, Any]: ...
+        def under_reserve(self) -> float: ...
+
+else:
+    Chapters = object
+
+
+class Base(Chapters):
     """The state of one run, and the little every module of it needs."""
 
     def __init__(
