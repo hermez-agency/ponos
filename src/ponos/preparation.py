@@ -13,7 +13,8 @@ the next tick of the timer would happily pick up as well.
 A ticket that cannot be used is failed here rather than carried further: no
 project anybody can find, a body Notion will not hand over, a page with neither
 title nor content. Each of them returns `None`, and the pass goes on to the
-next ticket. So does one whose type nobody wrote and the runner could not tell
+next ticket. So does one moved out of ready while it was being prepared — the
+claim did not take, and the move is the answer. So does one whose type nobody wrote and the runner could not tell
 for sure: it is blocked with the question before anything is claimed — see
 kinds.py for why a doubt is never settled by running the ticket.
 """
@@ -199,7 +200,7 @@ class Preparation(Base):
             # The session identifier is written now, not at the end: a ticket
             # still in progress is exactly the one you want to look into, and
             # `claude --resume <id>` replays it even while it runs.
-            self._set(
+            claimed = self._claim(
                 ticket,
                 **{
                     self.config.notion.prop("status"): self.config.notion.state("running"),
@@ -212,6 +213,11 @@ class Preparation(Base):
                     ),
                 },
             )
+            if not claimed:
+                # Moved by somebody while it was being prepared: their move is
+                # the answer, so no failure is written over it — only the log.
+                self.say(f"    · {ticket.title} — not started: it left ready before its claim")
+                return None
         return job
 
     def _written_model(self, ticket: Ticket) -> str:
