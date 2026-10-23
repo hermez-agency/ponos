@@ -1016,8 +1016,9 @@ class HealthCheck(Shape):
     """One check of `health.py`: a sentence with `{{name}}` holes, and the params that fill them."""
 
     code: str
-    group: Literal["notion", "github", "claude", "projects", "machine"]
-    state: Literal["ok", "warn", "error"]
+    group: Literal["notion", "github", "claude", "projects", "machine", "settings"]
+    state: Literal["ok", "warn", "error", "info"]
+    """`info` is a setting said rather than judged: `ponos doctor`'s grey line, left off the band."""
     title: str
     said: str
     params: dict[str, str]

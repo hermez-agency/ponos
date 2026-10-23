@@ -403,7 +403,7 @@ installing, restarting — and the page reloads by itself from the new version:
   is not made, and the one in use carries on; the next check tries again. An environment
   whose Python a distribution upgrade took away (`.venv/bin/python` leading nowhere, or
   `pyvenv.cfg` naming an interpreter that is gone) is made again by the next pass.
-  `ponos doctor` has an *Environment* section — there, its interpreter runs, and each
+  `ponos doctor` has a *Python environment* line under *Machine* — there, its interpreter runs, and each
   package of `requirements.txt` imports — and when it is not, the command that mends it:
   `ponos update --environment`;
 - **the page chooses nothing.** `POST /api/update` takes no command, no version and no
@@ -599,7 +599,11 @@ with its probable cause, and either a **Configure** button (a missing property o
 on the Notion board, a project's default branch: Ponos changes it only after you confirm)
 or the exact steps and the link to follow. It checks again when the page opens and on
 **Recheck**, and it is not drawn while everything is green. `ponos doctor` prints the same
-checks (`src/ponos/health.py`) under "Installation health".
+checks (`src/ponos/health.py`) — every one of them, `doctor` asks nothing on its own —
+grouped as the band groups them (*Board*, *GitHub*, *Claude*, *Projects*, *Machine*,
+*Settings*), with the settings it only describes in grey, which the band leaves out. The one
+thing the two do differently: `doctor` asks the remote for the newest version, the dashboard
+reads what the last check found.
 
 ### 4. The rest of the file
 
@@ -886,7 +890,7 @@ you made it. The token suits one person and a first try.
 - **One door.** The clone, the push, the pull request, its comments and the merge all go out
   with the token through `GH_TOKEN` and git's environment — as they do with the App, only
   the token differs. The session is handed it too, and commits are signed as usual.
-- `ponos doctor` has a *GitHub token* section: where it comes from, who it is, what it lacks.
+- `ponos doctor` has a *GitHub token* line under *GitHub*: where it comes from, who it is, what it lacks.
 
 ### Several GitHub accounts
 
@@ -995,7 +999,7 @@ token that can do everything your account can.
    NPM_TOKEN = "hermez-agency/npm"      # or "keyring:hermez-agency-npm", or "env:NPM_TOKEN"
    ```
 
-4. `ponos doctor` reads it, and answers `✓ Ponos — NPM_TOKEN` — or why it could not. A
+4. `ponos doctor` reads it, and answers `✓ Vault: Ponos is given NPM_TOKEN.` — or why it could not. A
    ticket of Ponos can then publish with `NPM_TOKEN` in its environment (an `.npmrc` that
    says `//registry.npmjs.org/:_authToken=${NPM_TOKEN}`). Publishing on a public registry
    is still one of the actions it asks before, whatever key it holds.
@@ -3356,7 +3360,10 @@ it. The *dialect* is twenty lines in
 French is `frontend/src/lib/french.ts` — one line per sentence, and a key nobody has
 translated is drawn as it was written rather than as a name nobody meant to read. The
 machinery is `frontend/src/lib/i18n.ts`: which language, how it was guessed, and `useT()`,
-which is `t` plus the redraw. Two of the sentences the console shows are not written in it —
+which is `t` plus the redraw. The checks of the dashboard's health band (`health.py`) keep
+their French apart, in `frontend/src/lib/health-french.ts`, which the band fetches when it is
+drawn (`useFrench`): the first load of a French page is held to 500 kB, and most pages never
+say one of those sentences. Two of the sentences the console shows are not written in it —
 what a setting is called and the line of help under it come from `web/settings.py` — and they
 are looked up by those very words, so a sentence reworded on the Python side has to be
 reworded here too. A test says so by name.

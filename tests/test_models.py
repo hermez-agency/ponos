@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import contextlib
-import io
 import tempfile
 from pathlib import Path
 
@@ -314,20 +313,6 @@ def a_model_somebody_chose_or_a_switched_off_choice_is_the_runner_as_before():
     assert (job.model, job.chosen) == ("", False) and runner.client.said == [], (
         "empty: runner.model, as every ticket had it"
     )
-
-
-@case
-def doctor_says_whether_fable_is_allowed():
-    from ponos.__main__ import _doctor_fable
-
-    for allowed, expected in (
-        (False, "Claude Fable is not allowed: opus"),
-        (True, "Fable allowed"),
-    ):
-        out = io.StringIO()
-        with contextlib.redirect_stdout(out):
-            _doctor_fable(C.Runner(use_fable=allowed))
-        assert expected in out.getvalue(), out.getvalue()
 
 
 @case

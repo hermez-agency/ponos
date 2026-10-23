@@ -183,7 +183,9 @@ deux suites, puis publie l'image sur `ghcr.io`.
 - Le frontend suit la configuration TypeScript stricte du dépôt
   (`tsc -b --noEmit` est le seul lint) et les sentences affichées passent par
   `t("...")` de `react-mini-i18n` — la phrase anglaise est la clé, la
-  traduction française vit dans `frontend/src/lib/french.ts`.
+  traduction française vit dans `frontend/src/lib/french.ts` — sauf celles des
+  vérifications de `health.py`, dans `frontend/src/lib/health-french.ts`, que la
+  bande de santé charge quand elle s'affiche (budget du premier chargement).
 
 ## Pièges connus
 

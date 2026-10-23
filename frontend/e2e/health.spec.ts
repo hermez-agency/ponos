@@ -202,3 +202,34 @@ test("the band arriving late does not move the page", async ({ page }) => {
   const after = await card.boundingBox()
   expect(after?.y).toBe(before?.y)
 })
+
+test("in French, the checks' own sentences arrive with the band, fetched apart", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("ponos-language", "fr"))
+  const fetched: string[] = []
+  page.on("request", (request) => {
+    if (/health-french-[^/]+\.js$/.test(request.url())) fetched.push(request.url())
+  })
+  await open(page, [RED])
+  const columns = page.locator('[data-code="notion.columns"]')
+  await expect(columns).toContainText("Propriétés manquantes sur la base de tickets : “Runner”, “Progress”.")
+  await expect(page.getByTestId("health-toggle")).toContainText("4 points à corriger")
+  expect(fetched).toHaveLength(1)
+})
+
+test("the band shows what the server itself found: a schedule nobody fired, nothing merely said", async ({ page }) => {
+  // Not answered here: the console's own checks, on its board of files, whose
+  // "Weekly digest" has been due for weeks — what `ponos doctor` used to be
+  // alone to say.
+  await page.context().addCookies([{ name: "ponos_token", value: "e2e", url: test.info().project.use.baseURL }])
+  await page.addInitScript(() => localStorage.setItem("ponos-health-open", "open"))
+  await page.goto("/")
+  const band = page.getByTestId("health-band")
+  const late = band.locator('[data-code="notion.schedule"]')
+  await expect(late).toBeVisible({ timeout: 30_000 })
+  await expect(late).toHaveAttribute("data-state", "error")
+  await expect(late).toContainText("Weekly digest")
+  await expect(band.locator('[data-code="notion.schedule"]')).toHaveCount(1)
+  // A setting said rather than judged is `doctor`'s grey line, never one of these.
+  await expect(band.locator('[data-state="info"], [data-state="ok"]')).toHaveCount(0)
+  await shot(page, "health-server")
+})

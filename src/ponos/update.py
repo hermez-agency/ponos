@@ -111,6 +111,16 @@ class Status:
         return bool(self.current and self.latest and self.current != self.latest)
 
 
+def installed_version() -> Path | None:
+    """The version directory `install.sh` or an update made, None for a checkout.
+
+    By its name rather than by the link: a copy installed with `TR_SRC` is
+    `app-copy-<time>`, which no link beside it is named after.
+    """
+    version = app_dir().resolve()
+    return version if version.name.startswith("app-") else None
+
+
 def _stamp() -> Path:
     state_dir().mkdir(parents=True, exist_ok=True)
     return state_dir() / "update.json"

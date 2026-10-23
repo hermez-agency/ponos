@@ -6,20 +6,23 @@
  * as it stands (see health.test.ts).
  *
  * The sentences arrive as English templates with `{{name}}` holes and the
- * params that fill them: the page hands each to `t()`, and `french.ts` holds
- * the other language. What a tool printed (`evidence`) is quoted, not translated.
+ * params that fill them: the page hands each to `t()`, and `health-french.ts`
+ * holds the other language, fetched when the band is drawn. What a tool printed (`evidence`) is quoted, not translated.
+ *
+ * `info` is a setting said rather than judged — what `ponos doctor` prints in
+ * grey. The band lists what is to be fixed, so it leaves it out with the greens.
  */
 
 import type { HealthCheck, HealthGroup } from "./types.ts"
 
 /** The groups, in the order the band lists them. */
-export const HEALTH_GROUPS: readonly HealthGroup[] = ["notion", "github", "claude", "projects", "machine"]
+export const HEALTH_GROUPS: readonly HealthGroup[] = ["notion", "github", "claude", "projects", "machine", "settings"]
 
 /** The checks that are not green, errors before warnings, each group in its place. */
 export function failing(checks: HealthCheck[]): HealthCheck[] {
   const rank = (check: HealthCheck) => HEALTH_GROUPS.indexOf(check.group)
   return checks
-    .filter((check) => check.state !== "ok")
+    .filter((check) => check.state === "warn" || check.state === "error")
     .map((check, index) => ({ check, index }))
     .sort(
       (a, b) =>

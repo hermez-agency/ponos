@@ -225,6 +225,41 @@ export function counted(value: number, one: string, other: string): string {
   return translate(said.key, said.params)
 }
 
+/* French a part of the page fetches for itself, when it is drawn: words most
+ * pages never say stay out of the first load — see `health-french.ts`. Merged
+ * into the dictionary once, and false until they are there, so that the part
+ * can wait for them rather than draw itself in English first. */
+const fetched = new Set<() => Promise<Record<string, string>>>()
+
+export function useFrench(load: () => Promise<Record<string, string>>): boolean {
+  const french = useLanguage() === "fr"
+  const [ready, setReady] = React.useState(() => !french || fetched.has(load))
+  React.useEffect(() => {
+    if (!french || fetched.has(load)) {
+      setReady(true)
+      return
+    }
+    let live = true
+    setReady(false)
+    load().then(
+      (words) => {
+        fetched.add(load)
+        // The language is French, so its dictionary is the one in use.
+        const dictionary = Object.assign(DICTIONARIES.fr ?? {}, words)
+        DICTIONARIES.fr = dictionary
+        if (language === "fr") setTranslation(dictionary)
+        if (live) setReady(true)
+      },
+      // Not fetched: drawn in English rather than not at all.
+      () => live && setReady(true)
+    )
+    return () => {
+      live = false
+    }
+  }, [french, load])
+  return ready
+}
+
 /* Inside one. The function is the same; what the hook adds is the redraw, so a
  * pane that says anything at all asks for it here rather than importing `t`. */
 export function useT(): typeof translate {

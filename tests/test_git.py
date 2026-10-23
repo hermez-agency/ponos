@@ -1610,22 +1610,22 @@ def the_failures_of_a_base_and_its_ci_at_push_are_read_from_gh():
 
 @case
 def doctor_says_when_a_base_has_no_ci_at_push():
-    from ponos import __main__ as cli
+    from ponos import health
 
     with _git_answering(
         default_branch=lambda repo: "dev", ci_at_push=lambda repo, base, accounts=None: "none"
     ):
-        assert "dev has no CI run at push" in cli._base_without_ci(Path("/repo"))
+        assert "dev has no CI run at push" in health.base_without_ci(Path("/repo"))
     with _git_answering(
         default_branch=lambda repo: "dev", ci_at_push=lambda repo, base, accounts=None: "skipped"
     ):
-        assert "only skipped" in cli._base_without_ci(Path("/repo"))
+        assert "only skipped" in health.base_without_ci(Path("/repo"))
     for found in ("ran", ""):
         with _git_answering(
             default_branch=lambda repo: "dev",
             ci_at_push=lambda repo, base, accounts=None, found=found: found,
         ):
-            assert cli._base_without_ci(Path("/repo")) == ""
+            assert health.base_without_ci(Path("/repo")) == ""
 
 
 @case

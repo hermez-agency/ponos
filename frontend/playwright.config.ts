@@ -97,6 +97,9 @@ export default defineConfig({
     {
       name: "delete",
       testMatch: ["project-delete.spec.ts", "project-new.spec.ts", "goals.spec.ts"],
+      // One board for files that delete projects and count them: side by side,
+      // a deletion lands between the count before and the count after.
+      workers: 1,
       use: { baseURL: `http://127.0.0.1:${DELETE_PORT}` },
     },
     {

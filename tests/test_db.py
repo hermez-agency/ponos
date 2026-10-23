@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import contextlib
-import io
 import json
 import os
 import sqlite3
@@ -343,27 +341,6 @@ def a_database_newer_than_the_code_is_refused_untouched():
         raw.close()
 
 
-@case
-def doctor_says_the_database_version_and_refuses_a_newer_one(state_home):
-    from ponos.__main__ import _doctor_database
-
-    try:
-        out = io.StringIO()
-        with contextlib.redirect_stdout(out):
-            assert _doctor_database() == 0
-        assert f"schema version {len(db.MIGRATIONS)} of {len(db.MIGRATIONS)}" in out.getvalue()
-        db.close()
-        raw = sqlite3.connect(state_home / "ponos.db")
-        raw.execute(f"PRAGMA user_version = {len(db.MIGRATIONS) + 1}")
-        raw.close()
-        out = io.StringIO()
-        with contextlib.redirect_stdout(out):
-            assert _doctor_database() == 1
-        assert "newer version" in out.getvalue()
-    finally:
-        db.close()
-
-
 def _columns(connection, table):
     return {row[1] for row in connection.execute(f"PRAGMA table_info({table})")}
 
@@ -449,21 +426,6 @@ def a_database_that_went_through_a_migration_this_code_does_not_know_is_refused_
         assert raw.execute("PRAGMA user_version").fetchone()[0] == len(db.MIGRATIONS)
     finally:
         raw.close()
-
-
-@case
-def doctor_says_when_the_migrations_are_not_in_the_codes_order(state_home):
-    from ponos.__main__ import _doctor_database
-
-    try:
-        _migrated_by_a_branch(state_home / "ponos.db")
-        out = io.StringIO()
-        with contextlib.redirect_stdout(out):
-            assert _doctor_database() == 0, "every table is there: a yellow line, not a red one"
-        said = out.getvalue()
-        assert "another order" in said and "stops_have_a_cause" in said, said
-    finally:
-        db.close()
 
 
 @case

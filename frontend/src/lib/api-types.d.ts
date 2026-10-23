@@ -2362,9 +2362,12 @@ export interface components {
         HealthCheck: {
             code: string;
             /** @enum {string} */
-            group: "notion" | "github" | "claude" | "projects" | "machine";
-            /** @enum {string} */
-            state: "ok" | "warn" | "error";
+            group: "notion" | "github" | "claude" | "projects" | "machine" | "settings";
+            /**
+             * @description `info` is a setting said rather than judged: `ponos doctor`'s grey line, left off the band.
+             * @enum {string}
+             */
+            state: "ok" | "warn" | "error" | "info";
             title: string;
             said: string;
             params: {

@@ -20,6 +20,12 @@ const PROJECT = "/?view=console/projects/read/0000000000000000000000000000cafe"
 
 async function open(page: Page, path = "/") {
   await page.context().addCookies([{ name: "ponos_token", value: "e2e", url: test.info().project.use.baseURL }])
+  // The board of these tests is red on purpose (a schedule weeks late), and the
+  // band that says so lies over the strip whose button asks for ideas: green
+  // here, the band is health.spec.ts's.
+  await page.route("**/api/health", (route) =>
+    route.fulfill({ json: { checks: [], problems: 0, checked_at: new Date().toISOString() } })
+  )
   await page.goto(path)
 }
 

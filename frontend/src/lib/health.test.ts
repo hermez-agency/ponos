@@ -26,6 +26,7 @@ const check = (code: string, state: HealthCheck["state"], extra: Partial<HealthC
 
 test("a board with nothing red draws no band", () => {
   assert.equal(shown([check("notion.token", "ok"), check("machine.disk", "ok")]), false)
+  assert.equal(shown([check("machine.update", "info"), check("settings.reply", "info")]), false, "a setting said, not a fault")
   assert.equal(shown([]), false)
   assert.equal(shown([check("machine.disk", "warn")]), true)
 })
@@ -37,14 +38,16 @@ test("what fails is listed by group, errors before warnings", () => {
     check("notion.columns", "error"),
     check("claude.login", "ok"),
     check("github.access", "error"),
+    check("settings.secrets", "error"),
+    check("settings.language", "info"),
   ]
   assert.deepEqual(
     failing(found).map((one) => one.code),
-    ["notion.columns", "notion.statuses", "github.access", "machine.disk"]
+    ["notion.columns", "notion.statuses", "github.access", "machine.disk", "settings.secrets"]
   )
   assert.deepEqual(
     byGroup(found).map((entry) => entry.group),
-    ["notion", "github", "machine"]
+    ["notion", "github", "machine", "settings"]
   )
 })
 

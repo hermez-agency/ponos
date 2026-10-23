@@ -181,7 +181,7 @@ def a_table_written_as_a_value_is_named_by_its_line():
 
 @case
 def doctor_prints_what_does_not_read():
-    from test_delivery import _doctor_said
+    from test_health import _doctor_said
 
     from ponos import __main__ as cli
 
@@ -191,7 +191,7 @@ def doctor_prints_what_does_not_read():
         code, said = _doctor_said(cli.command_doctor, None)
     assert code == 2
     assert f"{path}, line 4: web.port = 'eighty'" in said, said
-    assert "Tools" not in said
+    assert "Machine" not in said, "nothing after it is asked"
 
 
 @case
