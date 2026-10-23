@@ -939,12 +939,13 @@ class Reports(Base):
     def under_reserve(self) -> float:
         """The moment nothing new may be started until, or 0.0 while there is room.
 
-        Two lines answer it, and a place that is about to start a session asks
-        both at once: the subscription's reserve, below, and the day's spending
-        limit — `budget_reached`. Either one is "do not start anything", so
-        every gate that already stops on the first stops on the second.
+        Three lines answer it, and a place that is about to start a session asks
+        all of them at once: the subscription spent outright —
+        `waiting_for_credits` —, its reserve, below, and the day's spending
+        limit — `budget_reached`. Any one is "do not start anything", so every
+        gate that already stops on the reserve stops on the other two.
         """
-        return self._reserve() or self.budget_reached()
+        return self.waiting_for_credits() or self._reserve() or self.budget_reached()
 
     def budget_reached(self) -> float:
         """The next midnight, once `budget.daily_usd` has been spent; 0.0 before.

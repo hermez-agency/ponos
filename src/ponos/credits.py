@@ -78,10 +78,10 @@ def reached(text: str) -> float:
 
 
 # The two waits, and they are not the same wait. `spent` is the wall: the CLI
-# has refused, nothing at all can run, and a pass does not even read the board.
-# `reserve` is the line drawn short of it — there is credit left, we are simply
-# not spending the last of it — so a pass still merges what you validated and
-# only declines to *start* anything. Two rows rather than one field, because a
+# has refused, and no session can run. `reserve` is the line drawn short of it —
+# there is credit left, we are simply not spending the last of it. A pass meets
+# both the same way: it still merges what you validated and only declines to
+# *start* anything. Two rows rather than one field, because a
 # run reads each of them to answer a different question. They live in the
 # `waits` table of `ponos.db`, which replaced `credits.json` and `reserve.json`.
 
