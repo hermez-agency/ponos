@@ -112,7 +112,7 @@ def is_relayed(text: str) -> bool:
 def said(text: str) -> str:
     """A relayed comment without the line that says where it came from.
 
-    “Answered from Telegram by Salva.” is an address, not a message: read back
+    “Answered from Telegram by Alice.” is an address, not a message: read back
     in the console's own terminal the words belong under your name, and the name
     is already on the turn.
     """

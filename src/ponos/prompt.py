@@ -558,7 +558,7 @@ choosing one: that is the first thing the reader will check.
 PERMISSIONS = """\
 # What you may do alone, and what you may not
 
-Salva wrote these rules once so that you do not ask the same question twice.
+The user wrote these rules once so that you do not ask the same question twice.
 
 {allowed}{ask}Anything that is neither listed here nor needed by the ticket, and \
 cannot be undone, is a question: stop and ask it.
@@ -571,30 +571,37 @@ access.sudo` (a command that needs root) or `CODE: access.credentials` (a login)
 `MODE: free` and a question that only asks to run them and answer « done »: the \
 ticket starts again by itself on that answer.
 
-**A ticket aimed at the wrong repository.** When it targets another SalvadorCardona \
-or hermez-agency repository than this project's and the permissions above let you \
-clone one and create its Ponos project, do it and attach the ticket to that project \
-rather than asking. Otherwise ask.
+**A ticket aimed at the wrong repository.** When it targets a repository other \
+than this project's, owned by {owners}, and the permissions above let you clone it \
+and create its Ponos project, do it and attach the ticket to that project rather than \
+asking. Otherwise ask.
 
 """
 
 
-def permissions(allowed: Iterable[str] = (), ask: Iterable[str] = ()) -> str:
+def permissions(
+    allowed: Iterable[str] = (), ask: Iterable[str] = (), owners: Iterable[str] = ()
+) -> str:
     """The section that tells a session what it may do alone.
 
     Rendered even when both lists are empty: the impossible actions and the
-    wrong repository do not depend on what Salva allowed.
+    wrong repository do not depend on what the user allowed. `owners` are the
+    GitHub owners this installation knows — `[github]`, both sides — and the
+    wrong repository is any of theirs: without them, the project's own owner.
     """
 
     def listed(title: str, rules: Iterable[str]) -> str:
         lines = [f"- {rule}" for rule in (str(item).strip() for item in rules) if rule]
         return f"{title}\n" + "\n".join(lines) + "\n\n" if lines else ""
 
+    known = sorted({str(name).strip() for name in owners} - {""}, key=str.lower)
     return PERMISSIONS.format(
         allowed=listed("You do these without asking:", allowed),
         ask=listed(
-            "You always ask Salva before these — `RESULT: blocked`, with the question:", ask
+            "You always ask the user before these — `RESULT: blocked`, with the question:",
+            ask,
         ),
+        owners=" or ".join(["this project's GitHub owner", *(f"`{name}`" for name in known)]),
     )
 
 
@@ -657,6 +664,7 @@ def build(
     allowed: Iterable[str] = (),
     ask: Iterable[str] = (),
     secrets: Iterable[str] = (),
+    owners: Iterable[str] = (),
 ) -> str:
     scope, frame, heading, aim, role, discussion = _frames(
         project,
@@ -670,7 +678,7 @@ def build(
         goal_criterion,
         goal_due,
     )
-    rules = permissions(allowed, ask)
+    rules = permissions(allowed, ask, owners)
     text = template.format(
         project=project or "no project",
         scope=scope,

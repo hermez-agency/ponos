@@ -1686,7 +1686,7 @@ the ticket         the task
 From the widest frame to the narrowest, so the specific is read last and wins when the two
 disagree. What belongs there:
 
-> Je suis <prénom>, développeur web depuis 13 ans. Je travaille sur Northwind.
+> Je suis <prénom>, développeur web depuis 13 ans. Je travaille sur une boutique en ligne.
 > Stack: PHP/Symfony, React, Docker. `pnpm`, jamais `npm`.
 > Réponses courtes, pas d'emoji, la commande plutôt que l'explication.
 
@@ -3872,11 +3872,10 @@ that works, a document ticket and a publication included — so that it stops as
 same question twice. It has two lists of sentences, written in your own words and edited on
 the *Execution* page of the Settings, where the defaults are shown and can be changed:
 
-- `allowed` — what a session does without asking. By default: redeploy a service on the
-  Dokploy instances, read their logs, add a non-secret variable or generate a random secret
-  of the service; tag and publish a release of a SalvadorCardona or hermez-agency repository
-  after the merge into `main`; clone a missing SalvadorCardona or hermez-agency repository
-  and create its Ponos project; re-run a CI; merge a validated pull request.
+- `allowed` — what a session does without asking. By default: tag and publish a release of
+  the project's repository after the merge into `main`; clone a missing repository of the
+  project's GitHub owner, or of an owner `[github]` names, and create its Ponos project;
+  re-run a CI; merge a validated pull request.
 - `ask` — what always waits for your word, the ticket ending blocked with the question. By
   default: publishing on a public registry, opening a pull request or an issue on somebody
   else's repository, anything that sends a message to someone but you, deleting production
@@ -3888,9 +3887,10 @@ a `sudo` password, an `npm login` or a code received by e-mail cannot be given o
 does not ask yes or no: it prepares the exact commands, ends blocked with the code
 `access.sudo` or `access.credentials` (`CODE:` and one `COMMAND:` line each, next to the
 other lines of the question) and the ticket starts again by itself when you answer « fait ».
-And a ticket aimed at another SalvadorCardona or hermez-agency repository than its
-project's is not a question when `allowed` lets the session clone it: it creates the project and attaches the
-ticket there.
+And a ticket aimed at another repository than its project's — one of the project's GitHub
+owner, or of an owner `[github]` names — is not a question when `allowed` lets the session
+clone it: it creates the project and attaches the ticket there. An installation that already
+wrote its own lists keeps them: nothing rewrites `config.toml`.
 
 ### Stopping before the wall
 

@@ -684,24 +684,21 @@ class Budget:
     on_usd: float = 1.0
 
 
-# What a session does without asking, and what it never does without Salva's
+# What a session does without asking, and what it never does without the user's
 # word. Written as sentences, because a model reads them as such — and in the
 # list rather than in the prompt, so that the page can show them and change them.
+# Every installation starts from these: they name no one, no host and no owner.
 ALLOWED = (
-    "redéployer un service sur les Dokploy de Salva (dokploy.cardona.digital et le "
-    "Dokploy d'Northwind), lire leurs logs, ajouter une variable d'environnement non "
-    "secrète ou générer un secret aléatoire propre au service",
-    "taguer et publier une release d'un dépôt de SalvadorCardona ou de hermez-agency, "
-    "après fusion sur main",
-    "cloner un dépôt de SalvadorCardona ou de hermez-agency manquant dans le workspace "
-    "et lui créer un projet Ponos",
+    "taguer et publier une release d'un dépôt du projet, après fusion sur main",
+    "cloner un dépôt du propriétaire GitHub du projet, ou d'un propriétaire que "
+    "[github] nomme, manquant dans le workspace et lui créer un projet Ponos",
     "relancer une CI",
     "fusionner une PR validée",
 )
 ASK = (
     "publier sur un registre public (npm, PyPI…)",
     "ouvrir une PR ou une issue sur un dépôt tiers",
-    "toute action qui envoie un e-mail ou un message à quelqu'un d'autre que Salva",
+    "toute action qui envoie un e-mail ou un message à quelqu'un d'autre que l'utilisateur",
     "supprimer des données de production",
     "modifier un DNS",
     "toute dépense",

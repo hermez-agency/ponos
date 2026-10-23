@@ -181,6 +181,7 @@ class Execution(Base):
             language=self.voice.instruction(),
             allowed=self.config.permissions.allowed,
             ask=self.config.permissions.ask,
+            owners=[*self.config.github, *self.config.github.values()],
             kind=section
             if job.project.is_code
             else prompt_module.kind(job.kind, job.reference or ""),
