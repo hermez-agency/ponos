@@ -27,4 +27,5 @@ export const NewTicketFoot = lazily("NewTicketFoot")
 export const SegmentedInputController = lazily("SegmentedInputController") as InputControllerComponentInterface
 export const PillsInputController = lazily("PillsInputController") as InputControllerComponentInterface
 export const ProjectInputController = lazily("ProjectInputController") as InputControllerComponentInterface
+export const GoalInputController = lazily("GoalInputController") as InputControllerComponentInterface
 export const WithProjects = lazily("WithProjects")

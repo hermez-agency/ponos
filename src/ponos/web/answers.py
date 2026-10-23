@@ -273,12 +273,18 @@ class Choice(Shape):
     label: str
 
 
+class GoalChoice(Choice):
+    projects: list[str]
+    """The page ids of the projects the goal is for: the form puts the chosen project's first."""
+
+
 class TicketChoices(Shape):
     type: list[Choice] = omitted()
     model: list[Choice] = omitted()
     subtype: list[Choice] = omitted()
-    goal: list[Choice] = omitted()
-    """The goals a new ticket may serve: only on a board with the column, and goals to point at."""
+    goal: list[GoalChoice] = omitted()
+    """The goals a new ticket may serve: only on a board with the column, and goals still worked
+    toward to point at."""
 
 
 class Board(Shape):
@@ -1527,6 +1533,9 @@ class Goal(Shape):
     criterion: str
     due: str
     status: str
+    active: bool
+    """Whether its status says it is still worked toward (`goals.ACTIVE`, or none): only those are
+    offered to a ticket that does not already serve it."""
     priority: int | None
     """A score from 0 to 100, a select's word read as its score — none where the cell is empty."""
     projects: list[str]

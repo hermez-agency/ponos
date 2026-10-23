@@ -191,7 +191,7 @@ class Tickets(Base):
             "places": self.config.runner.max_concurrent,
         }
 
-    def _choices(self) -> dict[str, list[dict[str, str]]]:
+    def _choices(self) -> dict[str, list[dict[str, Any]]]:
         """What a new ticket may be given beside its title: type, sub-type, model.
 
         Only the columns this board has. A select offered for a column Notion
@@ -208,7 +208,7 @@ class Tickets(Base):
             schema = client.schema(database)
         except store.StoreError:
             return {}
-        choices: dict[str, list[dict[str, str]]] = {}
+        choices: dict[str, list[dict[str, Any]]] = {}
         name = settings.prop("model")
         if name in schema:
             try:
@@ -229,14 +229,20 @@ class Tickets(Base):
             choices["subtype"] = [
                 {"value": subtype.key, "label": subtype.option} for subtype in subtypes.SUBTYPES
             ]
-        # The goals a new ticket may serve, where the board can point at one.
+        # The goals a new ticket may serve, where the board can point at one:
+        # those still worked toward, each with its projects, so the form puts
+        # the chosen project's first. One met or given up waits on no ticket.
         if settings.prop("goal") in schema:
-            index = self._goal_index()
-            if index:
-                choices["goal"] = sorted(
-                    ({"value": goal["id"], "label": goal["name"]} for goal in index.values()),
-                    key=lambda choice: choice["label"].lower(),
-                )
+            pursued = sorted(
+                (
+                    {"value": goal["id"], "label": goal["name"], "projects": goal["project_ids"]}
+                    for goal in self._goal_index().values()
+                    if goal["active"]
+                ),
+                key=lambda choice: choice["label"].lower(),
+            )
+            if pursued:
+                choices["goal"] = pursued
         return choices
 
     def _scored(self) -> bool:

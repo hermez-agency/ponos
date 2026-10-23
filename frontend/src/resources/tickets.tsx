@@ -42,6 +42,7 @@ import {
 import { IdeasButton } from "@/components/console/ideas-deck"
 import {
   EDITOR_SETTLES,
+  GoalInputController,
   NewTicketFields,
   NewTicketFoot,
   PillsInputController,
@@ -50,7 +51,6 @@ import {
 } from "@/components/console/new-ticket-lazy"
 import { EmptyState } from "@/components/console/empty-state"
 import { ProjectThumb } from "@/components/console/project-picture"
-import { ComboboxInputController } from "@/components/console/combobox"
 import { ModelInputController } from "@/components/console/model-input"
 import { PriorityBadge, PriorityInputController } from "@/components/console/priority"
 import { Robot, TicketRobot } from "@/components/console/robot"
@@ -381,8 +381,9 @@ const createForm: FormInterface = {
       PillsInputController
     ),
     // The goal it serves: none unless chosen, and drawn only where the board
-    // can point at one and there are goals to point at.
-    goal: choiceInput("goal", "no goal", "", ComboboxInputController),
+    // can point at one and there are goals still worked toward to point at —
+    // those of the chosen project first.
+    goal: choiceInput("goal", "no goal", "", GoalInputController),
     // A score, drawn only where the board has the column to keep it in.
     priority: {
       label: "Priority",

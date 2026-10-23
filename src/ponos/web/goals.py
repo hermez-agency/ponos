@@ -12,6 +12,7 @@ from __future__ import annotations
 import time
 from typing import Any
 
+from .. import goals as goals_module
 from .. import priority as priority_module
 from .. import store
 from .base import Base
@@ -30,14 +31,24 @@ GOAL_COLUMNS = {
 }
 
 
+def _active(status: str) -> bool:
+    """Whether a goal's `Statut` says it is still worked toward, as `goals.active` reads it.
+
+    No status is active there too: a database that never had the column is
+    not one whose goals are all over.
+    """
+    return not status.strip() or status.strip().lower() in goals_module.ACTIVE
+
+
 class Goals(Base):
     def _goal_index(self) -> dict[str, dict[str, Any]]:
-        """{page id: {id, name}} — the goals, one query kept as the projects are.
+        """{page id: {id, name, status, active, project_ids}} — the goals, one query kept as the projects are.
 
         A card names its goal from this, so the board reads the goals database
         once every few minutes rather than a page per ticket. A workspace with
         no goals, or one that cannot be read, is an empty index: the cards
-        lose their goal, never the board.
+        lose their goal, never the board. The status and the projects are what
+        a new ticket's choice of goal is sorted by (`Tickets._choices`).
         """
         held: dict[str, dict[str, Any]] = getattr(self, "_goals", {})
         # Kept empty too: a workspace whose goals are none is not asked again
@@ -54,11 +65,20 @@ class Goals(Base):
         return self.runner.client.query(database) if database else []
 
     def _remember_goals(self, pages: list[store.Page]) -> dict[str, dict[str, Any]]:
-        self._goals = {
-            page.id: {"id": page.id.replace("-", ""), "name": page.title}
-            for page in pages
-            if page.title
-        }
+        self._goals = {}
+        for page in pages:
+            if not page.title:
+                continue
+            status = _first(page, *GOAL_COLUMNS["status"])
+            self._goals[page.id] = {
+                "id": page.id.replace("-", ""),
+                "name": page.title,
+                "status": status,
+                "active": _active(status),
+                "project_ids": [
+                    one.replace("-", "") for one in _relation(page, *GOAL_COLUMNS["projects"])
+                ],
+            }
         self._goals_at = time.time()
         return self._goals
 
@@ -106,6 +126,7 @@ class Goals(Base):
                     "criterion": _first(page, *GOAL_COLUMNS["criterion"]),
                     "due": _first(page, *GOAL_COLUMNS["due"]),
                     "status": _first(page, *GOAL_COLUMNS["status"]),
+                    "active": _active(_first(page, *GOAL_COLUMNS["status"])),
                     "priority": priority_module.score(ranked) if ranked else None,
                     "projects": [projects[one]["name"] for one in linked if one in projects],
                     "project_ids": [one.replace("-", "") for one in linked if one in projects],

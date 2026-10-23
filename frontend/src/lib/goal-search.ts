@@ -57,3 +57,23 @@ export function dueOf(due: string, locale: string): string {
   if (Number.isNaN(when.getTime())) return due
   return new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(when)
 }
+
+/** The goals a ticket may be pointed at: those still worked toward, and the
+ * one it already serves even once it is over — a choice that hid the current
+ * value would draw it as none. Those of the ticket's project come first, the
+ * rest in the order they came: "" for no project leaves the order alone. */
+export function offeredTo<Goal extends { id: string; active?: boolean; project_ids?: string[] }>(
+  goals: Goal[],
+  project: string,
+  current = ""
+): Goal[] {
+  const open = goals.filter((goal) => goal.active !== false || (current && goal.id === current))
+  return projectFirst(open, project, (goal) => goal.project_ids ?? [])
+}
+
+/** These, those for the project first, each part in the order it came. */
+export function projectFirst<Item>(items: Item[], project: string, projectsOf: (item: Item) => string[]): Item[] {
+  if (!project) return items
+  const mine = (item: Item) => projectsOf(item).includes(project)
+  return [...items.filter(mine), ...items.filter((item) => !mine(item))]
+}
