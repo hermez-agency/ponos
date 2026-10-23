@@ -29,13 +29,15 @@ from __future__ import annotations
 
 import json
 import logging
+import queue
 import re
-from collections.abc import Callable, Coroutine
+from collections.abc import Callable, Coroutine, Iterator
 from typing import Any
 from urllib.parse import unquote
 
 from fastapi import APIRouter, Body, HTTPException, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
+from fastapi.responses import StreamingResponse
 from fastapi.routing import APIRoute
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.concurrency import run_in_threadpool
@@ -43,7 +45,7 @@ from starlette.convertors import Convertor, register_url_convertor
 
 from .. import config as config_module
 from .. import journal, notifications, store, vault
-from . import answers, creation, github, mcp_setup, setup
+from . import agui, answers, creation, github, mcp_setup, setup
 from .api import Api
 
 logger = logging.getLogger(__name__)
@@ -246,6 +248,15 @@ class Sent(Payload):
 
 class Model(Payload):
     model: str = ""
+
+
+class RunAgentInput(Payload):
+    """What an AG-UI client posts to start a run: see `run_chat`."""
+
+    threadId: str = ""  # noqa: N815 — AG-UI's own names
+    runId: str = ""  # noqa: N815
+    messages: list[Any] = Field(default_factory=list)
+    forwardedProps: dict[str, Any] | None = None  # noqa: N815
 
 
 class Title(Payload):
@@ -455,6 +466,12 @@ def statistics(
 def chat(request: Request) -> Response:
     talk = _api(request).chat
     return answer({"messages": talk.history(), **talk.state()})
+
+
+@router.get("/api/chat/agui", response_model=answers.ChatThread)
+def chat_thread(request: Request, threadId: str = "") -> Response:  # noqa: N803
+    """A conversation as `useChat` hydrates it, from Ponos's own storage."""
+    return answer(_api(request).chat.thread(threadId))
 
 
 @router.get("/api/chat/sessions", response_model=answers.ChatSessions)
@@ -775,6 +792,59 @@ def command(request: Request, payload: Line = Body(default_factory=Line)) -> Res
 @router.post("/api/chat", response_model=answers.ChatState)
 def send_chat(request: Request, payload: Sent = Body(default_factory=Sent)) -> Response:
     return answer(_api(request).chat.send(payload.text, payload.attachments or []))
+
+
+@router.post("/api/chat/agui", response_model=answers.ChatState)
+def run_chat(
+    request: Request, payload: RunAgentInput = Body(default_factory=RunAgentInput)
+) -> Response:
+    """The chat's AG-UI door: a `RunAgentInput` in, the run's events out.
+
+    The console's own page asks for JSON and reads the events where it reads
+    everything else, on `/api/events` — one stream per tab, whatever it
+    watches. Any other AG-UI client asks for `text/event-stream` and is
+    answered the run itself, from `RUN_STARTED` to `RUN_FINISHED`: waiting
+    behind the turn in flight first, if there is one.
+    """
+    talk = _api(request).chat
+    given = payload.model_dump()
+    if "text/event-stream" not in request.headers.get("accept", ""):
+        return answer(talk.run(given))
+    # Named here when the client did not: the stream follows its own run, and
+    # not the next one that starts.
+    run_id = given["runId"] = given.get("runId") or agui.new_id("run")
+    channel = talk.listen()
+    try:
+        talk.run(given)
+    except Exception:
+        talk.unlisten(channel)
+        raise
+
+    def events() -> Iterator[bytes]:
+        ours = False
+        try:
+            while True:
+                try:
+                    event = channel.get(timeout=15)
+                except queue.Empty:
+                    yield b": still here\n\n"
+                    continue
+                if event.get("type") == "RUN_STARTED":
+                    ours = event.get("runId") == run_id
+                if not ours:
+                    continue
+                said = json.dumps(event, ensure_ascii=False)
+                yield f"data: {vault.mask(said)}\n\n".encode()
+                if event.get("type") in ("RUN_FINISHED", "RUN_ERROR"):
+                    return
+        finally:
+            talk.unlisten(channel)
+
+    return StreamingResponse(
+        events(),
+        media_type="text/event-stream; charset=utf-8",
+        headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.post(

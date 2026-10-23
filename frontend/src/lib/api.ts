@@ -4,6 +4,7 @@ import type {
   Board,
   Chat,
   ChatSessions,
+  ChatThread,
   ChannelsProvisioned,
   Claimed,
   ClaudeLogin,
@@ -222,6 +223,9 @@ export const api = {
   schedule: (id: string) => request<ScheduleDetail>(`/api/schedules/${id}`),
   scheduleActivity: (id: string) => request<ScheduleActivity>(`/api/schedules/${id}/activity`),
   chat: () => request<Chat>("/api/chat"),
+  chatThread: (threadId: string) =>
+    request<ChatThread>(`/api/chat/agui?threadId=${encodeURIComponent(threadId)}`),
+  runChat: (input: Record<string, unknown>) => request<ChatState>("/api/chat/agui", input),
   settings: () => request<Settings>("/api/settings"),
   folder: (path: string) => request<Folder>(`/api/settings/folder?path=${encodeURIComponent(path)}`),
   statistics: (from: string, to: string, project?: string) =>

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import http.client
 import io
 import json
 import os
@@ -849,3 +850,163 @@ def a_stop_holds_the_queue_until_it_is_sent_or_thrown_away():
                 raise AssertionError("a message already gone is not found")
     finally:
         session.exists = original
+
+
+# -- in AG-UI ------------------------------------------------------------------
+
+
+def _speaking(chat) -> None:
+    """The `_chat` session, made to say a sentence, call a tool, and answer."""
+
+    def run(prompt, **rest):
+        chat.prompts.append(prompt)
+        said = {"type": "text", "text": "I read the board."}
+        call = {"type": "tool_use", "id": "toolu_1", "name": "Bash", "input": {"command": "ls"}}
+        result = {"type": "tool_result", "tool_use_id": "toolu_1", "content": "board.md"}
+        rest["on_event"]({"type": "assistant", "message": {"content": [said, call]}})
+        rest["on_event"]({"type": "user", "message": {"content": [result]}})
+        rest["on_event"](
+            {"type": "assistant", "message": {"content": [{"type": "text", "text": "13."}]}}
+        )
+        return session.Outcome(
+            True, False, rest["session_id"], "", Path("/dev/null"), answer="13.", cost_usd=0.0123
+        )
+
+    session.run = run
+
+
+def _agui(chat) -> list[dict]:
+    return [said["event"] for kind, said in chat.events if kind == "agui"]
+
+
+@case
+def a_turn_is_streamed_in_agui_and_kept_with_what_it_streamed():
+    """The page's `useChat` reads the turn as it happens, and finds it again on reopening.
+
+    The run is the page's: its message keeps the id `useChat` gave it, and the
+    turn is said under the run id it asked for — so the tab that sent it
+    recognises its own, and the others draw it from the snapshot.
+    """
+    with _chat() as chat:
+        _speaking(chat)
+        chat.run(
+            {
+                "threadId": chat.id,
+                "runId": "run-1",
+                "messages": [
+                    {"id": "msg-1", "role": "user", "parts": [{"type": "text", "content": "count"}]}
+                ],
+            }
+        )
+        _settled(chat)
+        events = _agui(chat)
+        kinds = [event["type"] for event in events]
+        assert kinds[:2] == ["MESSAGES_SNAPSHOT", "RUN_STARTED"], kinds
+        assert kinds[-2:] == ["RUN_FINISHED", "MESSAGES_SNAPSHOT"], kinds
+        assert events[1]["runId"] == "run-1" and events[1]["threadId"] == chat.id
+        first = events[0]["messages"]
+        assert [(m["id"], m["role"]) for m in first] == [("msg-1", "user")], first
+        assert chat.prompts[-1].endswith("count")
+
+        last = events[-1]["messages"]
+        answer = last[-1]
+        assert answer["role"] == "assistant"
+        assert [part["type"] for part in answer["parts"]] == [
+            "text",
+            "tool-call",
+            "tool-result",
+            "text",
+        ], answer["parts"]
+        assert answer["metadata"]["ponos"]["cost"] == 0.0123
+        assert answer["metadata"]["ponos"]["role"] == "workspace"
+
+        # Reopened from the disk, the conversation hydrates the same.
+        again = web_console.Chat(chat.config, lambda *a, **k: None)
+        hydrated = again.thread(chat.id)
+        assert hydrated["activeRun"] is None and hydrated["interrupts"] is None
+        assert hydrated["messages"] == last
+        # A conversation that is not the open one is read from its row.
+        chat.reset()
+        assert chat.thread(again.id)["messages"] == last
+        assert chat.thread(chat.id)["messages"] == []
+
+
+@case
+def a_run_for_another_conversation_or_without_words_is_refused():
+    with _chat() as chat:
+        message = {"id": "m", "role": "user", "content": "hello"}
+        try:
+            chat.run({"threadId": "someone-else", "messages": [message]})
+        except RuntimeError:
+            pass
+        else:
+            raise AssertionError("a run for a conversation that is not open")
+        try:
+            chat.run({"threadId": chat.id, "messages": [{"role": "assistant", "content": "hi"}]})
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("a run with nothing from the user")
+        assert chat.prompts == [] and not _agui(chat)
+
+
+@case
+def a_conversation_from_before_parts_is_drawn_from_its_words():
+    """Older transcripts have text alone: each message is one part, under a stable id."""
+    with _chat() as chat:
+        chat.messages = [
+            web_console.Message("you", "how many?"),
+            web_console.Message("workspace", "13."),
+            web_console.Message("error", "claude not found in PATH"),
+            web_console.Message("stopped", ""),
+        ]
+        ui = chat.ui()
+        assert [message["id"] for message in ui] == [f"{chat.id}-{n}" for n in range(4)]
+        assert ui[0]["parts"] == [{"type": "text", "content": "how many?"}]
+        assert ui[1]["parts"] == [{"type": "text", "content": "13."}]
+        assert ui[2]["parts"] == [] and ui[2]["metadata"]["ponos"]["error"].startswith("claude")
+        assert ui[3]["parts"] == [] and ui[3]["metadata"]["ponos"]["role"] == "stopped"
+
+
+@case
+def another_agui_client_is_answered_the_run_itself_as_server_sent_events():
+    """`Accept: text/event-stream`: the run, from `RUN_STARTED` to `RUN_FINISHED`."""
+    from ponos.web import app as web_app
+
+    with _chat() as chat:
+        _speaking(chat)
+        api = _bare_api(None)
+        api.chat = chat
+        console = web_app.Console(("127.0.0.1", 0), api, "tok")
+        threading.Thread(target=console.serve_forever, daemon=True).start()
+        try:
+            connection = http.client.HTTPConnection(
+                "127.0.0.1", console.server_address[1], timeout=10
+            )
+            body = {"threadId": chat.id, "messages": [{"role": "user", "content": "count"}]}
+            connection.request(
+                "POST",
+                "/api/chat/agui",
+                body=json.dumps(body),
+                headers={
+                    "Authorization": "Bearer tok",
+                    "X-Ponos": "1",
+                    "Accept": "text/event-stream",
+                    "Content-Type": "application/json",
+                },
+            )
+            response = connection.getresponse()
+            assert response.status == 200, response.read()
+            assert response.getheader("Content-Type", "").startswith("text/event-stream")
+            events = [
+                json.loads(line[len("data: ") :])
+                for line in response.read().decode().splitlines()
+                if line.startswith("data: ")
+            ]
+            connection.close()
+        finally:
+            console.shutdown()
+            console.server_close()
+        kinds = [event["type"] for event in events]
+        assert kinds[0] == "RUN_STARTED" and kinds[-1] == "RUN_FINISHED", kinds
+        assert "TOOL_CALL_START" in kinds and "MESSAGES_SNAPSHOT" not in kinds, kinds
