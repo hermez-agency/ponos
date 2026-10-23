@@ -570,6 +570,33 @@ def _channels(api: Api) -> list[dict]:
 # -- what it all amounts to ---------------------------------------------------
 
 
+def _seen() -> Path:
+    return config_module.state_dir() / "first-connection"
+
+
+def pending() -> bool:
+    """Is this a fresh container whose steps nobody has gone through yet?
+
+    A Markdown board is usable from the first second, and a console claimed from
+    the environment has no account to ask for: nothing in the configuration
+    says the installation is unfinished, which is why the Dokploy template
+    opened straight on an empty board. So the steps are remembered instead — a
+    file in the state volume, written when somebody reaches the summary — and
+    asked for until then. A container only: a machine that installed itself
+    with `install.sh` was never sent to the steps by this, and an upgrade must
+    not start now.
+    """
+    return config_module.in_container() and not _seen().exists()
+
+
+def finish() -> dict:
+    """Remember that the steps were gone through: they are not offered again."""
+    seen = _seen()
+    seen.parent.mkdir(parents=True, exist_ok=True)
+    seen.write_text(f"{__version__}\n", encoding="utf-8")
+    return {"ok": True}
+
+
 def _board(api: Api) -> dict:
     """The board this console reads, and how many tickets are on it."""
     configuration = api.config

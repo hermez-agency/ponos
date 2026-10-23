@@ -428,6 +428,7 @@ export const api = {
   claim: (typed: { code: string; email: string; password: string; confirm: string; language?: string }) =>
     request<Claimed>("/api/setup", typed),
   summary: () => request<Summary>("/api/setup/summary"),
+  setupDone: () => request<{ ok: boolean }>("/api/setup/done", {}),
   claudeLogin: () => request<ClaudeLogin>("/api/setup/claude"),
   saveProvider: (chosen: { provider: string; key?: string; route_sessions?: boolean }) =>
     request<ProviderChecked>("/api/setup/provider", chosen),

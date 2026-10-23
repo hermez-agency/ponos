@@ -646,6 +646,11 @@ async def _small(request: Request) -> bytes:
     return await request.body()
 
 
+@router.post("/api/setup/done", response_model=answers.Ok)
+def setup_done() -> Response:
+    return answer(setup.finish())
+
+
 @router.post("/api/setup/provider", response_model=answers.ProviderChecked)
 def setup_provider(request: Request, payload: Fields = Body(default_factory=dict)) -> Response:
     return answer(setup.save_provider(_api(request), payload))

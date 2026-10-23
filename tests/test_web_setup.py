@@ -222,3 +222,18 @@ def the_installer_gives_the_same_install_commands_as_doctor():
     # A systemctl with no user bus behind it is a container's or WSL's: asked
     # before it is relied on, or `set -e` ends the script on its first call.
     assert "systemctl --user show-environment" in script
+
+
+@case
+def a_fresh_container_is_sent_to_the_steps_until_they_have_been_gone_through():
+    """A Markdown board is usable at once: nothing but a mark says the steps are still owed."""
+    from support import _state_home
+
+    from ponos.web import setup as web_setup
+
+    with _state_home(), _environment(PONOS_CONTAINER="1"):
+        assert web_setup.pending()
+        assert web_setup.finish() == {"ok": True}
+        assert not web_setup.pending()
+    with _state_home(), _environment(PONOS_CONTAINER=None):
+        assert not web_setup.pending(), "a machine installed with install.sh is not sent there"

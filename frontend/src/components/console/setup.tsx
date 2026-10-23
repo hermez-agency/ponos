@@ -1495,6 +1495,11 @@ function ChannelsStep({ container, onNext }: { container: boolean; onNext: () =>
 
 function SummaryStep({ onStep }: { onStep: (step: StepKey) => void }) {
   const t = useT()
+  // Reaching the summary is going through the steps: the bare address of the
+  // console stops leading here (see `setup.pending`).
+  React.useEffect(() => {
+    void api.setupDone().catch(() => undefined)
+  }, [])
   return (
     <StepCard
       title={t("What this console runs on")}
