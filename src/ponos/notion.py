@@ -16,6 +16,7 @@ because a Notion page is still what they were shaped after.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import re
@@ -484,15 +485,29 @@ class Client:
         Notion takes a hundred at a time, hence the batching; and it answers
         with what it created, which is how the live report gets hold of the
         toggle it will then keep filling.
+
+        All or nothing: a batch refused after others were written deletes those
+        again before the error goes on. Left there, they were half an answer,
+        and the attempt after wrote the whole one below them.
         """
         from . import markdown as converter
 
         created: list[str] = []
-        for batch in converter.chunked(blocks):
-            if not batch:
-                continue
-            payload = self._request("PATCH", f"/blocks/{block_id}/children", {"children": batch})
-            created += [item.get("id", "") for item in payload.get("results", [])]
+        try:
+            for batch in converter.chunked(blocks):
+                if not batch:
+                    continue
+                payload = self._request(
+                    "PATCH", f"/blocks/{block_id}/children", {"children": batch}
+                )
+                created += [item.get("id", "") for item in payload.get("results", [])]
+        except StoreError:
+            for identifier in filter(None, created):
+                # If Notion is gone altogether this fails too: the first error
+                # is still the one worth saying.
+                with contextlib.suppress(StoreError):
+                    self._request("DELETE", f"/blocks/{identifier}")
+            raise
         return created
 
     def update_block(self, block_id: str, payload: dict[str, Any]) -> None:

@@ -173,6 +173,31 @@ def a_comment_is_never_posted_twice_on_the_strength_of_a_silence():
 
 
 @case
+def an_append_refused_halfway_takes_back_what_it_had_written():
+    """Notion takes a hundred blocks at a time: an answer longer than that was
+    two requests, and a refusal on the second left the first on the page. The
+    ticket failed, the next session wrote its answer whole after it — and the
+    page read as a cut answer followed by the full one.
+
+    What the batches before the refusal created is deleted again, and the error
+    still says the answer was not written.
+    """
+    client = notion.Client("ntn_x")
+    blocks = [{"type": "paragraph", "paragraph": {"rich_text": []}}] * 150
+    written = {"results": [{"id": f"b{index}"} for index in range(100)]}
+    deleted = [{"object": "block"}] * 100
+    with _notion_answering(written, _http_error(400), *deleted) as (calls, _):
+        try:
+            client.append_blocks("p", blocks)
+        except notion.NotionError:
+            pass
+        else:
+            raise AssertionError("a refused batch was taken for a written one")
+    assert calls[:2] == [("PATCH", "/blocks/p/children")] * 2, calls
+    assert calls[2:] == [("DELETE", f"/blocks/b{index}") for index in range(100)], calls[2:5]
+
+
+@case
 def the_api_is_notions_unless_a_test_says_otherwise():
     """The one seam `tests/functional.py` needs, and what it must not become.
 
