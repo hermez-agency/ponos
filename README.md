@@ -3199,6 +3199,7 @@ npm run lint       # tsc, in the strict configuration the build uses
 npm run types      # src/lib/api-types.d.ts, from the schema — commit what it writes
 npm run test:e2e   # the built console in your Chrome, on a board of files of its own
 npm test           # node --test on the message bar's decisions — nothing to install
+npm run test:components  # Vitest in jsdom: one component at a time, drawn and clicked
 ```
 
 `npm run test:e2e` is Playwright, driving the Chrome already installed rather than a
@@ -3226,6 +3227,15 @@ classes.
 is (Node 22.18 or later): what it covers is what the message bar decides without a page —
 which file it takes, what a pasted capture is called, when the arrow is off, what `>st`
 completes to — kept in `src/lib/composer.ts`, which imports nothing for that reason.
+
+`npm run test:components` is the layer between the two: Vitest, with Testing Library, draws
+one component at a time in jsdom — the message bar, a ticket's page, the statistics band —
+and checks what a reader would see: which file is refused and why, when the arrow lights
+up, which tab a ticket opens on. The tests sit beside their component as `*.test.tsx`
+(`.test.ts` stays Node's), mock what the component reads around it rather than start a
+server, and ask for the English sentence of a `t("...")`, which is its key: the console is
+drawn in English there whatever the machine's language, so a French translation that
+changes moves no test.
 
 `npm run dev` proxies `/api` to `http://127.0.0.1:8787` — set `PONOS_ORIGIN` for
 another address. Open the real console once first (`ponos serve`, then its URL with

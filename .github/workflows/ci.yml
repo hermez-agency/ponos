@@ -35,6 +35,9 @@
 # compris.
 # Node 24, parce que `npm test` fait lire à `node --test` les tests de
 # la barre de message écrits en TypeScript, sans rien installer pour ça.
+# `npm run test:components` dessine ensuite les composants un par un sous
+# Vitest et jsdom, avant le build : une régression de rendu y échoue en
+# quelques secondes, sans attendre les e2e.
 #
 # Le job qualité installe le projet entier : la console et l'outillage de
 # `pyproject.toml`, aux versions de `uv.lock` (`uv sync --locked` échoue si le
@@ -178,6 +181,11 @@ jobs:
       - name: Tests
         if: steps.changes.outputs.frontend == 'true'
         run: npm test
+        working-directory: frontend
+
+      - name: Tests de composant
+        if: steps.changes.outputs.frontend == 'true'
+        run: npm run test:components
         working-directory: frontend
 
       - name: Build
