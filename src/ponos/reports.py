@@ -81,6 +81,29 @@ class Reports(Base):
             values = {name: value for name, value in values.items() if name != status}
             if not values:
                 return
+        self._write(ticket, values)
+
+    def _claim(self, ticket: Ticket, **values: object) -> bool:
+        """Write the status that takes a ticket, and say whether it took.
+
+        Not `_set`: there a status somebody else wrote leaves the other columns
+        to be written, since they describe work that was done. A claim comes
+        before any work — a ticket moved out of ready while it was being
+        prepared (a clone, the naming and classifying sessions: minutes) is
+        not to be run at all, nor signed with a runner and a session it never
+        had. So a refused status refuses the whole write, and the caller drops
+        the ticket.
+        """
+        if self.dry_run:
+            return True
+        if not self._still(ticket, str(values[self.config.notion.prop("status")])):
+            return False
+        self._write(ticket, values)
+        return True
+
+    def _write(self, ticket: Ticket, values: dict[str, object]) -> None:
+        """The write itself, once the status in it is known to be the run's to write."""
+        status = self.config.notion.prop("status")
         if status in values:
             values = {**self._block_cleared(ticket, str(values[status])), **values}
         try:
