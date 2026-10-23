@@ -1,5 +1,5 @@
 import * as React from "react"
-import { CalendarDays, ExternalLink, Pencil, Plus, SearchX, Target, Trash2, X } from "lucide-react"
+import { Ban, CalendarDays, CircleCheck, ExternalLink, Pencil, Plus, SearchX, Target, Trash2, X } from "lucide-react"
 import { toast } from "sonner"
 import { ActionList } from "react-data-form"
 import {
@@ -19,7 +19,7 @@ import { Button, buttonVariants } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api, why } from "@/lib/api"
 import { useBoard } from "@/lib/board-store"
-import { dueOf, progressOf } from "@/lib/goal-search"
+import { EVERY_STATUS, dueOf, keeps, progressOf } from "@/lib/goal-search"
 import { onGoalsMoved } from "@/lib/goals-store"
 import { useT } from "@/lib/i18n"
 import { count } from "@/lib/numbers"
@@ -138,11 +138,14 @@ export function GoalPage() {
   const fetchData = React.useRef(view.fetchData)
   fetchData.current = view.fetchData
   React.useEffect(() => onGoalsMoved(() => void fetchData.current?.()), [])
+  // Drawn from the row the last read holds: the item read again is the form's,
+  // its tickets a list of ids where the count wants them by column.
+  const row = useGoals().goals?.find((one) => one.id === goal?.id)
   if (!goal) return <Skeleton className="h-40 w-full" />
-  return <GoalWhole goal={goal} />
+  return <GoalWhole goal={row ?? goal} reread={() => void fetchData.current?.()} />
 }
 
-function GoalWhole({ goal }: { goal: Goal }) {
+function GoalWhole({ goal, reread }: { goal: Goal; reread: () => void }) {
   const t = useT()
   const facts = [
     { label: t("Done when"), value: goal.criterion },
@@ -178,7 +181,11 @@ function GoalWhole({ goal }: { goal: Goal }) {
             {t("Edit")}
           </span>
         </ResourceViewButton>
-        <ArchiveGoal goal={goal} />
+        {CLOSINGS.map((closing) =>
+          goal.status === closing.status ? null : (
+            <CloseGoal key={closing.status} goal={goal} closing={closing} reread={reread} />
+          )
+        )}
         {goal.url ? (
           <a
             href={goal.url}
@@ -190,6 +197,7 @@ function GoalWhole({ goal }: { goal: Goal }) {
             {t("Open in Notion")}
           </a>
         ) : null}
+        <DeleteGoal goal={goal} />
       </div>
     </article>
   )
@@ -265,19 +273,64 @@ function GoalTicketRow({ ticket }: { ticket: NonNullable<Goal["linked"]>[number]
   )
 }
 
-/* Archived after a confirmation: the goal goes to Notion's trash, where it can
- * be brought back, and the tickets that served it simply serve none. */
-function ArchiveGoal({ goal }: { goal: Goal }) {
+/* Two ways a goal is over, each a status of the goals database: written, the
+ * goal stays — its page, its tickets and its count with it —, and the list,
+ * which rests on the active ones, no longer shows it unasked. */
+const CLOSINGS = [
+  { status: "atteint", label: "Reached", said: "Goal “{{name}}” reached", icon: CircleCheck },
+  { status: "abandonné", label: "Given up", said: "Goal “{{name}}” given up", icon: Ban },
+] as const
+
+function CloseGoal({
+  goal,
+  closing,
+  reread,
+}: {
+  goal: Goal
+  closing: (typeof CLOSINGS)[number]
+  reread: () => void
+}) {
+  const t = useT()
+  const [busy, setBusy] = React.useState(false)
+  const Icon = closing.icon
+  const close = async () => {
+    setBusy(true)
+    try {
+      await api.saveGoal(goal.id, { status: closing.status })
+    } catch (error) {
+      toast.error(t("The goal could not be changed"), { description: why(error) })
+      return
+    } finally {
+      setBusy(false)
+    }
+    toast.success(t(closing.said, { name: goal.name }))
+    await goalsOnce().catch(() => null)
+    goals.onChange.publish({ data: goal as GoalItem, action: ActionList.update })
+    reread()
+  }
+  return (
+    <Button type="button" variant="outline" size="sm" disabled={busy} onClick={close} data-close-goal={closing.status}>
+      <Icon />
+      {t(closing.label)}
+    </Button>
+  )
+}
+
+/* Deleted after a confirmation, and said so: the goal goes to Notion's trash,
+ * where it can be brought back, and the tickets that served it simply serve
+ * none. Set apart from the statuses, since a goal that is over is closed, not
+ * deleted. */
+function DeleteGoal({ goal }: { goal: Goal }) {
   const t = useT()
   const navigate = useNavigate()
   const confirm = async () => {
     try {
       await api.deleteGoal(goal.id)
     } catch (error) {
-      toast.error(t("The goal could not be archived"), { description: why(error) })
+      toast.error(t("The goal could not be deleted"), { description: why(error) })
       return false
     }
-    toast.success(t("Goal “{{name}}” archived", { name: goal.name }))
+    toast.success(t("Goal “{{name}}” deleted", { name: goal.name }))
     await goalsOnce().catch(() => null)
     // The list holds the card it drew: told it is gone, it draws without it.
     goals.onChange.publish({ data: goal as GoalItem, action: ActionList.delete })
@@ -285,20 +338,22 @@ function ArchiveGoal({ goal }: { goal: Goal }) {
   }
   return (
     <ConfirmDialog
-      title={t("Archive “{{name}}”?", { name: goal.name })}
-      description={t("The goal goes to Notion's trash. Its tickets stay where they are, and serve no goal.")}
+      title={t("Delete “{{name}}”?", { name: goal.name })}
+      description={t(
+        "The goal is deleted: it goes to Notion's trash, with its count. Its tickets stay where they are, and serve no goal. To close a goal that is over, mark it reached or given up instead."
+      )}
       destructive
       confirm={
         <>
           <Trash2 />
-          {t("Archive the goal")}
+          {t("Delete the goal")}
         </>
       }
       onConfirm={confirm}
       trigger={
-        <Button type="button" variant="outline" size="sm" data-archive-goal>
+        <Button type="button" variant="ghost" size="sm" className="text-destructive ml-auto" data-delete-goal>
           <Trash2 />
-          {t("Archive")}
+          {t("Delete")}
         </Button>
       }
     />
@@ -310,8 +365,26 @@ function ArchiveGoal({ goal }: { goal: Goal }) {
 export function NoGoal() {
   const t = useT()
   const { filterContext } = useListViewContext()
-  const { configured, problem } = useGoals()
+  const { configured, problem, goals: known } = useGoals()
   if (problem) return <EmptyState robot="error">{problem}</EmptyState>
+  // The list rests on the active goals: with none, the closed ones are one click away.
+  if (
+    !String(filterContext.filter.status ?? "") &&
+    known?.some((goal) => keeps(goal, { ...filterContext.filter, status: EVERY_STATUS }))
+  )
+    return (
+      <EmptyState
+        icon={Target}
+        title={t("No active goal.")}
+        action={
+          <Button variant="outline" size="sm" onClick={() => filterContext.updateFilter({ status: EVERY_STATUS })}>
+            {t("Show all")}
+          </Button>
+        }
+      >
+        {t("Every goal is reached or given up.")}
+      </EmptyState>
+    )
   if (!filterContext.filterIsEmpty)
     return (
       <EmptyState

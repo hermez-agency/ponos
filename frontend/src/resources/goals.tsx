@@ -20,7 +20,7 @@ import { FilterSelect, listFilters } from "@/components/console/filter-bar"
 import { PriorityInputController } from "@/components/console/priority"
 import { api, why } from "@/lib/api"
 import { boardOnce, titleOf } from "@/lib/board-store"
-import { keeps, valuesOf } from "@/lib/goal-search"
+import { EVERY_STATUS, keeps, valuesOf } from "@/lib/goal-search"
 import { onGoalsMoved } from "@/lib/goals-store"
 import { t } from "@/lib/i18n"
 import { readScore } from "@/lib/priority"
@@ -31,8 +31,8 @@ import { projectsOnce } from "@/resources/projects"
  *
  * Listed and written: a card per goal, how many of its tickets are done, and
  * the page of one in a drawer over the list — and the forms that create one,
- * change any of its columns, tie tickets to it and archive it, which is Notion's
- * trash. The progress is the server's count of the tickets the board lists (see
+ * change any of its columns, tie tickets to it and delete it, which is Notion's
+ * trash — a goal met or given up is closed by its status instead, and kept. The progress is the server's count of the tickets the board lists (see
  * `Api.goals`), so it is the same on a board of Markdown files as on Notion's,
  * and it is read again after every write.
  *
@@ -115,22 +115,32 @@ function readAgain(): Promise<Goal[]> {
 
 /* A goal's status and one of its projects, each a button of the bar whose
  * options are the ones the last read found: the goals database names its own
- * statuses, and the console has no word list of them. */
+ * statuses, and the console has no word list of them. The status rests on the
+ * active goals, and offers every one besides. */
 const valueFilter = (field: "status" | "projects", label: string, all: string): InputControllerComponentInterface =>
   function GoalFilter({ formInput, onChange }) {
     const known = useGoals().goals ?? []
+    const resting =
+      field === "status"
+        ? [
+            { value: "", label: t("Active goals") },
+            { value: EVERY_STATUS, label: t(all) },
+          ]
+        : [{ value: "", label: t(all) }]
     return (
       <FilterSelect
         label={t(label)}
         data-slot={`goals-${field}-filter`}
         value={String(formInput.value ?? "")}
         onChange={(value) => onChange({ ...formInput, value })}
-        options={[{ value: "", label: t(all) }, ...valuesOf(known, field).map((value) => ({ value, label: value }))]}
+        always={field === "status"}
+        options={[...resting, ...valuesOf(known, field).map((value) => ({ value, label: value }))]}
       />
     )
   }
 
-/* In the address as `status` and `project`; "" is "all" for both. */
+/* In the address as `status` and `project`; "" is "all" for the project, and
+ * the active goals for the status — "all" is every one. */
 const filters: FormInterface = {
   components: { formInputs: listFilters({ lead: "status" }) },
   inputs: {
