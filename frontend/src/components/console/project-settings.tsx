@@ -2,7 +2,9 @@ import * as React from "react"
 import { Link } from "react-resource-view"
 
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
@@ -76,6 +78,18 @@ export function ProjectSettingsTab({ project }: { project: string }) {
     }
   }
 
+  const saveLocalCi = async (enabled: boolean, command: string) => {
+    setSaving(true)
+    try {
+      setSettings(await api.saveProjectSettings(project, { local_ci: { enabled, command } }))
+      setProblem("")
+    } catch (error) {
+      setProblem(why(error))
+    } finally {
+      setSaving(false)
+    }
+  }
+
   if (!settings)
     return problem ? (
       <p className="text-destructive text-sm">{problem}</p>
@@ -86,7 +100,7 @@ export function ProjectSettingsTab({ project }: { project: string }) {
       </div>
     )
 
-  const { validation, ideas } = settings
+  const { validation, ideas, local_ci: localCi } = settings
   return (
     <div className="flex max-w-[720px] min-w-0 flex-col gap-5" data-slot="project-settings">
       {problem ? (
@@ -168,7 +182,95 @@ export function ProjectSettingsTab({ project }: { project: string }) {
           />
         </CardContent>
       </Card>
+      <LocalCiCard key={localCi.command} localCi={localCi} saving={saving} onSave={saveLocalCi} />
     </div>
+  )
+}
+
+/* The project's local CI: whether it runs before its pull requests — greyed,
+ * with the reason, while Docker does not answer here — and what runs it. The
+ * switch saves as it is flipped; the command, which is typed, with its button. */
+function LocalCiCard({
+  localCi,
+  saving,
+  onSave,
+}: {
+  localCi: ProjectSettings["local_ci"]
+  saving: boolean
+  onSave: (enabled: boolean, command: string) => Promise<void>
+}) {
+  const t = useT()
+  const [command, setCommand] = React.useState(localCi.command)
+  const changed = command.trim() !== localCi.command
+  return (
+    <Card data-card="project-local-ci" className="gap-0 py-0">
+      <CardHeader className="gap-1 px-5 pt-5 pb-2 sm:px-6">
+        <CardTitle className="text-base">{t("Local CI before pull request")}</CardTitle>
+        <CardDescription className="text-[13px] leading-relaxed">
+          {t(
+            "The project's CI runs on this machine, in Docker, once the session has committed; a red one goes back to the session to be fixed before anything is pushed. The CI on GitHub still runs."
+          )}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="px-5 pb-4 sm:px-6">
+        <p className="pt-1 pb-2 text-[13px]" data-slot="docker-state">
+          <span className={localCi.docker ? "font-semibold text-emerald-700 dark:text-emerald-400" : "font-semibold"}>
+            {localCi.docker ? t("Docker detected") : t("Docker missing")}
+          </span>{" "}
+          <span className="text-muted-foreground">
+            {localCi.unavailable ? t(localCi.unavailable) : t("The local CI can be turned on.")}
+          </span>
+        </p>
+        <div className="divide-y">
+          <Row
+            id="project-local-ci"
+            label={t("Run the local CI before the pull request")}
+            line={
+              localCi.own
+                ? t("This project's own choice, against the global setting.")
+                : t("Follows the global setting, in Code and repositories.")
+            }
+            checked={localCi.enabled}
+            // Greyed while Docker is missing — but one left on can still be turned off.
+            disabled={saving || (!localCi.docker && !localCi.enabled)}
+            onChange={(enabled) => void onSave(enabled, localCi.command)}
+          />
+          <form
+            className="py-4"
+            data-field="project-local-ci-command"
+            onSubmit={(event) => {
+              event.preventDefault()
+              if (changed) void onSave(localCi.enabled, command.trim())
+            }}
+          >
+            <Label htmlFor="project-local-ci-command" className="leading-snug font-semibold">
+              {t("CI command")}
+            </Label>
+            <p className="text-muted-foreground mt-1 text-[13px] leading-snug">
+              <Rich
+                text={t(
+                  "Run from the root of the repository, e.g. `make ci`. Empty: the GitHub workflows, through `act` when it is installed."
+                )}
+              />
+            </p>
+            <div className="mt-2.5 flex gap-2">
+              <Input
+                id="project-local-ci-command"
+                className="font-mono text-[13px]"
+                autoComplete="off"
+                spellCheck={false}
+                placeholder="make ci"
+                value={command}
+                onChange={(event) => setCommand(event.target.value)}
+              />
+              <Button type="submit" variant="outline" disabled={!changed || saving}>
+                {t("Save")}
+              </Button>
+            </div>
+          </form>
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 

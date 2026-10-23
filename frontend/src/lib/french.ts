@@ -1373,6 +1373,21 @@ export const FRENCH: Record<string, string> = {
   "The branch a ticket's branch starts from, e.g. `main`. Empty: the repository's default branch.":
     "La branche d'où part la branche d'un ticket, par ex. `main`. Vide : la branche par défaut du dépôt.",
   "Resolve merge conflicts automatically": "Résoudre les conflits de fusion automatiquement",
+  "Local CI before pull request": "CI locale avant pull request",
+  "Run the project's CI on this machine, in Docker, before the pull request is opened: a red one goes back to the same session to be fixed. The CI on GitHub still runs, and stays the check that counts.":
+    "Lancer la CI du projet sur cette machine, dans Docker, avant l'ouverture de la pull request : rouge, elle repart vers la même session pour être corrigée. La CI de GitHub tourne toujours, et reste le contrôle qui compte.",
+  "Once the session has committed, the command the project declares in its Settings tab runs — or its GitHub workflows, through `act` — and the session fixes what fails before anything is pushed. A project can turn it on or off for itself. Off: nothing changes.":
+    "Une fois que la session a commité, la commande que le projet déclare dans son onglet Réglages tourne — ou ses workflows GitHub, avec `act` — et la session corrige ce qui échoue avant que rien ne soit poussé. Un projet peut l'activer ou la désactiver pour lui-même. Désactivée : rien ne change.",
+  "Attempts before blocking": "Tentatives avant blocage",
+  "How many times the CI runs, the first included. Still red after the last, the ticket is blocked with the reason, and no pull request is opened.":
+    "Combien de fois la CI tourne, la première comprise. Encore rouge après la dernière, le ticket est bloqué avec le motif, et aucune pull request n'est ouverte.",
+  "Local CIs at once": "CI locales simultanées",
+  "However many tickets run side by side, this many local CIs run at a time on this machine; the next one waits for a place.":
+    "Quel que soit le nombre de tickets en parallèle, ce nombre de CI locales tourne à la fois sur cette machine ; la suivante attend une place.",
+  "Docker is installed, but its daemon does not answer: start it to turn this on.":
+    "Docker est installé, mais son démon ne répond pas : démarrez-le pour activer ceci.",
+  "Docker is not installed on this machine: this cannot be turned on without it.":
+    "Docker n'est pas installé sur cette machine : ceci ne peut pas être activé sans lui.",
   "When a validated pull request conflicts, a session resolves it, runs the project's checks, then merges. A conflict that needs a decision blocks the ticket with the question.":
     "Quand une pull request validée est en conflit, une session le résout, lance les vérifications du projet, puis fusionne. Un conflit qui demande une décision bloque le ticket avec la question.",
   "Branch name prefix": "Préfixe des noms de branche",
@@ -2627,6 +2642,17 @@ export const FRENCH: Record<string, string> = {
     "Me prévenir sur mes canaux quand une passe trouve de nouvelles idées",
   "The CLI's own model":
     "Le modèle propre au CLI",
+  "Docker detected": "Docker détecté",
+  "Docker missing": "Docker absent",
+  "The local CI can be turned on.": "La CI locale peut être activée.",
+  "Run the local CI before the pull request": "Lancer la CI locale avant la pull request",
+  "The project's CI runs on this machine, in Docker, once the session has committed; a red one goes back to the session to be fixed before anything is pushed. The CI on GitHub still runs.":
+    "La CI du projet tourne sur cette machine, dans Docker, une fois que la session a commité ; rouge, elle repart vers la session pour être corrigée avant que rien ne soit poussé. La CI de GitHub tourne toujours.",
+  "This project's own choice, against the global setting.": "Le choix propre à ce projet, contre le réglage global.",
+  "Follows the global setting, in Code and repositories.": "Suit le réglage global, dans Code et dépôts.",
+  "CI command": "Commande de CI",
+  "Run from the root of the repository, e.g. `make ci`. Empty: the GitHub workflows, through `act` when it is installed.":
+    "Lancée depuis la racine du dépôt, par exemple `make ci`. Vide : les workflows GitHub, avec `act` s'il est installé.",
   "Ideas on a schedule":
     "Idées planifiées",
   "Ponos can look for ideas for this project on its own, at the times set in the Ideas page's Settings. The button on this page works whatever is set here.":

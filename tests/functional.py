@@ -49,7 +49,17 @@ import support  # noqa: E402
 from support import case, fixture  # noqa: E402
 
 from ponos import config as C  # noqa: E402
-from ponos import credits, db, images, journal, notion, project_settings, state, store  # noqa: E402
+from ponos import (  # noqa: E402
+    credits,
+    db,
+    images,
+    journal,
+    local_ci,
+    notion,
+    project_settings,
+    state,
+    store,
+)
 from ponos import http as http_module  # noqa: E402
 from ponos.runner import Runner  # noqa: E402
 from ponos.ticket import short_id  # noqa: E402
@@ -715,6 +725,16 @@ if "You are resolving that conflict" in prompt:
     emit({"type": "result", "subtype": "success", "is_error": False, "result": said,
           "session_id": session, "num_turns": 4, "total_cost_usd": 0.05})
     raise SystemExit(0)
+
+# The project's CI, run on this machine before the push, went red: the fake
+# fixes it the way the CI of the scenarios checks — `FIXED.md` committed.
+if "the project's CI was run on this machine" in prompt:
+    (here / "FIXED.md").write_text("fixed\\n", encoding="utf-8")
+    subprocess.run(["git", "add", "FIXED.md"], cwd=here, check=True, capture_output=True)
+    subprocess.run(["git", "-c", "user.name=Fake Claude", "-c", "user.email=fake@example.invalid",
+                    "-c", "commit.gpgsign=false", "commit", "-m", "Corrige la CI locale"],
+                   cwd=here, check=True, capture_output=True)
+    finish("RESULT: ok — la CI locale est corrigée", turns=2, cost=0.01)
 
 # A second ticket landed on the base branch while this session was running.
 # `FAKE_CLAUDE_MOVES_BASE` names the clone it landed in: a commit on `main`,
@@ -1625,6 +1645,121 @@ def a_ticket_with_no_type_is_classified_then_published_only_once_validated(machi
     published = machine.sessions()
     assert len(published) == 1 and "You are publishing, not producing" in published[0]["prompt"]
     assert machine.board.value(ticket, "Type") == "Publication", "the type is left alone"
+
+
+# `docker`, reduced to what the local CI asks of it: `info` answers, and every
+# other call is recorded — `ps` finds one container of the ticket's compose
+# project, which is what the clean-up has to remove.
+DOCKER = """
+import json, os, sys
+
+args = sys.argv[1:]
+with open(os.environ["FAKE_DOCKER_LOG"], "a", encoding="utf-8") as handle:
+    handle.write(json.dumps(args) + "\\n")
+if args[:1] == ["info"]:
+    print("29.0.0")
+elif args[:1] == ["ps"] and any("com.docker.compose.project=" in arg for arg in args):
+    print("c0ffee")
+elif args[:1] == ["rm"]:
+    print("\\n".join(args[3:]))
+"""
+
+
+@contextmanager
+def _docker(root: Path):
+    """A `docker` that answers, at the head of the bench's `PATH`; its calls, as it records them."""
+    _script(root / "bin" / "docker", DOCKER)
+    log = root / "logs" / "docker.jsonl"
+    log.write_text("", encoding="utf-8")
+    local_ci._docker = None
+    try:
+        with _environ({"FAKE_DOCKER_LOG": str(log)}):
+            yield lambda: [json.loads(line) for line in log.read_text().splitlines()]
+    finally:
+        local_ci._docker = None
+
+
+@case
+@runner_settings(local_ci=True)
+def a_ticket_whose_local_ci_fails_is_fixed_before_its_pull_request_opens(machine):
+    """Red here, fixed by the same session, green here — and only then the pull request.
+
+    The ticket keeps one line of it, and not a line of the CI's output; the
+    containers of the ticket's CI are gone once it has run.
+    """
+    with _docker(machine.root) as calls:
+        repository = machine.repository("site")
+        project = machine.project("Site", repository)
+        project_settings.set_local_ci(
+            project, "Site", None, "test -f FIXED.md || { echo FIXED.md manque; exit 1; }"
+        )
+        ticket = machine.ticket("Corriger l'entête", "Le titre est faux.", project)
+
+        results = machine.run()
+
+        assert results[0]["status"] == "done", results
+        assert machine.status(ticket) == "In review", machine.status(ticket)
+        sessions = machine.sessions()
+        assert len(sessions) == 2, sessions
+        assert "the project's CI was run on this machine" in sessions[1]["prompt"], sessions[1]
+        assert "FIXED.md manque" in sessions[1]["prompt"], "the session was not shown the failure"
+        assert sessions[1]["session"] == sessions[0]["session"], "not the same session"
+        opened = machine.pull_requests()
+        assert len(opened) == 1, opened
+        branch = results[0]["branch"]
+        assert "FIXED.md" in machine.files_on(repository, branch), "the fix was not pushed"
+        said = machine.board.said(ticket)[-1]
+        assert "Local CI: failed, fixed in 2 attempts." in said, said
+        assert "FIXED.md manque" not in said, "the CI's output reached the ticket"
+        name = local_ci.name(ticket)
+        removed = [call for call in calls() if call[:1] == ["rm"]]
+        assert removed and all(call[-1] == "c0ffee" for call in removed), calls()
+        assert any(f"label=com.docker.compose.project={name}" in call for call in calls())
+        assert results[0]["cost_usd"] == 0.03, results[0]
+        db.close()
+
+
+@case
+@runner_settings(local_ci=True, local_ci_attempts=2)
+def a_local_ci_still_red_after_its_attempts_blocks_the_ticket_and_opens_nothing(machine):
+    with _docker(machine.root):
+        repository = machine.repository("site")
+        project = machine.project("Site", repository)
+        # What it prints is not in what it is: the output is what must stay off the ticket.
+        project_settings.set_local_ci(project, "Site", None, "printf 'lo%s\\n' gs-du-ci; exit 3")
+        ticket = machine.ticket("Corriger l'entête", "Le titre est faux.", project)
+
+        results = machine.run()
+
+        assert machine.status(ticket) == "Blocked", machine.status(ticket)
+        assert results[0]["code"] == "merge.local-ci-failed", results[0]
+        assert not machine.pull_requests(), "a pull request opened on a red local CI"
+        assert len(machine.sessions()) == 2, machine.sessions()
+        said = machine.board.said(ticket)[-1]
+        assert "logs-du-ci" not in said, said
+        assert "logs-du-ci" in machine.sessions()[1]["prompt"], machine.sessions()[1]
+        db.close()
+
+
+@case
+@runner_settings(local_ci=True)
+def without_docker_the_local_ci_is_skipped_and_the_ticket_runs_as_before(machine):
+    local_ci._docker = (time.monotonic(), local_ci.Docker(False, False))
+    try:
+        repository = machine.repository("site")
+        project = machine.project("Site", repository)
+        project_settings.set_local_ci(project, "Site", None, "exit 1")
+        ticket = machine.ticket("Corriger l'entête", "Le titre est faux.", project)
+
+        machine.run()
+
+        assert machine.status(ticket) == "In review", machine.status(ticket)
+        assert len(machine.pull_requests()) == 1
+        assert len(machine.sessions()) == 1
+        assert "Local CI" not in machine.board.said(ticket)[-1]
+    finally:
+        local_ci._docker = None
+    db.close()
 
 
 @case

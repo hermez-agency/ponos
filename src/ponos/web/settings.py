@@ -32,7 +32,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .. import config as config_module
-from .. import models, subtypes, voice
+from .. import local_ci, models, subtypes, voice
 from ..config import (
     CONFIDENCES,
     EVENTS,
@@ -128,6 +128,10 @@ class Field:
     # word heading its row or its column. See `Section.layout`.
     grid: str = ""
     short: str = ""
+    # What this machine must have for the switch to be turned on — "docker" —
+    # said rather than hidden: the field is drawn greyed, with the reason,
+    # while it is missing. See `_unavailable`.
+    needs: str = ""
 
     @property
     def name(self) -> str:
@@ -1548,6 +1552,46 @@ SECTIONS: tuple[Section, ...] = (
         ),
     ),
     Section(
+        key="local_ci",
+        group="code",
+        title="Local CI before pull request",
+        blurb="Run the project's CI on this machine, in Docker, before the pull request is "
+        "opened: a red one goes back to the same session to be fixed. The CI on GitHub still "
+        "runs, and stays the check that counts.",
+        fields=(
+            Field(
+                "runner",
+                "local_ci",
+                "bool",
+                "Local CI before pull request",
+                "Once the session has committed, the command the project declares in its "
+                "Settings tab runs — or its GitHub workflows, through `act` — and the session "
+                "fixes what fails before anything is pushed. A project can turn it on or off "
+                "for itself. Off: nothing changes.",
+                needs="docker",
+            ),
+            Field(
+                "runner",
+                "local_ci_attempts",
+                "int",
+                "Attempts before blocking",
+                "How many times the CI runs, the first included. Still red after the last, the "
+                "ticket is blocked with the reason, and no pull request is opened.",
+                minimum=1,
+            ),
+            Field(
+                "runner",
+                "local_ci_concurrent",
+                "int",
+                "Local CIs at once",
+                "However many tickets run side by side, this many local CIs run at a time on "
+                "this machine; the next one waits for a place.",
+                minimum=1,
+                advanced=True,
+            ),
+        ),
+    ),
+    Section(
         key="conflicts",
         group="code",
         title="Conflicts",
@@ -1944,10 +1988,27 @@ def _from_environment(entry: Field, stored: dict[str, str]) -> str:
     return ""
 
 
+def _unavailable(entry: Field, docker: local_ci.Docker) -> str:
+    """Why a field cannot be turned on here, or "" when it can."""
+    return unavailable_for(entry.needs, docker)
+
+
+def unavailable_for(needs: str, docker: local_ci.Docker) -> str:
+    """Why what needs `needs` cannot be turned on here — also said by a project's own settings."""
+    if needs == "docker" and not docker.available:
+        return (
+            "Docker is installed, but its daemon does not answer: start it to turn this on."
+            if docker.installed
+            else "Docker is not installed on this machine: this cannot be turned on without it."
+        )
+    return ""
+
+
 def describe(config: Config) -> dict:
     """Every setting, as the console draws it. No secret leaves in here."""
     raw = config_module.read_raw(config.path)
     stored = config_module.read_secrets(config_module.secrets_path(config.path))
+    docker = local_ci.docker()
     sections = []
     for section in SECTIONS:
         drawn = {
@@ -1981,6 +2042,7 @@ def describe(config: Config) -> dict:
                 "grid": entry.grid,
                 "short": entry.short,
                 "environment": _from_environment(entry, stored),
+                "unavailable": _unavailable(entry, docker),
             }
             if entry.kind == "secret":
                 # Not `_fallback`: for a secret that is the value itself, and
@@ -2021,6 +2083,7 @@ def describe(config: Config) -> dict:
             {"key": key, "title": title, "blurb": blurb} for key, (title, blurb) in FOLDS.items()
         ],
         "sections": sections,
+        "docker": {"available": docker.available, "installed": docker.installed},
         "projects": [
             {"name": name, "value": str(path)}
             for name, path in sorted(_table(raw, "projects").items())
@@ -2168,7 +2231,10 @@ def save(config: Config, payload: dict) -> dict:
         entry = FIELDS.get(str(name))
         if entry is None:
             raise ValueError(f"no such setting: {name}")
-        changes.append((entry.table, entry.key, _value(entry, value)))
+        given = _value(entry, value)
+        if given is True and (why := _unavailable(entry, local_ci.docker())):
+            raise ValueError(f"{name}: {why}")
+        changes.append((entry.table, entry.key, given))
         touched.append(entry)
         # The key it replaces goes with it: one line in the file says it, not two
         # that might disagree. See `LEGACY`.

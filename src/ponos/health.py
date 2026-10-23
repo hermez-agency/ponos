@@ -65,6 +65,7 @@ from . import (
     idea_schedule,
     kinds,
     leftovers,
+    local_ci,
     log,
     models,
     prerequisites,
@@ -1896,7 +1897,61 @@ def base_without_ci(repo: Path, accounts: git.Accounts | None = None) -> str:
 
 
 def _machine(config: config_module.Config) -> list[Check]:
-    return [*_tools(), *_disk(config), *_memory(config), *_runner(config)]
+    return [
+        *_tools(),
+        *_docker(config),
+        *_disk(config),
+        *_memory(config),
+        *_runner(config),
+    ]
+
+
+DOCKER_INSTALL = "https://docs.docker.com/engine/install/"
+
+
+def _docker(config: config_module.Config) -> list[Check]:
+    """Whether Docker answers, which is what the local CI before a pull request needs.
+
+    A warning only when `runner.local_ci` asks for it: a runner that never
+    turned it on has lost nothing, and the line says what Docker would offer.
+    """
+    found = local_ci.docker(fresh=True)
+    wanted = config.runner.local_ci
+    if found.available:
+        return [
+            _check(
+                "machine.docker",
+                OK,
+                "Docker",
+                "Docker {{version}} answers: the local CI runs before every pull request."
+                if wanted
+                else "Docker {{version}} answers: the local CI before pull requests can be turned on.",
+                params={"version": found.version},
+            )
+        ]
+    said = (
+        "Docker is installed, but its daemon does not answer."
+        if found.installed
+        else "Docker is not installed."
+    )
+    return [
+        _check(
+            "machine.docker",
+            WARN if wanted else INFO,
+            "Docker",
+            said,
+            cause="runner.local_ci is on: tickets go on without their local CI until Docker answers."
+            if wanted
+            else "The local CI before pull requests needs it, and stays off until it answers.",
+            evidence=found.error,
+            url=DOCKER_INSTALL,
+            steps=[
+                "Start its daemon (`sudo systemctl start docker`), and let this account use it (the `docker` group)."
+                if found.installed
+                else "Install Docker Engine, then check again."
+            ],
+        )
+    ]
 
 
 def _tools() -> list[Check]:

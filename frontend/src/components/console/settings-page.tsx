@@ -231,7 +231,28 @@ function onPage(group: string, target: string): boolean {
  * and the two cards that are lists of rows, each a resource of its own, drawn
  * as a resource is drawn: the package's table, its own dialogs. */
 const extra = (section: SettingSection) =>
-  section.key === "languages" ? <LanguagePicker /> : section.key === "validation" ? <OwnValidation /> : null
+  section.key === "languages" ? (
+    <LanguagePicker />
+  ) : section.key === "validation" ? (
+    <OwnValidation />
+  ) : section.key === "local_ci" ? (
+    <DockerState />
+  ) : null
+
+/* Above the local CI's switch: whether this machine has what it needs. */
+function DockerState() {
+  const t = useT()
+  useSettingsRevision()
+  const docker = currentSettings()?.docker
+  if (!docker) return null
+  return (
+    <p className="pt-1 pb-2 text-[13px]" data-slot="docker-state">
+      <span className={docker.available ? "font-semibold text-emerald-700 dark:text-emerald-400" : "font-semibold"}>
+        {docker.available ? t("Docker detected") : t("Docker missing")}
+      </span>
+    </p>
+  )
+}
 
 /* Above the four switches of the validation card: that they are not the whole
  * story, since a project may decide for itself — and which ones do, each a

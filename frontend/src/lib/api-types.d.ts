@@ -2216,6 +2216,11 @@ export interface components {
             retention_days: number;
             clean_done_worktrees: boolean;
         };
+        /** @description Whether Docker is installed on the runner's machine, and whether its daemon answers. */
+        Docker: {
+            available: boolean;
+            installed: boolean;
+        };
         /** @description `ponos doctor`, as the terminal prints it. */
         Doctor: {
             code: number;
@@ -2936,11 +2941,27 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** @description Whether a project's CI runs on this machine before its pull request — see local_ci.py. */
+        ProjectLocalCi: {
+            /** @description What applies to it: its own word, or the file's. */
+            enabled: boolean;
+            /** @description Whether the project says so itself, against `runner.local_ci` saying for it. */
+            own: boolean;
+            /** @description `runner.local_ci`, whatever the project says. */
+            global: boolean;
+            /** @description What runs its CI; empty, its GitHub workflows through `act` when it is installed. */
+            command: string;
+            /** @description Whether Docker answers on this machine. */
+            docker: boolean;
+            /** @description Why it cannot be turned on here, or empty when it can. */
+            unavailable: string;
+        };
         /** @description What a project decides for itself — see project_settings.py. */
         ProjectSettings: {
             id: string;
             validation: components["schemas"]["Validation"];
             ideas: components["schemas"]["ProjectIdeas"];
+            local_ci: components["schemas"]["ProjectLocalCi"];
         };
         Projects: {
             projects: components["schemas"]["Project"][];
@@ -3283,6 +3304,8 @@ export interface components {
             grid?: "" | "level" | "type" | "subtype";
             /** @description The word heading its row or its column in that table. */
             short?: string;
+            /** @description Why it cannot be turned on on this machine — Docker missing — or empty when it can. */
+            unavailable?: string;
         };
         /** @description A folded block at the end of a page — the board's names, for one. */
         SettingFold: {
@@ -3318,6 +3341,8 @@ export interface components {
             sections: components["schemas"]["SettingSection"][];
             projects: components["schemas"]["Pair"][];
             github: components["schemas"]["Pair"][];
+            /** @description Whether Docker answers here, which the local CI needs. */
+            docker?: components["schemas"]["Docker"];
             /** @description The projects that decide their automatic validation for themselves. */
             own_validation?: components["schemas"]["OwnValidation"][];
         };

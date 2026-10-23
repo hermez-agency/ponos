@@ -230,6 +230,9 @@ class RunnerTable(Table):
     resolve_conflicts_except: Names = Runner.resolve_conflicts_except
     resolve_model: Text = Runner.resolve_model
     checks_timeout_minutes: AtLeast0 = Runner.checks_timeout_minutes
+    local_ci: bool = Runner.local_ci
+    local_ci_attempts: AtLeast1 = Runner.local_ci_attempts
+    local_ci_concurrent: AtLeast1 = Runner.local_ci_concurrent
     keep_worktree_on_failure: bool = Runner.keep_worktree_on_failure
     attach_sessions: bool = Runner.attach_sessions
     session_host: Text = Runner.session_host

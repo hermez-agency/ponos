@@ -58,6 +58,10 @@ A sixth one is not a frame but a reminder: a session that stopped without its
 report is picked up once, in its own conversation, and told to write it — **the
 account of what it did, and no more work.** See `WRITE_UP`.
 
+A seventh is a reminder too, in the same conversation: the project's CI, run on
+this machine before the push, went red — **fix the code, never the check that
+caught it.** See `LOCAL_CI`.
+
 Each of them carries a `{language}` line, and it is empty on purpose whenever
 nobody asked for one: every template already says which language to write in —
 the ticket's, the message's — and a runner nobody configured must keep saying
@@ -510,6 +514,28 @@ WRITE_UP_CODE = (
 )
 
 
+# A seventh: the project's CI, run on this machine once the session committed,
+# went red. Sent to the same conversation, which knows why every line it wrote
+# is there — see `Execution._local_ci`. The output is the end of it, where the
+# failure is said; the runner runs it again once the session is done.
+LOCAL_CI = """\
+Before your branch is pushed, the project's CI was run on this machine with \
+`{command}`, and it failed (attempt {attempt} of {attempts}). The end of its \
+output:
+
+```
+{output}
+```
+
+Fix what makes it fail, in this same worktree, and commit the fix. Do not \
+weaken, skip or delete a test or a check to make it pass: fix the code, or the \
+test when the test itself is wrong. If the failure has nothing to do with this \
+ticket and cannot be fixed from here, say so. The CI is run again once you \
+are done.
+
+Then end on the RESULT line the first message asked for.
+{language}"""
+
 # What an external action is told, on top of the document frame.
 EXTERNAL = """\
 # This ticket is an external action
@@ -809,6 +835,17 @@ def write_up(answer_in: Path | str = "", language: str = "") -> str:
     """
     what = WRITE_UP_DOCUMENT.format(path=answer_in) if answer_in else WRITE_UP_CODE
     return WRITE_UP.format(what=what, language=_language(language))
+
+
+def local_ci(command: str, output: str, attempt: int, attempts: int, language: str = "") -> str:
+    """The message that hands a red local CI back to the session that wrote the code."""
+    return LOCAL_CI.format(
+        command=command,
+        output=output.strip() or "(no output)",
+        attempt=attempt,
+        attempts=attempts,
+        language=_language(language),
+    )
 
 
 def _language(instruction: str) -> str:

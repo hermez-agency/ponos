@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .. import idea_schedule, project_settings, store
+from .. import idea_schedule, local_ci, project_settings, store
 from .. import kinds as kinds_module
 from . import settings as settings_module
 from .base import Base
@@ -84,6 +84,21 @@ class Configuration(Base):
                 "fields": self._validation_fields(),
             },
             "ideas": self._project_ideas(bare),
+            "local_ci": self._project_local_ci(bare),
+        }
+
+    def _project_local_ci(self, bare: str) -> dict[str, Any]:
+        """The project's local CI: whether it runs, whose word that is, what runs it — and Docker."""
+        own = project_settings.local_ci(bare)
+        docker = local_ci.docker()
+        globally = self.config.runner.local_ci
+        return {
+            "enabled": own["enabled"] if own["enabled"] is not None else globally,
+            "own": own["enabled"] is not None,
+            "global": globally,
+            "command": own["command"],
+            "docker": docker.available,
+            "unavailable": settings_module.unavailable_for("docker", docker),
         }
 
     def _project_ideas(self, bare: str) -> dict[str, Any]:
@@ -114,7 +129,13 @@ class Configuration(Base):
         bare = project_settings.key(page_id)
         validation = payload.get("validation")
         finding = payload.get("ideas")
-        if validation is None and isinstance(finding, dict):
+        checking = payload.get("local_ci")
+        if validation is None and isinstance(checking, dict):
+            if not isinstance(checking.get("enabled"), bool) or not isinstance(
+                checking.get("command", ""), str
+            ):
+                raise ValueError("say whether the project runs its CI locally, and with what")
+        elif validation is None and isinstance(finding, dict):
             if not isinstance(finding.get("enabled"), bool):
                 raise ValueError("say whether ideas are found for the project")
         elif not isinstance(validation, dict) or not isinstance(validation.get("own"), bool):
@@ -146,6 +167,16 @@ class Configuration(Base):
             agrees = idea_schedule.covers(wanted, bare, name, None) == finding["enabled"]
             project_settings.set_ideas(bare, name, None if agrees else finding["enabled"])
             self.hub.publish("ideas", settings=True)
+        if isinstance(checking, dict):
+            wanted = checking["enabled"]
+            docker = local_ci.docker()
+            if wanted and not docker.available:
+                raise ValueError(settings_module.unavailable_for("docker", docker))
+            # The file's own answer is not a decision of the project's, as for ideas.
+            agrees = wanted == self.config.runner.local_ci
+            project_settings.set_local_ci(
+                bare, name, None if agrees else wanted, str(checking.get("command", ""))
+            )
         self.hub.publish("settings", project=bare)
         return self.project_settings(bare)
 

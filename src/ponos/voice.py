@@ -797,6 +797,37 @@ _SAID: dict[str, dict[str, str]] = {
         "fr": "CI : encore en cours au moment de la fusion.",
     },
     "checks-none": {"en": "CI: none to wait for.", "fr": "CI : aucune à attendre."},
+    "local-ci-ok": {"en": "Local CI: OK.", "fr": "CI locale : OK."},
+    "local-ci-fixed": {
+        "en": "Local CI: failed, fixed in {count} attempts.",
+        "fr": "CI locale : échec, corrigé en {count} tentatives.",
+    },
+    "local-ci-none": {
+        "en": "Local CI: not run — no command declared for the project, and no `act` to run its workflows.",
+        "fr": "CI locale : non lancée — aucune commande déclarée pour le projet, et pas d'`act` pour ses workflows.",
+    },
+    "local-ci-failed": {
+        "en": "Local CI: still red after {count} attempts — no pull request opened.",
+        "fr": "CI locale : toujours rouge après {count} tentatives — aucune pull request ouverte.",
+    },
+    "local-ci-detail": {
+        "en": "`{command}` ended with code {code}.",
+        "fr": "`{command}` s'est terminée avec le code {code}.",
+    },
+    "local-ci-timed-out": {
+        "en": "`{command}` was stopped after {minutes} minutes.",
+        "fr": "`{command}` a été arrêtée au bout de {minutes} minutes.",
+    },
+    "local-ci-question": {
+        "en": (
+            "The local CI (`{command}`) still fails after {count} attempts: what should be "
+            "fixed — or should the local CI be turned off for this project?"
+        ),
+        "fr": (
+            "La CI locale (`{command}`) échoue encore après {count} tentatives : que faut-il "
+            "corriger — ou faut-il désactiver la CI locale pour ce projet ?"
+        ),
+    },
     "base-moved-again": {
         "en": "Pushed, but the base moved again in the meantime: replayed once more on the next pass.",
         "fr": "Poussée, mais la base a encore bougé entre-temps : rejouée à nouveau au prochain passage.",

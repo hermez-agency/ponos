@@ -180,6 +180,8 @@ const SwitchController = ({ formInput, onChange }: InputControllerInterface) => 
     <Switch
       id={formInput.id}
       checked={on}
+      // What this machine lacks greys it out — and still lets a switch left on be turned off.
+      disabled={Boolean(field.unavailable) && !on}
       onCheckedChange={(next) =>
         onChange({
           ...formInput,
@@ -553,6 +555,11 @@ function SettingRow({ formInput, onChange, formInputComponent: Control }: FormGr
           <div className="mt-2.5">{control}</div>
         </>
       )}
+      {field.unavailable ? (
+        <p className="mt-2 text-xs text-amber-700 dark:text-amber-400" data-slot="setting-unavailable">
+          {t(field.unavailable)}
+        </p>
+      ) : null}
       {field.environment ? (
         <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
           <Rich text={t("Given by the environment variable `{{name}}`.", { name: field.environment })} />
