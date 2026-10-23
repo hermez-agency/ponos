@@ -541,7 +541,6 @@ export const FRENCH: Record<string, string> = {
   "Ask me anything about your workspace — I can read your repositories, look at the board and create tickets. Type > followed by a command (>status, >list, >doctor) to use the CLI directly.":
     "Demandez-moi ce que vous voulez sur votre espace de travail — je peux lire vos dépôts, regarder le tableau et créer des tickets. Tapez > suivi d'une commande (>status, >list, >doctor) pour passer directement par le CLI.",
   Send: "Envoyer",
-  "new conversation": "nouvelle conversation",
   "Start a new conversation": "Démarrer une nouvelle conversation",
   "exit {{code}}": "sortie {{code}}",
   "Full screen": "Plein écran",

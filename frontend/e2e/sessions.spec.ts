@@ -88,3 +88,23 @@ test("search looks in the titles and in what was said; delete asks for the box",
   await confirm.click()
   await expect(renamed).toHaveCount(0)
 })
+
+test("a new conversation starts from the drawer, on the same model, and the old one is in the history", async ({ page }) => {
+  await openConsole(page)
+  await page.locator("[data-new-chat]").click()
+  await page.locator("[data-model-picker]").click()
+  await page.locator("[data-model-list]").getByText("Haiku", { exact: true }).click()
+  await ask(page, "first of two")
+  await expect(page.getByText("Done. The board has 13 tickets.", { exact: true })).toBeVisible()
+
+  await page.keyboard.press("Control+Shift+O")
+  await expect(page.getByText("Done. The board has 13 tickets.", { exact: true })).toHaveCount(0)
+  await expect(page.locator("[data-model-picker]")).toHaveText(/Haiku/)
+
+  await page.locator("[data-talk-history]").click()
+  await page.getByRole("menuitem", { name: /first of two/ }).click()
+  await expect(page.getByText("Done. The board has 13 tickets.", { exact: true })).toBeVisible()
+
+  await page.locator("[data-new-chat]").hover()
+  await expect(page.getByRole("tooltip", { name: "Start a new conversation · Ctrl+Shift+O" })).toBeVisible()
+})

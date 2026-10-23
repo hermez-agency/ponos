@@ -4,6 +4,7 @@ import { PaperclipIcon, SquarePenIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useConsole, type Entry } from "@/hooks/use-console"
+import { hotkeyLabel, useHotkeys } from "@/hooks/use-hotkeys"
 import { api } from "@/lib/api"
 import { currentLanguage, useT } from "@/lib/i18n"
 import { settingsHref } from "@/resources/settings"
@@ -11,6 +12,7 @@ import { settingsHref } from "@/resources/settings"
 import { Composer, type ComposerHandle } from "./composer"
 import { ModelPicker } from "./model-picker"
 import { Waiting } from "./queued"
+import { TalkHistory } from "./talk-history"
 import { Flow } from "./text"
 import { Thinking } from "./thinking"
 import { Line, Transcript } from "./transcript"
@@ -48,6 +50,15 @@ export function ConsolePane() {
   } = useConsole()
   const t = useT()
   const composer = React.useRef<ComposerHandle>(null)
+  // A turn in flight is not interrupted by a new conversation: the button is
+  // disabled then, and so is the shortcut.
+  const startOver = React.useCallback(async () => {
+    if (busy) return
+    await resetChat()
+    composer.current?.focus()
+  }, [busy, resetChat])
+  useHotkeys({ newChat: () => void startOver() })
+  const shortcut = hotkeyLabel("newChat")
   const [dragging, setDragging] = React.useState(false)
   const chat = runner?.chat
   // A turn of the workspace, and not a `>command`, is what Stop stops: the
@@ -116,13 +127,16 @@ export function ConsolePane() {
               className="opacity-70 hover:opacity-100"
               aria-label={t("Start a new conversation")}
               disabled={busy}
-              onClick={resetChat}
+              aria-keyshortcuts={shortcut.aria}
+              onClick={() => void startOver()}
+              data-new-chat
             >
               <SquarePenIcon />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="bottom">{t("new conversation")}</TooltipContent>
+          <TooltipContent side="bottom">{`${t("Start a new conversation")} · ${shortcut.label}`}</TooltipContent>
         </Tooltip>
+        <TalkHistory disabled={busy} />
       </div>
 
       <Transcript>
