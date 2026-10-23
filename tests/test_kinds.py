@@ -222,15 +222,31 @@ def every_session_reads_what_it_may_do_alone():
     )
 
     defaults = C.Permissions()
-    assert any("dokploy.cardona.digital" in rule for rule in defaults.allowed)
-    for owner in ("SalvadorCardona", "hermez-agency"):
-        assert any("release" in rule and owner in rule for rule in defaults.allowed), owner
-        assert any("cloner" in rule and owner in rule for rule in defaults.allowed), owner
-    assert "another SalvadorCardona or hermez-agency repository" in " ".join(
-        prompt.PERMISSIONS.split()
-    ), "a ticket aimed at a migrated repository is not a question either"
+    assert "relancer une CI" in defaults.allowed and "fusionner une PR validée" in defaults.allowed
+    assert any("cloner" in rule for rule in defaults.allowed)
     assert "toute dépense" in defaults.ask and "modifier un DNS" in defaults.ask
     assert C.load(_saved()[0]).permissions == defaults
+
+
+@case
+def the_permissions_name_nobody():
+    """Every installation reads them: the defaults and the prompt around them are
+    nobody's in particular — the owners named are the ones `[github]` knows."""
+    names = ("Salva", "SalvadorCardona", "hermez", "cardona", "Northwind", "Dokploy")
+    defaults = C.Permissions()
+    for text in (
+        prompt.permissions(),
+        prompt.permissions(defaults.allowed, defaults.ask),
+        *defaults.allowed,
+        *defaults.ask,
+    ):
+        for name in names:
+            assert name.lower() not in text.lower(), (name, text)
+    assert "this project's GitHub owner" in " ".join(prompt.permissions().split())
+    owned = " ".join(prompt.permissions(owners=["acme", "acme-bot", "acme"]).split())
+    assert "owned by this project's GitHub owner or `acme` or `acme-bot`," in owned, (
+        "a ticket aimed at another repository of a known owner is not a question either"
+    )
 
 
 @case
