@@ -34,6 +34,7 @@ from support import (
 from ponos import (
     channels,
     conversation,
+    journal,
     legacy,
     log,
     notion,
@@ -47,6 +48,7 @@ from ponos import (
 from ponos import config as C
 from ponos import ticket as ticket_module
 from ponos.runner import Runner
+from ponos.web import answers as web_answers
 from ponos.web import live as web_live
 from ponos.web import settings as web_settings
 from ponos.web import statistics as web_statistics
@@ -735,6 +737,61 @@ def a_ticket_read_on_its_own_is_the_card_and_the_page_under_it():
     elsewhere = _bare_api(_PageClient("", status="Parked"))
     elsewhere._runner._workspace = type("W", (), {"goals": "", "projects": ""})()
     assert elsewhere.ticket("1a2b3c4d000000000000000000000000")["column"] == "draft"
+
+
+class _NotedPageClient(_PageClient):
+    """A ticket page whose « Progress » cell still says what a forced merge met."""
+
+    NOTE = "Pas fusionnée, laissée en relecture : CI : rouge sur frontend"
+
+    def page(self, page_id: str) -> notion.Page:
+        found = super().page(page_id)
+        found.properties["Progress"] = {
+            "type": "rich_text",
+            "rich_text": [{"plain_text": self.NOTE}],
+        }
+        return found
+
+
+@case
+def a_card_put_back_in_ready_drops_the_last_pass_line_and_its_page_keeps_it_dated(state_home):
+    """Validated, then ready again: the refusal is history, not what the card says.
+
+    Nothing empties the cell when the ticket is moved back — by hand, in Notion
+    or here — so the console stops drawing it on a card waiting for a run, and
+    the ticket's page shows it as what the last pass said, on the day it ended.
+    """
+    ticket = "1a2b3c4d000000000000000000000000"
+    run = journal.Run.start(ticket=ticket, title="Retirer le bandeau")
+    run.end("review")
+    cards = [
+        {"id": "v", "column": "validated", "progress": _NotedPageClient.NOTE},
+        {"id": "r", "column": "ready", "progress": _NotedPageClient.NOTE},
+        {"id": "d", "column": "draft", "progress": _NotedPageClient.NOTE},
+        {"id": "w", "column": "review", "progress": _NotedPageClient.NOTE},
+    ]
+    web_tickets._notes(cards)
+    assert [card["progress"] for card in cards] == [
+        _NotedPageClient.NOTE,
+        "",
+        "",
+        _NotedPageClient.NOTE,
+    ], cards
+
+    validated = _bare_api(_NotedPageClient("", status="Validated"))
+    validated._runner._workspace = type("W", (), {"goals": "", "projects": ""})()
+    payload = validated.ticket(ticket)
+    assert payload["progress"] == _NotedPageClient.NOTE, "in validated the line is the card's"
+    assert "earlier" not in payload, "nor is it said twice on its page"
+
+    ready = _bare_api(_NotedPageClient("", status="Ready"))
+    ready._runner._workspace = type("W", (), {"goals": "", "projects": ""})()
+    payload = ready.ticket(ticket)
+    assert payload["progress"] == "", "back in ready, the card no longer draws the refusal"
+    earlier = payload["earlier"]
+    assert earlier["said"] == _NotedPageClient.NOTE, "the page keeps it"
+    assert earlier["at"] == journal.runs(ticket, limit=1)[0]["ended_at"], "dated by its pass"
+    web_answers.TicketDetail.model_validate(payload)
 
 
 class _EditedPageClient(_PageClient):

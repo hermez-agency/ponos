@@ -2276,6 +2276,12 @@ export interface components {
             code: number;
             text: string;
         };
+        /** @description What the last pass wrote on a card that has left the column it was written for. */
+        Earlier: {
+            said: string;
+            /** @description When that pass ended, as the journal has it — empty when it has no run. */
+            at: string;
+        };
         Edited: {
             name: string;
             avatar: string;
@@ -3948,6 +3954,8 @@ export interface components {
             model_in_use?: components["schemas"]["ModelInUse"];
             /** @description The prompt run at every change of the ticket's status, empty for none. */
             on?: string;
+            /** @description On a ready or draft ticket only: the line its card no longer draws — see `_notes`. */
+            earlier?: components["schemas"]["Earlier"];
         };
         TicketGoal: {
             id: string;

@@ -154,6 +154,7 @@ class Tickets(Base):
             for page in pages
         ]
         _causes(tickets)
+        _notes(tickets)
         _checks(tickets)
         _phases(tickets)
         _times(tickets)
@@ -408,6 +409,8 @@ class Tickets(Base):
             lambda status: names.get(status, "draft"),
         )
         _causes([card])
+        note = card["progress"]
+        _notes([card])
         _checks([card])
         _phases([card])
         _times([card])
@@ -419,6 +422,13 @@ class Tickets(Base):
         # What it runs on, said once for the page: the last session's own word,
         # then the column, then the defaults — see `models.describe`.
         last = next(iter(journal.runs(page_id, limit=1)), {})
+        # The line its card no longer draws, kept here as what the last pass
+        # said — dated by that pass, the run the line was written at the end of.
+        if note and not card["progress"]:
+            card["earlier"] = {
+                "said": note,
+                "at": last.get("ended_at") or last.get("started_at") or "",
+            }
         card["model_in_use"] = models.describe(
             card["model"],
             last.get("reported") or last.get("model") or "",
@@ -773,6 +783,20 @@ def _causes(tickets: list[dict[str, Any]]) -> None:
                     state.causes(str(ticket.get("id", ""))) if len(tickets) == 1 else state.causes()
                 )
             ticket["block"] = blocks.describe(codes.get(str(ticket.get("id", "")), ""))
+
+
+def _notes(tickets: list[dict[str, Any]]) -> None:
+    """The runner's line on every card it still describes, and on no other.
+
+    The « Progress » cell says what the last pass made of the ticket — a merge
+    refused, put off, a base that is red — and nothing empties it when you move
+    the ticket back to ready, in Notion or here. A ready or draft card waits
+    for a run nobody has started: the line is the last one's, and drawn there
+    it says two states at once. The ticket's page still shows it, as history.
+    """
+    for ticket in tickets:
+        if ticket.get("column") in ("ready", "draft"):
+            ticket["progress"] = ""
 
 
 def _times(tickets: list[dict[str, Any]]) -> None:
