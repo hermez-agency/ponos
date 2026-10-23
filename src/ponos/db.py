@@ -144,6 +144,14 @@ says.
 Migration 27 is what finding ideas on a schedule remembers — see
 idea_schedule.py. `idea_plan` holds the moment of the next pass (a single row,
 with the timing keys it was drawn from), `idea_passes` one row per pass done.
+
+Migration 28 is what the day's spending limit adds up — see `state.spend`. One
+row per session the runner started, written the moment it ends, whatever
+becomes of its ticket afterwards. The history could not be that: it holds one
+line per *ticket*, written once the ticket is closed, and the sessions that
+name it, classify it or repair its CI, or whose ticket never got as far as its
+line, were paid without ever reaching it. What the history said was spent is
+copied in, so that the day the migration runs keeps its figure.
 """
 
 from __future__ import annotations
@@ -840,6 +848,24 @@ def _transitions(connection: sqlite3.Connection) -> None:
     connection.execute("CREATE INDEX transitions_by_ticket ON transitions (ticket, id)")
 
 
+def _spending(connection: sqlite3.Connection) -> None:
+    connection.execute(
+        """
+        CREATE TABLE spending (
+            id        INTEGER PRIMARY KEY AUTOINCREMENT,
+            at        TEXT NOT NULL,
+            ticket    TEXT NOT NULL DEFAULT '',
+            cost_usd  REAL NOT NULL
+        )
+        """
+    )
+    connection.execute("CREATE INDEX spending_by_at ON spending (at)")
+    connection.execute(
+        "INSERT INTO spending (at, ticket, cost_usd)"
+        " SELECT at, ticket, cost_usd FROM history WHERE cost_usd > 0"
+    )
+
+
 # Appended to, never edited or renamed: a file remembers each of these by name,
 # and the version of a file is how many of them it has been through. Statements go through `execute` one at a time — `executescript`
 # commits whatever transaction is open before it starts, which would apply half
@@ -875,6 +901,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     _chats,
     _transitions,
     _idea_passes,
+    _spending,
 )
 
 # Any way a read or a write of the database can fail. A note the runner keeps

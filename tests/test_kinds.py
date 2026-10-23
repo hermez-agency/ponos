@@ -7,7 +7,7 @@ from pathlib import Path
 from support import _nameless, _naming_session, _saved, _state_home, _TypedClient, case
 
 from ponos import config as C
-from ponos import kinds, projects, prompt, question, voice
+from ponos import kinds, projects, prompt, question, state, voice
 from ponos.web import settings as web_settings
 
 # -- the type of a ticket ----------------------------------------------------
@@ -330,6 +330,15 @@ def a_ticket_with_no_type_is_classified_before_it_runs(state_home):
     assert not job.project.is_code and job.reference == Path("/repo"), (
         "a text is not worked in the repository, only allowed to read it"
     )
+
+
+@case
+def the_classification_session_counts_against_the_daily_limit(state_home):
+    runner, ticket = _typed()
+    answer = '{"type": "writing", "reason": "Un texte.", "confidence": "high", "alternative": ""}'
+    with _naming_session(answer, cost=0.25):
+        runner.prepare(ticket)
+    assert state.spent_today() == 0.25, state.spent_today()
 
 
 @case

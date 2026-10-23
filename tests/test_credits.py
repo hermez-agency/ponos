@@ -553,15 +553,15 @@ def the_budget_limits_are_empty_unless_the_file_names_an_amount():
 
 
 @case
-def the_daily_limit_holds_from_the_history_until_midnight_and_lifts_after(state_home):
-    """Read off what the history says was spent today, and never before it is."""
+def the_daily_limit_holds_from_what_was_spent_until_midnight_and_lifts_after(state_home):
+    """Read off what the sessions were written down as costing today, and never before."""
     runner = _reserving([])
     assert runner.under_reserve() == 0.0, "no limit set"
     runner.config.budget.daily_usd = 5.0
     assert runner.under_reserve() == 0.0, "nothing spent yet"
-    state.record({"id": "a", "status": "blocked", "cost_usd": 3.0})
+    state.spend(3.0, "a")
     assert runner.under_reserve() == 0.0, "3 $ of 5 $"
-    state.record({"id": "b", "status": "failed", "cost_usd": 2.0})
+    state.spend(2.0, "b")
     until = runner.under_reserve()
     assert 0 < until - time.time() <= 24 * 3600, "held until the next midnight"
     assert credits.held(what="budget") == until

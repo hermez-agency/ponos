@@ -237,6 +237,10 @@ def a_read_only_mcp_client_sees_and_can_call_no_tool_that_writes(state_home):
         )
         state.record({"id": "x", "status": "done", "project": "Usine", "cost_usd": 1.25})
         state.record({"id": "y", "status": "done", "cost_usd": 0.5})
+        # Today's figure is what the sessions were written down as costing as
+        # they ended, the history's is the tickets': a run writes both.
+        state.spend(1.25, "x")
+        state.spend(0.5, "y")
         status = _mcp_call(api, reader, "runner_status", days=7)["structuredContent"]
         assert status["spend"]["period_usd"] == 1.75 and status["spend"]["today_usd"] == 1.75
         assert [item["project"] for item in status["spend"]["by_project"]] == [

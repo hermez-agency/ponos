@@ -1032,6 +1032,7 @@ class Delivery(Base):
         record = said.paragraphs(facts, told)
         git.comment_pull_request(url, f"Ponos — {record}", accounts)
         checks, checked = self._checked(url, job.workdir, job.base)
+        repair: session.Outcome | None = None
         if checks == "failed":
             checks, checked, repair = self._mend(job, url, checked)
             if repair and self._out_of_credit(repair):
@@ -1074,11 +1075,12 @@ class Delivery(Base):
             notes=(said.brief(outcome.summary) if outcome else "", record, checked),
         )
         if outcome:
-            done.update(
-                session=outcome.session_id,
-                seconds=round(outcome.seconds, 1),
-                cost_usd=outcome.cost_usd,
-            )
+            done.update(session=outcome.session_id, seconds=round(outcome.seconds, 1))
+        # The repair is on the ticket's Cost already (`_add_cost`): its line in
+        # the history says the same.
+        cost = sum(one.cost_usd for one in (outcome, repair) if one)
+        if cost:
+            done.update(cost_usd=cost)
         return done
 
     def _left_for_base(
@@ -1198,7 +1200,13 @@ class Delivery(Base):
             )
         return [done for done in results if done]
 
-    def _publish(self, ticket: Ticket, project: Project, forced: str = "") -> dict | None:
+    def _publish(
+        self,
+        ticket: Ticket,
+        project: Project,
+        forced: str = "",
+        prepared: session.Outcome | None = None,
+    ) -> dict | None:
         """A validated ticket with no pull request: publish what it holds.
 
         The Instagram post drafted last week, the email written into the page,
@@ -1216,7 +1224,9 @@ class Delivery(Base):
 
         `forced` is the line saying nobody moved it: a ticket whose type has its
         validation forced comes here straight from the session that prepared it
-        — see `Execution._execute_document` — and its report says so.
+        — see `Execution._execute_document` — and its report says so; `prepared`
+        is that session, whose price and time are added to this one's, in the
+        columns as in the history, rather than written over by them.
         """
         short = short_id(ticket.id)
         # The role, if the ticket names one: the account to post to and the
@@ -1270,10 +1280,21 @@ class Delivery(Base):
             )
         except (OSError, FileNotFoundError) as error:
             failed = self._fail(
-                ticket, self.voice.say("no-session"), str(error), code="session.not-started"
+                ticket,
+                self.voice.say("no-session"),
+                str(error),
+                code="session.not-started",
+                outcome=prepared,
             )
             state.release(ticket.id)
             return failed
+        if prepared:
+            outcome = replace(
+                outcome,
+                cost_usd=prepared.cost_usd + outcome.cost_usd,
+                seconds=prepared.seconds + outcome.seconds,
+                turns=prepared.turns + outcome.turns,
+            )
         # Every road from here writes a status that is not "in progress", and
         # the note about where it came from is let go once that write is in —
         # not before: a write Notion never received leaves the ticket in

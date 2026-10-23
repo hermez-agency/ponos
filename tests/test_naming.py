@@ -6,7 +6,7 @@ from pathlib import Path
 
 from support import _nameless, _naming_session, _state_home, case
 
-from ponos import projects
+from ponos import projects, state
 
 # -- naming a ticket nobody titled -------------------------------------------
 
@@ -22,6 +22,15 @@ def a_ticket_with_no_title_is_named_from_what_it_says(state_home):
     assert runner.client.written[0] == {"Titre": "Réparer le bandeau blanc de la console"}
     assert ticket.title == "Réparer le bandeau blanc de la console"
     assert job.branch == "ticket/reparer-le-bandeau-blanc-de-la-console-75f74ff5"
+
+
+@case
+def the_naming_session_counts_against_the_daily_limit(state_home):
+    """Paid like any other, and spent before the ticket has even started."""
+    runner, ticket = _nameless("", "Le bandeau de la console reste blanc au chargement.")
+    with _naming_session("Réparer le bandeau blanc de la console", cost=0.25):
+        runner.prepare(ticket)
+    assert state.spent_today() == 0.25, state.spent_today()
 
 
 @case

@@ -49,7 +49,7 @@ import support  # noqa: E402
 from support import case, fixture  # noqa: E402
 
 from ponos import config as C  # noqa: E402
-from ponos import credits, db, images, journal, notion, project_settings, store  # noqa: E402
+from ponos import credits, db, images, journal, notion, project_settings, state, store  # noqa: E402
 from ponos import http as http_module  # noqa: E402
 from ponos.runner import Runner  # noqa: E402
 from ponos.ticket import short_id  # noqa: E402
@@ -1968,6 +1968,24 @@ def a_publication_whose_validation_is_forced_goes_out_without_waiting(machine):
     said = said[1:]
     assert len(said) == 1 and said[0].startswith("✅"), said
     assert "Validated automatically (Force validated: Publication)" in said[0], said
+
+
+@case
+@runner_settings(force_validated_publication=True)
+def a_publication_whose_validation_is_forced_costs_its_two_sessions(machine):
+    """Prepared, then published: two sessions paid, in the column and in the history."""
+    machine.typed()
+    project = machine.project("Lettre d'information", None)
+    ticket = machine.ticket("Annoncer la version 2", "Un post LinkedIn pour la v2.", project)
+    machine.board.pages[ticket]["properties"]["Type"] = _stored({"select": {"name": "Publication"}})
+
+    with _environ({"FAKE_CLAUDE_COST": ""}):
+        results = machine.run()
+
+    assert len(machine.sessions()) == 2, machine.sessions()
+    assert machine.board.value(ticket, "Cost") == 0.04, machine.board.value(ticket, "Cost")
+    assert results[0]["cost_usd"] == 0.04, results
+    assert state.spent_today() == 0.04, state.spent_today()
 
 
 @case

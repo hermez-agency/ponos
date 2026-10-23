@@ -1428,6 +1428,45 @@ def a_repair_that_answers_blocked_or_commits_nothing_pushes_nothing():
 
 
 @case
+def a_merge_that_took_a_repair_carries_its_cost_into_the_history(state_home):
+    """The repair is paid on top of the merge: the line written for it says so."""
+    from ponos import session as session_module
+
+    url = "https://github.com/x/y/pull/1"
+    page = _reviewed("p1", "In progress", url)
+    runner = _board_runner([page], {})
+    repair = session_module.Outcome(
+        ok=True,
+        blocked=False,
+        session_id="s-repair",
+        summary="",
+        log=Path("/log"),
+        seconds=30.0,
+        cost_usd=0.4,
+    )
+    runner._checked = lambda url, workdir, base: ("failed", "CI: red.")
+    runner._mend = lambda job, url, checked: ("passed", "CI: passed.", repair)
+    job = ticket_module.Job(
+        ticket_module.Ticket(page),
+        projects.Project("Site", Path("/repo")),
+        branch="ticket/x",
+        base="main",
+        workdir=Path("/work"),
+    )
+    with _git_answering(
+        begin_replay=lambda repo, branch, base, workdir, settle=None: git_module.Replay(
+            workdir, was="aaa", onto="bbb", conflicts=[]
+        ),
+        push_leased=lambda workdir, branch, was, accounts=None: "",
+        comment_pull_request=lambda *args, **kwargs: None,
+        merge_pull_request=lambda url, method="squash", accounts=None: "merged",
+    ):
+        done = runner._resolved(job, url)
+    assert done is not None and done["status"] == "done", done
+    assert done["cost_usd"] == 0.4, done
+
+
+@case
 def the_repair_attempts_of_a_ticket_are_kept_by_head_commit(state_home):
     assert not state.mended("p1", "aaa")
     state.mending("p1", "aaa")

@@ -374,7 +374,8 @@ class Transitions(Base):
             or agent.model
             or self.config.runner.model
         )
-        outcome = session.run(
+        outcome = self._paid(
+            ticket.id,
             text,
             cwd=workdir,
             log=state.log_file(f"{short}-on"),

@@ -262,7 +262,8 @@ class Replies(Base):
             or agent.model
             or self.config.runner.model
         )
-        outcome = session.run(
+        outcome = self._paid(
+            ticket.id,
             prompt_text,
             cwd=workdir,
             log=state.log_file(f"{short}-talk"),
