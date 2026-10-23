@@ -24,7 +24,7 @@ def a_bare_date_means_the_start_of_that_day_here():
     moment = scheduled_for("2026-08-30")
     assert moment is not None and moment.tzinfo is not None
     assert (moment.year, moment.month, moment.day, moment.hour) == (2026, 8, 30, 0)
-    assert moment.utcoffset() == datetime.now().astimezone().utcoffset()
+    assert moment.utcoffset() == datetime(2026, 8, 30).astimezone().utcoffset()
 
 
 @case

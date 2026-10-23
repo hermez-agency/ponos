@@ -13,6 +13,10 @@
 # runner promet (3.11) et sur la plus récente, parce qu'une installation prend
 # le `python3` de la machine, quel qu'il soit. Chaque suite répartit ses cas sur
 # un processus par cœur (`support.run`), comme `pytest -n auto` le fait ailleurs.
+# La partie pure tourne une seconde fois sous `TZ=Australia/Sydney` : le runner
+# GitHub est en UTC, qui n'a pas d'heure d'été, et un cas qui confond l'offset
+# d'une date avec celui d'aujourd'hui n'y échoue jamais. Sydney change d'heure
+# à l'inverse de Paris : à toute saison, l'un des deux est à l'heure d'été.
 #
 # Le job frontend ne tourne que si `frontend/**` (ses tests e2e compris) ou
 # `src/ponos/web/**` a changé, pour ne pas payer npm sur des tickets qui
@@ -79,6 +83,12 @@ jobs:
 
       - name: La suite du cœur
         run: python3 tests/run.py
+
+      - name: La suite du cœur, sous une heure d'été
+        if: matrix.python-version == '3.13'
+        run: python3 tests/run.py
+        env:
+          TZ: Australia/Sydney
 
       - name: Le parcours complet
         run: python3 tests/functional.py
