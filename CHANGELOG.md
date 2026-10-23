@@ -23,6 +23,7 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Fixed
 
+- Les objectifs s'écrivent depuis la console : « Nouvel objectif » ouvre un formulaire aligné sur la base Objectifs (nom, description, « Terminée quand », échéance, statut, priorité, projets), chaque champ d'un objectif se modifie depuis sa carte ou son détail, ses tickets se lient et se délient depuis l'objectif ou, d'un ticket, par le choix de son objectif sous le titre, et l'archivage (corbeille de Notion) demande confirmation. L'avancement se recompte après chaque écriture, et une écriture refusée s'affiche telle quelle. Un tableau de fichiers Markdown a désormais, lui aussi, son dossier `goals/`.
 - Sur mobile, la barre de navigation du bas affiche ses libellés en entier (« Dashboard », « Récurrences », « Objectifs », « Sessions ») au lieu de les tronquer.
 - Une version fusionnée sur `main` reçoit son tag et sa release toute seule : la 0.2.0 était restée sans tag, donc sans release GitHub ni image `:0.2.0` / `:latest`. La CI pose désormais le tag `v<version>` quand il manque et lance le workflow de release.
 - Une récurrence se supprime depuis la console : une corbeille sur chaque ligne de la liste, sur chaque carte, dans la fenêtre de la récurrence et dans la fiche du calendrier, après confirmation, et une sélection multiple pour en retirer plusieurs d'un coup. La page part dans la corbeille du board (Notion ou dossier `trash/`), plus aucun ticket n'en naît, et ceux déjà créés restent en place.

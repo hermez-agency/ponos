@@ -378,6 +378,23 @@ def goals(request: Request) -> Response:
     return answer(_api(request).goals())
 
 
+@router.post("/api/goals", response_model=answers.GoalNamed)
+def create_goal(request: Request, payload: Fields = Body(default_factory=dict)) -> Response:
+    return answer(_api(request).create_goal(str(payload.get("name", "")), payload))
+
+
+@router.post("/api/goals/{goal_id:page}/delete", response_model=answers.GoalNamed)
+def delete_goal(request: Request, goal_id: str) -> Response:
+    return answer(_api(request).delete_goal(goal_id))
+
+
+@router.post("/api/goals/{goal_id:page}", response_model=answers.GoalSaved)
+def save_goal(
+    request: Request, goal_id: str, payload: Fields = Body(default_factory=dict)
+) -> Response:
+    return answer(_api(request).save_goal(goal_id, payload))
+
+
 @router.get("/api/ideas", response_model=answers.Ideas)
 def ideas(request: Request, project: str = "") -> Response:
     # No `project` is the workspace's ideas, the dashboard's.
@@ -701,6 +718,13 @@ def set_ticket_on(
     request: Request, ticket_id: str, payload: On = Body(default_factory=On)
 ) -> Response:
     return answer(_api(request).set_on(ticket_id, payload.on))
+
+
+@router.post("/api/tickets/{ticket_id:page}/goal", response_model=answers.TicketGoal)
+def set_ticket_goal(
+    request: Request, ticket_id: str, payload: Fields = Body(default_factory=dict)
+) -> Response:
+    return answer(_api(request).set_ticket_goal(ticket_id, str(payload.get("goal", ""))))
 
 
 @router.post("/api/tickets/{ticket_id:page}/status", response_model=answers.Moved)

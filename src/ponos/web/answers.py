@@ -1354,6 +1354,11 @@ class Statistics(Shape):
 # -- goals ---------------------------------------------------------------------
 
 
+class GoalTicket(Shape):
+    id: str
+    title: str
+
+
 class Goal(Shape):
     """One row of the goals database, and how far its tickets have gone."""
 
@@ -1368,15 +1373,34 @@ class Goal(Shape):
     priority: str
     projects: list[str]
     """The names of the projects it is for."""
+    project_ids: list[str] = omitted()
+    """Those projects' page ids, as the form sends them back."""
     tickets: dict[str, int]
     """How many of the tickets pointing at it are in each column, by the column's key — counted
     from the board, not read off a rollup. A column with none is not a key."""
+    linked: list[GoalTicket] = omitted()
+    """The tickets pointing at it, as the form lists them."""
 
 
 class Goals(Shape):
     goals: list[Goal]
     configured: bool
     """Whether the workspace has a goals database at all."""
+
+
+class GoalNamed(Shape):
+    id: str
+    name: str
+
+
+class GoalSaved(Shape):
+    id: str
+
+
+class TicketGoal(Shape):
+    id: str
+    goal_id: str
+    """Empty when the ticket now serves none."""
 
 
 # -- ideas ---------------------------------------------------------------------

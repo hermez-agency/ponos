@@ -1,11 +1,6 @@
-import { Target } from "lucide-react"
-import { Link } from "react-resource-view"
-
 import { titleOf, useBoard } from "@/lib/board-store"
-import { t } from "@/lib/i18n"
-import { goalHref } from "@/resources/goals"
-
 import { recordWindow } from "./record-window"
+import { TicketGoal } from "./ticket-goal"
 
 /* A ticket opened from the board, in a window over it.
  *
@@ -36,18 +31,7 @@ export const ticketWindow = recordWindow({
     return {
       eyebrow: ticket ? `#${ticket.short}` : undefined,
       title: ticket ? titleOf(ticket) : "",
-      description:
-        ticket?.goal && ticket.goal_id ? (
-          <Link
-            to={goalHref(ticket.goal_id)}
-            data-slot="ticket-goal"
-            title={t("The goal this ticket serves")}
-            className="hover:text-foreground inline-flex max-w-full items-center gap-1.5 underline-offset-2 hover:underline"
-          >
-            <Target className="size-3.5 shrink-0" />
-            <span className="truncate">{ticket.goal}</span>
-          </Link>
-        ) : undefined,
+      description: ticket ? <TicketGoal ticket={ticket} /> : undefined,
     }
   },
 })
