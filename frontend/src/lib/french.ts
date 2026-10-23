@@ -2816,4 +2816,50 @@ export const FRENCH: Record<string, string> = {
     "À venir : Ponos cherche des idées à ce moment.",
   "Change it in the Ideas page's Settings":
     "À modifier dans les Réglages de la page Idées",
+
+  /* -- a schedule beside the list (schedule-panel.tsx) ---------------------- */
+  "Pick a schedule": "Choisissez une récurrence",
+  "Its tickets, what they cost, and every pass it made are shown here.":
+    "Ses tickets, ce qu'ils ont coûté et chacune de ses exécutions s'affichent ici.",
+  Active: "Active",
+  Paused: "En pause",
+  "made by this schedule": "créés par cette récurrence",
+  "no session has cost anything yet": "aucune session n'a encore rien coûté",
+  "{{cost}} per run on average": "{{cost}} par exécution en moyenne",
+  "The Cost of every ticket it made, added up; the average is over the tickets that have one.":
+    "Le coût de chaque ticket créé, additionné ; la moyenne porte sur les tickets qui en ont un.",
+  "per ticket, all its sessions counted": "par ticket, toutes ses sessions comprises",
+  Success: "Réussite",
+  "done, of the tickets that finished": "terminés, parmi les tickets arrivés au bout",
+  "Done over done, failed and cancelled: a ticket still open has not said yet how it ends.":
+    "Terminés sur terminés, échoués et abandonnés : un ticket encore ouvert n'a pas encore dit comment il finit.",
+  "Last run": "Dernière exécution",
+  "never yet": "jamais encore",
+  "Next run": "Prochaine exécution",
+  "Tickets and cost, by week": "Tickets et coût, par semaine",
+  "Still open": "Encore ouverts",
+  "Spent per week": "Dépensé par semaine",
+  "Tickets made each week, how many of them are done or still open, and what they cost":
+    "Les tickets créés chaque semaine, combien sont terminés ou encore ouverts, et ce qu'ils ont coûté",
+  "Week of {{day}}": "Semaine du {{day}}",
+  Runs: "Exécutions",
+  "No ticket yet": "Aucun ticket pour l'instant",
+  "The first one is born at the next run, or now with “Run now”.":
+    "Le premier naît à la prochaine exécution, ou tout de suite avec « Lancer maintenant ».",
+  "Turn it on, or try it once with “Run now”.": "Activez-la, ou essayez-la une fois avec « Lancer maintenant ».",
+  "{{count}} of them were recognised by their title and their date: they were made before Ponos kept the link.":
+    "{{count}} d'entre eux ont été reconnus à leur titre et à leur date : ils ont été créés avant que Ponos garde le lien.",
+  "{{count}} of them was recognised by its title and its date: it was made before Ponos kept the link.":
+    "{{count}} d'entre eux a été reconnu à son titre et à sa date : il a été créé avant que Ponos garde le lien.",
+  "Run by hand": "Lancée à la main",
+  Skipped: "Sautée",
+  "No run yet": "Aucune exécution pour l'instant",
+  "Every pass that makes a ticket, or makes none, is written here.":
+    "Chaque passage qui crée un ticket, ou n'en crée pas, s'inscrit ici.",
+  "Passes that made no ticket are kept since {{date}}.":
+    "Les passages sans ticket sont gardés depuis le {{date}}.",
+  "Passes that made no ticket are kept from this version on: the ones before were never recorded.":
+    "Les passages sans ticket sont gardés à partir de cette version : ceux d'avant n'ont jamais été enregistrés.",
+  "said from the ticket": "déduite du ticket",
+  "The ticket of the previous run was still open.": "Le ticket de l'exécution précédente était encore ouvert.",
 }

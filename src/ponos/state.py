@@ -476,6 +476,50 @@ def record_all(entries: Iterable[dict | None]) -> list[dict]:
     return kept
 
 
+def occurred(
+    schedule: str, outcome: str, *, ticket: str = "", title: str = "", reason: str = ""
+) -> None:
+    """One occurrence of a schedule: `born`, `launched`, `skipped` or `failed`.
+
+    Never a reason to fail a pass: the ticket is made whether or not this
+    line is kept, and a console that cannot say where a ticket came from is
+    better than a schedule that stops making them.
+    """
+    try:
+        with db.transaction() as connection:
+            connection.execute(
+                "INSERT INTO occurrences (schedule, at, outcome, ticket, title, reason)"
+                " VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    schedule.replace("-", ""),
+                    datetime.now(UTC).isoformat(timespec="seconds"),
+                    outcome,
+                    ticket.replace("-", ""),
+                    title,
+                    reason,
+                ),
+            )
+    except db.ERRORS:
+        pass
+
+
+def occurrences(schedule: str) -> list[dict]:
+    """Every occurrence of a schedule kept, the latest first."""
+    try:
+        with db.transaction(immediate=False) as connection:
+            rows = connection.execute(
+                "SELECT at, outcome, ticket, title, reason FROM occurrences"
+                " WHERE schedule = ? ORDER BY id DESC",
+                (schedule.replace("-", ""),),
+            ).fetchall()
+    except db.ERRORS:
+        return []
+    return [
+        {"at": at, "outcome": outcome, "ticket": ticket, "title": title, "reason": reason}
+        for at, outcome, ticket, title, reason in rows
+    ]
+
+
 def spend(cost_usd: float, ticket: str = "") -> None:
     """What one session cost, written down the moment it ends.
 

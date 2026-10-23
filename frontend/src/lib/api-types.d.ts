@@ -220,6 +220,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/schedules/{schedule_id}/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Schedule Activity */
+        get: operations["schedule_activity_api_schedules__schedule_id__activity_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/schedules/{schedule_id}": {
         parameters: {
             query?: never;
@@ -3068,6 +3085,20 @@ export interface components {
             /** @description What stops this schedule being acted on, in the words `doctor` prints. */
             problem: string;
         };
+        /** @description What one schedule made — `web/lineage.py`. */
+        ScheduleActivity: {
+            /** @description The newest first. */
+            tickets: components["schemas"]["ScheduleTicket"][];
+            /** @description The newest first. */
+            runs: components["schemas"]["ScheduleRun"][];
+            statuses: components["schemas"]["StatusCount"][];
+            totals: components["schemas"]["ScheduleTotals"];
+            weeks: components["schemas"]["ScheduleWeek"][];
+            /** @description When the runner began keeping this schedule's passes; "" when it has kept none. */
+            since: string;
+            /** @description How many tickets were attached by their title alone. */
+            matched: number;
+        };
         ScheduleChoices: {
             type?: components["schemas"]["Choice"][];
             subtype?: components["schemas"]["Choice"][];
@@ -3113,8 +3144,62 @@ export interface components {
             id: string;
             name: string;
         };
+        /** @description One occurrence of a schedule: the ticket it made, or why it made none. */
+        ScheduleRun: {
+            at: string;
+            /** @enum {string} */
+            outcome: "born" | "launched" | "skipped" | "failed";
+            /** @description The ticket made, "" where none was. */
+            ticket: string;
+            title: string;
+            /** @description Why no ticket was made, in the runner's words. */
+            reason: string;
+            /** @description Where that ticket is now, "" where there is none or it left the board. */
+            column: ("draft" | "ready" | "running" | "blocked" | "review" | "validated" | "failed" | "done" | "cancelled") | "";
+            /** @description Said from a ticket born before the runner kept its passes, rather than recorded. */
+            inferred: boolean;
+        };
         ScheduleSaved: {
             id: string;
+        };
+        /** @description One ticket a schedule made, as its page lists it. */
+        ScheduleTicket: {
+            id: string;
+            short: string;
+            title: string;
+            url: string;
+            status: string;
+            /** @enum {string} */
+            column: "draft" | "ready" | "running" | "blocked" | "review" | "validated" | "failed" | "done" | "cancelled";
+            created: string;
+            cost: number | null;
+            /** @description In minutes, as on a card. */
+            duration: number | null;
+            pull_request: string;
+            /**
+             * @description How it is known to be this schedule's: by its id, or by its title and its date alone —
+             *     see `web/lineage.py`.
+             * @enum {string}
+             */
+            linked: "recorded" | "title";
+        };
+        ScheduleTotals: {
+            tickets: number;
+            cost: number;
+            /** @description Over the tickets that have a cost; null when none has. */
+            average_cost: number | null;
+            /** @description In minutes, over the tickets that have a duration. */
+            average_duration: number | null;
+            /** @description Done over done, failed and cancelled — from 0 to 1, null while none has finished. */
+            success: number | null;
+        };
+        ScheduleWeek: {
+            /** @description Its Monday. */
+            week: string;
+            tickets: number;
+            done: number;
+            open: number;
+            cost: number;
         };
         Schedules: {
             /** @description `runner.schedule`: off, and nothing is born however the rows are ticked. */
@@ -4352,6 +4437,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ScheduleNamed"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    schedule_activity_api_schedules__schedule_id__activity_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                schedule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduleActivity"];
                 };
             };
             /** @description Validation Error */

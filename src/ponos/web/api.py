@@ -66,7 +66,7 @@ from ..runner import Runner
 from ..schedules import scheduled_for
 from ..ticket import short_id
 from . import board as board_module
-from . import console, creation, live, removal, statistics
+from . import console, creation, lineage, live, removal, statistics
 from . import ideas as ideas_module
 from . import planned as planned_module
 from . import settings as settings_module
@@ -1309,6 +1309,23 @@ class Api:
         if row is None:
             raise LookupError(f"no schedule with id {wanted}")
         return {**row, "body": self.runner.client.blocks_text(page_id)}
+
+    def schedule_activity(self, page_id: str) -> dict:
+        """What one schedule made: its tickets, its passes, and their figures.
+
+        Read when its page is opened, as the schedule itself is: the board is
+        the console's own, and the passes are this machine's. See `lineage`.
+        """
+        wanted = page_id.replace("-", "")
+        row = next((item for item in self.schedules()["schedules"] if item["id"] == wanted), None)
+        if row is None:
+            raise LookupError(f"no schedule with id {wanted}")
+        return lineage.of(
+            row,
+            self.board()["tickets"],
+            state.history(1_000_000),
+            state.occurrences(wanted),
+        )
 
     def _schedule(self, schedule: schedules_module.Schedule, projects: dict) -> dict:
         """One row of the Schedules database, as the pane reads it.

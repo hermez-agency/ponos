@@ -128,6 +128,11 @@ class Recurrence(Base):
             )
             if self._busy(schedule):
                 self.say(f"  · {schedule.name} — its last ticket is still open, no second one made")
+                state.occurred(
+                    schedule.page.id,
+                    "skipped",
+                    reason=f"its last ticket is still open ({schedule.last_ticket.replace('-', '')})",
+                )
                 continue
             entry = self._born(schedule)
             if entry:
@@ -229,6 +234,7 @@ class Recurrence(Base):
             brief = self.client.blocks_text(schedule.page.id, live=False)
             page_id = self.client.create_row(self.database, title, values)
         except store.StoreError as error:
+            state.occurred(schedule.page.id, "failed", reason=voice_module.line(error))
             if strict:
                 raise
             self.say(
@@ -238,6 +244,11 @@ class Recurrence(Base):
         # Linked first, so that a body Notion refuses still leaves the schedule
         # knowing what it produced — otherwise the next occurrence makes a twin.
         self._mark(schedule, {settings.prop("last_ticket"): page_id})
+        # And kept on this side, every one of them: the page above only ever
+        # holds the last, and the console lists them all (see `web/lineage.py`).
+        state.occurred(
+            schedule.page.id, "launched" if strict else "born", ticket=page_id, title=title
+        )
         try:
             self.client.append_markdown(
                 page_id,
@@ -255,6 +266,7 @@ class Recurrence(Base):
             "id": page_id.replace("-", ""),
             "status": "scheduled",
             "from": schedule.name,
+            "schedule": schedule.page.id.replace("-", ""),
         }
 
     def _mark(self, schedule: schedules_module.Schedule, values: dict[str, object]) -> None:

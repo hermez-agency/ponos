@@ -15,7 +15,7 @@ import { money, number } from "@/lib/numbers"
 import type { BlockFamily, Made, Statistics, StatisticsDay } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
-import { Eyebrow, Panel } from "./frame"
+import { Eyebrow, Panel, Tile } from "./frame"
 import { ActivityChart } from "./activity-chart"
 import { Robot } from "./robot"
 import {
@@ -374,17 +374,7 @@ function Figures({ figures, project }: { figures: Statistics; project?: string }
     <>
       <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
         {cards.map((card) => (
-          <section
-            key={card.label}
-            className="bg-card min-w-0 rounded-xl border px-3.5 py-2.5"
-            title={card.more ?? card.note}
-          >
-            <Eyebrow>{t(card.label)}</Eyebrow>
-            <p className="mt-1 text-2xl leading-none font-bold tracking-[-0.03em] tabular-nums">
-              {card.value}
-            </p>
-            <p className="text-muted-foreground mt-1 truncate text-[0.7rem]">{card.note}</p>
-          </section>
+          <Tile key={card.label} label={t(card.label)} value={card.value} note={card.note} more={card.more} />
         ))}
       </div>
 

@@ -10,7 +10,7 @@ import { expect, test, type Page } from "@playwright/test"
  * `a_schedule_deleted_from_the_console_...` in the core's suite.
  */
 
-const LIST = "/?view=console/schedules/list"
+const LIST = "/?view=console/schedules/list&variant=table"
 
 test.use({ locale: "fr-FR" })
 

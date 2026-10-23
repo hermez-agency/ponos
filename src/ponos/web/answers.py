@@ -584,6 +584,77 @@ class Schedules(Shape):
     ideas_pass: IdeasCalendar
 
 
+class ScheduleTicket(Shape):
+    """One ticket a schedule made, as its page lists it."""
+
+    id: str
+    short: str
+    title: str
+    url: str
+    status: str
+    column: ColumnKey
+    created: str
+    cost: float | None
+    duration: float | None
+    """In minutes, as on a card."""
+    pull_request: str
+    linked: Literal["recorded", "title"]
+    """How it is known to be this schedule's: by its id, or by its title and its date alone —
+    see `web/lineage.py`."""
+
+
+class ScheduleRun(Shape):
+    """One occurrence of a schedule: the ticket it made, or why it made none."""
+
+    at: str
+    outcome: Literal["born", "launched", "skipped", "failed"]
+    ticket: str
+    """The ticket made, "" where none was."""
+    title: str
+    reason: str
+    """Why no ticket was made, in the runner's words."""
+    column: ColumnKey | Literal[""]
+    """Where that ticket is now, "" where there is none or it left the board."""
+    inferred: bool
+    """Said from a ticket born before the runner kept its passes, rather than recorded."""
+
+
+class ScheduleTotals(Shape):
+    tickets: int
+    cost: float
+    average_cost: float | None
+    """Over the tickets that have a cost; null when none has."""
+    average_duration: float | None
+    """In minutes, over the tickets that have a duration."""
+    success: float | None
+    """Done over done, failed and cancelled — from 0 to 1, null while none has finished."""
+
+
+class ScheduleWeek(Shape):
+    week: str
+    """Its Monday."""
+    tickets: int
+    done: int
+    open: int
+    cost: float
+
+
+class ScheduleActivity(Shape):
+    """What one schedule made — `web/lineage.py`."""
+
+    tickets: list[ScheduleTicket]
+    """The newest first."""
+    runs: list[ScheduleRun]
+    """The newest first."""
+    statuses: list[StatusCount]
+    totals: ScheduleTotals
+    weeks: list[ScheduleWeek]
+    since: str
+    """When the runner began keeping this schedule's passes; "" when it has kept none."""
+    matched: int
+    """How many tickets were attached by their title alone."""
+
+
 # -- the conversation ----------------------------------------------------------
 
 

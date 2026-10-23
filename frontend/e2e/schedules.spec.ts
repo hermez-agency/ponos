@@ -10,7 +10,7 @@ import { expect, test, type Page } from "@playwright/test"
  * not past an edge a table scrolls to.
  */
 
-const LIST = "/?view=console/schedules/list"
+const LIST = "/?view=console/schedules/list&variant=table"
 
 test.use({ viewport: { width: 390, height: 844 }, locale: "fr-FR" })
 

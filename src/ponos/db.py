@@ -876,6 +876,26 @@ def _stamps_print_the_file(connection: sqlite3.Connection) -> None:
     connection.execute("ALTER TABLE sync_stamps ADD COLUMN content TEXT NOT NULL DEFAULT ''")
 
 
+def _occurrences(connection: sqlite3.Connection) -> None:
+    # One row per occurrence of a schedule the runner met: the ticket it made,
+    # or why it made none. The schedule's own page keeps only the last ticket;
+    # this is how the console says which ones came before it.
+    connection.execute(
+        """
+        CREATE TABLE occurrences (
+            id        INTEGER PRIMARY KEY AUTOINCREMENT,
+            schedule  TEXT NOT NULL,
+            at        TEXT NOT NULL,
+            outcome   TEXT NOT NULL,
+            ticket    TEXT NOT NULL DEFAULT '',
+            title     TEXT NOT NULL DEFAULT '',
+            reason    TEXT NOT NULL DEFAULT ''
+        )
+        """
+    )
+    connection.execute("CREATE INDEX occurrences_by_schedule ON occurrences (schedule, id)")
+
+
 # Appended to, never edited or renamed: a file remembers each of these by name,
 # and the version of a file is how many of them it has been through. Statements go through `execute` one at a time — `executescript`
 # commits whatever transaction is open before it starts, which would apply half
@@ -913,6 +933,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     _idea_passes,
     _spending,
     _stamps_print_the_file,
+    _occurrences,
 )
 
 # Any way a read or a write of the database can fail. A note the runner keeps

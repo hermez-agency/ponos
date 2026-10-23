@@ -378,3 +378,38 @@ def init_run_again_on_a_board_that_already_schedules_touches_nothing():
     assert board._schemas["db-schedules"] == before
     assert any("Schedules" in what for verb, what in second.steps if verb == "kept")
     assert all(verb == "kept" for verb, _ in second.steps), second.steps
+
+
+@case
+def every_occurrence_is_kept_with_the_ticket_it_made_or_why_it_made_none(state_home):
+    """The schedule's row keeps only its last ticket: `ponos.db` keeps them all,
+    and the passes that made none, for the schedule's page in the console."""
+    stale = (datetime.now().astimezone() - timedelta(hours=2)).isoformat()
+    runner = _recurring([_schedule_page("s-1", next=stale)])
+    runner.recur()
+    runner.launch("s-1")
+    kept = state.occurrences("s-1")
+    assert [row["outcome"] for row in kept] == ["launched", "born"], "the latest first"
+    assert all(row["ticket"] and row["title"].startswith("Revue") for row in kept)
+
+    busy = _recurring(
+        [_schedule_page("s-2", next=stale, last_ticket="t-old")],
+        tickets={"t-old": _ticket_page("t-old", "In review")},
+    )
+    busy.recur()
+    (skipped,) = state.occurrences("s-2")
+    assert skipped["outcome"] == "skipped" and skipped["ticket"] == ""
+    assert "told" in skipped["reason"], "the ticket still open, by its id"
+
+    refused = _recurring([_schedule_page("s-3", next=stale)], refuses="400 body failed validation")
+    refused.recur()
+    (failed,) = state.occurrences("s-3")
+    assert failed["outcome"] == "failed" and "400" in failed["reason"]
+
+
+@case
+def a_dry_run_keeps_no_occurrence(state_home):
+    stale = (datetime.now().astimezone() - timedelta(hours=2)).isoformat()
+    runner = _recurring([_schedule_page("s-1", next=stale)], dry_run=True)
+    runner.recur()
+    assert state.occurrences("s-1") == []
