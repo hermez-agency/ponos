@@ -382,6 +382,8 @@ def _outcome(
             log=log,
             answer="\n".join(texts).strip(),
             error="stopped",
+            cost_usd=float(final.get("total_cost_usd") or 0.0),
+            turns=int(final.get("num_turns") or 0),
             seconds=seconds,
             stopped=True,
             code=code,
@@ -396,6 +398,10 @@ def _outcome(
             log=log,
             answer="",
             error=f"session killed after {timeout_minutes} min",
+            # Cut or not, what it spent was spent: the last event, when it
+            # came, still says how much.
+            cost_usd=float(final.get("total_cost_usd") or 0.0),
+            turns=int(final.get("num_turns") or 0),
             seconds=seconds,
             code=code,
             resulted=bool(final),
