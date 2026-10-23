@@ -3433,8 +3433,10 @@ makes it useful, and it is the whole of the risk. So:
   **per address**, in memory: the address waits 1 s, then 2, 4… up to 30, and the tenth
   failure in a row locks it out for 15 minutes. An attempt is counted *before* it is
   checked, so twenty sent at once are one checked and nineteen refused with a `429` and a
-  `Retry-After`. Behind a proxy on the same machine or network (Traefik, `tailscale serve`),
-  the address is the last one it appended to `X-Forwarded-For`;
+  `Retry-After`. Behind a proxy declared in `web.trusted_proxies` — this machine by default,
+  which is where `tailscale serve` relays from; Traefik by its address — the address is the
+  last one it appended to `X-Forwarded-For`. Anybody else is counted by its own address,
+  whatever it says it relays;
 - the password is kept as a scrypt digest, and a sign-in lasts thirty days from its last use
   (`ponos serve --sign-out-everywhere` ends them all);
 - every page is served under a **Content-Security-Policy** that runs no script but the
@@ -4396,7 +4398,11 @@ builds the image — for a fork, or a commit no release carries yet.
    rather than into a file: Dokploy keeps them out of the repository and out of the image.
 3. **Domains** tab: a domain on the service `ponos`, port `8787`, HTTPS on. Traefik
    terminates TLS and says so in `X-Forwarded-Proto`, and every cookie the console sets is
-   then `Secure`. `https://<the domain>/mcp` is then what you paste in Claude — see
+   then `Secure`. It also says who it relays in `X-Forwarded-For`, which the console only
+   believes from a proxy it was told about: `PONOS_WEB_TRUSTED_PROXIES` in the
+   **Environment** tab, Traefik's address on Dokploy's network (`docker inspect
+   dokploy-traefik` on the server). Without it, a wrong password is counted against
+   Traefik, and so against every visitor at once. `https://<the domain>/mcp` is then what you paste in Claude — see
    [Connect Ponos to Claude](#connect-ponos-to-claude).
 4. **Deploy**, then **Logs**: the line `code  XXXX-XXXX` is the installation code the first
    connection asks for — unless the console was claimed by the two variables.

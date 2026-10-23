@@ -403,6 +403,22 @@ def the_consoles_sign_in_may_live_in_the_environment_rather_than_the_file():
     assert fresh.web.password == "from the unit"
 
 
+@case
+def the_consoles_trusted_proxies_come_from_the_file_or_else_the_environment():
+    """Traefik's address is only known to the deployment: a container says it.
+
+    The file wins once it carries the line — even empty, which trusts nobody.
+    """
+    path, config = _saved()
+    assert config.web.trusted_proxies == ("127.0.0.1", "::1"), "this machine, by default"
+    with _environ(**{C.TRUSTED_PROXIES_ENV: " 10.0.1.5, ,10.0.2.0/24 "}):
+        assert C.load(path).web.trusted_proxies == ("10.0.1.5", "10.0.2.0/24")
+        written, _ = _saved('\n[web]\ntrusted_proxies = ["192.0.2.1"]\n')
+        assert C.load(written).web.trusted_proxies == ("192.0.2.1",)
+        nobody, _ = _saved("\n[web]\ntrusted_proxies = []\n")
+        assert C.load(nobody).web.trusted_proxies == ()
+
+
 @contextmanager
 def _environ(**values: str):
     """Variables set for the length of a block, and put back as they were."""

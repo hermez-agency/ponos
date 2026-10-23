@@ -69,6 +69,11 @@ _ENVIRONMENT_FIRST = (WEB_PASSWORD_ENV,)
 # decision taken later than the deployment.
 LANGUAGE_ENV = "PONOS_LANGUAGE"
 
+# The proxies the console believes about whom they relay, when the file names
+# none: what a container is given in its compose file, beside Traefik — whose
+# address only the deployment knows. Comma-separated; the file wins.
+TRUSTED_PROXIES_ENV = "PONOS_WEB_TRUSTED_PROXIES"
+
 # Where the secrets file is, when it is not beside the configuration.
 SECRETS_PATH_ENV = "PONOS_SECRETS"
 
@@ -582,6 +587,11 @@ class Web:
     # does not say it served HTTPS would otherwise have them all in `http://`,
     # and claude.ai refuses those. Empty: read from each request.
     url: str = ""
+    # Who may say, in `X-Forwarded-For`, whom it relays — addresses or networks.
+    # Everyone else is counted by its own address when it gets the door wrong
+    # (see web/attempts.py): this machine by default, where `tailscale serve`
+    # relays from; Traefik in front of a container is declared, by its address.
+    trusted_proxies: tuple[str, ...] = ("127.0.0.1", "::1")
     # Who opens the console, and what they type. Both set, the page asks for
     # them instead of for the token — which is the difference between a console
     # you open from a bookmark and one you open by pasting a secret. The token
@@ -1575,8 +1585,17 @@ def _web(table: schema.WebTable, stored: dict[str, str]) -> Web:
             # newline that file ends with, and lock you out of your own console.
             "email": (os.environ.get(WEB_EMAIL_ENV) or table.email).strip(),
             "password": secret(stored, "web", "password"),
+            "trusted_proxies": _trusted_proxies(table),
         }
     )
+
+
+def _trusted_proxies(table: schema.WebTable) -> tuple[str, ...]:
+    if "trusted_proxies" in table.model_fields_set:
+        return table.trusted_proxies
+    written = os.environ.get(TRUSTED_PROXIES_ENV, "")
+    found = tuple(entry for entry in (part.strip() for part in written.split(",")) if entry)
+    return found or table.trusted_proxies
 
 
 def _storage(table: schema.StorageTable) -> Storage:

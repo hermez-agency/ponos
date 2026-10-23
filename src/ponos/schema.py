@@ -382,6 +382,7 @@ class WebTable(Table):
     host: Filled = Web.host
     port: Integer = Web.port
     url: Address = Web.url
+    trusted_proxies: Sentences = Web.trusted_proxies
     email: Text = Web.email
     # Five seconds is the floor for the same reason as the live report's:
     # below that, a page left open in a tab becomes a second full-time reader

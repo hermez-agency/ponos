@@ -40,6 +40,10 @@ services:
       CLAUDE_CODE_OAUTH_TOKEN: ${CLAUDE_CODE_OAUTH_TOKEN:-}
       # en or fr: the reports, and the console until somebody picks another.
       PONOS_LANGUAGE: ${PONOS_LANGUAGE:-}
+      # Traefik's address, so that its X-Forwarded-For is believed: a wrong
+      # password is then counted against the visitor, not against Traefik.
+      # Comma-separated addresses or networks; empty, only this container.
+      PONOS_WEB_TRUSTED_PROXIES: ${PONOS_WEB_TRUSTED_PROXIES:-}
     volumes:
       - ponos-data:/data
       - ponos-workspace:/workspace

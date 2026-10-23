@@ -5,6 +5,7 @@ from __future__ import annotations
 import contextlib
 import http.client
 import io
+import ipaddress
 import json
 import re
 import shutil
@@ -476,15 +477,64 @@ def twenty_wrong_passwords_sent_at_once_are_held_back_not_all_checked(state_home
         assert status == 200, "the lock is this address's, not everybody's"
 
     assert web_attempts.address_of("127.0.0.1", "198.51.100.1, 203.0.113.9") == "203.0.113.9", (
-        "a proxy on this side is believed about the hop it appended"
+        "this machine — `tailscale serve` — is believed about the hop it appended"
     )
+    assert web_attempts.address_of("::ffff:127.0.0.1", "203.0.113.9") == "203.0.113.9"
     assert web_attempts.address_of("8.8.4.4", "198.51.100.1") == "8.8.4.4", (
         "anybody else saying who they relay is not"
+    )
+    for peer in ("172.17.0.1", "10.0.1.7", "192.168.1.20", "fd00::1"):
+        assert web_attempts.address_of(peer, "203.0.113.9") != "203.0.113.9", (
+            f"{peer} is private, and nobody declared it a proxy"
+        )
+    traefik = web_attempts.proxies(["10.0.1.5", "not an address"])
+    assert traefik == (ipaddress.ip_network("10.0.1.5/32"),), traefik
+    assert web_attempts.address_of("10.0.1.5", "203.0.113.9", traefik) == "203.0.113.9", (
+        "Traefik, declared, is believed"
+    )
+    assert web_attempts.address_of("10.0.1.7", "203.0.113.9", traefik) == "10.0.1.7", (
+        "its neighbour on the same network is not"
+    )
+    assert web_attempts.address_of("127.0.0.1", "203.0.113.9", traefik) == "127.0.0.1", (
+        "declaring Traefik replaces the default rather than adding to it"
     )
     assert web_attempts.address_of("2001:db8::1") == web_attempts.address_of("2001:db8::2"), (
         "one /64"
     )
     assert web_attempts.address_of("::ffff:192.0.2.7") == "192.0.2.7"
+
+
+@case
+def a_peer_nobody_declared_a_proxy_does_not_reset_its_count_by_changing_x_forwarded_for(
+    state_home,
+):
+    """A published Docker port, a neighbouring container, a LAN: private, not a proxy.
+
+    Believed, any of them would announce a new address with every guess and
+    never be made to wait. Here the console's own peer is loopback, so the
+    proxies are declared as somebody else — and the count stays the peer's.
+    """
+    from ponos.web import server as web_server
+
+    path, _ = _saved()
+    api = _Fresh(path)
+    api.config.web.trusted_proxies = ("10.0.1.5",)
+    entry = web_server.sign_in(
+        _web_config(email="me@example.com", password="one I remember"), "tok"
+    )
+    wrong = {"email": "me@example.com", "password": "a guess"}
+    with _console(api, entry=entry) as console:
+        frozen = console.attempts.clock()
+        console.attempts.clock = lambda: frozen
+        status, _, _ = _talk_to(
+            console, "POST", "/api/login", wrong, **{"X-Forwarded-For": "10.0.0.1"}
+        )
+        assert status == 401, status
+        for i in range(2, 12):
+            status, _, _ = _talk_to(
+                console, "POST", "/api/login", wrong, **{"X-Forwarded-For": f"10.0.{i}.{i}"}
+            )
+            assert status == 429, (i, status)
 
 
 @case

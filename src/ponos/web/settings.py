@@ -393,6 +393,16 @@ SECTIONS: tuple[Section, ...] = (
             ),
             Field(
                 "web",
+                "trusted_proxies",
+                "lines",
+                "Trusted proxies",
+                "One address or network per line: the proxies believed about whom they "
+                "relay, so that a wrong password is counted against the visitor. Behind "
+                "Traefik, its address. Anybody else is counted by its own.",
+                advanced=True,
+            ),
+            Field(
+                "web",
                 "email",
                 "text",
                 "Sign-in email",
