@@ -67,6 +67,7 @@ npm run types   # src/lib/api-types.d.ts, depuis le schéma OpenAPI de la consol
 npm run test:e2e  # Playwright dans le Chrome installé, sur un vrai `serve` et un board jetable
 npm run test:e2e:ci  # le même, avec les deux workers de la CI : c’est lui qui montre une dépendance à l’ordre
 npm test        # node --test src/lib/*.test.ts — la logique de la barre de message, sans navigateur
+npm run test:components  # Vitest + Testing Library dans jsdom : src/**/*.test.tsx, un composant à la fois
 npm run dev     # serveur de dev avec hot reload, proxy /api vers un console déjà lancé
 npm run dev:demo  # le même, sur la console de démo (ci-dessous) : fausses données, ni Notion ni réseau
 ```

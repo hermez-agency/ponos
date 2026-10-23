@@ -3,8 +3,9 @@
  * Which file it takes, what a pasted screenshot is called, whether there is
  * anything to send, which command a half-typed `>st` is heading for: all of it
  * is plain data in, plain data out, so that `node --test` can hold it to what
- * it says without a browser — the console has no test runner of its own, and
- * this file imports nothing so that it needs none.
+ * it says without a browser — Node reads it as it is, and this file imports
+ * nothing so that it needs nothing more. How the bar draws these decisions is
+ * `components/console/composer.test.tsx`'s, under Vitest.
  *
  * The list of accepted kinds is the server's (`web/attachments.py`), said twice
  * on purpose: the page refuses early, with a sentence, and the server refuses
