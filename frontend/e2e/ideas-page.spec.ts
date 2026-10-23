@@ -64,6 +64,34 @@ test.describe("at 1440px", () => {
     await expect(origin(page, "Workspace").first()).toBeVisible()
   })
 
+  test("the page opens on the new ideas, and a choice of the address or of a tab is kept", async ({ page }) => {
+    await open(page, "/")
+    await page.getByRole("link", { name: "Ideas", exact: true }).click()
+    await expect(page).toHaveURL(/view=console\/ideas\/list/)
+    await expect(status(page, "proposed")).toHaveAttribute("aria-pressed", "true")
+    await expect(cards(page).first()).toBeVisible()
+    for (const card of await cards(page).all()) await expect(card).toHaveAttribute("data-status", "proposed")
+
+    // "All" is a choice of its own, written in the address, and it outlives a reload.
+    await status(page, "all").click()
+    await expect.poll(() => filterOf(page).status).toBe("all")
+    await expect(status(page, "all")).toHaveAttribute("aria-pressed", "true")
+    await page.reload()
+    await expect(status(page, "all")).toHaveAttribute("aria-pressed", "true")
+
+    // A filter already in the address wins over the default.
+    await open(page, `${PAGE}&filter=${encodeURIComponent(JSON.stringify({ status: "kept" }))}`)
+    await expect(status(page, "kept")).toHaveAttribute("aria-pressed", "true")
+  })
+
+  test("a project's ideas open on the new ones too", async ({ page }) => {
+    await open(page, `${PROJECT}&tab=ideas`)
+    await expect(page.locator('[data-slot="ideas-list"]').locator('[data-slot="ideas-filter"][data-status="proposed"]')).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    )
+  })
+
   test("New idea is at the top of the list", async ({ page }) => {
     await open(page)
     const header = page.locator('[data-slot="list-header"]')
@@ -175,9 +203,9 @@ test.describe("at 1440px", () => {
 
     await open(page, address)
     await expect(cards(page)).toHaveCount(shown)
-    // Back to "all": nothing left in the address.
+    // Back to where the list rests, on the new ideas: nothing left in the address.
     await page.getByRole("button", { name: "Clear the search" }).first().click()
-    await expect(status(page, "all")).toHaveAttribute("aria-pressed", "true")
+    await expect(status(page, "proposed")).toHaveAttribute("aria-pressed", "true")
     await expect.poll(() => Object.keys(filterOf(page)).length).toBe(0)
   })
 
@@ -217,6 +245,7 @@ test.describe("at 1440px", () => {
 
   test("a card shows its score in its colour, and the most relevant come first", async ({ page }) => {
     await open(page)
+    await status(page, "all").click()
     await expect(cards(page).first()).toBeVisible()
     const pill = (tone: string) => page.locator(`[data-slot="ideas-score"][data-tone="${tone}"]`).first()
     await expect(pill("green")).toHaveText(/^\d+$/)

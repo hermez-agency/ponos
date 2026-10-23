@@ -2130,6 +2130,9 @@ export const FRENCH: Record<string, string> = {
   "Edited by {{name}}": "Modifiée par {{name}}",
   "Idea saved: {{title}}": "Idée enregistrée : {{title}}",
   "No idea yet.": "Aucune idée pour l'instant.",
+  "No new idea.": "Aucune nouvelle idée.",
+  "Show all": "Tout afficher",
+  "Every idea is sorted: kept, thrown away or turned into a ticket.": "Toutes les idées sont triées : gardées, jetées ou passées en ticket.",
   "No idea matches these filters.": "Aucune idée ne correspond à ces filtres.",
   "Another status, category, score, author or project, and they will be back.":
     "Un autre statut, catégorie, score, auteur ou projet, et elles reviendront.",

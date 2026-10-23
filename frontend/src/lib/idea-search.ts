@@ -5,6 +5,8 @@
  * whom it is for — and the category it was sorted into. They live in the address, so every value is
  * a word a URL can carry: "" is "all", for each of them, and the workspace is
  * `workspace` rather than an empty project, which would mean "every project".
+ * The status is the exception: the list is opened to sort the new ideas, so ""
+ * is "new", and "all" is written in the address to look at every one.
  *
  * The counts beside the statuses are counted on what the other filters
  * keep, and not on the status itself: "Kept 3" says how many a click on it
@@ -50,6 +52,9 @@ export const AUTHORS = ["ponos", "human"] as const
 /** The project filter's value for the ideas of the workspace. */
 export const WORKSPACE = "workspace"
 
+/** The status filter's value for every idea; the address says nothing for the new ones, where the list rests. */
+export const EVERY_STATUS = "all"
+
 /** What the list is asked for: one status, one category, one author, one scope, one colour ("" for all of
  * each) — and an order, "" for the one the status rests on. The order is `sorted` rather than `order`,
  * which react-resource-view keeps for a sort of its own: one that outlives "Clear the search". */
@@ -79,6 +84,13 @@ export const bare = (id: string) => id.replace(/-/g, "")
 /** Whom an idea is for: a project's bare id, or "" for the workspace — which an idea of a new project always is. */
 export const scopeOf = (idea: Filterable) => (idea.kind === "project" ? "" : bare(idea.project))
 
+/** The status the list shows: the one chosen, the new ideas when none is, "" for every idea. */
+export function statusOf(filter: IdeaFilter = {}): string {
+  const status = said(filter.status)
+  if (status === EVERY_STATUS) return ""
+  return status || "proposed"
+}
+
 /** Whether a filter other than the status is on: the status alone is not a search that found nothing. */
 export function filtering(filter: IdeaFilter = {}): boolean {
   return Boolean(
@@ -101,7 +113,7 @@ export function around(idea: Filterable, filter: IdeaFilter = {}): boolean {
 
 /** Whether an idea is kept by every filter. */
 export function keeps(idea: Filterable, filter: IdeaFilter = {}): boolean {
-  const status = said(filter.status)
+  const status = statusOf(filter)
   return around(idea, filter) && (!status || idea.status === status)
 }
 
@@ -122,7 +134,7 @@ export function scopes(ideas: Filterable[]): string[] {
 export function orderOf(filter: IdeaFilter = {}): Order {
   const chosen = said(filter.sorted)
   if ((ORDERS as readonly string[]).includes(chosen)) return chosen as Order
-  return said(filter.status) === "proposed" ? "relevance" : "newest"
+  return statusOf(filter) === "proposed" ? "relevance" : "newest"
 }
 
 /** The ideas in the list's order. The server's is the newest first; by relevance, the highest score first,

@@ -5,7 +5,7 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
 
-import { counts, filtering, keeps, orderOf, ordered, scopeOf, scopes, toneOf } from "./idea-search.ts"
+import { counts, filtering, keeps, orderOf, ordered, scopeOf, scopes, statusOf, toneOf } from "./idea-search.ts"
 
 const WEBSITE = "0000000000000000000000000000cafe"
 const idea = (title: string, status: string, author: string, project = "", kind = "ticket", category = "") => ({
@@ -25,9 +25,13 @@ const IDEAS = [
 ]
 const titles = (filter: object) => IDEAS.filter((one) => keeps(one, filter)).map((one) => one.title)
 
-test("nothing chosen keeps every idea", () => {
-  assert.equal(titles({}).length, IDEAS.length)
-  assert.equal(titles({ status: "", author: "", project: "" }).length, IDEAS.length)
+test("nothing chosen keeps the new ideas, and all keeps every idea", () => {
+  assert.deepEqual(titles({}), ["calendar", "hours"])
+  assert.deepEqual(titles({ status: "", author: "", project: "" }), ["calendar", "hours"])
+  assert.equal(titles({ status: "all" }).length, IDEAS.length)
+  assert.equal(statusOf({}), "proposed")
+  assert.equal(statusOf({ status: "all" }), "")
+  assert.equal(statusOf({ status: "kept" }), "kept")
   assert.equal(filtering({ status: " ", author: "", project: "" }), false)
 })
 
@@ -38,7 +42,7 @@ test("the status keeps the ideas in that status", () => {
 })
 
 test("the category keeps the ideas sorted into it, and none of the unsorted ones", () => {
-  assert.deepEqual(titles({ category: "feature" }), ["calendar", "invoice"])
+  assert.deepEqual(titles({ category: "feature", status: "all" }), ["calendar", "invoice"])
   assert.deepEqual(titles({ category: "feature", status: "kept" }), ["invoice"])
   assert.deepEqual(titles({ category: "security" }), [])
   assert.equal(filtering({ category: "ux" }), true)
@@ -51,12 +55,12 @@ test("the author keeps Ponos's ideas, or ours", () => {
 })
 
 test("the project keeps its ideas, with or without the dashes of its id", () => {
-  assert.deepEqual(titles({ project: WEBSITE }), ["sitemap", "quotation"])
-  assert.deepEqual(titles({ project: "00000000-0000-0000-0000-00000000cafe" }), ["sitemap", "quotation"])
+  assert.deepEqual(titles({ project: WEBSITE, status: "all" }), ["sitemap", "quotation"])
+  assert.deepEqual(titles({ project: "00000000-0000-0000-0000-00000000cafe", status: "all" }), ["sitemap", "quotation"])
 })
 
 test("the workspace keeps its ideas, the ideas of a new project among them", () => {
-  assert.deepEqual(titles({ project: "workspace" }), ["calendar", "invoice", "hours"])
+  assert.deepEqual(titles({ project: "workspace", status: "all" }), ["calendar", "invoice", "hours"])
   assert.equal(scopeOf(idea("x", "proposed", "ponos", WEBSITE, "project")), "")
 })
 
@@ -90,7 +94,7 @@ const scored = [
 ]
 
 test("the colour keeps the ideas of that colour, and not scored is one of them", () => {
-  const kept = (score: string) => scored.filter((one) => keeps(one, { score })).map((one) => one.title)
+  const kept = (score: string) => scored.filter((one) => keeps(one, { score, status: "all" })).map((one) => one.title)
   assert.deepEqual(kept("green"), ["green", "green too"])
   assert.deepEqual(kept("orange"), ["newest"])
   assert.deepEqual(kept("red"), ["red"])
@@ -107,9 +111,10 @@ test("by relevance the green come first, the unscored last, and equals stay newe
 })
 
 test("the new ideas rest on relevance, every other list on the newest first", () => {
+  assert.equal(orderOf({}), "relevance")
+  assert.equal(orderOf({ status: "all" }), "newest")
   assert.equal(orderOf({ status: "proposed" }), "relevance")
-  assert.equal(orderOf({}), "newest")
   assert.equal(orderOf({ status: "kept" }), "newest")
   assert.equal(orderOf({ status: "proposed", sorted: "newest" }), "newest")
-  assert.equal(orderOf({ sorted: "relevance" }), "relevance")
+  assert.equal(orderOf({ status: "all", sorted: "relevance" }), "relevance")
 })
