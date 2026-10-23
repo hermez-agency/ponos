@@ -50,6 +50,7 @@ from ponos import (
     notion,
     progress,
     projects,
+    provider,
     session,
     store,
     sync,
@@ -151,6 +152,23 @@ def installation(case):
         yield installed
 
 
+# The variables a machine may export that the runner reads for GitHub, or to
+# choose who answers a session — none of which a case may inherit.
+MACHINE = (
+    "GH_TOKEN",
+    "GITHUB_TOKEN",
+    "GIT_CONFIG_COUNT",
+    C.GITHUB_TOKEN_ENV,
+    github_app.APPS_ENV,
+    github_app.WEB_ENV,
+    "PONOS_GITHUB_OWNER",
+    "PONOS_GITHUB_LAPSES",
+    C.OPENROUTER_KEY_ENV,
+    C.ANTHROPIC_KEY_ENV,
+    provider.OAUTH_TOKEN_ENV,
+)
+
+
 def isolate() -> None:
     """What the whole suite runs under, whoever starts it: `main` or pytest."""
     # Claude Code's own store, pointed at an empty directory for the whole
@@ -169,6 +187,14 @@ def isolate() -> None:
     # once rather than asking the real GitHub for a token. The tests about the
     # app replace the transport itself — see `_github_answering`.
     os.environ[github_app.API_ENV] = "http://127.0.0.1:9"
+    # And what the machine itself says about GitHub and about who answers its
+    # sessions, dropped: a laptop where `gh` is set up, or a cloud session,
+    # exports a token and a `GIT_CONFIG_COUNT` that `git.run` and
+    # `github_app._config` would build on, and a provider key would take a
+    # session's road away from the CLI. A case that wants one poses it.
+    for name in list(os.environ):
+        if name in MACHINE or name.startswith(("GIT_CONFIG_KEY_", "GIT_CONFIG_VALUE_")):
+            del os.environ[name]
 
 
 # -- the doubles more than one file uses -------------------------------------
