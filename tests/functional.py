@@ -3092,6 +3092,44 @@ def a_worktree_left_in_the_middle_of_a_rebase_is_saved_and_the_ticket_starts_aga
 
 
 @case
+@runner_settings(keep_worktree_on_failure=True)
+def a_ticket_renamed_between_two_attempts_carries_on_on_its_own_branch(machine):
+    """Renamed after a failed attempt: the next one used to want a branch of the new title.
+
+    The worktree, named after the ID, still held the first attempt's commit, and
+    the ticket failed on it for good ("still holds work"). The branch is found
+    by the ticket's ID, whatever the title now says: one branch, one pull request.
+    """
+    repository = machine.repository("site")
+    project = machine.project("Site", repository)
+    ticket = machine.ticket("Corriger le menu", "Fais-le.", project)
+    with _environ({"FAKE_CLAUDE_FAIL": "la session a planté"}):
+        machine.run()
+    worktree = _worktree_of(machine)
+    first = subprocess.run(
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+        cwd=str(worktree),
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    (worktree / "menu.txt").write_text("le menu corrigé\n", encoding="utf-8")
+    _git(["add", "menu.txt"], worktree)
+    _git(["commit", "-m", "le menu"], worktree)
+
+    machine.board.pages[ticket]["properties"]["Name"] = _stored(
+        {"title": _rich("Corriger le menu du site, sur mobile aussi")}
+    )
+    machine.move(ticket, "Ready")
+    results = machine.run()
+
+    assert results[0]["status"] == "done", (results, machine.board.said(ticket))
+    opened = machine.pull_requests()
+    assert [one["branch"] for one in opened] == [first], opened
+    assert "menu.txt" in machine.files_on(repository, first), "the first attempt's commit was lost"
+    assert [name for name in machine.branches(repository) if short_id(ticket) in name] == [first]
+
+
+@case
 def a_session_killed_is_resumed_once_and_blocked_as_killed_if_it_dies_again(machine):
     repository = machine.repository("site")
     project = machine.project("Site", repository)

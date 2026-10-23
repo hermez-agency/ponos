@@ -112,7 +112,11 @@ class Preparation(Base):
         stem = f"{slugify(project.name, 24)}-{short}"
         if project.path is not None:  # `is_code`, spelled out for mypy to narrow
             base = self.config.runner.base_branch or git.default_branch(project.path)
-            branch = f"{self.config.runner.branch_prefix}{slugify(ticket.title)}-{short}"
+            prefix = self.config.runner.branch_prefix
+            # The branch an earlier attempt left, under whatever title it had then.
+            branch = git.ticket_branch(project.path, prefix, short) or (
+                f"{prefix}{slugify(ticket.title)}-{short}"
+            )
             workdir = state_dir() / "worktrees" / stem
         else:
             # No repository: an empty scratch directory, and the answer goes
