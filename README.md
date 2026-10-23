@@ -1102,6 +1102,10 @@ Three rules, and they are the ones worth arguing about.
 - **A timestamp to the minute is not trusted alone.** Notion keeps `last_edited_time` to
   the minute, so each stamp also carries a fingerprint of the page's properties: two
   edits in the same minute, with a reconciliation between them, are both carried.
+- **A file is compared on what it says, not on its `edited`.** An editor leaves that line
+  as it was, so each stamp also keeps a fingerprint of the file — its properties and its
+  body: a ticket changed by hand reaches Notion on the next pass, and one changed by hand
+  and in Notion is a conflict like any other, dated by the file's modification time.
 - **A page that never existed on the other side is created there.** Which is what makes
   the switch work from a board that is already full: the first reconciliation copies
   everything across, in whichever direction it is missing. A page born in a file then

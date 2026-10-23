@@ -98,6 +98,47 @@ def a_page_moved_on_both_sides_is_a_conflict_the_newest_wins():
 
 
 @case
+def a_file_edited_by_hand_without_touching_edited_reaches_notion():
+    """`$EDITOR` does not bump `edited`, and the file is still the side that moved.
+
+    The board in files is meant to be edited by hand — git, grep and an editor
+    — and a person who opens a ticket and changes a word leaves the frontmatter's
+    `edited` as it was. The change has to reach Notion all the same, and a page
+    changed by hand *and* in Notion is a conflict written down, not a file
+    quietly written over.
+    """
+    with _mirror() as (here, there, both, marks):
+        page_id = here.create_row("tickets", "Le ticket", {"Status": "Ready"})
+        both.synchronise(_settings(), stamps=marks)
+
+        _, path = there._find(page_id)
+        text = path.read_text(encoding="utf-8")
+        assert "Status: Ready" in text, text
+        path.write_text(text.replace("Status: Ready", "Status: Blocked"), encoding="utf-8")
+
+        report = both.synchronise(_settings(), stamps=marks)
+        assert [entry.what for entry in report.carried] == ["markdown→notion"], report.entries
+        assert store.read(here.pages[page_id], "Status") == "Blocked"
+        assert not both.synchronise(_settings(), stamps=marks).carried
+
+        # A body changed by hand travels the same way.
+        text = path.read_text(encoding="utf-8")
+        path.write_text(text.rstrip() + "\n\nUne ligne écrite à la main.\n", encoding="utf-8")
+        assert [entry.what for entry in both.synchronise(_settings(), stamps=marks).carried] == [
+            "markdown→notion"
+        ]
+        assert "Une ligne écrite à la main." in here.bodies[page_id]
+
+        # Both sides move: a conflict, journalled, whichever side wins.
+        text = path.read_text(encoding="utf-8")
+        path.write_text(text.replace("Status: Blocked", "Status: Failed"), encoding="utf-8")
+        here.update("tickets", page_id, {"Status": "Done"})
+        both_moved = both.synchronise(_settings(), stamps=marks)
+        assert len(both_moved.conflicts) == 1, both_moved.entries
+        assert store.read(there.page(page_id), "Status") == "Done"
+
+
+@case
 def a_deletion_is_written_down_and_never_carried_across():
     """Nothing the sync does may remove a page. It says so instead.
 
