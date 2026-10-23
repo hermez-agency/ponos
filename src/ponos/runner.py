@@ -54,7 +54,7 @@ from . import (
 )
 from . import update as update_module
 from .projects import Project
-from .ticket import Ticket
+from .ticket import Job, Ticket
 
 
 class Runner(
@@ -261,9 +261,12 @@ class Runner(
                     if remaining is not None:
                         remaining -= 1
                     # Claimed here, in the one thread that does it, so that two
-                    # tickets never race over the same repository index.
-                    job = self.prepare(ticket)
-                    if not job:
+                    # tickets never race over the same repository index — and
+                    # guarded as the sessions are: a claim the board refuses
+                    # fails that ticket, not the pass and the sessions in it.
+                    job = self._guarded(ticket, self.prepare, ticket)
+                    if not isinstance(job, Job):
+                        results += state.record_all([job])
                         hand.leave(ticket.id)
                         continue
                     # Guarded: a ticket that raises fails alone, and the pass carries on.

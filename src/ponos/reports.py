@@ -24,7 +24,7 @@ import time
 from collections.abc import Callable
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
 
 from . import (
     blocks,
@@ -45,6 +45,8 @@ from . import question as question_module
 from . import voice as voice_module
 from .base import Base
 from .ticket import Job, Ticket
+
+T = TypeVar("T")
 
 logger = logging.getLogger(__name__)
 
@@ -673,8 +675,8 @@ class Reports(Base):
         }
 
     def _guarded(
-        self, ticket: Ticket, work: Callable[..., dict[str, Any] | None], *arguments: object
-    ) -> dict[str, Any] | None:
+        self, ticket: Ticket, work: Callable[..., T], *arguments: object
+    ) -> T | dict[str, Any] | None:
         """Run one ticket's work so that whatever it raises is that ticket's alone.
 
         A pass runs several tickets at once, and an exception from any of them
@@ -687,7 +689,14 @@ class Reports(Base):
         And if even that cannot be written — Notion is the thing that is down —
         the pass is still not the one to pay: the result is recorded here, and
         the next run's sweep finds the ticket where it was left.
+
+        Not only sessions come through here: `prepare` and a merge run in the
+        pass's own thread, and one that raised there used to leave the pass with
+        every session still in flight — waited for, hours sometimes, and never
+        recorded. A work that returns something else than a result (`prepare`'s
+        `Job`) gets it back as it is; a failure is always a result.
         """
+        result: T | dict[str, Any] | None
         try:
             result = work(*arguments)
         except store.Unreachable as error:
@@ -727,7 +736,8 @@ class Reports(Base):
                     "reason": detail,
                     "code": "runner.crashed",
                 }
-        self._journal_end(ticket, result)
+        if result is None or isinstance(result, dict):
+            self._journal_end(ticket, result)
         return result
 
     def _journal_end(self, ticket: Ticket, result: dict[str, Any] | None) -> None:
