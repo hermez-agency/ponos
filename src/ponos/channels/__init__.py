@@ -36,6 +36,7 @@ import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from .. import disk, http, question, redaction, vault, voice
 from ..config import Notify, state_dir
@@ -53,7 +54,9 @@ class ChannelError(Exception):
 # -- transport ---------------------------------------------------------------
 
 
-def request(url: str, payload: dict | None = None, *, headers: dict | None = None) -> dict:
+def request(
+    url: str, payload: dict[str, Any] | None = None, *, headers: dict[str, Any] | None = None
+) -> dict[str, Any]:
     """One JSON call. Both APIs speak JSON both ways, so one helper does."""
     # What reaches the phone carries no secret, whatever wrote it: see vault.py.
     data = json.dumps(vault.masked(payload)).encode() if payload is not None else None
@@ -81,7 +84,8 @@ def request(url: str, payload: dict | None = None, *, headers: dict | None = Non
             pass
         raise ChannelError(f"{answer.status} {detail}")
     try:
-        return json.loads(answer.body or b"{}")
+        decoded: dict[str, Any] = json.loads(answer.body or b"{}")
+        return decoded
     except json.JSONDecodeError as error:
         raise ChannelError("the answer was not JSON") from error
 
@@ -196,7 +200,7 @@ def memory_path() -> Path:
     return state_dir() / "channels.json"
 
 
-def _memory() -> dict:
+def _memory() -> dict[str, Any]:
     path = memory_path()
     if not path.exists():
         return {}
@@ -208,7 +212,7 @@ def _memory() -> dict:
     return loaded if isinstance(loaded, dict) else {}
 
 
-def _remember(name: str, changes: dict) -> None:
+def _remember(name: str, changes: dict[str, Any]) -> None:
     everything = _memory()
     everything[name] = {**everything.get(name, {}), **changes}
     try:

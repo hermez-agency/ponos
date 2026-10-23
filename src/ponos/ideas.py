@@ -69,8 +69,10 @@ import difflib
 import json
 import re
 import unicodedata
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from typing import Any
 
 from . import db, goals
 
@@ -222,7 +224,7 @@ class Idea:
     kind: str
     title: str
     description: str
-    detail: dict = field(default_factory=dict)
+    detail: dict[str, Any] = field(default_factory=dict)
     category: str = ""
     status: str = "proposed"
     ticket: str = ""
@@ -250,7 +252,7 @@ class Idea:
             return False
         return since.total_seconds() < SCORING_FOR_MINUTES * 60
 
-    def shown(self) -> dict:
+    def shown(self) -> dict[str, Any]:
         """The idea as the console reads it."""
         return {
             "id": self.id,
@@ -452,7 +454,7 @@ def _section(heading: str, body: str) -> str:
 # -- the answer ----------------------------------------------------------------
 
 
-def parse(answer: str, scope: str) -> list[dict]:
+def parse(answer: str, scope: str) -> list[dict[str, Any]]:
     """The ideas, out of whatever the session actually said.
 
     The widest array that reads as one, so that a fence or a sentence around it
@@ -461,7 +463,7 @@ def parse(answer: str, scope: str) -> list[dict]:
     cannot propose a new project inside itself.
     """
     raw = _array(answer or "")
-    found: list[dict] = []
+    found: list[dict[str, Any]] = []
     for entry in raw:
         if not isinstance(entry, dict):
             continue
@@ -542,7 +544,7 @@ def _category(value: object) -> str:
     return said if said in CATEGORIES else ""
 
 
-def _array(answer: str) -> list:
+def _array(answer: str) -> list[Any]:
     start = answer.find("[")
     while start != -1:
         end = answer.rfind("]")
@@ -601,14 +603,16 @@ def similar(first: str, second: str) -> bool:
     return bool(left and right) and len(left & right) / len(left | right) >= SAME_WORDS
 
 
-def fresh(candidates: list[dict], known: list[str]) -> tuple[list[dict], list[dict]]:
+def fresh(
+    candidates: list[dict[str, Any]], known: list[str]
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """The candidates worth keeping, and those that were already said.
 
     Compared with what is known and with each other: a batch that proposes the
     same idea twice proposes it once.
     """
-    kept: list[dict] = []
-    dropped: list[dict] = []
+    kept: list[dict[str, Any]] = []
+    dropped: list[dict[str, Any]] = []
     seen = [title for title in known if title.strip()]
     for candidate in candidates:
         if any(similar(candidate["title"], title) for title in seen):
@@ -622,7 +626,7 @@ def fresh(candidates: list[dict], known: list[str]) -> tuple[list[dict], list[di
 # -- the draft a kept idea becomes ---------------------------------------------
 
 
-def body(idea: Idea, say) -> str:
+def body(idea: Idea, say: Callable[..., str]) -> str:
     """The ticket a kept idea is written as: What / Where / Done when / Out of scope.
 
     `say` is the runner's voice, so the headings are in the board's language.
@@ -638,7 +642,7 @@ def body(idea: Idea, say) -> str:
     )
 
 
-def framing(idea: Idea, say) -> str:
+def framing(idea: Idea, say: Callable[..., str]) -> str:
     """The first ticket of a project an idea created: frame it."""
     what = say("idea-frame-what")
     if idea.description.strip():
@@ -652,7 +656,9 @@ def framing(idea: Idea, say) -> str:
     )
 
 
-def draft(say, *, what: str, where: str, done: list[str], out: list[str]) -> str:
+def draft(
+    say: Callable[..., str], *, what: str, where: str, done: list[str], out: list[str]
+) -> str:
     parts = [f"## {say('idea-what')}\n\n{what.strip()}"]
     if where.strip():
         parts.append(f"## {say('idea-where')}\n\n{where.strip()}")
@@ -677,7 +683,7 @@ _COLUMNS = (
 )
 
 
-def _idea(row: tuple) -> Idea:
+def _idea(row: tuple[Any, ...]) -> Idea:
     try:
         detail = json.loads(row[7] or "{}")
     except ValueError:
@@ -713,7 +719,7 @@ def record(
     project: str,
     model: str,
     cost_usd: float | None,
-    ideas: list[dict],
+    ideas: list[dict[str, Any]],
     error: str = "",
 ) -> tuple[int, list[Idea]]:
     """Write one batch and its ideas, and give them back as stored.
@@ -754,7 +760,7 @@ def record(
         rows = connection.execute(
             f"SELECT {_COLUMNS} FROM ideas WHERE batch = ? ORDER BY id", (batch,)
         ).fetchall()
-    return int(batch), [_idea(row) for row in rows]
+    return int(batch or 0), [_idea(row) for row in rows]
 
 
 def written(
@@ -798,7 +804,7 @@ def written(
                 now,
             ),
         ).lastrowid
-    return get(int(identifier))
+    return get(int(identifier or 0))
 
 
 def edit(
@@ -883,7 +889,7 @@ def unscored(project: str | None = None) -> list[Idea]:
     """The ideas still waiting or kept that have no score — of one scope, or of every one."""
     marks = ", ".join("?" for _ in UNSCORED_STATUSES)
     query = f"SELECT {_COLUMNS} FROM ideas WHERE score IS NULL AND status IN ({marks})"
-    values: tuple = UNSCORED_STATUSES
+    values: tuple[Any, ...] = UNSCORED_STATUSES
     if project is not None:
         query += " AND project = ?"
         values = (*values, bare(project))
@@ -969,7 +975,7 @@ def decide(identifier: int, status: str, *, ticket: str = "", created: str = "")
 def last_decided(project: str | None = None) -> Idea | None:
     """The idea decided most recently — in one scope, or in any when None."""
     query = f"SELECT {_COLUMNS} FROM ideas WHERE status != 'proposed' AND decided_at IS NOT NULL"
-    values: tuple = ()
+    values: tuple[Any, ...] = ()
     if project is not None:
         query += " AND project = ?"
         values = (bare(project),)
@@ -982,7 +988,7 @@ def last_decided(project: str | None = None) -> Idea | None:
 def spent(project: str | None = None) -> tuple[int, float]:
     """How many batches were asked for, and what they cost together."""
     query = "SELECT COUNT(*), COALESCE(SUM(cost_usd), 0) FROM idea_batches"
-    values: tuple = ()
+    values: tuple[Any, ...] = ()
     if project is not None:
         query += " WHERE project = ?"
         values = (bare(project),)

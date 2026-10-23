@@ -27,7 +27,7 @@ import threading
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from . import disk, models, passwords, subtypes, vault
 
@@ -1195,7 +1195,7 @@ def edit(path: Path, changes: list[tuple[str, str, object]]) -> list[str]:
     return touched
 
 
-def read_raw(path: Path) -> dict:
+def read_raw(path: Path) -> dict[str, Any]:
     """The file as it is written, with nothing filled in.
 
     `load` is the runner's view: every default applied, every floor enforced.
@@ -1209,7 +1209,7 @@ def read_raw(path: Path) -> dict:
         return {}
 
 
-def _section(raw: dict, table: str) -> dict:
+def _section(raw: dict[str, Any], table: str) -> dict[str, Any]:
     """One table of a parsed file, dots followed: "notify.telegram" too."""
     node: object = raw
     for part in table.split("."):
@@ -1217,7 +1217,7 @@ def _section(raw: dict, table: str) -> dict:
     return node if isinstance(node, dict) else {}
 
 
-def exposed(raw: dict) -> list[tuple[str, str]]:
+def exposed(raw: dict[str, Any]) -> list[tuple[str, str]]:
     """The secrets a parsed `config.toml` still holds — which `load` ignores.
 
     An empty value is no secret, and nor is the example's placeholder: both are
@@ -1492,7 +1492,7 @@ def readable() -> bool:
     return True
 
 
-def _validated(target: Path) -> tuple[dict, schema.File]:
+def _validated(target: Path) -> tuple[dict[str, Any], schema.File]:
     """The file as TOML says it, and read against schema.py — or a ConfigError naming what is wrong."""
     if not target.exists():
         raise ConfigError(
@@ -1596,7 +1596,7 @@ def _channel(table: schema.TelegramTable | schema.SlackTable, token: str) -> dic
     return read
 
 
-def read_github_access(raw: dict, stored: dict[str, str]) -> GithubAccess:
+def read_github_access(raw: dict[str, Any], stored: dict[str, str]) -> GithubAccess:
     """`[github_access]` and its token, read again — the console writes them as it runs.
 
     Read leniently, as a table that does not validate says nothing.

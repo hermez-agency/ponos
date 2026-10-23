@@ -31,7 +31,11 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+
+if TYPE_CHECKING:
+    from .config import Config, Notion
+    from .workspace import Workspace
 
 # The three modes of `storage.mode`, and the whole of them.
 MODES = ("notion", "markdown", "both")
@@ -201,7 +205,7 @@ def read(page: Page, name: str) -> Any:
     return prop.get(kind)
 
 
-def written(kind: str | None, value: Any) -> dict | None:
+def written(kind: str | None, value: Any) -> dict[str, Any] | None:
     """One property, in the shape a `Page` carries it. The inverse of `read`.
 
     Type tag included, which is what tells this apart from `notion._encode`:
@@ -251,7 +255,7 @@ class Store(Protocol):
 
     def forget_database(self, database_id: str) -> None: ...
 
-    def query(self, database_id: str, filter_: dict | None = None) -> list[Page]: ...
+    def query(self, database_id: str, filter_: dict[str, Any] | None = None) -> list[Page]: ...
 
     def page(self, page_id: str) -> Page: ...
 
@@ -272,7 +276,9 @@ class Store(Protocol):
 
     def update(self, database_id: str, page_id: str, values: dict[str, Any]) -> None: ...
 
-    def create_row(self, database_id: str, title: str, values: dict | None = None) -> str: ...
+    def create_row(
+        self, database_id: str, title: str, values: dict[str, Any] | None = None
+    ) -> str: ...
 
     def append_markdown(self, page_id: str, markdown: str) -> int: ...
 
@@ -320,12 +326,12 @@ class Store(Protocol):
 
     # -- the board's own shape -----------------------------------------------
 
-    def workspace(self, settings: Any) -> Any:
+    def workspace(self, settings: Notion) -> Workspace:
         """The databases and the standing context. See `workspace.Workspace`."""
         ...
 
 
-def open(config, *, dropped: Callable[[str, str], None] | None = None) -> Store:  # noqa: A001
+def open(config: Config, *, dropped: Callable[[str, str], None] | None = None) -> Store:  # noqa: A001
     """The store the configuration asks for.
 
     `dropped` hears of every property a write leaves out because the database

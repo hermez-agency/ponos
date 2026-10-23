@@ -39,6 +39,7 @@ import sqlite3
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from . import db, progress
 
@@ -128,7 +129,7 @@ class Run:
     def open(self) -> bool:
         return self.id is not None
 
-    def event(self, payload: dict) -> None:
+    def event(self, payload: dict[str, Any]) -> None:
         """One stream-json event: its steps, and its price when it is the last one."""
         if not self.open:
             return
@@ -179,7 +180,9 @@ class Run:
             (_now(), status, str(reason or "")[:TEXT], code, self.cost, self.id),
         )
 
-    def _write(self, statement: str, values: tuple | list, many: bool = False) -> None:
+    def _write(
+        self, statement: str, values: tuple[Any, ...] | list[Any], many: bool = False
+    ) -> None:
         try:
             with db.transaction() as connection:
                 if many:
@@ -201,7 +204,7 @@ def _ticket_key(reference: str) -> str:
     )
 
 
-def _run(row: sqlite3.Row | tuple, names: list[str]) -> dict:
+def _run(row: sqlite3.Row | tuple[Any, ...], names: list[str]) -> dict[str, Any]:
     entry = dict(zip(names, row, strict=True))
     entry["log"] = Path(entry["log"]).name if entry.get("log") else ""
     return entry
@@ -215,7 +218,7 @@ _RUN = (
 )
 
 
-def runs(ticket: str = "", limit: int = 50) -> list[dict]:
+def runs(ticket: str = "", limit: int = 50) -> list[dict[str, Any]]:
     """The runs of one ticket — or of every ticket — newest first."""
     key = _ticket_key(ticket) if ticket else ""
     with db.transaction(immediate=False) as connection:
@@ -233,7 +236,7 @@ def runs(ticket: str = "", limit: int = 50) -> list[dict]:
         return [_run(row, names) for row in cursor.fetchall()]
 
 
-def spans(ticket: str = "") -> dict[str, list[dict]]:
+def spans(ticket: str = "") -> dict[str, list[dict[str, Any]]]:
     """{ticket: its runs as intervals} — one ticket's, or every ticket's — for worktime.py.
 
     A run still open carries the moment of its last step as `last`, which is
@@ -254,7 +257,7 @@ def spans(ticket: str = "") -> dict[str, list[dict]]:
             ).fetchall()
     except _FAILURES:
         return {}
-    found: dict[str, list[dict]] = {}
+    found: dict[str, list[dict[str, Any]]] = {}
     for ticket_id, start, end, status, code, last in rows:
         found.setdefault(ticket_id, []).append(
             {
@@ -268,7 +271,7 @@ def spans(ticket: str = "") -> dict[str, list[dict]]:
     return found
 
 
-def chosen(ticket: str) -> dict | None:
+def chosen(ticket: str) -> dict[str, Any] | None:
     """The last run of a ticket whose model the runner chose, and how it ended.
 
     What models.py climbs from. None when there is no such run — or no journal
@@ -288,7 +291,7 @@ def chosen(ticket: str) -> dict | None:
     return {"model": row[0], "status": row[1] or "", "escalated": bool(row[2])}
 
 
-def run(identifier: int) -> dict | None:
+def run(identifier: int) -> dict[str, Any] | None:
     with db.transaction(immediate=False) as connection:
         cursor = connection.execute(_RUN + " WHERE runs.id = ?", (identifier,))
         names = [column[0] for column in cursor.description]
@@ -296,7 +299,7 @@ def run(identifier: int) -> dict | None:
     return _run(row, names) if row else None
 
 
-def steps(identifier: int, *, before: int = 0, after: int = 0, limit: int = PAGE) -> dict:
+def steps(identifier: int, *, before: int = 0, after: int = 0, limit: int = PAGE) -> dict[str, Any]:
     """One page of a run's steps, in reading order.
 
     The last `limit` of them by default — a run is read from where it is — or

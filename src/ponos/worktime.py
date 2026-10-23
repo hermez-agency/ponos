@@ -23,6 +23,7 @@ clock read at any moment without waiting for it.
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import Any
 
 from . import blocks
 
@@ -45,7 +46,7 @@ def _instant(stamp: str | None) -> datetime | None:
     return moment if moment.tzinfo else moment.replace(tzinfo=UTC)
 
 
-def pause_of(span: dict) -> str:
+def pause_of(span: dict[str, Any]) -> str:
     """Why the clock stops after this run: `question`, `blocked`, `credit`, or "" for none."""
     status = span.get("status") or ""
     if status == "waiting":
@@ -56,7 +57,9 @@ def pause_of(span: dict) -> str:
     return ""
 
 
-def measure(spans: list[dict], column: str, now: datetime | None = None) -> dict | None:
+def measure(
+    spans: list[dict[str, Any]], column: str, now: datetime | None = None
+) -> dict[str, Any] | None:
     """What the clock of a ticket reads, or None when no run was ever made for it.
 
     `spans` are the ticket's runs as `journal.spans` reads them; `column` is
@@ -77,7 +80,7 @@ def measure(spans: list[dict], column: str, now: datetime | None = None) -> dict
     work = paused = 0.0
     running = False
     reached: datetime | None = None
-    last_span: dict = {}
+    last_span: dict[str, Any] = {}
     for start, span in runs:
         last = _instant(span.get("last")) or start
         closed = _instant(span.get("end"))

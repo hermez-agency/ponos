@@ -49,6 +49,7 @@ import logging.handlers
 import os
 import sys
 from pathlib import Path
+from typing import TextIO
 
 from . import redaction, vault
 
@@ -81,15 +82,15 @@ class Masked(logging.Filter):
         return True
 
 
-class _Stdout(logging.StreamHandler):
+class _Stdout(logging.StreamHandler[TextIO]):
     """The standard output of the moment, flushed at every line as `print` was."""
 
     @property
-    def stream(self):  # type: ignore[override]
+    def stream(self) -> TextIO:
         return sys.stdout
 
     @stream.setter
-    def stream(self, _value) -> None:
+    def stream(self, _value: TextIO) -> None:
         pass
 
 
@@ -113,7 +114,7 @@ class _Rotating(logging.handlers.RotatingFileHandler):
                 moved = True
             if moved:
                 self.stream.close()
-                self.stream = None  # type: ignore[assignment]
+                self.stream = None
         if self.stream is None:
             self.stream = self._open()
         super().emit(record)

@@ -36,6 +36,7 @@ from __future__ import annotations
 import json
 import threading
 import time
+from typing import Any
 from urllib.parse import quote
 
 from . import config as config_module
@@ -230,7 +231,7 @@ def _get(value: str, path: str) -> tuple[int, dict[str, str], object]:
     return status, headers, answer
 
 
-def check(value: str) -> dict:
+def check(value: str) -> dict[str, Any]:
     """What a token is and what it lacks. Raises GithubTokenError when it is no token at all.
 
     `missing` is what stops a code ticket (a permission and the level it needs),
@@ -254,7 +255,7 @@ def check(value: str) -> dict:
     missing: list[dict[str, str]] = []
     warnings: list[str] = []
 
-    repositories: list[dict] = []
+    repositories: list[dict[str, Any]] = []
     for page in range(1, PAGES + 1):
         status, _, listed = _get(value, f"/user/repos?per_page=100&page={page}&sort=pushed")
         if status >= 400 or not isinstance(listed, list):
@@ -303,10 +304,10 @@ def check(value: str) -> dict:
     }
 
 
-def describe() -> dict:
+def describe() -> dict[str, Any]:
     """The token as the console and `doctor` show it: where from, who it is — never the value."""
     value = token()
-    shown: dict = {
+    shown: dict[str, Any] = {
         "configured": bool(value),
         "source": source(),
         "mode": access().mode,

@@ -59,10 +59,14 @@ import uuid
 from collections.abc import Callable, Iterator
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from . import disk, vault
 from .store import SLOTS, Comment, Page, Picture, StoreError, read, written
+
+if TYPE_CHECKING:
+    from .config import Notion
+    from .workspace import Workspace
 
 T = TypeVar("T")
 
@@ -232,7 +236,7 @@ def render(front: dict[str, Any], body: str) -> str:
 # -- the shape of the board --------------------------------------------------
 
 
-def schemas(settings) -> dict[str, dict[str, str]]:
+def schemas(settings: Notion) -> dict[str, dict[str, str]]:
     """{collection: {property: kind}}, from the one place the board is declared.
 
     `provision.py` builds the Notion databases from these very shapes, so a
@@ -242,7 +246,7 @@ def schemas(settings) -> dict[str, dict[str, str]]:
     """
     from . import provision
 
-    def kinds(schema: dict) -> dict[str, str]:
+    def kinds(schema: dict[str, Any]) -> dict[str, str]:
         return {name: next(iter(shape)) for name, shape in schema.items()}
 
     return {
@@ -270,7 +274,7 @@ def _exclusive(method: Callable[..., T]) -> Callable[..., T]:
     return locked
 
 
-def _matches(page: Page, filter_: dict | None) -> bool:
+def _matches(page: Page, filter_: dict[str, Any] | None) -> bool:
     """Does this page satisfy one of the filters the runner builds?
 
     Three shapes and no more, because three is all there are: an `and` of
@@ -291,9 +295,9 @@ def _matches(page: Page, filter_: dict | None) -> bool:
             continue
         value = read(page, name)
         if "equals" in test:
-            return value == test["equals"]
+            return bool(value == test["equals"])
         if "does_not_equal" in test:
-            return value != test["does_not_equal"]
+            return bool(value != test["does_not_equal"])
     return True
 
 
@@ -306,7 +310,7 @@ class Board:
     this store exists to avoid having twice.
     """
 
-    def __init__(self, root: Path, settings=None) -> None:
+    def __init__(self, root: Path, settings: Notion | None = None) -> None:
         self._root = Path(root).expanduser()
         self._settings = settings
         self._schemas: dict[str, dict[str, str]] | None = None
@@ -317,7 +321,7 @@ class Board:
     def root(self) -> Path:
         return self._root
 
-    def settings(self):
+    def settings(self) -> Notion:
         """The naming settings the board is read under.
 
         Read from the configuration the first time it is wanted rather than
@@ -435,7 +439,7 @@ class Board:
     def title_property(self, database_id: str) -> str:
         return "Name"
 
-    def query(self, database_id: str, filter_: dict | None = None) -> list[Page]:
+    def query(self, database_id: str, filter_: dict[str, Any] | None = None) -> list[Page]:
         collection = self.resolve_database(database_id)
         pages = [self._page_of(collection, path) for path in self._files(collection)]
         return [page for page in pages if _matches(page, filter_)]
@@ -486,7 +490,7 @@ class Board:
             )
         return found
 
-    def workspace(self, settings):
+    def workspace(self, settings: Notion) -> Workspace:
         """Four directories and a file — which is all a Markdown board is.
 
         No resolution, no warnings about a page that is not shared: the one
@@ -547,7 +551,7 @@ class Board:
             },
         )
 
-    def _picture(self, path: Path, slot: str, value: Any) -> dict | None:
+    def _picture(self, path: Path, slot: str, value: Any) -> dict[str, Any] | None:
         """A `cover:` or `icon:` line, in the shape Notion hands the same thing over.
 
         A URL is somebody else's image; a name is a file beside this page, and
@@ -575,7 +579,7 @@ class Board:
 
     @_exclusive
     def create_row(
-        self, database_id: str, title: str, values: dict | None = None, page_id: str = ""
+        self, database_id: str, title: str, values: dict[str, Any] | None = None, page_id: str = ""
     ) -> str:
         """A new page in a collection, and its identifier.
 
@@ -749,7 +753,7 @@ class Board:
         _write(self.comments_file(page_id), joined)
 
     @_exclusive
-    def append_blocks(self, block_id: str, blocks: list[dict]) -> list[str]:
+    def append_blocks(self, block_id: str, blocks: list[dict[str, Any]]) -> list[str]:
         """Notion blocks, flattened back into the Markdown they came from.
 
         Nothing in a file is addressable below the page, so a block's
@@ -784,7 +788,7 @@ class Board:
         _write(path, render(front, body))
         return [_bare(block_id)] * len(blocks)
 
-    def update_block(self, block_id: str, payload: dict) -> None:
+    def update_block(self, block_id: str, payload: dict[str, Any]) -> None:
         """Nothing here is addressable below the page. See `append_blocks`."""
 
     # -- who we are ----------------------------------------------------------

@@ -64,6 +64,7 @@ from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import Any, TextIO
 from urllib.parse import quote
 
 from . import config as config_module
@@ -162,7 +163,9 @@ def _send(method: str, url: str, headers: dict[str, str], body: bytes | None) ->
     return answer.status, answer.body
 
 
-def _call(method: str, path: str, *, bearer: str = "", payload: dict | None = None) -> dict | list:
+def _call(
+    method: str, path: str, *, bearer: str = "", payload: dict[str, Any] | None = None
+) -> dict[str, Any] | list[Any]:
     headers = {
         "Accept": "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",
@@ -177,6 +180,7 @@ def _call(method: str, path: str, *, bearer: str = "", payload: dict | None = No
         status, raw = _send(method, f"{api()}{path}", headers, body)
     except (http.Unanswered, OSError, ValueError) as error:
         raise GitHubAppError(f"GitHub did not answer: {error}") from error
+    answer: dict[str, Any] | list[Any]
     try:
         answer = json.loads(raw.decode() or "{}")
     except ValueError:
@@ -236,7 +240,7 @@ def forget(slug: str) -> bool:
 
 # -- the manifest and its way back ---------------------------------------------
 
-_states: dict[str, tuple[float, dict]] = {}
+_states: dict[str, tuple[float, dict[str, Any]]] = {}
 _lock = threading.Lock()
 
 
@@ -251,7 +255,7 @@ def draw_state(**data: str) -> str:
     return state
 
 
-def take_state(state: str) -> dict | None:
+def take_state(state: str) -> dict[str, Any] | None:
     """What a `state` was drawn with — once, and within the hour. None otherwise."""
     with _lock:
         held = _states.pop(state or "", None)
@@ -265,7 +269,7 @@ def app_name(installation: str) -> str:
     return f"Ponos — {installation.strip() or 'console'}"[:LONGEST_NAME].rstrip()
 
 
-def manifest(name: str, console: str) -> dict:
+def manifest(name: str, console: str) -> dict[str, Any]:
     console = console.rstrip("/")
     return {
         "name": name,
@@ -281,7 +285,7 @@ def manifest(name: str, console: str) -> dict:
     }
 
 
-def begin(console: str, organisation: str = "", installation: str = "") -> dict:
+def begin(console: str, organisation: str = "", installation: str = "") -> dict[str, Any]:
     """What the console's page posts to GitHub: where, the manifest, the state."""
     organisation = organisation.strip().lstrip("@")
     state = draw_state(organisation=organisation)
@@ -390,14 +394,14 @@ def jwt(app: App, now: float | None = None) -> str:
 # -- installations and their tokens ---------------------------------------------
 
 # Per app: when its installations were read, and what they were.
-_installations: dict[int, tuple[float, list[dict]]] = {}
+_installations: dict[int, tuple[float, list[dict[str, Any]]]] = {}
 # Per installation: its token and when it lapses, in seconds since the epoch.
 _tokens: dict[int, tuple[str, float]] = {}
 # Every token handed out here — how `git.run` tells one from a `gh` account's.
 _issued: set[str] = set()
 
 
-def installations(app: App, fresh: bool = False) -> list[dict]:
+def installations(app: App, fresh: bool = False) -> list[dict[str, Any]]:
     """Where the app is installed: `{"id", "account", "selection", "permissions"}` each."""
     now = time.monotonic()
     with _lock:
@@ -412,7 +416,7 @@ def installations(app: App, fresh: bool = False) -> list[dict]:
         with _lock:
             _installations[app.id] = (now - INSTALLATIONS_SECONDS + FAILED_SECONDS, [])
         raise
-    found = [
+    found: list[dict[str, Any]] = [
         {
             "id": int(one["id"]),
             "account": str((one.get("account") or {}).get("login") or ""),
@@ -446,8 +450,7 @@ def installation_token(app: App, installation: int, now: float | None = None) ->
     answer = _call(
         "POST", f"/app/installations/{installation}/access_tokens", bearer=jwt(app, moment)
     )
-    token = str(answer.get("token") or "") if isinstance(answer, dict) else ""
-    if not token:
+    if not isinstance(answer, dict) or not (token := str(answer.get("token") or "")):
         raise GitHubAppError("GitHub gave no installation token")
     with _lock:
         _tokens[installation] = (token, _expiry(str(answer.get("expires_at") or "")))
@@ -465,7 +468,7 @@ def issued(token: str) -> bool:
     return bool(token) and token in _issued
 
 
-def installation_for(owner: str) -> tuple[App, dict] | None:
+def installation_for(owner: str) -> tuple[App, dict[str, Any]] | None:
     """The app and the installation that work an owner's repositories, if any."""
     owner = owner.strip().lower()
     if not owner:
@@ -520,11 +523,11 @@ def covers(reference: str, owner: str) -> bool | None:
     return reference.lower() in reachable
 
 
-def describe(with_repositories: bool = True) -> list[dict]:
+def describe(with_repositories: bool = True) -> list[dict[str, Any]]:
     """The apps as the console and `doctor` show them: names, never a secret."""
     shown = []
     for app in apps():
-        entry: dict = {
+        entry: dict[str, Any] = {
             "slug": app.slug,
             "name": app.name,
             "owner": app.owner,
@@ -697,7 +700,9 @@ def _current(owner: str) -> str:
     return token(owner) or held
 
 
-def helper(argv: list[str], read: Callable[[], str] | None = None, out=None) -> int:
+def helper(
+    argv: list[str], read: Callable[[], str] | None = None, out: TextIO | None = None
+) -> int:
     """`credential get` for git, `token` for the `gh` wrapper — a session's two askers."""
     out = out or sys.stdout
     action = argv[0] if argv else ""

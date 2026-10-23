@@ -20,11 +20,15 @@ import json
 import os
 import re
 from collections.abc import Callable, Iterator
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from . import http, vault
 from .config import PLACEHOLDER
 from .store import SLOTS, Comment, Page, Picture, StoreError, Unreachable, read
+
+if TYPE_CHECKING:
+    from .config import Notion
+    from .workspace import Workspace
 
 API = "https://api.notion.com/v1"
 # The one seam in this file, and it exists for `tests/functional.py`: the
@@ -88,8 +92,8 @@ class Client:
         # Told of every property a write leaves out for want of a column — see
         # `_encoded`. Nobody listening is the old silence.
         self._dropped = dropped
-        self._databases: dict[str, dict] = {}
-        self._me: dict | None = None
+        self._databases: dict[str, dict[str, Any]] = {}
+        self._me: dict[str, Any] | None = None
 
     # -- transport -----------------------------------------------------------
 
@@ -97,11 +101,11 @@ class Client:
         self,
         method: str,
         path: str,
-        body: dict | None = None,
+        body: dict[str, Any] | None = None,
         *,
         raw: bytes | None = None,
         kind: str = "application/json",
-    ) -> dict:
+    ) -> dict[str, Any]:
         if not self._token.strip() or self._token.strip() == PLACEHOLDER:
             # A fresh installation: the console runs before anybody has typed a
             # token, and asks for the board every few seconds while a browser
@@ -151,12 +155,15 @@ class Client:
             # may have carried out before failing to say so.
             raise NotionError(f"{method} {path}: {last}")
         try:
-            return json.loads(answer.body or b"{}")
+            decoded: dict[str, Any] = json.loads(answer.body or b"{}")
+            return decoded
         except ValueError as error:
             # An answer that is not JSON is not going to become JSON either.
             raise NotionError(f"{method} {path}: {error}") from error
 
-    def _paged(self, method: str, path: str, body: dict | None = None) -> Iterator[dict]:
+    def _paged(
+        self, method: str, path: str, body: dict[str, Any] | None = None
+    ) -> Iterator[dict[str, Any]]:
         """Every result of a listing, a hundred at a time, following Notion's cursor.
 
         A read spelt as a GET carries the cursor in its query string, one
@@ -180,7 +187,7 @@ class Client:
 
     # -- reading -------------------------------------------------------------
 
-    def database(self, database_id: str) -> dict:
+    def database(self, database_id: str) -> dict[str, Any]:
         """The raw database object, fetched once per run."""
         if database_id not in self._databases:
             self._databases[database_id] = self._request("GET", f"/databases/{database_id}")
@@ -235,7 +242,7 @@ class Client:
             "/search",
             {"query": name, "filter": {"value": "database", "property": "object"}},
         )
-        candidates = []
+        candidates: list[tuple[str, str]] = []
         for item in payload.get("results", []):
             title = "".join(part.get("plain_text", "") for part in item.get("title", []))
             candidates.append((title.strip(), item.get("id", "").replace("-", "")))
@@ -283,13 +290,13 @@ class Client:
             ) from error
         for block in payload.get("results", []):
             if block.get("type") == "child_database":
-                return block["id"].replace("-", "")
+                return str(block["id"]).replace("-", "")
         raise NotionError(
             f"{identifier} is a page with no database in it — "
             "give the URL of the database itself (··· → Copy link to view)"
         )
 
-    def query(self, database_id: str, filter_: dict | None = None) -> list[Page]:
+    def query(self, database_id: str, filter_: dict[str, Any] | None = None) -> list[Page]:
         body = {"filter": filter_} if filter_ else None
         return [
             _to_page(item) for item in self._paged("POST", f"/databases/{database_id}/query", body)
@@ -471,7 +478,7 @@ class Client:
             if not payload.get("has_more"):
                 return gone
 
-    def append_blocks(self, block_id: str, blocks: list[dict]) -> list[str]:
+    def append_blocks(self, block_id: str, blocks: list[dict[str, Any]]) -> list[str]:
         """Append blocks under a page *or* under a block, and return their IDs.
 
         Notion takes a hundred at a time, hence the batching; and it answers
@@ -488,7 +495,7 @@ class Client:
             created += [item.get("id", "") for item in payload.get("results", [])]
         return created
 
-    def update_block(self, block_id: str, payload: dict) -> None:
+    def update_block(self, block_id: str, payload: dict[str, Any]) -> None:
         """Rewrite a block in place — its text, not its type.
 
         Used by the live report to keep a toggle's title current: the count and
@@ -529,7 +536,7 @@ class Client:
         """
         if slot not in SLOTS:
             raise NotionError(f"no such picture on a page: {slot}")
-        value: dict | None
+        value: dict[str, Any] | None
         if picture.data:
             upload = self.upload(picture.data, picture.type, picture.name or f"{slot}")
             value = {"type": "file_upload", "file_upload": {"id": upload}}
@@ -587,7 +594,7 @@ class Client:
         it, the runner cannot prove a comment is not its own, and a conversation
         with itself is the one failure mode that never stops.
         """
-        return self._identity().get("id", "")
+        return str(self._identity().get("id", ""))
 
     def my_name(self) -> str:
         """The name the integration answers to, as Notion shows it.
@@ -599,7 +606,7 @@ class Client:
         """
         return str(self._identity().get("name", "")).strip()
 
-    def workspace(self, settings):
+    def workspace(self, settings: Notion) -> Workspace:
         """The databases and the standing context of this board. See workspace.py.
 
         Part of the store interface rather than of `workspace.resolve`, because
@@ -614,7 +621,7 @@ class Client:
 
         return workspace_module.from_notion(self, settings)
 
-    def _identity(self) -> dict:
+    def _identity(self) -> dict[str, Any]:
         """Who Notion says we are. Cached on success only, so a network blip
         that hid our identity for one run does not hide it for the next."""
         if self._me is None:
@@ -640,7 +647,7 @@ class Client:
         return found
 
     def create_database(
-        self, parent_page_id: str, title: str, properties: dict, *, inline: bool = True
+        self, parent_page_id: str, title: str, properties: dict[str, Any], *, inline: bool = True
     ) -> str:
         """Create a database inside a page and return its ID.
 
@@ -657,9 +664,9 @@ class Client:
                 "properties": properties,
             },
         )
-        return payload.get("id", "").replace("-", "")
+        return str(payload.get("id", "")).replace("-", "")
 
-    def add_properties(self, database_id: str, properties: dict) -> None:
+    def add_properties(self, database_id: str, properties: dict[str, Any]) -> None:
         """Add or widen properties on an existing database.
 
         Only ever called with what is missing: a column somebody retyped on
@@ -670,7 +677,7 @@ class Client:
         self._request("PATCH", f"/databases/{database_id}", {"properties": properties})
         self._databases.pop(database_id, None)  # the cached schema just aged
 
-    def create_row(self, database_id: str, title: str, values: dict | None = None) -> str:
+    def create_row(self, database_id: str, title: str, values: dict[str, Any] | None = None) -> str:
         """Create a page in a database, titled, and return its ID."""
         properties: dict[str, Any] = {
             self.title_property(database_id): _encode("title", title),
@@ -684,7 +691,7 @@ class Client:
                 "properties": properties,
             },
         )
-        return payload.get("id", "").replace("-", "")
+        return str(payload.get("id", "")).replace("-", "")
 
     def create_child_page(self, parent_page_id: str, title: str) -> str:
         """Create a plain page inside a page, and return its ID."""
@@ -696,9 +703,9 @@ class Client:
                 "properties": {"title": {"title": _rich_text(title)}},
             },
         )
-        return payload.get("id", "").replace("-", "")
+        return str(payload.get("id", "")).replace("-", "")
 
-    def shared(self, directory: str) -> tuple[list[dict], list[dict]]:
+    def shared(self, directory: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
         """What has been shared with the integration: pages, and boards already built.
 
         The first connection's way of not asking for a URL. Sharing a page with
@@ -708,7 +715,7 @@ class Client:
         `provision` builds); a page that lives inside a database is a row of
         somebody's table, not a place to build under, and is left out.
         """
-        pages: list[dict] = []
+        pages: list[dict[str, Any]] = []
         found = self._request(
             "POST", "/search", {"filter": {"value": "page", "property": "object"}, "page_size": 50}
         )
@@ -717,7 +724,7 @@ class Client:
                 continue
             page = _to_page(item)
             pages.append({"id": page.id.replace("-", ""), "title": page.title, "url": page.url})
-        boards: list[dict] = []
+        boards: list[dict[str, Any]] = []
         found = self._request(
             "POST",
             "/search",
@@ -734,7 +741,7 @@ class Client:
 # -- conversions -------------------------------------------------------------
 
 
-def _to_page(raw: dict) -> Page:
+def _to_page(raw: dict[str, Any]) -> Page:
     properties = raw.get("properties", {})
     title = ""
     for prop in properties.values():
@@ -750,7 +757,7 @@ def _to_page(raw: dict) -> Page:
     )
 
 
-def _encode(kind: str | None, value: Any) -> dict | None:
+def _encode(kind: str | None, value: Any) -> dict[str, Any] | None:
     if kind is None or value is None:
         return None
     if kind == "status":
@@ -780,7 +787,7 @@ def _encode(kind: str | None, value: Any) -> dict | None:
     return None
 
 
-def _rich_text(text: str) -> list[dict]:
+def _rich_text(text: str) -> list[dict[str, Any]]:
     """Notion rejects a text block longer than 2000 characters."""
     chunks = [text[index : index + 1900] for index in range(0, len(text), 1900)] or [""]
     return [{"type": "text", "text": {"content": chunk}} for chunk in chunks[:20]]
@@ -791,7 +798,7 @@ def _rich_text(text: str) -> list[dict]:
 _LINK = re.compile(r"\[([^\]\n]+)\]\((https?://[^)\s]+)\)")
 
 
-def _comment_text(text: str) -> list[dict]:
+def _comment_text(text: str) -> list[dict[str, Any]]:
     """A comment as Notion draws it: its lines, and its links clickable.
 
     The line breaks stay in the text itself — Notion draws a `\n` inside a
@@ -800,7 +807,7 @@ def _comment_text(text: str) -> list[dict]:
     source, so that “PR #58” on a verdict line is the pull request. Everything
     else is `_rich_text`, cut where Notion would refuse it.
     """
-    segments: list[dict] = []
+    segments: list[dict[str, Any]] = []
     at = 0
     for found in _LINK.finditer(text):
         if found.start() > at:
@@ -815,14 +822,14 @@ def _comment_text(text: str) -> list[dict]:
     return segments[:100]
 
 
-def _written(part: dict) -> str:
+def _written(part: dict[str, Any]) -> str:
     """One piece of a comment's rich text, read back as it was written."""
     plain = part.get("plain_text", "")
     url = ((part.get("text") or {}).get("link") or {}).get("url", "")
     return f"[{plain}]({url})" if url and plain else plain
 
 
-def _block_text(block: dict, depth: int) -> str:
+def _block_text(block: dict[str, Any], depth: int) -> str:
     """One block as text. See `markdown.plain`, where the conversion lives."""
     from . import markdown as converter
 

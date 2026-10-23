@@ -24,6 +24,8 @@ can run commands on the machine. `allowed_users` narrows it to named people.
 
 from __future__ import annotations
 
+from typing import Any
+
 from . import Ask, Channel, ChannelError, Incoming, request
 
 API = "https://api.telegram.org"
@@ -44,7 +46,7 @@ class Telegram(Channel):
     def _url(self, method: str) -> str:
         return f"{API}/bot{self._token}/{method}"
 
-    def _call(self, method: str, payload: dict) -> dict:
+    def _call(self, method: str, payload: dict[str, Any]) -> dict[str, Any]:
         body = request(self._url(method), payload)
         if not body.get("ok"):
             raise ChannelError(body.get("description", f"{method} refused"))
@@ -53,7 +55,7 @@ class Telegram(Channel):
     # -- outbound ------------------------------------------------------------
 
     def _post(self, text: str, thread: str = "") -> str:
-        payload: dict = {
+        payload: dict[str, Any] = {
             "chat_id": self._chat,
             "text": text[:LIMIT],
             "disable_web_page_preview": True,
@@ -76,7 +78,7 @@ class Telegram(Channel):
         answer. `timeout: 0` because a run is not a daemon — it asks what is
         there and moves on to the tickets.
         """
-        payload: dict = {"timeout": 0, "allowed_updates": ["message"]}
+        payload: dict[str, Any] = {"timeout": 0, "allowed_updates": ["message"]}
         if cursor.isdigit():
             payload["offset"] = int(cursor)
         updates = self._call("getUpdates", payload)

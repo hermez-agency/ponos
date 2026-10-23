@@ -28,6 +28,7 @@ from dataclasses import dataclass, field
 
 from . import notion
 from .config import Notion
+from .store import Store
 
 
 @dataclass
@@ -65,7 +66,7 @@ def _index(client: notion.Client, database_id: str) -> dict[str, str]:
     return index
 
 
-def resolve(backend, settings: Notion) -> Workspace:
+def resolve(backend: Store, settings: Notion) -> Workspace:
     """The databases and the standing context, whichever store holds them.
 
     One line, and it is the seam: every caller used to reach for Notion's own

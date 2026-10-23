@@ -44,6 +44,7 @@ language six months later.
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 
 from . import legacy
 
@@ -1394,8 +1395,8 @@ class Voice:
             named = self.say(f"category-{category}")
             why = self.say("because", category=named, why=why) if why else named
         lines = [why]
-        if getattr(asked, "code", ""):
-            lines.append(f"`{asked.code}`")
+        if code := getattr(asked, "code", ""):
+            lines.append(f"`{code}`")
         # The commands a session could not run itself, ready to paste, between
         # the reason and the question — which stays the last line, as `found`
         # reads it back.
@@ -1410,7 +1411,7 @@ class Voice:
             )
         return [line for line in lines if line]
 
-    def caveats(self, caveats: object) -> list[str]:
+    def caveats(self, caveats: Iterable[object] | None) -> list[str]:
         """What a session could not check, one line each, as a review report says it."""
         return [
             self.say("caveat", text=self.brief(caveat))

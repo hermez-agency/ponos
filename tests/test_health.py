@@ -126,6 +126,26 @@ def health_offers_to_add_the_missing_properties_and_does_it_only_once_confirmed(
 
 
 @case
+def health_adds_the_missing_properties_of_a_mirrored_board_on_its_notion_side():
+    from ponos import files, health, sync
+
+    settings, board = _health_board(skip=("Runner",))
+    config = _config("")
+    config.notion = settings
+    mirrored = sync.Mirror(board, files.Board(Path(tempfile.mkdtemp())))
+    original = workspace.resolve
+    workspace.resolve = lambda backend, notion_settings: workspace.Workspace(
+        tickets="db", projects="projects", agents="agents"
+    )
+    try:
+        # A mirror has no `add_properties` of its own: the fix used to stop on it.
+        done = health.fix(config, mirrored, "notion_columns", confirmed=True)
+    finally:
+        workspace.resolve = original
+    assert done == "added Runner" and set(board.added) == {"Runner"}, (done, board.added)
+
+
+@case
 def health_adds_a_missing_status_to_a_select_and_only_says_how_on_a_real_status():
     from ponos import health
 
