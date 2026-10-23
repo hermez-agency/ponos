@@ -408,6 +408,21 @@ class Runner:
     # Finding ideas — ten per batch, in one short session — see ideas.py. A
     # light model is enough to propose; it is the person swiping who chooses.
     ideas_model: str = "haiku"
+    # Finding them without being asked — see idea_schedule.py. Off, only the
+    # button does; the rest of the keys say when, for which projects, and how
+    # much a pass may do and spend.
+    ideas_schedule: str = "off"
+    ideas_at: str = "09:00"
+    ideas_day: str = "Monday"
+    ideas_every_hours: int = 6
+    ideas_cron: str = ""
+    ideas_scope: str = "all"
+    ideas_projects: str = ""
+    ideas_workspace: bool = False
+    ideas_per_batch: int = 10
+    ideas_skip_above: int = 20
+    ideas_budget_usd: float = 0.0
+    ideas_notify: bool = False
     # Choosing the model of a ticket whose Model is empty, by rules read off the
     # ticket — its type, its size, its words, its priority — rather than giving
     # every one `model`. See models.py. Off, `model` for all of them, as before.
@@ -474,6 +489,11 @@ class Runner:
         left_alone = {name.strip().casefold() for name in self.resolve_conflicts_except.split(",")}
         return self.resolve_conflicts and project.strip().casefold() not in left_alone
 
+
+# How often ideas are found on their own, and for which projects — see `Runner`.
+IDEAS_SCHEDULES = ("off", "every_4h", "daily", "weekly", "hours", "cron")
+IDEAS_SCOPES = ("all", "selected")
+WEEKDAYS = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
 
 # What an installation may follow when it updates itself — see `Runner`.
 UPDATE_CHANNELS = ("release", "main")

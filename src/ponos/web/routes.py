@@ -390,6 +390,11 @@ def ideas_all(request: Request, project: str = "", scope: str = "") -> Response:
     return answer(_api(request).ideas.every(None if scope == "all" else project))
 
 
+@router.get("/api/ideas/schedule", response_model=answers.IdeasPlan)
+def ideas_schedule(request: Request) -> Response:
+    return answer(_api(request).planned.describe())
+
+
 @router.get("/api/ideas/unscored", response_model=answers.Unscored)
 def ideas_unscored(request: Request, project: str = "", scope: str = "") -> Response:
     # What scoring the ideas with none would take: said before it is started.
@@ -873,6 +878,11 @@ def generate_ideas(
     request: Request, payload: ProjectLink = Body(default_factory=ProjectLink)
 ) -> Response:
     return answer(_api(request).ideas.generate(payload.project))
+
+
+@router.post("/api/ideas/schedule", response_model=answers.IdeasPlan)
+def save_ideas_schedule(request: Request, payload: Fields = Body(default_factory=dict)) -> Response:
+    return answer(_api(request).planned.save(payload))
 
 
 @router.post("/api/ideas", response_model=answers.Idea)

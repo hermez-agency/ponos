@@ -414,11 +414,23 @@ class Validation(Shape):
     fields: list[ValidationField]
 
 
+class ProjectIdeas(Shape):
+    """Whether ideas are found for a project on a schedule — see idea_schedule.py."""
+
+    enabled: bool
+    """What applies to it: its own word, or the file's."""
+    own: bool
+    """Whether the project says so itself, against the file saying for it."""
+    schedule: str
+    """`runner.ideas_schedule`, so the page can say that nothing is scheduled at all."""
+
+
 class ProjectSettings(Shape):
     """What a project decides for itself — see project_settings.py."""
 
     id: str
     validation: Validation
+    ideas: ProjectIdeas
 
 
 class ProjectDeleted(Shape):
@@ -496,6 +508,17 @@ class ScheduleChoices(Shape):
     subtype: list[Choice] = omitted()
 
 
+class IdeasCalendar(Shape):
+    """The scheduled search for ideas, as the recurrences' calendar draws it: read only."""
+
+    active: bool
+    next: str
+    """The next pass, ISO 8601 to the minute; empty when none is due."""
+    last: str
+    upcoming: list[str]
+    """The passes to come, the next ones first."""
+
+
 class Schedules(Shape):
     enabled: bool
     """`runner.schedule`: off, and nothing is born however the rows are ticked."""
@@ -511,6 +534,7 @@ class Schedules(Shape):
     schedules: list[Schedule]
     choices: ScheduleChoices = omitted()
     """What the form offers for the type and the sub-type: only the columns the database has."""
+    ideas_pass: IdeasCalendar
 
 
 # -- the conversation ----------------------------------------------------------
@@ -1302,6 +1326,62 @@ class Found(Shape):
 
     ideas: list[Idea]
     error: str
+
+
+class IdeasSettings(Shape):
+    """The keys of `[runner]` that say how ideas are found on their own, as the dialog has them."""
+
+    schedule: str
+    at: str
+    day: str
+    every_hours: int
+    cron: str
+    scope: str
+    workspace: bool
+    per_batch: int
+    skip_above: int
+    budget_usd: float
+    notify: bool
+    model: str
+
+
+class IdeasProject(Shape):
+    """A project in the dialog's list, and whether a pass covers it."""
+
+    id: str
+    name: str
+    enabled: bool
+    own: bool | None
+    """The project's own word, None when the file speaks for it."""
+
+
+class IdeasSkipped(Shape):
+    name: str
+    reason: str
+
+
+class IdeasLastPass(Shape):
+    at: str
+    found: int
+    cost_usd: float
+    projects: int
+    skipped: list[IdeasSkipped]
+    error: str
+
+
+class IdeasPlan(Shape):
+    """When ideas are found on their own, for which projects, and how the last pass went."""
+
+    settings: IdeasSettings
+    projects: list[IdeasProject]
+    problem: str
+    """Why the schedule cannot fire; empty when it can, or is off."""
+    next: str
+    last: IdeasLastPass | None
+    running: bool
+    timezone: str
+    saved: list[str] = omitted()
+    """The keys a save wrote, in the answer to one."""
 
 
 # -- decisions -----------------------------------------------------------------

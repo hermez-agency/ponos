@@ -290,6 +290,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/ideas/schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ideas Schedule */
+        get: operations["ideas_schedule_api_ideas_schedule_get"];
+        put?: never;
+        /** Save Ideas Schedule */
+        post: operations["save_ideas_schedule_api_ideas_schedule_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/ideas/unscored": {
         parameters: {
             query?: never;
@@ -2212,6 +2230,63 @@ export interface components {
             decided: components["schemas"]["Idea"][];
             undo: components["schemas"]["Idea"] | null;
         };
+        /** @description The scheduled search for ideas, as the recurrences' calendar draws it: read only. */
+        IdeasCalendar: {
+            active: boolean;
+            /** @description The next pass, ISO 8601 to the minute; empty when none is due. */
+            next: string;
+            last: string;
+            /** @description The passes to come, the next ones first. */
+            upcoming: string[];
+        };
+        IdeasLastPass: {
+            at: string;
+            found: number;
+            cost_usd: number;
+            projects: number;
+            skipped: components["schemas"]["IdeasSkipped"][];
+            error: string;
+        };
+        /** @description When ideas are found on their own, for which projects, and how the last pass went. */
+        IdeasPlan: {
+            settings: components["schemas"]["IdeasSettings"];
+            projects: components["schemas"]["IdeasProject"][];
+            /** @description Why the schedule cannot fire; empty when it can, or is off. */
+            problem: string;
+            next: string;
+            last: components["schemas"]["IdeasLastPass"] | null;
+            running: boolean;
+            timezone: string;
+            /** @description The keys a save wrote, in the answer to one. */
+            saved?: string[];
+        };
+        /** @description A project in the dialog's list, and whether a pass covers it. */
+        IdeasProject: {
+            id: string;
+            name: string;
+            enabled: boolean;
+            /** @description The project's own word, None when the file speaks for it. */
+            own: boolean | null;
+        };
+        /** @description The keys of `[runner]` that say how ideas are found on their own, as the dialog has them. */
+        IdeasSettings: {
+            schedule: string;
+            at: string;
+            day: string;
+            every_hours: number;
+            cron: string;
+            scope: string;
+            workspace: boolean;
+            per_batch: number;
+            skip_above: number;
+            budget_usd: number;
+            notify: boolean;
+            model: string;
+        };
+        IdeasSkipped: {
+            name: string;
+            reason: string;
+        };
         Line: {
             /** @default  */
             line: string;
@@ -2539,6 +2614,15 @@ export interface components {
             content: string;
             version: string;
         };
+        /** @description Whether ideas are found for a project on a schedule — see idea_schedule.py. */
+        ProjectIdeas: {
+            /** @description What applies to it: its own word, or the file's. */
+            enabled: boolean;
+            /** @description Whether the project says so itself, against the file saying for it. */
+            own: boolean;
+            /** @description `runner.ideas_schedule`, so the page can say that nothing is scheduled at all. */
+            schedule: string;
+        };
         ProjectLink: {
             /** @default  */
             project: string;
@@ -2549,6 +2633,7 @@ export interface components {
         ProjectSettings: {
             id: string;
             validation: components["schemas"]["Validation"];
+            ideas: components["schemas"]["ProjectIdeas"];
         };
         Projects: {
             projects: components["schemas"]["Project"][];
@@ -2742,6 +2827,7 @@ export interface components {
             schedules: components["schemas"]["Schedule"][];
             /** @description What the form offers for the type and the sub-type: only the columns the database has. */
             choices?: components["schemas"]["ScheduleChoices"];
+            ideas_pass: components["schemas"]["IdeasCalendar"];
         };
         Scope: {
             project?: string | null;
@@ -4006,6 +4092,61 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IdeaList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ideas_schedule_api_ideas_schedule_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IdeasPlan"];
+                };
+            };
+        };
+    };
+    save_ideas_schedule_api_ideas_schedule_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IdeasPlan"];
                 };
             };
             /** @description Validation Error */

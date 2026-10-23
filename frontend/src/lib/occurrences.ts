@@ -199,6 +199,35 @@ const dayKey = (instant: number, zone: string) => {
   return `${wall.getUTCFullYear()}-${wall.getUTCMonth()}-${wall.getUTCDate()}`
 }
 
+/** The launches to come, a day's worth of one schedule folded into one event from `FOLD_FROM` of them. */
+function folded(schedule: string, instants: number[], cut: string): Entry[] {
+  const byDay = new Map<string, number[]>()
+  for (const instant of instants) {
+    const key = dayKey(instant, cut)
+    byDay.set(key, [...(byDay.get(key) ?? []), instant])
+  }
+  const result: Entry[] = []
+  for (const times of byDay.values()) {
+    const groups = times.length >= FOLD_FROM ? [times] : times.map((instant) => [instant])
+    for (const group of groups) {
+      result.push({ key: `${schedule}@${group[0]}`, schedule, start: group[0], times: group, kind: "upcoming" })
+    }
+  }
+  return result
+}
+
+/** What the search for ideas draws: its passes, which the server walked since a cron line or an interval is not a cadence, and the last one. */
+export const IDEAS_PASS = "ideas-pass"
+
+export function listed(upcoming: string[], last: string, days?: string): Entry[] {
+  const result = folded(IDEAS_PASS, upcoming.map((instant) => Date.parse(instant)).filter((instant) => !Number.isNaN(instant)), zoneOf(days))
+  const done = Date.parse(last)
+  if (!Number.isNaN(done)) {
+    result.push({ key: `${IDEAS_PASS}@past@${done}`, schedule: IDEAS_PASS, start: done, times: [done], kind: "past" })
+  }
+  return result.sort((a, b) => a.start - b.start)
+}
+
 /**
  * Everything the calendar draws, for these schedules, as of `now`.
  *
@@ -221,17 +250,7 @@ export function entries(rows: Row[], now: number, zone: string, days?: string): 
     const next = Date.parse(row.next)
     const first = Number.isNaN(next) ? null : next
     const upcoming = occurrences(row, first, now, now + HORIZON * DAY, zone)
-    const byDay = new Map<string, number[]>()
-    for (const instant of upcoming) {
-      const key = dayKey(instant, cut)
-      byDay.set(key, [...(byDay.get(key) ?? []), instant])
-    }
-    for (const times of byDay.values()) {
-      const folded = times.length >= FOLD_FROM ? [times] : times.map((instant) => [instant])
-      for (const group of folded) {
-        result.push({ key: `${row.id}@${group[0]}`, schedule: row.id, start: group[0], times: group, kind: "upcoming" })
-      }
-    }
+    result.push(...folded(row.id, upcoming, cut))
   }
   return result.sort((a, b) => a.start - b.start)
 }

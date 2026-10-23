@@ -15,6 +15,8 @@ import type {
   GithubToken,
   GithubTokenCheck,
   Found,
+  IdeasPlan,
+  IdeasSettings,
   Goals,
   Idea,
   Unscored,
@@ -288,7 +290,10 @@ export const api = {
     request<ProjectDetail>(`/api/projects/${id}`, values),
   saveProjectSettings: (
     id: string,
-    values: { validation: { own: boolean; values?: Partial<ProjectSettings["validation"]["values"]> } }
+    values: {
+      validation?: { own: boolean; values?: Partial<ProjectSettings["validation"]["values"]> }
+      ideas?: { enabled: boolean }
+    }
   ) => request<ProjectSettings>(`/api/projects/${id}/settings`, values),
   deleteProject: (id: string, values: { confirm: string; trash_tickets: boolean }) =>
     request<ProjectDeleted>(`/api/projects/${id}/delete`, values),
@@ -309,6 +314,11 @@ export const api = {
     request<{ id: string; name: string }>("/api/schedules", values),
   ideas: (project = "") =>
     request<Ideas>(`/api/ideas${project ? `?project=${encodeURIComponent(project)}` : ""}`),
+  /** When ideas are found on their own, for which projects, and how the last pass went. */
+  ideasPlan: () => request<IdeasPlan>("/api/ideas/schedule"),
+  /** The settings the dialog changed, and the ids of the projects ticked when only some are covered. */
+  saveIdeasPlan: (values: Partial<IdeasSettings> & { projects?: string[] }) =>
+    request<IdeasPlan>("/api/ideas/schedule", values),
   /** An empty `project` is the workspace's ideas. */
   findIdeas: (project = "") => request<Found>("/api/ideas/generate", { project }),
   /** Every idea of one scope, thrown away and turned into tickets included. */

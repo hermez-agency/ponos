@@ -34,6 +34,7 @@ from .. import (
     decisions,
     git,
     health,
+    idea_schedule,
     images,
     journal,
     log,
@@ -67,6 +68,7 @@ from ..ticket import short_id
 from . import board as board_module
 from . import console, creation, live, removal, statistics
 from . import ideas as ideas_module
+from . import planned as planned_module
 from . import settings as settings_module
 from . import upgrade as upgrade_module
 
@@ -129,6 +131,7 @@ class Api:
         self.commands = console.Commands(self.hub.publish, _subcommands())
         self.chat = console.Chat(config, self.hub.publish, self.brief)
         self.ideas = ideas_module.Ideas(self)
+        self._planned: planned_module.Planned | None = None
         self.removal = removal.Removal(self)
         self.creation = creation.Creation(self)
         self.watch = live.Watch(
@@ -186,6 +189,13 @@ class Api:
         if self._images is None:
             self._images = images.Cache(images.root())
         return self._images
+
+    @property
+    def planned(self) -> planned_module.Planned:
+        """The scheduled search for ideas. Made when first asked for: an `Api` a test built without `__init__` has one too."""
+        if getattr(self, "_planned", None) is None:
+            self._planned = planned_module.Planned(self)
+        return self._planned  # type: ignore[return-value]
 
     @property
     def reader(self) -> board_module.Reader:
@@ -1125,6 +1135,9 @@ class Api:
             # Markdown board has files.
             "storage": self.config.storage.mode,
             "schedules": [self._schedule(row, projects) for row in rows],
+            # The passes that find ideas, drawn on the same calendar and not
+            # editable from it: they are set on the Ideas page.
+            "ideas_pass": self.planned.calendar(),
             # What the form offers for the type and the sub-type, only where the
             # Schedules database has the column: a value for a missing one would
             # be dropped on its way in. `ponos init` adds them.
@@ -1906,6 +1919,25 @@ class Api:
                 "global": globally,
                 "fields": self._validation_fields(),
             },
+            "ideas": self._project_ideas(bare),
+        }
+
+    def _project_ideas(self, bare: str) -> dict:
+        """Whether ideas are found for a project on a schedule, and whose word it is."""
+        wanted = idea_schedule.plan(self.config.runner)
+        name = next(
+            (
+                row["name"]
+                for row in self.all_projects()["projects"]
+                if project_settings.key(row["id"]) == bare
+            ),
+            "",
+        )
+        own = project_settings.ideas(bare)
+        return {
+            "enabled": idea_schedule.covers(wanted, bare, name, own),
+            "own": own is not None,
+            "schedule": wanted.schedule,
         }
 
     def save_project_settings(self, page_id: str, payload: dict) -> dict:
@@ -1917,9 +1949,13 @@ class Api:
         """
         bare = project_settings.key(page_id)
         validation = payload.get("validation")
-        if not isinstance(validation, dict) or not isinstance(validation.get("own"), bool):
+        finding = payload.get("ideas")
+        if validation is None and isinstance(finding, dict):
+            if not isinstance(finding.get("enabled"), bool):
+                raise ValueError("say whether ideas are found for the project")
+        elif not isinstance(validation, dict) or not isinstance(validation.get("own"), bool):
             raise ValueError("say whether the project has its own automatic validation")
-        values = validation.get("values") or {}
+        values = (validation or {}).get("values") or {}
         if not isinstance(values, dict) or any(
             kind not in kinds_module.KINDS or not isinstance(value, bool)
             for kind, value in values.items()
@@ -1937,7 +1973,15 @@ class Api:
         except store.StoreError:
             row = None
         name = str(row["name"]) if row else ""
-        project_settings.set_validation(bare, name, values if validation["own"] else None)
+        if validation is not None:
+            project_settings.set_validation(bare, name, values if validation["own"] else None)
+        if isinstance(finding, dict):
+            # What the file would say anyway is not a decision of the project's:
+            # the switch put back where the file has it hands the question back.
+            wanted = idea_schedule.plan(self.config.runner)
+            agrees = idea_schedule.covers(wanted, bare, name, None) == finding["enabled"]
+            project_settings.set_ideas(bare, name, None if agrees else finding["enabled"])
+            self.hub.publish("ideas", settings=True)
         self.hub.publish("settings", project=bare)
         return self.project_settings(bare)
 

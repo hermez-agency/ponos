@@ -3073,6 +3073,25 @@ end of the pile *Ten more* asks for another. Swiping right turns the idea into a
 The *All ideas* tab lists every idea of the scope, thrown ones included. On a phone the pile
 fills the screen.
 
+**Ideas on a schedule.** Ponos can also look for ideas without being asked: *Settings*, beside *New
+idea* on the Ideas page, opens the window that sets it (the same keys are the `runner.ideas_*` lines of
+`config.toml`, each documented in `config.example.toml`, and a card of the settings page). Off by default;
+otherwise every 4 hours, every day at an hour, every week on a day at an hour, every N hours, or a
+five-field cron line (`0 9 * * 1-5`). The moments come from the engine of the recurrences
+(`schedules.next_occurrence`, plus `schedules.every` and `schedules.cron`) in this machine's timezone, and
+follow its rule: the first moment of a new schedule is waited for, and a console that was off for days
+finds one pass due, not one per missed moment. Passes run in the console (`ponos serve`), which holds
+what a batch is built from; `ponos doctor` says so. *All projects* covers the ones added later too,
+*Selected projects* the ones ticked (`ideas_projects`, by page id or name); the workspace's own ideas are
+a switch of their own (`ideas_workspace`), and a project's *Settings* tab can turn it off or on for itself
+(kept in `ponos.db` with its other `project_settings`, and it wins over the file). Guard-rails: ideas per
+pass and per project (`ideas_per_batch`, 10), a project with `ideas_skip_above` new ideas nobody sorted
+(20, 0 for never) is skipped and the journal says so, `ideas_budget_usd` stops a pass between two projects
+once it has spent that much (0: no ceiling), `ideas_model` as before, and `ideas_notify` sends “n new
+ideas” to Telegram and Slack. The page shows the next pass and the last one (when, how many ideas, the
+projects skipped), and the recurrences' calendar draws the passes to come, read only
+(`GET`/`POST /api/ideas/schedule`; `idea_schedule.py` knows when and who, `web/planned.py` does it).
+
 A project's page has an *Ideas* tab, beside *Tickets* and *Brief* (`&tab=ideas`): every idea of
 the project with a count per status, and filters by status, by category, by score colour (green,
 orange, red or not scored) and by author (Ponos or us), and an order: *Most relevant first* (the

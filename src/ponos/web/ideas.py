@@ -123,8 +123,10 @@ class Ideas:
 
     # -- finding --------------------------------------------------------------
 
-    def generate(self, project: str = "") -> dict:
+    def generate(self, project: str = "", count: int | None = None) -> dict:
         """Ask for one batch, store what is new in it, and say what it cost.
+
+        `count` ideas, `runner.ideas_per_batch` when the caller names no number.
 
         Raises RuntimeError when a batch for the same scope is already being
         written, and when the subscription is out of credit — the server's 409.
@@ -135,7 +137,7 @@ class Ideas:
                 raise RuntimeError("ideas are already being found for this scope")
             self._busy.add(project)
         try:
-            return self._generate(project)
+            return self._generate(project, count)
         finally:
             with self._lock:
                 self._busy.discard(project)
@@ -181,9 +183,10 @@ class Ideas:
         except store.StoreError:
             return []
 
-    def _generate(self, project: str) -> dict:
+    def _generate(self, project: str, count: int | None = None) -> dict:
         api = self._api
         configuration = api.config
+        count = configuration.runner.ideas_per_batch if count is None else count
         name, brief, readme, names, context = self._about(project)
         tickets = self._tickets(name if project else "")
         known = ideas.known(project)
@@ -198,6 +201,7 @@ class Ideas:
             objectives=self._objectives(project),
             known=known,
             language=LANGUAGES.get(api.runner.voice.language, "English"),
+            count=count,
         )
 
         estimate = ideas.score_estimate(asked)
@@ -229,7 +233,7 @@ class Ideas:
         found = ideas.parse(outcome.answer, ideas.scope_of(project)) if outcome.ok else []
         kept, dropped = ideas.fresh(found, [*known, *(title for title, _ in tickets)])
         error = "" if kept else (outcome.error or "the session proposed nothing new")
-        batch, stored = ideas.record(project, model, outcome.cost_usd, kept[: ideas.BATCH], error)
+        batch, stored = ideas.record(project, model, outcome.cost_usd, kept[:count], error)
         api.hub.publish("ideas", project=project, batch=batch)
         return {
             "batch": batch,

@@ -40,6 +40,7 @@ import {
   IdeaWindow,
 } from "@/components/console/idea-form"
 import { IdeasButton } from "@/components/console/ideas-deck"
+import { IdeasPlanLine, IdeasSettingsButton } from "@/components/console/ideas-plan"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { api, why } from "@/lib/api"
@@ -516,11 +517,13 @@ function IdeasTop() {
   const name = projects?.projects.find((one) => bare(one.id) === project)?.name
   return (
     <div ref={anchor} className={problem ? "mb-2" : undefined}>
+      <IdeasPlanLine />
       {controls
         ? createPortal(
             <>
               <IdeasButton project={project} name={name} onClose={() => void fetchData?.()} />
               <ScoreUnscored />
+              <IdeasSettingsButton />
             </>,
             controls
           )
