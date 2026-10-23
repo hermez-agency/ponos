@@ -162,7 +162,10 @@ export const reachable = (address: string): boolean => /^https?:\/\//.test(addre
 export function TicketHeld({ ticket }: { ticket: Ticket }) {
   const t = useT()
   const held = ticket.column === "ready" ? ticket.held : undefined
-  if (!held) return null
+  // Not said on the card: a project that holds its places says so on every card
+  // of its own, and the line repeated over a column is noise. The runner still
+  // writes it in its own journal (see `board.py`).
+  if (!held || held.reason === "project") return null
   const said: Record<string, string> = {
     date: t("waiting: scheduled for {{at}}", { at: when(held.detail) }),
     credits: t("waiting: out of credit until {{at}}", { at: held.detail }),
@@ -170,9 +173,6 @@ export function TicketHeld({ ticket }: { ticket: Ticket }) {
     budget: t("waiting: today's spending limit reached until {{at}}", { at: held.detail }),
     running: t("waiting: a session is still on it — run again once it ends"),
     places: t("waiting: all {{count}} places taken — starts at the next free one", {
-      count: held.detail,
-    }),
-    project: t("waiting: its project already holds {{count}} places — starts when one frees", {
       count: held.detail,
     }),
     limit: t("waiting: --limit reached for this pass"),

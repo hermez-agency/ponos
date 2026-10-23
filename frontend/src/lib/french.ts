@@ -187,7 +187,6 @@ export const FRENCH: Record<string, string> = {
   "waiting: today's spending limit reached until {{at}}": "en attente : plafond de dépense du jour atteint jusqu’à {{at}}",
   "waiting: a session is still on it — run again once it ends": "en attente : une session est encore dessus — relancé dès qu’elle se termine",
   "waiting: all {{count}} places taken — starts at the next free one": "en attente : les {{count}} places sont prises — part à la prochaine qui se libère",
-  "waiting: its project already holds {{count}} places — starts when one frees": "en attente : son projet occupe déjà {{count}} places — part dès qu’une se libère",
   "waiting: --limit reached for this pass": "en attente : --limit atteint pour cette passe",
   "waiting: the next reading of the board by the pass under way": "en attente : la prochaine lecture du tableau par la passe en cours",
   "waiting: the next run of the timer": "en attente : le prochain passage du timer",
