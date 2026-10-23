@@ -56,6 +56,46 @@ def the_version_and_the_changelog_never_drift():
 
 
 @case
+def a_version_main_carries_gets_the_tag_nobody_pushed():
+    """0.2.0 was merged and never tagged: `tag` is what ci.yml runs so that cannot recur."""
+    calls: list[tuple[str, ...]] = []
+    done = subprocess.CompletedProcess([], 0, "", "")
+    saved = release.tag_exists, release.command_check, release.git
+    try:
+        release.git = lambda *arguments: calls.append(arguments) or done  # type: ignore[assignment]
+        arguments = release.build_parser().parse_args(["tag", "--branch", "HEAD"])
+
+        release.tag_exists = lambda tag: False
+        release.command_check = lambda arguments: 0
+        assert release.command_tag(arguments) == 0
+        version = release.read_version()
+        assert calls == [
+            ("tag", "-a", f"v{version}", "-m", f"ponos {version}"),
+            ("push", "origin", f"v{version}"),
+        ], calls
+
+        # A tag that exists is never touched, and a tree `check` refuses gets none.
+        calls.clear()
+        release.tag_exists = lambda tag: True
+        assert release.command_tag(arguments) == 0
+        release.tag_exists = lambda tag: False
+        release.command_check = lambda arguments: 1
+        assert release.command_tag(arguments) == 1
+        assert calls == []
+    finally:
+        release.tag_exists, release.command_check, release.git = saved
+
+
+@case
+def main_tags_its_version_and_starts_the_release_workflow_itself():
+    """A tag pushed with the workflow token starts nothing: ci.yml has to dispatch the release."""
+    workflows = ROOT / ".github" / "workflows"
+    ci = (workflows / "ci.yml").read_text(encoding="utf-8")
+    assert "release.py tag" in ci and "gh workflow run release.yml" in ci
+    assert "workflow_dispatch" in (workflows / "release.yml").read_text(encoding="utf-8")
+
+
+@case
 def the_dokploy_template_pins_the_image_of_this_version():
     """Never `latest`: the image the tag of this tree publishes, and `bump` moves it."""
     version = release.read_version()

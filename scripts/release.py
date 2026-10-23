@@ -6,6 +6,7 @@
     python3 scripts/release.py bump  KIND        promote Unreleased, write the version
     python3 scripts/release.py check [VERSION]   everything that must be true before a tag
     python3 scripts/release.py publish [VERSION] the GitHub release, from the tag
+    python3 scripts/release.py tag     [VERSION] the tag of a version main carries, if it has none
 
 The version lives in `__version__`, in `src/ponos/__init__.py` — and is copied
 into `pyproject.toml`, which the Python tools require to say one; `bump` writes
@@ -386,6 +387,30 @@ def command_publish(arguments: argparse.Namespace) -> int:
     return 0
 
 
+def command_tag(arguments: argparse.Namespace) -> int:
+    """Give a version merged on main the tag nobody pushed. A tag already there is not an error.
+
+    This is what the `release` job of ci.yml runs on every push to main, so a
+    version reaches its tag whoever merged it. It never moves a tag: a version
+    that has one is left alone, and one that does not pass `check` gets none.
+    """
+    version = arguments.version or read_version()
+    tag = f"v{version}"
+    if tag_exists(tag):
+        print(f"  · {tag} already exists — nothing to do")
+        return 0
+    if command_check(arguments) != 0:
+        return 1
+    created = git("tag", "-a", tag, "-m", f"{NAME} {version}")
+    if created.returncode != 0:
+        raise Problem(f"git tag {tag}: {created.stderr.strip()}")
+    pushed = git("push", "origin", tag)
+    if pushed.returncode != 0:
+        raise Problem(f"git push origin {tag}: {pushed.stderr.strip()}")
+    print(f"  ✓ {tag} pushed")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="scripts/release.py", description=f"Cut a {NAME} release."
@@ -411,6 +436,11 @@ def build_parser() -> argparse.ArgumentParser:
     publish = subparsers.add_parser("publish", help="the GitHub release, from an existing tag")
     publish.add_argument("version", nargs="?")
     publish.set_defaults(function=command_publish)
+
+    tag = subparsers.add_parser("tag", help="tag the version main carries, if it has no tag")
+    tag.add_argument("version", nargs="?")
+    tag.add_argument("--branch", default="main", help="the branch a release is cut from")
+    tag.set_defaults(function=command_tag)
 
     return parser
 

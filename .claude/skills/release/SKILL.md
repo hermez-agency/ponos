@@ -16,7 +16,7 @@ script cannot make for you.
 |---|---|---|
 | the version | `__version__` in `src/ponos/__init__.py` | `release.py bump`, never by hand |
 | the notes | the `## [Unreleased]` section of `CHANGELOG.md` | whoever merges a change |
-| the tag | `v<version>` on `main` | you, at step 5 |
+| the tag | `v<version>` on `main` | the `release` job of `ci.yml`, or you at step 5 |
 | the release | GitHub, body taken from the changelog | the `release` workflow, on the tag |
 | the image | `ghcr.io/hermez-agency/ponos:<version>`, and the pin in `docker/dokploy/` | the workflow; the pin, `release.py bump` |
 
@@ -70,7 +70,13 @@ Run them from `main`, up to date, with a clean tree.
    version commit lands before the tag, always — a tag pointing at a commit that
    does not carry its own version is what step 5's guard exists to catch.
 
-5. **Tag and publish.** This is the outward-facing, hard-to-undo step: a
+5. **Tag and publish.** You normally have nothing to do here: on every push to
+   `main`, the `release` job of `ci.yml` runs `python3 scripts/release.py tag`,
+   which tags the commit carrying a version that has no `v<version>` on origin
+   (once `check` passes), then starts `release.yml` on that tag with `gh workflow
+   run` — a tag pushed with the workflow token starts no workflow by itself. So
+   a version merged by anybody ends up tagged and published. If that job failed,
+   or you want to tag by hand, this is the manual road. This is the outward-facing, hard-to-undo step: a
    published tag and a release are visible to everyone who installs the runner.
    **Ask the maintainer before running it**, showing them the version, the
    notes, and what step 3 said.

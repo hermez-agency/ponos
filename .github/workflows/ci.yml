@@ -212,3 +212,30 @@ jobs:
 
       - name: Le parcours complet, dans l'image
         run: docker run --rm -v "$PWD:/repo:ro" -w /repo ponos:ci python3 tests/functional.py
+
+  # Une version fusionnée sur main finit par son tag, sans que personne y pense :
+  # c'est le tag qui publie la release et l'image (release.yml). Le jeton du
+  # workflow ne déclenche pas d'autre workflow par un push de tag, d'où le
+  # `gh workflow run` sur le tag — le déclenchement manuel, lui, est permis.
+  release:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Le tag de la version de main, s'il manque
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          version="$(python3 scripts/release.py current)"
+          if git ls-remote --exit-code --tags origin "v$version" >/dev/null; then
+            echo "v$version existe déjà"
+            exit 0
+          fi
+          python3 scripts/release.py tag --branch HEAD
+          gh workflow run release.yml --ref "v$version"
