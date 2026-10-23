@@ -217,14 +217,20 @@ def save_provider(api: Api, payload: dict) -> dict:
     written at once, and the page asks again — `claude_login` — once somebody
     has run the command in a terminal. A key that is refused is not written: a
     key that does not work, saved, is a ticket that fails on it in the night.
+
+    `save: false` is the Test button of the settings: the same check — of the
+    key just typed, else of the one the runner would hand a session — and
+    nothing written, whatever it answers. Saving stays the settings' own bar.
     """
     which = _text(payload, "provider")
     if which not in config_module.PROVIDERS:
         raise ValueError(f"a provider is one of {', '.join(config_module.PROVIDERS)}")
     key = _text(payload, "key")
     values: dict[str, object] = {"claude.provider": which}
+    keep = payload.get("save", True) is not False
     if which == "cli":
-        api.save_settings({"settings": values})
+        if keep:
+            api.save_settings({"settings": values})
         check = provider.cli_login()
         return {"ok": check.ok, "said": check.said, "command": provider.LOGIN}
     if which == "api_key":
@@ -237,7 +243,7 @@ def save_provider(api: Api, payload: dict) -> dict:
         if key:
             values["openrouter.key"] = key
         values["openrouter.route_sessions"] = bool(payload.get("route_sessions", True))
-    if check.ok:
+    if check.ok and keep:
         api.save_settings({"settings": values})
     return {"ok": check.ok, "said": check.said}
 

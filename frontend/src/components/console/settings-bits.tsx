@@ -1,6 +1,8 @@
 import * as React from "react"
 import {
   ChevronDown,
+  CircleAlert,
+  CircleCheck,
   CircleHelp,
   CornerLeftUp,
   Eye,
@@ -75,6 +77,9 @@ const UNSET = "default:unset"
 
 /** A token you asked to forget. An empty box already means "I did not retype it". */
 const FORGOTTEN = "secret:forgotten"
+
+/** The secrets a Test button can try before they are saved. */
+const TRIED = new Set(["claude.api_key"])
 
 // The command a card is checked with. The CLI already knows how to say whether
 // a token works; the settings page does not need a second opinion.
@@ -266,40 +271,84 @@ const SecretController = ({ formInput, onChange }: InputControllerInterface) => 
   const t = useT()
   const field = settingOf(formInput)
   const [shown, setShown] = React.useState(false)
+  const [trying, setTrying] = React.useState(false)
+  const [tried, setTried] = React.useState<{ ok: boolean; said: string } | null>(null)
   const forgotten = formInput.value === FORGOTTEN
+  const typed = forgotten ? "" : String(formInput.value ?? "").trim()
+  const testable = TRIED.has(field.name) && !forgotten && Boolean(typed || field.preview)
+  const test = async () => {
+    setTrying(true)
+    setTried(null)
+    try {
+      setTried(await api.saveProvider({ provider: "api_key", key: typed, save: false }))
+    } catch (error) {
+      setTried({ ok: false, said: why(error) })
+    } finally {
+      setTrying(false)
+    }
+  }
   return (
-    <div className="flex items-center gap-2">
-      <div className="relative min-w-0 flex-1">
-        <Input
-          id={formInput.id}
-          name={formInput.name}
-          type={shown ? "text" : "password"}
-          autoComplete="off"
-          spellCheck={false}
-          className="pr-10"
-          value={forgotten ? "" : String(formInput.value ?? "")}
-          placeholder={forgotten ? t("not set") : formInput.placeholder}
-          onChange={(event) => onChange({ ...formInput, value: event.target.value })}
-        />
-        <button
-          type="button"
-          className="text-muted-foreground hover:text-foreground absolute inset-y-0 right-0 flex w-10 items-center justify-center rounded-r-md"
-          aria-label={shown ? t("Hide") : t("Show")}
-          title={t("Shows what you type: the saved one never leaves this machine.")}
-          onClick={() => setShown(!shown)}
-        >
-          {shown ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-        </button>
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center gap-2">
+        <div className="relative min-w-0 flex-1">
+          <Input
+            id={formInput.id}
+            name={formInput.name}
+            type={shown ? "text" : "password"}
+            autoComplete="off"
+            spellCheck={false}
+            className="pr-10"
+            value={forgotten ? "" : String(formInput.value ?? "")}
+            placeholder={forgotten ? t("not set") : formInput.placeholder}
+            onChange={(event) => {
+              setTried(null)
+              onChange({ ...formInput, value: event.target.value })
+            }}
+          />
+          <button
+            type="button"
+            className="text-muted-foreground hover:text-foreground absolute inset-y-0 right-0 flex w-10 items-center justify-center rounded-r-md"
+            aria-label={shown ? t("Hide") : t("Show")}
+            title={t("Shows what you type: the saved one never leaves this machine.")}
+            onClick={() => setShown(!shown)}
+          >
+            {shown ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+          </button>
+        </div>
+        {field.preview && !forgotten ? (
+          <Button type="button" variant="outline" size="sm" onClick={() => onChange({ ...formInput, value: FORGOTTEN })}>
+            {t("Forget")}
+          </Button>
+        ) : null}
+        {testable ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={trying}
+            onClick={() => void test()}
+          >
+            {trying ? <Loader2Icon className="size-4 animate-spin" /> : null}
+            {t("Test the connection")}
+          </Button>
+        ) : null}
+        {forgotten ? (
+          <Button type="button" variant="ghost" size="sm" onClick={() => onChange({ ...formInput, value: "" })}>
+            {t("Keep it")}
+          </Button>
+        ) : null}
       </div>
-      {field.preview && !forgotten ? (
-        <Button type="button" variant="outline" size="sm" onClick={() => onChange({ ...formInput, value: FORGOTTEN })}>
-          {t("Forget")}
-        </Button>
-      ) : null}
-      {forgotten ? (
-        <Button type="button" variant="ghost" size="sm" onClick={() => onChange({ ...formInput, value: "" })}>
-          {t("Keep it")}
-        </Button>
+      {tried ? (
+        <p
+          role="status"
+          className={cn(
+            "flex items-center gap-1.5 text-[13px]",
+            tried.ok ? "text-emerald-700 dark:text-emerald-300" : "text-destructive"
+          )}
+        >
+          {tried.ok ? <CircleCheck className="size-4 shrink-0" /> : <CircleAlert className="size-4 shrink-0" />}
+          {tried.said}
+        </p>
       ) : null}
     </div>
   )

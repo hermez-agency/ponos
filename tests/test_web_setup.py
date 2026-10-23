@@ -58,6 +58,35 @@ def the_first_connection_writes_the_provider_only_once_it_answers():
 
 
 @case
+def the_test_button_tries_the_key_typed_or_the_one_saved_and_writes_nothing():
+    """Trying a key is not saving it: the settings keep their own Save for that."""
+    from ponos import provider
+    from ponos.web import setup as web_setup
+
+    path, _ = _saved()
+    tried: list[str] = []
+    original = provider.api_key
+    try:
+        provider.api_key = lambda key: (
+            tried.append(key) or provider.Check(key == "sk-ant-good", "checked")
+        )
+        with _environment(ANTHROPIC_API_KEY="sk-ant-good"):
+            api = _Fresh(path)
+            before = path.read_text(encoding="utf-8")
+            typed = {"provider": "api_key", "key": "sk-ant-other", "save": False}
+            assert web_setup.save_provider(api, typed) == {"ok": False, "said": "checked"}
+            said = web_setup.save_provider(api, {"provider": "api_key", "save": False})
+            assert said["ok"] and tried == ["sk-ant-other", "sk-ant-good"]
+            # Accepted, and still not written: neither the provider nor the key.
+            assert path.read_text(encoding="utf-8") == before
+            assert api.config.claude.provider != "api_key"
+            secrets = C.secrets_path(path)
+            assert not secrets.exists() or "sk-ant" not in secrets.read_text(encoding="utf-8")
+    finally:
+        provider.api_key = original
+
+
+@case
 def the_first_connection_finds_what_notion_shares_and_keeps_only_a_token_it_accepts():
     """No page link to copy: what the integration can see is what is offered.
 
