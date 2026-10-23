@@ -1760,6 +1760,35 @@ def clean_removes_a_residue_and_leaves_a_real_worktree():
 
 
 @case
+def a_ticket_branch_is_found_by_its_short_id_whatever_its_title():
+    with tempfile.TemporaryDirectory() as home:
+        repo = Path(home)
+        for args in (["init", "-q", "-b", "main"], ["commit", "-q", "--allow-empty", "-m", "x"]):
+            subprocess.run(
+                ["git", "-c", "user.name=t", "-c", "user.email=t@t", *args],
+                cwd=repo,
+                check=True,
+                capture_output=True,
+            )
+        assert git_module.ticket_branch(repo, "ticket/", "9d2cb790") == ""
+        for name in (
+            "refs/remotes/origin/ticket/un-titre-pousse-9d2cb790",
+            "refs/heads/ponos/backup/9d2cb790-20261024-101010",
+            "refs/heads/ticket/un-autre-ticket-11111111",
+        ):
+            subprocess.run(["git", "update-ref", name, "HEAD"], cwd=repo, check=True)
+        found = git_module.ticket_branch(repo, "ticket/", "9d2cb790")
+        assert found == "ticket/un-titre-pousse-9d2cb790", "only pushed: found on origin"
+        subprocess.run(
+            ["git", "update-ref", "refs/heads/ticket/l-ancien-titre-9d2cb790", "HEAD"],
+            cwd=repo,
+            check=True,
+        )
+        found = git_module.ticket_branch(repo, "ticket/", "9d2cb790")
+        assert found == "ticket/l-ancien-titre-9d2cb790", "the local one holds unpushed work"
+
+
+@case
 def only_a_replayed_branch_is_ever_force_pushed():
     """A rebase rewrites what origin already has, so the push stops being a
 

@@ -449,8 +449,9 @@ def add_worktree(
 ) -> Worktree:
     """The ticket's worktree, on its own branch, off the latest state of `base`.
 
-    A branch is named after the ticket's ID, so every attempt at one ticket asks
-    for the same branch — and one left behind by a session that failed, or by a
+    A branch ends with the ticket's short ID, and an attempt asks for the one an
+    earlier attempt left whatever the title says now (see `ticket_branch`), so
+    every attempt at one ticket asks for the same branch — and one left behind by a session that failed, or by a
     pull request nobody merged, used to refuse that ticket for good. Refusing is
     the wrong answer to "this ticket has run before": the branch is picked up
     instead, replayed on top of the newest base, and the session carries on from
@@ -768,6 +769,34 @@ def residues(root: Path) -> list[Path]:
     if not root.is_dir():
         return []
     return [directory for directory in sorted(root.iterdir()) if is_residue(directory)]
+
+
+def ticket_branch(repo: Path, prefix: str, short: str) -> str:
+    """The branch an earlier attempt at a ticket left, found by its short ID — '' if none.
+
+    A branch is named after the title as well as the ID, and a title is edited
+    between two attempts: asked for by its new name, the branch was a new one,
+    the earlier commits left aside — and a worktree still holding them refused
+    the ticket. Local first, since that is where unpushed work is; the newest
+    when there are several. A repository that is not there has none: making the
+    worktree is what says so, with a reason.
+    """
+    if not repo.is_dir():
+        return ""
+    for space in ("refs/heads/", "refs/remotes/origin/"):
+        found = git(
+            [
+                "for-each-ref",
+                "--sort=-committerdate",
+                "--format=%(refname)",
+                f"{space}{prefix}*-{short}",
+            ],
+            repo,
+        )
+        names = [line[len(space) :] for line in found.out.splitlines() if line.startswith(space)]
+        if found.ok and names:
+            return names[0]
+    return ""
 
 
 def has_ref(repo: Path, reference: str) -> bool:

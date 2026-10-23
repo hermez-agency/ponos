@@ -32,6 +32,7 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Fixed
 
+- Un ticket renommé entre deux tentatives reprend sa branche : elle est retrouvée par l'identifiant court du ticket (localement, sinon sur `origin`), quel que soit son titre actuel. Jusqu'ici, le nouveau titre donnait une nouvelle branche — le ticket échouait sur l'ancien worktree (« still holds work from an earlier attempt ») ou repartait de la base en ouvrant une seconde pull request.
 - Deux tickets du même dépôt lancés ensemble (`max_concurrent_per_project` vaut 2) ne se disputent plus son `.git` : `fetch`, la création et la suppression des worktrees, le `prune`, la suppression d'une branche et le rejeu d'une branche poussée attendent leur tour, dépôt par dépôt. Ils échouaient de temps à autre sur « cannot lock ref », « could not lock config file », ou un `prune` qui retirait une worktree en cours de création.
 - Une session coupée par `timeout_minutes`, arrêtée ou relancée ne coûte plus 0 $ dans le rapport et l'historique : le coût, les tours et la durée annoncés par son dernier événement sont gardés, et une session relancée après avoir été tuée — ou repartie de zéro faute de pouvoir être reprise — additionne ce qu'ont coûté ses deux tentatives au lieu de ne garder que la seconde.
 - Une réponse de plus de 100 blocs n'est plus publiée à moitié dans Notion : quand un lot est refusé en cours d'écriture, les blocs déjà écrits sont retirés avant que le ticket passe en Échec. La tentative suivante écrivait jusqu'ici sa réponse entière sous une réponse tronquée.
