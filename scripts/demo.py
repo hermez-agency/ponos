@@ -9,7 +9,8 @@ paid sessions — or the server of the browser tests, whose board is cut for the
 one ticket per gesture to check, a single run in the journal, a handful of
 notifications. A page drawn against that is drawn empty. This board is cut to be
 looked at: eight projects, sixty-odd tickets in every column, six weeks of
-sessions, costs, stops of every family, recurrences, ideas, a bell, conversations.
+sessions, costs, stops of every family, recurrences, goals, ideas, a bell,
+conversations.
 
 **It does not share data with `frontend/e2e/console.py`, only the harness**
 (`workbench.py`). Making the demo richer must never move a test, and a test
@@ -214,6 +215,97 @@ TICKETS = [
     ("handbook", "Describe the release process", WRITING, "", "Done", ""),
     ("handbook", "Which tools do we pay for?", WRITING, "", "Blocked", "ticket.empty"),
     ("handbook", "Plan the quarterly retrospective", WRITING, "", "Cancelled", ""),
+]
+
+# The goals, one of each state the Objectifs page draws: (key, name, status,
+# due in days from now or None, priority, projects, criterion, what it is, the
+# tickets that serve it). Tied by title and drawn from no generator, so adding
+# one moves nothing else on the board.
+GOALS = [
+    (
+        "launch",
+        "Launch the Northwind App v2",
+        "actif",
+        21,
+        90,
+        ["app", "website"],
+        "The v2 is on both stores and the site announces it.",
+        "The release that brings the vaccination calendar and the notifications.",
+        [
+            "Add the vaccination calendar",
+            "Push notifications for lost pets",
+            "Crash when uploading a PNG over 10 MB",
+            "Rewrite the onboarding copy",
+            "Remove the legacy API v1 endpoints",
+            "Open the Play Store beta",
+            "Case study: the Northwind launch",
+        ],
+    ),
+    (
+        "security",
+        "Pass the security review",
+        "actif",
+        -4,
+        75,
+        ["app", "leadz", "ponos"],
+        "No high finding left open in the audit.",
+        "The client's auditors come back next week; what they found must be closed.",
+        [
+            "Redact tokens in the session log",
+            "Audit the vulnerable dependencies",
+            "Rate limit the search endpoint",
+            "The cookie banner is shown twice",
+        ],
+    ),
+    (
+        "console",
+        "A console the team uses every day",
+        "actif",
+        None,
+        60,
+        ["ponos"],
+        "Nobody opens Notion to follow a ticket any more.",
+        "The console as the one place the work is followed and answered.",
+        [
+            "Show the cost of a ticket on its card",
+            "Retry a failed merge from the card",
+            "Ring the bell when a session asks a question",
+            "Dark mode for the statistics page",
+            "Keep the project index between two passes",
+            "Merge conflict on the config schema",
+        ],
+    ),
+    (
+        "outbound",
+        "Double the replies to the campaigns",
+        "en pause",
+        45,
+        40,
+        ["leadz"],
+        "A reply rate of 6 % over a month.",
+        "On hold until the new mailboxes are warmed up.",
+        [
+            "Export the contacts as CSV",
+            "Replies are missed when the mail was forwarded",
+            "A health score for each folder",
+            "Archive the old campaigns",
+        ],
+    ),
+    (
+        "brand",
+        "One brand across every product",
+        "atteint",
+        -10,
+        25,
+        ["brand", "website"],
+        "Every product ships the shared logos, favicons and colours.",
+        "The brand assets, used the same way everywhere.",
+        [
+            "Generate the favicons of every product",
+            "Document the colour tokens",
+            "Upgrade Astro to the next major",
+        ],
+    ),
 ]
 
 # The tickets the recurrences were born of: done, week after week.
@@ -797,7 +889,8 @@ def tickets_of(rng: random.Random) -> list[Ticket]:
 def board(root: Path, rng: random.Random, tickets: list[Ticket]) -> None:
     """The board in Markdown files: projects, agents, tickets, comments and recurrences."""
     folders = {
-        name: root / name for name in ("tickets", "projects", "agents", "schedules", "comments")
+        name: root / name
+        for name in ("tickets", "projects", "agents", "schedules", "goals", "comments")
     }
     for folder in folders.values():
         folder.mkdir(parents=True)
@@ -825,6 +918,21 @@ def board(root: Path, rng: random.Random, tickets: list[Ticket]) -> None:
             {"id": ident("agent", key), "Model": model, "created": stamp(ago(45))},
             role,
         )
+    served = {}
+    for key, name, status, due, priority, projects, criterion, about, titles in GOALS:
+        front = {
+            "id": ident("goal", key),
+            "created": stamp(ago(40)),
+            "Description": about,
+            "Critère": criterion,
+            "Statut": status,
+            "Priorité": priority,
+            "Projets": [ident("project", project) for project in projects],
+        }
+        if due is not None:
+            front["Échéance"] = ago(-due).date().isoformat()
+        write_page(folders["goals"], name, front, about)
+        served.update({title: front["id"] for title in titles})
     for number, ticket in enumerate(tickets):
         front: dict[str, Any] = {
             "id": ticket.id,
@@ -854,6 +962,8 @@ def board(root: Path, rng: random.Random, tickets: list[Ticket]) -> None:
             front["Scheduled"] = stamp(ago(-0.2))
         if ticket.title == "Dark mode for the statistics page":
             front["Waiting for credit"] = True
+        if ticket.title in served:
+            front["Objectif"] = [served[ticket.title]]
         size = ("short", "medium", "long", "medium")[number % 4]
         body = "" if ticket.flag == "ticket.empty" else brief(rng, ticket.title, size)
         write_page(folders["tickets"], ticket.title, front, body)

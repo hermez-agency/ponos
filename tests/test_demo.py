@@ -76,6 +76,19 @@ def the_demo_board_has_every_column_and_every_family_of_stop():
 
 
 @case
+def the_demo_goals_are_served_by_tickets_of_the_board():
+    demo = _demo()
+    titles = {ticket.title for ticket in demo.tickets_of(random.Random(demo.SEED))}
+    statuses = {goal[2] for goal in demo.GOALS}
+    assert {"actif", "en pause", "atteint"} <= statuses, statuses
+    assert any(goal[3] is None for goal in demo.GOALS), "one goal has no due date"
+    assert any(goal[2] == "actif" and (goal[3] or 0) < 0 for goal in demo.GOALS), "one is late"
+    served = [title for goal in demo.GOALS for title in goal[8]]
+    assert set(served) <= titles, set(served) - titles
+    assert len(served) == len(set(served)), "a ticket serves one goal"
+
+
+@case
 def the_demo_serves_its_board_and_removes_what_it_wrote():
     with socket.socket() as probe:
         probe.bind(("127.0.0.1", 0))
@@ -108,6 +121,16 @@ def the_demo_serves_its_board_and_removes_what_it_wrote():
             )
         )
         assert statistics["totals"]["closed"] > 0 and statistics["totals"]["cost"] > 0
+        goals = json.load(
+            urllib.request.urlopen(
+                urllib.request.Request(
+                    f"http://127.0.0.1:{port}/api/goals", headers=request.headers
+                ),
+                timeout=5,
+            )
+        )["goals"]
+        assert len(goals) >= 3, goals
+        assert all(goal["tickets"].get("done") for goal in goals), goals
         directory = Path(board["tickets"][0]["url"].removeprefix("file://")).parents[2]
         assert directory.is_dir()
     finally:
