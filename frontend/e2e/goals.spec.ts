@@ -143,5 +143,5 @@ test("a refused write says why", async ({ page }) => {
   const form = page.getByRole("dialog")
   await form.getByLabel("Nom").fill("Refusé")
   await form.getByRole("button", { name: "Enregistrer" }).click()
-  await expect(page.getByText("this workspace has no goals database").first()).toBeVisible()
+  await expect(page.getByText("Cet espace de travail n'a pas de base d'objectifs.").first()).toBeVisible()
 })

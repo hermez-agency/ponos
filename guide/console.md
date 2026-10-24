@@ -494,7 +494,9 @@ reads French. So there is nothing to choose, and the select at the top of *Setti
 console* is how you disagree with the guess. The choice is one line in
 `localStorage`, like the theme, and it holds for every page of the console: the menu, the
 board's own words, a ticket's page, and the settings tab down to the sentence under each
-field. The pages before the console — the first connection, the sign-in, the token — are
+field, and what the server refuses with — « Rien à modifier. » rather than *nothing to change*, and
+« Le serveur a répondu 502 » when it said no sentence at all; a refusal the console does not know
+yet is shown in the server's own words. The pages before the console — the first connection, the sign-in, the token — are
 drawn by the server and read `Accept-Language` the same way. What is *not* translated is what belongs to somebody else — a ticket's title and the
 columns of your board are Notion's, the output of `> status` is the CLI's, and a report a run
 wrote is in the language [`runner.language`](configuration.md#4-the-rest-of-the-file) asked for.

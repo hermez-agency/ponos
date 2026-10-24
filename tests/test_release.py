@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import contextlib
 import gzip
 import io
@@ -1433,6 +1434,61 @@ def the_console_says_the_configuration_in_french_too():
             rf"^\s*{re.escape(sentence)}:", dictionary, re.MULTILINE
         )
         assert not sentence or keyed, f"nothing translates “{sentence}” — add it to french.ts"
+
+
+@case
+def the_console_says_what_the_server_refuses_in_french_too():
+    """Every sentence the console's chapters refuse with is one `refusals.ts` knows, in French.
+
+    A refusal reaches the page as the English the Python raised, and `why()`
+    recognises it in `frontend/src/lib/refusals.ts` — a template, `{{name}}`
+    where an f-string puts a value — before `french.ts` translates it. So
+    each `raise` with a sentence in the goals, the schedules, the projects
+    and their brief, the tidy and the settings must be on that list: one
+    reworded here and not there would be shown in English again. Values are
+    compared without their names — the Python names them after its variables.
+    """
+
+    def place(value: ast.expr) -> str:
+        if isinstance(value, ast.Subscript):
+            return place(value.value)
+        return "{{}}"
+
+    raised: dict[str, str] = {}
+    for module in ("goals", "schedules", "projects", "upkeep", "settings"):
+        path = ROOT / "src/ponos/web" / f"{module}.py"
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if not (isinstance(node, ast.Raise) and isinstance(node.exc, ast.Call)):
+                continue
+            said = node.exc.args[0] if node.exc.args else None
+            if isinstance(said, ast.Constant) and isinstance(said.value, str):
+                sentence = said.value
+            elif isinstance(said, ast.JoinedStr):
+                sentence = "".join(
+                    part.value if isinstance(part, ast.Constant) else place(part.value)
+                    for part in said.values
+                    if isinstance(part, ast.Constant | ast.FormattedValue)
+                )
+            else:
+                continue  # a sentence of `voice.py`, already in the board's language
+            # "{path}: {error}" says nothing of its own: it carries the system's words.
+            if re.search(r"[a-z]", sentence.replace("{{}}", "")):
+                raised[sentence] = f"{module}.py:{node.lineno}"
+    assert "“{{}}” is named twice" in raised and "nothing to change" in raised
+
+    refusals = (FRONTEND / "src/lib/refusals.ts").read_text(encoding="utf-8")
+    listed = [
+        json.loads(f'"{line}"') for line in re.findall(r'^  "(.*)",$', refusals, re.MULTILINE)
+    ]
+    listed.append(re.search(r'SILENT = "(.*)"', refusals).group(1))  # type: ignore[union-attr]
+    known = {re.sub(r"\{\{\w+\}\}", "{{}}", template) for template in listed}
+    for sentence, where in raised.items():
+        assert sentence in known, f"{where}: refusals.ts does not know “{sentence}”"
+    dictionary = (FRONTEND / "src/lib/french.ts").read_text(encoding="utf-8")
+    for template in listed:
+        assert f"{json.dumps(template, ensure_ascii=False)}:" in dictionary, (
+            f"nothing translates “{template}” — add it to french.ts"
+        )
 
 
 @case

@@ -127,7 +127,8 @@ test("a launch that fails says why", async ({ page }) => {
   await open(page)
   await row(page, "Test email").getByRole("button", { name: "Lancer maintenant" }).click()
   await expect(page.getByText("La récurrence n'a pas pu être lancée")).toBeVisible()
-  await expect(page.getByText("the board: refused")).toBeVisible()
+  // In the page's language: the server's English is a key of `french.ts`.
+  await expect(page.getByText("Le tableau : refused")).toBeVisible()
 })
 
 test("the opened schedule has the button in its header", async ({ page }) => {
