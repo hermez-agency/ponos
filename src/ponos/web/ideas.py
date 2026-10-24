@@ -37,6 +37,7 @@ import threading
 import uuid
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 from .. import goals, ideas, log, provider, session, state, store
 from ..config import state_dir
@@ -61,7 +62,7 @@ LANGUAGES = {"en": "English", "fr": "French"}
 SCORING = "scoring"
 
 
-def _thread(work: Callable[[], None]) -> None:
+def _thread(work: Callable[[], object]) -> None:
     threading.Thread(target=work, name="ponos-idea-scores", daemon=True).start()
 
 
@@ -70,14 +71,14 @@ class ScoreFailed(Exception):
 
 
 class Ideas(Base):
-    def ideas_later(self, work: Callable[[], None]) -> None:
+    def ideas_later(self, work: Callable[[], object]) -> None:
         """How work that should not hold up an answer is run: in a thread of its
         own — and in place in a test, which replaces this to read what it wrote."""
         _thread(work)
 
     # -- reading --------------------------------------------------------------
 
-    def proposed_ideas(self, project: str = "") -> dict:
+    def proposed_ideas(self, project: str = "") -> dict[str, Any]:
         """The ideas still waiting for a decision in one scope, and what finding them cost."""
         project = ideas.bare(project)
         batches, cost = ideas.spent(project)
@@ -92,7 +93,7 @@ class Ideas(Base):
             "undo": last.shown() if last else None,
         }
 
-    def every_idea(self, project: str | None = "") -> dict:
+    def every_idea(self, project: str | None = "") -> dict[str, Any]:
         """Every idea of one scope, thrown away and turned into tickets included,
         and how many there are in each status — the list on a project's page.
         With None, those of every scope at once: the Ideas page's."""
@@ -117,7 +118,7 @@ class Ideas(Base):
 
     # -- finding --------------------------------------------------------------
 
-    def generate_ideas(self, project: str = "", count: int | None = None) -> dict:
+    def generate_ideas(self, project: str = "", count: int | None = None) -> dict[str, Any]:
         """Ask for one batch, store what is new in it, and say what it cost.
 
         `count` ideas, `runner.ideas_per_batch` when the caller names no number.
@@ -178,7 +179,7 @@ class Ideas(Base):
         except store.StoreError:
             return []
 
-    def _generate_ideas(self, project: str, count: int | None = None) -> dict:
+    def _generate_ideas(self, project: str, count: int | None = None) -> dict[str, Any]:
         configuration = self.config
         count = configuration.runner.ideas_per_batch if count is None else count
         name, brief, readme, names, context = self._idea_scope(project)
@@ -270,7 +271,7 @@ class Ideas(Base):
 
     # -- scoring --------------------------------------------------------------
 
-    def unscored_ideas(self, project: str | None = None) -> dict:
+    def unscored_ideas(self, project: str | None = None) -> dict[str, Any]:
         """How many ideas have no score yet, and what scoring them may cost at most.
 
         With None, those of every scope — the Ideas page's.
@@ -288,7 +289,7 @@ class Ideas(Base):
             "running": busy,
         }
 
-    def score_unscored_ideas(self, project: str | None = None) -> dict:
+    def score_unscored_ideas(self, project: str | None = None) -> dict[str, Any]:
         """Score every idea that has none, behind the answer: say what was started.
 
         Raises RuntimeError when a pass is already scoring — the server's 409.
@@ -434,7 +435,7 @@ class Ideas(Base):
 
     # -- deciding -------------------------------------------------------------
 
-    def idea_ticket(self, identifier: int) -> dict:
+    def idea_ticket(self, identifier: int) -> dict[str, Any]:
         """Turn an idea into a draft ticket, or a new project and its first ticket.
 
         An idea turned into one before — and taken back since — already has its
@@ -470,15 +471,15 @@ class Ideas(Base):
         self.hub.publish("ideas", project=idea.project, ticket=identifier)
         return made.shown()
 
-    def keep_idea(self, identifier: int) -> dict:
+    def keep_idea(self, identifier: int) -> dict[str, Any]:
         """Keep an idea for later: a decision, and nothing on the board yet."""
         return self._mark_idea(identifier, "kept")
 
-    def discard_idea(self, identifier: int) -> dict:
+    def discard_idea(self, identifier: int) -> dict[str, Any]:
         """Throw an idea away. Nothing else: it stays known, never to be proposed again."""
         return self._mark_idea(identifier, "discarded")
 
-    def reopen_idea(self, identifier: int) -> dict:
+    def reopen_idea(self, identifier: int) -> dict[str, Any]:
         """Make an idea new again, whatever was decided about it.
 
         One that became a ticket leaves its ticket on the board, as `undo_idea` does.
@@ -488,7 +489,7 @@ class Ideas(Base):
         self.hub.publish("ideas", project=idea.project, reopened=identifier)
         return back.shown()
 
-    def _mark_idea(self, identifier: int, status: str) -> dict:
+    def _mark_idea(self, identifier: int, status: str) -> dict[str, Any]:
         idea = ideas.get(identifier)
         if idea.status == "ticket":
             raise ValueError("this idea is a ticket now — make it new again first")
@@ -498,7 +499,7 @@ class Ideas(Base):
 
     # -- writing by hand -------------------------------------------------------
 
-    def create_idea(self, payload: dict) -> dict:
+    def create_idea(self, payload: dict[str, Any]) -> dict[str, Any]:
         """An idea somebody wrote: its title, its description, its category, the project it is for."""
         project = ideas.bare(str(payload.get("project") or ""))
         if project and not any(
@@ -519,7 +520,7 @@ class Ideas(Base):
         self.hub.publish("ideas", project=project, written=idea.id)
         return ideas.get(idea.id).shown()
 
-    def edit_idea(self, identifier: int, payload: dict) -> dict:
+    def edit_idea(self, identifier: int, payload: dict[str, Any]) -> dict[str, Any]:
         """Reword an idea, signed by whoever did."""
         name, avatar = self.idea_person()
         idea = ideas.edit(
@@ -542,7 +543,7 @@ class Ideas(Base):
 
     def write_idea(
         self, project: str, kind: str, title: str, description: str = "", category: str = ""
-    ) -> dict:
+    ) -> dict[str, Any]:
         """An idea an MCP client had, signed like one written in the console."""
         if kind not in ideas.KINDS:
             raise ValueError(f"an idea is a {' or a '.join(ideas.KINDS)} — not {kind}")
@@ -558,7 +559,7 @@ class Ideas(Base):
         self.hub.publish("ideas", project=idea.project, written=idea.id)
         return ideas.get(idea.id).shown()
 
-    def undo_idea(self, project: str | None = None) -> dict:
+    def undo_idea(self, project: str | None = None) -> dict[str, Any]:
         """Take the last decision back — in one scope, or the last of all when None.
 
         The idea is proposed again. What one turned into a ticket became stays

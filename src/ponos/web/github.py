@@ -25,19 +25,23 @@ from __future__ import annotations
 
 import html
 import socket
+from typing import TYPE_CHECKING, Any
 from urllib.parse import quote
 
 from .. import github_app, github_token
+
+if TYPE_CHECKING:
+    from .api import Api
 
 # Where the browser lands once GitHub is done with it.
 SETTINGS = "/?view=console/settings/read/config/github-app"
 
 
-def status() -> dict:
+def status() -> dict[str, Any]:
     return {"apps": github_app.describe(), "token": github_token.describe()}
 
 
-def save_token(api, payload: dict) -> dict:
+def save_token(api: Api, payload: dict[str, Any]) -> dict[str, Any]:
     """Check the token that was pasted, and keep it when a code ticket can work with it.
 
     A token that GitHub refuses, or that lacks a permission, is not kept: the
@@ -55,7 +59,7 @@ def save_token(api, payload: dict) -> dict:
     return {"saved": checked["ok"], **checked}
 
 
-def forget_token(api) -> dict:
+def forget_token(api: Api) -> dict[str, Any]:
     """Drop the token from this machine. GitHub still has it: the answer says where to revoke it."""
     if not github_token.forget():
         raise LookupError("no token is kept here")
@@ -64,7 +68,7 @@ def forget_token(api) -> dict:
     return {"forgotten": True, "tokens_url": "https://github.com/settings/personal-access-tokens"}
 
 
-def connect(console: str, organisation: str = "") -> dict:
+def connect(console: str, organisation: str = "") -> dict[str, Any]:
     """What the page posts to GitHub, for this console's address."""
     try:
         installation = socket.gethostname().split(".")[0]
@@ -73,7 +77,7 @@ def connect(console: str, organisation: str = "") -> dict:
     return github_app.begin(console, organisation, installation)
 
 
-def disconnect(slug: str) -> dict:
+def disconnect(slug: str) -> dict[str, Any]:
     """Forget an app here. Deleting it is GitHub's: the answer says where."""
     held = {app.slug: app for app in github_app.apps()}
     app = held.get(slug)

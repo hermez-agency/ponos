@@ -40,8 +40,10 @@ import hashlib
 import hmac
 import json
 import secrets
+import sqlite3
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import Any
 from urllib.parse import urlencode, urlparse
 
 from .. import db
@@ -93,7 +95,7 @@ class OAuthError(Exception):
         self.redirect = redirect
         self.state = state
 
-    def body(self) -> dict:
+    def body(self) -> dict[str, Any]:
         return {"error": self.error, "error_description": self.description}
 
 
@@ -216,7 +218,7 @@ def same_redirect(offered: str, registered: str) -> bool:
 # -- clients ------------------------------------------------------------------
 
 
-def register(metadata: dict) -> dict:
+def register(metadata: dict[str, Any]) -> dict[str, Any]:
     """Dynamic client registration (RFC 7591): a name, where to send the code.
 
     Open on purpose — the consent page is the lock, not this — and narrow: an
@@ -332,12 +334,12 @@ def asked(params: dict[str, str]) -> Asked:
 
 
 def _issue(
-    connection,
+    connection: sqlite3.Connection,
     kind: str,
     client_id: str,
     scope: str,
     seconds: int | None,
-    detail: dict | None = None,
+    detail: dict[str, Any] | None = None,
 ) -> str:
     secret = secrets.token_urlsafe(32)
     now = _now()
@@ -371,7 +373,7 @@ def code(request: Asked, scopes: tuple[str, ...]) -> str:
         )
 
 
-def _pair(connection, client_id: str, scope: str) -> dict:
+def _pair(connection: sqlite3.Connection, client_id: str, scope: str) -> dict[str, Any]:
     return {
         "access_token": _issue(connection, "access", client_id, scope, ACCESS_SECONDS),
         "token_type": "Bearer",
@@ -381,7 +383,9 @@ def _pair(connection, client_id: str, scope: str) -> dict:
     }
 
 
-def _take(connection, secret: str, kind: str, client_id: str) -> tuple[str, dict] | None:
+def _take(
+    connection: sqlite3.Connection, secret: str, kind: str, client_id: str
+) -> tuple[str, dict[str, Any]] | None:
     """A code or refresh token, spent: revoked as it is read, valid or not.
 
     Read and revoked in the same transaction, so that the same code presented
@@ -426,7 +430,7 @@ def _take(connection, secret: str, kind: str, client_id: str) -> tuple[str, dict
     return scope, said
 
 
-def exchange(form: dict[str, str], basic: tuple[str, str] | None = None) -> dict:
+def exchange(form: dict[str, str], basic: tuple[str, str] | None = None) -> dict[str, Any]:
     """The token endpoint: a code for a pair of tokens, or a refresh for a new pair."""
     client_id = form.get("client_id", "")
     secret = form.get("client_secret", "")
@@ -441,7 +445,7 @@ def exchange(form: dict[str, str], basic: tuple[str, str] | None = None) -> dict
     # Decided inside the transaction, raised once it is committed: a code that
     # is refused is still spent, and a rollback would hand it back.
     refused: OAuthError | None = None
-    issued: dict = {}
+    issued: dict[str, Any] = {}
     with db.transaction() as connection:
         if grant == "authorization_code":
             taken = _take(connection, form.get("code", ""), "code", found.id)
@@ -525,7 +529,7 @@ def local(name: str, write: bool) -> tuple[str, str]:
     return identifier, token
 
 
-def clients() -> list[dict]:
+def clients() -> list[dict[str, Any]]:
     """Every client, with the scope of its live tokens — for `ponos mcp list`."""
     now = _stamp(_now())
     with db.transaction(immediate=False) as connection:

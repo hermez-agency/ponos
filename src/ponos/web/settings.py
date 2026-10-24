@@ -30,6 +30,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from .. import config as config_module
 from .. import local_ci, models, subtypes, voice
@@ -1914,7 +1915,7 @@ SECTIONS: tuple[Section, ...] = (
 FIELDS: dict[str, Field] = {entry.name: entry for section in SECTIONS for entry in section.fields}
 
 
-def _table(raw: dict, table: str) -> dict:
+def _table(raw: dict[str, Any], table: str) -> dict[str, Any]:
     """One `[a.b]` table of the parsed file, or an empty one."""
     node: object = raw
     for part in table.split("."):
@@ -2014,14 +2015,14 @@ def unavailable_for(needs: str, docker: local_ci.Docker) -> str:
     return ""
 
 
-def describe(config: Config) -> dict:
+def describe(config: Config) -> dict[str, Any]:
     """Every setting, as the console draws it. No secret leaves in here."""
     raw = config_module.read_raw(config.path)
     stored = config_module.read_secrets(config_module.secrets_path(config.path))
     docker = local_ci.docker()
     sections = []
     for section in SECTIONS:
-        drawn = {
+        drawn: dict[str, Any] = {
             "key": section.key,
             "title": section.title,
             "blurb": section.blurb,
@@ -2036,7 +2037,7 @@ def describe(config: Config) -> dict:
             if entry.kind == "secret":
                 # Never the file's: what `secrets.env` holds is what was stated.
                 stated = stored.get(config_module.SECRETS[(entry.table, entry.key)])
-            shown: dict = {
+            shown: dict[str, Any] = {
                 "name": entry.name,
                 "kind": entry.kind,
                 "label": entry.label,
@@ -2110,7 +2111,7 @@ def describe(config: Config) -> dict:
 MOST_LISTED = 200
 
 
-def folder(typed: str) -> dict:
+def folder(typed: str) -> dict[str, Any]:
     """What is in the folder a path field points at, for the page to pick from.
 
     A browser's own file picker hands back a file's name and never its path, and
@@ -2191,7 +2192,7 @@ def _value(entry: Field, offered: object) -> object:
     return text or None
 
 
-def _pairs(raw: dict, table: str, offered: object) -> list[tuple[str, str, object]]:
+def _pairs(raw: dict[str, Any], table: str, offered: object) -> list[tuple[str, str, object]]:
     """One `name = value` table as the browser now has it, against what is there.
 
     The two the file holds: `[projects]`, a Notion name and a path, and
@@ -2224,7 +2225,7 @@ def _pairs(raw: dict, table: str, offered: object) -> list[tuple[str, str, objec
     return changes
 
 
-def save(config: Config, payload: dict) -> dict:
+def save(config: Config, payload: dict[str, Any]) -> dict[str, Any]:
     """Apply what the console sent. Nothing, or all of it — see `config.edit`.
 
     Only the keys the browser actually names are touched: a field left alone is

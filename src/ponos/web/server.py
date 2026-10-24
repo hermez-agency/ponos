@@ -52,6 +52,7 @@ import logging
 import re
 import secrets
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import parse_qsl, urlencode, urlparse
@@ -422,7 +423,7 @@ def configured(page: bytes, language: str) -> bytes:
     return re.sub(rb"<html\b", f'<html data-language="{language}"'.encode(), page, count=1)
 
 
-def _words(language: str):
+def _words(language: str) -> Callable[[str], str]:
     table = _FRENCH if language == "fr" else {}
     return lambda text: table.get(text, text)
 
@@ -531,7 +532,9 @@ document.getElementById('door').addEventListener('submit', function (event) {{
     )
 
 
-def consent_page(language: str, request, params: dict[str, str], needs: str, said: str = "") -> str:
+def consent_page(
+    language: str, request: oauth.Asked, params: dict[str, str], needs: str, said: str = ""
+) -> str:
     """Which client asks for what, and the door to sign in by when the browser is out.
 
     The request travels in hidden fields rather than in a server-side session:

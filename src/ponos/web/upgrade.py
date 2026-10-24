@@ -46,6 +46,7 @@ import time
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from .. import disk, environment, log, state
 from .. import update as update_module
@@ -150,7 +151,7 @@ class Upgrade:
 
     # -- what the header reads ------------------------------------------------
 
-    def offer(self, local: bool = True) -> dict:
+    def offer(self, local: bool = True) -> dict[str, Any]:
         """What the version in the header says, and whether it can act on it.
 
         `local` is whether the page asking is on this machine: the endpoint only
@@ -173,7 +174,7 @@ class Upgrade:
             **self.progress(),
         }
 
-    def known(self) -> dict:
+    def known(self) -> dict[str, Any]:
         """What the last check found — the same for every page, near or far."""
         status = update_module.waiting(self.app)
         if self._page is None:
@@ -190,7 +191,7 @@ class Upgrade:
             or (f"{self._page}/blob/main/CHANGELOG.md" if self._page else ""),
         }
 
-    def progress(self) -> dict:
+    def progress(self) -> dict[str, Any]:
         return {
             "phase": self.phase,
             "detail": self.detail,
@@ -234,7 +235,7 @@ class Upgrade:
 
     # -- what a click does ----------------------------------------------------
 
-    def start(self) -> dict:
+    def start(self) -> dict[str, Any]:
         """Queue the update. Refused while one is under way, or with nothing to install."""
         with self._lock:
             if in_container():
@@ -251,7 +252,7 @@ class Upgrade:
             threading.Thread(target=self._work, name="upgrade", daemon=True).start()
         return self.progress()
 
-    def cancel(self) -> dict:
+    def cancel(self) -> dict[str, Any]:
         """Call off an update still waiting for the lock. Past that, it goes on."""
         with self._lock:
             if self.phase != "waiting":

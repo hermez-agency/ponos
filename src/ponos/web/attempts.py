@@ -62,7 +62,7 @@ def wait_after(failures: int) -> float:
         return 0
     if failures >= LOCK_AFTER:
         return LOCK_SECONDS
-    return min(2 ** (failures - 1), LONGEST_WAIT)
+    return float(min(2 ** (failures - 1), LONGEST_WAIT))
 
 
 Network = ipaddress.IPv4Network | ipaddress.IPv6Network

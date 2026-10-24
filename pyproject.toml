@@ -85,68 +85,16 @@ ignore = [
 extend-immutable-calls = ["fastapi.Body", "fastapi.Query"]
 
 [tool.mypy]
-# Strict for every module, but two lists hold back those not there yet, and
-# they only ever shrink: a module leaves the first once `--strict` has nothing
-# to say about it, and never comes back. A new module is strict from its
-# first line. Started on the pure ones (ticket, naming, markdown, db, kinds,
-# priority), which nothing but the standard library stands behind, and on
-# those `--strict` already found nothing to say about.
+# Strict for every module. Two lists of `[[tool.mypy.overrides]]` held back
+# those not there yet, and only ever shrank, until the console left the last
+# of them: a new module is strict from its first line, and none goes back.
+# Started on the pure ones (ticket, naming, markdown, db, kinds, priority),
+# which nothing but the standard library stands behind.
 python_version = "3.11"
 mypy_path = "src"
 packages = ["ponos"]
 strict = true
 warn_unused_configs = true
-
-[[tool.mypy.overrides]]
-# Not strict yet: annotations are read as written, and an unannotated
-# function is trusted. Remove a line, run `uv run mypy`, fix what it says.
-module = [
-    "ponos.web.attachments",
-    "ponos.web.attempts",
-    "ponos.web.board",
-    "ponos.web.chats",
-    "ponos.web.console",
-    "ponos.web.creation",
-    "ponos.web.github",
-    "ponos.web.ideas",
-    "ponos.web.live",
-    "ponos.web.mcp",
-    "ponos.web.mcp_setup",
-    "ponos.web.oauth",
-    "ponos.web.removal",
-    "ponos.web.server",
-    "ponos.web.settings",
-    "ponos.web.setup",
-    "ponos.web.statistics",
-    "ponos.web.upgrade",
-]
-disallow_any_generics = false
-disallow_subclassing_any = false
-disallow_untyped_calls = false
-disallow_untyped_defs = false
-disallow_incomplete_defs = false
-check_untyped_defs = false
-disallow_untyped_decorators = false
-warn_unused_ignores = false
-warn_return_any = false
-no_implicit_reexport = false
-strict_equality = false
-extra_checks = false
-
-[[tool.mypy.overrides]]
-# Not even that yet: what mypy finds there, lenient as above, is not read.
-# Each is a ticket of its own to clean up, and leaves this list for the one
-# above — or straight for strict.
-module = [
-    "ponos.web.board",
-    "ponos.web.console",
-    "ponos.web.ideas",
-    "ponos.web.server",
-    "ponos.web.settings",
-    "ponos.web.setup",
-    "ponos.web.statistics",
-]
-ignore_errors = true
 
 [tool.coverage.run]
 # What a test runs as `python3 -m ponos` — the commands of `__main__.py`, an
