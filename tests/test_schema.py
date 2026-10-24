@@ -94,6 +94,7 @@ def every_key_the_example_documents_is_one_the_model_reads_and_back():
 def the_example_reads_against_the_model_and_gives_the_defaults():
     text = EXAMPLE.read_text(encoding="utf-8")
     file = schema.read(tomllib.loads(text), text, EXAMPLE)
+    assert schema.unknown(tomllib.loads(text), text) == [], "the example names no key unread"
     assert file.runner.workspace_root == "~/workspace"
     assert file.runner.model_copy(update={"workspace_root": ""}) == schema.RunnerTable(
         workspace_root=""
@@ -168,6 +169,60 @@ def a_value_no_rule_reads_names_its_key_and_its_line():
     assert said[1].startswith(f"  {path}, line 10: web.port = 'eighty' — "), said
     assert said[2].startswith(f"  {path}, line 14: notify.events = 'blocked' — "), said
     assert len(said) == 3, "a key nobody reads is left alone, as it always was"
+
+
+@case
+def a_key_nobody_reads_is_named_with_its_line_and_the_key_it_was_meant_to_be():
+    """Ignored, as it always was — but said: a misspelt key is a setting that does nothing."""
+    config = _config(
+        "[runner]\n"
+        "max_concurent = 4\n"
+        "interval_seconds = 30\n"
+        "\n"
+        "[runer]\n"
+        "interval_seconds = 60\n"
+        "\n"
+        "[notify.telegram]\n"
+        "chatt = 42\n"
+        "\n"
+        "[projects]\n"
+        'Anything = "~/anything"\n'
+        "\n"
+        "[notion.status]\n"
+        'ready = "Prêt"\n'
+        "\n"
+        "[web]\n"
+        "nothing_like_it = 1\n"
+    )
+    assert config.runner.max_concurrent == C.Runner.max_concurrent, "never refused, still ignored"
+    assert config.runner.interval_seconds == 30
+    assert config.unknown == (
+        (4, "runner.max_concurent", "max_concurrent"),
+        (7, "runer", "runner"),
+        (11, "notify.telegram.chatt", "chat"),
+        (20, "web.nothing_like_it", ""),
+    ), config.unknown
+    # A secret an older version wrote is the launch's to move, not a typo.
+    text = '[web]\npassword = "pw"\n[notify.telegram]\ntoken = "123:abc"\n'
+    assert schema.unknown(tomllib.loads(text), text) == []
+
+
+@case
+def doctor_warns_of_a_key_nobody_reads():
+    from test_health import _doctor_said
+
+    from ponos import __main__ as cli
+    from ponos import health
+
+    config = _config("[runner]\nmax_concurent = 4\n")
+    [check] = [check for check in health._settings(config) if check.code == "settings.keys"]
+    assert check.state == health.WARN
+    assert check.text(check.said) == (
+        "config.toml, line 4: runner.max_concurent is not a known key — did you mean max_concurrent?"
+    )
+    with _environment(PONOS_CONFIG=str(config.path)):
+        _, said = _doctor_said(cli.command_doctor, None)
+    assert "line 4: runner.max_concurent is not a known key" in said, said
 
 
 @case
