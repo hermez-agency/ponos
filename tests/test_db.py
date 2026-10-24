@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import io
 import json
 import os
 import sqlite3
@@ -388,6 +389,41 @@ def a_database_newer_than_the_code_is_refused_untouched():
         assert not raw.execute("SELECT 1 FROM sqlite_master").fetchall(), "nothing created"
     finally:
         raw.close()
+
+
+@case
+def status_and_history_say_a_newer_database_in_a_line_rather_than_a_trace(state_home):
+    from ponos.__main__ import main
+
+    state_home.mkdir(parents=True, exist_ok=True)
+    raw = sqlite3.connect(state_home / "ponos.db")
+    raw.execute(f"PRAGMA user_version = {len(db.MIGRATIONS) + 2}")
+    raw.close()
+    (state_home / "config.toml").write_text("", encoding="utf-8")
+    # No systemctl on the PATH: the services are not this case's subject.
+    environment = {"PONOS_CONFIG": str(state_home / "config.toml"), "PATH": ""}
+    saved = {name: os.environ.get(name) for name in environment}
+    os.environ.update(environment)
+    try:
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            assert main(["status"]) == 1
+        text = out.getvalue()
+        assert "Services" in text and "Recent tickets" in text, text
+        assert "newer version" in text and "ponos update" in text, text
+        assert "Traceback" not in text + err.getvalue()
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            assert main(["history"]) == 1
+        assert err.getvalue().startswith("error: "), err.getvalue()
+        assert "ponos update" in err.getvalue() and "Traceback" not in err.getvalue()
+    finally:
+        for name, value in saved.items():
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value
+        db.close()
 
 
 def _columns(connection, table):

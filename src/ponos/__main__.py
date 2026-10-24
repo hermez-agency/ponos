@@ -651,7 +651,14 @@ def command_status(args: argparse.Namespace) -> int:
         bad(f"Notion unreachable: {str(error).splitlines()[0]}")
 
     title("Recent tickets")
-    entries = state.history(5)
+    # A database the code cannot read — written by a newer Ponos — is one red
+    # line in its own section: the rest of the status was read without it.
+    try:
+        entries = state.history(5)
+        _, spend = state.totals()
+    except db.DatabaseError as error:
+        bad(str(error))
+        return 1
     if not entries:
         print(f"  {DIM}none{RESET}")
     for entry in entries:
@@ -665,7 +672,6 @@ def command_status(args: argparse.Namespace) -> int:
         if detail:
             print(f"          {DIM}{str(detail)[:90]}{RESET}")
 
-    _, spend = state.totals()
     if spend:
         print(f"\n  {DIM}reported spend so far: ${spend:.2f}{RESET}")
     return 0
@@ -1923,6 +1929,11 @@ def main(argv: list[str] | None = None) -> int:
         return code
     except KeyboardInterrupt:
         return 130
+    except db.DatabaseError as error:
+        # A local database this code cannot open — most often one written by a
+        # newer Ponos — is said in a line, with what to do, not in a trace.
+        print(f"error: {error}", file=sys.stderr)
+        return 1
 
 
 def secrets_out_of_config(say: Callable[[str], None] | None = None) -> None:
