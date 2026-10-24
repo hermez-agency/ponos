@@ -70,10 +70,12 @@ const item = (goal: Goal): GoalItem => ({ ...goal, "@id": `/api/goals/${goal.id}
 interface LastRead {
   goals: Goal[] | null
   configured: boolean
+  /** `storage.mode`: a Markdown board's goals are files, with no Notion to send to. */
+  storage: string
   problem: string
 }
 
-let read: LastRead = { goals: null, configured: true, problem: "" }
+let read: LastRead = { goals: null, configured: true, storage: "", problem: "" }
 const listeners = new Set<() => void>()
 
 function subscribe(listener: () => void) {
@@ -97,7 +99,7 @@ function readAgain(): Promise<Goal[]> {
   asked ??= api
     .goals()
     .then((fresh) => {
-      read = { goals: fresh.goals, configured: fresh.configured, problem: "" }
+      read = { goals: fresh.goals, configured: fresh.configured, storage: fresh.storage ?? "", problem: "" }
       listeners.forEach((listener) => listener())
       return fresh.goals
     })

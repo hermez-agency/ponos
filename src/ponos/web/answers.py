@@ -1553,6 +1553,8 @@ class Goals(Shape):
     goals: list[Goal]
     configured: bool
     """Whether the workspace has a goals database at all."""
+    storage: str = omitted()
+    """`storage.mode`: which board these came off."""
 
 
 class GoalNamed(Shape):
