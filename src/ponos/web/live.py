@@ -398,6 +398,9 @@ class Watch:
         # The board last read, and when: what `recent` hands out again.
         self._read: tuple[float, dict] | None = None
         self._nudged = threading.Event()
+        # How many writes from the console asked for a read: a board read
+        # before the last of them is not one to hand out again (`Tickets.board`).
+        self.nudges = 0
         # The bell last published: a pass that finds the same says nothing.
         self._bell = ""
 
@@ -420,6 +423,7 @@ class Watch:
         write it just made succeeded. The watching thread does it, a second
         later, and the board arrives on the stream like any other.
         """
+        self.nudges += 1
         self._nudged.set()
 
     def recent(self, age: float) -> dict:
@@ -436,6 +440,10 @@ class Watch:
         board = self.board()
         self._read = (time.monotonic(), board)
         return board
+
+    def remember(self, at: float, board: dict) -> None:
+        """Hold a board read elsewhere — `/api/board` — as if this thread had read it."""
+        self._read = (at, board)
 
     def ring(self) -> None:
         """Publish the bell when it changed — a read of a small table, once a second.

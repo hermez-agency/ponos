@@ -97,7 +97,7 @@ class Goals(Base):
         projects = self.projects()
         counts: dict[str, dict[str, int]] = {}
         serving: dict[str, list[dict[str, str]]] = {}
-        for ticket in self.board()["tickets"]:
+        for ticket in self.board(max_age=self.config.web.poll_seconds)["tickets"]:
             if ticket.get("goal_id"):
                 column = counts.setdefault(ticket["goal_id"], {})
                 column[ticket["column"]] = column.get(ticket["column"], 0) + 1
@@ -216,7 +216,7 @@ class Goals(Base):
         wanted = set(tickets)
         held = {
             ticket["id"].replace("-", ""): ticket.get("goal_id", "")
-            for ticket in self.board()["tickets"]
+            for ticket in self.board(max_age=self.config.web.poll_seconds)["tickets"]
         }
         for ticket in sorted(wanted):
             if held.get(ticket) != goal_id:

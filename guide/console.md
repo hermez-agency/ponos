@@ -759,7 +759,7 @@ answers 404 to any path but those three on a request that came through Funnel.
 | `PONOS_WEB_TOKEN` | | not a key of this file: the secret is in `secrets.env` or the environment (see [Configuration](configuration.md#configuration)). Unset: drawn once into `~/.local/state/ponos/web/token` |
 | `web.email` | `""` | with a password: what the console asks for instead of the token |
 | `PONOS_WEB_PASSWORD` | | not a key of this file: the secret is in `secrets.env` or the environment, which wins (see [Configuration](configuration.md#configuration), and below) |
-| `web.poll_seconds` | `15` | how often the console asks Notion what changed (a two-minute overlapping window; the whole board every five minutes) — only while a browser is connected |
+| `web.poll_seconds` | `15` | how often the console asks Notion what changed (a two-minute overlapping window; the whole board every five minutes) — only while a browser is connected; a page asking for the board meanwhile (dashboard, goals, statistics) is served that last read, unless a write from the console came after it |
 | `web.chat_timeout_minutes` | `20` | past this, a chat turn is killed |
 | `web.chat_model` | `""` | the model a new conversation starts on (`opus`…, or an OpenRouter slug); empty: `runner.model` |
 

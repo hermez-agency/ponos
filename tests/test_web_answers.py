@@ -122,7 +122,7 @@ def a_goal_counts_the_tickets_the_board_lists_column_by_column():
         {"id": "t4", "goal_id": "", "column": "done"},
         {"column": "ready"},
     ]
-    api.board = lambda: {"tickets": tickets}
+    api.board = lambda max_age=0.0: {"tickets": tickets}
     said = api.goals()
     assert said["configured"] is True
     assert [goal["name"] for goal in said["goals"]] == ["Lancer la v1", "Ranger"], said
@@ -179,7 +179,7 @@ def a_new_ticket_is_offered_the_goals_still_worked_toward_with_their_projects():
     ], offered
     answers.TicketChoices.model_validate({"goal": offered})
     # The goals page still lists it, and says it is over.
-    api.board = lambda: {"tickets": []}
+    api.board = lambda max_age=0.0: {"tickets": []}
     rows = {goal["name"]: goal["active"] for goal in api.goals()["goals"]}
     assert rows == {"Lancer la v1": True, "Ranger": True, "Livrer la bêta": False}, rows
 
@@ -199,7 +199,9 @@ def the_goals_route_answers_the_goals_with_their_counts(state_home):
 
     api = _goals_api()
     api.config.web.token = "tok"
-    api.board = lambda: {"tickets": [{"id": "t1", "goal_id": "bbbbgoal", "column": "done"}]}
+    api.board = lambda max_age=0.0: {
+        "tickets": [{"id": "t1", "goal_id": "bbbbgoal", "column": "done"}]
+    }
     console = app.Console(("127.0.0.1", 0), api, "tok", None, "")
     threading.Thread(target=console.serve_forever, daemon=True).start()
     try:

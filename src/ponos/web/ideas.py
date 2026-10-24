@@ -247,7 +247,7 @@ class Ideas(Base):
         batch without its ideas.
         """
         try:
-            tickets = self.board()["tickets"]
+            tickets = self.board(max_age=self.config.web.poll_seconds)["tickets"]
         except store.StoreError:
             return []
         chosen = [
