@@ -45,6 +45,17 @@ ponos run --ticket https://www.notion.so/... --dry-run   # look first
 ponos run --ticket https://www.notion.so/...             # then go
 ```
 
+### Exit codes
+
+What a script, a cron line or a container's healthcheck can read from `$?`:
+
+| Code | Means |
+|------|-------|
+| `0` | Done — and also a pass that finds another one holding the run lock, or a network that is down: the next pass is the one that does the work. |
+| `1` | A problem to look at: `doctor` or `sync` found some, the board could not be read, a `run` whose every ticket failed (one failed out of three is still `0`). |
+| `2` | Nothing was tried: the configuration cannot be read or is unusable (`run`, `status`, `doctor`, `init`, `notify`…), a command line `ponos` does not understand, or a checkout refused because it would write the real state. |
+| `130` | Stopped with Ctrl-C. |
+
 ### What `clean` removes, and what it refuses to
 
 A branch is named after its ticket, so it is the same name on every attempt. A

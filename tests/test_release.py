@@ -17,7 +17,7 @@ import threading
 from pathlib import Path
 
 import release
-from support import FRONTEND, ROOT, _bare_api, _head, _plain, _TalkClient, case
+from support import FRONTEND, ROOT, _bare_api, _environment, _head, _plain, _TalkClient, case
 
 from ponos import __version__, update
 from ponos import config as C
@@ -314,6 +314,44 @@ def a_bare_command_line_presents_the_product_and_its_version(state_home):
 
     framed = [line for line in _plain(banner()).splitlines() if line.strip()]
     assert len({len(line) for line in framed}) == 1, "the frame is not square"
+
+
+@case
+def the_exit_codes_are_the_ones_the_guide_tells_a_script(state_home):
+    """`0`, `1`, `2` and `130` are what a healthcheck reads, so the table says them all.
+
+    `0` is a command done, `1` a problem it found, `2` a configuration it could
+    not read, `130` a Ctrl-C — each asked of `main` itself, as a script would.
+    """
+    from ponos import __main__ as cli
+
+    missing = str(Path(tempfile.mkdtemp()) / "config.toml")
+    with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+        assert cli_main(["history"]) == 0
+        with _environment(PONOS_CONFIG=missing):
+            assert cli_main(["config"]) == 1
+            assert cli_main(["status"]) == 2
+            assert cli_main(["doctor"]) == 2
+            try:
+                cli_main(["run"])
+            except SystemExit as stopped:
+                assert stopped.code == 2
+            else:
+                raise AssertionError("run went ahead with no configuration")
+
+        def interrupted(args):
+            raise KeyboardInterrupt
+
+        history = cli.command_history
+        cli.command_history = interrupted
+        try:
+            assert cli_main(["history"]) == 130
+        finally:
+            cli.command_history = history
+
+    table = (ROOT / "guide" / "usage.md").read_text(encoding="utf-8").split("### Exit codes")[1]
+    for code in ("0", "1", "2", "130"):
+        assert f"\n| `{code}` |" in table, f"{code} is not in the table"
 
 
 @case
