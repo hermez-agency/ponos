@@ -602,7 +602,10 @@ already had, the line a ticket born of a schedule opens with, the answer it rela
 Telegram or Slack, and the desktop and phone notifications. Only an error is quoted as it
 came — git's, GitHub's, Notion's — because it is evidence, not a sentence. The journal on
 the terminal and the CLI stay in English: they are read by whoever is standing at the
-machine.
+machine, and half of what they print is argparse's, git's or GitHub's. Translating only the
+other half would put two languages on the same screen, so `ponos`, typed alone, says it
+instead — *The CLI speaks English; the console follows runner.language (fr).* — whenever
+the file names a language other than English.
 
 An answer is understood whatever language it is typed in: *oui*, *ouais*, *vas-y* and
 *yes*, *ok*, *go* are all a yes; *non*, *laisse tomber* and *no*, *stop* all a no — on a

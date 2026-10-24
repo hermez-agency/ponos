@@ -332,6 +332,35 @@ def a_waiting_update_is_said_on_the_welcome_screen(state_home):
 
 
 @case
+def the_welcome_screen_says_the_cli_stays_in_english(state_home):
+    """`language = "fr"` turns the console and the reports French, not the CLI.
+
+    Said where somebody who set it looks first, rather than leave them asking
+    whether the file was read — and said only then: a board in English has
+    nothing to be told.
+    """
+    folder = Path(tempfile.mkdtemp())
+    before = os.environ.get("PONOS_CONFIG")
+    os.environ["PONOS_CONFIG"] = str(folder / "config.toml")
+    try:
+        printed = {}
+        for spoken in ("fr", "en"):
+            (folder / "config.toml").write_text(f'[runner]\nlanguage = "{spoken}"\n')
+            buffer = io.StringIO()
+            with contextlib.redirect_stdout(buffer):
+                welcome(build_parser())
+            printed[spoken] = _plain(buffer.getvalue())
+    finally:
+        shutil.rmtree(folder)
+        if before is None:
+            os.environ.pop("PONOS_CONFIG", None)
+        else:
+            os.environ["PONOS_CONFIG"] = before
+    assert "The CLI speaks English; the console follows runner.language (fr)." in printed["fr"]
+    assert "The CLI speaks English" not in printed["en"]
+
+
+@case
 def the_console_header_and_the_command_line_agree_on_the_version(state_home):
     """One number, two surfaces: what --version prints is what the browser shows.
 
