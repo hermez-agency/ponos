@@ -61,7 +61,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeVar
 
-from . import disk, vault
+from . import disk, ids, vault
 from .store import SLOTS, Comment, Page, Picture, StoreError, read, written
 
 if TYPE_CHECKING:
@@ -343,7 +343,7 @@ class Board:
         return self._root / CONTEXT
 
     def comments_file(self, page_id: str) -> Path:
-        return self._root / "comments" / f"{_bare(page_id)}.md"
+        return self._root / "comments" / f"{ids.bare(page_id)}.md"
 
     @contextlib.contextmanager
     def _locked(self) -> Iterator[None]:
@@ -379,7 +379,7 @@ class Board:
         Four directories of text files is a cheap enough search, and the
         alternative is an index file that can be wrong.
         """
-        bare = _bare(page_id)
+        bare = ids.bare(page_id)
         if not bare:
             raise StoreError(f"no page id to look for in {self._root}")
         # The filename carries the last eight characters of the identifier, so
@@ -391,7 +391,7 @@ class Board:
             for path in self._files(collection):
                 if not path.stem.endswith(tail):
                     continue
-                if _bare(parse(_text(path))[0].get("id", "")) in (bare, ""):
+                if ids.bare(parse(_text(path))[0].get("id", "")) in (bare, ""):
                     return collection, path
         raise StoreError(f"no such page in {self._root}: {page_id}")
 
@@ -453,7 +453,7 @@ class Board:
 
         `live=False` reads it as a brief, without what `append_blocks` wrote.
         """
-        if _bare(block_id) == CONTEXT_PAGE:
+        if ids.bare(block_id) == CONTEXT_PAGE:
             return _text(self.context_file()).strip()
         _, path = self._find(block_id)
         body = parse(_text(path))[1]
@@ -522,7 +522,7 @@ class Board:
     def _page_of(self, collection: str, path: Path) -> Page:
         front, body = parse(_text(path))
         schema = self.schema(collection)
-        identifier = _bare(str(front.get("id") or path.stem.rsplit("-", 1)[-1]))
+        identifier = ids.bare(str(front.get("id") or path.stem.rsplit("-", 1)[-1]))
         title = str(front.get("title") or "")
         properties: dict[str, Any] = {
             "Name": {"type": "title", "title": [{"plain_text": title, "type": "text"}]}
@@ -588,7 +588,7 @@ class Board:
         it first is the one that chose it.
         """
         collection = self.resolve_database(database_id)
-        identifier = _bare(page_id) or new_id()
+        identifier = ids.bare(page_id) or new_id()
         stamp = now()
         front: dict[str, Any] = {
             "id": identifier,
@@ -685,11 +685,11 @@ class Board:
         """
         _, path = self._find(page_id)
         front, body = parse(_text(path))
-        front["id"] = _bare(fresh)
+        front["id"] = ids.bare(fresh)
         front["edited"] = now()
         target = (
             self.directory(collection)
-            / f"{slug(str(front.get('title', '')))}-{_bare(fresh)[-8:]}.md"
+            / f"{slug(str(front.get('title', '')))}-{ids.bare(fresh)[-8:]}.md"
         )
         _write(target, render(front, body))
         if target != path:
@@ -707,7 +707,7 @@ class Board:
     @_exclusive
     def append_markdown(self, page_id: str, markdown: str) -> int:
         """Add to a page's body. Returns a block count, for what says so."""
-        if _bare(page_id) == CONTEXT_PAGE:
+        if ids.bare(page_id) == CONTEXT_PAGE:
             text = _text(self.context_file())
             _write(self.context_file(), f"{text.rstrip()}\n\n{markdown.strip()}\n".lstrip())
             return _blocks(markdown)
@@ -724,7 +724,7 @@ class Board:
     @_exclusive
     def replace_markdown(self, page_id: str, markdown: str) -> int:
         """Make a page's body say this and nothing else. See the Notion client."""
-        if _bare(page_id) == CONTEXT_PAGE:
+        if ids.bare(page_id) == CONTEXT_PAGE:
             _write(self.context_file(), markdown.strip() + "\n")
             return _blocks(markdown)
         _, path = self._find(page_id)
@@ -775,7 +775,7 @@ class Board:
 
         text = "\n".join(converter.plain(block) for block in blocks).strip()
         if not text:
-            return [_bare(block_id)] * len(blocks)
+            return [ids.bare(block_id)] * len(blocks)
         _, path = self._find(block_id)
         front, body = parse(_text(path))
         body = body.strip()
@@ -786,7 +786,7 @@ class Board:
             body = f"{body}\n\n{LIVE_OPEN}\n\n{text}\n\n{LIVE_CLOSE}".strip()
         front["edited"] = now()
         _write(path, render(front, body))
-        return [_bare(block_id)] * len(blocks)
+        return [ids.bare(block_id)] * len(blocks)
 
     def update_block(self, block_id: str, payload: dict[str, Any]) -> None:
         """Nothing here is addressable below the page. See `append_blocks`."""
@@ -831,7 +831,7 @@ class Board:
                 written_values[name] = value.isoformat()
             elif kind == "relation":
                 written_values[name] = [
-                    _bare(str(one))
+                    ids.bare(str(one))
                     for one in (value if isinstance(value, (list, tuple)) else [value])
                     if one
                 ]
@@ -840,10 +840,6 @@ class Board:
             else:
                 written_values[name] = value
         return written_values
-
-
-def _bare(identifier: str) -> str:
-    return str(identifier or "").replace("-", "").strip()
 
 
 def _text(path: Path) -> str:

@@ -31,7 +31,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from . import priority as priority_module
-from . import store
+from . import store, timestamps
 from .config import Notion
 
 # What a cadence may say. A select rather than free text, for the same reason as
@@ -82,13 +82,7 @@ def scheduled_for(value: object) -> datetime | None:
     as written, offset included. Anything unparseable is treated as no date at
     all — nothing is ever held back by a value the runner failed to read.
     """
-    if not value:
-        return None
-    try:
-        moment = datetime.fromisoformat(str(value))
-    except ValueError:
-        return None
-    return moment.astimezone() if moment.tzinfo is None else moment
+    return timestamps.parse(value, naive="local")
 
 
 def timezone_name() -> str:

@@ -60,7 +60,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from . import db
+from . import db, ids, timestamps
 from .files import COLLECTIONS, Board
 from .store import Comment, Page, Picture, StoreError, read
 
@@ -299,17 +299,10 @@ def _edited(page: Page) -> str:
     return str(page.raw.get("last_edited_time") or page.raw.get("created_time") or "")
 
 
-def _moment(stamp: str) -> datetime:
-    """An ISO timestamp, comparable. Anything unreadable is the beginning of time."""
-    try:
-        moment = datetime.fromisoformat(str(stamp))
-    except (TypeError, ValueError):
-        return datetime.min.replace(tzinfo=UTC)
-    return moment if moment.tzinfo else moment.replace(tzinfo=UTC)
-
-
 def _newer(left: str, right: str) -> bool:
-    return _moment(left) > _moment(right)
+    # An hour without an offset is one somebody typed into a front matter:
+    # local, as the statistics read it too (`timestamps`).
+    return timestamps.sortable(left, naive="local") > timestamps.sortable(right, naive="local")
 
 
 def _minute(stamp: str) -> datetime:
@@ -319,7 +312,7 @@ def _minute(stamp: str) -> datetime:
     rounds down — a page edited at 10:05:50 says 10:05:00, and would lose to a
     file edited twenty seconds before it.
     """
-    return _moment(stamp).replace(second=0, microsecond=0)
+    return timestamps.sortable(stamp, naive="local").replace(second=0, microsecond=0)
 
 
 class Mirror:
@@ -532,8 +525,8 @@ class Mirror:
     def _reconcile(
         self, collection: str, database: str, settings: Notion, marks: Stamps, report: Report
     ) -> None:
-        here = {_bare(page.id): page for page in self.primary.query(database)}
-        there = {_bare(page.id): page for page in self.mirror.query(collection)}
+        here = {ids.bare(page.id): page for page in self.primary.query(database)}
+        there = {ids.bare(page.id): page for page in self.mirror.query(collection)}
 
         for page_id in sorted(set(here) | set(there)):
             left, right = here.get(page_id), there.get(page_id)
@@ -667,7 +660,7 @@ class Mirror:
 
     def _write_file(self, collection: str, page: Page) -> None:
         """One Notion page, written down as the file that mirrors it."""
-        page_id = _bare(page.id)
+        page_id = ids.bare(page.id)
         values = self._carried(page, self.mirror.schema(collection))
         values[self.mirror.title_property(collection)] = page.title
         try:
@@ -689,11 +682,11 @@ class Mirror:
         created = self.primary.create_row(
             database, page.title, self._carried(page, self.primary.schema(database))
         )
-        body = self.mirror.blocks_text(_bare(page.id))
+        body = self.mirror.blocks_text(ids.bare(page.id))
         if body.strip():
             self.primary.append_markdown(created, body)
-        self.mirror.rename(collection, _bare(page.id), _bare(created))
-        return _bare(created)
+        self.mirror.rename(collection, ids.bare(page.id), ids.bare(created))
+        return ids.bare(created)
 
     def _push(
         self, collection: str, database: str, page_id: str, page: Page, report: Report
@@ -743,10 +736,6 @@ class Mirror:
             self.primary.replace_markdown(space.context_page, there)
             report.note("markdown→notion", CONTEXT, CONTEXT, "the standing context")
         marks.agreed(CONTEXT, there, there)
-
-
-def _bare(identifier: str) -> str:
-    return str(identifier or "").replace("-", "").strip()
 
 
 def _now() -> str:

@@ -25,7 +25,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from . import blocks
+from . import blocks, timestamps
 
 # An unclosed run on a ticket still in progress is live while its last step is
 # this recent. Past it the runner is taken to be gone, whatever the column says.
@@ -36,14 +36,6 @@ STALE_SECONDS = 30 * 60
 _WAITING = ("blocked", "failed", "ready", "draft", "progress")
 
 PAUSES = ("question", "blocked", "credit")
-
-
-def _instant(stamp: str | None) -> datetime | None:
-    try:
-        moment = datetime.fromisoformat(str(stamp))
-    except ValueError:
-        return None
-    return moment if moment.tzinfo else moment.replace(tzinfo=UTC)
 
 
 def pause_of(span: dict[str, Any]) -> str:
@@ -69,7 +61,7 @@ def measure(
     now = now or datetime.now(UTC)
     runs = []
     for span in spans:
-        start = _instant(span.get("start"))
+        start = timestamps.parse(span.get("start"))
         if start is None:
             continue
         runs.append((start, span))
@@ -82,8 +74,8 @@ def measure(
     reached: datetime | None = None
     last_span: dict[str, Any] = {}
     for start, span in runs:
-        last = _instant(span.get("last")) or start
-        closed = _instant(span.get("end"))
+        last = timestamps.parse(span.get("last")) or start
+        closed = timestamps.parse(span.get("end"))
         live = (
             closed is None and column == "progress" and (now - last).total_seconds() < STALE_SECONDS
         )
