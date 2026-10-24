@@ -93,6 +93,9 @@ def an_mcp_client_lists_what_waits_creates_a_task_and_answers_a_question(state_h
         assert not store.read(made, "Status"), "a draft unless ready is asked for"
         assert "Sur Dokploy." in board.blocks_text(made.id)
 
+        launched = _mcp_call(api, grant, "create_task", title="Lance-toi", status="ready")
+        assert launched["isError"], "no client launches the task it wrote"
+
         unknown = _mcp_call(api, grant, "create_task", title="X", project="Nulle part")
         assert unknown["isError"] and "Usine" in unknown["content"][0]["text"]
 
@@ -113,6 +116,7 @@ def an_mcp_client_lists_what_waits_creates_a_task_and_answers_a_question(state_h
         assert [line["tool"] for line in journal_lines] == [
             "answer_question",
             "answer_question",
+            "create_task",
             "create_task",
             "create_task",
         ]
@@ -339,8 +343,10 @@ def no_mcp_tool_starts_a_run_runs_a_command_or_deletes_anything():
         "create_idea",
         "set_idea_state",
     ]
-    status = next(tool for tool in web_mcp.TOOLS if tool["name"] == "create_task")
-    assert status["inputSchema"]["properties"]["status"]["enum"] == ["draft", "ready"]
+    created = next(tool for tool in web_mcp.TOOLS if tool["name"] == "create_task")
+    assert "status" not in created["inputSchema"]["properties"], (
+        "a task created by a client is a draft: a person sets it ready"
+    )
     for tool in web_mcp.TOOLS:
         assert len(tool["description"]) > 80, f"{tool['name']}: a description Claude can choose by"
         assert tool["title"] and len(tool["title"]) < 40, (
@@ -705,6 +711,55 @@ def the_mcp_server_is_reached_through_oauth_with_pkce_and_its_own_keys(state_hom
         finally:
             console.shutdown()
             console.server_close()
+
+
+@case
+def the_consent_page_names_where_the_key_goes_whatever_the_client_calls_itself(state_home):
+    """Registration is open: a client may call itself "Claude" and send the code anywhere.
+
+    The page shows the host the code goes to, escaped, says a client is new
+    until it has been let in once, and leaves write unticked.
+    """
+    from ponos.web import oauth as web_oauth
+    from ponos.web import server as web_server
+
+    registered = web_oauth.register(
+        {"client_name": "Claude", "redirect_uris": ["https://claude.ai@evil.example/cb"]}
+    )
+    params = {
+        "response_type": "code",
+        "client_id": registered["client_id"],
+        "redirect_uri": "https://claude.ai@evil.example/cb",
+        "code_challenge": "c" * 43,
+        "code_challenge_method": "S256",
+        "scope": "read write",
+    }
+    asked = web_oauth.asked(params)
+    page = web_server.consent_page("en", asked, params, "")
+    assert "<strong>Claude</strong> asks" in page
+    assert "sends the key to <strong>evil.example</strong>" in page, (
+        "the real host, not the name nor what sits before an @"
+    )
+    assert "never been allowed here before" in page
+    assert '<input type="checkbox" name="write" value="1">' in page, "write is not ticked"
+    assert "starts a session on the spot" not in page
+    assert "every right on this machine" in page
+
+    french = web_server.consent_page("fr", asked, params, "")
+    assert "envoie la clé à <strong>evil.example</strong>" in french
+    assert "jamais été autorisé" in french
+
+    web_oauth.code(asked, (web_oauth.READ,))
+    again = web_server.consent_page("en", asked, params, "")
+    assert "never been allowed" not in again, "a client let in once is not new any more"
+
+    hidden = web_oauth.register(
+        {"client_name": "<b>x</b>", "redirect_uris": ["http://127.0.0.1:4711/cb"]}
+    )
+    local = {**params, "client_id": hidden["client_id"], "redirect_uri": "http://127.0.0.1:4711/cb"}
+    shown = web_server.consent_page("en", web_oauth.asked(local), local, "")
+    assert "&lt;b&gt;x&lt;/b&gt;" in shown and "<b>x</b>" not in shown
+    assert "<strong>127.0.0.1:4711</strong>" in shown
 
 
 @case

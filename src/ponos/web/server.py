@@ -383,9 +383,13 @@ _FRENCH = {
     "connect": "connecter",
     "<strong>{client}</strong> asks to reach this Ponos.": "<strong>{client}</strong> demande l'accès à ce Ponos.",
     "Read the tasks, the projects, the ideas and what the runner is doing": "Lire les tâches, les projets, les idées et ce que fait le runner",
-    "Write: create tasks, answer the blocked ones, sort the ideas": "Écrire : créer des tâches, répondre aux tâches bloquées, trier les idées",
-    "No tool runs a command, starts a session on the spot, changes the settings or deletes anything.": "Aucun outil ne lance de commande, ne démarre de session sur-le-champ, ne modifie les "
-    "réglages ni ne supprime quoi que ce soit.",
+    "Allowing sends the key to <strong>{host}</strong>.": "Autoriser envoie la clé à <strong>{host}</strong>.",
+    "This client has never been allowed here before.": "Ce client n'a encore jamais été autorisé ici.",
+    "Write: create draft tasks, answer the blocked ones, sort the ideas": "Écrire : créer des tâches en brouillon, répondre aux tâches bloquées, trier les idées",
+    "An answered task starts its session again, with every right on this machine. A task created "
+    "here stays a draft until you set it ready in the console.": "Une tâche à qui l'on répond relance sa session, avec tous les droits sur cette machine. "
+    "Une tâche créée ici reste en brouillon jusqu'à ce que vous la passiez en ready dans la console.",
+    "No tool runs a command, changes the settings or deletes anything.": "Aucun outil ne lance de commande, ne modifie les réglages ni ne supprime quoi que ce soit.",
     "Allow": "Autoriser",
     "Refuse": "Refuser",
     "wrong token": "jeton incorrect",
@@ -558,8 +562,11 @@ def consent_page(
         if params.get(name)
     )
     write = (
-        f'<label class="scope"><input type="checkbox" name="write" value="1" checked> '
-        f"{say('Write: create tasks, answer the blocked ones, sort the ideas')}</label>"
+        # Left unticked: writing is what can start a session on this machine,
+        # and a page somebody else opened for you should not give it by default.
+        f'<label class="scope"><input type="checkbox" name="write" value="1"> '
+        f"{say('Write: create draft tasks, answer the blocked ones, sort the ideas')}</label>"
+        f"<p>{say('An answered task starts its session again, with every right on this machine. A task created here stays a draft until you set it ready in the console.')}</p>"
         if oauth.WRITE in request.scopes
         else ""
     )
@@ -578,15 +585,29 @@ def consent_page(
     else:
         door = ""
     client = html.escape(request.client.name)
+    # The name is the client's own word; where the code goes is not. Shown
+    # with it, so that a "Claude" sending you to evil.example says so — the
+    # host alone, since `https://claude.ai@evil.example/` goes to evil.example.
+    target = urlparse(request.redirect_uri)
+    where = html.escape(
+        f"{target.hostname}:{target.port}" if target.port else target.hostname or "?"
+    )
+    fresh = (
+        ""
+        if oauth.consented(request.client.id)
+        else f'<p class="said">{say("This client has never been allowed here before.")}</p>'
+    )
     return _page(
         say("connect"),
         f"""<form method="post" action="/oauth/authorize">
   <h1>Ponos</h1>
   <p>{say("<strong>{client}</strong> asks to reach this Ponos.").format(client=client)}</p>
+  <p>{say("Allowing sends the key to <strong>{host}</strong>.").format(host=where)}</p>
+  {fresh}
   {hidden}
   <label class="scope"><input type="checkbox" checked disabled> {say("Read the tasks, the projects, the ideas and what the runner is doing")}</label>
   {write}
-  <p>{say("No tool runs a command, starts a session on the spot, changes the settings or deletes anything.")}</p>
+  <p>{say("No tool runs a command, changes the settings or deletes anything.")}</p>
   {door}
   <p class="said" role="alert">{html.escape(said)}</p>
   <button type="submit" name="decision" value="allow">{say("Allow")}</button>

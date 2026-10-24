@@ -1015,19 +1015,23 @@ back is a task, a project, an idea, an amount — never a page or a property.
 | `runner_status` | Runner et dépenses | read | the timer, the sessions in flight, the tasks running, what was spent today, over the period and project by project |
 | `list_ideas` | Idées | read | the ideas of a project, or of the workspace, by state, each with its score and why |
 | `list_goals` | Objectifs | read | the goals: status, due date, criterion, projects and progress — tasks done out of all but the cancelled ones |
-| `create_task` | Créer une tâche | write | a task, *draft* or *ready*, with its description, project, type, priority and goal (by name, whatever the case, or id) — through the console's *New ticket*, so the same rules as any other |
+| `create_task` | Créer une tâche | write | a *draft* task, with its description, project, type, priority and goal (by name, whatever the case, or id) — through the console's *New ticket*, so the same rules as any other; a person sets it *ready* in the console |
 | `answer_question` | Répondre à une tâche bloquée | write | an answer under a blocked task's question, as the console's discussion writes it; `ready: true` also moves it back to *ready* |
 | `list_solutions` | Solutions d'une tâche en attente | read | why a blocked task stopped (its kind, its reason, what is done) or what a task in review delivered (sentence, pull request, checks, points to check), and the choices the console offers on a blocked ticket's discussion and its Decide tab |
 | `apply_solution` | Appliquer une solution | write | one of those choices: the decision and its instruction in the task's discussion, then the move — *ready*, *validated* or *done* |
 | `create_idea` | Proposer une idée | write | an idea among the proposed ones, to be kept or thrown away |
 | `set_idea_state` | Garder ou jeter une idée | write | `keep` (for later, nothing on the board), `ticket` (a draft, as swiping right in the pile does), `discard`, or `new` to propose it again |
 
-**Nothing else.** No tool starts a run, runs a command, changes the settings or deletes
-anything: a task created *ready* is run by the timer at its next pass, like any ready ticket.
+**Nothing else.** No tool runs a command, changes the settings or deletes anything. A task a
+client creates is always a draft: a ready one runs a session with every right on this machine,
+so it waits for a person to read its brief and set it *ready* in the console. Answering a
+blocked task, or applying one of its solutions, does start its session again.
 The descriptions the tools carry are in French, and say when to use each one.
 
-**Two scopes, two keys.** `read` is every reading tool; `write` adds the four that write — the
-consent page ticks it, untick it for a connector that should only look. A client given `read`
+**Two scopes, two keys.** `read` is every reading tool; `write` adds the ones that write — the
+consent page leaves it unticked, tick it for a connector you trust to act. The page names the
+client as it named itself, and the host the key is sent to, which the client cannot choose a
+name for; a client never let in before is said to be new. A client given `read`
 alone is not even shown the others, and a write it asks for anyway is refused. The console's
 own token and its cookie are **not** keys to `/mcp`: they open everything behind that port,
 and a connector is given less. Every write asked for — refused ones included — is written to

@@ -9,10 +9,13 @@ project, an idea, a sum of money: never a page, a database or a property. The
 console's *New ticket* creates, and an answer is the comment the console's
 discussion posts — the same road, the same rules, nothing beside them.
 
-**Small on purpose.** Nothing here starts a session, runs a command, touches
-the configuration or deletes anything. A task created *ready* is picked up by
-the timer like any other ready ticket — that is the runner's decision, on its
-cadence, not this server's. The tools that write are few, need the `write`
+**Small on purpose.** Nothing here runs a command, touches the configuration
+or deletes anything. A task created here is a draft, always: a ready one runs a
+session with every right on this machine, and registration is open to anybody
+who can send a link to the consent page — so the brief a client wrote waits for
+a person to set it ready in the console. An answer to a blocked task, or a
+solution applied, does start its session again: the consent page says so. The
+tools that write are few, need the `write`
 scope (see `oauth.py`), and each call is written to the journal with the tool,
 the moment and the client, refused ones included.
 
@@ -93,11 +96,11 @@ peu : créer une tâche, répondre à une tâche bloquée, trier les idées.
 une question : lisez-la avec get_task, puis répondez avec answer_question — ou \
 lisez avec list_solutions ce qui la débloquerait, et appliquez-en une avec \
 apply_solution, qui sert aussi à décider d'une tâche en review.
-- Créez une tâche en « draft » sauf si la personne demande explicitement qu'elle \
-parte tout de suite : une tâche « ready » sera lancée par le runner à sa \
-prochaine passe, et coûtera une session.
-- Aucun outil ne lance d'exécution, ne lance de commande, ne modifie la \
-configuration ni ne supprime quoi que ce soit."""
+- Une tâche créée ici reste en « draft » : la personne la relit et la passe \
+en « ready » depuis la console, et le runner la lance alors à sa prochaine passe.
+- Répondre à une tâche bloquée, ou lui appliquer une solution, la relance : sa \
+session reprend avec cette réponse. Aucun outil ne lance de commande, ne modifie \
+la configuration ni ne supprime quoi que ce soit."""
 
 
 class ToolError(Exception):
@@ -259,9 +262,9 @@ TOOLS: list[dict[str, Any]] = [
         "title": "Créer une tâche",
         "scope": WRITE,
         "description": "Crée une tâche dans Ponos, par le même circuit qu'une tâche créée depuis "
-        "la console ou le tableau : mêmes règles, même runner. En statut draft (par défaut), elle "
-        "attend qu'on la relise ; en ready, le runner la lancera à sa prochaine passe — ne choisir "
-        "ready que si la personne le demande. Le projet décide du dépôt où le travail se fait : "
+        "la console ou le tableau : mêmes règles, même runner. Elle est créée en brouillon (draft) "
+        "et attend qu'une personne la relise et la passe en ready depuis la console : aucun "
+        "client MCP ne lance une tâche qu'il a créée. Le projet décide du dépôt où le travail se fait : "
         "vérifier son nom avec list_projects. Sans type, Ponos le déduit lui-même avant de lancer "
         "la tâche. Un objectif donné rattache la tâche à cet objectif (vérifier son nom avec "
         "list_goals). Renvoie l'identifiant de la tâche créée.",
@@ -295,11 +298,6 @@ TOOLS: list[dict[str, Any]] = [
                     "type": "string",
                     "description": "L'objectif que la tâche sert : son nom (tel que list_goals "
                     "le renvoie, sans tenir compte de la casse) ou son identifiant.",
-                },
-                "status": {
-                    "type": "string",
-                    "enum": ["draft", "ready"],
-                    "description": "draft (par défaut) ou ready (lancée à la prochaine passe).",
                 },
             },
             ("title",),
@@ -950,7 +948,6 @@ def create_task(
     type: str = "",  # noqa: A002 — the name the tool gives it
     priority: int | str = "",
     goal: str = "",
-    status: str = "draft",
 ) -> dict[str, Any]:
     if not title.strip():
         raise ToolError("Une tâche a besoin d'un titre.")
@@ -960,7 +957,7 @@ def create_task(
         title,
         description,
         chosen["id"] if chosen else "",
-        ready=status == "ready",
+        ready=False,  # see the module's docstring: a person sets it ready
         priority=priority,
         kind=type,
         goal=served["id"] if served else "",
@@ -970,7 +967,7 @@ def create_task(
         "title": created["title"],
         "project": chosen["name"] if chosen else "",
         "goal": served["name"] if served else "",
-        "status": status,
+        "status": "draft",
     }
 
 

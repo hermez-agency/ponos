@@ -289,6 +289,20 @@ def client(identifier: str) -> Client | None:
     return Client(id=row[0], name=row[1], redirect_uris=uris, secret=row[3])
 
 
+def consented(identifier: str) -> bool:
+    """Whether this client was ever given a code: the consent page says when it was not.
+
+    Registration is open, so a name is whatever the client chose — "Claude"
+    as readily as anything. What it cannot choose is having been let in
+    before, which a code, kept as a row even once spent, remembers.
+    """
+    with db.transaction(immediate=False) as connection:
+        row = connection.execute(
+            "SELECT 1 FROM mcp_tokens WHERE client = ? LIMIT 1", (identifier,)
+        ).fetchone()
+    return row is not None
+
+
 def authenticated(found: Client, secret: str) -> bool:
     """A client that registered with a secret gives it; a public one gives none."""
     if not found.secret:
