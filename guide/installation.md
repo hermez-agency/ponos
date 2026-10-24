@@ -86,7 +86,9 @@ installing, restarting — and the page reloads by itself from the new version:
 - **nothing runs on half of two versions.** Each version is installed in a directory of
   its own, `~/.local/share/ponos/app-<commit>`, and `app` is a link moved onto it
   in one step once it starts. A pass reads the link once, when it starts, and runs whole
-  on the version it found; the previous version stays on disk beside the new one;
+  on the version it found; the previous version stays on disk beside the new one, and
+  `ponos.db` as it was before the new one migrated it, as `ponos.db.v<N>.bak`
+  (see [Troubleshooting](troubleshooting.md#when-it-does-not-work));
 - **each version has its own Python environment.** `app-<commit>/.venv` is made from the
   machine's `python3` before `app` points at the version, and holds what
   `requirements.txt` lists — httpx and pydantic for the runner, the console's FastAPI and uvicorn, and

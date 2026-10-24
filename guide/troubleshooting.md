@@ -79,6 +79,15 @@ the same way as a newer one, and `ponos doctor` warns when the names are not in 
 order. A file from before the table is given the names of its first migrations, by its
 version.
 
+Before it applies the first migration a file is missing, Ponos copies the file as it was to
+`ponos.db.v<N>.bak` beside it — N its schema version then, a copy SQLite takes whole even
+while the other process writes — and keeps the last three. That is the way back after an
+update: the previous version stays on disk, but refuses the file the new one migrated.
+`ponos doctor` names the latest copy and the command that puts it back; stop the runner and
+the console, remove `ponos.db-wal` and `ponos.db-shm`, copy the `.bak` over `ponos.db`, then
+point `~/.local/share/ponos/app` at the previous `app-<commit>`. What the runner wrote since
+the copy is lost.
+
 Launched from a repository rather than from its installation — `PYTHONPATH=src python3 -m
 ponos …` in a checkout or a worktree — Ponos refuses to touch the real state until
 `XDG_STATE_HOME` is set: `XDG_STATE_HOME=$(mktemp -d)` for a state of its own, or
