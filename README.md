@@ -14,7 +14,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/github/license/hermez-agency/ponos" alt="Licence: MIT"></a>
   <a href="CHANGELOG.md"><img src="https://img.shields.io/github/v/release/hermez-agency/ponos?include_prereleases&sort=semver&label=version" alt="Version"></a>
   <a href="#installation"><img src="https://img.shields.io/badge/python-3.11%2B-3776ab?logo=python&logoColor=white" alt="Python 3.11+"></a>
-  <a href="tests/run.py"><img src="https://img.shields.io/badge/dependencies-zero-2ea44f" alt="Zero dependencies"></a>
+  <a href="pyproject.toml"><img src="https://img.shields.io/badge/dependencies-4-2ea44f" alt="Four dependencies"></a>
 </p>
 
 <p align="center">
