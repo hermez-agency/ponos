@@ -149,6 +149,15 @@ npm test           # node --test on the message bar's decisions — nothing to i
 npm run test:components  # Vitest in jsdom: one component at a time, drawn and clicked
 ```
 
+The page reaches that API through one client, `frontend/src/lib/api.ts`, built with
+[openapi-fetch](https://openapi-ts.dev/openapi-fetch/) on the same `api-types.d.ts`: a
+call names its route and its method, and its parameters, its body and what it answers are
+read off the schema rather than written at the call. A path the server does not have, a
+body of the wrong shape or an answer taken for something it is not fails `npm run lint`.
+What the client adds is the rest — the `X-Ponos` header and the cookie on every request,
+the way back to the sign-in on a 401, the server's sentence in an `ApiError`, and the raw
+bodies of a picture, a file or a recording, which the schema does not describe.
+
 `npm run test:e2e` is Playwright, driving the Chrome already installed rather than a
 browser of its own: `e2e/console.py` starts a real `ponos serve` on a throwaway
 Markdown board, so the tests read the build that `npm run build` last wrote and nothing of
