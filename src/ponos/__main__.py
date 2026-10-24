@@ -1641,7 +1641,7 @@ def build_parser() -> argparse.ArgumentParser:
         description=TAGLINE,
     )
     parser.add_argument("--version", action="version", version=f"{PRODUCT} {__version__}")
-    subparsers = parser.add_subparsers(dest="command")
+    subparsers = parser.add_subparsers(dest="command", help="the command to run")
 
     run = subparsers.add_parser("run", help="handle the ready tickets (one run)")
     run.add_argument("--ticket", help="URL or ID of one ticket, whatever its status")
@@ -1695,12 +1695,16 @@ def build_parser() -> argparse.ArgumentParser:
     status.set_defaults(function=command_status)
 
     history = subparsers.add_parser("history", help="tickets already handled")
-    history.add_argument("-n", "--number", type=int, default=20)
+    history.add_argument(
+        "-n", "--number", type=int, default=20, help="how many tickets to show (default: 20)"
+    )
     history.set_defaults(function=command_history)
 
-    logs = subparsers.add_parser("logs", help="follow a session")
+    logs = subparsers.add_parser("logs", help="show a session's log (-f to follow)")
     logs.add_argument("ticket", nargs="?", help="the ticket's ID, in any form")
-    logs.add_argument("-f", "--follow", action="store_true")
+    logs.add_argument(
+        "-f", "--follow", action="store_true", help="keep printing what is written, until Ctrl-C"
+    )
     logs.add_argument("--raw", action="store_true", help="the raw JSON stream")
     logs.add_argument(
         "--runs", action="store_true", help="list the ticket's runs from the local journal"
@@ -1756,8 +1760,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     serving.set_defaults(function=command_serve)
 
-    serving_mcp = subparsers.add_parser("mcp", help="the MCP server's keys: draw, list, revoke")
-    actions = serving_mcp.add_subparsers(dest="action")
+    serving_mcp = subparsers.add_parser(
+        "mcp", help="the MCP server's keys: draw, list, revoke (default: list)"
+    )
+    actions = serving_mcp.add_subparsers(dest="action", help="what to do (default: list)")
     drawing = actions.add_parser("token", help="draw a token for Claude Code")
     drawing.add_argument("--name", help="who it is for, as the journal will say it")
     drawing.add_argument("--read-only", action="store_true", help="read, never write")
@@ -1766,7 +1772,9 @@ def build_parser() -> argparse.ArgumentParser:
     listing_keys = actions.add_parser(
         "list", help="the clients, and the last writes they asked for"
     )
-    listing_keys.add_argument("-n", "--number", type=int, default=20)
+    listing_keys.add_argument(
+        "-n", "--number", type=int, default=20, help="how many writes to show (default: 20)"
+    )
     serving_mcp.set_defaults(function=command_mcp, action="list", number=20)
 
     tailnet = subparsers.add_parser(
@@ -1794,7 +1802,14 @@ def build_parser() -> argparse.ArgumentParser:
     notifying.set_defaults(function=command_notify)
 
     clean = subparsers.add_parser("clean", help="remove worktrees left by failures")
-    clean.add_argument("--force", action="store_true")
+    clean.add_argument(
+        "--force",
+        action="store_true",
+        help="remove the worktrees and scratch directories listed — uncommitted changes go "
+        "with them — their branches and the logs older than --days, and stop the containers "
+        "and processes they left running; keeps a branch pushed with an open pull request, or "
+        "whose worktree held commits absent from the base or uncommitted changes",
+    )
     clean.add_argument("--days", type=int, default=14, help="also drop logs older than this")
     clean.set_defaults(function=command_clean)
 

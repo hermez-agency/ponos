@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import ast
 import contextlib
 import gzip
@@ -352,6 +353,28 @@ def the_exit_codes_are_the_ones_the_guide_tells_a_script(state_home):
     table = (ROOT / "guide" / "usage.md").read_text(encoding="utf-8").split("### Exit codes")[1]
     for code in ("0", "1", "2", "130"):
         assert f"\n| `{code}` |" in table, f"{code} is not in the table"
+
+
+@case
+def every_option_says_what_it_does():
+    """`--help` is where somebody looks before typing `clean --force`.
+
+    So no option is left as a bare flag: an action added without its `help`
+    fails here, in every subcommand, however deep — `-h` aside, which argparse
+    explains itself.
+    """
+    silent = []
+    parsers = [("ponos", build_parser())]
+    while parsers:
+        name, parser = parsers.pop()
+        for action in parser._actions:
+            if isinstance(action, argparse._HelpAction):
+                continue
+            if isinstance(action, argparse._SubParsersAction):
+                parsers.extend((f"{name} {verb}", sub) for verb, sub in action.choices.items())
+            if not action.help:
+                silent.append(f"{name} {'/'.join(action.option_strings) or action.dest}")
+    assert not silent, f"options without a help: {silent}"
 
 
 @case
