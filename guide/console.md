@@ -196,7 +196,8 @@ missing tests, screenshots, a rebase, or any of those points — or *reject*. Ea
 one comment — *Answered from the console. Decision: run it again on opus.* and the words you
 typed — which the next session reads as yours, then moves the ticket: to *Ready* to work
 again, *Validated* to merge, *Done* — or *Cancelled*, on a board that has that column — to
-file it away. The MCP server's `list_solutions` still lists every choice a blocked ticket
+file it away. *Split into sub-tickets* writes them as drafts, on the project and the
+[goal](#goals) of the ticket they come from, so they still count toward it. The MCP server's `list_solutions` still lists every choice a blocked ticket
 offers — *it's done, run it again*, *split into sub-tickets* and the rest — for an assistant
 to pick from.
 

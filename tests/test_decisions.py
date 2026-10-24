@@ -281,6 +281,8 @@ def each_choice_moves_the_ticket_and_leaves_the_instruction_for_the_next_session
                 ),
             ),
         )
+        goal = board.create_row("goals", "Lancer la v1", {})
+        board.update("tickets", fourth, {settings.prop("goal"): [goal]})
         assert api.decision(fourth)["solutions"][0] == {
             "key": "split",
             "column": "done",
@@ -295,6 +297,9 @@ def each_choice_moves_the_ticket_and_leaves_the_instruction_for_the_next_session
             page for page in board.query("tickets", {}) if page.title in ("The API", "The page")
         ]
         assert len(made) == 2 and all(store.read(page, "Project") == [project] for page in made)
+        assert all(store.read(page, settings.prop("goal")) == [goal] for page in made), (
+            "the parts still count towards the goal of the whole"
+        )
         assert all(not store.read(page, "Status") for page in made), "drafts, never a paid session"
         assert "split into 2 tickets: The API · The page" in board.comments(fourth)[-1].text
 
