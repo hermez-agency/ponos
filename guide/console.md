@@ -234,12 +234,16 @@ two gestures, and they are not made to look alike.
 Two keys reach it without the mouse. **Ctrl+J** (⌘J on a Mac) opens and closes the
 drawer, the cursor already in its message bar — type straight away — and gives the focus
 back to wherever it was when it closes; Escape closes it too. **Ctrl+K** (⌘K) opens a
-palette: the pages, the projects, the tickets on the board, and a few actions (a new
-ticket, the console, a resynchronisation), found by typing a few letters and opened with
-Enter. Both answer from inside a field as well; the magnifying glass in the bar opens the
-same palette, and its tooltip and the bubble's say the keys. A third, **/**, goes to the
-search over the board, and only from outside a field. They are listed in one place,
-`frontend/src/lib/hotkeys.ts`, which is where a fourth one goes.
+palette: the pages (Sessions among them), the projects, the tickets on the board, and a
+few actions — every creation (a new ticket, project, idea, goal, schedule or session), the
+console, a resynchronisation —, found by typing a few letters and opened with Enter. On a
+project's page, the new ticket is *New ticket for* that project, its form opened with the
+project already chosen. Both answer from inside a field as well; the magnifying glass in
+the bar opens the same palette, and its tooltip and the bubble's say the keys. A third,
+**/**, goes to the search over the board, and a fourth, **N**, opens *New ticket* — for
+the project whose page is open, if one is — both only from outside a field and with no
+window open; the palette prints N beside its entry. They are listed in one place,
+`frontend/src/lib/hotkeys.ts`, which is where a fifth one goes.
 
 - A line starting with `>` is a **`ponos` subcommand** — `>status`, `>list`,
   `>doctor`, `>logs 1a2b3c4d`. The CLI is already the considered surface of this

@@ -12,6 +12,7 @@ import {
 import {
   createResourceCollection,
   createViewResource,
+  generateLink,
   generateLinkByResource,
   layout,
 } from "react-resource-view"
@@ -341,6 +342,15 @@ export const goals = createViewResource<GoalItem, GoalWrite>(GOALS, {
 
 /** Where the goals are listed. */
 export const goalsHref = () => generateLinkByResource({ resource: goals, resourceAction: ActionList.list })
+
+/** "New goal", in its drawer over the list of goals. */
+export const newGoalHref = () =>
+  generateLink({
+    resource: goals,
+    resourceAction: ActionList.list,
+    scope: goals.scope,
+    childViewResource: { resource: goals, resourceAction: ActionList.create },
+  })
 
 /** One goal's page. */
 export const goalHref = (id: string) => generateLinkByResource({ resource: goals, resourceAction: ActionList.read, id })

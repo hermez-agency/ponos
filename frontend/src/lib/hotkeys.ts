@@ -1,8 +1,9 @@
 /* The console's keyboard shortcuts, all of them, in one list.
  *
- * Four today: the palette (Ctrl+K, ⌘K on a Mac), the drawer the conversation
- * lives in (Ctrl+J, ⌘J), a new conversation in it (Ctrl+Shift+O, ⌘⇧O), and the search over the board (/, the key most sites
- * give their search field). One more is a line here and a handler where it acts —
+ * Five today: the palette (Ctrl+K, ⌘K on a Mac), the drawer the conversation
+ * lives in (Ctrl+J, ⌘J), a new conversation in it (Ctrl+Shift+O, ⌘⇧O), the search over the board (/, the key most sites
+ * give their search field), and a new ticket (N, out of a field — the letter
+ * the mail and tracker apps give a new one). One more is a line here and a handler where it acts —
  * `useHotkeys` reads this list, the palette prints it, the bubble's tooltip
  * says it — so a shortcut is never written in one place and forgotten in
  * another.
@@ -16,7 +17,7 @@
  * file as it stands, the way it reads `composer.ts`.
  */
 
-export type HotkeyId = "palette" | "console" | "newChat" | "search"
+export type HotkeyId = "palette" | "console" | "newChat" | "search" | "newTicket"
 
 export interface Hotkey {
   id: HotkeyId
@@ -37,6 +38,7 @@ export const HOTKEYS: Record<HotkeyId, Hotkey> = {
   console: { id: "console", key: "j", mod: true, inFields: true },
   newChat: { id: "newChat", key: "o", mod: true, shift: true, inFields: true },
   search: { id: "search", key: "/", mod: false, inFields: false },
+  newTicket: { id: "newTicket", key: "n", mod: false, inFields: false },
 }
 
 /** What `matches` reads of a keydown. */

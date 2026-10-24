@@ -281,6 +281,7 @@ export const FRENCH: Record<string, string> = {
   "Nothing on the board yet — a ticket moved to the ready column is a session that starts.":
     "Rien sur le tableau — un ticket déposé dans la colonne prête, c'est une session qui démarre.",
   "New ticket": "Nouveau ticket",
+  "New ticket for {{project}}": "Nouveau ticket pour {{project}}",
   Ticket: "Ticket",
   Title: "Titre",
   "The brief": "Le brief",
