@@ -5,7 +5,7 @@ import { expect, test, type Page } from "@playwright/test"
  * The statistics were a page of their own, behind an entry of the menu; they
  * are now a band at the top of the board, on the last seven days until somebody
  * picks another period. What is checked is what somebody sees: the menu names
- * the page Dashboard and has no Statistics, the band opens on seven days above
+ * the page Dashboard and has no Statistics, the tab names it as the menu does, the band opens on seven days above
  * the tickets, a period picked is a question asked again, and the old address
  * lands on the dashboard rather than on nothing.
  */
@@ -31,6 +31,13 @@ test("the menu names the dashboard, and has no statistics of its own", async ({ 
   const menu = page.locator('[data-slot="sidebar"]').first()
   await expect(menu.getByText("Dashboard", { exact: true })).toBeVisible()
   await expect(menu.getByText("Statistics", { exact: true })).toHaveCount(0)
+})
+
+test("the tab names the page as the menu does, not as its board section", async ({ page }) => {
+  await open(page)
+  await expect(page).toHaveTitle("Dashboard · Ponos")
+  await page.locator('[data-slot="sidebar"]').first().getByText("Projects", { exact: true }).click()
+  await expect(page).toHaveTitle("Projects · Ponos")
 })
 
 test("the dashboard opens on the last seven days, over the tickets", async ({ page }) => {
