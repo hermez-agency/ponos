@@ -1,8 +1,24 @@
 # CLAUDE.md
 
-Ce fichier oriente Claude Code (ou tout agent) dans ce dépôt. Le README fait
-référence : il est très détaillé, ne le duplique pas ici et ne le résume pas —
-sers-t'en pour toute question de comportement ou de configuration.
+Ce fichier oriente Claude Code (ou tout agent) dans ce dépôt. La documentation
+fait référence — ne la duplique pas ici et ne la résume pas :
+
+- `README.md` — l'accueil, court (moins de 30 Ko, un test le vérifie) : ce que
+  c'est, l'installer, le trajet d'un ticket, et les liens vers le reste ;
+- `guide/` — le guide utilisateur, une page par sujet (`guide/README.md` en
+  est le sommaire) : `installation.md`, `configuration.md`, `board.md`,
+  `tickets.md`, `channels.md`, `console.md`, `usage.md`, `safety.md`,
+  `credits.md`, `server.md`, `troubleshooting.md` — sers-t'en pour toute
+  question de comportement ou de configuration ;
+- `CONTRIBUTING.md` — travailler sur Ponos lui-même : l'architecture et sa
+  régénération, le code de la console, la mascotte, les tests, les releases.
+
+Un comportement qui change se documente dans la page du guide qui en parle.
+Une section déplacée d'une page à l'autre emporte ses liens : le site
+(`docs/index.html`), `docs/llms.txt` et le template Dokploy pointent sur
+`github.com/hermez-agency/ponos/blob/main/<page>#<ancre>`, et deux tests de
+`tests/test_release.py` vérifient que chaque lien, entrant ou interne, tombe
+sur une page et un titre qui existent.
 
 ## Le projet, en deux phrases
 
@@ -160,7 +176,7 @@ deux suites, puis publie l'image sur `ghcr.io`.
   `install.sh` pour le timer et la console.
 - `desktop/` — gabarit du handler `ponos://` enregistré sur le bureau.
 - `diagrams/` — `ponos.architecture.json` est la source du diagramme ;
-  `architecture.html` et `ponos.png` en sont générés, voir le README
+  `architecture.html` et `ponos.png` en sont générés, voir `CONTRIBUTING.md`
   ("Regenerating it").
 
 ## Conventions de code et de commit

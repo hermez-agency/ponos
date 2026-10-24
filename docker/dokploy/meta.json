@@ -7,7 +7,7 @@
   "links": {
     "github": "https://github.com/hermez-agency/ponos",
     "website": "https://the-ponos.app/",
-    "docs": "https://github.com/hermez-agency/ponos#install-with-dokploy"
+    "docs": "https://github.com/hermez-agency/ponos/blob/main/guide/server.md#install-with-dokploy"
   },
   "tags": [
     "ai",

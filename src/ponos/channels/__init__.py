@@ -370,7 +370,7 @@ def allowed_users(raw: object) -> frozenset[str]:
     """Who may answer, from `allowed_users` — commas, spaces or a TOML list.
 
     Empty means anybody who can write where the runner reads, which is the old
-    behaviour and still the default: see the README's paragraph on who can run
+    behaviour and still the default: see guide/server.md's paragraph on who can run
     commands on the machine, and what `doctor` says about it.
     """
     text = ",".join(str(item) for item in raw) if isinstance(raw, (list, tuple)) else str(raw or "")
