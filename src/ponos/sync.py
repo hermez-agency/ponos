@@ -200,7 +200,8 @@ class Stamps:
     never been reconciled — which is what makes "created" and "deleted"
     distinguishable at all. A fingerprint is absent from stamps written before
     it existed, and empty when it is not known; the timestamps alone decide
-    then, as they used to.
+    then, as they used to. Only the stamps `agreed` changed are written back:
+    a pass over an unchanged board writes nothing.
     """
 
     def __init__(self, database: Path | None = None) -> None:
@@ -215,6 +216,7 @@ class Stamps:
             str(page): [notion, markdown, printed, content]
             for page, notion, markdown, printed, content in rows
         }
+        self._dirty: set[str] = set()
 
     def seen(self, page_id: str) -> bool:
         return page_id in self._known
@@ -241,7 +243,10 @@ class Stamps:
         printed: str = "",
         content: str = "",
     ) -> None:
-        self._known[page_id] = [notion_at, markdown_at, printed, content]
+        stamp = [notion_at, markdown_at, printed, content]
+        if self._known.get(page_id) != stamp:
+            self._known[page_id] = stamp
+            self._dirty.add(page_id)
 
     def forget_nothing(self) -> None:
         """Deliberately not a method: a page is never dropped from the stamps.
@@ -251,6 +256,8 @@ class Stamps:
         """
 
     def save(self) -> None:
+        if not self._dirty:
+            return
         try:
             # One transaction: a stamp lost to a half-written save turns
             # "deleted on one side" back into "created on the other".
@@ -261,8 +268,10 @@ class Stamps:
                     [
                         (page, *(list(known) + ["", "", "", ""])[:4])
                         for page, known in self._known.items()
+                        if page in self._dirty
                     ],
                 )
+            self._dirty.clear()
         except db.ERRORS:
             pass
 
