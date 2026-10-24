@@ -53,7 +53,9 @@ turns while it runs, and *Board read again* says when it is done — and change 
 the last read and the version are one pill — a dot and *live* — that a tap opens on all
 three. Every page has an address — `/?view=console/tickets/list`,
 `/?view=console/tickets/read/<id>` — so a reload, a bookmark or a link pasted into a chat
-lands where you were. The page of *running* sessions the console used to have is gone, and its old
+lands where you were. A typed name leads to its page — `/projets` or `/projects`,
+`/objectifs`, `/reglages`, `/sessions` and the like — and an address the console does not have
+says *Page not found* and lists its pages. The page of *running* sessions the console used to have is gone, and its old
 address leads to the board: a ticket's session is followed on its ticket.
 
 **Sessions** is the entry for the other kind — your conversations with the workspace, the ones

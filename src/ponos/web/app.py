@@ -630,7 +630,7 @@ def _token_whereabouts(asking: Asking) -> str:
     return f"<code>{html.escape(str(state_dir() / 'web' / 'token'))}</code>"
 
 
-def _static(asking: Asking, name: str, setup: str = "") -> Response:
+def _static(asking: Asking, name: str, setup: str = "", status: int = 200) -> Response:
     # Read from `server` at each request, where a test may point it elsewhere.
     folder = server.STATIC
     target = (folder / name).resolve()
@@ -647,6 +647,11 @@ def _static(asking: Asking, name: str, setup: str = "") -> Response:
             # What the page draws instead of the console: see `main.tsx`.
             body = re.sub(rb"<html\b", f'<html data-setup="{setup}"'.encode(), body, count=1)
             marked = f"{marked}:{setup}"
+        elif status == 404:
+            # An address the console does not have: the page says so, and
+            # where its views are — see `main.tsx`.
+            body = re.sub(rb"<html\b", b"<html data-missing", body, count=1)
+            marked = f"{marked}:missing"
     extra: dict[str, str] = {}
     # Hashed from the page as it is, before it is compressed: see `page_policy`.
     if kind == "text/html":
@@ -666,7 +671,7 @@ def _static(asking: Asking, name: str, setup: str = "") -> Response:
     if kind.startswith("text/") or kind == "application/javascript":
         kind = f"{kind}; charset=utf-8"
     cache = IMMUTABLE if name.startswith("assets/") else "no-store"
-    return _send(200, body, kind, extra, cache=cache)
+    return _send(status, body, kind, extra, cache=cache)
 
 
 def _read(request: Request) -> bytes | None:
@@ -732,6 +737,11 @@ def application(console: Console) -> FastAPI:
     async def unrouted(request: Request, error: StarletteHTTPException) -> Response:
         # A path no route serves, or serves by another method: there is no such
         # route, as `http.server` said for both.
+        if error.status_code == 404 and _navigation(request):
+            moved = READABLE.get(request.url.path.lower())
+            if moved:
+                return _send(303, b"", "text/plain", {"Location": moved})
+            return _static(_asking(request), "index.html", status=404)
         if error.status_code in (404, 405):
             return fail(404, f"no such route: {request.url.path}")
         return fail(error.status_code, str(error.detail))
@@ -741,6 +751,29 @@ def application(console: Console) -> FastAPI:
         return routes.refusal(error)
 
     return app
+
+
+# The names somebody types for a view, in either language, and where the view
+# is: every page of the console is in the query string (see `router.tsx`).
+READABLE = {
+    **dict.fromkeys(("/tickets", "/board", "/tableau"), "/?view=console/tickets/list"),
+    **dict.fromkeys(("/projets", "/projects"), "/?view=console/projects/list"),
+    **dict.fromkeys(("/objectifs", "/goals"), "/?view=console/goals/list"),
+    **dict.fromkeys(("/idees", "/idées", "/ideas"), "/?view=console/ideas/list"),
+    **dict.fromkeys(
+        ("/recurrences", "/récurrences", "/schedules"), "/?view=console/schedules/list"
+    ),
+    "/sessions": "/?view=console/sessions/list",
+    **dict.fromkeys(("/reglages", "/réglages", "/settings"), "/?view=console/settings/read/config"),
+}
+
+
+def _navigation(request: Request) -> bool:
+    """A browser opening an address — not a client of the API, which keeps its JSON."""
+    route = request.url.path
+    if request.method != "GET" or route.startswith(("/api/", "/static/", "/.well-known/")):
+        return False
+    return "text/html" in (request.headers.get("Accept") or "")
 
 
 doors = APIRouter(route_class=routes.Answered)

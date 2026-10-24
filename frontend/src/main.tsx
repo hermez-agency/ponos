@@ -17,6 +17,13 @@ startServiceWorker()
 /* The server marks the page `data-setup` when what it serves is the first
  * connection rather than the console — see `web/server.py` and `setup.tsx`. */
 const setup = Boolean(document.documentElement.dataset.setup)
+/* And `data-missing` when the address is one the console does not have — see
+ * `web/app.py` and `not-found.tsx`. */
+const missing = document.documentElement.dataset.missing !== undefined
+
+const NotFound = lazy(() =>
+  import("./components/console/not-found").then((module) => ({ default: module.NotFound }))
+)
 
 /* A page seen once, kept out of the console's first load, which has a budget. */
 const SetupApp = lazy(() =>
@@ -25,7 +32,11 @@ const SetupApp = lazy(() =>
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    {setup ? (
+    {missing ? (
+      <Suspense fallback={null}>
+        <NotFound />
+      </Suspense>
+    ) : setup ? (
       <Suspense fallback={null}>
         <SetupApp />
       </Suspense>
