@@ -18,10 +18,12 @@
 # d'une date avec celui d'aujourd'hui n'y échoue jamais. Sydney change d'heure
 # à l'inverse de Paris : à toute saison, l'un des deux est à l'heure d'été.
 #
-# Le job frontend ne tourne que si `frontend/**` (ses tests e2e compris) ou
-# `src/ponos/web/**` a changé, pour ne pas payer npm sur des tickets qui
-# n'y touchent pas : le serveur de la console fait partie de ce que les tests
-# e2e ouvrent — le chat, par exemple, c'est d'abord son API —, et un main dont
+# Le job frontend ne tourne, sur une pull request, que si `frontend/**` (ses
+# tests e2e compris) ou `src/ponos/web/**` a changé, pour ne pas payer npm sur
+# des tickets qui n'y touchent pas ; sur chaque push vers `main` il tourne
+# toujours, pour qu'un e2e cassé sur main se voie avant les pull request qui
+# touchent la console, au lieu de n'y apparaître que par hasard. Le serveur de
+# la console fait partie de ce que les tests e2e ouvrent — le chat, par exemple, c'est d'abord son API —, et un main dont
 # seul le Python de la console a bougé restait vert sans avoir lancé ses e2e. Et il vérifie que `web/static/`, que le
 # runner sert tel qu'il est commité, est bien ce que le build produit : une
 # console modifiée sans son build commité serait une console que personne ne
@@ -140,31 +142,31 @@ jobs:
               - 'src/ponos/web/**'
 
       - uses: actions/setup-node@v4
-        if: steps.changes.outputs.frontend == 'true'
+        if: github.event_name == 'push' || steps.changes.outputs.frontend == 'true'
         with:
           node-version: 24
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
       - uses: actions/setup-python@v5
-        if: steps.changes.outputs.frontend == 'true'
+        if: github.event_name == 'push' || steps.changes.outputs.frontend == 'true'
         with:
           python-version: "3.13"
 
       # Le `ponos serve` que les e2e ouvrent importe ce que le cœur importe.
       - name: Ce que le runner importe
-        if: steps.changes.outputs.frontend == 'true'
+        if: github.event_name == 'push' || steps.changes.outputs.frontend == 'true'
         run: python3 -m pip install --disable-pip-version-check --require-hashes -r requirements.txt
 
       - name: Installation
-        if: steps.changes.outputs.frontend == 'true'
+        if: github.event_name == 'push' || steps.changes.outputs.frontend == 'true'
         run: npm ci
         working-directory: frontend
 
       # Le même principe que pour web/static : les types de la page sont ce que
       # le schéma OpenAPI de la console décrit, jamais une copie à la main.
       - name: Les types de l'API sont ceux du schéma
-        if: steps.changes.outputs.frontend == 'true'
+        if: github.event_name == 'push' || steps.changes.outputs.frontend == 'true'
         run: |
           npm run types
           git diff --exit-code -- src/lib/api-types.d.ts || {
@@ -174,27 +176,27 @@ jobs:
         working-directory: frontend
 
       - name: Lint
-        if: steps.changes.outputs.frontend == 'true'
+        if: github.event_name == 'push' || steps.changes.outputs.frontend == 'true'
         run: npm run lint
         working-directory: frontend
 
       - name: Tests
-        if: steps.changes.outputs.frontend == 'true'
+        if: github.event_name == 'push' || steps.changes.outputs.frontend == 'true'
         run: npm test
         working-directory: frontend
 
       - name: Tests de composant
-        if: steps.changes.outputs.frontend == 'true'
+        if: github.event_name == 'push' || steps.changes.outputs.frontend == 'true'
         run: npm run test:components
         working-directory: frontend
 
       - name: Build
-        if: steps.changes.outputs.frontend == 'true'
+        if: github.event_name == 'push' || steps.changes.outputs.frontend == 'true'
         run: npm run build
         working-directory: frontend
 
       - name: Le build commité est celui que le code produit
-        if: steps.changes.outputs.frontend == 'true'
+        if: github.event_name == 'push' || steps.changes.outputs.frontend == 'true'
         run: |
           git diff --exit-code -- src/ponos/web/static docs/tokens.css
           untracked="$(git status --porcelain -- src/ponos/web/static docs/tokens.css)"
@@ -205,7 +207,7 @@ jobs:
           fi
 
       - name: La console dans un navigateur
-        if: steps.changes.outputs.frontend == 'true'
+        if: github.event_name == 'push' || steps.changes.outputs.frontend == 'true'
         run: npm run test:e2e:ci
         working-directory: frontend
 

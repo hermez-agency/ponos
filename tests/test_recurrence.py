@@ -112,7 +112,12 @@ def a_machine_that_was_off_for_three_days_produces_one_ticket_and_not_twelve():
     # The next moment is computed from now, never by stacking up what was lost.
     ahead = schedules.scheduled_for(_written(runner.client, "Next"))
     assert ahead is not None and ahead > datetime.now().astimezone()
-    assert ahead < datetime.now().astimezone() + timedelta(days=1), "the next one, not the fourth"
+    # A daily schedule is a wall-clock hour: across a change of clocks, tomorrow's
+    # 09:00 is 23 or 25 hours away, so the day is measured on the wall, not in UTC.
+    now = datetime.now().astimezone()
+    assert ahead.astimezone().replace(tzinfo=None) - now.replace(tzinfo=None) < timedelta(days=1), (
+        "the next one, not the fourth"
+    )
 
 
 @case
