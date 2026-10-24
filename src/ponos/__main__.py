@@ -1328,10 +1328,23 @@ def command_serve(args: argparse.Namespace) -> int:
 
     # Before the configuration: what is signed out is the state's, not the file's.
     if getattr(args, "sign_out_everywhere", False):
-        from .web import sessions
+        from .web import oauth, sessions
 
         sessions.revoke()
         ok("every browser signed in to the console is signed out — the token still opens it")
+        ok(
+            f"every connector signed in over OAuth is signed out — {oauth.revoke_connectors()} key(s) taken back"
+        )
+        drawn = [
+            client
+            for client in oauth.clients()
+            if client["id"].startswith(oauth.LOCAL_PREFIX) and client["scope"]
+        ]
+        for client in drawn:
+            print(
+                f"  {DIM}still good, drawn with ponos mcp token:{RESET} {client['id']} {client['name']}"
+                f"  {DIM}— ponos mcp revoke {client['id']}{RESET}"
+            )
         return 0
     # Loaded, not required to be usable: the console is where an installation
     # becomes usable — its first connection asks for the Notion token and the
@@ -1718,7 +1731,7 @@ def build_parser() -> argparse.ArgumentParser:
     serving.add_argument(
         "--sign-out-everywhere",
         action="store_true",
-        help="end every browser's sign-in to the console, running or not, and exit",
+        help="end every browser's and every OAuth connector's sign-in to the console, and exit",
     )
     serving.set_defaults(function=command_serve)
 

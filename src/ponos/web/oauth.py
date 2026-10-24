@@ -13,8 +13,9 @@ to `/oauth/authorize`, and exchanges the code it gets back for a token —
 with PKCE, so that a code intercepted on its way back is worth nothing. The
 same flow the Leadz connector already goes through, and the one the MCP
 specification names. Only what that road needs is here: the `code` grant with
-`S256`, refresh tokens that turn over at each use, and no implicit flow, no
-password grant, no client credentials.
+`S256`, refresh tokens that turn over at each use — one that comes back after
+it turned over takes its whole client with it, since somebody else has used
+it — and no implicit flow, no password grant, no client credentials.
 
 **Consent is the console's sign-in.** Registering is open — any client may
 say its name — and worth nothing on its own: the authorisation page asks for
@@ -399,6 +400,16 @@ def _take(connection, secret: str, kind: str, client_id: str) -> tuple[str, dict
                 " WHERE client = ? AND kind IN ('access', 'refresh') AND created_at >= ?",
                 (_stamp(_now()), owner, _stamp(_now() - timedelta(seconds=CODE_SECONDS * 2))),
             )
+        elif revoked and kind == "refresh":
+            # A refresh token turns over at each use, so one that comes back
+            # has been used already — by the client, or by whoever copied it
+            # and got there first. Which of the two holds the live pair cannot
+            # be told: the whole client goes, and signs in again.
+            connection.execute(
+                "UPDATE mcp_tokens SET revoked_at = COALESCE(revoked_at, ?)"
+                " WHERE client = ? AND kind IN ('access', 'refresh')",
+                (_stamp(_now()), owner),
+            )
         return None
     try:
         said = json.loads(detail or "{}")
@@ -530,6 +541,25 @@ def clients() -> list[dict]:
             }
         )
     return listed
+
+
+def revoke_connectors() -> int:
+    """Take back the keys of every client signed in over OAuth — `serve --sign-out-everywhere`.
+
+    The connectors went through the console's sign-in to get them, and signing
+    out everywhere has to reach them too: a refresh token lives ninety days and
+    turns over at each use, so left alone it never runs out. The tokens drawn
+    with `ponos mcp token` stay, as the console's token does: they were drawn
+    on this machine, and are taken back one by one with `ponos mcp revoke`.
+    Returns how many were still good.
+    """
+    with db.transaction() as connection:
+        cursor = connection.execute(
+            "UPDATE mcp_tokens SET revoked_at = ? WHERE revoked_at IS NULL"
+            " AND kind IN ('code', 'access', 'refresh') AND client NOT LIKE ?",
+            (_stamp(_now()), LOCAL_PREFIX + "%"),
+        )
+    return cursor.rowcount
 
 
 def revoke(identifier: str) -> int:
