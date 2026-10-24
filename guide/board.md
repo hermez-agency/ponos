@@ -768,6 +768,10 @@ columns of the row say what a session cannot guess:
 > **Lancer la v1** — Critère : dix clients payants · Échéance : 31/12
 > La version que l'on montre. Tout ce qui ne la rapproche pas attend.
 
+The columns may be written in English too — `Criterion`, `Due`, `Status`, `Projects` (or
+`Projet`, `Project`), `Priority` —: the runner, the ideas and the console read them under the
+same names, the French first.
+
 A ticket that points at one carries it into its prompt, under `# L'objectif — <name>`, with
 its criterion and its due date. Only the first goal of the relation is read. Its place is
 fixed:
