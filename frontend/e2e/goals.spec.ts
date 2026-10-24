@@ -145,3 +145,26 @@ test("a refused write says why", async ({ page }) => {
   await form.getByRole("button", { name: "Enregistrer" }).click()
   await expect(page.getByText("Cet espace de travail n'a pas de base d'objectifs.").first()).toBeVisible()
 })
+
+test("without a goals database, no goal is offered to write, and the empty list says why", async ({ page }) => {
+  await page.route(/\/api\/goals$/, async (route) => {
+    if (route.request().method() !== "GET") return route.fallback()
+    await route.fulfill({ json: { goals: [], configured: false } })
+  })
+  await page.goto(LIST)
+  await expect(page.getByText("Aucun objectif.")).toBeVisible()
+  await expect(page.getByText("L'espace de travail n'a pas de base Objectifs", { exact: false })).toBeVisible()
+  await expect(page.getByText("Nouvel objectif")).toHaveCount(0)
+})
+
+test("an empty goals database offers to write the first goal", async ({ page }) => {
+  await page.route(/\/api\/goals$/, async (route) => {
+    if (route.request().method() !== "GET") return route.fallback()
+    await route.fulfill({ json: { goals: [], configured: true } })
+  })
+  await page.goto(LIST)
+  await expect(page.getByText("Aucun objectif.")).toBeVisible()
+  await expect(page.getByText("Notion", { exact: false })).toHaveCount(0)
+  await page.locator('[data-slot="goals-new"]').click()
+  await expect(page.getByRole("dialog").getByLabel("Nom")).toBeVisible()
+})
