@@ -605,6 +605,28 @@ LANDING = ROOT / "docs/index.html"
 
 
 @case
+def docs_holds_the_site_and_nothing_written_for_the_team():
+    """Everything under `docs/` is served by GitHub Pages, at the-ponos.app.
+
+    `docs/CNAME` makes the folder the site's root: a file dropped there is a
+    public address the next minute, whether a page links it or not. The
+    technical audit of October 2026 sat there, served raw, with its security
+    findings and its links to internal tickets. Notes, audits and plans live in
+    `notes/`; a new file at the root of the site is added to this list on purpose.
+    """
+    files = [path.relative_to(ROOT) for path in (ROOT / "docs").rglob("*") if path.is_file()]
+    markdown = [str(path) for path in files if path.suffix.lower() == ".md"]
+    assert not markdown, f"docs/ is the public site, and these are not pages of it: {markdown}"
+    site = {
+        ".nojekyll", "404.html", "CNAME", "apple-touch-icon.png", "architecture.png",
+        "architecture.webp", "console", "favicon.ico", "icon.svg", "index.html", "llms.txt",
+        "mascot", "media", "robots.txt", "sitemap.xml", "tokens.css",
+    }  # fmt: skip
+    unknown = sorted({path.parts[1] for path in files if len(path.parts) > 1} - site)
+    assert not unknown, f"docs/ is the public site — is this meant to be served? {unknown}"
+
+
+@case
 def the_console_and_the_landing_page_share_one_set_of_tokens():
     """One file of colours, faces and radius, and the site has no other.
 

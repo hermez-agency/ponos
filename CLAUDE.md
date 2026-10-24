@@ -208,6 +208,11 @@ deux suites, puis publie l'image sur `ghcr.io`.
   `python3` de la machine (`update.verify`) : y importer FastAPI bloquerait
   pour de bon la mise à jour qui l'apporte. Ce qui en a besoin va dans
   `web/app.py`, que `serve` importe au moment de servir.
+- **`docs/` est le site public, pas une documentation interne.** `docs/CNAME` en
+  fait la racine GitHub Pages de the-ponos.app : tout fichier posé là est servi,
+  lié ou non. Audits, notes et plans vont dans `notes/` (ou dans Notion) ; un
+  test de `tests/test_release.py` refuse un `.md` sous `docs/` et toute entrée
+  de sa racine qui n'est pas dans la liste du site.
 - **`diagrams/architecture.html` ne s'édite jamais directement.** Il est
   généré par l'outil `archify` à partir de
   `diagrams/ponos.architecture.json`, qui est le fichier à modifier.
@@ -238,7 +243,7 @@ deux suites, puis publie l'image sur `ghcr.io`.
   `ponos doctor`, part du mauvais pied.
 - **Une dépendance d'exécution ne s'ajoute pas en passant.** Le socle est là
   (`pyproject.toml`, `uv.lock`, un `.venv` par version installée), mais chaque
-  bibliothèque a son ticket, dans l'ordre de `docs/audit-technique-2026-10.md`.
+  bibliothèque a son ticket, dans l'ordre de `notes/audit-technique-2026-10.md`.
   Elle s'ajoute avec `uv add`, puis `uv export --no-dev --no-emit-project
   --format requirements-txt -o requirements.txt` (la CI vérifie l'export), et
   l'image l'installe au build.
