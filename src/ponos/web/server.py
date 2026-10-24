@@ -652,13 +652,15 @@ def serve(
     # back in that line would be telling you to paste a secret anyway. And one
     # nobody has claimed is opened by the address alone: the first connection is
     # what it serves, and asking for a token to reach it would be the circle
-    # that page exists to break.
+    # that page exists to break. A console opened by its token does not print
+    # it either: this goes to `journalctl` and `docker logs`, read by whoever
+    # reaches the machine or the Dokploy, and the token opens everything for good.
     def opening(address: str) -> str:
         if entry:
             return f"{address}  —  sign in as {entry.email}"
         if claimable(config, entry):
             return f"{address}  —  not set up yet: the first browser to open it sets its password"
-        return f"{address}/?token={secret}"
+        return f"{address}/?token=…  —  the token: ponos serve --print-token"
 
     # Drawn once per start, and only while nobody has claimed the console: it is
     # what a first connection from anywhere but this machine has to give.

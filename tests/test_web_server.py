@@ -56,6 +56,69 @@ def _web_config(**web) -> C.Config:
 
 
 @case
+def serve_never_prints_the_token_it_is_opened_with(state_home):
+    """What `serve` prints goes to `journalctl` and `docker logs`, not to a person alone.
+
+    So a console opened by its token says where to read it, at a start as when
+    the port is already taken, and never writes it whole.
+    """
+    import socket
+
+    from ponos.web import api as web_api
+    from ponos.web import app as web_app
+    from ponos.web import server as web_server
+
+    secret = "a-token-nobody-reads-in-a-log"
+    configuration = _web_config(token=secret)
+
+    class Watched:
+        def watch(self) -> None:
+            pass
+
+        def stop(self) -> None:
+            pass
+
+    class Api:
+        def __init__(self, config: C.Config) -> None:
+            self.upgrade = self.planned = self.watch = Watched()
+
+    class Console:
+        server_address = ("127.0.0.1", 8787)
+
+        def __init__(self, *arguments: object) -> None:
+            pass
+
+        def serve_forever(self) -> None:
+            raise KeyboardInterrupt
+
+        def server_close(self) -> None:
+            pass
+
+    started = io.StringIO()
+    original = web_api.Api, web_app.Console
+    web_api.Api, web_app.Console = Api, Console  # type: ignore[assignment,misc]
+    try:
+        with contextlib.redirect_stdout(started):
+            assert web_server.serve(configuration) == 0
+    finally:
+        web_api.Api, web_app.Console = original
+    assert "Ponos console on http://127.0.0.1:8787" in started.getvalue()
+    assert secret not in started.getvalue(), started.getvalue()
+    assert "ponos serve --print-token" in started.getvalue(), "and says where it is read"
+
+    taken = io.StringIO()
+    with socket.socket() as listening:
+        listening.bind(("127.0.0.1", 0))
+        listening.listen()
+        with contextlib.redirect_stdout(taken):
+            port = listening.getsockname()[1]
+            assert web_server.serve(configuration, host="127.0.0.1", port=port) == 0
+    assert "already listening" in taken.getvalue()
+    assert secret not in taken.getvalue(), taken.getvalue()
+    assert "ponos serve --print-token" in taken.getvalue()
+
+
+@case
 def an_email_and_a_password_are_a_way_into_the_console():
     """A token is right for a script and tiring for a person.
 

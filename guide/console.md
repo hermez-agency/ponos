@@ -700,6 +700,9 @@ makes it useful, and it is the whole of the risk. So:
   leaves, which is the same guard reached by a different door. The cookie is named after
   the port (`ponos_token_8787`): a browser keeps cookies by address, not by port, and two
   consoles on one machine — the demo and the real one — each keep their own;
+- `serve` never prints that token: what it says lands in `journalctl` and `docker logs`,
+  so a console opened by its token shows `/?token=…` and sends you to
+  `ponos serve --print-token` (`docker compose exec ponos ponos serve --print-token` in the image);
 - writes demand a header a cross-origin form cannot set, and the `Host` header must name
   the address the console was reached on. Between them, a hostile page you have open in
   another tab can neither post to the console nor read from it;
