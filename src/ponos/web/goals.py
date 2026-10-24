@@ -9,6 +9,7 @@ holds say it column by column.
 
 from __future__ import annotations
 
+import contextlib
 import time
 from typing import Any
 
@@ -136,7 +137,14 @@ class Goals(Base):
         if not database:
             raise ValueError("this workspace has no goals database")
         page_id = self.runner.client.create_row(database, name)
-        self.save_goal(page_id, {**values, "name": name})
+        try:
+            self.save_goal(page_id, {**values, "name": name})
+        except (store.StoreError, ValueError, LookupError):
+            # The row is made before its columns: one whose columns were
+            # refused would stay, and the form sent again would make a second.
+            with contextlib.suppress(store.StoreError):
+                self.runner.client.trash(page_id)
+            raise
         return {"id": page_id.replace("-", ""), "name": name}
 
     def save_goal(self, page_id: str, values: dict[str, Any]) -> dict[str, Any]:

@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
-from support import _board, _markdown_api, case
+import json
 
-from ponos import store
+import httpx
+from support import _bare_api, _board, _http_answering, _markdown_api, case
+
+from ponos import notion, store, workspace
 
 
 class _Watch:
@@ -161,3 +164,215 @@ def a_goal_s_priority_is_read_as_a_score_whatever_its_column_holds():
         for cell, score in (("High", 75), ("haute", 50), ("150", 100), ("80", 80)):
             board.update("goals", goal, {"Priorité": cell})
             assert api.goals()["goals"][0]["priority"] == score, (cell, api.goals())
+
+
+# -- on Notion -----------------------------------------------------------------
+
+# An Objectifs database as it is made by hand in Notion: its status a column of
+# the status type, its priority still a select, its title under a name of its own.
+_GOALS_SCHEMA = {
+    "Nom": "title",
+    "Description": "rich_text",
+    "Critère": "rich_text",
+    "Échéance": "date",
+    "Statut": "status",
+    "Priorité": "select",
+    "Projets": "relation",
+}
+
+
+class _Notion:
+    """Notion's API reduced to the goals and projects databases, behind a `MockTransport`.
+
+    It keeps what it is sent — the rows, and the body of every PATCH — because
+    what is under test is what the console asks of Notion, not what it shows.
+    `refuse` makes the next PATCH of a page's columns answer 400, as Notion
+    does to an option a status column does not offer — a refusal `update` does
+    not ask again, unlike a column whose type changed.
+    """
+
+    def __init__(self, schema: dict[str, str]) -> None:
+        self.schemas = {"goals": schema, "projects": {"Name": "title"}}
+        self.pages: dict[str, dict] = {}
+        self.patches: list[tuple[str, dict]] = []
+        self.refuse = False
+
+    def row(self, database: str, title: str) -> str:
+        page_id = f"{len(self.pages) + 1:032x}"
+        self.pages[page_id] = {
+            "id": page_id,
+            "url": f"https://www.notion.so/{page_id}",
+            "parent": database,
+            "archived": False,
+            "properties": {
+                name: {"type": "title", "title": [{"plain_text": title}]}
+                for name, kind in self.schemas[database].items()
+                if kind == "title"
+            },
+        }
+        return page_id
+
+    def _write(self, page: dict, properties: dict) -> None:
+        for name, value in properties.items():
+            kind = self.schemas[page["parent"]][name]
+            if kind in ("title", "rich_text"):
+                value = {kind: [{"plain_text": part["text"]["content"]} for part in value[kind]]}
+            page["properties"][name] = {"type": kind, **value}
+
+    def __call__(self, request: httpx.Request) -> httpx.Response:
+        path = request.url.path.split("/v1", 1)[-1]
+        body = json.loads(request.content or b"{}")
+        parts = path.strip("/").split("/")
+        if request.method == "GET" and parts[0] == "databases":
+            schema = self.schemas[parts[1]]
+            return httpx.Response(
+                200,
+                json={
+                    "id": parts[1],
+                    "properties": {name: {"type": kind} for name, kind in schema.items()},
+                },
+            )
+        if request.method == "POST" and parts[0] == "databases" and parts[-1] == "query":
+            rows = [
+                page
+                for page in self.pages.values()
+                if page["parent"] == parts[1] and not page["archived"]
+            ]
+            return httpx.Response(200, json={"results": rows, "has_more": False})
+        if request.method == "POST" and path == "/pages":
+            database = body["parent"]["database_id"]
+            title = next(
+                value["title"][0]["text"]["content"]
+                for name, value in body["properties"].items()
+                if self.schemas[database][name] == "title"
+            )
+            page_id = self.row(database, title)
+            self._write(self.pages[page_id], body["properties"])
+            return httpx.Response(200, json=self.pages[page_id])
+        if request.method == "PATCH" and parts[0] == "pages":
+            page = self.pages[parts[1]]
+            self.patches.append((parts[1], body))
+            if "properties" in body:
+                if self.refuse:
+                    self.refuse = False
+                    return httpx.Response(400, json={"message": "Invalid status option."})
+                self._write(page, body["properties"])
+            if body.get("archived"):
+                page["archived"] = True
+            return httpx.Response(200, json=page)
+        raise AssertionError(f"{request.method} {path} is not something the goals ask")
+
+
+def _notion_api(fake: _Notion):
+    """An Api whose Notion is `fake`, read through the real client."""
+    api = _bare_api(notion.Client("ntn_x"))
+    api._runner._workspace = workspace.Workspace(
+        tickets="tickets", projects="projects", goals="goals"
+    )
+    api.watch = _Watch()
+    api._goals, api._goals_at = {}, 0.0
+    api.board = lambda max_age=0.0: {"tickets": []}
+    return api
+
+
+@case
+def a_goal_is_created_edited_and_archived_on_a_notion_database():
+    fake = _Notion(_GOALS_SCHEMA)
+    with _http_answering(fake):
+        api = _notion_api(fake)
+        site = fake.row("projects", "Website")
+        created = api.create_goal(
+            "Lancer la v1",
+            {
+                "description": "La première version",
+                "criterion": "dix clients payants",
+                "due": "2026-12-31",
+                "status": "Actif",
+                "priority": 80,
+                "projects": [site],
+            },
+        )
+        goal = created["id"]
+        assert [page["id"] for page in fake.pages.values() if page["parent"] == "goals"] == [goal]
+        [(patched, body)] = fake.patches
+        assert patched == goal
+        assert body == {
+            "properties": {
+                "Description": {
+                    "rich_text": [{"type": "text", "text": {"content": "La première version"}}]
+                },
+                "Critère": {
+                    "rich_text": [{"type": "text", "text": {"content": "dix clients payants"}}]
+                },
+                "Échéance": {"date": {"start": "2026-12-31"}},
+                # A status column is written as one, and the priority as the
+                # select's nearest word, never as "80".
+                "Statut": {"status": {"name": "Actif"}},
+                "Priorité": {"select": {"name": "High"}},
+                "Projets": {"relation": [{"id": site}]},
+                "Nom": {"title": [{"type": "text", "text": {"content": "Lancer la v1"}}]},
+            }
+        }, body
+        [row] = api.goals()["goals"]
+        assert (row["name"], row["status"], row["active"]) == ("Lancer la v1", "Actif", True)
+        assert row["priority"] == 75 and row["due"] == "2026-12-31", row
+        assert row["projects"] == ["Website"] and row["project_ids"] == [site], row
+
+        fake.patches.clear()
+        api.save_goal(goal, {"status": "En pause", "priority": 20, "due": ""})
+        assert fake.patches == [
+            (
+                goal,
+                {
+                    "properties": {
+                        "Échéance": {"date": None},
+                        "Statut": {"status": {"name": "En pause"}},
+                        "Priorité": {"select": {"name": "Low"}},
+                    }
+                },
+            )
+        ], fake.patches
+        [row] = api.goals()["goals"]
+        assert (row["status"], row["active"], row["priority"], row["due"]) == (
+            "En pause",
+            False,
+            25,
+            "",
+        ), row
+        assert row["criterion"] == "dix clients payants", "what the form left out is kept"
+
+        fake.patches.clear()
+        assert api.delete_goal(goal) == {"id": goal, "name": "Lancer la v1"}
+        assert fake.patches == [(goal, {"archived": True})], fake.patches
+        assert api.goals()["goals"] == []
+
+
+@case
+def a_column_the_goals_database_lacks_is_left_out_of_the_patch():
+    fake = _Notion({name: kind for name, kind in _GOALS_SCHEMA.items() if name != "Critère"})
+    with _http_answering(fake):
+        api = _notion_api(fake)
+        goal = api.create_goal("Ranger", {"criterion": "plus rien", "status": "Actif"})["id"]
+        [(_, body)] = fake.patches
+        assert set(body["properties"]) == {"Statut", "Nom"}, body
+        assert api.goals()["goals"][0]["status"] == "Actif"
+        assert api.goals()["goals"][0]["id"] == goal
+
+
+@case
+def a_goal_whose_columns_cannot_be_written_is_not_left_behind():
+    fake = _Notion(_GOALS_SCHEMA)
+    with _http_answering(fake):
+        api = _notion_api(fake)
+        fake.refuse = True
+        try:
+            api.create_goal("Lancer la v1", {"status": "Actif", "priority": 80})
+        except notion.NotionError:
+            pass
+        else:
+            raise AssertionError("a refused write is said")
+        assert api.goals()["goals"] == [], "the row made before the refusal is not kept"
+
+        # Asked again, as whoever saw the error would: one goal, not two.
+        api.create_goal("Lancer la v1", {"status": "Actif", "priority": 80})
+        assert [row["name"] for row in api.goals()["goals"]] == ["Lancer la v1"]
