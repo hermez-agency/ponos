@@ -757,7 +757,7 @@ makes it useful, and it is the whole of the risk. So:
   last one it appended to `X-Forwarded-For`. Anybody else is counted by its own address,
   whatever it says it relays;
 - the password is kept as a scrypt digest, and a sign-in lasts thirty days from its last use
-  (`ponos serve --sign-out-everywhere` ends them all);
+  (`ponos serve --sign-out-everywhere` ends them all, and signs out the MCP connectors too);
 - every page is served under a **Content-Security-Policy** that runs no script but the
   bundle's files from `/static/` and the few lines a page carries inline, allowed by their
   hash; styles are the bundle's files too, plus the ones its libraries write at runtime (the
@@ -946,7 +946,8 @@ restarts does not sign you out and **changing the password signs out every brows
 once**. A session lasts **thirty days from its last use** — a browser that keeps coming
 back is renewed, one left in a drawer runs out — and `ponos serve --sign-out-everywhere`
 ends every one of them, the running console's included, by drawing a new key into
-`~/.local/state/ponos/web/sessions`. A wrong answer is counted against
+`~/.local/state/ponos/web/sessions` — and takes back the keys of every MCP connector signed in
+over OAuth, which a new password alone does not. A wrong answer is counted against
 the address it came from, which waits longer after each — see *What is behind that port*.
 
 `secrets.env` keeps the password as a **scrypt digest** (`scrypt:n:r:p:salt:hash`), never as
@@ -1030,7 +1031,9 @@ alone is not even shown the others, and a write it asks for anyway is refused. T
 own token and its cookie are **not** keys to `/mcp`: they open everything behind that port,
 and a connector is given less. Every write asked for — refused ones included — is written to
 the local database with the tool, the time and the client: `ponos mcp list` shows the clients
-and the last writes, `ponos mcp revoke <client>` takes back all of one client's keys at once.
+and the last writes, `ponos mcp revoke <client>` takes back all of one client's keys at once, and
+`ponos serve --sign-out-everywhere` those of every connector that came in over OAuth — the tokens
+drawn with `ponos mcp token` stay, and it names them with the line that takes each back.
 
 ### How the connection works
 
@@ -1042,4 +1045,6 @@ request to `/mcp` without a key, a `GET` as a `POST`, is answered `401` with
 registers itself (`/oauth/register`, RFC 7591), sends you to `/oauth/authorize` — the page that
 names it and asks for the console's password (or its token) unless the browser is signed in —
 and exchanges the code with PKCE (`S256` only). The access token lasts an hour, the refresh
-token ninety days and turns over at each use; each is kept as its SHA-256 only.
+token ninety days and turns over at each use; each is kept as its SHA-256 only. A refresh token
+that comes back after it turned over has been used by somebody else first: it takes every key of
+its client with it, and the connector has to be connected again.

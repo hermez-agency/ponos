@@ -808,6 +808,116 @@ def a_local_mcp_token_is_drawn_once_and_kept_as_a_digest(state_home):
     assert web_oauth.check("") is None
 
 
+def _connected(web_oauth, name: str = "claude.ai") -> tuple[str, dict]:
+    """A connector registered and through the consent: its id, and its first pair."""
+    import base64
+    import hashlib
+
+    client_id = web_oauth.register(
+        {"client_name": name, "redirect_uris": ["https://claude.ai/api/mcp/auth_callback"]}
+    )["client_id"]
+    verifier = "v" * 64
+    challenge = (
+        base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
+    )
+    asked = web_oauth.asked(
+        {
+            "client_id": client_id,
+            "response_type": "code",
+            "code_challenge": challenge,
+            "code_challenge_method": "S256",
+        }
+    )
+    given = web_oauth.code(asked, web_oauth.SCOPES)
+    pair = web_oauth.exchange(
+        {
+            "grant_type": "authorization_code",
+            "code": given,
+            "client_id": client_id,
+            "code_verifier": verifier,
+        }
+    )
+    return client_id, pair
+
+
+@case
+def a_refresh_token_that_comes_back_after_it_turned_over_takes_its_client_with_it(state_home):
+    """A refresh token turns over at each use: one presented twice was copied.
+
+    Whoever got there first holds a live pair — the thief or the connector,
+    nobody can tell — so the second use revokes every key of the client, the
+    pair the first one drew included. Another client keeps its own.
+    """
+    from ponos.web import oauth as web_oauth
+
+    client_id, first = _connected(web_oauth)
+    other_id, other = _connected(web_oauth, "another")
+    stolen = first["refresh_token"]
+    turned = web_oauth.exchange(
+        {"grant_type": "refresh_token", "refresh_token": stolen, "client_id": client_id}
+    )
+    assert web_oauth.check(turned["access_token"]) is not None
+    try:
+        web_oauth.exchange(
+            {"grant_type": "refresh_token", "refresh_token": stolen, "client_id": client_id}
+        )
+    except web_oauth.OAuthError as error:
+        assert error.error == "invalid_grant"
+    else:
+        raise AssertionError("a refresh token used twice is refused")
+    assert web_oauth.check(turned["access_token"]) is None, "the pair it was turned into goes"
+    try:
+        web_oauth.exchange(
+            {
+                "grant_type": "refresh_token",
+                "refresh_token": turned["refresh_token"],
+                "client_id": client_id,
+            }
+        )
+    except web_oauth.OAuthError:
+        pass
+    else:
+        raise AssertionError("and so does the refresh token drawn with it")
+    assert web_oauth.check(other["access_token"]) is not None, "another client is not touched"
+    listed = {client["id"]: client["scope"] for client in web_oauth.clients()}
+    assert listed[client_id] == "" and listed[other_id] == "read write"
+
+
+@case
+def signing_out_everywhere_signs_the_oauth_connectors_out_and_names_the_drawn_tokens(state_home):
+    """`serve --sign-out-everywhere` used to draw a new key for the cookies alone.
+
+    A connector kept its refresh token — ninety days, renewed at each use, so
+    for ever. Every client that came in over OAuth is signed out now; a token
+    drawn with `ponos mcp token` stays, as the console's token does, and the
+    command names it with the line that takes it back.
+    """
+    from ponos.web import oauth as web_oauth
+
+    client_id, pair = _connected(web_oauth)
+    local_id, local_token = web_oauth.local("Claude Code", write=False)
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+        assert cli_main(["serve", "--sign-out-everywhere"]) == 0
+    said = out.getvalue()
+    assert web_oauth.check(pair["access_token"]) is None, "the connector answers no more"
+    try:
+        web_oauth.exchange(
+            {
+                "grant_type": "refresh_token",
+                "refresh_token": pair["refresh_token"],
+                "client_id": client_id,
+            }
+        )
+    except web_oauth.OAuthError:
+        pass
+    else:
+        raise AssertionError("nor does it draw a new pair")
+    assert "2 key(s) taken back" in said, said
+    assert web_oauth.check(local_token) is not None, "a token drawn here stays"
+    assert f"ponos mcp revoke {local_id}" in said, said
+
+
 # -- why a ticket stopped -----------------------------------------------------
 
 
