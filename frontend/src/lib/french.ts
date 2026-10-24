@@ -556,6 +556,7 @@ export const FRENCH: Record<string, string> = {
   "Leave full screen": "Quitter le plein écran",
   "Resize the drawer": "Redimensionner le panneau",
   Copied: "Copié",
+  "Copy impossible: select the text": "Copie impossible : sélectionnez le texte",
   "Copy the full id": "Copier l’id complet",
   "Open the full page": "Ouvrir en page complète",
   "{{count}} launches · {{name}}": "{{count}} lancements · {{name}}",

@@ -3,12 +3,12 @@ import { useLocation, useRouter } from "@tanstack/react-router"
 import { ArrowLeft, ArrowUpRight, CopyIcon, Pencil } from "lucide-react"
 import { ActionList } from "react-data-form"
 import { Link, ResourceViewButton, useCurrentViewResourceContext, useNavigate } from "react-resource-view"
-import { toast } from "sonner"
 
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { why } from "@/lib/api"
+import { copy } from "@/lib/copy"
 import { counted, useT } from "@/lib/i18n"
 import { useRoute } from "@/lib/router"
 import { cn } from "@/lib/utils"
@@ -304,12 +304,9 @@ export function ProjectHead() {
   const { project, panel } = useShown()
   const t = useT()
   const page = project && isAPage(project.id) ? project.id.replace(/-/g, "") : ""
-  const copy = () => {
+  const copyIt = () => {
     if (!page) return
-    void navigator.clipboard
-      ?.writeText(page)
-      .then(() => toast.success(t("Copied"), { description: page }))
-      .catch(() => {})
+    void copy(page, page)
   }
   return (
     <header data-slot="admin-header" className="w-full">
@@ -339,7 +336,7 @@ export function ProjectHead() {
                 type="button"
                 variant="ghost"
                 size="icon-xs"
-                onClick={copy}
+                onClick={copyIt}
                 title={t("Copy the full id")}
                 aria-label={t("Copy the full id")}
               >

@@ -3,13 +3,13 @@ import { useLocation, useRouter } from "@tanstack/react-router"
 import { ArrowLeft, CircleAlert, CopyIcon, GitBranch, MessageCircleQuestion, RotateCw } from "lucide-react"
 import { ActionList } from "react-data-form"
 import { Link, useCurrentViewResourceContext } from "react-resource-view"
-import { toast } from "sonner"
 
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useConsole, useSteps } from "@/hooks/use-console"
 import { why } from "@/lib/api"
+import { copy } from "@/lib/copy"
 import { type DecisionTab, actionOf } from "@/lib/decision"
 import { useT } from "@/lib/i18n"
 import { money } from "@/lib/numbers"
@@ -645,12 +645,9 @@ export function TicketHead() {
   const t = useT()
   // The pull request is opened while the page is on screen: the stream has it first.
   const ticket = page ? (open && open.id === page.id ? { ...page, ...open } : page) : null
-  const copy = () => {
+  const copyIt = () => {
     if (!ticket) return
-    void navigator.clipboard
-      ?.writeText(ticket.id)
-      .then(() => toast.success(t("Copied"), { description: ticket.id }))
-      .catch(() => {})
+    void copy(ticket.id, ticket.id)
   }
   return (
     <header data-slot="admin-header" className="w-full">
@@ -676,7 +673,7 @@ export function TicketHead() {
                 type="button"
                 variant="ghost"
                 size="icon-xs"
-                onClick={copy}
+                onClick={copyIt}
                 title={t("Copy the full id")}
                 aria-label={t("Copy the full id")}
               >

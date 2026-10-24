@@ -1,12 +1,12 @@
 import * as React from "react"
 import { CopyIcon, PlugZap, RefreshCw } from "lucide-react"
-import { toast } from "sonner"
 
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { api } from "@/lib/api"
+import { copy } from "@/lib/copy"
 import { useT } from "@/lib/i18n"
 import type { McpOverview, McpServers, McpTest } from "@/lib/types"
 
@@ -26,18 +26,13 @@ type Where = "local" | "public"
 /** A command or a block to paste, with the button that copies it. */
 function Copyable({ text, label }: { text: string; label: string }) {
   const t = useT()
-  const copy = () => {
-    void navigator.clipboard
-      ?.writeText(text)
-      .then(() => toast.success(t("Copied"), { description: label }))
-      .catch(() => {})
-  }
+  const copyIt = () => void copy(text, label)
   return (
     <div className="bg-muted flex items-start gap-2 rounded-md border py-1 pr-1 pl-3">
       <pre className="min-w-0 flex-1 overflow-x-auto py-1.5 font-mono text-xs" data-testid="mcp-snippet">
         {text}
       </pre>
-      <Button type="button" variant="ghost" size="icon-sm" onClick={copy} aria-label={`${t("Copy")} ${label}`}>
+      <Button type="button" variant="ghost" size="icon-sm" onClick={copyIt} aria-label={`${t("Copy")} ${label}`}>
         <CopyIcon />
       </Button>
     </div>

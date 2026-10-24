@@ -44,6 +44,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api } from "@/lib/api"
+import { copy } from "@/lib/copy"
 import { useTicketTallies, type Tally } from "@/lib/board-store"
 import { counted, t, useT } from "@/lib/i18n"
 import { repositoryName, shortPath } from "@/lib/places"
@@ -989,7 +990,8 @@ function CopyPath({ path }: { path: string }) {
       className="shrink-0"
       aria-label={t("Copy the path")}
       onClick={() => {
-        void navigator.clipboard?.writeText(path).then(() => {
+        void copy(path).then((copied) => {
+          if (!copied) return
           setCopied(true)
           window.setTimeout(() => setCopied(false), 1500)
         })

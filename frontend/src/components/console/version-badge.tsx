@@ -23,6 +23,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useConsole } from "@/hooks/use-console"
 import { api, why } from "@/lib/api"
+import { copy } from "@/lib/copy"
 import { useT } from "@/lib/i18n"
 import type { RunnerState, Upgrade } from "@/lib/types"
 import { badgeMode, STEPS, stepState } from "@/lib/upgrade"
@@ -314,11 +315,8 @@ function Offer({ running }: { running: boolean }) {
 /** Where the console cannot do it: why, and the line to type instead. */
 function Manual({ upgrade }: { upgrade: Upgrade }) {
   const t = useT()
-  const copy = () => {
-    void navigator.clipboard
-      ?.writeText(upgrade.command)
-      .then(() => toast.success(t("Copied"), { description: upgrade.command }))
-      .catch(() => {})
+  const copyIt = () => {
+    void copy(upgrade.command, upgrade.command)
   }
   return (
     <div className="flex flex-col gap-3 text-sm">
@@ -329,7 +327,7 @@ function Manual({ upgrade }: { upgrade: Upgrade }) {
       </p>
       <div className="bg-muted flex items-center gap-2 rounded-md border py-1 pr-1 pl-3">
         <code className="flex-1 truncate font-mono text-xs">{upgrade.command}</code>
-        <Button type="button" variant="ghost" size="icon-sm" onClick={copy} aria-label={t("Copy")}>
+        <Button type="button" variant="ghost" size="icon-sm" onClick={copyIt} aria-label={t("Copy")}>
           <CopyIcon />
         </Button>
       </div>

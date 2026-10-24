@@ -35,6 +35,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { api, why } from "@/lib/api"
+import { copy } from "@/lib/copy"
 import { LANGUAGES, counted, setLanguage, useLanguage, useT, type Language } from "@/lib/i18n"
 import {
   accessProblem,
@@ -330,7 +331,7 @@ function Command({ text }: { text: string }) {
         size="xs"
         variant="ghost"
         onClick={() => {
-          void navigator.clipboard?.writeText(text).then(() => setCopied(true))
+          void copy(text).then(setCopied)
         }}
         aria-label={t("Copy")}
       >
@@ -1567,7 +1568,7 @@ export function Diagnosis() {
             type="button"
             variant="ghost"
             size="sm"
-            onClick={() => void navigator.clipboard?.writeText(answer.text).then(() => setCopied(true))}
+            onClick={() => void copy(answer.text).then(setCopied)}
           >
             {copied ? <Check /> : <Copy />}
             {t("Copy it for support")}
