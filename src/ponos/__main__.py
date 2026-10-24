@@ -40,6 +40,7 @@ from . import (
     store,
     subtypes,
     systemd,
+    voice,
 )
 from . import config as config_module
 from . import schedules as schedules_module
@@ -1611,7 +1612,27 @@ def welcome(parser: argparse.ArgumentParser) -> None:
     print()
     print(f"  {DIM}ponos <command> --help says what a command takes.{RESET}")
     print(f"  {DIM}Start with:{RESET} ponos doctor")
+    spoken = board_language()
+    if spoken != voice.DEFAULT:
+        print(
+            f"  {DIM}The CLI speaks English; the console follows runner.language ({spoken}).{RESET}"
+        )
     print()
+
+
+def board_language() -> str:
+    """The language the file asks the console and the reports for — English when it says none.
+
+    The CLI itself stays in English, whatever the file says: it is read by
+    whoever stands at the machine, and half of it is argparse's and git's.
+    The welcome screen says so rather than leave somebody who set
+    `language = "fr"` wondering whether the setting was read. A file that
+    cannot be read is no reason to refuse a welcome: it is English then.
+    """
+    try:
+        return voice.understood(config_module.load().runner.interface_language())
+    except (config_module.ConfigError, OSError):
+        return voice.DEFAULT
 
 
 def build_parser() -> argparse.ArgumentParser:
