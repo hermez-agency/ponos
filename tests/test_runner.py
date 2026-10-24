@@ -234,6 +234,69 @@ def a_place_that_was_never_filled_is_looked_at_before_a_session_ends(state_home)
     assert sorted(result["id"] for result in results) == ["p-long", "p-second"]
 
 
+def _talking_runner(tickets, places):
+    """A board with ready tickets and comments waiting, the sessions recorded."""
+    runner = _board_runner([_ready(name) for name in tickets], {})
+    runner.config.runner.max_concurrent = places
+    runner.prepare = lambda ticket: ticket_module.Job(
+        ticket,
+        projects.Project(name="", path=None),
+        branch="",
+        base="",
+        workdir=Path(tempfile.mkdtemp()) / "doc",
+    )
+    events: list[str] = []
+    guard = threading.Lock()
+    flight = peak = 0
+
+    def session(name):
+        nonlocal flight, peak
+        with guard:
+            events.append(f"start {name}")
+            flight += 1
+            peak = max(peak, flight)
+        time.sleep(0.2)
+        with guard:
+            flight -= 1
+            events.append(f"end {name}")
+
+    def execute(job):
+        session(job.ticket.page.id)
+        return {"ticket": job.ticket.page.id, "id": job.ticket.page.id, "status": "done"}
+
+    def converse(*, places=None):
+        assert places == 1, "one answer at a time while tickets run"
+        session("reply")
+        return [{"id": "thread", "status": "replied"}]
+
+    runner.execute, runner.converse, runner.unblock = execute, converse, list
+    return runner, events, lambda: peak
+
+
+@case
+def a_ready_ticket_does_not_wait_for_the_answers(state_home):
+    """The answers used to come first, and `converse` waits for its sessions:
+    a ticket made ready alongside a comment waited for the conversation, with
+    every place free. Now it starts first, and the answer takes the place left."""
+    runner, events, peak = _talking_runner(["p-ticket"], 2)
+    results = runner._work(runner.queue()[0], None, refill=False, talk=True)
+
+    assert events[0] == "start p-ticket", events
+    assert events.index("start reply") < events.index("end p-ticket"), "in the free place"
+    assert peak() == 2
+    assert sorted(result["id"] for result in results) == ["p-ticket", "thread"]
+
+
+@case
+def the_answers_never_add_a_session_beyond_max_concurrent(state_home):
+    runner, events, peak = _talking_runner(["p-one", "p-two"], 1)
+    results = runner._work(runner.queue()[0], None, refill=False, talk=True)
+
+    assert peak() == 1, events
+    assert events[-2:] == ["start reply", "end reply"], "the tickets first, then the answer"
+    assert len(results) == 3
+
+
 @case
 def a_limit_caps_the_tickets_a_pass_takes_rather_than_the_column(state_home):
     """`--limit` names a number of tickets, and a queue that refills itself

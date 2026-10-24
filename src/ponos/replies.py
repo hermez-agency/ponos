@@ -18,6 +18,7 @@ same conversation rather than in a stranger.
 
 from __future__ import annotations
 
+import logging
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
@@ -28,11 +29,33 @@ from . import voice as voice_module
 from .base import Base
 from .ticket import Ticket, short_id
 
+logger = logging.getLogger(__name__)
+
 
 class Replies(Base):
     """The runner answering, in the thread it was spoken to in."""
 
-    def converse(self) -> list[dict[str, Any]]:
+    def talk(self, said: list[dict[str, Any]]) -> None:
+        """The answers and the blocked tickets, as one place of a pass's pool.
+
+        They used to come before the pass's first ticket, and `converse` waits
+        for the sessions it starts: a ticket made ready alongside a comment
+        waited up to `reply_timeout_minutes` for a conversation, with every
+        place free. Here they take a place once the tickets have taken theirs,
+        and one place only — the answers one after the other — so that what
+        runs at once is still `max_concurrent`, whatever it is.
+
+        What they record is put in `said` rather than returned: the place they
+        hold is a ticket's, and a ticket's place hands back one result or none.
+        Never raises, as neither of the two does a ticket any harm.
+        """
+        try:
+            said += self.converse(places=1)
+            said += self.unblock()
+        except Exception:
+            logger.exception("the comments and the blocked tickets were not looked at")
+
+    def converse(self, *, places: int | None = None) -> list[dict[str, Any]]:
         """Answer the comments that are waiting for an answer.
 
         A pass, not a run: nothing is claimed, no status moves, no worktree is
@@ -45,6 +68,9 @@ class Replies(Base):
         pass runs on a cadence of its own so a ten-second runner does not scan
         the board six times a minute; and no failure of it ever reaches a
         ticket.
+
+        `places` is how many answers may be written at once — `max_concurrent`
+        when nothing else is running, one when the pass's tickets are.
         """
         if self.dry_run or not self.config.runner.reply:
             return []
@@ -76,7 +102,7 @@ class Replies(Base):
             return []
 
         self.say(f"  ✎ {len(pending)} comment(s) waiting for an answer")
-        workers = min(len(pending), max(1, self.config.runner.max_concurrent))
+        workers = min(len(pending), max(1, places or self.config.runner.max_concurrent))
         if workers == 1:
             answers = [self._answer(me, *pending[0])]
         else:

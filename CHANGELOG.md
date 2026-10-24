@@ -35,6 +35,7 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Changed
 
+- Un ticket *Ready* ne passe plus après les réponses aux commentaires : il démarre dès la passe, et les réponses — avec l'examen des tickets bloqués — prennent ensuite une seule place de `max_concurrent`, une session après l'autre. Jusqu'ici, la passe attendait la fin des réponses (jusqu'à `reply_timeout_minutes`, 10 min) avant de lancer le moindre ticket, places libres ou non.
 - Le guide dit comment la console compte l'avancement d'un objectif — les tickets *Done* sur tous ceux qui le visent sauf les annulés, brouillons compris, et seulement pour le premier objectif d'un ticket — et donne les colonnes Notion (`Fini`, `Compté`, `Faits`, `Total`, `Avancement`) qui affichent le même chiffre : un rollup « Percent checked » sur `Fini` seul compte les annulés et s'écartait de la console.
 - Un ticket rattaché à un objectif atteint, abandonné ou en pause — ou à un objectif supprimé depuis la console, donc à la corbeille — ne reçoit plus « # L'objectif — … » dans son prompt, comme s'il n'en servait aucun. Un objectif sans `Statut` reste actif.
 - Déplié, le détail « N points à corriger » du tableau de bord pousse la page au lieu de la recouvrir : les cartes Ouverts, Fermés, Créés, Dépensé et les graphiques descendent sous la liste, et se lisent sans la replier. Repliée, la bande reste une ligne posée par-dessus la page, qui ne la fait pas bouger en arrivant.
