@@ -61,7 +61,8 @@ path = ""
 
 # Who wins when the same page changed on both sides since the last
 # reconciliation. "newest" is the only rule there is: the later
-# `last_edited_time` is kept, and the one that lost is written into the journal
+# `last_edited_time` is kept — to the minute, as Notion keeps it, and within the
+# same minute Notion wins — and the one that lost is written into the journal
 #   ~/.local/state/ponos/ponos.db (ponos sync --journal reads it)
 # with both timestamps. Nothing is ever overwritten without a line saying so,
 # and nothing is ever deleted: a page that disappeared on one side is

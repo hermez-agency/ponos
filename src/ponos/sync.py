@@ -35,7 +35,8 @@ Three rules decide everything else, and they are the ones worth arguing about:
 
 - **the newest wins, and the loser is written down.** A page edited on both
   sides since the last pass is a conflict; `storage.conflict = "newest"` settles
-  it by `last_edited_time`, and the version that lost goes into the journal with
+  it by `last_edited_time`, both sides cut to the minute Notion keeps (a tie
+  goes to Notion), and the version that lost goes into the journal with
   both timestamps. Nothing is ever silently overwritten without a line saying so;
 - **nothing is deleted, ever.** A page that was on both sides and is now on one
   is journalled as a deletion and left alone on the side that still has it. A
@@ -309,6 +310,16 @@ def _moment(stamp: str) -> datetime:
 
 def _newer(left: str, right: str) -> bool:
     return _moment(left) > _moment(right)
+
+
+def _minute(stamp: str) -> datetime:
+    """An ISO timestamp, cut to the minute: the resolution Notion answers at.
+
+    What a conflict compares, because a file says the microsecond and Notion
+    rounds down — a page edited at 10:05:50 says 10:05:00, and would lose to a
+    file edited twenty seconds before it.
+    """
+    return _moment(stamp).replace(second=0, microsecond=0)
 
 
 class Mirror:
@@ -591,15 +602,19 @@ class Mirror:
 
         if moved_notion and moved_markdown:
             # `storage.conflict` names the rule; "newest" is the only one there
-            # is, and the whole of it is which timestamp is bigger.
-            wins_notion = not _newer(markdown_at, notion_at)
+            # is, and the whole of it is which minute is later. Within the same
+            # one nothing says which came first, and Notion, the side a person
+            # is most likely looking at, keeps what it says.
+            tie = _minute(markdown_at) == _minute(notion_at)
+            wins_notion = tie or _minute(notion_at) > _minute(markdown_at)
             report.note(
                 "conflict",
                 collection,
                 page_id,
                 left.title or right.title,
                 f"both moved — Notion {notion_at or '?'}, Markdown {markdown_at or '?'}; "
-                f"{'Notion' if wins_notion else 'Markdown'} wins ({self.conflict})",
+                + ("same minute, a tie goes to Notion; " if tie else "")
+                + f"{'Notion' if wins_notion else 'Markdown'} wins ({self.conflict})",
             )
         elif moved_notion:
             wins_notion = True
