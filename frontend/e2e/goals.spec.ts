@@ -22,11 +22,20 @@ test("a goal is created from the list, then changed, and both show", async ({ pa
   const form = page.getByRole("dialog")
   await form.getByLabel("Nom").fill("Lancer la v1")
   await form.getByLabel("Description").fill("La première version")
-  await form.getByLabel("Terminée quand").fill("Dix clients payants")
+  await form.getByLabel("Atteint quand").fill("Dix clients payants")
   await form.getByLabel("Échéance").fill("2026-12-31")
   await form.getByRole("button", { name: "Website" }).click()
-  await form.getByRole("button", { name: /Ticket 3$/ }).click()
+  await expect(form.locator('[data-slot="select-trigger"]')).toContainText("actif")
+  await form.getByRole("combobox", { name: "Tickets" }).click()
+  await page.getByPlaceholder("Rechercher un ticket…").fill("Ticket 3")
+  // The board's tickets have no project: offered once the search looks past the goal's.
+  await expect(page.getByText("Rien ne correspond.")).toBeVisible()
+  await page.getByText("Aussi les tickets terminés et ceux des autres projets").click()
+  await page.getByRole("option", { name: /Ticket 3/ }).click()
+  await page.keyboard.press("Escape")
+  await expect(form.locator('[data-slot="goal-tickets"]')).toContainText("Ticket 3")
   await form.getByRole("button", { name: "Enregistrer" }).click()
+  await expect(page.getByText("Objectif créé")).toBeVisible()
 
   const card = page.locator('[data-slot="goals-item"]', { hasText: "Lancer la v1" })
   await expect(card).toBeVisible()
@@ -180,7 +189,7 @@ test("without a goals database, no goal is offered to write, and the empty list 
 test("an empty goals database offers to write the first goal", async ({ page }) => {
   await page.route(/\/api\/goals$/, async (route) => {
     if (route.request().method() !== "GET") return route.fallback()
-    await route.fulfill({ json: { goals: [], configured: true } })
+    await route.fulfill({ json: { goals: [], statuses: [], configured: true } })
   })
   await page.goto(LIST)
   await expect(page.getByText("Aucun objectif.")).toBeVisible()
