@@ -114,6 +114,33 @@ def a_schedule_keeps_its_wall_clock_hour_across_the_change_to_winter_time():
 
 
 @case
+def the_same_moment_in_any_offset_gives_the_same_occurrence():
+    """A Last run from Notion comes in UTC, an offset may predate the change of time: same instant, same answer."""
+    with _paris():
+        here = datetime.fromisoformat("2026-10-26T07:30:00+01:00")
+        for after in (
+            here,
+            datetime.fromisoformat("2026-10-26T06:30:00+00:00"),
+            datetime.fromisoformat("2026-10-26T08:30:00+02:00"),
+        ):
+            hourly = schedules.next_occurrence("Hourly", "00:00", after=after)
+            assert hourly is not None and hourly.isoformat() == "2026-10-26T08:00:00+01:00", (
+                after,
+                hourly,
+            )
+            daily = schedules.next_occurrence("Daily", "07:45", after=after)
+            assert daily is not None and daily.isoformat() == "2026-10-26T07:45:00+01:00", (
+                after,
+                daily,
+            )
+            line = schedules.cron("0 * * * *", after=after)
+            assert line is not None and line.isoformat() == "2026-10-26T08:00:00+01:00", (
+                after,
+                line,
+            )
+
+
+@case
 def weekly_and_monthly_schedules_walk_their_day_in_a_row():
     with _paris():
         assert _walk("Weekly", "09:00", "Monday", "2026-10-14T12:00:00+02:00", 3) == [

@@ -185,15 +185,16 @@ def next_occurrence(
     can read, a day that means nothing. A schedule the runner cannot understand
     is one it leaves alone, and `doctor` is where that is said out loud.
 
-    Aware in, aware out: the moment comes back in this machine's timezone, which
-    is the one `scheduled_for` reads dates in.
+    Aware in, aware out: `after` is first read in this machine's timezone —
+    a Last run in UTC is the same instant as the local hour — and the moment
+    comes back in it, the one `scheduled_for` reads dates in.
     """
     clock = _clock(at)
     if clock is None:
         return None
     hour, minute = clock
     name = cadence.strip().lower()
-    base = after.replace(tzinfo=None) if after.tzinfo else after
+    base = after.astimezone().replace(tzinfo=None) if after.tzinfo else after
 
     if name == "hourly":
         moment = base.replace(minute=minute, second=0, microsecond=0)
@@ -303,7 +304,7 @@ def cron(expression: str, *, after: datetime) -> datetime | None:
     if parsed is None:
         return None
     (minutes, hours, days, months, weekdays), dated, weekly = parsed
-    base = (after.replace(tzinfo=None) if after.tzinfo else after).replace(
+    base = (after.astimezone().replace(tzinfo=None) if after.tzinfo else after).replace(
         second=0, microsecond=0
     ) + timedelta(minutes=1)
     for offset in range(366 * 8):
