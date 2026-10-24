@@ -7,6 +7,7 @@ import io
 import json
 import threading
 import time
+from email.message import Message
 
 from support import _board, _ideas_api, _time_passes, case
 
@@ -916,6 +917,110 @@ def signing_out_everywhere_signs_the_oauth_connectors_out_and_names_the_drawn_to
     assert "2 key(s) taken back" in said, said
     assert web_oauth.check(local_token) is not None, "a token drawn here stays"
     assert f"ponos mcp revoke {local_id}" in said, said
+
+
+@case
+def registering_is_counted_per_address_and_answered_429_past_the_hour_s_quota(state_home):
+    """`/oauth/register` is open to anybody and writes a row each time.
+
+    Twenty an hour from one address, then `429` with `Retry-After` — and no
+    row for the refused one; another address, or the next hour, registers
+    again.
+    """
+    import urllib.error
+    import urllib.request
+
+    from ponos.web import app as web_app
+    from ponos.web import attempts as web_attempts
+    from ponos.web import oauth as web_oauth
+
+    quota = web_attempts.Quota(2, 3600, clock=lambda: 0.0)
+    assert quota.take("a") == 0 and quota.take("a") == 0
+    assert quota.take("a") == 3600, "the third waits for the end of the window"
+    assert quota.take("b") == 0, "another address has its own"
+    quota.clock = lambda: 3600.0
+    assert quota.take("a") == 0, "and the next window starts afresh"
+
+    with _board() as board:
+        api = _ideas_api(board)
+        api._config.web.token = "tok"
+        console = web_app.Console(("127.0.0.1", 0), api, "tok")
+        threading.Thread(target=console.serve_forever, daemon=True).start()
+        base = f"http://127.0.0.1:{console.server_address[1]}"
+        body = json.dumps({"redirect_uris": ["https://x.example/cb"]}).encode()
+
+        def register(forwarded: str) -> tuple[int, Message]:
+            request = urllib.request.Request(
+                base + "/oauth/register",
+                data=body,
+                headers={"Content-Type": "application/json", "X-Forwarded-For": forwarded},
+            )
+            try:
+                with urllib.request.urlopen(request, timeout=5) as response:
+                    return response.status, response.headers
+            except urllib.error.HTTPError as error:
+                return error.code, error.headers
+
+        try:
+            for _ in range(web_oauth.REGISTRATIONS_PER_HOUR):
+                assert register("203.0.113.7")[0] == 201
+            code, headers = register("203.0.113.7")
+            assert code == 429 and int(headers.get("Retry-After")) > 3500, (code, headers)
+            assert len(web_oauth.clients()) == web_oauth.REGISTRATIONS_PER_HOUR
+            assert register("198.51.100.9")[0] == 201, "another address is not held back"
+        finally:
+            console.shutdown()
+            console.server_close()
+
+
+@case
+def the_purge_forgets_expired_keys_and_the_clients_that_hold_none(state_home):
+    """Each registration is a row and each refresh a pair: neither is kept for ever.
+
+    A day after it expired, a code or a token goes; a registered client with
+    no key left goes once it is a day old. A client just registered stays, as
+    do a connected one, a revoked refresh token not yet expired — it is what
+    tells a copied one — and a token drawn with `ponos mcp token`.
+    """
+    from datetime import timedelta
+
+    from ponos.web import oauth as web_oauth
+
+    abandoned = web_oauth.register({"redirect_uris": ["https://x.example/cb"]})["client_id"]
+    fresh = web_oauth.register({"redirect_uris": ["https://x.example/cb"]})["client_id"]
+    connected, pair = _connected(web_oauth)
+    turned = web_oauth.exchange(
+        {
+            "grant_type": "refresh_token",
+            "refresh_token": pair["refresh_token"],
+            "client_id": connected,
+        }
+    )
+    local_id, local_token = web_oauth.local("Claude Code", write=False)
+    long_ago = "2026-01-01T00:00:00+00:00"
+    with db.transaction() as connection:
+        connection.execute(
+            "UPDATE mcp_clients SET created_at = ? WHERE id IN (?, ?, ?)",
+            (long_ago, abandoned, connected, local_id),
+        )
+        # The first pair: its access token expired two days ago.
+        connection.execute(
+            "UPDATE mcp_tokens SET expires_at = ? WHERE hash = ?",
+            (
+                web_oauth._stamp(web_oauth._now() - timedelta(days=2)),
+                web_oauth.digest(pair["access_token"]),
+            ),
+        )
+    assert web_oauth.purge() == 2, "the abandoned client and the expired access token"
+    with db.transaction(immediate=False) as connection:
+        ids = {row[0] for row in connection.execute("SELECT id FROM mcp_clients")}
+        hashes = {row[0] for row in connection.execute("SELECT hash FROM mcp_tokens")}
+    assert ids == {fresh, connected, local_id}, ids
+    assert web_oauth.digest(pair["access_token"]) not in hashes
+    assert web_oauth.digest(pair["refresh_token"]) in hashes, "a spent refresh token is kept"
+    assert web_oauth.check(turned["access_token"]) is not None
+    assert web_oauth.check(local_token) is not None
+    assert web_oauth.purge() == 0
 
 
 # -- why a ticket stopped -----------------------------------------------------

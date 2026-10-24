@@ -1048,3 +1048,10 @@ and exchanges the code with PKCE (`S256` only). The access token lasts an hour, 
 token ninety days and turns over at each use; each is kept as its SHA-256 only. A refresh token
 that comes back after it turned over has been used by somebody else first: it takes every key of
 its client with it, and the connector has to be connected again.
+
+Registering is open, since a connector does it before anybody signs in, so it is counted: one
+address registers twenty clients an hour, and the twenty-first is answered `429` with
+`Retry-After`. The daily tidy forgets what ran out — a code or a token a day after it expired,
+and a client registered over the network that holds no key any more (never authorised, or silent
+past its ninety days) once it is a day old; such a connector registers again when it comes back.
+The clients drawn with `ponos mcp token` are never purged.

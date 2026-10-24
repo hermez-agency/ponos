@@ -115,6 +115,8 @@ class Console:
         self.code = code
         # Who got the door wrong lately — see `attempts`.
         self.attempts = attempts.Attempts()
+        # How many clients each address registered this hour — see `oauth.register`.
+        self.registrations = attempts.Quota(oauth.REGISTRATIONS_PER_HOUR, 3600)
         host, port = address
         self.socket = socket.create_server(
             (host.strip("[]"), port),
@@ -1228,6 +1230,9 @@ def mcp_message(request: Request) -> Response:
 
 @doors.post("/oauth/register", include_in_schema=False)
 def register(request: Request) -> Response:
+    # Open to anybody, and a row each time: counted before it is read.
+    if wait := _console(request).registrations.take(_asking(request).knocker()):
+        return _too_many(wait)
     raw = _read(request)
     if raw is None:
         return fail(413, "a registration is smaller than that")
