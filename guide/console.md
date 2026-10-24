@@ -530,6 +530,48 @@ the highest priority first. Beside its due date, an active goal whose day is pas
 day itself; a goal reached or given up says neither. It follows the event stream: a goal written in another tab, a ticket tied to one, or a
 ticket of a goal moving to *Done* reads the list again, and the count moves without a reload.
 
+#### How a goal's tickets are counted
+
+One rule, the same on the page, in its drawer, in a project's *Goals* box and in the MCP
+connector's `list_goals`:
+
+- **done** is the tickets in the `done` column (`[notion.status] done`, `Done` by default) —
+  not *In review*, not *Validated*: a ticket counts once its pull request is merged or its page
+  published;
+- **the total** is every ticket that points at the goal **but the cancelled ones** — drafts,
+  tickets with no status, blocked and failed ones included: a cancelled ticket is work given
+  up, not work left to do;
+- **only the first goal of a ticket's `Objectif` relation counts**, as only the first is read
+  into its prompt: a ticket tied to two goals adds to the first one alone. The console only
+  ever writes one goal on a ticket; a second one is something written by hand in Notion.
+
+So a goal with two tickets done, one cancelled and one ready says « 2 of 3 tickets done ».
+
+The console does not read Notion's own columns, and Notion does not read the console's count:
+if your goals database carries an `Avancement` rollup of its own, it says the same only if it
+is built on the same rule. Notion's « Percent checked » of a ticket formula counts the
+cancelled tickets in the total, which would make the goal above 50 % instead of 67 %. The
+columns that agree with the console, on the **tickets** database:
+
+| Column | Type | Formula |
+|---|---|---|
+| `Fini` | Formula | `prop("Status") == "Done"` |
+| `Compté` | Formula | `prop("Status") != "Cancelled"` |
+
+and on the **goals** database, through the relation back to the tickets that the `Objectif`
+column makes there (`Tickets` below, whatever Notion named it):
+
+| Column | Type | Definition |
+|---|---|---|
+| `Faits` | Rollup | relation `Tickets`, property `Fini`, *Count* → *Checked* |
+| `Total` | Rollup | relation `Tickets`, property `Compté`, *Count* → *Checked* |
+| `Avancement` | Formula | `if(prop("Total") > 0, prop("Faits") / prop("Total"), 0)`, shown as a percent |
+
+`Status`, `Done` and `Cancelled` are the names of your board: write the ones
+[`[notion.properties] status` and `[notion.status]`](configuration.md#4-the-rest-of-the-file) give. One gap stays,
+and it is Notion's: a rollup counts a ticket on **every** goal of its relation, the console on
+its first — tie each ticket to a single goal and the two agree.
+
 A card opens the goal's page in a drawer over the list: its description, *Done when*, priority
 and projects, the count, and its **tickets grouped by column** in the board's order, each with
 its short number and a link that opens its window over the page. **+ Ticket** opens *New ticket*
