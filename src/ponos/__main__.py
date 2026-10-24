@@ -587,7 +587,7 @@ def command_status(args: argparse.Namespace) -> int:
 
     held = state.running()
     if held:
-        warn(f"a run is in progress ({held})")
+        warn(_run_line(held))
     else:
         ok("no run in progress")
 
@@ -912,8 +912,60 @@ def _timer_line(timer: systemd.Timer) -> None:
         ok("ponos.timer: enabled" + (" — a run is in progress" if timer.running else ""))
     else:
         warn(f"ponos.timer: {timer.enabled}")
-    if timer.row:
-        print(f"    {DIM}{timer.row}{RESET}")
+    times = _timer_times(timer)
+    if times:
+        print(f"    {DIM}{times}{RESET}")
+
+
+def _timer_times(timer: systemd.Timer) -> str:
+    """The next pass and the last one, on the local clock and from now.
+
+    Not the `list-timers` line, which `status` once printed as it came: without
+    its headers, the two `-` of a run in progress — no next run until this one
+    ends — read as nothing at all, and its dates as somebody else's log.
+    """
+    now = time.time()
+    said = []
+    if timer.running:
+        said.append("next pass: once this one ends")
+    elif timer.next:
+        said.append(f"next pass: {_moment(timer.next)}, in {_span(timer.next - now)}")
+    if timer.last:
+        said.append(f"last pass: {_moment(timer.last)}, {_span(now - timer.last)} ago")
+    return " · ".join(said)
+
+
+def _run_line(held: str) -> str:
+    """The run the lock names — `<pid> <UTC start>` — said as how long it has lasted."""
+    pid, _, started = held.partition(" ")
+    try:
+        start = datetime.fromisoformat(started).timestamp()
+    except ValueError:
+        return f"a run is in progress (pid {pid})" if pid.isdigit() else "a run is in progress"
+    return f"a run is in progress since {_moment(start)}, {_span(time.time() - start)} (pid {pid})"
+
+
+def _moment(at: float) -> str:
+    """A time on the local clock: the hour today, the day too otherwise."""
+    moment = datetime.fromtimestamp(at).astimezone()
+    if moment.date() == datetime.now().astimezone().date():
+        return moment.strftime("%H:%M")
+    return moment.strftime("%a %d %b %H:%M")
+
+
+def _span(seconds: float) -> str:
+    """A duration the way you would say it: `4 h 54 min`, `3 min`, `12 s`."""
+    seconds = max(0, round(seconds))
+    days, rest = divmod(seconds, 86400)
+    hours, rest = divmod(rest, 3600)
+    minutes, seconds = divmod(rest, 60)
+    if days:
+        return f"{days} d {hours} h"
+    if hours:
+        return f"{hours} h {minutes} min"
+    if minutes:
+        return f"{minutes} min"
+    return f"{seconds} s"
 
 
 # What a group of checks is called on a terminal.

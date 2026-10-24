@@ -229,6 +229,54 @@ def a_timer_with_no_next_run_is_stalled_rather_than_enabled():
 
 
 @case
+def status_says_the_timer_and_the_run_in_local_time_and_from_now():
+    """`status` printed the `list-timers` line bare — `-       - Fri 2026-10-23
+    10:19:18 CEST 4h 54min ago` — and the run as a PID beside a UTC timestamp."""
+    import time
+    from datetime import UTC, datetime
+
+    from ponos import __main__ as cli
+
+    then = time.time() - (4 * 3600 + 54 * 60)
+    busy = systemd.describe(
+        "enabled",
+        "SubState=running\nNextElapseUSecRealtime=\nNextElapseUSecMonotonic=infinity\n",
+        "NEXT LEFT LAST PASSED UNIT ACTIVATES\n- - Fri 2026-10-23 10:19:18 CEST 4h 54min ago "
+        "ponos.timer ponos.service\n",
+        f"LastTriggerUSec=@{then:.0f}\nNextElapseUSecRealtime=\n",
+    )
+    assert busy.last == round(then) and busy.next == 0
+    said = cli._timer_times(busy)
+    assert said.startswith("next pass: once this one ends · last pass: "), said
+    assert said.endswith(", 4 h 54 min ago"), said
+    assert cli._moment(then) in said, "on the local clock"
+    assert "-" not in said and "CEST" not in said, "and nothing of the bare line"
+
+    armed = systemd.describe(
+        "enabled",
+        "SubState=waiting\nNextElapseUSecRealtime=\nNextElapseUSecMonotonic="
+        f"{time.monotonic() + 185:.6f}s\n",
+        stamps="LastTriggerUSec=n/a\nNextElapseUSecRealtime=\n",
+    )
+    assert abs(armed.next - (time.time() + 185)) < 2, "a monotonic next run, as a date"
+    assert armed.last == 0
+    assert cli._timer_times(armed).startswith("next pass: "), cli._timer_times(armed)
+    assert ", in 3 min" in cli._timer_times(armed)
+    calendar = systemd.describe(
+        "enabled", "SubState=waiting\n", stamps="NextElapseUSecRealtime=@1792743558\n"
+    )
+    assert calendar.next == 1792743558
+
+    started = datetime.fromtimestamp(then, UTC).isoformat()
+    line = cli._run_line(f"2529887 {started}")
+    assert line == f"a run is in progress since {cli._moment(then)}, 4 h 54 min (pid 2529887)"
+    assert cli._run_line("a run in progress") == "a run is in progress", "nobody named"
+    assert [cli._span(s) for s in (12, 180, 90000)] == ["12 s", "3 min", "1 d 1 h"]
+    assert systemd._span("18h 48min") == 18 * 3600 + 48 * 60
+    assert systemd._span("infinity") == 0 and systemd._span("") == 0
+
+
+@case
 def the_timer_counts_from_its_own_start():
     """OnBootSec serves once; OnUnitActiveSec needs a service that ran. A timer
     restarted after a failed run had neither, and never fired again."""
