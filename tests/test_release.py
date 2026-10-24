@@ -433,7 +433,14 @@ def the_console_header_and_the_command_line_agree_on_the_version(state_home):
     """
     running = update.running()
     number, _, short = running["version"].partition("+")
-    assert number == __version__ and len(short) >= 7 and _head(ROOT).startswith(short), running
+    tagged = f"v{__version__}" in _git(ROOT, "tag", "--points-at", "HEAD").split()
+    assert number == __version__, running
+    assert (not short) if tagged else (len(short) >= 7 and _head(ROOT).startswith(short)), running
+    printed = io.StringIO()
+    with contextlib.redirect_stdout(printed), contextlib.suppress(SystemExit):
+        build_parser().parse_args(["--version"])
+    assert printed.getvalue() == f"ponos {running['version']}\n", printed.getvalue()
+    assert f"Ponos {running['version']} " in _plain(banner()), "the welcome frame says another"
     assert running["commit"] == _head(ROOT), "the tooltip names another commit"
     assert running["date"] and running["subject"], "the tooltip has nothing to say"
     assert web_overview._update_available() == "", "nothing checked yet is not an update"
@@ -463,6 +470,48 @@ def a_copy_that_is_not_a_repository_says_its_number_alone():
     assert json.loads(said) == {"version": __version__, "commit": "", "date": "", "subject": ""}, (
         said
     )
+
+
+def _git(where: Path, *args: str) -> str:
+    who = ["-c", "user.name=t", "-c", "user.email=t@example.invalid", "-c", "commit.gpgsign=false"]
+    return subprocess.run(
+        ["git", *who, "-C", str(where), *args], capture_output=True, text=True, check=True
+    ).stdout.strip()
+
+
+@case
+def a_checkout_on_its_own_tag_says_its_number_alone():
+    """On `v0.2.0`, `0.2.0` names one commit; one commit past it, the commit is added.
+
+    `update_channel = "main"` runs every commit under the same number: the
+    commit is what a bug report needs, and the tag is the one place it is not.
+    """
+    with tempfile.TemporaryDirectory() as scratch:
+        copy = Path(scratch) / "app"
+        shutil.copytree(ROOT / "src", copy / "src", ignore=shutil.ignore_patterns("__pycache__"))
+        _git(copy, "init", "--quiet")
+        _git(copy, "add", ".")
+        _git(copy, "commit", "--quiet", "-m", "release")
+        _git(copy, "tag", f"v{__version__}")
+
+        def said() -> str:
+            return subprocess.run(
+                [
+                    sys.executable,
+                    "-c",
+                    "from ponos import update; print(update.running()['version'])",
+                ],
+                env={**os.environ, "PYTHONPATH": str(copy / "src")},
+                cwd=scratch,
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout.strip()
+
+        assert said() == __version__, said()
+        _git(copy, "commit", "--quiet", "--allow-empty", "-m", "past the tag")
+        short = _git(copy, "rev-parse", "--short", "HEAD")
+        assert said() == f"{__version__}+{short}", (said(), short)
 
 
 STATIC = ROOT / "src/ponos/web/static"

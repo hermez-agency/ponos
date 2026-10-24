@@ -289,7 +289,8 @@ def running() -> dict[str, Any]:
     that can disagree with the code. Asked of the directory this file is in,
     not of `app_dir()`, whose link may already name a newer version than the
     one running. A directory that is not a repository — a copy, an image — says
-    the number alone.
+    the number alone, and so does a checkout sitting on the number's own tag:
+    there, `0.2.0` names one commit and nothing needs adding.
     """
     from . import __version__
 
@@ -304,7 +305,12 @@ def running() -> dict[str, Any]:
     if len(parts) != 4 or not parts[0]:
         return {"version": __version__, "commit": "", "date": "", "subject": ""}
     short, commit, date, subject = parts
-    return {"version": f"{__version__}+{short}", "commit": commit, "date": date, "subject": subject}
+    try:
+        tags = git.git(["tag", "--points-at", "HEAD"], here, timeout=10).out.split()
+    except (OSError, subprocess.SubprocessError):
+        tags = []
+    version = __version__ if f"v{__version__}" in tags else f"{__version__}+{short}"
+    return {"version": version, "commit": commit, "date": date, "subject": subject}
 
 
 def between_runs(

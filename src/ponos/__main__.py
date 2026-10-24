@@ -20,7 +20,6 @@ from pathlib import Path
 from typing import Any
 
 from . import (
-    __version__,
     channels,
     conversation,
     credits,
@@ -1559,10 +1558,11 @@ def banner_lines() -> list[tuple[str, str]]:
     a frame measured with them in it comes out crooked the moment colours are
     on, which is exactly when somebody is looking at it.
     """
+    version = update_module.running()["version"]
     lines = [
         (
-            f"{NAME} {__version__}",
-            f"{BOLD}{NAME}{RESET} {GREEN}{__version__}{RESET}",
+            f"{NAME} {version}",
+            f"{BOLD}{NAME}{RESET} {GREEN}{version}{RESET}",
         ),
         (TAGLINE, f"{DIM}{TAGLINE}{RESET}"),
     ]
@@ -1635,12 +1635,33 @@ def board_language() -> str:
         return voice.DEFAULT
 
 
+class VersionAction(argparse.Action):
+    """`--version`: the number, and the commit when the number alone does not say it.
+
+    Asked of git only when the flag is given — every other command builds the
+    same parser, and has no use for a version read at each start.
+    """
+
+    def __init__(self, option_strings: list[str], dest: str = argparse.SUPPRESS, **_: Any) -> None:
+        super().__init__(
+            option_strings,
+            dest,
+            nargs=0,
+            default=argparse.SUPPRESS,
+            help="show program's version number and exit",
+        )
+
+    def __call__(self, parser: argparse.ArgumentParser, *_: Any) -> None:
+        print(f"{PRODUCT} {update_module.running()['version']}")
+        parser.exit()
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog=PRODUCT,
         description=TAGLINE,
     )
-    parser.add_argument("--version", action="version", version=f"{PRODUCT} {__version__}")
+    parser.add_argument("--version", action=VersionAction)
     subparsers = parser.add_subparsers(dest="command", help="the command to run")
 
     run = subparsers.add_parser("run", help="handle the ready tickets (one run)")
