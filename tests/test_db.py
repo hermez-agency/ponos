@@ -15,7 +15,7 @@ from pathlib import Path
 from support import ROOT, case
 
 from ponos import config as C
-from ponos import conversation, credits, db, images, state, sync
+from ponos import conversation, credits, db, ideas, images, journal, notifications, state, sync
 from ponos.web import statistics as web_statistics
 
 # -- the local database ------------------------------------------------------
@@ -511,3 +511,62 @@ def a_checkout_does_not_write_the_real_state_unless_told_to(state_home):
     assert done.returncode == 2 and "XDG_STATE_HOME=$(mktemp -d)" in done.stderr, done.stderr
     assert not (home / ".local" / "state").exists(), "nothing written"
     C.refuse_real_state()
+
+
+@case
+def what_the_console_asks_of_runs_ideas_history_and_the_bell_is_searched_on_an_index(state_home):
+    # The statements as the code emits them, values in, each planned by
+    # SQLite: a SCAN of one of these tables is a read of all of it.
+    try:
+        ticket = "3ed451680af48134a677f7f1e9024ae5"
+        journal.Run.start(ticket=ticket, title="Plan").end("done", "")
+        journal.Run.start(ticket="e9024ae5".rjust(32, "0"), title="Same tail").end("done", "")
+        batch, _ = ideas.record("p", "haiku", None, [{"kind": "ticket", "title": "Une idée"}])
+        state.record({"id": ticket, "status": "blocked", "code": "session.question"})
+        connection = db.connect()
+        asked: list[str] = []
+        connection.set_trace_callback(asked.append)
+        try:
+            assert [run["title"] for run in journal.runs(ticket)] == ["Plan"]
+            assert list(journal.spans(ticket)) == [ticket]
+            ideas.listed("p", ("proposed", "kept"))
+            ideas.unscored("p")
+            ideas.forget("q")
+            assert state.causes(ticket) == {ticket: "session.question"}
+            notifications.add("blocked", ticket, "Plan")
+        finally:
+            connection.set_trace_callback(None)
+        # The bell's own purge and unread count go by `read_at`, which none of
+        # these indexes lead with: what it asks of a ticket is what is checked.
+        reads = [
+            statement
+            for statement in asked
+            if statement.lstrip().upper().startswith(("SELECT", "DELETE"))
+            and (
+                any(f" {table} " in statement for table in ("runs", "ideas", "history"))
+                or "FROM notifications WHERE ticket" in statement
+            )
+        ]
+        assert len(reads) == 7, reads
+        for statement in reads:
+            plan = [row[3] for row in connection.execute("EXPLAIN QUERY PLAN " + statement)]
+            scans = [
+                step
+                for step in plan
+                if step.startswith("SCAN")
+                and step.split()[1] in ("runs", "ideas", "history", "notifications")
+            ]
+            assert not scans, (statement, plan)
+        ideas.record("p", "haiku", None, [])
+        plan = [
+            row[3]
+            for row in connection.execute(
+                "EXPLAIN QUERY PLAN SELECT id FROM ideas WHERE batch = ? ORDER BY id", (batch,)
+            )
+        ]
+        assert any("USING" in step and "INDEX ideas_by_batch" in step for step in plan), plan
+        # The short form typed on `ponos logs` is the latest ticket it ends, and
+        # no longer every ticket that happens to share its eight characters.
+        assert [run["title"] for run in journal.runs("e9024ae5")] == ["Same tail"]
+    finally:
+        db.close()

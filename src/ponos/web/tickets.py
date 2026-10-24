@@ -740,7 +740,10 @@ def _causes(tickets: list[dict[str, Any]]) -> None:
         if ticket.get("column") not in ("blocked", "failed"):
             ticket["block"] = None
         elif ticket.get("block") is None:
-            codes = state.causes() if codes is None else codes
+            if codes is None:
+                codes = (
+                    state.causes(str(ticket.get("id", ""))) if len(tickets) == 1 else state.causes()
+                )
             ticket["block"] = blocks.describe(codes.get(str(ticket.get("id", "")), ""))
 
 

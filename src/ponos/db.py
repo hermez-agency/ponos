@@ -913,6 +913,19 @@ def _phases(connection: sqlite3.Connection) -> None:
     )
 
 
+def _indexes_for_what_is_asked(connection: sqlite3.Connection) -> None:
+    # What the queries really filter on, as EXPLAIN QUERY PLAN read them: no
+    # query of ideas names its scope, so `ideas_by_scope` was never used; the
+    # causes a card falls back on are a few rows out of the whole history; and
+    # the bell asks whether a ticket already rings for a kind on every ring.
+    connection.execute("CREATE INDEX ideas_by_project ON ideas (project, status)")
+    connection.execute("CREATE INDEX ideas_by_batch ON ideas (batch)")
+    connection.execute("CREATE INDEX history_causes ON history (ticket, id) WHERE code != ''")
+    connection.execute(
+        "CREATE INDEX notifications_by_ticket ON notifications (ticket, kind, read_at)"
+    )
+
+
 # Appended to, never edited or renamed: a file remembers each of these by name,
 # and the version of a file is how many of them it has been through. Statements go through `execute` one at a time — `executescript`
 # commits whatever transaction is open before it starts, which would apply half
@@ -952,6 +965,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     _stamps_print_the_file,
     _occurrences,
     _phases,
+    _indexes_for_what_is_asked,
 )
 
 # Any way a read or a write of the database can fail. A note the runner keeps

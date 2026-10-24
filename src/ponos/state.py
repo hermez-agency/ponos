@@ -618,18 +618,24 @@ def spent_by_project(since: datetime) -> list[tuple[str, int, float]]:
     return [(str(project or ""), int(count), float(total or 0.0)) for project, count, total in rows]
 
 
-def causes() -> dict[str, str]:
+def causes(ticket: str = "") -> dict[str, str]:
     """{ticket id without dashes: the cause it last stopped on}, from the history.
 
     What a card falls back on when the board has no « Blocage » column to read
     it from. Empty when the database cannot be read: a card without its badge
-    is still a card.
+    is still a card. One ticket's only when `ticket` is given, asked of the
+    index on the lines that carry a code rather than read off the whole
+    history — under either form of its id, as a line may have kept the dashes.
     """
+    query = "SELECT ticket, code FROM history WHERE code != ''"
+    values: tuple[str, ...] = ()
+    if ticket:
+        key = ticket.replace("-", "")
+        query += " AND ticket IN (?, ?)"
+        values = (key, f"{key[:8]}-{key[8:12]}-{key[12:16]}-{key[16:20]}-{key[20:]}")
     try:
         with db.transaction(immediate=False) as connection:
-            rows = connection.execute(
-                "SELECT ticket, code FROM history WHERE code != '' ORDER BY id"
-            ).fetchall()
+            rows = connection.execute(query + " ORDER BY id", values).fetchall()
     except db.ERRORS:
         return {}
     return {str(ticket).replace("-", ""): str(code) for ticket, code in rows}
