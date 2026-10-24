@@ -274,7 +274,11 @@ export const goals = createViewResource<GoalItem, GoalWrite>(GOALS, {
   path: "/api/goals",
   icon: Target,
   titleField: "name",
-  permissions: { export: false },
+  permissions: {
+    export: false,
+    // Nothing to write a goal in without a Goals database: no "New goal" then.
+    create: () => Boolean(read.goals) && read.configured,
+  },
   repository: {
     getCollection: async (filter) => {
       const every = await readAgain()

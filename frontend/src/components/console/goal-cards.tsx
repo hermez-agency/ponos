@@ -400,11 +400,27 @@ export function NoGoal() {
         {t("Another status or project, and they will be back.")}
       </EmptyState>
     )
-  return (
-    <EmptyState icon={Target} title={t("No goal yet.")}>
-      {configured
-        ? t("A goal is a row of the Goals database in Notion; a ticket points at it through its Goal column.")
-        : t("The workspace has no Goals database: add one in Notion, and its rows show here.")}
+  // Written from here only where there is a Goals database to write it in.
+  return configured ? (
+    <EmptyState icon={Target} title={t("No goal.")} action={<NewGoalButton />}>
+      {t("Write one, then point the tickets that serve it at it.")}
     </EmptyState>
+  ) : (
+    <EmptyState icon={Target} title={t("No goal.")}>
+      {t("The workspace has no Goals database: add one in Notion, and goals can be written here.")}
+    </EmptyState>
+  )
+}
+
+/** "New goal", the button the empty list offers: the same form as the one over the list. */
+function NewGoalButton() {
+  const t = useT()
+  return (
+    <ResourceViewButton action={ActionList.create}>
+      <span data-slot="goals-new" className={buttonVariants({ size: "sm" })}>
+        <Plus />
+        {t("New goal")}
+      </span>
+    </ResourceViewButton>
   )
 }

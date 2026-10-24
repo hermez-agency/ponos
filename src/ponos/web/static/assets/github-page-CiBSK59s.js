@@ -1,0 +1,1 @@
+export{n as GithubPage}from"./github-page-Dcc562s5.js";

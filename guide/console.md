@@ -528,6 +528,10 @@ then the others —, plus the one it already serves; it is not there at all on a
 `Objectif` column. The count is read again after every write, and a write the board refuses is
 shown as it was said.
 
+*New goal* is only offered where there is a database to write it in: a workspace without a goals
+database has no button, and its empty list says so — add one in Notion, and goals can be written
+here. An empty database shows *No goal.* with the *New goal* button.
+
 **A goal that is over is closed, not deleted.** *Reached* and *Given up* write its status
 (`atteint`, `abandonné`): the goal keeps its page, its tickets and its count (« 12 of 12 done »),
 and the list no longer shows it unless asked. *Delete*, set apart, asks first and sends the page

@@ -2541,12 +2541,12 @@ export const FRENCH: Record<string, string> = {
   "Open in Notion": "Ouvrir dans Notion",
   "No goal matches these filters.": "Aucun objectif ne correspond à ces filtres.",
   "Another status or project, and they will be back.": "Un autre statut ou projet, et ils reviendront.",
-  "No goal yet.": "Aucun objectif pour l'instant.",
+  "No goal.": "Aucun objectif.",
   "No ticket serves this goal yet.": "Aucun ticket ne sert encore cet objectif.",
-  "A goal is a row of the Goals database in Notion; a ticket points at it through its Goal column.":
-    "Un objectif est une ligne de la base Objectifs dans Notion ; un ticket le désigne par sa colonne Objectif.",
-  "The workspace has no Goals database: add one in Notion, and its rows show here.":
-    "L'espace de travail n'a pas de base Objectifs : ajoutez-en une dans Notion, et ses lignes s'affichent ici.",
+  "Write one, then point the tickets that serve it at it.":
+    "Écrivez-en un, puis rattachez-y les tickets qui le servent.",
+  "The workspace has no Goals database: add one in Notion, and goals can be written here.":
+    "L'espace de travail n'a pas de base Objectifs : ajoutez-en une dans Notion, et les objectifs s'écriront ici.",
   "The goal this ticket serves": "L'objectif que sert ce ticket",
   "New goal": "Nouvel objectif",
   "Edit the goal": "Modifier l'objectif",
