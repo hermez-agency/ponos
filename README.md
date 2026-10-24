@@ -1036,7 +1036,9 @@ board/
   projects/<slug>-<id>.md
   agents/<slug>-<id>.md
   schedules/<slug>-<id>.md
+  goals/<slug>-<id>.md           what the tickets are for — see the goals database
   comments/<id>.md               one page's discussion, oldest first
+  trash/<collection>/            what the console deleted: a project, a schedule, a goal
 ```
 
 One file is one page. Properties go in a YAML frontmatter under the names your board
@@ -1788,7 +1790,10 @@ the agent          what craft it takes, and its rules — read last
 
 The goal is the intent of the task, not a rule: the role's rules stay the last thing read.
 A prompt file of your own written before `{goal}` existed still gets the goal, at its end.
-Nothing else uses it — a goal's `Priorité` does not order the queue.
+The queue does not read it — a goal's `Priorité` does not order the tickets. What else reads
+the goals is the console's [Goals](#goals) page, the [ideas](#ideas) (the active goals of the
+scope, under « Les caps du moment ») and the MCP connector's `list_goals` and `create_task`.
+On a board of Markdown files the database is the `goals/` directory, with the same columns.
 
 All of it is optional twice over: a tickets database with no `Objectif` column, an empty
 relation or a goal page the integration cannot read all give the prompt you had before, to
@@ -3080,13 +3085,50 @@ drawn by the server and read `Accept-Language` the same way. What is *not* trans
 columns of your board are Notion's, the output of `> status` is the CLI's, and a report a run
 wrote is in the language [`runner.language`](#4-the-rest-of-the-file) asked for.
 
+### Goals
+
+**Goals** is the [goals database](#the-goals-database--what-the-ticket-is-for) drawn as a page:
+one card per goal — its status, its due date, its name, what it means, and **« n of m tickets
+done »**, written in words over a bar. The count is the console's, not a Notion rollup: the
+tickets of the board that point at the goal, the cancelled ones left out, so it is the same on a
+board of Markdown files as on Notion's. The list rests on the active goals (no `Statut`, or
+`actif`); its filters are the status — *All statuses*, or any one the database holds — and a
+project. It follows the event stream: a goal written in another tab, a ticket tied to one, or a
+ticket of a goal moving to *Done* reads the list again, and the count moves without a reload.
+
+A card opens the goal's page in a drawer over the list: its description, *Done when*, priority
+and projects, the count, and its **tickets grouped by column** in the board's order, each with
+its short number and a link that opens its window over the page. **+ Ticket** opens *New ticket*
+with the goal already chosen.
+
+**Everything is written from there.** *New goal* opens the form the database is written in —
+name, description, *Done when*, due date, status, priority (a score from 0 to 100, as on a
+ticket; left empty, the column is not touched) and projects. *Edit*, on the card or the page,
+opens the same form on the goal, with one more field: its **tickets**, tied or untied in a
+multi-select. A ticket is also tied from its own side: its window shows its goal under the title,
+a link to the goal's page, and a select to change it or set *No goal*. That select, like the one
+of *New ticket*, offers only the goals still worked toward — those of the ticket's project first,
+then the others —, plus the one it already serves; it is not there at all on a board with no
+`Objectif` column. The count is read again after every write, and a write the board refuses is
+shown as it was said.
+
+**A goal that is over is closed, not deleted.** *Reached* and *Given up* write its status
+(`atteint`, `abandonné`): the goal keeps its page, its tickets and its count (« 12 of 12 done »),
+and the list no longer shows it unless asked. *Delete*, set apart, asks first and sends the page
+to the trash — Notion's, or `trash/goals/` on a board of files —; its tickets stay where they
+are and serve no goal.
+
 ### Ideas
 
 Ponos can also propose what to do next. From the dashboard the ideas are the workspace's —
 new projects, or improvements that cut across them; from a project's page they are that
 project's. One short session writes ten at once on `runner.ideas_model` (`haiku` unless you
 say otherwise), given the project's brief, its README when the clone has one, its latest
-tickets and, for the workspace, the list of projects. Every idea already proposed for the same
+tickets and, for the workspace, the list of projects. The [goals](#goals) being worked toward go
+in too, under « Les caps du moment » — the name, `Critère` and `Échéance` of each active one
+whose `Projets` holds the project, or of all of them for the workspace —, in the prompt of the
+batch and in the scoring's, whose grid does not change; with no active goal the prompt is the
+one it was before. Every idea already proposed for the same
 scope is in the prompt too, and a title too close to one of them — or to a ticket — is dropped
 on the way in: an idea thrown away is never proposed again.
 
