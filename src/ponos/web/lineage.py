@@ -28,9 +28,10 @@ The figures are computed here rather than in the browser for the reason
 from __future__ import annotations
 
 import re
-from datetime import UTC, date, datetime, timedelta, tzinfo
+from datetime import date, timedelta, tzinfo
 from typing import Any
 
+from .. import ids, timestamps
 from .statistics import day_of
 
 # The columns a ticket stops in. The rate of success is done over all three:
@@ -39,15 +40,6 @@ FINISHED = ("done", "failed", "cancelled")
 
 # What a schedule writes after its name: the day, and the hour for an hourly one.
 STAMP = re.compile(r" — (\d{4}-\d{2}-\d{2})(?: \d{2}:\d{2})?$")
-
-
-def _moment(stamp: str) -> datetime:
-    """An ISO timestamp, to sort on; the oldest there is where it cannot be read."""
-    try:
-        moment = datetime.fromisoformat(stamp)
-    except ValueError:
-        return datetime.min.replace(tzinfo=UTC)
-    return moment if moment.tzinfo else moment.replace(tzinfo=UTC)
 
 
 def titled(name: str, title: str) -> date | None:
@@ -63,10 +55,6 @@ def titled(name: str, title: str) -> date | None:
         return None
 
 
-def _bare(ticket: str) -> str:
-    return ticket.replace("-", "")
-
-
 def linked(
     schedule: dict[str, Any],
     tickets: list[dict[str, Any]],
@@ -74,18 +62,18 @@ def linked(
     occurrences: list[dict[str, Any]],
 ) -> dict[str, str]:
     """{ticket id: how it is known to be this schedule's — `recorded` or `title`}."""
-    known: set[str] = {_bare(str(row.get("ticket") or "")) for row in occurrences}
+    known: set[str] = {ids.bare(row.get("ticket")) for row in occurrences}
     for entry in history:
         if entry.get("status") != "scheduled":
             continue
-        said = _bare(str(entry.get("schedule") or ""))
+        said = ids.bare(entry.get("schedule"))
         if said == schedule["id"] or (not said and entry.get("from") == schedule["name"]):
-            known.add(_bare(str(entry.get("id") or "")))
-    known.add(_bare(str(schedule.get("ticket") or "")))
+            known.add(ids.bare(entry.get("id")))
+    known.add(ids.bare(schedule.get("ticket")))
     known.discard("")
     found: dict[str, str] = {}
     for ticket in tickets:
-        key = _bare(str(ticket.get("id") or ""))
+        key = ids.bare(ticket.get("id"))
         if key in known:
             found[key] = "recorded"
             continue
@@ -144,11 +132,11 @@ def of(
     """
     how = linked(schedule, tickets, history, occurrences)
     mine = sorted(
-        (ticket for ticket in tickets if _bare(str(ticket.get("id") or "")) in how),
-        key=lambda ticket: _moment(str(ticket.get("created") or "")),
+        (ticket for ticket in tickets if ids.bare(ticket.get("id")) in how),
+        key=lambda ticket: timestamps.sortable(ticket.get("created")),
         reverse=True,
     )
-    by_id = {_bare(str(ticket["id"])): ticket for ticket in mine}
+    by_id = {ids.bare(ticket["id"]): ticket for ticket in mine}
 
     runs = [
         {
@@ -162,7 +150,7 @@ def of(
     # its pass is said from the ticket, and marked as such.
     told = {row["ticket"] for row in occurrences}
     for ticket in mine:
-        key = _bare(str(ticket["id"]))
+        key = ids.bare(ticket["id"])
         if key in told:
             continue
         runs.append(
@@ -176,7 +164,7 @@ def of(
                 "inferred": True,
             }
         )
-    runs.sort(key=lambda row: _moment(str(row["at"])), reverse=True)
+    runs.sort(key=lambda row: timestamps.sortable(str(row["at"])), reverse=True)
 
     columns: dict[str, int] = {}
     for ticket in mine:
@@ -188,7 +176,7 @@ def of(
     return {
         "tickets": [
             {
-                "id": _bare(str(ticket["id"])),
+                "id": ids.bare(ticket["id"]),
                 "short": str(ticket.get("short") or ""),
                 "title": str(ticket.get("title") or ""),
                 "url": str(ticket.get("url") or ""),
@@ -198,7 +186,7 @@ def of(
                 "cost": ticket.get("cost"),
                 "duration": ticket.get("duration"),
                 "pull_request": str(ticket.get("pull_request") or ""),
-                "linked": how[_bare(str(ticket["id"]))],
+                "linked": how[ids.bare(ticket["id"])],
             }
             for ticket in mine
         ],

@@ -18,6 +18,7 @@ from ponos import (
     files,
     goals,
     ideas,
+    ids,
     kinds,
     markdown,
     notion,
@@ -648,7 +649,7 @@ def an_idea_is_kept_thrown_reopened_and_nothing_is_ever_deleted(state_home):
         api.write_idea("", "ticket", "Une idée de l'espace")
         everywhere = api.every_idea(None)
         assert everywhere["scope"] == "all" and len(everywhere["ideas"]) == 4
-        assert {idea["project"] for idea in everywhere["ideas"]} == {"", ideas.bare(project)}
+        assert {idea["project"] for idea in everywhere["ideas"]} == {"", ids.bare(project)}
         assert everywhere["counts"]["proposed"] == 1
 
         back = api.reopen_idea(tutorial["id"])

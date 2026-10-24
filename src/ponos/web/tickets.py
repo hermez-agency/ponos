@@ -15,7 +15,6 @@ import logging
 import shutil
 import threading
 import time
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -34,6 +33,7 @@ from .. import (
     subtypes,
     sync,
     systemd,
+    timestamps,
     worktime,
 )
 from .. import config as config_module
@@ -469,7 +469,8 @@ class Tickets(Base):
         if held and held[0] == edited:
             return held[1]
         content = self.runner.client.blocks_text(page_id, live=False)
-        stamp = _instant(edited)
+        moment = timestamps.parse(edited)
+        stamp = None if moment is None else moment.timestamp()
         if self.config.storage.mode != "markdown" and stamp is not None and started >= stamp + 60:
             self._briefs.pop(key, None)
             self._briefs[key] = (edited, content)
@@ -867,14 +868,3 @@ def _draft(settings: Notion) -> str:
     """
     draft = settings.state("draft")
     return draft if draft and draft not in [settings.state(key) for key in COLUMNS] else ""
-
-
-def _instant(stamp: str) -> float | None:
-    """An ISO time as Notion writes it, in seconds — or None for one it did not write."""
-    try:
-        moment = datetime.fromisoformat(stamp)
-    except ValueError:
-        return None
-    if moment.tzinfo is None:
-        moment = moment.replace(tzinfo=UTC)
-    return moment.timestamp()

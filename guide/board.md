@@ -59,6 +59,10 @@ read is one both boards read the same day. Moving a ticket to the ready column i
 one word in one file, which is the whole point: `git`, `grep` and `$EDITOR` become the
 board's interface, and the directory can live in a repository of its own.
 
+A `created` or `edited` written without an offset — `edited: 2026-09-14T09:12`, typed by
+hand — is that hour on the runner's own clock, for the synchronisation with Notion as for
+the statistics; a bare date is the start of that day there.
+
 The console works against it exactly as against Notion — the board, a ticket's page, its
 discussion, the live steps. And it gained screens that make a Markdown-only
 installation self-sufficient: **Projects** (every project this installation knows of, the

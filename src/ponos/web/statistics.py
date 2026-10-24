@@ -51,10 +51,10 @@ from __future__ import annotations
 
 from collections import Counter, defaultdict
 from collections.abc import Callable
-from datetime import date, datetime, timedelta, tzinfo
+from datetime import date, timedelta, tzinfo
 from typing import Any
 
-from .. import blocks, subtypes
+from .. import blocks, subtypes, timestamps
 
 # The runner's history lines that are a ticket reaching `done`. A plain "done"
 # status is not one: a session that opened a pull request reports "done" and
@@ -76,16 +76,11 @@ LONGEST = 731
 
 def day_of(stamp: str, zone: tzinfo | None = None) -> date | None:
     """The local day an ISO timestamp falls on, or None for an empty or broken one."""
-    if not stamp:
-        return None
-    try:
-        moment = datetime.fromisoformat(stamp)
-    except ValueError:
-        return None
-    # A date with no time — what a board of files may carry — is that day.
-    if moment.tzinfo is None:
-        return moment.date()
-    return moment.astimezone(zone).date()
+    # A date with no time — what a board of files may carry — is that day here,
+    # and an hour with no offset is read here too, as the synchronisation does:
+    # "here" is the zone the days are counted in, the machine's unless named.
+    moment = timestamps.parse(stamp, naive=zone or "local")
+    return None if moment is None else moment.astimezone(zone).date()
 
 
 def closings(history: list[dict[str, Any]], zone: tzinfo | None = None) -> dict[str, date]:
