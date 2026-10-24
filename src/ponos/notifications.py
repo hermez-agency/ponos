@@ -31,7 +31,7 @@ import sqlite3
 from collections.abc import Iterable, Mapping
 from datetime import UTC, datetime, timedelta
 
-from . import blocks, db
+from . import blocks, db, timestamps
 
 # In the order of what needs you most. `question` is the one that matters: a
 # session is stopped and only you can start it again.
@@ -129,8 +129,8 @@ def settle(tickets: Iterable[Mapping[str, object]]) -> None:
                 item = columns.get(ticket)
                 if item is None or item.get("column") in STILL.get(kind, ()):
                     continue
-                rung = _moment(at)
-                edited = _moment(item.get("edited"))
+                rung = timestamps.parse(at)
+                edited = timestamps.parse(item.get("edited"))
                 if rung is None or rung <= now - SETTLING or (edited and edited > rung):
                     done.append((_now(), identifier))
             if done:
@@ -139,14 +139,6 @@ def settle(tickets: Iterable[Mapping[str, object]]) -> None:
                 )
     except db.ERRORS:
         pass
-
-
-def _moment(value: object) -> datetime | None:
-    try:
-        moment = datetime.fromisoformat(str(value or ""))
-    except ValueError:
-        return None
-    return moment if moment.tzinfo else moment.replace(tzinfo=UTC)
 
 
 def _purge(connection: sqlite3.Connection) -> None:

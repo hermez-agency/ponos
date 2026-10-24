@@ -74,7 +74,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
-from . import db, goals
+from . import db, goals, ids
 
 SCOPES = ("global", "project")
 KINDS = ("ticket", "project")
@@ -296,11 +296,6 @@ class Idea:
 
 def scope_of(project: str) -> str:
     return "project" if project else "global"
-
-
-def bare(page_id: str) -> str:
-    """A page id the way ideas are filed under it: no dashes."""
-    return page_id.replace("-", "").strip()
 
 
 # -- the prompt ----------------------------------------------------------------
@@ -727,7 +722,7 @@ def record(
     Each idea carries its share of what the batch cost; the batch carries the
     whole of it — and is written even with no idea in it, since it was paid.
     """
-    project = bare(project)
+    project = ids.bare(project)
     scope = scope_of(project)
     now = _now()
     share = cost_usd / len(ideas) if cost_usd is not None and ideas else None
@@ -778,7 +773,7 @@ def written(
     A project's ideas are tickets, as Ponos's are; the workspace may also hold
     the idea of a project.
     """
-    project = bare(project)
+    project = ids.bare(project)
     scope = scope_of(project)
     title = _line(title)[:TITLE_LIMIT].strip()
     if not title:
@@ -892,7 +887,7 @@ def unscored(project: str | None = None) -> list[Idea]:
     values: tuple[Any, ...] = UNSCORED_STATUSES
     if project is not None:
         query += " AND project = ?"
-        values = (*values, bare(project))
+        values = (*values, ids.bare(project))
     with db.transaction(immediate=False) as connection:
         rows = connection.execute(query + " ORDER BY id", values).fetchall()
     return [_idea(row) for row in rows]
@@ -904,7 +899,7 @@ def listed(project: str, statuses: tuple[str, ...] = ("proposed",)) -> list[Idea
     with db.transaction(immediate=False) as connection:
         rows = connection.execute(
             f"SELECT {_COLUMNS} FROM ideas WHERE project = ? AND status IN ({marks}) ORDER BY id",
-            (bare(project), *statuses),
+            (ids.bare(project), *statuses),
         ).fetchall()
     return [_idea(row) for row in rows]
 
@@ -917,8 +912,10 @@ def forget(project: str) -> int:
     the board's, and stay there.
     """
     with db.transaction() as connection:
-        gone = connection.execute("DELETE FROM ideas WHERE project = ?", (bare(project),)).rowcount
-        connection.execute("DELETE FROM idea_batches WHERE project = ?", (bare(project),))
+        gone = connection.execute(
+            "DELETE FROM ideas WHERE project = ?", (ids.bare(project),)
+        ).rowcount
+        connection.execute("DELETE FROM idea_batches WHERE project = ?", (ids.bare(project),))
     return gone
 
 
@@ -978,7 +975,7 @@ def last_decided(project: str | None = None) -> Idea | None:
     values: tuple[Any, ...] = ()
     if project is not None:
         query += " AND project = ?"
-        values = (bare(project),)
+        values = (ids.bare(project),)
     query += " ORDER BY decided_at DESC, id DESC LIMIT 1"
     with db.transaction(immediate=False) as connection:
         row = connection.execute(query, values).fetchone()
@@ -991,7 +988,7 @@ def spent(project: str | None = None) -> tuple[int, float]:
     values: tuple[Any, ...] = ()
     if project is not None:
         query += " WHERE project = ?"
-        values = (bare(project),)
+        values = (ids.bare(project),)
     with db.transaction(immediate=False) as connection:
         count, total = connection.execute(query, values).fetchone()
     return int(count), float(total)

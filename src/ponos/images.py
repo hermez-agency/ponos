@@ -51,7 +51,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from . import db, http
+from . import db, http, ids, timestamps
 from .store import SLOTS, Page, Picture, StoreError
 
 # What one picture may weigh, downloaded or uploaded: Notion's own ceiling for
@@ -177,15 +177,6 @@ def sniff(data: bytes, declared: str = "") -> str:
     return ""
 
 
-def _moment(stamp: str) -> datetime:
-    """An ISO timestamp, comparable. Anything unreadable is the beginning of time."""
-    try:
-        moment = datetime.fromisoformat(str(stamp).replace("Z", "+00:00"))
-    except (TypeError, ValueError):
-        return datetime.min.replace(tzinfo=UTC)
-    return moment if moment.tzinfo else moment.replace(tzinfo=UTC)
-
-
 def _edited(page: Page) -> str:
     return str(page.raw.get("last_edited_time") or page.raw.get("created_time") or "")
 
@@ -276,7 +267,7 @@ class Cache:
         agreed on, a change of ours still waiting is sent again, and when both
         happened since the last reading, the newest wins.
         """
-        page_id = _bare(page.id)
+        page_id = ids.bare(page.id)
         for slot in SLOTS:
             key = _key(page_id, slot)
             with self._key_lock(key):
@@ -292,7 +283,7 @@ class Cache:
         if pending:
             if moved:
                 ours = pending.get("at", "")
-                console = _moment(ours) > _moment(edited)
+                console = timestamps.sortable(ours) > timestamps.sortable(edited)
                 entry["conflict"] = {
                     "winner": "console" if console else "notion",
                     "console": ours,
@@ -383,7 +374,7 @@ class Cache:
         """
         if slot not in SLOTS:
             raise ValueError(f"no such picture on a page: {slot}")
-        page_id = _bare(page_id)
+        page_id = ids.bare(page_id)
         key = _key(page_id, slot)
         with self._key_lock(key):
             entry = self.entry(page_id, slot)
@@ -466,7 +457,7 @@ class Cache:
         Raises LookupError when there is no picture to give, and StoreError
         when there is one that could not be fetched and no copy to fall back on.
         """
-        page_id = _bare(page_id)
+        page_id = ids.bare(page_id)
         key = _key(page_id, slot)
         with self._key_lock(key):
             entry = self.entry(page_id, slot)
@@ -524,7 +515,7 @@ class Cache:
         url = entry.get("url", "")
         expires = entry.get("expires", "")
         if entry.get("kind") == "file" and (
-            not url or (expires and _moment(expires) - MARGIN <= self._clock())
+            not url or (expires and timestamps.sortable(expires) - MARGIN <= self._clock())
         ):
             page = reread()
             seen = face(page.raw, slot)
@@ -550,11 +541,7 @@ class Cache:
 
 
 def _key(page_id: str, slot: str) -> str:
-    return f"{_bare(page_id)}:{slot}"
-
-
-def _bare(identifier: str) -> str:
-    return str(identifier or "").replace("-", "").strip()
+    return f"{ids.bare(page_id)}:{slot}"
 
 
 def _digest(text: str) -> str:
