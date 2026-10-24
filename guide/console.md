@@ -432,7 +432,9 @@ is dated by the runner's history (in `ponos.db`) when the runner made it — a p
 merged from *Validated*, a document written or published — and by the page's last edit
 otherwise: a ticket you dragged to *Done*, or one closed because you merged its pull request
 yourself. The *Closed* card says, under the pointer, how many closings each one dated. The spend is the
-history's too: the `Cost` column says what a ticket cost, not on which day. Under them, the
+history's too: the `Cost` column says what a ticket cost, not on which day. The board they are
+counted on is the one the console last read for its live view — at most twice `web.poll_seconds`
+old —, so changing the period or the project redraws the figures without asking Notion again. Under them, the
 **blocks, by cause and week**: one bar a week, stacked by family, and beside it every
 cause of the period with its count — see [Why a ticket stopped](tickets.md#why-a-ticket-stopped) —, and the
 **code tickets done, by sub-type and week**, with the average cost and duration of each sub-type —

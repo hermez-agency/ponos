@@ -276,6 +276,9 @@ def an_installation_of_json_files_starts_on_the_database_with_everything_it_had(
         assert web_statistics.figures([], state.history(1_000_000), first, last) == (
             web_statistics.figures([], had["history"], first, last)
         ), "the same statistics"
+        assert web_statistics.figures([], state.outcomes(), first, last) == (
+            web_statistics.figures([], had["history"], first, last)
+        ), "the same statistics, read off the columns"
         with db.transaction(immediate=False) as connection:
             spent = connection.execute(
                 "SELECT project, sum(cost_usd) FROM history GROUP BY project ORDER BY project"

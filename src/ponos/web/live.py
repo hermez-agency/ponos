@@ -395,6 +395,8 @@ class Watch:
         self._fingerprint = ""
         self._sent: dict[str, Any] | None = None
         self._version = 0
+        # The board last read, and when: what `recent` hands out again.
+        self._read: tuple[float, dict] | None = None
         self._nudged = threading.Event()
         # The bell last published: a pass that finds the same says nothing.
         self._bell = ""
@@ -419,6 +421,21 @@ class Watch:
         later, and the board arrives on the stream like any other.
         """
         self._nudged.set()
+
+    def recent(self, age: float) -> dict:
+        """The board as last read, when that is under `age` seconds ago; read again otherwise.
+
+        For what asks for the whole board and can live with it a few seconds
+        old — the statistics, at every change of period or project. While a
+        page is open this thread has just read it, and a second Notion query
+        would only say the same thing again.
+        """
+        held = self._read
+        if held is not None and time.monotonic() - held[0] < age:
+            return held[1]
+        board = self.board()
+        self._read = (time.monotonic(), board)
+        return board
 
     def ring(self) -> None:
         """Publish the bell when it changed — a read of a small table, once a second.
@@ -457,6 +474,7 @@ class Watch:
             if self.status is not None:
                 self.hub.publish("sync", **self.status(), error=message)
             return
+        self._read = (time.monotonic(), payload)
         if self.status is not None:
             self.hub.publish("sync", **self.status(), error="")
         # Every read, moved or not: a bell just rung is only let go of a moment

@@ -89,10 +89,12 @@ class Overview(Base):
         `project`, its page's: the same figures over that project's tickets.
         """
         first, last = statistics.period(start, end, datetime.now().date())
-        tickets = self.board()["tickets"]
+        # The board the watching thread last read, rather than a Notion query
+        # of its own: changing the period redraws the page, not the board.
+        tickets = self.watch.recent(2 * self.watch.interval)["tickets"]
         return statistics.figures(
             tickets,
-            state.history(1_000_000),
+            state.outcomes(),
             first,
             last,
             project=project,
