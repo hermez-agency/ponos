@@ -12,6 +12,15 @@
  *   from the server to the settings page and are translated on arrival. A test
  *   holds that last list to the file it comes from: a setting whose sentence
  *   is rewritten in Python and not here would quietly go back to English.
+ *
+ * The words, one per thing, the same everywhere:
+ *
+ * - le tableau de bord — the console's page that draws the board (Dashboard);
+ * - le tableau — the board itself, in a sentence: never « board »;
+ * - un ticket — a card on it; lancer, relancer — what sends it to the runner;
+ * - une récurrence — a ticket that comes back by itself (a schedule);
+ * - un objectif — a goal, which tickets are written towards;
+ * - un fournisseur — who answers the sessions (a provider).
  */
 export const FRENCH: Record<string, string> = {
   /* -- what the packages say ---------------------------------------------- */
@@ -134,7 +143,7 @@ export const FRENCH: Record<string, string> = {
   "Reading the board…": "Lecture du tableau…",
 
   /* -- the menu ------------------------------------------------------------ */
-  Dashboard: "Dashboard",
+  Dashboard: "Tableau de bord",
   Schedules: "Récurrences",
   Settings: "Réglages",
   // On a phone, the entry the bottom bar keeps the other pages behind.
@@ -270,6 +279,7 @@ export const FRENCH: Record<string, string> = {
   Done: "Terminé",
   Cancelled: "Abandonné",
   Draft: "Brouillon",
+  "Save as draft": "Enregistrer en brouillon",
   "(untitled ticket)": "(ticket sans titre)",
   // The pages of a long list, which the console draws itself (`pagination.tsx`).
   Pagination: "Pagination",
@@ -359,14 +369,14 @@ export const FRENCH: Record<string, string> = {
   Merge: "Fusion",
   Infrastructure: "Infrastructure",
   Question: "Question",
-  "Make ready": "Rendre prêt",
+  "Make ready": "Lancer",
   "Validate and publish": "Valider et publier",
   "Run the agent again": "Relancer l'agent",
   "Mark done": "Marquer terminé",
   "Cancel the ticket": "Abandonner le ticket",
   Reopen: "Rouvrir",
   "Back to the drafts: the runner does not touch it until it is made ready.":
-    "Retour aux brouillons : le runner n'y touche pas tant qu'il n'est pas rendu prêt.",
+    "Retour aux brouillons : le runner n'y touche pas tant qu'il n'est pas lancé.",
   validate: "valider",
   done: "terminé",
   hold: "mettre en attente",
@@ -454,7 +464,7 @@ export const FRENCH: Record<string, string> = {
     "Le ticket passe dans {{column}} et la prochaine passe lance une session dessus — une session payante.",
   "Its validation is withdrawn: the runner will not merge or publish it.":
     "Sa validation est annulée : le runner ne le fusionnera ni ne le publiera.",
-  "Make it ready": "Rendre prêt",
+  "Make it ready": "Lancer le ticket",
   "Validate “{{title}}”?": "Valider « {{title}} » ?",
   "The runner merges its pull request on its next pass. A merge is not taken back from here.":
     "Le runner fusionne sa pull request à sa prochaine passe. Une fusion ne se défait pas d'ici.",
@@ -472,7 +482,7 @@ export const FRENCH: Record<string, string> = {
   "Back to the board": "Retour au tableau",
   "The server gave no reason.": "Le serveur n'a pas donné de raison.",
   "A ticket needs a title.": "Un ticket a besoin d'un titre.",
-  "Remove the banner from the dashboard": "Retirer le bandeau du dashboard",
+  "Remove the banner from the dashboard": "Retirer le bandeau du tableau de bord",
   "Earlier columns": "Colonnes précédentes",
   "More columns": "Colonnes suivantes",
   "{{count}} empty column hidden": "{{count}} colonne vide masquée",
@@ -561,7 +571,7 @@ export const FRENCH: Record<string, string> = {
   "Last launch: it has happened.": "Dernier lancement : il a eu lieu.",
   "Due: not born yet.": "À venir : pas encore lancé.",
   "Open the schedule": "Ouvrir la récurrence",
-  "Open the schedule's page on the board": "Ouvrir la page de la récurrence sur le board",
+  "Open the schedule's page on the board": "Ouvrir la page de la récurrence sur le tableau",
   "Drop to attach to your message": "Déposez pour joindre à votre message",
   "Photos, videos and documents, up to {{limit}} MB each":
     "Photos, vidéos et documents, jusqu'à {{limit}} Mo chacun",
@@ -781,7 +791,7 @@ export const FRENCH: Record<string, string> = {
     "D'autres mots, un autre projet ou un autre état, et elles reviendront.",
   "New schedule": "Nouvelle récurrence",
   // The window a schedule is written in (see `recurrence-dialog.tsx`).
-  "New recurring ticket": "Nouveau ticket récurrent",
+  "New recurring ticket": "Nouvelle récurrence",
   "Edit the schedule": "Modifier la récurrence",
   "Ponos creates this ticket automatically, at the cadence you choose.":
     "Ponos crée ce ticket automatiquement, à la cadence choisie.",
@@ -1073,13 +1083,13 @@ export const FRENCH: Record<string, string> = {
     "Écrit comme la page du projet l'écrit, sinon le ticket ne trouve aucun dépôt.",
   "The repository itself. Worktrees are made beside it, never in it.":
     "Le dépôt lui-même. Les worktrees sont créés à côté, jamais dedans.",
-  "A row with no name maps nothing.": "Une ligne sans nom ne fait correspondre rien.",
+  "A row with no name maps nothing.": "Une ligne sans nom ne fait rien correspondre.",
   "A project mapped to nothing is a row to remove.":
     "Un projet qui ne mène nulle part est une ligne à retirer.",
   "No mapping here — the project pages carry it.":
     "Aucune correspondance ici — ce sont les pages de projet qui la portent.",
-  "add a project": "ajouter un projet",
-  "Remove this project": "Retirer ce projet",
+  "add a project": "Ajouter un projet",
+  "Remove this project": "Retirer cette correspondance",
   Accounts: "Comptes",
   Owner: "Propriétaire",
   Account: "Compte",
@@ -1092,7 +1102,7 @@ export const FRENCH: Record<string, string> = {
     "Un propriétaire qui ne mène nulle part est une ligne à retirer.",
   "One GitHub here — everything goes out as whoever gh is signed in as.":
     "Un seul GitHub ici — tout part sous le compte auquel gh est connecté.",
-  "add an account": "ajouter un compte",
+  "add an account": "Ajouter un compte",
   "Remove this account": "Retirer ce compte",
   Save: "Enregistrer",
   "one setting": "un réglage",
@@ -1162,7 +1172,7 @@ export const FRENCH: Record<string, string> = {
     "Le type d'un ticket décide comment il est traité. Un type vide est deviné avant que le ticket tourne ; un type que vous avez choisi n'est jamais changé.",
   "Skip your review for some types of ticket: once the session succeeds, the runner validates it itself and says so. A failed or blocked ticket never is.":
     "Sautez votre relecture pour certains types de ticket : une fois la session réussie, le runner le valide lui-même et le dit. Un ticket en échec ou bloqué ne l'est jamais.",
-  "Provider and default model": "Provider et modèle par défaut",
+  "Provider and default model": "Fournisseur et modèle par défaut",
   "Automatic model choice": "Choix automatique du modèle",
   "Each type of ticket starts at a level, its size and wording move it, and each level runs on its model. A Model on the ticket or its agent is always kept.":
     "Chaque type de ticket part d'un niveau, sa taille et sa formulation le déplacent, et chaque niveau tourne sur son modèle. Un Modèle sur le ticket ou son agent est toujours gardé.",
@@ -1638,10 +1648,10 @@ export const FRENCH: Record<string, string> = {
   "“Read only” is the guardrail: an answer that quietly changed a repository is the last thing anybody expects.":
     "« Lecture seule » est le garde-fou : une réponse qui modifierait un dépôt en silence est bien la dernière chose qu'on attend.",
 
-  "Claude provider": "Provider Claude",
+  "Claude provider": "Fournisseur Claude",
   "Who answers the sessions: Claude Code signed in as you, an Anthropic key, or OpenRouter. The first connection asks, and checks the answer works.":
     "Qui répond aux sessions : Claude Code connecté à votre compte, une clé Anthropic, ou OpenRouter. La première connexion le demande, et vérifie que la réponse fonctionne.",
-  Provider: "Provider",
+  Provider: "Fournisseur",
   "Only the CLI keeps Claude in Chrome and the wait for credits. Empty: OpenRouter when its sessions are routed there, the CLI otherwise.":
     "Seul le CLI garde Claude in Chrome et l'attente des crédits. Vide : OpenRouter si ses sessions y passent, le CLI sinon.",
   "Claude Code CLI — your subscription (claude login)": "Claude Code CLI — votre abonnement (claude login)",
@@ -1649,7 +1659,7 @@ export const FRENCH: Record<string, string> = {
   "OpenRouter — the key of the OpenRouter section": "OpenRouter — la clé de la section OpenRouter",
   "Anthropic API key": "Clé API Anthropic",
   "From console.anthropic.com. Used only when the provider is the key; empty, `ANTHROPIC_API_KEY` from the environment is.":
-    "Depuis console.anthropic.com. Utilisée seulement quand le provider est la clé ; vide, c'est `ANTHROPIC_API_KEY` de l'environnement qui l'est.",
+    "Depuis console.anthropic.com. Utilisée seulement quand le fournisseur est la clé ; vide, c'est `ANTHROPIC_API_KEY` de l'environnement qui l'est.",
   "OpenRouter (other models)": "OpenRouter (autres modèles)",
   "One key for every other AI provider — a GPT, images, transcription. Sessions get it as `OPENROUTER_API_KEY`, and this console dictates with it.":
     "Une seule clé pour tous les autres fournisseurs d'IA — un GPT, des images, de la transcription. Les sessions la reçoivent sous le nom `OPENROUTER_API_KEY`, et cette console s'en sert pour la dictée.",
@@ -2167,7 +2177,7 @@ export const FRENCH: Record<string, string> = {
   "Its page is in the Notion trash for 30 days.":
     "Sa page est dans la corbeille de Notion pendant 30 jours.",
   "Its page was put aside in the board's trash folder.":
-    "Sa page a été mise de côté dans le dossier trash du board.",
+    "Sa page a été mise de côté dans le dossier trash du tableau.",
   "Undo in Notion": "Annuler dans Notion",
   "Delete “{{name}}”?": "Supprimer « {{name}} » ?",
   "Ponos will stop following this project.": "Ponos va cesser de suivre ce projet.",
@@ -2183,7 +2193,7 @@ export const FRENCH: Record<string, string> = {
     "Sa page part à la corbeille de Notion, où elle reste récupérable 30 jours.",
   "Its tickets go to the Notion trash too.": "Ses tickets partent aussi à la corbeille de Notion.",
   "Its tickets stay on the board; those that are ready or in progress are blocked, with a comment saying why.":
-    "Ses tickets restent sur le board ; ceux qui sont prêts ou en cours passent en bloqué, avec un commentaire qui explique pourquoi.",
+    "Ses tickets restent sur le tableau ; ceux qui sont prêts ou en cours passent en bloqué, avec un commentaire qui explique pourquoi.",
   "The GitHub repository and the folder on this machine are never deleted. Its throwaway worktrees are cleaned up.":
     "Le dépôt GitHub et le dossier sur cette machine ne sont jamais supprimés. Ses worktrees jetables sont nettoyées.",
   "Its ideas are deleted; what it cost stays in the statistics.":
@@ -2486,7 +2496,7 @@ export const FRENCH: Record<string, string> = {
   "Reading the models…": "Lecture des modèles…",
   "No such model": "Aucun modèle de ce nom",
   "Recently used": "Utilisés récemment",
-  "On the board": "Déjà sur le board",
+  "On the board": "Déjà sur le tableau",
   "no tools": "sans outils",
   "Cannot use tools, which Claude Code needs to work":
     "Ne gère pas les outils, dont Claude Code a besoin pour travailler",
