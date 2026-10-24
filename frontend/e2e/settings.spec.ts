@@ -61,6 +61,29 @@ test("the console's language is one setting in two places, each saying whose it 
   await expect(card.getByText("the language picked in a browser comes first", { exact: false })).toBeVisible()
 })
 
+test("the clean-up asks first, and Cancel removes nothing", async ({ page }) => {
+  let cleaned = 0
+  await page.route("**/api/disk/clean", async (route) => {
+    cleaned += 1
+    const disk = await (await page.request.get("/api/disk")).json()
+    await route.fulfill({ json: { ...disk, removed: 2, logs: 3, freed: 4_000_000 } })
+  })
+  await open(page, "/?view=console/settings/read/config/general")
+  await settingsPage(page)
+  const disk = page.getByTestId("disk")
+  const dialog = page.getByRole("alertdialog")
+  await disk.getByRole("button", { name: "Clean up" }).click()
+  await expect(dialog).toContainText("Clean up now?")
+  await expect(dialog.getByTestId("disk-clean-at-most")).toBeVisible()
+  await dialog.getByRole("button", { name: "Cancel" }).click()
+  await expect(dialog).toBeHidden()
+  expect(cleaned).toBe(0)
+  await disk.getByRole("button", { name: "Clean up" }).click()
+  await dialog.getByRole("button", { name: /Clean up/ }).click()
+  await expect(disk.getByText("2 folders and 3 logs removed")).toBeVisible()
+  expect(cleaned).toBe(1)
+})
+
 test("the settings say what the console runs on, line by line", async ({ page }) => {
   await open(page, "/?view=console/settings/read/config/general")
   await settingsPage(page)

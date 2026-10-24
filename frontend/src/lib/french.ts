@@ -480,6 +480,7 @@ export const FRENCH: Record<string, string> = {
   "Show them": "Les afficher",
   "Show more ({{count}} left)": "Voir plus ({{count}} restants)",
   "The board could not be read again": "Le tableau n'a pas pu être relu",
+  "Board read again": "Tableau relu",
   "Map a project to a folder": "Associer un projet à un dossier",
   "A schedule written here is a ticket that comes back on its own.":
     "Une récurrence écrite ici est un ticket qui revient tout seul.",
@@ -595,6 +596,14 @@ export const FRENCH: Record<string, string> = {
     "1 message est en attente. L'envoyer, ou le jeter ?",
   "{{count}} messages are waiting. Send them, or throw them away?":
     "{{count}} messages sont en attente. Les envoyer, ou les jeter ?",
+  "Throw the waiting message away?": "Jeter le message en attente ?",
+  "Throw the {{count}} waiting messages away?": "Jeter les {{count}} messages en attente ?",
+  "They are not sent, and cannot be brought back.": "Ils ne sont pas envoyés, et ne pourront pas être récupérés.",
+  "Messages discarded": "Messages jetés",
+  "The waiting messages could not be sent": "Les messages en attente n'ont pas pu être envoyés",
+  "The waiting messages could not be discarded": "Les messages en attente n'ont pas pu être jetés",
+  "The waiting message could not be changed": "Le message en attente n'a pas pu être modifié",
+  "The waiting message could not be removed": "Le message en attente n'a pas pu être retiré",
   Discard: "Jeter",
   "stopped by you": "interrompu par vous",
   // Brand Assets' chat kit, in `components/chat`: the words it said in French
@@ -1318,6 +1327,11 @@ export const FRENCH: Record<string, string> = {
     "Les journaux de plus de {{count}} jours sont supprimés une fois par jour.",
   "Clean up": "Faire le ménage",
   "Cleaning up…": "Ménage en cours…",
+  "Clean up now?": "Faire le ménage maintenant ?",
+  "What the daily tidy would remove goes now, for good: it cannot be undone. {{rule}}":
+    "Ce que le ménage quotidien supprimerait part maintenant, pour de bon : rien ne pourra être rétabli. {{rule}}",
+  "At most: working copies {{worktrees}}, logs {{logs}}.":
+    "Au plus : copies de travail {{worktrees}}, journaux {{logs}}.",
   "{{folders}} and {{logs}} removed, {{freed}} freed.": "{{folders}} et {{logs}} supprimés, {{freed}} libérés.",
   "{{count}} folder": "{{count}} dossier",
   "{{count}} folders": "{{count}} dossiers",

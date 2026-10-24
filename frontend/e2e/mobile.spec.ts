@@ -132,6 +132,18 @@ test("the version, the last read and the two buttons are behind More", async ({ 
   const drawer = page.getByRole("dialog")
   await expect(drawer.getByText(/^v\d+\.\d+\.\d+/)).toBeVisible()
   await expect(drawer.getByText(/^synced /)).toBeVisible()
-  await expect(drawer.getByRole("button", { name: "Resynchronise now" })).toBeVisible()
   await expect(drawer.getByRole("button", { name: /^(Light|Dark)$/ })).toBeVisible()
+  // A reread says it is on its way, then that it is done.
+  let reads = 0
+  await page.route("**/api/refresh", async (route) => {
+    reads += 1
+    await new Promise((resolve) => setTimeout(resolve, 500))
+    await route.fulfill({ json: { ok: true } })
+  })
+  const reread = drawer.getByRole("button", { name: "Resynchronise now" })
+  await reread.click()
+  await expect(reread).toBeDisabled()
+  await expect(page.getByText("Board read again")).toBeVisible()
+  await expect(reread).toBeEnabled()
+  expect(reads).toBe(1)
 })
