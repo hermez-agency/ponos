@@ -189,7 +189,7 @@ export function SessionsPage() {
                     variant="ghost"
                     size="icon-sm"
                     className="text-muted-foreground"
-                    aria-label={t("More actions on “{{name}}”", { name: session.title })}
+                    aria-label={t("More actions on “{{name}}”", { name: session.title || t("Untitled session") })}
                     data-session-menu
                   >
                     <MoreHorizontal />
@@ -336,7 +336,7 @@ function DeleteDialog({
     if (!session || !sure) return false
     try {
       await api.deleteSession(session.id)
-      toast.success(t("Session “{{name}}” deleted", { name: session.title }))
+      toast.success(t("Session “{{name}}” deleted", { name: session.title || t("Untitled session") }))
       onDone()
     } catch (error) {
       setRefused(why(error))
@@ -349,7 +349,7 @@ function DeleteDialog({
       open={session !== null}
       onOpenChange={(next) => (next ? undefined : onClose())}
       contentProps={{ "data-delete-session": true } as React.ComponentProps<"div">}
-      title={t("Delete “{{name}}”?", { name: session?.title ?? "" })}
+      title={t("Delete “{{name}}”?", { name: session?.title || t("Untitled session") })}
       description={t("Its conversation and the files sent in it are deleted for good.")}
       destructive
       disabled={!sure}

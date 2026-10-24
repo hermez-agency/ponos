@@ -34,7 +34,12 @@ test("a goal is created from the list, then changed, and both show", async ({ pa
   await expect(card).toContainText("0 sur 1 ticket fait")
   await expect(card.locator('[data-slot="goals-title"]')).toBeVisible()
 
-  await card.locator('[data-slot="goals-edit"]').click()
+  // The pencil is a target of 24 px at least, named after its goal.
+  const pencil = card.getByRole("link", { name: "Modifier l'objectif « Lancer la v1 »" })
+  const box = await pencil.locator('[data-slot="goals-edit"]').boundingBox()
+  expect(box?.width).toBeGreaterThanOrEqual(24)
+  expect(box?.height).toBeGreaterThanOrEqual(24)
+  await pencil.click()
   const edit = page.getByRole("dialog")
   await edit.getByLabel("Nom").fill("Lancer la v2")
   await edit.getByRole("button", { name: "Enregistrer" }).click()
@@ -44,7 +49,10 @@ test("a goal is created from the list, then changed, and both show", async ({ pa
 
 test("a goal's page lists its tickets by column, and makes one more for it", async ({ page }) => {
   await page.goto(LIST)
-  await page.locator('[data-slot="goals-title"]', { hasText: "Lancer la v2" }).click()
+  // Anywhere on the card opens the goal, not only its title.
+  const card = page.locator('[data-slot="goals-item"]', { hasText: "Lancer la v2" })
+  const box = await card.boundingBox()
+  await card.click({ position: { x: 24, y: (box?.height ?? 0) - 16 } })
   const listed = page.locator('[data-slot="goal-tickets"]')
   const row = listed.locator("[data-goal-ticket]", { hasText: "Ticket 3" })
   await expect(row).toBeVisible()

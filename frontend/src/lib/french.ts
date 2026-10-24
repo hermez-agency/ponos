@@ -142,10 +142,10 @@ export const FRENCH: Record<string, string> = {
   // A card's own menu, named apart from the bottom bar's « Plus » so a
   // screen reader (and a test) tells the two apart.
   "More actions": "Autres actions",
-  Light: "Clair",
-  Dark: "Sombre",
   "go light": "passer au clair",
   "go dark": "passer au sombre",
+  "Switch to the light theme": "Passer au thème clair",
+  "Switch to the dark theme": "Passer au thème sombre",
   // The board and Notion, side by side: when they last agreed, and what does
   // not — the line in the bar, its tooltip, and the button beside it.
   "Resynchronise now": "Resynchroniser maintenant",
@@ -283,6 +283,7 @@ export const FRENCH: Record<string, string> = {
   "New ticket": "Nouveau ticket",
   "New ticket for {{project}}": "Nouveau ticket pour {{project}}",
   Ticket: "Ticket",
+  "New ticket for {{name}}": "Nouveau ticket pour {{name}}",
   Title: "Titre",
   "The brief": "Le brief",
   Project: "Projet",
@@ -2558,6 +2559,7 @@ export const FRENCH: Record<string, string> = {
   "The goal this ticket serves": "L'objectif que sert ce ticket",
   "New goal": "Nouvel objectif",
   "Edit the goal": "Modifier l'objectif",
+  "Edit the goal “{{name}}”": "Modifier l'objectif « {{name}} »",
   "Launch v1": "Lancer la v1",
   "A goal needs a name": "Un objectif a besoin d'un nom",
   "One line: what this goal means.": "Une ligne : ce que cet objectif veut dire.",

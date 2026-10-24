@@ -269,7 +269,7 @@ export function SidebarFooter() {
               variant="ghost"
               size="icon-sm"
               onClick={toggle}
-              aria-label={theme === "dark" ? t("Light") : t("Dark")}
+              aria-label={theme === "dark" ? t("Switch to the light theme") : t("Switch to the dark theme")}
             >
               {theme === "dark" ? <Sun /> : <Moon />}
             </Button>
