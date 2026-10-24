@@ -14,6 +14,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from .. import channels, conversation, decisions, git, question, redaction, store, voice
+from .. import goals as goals_module
 from . import board as board_module
 from .base import Base
 from .tickets import _columns, _status
@@ -233,9 +234,14 @@ class Discussion(Base):
         created = []
         if solution.key == "split":
             relation = store.read(page, settings.prop("project")) or []
+            # The parts serve what the whole served: without its goal, a ticket
+            # split in two would leave the goal's count behind.
+            goal = goals_module.pointed(page, settings.prop("goal"))
             told = said.say("told-split", title=page.title, url=page.url)
             created = [
-                self.create_ticket(title, told, relation[0] if relation else "", ready=False)
+                self.create_ticket(
+                    title, told, relation[0] if relation else "", ready=False, goal=goal
+                )
                 for title in named
             ]
         relayed = said.say("relayed", channel=channel or said.say("relayed-console"))
