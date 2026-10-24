@@ -1,6 +1,7 @@
 import * as React from "react"
 import { Moon, RefreshCw, Search, Sun } from "lucide-react"
-import { Link, getPorts, useAdminPageTitle } from "react-resource-view"
+import { ActionList } from "react-data-form"
+import { Link, getPorts, useAdminPageTitle, useCurrentViewResourceContext } from "react-resource-view"
 
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -151,12 +152,16 @@ function useConnectionWord(): string {
 }
 
 /* What the tab says: where you are, so seven tabs of "Ponos" are not a row to
- * open one by one — the record on screen by its name, a page by the name of
- * its view, read the way the layout's own heading reads it. */
+ * open one by one — the record on screen by its name, a list by its resource's
+ * name, which is the menu's word for it, and any other page by the name of its
+ * view, read the way the layout's own heading reads it. A list's own title can
+ * name a section of the page rather than the page: the Dashboard's is "Board". */
 function useDocumentTitle() {
   const { viewName, recordTitle, recordId } = useAdminPageTitle()
+  const { resource, resourceAction } = useCurrentViewResourceContext()
   const t = useT()
-  const here = recordTitle ?? (recordId ? `#${recordId}` : viewName ? t(viewName) : "")
+  const page = resourceAction === ActionList.list ? (resource?.name ?? viewName) : viewName
+  const here = recordTitle ?? (recordId ? `#${recordId}` : page ? t(page) : "")
   const { appName } = getPorts()
   React.useEffect(() => {
     document.title = here ? `${here} · ${appName}` : appName
