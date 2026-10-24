@@ -321,7 +321,7 @@ def from_outside_this_machine_nobody_claims_the_console_without_its_code():
             console, "POST", "/api/setup", {**claim, "code": "k7q2m9xd"}, **proxied
         )
         assert status == 200, said
-        assert "ponos_token=" in headers["Set-Cookie"]
+        assert f"{console.cookie}=" in headers["Set-Cookie"]
         assert console.code == "", "a code opens the door once"
     assert not web_server.claimable(api.config, web_server.sign_in(api.config, "tok"))
 
@@ -487,7 +487,7 @@ def twenty_wrong_passwords_sent_at_once_are_held_back_not_all_checked(state_home
         assert status == 429, "not even the right one, while the address waits"
         _time_passes(console, 1)
         status, headers, _ = _talk_to(console, "POST", "/api/login", right)
-        assert status == 200 and "ponos_token=" in headers["Set-Cookie"]
+        assert status == 200 and f"{console.cookie}=" in headers["Set-Cookie"]
 
         for failures in range(1, web_attempts.LOCK_AFTER + 1):
             status, _, _ = _talk_to(console, "POST", "/api/login", wrong)
@@ -607,7 +607,7 @@ def a_sign_in_lasts_thirty_days_from_its_last_use_and_all_of_them_end_at_once(st
     with _console(api, entry=entry) as console:
 
         def opened(cookie: str):
-            return _talk_to(console, "GET", "/setup", Cookie=f"ponos_token={cookie}")
+            return _talk_to(console, "GET", "/setup", Cookie=f"{console.cookie}={cookie}")
 
         status, headers, _ = opened(web_sessions.issue(entry.proof, now - 31 * 24 * 3600))
         assert status == 401, "a session left a month without a word is over"
@@ -800,3 +800,52 @@ def a_repository_named_on_a_notion_page_is_checked_before_a_command_sees_it():
             assert ran[-1][-2:] == ["--", "owner/name"], ran
     finally:
         git_module.run, shutil.which = original_run, original_which
+
+
+@case
+def two_consoles_on_two_ports_of_one_address_keep_their_cookies_apart(state_home):
+    """A browser keeps one cookie per name and per host, whatever the port.
+
+    The demo on 8791 and the real console on 8787 both answer at 127.0.0.1: under
+    one name, opening the one put its token where the other kept its own, and
+    the real one asked for the password again. The name carries the port; the
+    name of before is still read, for the session a browser holds since then,
+    and given again under the new one.
+    """
+    from ponos.web import app as web_app
+    from ponos.web import server as web_server
+
+    assert web_server.cookie_name(8787) == "ponos_token_8787"
+    assert web_server.cookie_name(8791) != web_server.cookie_name(8787)
+
+    apis = [_Fresh(_saved()[0]), _Fresh(_saved()[0])]
+    consoles = [
+        web_app.Console(("127.0.0.1", 0), api, secret)
+        for api, secret in zip(apis, ("one", "two"), strict=True)
+    ]
+    for console in consoles:
+        threading.Thread(target=console.serve_forever, daemon=True).start()
+    try:
+        jar = []
+        for console, secret in zip(consoles, ("one", "two"), strict=True):
+            status, headers, _ = _talk_to(console, "GET", f"/?token={secret}")
+            assert status == 303, status
+            given = headers["Set-Cookie"].split(";", 1)[0]
+            assert given == f"{web_server.cookie_name(console.server_address[1])}={secret}", given
+            jar.append(given)
+        for console in consoles:
+            status, _, _ = _talk_to(console, "GET", "/setup", Cookie="; ".join(jar))
+            assert status == 200, "both still open, with the cookies of both"
+
+        first = consoles[0]
+        status, headers, _ = _talk_to(first, "GET", "/setup", Cookie="ponos_token=one")
+        assert status == 200, "the cookie of before still opens the console"
+        assert headers["Set-Cookie"].startswith(
+            f"{web_server.cookie_name(first.server_address[1])}=one;"
+        ), "and is given again under its new name"
+        status, _, _ = _talk_to(first, "GET", "/setup", Cookie=f"ponos_token=two; {jar[0]}")
+        assert status == 200, "the console's own cookie first, before a neighbour's old one"
+    finally:
+        for console in consoles:
+            console.shutdown()
+            console.server_close()
