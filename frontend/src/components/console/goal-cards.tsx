@@ -256,7 +256,7 @@ export function GoalPage() {
 function GoalWhole({ goal, reread }: { goal: Goal; reread: () => void }) {
   const t = useT()
   const facts = [
-    { label: t("Done when"), value: goal.criterion },
+    { label: t("Met when"), value: goal.criterion },
     { label: t("Priority"), value: goal.priority === null ? "" : String(goal.priority) },
     { label: t("Projects"), value: goal.projects.join(", ") },
   ].filter((fact) => fact.value)

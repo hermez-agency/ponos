@@ -2569,6 +2569,10 @@ export const FRENCH: Record<string, string> = {
   "How we know it is met. Observable, not an intention.":
     "Comment on sait qu'il est atteint. Observable, pas une intention.",
   "No status": "Aucun statut",
+  "Met when": "Atteint quand",
+  "E.g.: Ponos is ready for others": "Ex. : Ponos est prêt pour d'autres",
+  "E.g.: an outsider installs Ponos alone": "Ex. : Une personne extérieure installe Ponos seule",
+  "Goal created": "Objectif créé",
   "The tickets that serve this goal; its progress is counted from them.":
     "Les tickets qui servent cet objectif ; son avancement se compte à partir d'eux.",
   "Delete the goal": "Supprimer l'objectif",

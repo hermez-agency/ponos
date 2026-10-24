@@ -13,6 +13,8 @@
  * given-up ones too.
  */
 
+import { fold, terms } from "./ticket-search.ts"
+
 /** The status filter's value for every goal; the address says nothing for the active ones, where the list rests. */
 export const EVERY_STATUS = "all"
 
@@ -103,4 +105,50 @@ export function projectFirst<Item>(items: Item[], project: string, projectsOf: (
   if (!project) return items
   const mine = (item: Item) => projectsOf(item).includes(project)
   return [...items.filter(mine), ...items.filter((item) => !mine(item))]
+}
+
+/* -- the tickets a goal is tied to ----------------------------------------- */
+
+/** A ticket, as much of it as the goal's form searches. */
+export interface Offered {
+  id: string
+  short: string
+  title: string
+  column: string
+  project: string
+  project_id?: string
+}
+
+/** What the form's search is asked: the words typed, the goal's projects, and whether to look past them. */
+export interface TicketQuery {
+  search?: string
+  /** The goal's projects, by id: none is every project. */
+  projects?: string[]
+  /** Finished tickets and other projects' too. */
+  every?: boolean
+  /** Already tied to the goal: never offered again. */
+  chosen?: string[]
+}
+
+/** How many tickets the search shows at once: past that, the words narrow it. */
+export const OFFERED = 20
+
+/* A board holds a workspace's every ticket, well over a thousand of them: a
+ * goal is tied to some still to do, in its own projects, so that is what is
+ * offered until asked for more — and never more than a screen of them. */
+export function ticketsFor(tickets: Offered[], query: TicketQuery = {}, limit = OFFERED): { shown: Offered[]; more: number } {
+  const words = terms(query.search ?? "")
+  const projects = new Set(query.projects ?? [])
+  const chosen = new Set(query.chosen ?? [])
+  const kept = tickets.filter((ticket) => {
+    if (chosen.has(ticket.id)) return false
+    if (!query.every) {
+      if (ticket.column === "done" || ticket.column === "cancelled") return false
+      if (projects.size && !projects.has(ticket.project_id ?? "")) return false
+    }
+    if (!words.length) return true
+    const said = fold(`${ticket.short} ${ticket.title} ${ticket.project}`)
+    return words.every((word) => said.includes(word))
+  })
+  return { shown: kept.slice(0, limit), more: Math.max(0, kept.length - limit) }
 }
