@@ -119,7 +119,7 @@ interface ConsoleValue {
     project: string
     ready: boolean
   }) => Promise<void>
-  refresh: () => void
+  refresh: () => Promise<void>
   runCommand: (line: string) => Promise<void>
   reloadState: () => Promise<void>
   say: (role: Role, text: string) => void
@@ -643,11 +643,14 @@ export function ConsoleProvider({ children }: { children: React.ReactNode }) {
     []
   )
 
-  const refresh = React.useCallback(() => {
-    api.refresh().catch((error) => {
-      toast.error(t("The board could not be read again"), { description: why(error) })
-    })
-  }, [])
+  const refresh = React.useCallback(
+    () =>
+      api.refresh().then(
+        () => void toast.success(t("Board read again")),
+        (error) => void toast.error(t("The board could not be read again"), { description: why(error) })
+      ),
+    []
+  )
 
   /* -- opening -------------------------------------------------------------- */
 

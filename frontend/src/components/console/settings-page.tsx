@@ -3,6 +3,7 @@ import { ListChecks, Trash2 } from "lucide-react"
 import { ActionList } from "react-data-form"
 import { ViewResourceContextProvider, generateLink } from "react-resource-view"
 
+import { ConfirmDialog } from "@/components/console/confirm-dialog"
 import { LanguagePicker } from "@/components/console/language-picker"
 import type { SaveNote } from "@/components/console/settings-bits"
 import { Rich } from "@/components/console/text"
@@ -133,10 +134,34 @@ function DiskLine() {
         </span>
       ) : null}
       <span className="flex flex-wrap items-center gap-2">
-        <Button size="xs" variant="outline" onClick={() => void clean()} disabled={cleaning}>
-          <Trash2 />
-          {cleaning ? t("Cleaning up…") : t("Clean up")}
-        </Button>
+        <ConfirmDialog
+          title={t("Clean up now?")}
+          description={t(
+            "What the daily tidy would remove goes now, for good: it cannot be undone. {{rule}}",
+            { rule }
+          )}
+          destructive
+          confirm={
+            <>
+              <Trash2 />
+              {t("Clean up")}
+            </>
+          }
+          onConfirm={clean}
+          trigger={
+            <Button size="xs" variant="outline" disabled={cleaning}>
+              <Trash2 />
+              {cleaning ? t("Cleaning up…") : t("Clean up")}
+            </Button>
+          }
+        >
+          <p className="text-muted-foreground text-sm" data-testid="disk-clean-at-most">
+            {t("At most: working copies {{worktrees}}, logs {{logs}}.", {
+              worktrees: bytes(disk.sizes.worktrees),
+              logs: bytes(disk.sizes.logs),
+            })}
+          </p>
+        </ConfirmDialog>
         {said ? (
           <span className={said.bad ? "text-destructive text-xs" : "text-muted-foreground text-xs"}>
             {said.text}

@@ -170,7 +170,7 @@ export function CommandPalette() {
           <CommandItem
             value={t("Resynchronise now")}
             keywords={["refresh", "sync"]}
-            onSelect={() => run(refresh)}
+            onSelect={() => run(() => void refresh())}
           >
             <RefreshCw />
             {t("Resynchronise now")}

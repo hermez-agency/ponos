@@ -2,6 +2,7 @@ import * as React from "react"
 import { CheckIcon, PencilIcon, SendIcon, Trash2Icon, XIcon } from "lucide-react"
 import { toast } from "sonner"
 
+import { ConfirmDialog } from "@/components/console/confirm-dialog"
 import { Button } from "@/components/ui/button"
 import { api, why } from "@/lib/api"
 import { useT } from "@/lib/i18n"
@@ -22,11 +23,12 @@ import { AttachedGallery } from "./attachments"
  * longer be what you want to say. A bar above them asks.
  */
 
-async function attempt(action: () => Promise<unknown>) {
+async function attempt(action: () => Promise<unknown>, failed: string, done?: string) {
   try {
     await action()
+    if (done) toast.success(done)
   } catch (error) {
-    toast.error(why(error))
+    toast.error(failed, { description: why(error) })
   }
 }
 
@@ -47,14 +49,37 @@ export function Waiting({ queue, held }: { queue: Queued[]; held: boolean }) {
                   count: String(queue.length),
                 })}
           </span>
-          <Button size="sm" onClick={() => void attempt(api.releaseQueue)}>
+          <Button
+            size="sm"
+            onClick={() => void attempt(api.releaseQueue, t("The waiting messages could not be sent"))}
+          >
             <SendIcon />
             {t("Send")}
           </Button>
-          <Button size="sm" variant="outline" onClick={() => void attempt(api.discardQueue)}>
-            <Trash2Icon />
-            {t("Discard")}
-          </Button>
+          <ConfirmDialog
+            title={
+              queue.length === 1
+                ? t("Throw the waiting message away?")
+                : t("Throw the {{count}} waiting messages away?", { count: String(queue.length) })
+            }
+            description={t("They are not sent, and cannot be brought back.")}
+            destructive
+            confirm={
+              <>
+                <Trash2Icon />
+                {t("Discard")}
+              </>
+            }
+            onConfirm={() =>
+              attempt(api.discardQueue, t("The waiting messages could not be discarded"), t("Messages discarded"))
+            }
+            trigger={
+              <Button size="sm" variant="outline">
+                <Trash2Icon />
+                {t("Discard")}
+              </Button>
+            }
+          />
         </div>
       ) : null}
       {queue.map((item) => (
@@ -70,7 +95,7 @@ function Pending({ item }: { item: Queued }) {
   const [text, setText] = React.useState(item.text)
 
   const save = async () => {
-    await attempt(() => api.amend(item.id, text))
+    await attempt(() => api.amend(item.id, text), t("The waiting message could not be changed"))
     setEditing(false)
   }
 
@@ -132,7 +157,7 @@ function Pending({ item }: { item: Queued }) {
             size="icon-sm"
             className="text-muted-foreground shrink-0 rounded-full"
             aria-label={t("Remove the waiting message")}
-            onClick={() => void attempt(() => api.unqueue(item.id))}
+            onClick={() => void attempt(() => api.unqueue(item.id), t("The waiting message could not be removed"))}
           >
             <Trash2Icon />
           </Button>

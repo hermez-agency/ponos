@@ -183,6 +183,12 @@ test("Stop keeps the waiting messages: they are sent, or thrown away", async ({ 
   await expect(waiting).toHaveCount(1)
   await page.getByRole("button", { name: "Stop" }).click()
   await held.getByRole("button", { name: "Discard" }).click()
+  // Asked first: what is thrown away cannot be brought back.
+  const confirm = page.getByRole("alertdialog")
+  await expect(confirm).toContainText("Throw the waiting message away?")
+  await expect(waiting).toHaveCount(1)
+  await confirm.getByRole("button", { name: /Discard/ }).click()
+  await expect(page.getByText("Messages discarded")).toBeVisible()
   await expect(waiting).toHaveCount(0)
   await expect(held).toHaveCount(0)
   await expect(page.getByText("never sent")).toHaveCount(0)

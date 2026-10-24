@@ -89,5 +89,6 @@ notification say so. `worktree_exclude = "docs/media"` makes new worktrees
 without those folders (a sparse checkout, decided before the first file is
 written), so a repository's videos never fill the disk once per ticket. The
 *General* page of the console's settings shows the space the three directories take, with
-a **Clean up** button that applies the same retention straight away, and
+a **Clean up** button that applies the same retention straight away — once confirmed, since
+what it removes does not come back — and
 `ponos doctor` says both.

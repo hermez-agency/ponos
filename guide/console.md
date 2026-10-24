@@ -48,8 +48,8 @@ because the session expired sends the page back to the sign-in rather than sayin
 *reconnecting…* forever — the version this one runs — in amber, with what to type, on the
 day a newer one is waiting — when the board last agreed with Notion, a green dot that
 turns amber when something is out of step (the tooltip says what), and the two buttons
-that **resynchronise** — the whole board read again, the refused moves sent again — and
-change the light. On a phone, where the bar has room for none of those words, the stream,
+that **resynchronise** — the whole board read again, the refused moves sent again; the icon
+turns while it runs, and *Board read again* says when it is done — and change the light. On a phone, where the bar has room for none of those words, the stream,
 the last read and the version are one pill — a dot and *live* — that a tap opens on all
 three. Every page has an address — `/?view=console/tickets/list`,
 `/?view=console/tickets/read/<id>` — so a reload, a bookmark or a link pasted into a chat
