@@ -128,11 +128,29 @@ class Goals(Base):
             )
         return {
             "goals": rows,
+            "statuses": self._goal_statuses(),
             "configured": bool(self.runner.workspace.goals),
             # Which board: "Notion's trash" and its link are Notion's, and a
             # Markdown board has files under goals/.
             "storage": self.config.storage.mode,
         }
+
+    def _goal_statuses(self) -> list[str]:
+        """The options of the goals' status column, as the database spells them.
+
+        Offered by the form rather than a word list of its own: a status column
+        refuses a name it does not offer, and a select makes a second option of
+        one spelled otherwise.
+        """
+        database = self.runner.workspace.goals
+        if not database:
+            return []
+        try:
+            return self.runner.client.options(
+                database, self._goal_column(database, *GOAL_COLUMNS["status"])
+            )
+        except store.StoreError:
+            return []
 
     def create_goal(self, name: str, values: dict[str, Any]) -> dict[str, Any]:
         """A new row in the Goals database, written with the rest of its form."""

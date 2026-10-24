@@ -230,6 +230,7 @@ def values_are_encoded_for_the_type_the_database_declares():
     # A property the database does not have is skipped, not guessed at.
     assert notion._encode(None, "Done") is None
     assert notion._encode("status", None) is None
+    assert notion._encode("status", "") is None, "a status cannot be emptied, so it is left"
 
 
 @case

@@ -776,7 +776,10 @@ def _encode(kind: str | None, value: Any) -> dict[str, Any] | None:
     if kind is None or value is None:
         return None
     if kind == "status":
-        return {"status": {"name": str(value)}}
+        # Neither an empty name nor `null` empties a status: Notion answers 400
+        # to both. Saying none leaves the cell alone — the database's default,
+        # on a row just created.
+        return {"status": {"name": str(value)}} if str(value) else None
     if kind == "select":
         # An empty name is not an option, and Notion answers 400 to one. What
         # emptying a select means is clearing the cell, and `null` is how that

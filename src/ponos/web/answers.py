@@ -1551,6 +1551,8 @@ class Goal(Shape):
 
 class Goals(Shape):
     goals: list[Goal]
+    statuses: list[str]
+    """The options of the goals' status column, in the database's order."""
     configured: bool
     """Whether the workspace has a goals database at all."""
     storage: str = omitted()
