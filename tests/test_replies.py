@@ -39,7 +39,10 @@ def _knowing(comments: list[notion.Comment]) -> Runner:
 
 
 def _ticket():
-    return type("T", (), {"page": notion.Page(id="p", url="", title="t")})()
+    """A ticket this machine claimed, so one whose comments are worth reading."""
+    runner = {"type": "rich_text", "rich_text": [{"plain_text": "ponos@laptop"}]}
+    page = notion.Page(id="p", url="", title="t", properties={"Runner": runner})
+    return type("T", (), {"page": page})()
 
 
 REPORT_BY_US = _said(f"{legacy.OLD}@laptop — blocked.\nQuel en-tête ?", by=ME)

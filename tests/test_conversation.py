@@ -54,9 +54,15 @@ def comments_the_integration_cannot_read_are_not_a_failure():
     assert lines == []
 
 
-def _answered(texts: list[str], error: str = "", agent: str = "") -> bool:
-    """Would a reply on that ticket put it back in the queue?"""
+def _answered(texts: list[str], error: str = "", agent: str = "", spoken: bool = True) -> bool:
+    """Would a reply on that ticket put it back in the queue?
+
+    `spoken`: the ledger remembers the runner commenting there.
+    """
     runner = _bare_runner(_CommentClient(texts, error))
+    runner._ledger = conversation.Ledger(database=Path(tempfile.mkdtemp()) / "ponos.db")
+    if spoken:
+        runner.ledger.remember_page("p-ticket")
     properties = {}
     if agent:
         properties["Runner"] = {"type": "rich_text", "rich_text": [{"plain_text": agent}]}
@@ -96,7 +102,52 @@ def a_ticket_no_run_of_ours_ever_touched_is_left_alone():
         "a ticket handled by another host is that host's to pick up"
     )
     assert _answered([DONE, "et pour le footer ?"], agent="ponos@laptop")
+    assert not _answered([REPORT, "réponse"], spoken=False), (
+        "no Runner and no comment of ours remembered: never claimed, so never read"
+    )
     assert not _answered([REPORT, "réponse"], error="403 API token does not have access")
+
+
+class _Backlog:
+    """A board of pages, counting what reading their comments costs."""
+
+    def __init__(self, pages: list[notion.Page]):
+        self.pages, self.read = pages, []
+
+    def schema(self, database):
+        return {"Status": "status"}
+
+    def options(self, database, name):
+        return []
+
+    def query(self, database, filter):
+        return self.pages
+
+    def comments(self, page_id: str) -> list[notion.Comment]:
+        self.read.append(page_id)
+        return [notion.Comment(REPORT), notion.Comment("réponse")]
+
+
+@case
+def a_backlog_no_run_ever_reported_on_costs_no_comment_request():
+    """A ticket never run has no report under it: no request can find one."""
+
+    def page(index: int, agent: str = "") -> notion.Page:
+        properties = {}
+        if agent:
+            properties["Runner"] = {"type": "rich_text", "rich_text": [{"plain_text": agent}]}
+        return notion.Page(id=f"p-{index}", url="", title=f"t{index}", properties=properties)
+
+    backlog = [page(index) for index in range(200)]
+    ours, theirs, spoken = page(200, "ponos@laptop"), page(201, "ponos@vps"), page(202)
+    client = _Backlog([*backlog, ours, theirs, spoken])
+    runner = _bare_runner(client)
+    runner._workspace = workspace.Workspace(tickets="db", projects="projects", agents="agents")
+    runner._ledger = conversation.Ledger(database=Path(tempfile.mkdtemp()) / "ponos.db")
+    runner.ledger.remember_page("p-202")
+    woken = runner.woken()
+    assert client.read == ["p-200", "p-202"], len(client.read)
+    assert [ticket.page.id for ticket in woken] == ["p-200", "p-202"]
 
 
 @case

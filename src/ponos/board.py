@@ -389,10 +389,15 @@ class Board(Base):
 
         Which machine reported is read off the board's Agent column rather than
         off the comment: reports open on a verdict now, not on a host, and the
-        column is where the host was always written down anyway.
+        column is where the host was always written down anyway. An empty one
+        is a ticket no run has claimed, which is most of a backlog: unless the
+        ledger remembers speaking on it, there is no report to find, and asking
+        Notion would cost a request per ticket and per pass for nothing.
         """
         agent = str(store.read(ticket.page, self.config.notion.prop("agent")) or "")
         if agent and agent not in self.agent_labels:
+            return False
+        if not agent and not self.ledger.knows(ticket.page.id):
             return False
         try:
             comments = self.comments(ticket.page.id)
