@@ -51,6 +51,7 @@ from . import db, git, state, store
 from .base import Base
 from .config import state_dir
 from .ticket import short_id
+from .web import oauth
 
 DAY = 86400
 
@@ -185,6 +186,10 @@ class Cleanup(Base):
             tidied.records = state.prune_records(days)
         except db.ERRORS as error:
             self.say(f"  ! ponos.db not pruned: {error}")
+        try:
+            tidied.records += oauth.purge()
+        except db.ERRORS as error:
+            self.say(f"  ! MCP keys not purged: {error}")
         stale = self.config.runner.stale_worktree_days
         done_too = days > 0 and self.config.runner.clean_done_worktrees
         if not done_too and stale <= 0:

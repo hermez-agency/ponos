@@ -230,6 +230,23 @@ def a_board_that_cannot_be_read_tidies_the_logs_and_nothing_else(state_home):
 
 
 @case
+def the_daily_tidy_forgets_the_mcp_clients_nobody_authorised(state_home):
+    """`/oauth/register` is open on the Internet: the tidy is what bounds it —
+    whatever the retention says, since the rows were never anybody's."""
+    from ponos.web import oauth
+
+    abandoned = oauth.register({"redirect_uris": ["https://x.example/cb"]})["client_id"]
+    with db.transaction() as connection:
+        connection.execute(
+            "UPDATE mcp_clients SET created_at = '2026-01-01T00:00:00+00:00' WHERE id = ?",
+            (abandoned,),
+        )
+    tidied = _tidying([], "[runner]\nlog_retention_days = 0\n").tidy(now=True)
+    assert tidied is not None and tidied.records == 1, tidied
+    assert oauth.client(abandoned) is None
+
+
+@case
 def the_retention_can_be_turned_off(state_home):
     scratch = _aged(state_home / "scratch" / "notes-1a2b3c4d", 30)
     page = _aged_page("page-1a2b3c4d", "Done", 30)

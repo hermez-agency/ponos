@@ -23,6 +23,11 @@ a port Docker publishes is reached through its bridge, a neighbouring container
 of Dokploy's network reaches the console without Traefik, a LAN is a LAN — and
 any of them, believed, could announce a new address with every guess and never
 wait. An IPv6 address counts by its /64: one machine is given a whole one.
+
+A door that is open rather than guessed — `/oauth/register`, which any client
+may call and which writes a row each time — is not slowed by failures, since
+it does not fail: it is given a `Quota`, so many times per address in a window,
+and refused for the rest of the window past it.
 """
 
 from __future__ import annotations
@@ -106,6 +111,36 @@ def address_of(peer: str, forwarded: str = "", trusted: Iterable[Network] = LOOP
             return str(direct.ipv4_mapped)
         return str(ipaddress.ip_network(f"{direct}/64", strict=False))
     return str(direct)
+
+
+class Quota:
+    """So many uses of an open door per address in a window, counted in memory."""
+
+    def __init__(
+        self, allowed: int, seconds: float, clock: Callable[[], float] = time.monotonic
+    ) -> None:
+        self.allowed = allowed
+        self.seconds = seconds
+        self.clock = clock
+        self._lock = threading.Lock()
+        # Per address: how many so far, and when its window closes.
+        self._windows: dict[str, tuple[int, float]] = {}
+
+    def take(self, key: str) -> float:
+        """Count one use from `key`: 0 when it may go on, else the seconds left to wait."""
+        with self._lock:
+            now = self.clock()
+            if len(self._windows) > SWEEP_ABOVE:
+                self._windows = {
+                    known: window for known, window in self._windows.items() if window[1] > now
+                }
+            used, ends = self._windows.get(key, (0, 0.0))
+            if ends <= now:
+                used, ends = 0, now + self.seconds
+            if used >= self.allowed:
+                return ends - now
+            self._windows[key] = (used + 1, ends)
+            return 0.0
 
 
 class Attempts:

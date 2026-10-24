@@ -59,6 +59,14 @@ CODE_SECONDS = 300
 ACCESS_SECONDS = 3600
 REFRESH_DAYS = 90
 
+# Registering is open, and each registration is a row: one address registers
+# this many clients an hour, and the next is told to wait (`attempts.Quota`).
+REGISTRATIONS_PER_HOUR = 20
+# What `purge` leaves alone for a while: a code or a token that ran out stays
+# this long — a code presented again is still recognised as spent — and so does
+# a client just registered, which its person is still on the way to consent to.
+KEPT_DAYS = 1
+
 # How the clients registered over the network are told from the ones drawn here.
 LOCAL_PREFIX = "local-"
 
@@ -560,6 +568,31 @@ def revoke_connectors() -> int:
             (_stamp(_now()), LOCAL_PREFIX + "%"),
         )
     return cursor.rowcount
+
+
+def purge() -> int:
+    """Forget the keys that ran out, and the clients that hold none — the daily tidy.
+
+    Registering is open to anybody, and each refresh adds a pair: left alone,
+    both only grow. A code, an access or a refresh token goes a day after it
+    expired; a revoked refresh token that has not stays, since one coming back
+    is what tells that somebody else had it. A client registered over the
+    network with no key left — never authorised, or silent past its ninety
+    days — goes once it is a day old, and registers again if it comes back.
+    The clients drawn with `ponos mcp token` stay: they are taken back by hand.
+    Returns how many rows went.
+    """
+    kept = _stamp(_now() - timedelta(days=KEPT_DAYS))
+    with db.transaction() as connection:
+        tokens = connection.execute(
+            "DELETE FROM mcp_tokens WHERE expires_at IS NOT NULL AND expires_at <= ?", (kept,)
+        ).rowcount
+        clients = connection.execute(
+            "DELETE FROM mcp_clients WHERE id NOT LIKE ? AND created_at <= ?"
+            " AND NOT EXISTS (SELECT 1 FROM mcp_tokens t WHERE t.client = mcp_clients.id)",
+            (LOCAL_PREFIX + "%", kept),
+        ).rowcount
+    return tokens + clients
 
 
 def revoke(identifier: str) -> int:
