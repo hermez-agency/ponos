@@ -10,9 +10,13 @@ Everything lives in **`~/.config/ponos/config.toml`**, created by the installer
 with mode `600` — everything but the secrets. `ponos config` opens it in
 `$EDITOR`. The copies the console makes when it saves (`config.toml.bak`, and the scratch
 copy it checks before swapping it in) are created `600` too, as are the console's token,
-the session logs — under a `logs/` directory only your account can enter — and
-`ponos.db`: each is created with that mode rather than tightened after the write, so
-there is no moment in which the umask decides who reads them. What the runner keeps
+the session logs — under a `logs/` directory only your account can enter —, the files
+attached in the console's chat and `ponos.db`: each is created with that mode rather than
+tightened after the write, so there is no moment in which the umask decides who reads them.
+The state directory itself (`~/.local/state/ponos`, `/data/state/ponos` in the image) and
+the folders at its top are closed (`700`) at each launch; `ponos doctor` reports what is
+still readable by other accounts under it — outside the worktrees, clones of your
+repositories — and the console's health band offers to tighten it. What the runner keeps
 between two runs — the history, the claims, the reconciliation stamps, the conversations —
 is written in one SQLite transaction, and what is still a file (the channels' cursors) is
 written to a copy and renamed over the old one, so a run killed mid-write leaves the old

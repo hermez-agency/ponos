@@ -121,6 +121,26 @@ def state_dir() -> Path:
     return Path(base) / "ponos"
 
 
+def private_state() -> None:
+    """Close the state directory, and the folders at its top, to other accounts.
+
+    Everything a ticket or a conversation leaves sits there — transcripts,
+    screenshots pasted in the chat, what a session captured — and was written
+    over the years with the umask. A closed directory keeps what is under it
+    from being read, whatever its own mode, so this is enough at each launch
+    and cheap: one level, no walk. The files themselves `ponos doctor` reports,
+    and tightens when asked.
+    """
+    root = state_dir()
+    try:
+        disk.private_dir(root)
+        folders = [path for path in root.iterdir() if path.is_dir() and not path.is_symlink()]
+    except OSError:
+        return  # a read-only home, a path that is not ours: what writes there will say so
+    for folder in folders:
+        disk.tighten(folder)
+
+
 def refuse_real_state() -> None:
     """Raise RealStateRefused when a checkout is about to write the real state.
 

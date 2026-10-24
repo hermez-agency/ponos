@@ -627,6 +627,24 @@ def files_nobody_closed_the_conversation_on_go_after_their_days(state_home):
 
 
 @case
+def an_attachment_is_written_0600_in_a_folder_only_its_owner_enters(state_home):
+    """A pasted screenshot shows whatever was on the screen: nobody else's to read,
+    whatever the umask, and a folder made before with the umask is tightened."""
+    root = web_console.attachments_dir()
+    root.mkdir(mode=0o775, parents=True)
+    root.chmod(0o775)
+    previous = os.umask(0o002)
+    try:
+        folder = web_attachments.Folder(root, "talk")
+        kept = folder.save("screenshot.png", io.BytesIO(b"png"), 3, 100)
+    finally:
+        os.umask(previous)
+    assert kept.path.stat().st_mode & 0o777 == 0o600, oct(kept.path.stat().st_mode)
+    for directory in (folder.path, root, web_console.web_dir()):
+        assert directory.stat().st_mode & 0o777 == 0o700, (directory, oct(directory.stat().st_mode))
+
+
+@case
 def dictation_without_a_key_says_what_is_missing():
     with _chat() as chat:
         state = chat.state()["dictation"]

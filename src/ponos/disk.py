@@ -16,17 +16,25 @@ file or the new one, never the moment between them.
 `chmod` afterwards leaves a window in which a token, a password in a
 configuration or a session transcript is readable by whoever the umask allows.
 Created with `0o600` from its first byte, it never is.
+
+The same goes for a directory: what the console keeps — a screenshot pasted
+in the chat, a transcript — was once protected by nothing but the `0700` of
+`~/.local/state`, which no longer holds when `XDG_STATE_HOME` points elsewhere,
+or in the image, where `/data` is `0755`. A folder that holds them is made
+`0700` itself, and one made before is tightened.
 """
 
 from __future__ import annotations
 
 import os
+import stat
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Collection
 from pathlib import Path
 from typing import IO
 
 PRIVATE = 0o600
+PRIVATE_DIR = 0o700
 
 
 def opener(mode: int = PRIVATE) -> Callable[[str, int], int]:
@@ -45,6 +53,57 @@ def opener(mode: int = PRIVATE) -> Callable[[str, int], int]:
         return descriptor
 
     return _open
+
+
+def private_dir(path: Path) -> Path:
+    """`path`, made if it was not there, and only this account's to enter.
+
+    `mkdir` gives its mode to what it creates and to nothing else: a directory
+    already there, made with the umask, is tightened rather than left as it was.
+    """
+    path.mkdir(mode=PRIVATE_DIR, parents=True, exist_ok=True)
+    tighten(path)
+    return path
+
+
+def tighten(path: Path) -> bool:
+    """Take from group and others whatever they may do with `path`; say if it changed.
+
+    A link is left alone: `chmod` would follow it to whatever it points at.
+    """
+    try:
+        mode = path.lstat().st_mode
+        if stat.S_ISLNK(mode) or not mode & 0o077:
+            return False
+        path.chmod(stat.S_IMODE(mode) & 0o700)
+    except OSError:
+        return False  # not ours to change, or gone meanwhile
+    return True
+
+
+def open_to_others(root: Path, skip: Collection[str] = ()) -> list[Path]:
+    """What under `root` group or others may read or enter, `root` included.
+
+    `skip` names folders at the top of `root` that are not walked.
+    """
+    found: list[Path] = []
+    for folder, folders, files in os.walk(root):
+        if folder == str(root):
+            folders[:] = [name for name in folders if name not in skip]
+        for name in (*folders, *files):
+            path = Path(folder, name)
+            try:
+                mode = path.lstat().st_mode
+            except OSError:
+                continue
+            if not stat.S_ISLNK(mode) and mode & 0o077:
+                found.append(path)
+    try:
+        if root.stat().st_mode & 0o077:
+            found.insert(0, root)
+    except OSError:
+        pass
+    return found
 
 
 def open_private(path: Path, mode: str = "w") -> IO[str]:

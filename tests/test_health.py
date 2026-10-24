@@ -855,6 +855,48 @@ def health_says_the_disk_space_and_what_tidies_it(state_home):
 
 
 @case
+def health_reports_what_others_can_read_in_the_state_and_tightens_it(state_home):
+    from ponos import health
+
+    config = _config("")
+    talk = state_home / "web" / "attachments" / "talk"
+    talk.mkdir(parents=True)
+    for directory in (talk, *talk.parents):
+        if directory == state_home.parent:
+            break
+        directory.chmod(0o700)
+    found = health._private_state()
+    assert _verdicts(found) == [("machine.private", "ok")], _lines(found)
+
+    shot = state_home / "web" / "attachments" / "talk" / "abc-screenshot.png"
+    shot.write_bytes(b"png")
+    shot.chmod(0o664)
+    (state_home / "web" / "attachments").chmod(0o775)
+    checkout = state_home / "worktrees" / "ticket" / "README.md"
+    checkout.parent.mkdir(parents=True)
+    checkout.write_text("the project's own file\n")
+    checkout.chmod(0o644)
+    found = health._private_state()
+    assert _verdicts(found) == [("machine.private", "warn")], _lines(found)
+    assert found[0].params["count"] == "2", "a clone's files are the project's: not walked"
+    assert found[0].fix and found[0].fix["action"] == "state_private"
+
+    state_home.chmod(0o755)
+    assert _verdicts(health._private_state()) == [("machine.private", "error")]
+
+    done = health.fix(config, None, "state_private", confirmed=True)
+    assert done == "3 entries tightened", done
+    assert shot.stat().st_mode & 0o777 == 0o600
+    assert state_home.stat().st_mode & 0o777 == 0o700
+    assert checkout.stat().st_mode & 0o777 == 0o644
+    assert _verdicts(health._private_state()) == [("machine.private", "ok")]
+    french = _french()
+    for check in found:
+        for sentence in (check.title, check.said, check.cause, *check.steps):
+            assert f'"{sentence}"' in french, f"nothing translates “{sentence}”"
+
+
+@case
 def health_says_when_memory_is_short_and_when_it_cannot_tell():
     from ponos import health
 
@@ -1205,6 +1247,7 @@ def doctor_stops_with_2_on_a_configuration_it_cannot_read():
 def doctor_finds_a_sound_installation_in_place_and_a_broken_one_wrong(state_home):
     from ponos import __main__ as cli
 
+    C.private_state()  # as a launch leaves it, see `__main__`
     root = Path(tempfile.mkdtemp())
     path = root / "config.toml"
     path.write_text(
