@@ -214,7 +214,7 @@ for reading rather than for filling in.
 | `runner.auto_update` | `true` | a run keeps the installation on the latest version |
 | `runner.update_channel` | `"release"` | what "latest" means: the newest `vX.Y.Z` tag, or `"main"` for every commit. No tag, no update; anything unknown reads as `"release"` |
 | `runner.update_interval_seconds` | `3600` | how often a run asks; one minute is the floor |
-| `runner.log_retention_days` | `14` | drop older session logs, once a day; `0` keeps everything |
+| `runner.log_retention_days` | `14` | drop older session logs, once a day, and the same age of steps, sync journal, MCP calls and finished transitions in `ponos.db`; `0` keeps everything |
 | `runner.min_free_disk_mb` | `5120` | under this much free disk (in MB), a tidy runs before any ticket is started; if the space is still short, nothing starts, the ticket stays in Ready and the console says so; `0` turns the guard off. `ponos doctor` reports it |
 | `runner.stale_worktree_days` | `30` | once a day, remove any worktree untouched for this long, whatever its ticket — never one whose ticket is in progress, nor one with uncommitted changes or commits no remote has; its local branch goes when a remote holds all of it; `0` turns it off |
 | `runner.worktree_exclude` | `""` | folders new worktrees are made without (sparse checkout), e.g. `"docs/media"` — left out before the checkout so big media never reach the disk; a ticket that needs one runs `git sparse-checkout disable` |

@@ -183,6 +183,10 @@ BUSY_TIMEOUT_MS = 5000
 # version gone through, and an update rarely jumps more than one or two.
 BACKUPS_KEPT = 3
 
+# The share of the file left free by deleted rows past which `compact` rewrites
+# it. SQLite reuses a free page for the next insert, so a little is no waste.
+VACUUM_SHARE = 0.25
+
 
 class DatabaseError(Exception):
     """The local database cannot be opened, or cannot be brought up to date."""
@@ -1254,6 +1258,44 @@ def close() -> None:
             connection.close()
         _connections.clear()
         _locks.clear()
+
+
+def compact(location: Path | None = None) -> int:
+    """Give the disk back what deleted rows left free, and empty the `-wal`.
+
+    The file never shrinks by itself (`auto_vacuum` is off, and turning it on
+    would itself take a VACUUM), so the retention's DELETEs only leave free
+    pages. VACUUM rewrites the whole file, which is why it waits until a
+    quarter of it is free rather than running every day. The checkpoint after
+    it is what folds the `-wal` back in and truncates it; a reader of the other
+    process can make it give up, which the next day's tidy makes good.
+    Returns the bytes given back.
+    """
+    location = location or path()
+    connection = connect(location)
+    with _locks[location]:
+        before = sum(sizes(location))
+        pages, free = (
+            int(connection.execute(f"PRAGMA {name}").fetchone()[0])
+            for name in ("page_count", "freelist_count")
+        )
+        if pages and free / pages >= VACUUM_SHARE:
+            connection.execute("VACUUM")
+        connection.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone()
+        return max(0, before - sum(sizes(location)))
+
+
+def sizes(location: Path | None = None) -> tuple[int, int]:
+    """Bytes the database takes on disk: the file, and its `-wal` beside it."""
+    location = location or path()
+    return _bytes(location), _bytes(Path(f"{location}-wal"))
+
+
+def _bytes(location: Path) -> int:
+    try:
+        return location.stat().st_size
+    except OSError:
+        return 0
 
 
 def check() -> tuple[Path, int, str]:

@@ -2634,16 +2634,20 @@ def _database() -> list[Check]:
                 **restore,
             )
         ]
+    held = db.sizes(location)
     checks = [
         _check(
             "machine.database",
             OK,
             title,
-            "{{location}}: schema version {{version}} of {{count}}.",
+            "{{location}}: schema version {{version}} of {{count}}, {{size}} on disk"
+            " and {{wal}} of write-ahead log.",
             params={
                 "location": str(location),
                 "version": str(found),
                 "count": str(len(db.MIGRATIONS)),
+                "size": cleanup.human(held[0]),
+                "wal": cleanup.human(held[1]),
             },
         )
     ]

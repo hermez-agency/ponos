@@ -124,14 +124,14 @@ Three rules, and they are the ones worth arguing about.
   takes Notion's identifier, because that is what its URL, its relations and every report
   about it will carry from then on.
 
-The journal is the `sync_journal` table of `~/.local/state/ponos/ponos.db`. The
-console and the runner write in it too, whatever the storage mode: `seen` when the
-console notices a status change (with Notion's edit time — to the minute, all Notion
-keeps — and the moment it saw it), `console→notion` when a move from the console is
-confirmed, `write-failed` when one is given up on, `drift` when the five-minute full read
-of the board finds something the incremental reads had wrong, and `conflict` when a
-status was not written over somebody else's — by the console, or by a run that finds its
-ticket moved by hand during the session:
+The journal is the `sync_journal` table of `~/.local/state/ponos/ponos.db`, kept for
+`log_retention_days`. The console and the runner write in it too, whatever the storage
+mode: `seen` when the console notices a status change (with Notion's edit time — to the
+minute, all Notion keeps — and the moment it saw it), `console→notion` when a move from
+the console is confirmed, `write-failed` when one is given up on, `drift` when the
+five-minute full read of the board finds something the incremental reads had wrong, and
+`conflict` when a status was not written over somebody else's — by the console, or by a
+run that finds its ticket moved by hand during the session:
 
 ```sh
 ponos sync             # reconcile now, and say what moved
