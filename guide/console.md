@@ -344,7 +344,7 @@ it opens on, puts the list on the left, one compact line per project (icon, name
 last activity), and on the right the global context folded to a few lines — always in view, with
 *See all*, *Edit* and its character count — and, under it, the project picked in the list: its
 page, the very one its address opens — the same header (*+ Ticket*, *Edit*, the “…” menu), the
-same figures and the same *Tickets*, *Ideas*, *Brief* and *Settings* tabs — without the way back
+same figures and the same *Tickets*, *Ideas*, *Schedules*, *Brief* and *Settings* tabs — without the way back
 to a list that is right there, and with *Open the project's page ↗* to see it alone, on the tab
 the panel is on (`&tab=ideas`). The tab picked is kept from one project to the next, and a
 project is read once for the panel and the page alone. On a screen too narrow for two columns,
@@ -360,7 +360,16 @@ four fields the page holds: the name, the repository, the path, and the brief it
 is written goes to the column your page already carries — `Repository`, `github` or `repo`,
 whichever you named it — rather than to a second one beside it. A project only `[projects]`
 names has no page to write to, so it says so and points at the settings, where that line
-lives.
+lives; over its tickets, where *New ticket* would be, it says *This project has no page:
+create it to attach tickets to it*, with a link that opens *New project* on its name and its
+path — the page made under that name is that project's, and the `[projects]` line its path.
+
+**What else a project's page gathers.** Its *Schedules* tab (`&tab=schedules`) is the list of
+the schedules whose tickets are for it, in a table or a calendar, with *New schedule* already
+set on the project. Under the figures of its *Tickets* tab, a *Goals* box lists the active goals
+that name it, each with *n of m tickets done* and its bar, and *See every goal of the project*
+opens the Goals page kept to it. A project only `[projects]` names has neither: a schedule and
+a goal point at a page.
 
 **A project can be deleted** — from its card or row (the “…” menu) and from its page, next to
 *Edit*. A dialog names it, counts the tickets that point at it and asks for its name before

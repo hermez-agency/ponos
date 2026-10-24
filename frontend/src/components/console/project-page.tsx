@@ -42,6 +42,16 @@ const ProjectSettingsTab = React.lazy(() =>
   import("./project-settings").then((module) => ({ default: module.ProjectSettingsTab }))
 )
 
+/* Its schedules, a tab opened now and then too. */
+const ProjectSchedules = React.lazy(() =>
+  import("./project-schedules").then((module) => ({ default: module.ProjectSchedules }))
+)
+
+/* The goals it serves, with the goals' cards: a chunk the Goals page already has. */
+const ProjectGoals = React.lazy(() =>
+  import("./goal-cards").then((module) => ({ default: module.ProjectGoals }))
+)
+
 /* Where the page of a project finds its project.
  *
  * On its own address, in the context the package gives the `read` view: the
@@ -155,15 +165,17 @@ export function ProjectPage() {
   )
 }
 
-/* The tabs of a project: its tickets, its ideas, its brief and its settings.
+/* The tabs of a project: its tickets, its ideas, its schedules, its brief and its settings.
  *
  * The tickets come first, because a project is opened more often to see what is
  * being done on it than to reread what every ticket is told; the ideas next, as
- * what could be done on it — every one of them, thrown away included. The
+ * what could be done on it — every one of them, thrown away included; then the
+ * schedules, what comes back on it by itself. The
  * settings last: what this project decides for itself against the runner's
  * settings, opened the day it should not be treated like the others. A project
  * the configuration alone names has no page for an idea to point at, and no
- * ideas tab; nor a page for its settings to be kept under, and no settings tab
+ * ideas tab; nor a page for a schedule's tickets to be for, and no schedules
+ * tab; nor a page for its settings to be kept under, and no settings tab
  * either — no ticket points at it to be validated anyway. The one picked is written in the address (`&tab=brief`), so a
  * reload or a pasted link comes back to it; the tickets are the tab of an
  * address that says nothing, and of one that says something else. Beside the
@@ -172,7 +184,9 @@ export function ProjectPage() {
  * The facts and the statistics open the tickets tab, under the tabs: the tabs
  * sit right under the header, where the settings are one click away.
  */
-const TABS = ["tickets", "ideas", "brief", "settings"] as const
+const TABS = ["tickets", "ideas", "schedules", "brief", "settings"] as const
+/** The tabs only a project with a page has. */
+const PAGED: readonly string[] = ["ideas", "schedules", "settings"]
 type Tab = (typeof TABS)[number]
 
 function ProjectTabs({ project, children }: { project: ProjectItem; children: React.ReactNode }) {
@@ -185,7 +199,7 @@ function ProjectTabs({ project, children }: { project: ProjectItem; children: Re
   const named = panel ? panel.tab : mine ? new URLSearchParams(searchStr).get("tab") : null
   const ideas = isAPage(project.id)
   const tab: Tab =
-    TABS.includes(named as Tab) && ((named !== "ideas" && named !== "settings") || ideas)
+    TABS.includes(named as Tab) && (!PAGED.includes(named ?? "") || ideas)
       ? (named as Tab)
       : "tickets"
   const pick = (value: string) => {
@@ -206,6 +220,11 @@ function ProjectTabs({ project, children }: { project: ProjectItem; children: Re
         {ideas ? (
           <TabsTrigger value="ideas" data-slot="project-ideas-tab">
             {t("Ideas")}
+          </TabsTrigger>
+        ) : null}
+        {ideas ? (
+          <TabsTrigger value="schedules" data-slot="project-schedules-tab">
+            {t("Schedules")}
           </TabsTrigger>
         ) : null}
         <TabsTrigger value="brief" data-slot="project-brief-tab">
@@ -235,12 +254,25 @@ function ProjectTabs({ project, children }: { project: ProjectItem; children: Re
             <Where path={project.where} kind={project.kind} />
           </Fact>
         </Facts>
+        {/* The goals it serves: a goal points at a page, never at a line of the configuration. */}
+        {ideas ? (
+          <React.Suspense fallback={null}>
+            <ProjectGoals project={project.name} />
+          </React.Suspense>
+        ) : null}
         <StatisticsBand project={project.name} />
         <ProjectTickets project={project} />
       </TabsContent>
       {ideas ? (
         <TabsContent value="ideas">
           <ScopedIdeas project={project.id.replace(/-/g, "")} name={project.name} find />
+        </TabsContent>
+      ) : null}
+      {ideas ? (
+        <TabsContent value="schedules">
+          <React.Suspense fallback={null}>
+            <ProjectSchedules project={project} />
+          </React.Suspense>
         </TabsContent>
       ) : null}
       <TabsContent value="brief">{children}</TabsContent>

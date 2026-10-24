@@ -3,6 +3,7 @@ import { Ban, CalendarDays, CircleCheck, ExternalLink, Pencil, Plus, SearchX, Ta
 import { toast } from "sonner"
 import { ActionList } from "react-data-form"
 import {
+  generateLinkByResource,
   Link,
   ListPagination,
   ResourceViewButton,
@@ -27,10 +28,11 @@ import { locale } from "@/lib/recurrence"
 import { carrying } from "@/lib/resource-view"
 import type { Goal } from "@/lib/types"
 import { cn } from "@/lib/utils"
-import { goals, goalsHref, goalsOnce, useGoals, type GoalItem } from "@/resources/goals"
+import { goalHref, goals, goalsHref, goalsOnce, useGoals, type GoalItem } from "@/resources/goals"
 import { ticketHref, tickets } from "@/resources/tickets"
 
 import { EmptyState } from "./empty-state"
+import { Eyebrow } from "./frame"
 import { useOpensOverTheList } from "./record-window"
 import { SEED, columnTitle } from "./ticket-bits"
 
@@ -125,6 +127,51 @@ export function GoalCards({ rows = [] }: ListComponentPropsInterface) {
         <ListPagination />
       </div>
     </div>
+  )
+}
+
+/* -- under a project ---------------------------------------------------------- */
+
+/* The goals a project serves, on its page: the active ones only, each with how
+ * far its tickets have gone, and the way to the list of every one of them —
+ * the Goals page, kept to the project. A goal names its projects by name, as
+ * the list's filter does. Nothing at all for a project that serves none: the
+ * page has enough to say without an empty box. */
+export function ProjectGoals({ project }: { project: string }) {
+  const t = useT()
+  const { goals: known } = useGoals()
+  React.useEffect(() => {
+    void goalsOnce().catch(() => null)
+  }, [])
+  const mine = (known ?? []).filter((goal) => goal.active !== false && goal.projects.includes(project))
+  if (!mine.length) return null
+  const every = generateLinkByResource({ resource: goals, resourceAction: ActionList.list, filter: { project } })
+  return (
+    <section data-slot="project-goals" className="@container flex flex-col gap-3 rounded-xl border p-4">
+      <div className="flex items-center justify-between gap-3">
+        <Eyebrow>{t("Goals")}</Eyebrow>
+        <Link
+          to={every}
+          data-slot="project-goals-all"
+          className="text-muted-foreground hover:text-foreground text-xs underline-offset-2 hover:underline"
+        >
+          {t("See every goal of the project")}
+        </Link>
+      </div>
+      <ul className="grid grid-cols-1 gap-4 @2xl:grid-cols-2">
+        {mine.map((goal) => (
+          <li key={goal.id} data-goal={goal.id} className="flex min-w-0 flex-col gap-1.5 text-sm">
+            <div className="flex min-w-0 items-center gap-2">
+              <Link to={goalHref(goal.id)} className="hover:text-primary truncate font-medium underline-offset-2 hover:underline">
+                {goal.name}
+              </Link>
+              <Due due={goal.due} />
+            </div>
+            <Progress goal={goal} />
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }
 

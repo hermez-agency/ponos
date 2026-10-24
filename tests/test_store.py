@@ -372,6 +372,22 @@ def a_project_the_console_cannot_create_is_refused_before_anything_is_written():
 
 
 @case
+def a_project_the_configuration_alone_names_gets_its_page_under_its_own_name():
+    """A line of `[projects]` the board has no page for does not take its name:
+    the page made under it is that project's, and the line becomes its path."""
+    with _board() as board:
+        api = _creatable(board)
+        api._config.projects["Atelier"] = "/home/salva/workspace/atelier"
+        assert [row["source"] for row in api.all_projects()["projects"]] == ["config"]
+
+        api.create_project({"name": "Atelier", "kind": "document"})
+
+        rows = api.all_projects()["projects"]
+        assert [(row["name"], row["source"]) for row in rows] == [("Atelier", "board")]
+        assert rows[0]["configured"] == "/home/salva/workspace/atelier"
+
+
+@case
 def the_console_server_creates_a_project_and_says_which_field_it_refuses():
     """The route, end to end: a project created is a row of the list; a refusal
     is a 400 whose violation names the field, which is what the form draws."""
