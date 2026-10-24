@@ -162,6 +162,17 @@ test("the band is one line by default, opens by keyboard and the choice is kept"
   await expect(page.getByTestId("health-band").getByTestId("health-check")).toHaveCount(0)
 })
 
+test("unfolded, the band pushes the statistics down instead of covering them", async ({ page }) => {
+  await open(page, [RED])
+  const band = page.getByTestId("health-band")
+  await expect(band.getByTestId("health-check")).toHaveCount(4)
+  const statistics = page.locator('[data-slot="statistics-band"]')
+  await expect(statistics).toBeVisible()
+  const list = (await band.boundingBox())!
+  const below = (await statistics.boundingBox())!
+  expect(list.y + list.height).toBeLessThanOrEqual(below.y)
+})
+
 test("the detail of a problem names each property once, and the raw error only there", async ({ page }) => {
   await open(page, [RED])
   const columns = page.locator('[data-code="notion.columns"]')

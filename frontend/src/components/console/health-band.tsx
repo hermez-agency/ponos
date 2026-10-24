@@ -22,9 +22,13 @@ import { ConfirmDialog } from "./confirm-dialog"
  * nothing at all while everything is green: a band that is always there is a
  * band nobody reads.
  *
- * The answer comes a second or two after the rest of the page, so the band is
- * laid over the page, in a slot of no height, rather than in its flow: pushed
- * in, it moved the whole dashboard down while somebody was aiming at a card.
+ * The answer comes a second or two after the rest of the page, so the folded
+ * band is laid over the page, in a slot of no height, rather than in its flow:
+ * pushed in, it moved the whole dashboard down while somebody was aiming at a
+ * card. Unfolded, it takes its place in the flow and pushes the statistics
+ * down: laid over, its list hid the cards and the charts it was opened above.
+ * The page moves then because somebody asked it to — or, the list kept open,
+ * once when the answer arrives, which is what keeping it open chose.
  *
  * The band is one line while folded — a count, "Recheck" — so that the
  * statistics under it stay on the first screen; unfolded, each failing check is
@@ -112,8 +116,8 @@ export function HealthBand() {
   const Icon = errors ? OctagonAlert : AlertTriangle
 
   return (
-    <div className="relative z-30 h-0">
-      <section className="absolute inset-x-0 top-0 py-3" data-testid="health-band">
+    <div className={cn("relative z-30", !open && "h-0")}>
+      <section className={cn("py-3", !open && "absolute inset-x-0 top-0")} data-testid="health-band">
         <Collapsible open={open} onOpenChange={choose} className="bg-card rounded-xl border shadow-lg">
           <div className="flex items-center justify-between gap-3 px-4 py-2.5">
             <CollapsibleTrigger
