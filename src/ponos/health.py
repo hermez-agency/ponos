@@ -2689,6 +2689,7 @@ def _stray() -> list[Check]:
 def _settings(config: config_module.Config) -> list[Check]:
     return [
         *_secrets(config),
+        *_keys(config),
         *_languages(config.runner),
         *_validation(config.runner),
         *_vault(config),
@@ -2752,6 +2753,23 @@ def _secrets(config: config_module.Config) -> list[Check]:
             )
         )
     return found
+
+
+def _keys(config: config_module.Config) -> list[Check]:
+    """A key of config.toml no table reads: a setting that does nothing, said rather than refused."""
+    return [
+        _check(
+            "settings.keys",
+            WARN,
+            "Configuration",
+            "{{file}}, line {{line}}: {{key}} is not a known key — did you mean {{match}}?"
+            if match
+            else "{{file}}, line {{line}}: {{key}} is not a known key.",
+            params={"file": config.path.name, "line": str(line), "key": key, "match": match},
+            cause="It is ignored, and its default applies.",
+        )
+        for line, key, match in config.unknown
+    ]
 
 
 def _languages(settings: config_module.Runner) -> list[Check]:

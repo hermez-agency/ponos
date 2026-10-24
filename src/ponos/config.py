@@ -828,6 +828,9 @@ class Config:
     # The secrets `config.toml` still holds, as `table.key` — ignored, and said
     # so: see `move_secrets`.
     exposed: tuple[str, ...] = ()
+    # The keys no table reads, as `(line, "table.key", "the known key it is
+    # closest to")` — ignored, and said so: see `schema.unknown`.
+    unknown: tuple[tuple[int, str, str], ...] = ()
 
     def require_usable(self) -> None:
         """Raise ConfigError if the file is not complete enough to run."""
@@ -1478,7 +1481,7 @@ def load(path: Path | None = None, *, secrets: Path | None = None) -> Config:
     secrets, the environment, the defaults that depend on where this runs.
     """
     target = path or config_path()
-    raw, file = _validated(target)
+    raw, file, unknown = _validated(target)
     stored = read_secrets(secrets or secrets_path(target))
     runner = _runner(file.runner)
     return Config(
@@ -1499,6 +1502,7 @@ def load(path: Path | None = None, *, secrets: Path | None = None) -> Config:
         github=dict(file.github),
         github_access=_github_access(file.github_access, stored),
         exposed=tuple(f"{table}.{key}" for table, key in exposed(raw)),
+        unknown=unknown,
     )
 
 
@@ -1519,8 +1523,13 @@ def readable() -> bool:
     return True
 
 
-def _validated(target: Path) -> tuple[dict[str, Any], schema.File]:
-    """The file as TOML says it, and read against schema.py — or a ConfigError naming what is wrong."""
+def _validated(
+    target: Path,
+) -> tuple[dict[str, Any], schema.File, tuple[tuple[int, str, str], ...]]:
+    """The file as TOML says it, read against schema.py, and the keys it reads none of.
+
+    Or a ConfigError naming what is wrong.
+    """
     if not target.exists():
         raise ConfigError(
             f"configuration not found: {target}\n"
@@ -1539,7 +1548,7 @@ def _validated(target: Path) -> tuple[dict[str, Any], schema.File]:
             "This version's environment is missing it — ponos update --environment makes it, "
             "and so does the next run"
         ) from error
-    return raw, schema.read(raw, text, target)
+    return raw, schema.read(raw, text, target), tuple(schema.unknown(raw, text))
 
 
 def _notion(table: schema.NotionTable, stored: dict[str, str]) -> Notion:
