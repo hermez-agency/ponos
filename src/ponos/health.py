@@ -792,6 +792,20 @@ def _schedules(
         kind = schema.get(name)
         if kind is None:
             missing.append({"name": name, "said": [why]})
+        elif kind in store.READ_ONLY and why.startswith("written by the runner"):
+            # Not refused by Notion, dropped: `Next` would never move, and
+            # `recur` takes no occurrence it cannot write down.
+            found.append(
+                _check(
+                    "notion.schedules",
+                    WARN,
+                    "Schedules",
+                    "“{{name}}” is a {{kind}}, which the runner cannot write: "
+                    "make it a {{preferred}}.",
+                    params={"name": name, "kind": kind, "preferred": preferred},
+                    notes=[{"name": name, "said": [why]}],
+                )
+            )
         elif kind != preferred:
             found.append(
                 _check(

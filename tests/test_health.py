@@ -505,6 +505,15 @@ def health_says_what_keeps_a_schedule_from_making_its_ticket():
     assert by_name["Nonsense"].state == "error" and by_name["Nonsense"].evidence
     assert health.problems(found) == 2
 
+    computed = {**shape, config.notion.prop("next_run"): "formula"}
+    found = health._schedules(config, Schedules(pages, computed), space)
+    unwritable = [check for check in found if check.params.get("kind") == "formula"]
+    assert unwritable and unwritable[0].state == "warn", "a Next nobody can write never moves"
+    assert unwritable[0].params["name"] == config.notion.prop("next_run")
+    linked = {**shape, config.notion.prop("last_ticket"): "rollup"}
+    found = health._schedules(config, Schedules(pages, linked), space)
+    assert any(c.state == "warn" and c.params.get("kind") == "rollup" for c in found)
+
     unread = _config("[runner]\nschedule = false\n")
     found = health._schedules(unread, Schedules([], shape), space)
     assert ("notion.schedules", "warn") in _verdicts(found), "read by nobody"

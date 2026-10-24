@@ -44,6 +44,22 @@ MODES = ("notion", "markdown", "both")
 # the day there is a second one the configuration has to be able to say which.
 CONFLICTS = ("newest",)
 
+# The kinds of property Notion computes itself: a value written to one is not
+# refused, it is dropped without a word (see `notion._encode`). A column the
+# runner has to write — `Next` above all, see `Recurrence.recur` — must be none
+# of these, or the write it counts on never lands.
+READ_ONLY = (
+    "formula",
+    "rollup",
+    "created_time",
+    "created_by",
+    "last_edited_time",
+    "last_edited_by",
+    "unique_id",
+    "button",
+    "verification",
+)
+
 # The columns of the tickets board the runner reads or writes: the kinds of
 # property each one works as, and what a board without it goes without. One
 # table for the two places that have to say it — `doctor`, before anything

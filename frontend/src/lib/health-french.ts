@@ -225,6 +225,7 @@ export const HEALTH_FRENCH: Record<string, string> = {
   "Name the people allowed in {{table}}.allowed_users.": "Nommez les personnes autorisées dans {{table}}.allowed_users.",
   "Notion workspace": "Espace de travail Notion",
   "Open your integration on Notion › Capabilities, and tick Read comments (and Insert comments).": "Ouvrez votre intégration sur Notion › Capabilities, et cochez Read comments (et Insert comments).",
+  "“{{name}}” is a {{kind}}, which the runner cannot write: make it a {{preferred}}.": "« {{name}} » est de type {{kind}}, que le runner ne peut pas écrire : passez la colonne en {{preferred}}.",
   "Properties missing on the schedules database: {{missing}}.": "Propriétés manquantes sur la base de récurrences : {{missing}}.",
   "Python environment": "Environnement Python",
   "Resolved from “{{reference}}” to the database {{database}}.": "« {{reference}} » résolu vers la base {{database}}.",
