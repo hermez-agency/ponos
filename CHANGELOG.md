@@ -34,6 +34,7 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Changed
 
+- Déplié, le détail « N points à corriger » du tableau de bord pousse la page au lieu de la recouvrir : les cartes Ouverts, Fermés, Créés, Dépensé et les graphiques descendent sous la liste, et se lisent sans la replier. Repliée, la bande reste une ligne posée par-dessus la page, qui ne la fait pas bouger en arrivant.
 - Réglages prennent toute la largeur de la page, comme son en-tête et les autres pages : sur un grand écran, les cartes ne s'arrêtent plus à 1 024 px en laissant une bande vide à droite.
 - Les refus du serveur s'affichent en français dans une console réglée en français : objectifs, récurrences, brief d'un projet, ménage et réglages (« Rien à modifier. », « Une passe est en cours — réessayez une fois qu'elle sera terminée. », « « Bug » apparaît deux fois. »…), au lieu de la phrase anglaise du serveur. Une réponse sans message dit « Le serveur a répondu 500 » plutôt que « 500 ». Un refus que la console ne connaît pas reste affiché tel que le serveur l'a écrit.
 - Les gestes de la console qui effacent demandent d'abord, et chaque bouton réseau dit où il en est : « Faire le ménage » (Réglages › Général) ouvre une confirmation qui rappelle la règle de rétention et ce qui peut partir au plus, « Jeter » la file des messages en attente demande confirmation puis dit « Messages jetés », et une erreur sur cette file porte un titre au-dessus du message. « Resynchroniser maintenant » fait tourner son icône et se désactive pendant la relecture, puis dit « Tableau relu ».
