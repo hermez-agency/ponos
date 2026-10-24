@@ -396,7 +396,7 @@ def goals(request: Request) -> Response:
     return answer(_api(request).goals())
 
 
-@router.post("/api/goals", response_model=answers.GoalNamed)
+@router.post("/api/goals", response_model=answers.GoalCreated)
 def create_goal(request: Request, payload: Fields = Body(default_factory=dict)) -> Response:
     return answer(_api(request).create_goal(str(payload.get("name", "")), payload))
 

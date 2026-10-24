@@ -21,6 +21,7 @@ import type {
   GithubTokenSaved,
   HealthFixed,
   HealthReport,
+  GoalCreated,
   GoalNamed,
   GoalSaved,
   Logs,
@@ -221,7 +222,7 @@ export const api = {
   projects: () => request<Projects>("/api/projects"),
   goals: () => request<Goals>("/api/goals"),
   context: () => request<Context>("/api/context"),
-  createGoal: (values: Record<string, unknown>) => request<GoalNamed>("/api/goals", values),
+  createGoal: (values: Record<string, unknown>) => request<GoalCreated>("/api/goals", values),
   saveGoal: (id: string, values: Record<string, unknown>) =>
     request<GoalSaved>(`/api/goals/${id}`, values),
   deleteGoal: (id: string) => request<GoalNamed>(`/api/goals/${id}/delete`, {}),

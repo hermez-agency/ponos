@@ -1,5 +1,6 @@
 import * as React from "react"
 import { Target } from "lucide-react"
+import { toast } from "sonner"
 import {
   ActionList,
   DateInputController,
@@ -25,7 +26,7 @@ import { EVERY_STATUS, keeps, valuesOf } from "@/lib/goal-search"
 import { onGoalsMoved } from "@/lib/goals-store"
 import { t } from "@/lib/i18n"
 import { readScore } from "@/lib/priority"
-import type { Goal } from "@/lib/types"
+import type { Goal, GoalSaved } from "@/lib/types"
 import { projectsOnce } from "@/resources/projects"
 
 /* The goals, declared for react-resource-view as the ideas are.
@@ -268,6 +269,14 @@ const withIds = (goal: Goal): GoalItem => ({
   tickets: (goal.linked ?? []).map((ticket) => ticket.id),
 })
 
+/** Said when Notion refused some of the tickets a save tied or untied: the others were written. */
+const unwritten = (saved: GoalSaved) => {
+  if (!saved.failed.length) return
+  toast.error(t("Tickets not tied to the goal: {{count}}", { count: saved.failed.length }), {
+    description: saved.failed.map((one) => one.error).join("\n"),
+  })
+}
+
 const written = (goal: GoalWrite) => ({
   name: goal.name ?? "",
   description: goal.description ?? "",
@@ -308,12 +317,13 @@ export const goals = createViewResource<GoalItem, GoalWrite>(GOALS, {
     },
     updateItem: async (patch) => {
       const id = String(patch.id ?? "")
-      await api.saveGoal(id, written(patch))
+      unwritten(await api.saveGoal(id, written(patch)))
       const found = (await readAgain()).find((goal) => goal.id === id)
       return { data: (found ? item(found) : patch) as never }
     },
     createItem: async (fresh) => {
       const made = await api.createGoal(written(fresh))
+      unwritten(made)
       const found = (await readAgain()).find((goal) => goal.id === made.id)
       return { data: (found ? item(found) : { ...fresh, ...made }) as never }
     },

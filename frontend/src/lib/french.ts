@@ -94,6 +94,7 @@ export const FRENCH: Record<string, string> = {
   "Move to…": "Déplacer vers…",
   "Drop here": "Déposer ici",
   "{{count}} cards": "{{count}} cartes",
+  "Tickets not tied to the goal: {{count}}": "Tickets non liés à l’objectif : {{count}}",
   "No card could be moved.": "Aucune carte n'a pu être déplacée.",
   "They are back in their column.": "Elles sont revenues dans leur colonne.",
   "{{failed}} of {{total}} cards could not be moved": "Déplacement impossible pour {{failed}} sur {{total}} cartes",

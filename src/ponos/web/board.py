@@ -116,6 +116,11 @@ class Reader:
         with self._lock:
             return self._pages.get(_key(page_id))
 
+    def pages(self) -> list[store.Page]:
+        """Every ticket as last read, without asking Notion — empty before the first read."""
+        with self._lock:
+            return list(self._pages.values())
+
     def hold(self, page: store.Page) -> None:
         """A page read back after a write: the truth, for the next `HOLD` seconds."""
         with self._lock:

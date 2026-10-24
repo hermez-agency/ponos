@@ -8,6 +8,7 @@ import httpx
 from support import _bare_api, _board, _http_answering, _markdown_api, case
 
 from ponos import notion, store, workspace
+from ponos.ticket import short_id
 
 
 class _Watch:
@@ -18,26 +19,15 @@ class _Watch:
 
 
 def _api(board):
-    """An Api over a board of files, whose tickets are listed as the card would say them."""
+    """An Api over a board of files, which counts a goal's tickets without `board`."""
     api = _markdown_api(board)
     api.watch = _Watch()
     api._goals, api._goals_at = {}, 0.0
 
-    def tickets(max_age: float = 0.0) -> dict:
-        return {
-            "tickets": [
-                {
-                    "id": page.id,
-                    "short": page.id[:6],
-                    "title": page.title,
-                    "column": "ready",
-                    "goal_id": (store.read(page, "Objectif") or [""])[0],
-                }
-                for page in board.query("tickets")
-            ]
-        }
+    def whole() -> dict:
+        raise AssertionError("a goal is counted from the pages held, not from the whole board")
 
-    api.board = tickets
+    api.board = whole
     return api
 
 
@@ -101,7 +91,7 @@ def tickets_are_tied_to_a_goal_from_the_goal_and_from_the_ticket():
         assert sum(row["tickets"].values()) == 2, row
         # The goal's page lists them by column, each a way into its window.
         first = next(ticket for ticket in row["linked"] if ticket["id"] == one)
-        assert first == {"id": one, "short": one[:6], "title": "un", "column": "ready"}, first
+        assert first == {"id": one, "short": short_id(one), "title": "un", "column": "draft"}, first
 
         # From the ticket: moved to the other goal, then released.
         api.set_ticket_goal(one, other)
@@ -124,6 +114,43 @@ def tickets_are_tied_to_a_goal_from_the_goal_and_from_the_ticket():
             pass
         else:
             raise AssertionError("a goal that does not exist is refused")
+
+
+@case
+def tying_tickets_to_a_goal_writes_each_once_and_says_which_failed():
+    """One write per ticket, no page read back, and a refusal halfway does not end the lot."""
+    with _board() as board:
+        api = _api(board)
+        goal = api.create_goal("Lancer la v1", {})["id"]
+        tickets = [_ticket(board, f"t{index}") for index in range(5)]
+        api.reader.read(board, "tickets", api.config.notion.prop("status"))
+        refused = tickets[2]
+        asked: list[str] = []
+        update, page = board.update, board.page
+
+        def written(database, page_id, values):
+            asked.append(f"update {page_id}")
+            if database == "tickets" and page_id == refused:
+                raise store.StoreError("PATCH /pages: 429 rate limited")
+            return update(database, page_id, values)
+
+        def read_back(page_id):
+            asked.append(f"page {page_id}")
+            return page(page_id)
+
+        board.update, board.page = written, read_back
+        said = api.save_goal(goal, {"tickets": tickets})
+        assert said["written"] == sorted(set(tickets) - {refused}), said
+        assert said["failed"] == [{"id": refused, "error": "PATCH /pages: 429 rate limited"}]
+        assert sorted(asked) == sorted(f"update {one}" for one in tickets), asked
+        # The cards point at the goal at once: the pages held say it, unread.
+        row = api.goals()["goals"][0]
+        assert sorted(ticket["id"] for ticket in row["linked"]) == said["written"], row
+        assert row["tickets"] == {"draft": 4}, row
+        held = api.reader.get(tickets[0])
+        assert held is not None
+        card = api._ticket(held, {}, {}, "", api._goal_index())
+        assert card["goal"] == "Lancer la v1", "the card names its goal from the page held"
 
 
 @case
