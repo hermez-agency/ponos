@@ -34,6 +34,7 @@ is the file the installer, `ponos init` and the console's Settings write a secre
 | `PONOS_SLACK_TOKEN` | the Slack bot token (`xoxb-…`) | `[notify.slack] token` |
 | `ANTHROPIC_API_KEY` | the key of the `api_key` provider | `[claude] api_key` |
 | `OPENROUTER_API_KEY` | the OpenRouter key | `[openrouter] key` |
+| `PONOS_GITHUB_TOKEN` | the GitHub token of `[github_access]` | `[github_access] token` |
 
 When both have one, `secrets.env` wins — it is where the key you have just typed in the
 console went, and it must not lose to one a compose file was started with weeks ago —
@@ -247,7 +248,7 @@ for reading rather than for filling in.
 | `web.attachment_max_mb` | `25` | how heavy a file sent to the workspace may be |
 | `web.attachment_days` | `7` | how long a conversation's files are kept when nobody starts a new one |
 | `web.send_after_transcription` | `false` | send a dictated message as soon as it is transcribed, rather than leave it to be read over |
-| `openrouter.key` | `""` | one key in front of every other provider — see *Every other model* below |
+| `OPENROUTER_API_KEY` | | not a key of this file: the secret is in `secrets.env` or the environment (see the secrets above) — one key in front of every other provider, see *Every other model* below |
 | `openrouter.route_sessions` | `false` | run the sessions themselves on it |
 | `openrouter.base_url` | `https://openrouter.ai/api/v1` | only for a gateway of your own |
 | `openrouter.transcription_model` | `openai/whisper-1` | what the console's microphone is transcribed with |
