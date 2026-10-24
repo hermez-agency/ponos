@@ -5,7 +5,7 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
 
-import { FOLDED, everythingOpen, isOpen, outline, toggled } from "./outline.ts"
+import { FOLDED, everythingOpen, isOpen, outline, prepended, toggled } from "./outline.ts"
 
 const said = (label: string, more: object = {}) => ({ label, detail: "", said: true, ...more })
 const tool = (label: string, detail = "", more: object = {}) => ({ label, detail, said: false, ...more })
@@ -87,4 +87,17 @@ test("a group opened stays open, and everything opened opens what comes next too
   assert.equal(isOpen(state, "said-42"), false)
   assert.equal(everythingOpen(state), false)
   assert.equal(isOpen(toggled(state, "said-42"), "said-42"), true)
+})
+
+test("older steps go before the ones held, and a position already held is not held twice", () => {
+  const read = (detail: string, position: number) => ({ label: "Read", detail, said: false, position })
+  const held = [read("c.py", 3), read("d.py", 4)]
+  const page = [read("a.py", 1), read("b.py", 2)]
+  const once = prepended(page, held)
+  assert.deepEqual(once.map((step) => step.position), [1, 2, 3, 4])
+  // The same page read twice — two clicks before the first answer — adds nothing the second time.
+  assert.deepEqual(prepended(page, once).map((step) => step.position), [1, 2, 3, 4])
+  // A page that overlaps what is held keeps one of each position.
+  const overlap = [read("b.py", 2), read("c.py", 3)]
+  assert.deepEqual(prepended(overlap, held).map((step) => step.position), [2, 3, 4])
 })
