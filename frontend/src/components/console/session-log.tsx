@@ -1,15 +1,16 @@
 import * as React from "react"
-import { ArrowDown, ArrowUp, ChevronRight, ChevronsDownUp, ChevronsUpDown, TriangleAlert } from "lucide-react"
+import { ArrowDown, ArrowUp, ChevronRight, ChevronsDownUp, ChevronsUpDown, Loader2Icon, TriangleAlert } from "lucide-react"
+import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useSteps } from "@/hooks/use-console"
-import { api } from "@/lib/api"
+import { api, why } from "@/lib/api"
 import { counted, useT } from "@/lib/i18n"
 import { money } from "@/lib/numbers"
 import { clock } from "@/lib/composer"
-import { FOLDED, everythingOpen, isOpen, outline, toggled, type Line, type Unfolded } from "@/lib/outline"
+import { FOLDED, everythingOpen, isOpen, outline, prepended, toggled, type Line, type Unfolded } from "@/lib/outline"
 import { reading } from "@/lib/phase"
 import { doing } from "@/lib/thinking"
 import type { Run, Step, Ticket } from "@/lib/types"
@@ -380,20 +381,34 @@ function useRunSteps(run: Run | undefined, signal: number) {
     return () => window.clearTimeout(timer)
   }, [run, signal, ended])
 
+  // One page of older steps at a time: a second click while the first is read
+  // would ask for the same page, and add it twice.
+  const t = useT()
+  const [busy, setBusy] = React.useState(false)
+  const asking = React.useRef(false)
   const earlier = React.useCallback(() => {
     const first = read.steps[0]?.position
-    if (!run || !first) return
+    if (!run || !first || asking.current) return
     const asked = run.id
+    asking.current = true
+    setBusy(true)
     api
       .runSteps(asked, { before: first })
       .then((page) => {
         if (held.current.run !== asked) return
-        setRead((was) => ({ ...was, steps: [...page.steps, ...was.steps], more: page.more }))
+        setRead((was) => ({ ...was, steps: prepended(page.steps, was.steps), more: page.more }))
       })
-      .catch(() => undefined)
-  }, [run, read.steps])
+      .catch((error: unknown) => {
+        if (held.current.run !== asked) return
+        toast.error(t("The earlier steps could not be read"), { description: why(error) })
+      })
+      .finally(() => {
+        asking.current = false
+        setBusy(false)
+      })
+  }, [run, read.steps, t])
 
-  return { ...read, earlier }
+  return { ...read, earlier, busy }
 }
 
 /** How a run ended, in a word: the column a ticket goes to, or "still going". */
@@ -495,8 +510,15 @@ function JournalLive({ runs, live, signal }: { runs: Run[]; live: boolean; signa
       ) : (
         <>
           {read.more ? (
-            <Button size="sm" variant="ghost" className="self-center" onClick={read.earlier}>
-              <ArrowUp />
+            <Button
+              size="sm"
+              variant="ghost"
+              className="self-center"
+              onClick={read.earlier}
+              disabled={read.busy}
+              aria-busy={read.busy || undefined}
+            >
+              {read.busy ? <Loader2Icon className="animate-spin" /> : <ArrowUp />}
               {t("Earlier steps")}
             </Button>
           ) : null}
