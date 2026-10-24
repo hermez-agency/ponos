@@ -55,8 +55,13 @@ LONGEST_WAIT = 6 * 3600
 # its balance down. Anything else — a timeout, a crash, a refusal — is a failure
 # and is reported as one.
 _SPENT = re.compile(r"usage limit reached|credit balance is too low", re.IGNORECASE)
-# The timestamp the CLI appends to the first of them, in seconds since the epoch.
+# The timestamp the CLI appends to the first of them, in seconds since the epoch
+# — or in milliseconds, which is the same moment written longer.
 _UNTIL = re.compile(r"limit reached\s*\|\s*(\d{9,})")
+# Above this a timestamp is read in milliseconds: in seconds it is the year
+# 5138, in milliseconds March 1973 — no reset is either, and the second is the
+# one a format change produces.
+_MILLISECONDS = 10**11
 
 
 def reached(text: str) -> float:
@@ -74,7 +79,10 @@ def reached(text: str) -> float:
     found = _UNTIL.search(text)
     if not found:
         return time.time() + BLIND_WAIT
-    return min(float(found.group(1)), time.time() + LONGEST_WAIT)
+    until = float(found.group(1))
+    if until > _MILLISECONDS:
+        until /= 1000
+    return min(until, time.time() + LONGEST_WAIT)
 
 
 # The two waits, and they are not the same wait. `spent` is the wall: the CLI

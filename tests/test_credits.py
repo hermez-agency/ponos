@@ -42,9 +42,12 @@ def an_exhausted_quota_is_told_apart_from_every_other_failure():
     hour on an ordinary crash, so nothing but these two sentences counts.
     """
     assert credits.reached("Claude AI usage limit reached|1758031200") == 1758031200.0
-    # A timestamp in milliseconds would otherwise be the year 57000: a runner
-    # asleep for good, on a message whose format changed under it.
-    far = credits.reached("Claude AI usage limit reached|1758031200000")
+    # A timestamp in milliseconds is the same moment, not the year 57000.
+    soon = int(time.time()) + 20 * 60
+    assert credits.reached(f"Claude AI usage limit reached|{soon}000") == float(soon)
+    assert credits.reached(f"Claude AI usage limit reached|{soon * 1000 + 500}") == soon + 0.5
+    # And the ceiling is left to what no unit makes sense of.
+    far = credits.reached("Claude AI usage limit reached|99999999999999999999")
     assert far <= time.time() + credits.LONGEST_WAIT
     # No moment named: a short wait, and the next run asks again.
     blind = credits.reached("Claude usage limit reached. Your limit will reset at 10pm.")
