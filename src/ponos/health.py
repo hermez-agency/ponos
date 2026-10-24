@@ -42,6 +42,7 @@ from __future__ import annotations
 
 import logging
 import re
+import shlex
 import shutil
 import subprocess
 from collections.abc import Callable
@@ -2600,12 +2601,29 @@ def _database() -> list[Check]:
     on purpose. A file newer than the code is the case worth an error: every
     part of the runner that writes into it would stop on it. Migrations applied
     in another order than the code's are a warning: the file has every table,
-    but was once written by another branch's code.
+    but was once written by another branch's code. The copy taken before the
+    last migration is said with how to put it back, since a version gone back
+    to refuses the file the newer one migrated.
     """
     title = "Local database"
     try:
         location, found, disorder = db.check()
     except db.DatabaseError as error:
+        restore: dict[str, Any] = {}
+        if isinstance(error, db.TooNew):
+            known = [copy for copy in db.backups(db.path()) if copy[0] <= len(db.MIGRATIONS)]
+            if known:
+                restore = {
+                    "steps": [
+                        "Stop the runner and the console.",
+                        "Put back the copy taken before the migration, at schema version "
+                        "{{backup_version}}: `{{restore}}` — what was written since is lost.",
+                    ],
+                    "params": {
+                        "backup_version": str(known[0][0]),
+                        "restore": _restore(db.path(), known[0][1]),
+                    },
+                }
         return [
             _check(
                 "machine.database",
@@ -2613,6 +2631,7 @@ def _database() -> list[Check]:
                 title,
                 "The local database cannot be used.",
                 evidence=str(error),
+                **restore,
             )
         ]
     checks = [
@@ -2628,6 +2647,23 @@ def _database() -> list[Check]:
             },
         )
     ]
+    copies = db.backups(location)
+    if copies:
+        checks.append(
+            _check(
+                "machine.database",
+                INFO,
+                title,
+                "Copy taken before the last migration: {{backup}}, at schema version "
+                "{{backup_version}}. To go back to the version before it, stop the runner "
+                "and the console, then run `{{restore}}`.",
+                params={
+                    "backup": str(copies[0][1]),
+                    "backup_version": str(copies[0][0]),
+                    "restore": _restore(location, copies[0][1]),
+                },
+            )
+        )
     if disorder:
         checks.append(
             _check(
@@ -2639,6 +2675,16 @@ def _database() -> list[Check]:
             )
         )
     return checks
+
+
+def _restore(location: Path, copy: Path) -> str:
+    """The command that puts `copy` back in place of `location`.
+
+    Its `-wal` and `-shm` go first: left beside the copy, SQLite would replay
+    the newer file's last writes onto it.
+    """
+    where, copied = shlex.quote(str(location)), shlex.quote(str(copy))
+    return f"rm -f {where}-wal {where}-shm && cp {copied} {where}"
 
 
 def _stray() -> list[Check]:

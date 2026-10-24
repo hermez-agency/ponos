@@ -921,6 +921,32 @@ def health_says_the_database_version_and_refuses_a_newer_one(state_home):
 
 
 @case
+def health_says_how_to_put_back_the_copy_taken_before_a_migration(state_home):
+    from ponos import health
+
+    location = state_home / "ponos.db"
+    try:
+        db.open_at(location, db.MIGRATIONS[:-1]).close()
+        found = health._database()
+        assert _verdicts(found) == [("machine.database", "ok"), ("machine.database", "info")]
+        backup = location.with_name(f"ponos.db.v{len(db.MIGRATIONS) - 1}.bak")
+        assert found[1].params["backup"] == str(backup)
+        assert found[1].params["restore"] == (
+            f"rm -f {location}-wal {location}-shm && cp {backup} {location}"
+        )
+        db.close()
+        raw = sqlite3.connect(location)
+        raw.execute(f"PRAGMA user_version = {len(db.MIGRATIONS) + 1}")
+        raw.close()
+        found = health._database()
+        assert found[0].state == "error" and "newer version" in found[0].evidence
+        assert found[0].params["restore"].endswith(f"cp {backup} {location}"), found[0].params
+        assert any("{{restore}}" in step for step in found[0].steps), found[0].steps
+    finally:
+        db.close()
+
+
+@case
 def health_says_when_the_migrations_are_not_in_the_codes_order(state_home):
     from test_db import _migrated_by_a_branch
 

@@ -79,6 +79,51 @@ def a_database_one_migration_behind_is_brought_up_to_date():
 
 
 @case
+def a_migration_keeps_a_copy_of_the_file_as_it_was_before_it():
+    """The copy the version of before can open again — and only the last few."""
+    location = Path(tempfile.mkdtemp()) / "ponos.db"
+    db.open_at(location, db.MIGRATIONS[:5]).close()
+    assert db.backups(location) == [], "a new file has nothing to copy"
+    db.open_at(location, db.MIGRATIONS[:5]).close()
+    assert db.backups(location) == [], "nothing to apply, nothing copied"
+    upgraded = db.open_at(location)
+    upgraded.execute("INSERT INTO runs (ticket, started_at) VALUES ('after', 'now')")
+    upgraded.close()
+    copy = location.with_name("ponos.db.v5.bak")
+    assert db.backups(location) == [(5, copy)]
+    assert copy.stat().st_mode & 0o777 == 0o600
+    raw = sqlite3.connect(copy)
+    try:
+        assert raw.execute("PRAGMA user_version").fetchone()[0] == 5
+        assert not raw.execute("SELECT 1 FROM runs").fetchall(), "as it was, not as it became"
+    finally:
+        raw.close()
+    old = db.open_at(copy, db.MIGRATIONS[:5])
+    try:
+        assert db.version(old) == 5, "the code of before opens it"
+    finally:
+        old.close()
+    assert not list(location.parent.glob("*.bak.*")), "no copy left half-written"
+
+    def notes(connection):
+        connection.execute("CREATE TABLE notes (text TEXT)")
+
+    def more(connection):
+        connection.execute("CREATE TABLE more (text TEXT)")
+
+    def again(connection):
+        connection.execute("CREATE TABLE again (text TEXT)")
+
+    every = (*db.MIGRATIONS, notes, more, again)
+    for count in range(1, 4):
+        db.open_at(location, every[: len(db.MIGRATIONS) + count]).close()
+    kept = [number for number, _ in db.backups(location)]
+    newest = len(db.MIGRATIONS) + 2
+    assert kept == list(range(newest, newest - db.BACKUPS_KEPT, -1)), kept
+    assert not copy.exists(), "the oldest went"
+
+
+@case
 def a_migration_that_fails_leaves_the_file_as_it_was():
     location = Path(tempfile.mkdtemp()) / "ponos.db"
     db.open_at(location).close()

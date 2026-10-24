@@ -179,6 +179,10 @@ from .config import RealStateRefused, refuse_real_state, state_dir
 # times either, and still short enough to be an answer.
 BUSY_TIMEOUT_MS = 5000
 
+# How many copies taken before a migration stay beside the file: one per
+# version gone through, and an update rarely jumps more than one or two.
+BACKUPS_KEPT = 3
+
 
 class DatabaseError(Exception):
     """The local database cannot be opened, or cannot be brought up to date."""
@@ -1003,14 +1007,57 @@ def _refuse_newer(connection: sqlite3.Connection, names: list[str]) -> None:
         )
 
 
+def backups(location: Path) -> list[tuple[int, Path]]:
+    """The copies taken of `location` before a migration, newest version first."""
+    found = []
+    for copy in location.parent.glob(f"{location.name}.v*.bak"):
+        number = copy.name[len(location.name) + 2 : -len(".bak")]
+        if number.isdigit():
+            found.append((int(number), copy))
+    return sorted(found, reverse=True)
+
+
+def _back_up(connection: sqlite3.Connection) -> None:
+    """Copy the file as it is to `<name>.v<version>.bak`, and keep the last few.
+
+    Written beside it under another name and then renamed, so that a copy is
+    whole or absent, and two processes starting together cannot interleave.
+    """
+    found, location = version(connection), Path(path_of(connection))
+    if not found or not location.is_absolute():
+        return
+    copy = location.with_name(f"{location.name}.v{found}.bak")
+    writing = copy.with_name(f"{copy.name}.{os.getpid()}")
+    try:
+        os.close(os.open(writing, os.O_CREAT | os.O_RDWR | os.O_TRUNC, 0o600))
+        target = sqlite3.connect(writing)
+        try:
+            connection.backup(target)
+        finally:
+            target.close()
+        os.replace(writing, copy)
+    except (OSError, sqlite3.Error) as error:
+        writing.unlink(missing_ok=True)
+        raise DatabaseError(
+            f"cannot copy {location} to {copy} before migrating it: {error}"
+        ) from error
+    for _, old in backups(location)[BACKUPS_KEPT:]:
+        old.unlink(missing_ok=True)
+
+
 def migrate(connection: sqlite3.Connection, migrations: Sequence[Migration] = MIGRATIONS) -> int:
     """Apply every migration the file has not been through, and return its version.
 
     Raises TooNew, before writing anything, when the file has been through a
-    migration this code does not know.
+    migration this code does not know. Copies the file first when there is
+    one to apply — see `_back_up`.
     """
     names = [name(migration) for migration in migrations]
     _refuse_newer(connection, names)
+    done = applied(connection)
+    missing = names[version(connection) :] if done is None else set(names) - set(done)
+    if missing:
+        _back_up(connection)
     if applied(connection) is None:
         connection.execute("BEGIN IMMEDIATE")
         try:

@@ -67,6 +67,7 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Changed
 
+- Une mise à jour qui migre `ponos.db` n'empêche plus de revenir à la version précédente : avant la première migration manquante, le fichier est copié tel quel sous `ponos.db.v<N>.bak` (N, son numéro de schéma d'alors, par la sauvegarde de SQLite même pendant qu'un autre processus écrit), et seules les trois dernières copies sont gardées. `ponos doctor` nomme la plus récente et la commande qui la remet en place — y compris quand l'ancienne version refuse une base « written by a newer version ».
 - L'en-tête de la console compte les tickets traités et additionne leur coût en une requête SQL (`state.totals()`, que `ponos status` partage) au lieu de décoder les 10 000 dernières lignes de l'historique à chaque lecture : ~39 ms → ~2 ms sur 10 001 lignes, et le compte comme la dépense ne plafonnent plus à 10 000 tickets. Le dashboard ne lit plus `/api/state` qu'une fois en s'ouvrant : l'état de la mise à jour, que le flux rejoue à chaque connexion, ne déclenche plus une seconde lecture.
 - Les statistiques du tableau de bord se recalculent sans attendre quand on change de période ou de projet : elles reprennent le board que la console vient de lire pour sa vue en direct (âgé d'au plus deux fois `web.poll_seconds`) au lieu de refaire une requête Notion à chaque fois, et lisent l'historique dans les colonnes de `ponos.db` plutôt qu'en décodant chaque ligne. Sur une vraie console, un changement de période passe de 0,4 à 17 s (selon Notion) à une douzaine de millisecondes.
 
