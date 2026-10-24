@@ -100,3 +100,15 @@ export function toggled(state: Unfolded, key: string): Unfolded {
 
 /** Whether "unfold everything" is what the button would do. */
 export const everythingOpen = (state: Unfolded): boolean => state.all && !state.flipped.length
+
+/** A page of older steps put before the ones held, without a position held twice — the same page can arrive twice. */
+export function prepended<S extends OutlineStep>(page: readonly S[], held: readonly S[]): S[] {
+  const seen = new Set(held.map((step) => step.position).filter((position) => position !== undefined))
+  const older = page.filter((step) => {
+    if (step.position === undefined) return true
+    if (seen.has(step.position)) return false
+    seen.add(step.position)
+    return true
+  })
+  return [...older, ...held]
+}
