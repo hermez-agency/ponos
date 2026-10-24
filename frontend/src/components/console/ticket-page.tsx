@@ -41,6 +41,7 @@ import {
   TicketActions,
   TicketBlock,
   TicketCi,
+  TicketEarlier,
   TicketLinks,
   TicketSubtype,
   ago,
@@ -119,6 +120,14 @@ export function TicketPage() {
           {ticket.ci ? (
             <div className="mb-3">
               <TicketCi ci={ticket.ci} detailed />
+            </div>
+          ) : null}
+
+          {/* What the last pass said, that its card no longer draws: only while
+              it waits in ready, the stream moving it on before the page is read again. */}
+          {ticket.earlier && (ticket.column === "ready" || ticket.column === "draft") ? (
+            <div className="mb-3">
+              <TicketEarlier earlier={ticket.earlier} />
             </div>
           ) : null}
 

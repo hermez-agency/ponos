@@ -36,7 +36,7 @@ import { currentBoard, titleOf, useBoard } from "@/lib/board-store"
 import { actionsOf } from "@/lib/decision"
 import { currentLanguage, t, useT } from "@/lib/i18n"
 import { money } from "@/lib/numbers"
-import type { Block, BlockFamily, Ci, CiState, Subtype, Ticket } from "@/lib/types"
+import type { Block, BlockFamily, Ci, CiState, Earlier, Subtype, Ticket } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 /* What a ticket wears wherever it is drawn — on its card, at the top of its
@@ -238,6 +238,22 @@ export function TicketBlock({ block }: { block?: Block | null }) {
       </div>
       <p className="text-muted-foreground text-xs leading-relaxed break-words">{blockSaid(block.help)}</p>
     </div>
+  )
+}
+
+/* What the last pass wrote on a ticket that has since been put back in ready:
+ * a merge refused, a CI that never started. Not on its card any more — it is
+ * not what the ticket is now — but kept on its page, as history, with the day
+ * of the pass that said it. */
+export function TicketEarlier({ earlier }: { earlier?: Earlier | null }) {
+  const t = useT()
+  if (!earlier?.said) return null
+  return (
+    <p className="text-muted-foreground text-xs leading-relaxed break-words" data-slot="ticket-earlier">
+      {earlier.at
+        ? t("At the last pass, on {{at}}: {{said}}", { at: when(earlier.at), said: earlier.said })
+        : t("At the last pass: {{said}}", { said: earlier.said })}
+    </p>
   )
 }
 

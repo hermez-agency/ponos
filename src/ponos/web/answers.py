@@ -237,6 +237,14 @@ class ModelInUse(Shape):
     default: bool
 
 
+class Earlier(Shape):
+    """What the last pass wrote on a card that has left the column it was written for."""
+
+    said: str
+    at: str
+    """When that pass ended, as the journal has it — empty when it has no run."""
+
+
 class TicketDetail(Ticket):
     """A ticket, with the page under it: the brief, the report, the notes between."""
 
@@ -246,6 +254,8 @@ class TicketDetail(Ticket):
     """The model it runs on: the last session's own word, then the column, then the defaults."""
     on: str = omitted()
     """The prompt run at every change of the ticket's status, empty for none."""
+    earlier: Earlier = omitted()
+    """On a ready or draft ticket only: the line its card no longer draws — see `_notes`."""
 
 
 class Subtype(Shape):

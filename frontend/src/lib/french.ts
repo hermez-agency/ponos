@@ -532,6 +532,8 @@ export const FRENCH: Record<string, string> = {
   "CI passed": "CI réussie",
   "CI failed": "CI en erreur",
   "Checks on GitHub": "Checks sur GitHub",
+  "At the last pass, on {{at}}: {{said}}": "Au dernier passage, le {{at}} : {{said}}",
+  "At the last pass: {{said}}": "Au dernier passage : {{said}}",
   "Nothing has been said on this ticket yet.": "Rien n'a encore été dit sur ce ticket.",
   "This looks like a password or a token. Nothing was sent: remove it, or send again and it will be masked before it reaches the ticket.":
     "Ceci ressemble à un mot de passe ou à un token. Rien n'a été envoyé : retirez-le, ou renvoyez le message et il sera masqué avant d'arriver sur le ticket.",
