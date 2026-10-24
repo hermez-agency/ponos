@@ -206,7 +206,7 @@ The guide, one page per subject — [its contents](guide/README.md):
 | [A ticket's life](guide/tickets.md) | the comments, the statuses, ten tickets on one repository, *Validated*, the tickets that come back |
 | [Telegram and Slack](guide/channels.md) | being told, and answering with one word |
 | [The web console](guide/console.md) | the console, its first connection, signing in, connecting Ponos to Claude |
-| [Every command](guide/usage.md) | the `ponos` command, and what `clean` removes |
+| [Every command](guide/usage.md) | the `ponos` command, its exit codes, and what `clean` removes |
 | [What protects your code](guide/safety.md) | the worktrees, the permissions, what a session cannot touch |
 | [When the credits run out](guide/credits.md) | waiting for the window, what a session may do alone, spending limits |
 | [On a server](guide/server.md) | a server, Docker, Dokploy |

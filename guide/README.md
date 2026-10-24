@@ -78,6 +78,7 @@ How to install Ponos, configure it and use it, one page per subject. Working on 
 ## [Every command](usage.md)
 
 - [Usage](usage.md#usage)
+  - [Exit codes](usage.md#exit-codes)
   - [What `clean` removes, and what it refuses to](usage.md#what-clean-removes-and-what-it-refuses-to)
 
 ## [Safety](safety.md)
