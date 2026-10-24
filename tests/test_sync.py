@@ -8,7 +8,7 @@ from pathlib import Path
 
 from support import _mirror, _settings, case
 
-from ponos import files, store, sync
+from ponos import db, files, store, sync
 
 # -- the two boards, kept in step --------------------------------------------
 
@@ -39,6 +39,36 @@ def a_ticket_written_in_notion_appears_in_the_files():
         again = both.synchronise(_settings(), stamps=marks)
         assert [entry.what for entry in again.carried] == ["notion→markdown"]
         assert store.read(there.page(page_id), "Status") == "Done"
+
+
+@case
+def a_pass_on_an_unchanged_board_writes_no_stamp():
+    """Only the stamps a pass moved are written back.
+
+    Rewriting every page's stamp on every pass would cost a board of a few
+    hundred pages as many writes, and a `-wal` that grows each time, while the
+    console writes in the same database.
+    """
+    with _mirror() as (here, there, both, marks):
+        for title in ("Un", "Deux", "Trois"):
+            here.create_row("tickets", title, {"Status": "Ready"})
+        both.synchronise(_settings(), stamps=marks)
+
+        connection = db.connect(marks._database)
+        before = connection.total_changes
+        assert not both.synchronise(_settings(), stamps=marks).carried
+        assert connection.total_changes == before, connection.total_changes - before
+
+        # Not even from stamps read back afresh, as the next pass reads them.
+        again = sync.Stamps(marks._database)
+        assert not both.synchronise(_settings(), stamps=again).carried
+        assert connection.total_changes == before, connection.total_changes - before
+
+        # A page that moves is the one row written.
+        page_id = next(iter(here.pages))
+        here.update("tickets", page_id, {"Status": "Done"})
+        both.synchronise(_settings(), stamps=again)
+        assert connection.total_changes == before + 1, connection.total_changes - before
 
 
 @case
