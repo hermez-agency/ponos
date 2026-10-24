@@ -635,6 +635,20 @@ def causes() -> dict[str, str]:
     return {str(ticket).replace("-", ""): str(code) for ticket, code in rows}
 
 
+def totals() -> tuple[int, float]:
+    """`(handled, spend)`: every outcome the history holds, and what they cost.
+
+    Asked of the columns, never of the lines: the header reads it after every
+    turn of the chat, and decoding the whole history for a count and a sum
+    cost tens of milliseconds a time — and capped both at the lines decoded.
+    """
+    with db.transaction(immediate=False) as connection:
+        (handled, spend) = connection.execute(
+            "SELECT COUNT(*), COALESCE(SUM(cost_usd), 0) FROM history"
+        ).fetchone()
+    return int(handled), float(spend)
+
+
 def history(limit: int = 20) -> list[dict[str, Any]]:
     """The last `limit` entries, oldest first."""
     with db.transaction(immediate=False) as connection:

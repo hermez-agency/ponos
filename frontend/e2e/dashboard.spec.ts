@@ -47,15 +47,47 @@ test("the dashboard opens on the last seven days, over the tickets", async ({ pa
   expect(top, "the statistics come before the tickets").toBeLessThan(card)
 })
 
+test("the header is read once when the dashboard opens", async ({ page }) => {
+  // The stream replays the update's state to every new connection, and the page
+  // took it for a change: a second /api/state at every load. This console has
+  // no check that found anything, so the replay is played here, as it arrives.
+  await page.addInitScript(() => {
+    const Native = window.EventSource
+    window.EventSource = class extends Native {
+      constructor(url: string | URL, init?: EventSourceInit) {
+        super(url, init)
+        this.addEventListener("open", () => {
+          const data = JSON.stringify({ kind: "upgrade", phase: "idle", detail: "", error: "" })
+          this.dispatchEvent(new MessageEvent("upgrade", { data }))
+        })
+      }
+    }
+  })
+  let asked = 0
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname === "/api/state") asked += 1
+  })
+  await open(page)
+  await expect(page.locator("header").first()).toBeVisible()
+  await page.waitForTimeout(1500)
+  expect(asked).toBe(1)
+})
+
 test("a period picked is asked for again", async ({ page }) => {
   await open(page)
   for (const [name, back] of [
     ["30 days", 29],
     ["24 h", 1],
   ] as const) {
-    const asked = page.waitForRequest((request) => request.url().includes("/api/statistics"))
+    // The period's own question: the band read again with the board, as it is
+    // while the page settles, asks the seven days a second time.
+    const asked = page.waitForRequest(
+      (request) =>
+        request.url().includes("/api/statistics") &&
+        new URL(request.url()).searchParams.get("from") === day(back)
+    )
     await band(page).getByRole("tab", { name }).click()
-    expect(new URL((await asked).url()).searchParams.get("from")).toBe(day(back))
+    expect(new URL((await asked).url()).searchParams.get("to")).toBe(day(0))
   }
 })
 

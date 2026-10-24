@@ -665,7 +665,7 @@ def command_status(args: argparse.Namespace) -> int:
         if detail:
             print(f"          {DIM}{str(detail)[:90]}{RESET}")
 
-    spend = sum(float(entry.get("cost_usd") or 0) for entry in state.history(10_000))
+    _, spend = state.totals()
     if spend:
         print(f"\n  {DIM}reported spend so far: ${spend:.2f}{RESET}")
     return 0

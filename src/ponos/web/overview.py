@@ -27,7 +27,7 @@ class Overview(Base):
         """
         configuration = self.config
         held = state.running()
-        entries = state.history(10_000)
+        handled, spend = state.totals()
         # A timer that is on and a board that does not move is the one state
         # somebody would open a terminal for. `credits` is 0 the rest of the
         # time, which is how the header knows to say nothing.
@@ -73,8 +73,8 @@ class Overview(Base):
             "commit": {key: version[key] for key in ("commit", "date", "subject")},
             "update": _update_available(),
             "upgrade": self.upgrade.offer(local),
-            "spend": round(sum(float(entry.get("cost_usd") or 0) for entry in entries), 2),
-            "handled": len(entries),
+            "spend": round(spend, 2),
+            "handled": handled,
             "chat": self.chat.state(),
             "commands": sorted(self.commands.allowed),
             "busy": self.commands.busy,

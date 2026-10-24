@@ -550,7 +550,12 @@ export function ConsoleProvider({ children }: { children: React.ReactNode }) {
       setRunner((current) =>
         current?.upgrade ? { ...current, upgrade: { ...current.upgrade, ...event } } : current
       )
-      if (event.phase === "done" || event.phase === "idle") void reloadState()
+      // The first one is the state the stream replays to every new connection,
+      // which the header read at opening already holds: asked again, it was a
+      // second /api/state at every load.
+      if (before !== undefined && (event.phase === "done" || event.phase === "idle")) {
+        void reloadState()
+      }
       // The page itself is the old version's: once the console is back, it is
       // loaded again from the new one, and says so when it opens.
       if (justUpdated(before, event.phase)) {
