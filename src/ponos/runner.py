@@ -78,16 +78,13 @@ class Runner(
         # what makes an update land between two sessions — see update.py.
         if not self.dry_run:
             update_module.between_runs(self.config.runner, say=self.say, notify=self._notify)
-        # Nothing at all while the subscription is out: every session this pass
-        # could start would die on the same sentence, and every ticket it
-        # touched would come back as a failure of its own. The run that put the
-        # wait there said so; these ones are quiet, because at a ten-second
-        # cadence saying it again is six lines a minute for four hours.
+        # The subscription out is the reserve's wall rather than its line, and
+        # a pass meets it the same way: every session it could start would die
+        # on the same sentence, so none is — `under_reserve` answers for both —
+        # while a merge, a merged pull request closed and a sweep cost nothing
+        # and still happen. A pull request validated at 14:00 is not left in
+        # the validated column until six because a session died at noon.
         resets = self.waiting_for_credits()
-        if resets:
-            if self.announce_idle:
-                self.say(f"Out of credit — nothing is run until {credits.when(resets)}.")
-            return []
         # The comments are read afresh: a run is where the board is looked at,
         # and a Runner kept alive by the console would otherwise answer a
         # question from an hour ago. Before `answers`, so that what you replied
@@ -141,7 +138,12 @@ class Runner(
                 # empty by the next pass, and a ticket already in it is skipped.
                 parked = state.record_all(self.park(tickets))
                 if self.announce_idle and not parked and not delivered:
-                    self.say(f"Nothing new started until {credits.when(reserved)}.")
+                    if resets:
+                        self.say(
+                            f"Out of credit — nothing new started until {credits.when(resets)}."
+                        )
+                    else:
+                        self.say(f"Nothing new started until {credits.when(reserved)}.")
                 return delivered + parked
             if not tickets:
                 replies = self.converse() + self.unblock()

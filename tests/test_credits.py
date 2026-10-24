@@ -14,7 +14,16 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from support import _board_runner, _config, _git_answering, _ready, _reviewed, _state_home, case
+from support import (
+    _board_runner,
+    _config,
+    _git_answering,
+    _github,
+    _ready,
+    _reviewed,
+    _state_home,
+    case,
+)
 
 from ponos import config as C
 from ponos import credits, notion, projects, prompt, question, session, state
@@ -406,21 +415,62 @@ def a_publication_the_credits_ran_out_on_goes_back_to_validated(state_home):
 
 
 @case
-def nothing_at_all_is_run_while_the_credits_are_out(state_home):
+def no_session_is_started_while_the_credits_are_out(state_home):
     """Every session this pass could start would die on the same sentence."""
-    runner = _out_of_credit(_reviewed("p-ready", "Ready", None))
+    runner = _out_of_credit(_ready("p-ready"))
+    runner.client.waiting = True
+    started: list[str] = []
+    runner.prepare = lambda ticket: started.append(ticket.id)
     said: list[str] = []
     runner.quiet, runner.say, runner.announce_idle = False, said.append, True
     credits.hold(time.time() + 300)
+    results = runner.tick()
+    assert started == [], "not one session begun"
+    assert [result["status"] for result in results] == ["waiting"]
+    assert runner.client.written == [("p-ready", {"Waiting for credit": True, "Session": ""})]
+    assert credits.held() > time.time(), "the wait stands"
+
+    # Ticked once: the next pass, still out, starts nothing and says so.
+    runner.client._pages[0] = _ticked(runner.client._pages[0])
     assert runner.tick() == []
-    assert runner.client.queried == [], "the board is not even read"
-    assert runner.client.written == []
+    assert started == []
     assert any("Out of credit" in line for line in said)
 
     # And the wait ends by itself: the run that finds it over says so, once.
     credits.hold(time.time() - 1)
     assert runner.waiting_for_credits() == 0.0
     assert any("credits are back" in line for line in said)
+
+
+@case
+def what_costs_no_credit_is_still_done_while_the_credits_are_out(state_home):
+    """The reserve's road, taken at the wall too: a merge, a merged pull request
+    closed and a sweep start no session, and waiting four hours for the credit
+    to come back would leave the validated column full for nothing."""
+    merges: list[str] = []
+    runner = _out_of_credit(_reviewed("p-validated", "Validated", "https://github.com/x/y/pull/1"))
+    runner.client._pages.append(_reviewed("p-merged", "In review", "https://github.com/x/y/pull/2"))
+    runner.client._pages.append(_ready("p-ready"))
+    started: list[str] = []
+    runner.prepare = lambda ticket: started.append(ticket.id)
+    swept: list[bool] = []
+    runner.sweep = lambda: swept.append(True)
+    runner.announce_idle = False
+    credits.hold(time.time() + 300)
+
+    def merge(url: str, method: str = "squash", accounts=None) -> str:
+        merges.append(url)
+        return "merged"
+
+    states = {"https://github.com/x/y/pull/1": "OPEN", "https://github.com/x/y/pull/2": "MERGED"}
+    with _github(states, merge=merge):
+        runner.tick()
+
+    assert swept == [True], "the board is swept"
+    assert merges == ["https://github.com/x/y/pull/1"], "the validated one is merged"
+    assert ("p-validated", {"Status": "Done"}) in runner.client.written
+    assert ("p-merged", {"Status": "Done"}) in runner.client.written, "the merged one is closed"
+    assert started == [], "and not one session begun"
 
 
 @case
