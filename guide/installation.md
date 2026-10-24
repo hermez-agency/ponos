@@ -150,5 +150,12 @@ compare itself against: it says so once per check and carries on.
 curl -LsSf https://raw.githubusercontent.com/hermez-agency/ponos/main/uninstall.sh | sh
 ```
 
-`TR_PURGE=1` also removes the configuration, the logs and the history. Branches already
-pushed are never touched.
+It takes back everything `install.sh` put down, on Linux and on a Mac: the Tailscale doors
+first (`ponos tailscale disable`, while the binary is still there), then the systemd units
+and their drop-ins (`~/.config/systemd/user/ponos*`), the launchd agents
+(`~/Library/LaunchAgents/app.ponos.*.plist`, unloaded before they go), the console started
+in the background where there was neither, the `ponos://` handler and its `xdg-mime`
+association, the icons, the launcher and the installed versions.
+
+`TR_PURGE=1` also removes the configuration, the logs and the history (`ponos.db`
+included). Branches already pushed are never touched.
