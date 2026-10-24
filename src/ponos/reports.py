@@ -143,7 +143,8 @@ class Reports(Base):
         return {block: ""} if store.read(ticket.page, block) else {}
 
     def _refusal_cleared(self, ticket: Ticket) -> dict[str, object]:
-        """The card's line emptied, when a forced merge left its refusal there.
+        """The card's line emptied, when a forced merge left its refusal there
+        — or a killed run its last step, see `sweep`.
 
         Only on a card that says something: a board without the column, or a
         ticket whose card is already blank, is not written to for nothing.

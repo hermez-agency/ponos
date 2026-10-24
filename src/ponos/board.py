@@ -576,6 +576,10 @@ class Board(Base):
 
         Never one this run holds, whichever: a ticket claimed by the pass under
         way is work, not a leftover.
+
+        Either way the card's line is emptied: only `Live.close` does it after
+        a session, and a run that was killed never got there — a ticket back in
+        ready would go on showing its last step as though it still ran.
         """
         status_property = self.config.notion.prop("status")
         agent = self.config.notion.prop("agent")
@@ -626,6 +630,7 @@ class Board(Base):
                             status_property: self.config.notion.state("blocked"),
                             **self._blocked_by("worktree.interrupted"),
                         },
+                        **self._refusal_cleared(ticket),
                     )
                     asked = said.question(Question(ask=said.sentence(interrupted)))
                     self._comment(ticket, said.report(said.verdict("blocked"), *asked))
@@ -642,7 +647,11 @@ class Board(Base):
                     recovered += 1
                     continue
                 self.say(f"  ↺ {ticket.title} — claimed but no run alive, put back")
-                self._set(ticket, **{status_property: self.config.notion.state("ready")})
+                self._set(
+                    ticket,
+                    **{status_property: self.config.notion.state("ready")},
+                    **self._refusal_cleared(ticket),
+                )
                 self._comment(
                     ticket,
                     said.report(said.verdict("requeued", stopped), said.say("abandoned-requeued")),
