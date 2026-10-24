@@ -1408,7 +1408,7 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
   repository, stops at its first doubt and logs what it did; a publication is
   prepared into *In review* and published only once you move it to *Validated*.
   `ticket-runner init` adds the column; a board without it runs as before. See
-  [The type of a ticket](README.md#the-type-of-a-ticket).
+  [The type of a ticket](guide/board.md#the-type-of-a-ticket).
 
 - **The console wears the robot too, and it shows what the runner is doing.**
   The mascot of the landing page is now the console's mark and favicon, and a
@@ -1427,7 +1427,7 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
   blocked, asleep when the queue is empty — and a bar to make it react. One SVG
   in layers, coloured by CSS variables, light and dark, still under
   `prefers-reduced-motion`; a new state is one entry in a table. See
-  [Mascot](README.md#mascot).
+  [Mascot](CONTRIBUTING.md#mascot).
 
 - **The console sets itself up on the first connection, and nobody has to find a
   token again.** A token protects an installation that is already set up; a
@@ -2226,7 +2226,7 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
   mouth asleep, an open smile on a hop that squashes when it lands. Under 40
   pixels — a card, a toast, the bar, the favicon — it is only its face, drawn
   larger. `--robot-cheek` and `--robot-glint` join the colour variables; see
-  [Mascot](README.md#mascot).
+  [Mascot](CONTRIBUTING.md#mascot).
 - **The console is drawn in react-resource-view's admin layout.** The menu, the
   bar and the page's heading are the package's own now, around the same pages:
   the board, a ticket, *Live*, the projects, the schedules, the context and the

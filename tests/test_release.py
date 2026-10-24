@@ -788,9 +788,9 @@ def the_landing_page_shows_the_console_filmed_right_after_its_hero():
     )
     script = (ROOT / "scripts/film-console.mjs").read_text(encoding="utf-8")
     assert "data-cues" in script, "the film's script no longer writes the cues into the page"
-    assert "node scripts/film-console.mjs" in (ROOT / "README.md").read_text(encoding="utf-8"), (
-        "the command that films the console is not documented"
-    )
+    assert "node scripts/film-console.mjs" in (ROOT / "CONTRIBUTING.md").read_text(
+        encoding="utf-8"
+    ), "the command that films the console is not documented"
 
 
 @case
@@ -848,7 +848,7 @@ def ponos_is_named_on_the_site_in_the_readme_and_in_the_console():
     assert "Write the ticket. It comes back done." in readme.split("---", 1)[0], (
         "the README opens elsewhere"
     )
-    assert "## Ponos, the mascot" in readme
+    assert "## Ponos, the mascot" in (ROOT / "CONTRIBUTING.md").read_text(encoding="utf-8")
     shell = (FRONTEND / "src/components/console/shell.tsx").read_text(encoding="utf-8")
     mark = shell.split("export function Mark()", 1)[1].split("\n}\n", 1)[0]
     assert 'title="Ponos"' in mark and ">Ponos<" in mark, "the console's robot has no name"
@@ -910,8 +910,17 @@ def the_landing_page_tells_notion_in_one_band_with_its_badge_served_locally():
     assert 'class="notion-foot"' in page, "the line on Notion and the files kept in step is gone"
 
 
-def _readme_anchors() -> set[str]:
-    """The anchors GitHub gives the README's headings, and the ones it declares.
+# The documentation: a short README, the guide one page per subject, and what
+# is only for working on Ponos itself.
+DOCUMENTATION = [
+    "README.md",
+    "CONTRIBUTING.md",
+    *sorted(str(path.relative_to(ROOT)) for path in (ROOT / "guide").glob("*.md")),
+]
+
+
+def _anchors(page: str) -> set[str]:
+    """The anchors GitHub gives a page's headings, and the ones it declares.
 
     GitHub's rule: lowercase, drop what is neither a letter, a digit, a space, a
     hyphen nor an underscore, and turn spaces into hyphens. Headings inside a
@@ -919,7 +928,7 @@ def _readme_anchors() -> set[str]:
     """
     anchors: set[str] = set()
     fenced = False
-    for line in (ROOT / "README.md").read_text(encoding="utf-8").splitlines():
+    for line in (ROOT / page).read_text(encoding="utf-8").splitlines():
         if line.startswith("```"):
             fenced = not fenced
             continue
@@ -933,13 +942,21 @@ def _readme_anchors() -> set[str]:
     return anchors
 
 
+def _resolves(page: str, anchor: str) -> bool:
+    """Whether `page#anchor` lands on a heading — `readme` is GitHub's own, the top."""
+    if not (ROOT / page).is_file():
+        return False
+    return not anchor or anchor == "readme" or anchor in _anchors(page)
+
+
 @case
-def the_landing_page_and_the_readme_link_to_anchors_that_exist():
+def the_site_links_documentation_anchors_that_exist():
     """A link into the documentation is a promise the documentation keeps.
 
-    The site sends everything it no longer explains to a README heading, and
-    the README sends its reader around itself: a heading renamed without its
-    links is a reader landing at the top of a very long page.
+    The site sends everything it no longer explains to a heading of the README
+    or of the guide, and so do llms.txt and the Dokploy template: a heading
+    renamed or moved to another page without its links is a reader landing at
+    the top of a very long page — or on GitHub's 404.
     """
     page = LANDING.read_text(encoding="utf-8")
     ids = set(re.findall(r'\bid="([^"]+)"', page))
@@ -951,16 +968,57 @@ def the_landing_page_and_the_readme_link_to_anchors_that_exist():
         assert (ROOT / "docs" / target).exists(), (
             f"the site links {target}, which docs/ does not have"
         )
-    anchors = _readme_anchors()
-    linked = re.findall(r'href="https://github\.com/hermez-agency/ponos#([^"]+)"', page)
+    repository = r"https://github\.com/hermez-agency/ponos(?:/blob/main/([^#\s\")]+))?#([\w-]+)"
+    linked = re.findall(repository, page)
     assert linked, "the site no longer points at the documentation"
-    for anchor in linked:
-        assert anchor == "readme" or anchor in anchors, (
-            f"the site links README#{anchor}, which has no such heading"
-        )
-    readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    for anchor in re.findall(r"\]\(#([^)]+)\)", readme):
-        assert anchor in anchors, f"the README links #{anchor}, which has no such heading"
+    for source in ("docs/index.html", "docs/llms.txt", "docker/dokploy/meta.json"):
+        for target, anchor in re.findall(repository, (ROOT / source).read_text(encoding="utf-8")):
+            assert _resolves(target or "README.md", anchor), (
+                f"{source} links {target or 'README.md'}#{anchor}, which has no such heading"
+            )
+
+
+@case
+def the_documentation_links_pages_and_anchors_that_exist():
+    """Every page of the documentation sends its reader somewhere that is there.
+
+    The README was cut into the guide and CONTRIBUTING.md: a section moved to
+    another page keeps its links only if each of them names the page it now
+    lives on.
+    """
+    for page in DOCUMENTATION:
+        folder = (ROOT / page).parent
+        fenced = False
+        for line in (ROOT / page).read_text(encoding="utf-8").splitlines():
+            if line.startswith("```"):
+                fenced = not fenced
+            if fenced:
+                continue
+            for link in re.findall(r'(?:\]\(|href="|src="|srcset=")([^)"\s]+)', line):
+                if re.match(r"(https?:|mailto:)", link):
+                    continue
+                target, _, anchor = link.partition("#")
+                path = (folder / target).resolve() if target else ROOT / page
+                assert path.exists(), f"{page} links {link}, which is not in the repository"
+                if anchor:
+                    assert _resolves(str(path.relative_to(ROOT)), anchor), (
+                        f"{page} links {link}, which has no such heading"
+                    )
+
+
+@case
+def the_readme_stays_a_welcome_page():
+    """The README says what Ponos is, how to install it, and where the rest is.
+
+    It had grown to 300 KB, two installation chapters and the contributors'
+    chapters among the user's: nobody read it again on a change, and it
+    contradicted itself. The guide holds the rest, one page per subject.
+    """
+    readme = ROOT / "README.md"
+    assert readme.stat().st_size < 30_000, "the README grew back past 30 KB"
+    text = readme.read_text(encoding="utf-8")
+    for page in DOCUMENTATION[2:]:
+        assert page in text or page.endswith("README.md"), f"the README does not lead to {page}"
 
 
 @case

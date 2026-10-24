@@ -1,7 +1,7 @@
 """Reaching the console from a phone, over Tailscale, without opening it.
 
 Two doors on one machine, and they must not be the same door. The console is
-arbitrary code execution (see the README) and stays inside the tailnet. The MCP
+arbitrary code execution (see guide/server.md) and stays inside the tailnet. The MCP
 connector is called by Anthropic's servers, which are not on the tailnet, so
 *that* path — and only that path — has to be public, behind the keys of
 `web/oauth.py`.
