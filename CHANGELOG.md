@@ -52,6 +52,7 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Fixed
 
+- Une récurrence calculée à partir d'une date donnée dans un autre fuseau — un *Last run* en UTC, ou une heure gardée avec son décalage d'avant le passage à l'heure d'hiver — ne tombe plus une heure à côté : la date est d'abord ramenée à l'heure de la machine, et le même instant donne la même prochaine occurrence, pour les cadences comme pour les lignes cron.
 - En français, les nombres comptés posés sur un ticket prennent le singulier à 0 : « 0 commit », « 0 étape », « 0 minute », et non plus « 0 commits ». La règle de pluriel suit maintenant la langue ; l'anglais garde « 0 commits ».
 - Le badge « conflit » d'une carte reste jusqu'à ce que la page soit modifiée de nouveau : la console le cherchait dans les 200 dernières lignes du journal de synchronisation, où chaque statut vu et chaque passe écrivent aussi, et sur un board actif un conflit de quelques heures en sortait sans que personne l'ait traité. Elle demande maintenant au journal le dernier conflit de chaque ticket, par un index.
 - Un ticket remis en Ready (ou en Bloqué) après un plantage, un reboot ou un `kill` ne montre plus sa dernière étape sur sa carte : la passe suivante vide la colonne Progress en même temps qu'elle écrit le statut. Elle gardait « Bash · npm test », et la carte d'un ticket en attente semblait encore en cours d'exécution — seule la fin normale d'une session la vidait.
