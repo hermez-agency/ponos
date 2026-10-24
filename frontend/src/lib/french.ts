@@ -694,6 +694,7 @@ export const FRENCH: Record<string, string> = {
   "an earlier session, read-only": "une session précédente, en lecture seule",
   "This run wrote no step.": "Ce passage n'a écrit aucune étape.",
   "Earlier steps": "Étapes précédentes",
+  "The earlier steps could not be read": "Les étapes précédentes n'ont pas pu être lues",
   Run: "Passage",
   "going on": "en cours",
   blocked: "bloqué",

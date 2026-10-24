@@ -1,1 +1,5 @@
+<<<<<<<< HEAD:src/ponos/web/static/assets/project-schedules-DRrgWGEX.js
 import{r as e}from"./react-CFebUx29.js";import{Ct as t,u as n}from"./views-QuduAlVV.js";import{m as r}from"./console-DAdv7UAH.js";var i=e();function a({project:e}){return(0,i.jsx)(n,{resource:r,resourceAction:t.list,filter:{project:e.id},defaultData:{project_id:e.id}},e.id)}export{a as ProjectSchedules};
+========
+import{r as e}from"./react-CFebUx29.js";import{Ct as t,u as n}from"./views-QuduAlVV.js";import{m as r}from"./console-idP4HnXU.js";var i=e();function a({project:e}){return(0,i.jsx)(n,{resource:r,resourceAction:t.list,filter:{project:e.id},defaultData:{project_id:e.id}},e.id)}export{a as ProjectSchedules};
+>>>>>>>> 73ecfbd1 (fix: « Étapes précédentes » ne lit qu'une page à la fois, se désactive pendant la lecture et dit son échec):src/ponos/web/static/assets/project-schedules-DysJGw87.js
