@@ -104,6 +104,12 @@ window moving each time. A ticket sitting in *Ready* that it has never touched i
 place it is not listening — and that one is about to be run, which is where your comment
 was going to be read regardless.
 
+Answers never come before the work. In a pass with tickets ready, the tickets take their
+places first; the answers — and the look at the blocked tickets, below — then take one
+place of `max_concurrent` between them, one session after the other, so what runs at once
+stays capped whatever is waiting. With every place taken, they wait for the first one that
+frees. A pass with nothing ready answers up to `max_concurrent` threads side by side.
+
 | Where you write | What happens |
 | --- | --- |
 | under a report, on a `blocked` or `failed` ticket | the ticket runs again, with your answer in its prompt |

@@ -159,17 +159,19 @@ class Runner(
         for warning in self.workspace.warnings:
             self.say(f"  ! {warning}")
 
-        replies = [] if reference else self.converse() + self.unblock()
         # `--limit` caps the tickets this pass takes off the board, not how
         # many run at once: that is `max_concurrent`, and a queue that refills
         # itself would otherwise run the whole column on a `--limit 1`.
         # No refilling for a named ticket — the pass is about that one — nor for
         # a dry run, which claims nothing and would read the same column back.
-        results = self._work(tickets, limit, refill=not reference and not self.dry_run)
-        return delivered + replies + results
+        # The comments waiting for an answer go into the pool too — see `talk`.
+        results = self._work(
+            tickets, limit, refill=not reference and not self.dry_run, talk=not reference
+        )
+        return delivered + results
 
     def _work(
-        self, ready: list[Ticket], ceiling: int | None, *, refill: bool
+        self, ready: list[Ticket], ceiling: int | None, *, refill: bool, talk: bool = False
     ) -> list[dict[str, Any]]:
         """Run the ready tickets, `max_concurrent` sessions in flight throughout.
 
@@ -226,6 +228,7 @@ class Runner(
         publishing: list[tuple[Ticket, Project]] = []
         flight: set[Future[dict[str, Any] | None]] = set()
         stalled = False  # the credits ran out: nothing more is begun
+        said: list[dict[str, Any]] = []  # what `talk` answered, once it has a place
 
         with ThreadPoolExecutor(max_workers=width) as pool:
             while True:
@@ -274,9 +277,13 @@ class Runner(
                     # Guarded: a ticket that raises fails alone, and the pass carries on.
                     future = pool.submit(self._guarded, ticket, self.execute, job)
                     flight.add(hand.carry(future, ticket.id))
+                # The answers after the tickets, in the first place left over.
+                if talk and not stalled and len(flight) < width and self.room_for_a_session():
+                    talk = False
+                    flight.add(pool.submit(self.talk, said))
                 self.explain(queued, width, limited=remaining == 0, done=not flight)
                 if not flight:
-                    return results
+                    return results + said
                 # An empty place is a reason to come back before a session ends,
                 # and so is the validated column, which needs none: a pass that
                 # refills therefore wakes on the timer's cadence even with every
