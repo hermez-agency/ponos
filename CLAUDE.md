@@ -282,3 +282,12 @@ deux suites, puis publie l'image sur `ghcr.io`.
   nouveau module n'entre dans aucune des deux ; un module sorti d'une liste
   n'y revient pas — un écart se corrige, ou se justifie par un
   `# type: ignore[code]` sur sa ligne.
+- **Les « cardona » qui restent sont voulus.** Par décision Hermez,
+  l'adresse `contact@cardona.digital` (`authors` de `pyproject.toml`) et les
+  sous-domaines d'infrastructure — dont `umami.cardona.digital`, d'où
+  `docs/index.html` et `docs/404.html` chargent leurs analytics — restent sur
+  cardona.digital ; seul un ticket dédié les passe sur un domaine Hermez. De
+  même, les mentions `ticket-runner` d'`install.sh`, d'`uninstall.sh` et de
+  `desktop/ponos-url-handler.desktop.in` sont le filet de migration des
+  anciennes installations, et les préfixes `TR_*` des identifiants techniques :
+  un audit ne les remonte pas.
