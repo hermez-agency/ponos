@@ -65,7 +65,7 @@ Code session, resumed. The search looks in the titles and, failing that, in what
 *New session* starts another; deleting asks for a box to be ticked, as deleting a project does,
 and takes the transcript and the files sent in it. The model is chosen from the conversation
 itself, in the bar over it, and kept per session: the Claude models (`opus`, `sonnet`, `haiku`,
-`fable`) and, once `openrouter.key` is set, any model OpenRouter lists — searched by name, the
+`fable`) and, once `OPENROUTER_API_KEY` is set, any model OpenRouter lists — searched by name, the
 ones you used last first. A session on an OpenRouter model talks to OpenRouter whatever
 `claude.provider` says; without a key the picker offers Claude's models and leads to the
 setting. `web.chat_model` is the model a new session starts on.
@@ -666,8 +666,8 @@ is why. `TR_NO_WEB=1 sh install.sh` installs the unit and leaves it stopped.
 Claude Code sessions with the same `bypassPermissions` the runner uses — that is what
 makes it useful, and it is the whole of the risk. So:
 
-- it binds **`127.0.0.1`** and `serve` **refuses any other host** unless `web.token` — or
-  the sign-in below — is set in the configuration on purpose: a token drawn automatically
+- it binds **`127.0.0.1`** and `serve` **refuses any other host** unless `PONOS_WEB_TOKEN` — or
+  the sign-in below — is set on purpose: a token drawn automatically
   is not a decision you took;
 - every request carries that token — the `?token=` in the URL is moved into a cookie on
   the first load, so it stops sitting in your history — or the cookie that signing in
@@ -704,7 +704,7 @@ ssh -L 8787:127.0.0.1:8787 <the machine running it>
 ```
 
 Then `http://127.0.0.1:8787` on the near side, over a channel that already authenticates
-you. A console bound to `0.0.0.0` with a token is possible — set `web.token` and say so —
+you. A console bound to `0.0.0.0` with a token is possible — set `PONOS_WEB_TOKEN` and say so —
 but the tunnel is the answer that does not depend on the token never leaking.
 
 [Tailscale](https://tailscale.com) does the same without a terminal on the phone:
@@ -752,11 +752,11 @@ answers 404 to any path but those three on a request that came through Funnel.
 
 | Key | Default | Effect |
 | --- | --- | --- |
-| `web.host` | `127.0.0.1` | what to bind. Anything else needs `web.token`, or a sign-in, set |
+| `web.host` | `127.0.0.1` | what to bind. Anything else needs `PONOS_WEB_TOKEN`, or a sign-in, set |
 | `web.port` | `8787` | |
-| `web.token` | `""` | empty: drawn once into `~/.local/state/ponos/web/token` |
+| `PONOS_WEB_TOKEN` | | not a key of this file: the secret is in `secrets.env` or the environment (see [Configuration](configuration.md#configuration)). Unset: drawn once into `~/.local/state/ponos/web/token` |
 | `web.email` | `""` | with a password: what the console asks for instead of the token |
-| `web.password` | `""` | kept in the file, or in the environment — see below |
+| `PONOS_WEB_PASSWORD` | | not a key of this file: the secret is in `secrets.env` or the environment, which wins (see [Configuration](configuration.md#configuration), and below) |
 | `web.poll_seconds` | `15` | how often the console asks Notion what changed (a two-minute overlapping window; the whole board every five minutes) — only while a browser is connected |
 | `web.chat_timeout_minutes` | `20` | past this, a chat turn is killed |
 | `web.chat_model` | `""` | the model a new conversation starts on (`opus`…, or an OpenRouter slug); empty: `runner.model` |
@@ -765,8 +765,8 @@ answers 404 to any path but those three on a request that came through Funnel.
 
 A token protects an installation that is already set up. A fresh one has nothing to
 protect yet — and asking somebody to go and find a secret on disk before they may type
-their own is the wrong way round. So a console **nobody has claimed** — no `web.token`
-chosen in the configuration, no email and password set — serves its first connection
+their own is the wrong way round. So a console **nobody has claimed** — no `PONOS_WEB_TOKEN`
+chosen on purpose, no email and password set — serves its first connection
 instead of a door, and `http://127.0.0.1:8787` is the whole of the address. It comes in
 steps, drawn by the console itself, one write each:
 
