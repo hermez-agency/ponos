@@ -8,33 +8,46 @@ The `ponos` command, from a terminal.
 
 ```sh
 ponos init <url>   # build (or complete) the Notion board under a page
+ponos init <url> --token <token>  # the same, saving the Notion token (--no-demo: no demonstration ticket)
+ponos config       # open config.toml in your editor
 ponos list         # the ready tickets, and their project
 ponos run          # one run, right now
 ponos run --dry-run          # what it would do, touching nothing
 ponos run --ticket <url>     # that one ticket, whatever its status
+ponos run --limit <n>        # at most that many tickets in this run
 ponos run --every [seconds]  # keep running: one run every interval, where there is no systemd
-ponos logs -f      # follow the running session
+ponos logs -f      # follow the running session (--follow)
+ponos logs <ticket>          # the last session of that ticket (--raw: the raw JSON stream)
+ponos logs <ticket> --runs   # the ticket's runs, from the local journal
+ponos logs --service         # the runner's and the console's own log, ponos.log
 ponos status       # timer, console, current run, recent tickets
-ponos history      # what has been handled, with the pull requests
+ponos history      # what has been handled, with the pull requests (-n, --number: how many)
 ponos projects     # Notion project → local repository mapping
-ponos subtypes     # the code tickets by sub-type (--backfill fills the empty ones from their prefix)
+ponos subtypes     # the code tickets by sub-type
+ponos subtypes --backfill    # fill the empty ones from their prefix (--dry-run: write nothing, --all: done and cancelled ones too)
 ponos schedules    # what comes back on its own, and when it next does
-ponos schedules --run <name>  # make its ticket now, without waiting for the hour
+ponos schedules --run <name>  # make its ticket now, without waiting for the hour (--force: even if the last one is still open)
 ponos sync         # reconcile the Notion board and the Markdown one
-ponos sync --journal         # what past reconciliations carried, and what they refused
+ponos sync --journal         # what past reconciliations carried, and what they refused (-n, --number: how many)
 ponos doctor       # full diagnostics
 ponos clean                  # empty worktree directories that are only root-owned residue (no .git)
 ponos clean --force          # remove worktrees, their branches, and scratch dirs
+ponos clean --force --days <n>  # and drop the session logs older than that many days (default 14)
 ponos update       # move the installation to the newest version
 ponos update --check         # what is available, changing nothing
 ponos update --environment   # make the .venv of the version in use again
 ponos enable       # apply interval_seconds, start the timer and the console
 ponos disable      # stop the timer and the console
 ponos serve        # the web console, in this terminal (it already runs on its own)
-ponos notify       # send yourself a test message on Telegram or Slack
+ponos serve --host <address> --port <port>  # bind elsewhere than web.host and web.port
+ponos serve --print-token    # print the console's token, and exit
+ponos serve --sign-out-everywhere  # end every browser's and every connector's sign-in, and exit
+ponos open <uri>   # what a ponos://session/<id>?cwd=<path> link runs on the desktop
+ponos tailscale [status|apply|enable|disable|watch]  # the console on your tailnet, MCP through Funnel (--interval: seconds, for watch)
+ponos notify [message]       # send yourself a test message on Telegram or Slack
 ponos notify --pair          # find your Telegram chat id and save it
 ponos mcp token    # a key to the MCP server, for a client that cannot sign in (--read-only, --name)
-ponos mcp list     # the address to paste in Claude, the MCP clients and their last writes
+ponos mcp list     # the address to paste in Claude, the MCP clients and their last writes (-n, --number: how many)
 ponos mcp revoke <client>    # take back every key of one client
 ```
 

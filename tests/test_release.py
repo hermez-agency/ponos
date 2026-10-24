@@ -378,6 +378,58 @@ def every_option_says_what_it_does():
 
 
 @case
+def the_usage_block_names_every_verb_and_option_the_parser_has():
+    """The block of `guide/usage.md` is the one place every command is listed.
+
+    So it is held to the parser both ways: a verb or an option added to the
+    command line and not to the block fails, and so does a line of the block
+    naming a verb the command line no longer has. An option counts on a line of
+    its own verb — `-n` under `history` says nothing about `sync`.
+    """
+    page = (ROOT / "guide" / "usage.md").read_text(encoding="utf-8")
+    block = page.split("## Usage", 1)[1].split("```sh\n", 1)[1].split("```", 1)[0]
+    lines = [line.split() for line in block.splitlines() if line.startswith("ponos ")]
+
+    def under(*words: str) -> str:
+        return "\n".join(
+            " ".join(line) for line in lines if line[1 : 1 + len(words)] == list(words)
+        )
+
+    def options(parser: argparse.ArgumentParser) -> list[str]:
+        return [
+            flag
+            for action in parser._actions
+            if not isinstance(action, argparse._HelpAction)
+            for flag in action.option_strings
+        ]
+
+    verbs = next(
+        action.choices
+        for action in build_parser()._actions
+        if isinstance(action, argparse._SubParsersAction)
+    )
+    assert sorted(verbs) == list(subcommands())
+    for verb, parser in verbs.items():
+        text = under(verb)
+        assert text, f"ponos {verb} is a verb the usage block does not name"
+        for flag in options(parser):
+            assert re.search(rf"(?<![\w-]){re.escape(flag)}(?![\w-])", text), (
+                f"ponos {verb} {flag} is an option the usage block does not name"
+            )
+        for action in parser._actions:
+            if isinstance(action, argparse._SubParsersAction):
+                for name, nested in action.choices.items():
+                    inner = under(verb, name)
+                    assert inner, f"ponos {verb} {name} is missing from the usage block"
+                    for flag in options(nested):
+                        assert re.search(rf"(?<![\w-]){re.escape(flag)}(?![\w-])", inner), (
+                            f"ponos {verb} {name} {flag} is missing from the usage block"
+                        )
+    for line in lines:
+        assert line[1] in verbs, f"the usage block names ponos {line[1]}, which the parser has not"
+
+
+@case
 def a_waiting_update_is_said_on_the_welcome_screen(state_home):
     """The one thing worth adding to a version number: that it is not the newest.
 
