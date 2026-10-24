@@ -780,8 +780,11 @@ The columns may be written in English too — `Criterion`, `Due`, `Status`, `Pro
 same names, the French first.
 
 A ticket that points at one carries it into its prompt, under `# L'objectif — <name>`, with
-its criterion and its due date. Only the first goal of the relation is read. Its place is
-fixed:
+its criterion and its due date. Only the first goal of the relation is read, and only while
+it is still worked toward: a goal whose `Statut` is anything but `Actif`, `Active` or
+`En cours` (met, given up, on hold), or one in the trash — what *Delete* does to a goal in
+the console —, is left out of the prompt, as if the ticket pointed at none. A goal with no
+`Statut` counts as active. Its place is fixed:
 
 ```
 the context page   who you are

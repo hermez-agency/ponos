@@ -34,6 +34,7 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Changed
 
+- Un ticket rattaché à un objectif atteint, abandonné ou en pause — ou à un objectif supprimé depuis la console, donc à la corbeille — ne reçoit plus « # L'objectif — … » dans son prompt, comme s'il n'en servait aucun. Un objectif sans `Statut` reste actif.
 - Déplié, le détail « N points à corriger » du tableau de bord pousse la page au lieu de la recouvrir : les cartes Ouverts, Fermés, Créés, Dépensé et les graphiques descendent sous la liste, et se lisent sans la replier. Repliée, la bande reste une ligne posée par-dessus la page, qui ne la fait pas bouger en arrivant.
 - `ponos doctor` et la bande de santé de la console signalent les options de la colonne Sous-type que le runner n'écrit pas — « Improvement » à côté d'« Amélioration », « Security » à côté de « Sécurité » —, avec le nombre de tickets sur chacune : une vue Notion filtrée sur l'une manquait les autres. La console propose de réécrire ces tickets vers l'option du runner, puis de retirer les options vidées du select. Une option qui ne désigne aucun sous-type reste à trancher à la main.
 - Réglages prennent toute la largeur de la page, comme son en-tête et les autres pages : sur un grand écran, les cartes ne s'arrêtent plus à 1 024 px en laissant une bande vide à droite.

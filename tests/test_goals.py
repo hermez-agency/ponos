@@ -61,6 +61,30 @@ def an_unreadable_goal_is_no_goal_rather_than_a_failed_ticket():
 
 
 @case
+def a_goal_in_the_trash_is_no_goal():
+    for key in ("in_trash", "archived"):
+        page = _goal_page("Lancer la v1", "Dix clients payants")
+        page.raw = {key: True}
+        assert not goals.resolve(_GoalClient(page, brief="Le brief."), "p-goal"), key
+
+
+@case
+def only_a_goal_being_worked_toward_reaches_the_prompt():
+    for status, kept in (
+        ("Actif", True),
+        ("En cours", True),
+        ("", True),
+        ("Atteint", False),
+        ("Abandonné", False),
+        ("En pause", False),
+    ):
+        page = _goal_page("Lancer la v1", "Dix clients payants")
+        if status:
+            page.properties["Statut"] = {"type": "select", "select": {"name": status}}
+        assert bool(goals.resolve(_GoalClient(page), "p-goal")) is kept, status
+
+
+@case
 def a_board_without_the_goal_column_points_at_nothing():
     assert goals.pointed(_ticket({}), "Objectif") == ""
     # A column of another type under that name is not a relation to read.
