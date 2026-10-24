@@ -374,6 +374,28 @@ def a_card_moved_from_the_console_is_drawn_waiting_until_notion_has_it():
 
 
 @case
+def a_conflict_stays_on_its_card_however_much_the_journal_writes_after_it():
+    """A busy board journals a `seen` line per status the console notices: the
+    runner's refusal of hours ago must not slide out from under them."""
+    with _state_home():
+        refused = sync.Report()
+        refused.note("conflict", "tickets", "0" * 32, "ticket 0", "Done ≠ In review")
+        sync.write_journal(refused)
+        busy = sync.Report()
+        for index in range(200):
+            busy.note("seen", "tickets", "1".zfill(32), "ticket 1", f"seen {index}")
+        sync.write_journal(busy)
+
+        api = _bare_api(_ColumnsClient(["Ready", "Done"]))
+        api._runner._workspace = type("W", (), {"goals": "", "projects": "", "tickets": "db"})()
+        api._schema_at = time.time()
+        api._reader = web_board.Reader(journal=lambda report: None)
+        api._outbox = web_board.Outbox(journal=lambda report: None)
+        card = [item for item in api.board()["tickets"] if item["title"] == "ticket 0"][0]
+        assert card["sync"] == "conflict" and card["sync_error"] == "Done ≠ In review", card
+
+
+@case
 def a_run_does_not_write_its_verdict_over_a_status_moved_by_hand():
     """Half an hour of session, and you moved the ticket to done meanwhile.
 

@@ -165,6 +165,28 @@ def journal(limit: int = 50, database: Path | None = None) -> list[dict[str, Any
     return [dict(zip(names, row, strict=True)) for row in reversed(rows)]
 
 
+def conflicts(collection: str, database: Path | None = None) -> list[dict[str, Any]]:
+    """The last conflict journalled on each page of a collection, oldest first.
+
+    Asked of the whole journal rather than of its last lines: the console writes
+    one per status it sees change, and a refusal nobody has answered yet must
+    not slide out of a window under them.
+    """
+    try:
+        with db.transaction(immediate=False, location=database) as connection:
+            rows = connection.execute(
+                "SELECT at, what, collection, page, title, detail FROM sync_journal"
+                " WHERE id IN (SELECT MAX(id) FROM sync_journal"
+                " WHERE what = 'conflict' AND collection = ? GROUP BY page)"
+                " ORDER BY id",
+                (collection,),
+            ).fetchall()
+    except db.ERRORS:
+        return []
+    names = ("at", "what", "collection", "page", "title", "detail")
+    return [dict(zip(names, row, strict=True)) for row in rows]
+
+
 # -- what the two sides agreed on last time ----------------------------------
 
 
