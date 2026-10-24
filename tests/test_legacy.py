@@ -27,10 +27,12 @@ def an_installation_from_before_the_rename_starts_with_everything_it_had():
     """Old directories, old variables, an old worktree: the first launch moves them all."""
     home = Path(tempfile.mkdtemp())
     old_config = home / ".config" / legacy.OLD
-    old_state = home / ".local" / "state" / legacy.OLD
+    # A state beside ~/.local/state: launched from this checkout, Ponos would
+    # not migrate the database it finds there, the installation's own.
+    old_state = home / "state" / legacy.OLD
     old_config.mkdir(parents=True)
     (old_config / "config.toml").write_text(
-        f'[storage]\nmode = "markdown"\npath = "~/.local/state/{legacy.OLD}/board"\n'
+        f'[storage]\nmode = "markdown"\npath = "~/state/{legacy.OLD}/board"\n'
     )
     (old_state / "board").mkdir(parents=True)
     (old_state / "history.jsonl").write_text(
@@ -76,7 +78,7 @@ def an_installation_from_before_the_rename_starts_with_everything_it_had():
     environment.update(
         HOME=str(home),
         PYTHONPATH=str(ROOT / "src"),
-        XDG_STATE_HOME=str(home / ".local" / "state"),
+        XDG_STATE_HOME=str(home / "state"),
         **{legacy.OLD_PREFIX + "WEB_EMAIL": "me@example.com"},
     )
     done = subprocess.run(
@@ -90,13 +92,13 @@ def an_installation_from_before_the_rename_starts_with_everything_it_had():
     assert "Fix the footer" in done.stdout, "the history came along"
     assert "PONOS_WEB_EMAIL" in done.stderr, "the old variable is read, and said to be renamed"
     assert "moved" in done.stderr, "and the move is said in one line"
-    state = home / ".local" / "state" / "ponos"
+    state = home / "state" / "ponos"
     assert not old_config.exists() and not old_state.exists()
     assert (state / "board").is_dir()
     assert (state / "ponos.db").is_file() and (state / "history.jsonl.imported").is_file(), (
         "moved first, then read into the database"
     )
-    assert "~/.local/state/ponos/board" in (home / ".config" / "ponos" / "config.toml").read_text()
+    assert "~/state/ponos/board" in (home / ".config" / "ponos" / "config.toml").read_text()
     moved = state / "worktrees" / "app-1234abcd"
     assert str(moved) in git("worktree", "list"), "the repository knows where its worktree went"
     assert (home / ".claude" / "projects" / session.project_key(moved) / "s1.jsonl").is_file()
