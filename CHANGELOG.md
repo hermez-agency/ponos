@@ -63,6 +63,7 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Changed
 
+- Lire la file ne lit plus les commentaires des tickets que le runner n'a jamais touchés : seuls ceux dont la colonne `Runner` porte le nom de la machine, ou dont il se souvient d'avoir parlé sur la page, sont interrogés pour savoir si une réponse les réveille. Mesuré sur un backlog de 200 tickets jamais lancés, plus un de cette machine, un d'une autre et un connu de la mémoire des conversations : 202 requêtes de commentaires par lecture de file avant, 2 après.
 - Le rapport en direct d'un ticket (le bloc « En cours » et la colonne `Progress`) s'écrit depuis un fil à part, et plus depuis la boucle qui lit la session : un Notion lent ou qui répond 429 n'arrête plus la lecture de sa sortie, donc plus la CLI derrière un tube plein pendant que son délai court. Ce qui s'accumule pendant l'attente part en une écriture quand Notion répond, dans une file bornée. Mesuré sur une session de 50 étapes en 5 s face à un Notion à 3 s par requête : la lecture passait de 377 s à 5 s.
 - Un objectif terminé se clôt au lieu de partir à la corbeille : sa page propose « Atteint » et « Abandonné », qui écrivent son statut et gardent ses tickets et son décompte (« 12 sur 12 faits »). La liste des objectifs n'affiche plus par défaut que les actifs (sans statut, ou « actif ») ; le filtre de statut propose « Tous les statuts » et chaque statut pour revoir les autres. La mise à la corbeille, en retrait, s'appelle maintenant « Supprimer », et sa confirmation dit qu'il s'agit d'une suppression.
 

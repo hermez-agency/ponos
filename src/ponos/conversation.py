@@ -330,6 +330,10 @@ class Ledger:
         if page_id:
             self.pages[page_id.replace("-", "")] = _now()
 
+    def knows(self, page_id: str) -> bool:
+        """Has the runner spoken on that page — whatever its Agent column says?"""
+        return page_id.replace("-", "") in self.pages
+
     def known_pages(self) -> list[str]:
         """The pages it has spoken on, most recently first."""
         return [
