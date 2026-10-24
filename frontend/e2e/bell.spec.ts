@@ -33,8 +33,8 @@ test("the bell counts what is unread, opens the ticket, and keeps what was read"
   await expect(items.nth(1)).toContainText("A pull request is ready to read")
   await expect(items.nth(2)).toContainText("A finished ticket")
   await expect(items.nth(3)).toContainText("A session failed")
-  await expect(items.nth(2).getByLabel("unread")).toHaveCount(0)
-  await expect(items.nth(3).getByLabel("unread")).toHaveCount(0)
+  await expect(items.nth(2).getByText("unread", { exact: true })).toHaveCount(0)
+  await expect(items.nth(3).getByText("unread", { exact: true })).toHaveCount(0)
 
   // A click opens the ticket's card and reads that one.
   await items.nth(0).getByRole("button").click()

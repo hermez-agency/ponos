@@ -137,20 +137,29 @@ function GoalCard({ goal }: { goal: Goal }) {
     <li
       data-slot="goals-item"
       data-goal={goal.id}
-      className="bg-card flex flex-col gap-3 rounded-xl border p-4 text-sm"
+      className="bg-card hover:border-primary/40 relative flex flex-col gap-3 rounded-xl border p-4 text-sm"
     >
       <div className="flex min-w-0 flex-col gap-1">
         <div className="flex min-w-0 items-start justify-between gap-2">
+          {/* The title's link covers the whole card: the card opens the goal, the pencil above it edits. */}
           <ResourceViewButton action={ActionList.read} id={goal.id}>
-            <span data-slot="goals-title" className="hover:text-primary font-medium underline-offset-2 hover:underline">
+            <span
+              data-slot="goals-title"
+              className="hover:text-primary font-medium underline-offset-2 after:absolute after:inset-0 after:rounded-xl hover:underline"
+            >
               {goal.name}
             </span>
           </ResourceViewButton>
-          <div className="flex shrink-0 items-center gap-1">
+          <div className="relative flex shrink-0 items-center gap-1">
             {goal.status ? <Badge variant="secondary">{goal.status}</Badge> : null}
             <ResourceViewButton action={ActionList.update} id={goal.id}>
-              <span data-slot="goals-edit" title={t("Edit the goal")} aria-label={`${t("Edit the goal")} — ${goal.name}`}>
-                <Pencil className="text-muted-foreground hover:text-foreground size-3.5" />
+              <span
+                data-slot="goals-edit"
+                title={t("Edit the goal")}
+                className={cn(buttonVariants({ variant: "ghost", size: "icon-xs" }), "text-muted-foreground -my-0.5")}
+              >
+                <Pencil className="size-3.5" />
+                <span className="sr-only">{t("Edit the goal “{{name}}”", { name: goal.name })}</span>
               </span>
             </ResourceViewButton>
           </div>

@@ -669,7 +669,8 @@ export function NewTicket({
         className={cn(buttonVariants({ variant: "outline", size }), "bg-card whitespace-nowrap")}
       >
         <Plus />
-        {t("Ticket")}
+        <span aria-hidden>{t("Ticket")}</span>
+        <span className="sr-only">{t("New ticket for {{name}}", { name: project.name })}</span>
       </Link>
     </div>
   )

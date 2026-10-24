@@ -88,7 +88,8 @@ test.describe("at 1440px", () => {
       await route.fulfill({ json: { id: "0000000000000000000000000000f0aa", title: "From a card" } })
     })
     // One with no repository too: its tickets come back as a document.
-    await card(page, "Journal").locator("xpath=..").locator("[data-project-new-ticket]").click()
+    // Named after its project, as each card has one.
+    await card(page, "Journal").locator("xpath=..").getByRole("link", { name: "New ticket for Journal" }).click()
     // Over the projects, not the project's page: the address names the list, then the form.
     expect(new URL(page.url()).searchParams.get("view")).toBe("console/projects/list/tickets/create")
     const dialog = page.getByRole("dialog")
