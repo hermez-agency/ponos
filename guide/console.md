@@ -524,7 +524,10 @@ done »**, written in words over a bar. The count is the console's, not a Notion
 tickets of the board that point at the goal, the cancelled ones left out, so it is the same on a
 board of Markdown files as on Notion's. The list rests on the active goals (no `Statut`, or
 `actif`); its filters are the status — *All statuses*, or any one the database holds — and a
-project. It follows the event stream: a goal written in another tab, a ticket tied to one, or a
+project. The cards come soonest due first, the goals without a date last, and among the same day
+the highest priority first. Beside its due date, an active goal whose day is past says **« Late »**
+(« En retard »), and one due within a week **« In n days »** (« Dans n jours ») — *Today* on the
+day itself; a goal reached or given up says neither. It follows the event stream: a goal written in another tab, a ticket tied to one, or a
 ticket of a goal moving to *Done* reads the list again, and the count moves without a reload.
 
 A card opens the goal's page in a drawer over the list: its description, *Done when*, priority

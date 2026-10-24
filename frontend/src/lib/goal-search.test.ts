@@ -1,10 +1,11 @@
-/* What the Goals list keeps, and how a goal's progress is counted.
+/* What the Goals list keeps, in which order, and how a goal's progress is counted.
  *
  *     npm test          (node --test, nothing to install)
  */
 import assert from "node:assert/strict"
 import { test } from "node:test"
 
+import { byDeadline, deadlineOf, todayOf } from "./goal-deadline.ts"
 import { EVERY_STATUS, dueOf, keeps, offeredTo, progressOf, projectFirst, valuesOf } from "./goal-search.ts"
 
 const LAUNCH = {
@@ -48,6 +49,41 @@ test("a due date is said as a day, whatever time Notion gave it", () => {
   assert.equal(dueOf("2026-12-31T18:00:00.000+02:00", "en-GB"), "31 Dec 2026")
   assert.equal(dueOf("", "en-GB"), "")
   assert.equal(dueOf("Q4", "en-GB"), "Q4")
+})
+
+test("the list is the soonest due first, those without a date last, then the highest priority", () => {
+  const goals = [
+    { id: "undated", due: "", priority: 90 },
+    { id: "late", due: "2026-12-31", priority: 10 },
+    { id: "unscored", due: "2026-11-01", priority: null },
+    { id: "soon", due: "2026-11-01T09:00:00.000+02:00", priority: 75 },
+    { id: "sooner", due: "2026-10-01", priority: 0 },
+    { id: "nothing", due: "" },
+  ]
+  assert.deepEqual(
+    byDeadline(goals).map((goal) => goal.id),
+    ["sooner", "soon", "unscored", "late", "undated", "nothing"]
+  )
+  assert.equal(goals[0].id, "undated", "the rows read are left as they came")
+})
+
+test("an active goal past its date is late, one due within a week is close", () => {
+  const today = "2026-10-24"
+  assert.deepEqual(deadlineOf({ due: "2026-10-23", active: true }, today), { late: true })
+  assert.deepEqual(deadlineOf({ due: "2026-01-01" }, today), { late: true }, "a goal the server did not judge is active")
+  assert.deepEqual(deadlineOf({ due: "2026-10-24T23:00:00.000+02:00" }, today), { late: false, days: 0 })
+  assert.deepEqual(deadlineOf({ due: "2026-10-27" }, today), { late: false, days: 3 })
+  assert.deepEqual(deadlineOf({ due: "2026-10-31" }, today), { late: false, days: 7 })
+  assert.equal(deadlineOf({ due: "2026-11-01" }, today), null, "further off, the date is enough")
+  assert.equal(deadlineOf({ due: "2026-10-01", active: false }, today), null, "met or given up, it is not late")
+  assert.equal(deadlineOf({ due: "" }, today), null)
+  assert.equal(deadlineOf({ due: "Q4" }, today), null)
+  // Across the change of hour, a day is still a day.
+  assert.deepEqual(deadlineOf({ due: "2026-10-26" }, "2026-10-24"), { late: false, days: 2 })
+})
+
+test("today is the reader's day, written as a due date is", () => {
+  assert.equal(todayOf(new Date(2026, 0, 5, 23, 30)), "2026-01-05")
 })
 
 test("a ticket is offered the goals still worked toward, its project's first, and the one it serves", () => {
