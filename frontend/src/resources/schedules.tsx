@@ -29,6 +29,7 @@ import {
   useCurrentViewResourceContext,
   useListViewContext,
   useNavigate,
+  type ResourceDefinition,
   type RowInterface,
 } from "react-resource-view"
 
@@ -63,7 +64,7 @@ import { setRunnerZone } from "@/lib/runner-zone"
 import { STATES, filtering, keeps } from "@/lib/schedule-search"
 import type { Schedule, Schedules } from "@/lib/types"
 import type { Launch } from "@/components/console/schedule-lists"
-import { projectsOnce, projectsRead, useProjects } from "@/resources/projects"
+import { PROJECTS, projectHref, projectsOnce, projectsRead, useProjects } from "@/resources/projects"
 import { projectChoices, ticketHref } from "@/resources/tickets"
 
 /* What comes back on its own, declared once for react-resource-view.
@@ -267,6 +268,10 @@ export function DeleteButton({
   labelled?: boolean
 }) {
   const navigate = useNavigate()
+  const { params } = useRoute()
+  // Over a project's page, the page stays — on its schedules tab.
+  const project =
+    params.resourceId === PROJECTS && params.resourceAction === ActionList.read ? String(params.id ?? "") : ""
   const label = t("Delete the schedule")
   const confirm = async () => {
     try {
@@ -282,7 +287,8 @@ export function DeleteButton({
       action: ActionList.delete,
     })
     // On the schedule's own page or in its window there is nothing left to show.
-    void navigate({ to: schedulesHref() })
+    if (!project) void navigate({ to: schedulesHref() })
+    else if (params.childViewResource) void navigate({ to: projectHref(project, "schedules") })
   }
   return (
     <ConfirmDialog
@@ -487,7 +493,9 @@ const editForm: FormInterface = {
  * does not), one icon further. The table's cell and the phone's card draw the
  * same one. */
 export function ScheduleName({ id, name, url }: { id: string; name: string; url: string }) {
-  const open = useOpensOverTheList(schedules, "update", id)
+  // Over a project's page, the window keeps the tab it was opened from in the address.
+  const scoped = useCurrentViewResourceContext().resource["@id"] === PROJECT_SCHEDULES
+  const open = useOpensOverTheList(schedules, "update", id, scoped ? "tab=schedules" : "")
   return (
     <span className="inline-flex min-w-0 items-center gap-1.5">
       {id ? (
@@ -753,7 +761,7 @@ const scheduleWindow = recordWindow({
   },
 })
 
-function SchedulesCount({ drawn, problem }: LastRead) {
+export function SchedulesCount({ drawn, problem }: LastRead) {
   if (problem)
     return (
       <Alert variant="destructive" className="mb-2">
@@ -800,7 +808,7 @@ function SchedulesFoot() {
  * empty. The create button under the sentence is the package's, and it is gone
  * in the first case — `canCreate` answers for a board that has nowhere to write
  * a row to. */
-function NoSchedule() {
+export function NoSchedule() {
   const { drawn } = useSchedules()
   const { filterContext } = useListViewContext()
   if (filtering(filterContext.filter))
@@ -924,9 +932,15 @@ const formFilter: FormInterface = {
   },
 }
 
+/* Under a project's tab the project is given: the bar keeps the words and the state. */
+const projectFormFilter: FormInterface = {
+  ...formFilter,
+  inputs: { q: formFilter.inputs?.q ?? {}, state: formFilter.inputs?.state ?? {} },
+}
+
 /* -- the declaration ------------------------------------------------------ */
 
-export const schedules = createViewResource<ScheduleItem, ScheduleWrite>(SCHEDULES, {
+const options: ResourceDefinition<ScheduleItem, ScheduleWrite> = {
   name: "Schedules",
   path: "/api/schedules",
   icon: CalendarClock,
@@ -1093,7 +1107,39 @@ export const schedules = createViewResource<ScheduleItem, ScheduleWrite>(SCHEDUL
       components: { top: LaunchOnThePage },
     },
   },
+}
+
+export const schedules = createViewResource<ScheduleItem, ScheduleWrite>(SCHEDULES, options)
+
+/* The same schedules under a project's tab, as the tickets and the ideas have
+ * theirs: this declaration, kept to the project's (see `ProjectSchedules`),
+ * with a bar that has no project to choose and an empty line that speaks of
+ * the project. Without the split layout and the `top` of the list, which both
+ * write in the address — the layout, the schedule picked and its tab — and
+ * the address there is the project's, whose own `&tab=` is this one. */
+export const PROJECT_SCHEDULES = "project-schedules"
+
+// Its count and its empty line, with the table: only that tab draws them.
+const ProjectSchedulesTop = later(() => lists().then((module) => module.ProjectSchedulesTop))
+const NoProjectSchedule = later(() => lists().then((module) => module.NoProjectSchedule))
+
+export const projectSchedules = createViewResource<ScheduleItem, ScheduleWrite>(PROJECT_SCHEDULES, {
+  ...options,
+  views: {
+    ...options.views,
+    list: {
+      ...options.views?.list,
+      filters: projectFormFilter,
+      components: { top: ProjectSchedulesTop, bottom: SchedulesFoot, empty: NoProjectSchedule },
+      layouts: options.views?.list?.layouts?.filter((each) => each.id !== SPLIT),
+    },
+  },
 })
+
+/* A schedule changed outside the forms of the list on screen — its switch, its
+ * play button, its trash, the window it is edited in, which is the schedules'
+ * own: said on the project's list too, so that it reads itself again. */
+schedules.onChange.subscribe((change) => projectSchedules.onChange.publish(change))
 
 /** Where the schedules are, in the layout they were last worked in. */
 export const schedulesHref = () =>

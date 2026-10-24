@@ -154,6 +154,10 @@ class Creation(Base):
         if not name:
             raise Refused("name", self._say("project-needs-name"))
         for row in self.all_projects()["projects"]:
+            # A line of `[projects]` the board has no page for is not taken: the
+            # page made under its name is that project's, the line its path.
+            if row["source"] == "config":
+                continue
             if row["name"].strip().casefold() == name.casefold():
                 raise Refused("name", self._say("project-name-taken", name=row["name"]))
 

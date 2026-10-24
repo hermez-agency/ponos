@@ -1,15 +1,21 @@
 import * as React from "react"
+import { SearchX, X } from "lucide-react"
 import {
   Link,
   ListCalendar,
   ListTable,
+  useCurrentViewResourceContext,
+  useListViewContext,
   type ListComponentPropsInterface,
   type RowComponentPropsInterface,
   type RowInterface,
 } from "react-resource-view"
 
+import { EmptyState } from "@/components/console/empty-state"
 import { useOpensOverTheList } from "@/components/console/record-window"
+import { Button } from "@/components/ui/button"
 import { t } from "@/lib/i18n"
+import { filtering } from "@/lib/schedule-search"
 import { ideasHref } from "@/resources/ideas"
 import {
   ActiveSwitch,
@@ -17,8 +23,10 @@ import {
   LaunchButton,
   Moment,
   NextOf,
+  NoSchedule,
   ProjectOf,
   ScheduleName,
+  SchedulesCount,
   ruleSaid,
   scheduleHref,
   schedules,
@@ -29,6 +37,46 @@ import {
 /* Two of the schedules' layouts, read when one is first drawn rather than with
  * the page — the list opens beside its panel, and its first load has a weight
  * it answers for: see `resources/schedules.tsx`. */
+
+/* -- under a project's tab ------------------------------------------------- */
+
+/** The count over a project's tab, of that project's schedules — and nothing written in the address, which is the project's. */
+export function ProjectSchedulesTop() {
+  const { drawn, problem } = useSchedules()
+  const project = String(useCurrentViewResourceContext().filter?.project ?? "")
+  const mine = drawn && { ...drawn, schedules: drawn.schedules.filter((schedule) => schedule.project_id === project) }
+  return <SchedulesCount drawn={mine} problem={problem} />
+}
+
+/* The empty line under a project: the project is the list's and not a search,
+ * so clearing the search keeps it, and an empty list is that project's. A
+ * workspace with nowhere to write a schedule says so, as the page does. */
+export function NoProjectSchedule() {
+  const { drawn } = useSchedules()
+  const { filterContext } = useListViewContext()
+  const project = String(filterContext.filter?.project ?? "")
+  if (filtering({ ...filterContext.filter, project: "" }))
+    return (
+      <EmptyState
+        icon={SearchX}
+        title={t("No schedule matches")}
+        action={
+          <Button variant="outline" size="sm" onClick={() => filterContext.resetFilter(project ? { project } : {})}>
+            <X />
+            {t("Clear the search")}
+          </Button>
+        }
+      >
+        {t("Other words or another state, and they will be back.")}
+      </EmptyState>
+    )
+  if (drawn && !drawn.database) return <NoSchedule />
+  return (
+    <EmptyState robot="sleep" title={t("Nothing repeats for this project yet")}>
+      {t("A schedule made here makes its tickets for this project.")}
+    </EmptyState>
+  )
+}
 
 /* -- the list, at both widths --------------------------------------------- */
 

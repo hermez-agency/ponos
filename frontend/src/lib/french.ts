@@ -752,6 +752,13 @@ export const FRENCH: Record<string, string> = {
     "Cet espace de travail n'a pas de page « {{page}} ».",
   "builds it.": "la construit.",
   "Nothing repeats here yet": "Rien ne se répète encore ici",
+  "Nothing repeats for this project yet": "Rien ne se répète encore pour ce projet",
+  "Other words or another state, and they will be back.": "D'autres mots ou un autre état, et elles reviendront.",
+  "A schedule made here makes its tickets for this project.": "Une récurrence créée ici crée ses tickets pour ce projet.",
+  "See every goal of the project": "Voir tous les objectifs du projet",
+  "This project has no page: create it to attach tickets to it.":
+    "Ce projet n'a pas de page : créez-la pour y rattacher des tickets.",
+  "Create its page": "Créer sa page",
   "A row in the “{{page}}” database is a ticket that comes back.":
     "Une ligne de la base « {{page}} », c'est un ticket qui revient.",
   "none of this runs.": "rien de tout cela ne tourne.",

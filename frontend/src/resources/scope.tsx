@@ -14,7 +14,7 @@ import { goals, goalsHref } from "./goals"
 import { ideas, ideasHref, scopedIdeas } from "./ideas"
 import { pairResources } from "./pairs"
 import { projects, projectsHref } from "./projects"
-import { schedules, schedulesHref } from "./schedules"
+import { projectSchedules, schedules, schedulesHref } from "./schedules"
 import { sessions, sessionsHref } from "./sessions"
 import { settings, settingsHref } from "./settings"
 import { TICKETS, boardHref, projectTickets, tickets } from "./tickets"
@@ -98,6 +98,7 @@ export const consoleScope: ScopeInterface = {
     sessions,
     settings,
     projectTickets,
+    projectSchedules,
     scopedIdeas,
     ...Object.values(pairResources),
   ],

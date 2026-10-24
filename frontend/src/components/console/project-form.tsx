@@ -79,12 +79,15 @@ const useProjectWindow = () => React.use(ProjectWindowContext)
 /** Whether the project is on its way: the button waits for it. */
 const BusyContext = React.createContext(false)
 
-/** The project of that name, whatever its case — the one a new one may not be called. */
+/** The project of that name, whatever its case — the one a new one may not be called.
+ * A line of the configuration with no page is not one: its page is what is being made. */
 function useTaken(name: string) {
   const projects = useProjects()
   const wanted = name.trim().replace(/\s+/g, " ").toLocaleLowerCase()
   if (!wanted) return undefined
-  return projects?.projects.find((project) => project.name.trim().toLocaleLowerCase() === wanted)
+  return projects?.projects.find(
+    (project) => project.source !== "config" && project.name.trim().toLocaleLowerCase() === wanted
+  )
 }
 
 /* -- the form -------------------------------------------------------------- */
