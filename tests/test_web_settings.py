@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
+import threading
+from pathlib import Path
 
 from support import _saved, case
 
@@ -67,9 +70,87 @@ def a_save_is_all_of_it_or_none_of_it():
     else:
         raise AssertionError("a merge method gh would refuse must not be saved")
     assert path.read_text() == before, "the good half must not have landed either"
+    # The lock stays: it is the flock on it that counts, see `config._locked`.
     assert not [
-        item for item in path.parent.iterdir() if item.name not in ("config.toml", "secrets.env")
+        item
+        for item in path.parent.iterdir()
+        if item.name not in ("config.toml", "secrets.env", ".config.toml.lock")
     ]
+
+
+@case
+def two_saves_at_once_both_land():
+    """Two tabs, or a tab and the CLI: the second used to replace the first's work.
+
+    Each read the file, then put its copy in its place — and the copy of the
+    second was made from the file as it was before the first. The barrier holds
+    both between the read and the replace, where the race was; under the lock
+    the second never gets there before the first is done, and the barrier gives
+    up waiting for it.
+    """
+    path, _ = _saved()
+    barrier = threading.Barrier(2, timeout=1)
+    load = C.load
+
+    def held(loaded, *args, **kwargs):
+        if loaded == path:
+            try:
+                barrier.wait()
+            except threading.BrokenBarrierError:
+                pass
+        return load(loaded, *args, **kwargs)
+
+    failures: list[Exception] = []
+
+    def save(key, value):
+        try:
+            C.edit(path, [("runner", key, value)])
+        except Exception as error:  # noqa: BLE001 — reported by the assertion below
+            failures.append(error)
+
+    C.load = held
+    try:
+        threads = [
+            threading.Thread(target=save, args=("interval_seconds", 900)),
+            threading.Thread(target=save, args=("max_concurrent", 3)),
+        ]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+    finally:
+        C.load = load
+    assert not failures, failures
+    config = C.load(path)
+    assert config.runner.interval_seconds == 900, path.read_text()
+    assert config.runner.max_concurrent == 3, path.read_text()
+
+
+@case
+def a_value_written_by_the_cli_goes_through_the_same_save():
+    """`ponos init` and `ponos notify pair` wrote the real file in place.
+
+    Killed between the truncation and the write, that left a configuration that
+    no longer parsed. Through `edit`, the file is replaced whole, and the one it
+    displaced is kept beside it.
+    """
+    path, _ = _saved()
+    before = path.read_text()
+    replaced = os.replace
+    names: list[str] = []
+
+    def watched(source, target):
+        names.append(Path(target).name)
+        return replaced(source, target)
+
+    os.replace = watched
+    try:
+        assert C.write_notion_value(path, "workspace", "abc123")
+    finally:
+        os.replace = replaced
+    assert "config.toml" in names, "the file is replaced, not written in place"
+    assert C.load(path).notion.workspace == "abc123"
+    assert path.with_name("config.toml.bak").read_text() == before
 
 
 @case
