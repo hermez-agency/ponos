@@ -260,6 +260,25 @@ def a_browser_is_given_the_whole_board_again_only_when_it_missed_a_version():
 
 
 @case
+def the_board_just_read_is_handed_out_again_without_asking_notion():
+    """The statistics take the watching thread's board, and read one only when it is old."""
+    reads = []
+
+    def board():
+        reads.append(1)
+        return _tickets(("a", "ready", "Alpha"))
+
+    watch = web_live.Watch(web_live.Hub(), board)
+    first = watch.recent(30)
+    assert watch.recent(30) is first and len(reads) == 1, "two calls, one read"
+    watch.refresh()
+    assert len(reads) == 2
+    assert watch.recent(30) is not first and len(reads) == 2, "the refresh's board, not a third"
+    watch.recent(0)
+    assert len(reads) == 3, "an old board is read again"
+
+
+@case
 def a_write_from_the_console_that_changed_nothing_sends_the_board_whole():
     """The page drew the card ahead; a board that did not move puts it back."""
     board = _tickets(("a", "ready", "Alpha"))

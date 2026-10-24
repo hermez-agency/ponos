@@ -664,6 +664,29 @@ def history(limit: int = 20) -> list[dict[str, Any]]:
     return entries
 
 
+def outcomes() -> list[dict[str, Any]]:
+    """Every line of history, oldest first, cut down to what the statistics count.
+
+    Read off the columns rather than decoded line by line: the statistics
+    want the whole history at every call, and `json.loads` on each of
+    thousands of lines is most of what reading it costs. The two keys with no
+    column of their own are asked of the line only where they can matter — a
+    merge on a line that ended done, a reason on a stop that has no code — and
+    only of a line that parses: a broken one still counts by its columns.
+    """
+    with db.transaction(immediate=False) as connection:
+        rows = connection.execute(
+            "SELECT ticket, at, status, kind, cost_usd, seconds, code,"
+            " CASE WHEN status = 'done' AND json_valid(entry)"
+            " THEN json_extract(entry, '$.merged') END,"
+            " CASE WHEN code = '' AND status IN ('blocked', 'failed') AND json_valid(entry)"
+            " THEN json_extract(entry, '$.reason') END"
+            " FROM history ORDER BY id"
+        ).fetchall()
+    keys = ("id", "at", "status", "kind", "cost_usd", "seconds", "code", "merged", "reason")
+    return [dict(zip(keys, row, strict=True)) for row in rows]
+
+
 def prune_logs(days: int) -> int:
     """Drop session logs older than `days`. Zero keeps everything.
 

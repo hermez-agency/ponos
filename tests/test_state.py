@@ -165,6 +165,42 @@ def the_totals_count_every_line_of_the_history(state_home):
 
 
 @case
+def the_statistics_read_the_history_off_its_columns(state_home):
+    """What `outcomes` gives the statistics is what they read of the whole lines."""
+    entries = [
+        {"id": "a-1", "status": "done", "merged": "https://x/pull/1", "cost_usd": 1.5},
+        {"id": "b-2", "status": "blocked", "reason": "credit balance is too low", "seconds": 30},
+        {"id": "c-3", "status": "failed", "code": "unknown", "reason": "kept off its column"},
+        {"id": "d-4", "status": "done", "kind": "document", "at": "2026-10-01T10:00:00+00:00"},
+        {"id": "e-5", "status": "review"},
+    ]
+    for entry in entries:
+        state.record(entry)
+    with db.transaction() as connection:
+        connection.execute(
+            "INSERT INTO history (at, ticket, status, entry) VALUES ('', 'f-6', 'done', 'broken')"
+        )
+    keys = ("id", "at", "status", "kind", "cost_usd", "seconds", "code", "merged", "reason")
+    whole = state.history(1_000_000)
+    read = state.outcomes()
+    assert read[0]["merged"] == "https://x/pull/1" and read[1]["reason"]
+    for line, entry in zip(read, whole, strict=False):
+        assert set(line) == set(keys), line
+        for key in keys:
+            if key == "reason" and entry.get("code"):
+                continue  # a stop with its cause has no need of its sentence
+            assert (line[key] or "") == (entry.get(key) or ""), (key, line, entry)
+    assert read[2]["reason"] is None and read[-1] == {
+        **dict.fromkeys(keys),
+        "id": "f-6",
+        "at": "",
+        "status": "done",
+        "kind": "",
+        "code": "",
+    }, "a broken line counts by its columns"
+
+
+@case
 def a_timer_with_no_next_run_is_stalled_rather_than_enabled():
     """What the incident's timer answered, and what a healthy one answers."""
     starved = systemd.describe(

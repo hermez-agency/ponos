@@ -39,6 +39,7 @@ from ponos import (
     notion,
     redaction,
     schedules,
+    state,
     store,
     vault,
     voice,
@@ -322,6 +323,28 @@ def a_period_is_thirty_days_unless_it_says_otherwise():
         except ValueError:
             continue
         raise AssertionError(f"{start}..{end} should have been refused")
+
+
+@case
+def changing_the_period_does_not_read_the_board_again(state_home):
+    """Two periods asked one after the other: one board read, the watcher's."""
+    from ponos.web import live as web_live
+
+    api = _bare_api(_TalkClient([]))
+    reads = []
+
+    def board() -> dict:
+        reads.append(1)
+        return {"tickets": [_card("a", "done", "2026-09-01T09:00:00+00:00")]}
+
+    api.watch = web_live.Watch(api.hub, board)
+    state.record(
+        {"at": "2026-09-03T10:00:00+00:00", "id": "a", "status": "done", "kind": "delivery"}
+    )
+    month = api.statistics("2026-09-01", "2026-09-30")
+    week = api.statistics("2026-09-01", "2026-09-07")
+    assert len(reads) == 1, reads
+    assert month["totals"]["closed"] == 1 and week["totals"]["created"] == 1
 
 
 @case
