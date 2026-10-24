@@ -422,7 +422,8 @@ back, and a console that let you edit them would let you make an occurrence happ
 A row nobody can read says what is wrong with it instead of a date it does not have, a
 row turned off says *paused* rather than the date the last pass left on it, and
 `runner.schedule = false` is said at the foot of the page, because a browser is the one
-place that switch would otherwise be invisible. The page asks the board when you open it
+place that switch would otherwise be invisible — with *Turn it on in the settings*, which opens
+the settings on that switch, focused. The page asks the board when you open it
 rather than living on the event stream — a schedule moves four times a day at the very
 most, and a tab left open on the board has no business polling that database.
 
@@ -680,7 +681,7 @@ every other list rests). Each card puts its score and its title first, then wher
 or a new project),
 a few lines of its description, and who wrote it and when, small. It has one gesture in plain
 sight — *Turn into a ticket* (*Create the project* for the idea of one), or *Open the ticket* once
-it is one — and the others a click away: the pencil rewords it, and the *…* menu keeps it,
+it is one, and the toast that says it was made offers it too — and the others a click away: the pencil rewords it, and the *…* menu keeps it,
 throws it away or makes it new again. Its title opens it whole, beside the list, with what it
 should touch, *Done when* and *Out of scope*. *New idea* opens a quick-entry window, as tall
 as its few lines (a sheet up from the bottom on a phone): whom it is for in a menu at its top

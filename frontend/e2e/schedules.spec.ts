@@ -160,3 +160,15 @@ test.describe("on a desktop", () => {
     await expect.poll(() => sent).toEqual([{ active: true }])
   })
 })
+
+test("with the calendar switched off, the page says so and leads to the switch", async ({ page }) => {
+  await page.route(/\/api\/schedules$/, async (route) => {
+    const response = await route.fetch()
+    await route.fulfill({ response, json: { ...(await response.json()), enabled: false } })
+  })
+  await open(page)
+  await expect(page.getByText("rien de tout cela ne tourne.")).toBeVisible()
+  await page.getByRole("link", { name: "Activer dans les réglages" }).click()
+  await expect.poll(() => new URL(page.url()).searchParams.get("view")).toBe("console/settings/read/config/execution")
+  await expect(page.locator('[data-field="runner-schedule"] button[role=switch]')).toBeFocused()
+})
