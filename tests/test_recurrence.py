@@ -309,6 +309,29 @@ def the_occurrence_is_taken_before_it_is_made():
 
 
 @case
+def an_occurrence_that_could_not_be_taken_makes_no_ticket():
+    """`Next` left in the past by a refused write would fire on every pass.
+
+    Notion answering 500 to the write on the schedule's row, the ticket would
+    still be made, and the next pass would read the same `Next` and make it
+    again: two passes, two tickets for one occurrence.
+    """
+    stale = (datetime.now().astimezone() - timedelta(hours=2)).isoformat()
+    runner = _recurring([_schedule_page("s-1", next=stale)], marks="500 internal server error")
+    assert runner.recur() == [] and runner.recur() == []
+    assert runner.client.created == [], "not taken, not made"
+
+
+@case
+def a_next_column_nobody_can_write_takes_no_occurrence():
+    """A formula is read, never written: Notion would drop the value silently."""
+    stale = (datetime.now().astimezone() - timedelta(hours=2)).isoformat()
+    runner = _recurring([_schedule_page("s-1", next=stale)], columns={"Next": "formula"})
+    assert runner.recur() == [] and runner.recur() == []
+    assert runner.client.created == [] and runner.client.written == []
+
+
+@case
 def a_workspace_with_nothing_that_repeats_is_a_workspace_that_runs():
     """The whole feature is optional: no row, no warning, no difference."""
     client = _FakeClient(

@@ -84,7 +84,9 @@ class Recurrence(Base):
           and `Last` are written first, the ticket second. A crash in between
           loses one occurrence; the other order would create two, which costs a
           session and dirties the board. A second runner on another machine
-          reads a `Next` that has already moved, and does nothing.
+          reads a `Next` that has already moved, and does nothing. And an
+          occurrence that could not be taken — the write refused, or `Next` a
+          formula Notion will not let anyone write — is not acted on at all.
         - **The timezone is this machine's**, the same reading `scheduled_for`
           gives a date on a ticket.
         """
@@ -119,14 +121,17 @@ class Recurrence(Base):
                 self.say(f"  (dry run) {schedule.name} — due: would create a ticket")
                 born.append({"ticket": schedule.name, "status": "dry-run"})
                 continue
-            # Taken before it is done: see the third rule above.
-            self._mark(
+            # Taken before it is done: see the third rule above. Not taken, not
+            # done — a `Next` left in the past would make the same ticket again
+            # on every pass.
+            if not self._mark(
                 schedule,
                 {
                     self.config.notion.prop("next_run"): upcoming,
                     self.config.notion.prop("last_run"): now,
                 },
-            )
+            ):
+                continue
             if self._busy(schedule):
                 self.say(f"  · {schedule.name} — its last ticket is still open, no second one made")
                 state.occurred(
@@ -272,19 +277,35 @@ class Recurrence(Base):
             "schedule": schedule.page.id.replace("-", ""),
         }
 
-    def _mark(self, schedule: schedules_module.Schedule, values: dict[str, object]) -> None:
+    def _mark(self, schedule: schedules_module.Schedule, values: dict[str, object]) -> bool:
         """Write back onto a schedule. Never a reason to fail a pass.
+
+        But a reason not to go on: whether the write landed is what is answered,
+        and `recur` makes no ticket for an occurrence it could not take. A
+        column Notion computes itself — a formula, a rollup — is not refused,
+        its value is dropped without a word; so it is caught here, before the
+        write, rather than believed written.
 
         Dates go over as ISO 8601 rather than as `str(datetime)`, which spells
         the separator as a space and is not what Notion accepts.
         """
         if self.dry_run or not self.workspace.schedules:
-            return
+            return True
         written = {
             name: value.isoformat() if isinstance(value, datetime) else value
             for name, value in values.items()
         }
         try:
+            schema = self.client.schema(self.workspace.schedules)
+            computed = [name for name in written if schema.get(name) in store.READ_ONLY]
+            if computed:
+                self.say(
+                    f"  ! {schedule.name} — {', '.join(computed)} cannot be written: "
+                    "Notion computes it"
+                )
+                return False
             self.client.update(self.workspace.schedules, schedule.page.id, written)
         except store.StoreError as error:
             self.say(f"  ! {schedule.name} — Notion refused the write: {voice_module.line(error)}")
+            return False
+        return True

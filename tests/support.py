@@ -461,16 +461,22 @@ def _schedule_page(page_id: str, **values) -> notion.Page:
 class _ScheduleClient:
     """A schedules database, a tickets database, and nothing that reaches out."""
 
-    def __init__(self, pages, tickets=None, refuses=""):
+    def __init__(self, pages, tickets=None, refuses="", marks="", columns=None):
         self._pages = pages
         self._tickets = tickets or {}
         self._refuses = refuses
+        # What a write on a schedule row is answered with, and what the
+        # schedules database says its columns are.
+        self._marks = marks
+        self._columns = columns or {}
         self.written: list[tuple[str, dict]] = []
         self.created: list[tuple[str, dict]] = []
         self.appended: list[tuple[str, str]] = []
         self.trashed: list[str] = []
 
     def schema(self, database_id):
+        if database_id == "db-schedules":
+            return dict(self._columns)
         return {"Status": "status"}
 
     def trash(self, page_id):
@@ -487,6 +493,8 @@ class _ScheduleClient:
         raise notion.NotionError(f"{page_id}: object not found")
 
     def update(self, database_id, page_id, values):
+        if self._marks and database_id == "db-schedules":
+            raise notion.NotionError(self._marks)
         self.written.append((page_id, dict(values)))
 
     def create_row(self, database_id, title, values=None):
@@ -503,11 +511,13 @@ class _ScheduleClient:
         return 1
 
 
-def _recurring(pages, *, tickets=None, refuses="", schedule=True, dry_run=False) -> Runner:
+def _recurring(
+    pages, *, tickets=None, refuses="", marks="", columns=None, schedule=True, dry_run=False
+) -> Runner:
     """A Runner with nothing underneath it but a schedules database."""
     runner = Runner.__new__(Runner)
     runner._journals = {}
-    runner.client = _ScheduleClient(pages, tickets, refuses)
+    runner.client = _ScheduleClient(pages, tickets, refuses, marks, columns)
     runner.config = C.Config(
         notion=C.Notion(properties=dict(C._DEFAULT_PROPERTIES), status={}),
         runner=C.Runner(schedule=schedule),
