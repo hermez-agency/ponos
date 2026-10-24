@@ -2834,4 +2834,7 @@ export const FRENCH: Record<string, string> = {
     "« {{name}} » ne correspond à rien — remplissez-la, ou retirez la ligne.",
   "“{{name}}” is named twice": "« {{name}} » apparaît deux fois.",
   "no such setting: {{name}}": "Ce réglage n'existe pas : {{name}}",
+  "Page not found": "Page introuvable",
+  "This console has no page at {{path}}. Its pages are these:":
+    "Cette console n'a pas de page à l'adresse {{path}}. Ses pages sont celles-ci :",
 }

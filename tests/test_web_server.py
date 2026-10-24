@@ -385,6 +385,34 @@ def the_openapi_schema_is_behind_the_same_door_as_the_api():
 
 
 @case
+def an_address_the_console_does_not_have_is_a_page_for_a_browser():
+    """`/objectifs` typed in the bar: the console's page, saying so — not raw JSON.
+
+    A navigation — what asks for HTML — gets the page, marked `data-missing`
+    and answered 404, and the page draws a "page not found" with the views it
+    does have. The obvious names of those views lead to them. The API keeps
+    its JSON 404, whatever the client says it accepts.
+    """
+    path, _ = _saved()
+    key = {"Authorization": "Bearer tok"}
+    browser = {**key, "Accept": "text/html,application/xhtml+xml,*/*;q=0.8"}
+    with _console(_Fresh(path)) as console:
+        status, headers, said = _talk_to(console, "GET", "/nowhere/at-all", **browser)
+        assert status == 404 and headers["Content-Type"].startswith("text/html"), (status, said)
+        assert "data-missing" in said["_raw"] and 'id="root"' in said["_raw"], said
+        status, headers, _ = _talk_to(console, "GET", "/objectifs", **browser)
+        assert status == 303 and headers["Location"] == "/?view=console/goals/list", status
+        status, headers, _ = _talk_to(console, "GET", "/reglages/", **browser)
+        assert (status, headers["Location"]) == (303, "/?view=console/settings/read/config")
+        status, headers, _ = _talk_to(console, "GET", "/projets", **browser)
+        assert (status, headers["Location"]) == (303, "/?view=console/projects/list")
+        status, _, said = _talk_to(console, "GET", "/api/inconnu", **browser)
+        assert (status, said) == (404, {"error": "no such route: /api/inconnu"})
+        status, _, said = _talk_to(console, "GET", "/nowhere", **key)
+        assert (status, said) == (404, {"error": "no such route: /nowhere"}), "not a navigation"
+
+
+@case
 def behind_https_the_consoles_cookies_are_secure():
     """The proxy says the browser came in over HTTPS: the cookie never goes back in clear.
 
