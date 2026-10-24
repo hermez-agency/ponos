@@ -172,6 +172,89 @@ def health_adds_a_missing_status_to_a_select_and_only_says_how_on_a_real_status(
     assert statuses.fix is None and statuses.steps, "Notion cannot widen a status from outside"
 
 
+class _SubtypeBoard(_HealthBoard):
+    """A board whose Sub-type column carries tickets, for the check and its fix."""
+
+    def __init__(self, options: tuple[str, ...], tickets: dict[str, str]) -> None:
+        settings, board = _health_board()
+        super().__init__(board.properties)
+        self.settings = settings
+        self.column = settings.prop("subtype")
+        self.properties[self.column] = {
+            "type": "select",
+            "select": {"options": [{"name": name, "color": "blue"} for name in options]},
+        }
+        self.tickets = dict(tickets)
+
+    def resolve_database(self, identifier: str) -> str:
+        return "db"
+
+    def query(self, database_id: str, filter_: dict | None = None) -> list[store.Page]:
+        wanted = ((filter_ or {}).get("select") or {}).get("equals")
+        return [
+            store.Page(id=page, url="", title=page)
+            for page, value in self.tickets.items()
+            if wanted is None or value == wanted
+        ]
+
+    def update(self, database_id: str, page_id: str, values: dict) -> None:
+        self.tickets[page_id] = values[self.column]
+
+    def add_properties(self, database_id: str, properties: dict) -> None:
+        super().add_properties(database_id, properties)
+        for name, shape in properties.items():
+            self.properties[name] = {"type": next(iter(shape)), **shape}
+
+
+@case
+def health_says_the_sub_type_options_nobody_writes_and_rewrites_their_tickets_once_confirmed():
+    from ponos import health
+
+    board = _SubtypeBoard(
+        ("Bug", "Amélioration", "Improvement", "Security", "Later"),
+        {"a": "Improvement", "b": "Improvement", "c": "Security", "d": "Bug", "e": "Later"},
+    )
+    config = _config("")
+    config.notion = board.settings
+    space = workspace.Workspace(tickets="db", projects="projects", agents="agents")
+    (check,) = health._subtypes(config, board, space)
+    assert check.state == health.WARN, check
+    assert check.params["count"] == "4", check.params
+    assert "“Improvement” (2)" in check.params["options"], check.params
+    assert check.params["unknown"] == "“Later”" and check.steps, "no sub-type to rewrite it to"
+    assert check.fix and check.fix["action"] == "notion_subtypes"
+    assert check.fix["missing"] == "“Improvement”, “Security”", check.fix
+
+    original = workspace.resolve
+    workspace.resolve = lambda backend, notion_settings: space
+    try:
+        try:
+            health.fix(config, board, "notion_subtypes")
+            raise AssertionError("a fix is never made unasked")
+        except PermissionError:
+            pass
+        assert board.tickets["a"] == "Improvement", "nothing was written before the confirmation"
+        done = health.fix(config, board, "notion_subtypes", confirmed=True)
+    finally:
+        workspace.resolve = original
+    assert board.tickets == {
+        "a": "Amélioration",
+        "b": "Amélioration",
+        "c": "Sécurité",
+        "d": "Bug",
+        "e": "Later",
+    }, board.tickets
+    assert board.options("db", board.column) == ["Bug", "Amélioration", "Later"], board.properties
+    assert done.startswith("3 ticket(s) rewritten"), done
+
+    (check,) = health._subtypes(config, board, space)
+    assert check.fix is None, "only “Later” is left, and it is nobody's to rewrite"
+    board.tickets["e"] = "Bug"
+    board.properties[board.column]["select"]["options"].pop()
+    (check,) = health._subtypes(config, board, space)
+    assert check.state == health.OK, check
+
+
 @case
 def health_names_a_property_once_and_says_what_each_costs_in_french_too():
     from ponos import health
