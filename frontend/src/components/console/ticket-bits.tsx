@@ -13,6 +13,7 @@ import {
   MoreHorizontal,
   ServerCrash,
   SquareTerminal,
+  Target,
 } from "lucide-react"
 
 import { ProjectThumb } from "@/components/console/project-picture"
@@ -496,7 +497,8 @@ export function TicketSync({ ticket }: { ticket: Ticket }) {
 /** What is said *about* a ticket rather than in it: how urgent, on which model, when. */
 export function TicketTags({ ticket, lead }: { ticket: Ticket; lead?: React.ReactNode }) {
   const scored = typeof ticket.priority === "number"
-  if (!lead && !scored && !ticket.model && !ticket.scheduled && !subtypeOf(ticket.subtype)) return null
+  if (!lead && !scored && !ticket.model && !ticket.scheduled && !subtypeOf(ticket.subtype) && !ticket.goal)
+    return null
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {lead}
@@ -510,6 +512,15 @@ export function TicketTags({ ticket, lead }: { ticket: Ticket; lead?: React.Reac
         </Chip>
       ) : null}
       {ticket.scheduled ? <Chip>⏱ {when(ticket.scheduled)}</Chip> : null}
+      {/* The goal it serves, last: a fact about where the work leads, not about the work. */}
+      {ticket.goal ? (
+        <Chip className="min-w-0 max-w-full">
+          <Target className="size-3 shrink-0" />
+          <span className="truncate" data-slot="ticket-card-goal" title={ticket.goal}>
+            {ticket.goal}
+          </span>
+        </Chip>
+      ) : null}
     </div>
   )
 }

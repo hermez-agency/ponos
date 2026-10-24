@@ -32,6 +32,8 @@ export interface TicketQuery {
   model: string[]
   /** The project, by name: that is what a ticket carries. */
   project: string[]
+  /** The goal, by its id: two goals may share a name, and a link names one. */
+  goal: string[]
   /** Why a stopped ticket stopped, by its code in `blocks.py`: `merge.refused`… */
   block: string[]
   /** A code ticket's sub-type, by its key in `subtypes.py`: `bug`, `docs`… */
@@ -49,6 +51,7 @@ export const EMPTY: TicketQuery = {
   priority: [],
   model: [],
   project: [],
+  goal: [],
   block: [],
   subtype: [],
   only: [],
@@ -62,7 +65,7 @@ export const PERIODS: Exclude<Period, "">[] = ["today", "7d", "30d"]
 export const COSTS = [1, 5, 20]
 
 /** The lists a query filters by, in the order the bar draws them. */
-export const FACETS = ["type", "subtype", "status", "priority", "model", "project", "block"] as const
+export const FACETS = ["type", "subtype", "status", "priority", "model", "project", "goal", "block"] as const
 export type Facet = (typeof FACETS)[number]
 
 /** The little the search reads of a ticket: `Ticket` has it, and so does a test. */
@@ -88,6 +91,8 @@ export interface Searchable {
   block?: { code: string } | null
   /** On a code ticket, its sub-type's key. */
   subtype?: string
+  /** The goal it serves, by its id: "" for none. */
+  goal_id?: string
 }
 
 /** One of the board's choices, the way `Board.choices` says it. */
@@ -209,6 +214,7 @@ export function matchesQuery(ticket: Searchable, query: TicketQuery, context: Co
   if (query.priority.length && !query.priority.includes(scoreOf(ticket))) return false
   if (!among(ticket.model, query.model, choices.model)) return false
   if (query.project.length && !query.project.includes(ticket.project)) return false
+  if (query.goal.length && !query.goal.includes(ticket.goal_id ?? "")) return false
   if (query.block.length && !query.block.includes(ticket.block?.code ?? "")) return false
   if (query.subtype.length && !query.subtype.includes(ticket.subtype ?? "")) return false
   if (!query.only.every((flag) => flagged(ticket, flag))) return false
@@ -278,6 +284,7 @@ export function readQuery(search: string): TicketQuery {
     priority: [],
     model: [],
     project: [],
+    goal: [],
     block: [],
     subtype: [],
     only: [],

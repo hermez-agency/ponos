@@ -411,6 +411,13 @@ export function TicketSearch({
     project: projects
       ? offered(tickets, (ticket) => ticket.project).sort((a, b) => a.label.localeCompare(b.label))
       : [],
+    // The goal by its id, said by its name: the one on the card.
+    goal: offered(
+      tickets,
+      (ticket) => ticket.goal_id ?? "",
+      [],
+      (value, ticket) => ticket?.goal || value
+    ).sort((a, b) => a.label.localeCompare(b.label)),
     // Why the stopped ones stopped, the commonest cause first.
     block: offered(
       tickets,
@@ -426,6 +433,7 @@ export function TicketSearch({
     priority: t("Priority"),
     model: t("Model"),
     project: t("Project"),
+    goal: t("Goal"),
     block: t("Cause"),
   }
   const on = active(query)

@@ -176,3 +176,15 @@ test("the words are marked where they are, accents and all", () => {
   assert.deepEqual(marks("rien", ["absent"]), [])
   assert.deepEqual(marks("", ["x"]), [])
 })
+
+test("a goal keeps the tickets that serve it, with the project and the words, and the address names it by its id", () => {
+  const goal = "29c451680af4810a8e02f65c6bd45a85"
+  const serving = ticket({ goal_id: goal })
+  assert.equal(keeps(serving, { goal: [goal] }), true)
+  assert.equal(keeps(ticket(), { goal: [goal] }), false, "no goal is not every goal")
+  assert.equal(keeps(serving, { goal: [goal], project: ["Ponos"], text: "moteurs" }), true)
+  assert.equal(keeps(serving, { goal: [goal], project: ["Website"] }), false)
+  assert.equal(writeQuery("", query({ goal: [goal] })), `?goal=${goal}`)
+  assert.deepEqual(readQuery(`?goal=${goal}&project=Ponos`), query({ goal: [goal], project: ["Ponos"] }))
+  assert.equal(active(query({ goal: [goal] })), 1)
+})
