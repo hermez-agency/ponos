@@ -201,7 +201,7 @@ cd frontend && npm run dev:demo    # the page, hot reloaded, proxying /api to it
 `XDG_STATE_HOME` and `HOME`, with a stand-in `claude`, `gh` and `systemctl` first in the
 `PATH` — no Notion, no network, nothing of yours read or written, and the directory removed
 when you press Ctrl-C. The board is drawn to be looked at: eight projects, sixty-odd tickets in
-every column, six weeks of sessions and costs, a stop of every family, recurrences, ideas, a
+every column, six weeks of sessions and costs, a stop of every family, recurrences, goals, ideas, a
 bell and conversations. It is deterministic (one seed, dates counted back from the start),
 and it shares only its harness (`scripts/workbench.py`) with `e2e/console.py`, whose data stay
 the tests' own.
