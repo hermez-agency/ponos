@@ -94,7 +94,7 @@ kept, and that is how an update reaches a browser that cached the last build.
 
 That is the whole arrangement, and it is deliberate. `install.sh` clones this repository
 onto a machine that has `python3` and `git`, and `ponos serve` is
-[FastAPI](https://fastapi.tiangolo.com), served by [uvicorn](https://www.uvicorn.org), in
+[FastAPI](https://fastapi.tiangolo.com), served by [uvicorn](https://uvicorn.dev), in
 the version's own `.venv`. **Nothing about the console asks the machine that runs it for Node.**
 Node is a thing you need to *change* the console, not to use it.
 
@@ -578,7 +578,11 @@ nobody receives. The workflow only ever reads the repository (`permissions: cont
 read`). A third job runs `uv sync --locked`, ruff,
 checks that `requirements.txt` is the export of `uv.lock`, and runs both suites under
 pytest with their coverage, which fails under 80 %. `.github/workflows/release.yml` is separate: it re-runs both suites once more, at
-the tagged commit, when a version is published.
+the tagged commit, when a version is published. `.github/workflows/links.yml`, on
+Mondays and by hand, asks the network whether every external link of the README, this
+file, the guide and the site still answers (`python3 scripts/check-links.py` does the same
+locally); it gates no pull request, since a site down for an hour is no reason to refuse a
+commit.
 
 ---
 

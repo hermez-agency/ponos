@@ -1,0 +1,29 @@
+# Les liens externes du README, de CONTRIBUTING.md, du guide et du site, une
+# fois par semaine : un hôte qui disparaît (www.uvicorn.org, parti pour
+# uvicorn.dev) ne se voit qu'en le demandant au réseau, et les deux suites n'y
+# touchent jamais. Ce n'est pas un check de pull request : un site tombé une
+# heure ne doit refuser aucun commit. Un lien mort met ce job en rouge, dans
+# l'onglet Actions ; `python3 scripts/check-links.py` dit la même chose en local.
+
+name: links
+
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  links:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Les liens externes
+        run: python3 scripts/check-links.py
