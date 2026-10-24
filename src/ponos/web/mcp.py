@@ -41,7 +41,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-from .. import __version__, db, ideas, journal, log, state, store, systemd
+from .. import __version__, db, ideas, ids, journal, log, state, store, systemd
 from .. import config as config_module
 from .. import kinds as kinds_module
 from . import live
@@ -665,10 +665,6 @@ def calls(limit: int = 30) -> list[dict]:
 # -- reading ------------------------------------------------------------------
 
 
-def _bare(reference: str) -> str:
-    return reference.replace("-", "").strip().lower()
-
-
 def _projects(api: Api) -> list[dict]:
     return sorted(api.projects().values(), key=lambda project: project["name"].lower())
 
@@ -677,7 +673,7 @@ def _project(api: Api, reference: str) -> dict:
     """The project a name or an id designates — or a refusal that lists the known ones."""
     wanted = reference.strip()
     for project in _projects(api):
-        if _bare(wanted) == project["id"] or wanted.lower() == project["name"].lower():
+        if ids.bare(wanted).lower() == project["id"] or wanted.lower() == project["name"].lower():
             return project
     known = ", ".join(project["name"] for project in _projects(api)) or "aucun"
     raise ToolError(f"Aucun projet « {wanted} ». Projets connus : {known}.")
@@ -717,7 +713,7 @@ def _goal(api: Api, reference: str) -> dict:
         raise ToolError("Cet espace de travail n'a pas de base d'objectifs.")
     wanted = reference.strip()
     for goal in said["goals"]:
-        if _bare(wanted) == goal["id"] or wanted.lower() == goal["name"].lower():
+        if ids.bare(wanted).lower() == goal["id"] or wanted.lower() == goal["name"].lower():
             return goal
     known = ", ".join(goal["name"] for goal in said["goals"]) or "aucun"
     raise ToolError(f"Aucun objectif « {wanted} ». Objectifs connus : {known}.")
@@ -725,7 +721,7 @@ def _goal(api: Api, reference: str) -> dict:
 
 def _card(api: Api, reference: str) -> dict:
     """The board's card for a task, found by its long or its short id."""
-    wanted = re.sub(r"[^0-9a-f]", "", _bare(reference))
+    wanted = re.sub(r"[^0-9a-f]", "", ids.bare(reference).lower())
     if not wanted:
         raise ToolError("Donner l'identifiant d'une tâche, tel que list_tasks le renvoie.")
     tickets = api.board()["tickets"]

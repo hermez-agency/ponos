@@ -49,7 +49,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from .. import disk, store, sync
+from .. import disk, ids, store, sync, timestamps
 
 # How far behind the last read an incremental read starts. A minute would do
 # for the rounding alone; the second one is for a clock that is not Notion's.
@@ -69,10 +69,6 @@ BACKOFF = (2, 5, 15, 30, 60, 120, 300)
 
 # A refusal no retry will change: the request itself is wrong.
 _FINAL = re.compile(r": (400|401|403|404) ")
-
-
-def _key(identifier: str) -> str:
-    return str(identifier or "").replace("-", "")
 
 
 def _stamp(moment: float) -> str:
@@ -114,13 +110,13 @@ class Reader:
 
     def get(self, page_id: str) -> store.Page | None:
         with self._lock:
-            return self._pages.get(_key(page_id))
+            return self._pages.get(ids.bare(page_id))
 
     def hold(self, page: store.Page) -> None:
         """A page read back after a write: the truth, for the next `HOLD` seconds."""
         with self._lock:
-            self._pages[_key(page.id)] = page
-            self._held[_key(page.id)] = self._clock() + HOLD
+            self._pages[ids.bare(page.id)] = page
+            self._held[ids.bare(page.id)] = self._clock() + HOLD
 
     def forget(self, page_id: str) -> None:
         """A page trashed from here: no longer held, and not brought back by a window.
@@ -129,8 +125,8 @@ class Reader:
         makes it disappear before the next full read.
         """
         with self._lock:
-            self._pages.pop(_key(page_id), None)
-            self._held.pop(_key(page_id), None)
+            self._pages.pop(ids.bare(page_id), None)
+            self._held.pop(ids.bare(page_id), None)
 
     def read(self, client, database: str, status: str) -> list[store.Page]:
         """Every ticket, as current as Notion will say. Raises `StoreError`."""
@@ -154,7 +150,7 @@ class Reader:
             now = self._clock()
             self._held = {key: until for key, until in self._held.items() if until > now}
             if full:
-                pages = {_key(page.id): page for page in fresh}
+                pages = {ids.bare(page.id): page for page in fresh}
                 for key in self._held:
                     if key in before:
                         pages[key] = before[key]
@@ -165,7 +161,7 @@ class Reader:
                 self.reconciled_at = _stamp(started)
             else:
                 for page in fresh:
-                    key = _key(page.id)
+                    key = ids.bare(page.id)
                     if key in self._held:
                         continue
                     held = before.get(key)
@@ -287,7 +283,7 @@ class Outbox:
         write.queued = write.queued or self._clock()
         write.next_at = 0.0
         with self._lock:
-            self._writes[_key(write.page)] = write
+            self._writes[ids.bare(write.page)] = write
             self._save()
         self._wake.set()
 
@@ -345,13 +341,13 @@ class Outbox:
         for write in due:
             outcome = self._attempt(write, send, report)
             with self._lock:
-                current = self._writes.get(_key(write.page))
+                current = self._writes.get(ids.bare(write.page))
                 if current is None or current.queued != write.queued:
                     continue  # moved again meanwhile: the newer write stands
                 if outcome == "sent":
-                    del self._writes[_key(write.page)]
+                    del self._writes[ids.bare(write.page)]
                 else:
-                    self._writes[_key(write.page)] = write
+                    self._writes[ids.bare(write.page)] = write
                 self._save()
             moved = True
         self._journal(report)
@@ -373,7 +369,7 @@ class Outbox:
             report.note(
                 "conflict",
                 "tickets",
-                _key(write.page),
+                ids.bare(write.page),
                 write.title,
                 f"moved to {write.status} from the console, but Notion already says "
                 f"{conflict.found} (the console showed {write.seen}); not overwritten",
@@ -387,7 +383,7 @@ class Outbox:
                 report.note(
                     "write-failed",
                     "tickets",
-                    _key(write.page),
+                    ids.bare(write.page),
                     write.title,
                     f"{write.status} not written after {write.attempts} attempt(s): {write.error}",
                 )
@@ -397,7 +393,7 @@ class Outbox:
         report.note(
             "console→notion",
             "tickets",
-            _key(write.page),
+            ids.bare(write.page),
             write.title,
             f"{write.seen or '—'} → {write.status} · asked {_clock(_stamp(write.queued))} · "
             f"confirmed {_clock(_stamp(self._clock()))} · {write.attempts} attempt(s)",
@@ -418,7 +414,7 @@ class Outbox:
                 write = Write(**item)
             except TypeError:
                 continue
-            self._writes[_key(write.page)] = write
+            self._writes[ids.bare(write.page)] = write
 
     def _save(self) -> None:
         """Whole or not at all, and never a reason for a write to fail."""
@@ -493,7 +489,7 @@ def conflicts(entries: list[dict]) -> dict[str, dict]:
     found: dict[str, dict] = {}
     for entry in entries:
         if entry.get("what") == "conflict" and entry.get("collection") == "tickets":
-            found[_key(entry.get("page", ""))] = entry
+            found[ids.bare(entry.get("page", ""))] = entry
     return found
 
 
@@ -501,21 +497,13 @@ def settled(ticket: dict, entry: dict | None) -> dict:
     """A card, with the runner's last refusal on it if nothing happened since."""
     if entry is None or ticket.get("sync"):
         return ticket
-    edited = _moment(str(ticket.get("edited", "")))
-    at = _moment(str(entry.get("at", "")))
+    edited = timestamps.parse(ticket.get("edited"))
+    at = timestamps.parse(entry.get("at"))
     # Notion's edit is to the minute: an edit in the minute of the refusal is
     # the runner's own write of the other columns, not somebody answering it.
     if edited is not None and at is not None and edited.replace(second=0, microsecond=0) > at:
         return ticket
     return {**ticket, "sync": "conflict", "sync_error": str(entry.get("detail", ""))}
-
-
-def _moment(stamp: str) -> datetime | None:
-    try:
-        moment = datetime.fromisoformat(stamp.replace("Z", "+00:00"))
-    except (TypeError, ValueError):
-        return None
-    return moment if moment.tzinfo else moment.replace(tzinfo=UTC)
 
 
 def describe(reader: Reader, tickets: list[dict]) -> dict[str, Any]:
@@ -557,13 +545,13 @@ def held(
     """
     if ticket.get("column") != "ready":
         return {}
-    moment = _moment(str(ticket.get("scheduled") or ""))
+    moment = timestamps.parse(ticket.get("scheduled"))
     if moment is not None and moment > (now or datetime.now(UTC)):
         return {"reason": "date", "detail": str(ticket["scheduled"])}
     for what, until in (waits or {}).items():
         if until:
             return {"reason": what, "detail": until}
     if passing:
-        reason, detail = noted.get(_key(ticket.get("id", "")), ("pass", ""))
+        reason, detail = noted.get(ids.bare(ticket.get("id", "")), ("pass", ""))
         return {"reason": reason, "detail": detail}
     return {"reason": "next" if timer else "timer", "detail": ""}

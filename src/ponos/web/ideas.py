@@ -38,7 +38,7 @@ import uuid
 from collections.abc import Callable
 from pathlib import Path
 
-from .. import goals, ideas, log, provider, session, state, store
+from .. import goals, ideas, ids, log, provider, session, state, store
 from ..config import state_dir
 from .base import Base
 
@@ -79,7 +79,7 @@ class Ideas(Base):
 
     def proposed_ideas(self, project: str = "") -> dict:
         """The ideas still waiting for a decision in one scope, and what finding them cost."""
-        project = ideas.bare(project)
+        project = ids.bare(project)
         batches, cost = ideas.spent(project)
         last = ideas.last_decided(project)
         return {
@@ -96,7 +96,7 @@ class Ideas(Base):
         """Every idea of one scope, thrown away and turned into tickets included,
         and how many there are in each status — the list on a project's page.
         With None, those of every scope at once: the Ideas page's."""
-        project = None if project is None else ideas.bare(project)
+        project = None if project is None else ids.bare(project)
         found = ideas.every(project)
         counts = {status: 0 for status in ideas.STATUSES}
         for idea in found:
@@ -125,7 +125,7 @@ class Ideas(Base):
         Raises RuntimeError when a batch for the same scope is already being
         written, and when the subscription is out of credit — the server's 409.
         """
-        project = ideas.bare(project)
+        project = ids.bare(project)
         with self._ideas_lock:
             if project in self._ideas_busy:
                 raise RuntimeError("ideas are already being found for this scope")
@@ -450,7 +450,7 @@ class Ideas(Base):
                 database = self.runner.workspace.projects
                 if not database:
                     raise ValueError("this workspace has no projects database")
-                created = ideas.bare(self.runner.client.create_row(database, idea.title, {}))
+                created = ids.bare(self.runner.client.create_row(database, idea.title, {}))
                 if idea.description.strip():
                     self.runner.client.append_markdown(created, idea.description.strip())
                 self.forget_projects()
@@ -466,7 +466,7 @@ class Ideas(Base):
             ticket = self.create_ticket(
                 idea.title, ideas.body(idea, say), project=idea.project, ready=False
             )["id"]
-        made = ideas.decide(identifier, "ticket", ticket=ideas.bare(ticket), created=created)
+        made = ideas.decide(identifier, "ticket", ticket=ids.bare(ticket), created=created)
         self.hub.publish("ideas", project=idea.project, ticket=identifier)
         return made.shown()
 
@@ -500,9 +500,9 @@ class Ideas(Base):
 
     def create_idea(self, payload: dict) -> dict:
         """An idea somebody wrote: its title, its description, its category, the project it is for."""
-        project = ideas.bare(str(payload.get("project") or ""))
+        project = ids.bare(str(payload.get("project") or ""))
         if project and not any(
-            ideas.bare(row["id"]) == project for row in self.all_projects()["projects"]
+            ids.bare(row["id"]) == project for row in self.all_projects()["projects"]
         ):
             raise LookupError(f"no project with id {project}")
         name, avatar = self.idea_person()
@@ -548,7 +548,7 @@ class Ideas(Base):
             raise ValueError(f"an idea is a {' or a '.join(ideas.KINDS)} — not {kind}")
         if category and category not in ideas.CATEGORIES:
             raise ValueError(f"an idea is {', '.join(ideas.CATEGORIES)} — not {category}")
-        if kind == "project" and ideas.scope_of(ideas.bare(project)) == "project":
+        if kind == "project" and ideas.scope_of(ids.bare(project)) == "project":
             raise ValueError("an idea for a project is a ticket, never a project of its own")
         name, avatar = self.idea_person()
         idea = ideas.written(
@@ -566,7 +566,7 @@ class Ideas(Base):
         reach into, and a ticket is not deleted on the strength of a swipe. It
         is what the idea becomes again if it is kept a second time.
         """
-        last = ideas.last_decided(None if project is None else ideas.bare(project))
+        last = ideas.last_decided(None if project is None else ids.bare(project))
         if last is None:
             raise LookupError("no decision to take back")
         back = ideas.decide(last.id, "proposed")
