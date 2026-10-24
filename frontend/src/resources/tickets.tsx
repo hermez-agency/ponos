@@ -397,7 +397,7 @@ const createForm: FormInterface = {
         return t("The runner's model")
       },
     },
-    // Said by the button that sends the form: "Draft" or "Launch the ticket".
+    // Said by the button that sends the form: "Save as draft" or "Launch the ticket".
     ready: { defaultValue: true, hidden: () => true },
   },
 }

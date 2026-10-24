@@ -306,7 +306,7 @@ export function NewTicketFoot() {
       </p>
       <div className="flex shrink-0 justify-end gap-2">
         <Button type="button" variant="secondary" disabled={busy} onClick={() => ask(false)}>
-          {t("Draft")}
+          {t("Save as draft")}
         </Button>
         <Button
           type="button"
