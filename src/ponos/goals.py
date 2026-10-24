@@ -46,12 +46,39 @@ def pointed(page: store.Page, relation_property: str) -> str:
     return str(goals[0] or "")
 
 
-def resolve(
-    backend: store.Store,
-    page_id: str,
-    criterion_property: str = "Critère",
-    due_property: str = "Échéance",
-) -> Goal:
+# A goal's row, written by hand in Notion as a project's is: each column by the
+# names it is found under, the French first — the database is `Objectifs`. The
+# runner, the ideas and the console all read it through this one table, so a
+# column the console shows is one the prompt receives.
+GOAL_COLUMNS = {
+    "description": ("Description", "description"),
+    "criterion": ("Critère", "Criterion", "critère"),
+    "due": ("Échéance", "Due", "échéance"),
+    "status": ("Statut", "Status", "statut"),
+    "priority": ("Priorité", "Priority", "priorité"),
+    "projects": ("Projets", "Projects", "Projet", "Project"),
+}
+
+
+def _text(page: store.Page, key: str) -> str:
+    """The first of a field's columns the page fills in, as text."""
+    for name in GOAL_COLUMNS[key]:
+        value = store.read(page, name)
+        if value not in (None, "", []):
+            return str(value).strip()
+    return ""
+
+
+def _linked(page: store.Page) -> list[str]:
+    """The project ids of the first `Projets` relation the page fills in."""
+    for name in GOAL_COLUMNS["projects"]:
+        value = store.read(page, name)
+        if isinstance(value, list) and value:
+            return [str(item).replace("-", "") for item in value if item]
+    return []
+
+
+def resolve(backend: store.Store, page_id: str) -> Goal:
     """The goal a ticket points at. An unreadable page is no goal at all.
 
     Failing a ticket because the page saying what it serves could not be
@@ -69,12 +96,7 @@ def resolve(
         brief = backend.blocks_text(page_id, live=False)
     except store.StoreError:
         brief = ""
-    return Goal(
-        name,
-        brief,
-        str(store.read(page, criterion_property) or "").strip(),
-        str(store.read(page, due_property) or "").strip(),
-    )
+    return Goal(name, brief, _text(page, "criterion"), _text(page, "due"))
 
 
 # What a goal's `Statut` says while it is still being worked toward. A goal
@@ -87,10 +109,6 @@ def active(
     backend: store.Store,
     database_id: str,
     project: str = "",
-    status_property: str = "Statut",
-    projects_property: str = "Projets",
-    criterion_property: str = "Critère",
-    due_property: str = "Échéance",
 ) -> list[Goal]:
     """The goals being worked toward now — those of a project, or all of them.
 
@@ -110,20 +128,11 @@ def active(
     found: list[Goal] = []
     for page in pages:
         name = page.title.strip()
-        status = str(store.read(page, status_property) or "").strip().lower()
+        status = _text(page, "status").lower()
         if not name or (status and status not in ACTIVE):
             continue
         if wanted:
-            linked = store.read(page, projects_property)
-            if not isinstance(linked, list) or wanted not in (
-                str(item or "").replace("-", "") for item in linked
-            ):
+            if wanted not in _linked(page):
                 continue
-        found.append(
-            Goal(
-                name,
-                criterion=str(store.read(page, criterion_property) or "").strip(),
-                due=str(store.read(page, due_property) or "").strip(),
-            )
-        )
+        found.append(Goal(name, criterion=_text(page, "criterion"), due=_text(page, "due")))
     return found

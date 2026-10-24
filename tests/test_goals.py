@@ -127,3 +127,35 @@ def a_project_only_sees_the_goals_that_name_it():
     )
     assert [goal.name for goal in goals.active(database, "db", "aaaabbbb")] == ["Pour Usine"]
     assert len(goals.active(database, "db")) == 4, "the workspace sees them all"
+
+
+def _english_goal(title: str) -> notion.Page:
+    """A goals database whose columns were written in English, as the console accepts them."""
+    return notion.Page(
+        id="p-goal",
+        url="",
+        title=title,
+        properties={
+            "Name": {"type": "title", "title": [{"plain_text": title}]},
+            "Criterion": {"type": "rich_text", "rich_text": [{"plain_text": "Ten paying clients"}]},
+            "Due": {"type": "date", "date": {"start": "2026-12-31", "end": None}},
+            "Status": {"type": "select", "select": {"name": "Active"}},
+            "Projects": {"type": "relation", "relation": [{"id": "aaaa-bbbb"}]},
+        },
+    )
+
+
+@case
+def a_goal_written_in_english_reads_as_the_console_shows_it():
+    goal = goals.resolve(_GoalClient(_english_goal("Ship v1")), "p-goal")
+    assert (goal.criterion, goal.due) == ("Ten paying clients", "2026-12-31")
+    database = _GoalsDatabase([_english_goal("Ship v1"), _cap("Plus tard", "En pause")])
+    [found] = goals.active(database, "db", "aaaabbbb")
+    assert (found.name, found.criterion, found.due) == (
+        "Ship v1",
+        "Ten paying clients",
+        "2026-12-31",
+    )
+    paused = _english_goal("Later")
+    paused.properties["Status"] = {"type": "select", "select": {"name": "On hold"}}
+    assert goals.active(_GoalsDatabase([paused]), "db") == [], "an English status is read too"

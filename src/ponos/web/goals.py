@@ -18,17 +18,8 @@ from .. import store
 from .base import Base
 from .projects import PROJECT_TTL, _first, _relation
 
-# A goal's row, written by hand in Notion as a project's is: each column by the
-# names it is found under, the French first — the database is `Objectifs`. The
-# criterion and the due date are the ones `goals.resolve` reads into a prompt.
-GOAL_COLUMNS = {
-    "description": ("Description", "description"),
-    "criterion": ("Critère", "Criterion", "critère"),
-    "due": ("Échéance", "Due", "échéance"),
-    "status": ("Statut", "Status", "statut"),
-    "priority": ("Priorité", "Priority", "priorité"),
-    "projects": ("Projets", "Projects", "Projet", "Project"),
-}
+# The columns `goals.resolve` and `goals.active` read too, under the same names.
+GOAL_COLUMNS = goals_module.GOAL_COLUMNS
 
 
 def _active(status: str) -> bool:
