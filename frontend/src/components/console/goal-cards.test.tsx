@@ -38,7 +38,11 @@ vi.mock("@/resources/goals", () => ({
   useGoals: () => world.read,
 }))
 
-vi.mock("@/resources/tickets", () => ({ ticketHref: (id: string) => `/tickets/${id}`, tickets: {} }))
+vi.mock("@/resources/tickets", () => ({
+  boardHref: () => "/?view=console/tickets/list",
+  ticketHref: (id: string) => `/tickets/${id}`,
+  tickets: {},
+}))
 vi.mock("@/lib/board-store", () => ({ useBoard: () => ({ columns: [], tickets: [] }) }))
 vi.mock("./record-window", () => ({ useOpensOverTheList: () => ({ to: "", onClick: () => {} }) }))
 

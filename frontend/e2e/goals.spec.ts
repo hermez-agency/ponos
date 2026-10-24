@@ -61,6 +61,18 @@ test("a goal's page lists its tickets by column, and makes one more for it", asy
   await expect(page.getByRole("dialog").locator('[data-slot="ticket-goal"]')).toContainText("Lancer la v2")
 })
 
+test("a goal's page leads to the board filtered on it, and its card says the goal", async ({ page }) => {
+  await page.goto(LIST)
+  await page.locator('[data-slot="goals-title"]', { hasText: "Lancer la v2" }).click()
+  await page.locator('[data-slot="goal-board"]').click()
+  await expect(page).toHaveURL(/[?&]goal=[0-9a-f-]+/)
+  const cards = page.locator("[data-ticket-card]")
+  await expect(cards).toHaveCount(1)
+  await expect(cards.first()).toContainText("Ticket 3")
+  await expect(cards.first().locator('[data-slot="ticket-card-goal"]')).toHaveText("Lancer la v2")
+  await expect(page.locator('[data-slot="search-count"]')).toContainText("1 /")
+})
+
 test("the ticket names its goal, and another can be chosen from it", async ({ page }) => {
   await page.goto("/?view=console/tickets/list")
   await page.getByRole("link", { name: /Ticket 3$/ }).first().click()

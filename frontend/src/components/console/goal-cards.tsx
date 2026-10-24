@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Ban, CalendarDays, CircleCheck, ExternalLink, Pencil, Plus, SearchX, Target, Trash2, X } from "lucide-react"
+import { Ban, CalendarDays, CircleCheck, ExternalLink, LayoutGrid, Pencil, Plus, SearchX, Target, Trash2, X } from "lucide-react"
 import { toast } from "sonner"
 import { ActionList } from "react-data-form"
 import {
@@ -26,11 +26,12 @@ import { onGoalsMoved } from "@/lib/goals-store"
 import { useFrench, useT } from "@/lib/i18n"
 import { count } from "@/lib/numbers"
 import { locale } from "@/lib/recurrence"
+import { EMPTY, writeQuery } from "@/lib/ticket-search"
 import { carrying } from "@/lib/resource-view"
 import type { Goal } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { goalHref, goals, goalsHref, goalsOnce, useGoals, type GoalItem } from "@/resources/goals"
-import { ticketHref, tickets } from "@/resources/tickets"
+import { boardHref, ticketHref, tickets } from "@/resources/tickets"
 
 import { EmptyState } from "./empty-state"
 import { Eyebrow } from "./frame"
@@ -105,6 +106,28 @@ function Deadline({ goal }: { goal: Goal }) {
     <Badge variant="outline" data-slot="goal-deadline">
       {deadline.days ? t(form.key, form.params) : t("Today")}
     </Badge>
+  )
+}
+
+/* What is left of a goal, where the work is moved: the board, filtered on it.
+   Its words are in `goal-french.ts`, as the badge's are — the first load of the
+   board has no room for a sentence only a goal's page says. */
+function SeeOnTheBoard({ goal }: { goal: Goal }) {
+  const t = useT()
+  const ready = useFrench(words)
+  if (!ready) return null
+  const href = boardHref()
+  const at = href.indexOf("?")
+  const [path, search] = at < 0 ? [href, ""] : [href.slice(0, at), href.slice(at)]
+  return (
+    <Link
+      to={`${path}${writeQuery(search, { ...EMPTY, goal: [goal.id] })}`}
+      data-slot="goal-board"
+      className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+    >
+      <LayoutGrid />
+      {t("See on the board")}
+    </Link>
   )
 }
 
@@ -257,6 +280,7 @@ function GoalWhole({ goal, reread }: { goal: Goal; reread: () => void }) {
             {t("Edit")}
           </span>
         </ResourceViewButton>
+        <SeeOnTheBoard goal={goal} />
         {CLOSINGS.map((closing) =>
           goal.status === closing.status ? null : (
             <CloseGoal key={closing.status} goal={goal} closing={closing} reread={reread} />
