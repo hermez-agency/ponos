@@ -1001,7 +1001,8 @@
         <div class="card-header"><h3 class="card-title">What it needs</h3></div>
         <ul>
           <li>Linux or macOS — systemd or launchd keep it running, and without either the console still starts;</li>
-          <li><code>python3</code> ≥ 3.11 — standard library only, nothing to install;</li>
+          <li><code>python3</code> ≥ 3.11 — its four dependencies, httpx, pydantic, FastAPI and uvicorn, go into an environment of its own, made by the installer;</li>
+          <li>network access to PyPI while it installs, to fetch them (and <code>uv</code>, from GitHub, when the machine cannot install a package);</li>
           <li><code>git</code> and <a href="https://claude.com/claude-code" target="_blank" rel="noopener">Claude Code</a>, which the installer offers to install;</li>
           <li><code>gh</code> is optional: the console connects GitHub in one click.</li>
         </ul>
