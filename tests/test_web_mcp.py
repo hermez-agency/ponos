@@ -1078,6 +1078,53 @@ def the_purge_forgets_expired_keys_and_the_clients_that_hold_none(state_home):
     assert web_oauth.purge() == 0
 
 
+@case
+def a_batch_of_mcp_messages_is_masked_as_one_message_is(state_home):
+    """A JSON-RPC batch leaves through the same mask as a single answer."""
+    import urllib.request
+
+    from ponos import vault
+    from ponos.web import app as web_app
+    from ponos.web import oauth as web_oauth
+
+    _, token = web_oauth.local("Claude Code", write=False)
+    vault.forget()
+    with _board() as board:
+        # Written by hand on the ticket, before the vault knew the value.
+        board.create_row(
+            "tickets", "Publier avec npm_supersecret_42", {"Status": C.Notion().state("blocked")}
+        )
+        vault.remember("npm_supersecret_42")
+        api = _ideas_api(board)
+        console = web_app.Console(("127.0.0.1", 0), api, "tok")
+        threading.Thread(target=console.serve_forever, daemon=True).start()
+        base = f"http://127.0.0.1:{console.server_address[1]}"
+        call = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {"name": "list_tasks", "arguments": {"waiting_for_you": True}},
+        }
+
+        def post(message) -> bytes:
+            request = urllib.request.Request(
+                base + "/mcp",
+                json.dumps(message).encode(),
+                {"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+            )
+            with urllib.request.urlopen(request, timeout=5) as response:
+                return response.read()
+
+        try:
+            one, batch = post(call), post([call])
+        finally:
+            console.shutdown()
+            console.server_close()
+            vault.forget()
+    assert b"npm_supersecret_42" not in one and b"***" in one, one
+    assert b"npm_supersecret_42" not in batch and b"***" in batch, batch
+
+
 # -- why a ticket stopped -----------------------------------------------------
 
 
