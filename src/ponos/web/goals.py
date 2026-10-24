@@ -126,7 +126,13 @@ class Goals(Base):
                     "linked": serving.get(bare, []),
                 }
             )
-        return {"goals": rows, "configured": bool(self.runner.workspace.goals)}
+        return {
+            "goals": rows,
+            "configured": bool(self.runner.workspace.goals),
+            # Which board: "Notion's trash" and its link are Notion's, and a
+            # Markdown board has files under goals/.
+            "storage": self.config.storage.mode,
+        }
 
     def create_goal(self, name: str, values: dict[str, Any]) -> dict[str, Any]:
         """A new row in the Goals database, written with the rest of its form."""

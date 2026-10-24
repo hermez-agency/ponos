@@ -2429,6 +2429,8 @@ export interface components {
             goals: components["schemas"]["Goal"][];
             /** @description Whether the workspace has a goals database at all. */
             configured: boolean;
+            /** @description `storage.mode`: which board these came off. */
+            storage?: string;
         };
         HTTPValidationError: {
             detail?: components["schemas"]["ValidationError"][];

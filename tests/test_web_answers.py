@@ -125,6 +125,8 @@ def a_goal_counts_the_tickets_the_board_lists_column_by_column():
     api.board = lambda max_age=0.0: {"tickets": tickets}
     said = api.goals()
     assert said["configured"] is True
+    # Which board, for the page that would say "Notion" on a board of files.
+    assert said["storage"] == "notion", said
     assert [goal["name"] for goal in said["goals"]] == ["Lancer la v1", "Ranger"], said
     launch, tidy = said["goals"]
     assert launch["tickets"] == {"done": 2, "running": 1}, launch

@@ -1,1 +1,0 @@
-var e={Late:`En retard`,"In {{count}} day":`Dans {{count}} jour`,"In {{count}} days":`Dans {{count}} jours`};export{e as GOAL_FRENCH};
