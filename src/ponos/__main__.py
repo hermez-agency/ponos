@@ -7,6 +7,7 @@ out what it did without reading a systemd journal.
 from __future__ import annotations
 
 import argparse
+import getpass
 import json
 import os
 import shutil
@@ -820,13 +821,13 @@ def command_init(args: argparse.Namespace) -> int:
         bad(str(error))
         return 2
 
-    token = (args.token or configuration.notion.token).strip()
+    token, given = _init_token(args.token, configuration.notion.token)
     if not token or token == config_module.PLACEHOLDER:
         bad("no Notion token yet")
         print(
             f"    {DIM}create an internal integration at "
             f"https://www.notion.so/my-integrations{RESET}\n"
-            f"    {DIM}then: ponos init <page-url> --token ntn_…{RESET}"
+            f"    {DIM}then: ponos init <page-url> --token -   (it asks for the token){RESET}"
         )
         return 2
 
@@ -868,7 +869,7 @@ def command_init(args: argparse.Namespace) -> int:
             warn(what)
 
     title("Configuration")
-    if args.token:
+    if given:
         # Beside the file rather than in it: config.toml holds no secret.
         secrets = config_module.secrets_path(configuration.path)
         config_module.write_secrets(secrets, {config_module.SECRETS[("notion", "token")]: token})
@@ -891,6 +892,41 @@ def command_init(args: argparse.Namespace) -> int:
         f"“{configuration.notion.state('ready')}”, and wait for the next pass\n"
     )
     return 0
+
+
+def _init_token(option: str | None, configured: str) -> tuple[str, bool]:
+    """The token `init` works with, and whether it was given rather than found.
+
+    A token on the command line stays in the shell's history and in `ps` for as
+    long as the databases take to build, so `--token -` reads it from stdin —
+    a pipe, or a prompt that does not echo it — and so does a bare `init` in a
+    terminal that has none yet. `PONOS_NOTION_TOKEN` counts as given: saved like
+    the others, it outlives the shell it was exported in.
+    """
+    if option == "-":
+        return _read_token(), True
+    if option:
+        return option.strip(), True
+    environment = os.environ.get(config_module.SECRETS[("notion", "token")], "").strip()
+    if environment:
+        return environment, True
+    configured = configured.strip()
+    if configured and configured != config_module.PLACEHOLDER:
+        return configured, False
+    if sys.stdin.isatty():
+        return _read_token(), True
+    return "", False
+
+
+def _read_token() -> str:
+    """One token from stdin: asked without echo in a terminal, one line from a pipe."""
+    if sys.stdin.isatty():
+        try:
+            return getpass.getpass("Notion token (ntn_…, not shown): ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return ""
+    return sys.stdin.readline().strip()
 
 
 def _kept(message: str) -> None:
@@ -1796,7 +1832,12 @@ def build_parser() -> argparse.ArgumentParser:
         "init", help="create the Notion databases from one page link"
     )
     initialise.add_argument("page", help="URL of the Notion page to build under")
-    initialise.add_argument("--token", help="Notion integration token, saved to the configuration")
+    initialise.add_argument(
+        "--token",
+        help="Notion integration token, saved to the configuration "
+        "(-: read it from stdin, or asked without echo in a terminal; "
+        "PONOS_NOTION_TOKEN is read too)",
+    )
     initialise.add_argument(
         "--no-demo", action="store_true", help="do not create the demonstration ticket"
     )
