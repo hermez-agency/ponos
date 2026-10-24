@@ -141,7 +141,7 @@ class Tickets(Base):
         host = self.config.runner.session_host
 
         writes = self.outbox.marks()
-        refused = board_module.conflicts(sync.journal(200))
+        refused = board_module.conflicts(sync.conflicts("tickets"))
         tickets = [
             board_module.settled(
                 board_module.overlay(

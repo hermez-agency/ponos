@@ -930,6 +930,15 @@ def _indexes_for_what_is_asked(connection: sqlite3.Connection) -> None:
     )
 
 
+def _sync_conflicts_by_page(connection: sqlite3.Connection) -> None:
+    # The board asks the journal for the last conflict on each card, however
+    # far back it was written: without this, every reading of the board walks
+    # every line the console and the passes ever wrote.
+    connection.execute(
+        "CREATE INDEX sync_journal_conflicts ON sync_journal (what, collection, page)"
+    )
+
+
 # Appended to, never edited or renamed: a file remembers each of these by name,
 # and the version of a file is how many of them it has been through. Statements go through `execute` one at a time — `executescript`
 # commits whatever transaction is open before it starts, which would apply half
@@ -970,6 +979,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     _occurrences,
     _phases,
     _indexes_for_what_is_asked,
+    _sync_conflicts_by_page,
 )
 
 # Any way a read or a write of the database can fail. A note the runner keeps
