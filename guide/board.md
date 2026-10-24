@@ -371,6 +371,13 @@ is dated by its last edit in the statistics: a year of closings would all land t
 console does not need them written — a code ticket with an empty column is read by its
 prefix, so the old ones wear their badge and are counted all the same.
 
+**An option the runner does not write** — `Improvement` beside `Amélioration`, `Security`
+beside `Sécurité`, left by an older Ponos or typed by hand — is read as the same sub-type,
+but a Notion view filtered on one misses the tickets on the other. `ponos doctor` and the
+console's health band name each such option with its number of tickets, and the console
+offers to fix it: the tickets move to the runner's option, then the emptied options are
+removed from the select. An option that spells no sub-type at all is left to you.
+
 On the console, a code ticket wears a small badge of its sub-type — its icon, in its colour
 —, the search bar filters by it, *New ticket* offers it, and the statistics count the code
 tickets closed by sub-type and by week, with what one of each cost and lasted on average.

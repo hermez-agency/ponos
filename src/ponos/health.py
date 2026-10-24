@@ -77,6 +77,7 @@ from . import (
     resources,
     session,
     store,
+    subtypes,
     systemd,
     vault,
     voice,
@@ -293,6 +294,7 @@ def _board(
     found.extend(_schema(config, client, space))
     found.extend(_other_statuses(config, client, space))
     found.extend(_types(config, client, space))
+    found.extend(_subtypes(config, client, space))
     found.extend(_schedules(config, client, space))
     found.extend(_comments(config, client, space))
     # Only a Notion board's projects are looked through one by one.
@@ -742,6 +744,75 @@ def _types(
             )
         )
     return found
+
+
+def _subtypes(
+    config: config_module.Config, client: store.Store, space: workspace_module.Workspace
+) -> list[Check]:
+    """The options of the Sub-type property that are none of `subtypes.SUBTYPES`'.
+
+    An older Ponos, or a hand, wrote « Improvement » beside « Amélioration »: the
+    runner reads both as one sub-type, a Notion view filtered on one misses the
+    tickets on the other. One that is a spelling of a sub-type is rewritten to
+    its option; one that is no sub-type at all is somebody's to decide.
+    """
+    column = config.notion.prop("subtype")
+    if column not in client.schema(space.tickets):
+        return []
+    strays = _stray_subtypes(client, space.tickets, column)
+    if not strays:
+        return [
+            _check(
+                "notion.subtypes",
+                OK,
+                "Sub-types",
+                "Every sub-type option is one the runner writes.",
+            )
+        ]
+    rewritable = [name for name, key, _ in strays if key]
+    unknown = [name for name, key, _ in strays if not key]
+    return [
+        _check(
+            "notion.subtypes",
+            WARN,
+            "Sub-types",
+            "Sub-type options the runner does not write: {{options}}, on {{count}} ticket(s).",
+            params={
+                "options": ", ".join(f"“{name}” ({count})" for name, _, count in strays),
+                "count": str(sum(count for _, _, count in strays)),
+                "unknown": ", ".join(f"“{name}”" for name in unknown),
+            },
+            cause="An older Ponos, or a hand, wrote another spelling: a Notion view filtered on one misses the others.",
+            steps=[
+                "Give the tickets on {{unknown}} a sub-type by hand, then remove the option in Notion."
+            ]
+            if unknown
+            else [],
+            evidence="offered: " + ", ".join(subtype.option for subtype in subtypes.SUBTYPES),
+            fix=_fix(
+                "notion_subtypes",
+                "Rewrite",
+                "Move the tickets on {{missing}} to the runner's option, then remove those options?",
+                rewritable,
+            )
+            if rewritable
+            else None,
+        )
+    ]
+
+
+def _stray_subtypes(client: store.Store, database: str, column: str) -> list[tuple[str, str, int]]:
+    """Each option of the column that is no sub-type's: its name, the sub-type it spells or "", its tickets."""
+    written = {subtype.option for subtype in subtypes.SUBTYPES}
+    return [
+        (name, subtypes.of(name), len(_on_option(client, database, column, name)))
+        for name in client.options(database, column)
+        if name not in written
+    ]
+
+
+def _on_option(client: store.Store, database: str, column: str, name: str) -> list[store.Page]:
+    return client.query(database, {"property": column, "select": {"equals": name}})
 
 
 def _schedules(
@@ -3376,6 +3447,37 @@ def fix(
         )
         board.add_properties(space.tickets, widened)
         return "statuses added" if widened else "nothing to add"
+    if action == "notion_subtypes":
+        space = workspace_module.resolve(client, config.notion)
+        column = config.notion.prop("subtype")
+        moved, emptied = 0, []
+        for name, key, _ in _stray_subtypes(client, space.tickets, column):
+            if not key:
+                continue
+            for page in _on_option(client, space.tickets, column, name):
+                client.update(space.tickets, page.id, {column: subtypes.option(key)})
+                moved += 1
+            # Asked again: a ticket somebody set to it meanwhile would lose its value.
+            if not _on_option(client, space.tickets, column, name):
+                emptied.append(name)
+        done = f"{moved} ticket(s) rewritten"
+        try:
+            board = _shaped(client)
+        except ValueError:
+            # A Markdown board has no options: they were only the values just rewritten.
+            return done
+        prop = (board.database(space.tickets).get("properties") or {}).get(column) or {}
+        current = (prop.get("select") or {}).get("options") or []
+        kept = [
+            {"name": option.get("name"), "color": option.get("color", "default")}
+            for option in current
+            if option.get("name") not in emptied
+        ]
+        if emptied and len(kept) < len(current):
+            # Notion replaces the whole list on a PATCH: what is left out is removed.
+            board.add_properties(space.tickets, {column: {"select": {"options": kept}}})
+            done += ", removed " + ", ".join(f"“{name}”" for name in emptied)
+        return done
     if action == "project_branch":
         space = workspace_module.resolve(client, config.notion)
         row = next((row for row in _project_rows(client, space) if row["id"] == target), None)
