@@ -1089,6 +1089,51 @@ def the_readme_stays_a_welcome_page():
         assert page in text or page.endswith("README.md"), f"the README does not lead to {page}"
 
 
+def _commands(text: str, html: bool = False) -> list[str]:
+    """The `ponos <verb>` a page tells its reader to type.
+
+    Only what is written as code — inline spans and fenced lines, or `<code>`
+    and `<pre>` on the site — and only where `ponos` starts the command: in
+    `claude mcp add --transport http ponos http://…` it is a name, not the CLI.
+    """
+    if html:
+        snippets = re.findall(r"<(?:code|pre)[^>]*>(.*?)</(?:code|pre)>", text, re.DOTALL)
+        snippets = [re.sub(r"<[^>]+>", "", snippet) for snippet in snippets]
+    else:
+        snippets, fenced = [], False
+        for line in text.splitlines():
+            if line.startswith("```"):
+                fenced = not fenced
+            elif fenced:
+                snippets.append(line)
+            else:
+                snippets += re.findall(r"`([^`]+)`", line)
+    start = r"(?:^|[;&|$(]\s*|\b[A-Z_]+=\S*\s+)"
+    return [
+        verb
+        for snippet in snippets
+        for verb in re.findall(start + r"ponos ([a-z][a-z-]*)", snippet, re.MULTILINE)
+    ]
+
+
+@case
+def the_documentation_only_cites_commands_the_cli_has():
+    """A command the documentation names is one `ponos` answers to.
+
+    The guide once said `ponos next`, a verb the parser never had: whoever typed
+    it got `invalid choice`. Every verb cited is read against `subcommands()`.
+    """
+    verbs = set(subcommands())
+    found: set[str] = set()
+    for page in [*DOCUMENTATION, "docs/llms.txt", "docs/index.html"]:
+        cited = _commands((ROOT / page).read_text(encoding="utf-8"), page.endswith(".html"))
+        for verb in cited:
+            assert verb in verbs, f"{page} cites `ponos {verb}`, which the CLI does not have"
+        found.update(cited)
+    # The guide's own list of commands: finding none of it is the reading that broke.
+    assert {"init", "run", "doctor", "serve"} <= found, f"only {sorted(found)} found in the pages"
+
+
 @case
 def the_console_says_the_version_it_is_running_beside_the_stream_s_dot():
     """The number reaches the page, rather than staying in the payload.

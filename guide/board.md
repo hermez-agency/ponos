@@ -655,7 +655,7 @@ its GitHub link and nothing else is enough: the first ticket that needs it runs
 `gh repo clone` — or `git clone` on a machine with no `gh` — into `workspace_root`, under
 the repository's own name, and works in it as if it had always been there. Its comment
 says where it came from. That only ever happens for the run that is about to work on a
-ticket: `ponos projects`, `ponos next` and a dry run download nothing,
+ticket: `ponos projects`, `ponos list` and a dry run download nothing,
 and nothing is cloned twice — every way of matching a clone you already have is tried
 first, and a remote two clones already answer to is still a question rather than a third
 copy.
