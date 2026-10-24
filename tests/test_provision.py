@@ -2,13 +2,20 @@
 
 from __future__ import annotations
 
+import contextlib
+import getpass
+import io
+import os
+import sys
 import tempfile
+from contextlib import contextmanager
 from pathlib import Path
+from unittest import mock
 
 from support import _Board, _settings, case
 
 from ponos import config as C
-from ponos import provision
+from ponos import provision, store
 
 # -- provisioning ------------------------------------------------------------
 
@@ -183,3 +190,96 @@ def the_workspace_is_written_back_into_the_configuration():
     assert "# keep me" in text, "a hand-edited file keeps its comments"
     assert "[runner]\nfetch = true" in text, "other tables are untouched"
     assert C.load(path).notion.workspace == "abc"
+
+
+# -- the token init is given -------------------------------------------------
+
+
+class _Stdin(io.StringIO):
+    """stdin as a pipe or as a terminal: what `init` decides on."""
+
+    def __init__(self, text: str, terminal: bool) -> None:
+        super().__init__(text)
+        self.terminal = terminal
+
+    def isatty(self) -> bool:
+        return self.terminal
+
+
+@contextmanager
+def _stdin(text: str, terminal: bool, typed: str = ""):
+    """stdin replaced, and `getpass` answering `typed`: yields the prompts it showed."""
+    prompts: list[str] = []
+
+    def asked(prompt: str = "") -> str:
+        prompts.append(prompt)
+        return typed
+
+    name = C.SECRETS[("notion", "token")]
+    previous = os.environ.pop(name, None)
+    try:
+        with (
+            mock.patch.object(sys, "stdin", _Stdin(text, terminal)),
+            mock.patch.object(getpass, "getpass", asked),
+        ):
+            yield prompts
+    finally:
+        if previous is not None:
+            os.environ[name] = previous
+
+
+@case
+def init_reads_its_token_from_stdin_or_asks_for_it_unechoed():
+    """`--token ntn_…` left the token in the shell's history and in `ps`."""
+    from ponos import __main__ as cli
+
+    with _stdin("ntn_piped\n", terminal=False) as prompts:
+        assert cli._init_token("-", "") == ("ntn_piped", True)
+    assert prompts == [], "a pipe is read, not prompted"
+
+    with _stdin("", terminal=True, typed=" ntn_typed ") as prompts:
+        assert cli._init_token("-", "") == ("ntn_typed", True)
+    assert len(prompts) == 1, "a terminal asks through getpass, which does not echo"
+
+    with _stdin("", terminal=True, typed="ntn_typed") as prompts:
+        assert cli._init_token(None, C.PLACEHOLDER) == ("ntn_typed", True)
+    assert len(prompts) == 1, "a bare init in a terminal asks too, when none is set"
+
+    with _stdin("", terminal=True) as prompts:
+        assert cli._init_token(None, "ntn_saved") == ("ntn_saved", False)
+    assert prompts == [], "one already saved is used as it is"
+
+    with _stdin("", terminal=False) as prompts:
+        assert cli._init_token(None, "") == ("", False), "nothing to ask outside a terminal"
+
+    with _stdin("", terminal=False):
+        os.environ[C.SECRETS[("notion", "token")]] = "ntn_exported"
+        assert cli._init_token(None, "ntn_saved") == ("ntn_exported", True)
+
+
+@case
+def init_with_a_piped_token_hands_it_to_notion_without_printing_it():
+    from ponos import __main__ as cli
+
+    path = Path(tempfile.mkdtemp()) / "config.toml"
+    path.write_text('[notion]\nworkspace = ""\n')
+    given: list[str] = []
+
+    class Client:
+        def __init__(self, token: str) -> None:
+            given.append(token)
+
+        def page(self, page: str):
+            raise store.StoreError("stopped here")
+
+    printed = io.StringIO()
+    with (
+        _stdin("ntn_piped\n", terminal=False),
+        mock.patch.dict(os.environ, {"PONOS_CONFIG": str(path)}),
+        mock.patch.object(cli.notion, "Client", Client),
+        contextlib.redirect_stdout(printed),
+    ):
+        code = cli.main(["init", "https://www.notion.so/Page-" + "a" * 32, "--token", "-"])
+    assert code == 1, printed.getvalue()
+    assert given == ["ntn_piped"]
+    assert "ntn_piped" not in printed.getvalue()
