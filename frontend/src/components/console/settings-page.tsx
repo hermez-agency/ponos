@@ -10,7 +10,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useConsole } from "@/hooks/use-console"
-import { api } from "@/lib/api"
+import { api, why } from "@/lib/api"
 import { counted, useT } from "@/lib/i18n"
 import { bytes } from "@/lib/numbers"
 import { SCOPE } from "@/lib/resource-view"
@@ -72,7 +72,7 @@ function DiskLine() {
         bad: false,
       })
     } catch (error) {
-      setSaid({ text: error instanceof Error ? error.message : String(error), bad: true })
+      setSaid({ text: why(error), bad: true })
     } finally {
       setCleaning(false)
     }

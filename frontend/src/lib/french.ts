@@ -2767,4 +2767,49 @@ export const FRENCH: Record<string, string> = {
     "Les passages sans ticket sont gardés à partir de cette version : ceux d'avant n'ont jamais été enregistrés.",
   "said from the ticket": "déduite du ticket",
   "The ticket of the previous run was still open.": "Le ticket de l'exécution précédente était encore ouvert.",
+
+  /* -- what the server refuses with (lib/refusals.ts) ------------------------ */
+  // The sentences the Python raises, translated on arrival; a test holds
+  // `refusals.ts` to those `raise`s, and this list to `refusals.ts`.
+  "The server answered {{status}}": "Le serveur a répondu {{status}}",
+  "the board: {{error}}": "Le tableau : {{error}}",
+  "the body is not JSON": "La requête n'est pas du JSON.",
+  "invalid request": "Requête invalide.",
+  "a goal needs a name": "Un objectif a besoin d'un nom.",
+  "this workspace has no goals database": "Cet espace de travail n'a pas de base d'objectifs.",
+  "nothing to change": "Rien à modifier.",
+  "this board has no “{{column}}” column to point a ticket at a goal":
+    "Ce tableau n'a pas de colonne « {{column}} » pour rattacher un ticket à un objectif.",
+  "no goal with id {{id}}": "Aucun objectif ne porte l'identifiant {{id}}.",
+  "this workspace has no schedules database": "Cet espace de travail n'a pas de base de récurrences.",
+  "a schedule needs a name": "Une récurrence a besoin d'un nom.",
+  "no schedule with id {{id}}": "Aucune récurrence ne porte l'identifiant {{id}}.",
+  "unknown type “{{kind}}”": "Type inconnu : « {{kind}} ».",
+  "unknown sub-type “{{subtype}}”": "Sous-type inconnu : « {{subtype}} ».",
+  "this schedule is already being launched": "Cette récurrence est déjà en train d'être lancée.",
+  "no project with id {{id}}": "Aucun projet ne porte l'identifiant {{id}}.",
+  "this workspace has no projects database": "Cet espace de travail n'a pas de base de projets.",
+  "this brief changed in the board since it was opened":
+    "Ce brief a changé dans le tableau depuis son ouverture : rechargez-le avant d'enregistrer.",
+  "this brief holds what Markdown cannot keep; saving it would lose it":
+    "Ce brief contient ce que le Markdown ne sait pas garder : l'enregistrer le perdrait.",
+  "a project has a cover and an icon, not a {{slot}}": "Un projet a une couverture et une icône, pas de « {{slot}} ».",
+  "a fix is made only once it is confirmed": "Une correction ne se fait qu'une fois confirmée.",
+  "a run is in progress — try again once it has finished":
+    "Une passe est en cours — réessayez une fois qu'elle sera terminée.",
+  "{{label}}: yes or no": "{{label}} : oui ou non",
+  "{{label}}: a number": "{{label}} : un nombre",
+  "{{label}}: “{{offered}}” is not a number": "{{label}} : « {{offered}} » n'est pas un nombre",
+  "{{label}}: {{minimum}} at the least": "{{label}} : {{minimum}} au minimum",
+  "{{label}}: {{maximum}} at the most": "{{label}} : {{maximum}} au maximum",
+  "{{label}}: a list": "{{label}} : une liste",
+  "{{label}}: no such moment “{{moment}}”": "{{label}} : le moment « {{moment}} » n'existe pas",
+  "{{label}}: one of {{choices}}": "{{label}} : l'une de ces valeurs, {{choices}}",
+  "{{table}}: a list of {name, value}": "{{table}} : une liste de {name, value}",
+  "settings: a table of name → value": "Réglages : une table nom → valeur",
+  "a {{table}} row set to {{value}} has no name": "Une ligne de {{table}} réglée sur {{value}} n'a pas de nom.",
+  "“{{name}}” maps to nothing — fill it in, or remove the row":
+    "« {{name}} » ne correspond à rien — remplissez-la, ou retirez la ligne.",
+  "“{{name}}” is named twice": "« {{name}} » apparaît deux fois.",
+  "no such setting: {{name}}": "Ce réglage n'existe pas : {{name}}",
 }

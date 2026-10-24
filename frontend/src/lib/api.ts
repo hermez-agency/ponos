@@ -86,6 +86,8 @@ import type {
   Talk,
   TicketDetail,
 } from "./types"
+import { t } from "./i18n"
+import { SILENT, refusalOf } from "./refusals"
 
 /* Talking to the server.
  *
@@ -118,7 +120,9 @@ export class ApiError extends Error {
     super(message)
     this.name = "ApiError"
     this.status = status
-    this.data = violations?.length ? { error: message, violations } : { error: message }
+    // The form draws `data.error` as it stands: it is given in the page's language.
+    const error = told(message)
+    this.data = violations?.length ? { error, violations } : { error }
   }
 }
 
@@ -172,6 +176,10 @@ async function upload<T>(path: string, file: Blob, name: string): Promise<T> {
   return answer<T>(response)
 }
 
+/* The refusal of a server that said no sentence — kept in English like the
+ * rest, and translated where it is shown. */
+const silent = (status: number) => SILENT.replace("{{status}}", String(status))
+
 async function answer<T>(response: Response): Promise<T> {
   // Signed out underneath the page — a password changed, a cookie expired, the
   // console restarted with another token. Every call after this one would fail
@@ -180,7 +188,7 @@ async function answer<T>(response: Response): Promise<T> {
   const payload = await response.json().catch(() => ({}) as Record<string, unknown>)
   if (!response.ok) {
     const said = payload as { error?: string; violations?: ApiError["data"]["violations"] }
-    throw new ApiError(said.error || String(response.status), response.status, said.violations)
+    throw new ApiError(said.error || silent(response.status), response.status, said.violations)
   }
   return payload as T
 }
@@ -199,7 +207,7 @@ async function send<T>(path: string, body: Blob): Promise<T> {
   const payload = await response.json().catch(() => ({}) as Record<string, unknown>)
   if (!response.ok) {
     const said = (payload as { error?: string }).error
-    throw new ApiError(said || String(response.status), response.status)
+    throw new ApiError(said || silent(response.status), response.status)
   }
   return payload as T
 }
@@ -456,7 +464,17 @@ export const api = {
     request<ChannelsProvisioned>("/api/setup/channels", typed),
 }
 
-/** The message of whatever went wrong, however it went wrong. */
+/** The message of whatever went wrong, however it went wrong — in the page's language when it is one the server is known to say. */
 export function why(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
+  return told(error instanceof Error ? error.message : String(error))
+}
+
+/* A refusal of the server in the page's language: the template it was said
+ * from translated, and each value too — a setting's label is a sentence of
+ * `french.ts` as well. See `refusals.ts`. */
+function told(message: string): string {
+  const refusal = refusalOf(message)
+  if (!refusal) return message
+  const params = Object.fromEntries(Object.entries(refusal.params).map(([name, value]) => [name, t(value)]))
+  return t(refusal.key, params)
 }

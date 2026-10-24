@@ -32,6 +32,7 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Changed
 
+- Les refus du serveur s'affichent en français dans une console réglée en français : objectifs, récurrences, brief d'un projet, ménage et réglages (« Rien à modifier. », « Une passe est en cours — réessayez une fois qu'elle sera terminée. », « « Bug » apparaît deux fois. »…), au lieu de la phrase anglaise du serveur. Une réponse sans message dit « Le serveur a répondu 500 » plutôt que « 500 ». Un refus que la console ne connaît pas reste affiché tel que le serveur l'a écrit.
 - La console ne relit plus Notion à chaque page ouverte : le tableau de bord, la page Objectifs, les statistiques et la recherche d'idées reprennent le board que la console a lu il y a moins de `web.poll_seconds` (15 s par défaut), au lieu de refaire chacun la même requête sur la base des tickets — et de relire tous les runs, l'historique et le journal de synchro pour habiller les mêmes cartes. Un ticket créé, déplacé ou modifié depuis la console fait relire Notion à la demande suivante. Deux lectures simultanées à l'ouverture ne font plus chacune une lecture complète : la seconde attend la première. Ouvrir le tableau de bord puis les statistiques coûte une requête Notion au lieu de deux.
 
 ### Fixed
