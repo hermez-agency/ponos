@@ -65,6 +65,18 @@ logger = logging.getLogger(__name__)
 
 STATIC = Path(__file__).resolve().parent / "static"
 COOKIE = "ponos_token"
+
+
+def cookie_name(port: int) -> str:
+    """The cookie of the console on `port`: a browser keys cookies by host, not port.
+
+    Two consoles at one address — the demo and the real one, an e2e run, two
+    installations — would otherwise take turns in one cookie, and opening the
+    one signed out of the other. `COOKIE`, the name of before, is still read.
+    """
+    return f"{COOKIE}_{port}"
+
+
 # Migration filet: the cookie a browser was given before the rename, still good
 # for the year it was given for — a rename is not a reason to sign in again.
 LEGACY_COOKIE = legacy.OLD.replace("-", "_") + "_token"

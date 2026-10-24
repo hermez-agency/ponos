@@ -694,7 +694,9 @@ makes it useful, and it is the whole of the risk. So:
   is not a decision you took;
 - every request carries that token — the `?token=` in the URL is moved into a cookie on
   the first load, so it stops sitting in your history — or the cookie that signing in
-  leaves, which is the same guard reached by a different door;
+  leaves, which is the same guard reached by a different door. The cookie is named after
+  the port (`ponos_token_8787`): a browser keeps cookies by address, not by port, and two
+  consoles on one machine — the demo and the real one — each keep their own;
 - writes demand a header a cross-origin form cannot set, and the `Host` header must name
   the address the console was reached on. Between them, a hostile page you have open in
   another tab can neither post to the console nor read from it;

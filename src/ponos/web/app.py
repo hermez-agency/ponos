@@ -75,6 +75,7 @@ from .server import (
     configured,
     consent_page,
     consent_refused,
+    cookie_name,
     gate_page,
     landing,
     language_of,
@@ -123,6 +124,7 @@ class Console:
             backlog=64,
         )
         self.server_address: tuple[str, int] = self.socket.getsockname()[:2]
+        self.cookie = cookie_name(self.server_address[1])
         self.app = application(self)
         self.server = uvicorn.Server(
             uvicorn.Config(
@@ -195,10 +197,14 @@ class Asking:
         self.api = console.api
         # The session cookie given again with the answer, when it is a day old.
         self.renewed = ""
+        # The token's cookie given again, when it came under the name of before.
+        self.carried = ""
         # How long this address has to wait, when it got the door wrong too often.
         self.throttled = 0.0
         # The token or a sign-in came with it — what `/api/setup` tells the page.
         self.signed_in = False
+        # The cookie came under a name of before: given again under this console's.
+        self.moved = False
 
     def host_is_ours(self) -> bool:
         """The `Host` header names the address this console is served on.
@@ -262,7 +268,7 @@ class Asking:
     def cookie(self, value: str, age: int = TOKEN_COOKIE_AGE) -> str:
         """The `Set-Cookie` of a way in — the token's, or a sign-in's session."""
         secure = "; Secure" if self.secure() else ""
-        return f"{COOKIE}={value}; Path=/; HttpOnly; SameSite=Strict; Max-Age={age}{secure}"
+        return f"{self.console.cookie}={value}; Path=/; HttpOnly; SameSite=Strict; Max-Age={age}{secure}"
 
     def knocker(self) -> str:
         """Who the attempts are counted against — see `attempts.address_of`."""
@@ -295,8 +301,9 @@ class Asking:
         if self.headers.get("X-Token"):
             return str(self.headers.get("X-Token")).strip()
         cookies = SimpleCookie(self.headers.get("Cookie") or "")
-        for name in (COOKIE, LEGACY_COOKIE):
+        for name in (self.console.cookie, COOKIE, LEGACY_COOKIE):
             if name in cookies:
+                self.moved = name != self.console.cookie
                 return cookies[name].value
         return ""
 
@@ -309,6 +316,7 @@ class Asking:
         no longer has to.
         """
         self.renewed = ""
+        self.carried = ""
         offered = typed or self.presented()
         if not offered:
             return False
@@ -325,13 +333,17 @@ class Asking:
         # holds a character outside ASCII, and what is offered here came from a
         # browser — a cookie somebody pasted an accent into would be a 500
         # rather than the "no" it is.
+        moved = self.moved and not typed and not self.explicit()
         if hmac.compare_digest(offered.encode(), self.console.secret.encode()):
+            if moved:
+                self.carried = offered
             return True
         entry = self.console.entry
         if entry and (given := entry.holds(offered)) is not None:
             # Thirty days from the last time it was used: renewed, a day at most
-            # after it was given, by whatever this request is answered with.
-            if time.time() - given > sessions.RENEW_AFTER:
+            # after it was given, by whatever this request is answered with —
+            # and at once when it came under the name of before.
+            if moved or time.time() - given > sessions.RENEW_AFTER:
                 self.renewed = entry.session()
             return True
         if attempt:
@@ -579,6 +591,8 @@ class Guard:
                     headers["strict-transport-security"] = HSTS
                 if asking.renewed and "set-cookie" not in headers:
                     headers["set-cookie"] = asking.cookie(asking.renewed, sessions.LIFETIME)
+                elif asking.carried and "set-cookie" not in headers:
+                    headers["set-cookie"] = asking.cookie(asking.carried)
             elif message["type"] == "http.response.body" and head:
                 message = {**message, "body": b""}
             await send(message)
