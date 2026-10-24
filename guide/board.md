@@ -799,7 +799,8 @@ the agent          what craft it takes, and its rules — read last
 The goal is the intent of the task, not a rule: the role's rules stay the last thing read.
 A prompt file of your own written before `{goal}` existed still gets the goal, at its end.
 The queue does not read it — a goal's `Priorité` does not order the tickets. What else reads
-the goals is the console's [Goals](console.md#goals) page, the [ideas](console.md#ideas) (the active goals of the
+the goals is the console's [Goals](console.md#goals) page (how it counts a goal's tickets, and
+the Notion rollups that agree with it: [How a goal's tickets are counted](console.md#how-a-goals-tickets-are-counted)), the [ideas](console.md#ideas) (the active goals of the
 scope, under « Les caps du moment ») and the MCP connector's `list_goals` and `create_task`.
 On a board of Markdown files the database is the `goals/` directory, with the same columns.
 
