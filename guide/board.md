@@ -104,7 +104,9 @@ Three rules, and they are the ones worth arguing about.
 - **The newest wins, and the loser is written down.** A page changed on both sides since
   the last reconciliation is a conflict; `conflict = "newest"` keeps the later
   `last_edited_time`, and the version that lost goes into the journal with both
-  timestamps and the name of the side that won. Nothing is overwritten quietly.
+  timestamps and the name of the side that won. Both are compared to the minute, the
+  resolution Notion answers at; within the same minute Notion wins, and the journal says
+  it was a tie. Nothing is overwritten quietly.
 - **Nothing is deleted, ever.** A page that was on both sides and is now on one is
   journalled as a deletion and left exactly as it is on the side that still has it. A file
   disappears for a hundred reasons — a bad merge, a stray `rm`, an editor writing to the

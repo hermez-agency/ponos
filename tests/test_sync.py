@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import tempfile
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from support import _mirror, _settings, case
 
-from ponos import store, sync
+from ponos import files, store, sync
 
 # -- the two boards, kept in step --------------------------------------------
 
@@ -88,13 +89,42 @@ def a_page_moved_on_both_sides_is_a_conflict_the_newest_wins():
         assert "Notion wins" in said and "newest" in said
         assert store.read(there.page(page_id), "Status") == "Done"
 
-        # And the other way round: the file is the later one.
-        here.update("tickets", page_id, {"Status": "Failed"})
+        # And the other way round: the file is the later one, by a minute —
+        # within the same one, Notion would keep it.
+        earlier = (datetime.now(UTC) - timedelta(minutes=1)).isoformat()
+        here.update("tickets", page_id, {"Status": "Failed"}, at=earlier)
         there.update("tickets", page_id, {"Status": "In review"})
         back = both.synchronise(_settings(), stamps=marks)
         assert len(back.conflicts) == 1
         assert "Markdown wins" in back.conflicts[0].detail
         assert store.read(here.pages[page_id], "Status") == "In review"
+
+
+@case
+def a_conflict_in_the_same_minute_goes_to_notion_and_says_so():
+    """Notion's time is to the minute, a file's to the microsecond: compare minutes.
+
+    A file changed at 10:05:30 and a page changed at 10:05:50 — which Notion
+    gives back as 10:05:00 — would make the file look twenty-nine seconds newer
+    than a page that is in fact the later of the two. Both sides are cut to the
+    minute before they are compared, and a tie goes to Notion, in so many words.
+    """
+    with _mirror() as (here, there, both, marks):
+        page_id = here.create_row("tickets", "Le ticket", {"Status": "Ready"})
+        both.synchronise(_settings(), stamps=marks)
+
+        _, path = there._find(page_id)
+        front, body = files.parse(path.read_text(encoding="utf-8"))
+        front["Status"] = "Blocked"
+        front["edited"] = "2030-01-01T10:05:30.123456+00:00"
+        path.write_text(files.render(front, body), encoding="utf-8")
+        here.update("tickets", page_id, {"Status": "Done"}, at="2030-01-01T10:05:00.000Z")
+
+        report = both.synchronise(_settings(), stamps=marks)
+        assert len(report.conflicts) == 1, report.entries
+        said = report.conflicts[0].detail
+        assert "same minute" in said and "Notion wins" in said, said
+        assert store.read(there.page(page_id), "Status") == "Done"
 
 
 @case
