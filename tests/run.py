@@ -42,6 +42,9 @@ if (
 ):
     os.execv(_VENV, [str(_VENV), *sys.argv])
 
+# `python -I` leaves the script's own directory off `sys.path`.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
 import support  # noqa: E402
 
 

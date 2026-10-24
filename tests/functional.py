@@ -45,6 +45,9 @@ from urllib.parse import parse_qs, urlparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+# `python -I` leaves the script's own directory off `sys.path`.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
 import support  # noqa: E402
 from support import case, fixture  # noqa: E402
 

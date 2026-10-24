@@ -18,7 +18,7 @@ import threading
 from pathlib import Path
 
 import release
-from support import FRONTEND, ROOT, _bare_api, _environment, _head, _plain, _TalkClient, case
+from support import FRONTEND, ROOT, Skip, _bare_api, _environment, _head, _plain, _TalkClient, case
 
 from ponos import __version__, update
 from ponos import config as C
@@ -483,6 +483,8 @@ def the_console_header_and_the_command_line_agree_on_the_version(state_home):
     releases every commit ran under the same number, and only the commit says
     which code answers.
     """
+    if not (ROOT / ".git").exists():
+        raise Skip("no .git beside the sources: the commit is the neighbouring case's")
     running = update.running()
     number, _, short = running["version"].partition("+")
     tagged = f"v{__version__}" in _git(ROOT, "tag", "--points-at", "HEAD").split()

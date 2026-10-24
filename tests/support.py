@@ -79,6 +79,10 @@ def case(function):
     return function
 
 
+class Skip(Exception):
+    """A case that cannot run here — `raise Skip(reason)`: reported, not failed."""
+
+
 def fixture(function):
     """A fixture both runners know, by its name: `function(case)` yields its value."""
     FIXTURES[function.__name__] = function
@@ -95,14 +99,16 @@ def call(function) -> None:
         function(**values)
 
 
-def _outcome(index: int) -> tuple[str, str]:
-    """One case, in a worker: its name, and its traceback when it failed."""
+def _outcome(index: int) -> tuple[str, str, str]:
+    """One case, in a worker: its name, its traceback when it failed, its reason when skipped."""
     function = CASES[index]
     try:
         call(function)
+    except Skip as skipped:
+        return function.__name__, "", str(skipped)
     except Exception:  # noqa: BLE001 — a test runner reports, it does not raise
-        return function.__name__, traceback.format_exc()
-    return function.__name__, ""
+        return function.__name__, traceback.format_exc(), ""
+    return function.__name__, "", ""
 
 
 def run(argv: list[str]) -> int:
@@ -117,7 +123,7 @@ def run(argv: list[str]) -> int:
     parser.add_argument("-j", "--jobs", type=int, default=os.cpu_count() or 1)
     jobs = parser.parse_args(argv).jobs
     started = time.monotonic()
-    failures = 0
+    failures = skips = 0
     if jobs > 1 and "fork" in multiprocessing.get_all_start_methods():
         pool = multiprocessing.get_context("fork").Pool(jobs, initializer=isolate)
     else:
@@ -125,15 +131,22 @@ def run(argv: list[str]) -> int:
         pool = None
     with pool or contextlib.nullcontext():
         outcomes = (pool.imap if pool else map)(_outcome, range(len(CASES)))
-        for name, failure in outcomes:
+        for name, failure, skipped in outcomes:
             if failure:
                 failures += 1
                 print(f"  ✗ {name}")
                 print("".join("      " + line for line in failure.splitlines(True)))
+            elif skipped:
+                skips += 1
+                print(f"  - {name} (skipped: {skipped})")
             else:
                 print(f"  ✓ {name}")
-    total = len(CASES)
-    print(f"\n{total - failures}/{total} passed in {time.monotonic() - started:.1f}s")
+    total = len(CASES) - skips
+    print(
+        f"\n{total - failures}/{total} passed"
+        + (f", {skips} skipped" if skips else "")
+        + f" in {time.monotonic() - started:.1f}s"
+    )
     return 1 if failures else 0
 
 
