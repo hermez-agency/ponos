@@ -40,6 +40,15 @@ def pytest_pycollect_makeitem(collector, name, obj):
     return None
 
 
+@pytest.hookimpl(wrapper=True)
+def pytest_pyfunc_call(pyfuncitem):
+    """A case's `support.Skip` is a pytest skip, with its reason."""
+    try:
+        return (yield)
+    except support.Skip as skipped:
+        pytest.skip(str(skipped))
+
+
 def _pytest_fixture(name: str, function):
     def fixture(request):
         yield from function(request.function)

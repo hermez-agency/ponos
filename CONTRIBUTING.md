@@ -468,7 +468,8 @@ names as a parameter: a fixture, written once in `support.py` or `functional.py`
 `@fixture`. `tests/run.py` imports every `tests/test_*.py` and runs what they registered,
 opening each fixture a case names; both scripts share the cases among one process per
 core, each of them with directories of its own, so that no case leans on another having
-run first.
+run first. A case that cannot run where it is — the version's commit, in a copy without
+`.git` — raises `support.Skip("why")`: both runners report it skipped, with its reason.
 
 The same cases also run under **pytest**, with the contributor's tools that
 `pyproject.toml` declares and `uv.lock` pins — [uv](https://docs.astral.sh/uv/) installs
