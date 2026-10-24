@@ -84,13 +84,21 @@ def resolve(backend: store.Store, page_id: str) -> Goal:
     Failing a ticket because the page saying what it serves could not be
     fetched would trade a whole run for an accessory — the same call the
     project brief and the agent already make.
+
+    Nor is a goal that is over: one in the trash — still reachable by its ID,
+    that is what the trash is for — or one whose status is not `ACTIVE`. A
+    session told to serve a goal met or given up would work toward an intent
+    nobody holds any more; no status reads as active, as in `active`.
     """
     try:
         page = backend.page(page_id)
     except store.StoreError:
         return Goal()
+    if page.raw.get("archived") or page.raw.get("in_trash"):
+        return Goal()
     name = page.title.strip()
-    if not name:
+    status = _text(page, "status").lower()
+    if not name or (status and status not in ACTIVE):
         return Goal()
     try:
         brief = backend.blocks_text(page_id, live=False)
