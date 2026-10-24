@@ -585,7 +585,9 @@ the tagged commit, when a version is published.
 ## Releases and versions
 
 `ponos` typed alone presents the product and the version it is running — as do
-`ponos --version` and the console, at the foot of its menu. The number is a real
+`ponos --version` and the console, at the foot of its menu. Off a release tag the
+number is followed by the commit (`0.2.0+2489ec6`): every commit between two releases
+runs under the same number. The number is a real
 one, and [`CHANGELOG.md`](CHANGELOG.md) says what each one changed, in the words a user
 would use rather than in commit subjects. The numbers are [semantic](https://semver.org/),
 read from an installed runner's point of view: **major** when your installation needs a
