@@ -20,11 +20,14 @@ the environment wins over the file; that is what makes it worth setting.
 
 from __future__ import annotations
 
+import fcntl
 import os
 import re
 import sys
 import threading
 import tomllib
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -1062,7 +1065,23 @@ def _literal(value: object) -> str:
 
 
 def write_value(path: Path, table: str, key: str, value: object) -> bool:
+    """Set — or, with `value=None`, remove — one key of one table of the file.
+
+    The CLI's way in (`ponos init`, `ponos notify pair`), and the console's
+    one: through `edit`, so that the real file is only ever replaced whole and
+    under its lock — written in place, a process killed between the truncation
+    and the write left a configuration that no longer parsed. See `_write_line`
+    for what the edit itself keeps of the file.
+
+    Returns whether anything changed.
+    """
+    return bool(edit(path, [(table, key, value)]))
+
+
+def _write_line(path: Path, table: str, key: str, value: object) -> bool:
     """Set — or, with `value=None`, remove — one key of one table, in place.
+
+    In place, so only ever on a copy (`edit`, `_scrub`): never on the file itself.
 
     A TOML writer is not in the standard library and this file is one the user
     reads and edits by hand — rewriting it from a parsed tree would cost every
@@ -1129,8 +1148,36 @@ def edit(path: Path, changes: list[tuple[str, str, object]]) -> list[str]:
     The file it displaces is kept as `config.toml.bak`, which is what you want
     the first time a save turns out to have been the wrong idea.
 
+    Two saves at once — two tabs, a tab and the CLI — take turns, under
+    `_locked`: each read the file, then replaced it with its copy, and the copy
+    of the second was made from the file as it was before the first.
+
     Returns the names of the keys that actually changed, `table.key` each.
     """
+    with _locked(path):
+        return _edit(path, changes)
+
+
+@contextmanager
+def _locked(path: Path) -> Iterator[None]:
+    """An exclusive flock beside the file, for as long as it is read and replaced.
+
+    Not on the file itself: `os.replace` puts another inode in its place, and a
+    save waiting on the old one would wake holding a lock nobody else asks for.
+    The lock file stays — removed, the next save would lock a fresh one beside
+    a save still holding the old (see `state.lock`).
+    """
+    lock = path.parent / f".{path.name}.lock"
+    with open(lock, "a", encoding="utf-8", opener=disk.opener()) as handle:
+        fcntl.flock(handle, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(handle, fcntl.LOCK_UN)
+
+
+def _edit(path: Path, changes: list[tuple[str, str, object]]) -> list[str]:
+    """`edit`, once the lock is held."""
     original = path.read_text(encoding="utf-8")
     try:
         load(path).require_usable()
@@ -1173,7 +1220,7 @@ def edit(path: Path, changes: list[tuple[str, str, object]]) -> list[str]:
         written = [
             f"{table}.{key}"
             for table, key, value in file_changes
-            if write_value(scratch, table, key, value)
+            if _write_line(scratch, table, key, value)
         ]
         touched += [name for name in written if name not in touched]
         if not touched:
@@ -1352,7 +1399,7 @@ def _scrub(target: Path, keys: list[tuple[str, str]]) -> None:
     disk.write_private(scratch, target.read_text(encoding="utf-8"))
     try:
         for table, key in keys:
-            write_value(scratch, table, key, None)
+            _write_line(scratch, table, key, None)
         scratch.chmod(mode)
         os.replace(scratch, target)
     finally:
@@ -1375,6 +1422,12 @@ def move_secrets(path: Path) -> list[str]:
     Returns the keys moved, `table.key` each; raises OSError when the files
     cannot be written, and then the file is left as it was.
     """
+    with _locked(path):
+        return _move_secrets(path)
+
+
+def _move_secrets(path: Path) -> list[str]:
+    """`move_secrets`, under the lock a save takes too."""
     raw = read_raw(path)
     found = exposed(raw)
     if not found:
