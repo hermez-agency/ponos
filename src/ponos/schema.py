@@ -27,6 +27,7 @@ to say less, and was left out.
 
 from __future__ import annotations
 
+import difflib
 import math
 import re
 from pathlib import Path
@@ -52,6 +53,7 @@ from .config import (
     MERGE_METHODS,
     MOST_RESERVED,
     PROVIDERS,
+    SECRETS,
     UPDATE_CHANNELS,
     WEEKDAYS,
     Budget,
@@ -162,6 +164,8 @@ class Table(BaseModel):
 
     A key nobody reads is left alone, as it always was: an installation keeps
     lines an older version wrote, and its secrets until the launch moves them.
+    It is not kept quiet for all that — a misspelt key is a setting that does
+    nothing: `unknown` names it, for `ponos doctor` and the health band.
     A number is read as text where text is wanted — a Telegram chat id is an
     integer to TOML and a string to everything downstream.
     """
@@ -533,3 +537,40 @@ def line_of(text: str, where: tuple[str, ...]) -> int:
         if len(path) > depth and where[: len(path)] == path:
             found, depth = number, len(path)
     return found
+
+
+# -- what is written and read by nobody -----------------------------------------
+
+# Keys an older version read and this one does not, as their paths: a file that
+# still holds one is not wrong for it. The secrets `config.py` moves to
+# `secrets.env` are exempt beside them, read from `SECRETS`.
+RETIRED: frozenset[tuple[str, ...]] = frozenset()
+
+
+def unknown(raw: dict[str, Any], text: str) -> list[tuple[int, str, str]]:
+    """Each key no table reads: its line, its dotted name, and the known one it is closest to.
+
+    `read` ignores them; this is what says so. A table whose keys are the
+    file's to choose — `[projects]`, `[github]`, `[notion.status]` — has none,
+    and a table nobody knows is one key, its contents left unread.
+    """
+    exempt = RETIRED | {(*table.split("."), key) for table, key in SECRETS}
+    found: list[tuple[int, str, str]] = []
+
+    def walk(model: type[Table], node: dict[str, Any], where: tuple[str, ...]) -> None:
+        for key, value in node.items():
+            path = (*where, key)
+            known = model.model_fields.get(key)
+            if known is None:
+                if path not in exempt:
+                    close = difflib.get_close_matches(key, model.model_fields, n=1)
+                    found.append((line_of(text, path), ".".join(path), close[0] if close else ""))
+            elif (
+                isinstance(kind := known.annotation, type)
+                and issubclass(kind, Table)
+                and isinstance(value, dict)
+            ):
+                walk(kind, value, path)
+
+    walk(File, raw, ())
+    return sorted(found)

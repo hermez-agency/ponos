@@ -55,6 +55,16 @@ runner, the console's save and `ponos doctor` with the key and its line:
 ✗ /home/you/.config/ponos/config.toml, line 12: web.port = 'eighty' — Input should be a valid integer, unable to parse string as an integer
 ```
 
+A key nobody reads is not refused — a file keeps what an older version wrote — but it is
+not kept quiet either: a misspelt key is a setting that does nothing. `ponos doctor` and the
+console's health band warn of it, with its line and the known key it is closest to:
+
+```text
+! Configuration: config.toml, line 4: runner.max_concurent is not a known key — did you mean max_concurrent?
+```
+
+The secrets an older version wrote in the file are not among them: those are moved, see above.
+
 `config.example.toml` is read against these models by the tests, and documents every key
 they read — no more, no fewer.
 
