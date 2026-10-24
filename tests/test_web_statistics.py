@@ -1318,7 +1318,7 @@ def a_client_that_hangs_up_mid_answer_leaves_no_trace():
     logging.getLogger("uvicorn.error").addHandler(kept)
     try:
 
-        def large():
+        def large(max_age: float = 0.0):
             asked.set()
             # Far more than the socket buffers hold, so the write meets the hang-up.
             return {"tickets": ["x" * 1024] * 8192}
@@ -1331,7 +1331,7 @@ def a_client_that_hangs_up_mid_answer_leaves_no_trace():
         time.sleep(0.5)
         journal.append(sys.stderr.getvalue())
 
-        def broken():
+        def broken(max_age: float = 0.0):
             raise RuntimeError("the board is upside down\nand more")
 
         api.board = broken
@@ -1371,7 +1371,7 @@ def a_500_leaves_its_trace_in_the_journal_masked(state_home):
     vault.remember(secret)
     api = _bare_api(_TalkClient([]))
 
-    def broken():
+    def broken(max_age: float = 0.0):
         raise RuntimeError(f"the board refused {secret} and {token}")
 
     api.board = broken

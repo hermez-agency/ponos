@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import logging
 import shutil
+import threading
 import time
 from datetime import UTC, datetime
 from pathlib import Path
@@ -93,8 +94,35 @@ COLUMNS = (
 class Tickets(Base):
     # -- reading --------------------------------------------------------------
 
-    def board(self) -> dict[str, Any]:
-        """Every ticket, grouped the way the board groups them."""
+    def board(self, max_age: float = 0.0) -> dict[str, Any]:
+        """Every ticket, grouped the way the board groups them.
+
+        With a `max_age`, the board last drawn is handed out again while it is
+        younger than that and no write from the console came after it. The
+        watcher reads Notion every `poll_seconds` anyway; a page asking for the
+        board, its goals and its statistics meanwhile was three more queries of
+        the same database, and every run, the whole history and the sync
+        journal read again to dress the same cards. And one reader at a time:
+        two asking together at the start each made a full read, the second
+        never seeing what the first held.
+        """
+        if getattr(self, "_drawing", None) is None:
+            self._drawing = threading.Lock()
+        with self._drawing:
+            written = getattr(getattr(self, "watch", None), "nudges", 0)
+            drawn: tuple[float, int, dict[str, Any]] | None = getattr(self, "_drawn", None)
+            if drawn is not None and drawn[1] == written and time.monotonic() - drawn[0] < max_age:
+                return drawn[2]
+            started = time.monotonic()
+            payload = self._draw()
+            self._drawn = (started, written, payload)
+            # The statistics take theirs from the watcher (`Watch.recent`).
+            remember = getattr(getattr(self, "watch", None), "remember", None)
+            if remember is not None:
+                remember(started, payload)
+            return payload
+
+    def _draw(self) -> dict[str, Any]:
         settings = self.config.notion
         try:
             if time.time() - self._schema_at > SCHEMA_TTL:

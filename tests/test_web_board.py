@@ -458,3 +458,53 @@ def a_blocked_ticket_on_a_board_where_failed_is_blocked_too_is_drawn_in_blocked(
     assert "blocked" in drawn and "failed" not in drawn, drawn
     assert [item["column"] for item in board["tickets"]][:2] == ["blocked", "blocked"]
     assert all(item["column"] in drawn for item in board["tickets"]), "no card off the board"
+
+
+class _Counted(_ColumnsClient):
+    """The same three rows, and how many times the database was queried."""
+
+    def __init__(self, statuses: list[str]) -> None:
+        super().__init__(statuses)
+        self.queries = 0
+
+    def query(self, database: str, *args, **kwargs) -> list[notion.Page]:
+        self.queries += 1
+        return super().query(database, *args, **kwargs)
+
+
+@case
+def the_board_then_the_statistics_cost_notion_one_query_not_two(state_home):
+    """The watcher reads the board every fifteen seconds; a page asking meanwhile reuses it.
+
+    Opening the dashboard asked `/api/board`, the statistics pane read the board
+    again, and each was a query of its own on top of the watcher's. Only a write
+    from the console — `nudge` — makes the next one read Notion again.
+    """
+    from types import SimpleNamespace
+
+    from ponos.web import live as web_live
+    from ponos.web import routes as web_routes
+
+    client = _Counted(["Ready", "Done"])
+    api = _bare_api(client)
+    api._runner._workspace = type("W", (), {"goals": "", "projects": "", "tickets": "db"})()
+    api._schema_at = time.time()
+    api._reader = web_board.Reader(journal=lambda report: None)
+    api._outbox = web_board.Outbox(journal=lambda report: None)
+    api.watch = web_live.Watch(api.hub, api.board)
+    request = SimpleNamespace(
+        app=SimpleNamespace(state=SimpleNamespace(console=SimpleNamespace(api=api)))
+    )
+
+    web_routes.board(request)  # type: ignore[arg-type]
+    web_routes.statistics(request, "", "", "")  # type: ignore[arg-type]
+    assert client.queries == 1, f"{client.queries} queries for one board"
+
+    api.watch.refresh()
+    assert client.queries == 2, "the watcher itself always asks Notion"
+    web_routes.board(request)  # type: ignore[arg-type]
+    assert client.queries == 2, "and the page is served what it read"
+
+    api.watch.nudge()
+    web_routes.board(request)  # type: ignore[arg-type]
+    assert client.queries == 3, "a write from the console makes the next one read again"

@@ -51,7 +51,7 @@ if TYPE_CHECKING:
         """
 
         # tickets.py
-        def board(self) -> dict[str, Any]: ...
+        def board(self, max_age: float = 0.0) -> dict[str, Any]: ...
         def create_ticket(
             self,
             title: str,
@@ -121,6 +121,11 @@ class Base(Chapters):
         )
         self._reader = board_module.Reader()
         self._synced: dict[str, Any] = {}
+        # The last board drawn — when, after how many writes, and what it was —
+        # under the lock that keeps two readers from asking Notion the same
+        # thing at once. See `Tickets.board`.
+        self._drawn: tuple[float, int, dict[str, Any]] | None = None
+        self._drawing = threading.Lock()
         self._briefs: dict[str, tuple[str, str]] = {}
         self._disk: tuple[float, dict[str, int], list[tuple[str, int]]] | None = None
         # The schedules being launched now: see `launch_schedule`.
@@ -157,6 +162,7 @@ class Base(Chapters):
             # Another file may be another board: what was held was held of
             # the old one.
             self._reader = board_module.Reader()
+            self._drawn = None
             self.chat.config = fresh
         return self._config
 

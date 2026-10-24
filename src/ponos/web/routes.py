@@ -313,7 +313,9 @@ def state(request: Request) -> Response:
 
 @router.get("/api/board", response_model=answers.Board)
 def board(request: Request) -> Response:
-    return answer(_api(request).board())
+    # The watcher's last board, when it is younger than the watcher's period.
+    api = _api(request)
+    return answer(api.board(max_age=api.config.web.poll_seconds))
 
 
 @router.get("/api/notifications", response_model=answers.Bell)

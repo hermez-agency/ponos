@@ -20,7 +20,7 @@ def _api(board):
     api.watch = _Watch()
     api._goals, api._goals_at = {}, 0.0
 
-    def tickets() -> dict:
+    def tickets(max_age: float = 0.0) -> dict:
         return {
             "tickets": [
                 {
