@@ -535,6 +535,9 @@ class Execution(Base):
             interval=self.config.runner.progress_interval_seconds,
             words=self.voice,
             say=self.say,
+            # Never on the loop that reads the session: a Notion answering 429
+            # would stop that loop, and the CLI behind a full pipe — progress.py.
+            background=True,
         )
 
     def _question(self, outcome: session.Outcome, detail: str) -> str | Question:

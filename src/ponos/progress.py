@@ -31,11 +31,22 @@ Two things keep it from becoming noise, and they are the whole design:
 Nothing here can fail a ticket. Every call to Notion is caught, and a page that
 refuses three writes in a row switches the whole thing off for the rest of the
 session — the work carries on, unreported.
+
+Nor can it slow one down. The steps come from the loop that reads the session's
+output, and a write to Notion can take minutes — four tries, each waiting out a
+429 —, during which nothing read the pipe: it filled, and the CLI stopped on its
+next write while its timeout kept running. A run's report is therefore written
+from **a thread of its own**: feeding it only buffers, and what piles up while
+Notion is slow goes down in one write when it answers. The buffer is bounded
+too: past `MAX_STEPS` paragraphs a page would not take them anyway, and the
+tool calls are only counted.
 """
 
 from __future__ import annotations
 
+import logging
 import re
+import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -43,6 +54,8 @@ from typing import Any
 
 from . import markdown, store
 from . import voice as voice_module
+
+logger = logging.getLogger(__name__)
 
 # The default cadence, in seconds. Ten is short enough to feel live and long
 # enough that a page is not rewritten under the reader's eyes.
@@ -226,6 +239,7 @@ class Live:
         words: voice_module.Voice | None = None,
         clock: Callable[[], float] = time.monotonic,
         say: Callable[[str], None] = lambda message: None,
+        background: bool = False,
     ) -> None:
         self.client = backend
         self.page_id = page_id
@@ -242,9 +256,19 @@ class Live:
         self.started = clock()
         self.written = 0
         self.disabled = False
+        # What waits for the next write: the paragraphs, how many steps in all,
+        # and the last of them — the only one the board's column shows.
         self._pending: list[Step] = []
+        self._waiting = 0
+        self._latest = ""
+        self._lock = threading.Lock()
         self._last_flush = self.started
-        self._last_line = ""
+        # Off the session's path when `background`: the writer is started on
+        # the first write that comes due, and `close` waits for it.
+        self.background = background
+        self._due = threading.Event()
+        self._writer: threading.Thread | None = None
+        self._closing = False
         self._toggle = ""
         self._paragraphs = 0
         self._failures = 0
@@ -263,22 +287,58 @@ class Live:
         # Two identical lines in a row say nothing the first one did not: an
         # agent saying the same sentence twice would otherwise write it twice,
         # and the same call made twice would count as two steps.
-        previous = self._pending[-1].line if self._pending else self._last_line
-        if step.line == previous:
+        with self._lock:
+            if step.line == self._latest:
+                return
+            self._latest = step.line
+            self._waiting += 1
+            if step.said and len(self._pending) < MAX_STEPS:
+                self._pending.append(step)
+        if self.clock() - self._last_flush < self.interval:
             return
-        self._pending.append(step)
-        if self.clock() - self._last_flush >= self.interval:
+        if self.background:
+            self._wake()
+        else:
             self.flush()
+
+    def _wake(self) -> None:
+        """Hand the write to the writer, starting it the first time."""
+        if self._closing:
+            return
+        if self._writer is None:
+            self._writer = threading.Thread(target=self._write, name="live-report", daemon=True)
+            self._writer.start()
+        self._due.set()
+
+    def _write(self) -> None:
+        while True:
+            self._due.wait()
+            self._due.clear()
+            if self._closing:
+                return
+            try:
+                self.flush()
+            except Exception as error:
+                # The same fate as a reporter that throws on the session's own
+                # thread: dropped, and the ticket runs to its end unwatched.
+                logger.exception("    ! live report dropped: %s", error)
+                self.disabled = True
+                return
 
     # -- writing ------------------------------------------------------------
 
     def flush(self) -> int:
         """Write what has accumulated. Returns how many steps were written."""
         self._last_flush = self.clock()
-        if self.disabled or not self._pending:
+        if self.disabled:
             return 0
-        steps, self._pending = self._pending, []
-        said = [step for step in steps if step.said][: max(0, MAX_STEPS - self._paragraphs)]
+        with self._lock:
+            pending, self._pending = self._pending, []
+            count, self._waiting = self._waiting, 0
+            last = self._latest
+        if not count:
+            return 0
+        said = pending[: max(0, MAX_STEPS - self._paragraphs)]
 
         if not self._open():
             return 0
@@ -289,14 +349,13 @@ class Live:
                 self._failed(error)
                 return 0
         self._failures = 0
-        self.written += len(steps)
+        self.written += count
         self._paragraphs += len(said)
-        self._last_line = steps[-1].line
         self._retitle(f"⏳ {self.heading} — {self._tally()}")
-        self._publish(_one_line(self._last_line))
+        self._publish(_one_line(last))
         if self._paragraphs >= MAX_STEPS:
             self._cap()
-        return len(steps)
+        return count
 
     def close(self, note: str = "", *, ok: bool = True) -> None:
         """Last flush, then the toggle stops saying it is live.
@@ -304,7 +363,14 @@ class Live:
         A run that ended badly renames it rather than ticking it: the block is
         no longer the story of a session, it is the trace of one, and it is
         where the report sends whoever wants the rest — see `detail`.
+
+        The session is over by now: waiting here for a write still under way
+        holds up the report, never the work.
         """
+        if self._writer is not None:
+            self._closing = True
+            self._due.set()
+            self._writer.join()
         if self.disabled:
             return
         self.flush()
