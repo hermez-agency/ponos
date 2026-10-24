@@ -764,6 +764,7 @@ export const FRENCH: Record<string, string> = {
   "A row in the “{{page}}” database is a ticket that comes back.":
     "Une ligne de la base « {{page}} », c'est un ticket qui revient.",
   "none of this runs.": "rien de tout cela ne tourne.",
+  "Turn it on in the settings": "Activer dans les réglages",
   "This schedule is no longer on the board.": "Cette récurrence n'est plus sur le tableau.",
   // The columns of the list, and the fields of the form that writes a row.
   Day: "Jour",

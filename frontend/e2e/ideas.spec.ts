@@ -50,7 +50,7 @@ async function drag(page: Page, dx: number) {
   return () => page.mouse.up()
 }
 
-async function board(page: Page): Promise<{ title: string; column: string }[]> {
+async function board(page: Page): Promise<{ id: string; title: string; column: string }[]> {
   const response = await page.request.get("/api/board")
   return (await response.json()).tickets
 }
@@ -215,6 +215,17 @@ test.describe("at 1440px", () => {
     // The tab, drawn inside the project's page, writes nothing in the address: it opens on the new ideas again.
     await filter("all").click()
     await expect(page.locator('[data-slot="ideas-item"]', { hasText: "in two languages" })).toHaveAttribute("data-status", "ticket")
+
+    // The toast of the next one leads to the ticket it announces.
+    await filter("proposed").click()
+    const next = tab
+      .locator('[data-slot="ideas-item"]', { has: page.getByRole("button", { name: "Turn into a ticket" }) })
+      .first()
+    const title = (await next.locator('[data-slot="ideas-title"]').textContent())!
+    await next.getByRole("button", { name: "Turn into a ticket" }).click()
+    await page.locator("[data-sonner-toast]", { hasText: title }).getByRole("button", { name: "Open the ticket" }).click()
+    const made = (await board(page)).find((ticket) => ticket.title.endsWith(title))!
+    await expect.poll(() => new URL(page.url()).searchParams.get("view")).toContain(made.id)
   })
 })
 

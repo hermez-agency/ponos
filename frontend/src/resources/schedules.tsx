@@ -61,10 +61,12 @@ import { locale, ruleOf } from "@/lib/recurrence"
 import { layoutOf, useLayoutInTheAddress } from "@/lib/resource-view"
 import { useRoute } from "@/lib/router"
 import { setRunnerZone } from "@/lib/runner-zone"
+import { ask } from "@/lib/settings-store"
 import { STATES, filtering, keeps } from "@/lib/schedule-search"
 import type { Schedule, Schedules } from "@/lib/types"
 import type { Launch } from "@/components/console/schedule-lists"
 import { PROJECTS, projectHref, projectsOnce, projectsRead, useProjects } from "@/resources/projects"
+import { settingsHref } from "@/resources/settings"
 import { projectChoices, ticketHref } from "@/resources/tickets"
 
 /* What comes back on its own, declared once for react-resource-view.
@@ -796,7 +798,15 @@ function SchedulesFoot() {
       <AlertDescription>
         <p>
           <span className="font-mono">runner.schedule = false</span> —{" "}
-          {t("none of this runs.")}
+          {t("none of this runs.")}{" "}
+          {/* The switch itself, brought into view and focused by the page. */}
+          <Link
+            to={settingsHref("execution")}
+            onClick={() => ask("runner.schedule")}
+            className="text-foreground underline underline-offset-2"
+          >
+            {t("Turn it on in the settings")}
+          </Link>
         </p>
       </AlertDescription>
     </Alert>

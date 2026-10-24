@@ -7,6 +7,7 @@ import {
   ResourceViewButton,
   useCurrentViewResourceContext,
   useListViewContext,
+  useNavigate,
   type ListComponentPropsInterface,
 } from "react-resource-view"
 import { toast } from "sonner"
@@ -200,6 +201,7 @@ type Gesture = "keep" | "discard" | "reopen" | "ticket"
 /** The four decisions, and the one being written. */
 function useGestures(idea: Idea) {
   const t = useT()
+  const navigate = useNavigate()
   const [busy, setBusy] = React.useState(false)
   const run = async (gesture: Gesture, undoing = false) => {
     const call = {
@@ -211,12 +213,24 @@ function useGestures(idea: Idea) {
     setBusy(true)
     try {
       const done = await call(idea.id)
-      if (gesture === "ticket")
+      if (gesture === "ticket") {
+        // What it became, a click away — the answer names it.
+        const target = idea.kind === "project" ? done.created : done.ticket
         toast.success(
           idea.kind === "project"
             ? t("Project created: {{title}}", { title: idea.title })
-            : t("Ticket created: {{title}}", { title: idea.title })
+            : t("Ticket created: {{title}}", { title: idea.title }),
+          target
+            ? {
+                action: {
+                  label: idea.kind === "project" ? t("Open the project") : t("Open the ticket"),
+                  onClick: () =>
+                    void navigate({ to: idea.kind === "project" ? projectHref(target) : ticketHref(target) }),
+                },
+              }
+            : undefined
         )
+      }
       if (gesture !== "ticket" && !undoing) {
         // The gesture that puts the idea back where it stood — none from a ticket.
         const back = { proposed: "reopen", kept: "keep", discarded: "discard" }[idea.status as "proposed" | "kept" | "discarded"] as
