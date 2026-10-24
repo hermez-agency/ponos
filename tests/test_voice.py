@@ -143,6 +143,19 @@ def a_measurement_is_rounded_to_something_a_person_would_say():
 
 
 @case
+def french_counts_zero_in_the_singular_and_english_does_not():
+    """« 0 commit » in French, “0 commits” in English: the plural is the language's."""
+    english, french = voice.Voice("en"), voice.Voice("fr")
+    assert english.count(0, "commit") == "0 commits"
+    assert english.count(1, "commit") == "1 commit"
+    assert french.count(0, "commit") == "0 commit"
+    assert french.count(1, "step") == "1 étape"
+    assert french.count(0, "step") == "0 étape"
+    assert french.count(2, "step") == "2 étapes"
+    assert french.count(0, "minute") == "0 minute"
+
+
+@case
 def every_phrase_exists_in_every_language_it_claims_to_speak():
     """A key nobody translated is a sentence that fails the day it is said.
 

@@ -44,7 +44,7 @@ language six months later.
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 
 from . import legacy
 
@@ -1213,8 +1213,8 @@ _SAID: dict[str, dict[str, str]] = {
         "fr": "En construire quoi que ce soit : c'est le rôle des tickets.",
     },
     # -- counted things -------------------------------------------------------
-    # Both languages happen to make their plural the same way here, which is
-    # luck and not a rule: the day one of them does not, this is where it says so.
+    # The words are each language's; when the plural starts is too — see
+    # `_SINGULAR`.
     "commit": {"en": "{count} commit", "fr": "{count} commit"},
     "commits": {"en": "{count} commits", "fr": "{count} commits"},
     "block": {"en": "{count} block", "fr": "{count} bloc"},
@@ -1286,6 +1286,14 @@ def openings(key: str) -> tuple[str, ...]:
     return tuple(dict.fromkeys(text.split("{", 1)[0] for text in _SAID[key].values()))
 
 
+# English says “0 commits”, French « 0 commit » : the plural begins at two in
+# French, at anything but one in English.
+_SINGULAR: dict[str, Callable[[int], bool]] = {
+    "en": lambda number: number == 1,
+    "fr": lambda number: number < 2,
+}
+
+
 class Voice:
     """The runner's own words, in the language the configuration asked for.
 
@@ -1307,7 +1315,8 @@ class Voice:
 
     def count(self, number: int, thing: str) -> str:
         """“3 commits”, “1 commit” — the noun's key is its singular."""
-        return self.say(thing if abs(number) == 1 else f"{thing}s", count=number)
+        singular = _SINGULAR[self.language](abs(number))
+        return self.say(thing if singular else f"{thing}s", count=number)
 
     def minutes(self, seconds: float) -> str:
         """How long something took, said the way a person would.
