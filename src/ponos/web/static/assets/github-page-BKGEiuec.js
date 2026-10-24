@@ -1,1 +1,0 @@
-export{n as GithubPage}from"./github-page-DSZ9L_Rj.js";
