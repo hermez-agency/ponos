@@ -271,11 +271,10 @@ class _Notion:
                 if self.refuse:
                     self.refuse = False
                     return httpx.Response(400, json={"message": "Invalid status option."})
-                offered = self.options
-                for name, value in body["properties"].items():
-                    if offered is not None and "status" in value:
-                        if (value["status"] or {}).get("name", "") not in offered:
-                            return httpx.Response(400, json={"message": "Invalid status option."})
+                for value in body["properties"].values():
+                    named = (value.get("status") or {}).get("name", "")
+                    if self.options is not None and "status" in value and named not in self.options:
+                        return httpx.Response(400, json={"message": "Invalid status option."})
                 self._write(page, body["properties"])
             if body.get("archived"):
                 page["archived"] = True
