@@ -17,6 +17,14 @@ validate). Around them: recurring tickets from schedules, a chat with the machin
 console, and projects that are only a name and a brief — a GitHub link is cloned the first
 time a ticket needs it, no repository at all means the tickets come back as text.
 
+Around the tickets: ideas — Ponos proposes ten at a time, for the workspace or a project, each
+with a category and a relevance score out of 100, kept, thrown away or turned into a ticket in
+a click; goals — a criterion and a due date, counted in the tickets tied to them that are done
+("3 of 7 tickets done"); a vault (`[vault]`) — tokens read from the environment, the keyring,
+`pass` or Bitwarden, handed to each project's sessions only, by name, and masked wherever the
+runner writes; and the schedules' calendar — the recurring tickets to come, laid out by day,
+week or month in the console.
+
 The board is the console and its folder of Markdown files (`storage.mode = "markdown"`), or
 Notion (`ponos init <page-url>`), or both kept in step. The installer checks the machine,
 starts the console and opens it: the rest — Notion, GitHub, a first project, a demonstration
@@ -28,8 +36,12 @@ command and the Python package are called ponos.
 
 ## Docs
 
-- [Landing page](https://the-ponos.app/): what it is, the loop — the console filmed doing it —, the four kinds of task, the console, the integrations, installation without Notion, installing on a server with Dokploy in three steps, a FAQ (what the Dokploy template sets up, the console from your phone over Tailscale)
+- [Landing page](https://the-ponos.app/): what it is, the loop — the console filmed doing it —, the four kinds of task, ideas, goals, the vault and recurring tickets, the console and its pages (board, ticket, statistics, ideas, goals, schedules), the integrations, installation without Notion, installing on a server with Dokploy in three steps, a FAQ (what the Dokploy template sets up, the console from your phone over Tailscale)
 - [Install with Dokploy](https://github.com/hermez-agency/ponos/blob/main/guide/server.md#install-with-dokploy): in Dokploy's template catalogue (Templates › Ponos › Create; https://templates.dokploy.com/?q=ponos), an import of its Base64 otherwise — three steps: create it, give it a Claude subscription token (`claude setup-token`) or an Anthropic key, deploy and open the generated domain over HTTPS. The image pinned to the release, four named volumes, the non-root `ponos` user, a healthcheck on `/healthz`, a 4 GB memory ceiling, a generated sign-in; optional OpenRouter, GitHub (token or GitHub App), Notion, Telegram, Slack, language and timezone
 - [Connect Ponos to Claude](https://github.com/hermez-agency/ponos/blob/main/guide/console.md#connect-ponos-to-claude): the MCP connector — paste `https://<your console>/mcp` in claude.ai, or `claude mcp add --transport http ponos http://127.0.0.1:8787/mcp`; OAuth, no token to copy
+- [Ideas](https://github.com/hermez-agency/ponos/blob/main/guide/console.md#ideas): what Ponos proposes to do next — a batch of ten on a small model, a category and a relevance score each, kept, thrown away (never proposed again) or turned into a draft ticket
+- [Goals](https://github.com/hermez-agency/ponos/blob/main/guide/console.md#goals): what the tickets are for — a card per goal, its due date, Late when past, and "n of m tickets done" counted by the console on any board
+- [The vault](https://github.com/hermez-agency/ponos/blob/main/guide/configuration.md#keys-a-ticket-may-use-the-vault): `[vault]` — where keys are read (env, keyring, pass, bitwarden) and which ones each project's sessions get, as environment variables, masked in everything the runner writes
+- [Recurring tickets](https://github.com/hermez-agency/ponos/blob/main/guide/tickets.md#what-comes-back-on-its-own): schedules that write a ticket and move it to Ready on their own — one occurrence on waking, never the missed ones — and their calendar in the console
 - [Documentation](https://github.com/hermez-agency/ponos#readme): installation, the board and its columns, the types of ticket, the Validated column, recurring tickets, Telegram and Slack, the web console, the Markdown board, Notion, OpenRouter, several GitHub accounts, usage limits, configuration, safety, troubleshooting, Ponos the mascot
 - [Changelog](https://github.com/hermez-agency/ponos/blob/main/CHANGELOG.md): what changed, release by release
