@@ -4640,7 +4640,7 @@ simplifications, with no exception list: a deviation is fixed, or justified by a
 on its line. `ruff format` is enforced too; the commit that formatted the whole repository
 is in `.git-blame-ignore-revs`, which GitHub reads and `git config blame.ignoreRevsFile
 .git-blame-ignore-revs` makes local `git blame` read. The technical audit of October 2026, with what comes next, is
-[docs/audit-technique-2026-10.md](docs/audit-technique-2026-10.md).
+[notes/audit-technique-2026-10.md](notes/audit-technique-2026-10.md).
 
 The first covers the pure part — identifier collisions, status mapping, the
 markdown-to-Notion conversion, deep links, property encoding, which message answers which

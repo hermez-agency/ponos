@@ -12,7 +12,7 @@
 #
 # The version is written twice, here and in `src/ponos/__init__.py`:
 # `scripts/release.py bump` moves both, and `check` refuses a tag where they
-# disagree. See docs/audit-technique-2026-10.md for what comes next.
+# disagree. See notes/audit-technique-2026-10.md for what comes next.
 
 [project]
 name = "ponos"
