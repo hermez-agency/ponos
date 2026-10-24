@@ -949,13 +949,14 @@ def claim(request: Request, payload: routes.Fields = Body(default_factory=dict))
 def _update(request: Request, cancel: bool) -> Response:
     """Start, or call off, the update the header offers. See `upgrade.py`.
 
-    Answered only to this machine and to the console's own page: of every
+    Answered only to this machine — not through a proxy on it, which is how
+    `tailscale serve` relays a phone — and to the console's own page: of every
     write, this is the one that replaces the code answering it. The body
     says nothing — which version, which command and which directory are
     the server's to know, never the page's.
     """
     asking = _asking(request)
-    if not asking.local():
+    if asking.outside():
         return fail(403, "an update is started from the machine the runner is on")
     if not asking.same_origin():
         return fail(403, "this request did not come from the console")

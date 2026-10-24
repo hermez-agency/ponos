@@ -308,7 +308,7 @@ Fields = dict[str, Any]
 
 @router.get("/api/state", response_model=answers.RunnerState)
 def state(request: Request) -> Response:
-    return answer(_api(request).state(local=request.state.asking.local()))
+    return answer(_api(request).state(local=not request.state.asking.outside()))
 
 
 @router.get("/api/board", response_model=answers.Board)

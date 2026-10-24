@@ -747,6 +747,10 @@ def the_update_endpoint_answers_only_this_machine_and_the_console_page():
     try:
         assert post("/api/update") == 403, "a form posted from another page"
         assert post("/api/update", Origin="http://evil.example", **guard) == 403
+        # `tailscale serve`, or a proxy on this machine, relays from loopback.
+        relayed = {"X-Forwarded-For": "100.64.0.3", **guard}
+        assert post("/api/update", **relayed) == 403, "a request relayed by a proxy"
+        assert post("/api/update/cancel", **relayed) == 403
         assert not started
         assert post("/api/update", Origin=f"http://127.0.0.1:{port}", **guard) == 200
         assert post("/api/update", **guard) == 200, "a script with the token sends no Origin"
