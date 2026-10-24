@@ -858,6 +858,11 @@ def a_stop_holds_the_queue_until_it_is_sent_or_thrown_away():
             assert len(chat.prompts) == 1, "nothing is sent on its own"
             released = chat.release()
             assert released["queue"] == [] and released["held"] is False
+            # The released turn starts in its own thread: wait for its prompt.
+            for _ in range(300):
+                if len(chat.prompts) == 2:
+                    break
+                time.sleep(0.01)
             assert chat.prompts[-1].endswith("and the tests")
             chat.stop()
             _settled(chat)
