@@ -614,3 +614,18 @@ def secrets_env_reads_what_a_shell_and_compose_read():
     assert C.write_secrets(path, {"PONOS_WEB_TOKEN": "new"}) == [], "nothing moved, nothing written"
     assert path.read_text() == "# mine\nexport OTHER='kept'\nPONOS_WEB_TOKEN=new\n"
     assert C.read_secrets(path)["OTHER"] == "kept"
+
+
+@case
+def a_launch_closes_the_state_directory_and_the_folders_at_its_top(state_home):
+    """What sits under them stays as it was: the walk is `ponos doctor`'s."""
+    (state_home / "captures").mkdir(mode=0o775, parents=True)
+    (state_home / "captures").chmod(0o775)
+    shot = state_home / "captures" / "shot.png"
+    shot.write_bytes(b"png")
+    shot.chmod(0o664)
+    state_home.chmod(0o755)
+    C.private_state()
+    assert state_home.stat().st_mode & 0o777 == 0o700
+    assert (state_home / "captures").stat().st_mode & 0o777 == 0o700
+    assert shot.stat().st_mode & 0o777 == 0o664

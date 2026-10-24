@@ -1878,5 +1878,6 @@ if __name__ == "__main__":
         print(f"ponos: {error}", file=sys.stderr)
         raise SystemExit(2) from None
     legacy.migrate()
+    config_module.private_state()
     secrets_out_of_config()
     raise SystemExit(main())

@@ -59,6 +59,7 @@ from . import (
     cleanup,
     conversation,
     db,
+    disk,
     environment,
     git,
     github_app,
@@ -1988,6 +1989,7 @@ def _machine(config: config_module.Config) -> list[Check]:
         *_tools(),
         *_docker(config),
         *_disk(config),
+        *_private_state(),
         *_memory(config),
         *_runner(config),
     ]
@@ -2215,6 +2217,52 @@ def _disk(config: config_module.Config) -> list[Check]:
             )
         )
     return found
+
+
+# Clones of somebody's repository, not what Ponos keeps: their files are the
+# project's, with the modes git gave them, and walking them is a node_modules.
+CHECKOUTS = ("worktrees", "scratch", git.LEFTOVERS)
+
+
+def _private_state() -> list[Check]:
+    """What under the state directory another account could read.
+
+    The directory is closed at each launch (`config.private_state`), which is
+    what protects the rest; what was written inside it with the umask — chat
+    screenshots, transcripts — is said here, and tightened by the fix.
+    """
+    state = config_module.state_dir()
+    title = "State directory"
+    loose = disk.open_to_others(state, CHECKOUTS)
+    if not loose:
+        return [
+            _check(
+                "machine.private",
+                OK,
+                title,
+                "Nothing in {{state}} can be read by other accounts.",
+                params={"state": str(state)},
+            )
+        ]
+    shown = ", ".join(str(path.relative_to(state)) for path in loose[:3])
+    shown += "…" if len(loose) > 3 else ""
+    return [
+        _check(
+            "machine.private",
+            ERROR if state in loose else WARN,
+            title,
+            "{{count}} entries in {{state}} can be read by other accounts ({{shown}}).",
+            params={"count": str(len(loose)), "state": str(state), "shown": shown},
+            cause="Written with the umask: chat attachments, screenshots, transcripts.",
+            steps=["Run `chmod -R go-rwx {{state}}`."],
+            fix=_fix(
+                "state_private",
+                "Tighten",
+                "Make what is in {{state}} readable by this account only?",
+                [],
+            ),
+        )
+    ]
 
 
 def _memory(config: config_module.Config) -> list[Check]:
@@ -3478,6 +3526,10 @@ def fix(
             board.add_properties(space.tickets, {column: {"select": {"options": kept}}})
             done += ", removed " + ", ".join(f"“{name}”" for name in emptied)
         return done
+    if action == "state_private":
+        loose = disk.open_to_others(config_module.state_dir(), CHECKOUTS)
+        tightened = sum(disk.tighten(path) for path in loose)
+        return f"{tightened} entries tightened"
     if action == "project_branch":
         space = workspace_module.resolve(client, config.notion)
         row = next((row for row in _project_rows(client, space) if row["id"] == target), None)

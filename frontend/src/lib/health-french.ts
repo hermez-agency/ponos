@@ -320,4 +320,11 @@ export const HEALTH_FRENCH: Record<string, string> = {
   "“{{status}}”: a ticket there is never run by itself.": "« {{status}} » : un ticket qui s'y trouve n'est jamais lancé de lui-même.",
   "Give [notion.status] paused a name of its own.": "Donnez à [notion.status] paused un nom à lui.",
   "Install it: `{{command}}`.": "Installez-le : `{{command}}`.",
+  "State directory": "Dossier d'état",
+  "Nothing in {{state}} can be read by other accounts.": "Rien dans {{state}} n'est lisible par d'autres comptes.",
+  "{{count}} entries in {{state}} can be read by other accounts ({{shown}}).": "{{count}} entrées de {{state}} sont lisibles par d'autres comptes ({{shown}}).",
+  "Written with the umask: chat attachments, screenshots, transcripts.": "Écrites avec l'umask : pièces jointes du chat, captures d'écran, transcriptions.",
+  "Run `chmod -R go-rwx {{state}}`.": "Lancez `chmod -R go-rwx {{state}}`.",
+  "Tighten": "Resserrer",
+  "Make what is in {{state}} readable by this account only?": "Rendre ce que contient {{state}} lisible par ce seul compte ?",
 }

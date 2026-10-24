@@ -26,7 +26,9 @@ console's own origin.
 
 The files belong to one conversation and leave with it: a new conversation
 empties the folder, and whatever a conversation nobody closed left behind goes
-after `web.attachment_days`.
+after `web.attachment_days`. Meanwhile they are nobody else's to read — a
+screenshot pasted in the chat shows whatever was on the screen: the folders are
+`0700` and the files `0600` from their first byte (see `disk.py`).
 """
 
 from __future__ import annotations
@@ -39,6 +41,8 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO
+
+from .. import disk
 
 # Extension → (kind, the type it is served back as). The type is ours, never
 # the browser's: what the page announced is not what decides how it is served.
@@ -154,7 +158,8 @@ class Folder:
             )
         if length <= 0:
             raise ValueError(f"“{name}” is empty")
-        self.path.mkdir(parents=True, exist_ok=True)
+        disk.private_dir(self.root)
+        disk.private_dir(self.path)
         identifier = secrets.token_hex(6)
         kept = safe_name(name)
         if not accepted(kept):
@@ -162,7 +167,7 @@ class Folder:
         target = self.path / f"{identifier}-{kept}"
         written = 0
         try:
-            with target.open("wb") as out:
+            with open(target, "wb", opener=disk.opener()) as out:
                 while written < length:
                     chunk = source.read(min(1 << 16, length - written))
                     if not chunk:
@@ -271,7 +276,7 @@ def frames(path: Path, count: int = FRAMES) -> list[Path]:
             every = max(0.5, float(said) / count)
         except (OSError, ValueError, subprocess.SubprocessError):
             pass
-    out.mkdir(exist_ok=True)
+    disk.private_dir(out)
     try:
         subprocess.run(
             [

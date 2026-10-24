@@ -46,8 +46,8 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
+from .. import disk, openrouter, progress, provider, session, voice
 from .. import log as log_module
-from .. import openrouter, progress, provider, session, voice
 from ..config import Config, state_dir
 from . import agui, chats
 from . import attachments as files
@@ -111,9 +111,7 @@ GRACE_SECONDS = 5
 
 
 def web_dir() -> Path:
-    path = state_dir() / "web"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
+    return disk.private_dir(state_dir() / "web")
 
 
 def attachments_dir() -> Path:
