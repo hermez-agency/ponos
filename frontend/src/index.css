@@ -102,6 +102,20 @@
   --shadow-lg: 0 12px 28px -6px rgb(var(--shadow-color) / calc(var(--shadow-strength) * 1.2));
 }
 
+/* The bar of a plan nobody has written yet: a stretch that crosses the track
+ * rather than a length, because no length is known. */
+@theme {
+  --animate-indeterminate: indeterminate 1.4s ease-in-out infinite;
+  @keyframes indeterminate {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(250%);
+    }
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

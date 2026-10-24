@@ -33,6 +33,7 @@ import type {
   UpgradeProgress,
 } from "@/lib/types"
 import { publishAgui } from "@/lib/agui"
+import { planOf, readPlan, type Task } from "@/lib/plan"
 import { justUpdated, type UpgradePhase } from "@/lib/upgrade"
 import { useStream, type Connection } from "./use-stream"
 
@@ -82,6 +83,8 @@ export interface Session {
   steps: Step[]
   /** How many steps the session has taken, the forgotten ones included. */
   count: number
+  /** The agent's todo list as it stands; empty while it has not written one. */
+  plan: Task[]
 }
 
 let counter = 0
@@ -201,6 +204,9 @@ export function ConsoleProvider({ children }: { children: React.ReactNode }) {
   // Counted apart from the steps kept: a card says how far a run has come,
   // and the panel forgets all but its last two hundred.
   const [counts, setCounts] = React.useState<Record<string, number>>({})
+  // Kept apart too: the plan was written once, a long way back, and is the
+  // one thing the last two hundred steps must not push out.
+  const [plans, setPlans] = React.useState<Record<string, Task[]>>({})
   const [ticket, setTicket] = React.useState<Ticket | null>(null)
   const [talk, setTalk] = React.useState<Message[]>([])
   const [mention, setMention] = React.useState("")
@@ -231,10 +237,14 @@ export function ConsoleProvider({ children }: { children: React.ReactNode }) {
     for (const session of sessions) {
       if (asked.current.has(session.log)) continue
       asked.current.add(session.log)
+      // Another run of the same ticket: the last one's plan is not this one's.
+      setPlans(({ [session.source]: _, ...others }) => others)
       void api
         .log(session.log)
         .then((payload) => {
           const read = payload.steps.slice(-KEPT)
+          const plan = planOf(payload.steps)
+          if (plan.length) setPlans((current) => ({ ...current, [session.source]: plan }))
           // Steps that arrived on the stream while the log was being read are
           // in the log too: whichever says more is the one kept.
           setSteps((current) => {
@@ -428,6 +438,10 @@ export function ConsoleProvider({ children }: { children: React.ReactNode }) {
         [event.source]: [...(current[event.source] ?? []), line].slice(-KEPT),
       }))
       setCounts((current) => ({ ...current, [event.source]: (current[event.source] ?? 0) + 1 }))
+      if (event.label === "Plan") {
+        const plan = readPlan(event.detail)
+        if (plan.length) setPlans((current) => ({ ...current, [event.source]: plan }))
+      }
     },
 
     chat: (event: ChatEvent) => {
@@ -747,12 +761,13 @@ export function ConsoleProvider({ children }: { children: React.ReactNode }) {
         source: session.source,
         steps: steps[session.source] ?? [],
         count: counts[session.source] ?? steps[session.source]?.length ?? 0,
+        plan: plans[session.source] ?? [],
       })),
       // Kept after the session ends: the open ticket's terminal shows how the
       // run it just finished went, until another ticket is opened.
       ticketSteps: openShort ? (steps[openShort] ?? []) : [],
     }),
-    [running, steps, counts, openShort]
+    [running, steps, counts, plans, openShort]
   )
 
   return (
