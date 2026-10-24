@@ -112,7 +112,8 @@ export function HealthBand() {
 
   if (!report || !worded || !shown(report.checks)) return null
   const checks = failing(report.checks)
-  const errors = checks.some((one) => one.state === "error")
+  const blocking = checks.filter((one) => one.state === "error").length
+  const errors = blocking > 0
   const Icon = errors ? OctagonAlert : AlertTriangle
 
   return (
@@ -127,11 +128,20 @@ export function HealthBand() {
               {chevron(open)}
               <Icon className={cn("size-4 shrink-0", errors ? "text-destructive" : "text-amber-600")} />
               <span className="min-w-0 truncate text-sm font-medium">
-                {counted(
-                  checks.length,
-                  "{{count}} thing to fix before tickets can run",
-                  "{{count}} things to fix before tickets can run"
-                )}
+                {/* "Before tickets can run" only when something stops them: a
+                    warning is a ticket that runs, with something to look at. */}
+                {[
+                  errors &&
+                    counted(
+                      blocking,
+                      "{{count}} thing to fix before tickets can run",
+                      "{{count}} things to fix before tickets can run"
+                    ),
+                  checks.length > blocking &&
+                    counted(checks.length - blocking, "{{count}} warning", "{{count}} warnings"),
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
               </span>
             </CollapsibleTrigger>
             <Button variant="outline" size="sm" onClick={() => check(true)} disabled={checking} data-testid="health-recheck">

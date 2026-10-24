@@ -1625,12 +1625,36 @@ def _notion(table: schema.NotionTable, stored: dict[str, str]) -> Notion:
         # `page_aliases()` needs to know which titles the file actually names, to
         # tell "the user calls it this" from "nobody said, so try the old names".
         pages=dict(table.pages),
-        properties={**_DEFAULT_PROPERTIES, **table.properties},
+        properties=_properties(table.properties),
         # Not merged with the defaults: `state()` needs to know which keys the
         # file actually sets, to let "blocked" fall back on "failed".
         status=dict(table.status),
         types=dict(table.types),
     )
+
+
+# The settings that read a column as a relation. Any other one reads text, a
+# select, a URL — a column none of these can share with it.
+_RELATIONS = ("project", "role", "goal", "last_ticket")
+
+
+def _properties(written: dict[str, str]) -> dict[str, str]:
+    """The names of the board's columns: the file's, then the defaults.
+
+    Save one. `role` defaults to "Agent", which is what `agent` used to default
+    to — and a file written back then says `agent = "Agent"` of a text column.
+    Read as the role too, that text was taken for a relation, and a page was
+    asked of Notion on every ticket taken back. So a role the file does not name
+    steps aside, as no column at all, when its default is a column the file
+    gives to a setting that reads something else.
+    """
+    properties = {**_DEFAULT_PROPERTIES, **written}
+    if "role" not in written and any(
+        name == _DEFAULT_PROPERTIES["role"] and key not in _RELATIONS
+        for key, name in written.items()
+    ):
+        properties["role"] = ""
+    return properties
 
 
 def _runner(table: schema.RunnerTable) -> Runner:

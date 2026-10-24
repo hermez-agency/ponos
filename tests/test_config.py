@@ -284,6 +284,23 @@ def optional_properties_have_names_even_when_absent():
 
 
 @case
+def an_old_agent_column_is_not_read_as_the_role_too():
+    """A file written when `agent` defaulted to "Agent": its text column is the runner's.
+
+    `role` came later, with that very name for a default, and read the same
+    text column as a relation — a page asked of Notion on every ticket.
+    """
+    old = _config('[notion.properties]\nagent = "Agent"\n')
+    assert old.notion.prop("agent") == "Agent"
+    assert old.notion.prop("role") == "", "the role steps aside rather than share it"
+    assert _config("").notion.prop("role") == "Agent", "the default is left alone"
+    meant = _config('[notion.properties]\nagent = "Agent"\nrole = "Agent"\n')
+    assert meant.notion.prop("role") == "Agent", "a name the file writes is a name meant"
+    # A relation beside a relation is no misreading: the goal may point anywhere.
+    assert _config('[notion.properties]\ngoal = "Agent"\n').notion.prop("role") == "Agent"
+
+
+@case
 def a_workspace_is_named_once_and_the_rest_is_found():
     config = _config("")
     assert config.notion.page("tickets") == "Tickets"

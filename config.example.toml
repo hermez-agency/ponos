@@ -167,6 +167,8 @@ priority = "Priority"    # number, 0 to 100: the highest runs first, empty is 50
 cost = "Cost"            # number: what the run cost, written back
 duration = "Duration"    # number: how long it took, in minutes
 role = "Agent"           # relation → your agents database: who handles the ticket
+                         # ("" reads none; left out, it steps aside when another
+                         # setting above already names a column "Agent")
 goal = "Objectif"        # relation → your goals database: what the ticket is for
 
 # text: what the session is doing right now, rewritten every ten seconds while

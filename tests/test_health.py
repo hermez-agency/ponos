@@ -323,6 +323,43 @@ def health_warns_when_two_settings_name_one_property():
         assert f'"{sentence}"' in french, (
             f"nothing translates “{sentence}” — add it to health-french.ts"
         )
+    assert shared.fix is None, "the column is a relation: the role reads it right"
+
+
+@case
+def health_offers_to_take_the_role_off_a_text_column_the_agent_reads():
+    from ponos import health
+
+    settings, board = _health_board()
+    board.properties["Agent"] = {"type": "rich_text", "rich_text": {}}
+    config = _config('[notion.properties]\nagent = "Agent"\nrole = "Agent"\n')
+    config.notion.properties = {**settings.properties, "agent": "Agent", "role": "Agent"}
+    found = health._schema(
+        config, board, workspace.Workspace(tickets="db", projects="projects", agents="agents")
+    )
+    shared = next(check for check in found if check.code == "notion.shared")
+    assert shared.fix and shared.fix["action"] == "notion_shared", shared
+    assert shared.fix["missing"] == "“Agent”"
+    french = _french()
+    for sentence in (shared.fix["label"], shared.fix["confirm"]):
+        assert f'"{sentence}"' in french, f"nothing translates “{sentence}”"
+
+    try:
+        health.fix(config, board, "notion_shared")
+    except PermissionError:
+        pass
+    else:
+        raise AssertionError("a fix is never made unasked")
+    assert C.load(config.path).notion.prop("role") == "Agent", "nothing written unasked"
+    health.fix(config, board, "notion_shared", confirmed=True)
+    fixed = C.load(config.path)
+    assert fixed.notion.prop("role") == "" and fixed.notion.prop("agent") == "Agent"
+
+    config.notion.properties["role"] = ""
+    again = health._schema(
+        config, board, workspace.Workspace(tickets="db", projects="projects", agents="agents")
+    )
+    assert [check.code for check in again if check.state != health.OK] == [], again
 
 
 # -- what `doctor` used to ask on its own, asked here ---------------------------
@@ -439,7 +476,7 @@ def health_names_every_column_the_board_lacks_and_what_each_costs():
 
     retyped = _columns(settings, {**complete, "Cost": "rich_text"})
     assert retyped.state == "error"
-    assert "“Cost” is a rich_text, not number" in retyped.params["wrong"], retyped.params
+    assert "“Cost” (rich_text ≠ number)" in retyped.params["wrong"], retyped.params
 
     # The configuration of the 1st of October: `agent = "Agent"`, on a board
     # that has no column by that name — nor by the Runner one.
