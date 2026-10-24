@@ -50,7 +50,10 @@
     "Validated column that merges pull requests or publishes documents",
     "Questions and answers over Telegram and Slack",
     "Replies to comments on a ticket",
-    "Recurring tickets from schedules",
+    "Recurring tickets from schedules, laid out in a calendar",
+    "Ideas proposed, scored and turned into tickets",
+    "Goals that count the tickets done toward them",
+    "A vault that hands each project its own keys, masked everywhere",
     "A board of its own: the local web console over a folder of Markdown files",
     "Workspace chat with the machine, in the console",
     "Optional integrations: Notion, GitHub, Telegram, Slack, OpenRouter for any other model"
@@ -425,6 +428,9 @@
   .around .card-title { font-size: 1rem; }
   .around p { margin: 0; color: var(--muted-foreground); font-size: .9375rem; }
   .around q { color: var(--foreground); font-weight: 500; }
+  .around p b { color: var(--foreground); font-weight: 600; }
+  .around .card-footer a { color: var(--primary); font-weight: 500; text-decoration: none; }
+  .around .card-footer a:hover { text-decoration: underline; text-underline-offset: 3px; }
 
   /* -- 2. the proofs, under the loop -- */
   .proof .card-title { font-size: 1.25rem; letter-spacing: -.015em; }
@@ -515,6 +521,7 @@
   /* -- 5. the console -- */
   .shots { margin: 0; }
   .shots-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: 1rem; }
+  .shots-bar .tabs-list { max-width: 100%; overflow-x: auto; }
   .shot { border: 1px solid var(--border); border-radius: var(--radius-xl); overflow: hidden; box-shadow: 0 24px 60px -30px rgb(0 0 0 / .45); background: var(--card); }
   .shot img { display: block; width: 100%; height: auto; }
   .dark .shot .light, html:not(.dark) .shot .dark { display: none; }
@@ -833,16 +840,38 @@
     </div>
     <div class="grid g3 around">
       <article class="card">
-        <div class="card-header"><h3 class="card-title">Tickets that come back</h3></div>
-        <p><q>Every Monday, review the dependencies</q> — a schedule writes the ticket and moves it to <em>Ready</em> on its own.</p>
-      </article>
-      <article class="card">
         <div class="card-header"><h3 class="card-title">A chat with your machine</h3></div>
         <p><q>Create a ticket for the SQLite migration and make it ready</q> — the console’s chat is a Claude Code session in your workspace, and it does it.</p>
       </article>
       <article class="card">
         <div class="card-header"><h3 class="card-title">Projects, without ceremony</h3></div>
         <p>A project is a name and a brief. Give it a GitHub link and the repository is cloned the first time a ticket needs it; give it none and its tickets come back as text.</p>
+      </article>
+    </div>
+    <div class="sub-head" id="around">
+      <span class="label">Around the tickets</span>
+      <h3>What to do next, what it is for, the keys it needs, when it comes back.</h3>
+    </div>
+    <div class="grid g4 around">
+      <article class="card">
+        <div class="card-header"><span class="badge badge-secondary">Ideas</span><h3 class="card-title">It proposes what to do next.</h3></div>
+        <p>Ten ideas at a time, for the workspace or for one project, each with a category and a <b>relevance score out of 100</b>. Keep one, throw one away — it is never proposed again — or turn it into a ticket in a click.</p>
+        <div class="card-footer"><a href="https://github.com/hermez-agency/ponos/blob/main/guide/console.md#ideas">The ideas →</a></div>
+      </article>
+      <article class="card">
+        <div class="card-header"><span class="badge badge-secondary">Goals</span><h3 class="card-title">What the tickets are for.</h3></div>
+        <p>A goal has a criterion and a due date, and the tickets tied to it count toward it: <b>“3 of 7 tickets done”</b>, over a bar, <em>Late</em> once its day is past. The ideas are proposed with it in mind.</p>
+        <div class="card-footer"><a href="https://github.com/hermez-agency/ponos/blob/main/guide/console.md#goals">The goals →</a></div>
+      </article>
+      <article class="card">
+        <div class="card-header"><span class="badge badge-secondary">Vault</span><h3 class="card-title">Keys, never in the ticket.</h3></div>
+        <p><code>[vault]</code> reads tokens where they already live — the environment, the keyring, <code>pass</code>, Bitwarden — and hands each project <b>only its own</b>. The session knows their names, never their values, and a value printed is masked.</p>
+        <div class="card-footer"><a href="https://github.com/hermez-agency/ponos/blob/main/guide/configuration.md#keys-a-ticket-may-use-the-vault">The vault →</a></div>
+      </article>
+      <article class="card">
+        <div class="card-header"><span class="badge badge-secondary">Schedules</span><h3 class="card-title">Tickets that come back.</h3></div>
+        <p><q>Every Monday, review the dependencies</q> — a schedule writes the ticket and moves it to <em>Ready</em> on its own, and the console lays the next ones out in a calendar. <b>A machine off for a week wakes up to one, not seven.</b></p>
+        <div class="card-footer"><a href="https://github.com/hermez-agency/ponos/blob/main/guide/tickets.md#what-comes-back-on-its-own">Recurring tickets →</a></div>
       </article>
     </div>
   </div>
@@ -862,20 +891,35 @@
           <button class="tabs-trigger" role="tab" type="button" id="tab-board" aria-controls="shot-board" aria-selected="true">Board</button>
           <button class="tabs-trigger" role="tab" type="button" id="tab-ticket" aria-controls="shot-ticket" aria-selected="false" tabindex="-1">A ticket</button>
           <button class="tabs-trigger" role="tab" type="button" id="tab-statistics" aria-controls="shot-statistics" aria-selected="false" tabindex="-1">Statistics</button>
+          <button class="tabs-trigger" role="tab" type="button" id="tab-ideas" aria-controls="shot-ideas" aria-selected="false" tabindex="-1">Ideas</button>
+          <button class="tabs-trigger" role="tab" type="button" id="tab-goals" aria-controls="shot-goals" aria-selected="false" tabindex="-1">Goals</button>
+          <button class="tabs-trigger" role="tab" type="button" id="tab-schedules" aria-controls="shot-schedules" aria-selected="false" tabindex="-1">Schedules</button>
         </div>
         <span class="badge">in English or French · light or dark</span>
       </div>
       <div class="shot" role="tabpanel" id="shot-board" aria-labelledby="tab-board">
-        <img class="light" src="console/board-light.webp" width="1440" height="900" loading="lazy" alt="The console's board in light: columns Ready, In progress, In review and Validated, a card per ticket, and Ponos in the top bar saying what he is doing.">
-        <img class="dark" src="console/board-dark.webp" width="1440" height="900" loading="lazy" alt="The console's board in dark: columns Ready, In progress, In review and Validated, a card per ticket, and Ponos in the top bar saying what he is doing.">
+        <img class="light" src="console/board-light.webp" width="1440" height="900" loading="lazy" alt="The console's board in light: columns Draft, Ready, In progress and Blocked, a card per ticket with its priority, its model and its project, and Ponos saying what he is editing on the tickets in progress.">
+        <img class="dark" src="console/board-dark.webp" width="1440" height="900" loading="lazy" alt="The console's board in dark: columns Draft, Ready, In progress and Blocked, a card per ticket with its priority, its model and its project, and Ponos saying what he is editing on the tickets in progress.">
       </div>
       <div class="shot" role="tabpanel" id="shot-ticket" aria-labelledby="tab-ticket" hidden>
-        <img class="light" src="console/ticket-light.webp" width="1440" height="900" loading="lazy" alt="A ticket in the console, in light: its status, the buttons to run it again, validate it or close it, its project, priority, cost and duration, and its brief.">
-        <img class="dark" src="console/ticket-dark.webp" width="1440" height="900" loading="lazy" alt="A ticket in the console, in dark: its status, the buttons to run it again, validate it or close it, its project, priority, cost and duration, and its brief.">
+        <img class="light" src="console/ticket-light.webp" width="1440" height="900" loading="lazy" alt="A ticket in the console, in light: in review, its project, type and priority, its pull request with what it cost and how long it took, the checks on GitHub, and its brief.">
+        <img class="dark" src="console/ticket-dark.webp" width="1440" height="900" loading="lazy" alt="A ticket in the console, in dark: in review, its project, type and priority, its pull request with what it cost and how long it took, the checks on GitHub, and its brief.">
       </div>
       <div class="shot" role="tabpanel" id="shot-statistics" aria-labelledby="tab-statistics" hidden>
-        <img class="light" src="console/statistics-light.webp" width="1440" height="900" loading="lazy" alt="The console's statistics in light: tickets open, closed and created over a month, what was spent, and a curve per day.">
-        <img class="dark" src="console/statistics-dark.webp" width="1440" height="900" loading="lazy" alt="The console's statistics in dark: tickets open, closed and created over a month, what was spent, and a curve per day.">
+        <img class="light" src="console/statistics-light.webp" width="1440" height="900" loading="lazy" alt="The console's statistics in light: tickets open, closed and created over a week, what was spent, a chart per day, the tickets created by type and by project.">
+        <img class="dark" src="console/statistics-dark.webp" width="1440" height="900" loading="lazy" alt="The console's statistics in dark: tickets open, closed and created over a week, what was spent, a chart per day, the tickets created by type and by project.">
+      </div>
+      <div class="shot" role="tabpanel" id="shot-ideas" aria-labelledby="tab-ideas" hidden>
+        <img class="light" src="console/ideas-light.webp" width="1440" height="900" loading="lazy" alt="The console's ideas in light: cards proposed by Ponos, each with its relevance score, its category, and a button to turn it into a ticket or create the project.">
+        <img class="dark" src="console/ideas-dark.webp" width="1440" height="900" loading="lazy" alt="The console's ideas in dark: cards proposed by Ponos, each with its relevance score, its category, and a button to turn it into a ticket or create the project.">
+      </div>
+      <div class="shot" role="tabpanel" id="shot-goals" aria-labelledby="tab-goals" hidden>
+        <img class="light" src="console/goals-light.webp" width="1440" height="900" loading="lazy" alt="The console's goals in light: one card per goal, with its due date, a late one marked Late, and how many of its tickets are done over a bar.">
+        <img class="dark" src="console/goals-dark.webp" width="1440" height="900" loading="lazy" alt="The console's goals in dark: one card per goal, with its due date, a late one marked Late, and how many of its tickets are done over a bar.">
+      </div>
+      <div class="shot" role="tabpanel" id="shot-schedules" aria-labelledby="tab-schedules" hidden>
+        <img class="light" src="console/schedules-light.webp" width="1440" height="900" loading="lazy" alt="The console's schedules in light: a month's calendar of the recurring tickets, the passes already made and the ones to come.">
+        <img class="dark" src="console/schedules-dark.webp" width="1440" height="900" loading="lazy" alt="The console's schedules in dark: a month's calendar of the recurring tickets, the passes already made and the ones to come.">
       </div>
       <figcaption>The current console, on a demonstration board. <code>ponos serve</code> — the installer already starts it. <a href="https://github.com/hermez-agency/ponos/blob/main/guide/console.md#the-web-console">Everything it does →</a></figcaption>
     </figure>
