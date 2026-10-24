@@ -20,9 +20,10 @@ import { Button, buttonVariants } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api, why } from "@/lib/api"
 import { useBoard } from "@/lib/board-store"
+import { byDeadline, deadlineOf, todayOf } from "@/lib/goal-deadline"
 import { EVERY_STATUS, dueOf, keeps, progressOf } from "@/lib/goal-search"
 import { onGoalsMoved } from "@/lib/goals-store"
-import { useT } from "@/lib/i18n"
+import { useFrench, useT } from "@/lib/i18n"
 import { count } from "@/lib/numbers"
 import { locale } from "@/lib/recurrence"
 import { carrying } from "@/lib/resource-view"
@@ -69,14 +70,41 @@ function Progress({ goal }: { goal: Goal }) {
   )
 }
 
-function Due({ due }: { due: string }) {
+/** The due date, and beside it whether the goal is late or close to it. */
+function Due({ goal }: { goal: Goal }) {
   const t = useT()
-  if (!due) return null
+  if (!goal.due) return null
   return (
-    <span className="text-muted-foreground inline-flex items-center gap-1 text-xs" title={t("Due")}>
-      <CalendarDays className="size-3.5" />
-      {dueOf(due, locale())}
+    <span className="inline-flex flex-wrap items-center gap-1.5">
+      <span className="text-muted-foreground inline-flex items-center gap-1 text-xs" title={t("Due")}>
+        <CalendarDays className="size-3.5" />
+        {dueOf(goal.due, locale())}
+      </span>
+      <Deadline goal={goal} />
     </span>
+  )
+}
+
+/* The badge's words, in French: fetched when one is drawn, see `goal-french.ts`. */
+const words = () => import("@/lib/goal-french").then((module) => module.GOAL_FRENCH)
+
+function Deadline({ goal }: { goal: Goal }) {
+  const t = useT()
+  const ready = useFrench(words)
+  const deadline = deadlineOf(goal, todayOf())
+  // Not drawn in English while its French is on the way.
+  if (!deadline || !ready) return null
+  if (deadline.late)
+    return (
+      <Badge variant="destructive" data-slot="goal-deadline" data-late>
+        {t("Late")}
+      </Badge>
+    )
+  const form = count(deadline.days, "In {{count}} day", "In {{count}} days")
+  return (
+    <Badge variant="outline" data-slot="goal-deadline">
+      {deadline.days ? t(form.key, form.params) : t("Today")}
+    </Badge>
   )
 }
 
@@ -104,7 +132,7 @@ function GoalCard({ goal }: { goal: Goal }) {
             </ResourceViewButton>
           </div>
         </div>
-        <Due due={goal.due} />
+        <Due goal={goal} />
       </div>
       {goal.criterion ? <p className="text-muted-foreground line-clamp-3 leading-relaxed">{goal.criterion}</p> : null}
       <div className="mt-auto">
@@ -114,14 +142,15 @@ function GoalCard({ goal }: { goal: Goal }) {
   )
 }
 
+/* The rows are every goal the filters keep, in Notion's order: drawn soonest due first. */
 export function GoalCards({ rows = [] }: ListComponentPropsInterface) {
+  const drawn = byDeadline(rows.flatMap((row) => (row.data ? [row.data as GoalItem] : [])))
   return (
     <div className="@container w-full">
       <ul className="grid grid-cols-1 gap-3 @2xl:grid-cols-2 @5xl:grid-cols-3" data-slot="goals-items">
-        {rows.map((row) => {
-          const goal = row.data as GoalItem | undefined
-          return goal ? <GoalCard key={goal.id} goal={goal} /> : null
-        })}
+        {drawn.map((goal) => (
+          <GoalCard key={goal.id} goal={goal} />
+        ))}
       </ul>
       <div className="mt-5">
         <ListPagination />
@@ -165,7 +194,7 @@ export function ProjectGoals({ project }: { project: string }) {
               <Link to={goalHref(goal.id)} className="hover:text-primary truncate font-medium underline-offset-2 hover:underline">
                 {goal.name}
               </Link>
-              <Due due={goal.due} />
+              <Due goal={goal} />
             </div>
             <Progress goal={goal} />
           </li>
@@ -204,7 +233,7 @@ function GoalWhole({ goal, reread }: { goal: Goal; reread: () => void }) {
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
           {goal.status ? <Badge variant="secondary">{goal.status}</Badge> : null}
-          <Due due={goal.due} />
+          <Due goal={goal} />
         </div>
         <h2 className="text-lg leading-snug font-semibold">{goal.name}</h2>
       </div>
