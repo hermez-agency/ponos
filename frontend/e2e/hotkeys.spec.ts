@@ -96,3 +96,70 @@ test("the bubble's tooltip says the shortcut", async ({ page }) => {
   await bubble.hover()
   await expect(page.getByRole("tooltip")).toContainText("Ctrl+J")
 })
+
+const view = (page: Page) => new URL(page.url()).searchParams.get("view") ?? ""
+
+/* Every creation the console has, one entry each, each its own form — the
+ * ticket's on a page of its own, the others over their list. */
+const form = (page: Page, title: string) => page.getByText(title, { exact: true }).filter({ visible: true }).first()
+
+for (const [entry, resource, title] of [
+  ["New ticket", "tickets", "New ticket"],
+  ["New project", "projects", "New project"],
+  ["New idea", "ideas", "New idea"],
+  ["New goal", "goals", "New goal"],
+  ["New schedule", "schedules", "New recurring ticket"],
+]) {
+  test(`the palette's "${entry}" opens its form`, async ({ page }) => {
+    await open(page)
+    await press(page, "Control+k", palette(page))
+    await page.keyboard.type(entry)
+    await expect(palette(page).getByRole("option").first()).toHaveText(new RegExp(entry))
+    await page.keyboard.press("Enter")
+    await expect(palette(page)).toBeHidden()
+    await expect.poll(() => view(page)).toMatch(new RegExp(`${resource}/create`))
+    await expect(form(page, title)).toBeVisible()
+  })
+}
+
+test("the palette's New session opens a new conversation in the drawer", async ({ page }) => {
+  await open(page)
+  await press(page, "Control+k", palette(page))
+  await page.keyboard.type("New session")
+  await page.keyboard.press("Enter")
+  await expect(drawer(page)).toBeVisible()
+})
+
+test("the palette goes to the Sessions page", async ({ page }) => {
+  await open(page)
+  await press(page, "Control+k", palette(page))
+  await page.keyboard.type("Sessions")
+  await palette(page).getByRole("option", { name: "Sessions", exact: true }).click()
+  await expect.poll(() => view(page)).toContain("sessions/list")
+})
+
+test("on a project's page, the new ticket is for that project", async ({ page }) => {
+  await page.context().addCookies([{ name: "ponos_token", value: "e2e", url: test.info().project.use.baseURL }])
+  await page.goto("/?view=console/projects/read/0000000000000000000000000000cafe")
+  await expect(page.getByText("Website").first()).toBeVisible()
+  await press(page, "Control+k", palette(page))
+  const entry = palette(page).getByRole("option", { name: "New ticket for Website" })
+  await expect(entry).toBeVisible()
+  await expect(entry).toContainText("N")
+  await entry.click()
+  await expect.poll(() => new URL(page.url()).searchParams.get("defaultData")).toContain(
+    "0000000000000000000000000000cafe"
+  )
+  await expect(page.getByRole("combobox", { name: "Project" }).filter({ visible: true })).toContainText("Website")
+})
+
+test("N, out of a field, opens a new ticket, and is a letter in one", async ({ page }) => {
+  await open(page)
+  await press(page, "Control+j", drawer(page))
+  await page.keyboard.type("n")
+  await expect(drawer(page).locator("textarea")).toHaveValue("n")
+  await page.keyboard.press("Escape")
+  await expect(drawer(page)).toBeHidden()
+  await press(page, "n", form(page, "New ticket"))
+  await expect.poll(() => view(page)).toContain("tickets/create")
+})

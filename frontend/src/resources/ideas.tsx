@@ -11,6 +11,7 @@ import {
 import {
   createResourceCollection,
   createViewResource,
+  generateLink,
   generateLinkByResource,
   layout,
   open,
@@ -663,3 +664,13 @@ onIdeasScored(() => ideasChanged())
 /** Where the ideas are listed, in the layout they were last worked in. */
 export const ideasHref = () =>
   generateLinkByResource({ resource: ideas, resourceAction: ActionList.list, viewVariantId: layoutOf(IDEAS) })
+
+/** "New idea", over the list of ideas, as its button opens it. */
+export const newIdeaHref = () =>
+  generateLink({
+    resource: ideas,
+    resourceAction: ActionList.list,
+    scope: ideas.scope,
+    viewVariantId: layoutOf(IDEAS),
+    childViewResource: { resource: ideas, resourceAction: ActionList.create },
+  })

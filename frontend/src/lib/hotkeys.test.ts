@@ -76,3 +76,14 @@ test("Ctrl+Shift+O starts a new conversation, and only with the Shift", () => {
   assert.equal(label(HOTKEYS.newChat, true), "⌘⇧O")
   assert.equal(ariaLabel(HOTKEYS.newChat, false), "Control+Shift+O")
 })
+
+test("N opens a new ticket, outside a field only, and never with Ctrl", () => {
+  assert.equal(hotkeyFor(press("n"), null), "newTicket")
+  assert.equal(hotkeyFor(press("N", { shiftKey: true }), { tagName: "DIV" }), "newTicket")
+  assert.equal(hotkeyFor(press("n"), { tagName: "TEXTAREA" }), null)
+  assert.equal(hotkeyFor(press("n"), { tagName: "INPUT", type: "text" }), null)
+  // Ctrl+N is the browser's new window.
+  assert.equal(hotkeyFor(press("n", { ctrlKey: true }), null), null)
+  assert.equal(label(HOTKEYS.newTicket, true), "N")
+  assert.equal(ariaLabel(HOTKEYS.newTicket, false), "N")
+})

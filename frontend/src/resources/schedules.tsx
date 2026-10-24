@@ -22,6 +22,7 @@ import {
 import {
   createResourceCollection,
   createViewResource,
+  generateLink,
   generateLinkByResource,
   Link,
   layout,
@@ -1100,6 +1101,16 @@ export const schedulesHref = () =>
     resource: schedules,
     resourceAction: ActionList.list,
     viewVariantId: layoutOf(SCHEDULES),
+  })
+
+/** "New schedule", in its window over the list of schedules. */
+export const newScheduleHref = () =>
+  generateLink({
+    resource: schedules,
+    resourceAction: ActionList.list,
+    scope: schedules.scope,
+    viewVariantId: layoutOf(SCHEDULES),
+    childViewResource: { resource: schedules, resourceAction: ActionList.create },
   })
 
 /** A schedule's own page: its form, as the window over the list draws it. */

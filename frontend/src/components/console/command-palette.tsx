@@ -8,6 +8,8 @@ import {
   LayoutGrid,
   Lightbulb,
   MessageCircle,
+  MessageSquarePlus,
+  MessagesSquare,
   Plus,
   RefreshCw,
   Scale,
@@ -31,24 +33,39 @@ import { useConsole } from "@/hooks/use-console"
 import { hotkeyLabel, useHotkeys } from "@/hooks/use-hotkeys"
 import { titleOf, useBoard } from "@/lib/board-store"
 import { useT } from "@/lib/i18n"
-import { idOf, newProjectHref, projectHref, projectsHref, projectsOnce, useProjects } from "@/resources/projects"
-import { goalsHref } from "@/resources/goals"
-import { ideasHref } from "@/resources/ideas"
-import { schedulesHref } from "@/resources/schedules"
+import { useRoute } from "@/lib/router"
+import {
+  PROJECTS,
+  idOf,
+  newProjectHref,
+  projectHref,
+  projectsHref,
+  projectsOnce,
+  useProjects,
+} from "@/resources/projects"
+import { goalsHref, newGoalHref } from "@/resources/goals"
+import { ideasHref, newIdeaHref } from "@/resources/ideas"
+import { newScheduleHref, schedulesHref } from "@/resources/schedules"
+import { sessionsHref } from "@/resources/sessions"
 import { settingsHref } from "@/resources/settings"
 import { boardHref, ticketHref, tickets } from "@/resources/tickets"
 
 import { CONTEXT_ANCHOR } from "./context-block"
 import { useOpenSeries } from "./ticket-decision"
-import { toggleTalk } from "@/lib/talk"
+import { openTalk, toggleTalk } from "@/lib/talk"
 
 /* Ctrl+K: everywhere the console can take you, typed rather than clicked.
  *
  * What it lists is what the console already has — its pages, the projects, the
- * tickets on the board — and the few things done from anywhere: a new ticket,
- * a new project, the conversation, a resynchronisation, the series of blocked
- * tickets or of those in review. Nothing in it is a page of its own;
- * an entry is a link the menu or a card already offers, found by its name.
+ * tickets on the board — and the few things done from anywhere: whatever the
+ * console creates (a ticket — for the project whose page is open, on one —, a
+ * project, an idea, a goal, a schedule, a session), the conversation, a
+ * resynchronisation, the series of blocked tickets or of those in review.
+ * Nothing in it is a page of its own; an entry is a link the menu or a card
+ * already offers, found by its name.
+ *
+ * N, out of a field, is "New ticket" without the palette: listened for here,
+ * where the entry it stands for is, so the project it starts with is the same.
  *
  * The pages are said again here rather than read off the scope's menu, icons
  * and all: the scope imports the bar this palette's button sits in, and
@@ -66,6 +83,7 @@ const PAGES = [
   { name: "Schedules", icon: CalendarClock, href: schedulesHref },
   { name: "Ideas", icon: Lightbulb, href: ideasHref },
   { name: "Goals", icon: Target, href: goalsHref },
+  { name: "Sessions", icon: MessagesSquare, href: sessionsHref },
   { name: "Global context", icon: BookOpen, href: () => `${projectsHref()}#${CONTEXT_ANCHOR}` },
   { name: "Settings", icon: Settings2, href: () => settingsHref() },
 ]
@@ -75,7 +93,14 @@ export function CommandPalette() {
   const navigate = useNavigate()
   const board = useBoard()
   const listed = useProjects()
-  const { refresh } = useConsole()
+  const { refresh, resetChat } = useConsole()
+  const { params } = useRoute()
+  // The project whose page is open, if one is: a new ticket starts with it.
+  // Only one with a page of its own can be a ticket's.
+  const here =
+    params.resourceId === PROJECTS && params.id
+      ? listed?.projects.find((project) => idOf(project) === params.id && project.id)
+      : undefined
   const openSeries = useOpenSeries()
   const blocked = board.tickets.filter((ticket) => ticket.column === "blocked").length
   const review = board.tickets.filter((ticket) => ticket.column === "review").length
@@ -101,7 +126,22 @@ export function CommandPalette() {
     return () => window.removeEventListener(OPENED, listener)
   }, [change])
 
-  useHotkeys({ palette: () => change(!open) })
+  const newTicketHref = () =>
+    generateLinkByResource({
+      resource: tickets,
+      resourceAction: ActionList.create,
+      defaultData: here ? { project: here.id } : undefined,
+    })
+
+  useHotkeys({
+    palette: () => change(!open),
+    // Under a window — a form half written, a picker typed into — the key is
+    // the window's. The palette is one: there it is a letter in its field.
+    newTicket: () => {
+      if (document.querySelector('[role="dialog"]')) return false
+      void navigate({ to: newTicketHref() })
+    },
+  })
 
   // The projects are read by their own page; one opened straight on the board
   // has not read them yet.
@@ -116,6 +156,8 @@ export function CommandPalette() {
   const go = (href: string) => run(() => void navigate({ to: href }))
 
   const drawerKey = hotkeyLabel("console")
+  const ticketKey = hotkeyLabel("newTicket")
+  const newTicket = here ? t("New ticket for {{project}}", { project: here.name }) : t("New ticket")
 
   return (
     <CommandDialog
@@ -149,15 +191,10 @@ export function CommandPalette() {
             {t("Open or close the console")}
             <CommandShortcut>{drawerKey.label}</CommandShortcut>
           </CommandItem>
-          <CommandItem
-            value={t("New ticket")}
-            keywords={["create", "ticket"]}
-            onSelect={() =>
-              go(generateLinkByResource({ resource: tickets, resourceAction: ActionList.create }))
-            }
-          >
+          <CommandItem value={newTicket} keywords={["create", "ticket"]} onSelect={() => go(newTicketHref())}>
             <Plus />
-            {t("New ticket")}
+            <span className="truncate">{newTicket}</span>
+            <CommandShortcut>{ticketKey.label}</CommandShortcut>
           </CommandItem>
           <CommandItem
             value={t("New project")}
@@ -166,6 +203,36 @@ export function CommandPalette() {
           >
             <FolderPlus />
             {t("New project")}
+          </CommandItem>
+          <CommandItem value={t("New idea")} keywords={["create", "idea"]} onSelect={() => go(newIdeaHref())}>
+            <Lightbulb />
+            {t("New idea")}
+          </CommandItem>
+          <CommandItem value={t("New goal")} keywords={["create", "goal"]} onSelect={() => go(newGoalHref())}>
+            <Target />
+            {t("New goal")}
+          </CommandItem>
+          <CommandItem
+            value={t("New schedule")}
+            keywords={["create", "schedule", "recurring"]}
+            onSelect={() => go(newScheduleHref())}
+          >
+            <CalendarClock />
+            {t("New schedule")}
+          </CommandItem>
+          {/* As the Sessions page starts one: a fresh conversation, in the drawer. */}
+          <CommandItem
+            value={t("New session")}
+            keywords={["create", "session", "conversation", "chat"]}
+            onSelect={() =>
+              run(() => {
+                void resetChat()
+                openTalk()
+              })
+            }
+          >
+            <MessageSquarePlus />
+            {t("New session")}
           </CommandItem>
           <CommandItem
             value={t("Resynchronise now")}
