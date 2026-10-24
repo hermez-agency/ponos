@@ -164,8 +164,10 @@ The console's dashboard says the same thing without a terminal: an "Installation
 band lists what is misconfigured — Notion, GitHub, Claude Code, each project, the machine —
 with its probable cause, and either a **Configure** button (a missing property or status
 on the Notion board, a project's default branch: Ponos changes it only after you confirm)
-or the exact steps and the link to follow. It checks again when the page opens and on
-**Recheck**, and it is not drawn while everything is green. `ponos doctor` prints the same
+or the exact steps and the link to follow. The checks take a few seconds — `gh` asks
+GitHub, the board and every project are read — so the page shows what they found up to
+five minutes ago; **Recheck**, a **Configure** and a saved setting check again at once. It
+is not drawn while everything is green. `ponos doctor` prints the same
 checks (`src/ponos/health.py`) — every one of them, `doctor` asks nothing on its own —
 grouped as the band groups them (*Board*, *GitHub*, *Claude*, *Projects*, *Machine*,
 *Settings*), with the settings it only describes in grey, which the band leaves out. The one

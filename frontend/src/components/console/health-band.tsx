@@ -17,7 +17,8 @@ import { ConfirmDialog } from "./confirm-dialog"
  * A badly configured Ponos fails without a word — tickets that do not start,
  * pull requests that never open — so the page that is opened every day says it.
  * The checks are the server's (`health.py`, which `ponos doctor` also prints);
- * this band asks when it is drawn and when "Recheck" is pressed, and draws
+ * this band asks when it is drawn — the server answers what it found a few
+ * minutes ago at most — and afresh when "Recheck" is pressed, and draws
  * nothing at all while everything is green: a band that is always there is a
  * band nobody reads.
  *
@@ -81,10 +82,10 @@ export function HealthBand() {
   // The newest request wins: an answer that arrives after a later one is stale.
   const asked = React.useRef(0)
 
-  const check = React.useCallback(() => {
+  const check = React.useCallback((fresh = false) => {
     const mine = ++asked.current
     setChecking(true)
-    api.health().then(
+    api.health(fresh).then(
       (read) => mine === asked.current && (setReport(read), setChecking(false)),
       () => mine === asked.current && setChecking(false)
     )
@@ -129,7 +130,7 @@ export function HealthBand() {
                 )}
               </span>
             </CollapsibleTrigger>
-            <Button variant="outline" size="sm" onClick={check} disabled={checking} data-testid="health-recheck">
+            <Button variant="outline" size="sm" onClick={() => check(true)} disabled={checking} data-testid="health-recheck">
               {checking ? <Loader2 className="animate-spin" /> : <RefreshCw />}
               {t("Recheck")}
             </Button>

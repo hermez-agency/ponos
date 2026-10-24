@@ -85,7 +85,7 @@ if TYPE_CHECKING:
         def brief(self) -> str: ...
 
         # upkeep.py
-        def health(self) -> dict[str, Any]: ...
+        def health(self, *, fresh: bool = False) -> dict[str, Any]: ...
         def disk(self, *, fresh: bool = False) -> dict[str, Any]: ...
 
 else:
@@ -128,6 +128,7 @@ class Base(Chapters):
         self._drawing = threading.Lock()
         self._briefs: dict[str, tuple[str, str]] = {}
         self._disk: tuple[float, dict[str, int], list[tuple[str, int]]] | None = None
+        self._health: tuple[float, dict[str, Any]] | None = None
         # The schedules being launched now: see `launch_schedule`.
         self._launching: set[str] = set()
         self._launch_guard = threading.Lock()
@@ -159,6 +160,7 @@ class Base(Chapters):
             self._config = fresh
             self._runner = None
             self._projects = {}
+            self._health = None
             # Another file may be another board: what was held was held of
             # the old one.
             self._reader = board_module.Reader()
@@ -225,6 +227,7 @@ class Base(Chapters):
         self._projects = {}
         self._projects_at = 0.0
         self._schema_at = 0.0
+        self._health = None
 
     def forget_projects(self) -> None:
         """Read the projects again next time: one was created or renamed meanwhile."""

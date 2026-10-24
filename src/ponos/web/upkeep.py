@@ -21,6 +21,13 @@ from .base import Base
 # grows by the ticket, not by the second.
 DISK_TTL = 600
 
+# The checks start `claude --version` and `gh auth status` (which asks GitHub),
+# read the Notion board and look through every project: ten seconds on a busy
+# day, and the band asks each time the tickets page is drawn. What they find
+# changes when somebody mends it — a fix, a saved setting, "Recheck" — and those
+# ask afresh; the rest of the time a few minutes old is the same answer.
+HEALTH_TTL = 300
+
 
 class Upkeep(Base):
     def disk(self, *, fresh: bool = False) -> dict[str, Any]:
@@ -57,14 +64,19 @@ class Upkeep(Base):
             "clean_done_worktrees": settings.clean_done_worktrees,
         }
 
-    def health(self) -> dict[str, Any]:
+    def health(self, *, fresh: bool = False) -> dict[str, Any]:
         """What is wrong with the installation, for the top of the dashboard. See `health.py`."""
-        checks = health.run(self.config, self.runner.client)
-        return {
-            "checks": [check.asdict() for check in checks],
-            "problems": health.problems(checks),
-            "checked_at": datetime.now(UTC).isoformat(),
-        }
+        held = getattr(self, "_health", None)
+        if fresh or held is None or time.time() - held[0] > HEALTH_TTL:
+            checks = health.run(self.config, self.runner.client)
+            report = {
+                "checks": [check.asdict() for check in checks],
+                "problems": health.problems(checks),
+                "checked_at": datetime.now(UTC).isoformat(),
+            }
+            held = (time.time(), report)
+            self._health = held
+        return held[1]
 
     def fix_health(self, payload: dict[str, Any]) -> dict[str, Any]:
         """One fix a check offered, once the page says it was confirmed."""
@@ -79,7 +91,7 @@ class Upkeep(Base):
         )
         # The board's shape just changed under the cache that reads it.
         self.forget_projects()
-        return {"done": done, **self.health()}
+        return {"done": done, **self.health(fresh=True)}
 
     def clean(self) -> dict[str, Any]:
         """The daily tidy, now. Under the run lock, or refused while a run holds
