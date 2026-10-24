@@ -21,7 +21,6 @@ import {
 import { FilterSelect, listFilters } from "@/components/console/filter-bar"
 import { PriorityInputController } from "@/components/console/priority"
 import { api, why } from "@/lib/api"
-import { boardOnce, titleOf } from "@/lib/board-store"
 import { EVERY_STATUS, keeps, valuesOf } from "@/lib/goal-search"
 import { onGoalsMoved } from "@/lib/goals-store"
 import { t } from "@/lib/i18n"
@@ -184,6 +183,16 @@ const LazyEmpty = () => (
   </React.Suspense>
 )
 
+/* The tickets' search, kept out of the first load too: it is in a form. */
+const Tickets = React.lazy(() =>
+  import("@/components/console/goal-tickets").then((module) => ({ default: module.GoalTicketsInputController }))
+)
+const LazyTickets: InputControllerComponentInterface = (props) => (
+  <React.Suspense fallback={null}>
+    <Tickets {...props} />
+  </React.Suspense>
+)
+
 /* -- the forms ------------------------------------------------------------- */
 
 /* The columns of the Objectifs database, in the order they are read; the
@@ -207,13 +216,19 @@ const fields: FormInterface["inputs"] = {
   description: {
     label: "Description",
     controller: TextAreaInputController,
+    get placeholder() {
+      return t("E.g.: Ponos is ready for others")
+    },
     get description() {
       return t("One line: what this goal means.")
     },
   },
   criterion: {
-    label: "Done when",
+    label: "Met when",
     controller: TextAreaInputController,
+    get placeholder() {
+      return t("E.g.: an outsider installs Ponos alone")
+    },
     get description() {
       return t("How we know it is met. Observable, not an intention.")
     },
@@ -224,7 +239,8 @@ const fields: FormInterface["inputs"] = {
     controller: SelectInputController,
     getValueOptions: async () => {
       if (read.goals === null) await readAgain()
-      return [{ value: "", label: t("No status") }, ...read.statuses.map((value) => ({ value, label: value }))]
+      const offered = [...read.statuses, activeStatus()].filter((value, at, all) => value && all.indexOf(value) === at)
+      return [{ value: "", label: t("No status") }, ...offered.map((value) => ({ value, label: value }))]
     },
   },
   priority: {
@@ -247,18 +263,41 @@ const fields: FormInterface["inputs"] = {
   },
   tickets: {
     label: "Tickets",
-    controller: MultiSelectInputController,
+    controller: LazyTickets,
     get description() {
       return t("The tickets that serve this goal; its progress is counted from them.")
-    },
-    getValueOptions: async () => {
-      const board = await boardOnce()
-      return board.tickets.map((ticket) => ({ value: ticket.id, label: `#${ticket.short} ${titleOf(ticket)}` }))
     },
   },
 }
 
 const form: FormInterface = { label: { submit: "Save" }, inputs: fields }
+
+/* A new goal is one being pursued, as the database spells it (`goals.ACTIVE`):
+ * a Notion Status column refuses a name it does not offer, where a Markdown
+ * board takes any — and offers none before its first goal is written. */
+function activeStatus(): string {
+  const spelled = read.statuses.find((value) => ["actif", "active", "en cours"].includes(value.toLowerCase()))
+  return spelled ?? (read.storage === "markdown" ? "actif" : "")
+}
+
+/* It says so once written: the package's toast hands its sentence over as it
+ * stands, so it is read from the dictionary here. */
+const createForm: FormInterface = {
+  label: {
+    submit: "Save",
+    get success() {
+      return t("Goal created")
+    },
+  },
+  inputs: {
+    ...fields,
+    status: {
+      ...fields.status,
+      // Called as the form opens, once the list has read the statuses.
+      defaultValue: (value: unknown) => value || activeStatus(),
+    },
+  },
+}
 
 /** The row as the form holds it: the tickets and projects by id, the priority as typed. */
 const withIds = (goal: Goal): GoalItem => ({
@@ -348,8 +387,10 @@ export const goals = createViewResource<GoalItem, GoalWrite>(GOALS, {
     create: {
       title: "New goal",
       buttonLabel: "New goal",
-      form,
-      open: "drawer",
+      form: createForm,
+      // In the middle of the list, as a new ticket or project is: a handful of
+      // fields are a question asked, not a page to settle into.
+      open: "dialog",
     },
     update: {
       title: "Edit the goal",
