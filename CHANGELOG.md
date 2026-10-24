@@ -54,6 +54,7 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Fixed
 
+- Les boutons « Copier » de la console (commandes MCP et de mise à jour, identifiants de ticket et de projet, chemins, diagnostic) copient aussi depuis une console ouverte en HTTP par son adresse sur le réseau local ou une IP, où le navigateur n'offre pas de presse-papiers : la page copie alors le texte elle-même. Quand rien n'y arrive, un message « Copie impossible : sélectionnez le texte » le dit, au lieu d'un bouton qui ne faisait rien.
 - Une récurrence calculée à partir d'une date donnée dans un autre fuseau — un *Last run* en UTC, ou une heure gardée avec son décalage d'avant le passage à l'heure d'hiver — ne tombe plus une heure à côté : la date est d'abord ramenée à l'heure de la machine, et le même instant donne la même prochaine occurrence, pour les cadences comme pour les lignes cron.
 - En français, les nombres comptés posés sur un ticket prennent le singulier à 0 : « 0 commit », « 0 étape », « 0 minute », et non plus « 0 commits ». La règle de pluriel suit maintenant la langue ; l'anglais garde « 0 commits ».
 - Le badge « conflit » d'une carte reste jusqu'à ce que la page soit modifiée de nouveau : la console le cherchait dans les 200 dernières lignes du journal de synchronisation, où chaque statut vu et chaque passe écrivent aussi, et sur un board actif un conflit de quelques heures en sortait sans que personne l'ait traité. Elle demande maintenant au journal le dernier conflit de chaque ticket, par un index.
