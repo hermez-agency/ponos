@@ -197,11 +197,25 @@ class Run:
 # -- reading ------------------------------------------------------------------
 
 
-def _ticket_key(reference: str) -> str:
-    """A ticket however it was given — full id, dashed, a URL, the short form."""
-    return (
+def _ticket_key(connection: sqlite3.Connection, reference: str) -> str:
+    """A ticket's full id, however it was given — full id, dashed, a URL, the short form.
+
+    Full, so that a run is looked up by `ticket = ?` on its index: a suffix
+    compared on every row read the whole table, and could catch another
+    ticket's runs. Only the short form, typed by hand on `ponos logs`, is
+    looked for among the runs — the latest ticket it ends.
+    """
+    key = (
         reference.strip().rstrip("/").rsplit("/", 1)[-1].rsplit("-", 1)[-1].replace("-", "").lower()
     )
+    if len(key) == 32:
+        return key
+    found = connection.execute(
+        "SELECT ticket FROM runs WHERE substr(ticket, -8) = ?"
+        " ORDER BY started_at DESC, id DESC LIMIT 1",
+        (key[-8:],),
+    ).fetchone()
+    return str(found[0]) if found else key
 
 
 def _run(row: sqlite3.Row | tuple[Any, ...], names: list[str]) -> dict[str, Any]:
@@ -220,13 +234,11 @@ _RUN = (
 
 def runs(ticket: str = "", limit: int = 50) -> list[dict[str, Any]]:
     """The runs of one ticket — or of every ticket — newest first."""
-    key = _ticket_key(ticket) if ticket else ""
     with db.transaction(immediate=False) as connection:
-        if key:
+        if ticket:
             cursor = connection.execute(
-                _RUN + " WHERE runs.ticket = ? OR substr(runs.ticket, -8) = ?"
-                " ORDER BY runs.started_at DESC, runs.id DESC LIMIT ?",
-                (key, key[-8:], limit),
+                _RUN + " WHERE runs.ticket = ? ORDER BY runs.started_at DESC, runs.id DESC LIMIT ?",
+                (_ticket_key(connection, ticket), limit),
             )
         else:
             cursor = connection.execute(
@@ -243,7 +255,6 @@ def spans(ticket: str = "") -> dict[str, list[dict[str, Any]]]:
     all that is known of it if the runner was killed. Empty when the journal
     cannot be read: a card without its time is still a card.
     """
-    key = _ticket_key(ticket) if ticket else ""
     query = (
         "SELECT runs.ticket, runs.started_at, runs.ended_at, runs.status, runs.code,"
         " CASE WHEN runs.ended_at IS NULL THEN"
@@ -252,8 +263,8 @@ def spans(ticket: str = "") -> dict[str, list[dict[str, Any]]]:
     try:
         with db.transaction(immediate=False) as connection:
             rows = connection.execute(
-                query + (" WHERE runs.ticket = ? OR substr(runs.ticket, -8) = ?" if key else ""),
-                (key, key[-8:]) if key else (),
+                query + (" WHERE runs.ticket = ?" if ticket else ""),
+                (_ticket_key(connection, ticket),) if ticket else (),
             ).fetchall()
     except _FAILURES:
         return {}
