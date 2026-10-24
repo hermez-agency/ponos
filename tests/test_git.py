@@ -1721,13 +1721,12 @@ def a_directory_holding_work_is_not_cleared_to_make_room():
 
 
 @case
-def a_residue_that_cannot_be_deleted_is_moved_aside_and_the_worktree_is_made():
+def a_residue_that_cannot_be_deleted_is_moved_aside_and_the_worktree_is_made(state_home):
     """Files a container made as root: no right to delete them, still a ticket to run."""
 
     original = (git_module.shutil.rmtree, git_module.shutil.which)
     with tempfile.TemporaryDirectory() as home:
         root = Path(home)
-        os.environ["XDG_STATE_HOME"] = str(root / "state")
         path = root / "worktrees" / "leadz-9d2cb790"
         (path / "vendor" / "lib").mkdir(parents=True)
         (path / "vendor" / "lib" / "a.php").write_text("x")
@@ -1738,16 +1737,16 @@ def a_residue_that_cannot_be_deleted_is_moved_aside_and_the_worktree_is_made():
             git_module.shutil.which = lambda _name: None
             aside = git_module.discard(path)
             assert not path.exists() and Path(aside).is_dir()
-            assert Path(aside).parent == root / "state" / "ponos" / "leftovers"
+            assert Path(aside).parent == state_home / "leftovers"
             # Nothing but a directory git cannot be asked about: a fresh one is made.
             path.mkdir()
             made, _commands = _worktree_for(commits=0, path_exists=True)
             assert not isinstance(made, git_module.GitError)
         finally:
             git_module.shutil.rmtree, git_module.shutil.which = original
-            os.environ.pop("XDG_STATE_HOME", None)
-            for directory, _names, _files in os.walk(root):
-                os.chmod(directory, 0o700)
+            for top in (root, state_home):
+                for directory, _names, _files in os.walk(top):
+                    os.chmod(directory, 0o700)
 
 
 @case
