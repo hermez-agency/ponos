@@ -131,13 +131,12 @@ still works exactly as before, and wins over the workspace when both are set. Th
 the database is enough, and if it is inline inside a page, the page URL works too: the
 runner looks inside and finds the database on its own.
 
-Three ways to get them in, whichever you prefer:
+Three ways to get them in, whichever you prefer — the console's
+[first connection](console.md#the-first-connection) (*Notion* → paste the token), or one
+of these two:
 
 ```sh
 ponos config      # opens the TOML in your editor — the cleanest
-
-# or let the installer ask you (it does, on a fresh install):
-curl -LsSf https://raw.githubusercontent.com/hermez-agency/ponos/main/install.sh | sh
 
 # or in one line — the token goes beside the file, never in it:
 echo 'PONOS_NOTION_TOKEN=ntn_…' >> ~/.config/ponos/secrets.env && chmod 600 ~/.config/ponos/secrets.env
