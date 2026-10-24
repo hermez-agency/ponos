@@ -447,8 +447,9 @@ def disk(request: Request) -> Response:
 
 
 @router.get("/api/health", response_model=answers.HealthReport)
-def health(request: Request) -> Response:
-    return answer(_api(request).health())
+def health(request: Request, fresh: bool = False) -> Response:
+    # Held a few minutes, unless "Recheck" asks afresh: see `upkeep.HEALTH_TTL`.
+    return answer(_api(request).health(fresh=fresh))
 
 
 @router.get("/api/statistics", response_model=answers.Statistics)

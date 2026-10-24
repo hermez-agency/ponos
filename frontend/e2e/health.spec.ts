@@ -75,7 +75,8 @@ const GREEN = { checks: RED.checks.map((one) => ({ ...one, state: "ok", fix: nul
 
 async function open(page: Page, answers: unknown[], fixed: string[] = [], unfolded = true) {
   let asked = 0
-  await page.route("**/api/health", (route: Route) =>
+  // "Recheck" asks with `?fresh=true`, which a glob ending in the path would miss.
+  await page.route(/\/api\/health(\?.*)?$/, (route: Route) =>
     route.fulfill({ json: answers[Math.min(asked++, answers.length - 1)] })
   )
   await page.route("**/api/health/fix", (route: Route) => {

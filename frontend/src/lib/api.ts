@@ -400,8 +400,8 @@ export const api = {
   /** One notification read, or all of them; the bell it leaves is the answer. */
   readNotifications: (id?: number) =>
     request<Bell>("/api/notifications/read", id === undefined ? {} : { id }),
-  /** What is wrong with the installation, checked now. */
-  health: () => request<HealthReport>("/api/health"),
+  /** What is wrong with the installation: as checked a few minutes ago at most, or now when `fresh`. */
+  health: (fresh = false) => request<HealthReport>(fresh ? "/api/health?fresh=true" : "/api/health"),
   /** One fix a check offered — the page has asked first, and says so. */
   fixHealth: (action: string, target: string) =>
     request<HealthFixed>("/api/health/fix", { action, target, confirmed: true }),
