@@ -150,6 +150,21 @@ def what_a_session_said_is_kept_for_this_account_only(state_home):
 
 
 @case
+def the_totals_count_every_line_of_the_history(state_home):
+    """The header's figures were summed over the last 10 000 lines, decoded one by one.
+
+    One more and the oldest fell out of both: the count stuck at 10 000, and
+    its cost left the spend without a word.
+    """
+    with db.transaction() as connection:
+        connection.executemany(
+            "INSERT INTO history (ticket, status, cost_usd, entry) VALUES (?, 'done', ?, '{}')",
+            [(f"t{number}", 0.5 if number == 0 else None) for number in range(10_001)],
+        )
+    assert state.totals() == (10_001, 0.5), "the oldest line counted, and its cost too"
+
+
+@case
 def a_timer_with_no_next_run_is_stalled_rather_than_enabled():
     """What the incident's timer answered, and what a healthy one answers."""
     starved = systemd.describe(
