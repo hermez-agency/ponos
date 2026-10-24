@@ -988,3 +988,131 @@ def a_validated_pull_request_whose_ci_still_runs_stays_validated_with_its_line()
     with _github({url: "OPEN"}, merge=merge):
         assert runner.deliver() == []
     assert runner.client.written == []
+
+
+# What GitHub answered for a pull request of an account whose Actions billing
+# failed: every job red at once, and the annotation it left on each of them.
+_BILLING_ROLLUP = [
+    {
+        "__typename": "CheckRun",
+        "name": name,
+        "status": "COMPLETED",
+        "conclusion": "FAILURE",
+        "detailsUrl": f"https://github.com/Acme/REPOSITORY/actions/runs/91/job/{job}",
+    }
+    for name, job in (("Tests", 301), ("Lint", 302))
+]
+_BILLING_ANNOTATION = (
+    "The job was not started because recent account payments have failed or your "
+    "spending limit needs to be increased. Please check the 'Billing & plans' section "
+    "in your settings"
+)
+
+
+@case
+def a_ci_github_refuses_for_the_accounts_billing_waits_validated_and_is_said_once(state_home):
+    """The audit's six tickets: one unpaid invoice, said ticket by ticket in GitHub's English.
+
+    Two validated pull requests of one account, every job refused by its
+    billing: neither is blocked nor handed to a session — both wait in
+    validated with `ci.billing` on their card, the account is announced once
+    and warned about once in the health, and a second pass asks GitHub nothing
+    more. Paid, the refused jobs are run again and the two merge.
+    """
+    import json
+
+    from ponos import health
+
+    first = "https://github.com/Acme/site/pull/1"
+    second = "https://github.com/Acme/shop/pull/2"
+    runner = _board_runner(
+        [_reviewed("p-site", "Validated", first), _reviewed("p-shop", "Validated", second)], {}
+    )
+    told: list[tuple[str, str]] = []
+    runner._announce = lambda title, body: told.append((title, body))
+    # Paying is not enough: a job GitHub refused stays red until it is run again.
+    paid, asked, merged, green = [False], [], [], set()
+
+    def run(args, *rest, **kept):
+        asked.append(args)
+        if args[:3] == ["gh", "pr", "checks"]:
+            return git_module.Result(1, "", "unknown flag: --json")
+        if args[:3] == ["gh", "pr", "view"] and "statusCheckRollup" in args:
+            repository = args[3].split("/")[4]
+            rollup = json.loads(json.dumps(_BILLING_ROLLUP).replace("REPOSITORY", repository))
+            for one in rollup:
+                one["conclusion"] = "SUCCESS" if repository in green else "FAILURE"
+            return git_module.Result(0, json.dumps({"statusCheckRollup": rollup}), "")
+        if args[:2] == ["gh", "api"]:
+            return git_module.Result(0, _BILLING_ANNOTATION, "")
+        if args[:3] == ["gh", "run", "rerun"]:
+            if paid[0]:
+                green.add(args[-1].split("/")[-1])
+            return git_module.Result(0, "", "")
+        return git_module.Result(1, "", "")
+
+    def merge(url, method="squash", accounts=None):
+        if url.split("/")[4] not in green:
+            raise git_module.ChecksNotGreen("failed", ["Tests", "Lint"])
+        merged.append(url)
+        return "merged"
+
+    which = git_module.shutil.which
+    git_module.shutil.which = lambda name, *rest, **kept: f"/usr/bin/{name}"
+    try:
+        with (
+            # The recorded answers go through the real reading, not around it.
+            _github(
+                {first: "OPEN", second: "OPEN"}, merge=merge, unstarted=git_module.unstarted_checks
+            ),
+            _git_answering(
+                run=run, token_for=lambda reference, accounts=None: "", RERUN_SETTLE_SECONDS=0
+            ),
+        ):
+            assert runner.deliver() == [], "nothing blocked, nothing failed"
+            assert told == [
+                (
+                    "GitHub Actions is blocked by the billing of the Acme account",
+                    runner.voice.say("billing-held-detail"),
+                )
+            ], told
+            assert runner.client.written == [
+                ("p-site", {"Blocage": "ci.billing"}),
+                ("p-shop", {"Blocage": "ci.billing"}),
+            ], runner.client.written
+            assert [
+                "billing of the Acme account" in text for text in runner.client.comments_written
+            ] == [True, True], runner.client.comments_written
+            assert not [one for one in asked if one[:3] == ["gh", "run", "rerun"]], asked
+
+            warned = health._github_billing()
+            assert [(one.code, one.state, one.params) for one in warned] == [
+                ("github.billing", health.WARN, {"account": "Acme"})
+            ], warned
+            assert "recent account payments have failed" in warned[0].evidence
+
+            asked.clear()
+            assert runner.deliver() == []
+            assert not [one for one in asked if one[:2] == ["gh", "api"]], (
+                "a held account is not asked again before its hour"
+            )
+
+            # Its hour come and the invoice still unpaid: run again, refused again.
+            state.billing_probed("acme", 0.0)
+            assert runner.deliver() == []
+            assert [one for one in asked if one[:3] == ["gh", "run", "rerun"]], asked
+            assert len(told) == 1, told
+
+            asked.clear()
+            paid[0] = True
+            state.billing_probed("acme", 0.0)
+            results = runner.deliver()
+    finally:
+        git_module.shutil.which = which
+
+    assert [one["status"] for one in results] == ["done", "done"], results
+    assert merged == [first, second], merged
+    reran = [one for one in asked if one[:3] == ["gh", "run", "rerun"]]
+    assert [one[-1] for one in reran] == ["github.com/Acme/site", "github.com/Acme/shop"], reran
+    assert state.billing_holds() == [] and health._github_billing() == []
+    assert len(told) == 1, "said once for the account, and not again once it is paid"

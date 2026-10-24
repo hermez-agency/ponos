@@ -1812,7 +1812,7 @@ export interface components {
              * @enum {string}
              */
             action: "retry" | "answer" | "clean" | "base-ci" | "open-pr";
-            /** @description What the runner may do on its own: `retry:n`, `wait-base` or `ask`. */
+            /** @description What the runner may do on its own: `retry:n`, `wait-base`, `wait-billing` or `ask`. */
             policy: string;
             label: components["schemas"]["Words"];
             help: components["schemas"]["Words"];
@@ -1834,7 +1834,7 @@ export interface components {
              * @enum {string}
              */
             action: "retry" | "answer" | "clean" | "base-ci" | "open-pr";
-            /** @description What the runner may do on its own: `retry:n`, `wait-base` or `ask`. */
+            /** @description What the runner may do on its own: `retry:n`, `wait-base`, `wait-billing` or `ask`. */
             policy: string;
             label: components["schemas"]["Words"];
             help: components["schemas"]["Words"];

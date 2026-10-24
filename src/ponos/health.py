@@ -77,6 +77,7 @@ from . import (
     provision,
     resources,
     session,
+    state,
     store,
     subtypes,
     systemd,
@@ -1566,6 +1567,35 @@ def _gh(config: config_module.Config, *, apps: bool) -> list[Check]:
                 )
             )
     return found
+
+
+def _github_billing() -> list[Check]:
+    """The accounts whose GitHub Actions billing refuses their jobs, one warning each.
+
+    Read off what the runner wrote the first time a merge met it (`state.hold_billing`):
+    the dashboard asks GitHub nothing, and an account of which no merge waits
+    is not listed — there is nothing for it to stop.
+    """
+    return [
+        _check(
+            "github.billing",
+            WARN,
+            "GitHub Actions billing",
+            "GitHub Actions is blocked by the billing of {{account}}: no job of its "
+            "repositories starts, and their merges wait.",
+            params={"account": str(hold["name"])},
+            evidence=str(hold["reason"]),
+            cause="A recent payment of the account failed, or its Actions spending limit is reached.",
+            steps=[
+                "Settle the payment or raise the spending limit in the billing settings of the "
+                "account on GitHub (an organisation's are in its own settings).",
+                "Ponos asks GitHub to run the refused jobs again every hour, and merges what "
+                "waited once they pass.",
+            ],
+            url="https://github.com/settings/billing",
+        )
+        for hold in state.billing_holds()
+    ]
 
 
 def _github_token() -> list[Check]:
@@ -3367,6 +3397,7 @@ def run(
         ("claude", lambda: _models(config)),
         ("github", lambda: _github_access(config)),
         ("github", _github_token),
+        ("github", _github_billing),
         ("projects", lambda: _workspace_root(config)),
         ("machine", lambda: _machine(config)),
         ("machine", lambda: _notifications(config)),

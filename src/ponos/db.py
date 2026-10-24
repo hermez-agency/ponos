@@ -939,6 +939,31 @@ def _sync_conflicts_by_page(connection: sqlite3.Connection) -> None:
     )
 
 
+def _billing_holds(connection: sqlite3.Connection) -> None:
+    # A GitHub account whose Actions billing refused to start a job, said once;
+    # and the validated tickets that wait on it, each with when it began to.
+    connection.execute(
+        """
+        CREATE TABLE billing_holds (
+            account  TEXT PRIMARY KEY,
+            name     TEXT NOT NULL,
+            reason   TEXT NOT NULL DEFAULT '',
+            since    TEXT NOT NULL,
+            probed   REAL NOT NULL DEFAULT 0
+        )
+        """
+    )
+    connection.execute(
+        """
+        CREATE TABLE billing_waits (
+            ticket   TEXT PRIMARY KEY,
+            account  TEXT NOT NULL,
+            at       REAL NOT NULL DEFAULT 0
+        )
+        """
+    )
+
+
 # Appended to, never edited or renamed: a file remembers each of these by name,
 # and the version of a file is how many of them it has been through. Statements go through `execute` one at a time — `executescript`
 # commits whatever transaction is open before it starts, which would apply half
@@ -980,6 +1005,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     _phases,
     _indexes_for_what_is_asked,
     _sync_conflicts_by_page,
+    _billing_holds,
 )
 
 # Any way a read or a write of the database can fail. A note the runner keeps

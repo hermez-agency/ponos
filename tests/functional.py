@@ -939,6 +939,10 @@ if args[:2] == ["pr", "view"]:
         raise SystemExit(0)
     raise SystemExit(1)
 
+if args[:2] == ["run", "rerun"]:
+    write({"command": "run rerun", "run": args[2] if len(args) > 2 else ""})
+    raise SystemExit(0)
+
 if args[:2] == ["pr", "list"]:
     raise SystemExit(0)
 
@@ -1947,15 +1951,12 @@ def a_ticket_blocked_on_its_type_is_merged_once_somebody_gives_it(machine):
 
 @case
 def a_forced_merge_stopped_by_its_ci_says_on_the_card_which_ci_and_why():
-    """Red by the code: the checks are named. Never started by GitHub: its reason,
-    word for word — it is the account to look at, not the code. Neither merged."""
-    not_started = (
-        "The job was not started because recent account payments have failed or your "
-        "spending limit needs to be increased."
-    )
+    """Red by the code: the checks are named. Never started by GitHub for another
+    reason than its billing: its reason, word for word. Neither merged."""
+    not_started = "The job was not started because the workflow was disabled."
     for verdicts, annotation, expected in (
         (("SUCCESS", "FAILURE"), "", "red on `job 2`"),
-        (("FAILURE", "FAILURE"), not_started, "spending limit"),
+        (("FAILURE", "FAILURE"), not_started, "workflow was disabled"),
     ):
         with bench(force_validated_code=True) as machine:
             machine.board.databases[machine.database]["properties"] = {
@@ -1978,6 +1979,63 @@ def a_forced_merge_stopped_by_its_ci_says_on_the_card_which_ci_and_why():
             assert "Not merged, left in review" in said and expected in said, said
             card = str(machine.board.value(ticket, "Progress") or "")
             assert expected in card, card
+
+
+@case
+@runner_settings(force_validated_code=True)
+def a_forced_merge_github_refuses_for_the_billing_waits_validated_until_it_is_paid(machine):
+    """Every job refused by the account's billing: not a question, not a session.
+
+    The ticket waits in validated with the cause on its card, the account is in
+    the health of the installation, and the passes after ask nothing of a
+    session. Paid, the refused jobs are run again and the pull request lands.
+    """
+    from ponos import git as git_module
+    from ponos import health
+
+    machine.board.databases[machine.database]["properties"] = {
+        **machine.board.databases[machine.database]["properties"],
+        "Blocage": {"type": "select", "select": {"options": []}},
+    }
+    repository = machine.repository("site")
+    machine.with_ci(repository)
+    project = machine.project("Site", repository)
+    ticket = machine.ticket("Corriger l'entête", "Le titre est faux.", project)
+    os.environ["FAKE_GH_CHECKS"] = _check_runs("FAILURE", "FAILURE")
+    os.environ["FAKE_GH_ANNOTATION"] = (
+        "The job was not started because recent account payments have failed or your "
+        "spending limit needs to be increased."
+    )
+
+    machine.run()
+
+    assert machine.status(ticket) == "Validated", machine.status(ticket)
+    assert machine.board.value(ticket, "Blocage") == "ci.billing"
+    assert not machine.merges(), machine.merges()
+    said = machine.board.said(ticket)[-1]
+    assert "blocked by the billing of the" in said and "postponed" in said, said
+    assert [check.code for check in health._github_billing()] == ["github.billing"]
+
+    machine.run()
+
+    assert machine.status(ticket) == "Validated", machine.status(ticket)
+    assert not machine.sessions(), "no session is sent after a bill"
+    assert not machine.merges()
+
+    os.environ["FAKE_GH_CHECKS"] = _check_runs("SUCCESS", "SUCCESS")
+    os.environ["FAKE_GH_ANNOTATION"] = ""
+    for hold in state.billing_holds():
+        state.billing_probed(hold["account"], 0.0)
+    settle, git_module.RERUN_SETTLE_SECONDS = git_module.RERUN_SETTLE_SECONDS, 0
+    try:
+        machine.run()
+    finally:
+        git_module.RERUN_SETTLE_SECONDS = settle
+
+    assert machine.status(ticket) == "Done", machine.status(ticket)
+    assert len(machine.merges()) == 1, machine.merges()
+    assert not machine.sessions(), machine.sessions()
+    assert health._github_billing() == []
 
 
 @case

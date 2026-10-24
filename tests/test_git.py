@@ -1115,12 +1115,33 @@ def a_ci_github_never_started_is_said_as_such_and_not_run_again():
     that mattered — not the code, the account. Running the jobs again would be
     refused the same way, so it is not asked.
     """
-    checks, said, asked = _reading_checks(
-        ["failed"], [["Tests", "Lint"]], [], unstarted=_NOT_STARTED
-    )
-    assert checks == "unstarted", checks
+    with _state_home():
+        checks, said, asked = _reading_checks(
+            ["failed"], [["Tests", "Lint"]], [], unstarted=_NOT_STARTED
+        )
+        assert [hold["account"] for hold in state.billing_holds()] == ["x"]
+    assert checks == "billing", checks
     assert asked == ["wait"], "neither run again nor compared with the base"
-    assert "did not start" in said and "spending limit" in said, said
+    assert said == (
+        "CI: not started — GitHub Actions is blocked by the billing of the x account. "
+        "The merge waits until it is settled."
+    ), said
+
+    # Refused for anything else, GitHub's own words are all there is to say.
+    other = "The job was not started because the workflow was disabled."
+    checks, said, asked = _reading_checks(["failed"], [["Tests"]], [], unstarted=other)
+    assert (checks, asked) == ("unstarted", ["wait"]), (checks, asked)
+    assert said == f"CI: did not start — GitHub says: {other}", said
+
+
+@case
+def only_the_accounts_billing_is_read_as_a_billing_refusal():
+    from ponos import ci
+
+    assert ci.billing(_NOT_STARTED)
+    assert ci.billing(_NOT_STARTED.upper()), "whatever GitHub's case"
+    assert not ci.billing("The job was not started because the workflow was disabled.")
+    assert not ci.billing("")
 
 
 @case
@@ -1132,6 +1153,7 @@ def a_forced_merge_says_on_the_ticket_why_the_ci_stopped_it():
     for checks, sentence in (
         ("failed", "CI: red on `core (3.11)`, where `main` is not."),
         ("unstarted", f"CI: did not start — GitHub says: {_NOT_STARTED}"),
+        ("billing", "CI: not started — GitHub Actions is blocked by the billing of the x account."),
     ):
         runner = _board_runner([], {})
         runner._checked = lambda ticket, url, workdir, base, said=(checks, sentence): said
@@ -1144,7 +1166,9 @@ def a_forced_merge_says_on_the_ticket_why_the_ci_stopped_it():
             _github({}, merge=lambda *args, merges=merges, **kept: merges.append(args) or "merged"),
         ):
             why, later = runner._force_merge(job, url)
-        assert (why, later, merges) == (sentence, False, []), (checks, why, later, merges)
+        # Refused by the billing, it waits in validated with the account's other merges.
+        expected = (sentence, checks == "billing", [])
+        assert (why, later, merges) == expected, (checks, why, later, merges)
 
 
 @case

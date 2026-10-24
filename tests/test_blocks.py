@@ -115,6 +115,7 @@ def every_cause_is_described_whole_in_both_languages():
         "access.sudo",
         "access.credentials",
         "project.no-repo",
+        "ci.billing",
     ):
         assert given in blocks.CAUSES, f"the ticket's {given} is missing"
     for code, cause in blocks.CAUSES.items():
@@ -122,7 +123,7 @@ def every_cause_is_described_whole_in_both_languages():
         assert cause.family in blocks.FAMILIES, code
         assert cause.who in blocks.WHO, code
         assert cause.action in blocks.ACTIONS, code
-        assert re.fullmatch(r"retry:\d|wait-base|ask", cause.policy), code
+        assert re.fullmatch(r"retry:\d|wait-base|wait-billing|ask", cause.policy), code
         for language in voice.LANGUAGES:
             assert cause.label[language].strip() and cause.help[language].strip(), code
             assert len(cause.label[language]) <= 32, f"{code}: a badge, not a sentence"
@@ -140,6 +141,7 @@ def every_sentence_said_for_a_cause_is_read_back_to_it():
     from ponos import blocks
 
     values = {
+        "account": "acme",
         "base": "main",
         "branch": "ticket/x",
         "limit": "$5",
