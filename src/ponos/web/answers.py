@@ -1564,8 +1564,23 @@ class GoalNamed(Shape):
     name: str
 
 
+class GoalTicketFailed(Shape):
+    id: str
+    error: str
+    """Why Notion refused to point that ticket at the goal, or to release it."""
+
+
 class GoalSaved(Shape):
     id: str
+    written: list[str]
+    """The tickets pointed at the goal, or released from it, by this save — none when the form did
+    not send its tickets."""
+    failed: list[GoalTicketFailed]
+    """Those Notion refused, each with why: the others were written all the same."""
+
+
+class GoalCreated(GoalSaved):
+    name: str
 
 
 class TicketGoal(Shape):

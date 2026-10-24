@@ -2411,12 +2411,30 @@ export interface components {
             /** @description The page ids of the projects the goal is for: the form puts the chosen project's first. */
             projects: string[];
         };
+        GoalCreated: {
+            id: string;
+            /**
+             * @description The tickets pointed at the goal, or released from it, by this save — none when the form did
+             *     not send its tickets.
+             */
+            written: string[];
+            /** @description Those Notion refused, each with why: the others were written all the same. */
+            failed: components["schemas"]["GoalTicketFailed"][];
+            name: string;
+        };
         GoalNamed: {
             id: string;
             name: string;
         };
         GoalSaved: {
             id: string;
+            /**
+             * @description The tickets pointed at the goal, or released from it, by this save — none when the form did
+             *     not send its tickets.
+             */
+            written: string[];
+            /** @description Those Notion refused, each with why: the others were written all the same. */
+            failed: components["schemas"]["GoalTicketFailed"][];
         };
         GoalTicket: {
             id: string;
@@ -2424,6 +2442,11 @@ export interface components {
             title: string;
             /** @description The key of the board's column it stands in, as `Goal.tickets` counts it. */
             column: string;
+        };
+        GoalTicketFailed: {
+            id: string;
+            /** @description Why Notion refused to point that ticket at the goal, or to release it. */
+            error: string;
         };
         Goals: {
             goals: components["schemas"]["Goal"][];
@@ -4752,7 +4775,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["GoalNamed"];
+                    "application/json": components["schemas"]["GoalCreated"];
                 };
             };
             /** @description Validation Error */

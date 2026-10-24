@@ -8,43 +8,38 @@ import { api, why } from "@/lib/api"
 import { patchTicket, useBoard } from "@/lib/board-store"
 import { offeredTo } from "@/lib/goal-search"
 import { useT } from "@/lib/i18n"
-import type { Goal, Ticket } from "@/lib/types"
-import { goalHref, goalsOnce } from "@/resources/goals"
+import type { Ticket } from "@/lib/types"
+import { goalHref } from "@/resources/goals"
 
 /* The goal a ticket serves, under its title: the link to the goal's page, and
- * the choice of another. The goals are those of the Goals database, read once
- * for the whole console; a workspace without any draws nothing, and a ticket
- * that serves none draws only the choice. Offered are those still worked
- * toward, the ticket's project's first, and the one it serves even once it is
- * over (`offeredTo`). The choice is offered only where the board can point a
- * ticket at a goal — the server gives the goal choices then, as it does to the
- * New ticket form — or writing it would only fail. Written at once, and the
- * card is redrawn before the board is read again. */
+ * the choice of another. The goals offered are the board's own choices
+ * (`Tickets._choices`), which the stream already carries — those still worked
+ * toward, the ticket's project's first — and the one it serves even once it is
+ * over, by the name its card wears: the window asks nothing of `/api/goals`,
+ * whose counting it never needed. The choice is offered only where the board
+ * can point a ticket at a goal — the server gives the goal choices then, as it
+ * does to the New ticket form — or writing it would only fail. A board
+ * offering none draws nothing, and a ticket that serves none draws only the
+ * choice. Written at once, and the card is redrawn before the board is read
+ * again. */
 
 const NONE = "none"
 
 export function TicketGoal({ ticket }: { ticket: Ticket }) {
   const t = useT()
-  const pointable = Boolean(useBoard().choices?.goal)
-  const [goals, setGoals] = React.useState<Goal[]>([])
-  React.useEffect(() => {
-    let live = true
-    goalsOnce()
-      .then((every) => live && setGoals(every))
-      .catch(() => undefined)
-    return () => {
-      live = false
-    }
-  }, [])
-  if ((!pointable || !goals.length) && !ticket.goal_id) return null
-  const offered = offeredTo(goals, ticket.project_id ?? "", ticket.goal_id ?? "")
+  const choices = useBoard().choices?.goal
+  const pointable = Boolean(choices)
+  const offered = React.useMemo(
+    () => offeredTo(choices ?? [], ticket.project_id ?? "", { id: ticket.goal_id ?? "", name: ticket.goal ?? "" }),
+    [choices, ticket.project_id, ticket.goal_id, ticket.goal]
+  )
+  if (!offered.length) return null
   const choose = async (value: string) => {
-    const goal = goals.find((one) => one.id === value)
+    const goal = offered.find((one) => one.id === value)
     const before = { goal: ticket.goal, goal_id: ticket.goal_id }
     patchTicket(ticket.id, { goal: goal?.name ?? "", goal_id: goal?.id ?? "" })
     try {
       await api.setTicketGoal(ticket.id, goal?.id ?? "")
-      void goalsOnce().catch(() => undefined)
     } catch (error) {
       patchTicket(ticket.id, before)
       toast.error(t("The goal could not be changed"), { description: why(error) })

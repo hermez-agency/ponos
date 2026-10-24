@@ -86,20 +86,21 @@ test("today is the reader's day, written as a due date is", () => {
   assert.equal(todayOf(new Date(2026, 0, 5, 23, 30)), "2026-01-05")
 })
 
-test("a ticket is offered the goals still worked toward, its project's first, and the one it serves", () => {
-  const goals = [
-    { id: "tidy", active: true, project_ids: [] },
-    { id: "met", active: false, project_ids: ["site"] },
-    { id: "launch", active: true, project_ids: ["site"] },
-    { id: "elsewhere", active: true, project_ids: ["other"] },
+test("a ticket is offered the goals the board offers, its project's first, and the one it serves", () => {
+  const choices = [
+    { value: "tidy", label: "Ranger", projects: [] },
+    { value: "launch", label: "Lancer", projects: ["site"] },
+    { value: "elsewhere", label: "Ailleurs", projects: ["other"] },
   ]
   const ids = (offered: { id: string }[]) => offered.map((goal) => goal.id)
-  assert.deepEqual(ids(offeredTo(goals, "")), ["tidy", "launch", "elsewhere"])
-  assert.deepEqual(ids(offeredTo(goals, "site")), ["launch", "tidy", "elsewhere"])
-  // Over, it is still the one the ticket serves: drawn, not taken for none.
-  assert.deepEqual(ids(offeredTo(goals, "site", "met")), ["met", "launch", "tidy", "elsewhere"])
-  // A goal read before the server said whether it is active is not hidden.
-  assert.deepEqual(ids(offeredTo([{ id: "old" }], "")), ["old"])
+  assert.deepEqual(ids(offeredTo(choices, "")), ["tidy", "launch", "elsewhere"])
+  assert.deepEqual(ids(offeredTo(choices, "site")), ["launch", "tidy", "elsewhere"])
+  assert.deepEqual(ids(offeredTo(choices, "site", { id: "launch", name: "Lancer" })), ["launch", "tidy", "elsewhere"])
+  // Over, the board no longer offers it, and it is still the one the ticket serves: drawn, not taken for none.
+  const met = offeredTo(choices, "site", { id: "met", name: "Livrer la bêta" })
+  assert.deepEqual(ids(met), ["met", "launch", "tidy", "elsewhere"])
+  assert.equal(met[0].name, "Livrer la bêta")
+  assert.deepEqual(offeredTo([], ""), [])
 })
 
 test("the project's come first, the rest in the order they came", () => {

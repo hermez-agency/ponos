@@ -68,17 +68,34 @@ export function dueOf(due: string, locale: string): string {
   return new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(when)
 }
 
-/** The goals a ticket may be pointed at: those still worked toward, and the
- * one it already serves even once it is over — a choice that hid the current
- * value would draw it as none. Those of the ticket's project come first, the
- * rest in the order they came: "" for no project leaves the order alone. */
-export function offeredTo<Goal extends { id: string; active?: boolean; project_ids?: string[] }>(
-  goals: Goal[],
+/** A goal as the board offers it to a ticket: `Board.choices.goal`. */
+export interface GoalChoice {
+  value: string
+  label: string
+  projects?: string[]
+}
+
+/** A goal as the board offers it to a new ticket or a ticket's window: `Board.choices.goal`. */
+export interface GoalChoice {
+  value: string
+  label: string
+  projects?: string[]
+}
+
+/** The goals a ticket may be pointed at: those the board offers, still worked
+ * toward, those of the ticket's project first and the rest in the order they
+ * came ("" for no project leaves the order alone) — and ahead of them the one
+ * it already serves once it is over, by the name its card wears: a choice that
+ * hid the current value would draw it as none. */
+export function offeredTo(
+  choices: GoalChoice[],
   project: string,
-  current = ""
-): Goal[] {
-  const open = goals.filter((goal) => goal.active !== false || (current && goal.id === current))
-  return projectFirst(open, project, (goal) => goal.project_ids ?? [])
+  current: { id: string; name: string } = { id: "", name: "" }
+): { id: string; name: string; projects: string[] }[] {
+  const open = choices.map((choice) => ({ id: choice.value, name: choice.label, projects: choice.projects ?? [] }))
+  const ordered = projectFirst(open, project, (goal) => goal.projects)
+  if (!current.id || open.some((goal) => goal.id === current.id)) return ordered
+  return [{ ...current, projects: [] }, ...ordered]
 }
 
 /** These, those for the project first, each part in the order it came. */
