@@ -53,7 +53,7 @@ them on the program's normal path:
 - **A ticket is never stuck for good.** Because a run holds that lock, any ticket still
   marked *in progress* at the start of a run was abandoned — by a reboot, a
   `systemctl stop`, a crash. It goes back in the queue with a comment saying so, instead
-  of sitting claimed forever. Tickets claimed by another machine are left alone — which
+  of sitting claimed forever, its *Progress* line emptied. Tickets claimed by another machine are left alone — which
   machine claimed one is the *Runner* column, and a board without it is taken to be run
   by a single machine: there, every ticket in progress no run is holding goes back.
   `ponos doctor` says which columns are missing and what each one switches off. One

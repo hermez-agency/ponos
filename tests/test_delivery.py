@@ -535,6 +535,41 @@ def a_ticket_claimed_from_ready_is_still_put_back_in_the_queue(state_home):
 
 
 @case
+def a_ticket_put_back_after_a_crash_leaves_its_last_step_behind(state_home):
+    """Only `Live.close` empties the card's line, and a killed run never got there.
+
+    Left as it was, a ticket back in ready would go on showing « Bash · npm
+    test » as though a session still ran it.
+    """
+    lost = _in_progress("p-lost", None)
+    lost.properties["Progress"] = {
+        "type": "rich_text",
+        "rich_text": [{"plain_text": "Bash · npm test"}],
+    }
+    runner = _board_runner([lost, _in_progress("p-quiet", None)], {})
+    assert runner.sweep() == 2
+    assert runner.client.written == [
+        ("p-lost", {"Progress": "", "Status": "Ready"}),
+        ("p-quiet", {"Status": "Ready"}),
+    ]
+
+
+@case
+def a_publication_interrupted_by_a_crash_leaves_its_last_step_behind_too(state_home):
+    interrupted = _in_progress("ppost", None)
+    interrupted.properties["Progress"] = {
+        "type": "rich_text",
+        "rich_text": [{"plain_text": "Bash · gh pr merge"}],
+    }
+    runner = _board_runner([interrupted], {})
+    state.claim("ppost", "Validated")
+    assert runner.sweep() == 1
+    assert runner.client.written == [
+        ("ppost", {"Progress": "", "Status": "Blocked", "Blocage": "worktree.interrupted"})
+    ]
+
+
+@case
 def a_board_without_a_runner_column_still_gets_its_abandoned_tickets_back(state_home):
     """The 1st of October: fourteen tickets in progress, nobody behind them.
 
