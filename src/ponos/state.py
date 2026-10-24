@@ -714,6 +714,35 @@ def prune_logs(days: int) -> int:
     return removed
 
 
+def prune_records(days: int) -> int:
+    """Drop what `ponos.db` keeps row by row past `days`, as `prune_logs` does
+    the files. Zero keeps everything. Returns how many rows went.
+
+    The steps of a run copy its log line by line, so they go when the log
+    would: the run itself stays — its outcome, its cost and its cause are what
+    the history and the statistics count. The sync journal, the MCP calls and
+    the transitions that are over are a trail, read for the last few entries;
+    a transition still to run, or running, is work and is kept whatever its age.
+    """
+    if days <= 0:
+        return 0
+    cutoff = datetime.fromtimestamp(time.time() - days * 86400, UTC).isoformat(timespec="seconds")
+    with db.transaction() as connection:
+        removed = sum(
+            connection.execute(statement, (cutoff,)).rowcount
+            for statement in (
+                "DELETE FROM steps WHERE run IN"
+                " (SELECT id FROM runs WHERE COALESCE(ended_at, started_at) < ?)",
+                "DELETE FROM sync_journal WHERE at < ?",
+                "DELETE FROM mcp_calls WHERE at < ?",
+                "DELETE FROM transitions WHERE state NOT IN ('pending', 'running')"
+                " AND COALESCE(NULLIF(ended_at, ''), seen_at) < ?",
+            )
+        )
+    db.compact()
+    return removed
+
+
 def log_file(short: str) -> Path:
     """One log per session, named by the ticket's short id (see `short_id`)."""
     stamp = time.strftime("%Y%m%d-%H%M%S")

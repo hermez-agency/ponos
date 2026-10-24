@@ -688,6 +688,9 @@ update_interval_seconds = 3600   # one hour; a minute is the floor
 
 # Drop session logs older than this. 0 keeps everything. The Notion comment
 # keeps the summary either way, and the transcript lives in ~/.claude/projects.
+# The same age empties ponos.db of the steps of older runs (the runs stay), of
+# the sync journal, the MCP calls and the finished transitions, and the file is
+# compacted once a quarter of it is free. `ponos doctor` says its size.
 # Applied once a day by a run, whether or not a ticket is ready.
 log_retention_days = 14
 

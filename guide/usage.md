@@ -70,7 +70,10 @@ a session made inside one — is removed as a directory, and git is never asked 
 it, where it would have climbed to whatever repository the state directory sits in.
 
 Nobody has to remember it, though. Once a day a run tidies on its own — the
-retention is `log_retention_days`: session logs older than that, and, with
+retention is `log_retention_days`: session logs older than that — and in `ponos.db`
+the steps of the runs of that age (the runs themselves stay, with their outcome and
+cost), the sync journal, the MCP calls and the finished transitions, the file being
+compacted once a quarter of it is free — and, with
 `clean_done_worktrees` on, the worktrees and scratch directories of tickets the
 board says have been **done** or **cancelled** for that long, plus the scratch
 directories of tickets no longer on the board. A ticket in progress, blocked,

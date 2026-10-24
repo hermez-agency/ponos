@@ -68,8 +68,10 @@ lines in **Settings**, under *What this console runs on*, with **Read the journa
 `~/.local/state/ponos/ponos.db` is the runner's local memory — a SQLite file, kept
 beside the board rather than instead of it. Its schema is numbered and brought up to date
 the first time a process opens it; `ponos doctor` opens it and says at which version it
-is, and a file written by a newer Ponos is refused untouched rather than read: update
-Ponos instead.
+is, and how much room the file and its `-wal` take, and a file written by a newer Ponos
+is refused untouched rather than read: update Ponos instead. The daily tidy keeps it from
+growing for ever: what it holds row by row — the steps of each run, the sync journal, the
+MCP calls, the transitions that are over — goes after `log_retention_days`, as the logs do.
 
 Each migration is remembered by its name, in the `migrations` table, and not only counted:
 one the file has not been through is applied wherever it sits in the list, and one it went

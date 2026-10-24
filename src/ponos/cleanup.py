@@ -47,7 +47,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
-from . import git, state, store
+from . import db, git, state, store
 from .base import Base
 from .config import state_dir
 from .ticket import short_id
@@ -161,6 +161,7 @@ def _edited(page: store.Page) -> float:
 class Tidied:
     removed: list[Path] = field(default_factory=list)
     logs: int = 0
+    records: int = 0
     freed: int = 0
 
 
@@ -180,6 +181,10 @@ class Cleanup(Base):
         stamp_path().touch()
         days = self.config.runner.log_retention_days
         tidied = Tidied(logs=state.prune_logs(days))
+        try:
+            tidied.records = state.prune_records(days)
+        except db.ERRORS as error:
+            self.say(f"  ! ponos.db not pruned: {error}")
         stale = self.config.runner.stale_worktree_days
         done_too = days > 0 and self.config.runner.clean_done_worktrees
         if not done_too and stale <= 0:
@@ -235,10 +240,11 @@ class Cleanup(Base):
                     shutil.rmtree(directory, ignore_errors=True)
                 tidied.removed.append(directory)
                 tidied.freed += size
-        if tidied.removed or tidied.logs:
+        if tidied.removed or tidied.logs or tidied.records:
             self.say(
                 f"Tidied: {len(tidied.removed)} directory(ies),"
-                f" {tidied.logs} log file(s), {tidied.freed // 1_000_000} MB freed."
+                f" {tidied.logs} log file(s), {tidied.records} database row(s),"
+                f" {tidied.freed // 1_000_000} MB freed."
             )
         return tidied
 

@@ -24,8 +24,8 @@ from support import (
     case,
 )
 
+from ponos import db, journal, notion, projects, state, voice, workspace
 from ponos import git as git_module
-from ponos import notion, projects, state, voice, workspace
 from ponos import ticket as ticket_module
 from ponos.runner import Runner
 from ponos.web import api as web_api
@@ -239,6 +239,63 @@ def the_retention_can_be_turned_off(state_home):
     assert scratch.exists()
     example = (ROOT / "config.example.toml").read_text(encoding="utf-8")
     assert "clean_done_worktrees = true" in example
+
+
+@case
+def the_retention_empties_the_database_of_what_the_logs_no_longer_hold(state_home):
+    """The ticket: `steps` kept for ever what the logs drop after two weeks, and
+    the sync journal, the MCP calls and the transitions grew with every pass.
+    The same retention now takes the steps of an old run — the run stays — and
+    the old rows of the three trails, and the file gives the room back."""
+    old_run = journal.Run.start(ticket="a" * 32)
+    new_run = journal.Run.start(ticket="b" * 32)
+    for run in (old_run, new_run):
+        for index in range(200):
+            run.event(
+                {
+                    "type": "assistant",
+                    "message": {"content": [{"type": "text", "text": f"{index} " + "x" * 2000}]},
+                }
+            )
+        run.end("done")
+    month_ago = (datetime.now(UTC) - timedelta(days=30)).isoformat(timespec="seconds")
+    now = datetime.now(UTC).isoformat(timespec="seconds")
+    with db.transaction() as connection:
+        connection.execute(
+            "UPDATE runs SET started_at = ?, ended_at = ? WHERE id = ?",
+            (month_ago, month_ago, old_run.id),
+        )
+        for at in (month_ago, now):
+            connection.execute(
+                "INSERT INTO sync_journal (at, what, page) VALUES (?, 'seen', 'p')", (at,)
+            )
+            connection.execute("INSERT INTO mcp_calls (at, tool) VALUES (?, 'move')", (at,))
+            connection.execute(
+                "INSERT INTO transitions (ticket, state, seen_at, ended_at) VALUES (?, 'ok', ?, ?)",
+                (f"done-{at}", at, at),
+            )
+        connection.execute(
+            "INSERT INTO transitions (ticket, state, seen_at) VALUES ('waiting', 'pending', ?)",
+            (month_ago,),
+        )
+    pages = "PRAGMA page_count"
+    before = db.connect().execute(pages).fetchone()[0]
+
+    tidied = _tidying([]).tidy()
+
+    assert tidied is not None and tidied.records == 200 + 3, tidied
+    assert journal.steps(old_run.id)["steps"] == [], "the old run's steps went with its log"
+    assert [run["id"] for run in journal.runs("a" * 32)] == [old_run.id], "the run itself stays"
+    assert journal.steps(new_run.id)["count"] == 200, "a recent run keeps its steps"
+    with db.transaction(immediate=False) as connection:
+        for table in ("sync_journal", "mcp_calls"):
+            ((at,),) = connection.execute(f"SELECT at FROM {table}").fetchall()
+            assert at == now, table
+        kept = connection.execute("SELECT ticket FROM transitions ORDER BY id").fetchall()
+        assert kept == [(f"done-{now}",), ("waiting",)], "a transition still to run is work"
+    after = db.connect().execute(pages).fetchone()[0]
+    assert after < before * 0.75, "the room freed is given back to the disk"
+    assert db.sizes()[1] == 0, "and the write-ahead log is folded in"
 
 
 @case
