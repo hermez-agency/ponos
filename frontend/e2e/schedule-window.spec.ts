@@ -40,7 +40,7 @@ async function open(page: Page) {
 test("a new schedule opens in a modal window, and Escape gives the focus back", async ({ page }) => {
   const window_ = await open(page)
   await expect(window_).toHaveAttribute("aria-modal", "true")
-  await expect(window_.locator('[data-slot="dialog-title"]')).toHaveText("Nouveau ticket récurrent")
+  await expect(window_.locator('[data-slot="dialog-title"]')).toHaveText("Nouvelle récurrence")
   await expect(window_.getByText("Ponos crée ce ticket automatiquement, à la cadence choisie.")).toBeVisible()
   const width = (await window_.boundingBox())!.width
   expect(width).toBeLessThanOrEqual(620)
