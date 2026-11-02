@@ -294,6 +294,18 @@ describe("the tabs", () => {
     await waitFor(() => expect(tabs()).toEqual(["Brief", "Discussion", "Live"]))
     expect(selected()).toBe("Discussion")
   })
+
+  test("the first line of a ticket in review points at the Decide tab, in its own words, until it is on show", async () => {
+    const user = userEvent.setup()
+    drawn(ticket({ column: "review" }))
+    const cue = screen.getByRole("button", { name: "Your decision is awaited" })
+    expect(cue.textContent).not.toContain("Decide")
+
+    await user.click(cue)
+    expect(selected()).toMatch(/^Decide/)
+    expect(world.replace).toHaveBeenLastCalledWith("/?tab=decide")
+    expect(screen.queryByRole("button", { name: "Your decision is awaited" })).toBeNull()
+  })
 })
 
 describe("the header", () => {

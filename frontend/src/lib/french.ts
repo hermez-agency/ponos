@@ -2381,6 +2381,7 @@ export const FRENCH: Record<string, string> = {
   "Abandon — move to done": "Abandonner — passer en terminé",
   "Abandon — move to cancelled": "Abandonner — passer en abandonné",
   "your decision is awaited": "votre décision est attendue",
+  "Your decision is awaited": "Votre décision est attendue",
   "Other: write an instruction": "Autre : écrire une consigne",
   "Send back with an instruction": "Renvoyer en cours avec une consigne",
   "Fix the CI": "Corriger la CI",
