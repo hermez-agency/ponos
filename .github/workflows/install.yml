@@ -1,0 +1,56 @@
+# L'installation de zéro, telle qu'un inconnu la fait : install.sh passé à
+# `sh`, par un utilisateur qui n'est pas root, dans un ubuntu:24.04 où il n'y a
+# que curl, git et python3 — ni systemd, ni python3-venv. Les deux suites
+# testent le runner depuis un checkout, et le job image l'installe à sa façon :
+# aucun ne lançait install.sh, et c'est en dix minutes de conteneur jetable que
+# l'audit du 02/11/2026 a trouvé un main proposé en retour vers v0.2.0, un
+# workspace_root absent, des fichiers d'état en 0644 et un doctor rouge sur une
+# installation neuve. `scripts/fresh-install.sh` dit le scénario et ses quatre
+# vérifications ; on le lance en local avec la même commande `docker run`.
+#
+# Sur une pull request, seulement quand ce qu'une installation neuve exécute a
+# changé — install.sh, la mise à jour, l'environnement de la version, les
+# vérifications de doctor, ou ce job lui-même —, et chaque nuit sur main : le
+# reste de la CI ne dit pas qu'un autre changement l'a cassée. Il a besoin de
+# toute l'histoire et des tags (`fetch-depth: 0`) : la mise à jour se juge
+# contre les releases, et un retour en arrière contre l'histoire complète.
+
+name: install
+
+on:
+  pull_request:
+    paths:
+      - install.sh
+      - src/ponos/update.py
+      - src/ponos/environment.py
+      - src/ponos/health.py
+      - scripts/fresh-install.sh
+      - .github/workflows/install.yml
+  schedule:
+    - cron: "43 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fresh-install:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Le même miroir que le job image de ci.yml : un 429 de Docker Hub sur
+      # ubuntu:24.04 ne dit rien de l'installation.
+      - name: Les images de base, par le miroir de Docker Hub
+        run: |
+          sudo mkdir -p /etc/docker
+          [ -s /etc/docker/daemon.json ] || echo '{}' | sudo tee /etc/docker/daemon.json >/dev/null
+          sudo jq '. + {"registry-mirrors": ["https://mirror.gcr.io"]}' /etc/docker/daemon.json | sudo tee /etc/docker/daemon.json.new >/dev/null
+          sudo mv /etc/docker/daemon.json.new /etc/docker/daemon.json
+          sudo systemctl restart docker
+
+      - name: install.sh, doctor, la console et la mise à jour, dans un Ubuntu nu
+        run: docker run --rm -v "$PWD:/repo:ro" ubuntu:24.04 sh /repo/scripts/fresh-install.sh
