@@ -211,8 +211,18 @@ def _look(app: Path, channel: str = "release") -> Status:
 
 
 def _release(app: Path) -> Status:
-    """The newest release tag, against what is installed — never a step back."""
-    fetched = git.git(["fetch", "--quiet", "--tags", "origin"], app, timeout=120)
+    """The newest release tag, against what is installed — never a step back.
+
+    `install.sh` clones with `--depth 1`: the tag's commit would arrive, but not
+    the history that joins it to HEAD, and an older release would pass for a
+    newer one. The first check deepens the clone, once, in the same fetch.
+    """
+    deepen = (
+        ["--unshallow"]
+        if git.git(["rev-parse", "--is-shallow-repository"], app).out == "true"
+        else []
+    )
+    fetched = git.git(["fetch", "--quiet", *deepen, "--tags", "origin"], app, timeout=120)
     if not fetched.ok:
         return Status(reason=f"git fetch: {fetched.err or fetched.out}")
     tag = newest_release(git.git(["tag", "--list", "v*"], app).out.splitlines())

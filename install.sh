@@ -174,7 +174,8 @@ if [ -n "${TR_SRC:-}" ]; then
 else
     # A clone rather than a tarball: it is what lets the runner answer "am I
     # still on the latest version" with one git fetch, once an hour, and update
-    # itself when the answer is no. Shallow, because no run ever reads history.
+    # itself when the answer is no. Shallow, to install fast: the first check on
+    # the release channel fetches the rest (update._release says why).
     say "Cloning $TR_REPO ($TR_REF)"
     GIT_TERMINAL_PROMPT=0 git clone --quiet --depth 1 --branch "$TR_REF" \
         "https://github.com/$TR_REPO.git" "$STAGE" \

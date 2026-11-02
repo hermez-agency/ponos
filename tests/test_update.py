@@ -128,6 +128,34 @@ def an_installation_follows_releases_and_not_every_commit_of_main(state_home):
 
 
 @case
+def a_shallow_clone_ahead_of_the_release_is_not_taken_back_to_it(state_home):
+    """`install.sh` clones `main` with `--depth 1`: the tag's commit came in
+    with `--tags`, but not the history joining it to HEAD, so the ancestry
+    test failed and v0.2.0 passed for newer than 146 commits after it — then
+    the installation could not open the ponos.db it had just migrated."""
+    with _installation() as (commit, remote_app, _):
+        commit("two", tag="v0.2.0")
+        tip = commit("three, merged after the release")
+        remote = remote_app.parent / "remote.git"
+        app = remote_app.parent / "shallow"
+        subprocess.run(
+            ["git", "clone", "--quiet", "--depth", "1", remote.as_uri(), str(app)],
+            capture_output=True,
+            check=True,
+        )
+        status = update.check(app, "release")
+        assert not status.stale and not status.reason, status
+        assert status.current == status.latest == tip, status
+        assert update.remembered().latest == tip, "doctor reads the same answer"
+
+        # And a real release after it is still offered, counted from HEAD.
+        commit("four")
+        released = commit("five", tag="v0.3.0")
+        status = update.check(app, "release")
+        assert status.stale and status.latest == released and status.behind == 2, status
+
+
+@case
 def the_update_channel_is_release_unless_the_file_says_main():
     assert C.Runner().update_channel == "release"
     assert _config("[runner]\n").runner.update_channel == "release"

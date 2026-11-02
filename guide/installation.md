@@ -58,6 +58,8 @@ and not the tip of `main`. A commit merged into `main` is not something every in
 should be running an hour later; a release is somebody having said *this one*. No release
 tagged yet means no update at all, and the run says so rather than falling back on `main`;
 an installation already ahead of the newest tag is left where it is rather than taken back.
+To tell which of the two is ahead, the first check fetches, once, the history that the
+shallow clone of `install.sh` left out.
 `runner.update_channel = "main"` is the other answer, for whoever wants every commit as it
 lands.
 
