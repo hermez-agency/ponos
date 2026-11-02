@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import sqlite3
 import tempfile
 import threading
 from pathlib import Path
@@ -10,7 +11,7 @@ from pathlib import Path
 from support import ROOT, _state_home, case
 
 from ponos import config as C
-from ponos import db, state, systemd, update
+from ponos import db, log, state, systemd, update
 
 # -- staying alive -----------------------------------------------------------
 
@@ -162,6 +163,41 @@ def the_totals_count_every_line_of_the_history(state_home):
             [(f"t{number}", 0.5 if number == 0 else None) for number in range(10_001)],
         )
     assert state.totals() == (10_001, 0.5), "the oldest line counted, and its cost too"
+
+
+@case
+def a_session_paid_while_the_database_is_locked_is_logged_and_counted_all_the_same(state_home):
+    """`spend` swallowed every database error in silence.
+
+    The audit of 2 November 2026 found 277 $ of sessions missing from
+    `spending` on 23 and 24 October, which a failed write would have hidden
+    just as well. One now leaves its trace in ponos.log, and its line beside
+    the database: counted by the limit as it is, and written down by the next
+    pass that can.
+    """
+    target = log.setup(state_home / "logs" / "ponos.log")
+    assert target is not None
+    state.spend(1.0, "before")
+    db.connect().execute("PRAGMA busy_timeout = 50")
+    holder = sqlite3.connect(db.path(), isolation_level=None)
+    holder.execute("BEGIN EXCLUSIVE")
+    try:
+        state.spend(5.87, "1695")
+        assert state.spent_today() == 6.87, "still owed, and counted all the same"
+    finally:
+        holder.rollback()
+        holder.close()
+        db.connect().execute(f"PRAGMA busy_timeout = {db.BUSY_TIMEOUT_MS}")
+    written = target.read_text(encoding="utf-8")
+    assert "ERROR ponos.state:" in written and "5.87" in written, written
+    assert "database is locked" in written and "Traceback" in written, written
+
+    assert state.spent_today() == 6.87, "written down by the next pass"
+    with db.transaction(immediate=False) as connection:
+        rows = connection.execute("SELECT ticket, cost_usd FROM spending ORDER BY id").fetchall()
+    assert rows == [("before", 1.0), ("1695", 5.87)], rows
+    state.spend(0.13, "after")
+    assert round(state.spent_today(), 2) == 7.0, "once, and only once"
 
 
 @case
