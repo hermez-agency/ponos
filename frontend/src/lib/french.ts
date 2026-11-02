@@ -190,16 +190,13 @@ export const FRENCH: Record<string, string> = {
   "waiting to be sent to Notion": "en attente d’envoi à Notion",
   "not sent to Notion": "non envoyé à Notion",
   "changed in Notion meanwhile — not overwritten": "modifié dans Notion entre-temps — non écrasé",
-  // On a ready card: why it has not been taken yet — see TicketHeld.
+  // On a ready card: why it has not been taken yet, when it is not the ordinary wait — see TicketHeld.
   "waiting: scheduled for {{at}}": "en attente : prévu pour le {{at}}",
   "waiting: out of credit until {{at}}": "en attente : plus de crédit jusqu’à {{at}}",
   "waiting: credit reserve reached until {{at}}": "en attente : réserve de crédit atteinte jusqu’à {{at}}",
   "waiting: today's spending limit reached until {{at}}": "en attente : plafond de dépense du jour atteint jusqu’à {{at}}",
   "waiting: a session is still on it — run again once it ends": "en attente : une session est encore dessus — relancé dès qu’elle se termine",
-  "waiting: all {{count}} places taken — starts at the next free one": "en attente : les {{count}} places sont prises — part à la prochaine qui se libère",
   "waiting: --limit reached for this pass": "en attente : --limit atteint pour cette passe",
-  "waiting: the next reading of the board by the pass under way": "en attente : la prochaine lecture du tableau par la passe en cours",
-  "waiting: the next run of the timer": "en attente : le prochain passage du timer",
   "waiting: the timer is off — nothing takes it": "en attente : le timer est arrêté — rien ne le prendra",
   waiting: "en attente",
   "“{{title}}” did not reach Notion": "« {{title}} » n’est pas arrivé dans Notion",

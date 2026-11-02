@@ -175,28 +175,27 @@ export function lasted(minutes: number): string {
  * anything — a link that does nothing reads as a broken console. */
 export const reachable = (address: string): boolean => /^https?:\/\//.test(address)
 
-/* Why a ready card is still in its column. A ready column that stays full
- * with nothing to say why reads as a broken runner — so every ready card says
- * what it is waiting for, in the server's words (`held` in `web/board.py`). */
+/* The waits a ready card keeps to itself: the column's ordinary state — the
+ * next reading of the board, the next run of the timer, every place taken, a
+ * project that holds its own. Said on every card, the same line runs down the
+ * whole column; « In progress N/max » says it once. The runner still writes
+ * them in its own journal (see `board.py`). */
+const ORDINARY = ["pass", "next", "places", "project"]
+
+/* Why a ready card is still in its column, in the server's words (`held` in
+ * `web/board.py`) — only when the wait is out of the ordinary or something
+ * can be done about it: credit, the day's limit, a timer that is off, a date. */
 export function TicketHeld({ ticket }: { ticket: Ticket }) {
   const t = useT()
   const held = ticket.column === "ready" ? ticket.held : undefined
-  // Not said on the card: a project that holds its places says so on every card
-  // of its own, and the line repeated over a column is noise. The runner still
-  // writes it in its own journal (see `board.py`).
-  if (!held || held.reason === "project") return null
+  if (!held || ORDINARY.includes(held.reason)) return null
   const said: Record<string, string> = {
     date: t("waiting: scheduled for {{at}}", { at: when(held.detail) }),
     credits: t("waiting: out of credit until {{at}}", { at: held.detail }),
     reserve: t("waiting: credit reserve reached until {{at}}", { at: held.detail }),
     budget: t("waiting: today's spending limit reached until {{at}}", { at: held.detail }),
     running: t("waiting: a session is still on it — run again once it ends"),
-    places: t("waiting: all {{count}} places taken — starts at the next free one", {
-      count: held.detail,
-    }),
     limit: t("waiting: --limit reached for this pass"),
-    pass: t("waiting: the next reading of the board by the pass under way"),
-    next: t("waiting: the next run of the timer"),
     timer: t("waiting: the timer is off — nothing takes it"),
   }
   return (

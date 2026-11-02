@@ -310,10 +310,12 @@ do with it. See [Validated, and what it sets off](tickets.md#validated-and-what-
 A ticket moved back to ready is asked for again, whether or not this pass already ran
 it: it is held out only while a session of the pass is still on it — and fifteen seconds
 after, for Notion to stop serving its old status — then played again on its branch and
-its pull request, with a new report on the ticket. A ready card in the console always
-says what it is waiting for: its date, the credit, the reserve or the day's limit, a
-session still on it, every place taken, the next reading of the board, or a timer that
-is off. The pass writes the same reasons in its log as they change, starting with `…`.
+its pull request, with a new report on the ticket. A ready card in the console says
+what it is waiting for when the wait is out of the ordinary: its date, the credit, the
+reserve or the day's limit, a session still on it, or a timer that is off. The ordinary
+wait — the next reading of the board, the next run of the timer, every place taken — is
+not repeated on every card: the « In progress N/max » header says it once. The pass
+writes every reason in its log as they change, starting with `…`.
 
 Two things follow. `ponos run --limit 3` means three tickets for that pass, not
 three at a time — the limit caps what is taken off the ready column, `max_concurrent`
