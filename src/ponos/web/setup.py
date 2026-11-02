@@ -369,6 +369,28 @@ def project_choices(api: Api) -> dict[str, Any]:
     }
 
 
+def _projects(configuration: config_module.Config) -> dict[str, Any]:
+    """The workspace folder, created when missing — as `project_choices` does.
+
+    Said "missing" here and created by the next step, the folder was an OK in
+    the summary that `doctor`, run a minute earlier, had counted as an error:
+    two verdicts on one folder. Created here, the summary says what `doctor`
+    sees next, and "missing" is left to a folder that cannot be made.
+    """
+    root = configuration.runner.workspace_root
+    try:
+        root.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        pass
+    found = projects._walk(root, max_depth=2) if root.is_dir() else []
+    return {
+        "state": "ok" if root.is_dir() else "missing",
+        "root": str(root),
+        "repositories": len(found),
+        "configured": len(configuration.projects),
+    }
+
+
 # The demonstration ticket: something every installation can do — no repository,
 # no pull request, no account but the board's and Claude's — and short enough to
 # come back within the minute. Its answer lands on the ticket, which is the point.
@@ -741,15 +763,6 @@ def summary(api: Api) -> dict[str, Any]:
         ):
             model.update(state="error", said="the sessions run on OpenRouter: name its slugs")
 
-    root = runner.workspace_root
-    found = projects._walk(root, max_depth=2) if root.is_dir() else []
-    repositories = {
-        "state": "ok" if root.is_dir() else "missing",
-        "root": str(root),
-        "repositories": len(found),
-        "configured": len(configuration.projects),
-    }
-
     active = [channel.name for channel in channels.open(configuration.notify)]
     return {
         "machine": _machine(runner.min_free_disk_mb),
@@ -757,7 +770,7 @@ def summary(api: Api) -> dict[str, Any]:
         "model": model,
         "board": _board(api),
         "github": github(),
-        "projects": repositories,
+        "projects": _projects(configuration),
         "channels": {"state": "ok" if active else "missing", "active": active},
         "environment": {
             "state": "ok",
