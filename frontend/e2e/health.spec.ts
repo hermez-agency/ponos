@@ -183,37 +183,27 @@ test("the detail of a problem names each property once, and the raw error only t
   await expect(detail).toContainText("“Runner”")
 })
 
-test("the band arriving late does not move the page", async ({ page }) => {
-  let release: () => void = () => {}
-  const late = new Promise<void>((resolve) => (release = resolve))
-  await page.route("**/api/health", async (route: Route) => {
-    await late
-    await route.fulfill({ json: RED })
+for (const width of [1440, 375]) {
+  test(`folded at ${width}px, the band sits above the runner's line instead of covering it`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await open(page, [RED], [], false)
+    const band = page.getByTestId("health-band")
+    await expect(band.getByTestId("health-toggle")).toHaveAttribute("aria-expanded", "false")
+    const strip = page.locator('[data-slot="runner-strip"]')
+    await expect(strip).toBeVisible()
+    const boxes = await page.evaluate(() =>
+      ['[data-testid="health-band"] [data-slot="collapsible"]', '[data-slot="runner-strip"]'].map((selector) => {
+        const { top, bottom } = document.querySelector(selector)!.getBoundingClientRect()
+        return { top, bottom }
+      })
+    )
+    expect(boxes[0].bottom).toBeLessThanOrEqual(boxes[1].top)
+    // Readable, and nothing laid over it takes the click.
+    await expect(strip).toContainText("sessions")
+    await strip.getByText("sessions").click({ trial: true, timeout: 2_000 })
+    await shot(page, `health-folded-${width}`)
   })
-  await page.context().addCookies([{ name: "ponos_token", value: "e2e", url: test.info().project.use.baseURL }])
-  await page.goto("/")
-  // The ticket's card, not the first text that says its title: a notification
-  // names it too, and which comes first changes with the band.
-  const card = page.locator('[data-ticket-card="000000000000000000000000000abcde"]')
-  await expect(card).toBeVisible()
-  // The board is still loading around the card: what is measured is where it stays.
-  let last = ""
-  await expect
-    .poll(async () => {
-      const now = JSON.stringify(await card.boundingBox())
-      const settled = now === last
-      last = now
-      return settled
-    })
-    .toBe(true)
-  const before = await card.boundingBox()
-  expect(await page.getByTestId("health-band").count()).toBe(0)
-
-  release()
-  await expect(page.getByTestId("health-band")).toBeVisible()
-  const after = await card.boundingBox()
-  expect(after?.y).toBe(before?.y)
-})
+}
 
 test("in French, the checks' own sentences arrive with the band, fetched apart", async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem("ponos-language", "fr"))

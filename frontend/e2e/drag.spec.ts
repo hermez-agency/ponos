@@ -13,6 +13,12 @@ const LONG = "000000000000000000000000000abcde"
 
 async function open(page: Page) {
   await page.context().addCookies([{ name: "ponos_token", value: "e2e", url: test.info().project.use.baseURL }])
+  // The console's own health is red, and its band pushes the board down until
+  // the cards are past the bottom of the window: green here, the band is
+  // health.spec.ts's.
+  await page.route("**/api/health", (route) =>
+    route.fulfill({ json: { checks: [], problems: 0, checked_at: new Date().toISOString() } })
+  )
   await page.goto("/")
   await expect(page.locator(`[data-ticket-card="${LONG}"]`)).toBeVisible()
 }

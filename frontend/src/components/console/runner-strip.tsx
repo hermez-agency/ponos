@@ -130,7 +130,10 @@ export function RunnerStrip({ action }: { action?: React.ReactNode }) {
         </Alert>
       ) : null}
 
-      <div className="bg-card @container flex min-h-12 items-center gap-3 rounded-xl border py-2 pr-2 pl-3.5 text-sm">
+      <div
+        className="bg-card @container flex min-h-12 items-center gap-3 rounded-xl border py-2 pr-2 pl-3.5 text-sm"
+        data-slot="runner-strip"
+      >
         <div className="flex min-w-0 flex-1 flex-col gap-1.5 @min-[44rem]:flex-row @min-[44rem]:items-center @min-[44rem]:gap-3">
           <Figure
             icon={Activity}
