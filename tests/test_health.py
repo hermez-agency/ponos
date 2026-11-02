@@ -1209,7 +1209,8 @@ def health_says_what_a_session_left_running():
     ):
         found = health._stray()
     assert _verdicts(found) == [("machine.stray", "warn"), ("machine.stray", "warn")]
-    assert found[0].params["name"] == "ponos-1a2b" and found[1].evidence == "npm run dev"
+    assert found[0].params["name"] == "ponos-1a2b" and found[1].evidence == "4242 npm run dev"
+    assert found[1].fix is None, "a process outside any worktree is `clean`'s to decide"
 
 
 @case
@@ -1240,7 +1241,66 @@ def health_leaves_alone_what_a_session_still_going_runs(state_home):
             child.wait()
     assert _verdicts(found) == [("machine.stray", "warn"), ("machine.stray", "warn")]
     assert found[0].params["name"] == "ponos-9f8e7d6c"
-    assert found[1].params["pid"] == str(children[1].pid)
+    assert found[1].params == {"name": "ponos-9f8e7d6c", "count": "1"}
+    assert found[1].evidence.startswith(str(children[1].pid))
+
+
+@case
+def health_leaves_alone_a_ticket_in_progress_between_two_sessions(state_home):
+    """Its local CI, its rebase: no session is live, the ticket is still this host's."""
+    from ponos import health, state
+
+    going = health.leftovers.worktrees() / "ponos-0a1b2c3d"
+    going.mkdir(parents=True)
+    state.claim("40c45168-0af4-8106-bf14-c2f60a1b2c3d", "Ready")
+    child = subprocess.Popen(["sleep", "300"], cwd=going)
+    try:
+        with _patched(health.leftovers, compose_projects=lambda root: []):
+            found = health._stray()
+    finally:
+        child.kill()
+        child.wait()
+    assert _verdicts(found) == [("machine.stray", "ok")]
+
+
+@case
+def health_says_a_worktree_s_leftover_processes_in_one_line_and_stops_them(state_home):
+    from ponos import health
+
+    finished = health.leftovers.worktrees() / "opoil-f0ee7aa7"
+    (finished / "frontend").mkdir(parents=True)
+    children = [
+        subprocess.Popen(["sleep", "300"], cwd=finished / ("frontend" if n % 2 else "."))
+        for n in range(5)
+    ]
+    try:
+        with _patched(health.leftovers, compose_projects=lambda root: []):
+            found = health._stray()
+        assert _verdicts(found) == [("machine.stray", "warn")]
+        assert found[0].params == {"name": "opoil-f0ee7aa7", "count": "5"}
+        assert found[0].fix is not None
+        assert (found[0].fix["action"], found[0].fix["target"]) == (
+            "stray_processes",
+            "opoil-f0ee7aa7",
+        )
+        for target, confirmed, refused in (
+            ("opoil-f0ee7aa7", False, PermissionError),
+            ("../elsewhere", True, LookupError),
+        ):
+            try:
+                health.fix(None, None, "stray_processes", target, confirmed=confirmed)
+            except refused:
+                pass
+            else:
+                raise AssertionError(f"{target} stopped (confirmed: {confirmed})")
+        assert all(child.poll() is None for child in children), "nothing stopped unasked"
+        done = health.fix(None, None, "stray_processes", "opoil-f0ee7aa7", confirmed=True)
+        assert done == "5 process(es) stopped"
+        assert all(child.wait(timeout=10) is not None for child in children)
+    finally:
+        for child in children:
+            child.kill()
+            child.wait()
 
 
 @case

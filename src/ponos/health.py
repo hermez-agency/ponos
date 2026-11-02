@@ -106,6 +106,8 @@ MINIMUM_CLAUDE = (2, 0, 0)
 # One probe never holds a page for longer than this — `provider.CHECK_TIMEOUT`
 # is for a single call, and a remote that does not answer is the case at hand.
 PROBE_TIMEOUT = 15
+# The commands quoted under a worktree's leftover processes: enough to know the dev server.
+STRAY_SHOWN = 5
 
 # What a channel's error code means, for the codes Slack answers with — the code
 # itself stays in the evidence, quoted.
@@ -2998,26 +3000,46 @@ def _restore(location: Path, copy: Path) -> str:
     return f"rm -f {where}-wal {where}-shm && cp {copied} {where}"
 
 
-def _stray() -> list[Check]:
-    """The containers and processes a session started in its worktree and left running.
+def _spared() -> set[Path]:
+    """The worktrees of the tickets in progress here: what runs in them is theirs.
 
-    A worktree whose session is still going is not looked at: its `claude`, its
-    MCP servers and its dev server are not left behind yet, and `ponos clean
-    --force` would stop them under it.
+    A session going (`stopping.live`), but also a ticket this host claimed and
+    is between two sessions of — its CI run here, its rebase, its retry: the
+    Vitest or the dev server it started is not left behind yet, and stopping
+    it would pull the floor from under the ticket.
     """
     root = leftovers.worktrees()
-    going = {short_id(ticket) for ticket in stopping.live()}
-    spared = {
+    going = {short_id(ticket) for ticket in (*stopping.live(), *state.claims())}
+    return {
         worktree
         for worktree in (root.iterdir() if root.is_dir() else ())
         if worktree.name.rsplit("-", 1)[-1] in going
     }
+
+
+def _stray() -> list[Check]:
+    """The containers and processes a session started in its worktree and left running.
+
+    A worktree whose ticket is still in progress is not looked at: its `claude`,
+    its MCP servers and its dev server are not left behind yet, and `ponos clean
+    --force` would stop them under it. The processes are said a worktree at a
+    time — a session leaves a dev server with its watchers and workers, and one
+    line a pid made the band two screens long.
+    """
+    root = leftovers.worktrees()
+    spared = _spared()
     composed = [
         project
         for project in leftovers.compose_projects(root)
         if leftovers.worktree_of(project.directory) not in spared
     ]
-    held = leftovers.processes(root, spared=spared)
+    held: dict[Path, list[tuple[int, str]]] = {}
+    for pid, command in leftovers.processes(root, spared=spared):
+        try:
+            where = leftovers.worktree_of(Path(f"/proc/{pid}/cwd").readlink()) or root
+        except OSError:
+            where = root
+        held.setdefault(where, []).append((pid, command))
     title = "Left running"
     if not composed and not held:
         return [
@@ -3046,12 +3068,23 @@ def _stray() -> list[Check]:
             "machine.stray",
             WARN,
             title,
-            "The process {{pid}} still runs in a worktree.",
-            params={"pid": str(pid)},
+            "{{count}} process(es) left running in the worktree {{name}}.",
+            params={"name": worktree.name, "count": str(len(pids))},
             steps=steps,
-            evidence=command[:100],
+            evidence="\n".join(f"{pid} {command[:100]}" for pid, command in pids[:STRAY_SHOWN])
+            + ("\n…" if len(pids) > STRAY_SHOWN else ""),
+            # Processes run from the root itself are no ticket's: `clean` decides.
+            fix=_fix(
+                "stray_processes",
+                "Stop",
+                "Stop the {{count}} process(es) left running in the worktree {{name}}?",
+                [],
+                target=worktree.name,
+            )
+            if worktree != root
+            else None,
         )
-        for pid, command in held
+        for worktree, pids in held.items()
     )
     return found
 
@@ -3766,6 +3799,15 @@ def fix(
         # Nothing to ask the board: the column stays as it is, read by one setting.
         changed = config_module.edit(config.path, [("notion.properties", "role", "")])
         return "role turned off" if changed else "nothing to change"
+    if action == "stray_processes":
+        root = leftovers.worktrees()
+        worktree = root / target
+        # Asked again: the ticket may have been taken up since the band was drawn.
+        if not target or worktree.parent != root or worktree in _spared():
+            raise LookupError("that worktree is not one left behind")
+        pids = [pid for pid, _ in leftovers.processes(worktree)]
+        leftovers.kill(pids)
+        return f"{len(pids)} process(es) stopped"
     if action == "project_branch":
         space = workspace_module.resolve(client, config.notion)
         row = next((row for row in _project_rows(client, space) if row["id"] == target), None)
