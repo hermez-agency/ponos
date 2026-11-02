@@ -17,6 +17,10 @@ import time
 from dataclasses import dataclass
 
 UNIT = "ponos.timer"
+SERVICE = "ponos.service"
+
+# What the service's unit sets so that its sessions yield to the desktop.
+PRIORITY = ("Nice", "CPUWeight", "IOSchedulingClass", "MemoryHigh")
 
 
 @dataclass(frozen=True)
@@ -103,6 +107,20 @@ def describe(enabled: str, shown: str, listed: str = "", stamps: str = "") -> Ti
         last=_unix(times.get("LastTriggerUSec", "")),
         next=upcoming,
     )
+
+
+def priority() -> dict[str, str]:
+    """What systemd applies to the runner's service, as `show` writes it — empty when it cannot tell.
+
+    Read off the loaded unit rather than the file: a unit rewritten without a
+    `daemon-reload` still runs its sessions at the old rank.
+    """
+    if not shutil.which("systemctl"):
+        return {}
+    try:
+        return _fields(_systemctl("show", SERVICE, "-p", ",".join(PRIORITY)))
+    except (OSError, subprocess.SubprocessError):
+        return {}
 
 
 def _fields(shown: str) -> dict[str, str]:
