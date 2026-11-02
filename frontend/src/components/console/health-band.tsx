@@ -22,13 +22,13 @@ import { ConfirmDialog } from "./confirm-dialog"
  * nothing at all while everything is green: a band that is always there is a
  * band nobody reads.
  *
- * The answer comes a second or two after the rest of the page, so the folded
- * band is laid over the page, in a slot of no height, rather than in its flow:
- * pushed in, it moved the whole dashboard down while somebody was aiming at a
- * card. Unfolded, it takes its place in the flow and pushes the statistics
- * down: laid over, its list hid the cards and the charts it was opened above.
- * The page moves then because somebody asked it to — or, the list kept open,
- * once when the answer arrives, which is what keeping it open chose.
+ * Folded or not, the band takes its place in the page's flow, above the
+ * runner's line. It was once laid over the page while folded, in a slot of no
+ * height, so that its answer — a second or two after the rest — did not move
+ * the dashboard: but the slot was where the runner's line is, and the band hid
+ * its sessions and its timer. The server now answers from its last check, so
+ * the band comes with the page rather than after it; unfolded, it pushes the
+ * statistics down, since laid over its list hid what it was opened above.
  *
  * The band is one line while folded — a count, "Recheck" — so that the
  * statistics under it stay on the first screen; unfolded, each failing check is
@@ -128,48 +128,46 @@ export function HealthBand() {
   const Icon = errors ? OctagonAlert : AlertTriangle
 
   return (
-    <div className={cn("relative z-30", !open && "h-0")}>
-      <section className={cn("py-3", !open && "absolute inset-x-0 top-0")} data-testid="health-band">
-        <Collapsible open={open} onOpenChange={choose} className="bg-card rounded-xl border shadow-lg">
-          <div className="flex items-center justify-between gap-3 px-4 py-2.5">
-            <CollapsibleTrigger
-              className="focus-visible:ring-ring/50 flex min-w-0 items-center gap-2 rounded-md text-left outline-none focus-visible:ring-2"
-              data-testid="health-toggle"
-            >
-              {chevron(open)}
-              <Icon className={cn("size-4 shrink-0", errors ? "text-destructive" : "text-amber-600")} />
-              <span className="min-w-0 truncate text-sm font-medium">
-                {/* "Before tickets can run" only when something stops them: a
-                    warning is a ticket that runs, with something to look at. */}
-                {[
-                  errors &&
-                    counted(
-                      blocking,
-                      "{{count}} thing to fix before tickets can run",
-                      "{{count}} things to fix before tickets can run"
-                    ),
-                  checks.length > blocking &&
-                    counted(checks.length - blocking, "{{count}} warning", "{{count}} warnings"),
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </span>
-            </CollapsibleTrigger>
-            <Button variant="outline" size="sm" onClick={() => check(true)} disabled={checking} data-testid="health-recheck">
-              {checking ? <Loader2 className="animate-spin" /> : <RefreshCw />}
-              {t("Recheck")}
-            </Button>
-          </div>
-          <CollapsibleContent>
-            <ul className="flex flex-col gap-2 px-4 pb-3">
-              {checks.map((one) => (
-                <Problem key={`${one.code}:${Object.values(one.params).join(":")}`} check={one} onFix={fix} />
-              ))}
-            </ul>
-          </CollapsibleContent>
-        </Collapsible>
-      </section>
-    </div>
+    <section className="py-3" data-testid="health-band">
+      <Collapsible open={open} onOpenChange={choose} className="bg-card rounded-xl border shadow-lg">
+        <div className="flex items-center justify-between gap-3 px-4 py-2.5">
+          <CollapsibleTrigger
+            className="focus-visible:ring-ring/50 flex min-w-0 items-center gap-2 rounded-md text-left outline-none focus-visible:ring-2"
+            data-testid="health-toggle"
+          >
+            {chevron(open)}
+            <Icon className={cn("size-4 shrink-0", errors ? "text-destructive" : "text-amber-600")} />
+            <span className="min-w-0 truncate text-sm font-medium">
+              {/* "Before tickets can run" only when something stops them: a
+                  warning is a ticket that runs, with something to look at. */}
+              {[
+                errors &&
+                  counted(
+                    blocking,
+                    "{{count}} thing to fix before tickets can run",
+                    "{{count}} things to fix before tickets can run"
+                  ),
+                checks.length > blocking &&
+                  counted(checks.length - blocking, "{{count}} warning", "{{count}} warnings"),
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </span>
+          </CollapsibleTrigger>
+          <Button variant="outline" size="sm" onClick={() => check(true)} disabled={checking} data-testid="health-recheck">
+            {checking ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+            {t("Recheck")}
+          </Button>
+        </div>
+        <CollapsibleContent>
+          <ul className="flex flex-col gap-2 px-4 pb-3">
+            {checks.map((one) => (
+              <Problem key={`${one.code}:${Object.values(one.params).join(":")}`} check={one} onFix={fix} />
+            ))}
+          </ul>
+        </CollapsibleContent>
+      </Collapsible>
+    </section>
   )
 }
 
