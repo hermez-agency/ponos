@@ -108,6 +108,9 @@ export function DecideButton({
   if (!action || !tab) return null
   // Already on that tab: the button would only point at where you are.
   if (tabs?.shown === tab) return null
+  // On the ticket itself, Decide is a tab, with its mark: a button beside it
+  // said the same word a second time. Unblock has no tab, and stays.
+  if (tabs && tab === "decide") return null
   const blocked = ticket.column === "blocked"
   const Icon = blocked ? (icon ?? MessageCircleQuestion) : Scale
   return (

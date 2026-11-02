@@ -1,6 +1,15 @@
 import * as React from "react"
 import { useLocation, useRouter } from "@tanstack/react-router"
-import { ArrowLeft, CircleAlert, CopyIcon, GitBranch, MessageCircleQuestion, RotateCw } from "lucide-react"
+import {
+  ArrowLeft,
+  ChevronRight,
+  CircleAlert,
+  CopyIcon,
+  GitBranch,
+  MessageCircleQuestion,
+  RotateCw,
+  Scale,
+} from "lucide-react"
 import { ActionList } from "react-data-form"
 import { Link, useCurrentViewResourceContext } from "react-resource-view"
 
@@ -105,6 +114,22 @@ export function TicketPage() {
     <div>
       {ticket ? (
         <>
+          {/* On a phone, the Decide tab is under the checks and the summary,
+              below the first screen: the page's first line points at it, in
+              other words than the tab's. Not on the tab already. */}
+          {ticket.column === "review" && shown !== "decide" ? (
+            <Button
+              variant="outline"
+              data-slot="ticket-decide-cue"
+              className="text-tr-pink hover:text-tr-pink mb-3 w-full justify-start sm:hidden"
+              onClick={() => goTo("decide")}
+            >
+              <Scale />
+              {t("Your decision is awaited")}
+              <ChevronRight className="ml-auto" />
+            </Button>
+          ) : null}
+
           {/* Why it stopped, as on its card: the gesture it proposes is
               among the actions below, the answer in the discussion. Not a
               session that committed nothing, which is no fault when there was

@@ -202,10 +202,32 @@ test.describe("on a desktop", () => {
     await panel(page).getByRole("button", { name: "Take the screenshots", exact: true }).click()
     await expect(panel(page).getByRole("textbox")).toHaveValue(/Take the screenshots that were asked for/)
   })
+
+  test("on the page of a ticket in review, Decide is said once: the tab, and no button beside it", async ({ page }) => {
+    await open(page, `/?view=console/tickets/read/${REVIEW}`)
+    const line = page.getByRole("tablist").locator("..")
+    await expect(tab(page)).toBeVisible()
+    await expect(line.getByText("Decide", { exact: true })).toHaveCount(1)
+    await expect(page.locator(`[data-decide="${REVIEW}"]`)).toHaveCount(0)
+    // The phone's line pointing at it stays off a wide screen.
+    await expect(page.locator('[data-slot="ticket-decide-cue"]')).toBeHidden()
+  })
 })
 
 test.describe("on a phone", () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
+
+  test("on the page of a ticket in review, the way to Decide is on the first screen", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 })
+    await open(page, `/?view=console/tickets/read/${REVIEW}`)
+    const cue = page.locator('[data-slot="ticket-decide-cue"]')
+    await expect(cue).toBeInViewport({ ratio: 1 })
+    await expect(cue).not.toContainText("Decide")
+    await cue.tap()
+    await expect(tab(page)).toHaveAttribute("aria-selected", "true")
+    await expect(panel(page)).toBeVisible()
+    await expect(cue).toHaveCount(0)
+  })
 
   test("Unblock opens the ticket's window on its discussion, the replies read in full", async ({ page }) => {
     await open(page)
