@@ -160,6 +160,11 @@ export const FRENCH: Record<string, string> = {
   // not — the line in the bar, its tooltip, and the button beside it.
   "Resynchronise now": "Resynchroniser maintenant",
   "Notifications, {{count}} unread": "Notifications, {{count}} non lues",
+  "{{count}} questions": "{{count}} questions",
+  "{{count}} pull requests": "{{count}} pull requests",
+  "{{count}} red checks": "{{count}} CI rouges",
+  "{{count}} failures": "{{count}} échecs",
+  "{{count}} blocks": "{{count}} blocages",
   "what asks for your attention": "ce qui demande votre attention",
   "Mark all as read": "Tout marquer comme lu",
   "Nothing needs you.": "Rien ne demande votre attention.",

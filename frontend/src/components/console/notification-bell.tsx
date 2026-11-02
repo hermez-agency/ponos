@@ -27,6 +27,8 @@ import { ago } from "./ticket-bits"
  * The runner writes a notification when a session stops on a question, a pull
  * request is ready to read, its checks are red, a session fails or a ticket is
  * blocked — and nothing for the routine (a ticket taken, a ticket in progress).
+ * The server hands them one line per ticket, by what it rang for last and how
+ * many times it rang so, and counts tickets that wait rather than notifications.
  * They reach this page on the stream like the board does, so opening the panel
  * asks for nothing. A click opens the ticket's card and marks that one read; both
  * the read marks and "Mark all as read" are kept by the server, so a reload
@@ -117,6 +119,17 @@ function Panel({ close }: { close: () => void }) {
     failed: t("A session failed"),
     blocked: t("A ticket is blocked"),
   }
+  const times = (item: Notification) => {
+    if (item.count < 2) return ""
+    const count = String(item.count)
+    return {
+      question: t("{{count}} questions", { count }),
+      review: t("{{count}} pull requests", { count }),
+      ci: t("{{count}} red checks", { count }),
+      failed: t("{{count}} failures", { count }),
+      blocked: t("{{count}} blocks", { count }),
+    }[item.kind]
+  }
 
   return (
     <div className="flex max-h-[min(32rem,70dvh)] flex-col">
@@ -146,7 +159,7 @@ function Panel({ close }: { close: () => void }) {
                       {ticket ? titleOf(ticket) : item.title || t("(untitled ticket)")}
                     </span>
                     <span className="text-muted-foreground block truncate text-xs">
-                      {[words[item.kind], ticket?.project, when].filter(Boolean).join(" · ")}
+                      {[words[item.kind], times(item), ticket?.project, when].filter(Boolean).join(" · ")}
                     </span>
                   </span>
                   {item.read ? null : (

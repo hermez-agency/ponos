@@ -371,12 +371,13 @@ def journal_of(ticket: str) -> None:
 
 
 def bell_of() -> None:
-    """Four notifications on the bell, two of them for tickets that have moved on since.
+    """Four tickets on the bell, two of them moved on since.
 
     A failure on the long ticket, now Ready again, and a pull request to read on
     the finished one, rung ten minutes ago: the console's first board read lets
     go of both. A pull request still in review and the question the blocked
-    ticket asked are what is left unread.
+    ticket asked are what is left unread — its second question, the first one
+    answered already: one line for the two.
     """
     from ponos import db, notifications
 
@@ -386,6 +387,9 @@ def bell_of() -> None:
     with db.transaction() as connection:
         connection.execute("UPDATE notifications SET at = ?", (rung,))
     notifications.add("review", "00000000000000000000000000c1c102", "Speed up the search")
+    notifications.add("question", ASKING, "A ticket with a question")
+    with db.transaction() as connection:
+        connection.execute("UPDATE notifications SET read_at = at WHERE ticket = ?", (ASKING,))
     notifications.add("question", ASKING, "A ticket with a question")
     db.close()
 

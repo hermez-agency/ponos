@@ -2,8 +2,8 @@ import { expect, test } from "@playwright/test"
 
 /* The bell in the header.
  *
- * `e2e/console.py` leaves four notifications in the console's state: a question
- * the blocked ticket asked, a pull request to read, and two rung for tickets that
+ * `e2e/console.py` leaves four tickets on the bell: two questions the blocked
+ * ticket asked in turn, a pull request to read, and two rung for tickets that
  * have moved on since — a failure on a ticket now Ready, a pull request on one now
  * Done. One test goes through all of it, in order — reading is kept by the
  * server, so splitting it would make each part depend on what ran before.
@@ -20,7 +20,7 @@ test("the bell counts what is unread, opens the ticket, and keeps what was read"
   await expect(bell).toBeVisible()
   await expect(page.getByTestId("bell-badge")).toHaveText("2")
 
-  // Opened from the keyboard, newest first, each saying what it is and for which ticket.
+  // Opened from the keyboard, newest first, one line per ticket saying what it is.
   await bell.focus()
   await page.keyboard.press("Enter")
   const panel = page.getByRole("dialog", { name: "Notifications" })
@@ -28,7 +28,7 @@ test("the bell counts what is unread, opens the ticket, and keeps what was read"
   const items = panel.getByRole("listitem")
   await expect(items).toHaveCount(4)
   await expect(items.nth(0)).toContainText("A ticket with a question")
-  await expect(items.nth(0)).toContainText("A session is waiting for your answer")
+  await expect(items.nth(0)).toContainText("A session is waiting for your answer · 2 questions")
   await expect(items.nth(1)).toContainText("Speed up the search")
   await expect(items.nth(1)).toContainText("A pull request is ready to read")
   await expect(items.nth(2)).toContainText("A finished ticket")

@@ -163,9 +163,10 @@ back in the queue, and one that names it — `@claude`, or whatever `notion.ment
 asks it for words instead. Nothing is kept on the side; the same sentence typed into Notion
 does the same thing.
 
-**The bell.** The icon in the header counts the notifications you have not read, and opens a
-dropdown over the board: the latest first, with an icon for what happened, the ticket's title, its
-project and how long ago. A click opens the ticket's card and marks that one read; *Mark all as
+**The bell.** The icon in the header counts the tickets waiting for you — not the notifications —
+and opens a dropdown over the board: one line per ticket, the latest first, saying what it rang for
+last with an icon, how many times it rang so (« 3 questions »), the ticket's title, its project and
+how long ago. A click opens the ticket's card and marks everything that ticket rang for read; *Mark all as
 read* empties the badge; Tab and Enter reach everything, Escape closes it, and on a phone it spans
 the width of the screen. It rings for a session that stopped on a question, a pull request ready to
 read, a pull request whose checks fail (`merge.checks-failed`), a failed session and any other
