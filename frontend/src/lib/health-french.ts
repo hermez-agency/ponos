@@ -234,6 +234,7 @@ export const HEALTH_FRENCH: Record<string, string> = {
   "Left running": "Laissé en marche",
   "Local database": "Base locale",
   "MCP connector": "Connecteur MCP",
+  "Load": "Charge",
   "Memory": "Mémoire",
   "Priority": "Priorité",
   "Models": "Modèles",
@@ -326,6 +327,14 @@ export const HEALTH_FRENCH: Record<string, string> = {
   "{{file}}, line {{line}}: {{key}} is not a known key — did you mean {{match}}?": "{{file}}, ligne {{line}} : {{key}} n'est pas une clé connue — vouliez-vous dire {{match}} ?",
   "{{file}}, line {{line}}: {{key}} is not a known key.": "{{file}}, ligne {{line}} : {{key}} n'est pas une clé connue.",
   "{{file}} still holds {{keys}}: ignored, and moved to {{target}} at the next launch.": "{{file}} contient encore {{keys}} : ignorés, et déplacés vers {{target}} au prochain lancement.",
+  "Load {{load}} on {{cores}} cores, above runner.max_load_per_core ({{per_core}}, so {{ceiling}}): no session is started until it comes down.":
+    "Charge de {{load}} sur {{cores}} cœurs, au-dessus de runner.max_load_per_core ({{per_core}}, soit {{ceiling}}) : aucune session ne démarre avant qu'elle redescende.",
+  "Load {{load}} on {{cores}} cores (a session starts at {{ceiling}} or below).":
+    "Charge de {{load}} sur {{cores}} cœurs (une session démarre à {{ceiling}} ou moins).",
+  "runner.max_load_per_core = 0: no load guard; load {{load}} on {{cores}} cores.":
+    "runner.max_load_per_core = 0 : pas de garde sur la charge ; charge de {{load}} sur {{cores}} cœurs.",
+  "The load average is unreadable here: the load guard cannot tell.":
+    "La charge moyenne est illisible ici : la garde sur la charge ne peut pas trancher.",
   "{{free}} MB available, under runner.min_free_memory_mb ({{minimum}} MB): no session is started until it is back.": "{{free}} Mo disponibles, sous runner.min_free_memory_mb ({{minimum}} Mo) : aucune session ne démarre tant qu'elle n'est pas revenue.",
   "{{project}} is not given a key it was granted.": "{{project}} ne reçoit pas une clé qui lui a été accordée.",
   "{{repository}} is not reached by the GitHub App.": "{{repository}} n'est pas atteint par l'App GitHub.",

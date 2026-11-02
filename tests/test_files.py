@@ -164,7 +164,8 @@ def the_whole_runner_runs_against_files_with_no_notion_at_all(state_home):
         path.write_text(
             f'[storage]\nmode = "markdown"\npath = "{board.root}"\n'
             "[runner]\ndry_run = false\nprogress = false\nreply = false\n"
-            "auto_update = false\nnotify = false\nattach_sessions = false\n",
+            "auto_update = false\nnotify = false\nattach_sessions = false\n"
+            "max_load_per_core = 0\n",
             encoding="utf-8",
         )
         configuration = C.load(path)

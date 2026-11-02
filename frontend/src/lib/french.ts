@@ -1294,6 +1294,10 @@ export const FRENCH: Record<string, string> = {
     "Au-delà, la session est arrêtée et le ticket passe en échec, avec la raison.",
   "Memory to keep free": "Mémoire à garder libre",
   "Memory to keep free (MB)": "Mémoire à garder libre (Mo)",
+  "Most load per core": "Charge maximale par cœur",
+  "No session is started while the load over the last minute is above this many times the cores; the ticket waits in Ready. 1.5 on 20 cores stops at 30. 0 turns the guard off.":
+    "Aucune session ne démarre tant que la charge sur la dernière minute dépasse ce nombre de fois les cœurs ; le ticket attend en Prêt. 1,5 sur 20 cœurs arrête à 30. 0 désactive la garde.",
+  "e.g. 1.5": "p. ex. 1.5",
   "Disk space to keep free": "Place disque à garder libre",
   "Disk space to keep free (MB)": "Place disque à garder libre (Mo)",
   "Under it, old working copies are tidied first; if the space is still short, no ticket is started and it waits in Ready. 0 turns the guard off.":

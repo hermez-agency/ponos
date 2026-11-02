@@ -298,3 +298,16 @@ def a_pass_that_cannot_read_the_file_makes_the_environment_and_stops(state_home)
         C.readable, update.heal_environment, update.app_dir = readable, heal, app_dir
     assert code == 0
     assert made == ["made"], "no configuration read, and no ticket"
+
+
+@case
+def a_load_per_core_reads_as_the_console_writes_it_and_a_typo_keeps_the_default():
+    for written, read in (
+        ("", 1.5),
+        ("max_load_per_core = 2\n", 2.0),
+        ('max_load_per_core = "2.5"\n', 2.5),
+        ('max_load_per_core = "beaucoup"\n', 1.5),
+        ('max_load_per_core = ""\n', 1.5),
+        ("max_load_per_core = -1\n", 0.0),
+    ):
+        assert _config("[runner]\n" + written).runner.max_load_per_core == read, written

@@ -651,6 +651,37 @@ def a_schedules_database_that_answers_404_does_not_hold_the_queue_up(state_home)
 
 
 @case
+def a_pass_on_overloaded_cores_claims_no_ticket_and_says_so_once(state_home):
+    """Above `max_load_per_core` times the cores, the ready ticket stays where it is."""
+    import os
+
+    runner = _board_runner([_ready("p-1")], {})
+    runner.config.runner.reply = False
+    runner.config.runner.min_free_memory_mb = 0
+    runner.config.runner.min_free_disk_mb = 0
+    runner.config.runner.max_load_per_core = 1.5
+    runner.announce_idle = False
+    runner._memory_warned, runner._load_warned = False, False
+    said: list[str] = []
+    runner.say = said.append
+    started: list[str] = []
+    runner.prepare = lambda ticket: started.append(ticket.id)
+    original = os.getloadavg, os.sched_getaffinity
+    os.sched_getaffinity = lambda pid: set(range(20))
+    os.getloadavg = lambda: (74.0, 60.0, 40.0)
+    try:
+        runner.tick()
+        runner.tick()
+        assert started == [], started
+        assert sum("74.0" in line for line in said) == 1, said
+        os.getloadavg = lambda: (12.0, 60.0, 40.0)
+        runner.tick()
+        assert started == ["p1"], (started, said)
+    finally:
+        os.getloadavg, os.sched_getaffinity = original
+
+
+@case
 def a_ticket_that_refuses_a_write_does_not_stop_the_sweep_or_the_closing(state_home):
     """One page Notion will not write leaves the others to be put right."""
     stale = "2020-01-01T00:00:00+00:00"

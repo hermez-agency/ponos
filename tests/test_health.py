@@ -949,6 +949,24 @@ def health_says_when_memory_is_short_and_when_it_cannot_tell():
 
 
 @case
+def health_says_when_the_load_is_too_high_and_when_it_cannot_tell():
+    from ponos import health
+
+    config = _config("[runner]\nmax_load_per_core = 1.5\n")
+    for measured, expected, words in (
+        ((74.0, 20), "warn", "Load 74.0 on 20 cores, above runner.max_load_per_core (1.5, so 30)"),
+        ((12.0, 20), "ok", "Load 12.0 on 20 cores (a session starts at 30 or below)"),
+        (None, "info", "the load guard cannot tell"),
+    ):
+        with _patched(health.resources, load=lambda measured=measured: measured):
+            found = health._load(config)
+        assert found[0].state == expected and words in _lines(found), _lines(found)
+    off = _config("[runner]\nmax_load_per_core = 0\n")
+    with _patched(health.resources, load=lambda: (74.0, 20)):
+        assert health._load(off)[0].state == "info"
+
+
+@case
 def health_says_a_timer_that_will_never_fire_and_how_often_a_run_comes():
     from ponos import health
     from ponos.systemd import Timer
@@ -1337,6 +1355,7 @@ def _machine(*, healthy: bool = True):
             health.resources,
             disk_mb=lambda path: (90000 if healthy else 100, 100000),
             available_mb=lambda: 90000,
+            load=lambda: (1.0, 8),
         ),
     ):
         yield

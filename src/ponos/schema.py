@@ -145,6 +145,23 @@ def _dollars(value: object) -> float:
 Dollars = Annotated[float, BeforeValidator(_dollars)]
 
 
+def _per_core(value: object) -> float:
+    """A load per core, the default for one that is no number, none under zero.
+
+    The console writes it as text, as it does an amount: a blank there is the
+    file saying nothing, and a typo must not stop the runner. A negative ceiling
+    is a typo for none at all, as zero is.
+    """
+    try:
+        number = float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        raise PydanticUseDefault() from None
+    return max(0.0, number)
+
+
+PerCore = Annotated[float, BeforeValidator(_per_core)]
+
+
 def _sentences(value: object) -> tuple[str, ...]:
     """A list of sentences as the file wrote it, or the default when it wrote none.
 
@@ -203,6 +220,7 @@ class RunnerTable(Table):
     timeout_minutes: AtLeast1 = Runner.timeout_minutes
     relaunch_delay_seconds: AtLeast0 = Runner.relaunch_delay_seconds
     min_free_memory_mb: AtLeast0 = Runner.min_free_memory_mb
+    max_load_per_core: PerCore = Runner.max_load_per_core
     min_free_disk_mb: AtLeast0 = Runner.min_free_disk_mb
     wait_for_credits: bool = Runner.wait_for_credits
     # Both ends clamped rather than refused: a file saying 150 meant "keep

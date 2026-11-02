@@ -526,6 +526,10 @@ _SAID: dict[str, dict[str, str]] = {
         "en": "Only {free} MB of memory available (under {minimum} MB): no session is started until it comes back.",
         "fr": "Seulement {free} Mo de mémoire disponibles (sous {minimum} Mo) : aucune session ne démarre avant son retour.",
     },
+    "load-high": {
+        "en": "Load {load} over the last minute, above {ceiling} ({per_core} per core on {cores} cores): no session is started until it comes down.",
+        "fr": "Charge de {load} sur la dernière minute, au-dessus de {ceiling} ({per_core} par cœur sur {cores} cœurs) : aucune session ne démarre avant qu'elle redescende.",
+    },
     "disk-short": {
         "en": "Only {free} MB free on the disk (under {minimum} MB), even after a tidy: no ticket is started until room is back.",
         "fr": "Seulement {free} Mo libres sur le disque (sous {minimum} Mo), même après un nettoyage : aucun ticket ne démarre avant que la place revienne.",

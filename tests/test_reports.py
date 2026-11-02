@@ -482,3 +482,36 @@ def a_usage_nobody_could_read_is_said_once_and_stops_nothing(state_home):
     finally:
         credits.used = original
     assert sum("could not be read" in line for line in said) == 1, said
+
+
+@case
+def a_runner_on_overloaded_cores_starts_nothing_and_says_so_once():
+    """The load guard reads `os.getloadavg`, against the cores `nproc` counts."""
+    runner, said = _runner()
+    runner.config.runner.min_free_memory_mb = 0
+    runner.config.runner.min_free_disk_mb = 0
+    runner.config.runner.max_load_per_core = 1.5
+    runner._load_warned = False
+    original = resources.os.getloadavg, resources.os.sched_getaffinity
+    resources.os.sched_getaffinity = lambda pid: set(range(20))
+    try:
+        resources.os.getloadavg = lambda: (74.0, 40.0, 20.0)
+        assert not runner.room_for_a_session() and not runner.room_for_a_session()
+        assert len(said) == 1 and "74.0" in said[0] and "30" in said[0], said
+        # At the ceiling is still room: only above it is the machine saturated.
+        resources.os.getloadavg = lambda: (30.0, 40.0, 20.0)
+        assert runner.room_for_a_session()
+        resources.os.getloadavg = lambda: (31.0, 40.0, 20.0)
+        assert not runner.room_for_a_session() and len(said) == 2, "said again after a calm"
+        runner.config.runner.max_load_per_core = 0
+        assert runner.room_for_a_session(), "zero switches the guard off"
+
+        # A machine that cannot say is not a saturated one.
+        def unknown():
+            raise OSError("no load average here")
+
+        resources.os.getloadavg = unknown
+        runner.config.runner.max_load_per_core = 1.5
+        assert resources.load() is None and runner.room_for_a_session()
+    finally:
+        resources.os.getloadavg, resources.os.sched_getaffinity = original

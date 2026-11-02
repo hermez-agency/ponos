@@ -2064,6 +2064,7 @@ def _machine(config: config_module.Config) -> list[Check]:
         *_disk(config),
         *_private_state(),
         *_memory(config),
+        *_load(config),
         *_runner(config),
     ]
 
@@ -2376,6 +2377,55 @@ def _memory(config: config_module.Config) -> list[Check]:
             OK,
             "Memory",
             "{{free}} MB available (a session starts above {{minimum}} MB).",
+            params=params,
+        )
+    ]
+
+
+def _load(config: config_module.Config) -> list[Check]:
+    measured, per_core = resources.load(), config.runner.max_load_per_core
+    if measured is None:
+        return [
+            _check(
+                "machine.load",
+                INFO,
+                "Load",
+                "The load average is unreadable here: the load guard cannot tell.",
+            )
+        ]
+    load, cores = measured
+    params = {
+        "load": f"{load:.1f}",
+        "cores": str(cores),
+        "per_core": f"{per_core:g}",
+        "ceiling": f"{per_core * cores:g}",
+    }
+    if per_core <= 0:
+        return [
+            _check(
+                "machine.load",
+                INFO,
+                "Load",
+                "runner.max_load_per_core = 0: no load guard; load {{load}} on {{cores}} cores.",
+                params=params,
+            )
+        ]
+    if load > per_core * cores:
+        return [
+            _check(
+                "machine.load",
+                WARN,
+                "Load",
+                "Load {{load}} on {{cores}} cores, above runner.max_load_per_core ({{per_core}}, so {{ceiling}}): no session is started until it comes down.",
+                params=params,
+            )
+        ]
+    return [
+        _check(
+            "machine.load",
+            OK,
+            "Load",
+            "Load {{load}} on {{cores}} cores (a session starts at {{ceiling}} or below).",
             params=params,
         )
     ]

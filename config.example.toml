@@ -406,6 +406,15 @@ relaunch_delay_seconds = 15
 # 0 turns the guard off. `ponos doctor` shows what is available now.
 min_free_memory_mb = 2048
 
+# No session is started while the load average over the last minute is above
+# this many times the cores this process may use (`nproc`): 1.5 on 20 cores
+# stops at 30. The ticket stays in Ready and is started by a later pass, once
+# the load has come down; what is running is left alone, and the runner says it
+# once. A saturated machine stretches every session already running, and its
+# tests time out (seven sessions took the load to 74 on 20 cores).
+# 0 turns the guard off. `ponos doctor` shows the load now.
+max_load_per_core = 1.5
+
 # The same guard for the disk the state directory (worktrees, logs) is on, in
 # MB. Under it, a tidy runs before anything is started — at most every ten
 # minutes — and if the space is still short no ticket is started: it stays in

@@ -817,6 +817,16 @@ SECTIONS: tuple[Section, ...] = (
             ),
             Field(
                 "runner",
+                "max_load_per_core",
+                "text",
+                "Most load per core",
+                "No session is started while the load over the last minute is above this many "
+                "times the cores; the ticket waits in Ready. 1.5 on 20 cores stops at 30. "
+                "0 turns the guard off.",
+                placeholder="e.g. 1.5",
+            ),
+            Field(
+                "runner",
                 "min_free_disk_mb",
                 "int",
                 "Disk space to keep free",
