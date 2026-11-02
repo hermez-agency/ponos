@@ -471,8 +471,11 @@ class Reports(Base):
             try:
                 replies = channel.collect()
             except channels.ChannelError as error:
-                self.say(f"  ! {channel.name} not readable: {error}")
+                if channels.news(channel.name, str(error)):
+                    self.say(f"  ! {channel.name} not readable: {error}")
                 continue
+            if channels.news(channel.name, ""):
+                self.say(f"  ✓ {channel.name} readable again")
             for reply in replies:
                 if not reply.ticket:
                     # Silence for ordinary talk in the room — a bot answering

@@ -24,10 +24,11 @@ one, `im:history` for a direct message. And it has to be *in* the channel:
 
 from __future__ import annotations
 
+import re
 import urllib.parse
 from typing import Any
 
-from . import Ask, Channel, ChannelError, Incoming, Reply, request
+from . import Ask, Channel, ChannelError, Incoming, Reply, _memory, _remember, request
 
 API = "https://slack.com/api"
 
@@ -37,7 +38,8 @@ LIMIT = 3000
 HINTS = {
     "not_in_channel": "the bot is not in that channel — /invite @your-bot",
     "channel_not_found": "no such channel id, or the bot cannot see it",
-    "missing_scope": "the token lacks a scope — chat:write, and channels:history to read replies",
+    "missing_scope": "the token lacks a scope — chat:write, and channels:history to read replies"
+    " (channels:read to find a channel by its name)",
     "invalid_auth": "the bot token was refused — it starts with xoxb-",
 }
 
@@ -52,6 +54,7 @@ class Slack(Channel):
     def __init__(self, token: str, channel: str, allowed: frozenset[str] = frozenset()) -> None:
         self._token = token
         self._channel = str(channel).strip()
+        self._id = ""
         self.allowed = frozenset(allowed)
 
     def _headers(self) -> dict[str, Any]:
@@ -70,6 +73,48 @@ class Slack(Channel):
             raise ChannelError(f"{code}{f' — {hint}' if hint else ''}")
         return body
 
+    def _where(self) -> str:
+        """The channel's ID, even when the configuration gave its name.
+
+        Every call wants the ID, and `infra` or `#infra` is what people type: Slack
+        answers a name with `channel_not_found`, which reads as a missing invitation
+        rather than a spelling. So a name is looked up once in `conversations.list`
+        and its ID remembered with the cursor — an ID does not change when the
+        channel is renamed, and one call a pass every ten seconds would. A name
+        no channel has is said as such.
+        """
+        if self._id:
+            return self._id
+        if re.fullmatch(r"[CGD][A-Z0-9]+", self._channel):
+            self._id = self._channel
+            return self._id
+        name = self._channel.lstrip("#").strip().lower()
+        known = dict(_memory().get(self.name, {}).get("ids", {}))
+        if name not in known:
+            cursor = ""
+            while True:
+                body = self._call(
+                    "conversations.list",
+                    types="public_channel,private_channel",
+                    exclude_archived="true",
+                    limit="1000",
+                    cursor=cursor,
+                )
+                for channel in body.get("channels", []):
+                    if str(channel.get("name", "")).lower() == name and channel.get("id"):
+                        known[name] = str(channel["id"])
+                cursor = str((body.get("response_metadata") or {}).get("next_cursor") or "")
+                if name in known or not cursor:
+                    break
+            if name not in known:
+                raise ChannelError(
+                    f"channel_not_found — no channel named #{name} that the bot can see:"
+                    " put its channel ID (C…) in channel, or /invite the bot if it is private"
+                )
+            _remember(self.name, {"ids": known})
+        self._id = known[name]
+        return self._id
+
     # -- outbound ------------------------------------------------------------
 
     def _thread_of(self, reply: Reply) -> str:
@@ -78,7 +123,7 @@ class Slack(Channel):
 
     def _post(self, text: str, thread: str = "") -> str:
         payload: dict[str, Any] = {
-            "channel": self._channel,
+            "channel": self._where(),
             "text": text[:LIMIT],
             "unfurl_links": False,
         }
@@ -105,7 +150,7 @@ class Slack(Channel):
         incoming: list[Incoming] = []
 
         for message in self._call(
-            "conversations.history", channel=self._channel, oldest=cursor, limit="50"
+            "conversations.history", channel=self._where(), oldest=cursor, limit="50"
         ).get("messages", []):
             found = self._read(message, cursor)
             if found:
@@ -118,7 +163,7 @@ class Slack(Channel):
             try:
                 replies = self._call(
                     "conversations.replies",
-                    channel=self._channel,
+                    channel=self._where(),
                     ts=ask.ref,
                     oldest=cursor,
                     limit="50",
@@ -164,7 +209,7 @@ class Slack(Channel):
 
     def check(self) -> str:
         me = self._call("auth.test")
-        channel = self._call("conversations.info", channel=self._channel).get("channel", {})
+        channel = self._call("conversations.info", channel=self._where()).get("channel", {})
         name = channel.get("name") or self._channel
         if channel.get("is_channel") and not channel.get("is_member"):
             raise ChannelError(f"not in #{name} — /invite @{me.get('user', 'your-bot')}")

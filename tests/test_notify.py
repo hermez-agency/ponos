@@ -15,6 +15,7 @@ from support import (
     ROOT,
     TICKET,
     _answering,
+    _channel,
     _config,
     _http_answering,
     _state,
@@ -334,6 +335,81 @@ def slack_never_reads_its_own_voice_back():
     assert channel._read({"ts": "2", "subtype": "channel_join", "user": "U1"}, "1") is None
     assert channel._read({"ts": "1", "user": "U1", "text": "old"}, "1") is None
     assert channel._read({"ts": "2", "user": "U1", "text": "oui"}, "1").text == "oui"
+
+
+@case
+def slack_finds_a_channel_given_by_its_name():
+    """`channel = "infra"` is what people type: it is looked up, not refused by Slack."""
+    answers = {
+        "conversations.list": {
+            "ok": True,
+            "channels": [
+                {"id": "C0GENERAL", "name": "general"},
+                {"id": "C0INFRA", "name": "infra"},
+            ],
+        },
+        "conversations.history": {"ok": True, "messages": []},
+    }
+    for written in ("infra", "#infra", " #Infra "):
+        with _state(), _api(slack_channel, answers) as calls:
+            slack_channel.Slack("xoxb-token", written)._fetch("", [])
+            slack_channel.Slack("xoxb-token", written)._fetch("", [])
+        read = [url for url, _ in calls if "conversations.history" in url]
+        assert read and all("channel=C0INFRA" in url for url in read), read
+        listed = [url for url, _ in calls if "conversations.list" in url]
+        assert len(listed) == 1, "an id found once is remembered, not looked up every pass"
+
+    with _state(), _api(slack_channel, answers) as calls:
+        slack_channel.Slack("xoxb-token", "C0INFRA")._fetch("", [])
+    assert not [url for url, _ in calls if "conversations.list" in url], "an id is used as it is"
+
+
+@case
+def slack_says_plainly_that_a_channel_name_matches_nothing():
+    answers = {"conversations.list": {"ok": True, "channels": [{"id": "C1", "name": "general"}]}}
+    with _state(), _api(slack_channel, answers):
+        try:
+            slack_channel.Slack("xoxb-token", "infra").check()
+        except channels.ChannelError as error:
+            said = str(error)
+        else:
+            raise AssertionError("a channel nobody can find is not a channel")
+    assert "#infra" in said and "channel ID" in said, said
+
+
+@case
+def a_channel_that_keeps_failing_is_said_once_until_it_changes():
+    """Every ten seconds, the same line, was 95 % of ponos.log."""
+
+    class Failing(channels.Channel):
+        name = "slack"
+        error = "channel_not_found — no such channel id, or the bot cannot see it"
+
+        def collect(self) -> list[channels.Reply]:
+            if self.error:
+                raise channels.ChannelError(self.error)
+            return []
+
+    stub = Failing()
+    with _state():
+        runner, _ = _answering([])
+        said: list[str] = []
+        runner.say = said.append
+        with _channel(stub):
+            for _ in range(100):
+                runner.answers()
+            assert len(said) == 1 and "not readable" in said[0], said
+            stub.error = "invalid_auth — the bot token was refused"
+            runner.answers()
+            runner.answers()
+            assert len(said) == 2 and "invalid_auth" in said[1], said
+            stub.error = ""
+            runner.answers()
+            runner.answers()
+            assert len(said) == 3 and "slack" in said[2], said
+            stub.error = "invalid_auth — the bot token was refused"
+            runner.answers()
+            assert len(said) == 4, "an error that comes back is news again"
 
 
 @case

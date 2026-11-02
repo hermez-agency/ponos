@@ -110,7 +110,10 @@ conversations in it, and a colleague's "ok" is not an approval of anything.
    private one, `im:history` for a direct message;
 3. *Install to Workspace*, copy the `xoxb-` token into `secrets.env` as `PONOS_SLACK_TOKEN`;
 4. `/invite @your-bot` in the channel — the step everyone forgets — and put the channel ID
-   (`···` → *View channel details*, at the bottom) in `channel`.
+   (`···` → *View channel details*, at the bottom) in `channel`. Its name (`infra` or
+   `#infra`) works too, with the `channels:read` scope (`groups:read` for a private
+   channel): the runner looks it up once and remembers its ID — a name no channel has is
+   said as such by `ponos doctor`.
 5. `allowed_users = ["U0123ABCD"]` — the member ids of the people whose answers count
    (profile → `···` → *Copy member ID*). Empty, anybody in the channel can answer, and
    `ponos doctor` says so.
@@ -141,7 +144,8 @@ listening.
 Everything here fails quietly, like desktop notifications: a token that expired, a channel
 the bot was removed from, a network that is down. None of it is a reason for a ticket to
 fail, and the Notion comment stays the record either way. `ponos doctor` says which
-channel is live, as whom, and where.
+channel is live, as whom, and where. A channel the runner cannot read is said once in
+`ponos.log`, then again only when the error changes or goes away — not at every pass.
 
 **Why not WhatsApp.** Its API delivers inbound messages only to a public HTTPS webhook you
 host and have verified by Meta, on a business account — a server, in other words, which is
