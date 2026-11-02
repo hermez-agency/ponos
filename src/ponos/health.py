@@ -78,6 +78,7 @@ from . import (
     resources,
     session,
     state,
+    stopping,
     store,
     subtypes,
     systemd,
@@ -88,6 +89,7 @@ from . import config as config_module
 from . import schedules as schedules_module
 from . import update as update_module
 from . import workspace as workspace_module
+from .ticket import short_id
 from .web import attempts
 
 logger = logging.getLogger(__name__)
@@ -2865,9 +2867,25 @@ def _restore(location: Path, copy: Path) -> str:
 
 
 def _stray() -> list[Check]:
-    """The containers and processes a session started in its worktree and left running."""
+    """The containers and processes a session started in its worktree and left running.
+
+    A worktree whose session is still going is not looked at: its `claude`, its
+    MCP servers and its dev server are not left behind yet, and `ponos clean
+    --force` would stop them under it.
+    """
     root = leftovers.worktrees()
-    composed, held = leftovers.compose_projects(root), leftovers.processes(root)
+    going = {short_id(ticket) for ticket in stopping.live()}
+    spared = {
+        worktree
+        for worktree in (root.iterdir() if root.is_dir() else ())
+        if worktree.name.rsplit("-", 1)[-1] in going
+    }
+    composed = [
+        project
+        for project in leftovers.compose_projects(root)
+        if leftovers.worktree_of(project.directory) not in spared
+    ]
+    held = leftovers.processes(root, spared=spared)
     title = "Left running"
     if not composed and not held:
         return [

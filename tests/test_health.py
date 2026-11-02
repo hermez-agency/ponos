@@ -1128,17 +1128,50 @@ def health_says_when_the_migrations_are_not_in_the_codes_order(state_home):
 def health_says_what_a_session_left_running():
     from ponos import health
 
-    with _patched(health.leftovers, compose_projects=lambda root: [], processes=lambda root: []):
+    with _patched(
+        health.leftovers, compose_projects=lambda root: [], processes=lambda root, spared=(): []
+    ):
         assert _verdicts(health._stray()) == [("machine.stray", "ok")]
     left = health.leftovers.Project("ponos-1a2b", Path("/state/worktrees/1a2b"))
     with _patched(
         health.leftovers,
         compose_projects=lambda root: [left],
-        processes=lambda root: [(4242, "npm run dev")],
+        processes=lambda root, spared=(): [(4242, "npm run dev")],
     ):
         found = health._stray()
     assert _verdicts(found) == [("machine.stray", "warn"), ("machine.stray", "warn")]
     assert found[0].params["name"] == "ponos-1a2b" and found[1].evidence == "npm run dev"
+
+
+@case
+def health_leaves_alone_what_a_session_still_going_runs(state_home):
+    """A live session's `claude`, its MCP servers, its dev server are not left behind yet."""
+    import os
+
+    from ponos import health, stopping
+
+    going = health.leftovers.worktrees() / "ponos-0a1b2c3d"
+    finished = health.leftovers.worktrees() / "ponos-9f8e7d6c"
+    for worktree in (going, finished):
+        worktree.mkdir(parents=True)
+    stopping._write("40c45168-0af4-8106-bf14-c2f60a1b2c3d", "live", str(os.getpid()))
+    children = [subprocess.Popen(["sleep", "300"], cwd=worktree) for worktree in (going, finished)]
+    try:
+        with _patched(
+            health.leftovers,
+            compose_projects=lambda root: [
+                health.leftovers.Project("ponos-0a1b2c3d", going),
+                health.leftovers.Project("ponos-9f8e7d6c", finished),
+            ],
+        ):
+            found = health._stray()
+    finally:
+        for child in children:
+            child.kill()
+            child.wait()
+    assert _verdicts(found) == [("machine.stray", "warn"), ("machine.stray", "warn")]
+    assert found[0].params["name"] == "ponos-9f8e7d6c"
+    assert found[1].params["pid"] == str(children[1].pid)
 
 
 @case
@@ -1259,7 +1292,9 @@ def _machine(*, healthy: bool = True):
         _patched(health.github_app, describe=lambda with_repositories=True: []),
         _patched(health.github_token, unavailable=lambda: "", token=lambda: ""),
         _patched(health.update_module, check=lambda **_: same, installed_version=lambda: None),
-        _patched(health.leftovers, compose_projects=lambda root: [], processes=lambda root: []),
+        _patched(
+            health.leftovers, compose_projects=lambda root: [], processes=lambda root, spared=(): []
+        ),
         _patched(
             health.resources,
             disk_mb=lambda path: (90000 if healthy else 100, 100000),
