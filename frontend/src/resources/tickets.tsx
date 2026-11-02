@@ -488,6 +488,12 @@ const rowForm: FormInterface = {
  * is the column's and the grip's, outside the card, so the paint containment
  * clips nothing. The height it falls back on is a typical card's; the browser
  * remembers the real one once a card has been seen.
+ *
+ * What the card draws is memoised on the ticket, the words and the way in:
+ * opening a ticket writes its window into the address, which every card read,
+ * and 1 800 cards drawn again held the click for a second and a half before
+ * the window showed (`scripts/measure-board.mjs`). The words and the way in
+ * stay the same objects for as long as they say the same thing.
  */
 function TicketCard({ row }: RowComponentPropsInterface) {
   const ticket = row?.data as TicketItem | undefined
@@ -496,6 +502,18 @@ function TicketCard({ row }: RowComponentPropsInterface) {
   // The ticket's window over the list, under a project's page as on the board.
   const open = useOpensOverTheList(tickets, "read", ticket?.id ?? "")
   if (!ticket) return null
+  return <TicketCardBody ticket={ticket} words={words} open={open} />
+}
+
+const TicketCardBody = React.memo(function TicketCardBody({
+  ticket,
+  words,
+  open,
+}: {
+  ticket: TicketItem
+  words: string[]
+  open: (event: React.MouseEvent<HTMLElement>) => void
+}) {
   const href = ticketHref(ticket.id)
 
   return (
@@ -538,7 +556,7 @@ function TicketCard({ row }: RowComponentPropsInterface) {
       <TicketFoot ticket={ticket} />
     </div>
   )
-}
+})
 
 /* -- the board ------------------------------------------------------------ */
 
@@ -678,22 +696,30 @@ function heading(key: string, name: string, count?: number, total?: number, seri
  * machine (`scripts/measure-console.mjs`). Nobody reads the three hundredth card of
  * Done; the most recent are the ones worth a look. So a terminal column draws
  * its `TERMINAL_PAGE` latest — by when the ticket was last touched, which is
- * when it got there — and a button under it draws that many more. Every other
- * column is work in flight, and is drawn whole.
+ * when it got there — and a button under it draws that many more.
+ *
+ * Every other column is work in flight, in the order the queue takes it, and
+ * draws its first `WORK_PAGE` the same way. A board of 1 800 tickets — 700 of
+ * them drafts — drawn whole had every one of its cards drawn again when a
+ * ticket's window opened over it: the click held for 300 ms after everything
+ * else had been made cheaper (`scripts/measure-board.mjs`). A card dropped in
+ * a column is drawn whatever its rank, or a card dragged into Ready behind
+ * five hundred others would be dropped out of sight.
  *
  * What a search keeps is what is counted: the rows are the ones it left, so a
  * search that finds an old ticket finds it among thirty, not behind three
  * hundred. */
 const TERMINAL = new Set<string>(["done", "cancelled"])
 export const TERMINAL_PAGE = 30
+const WORK_PAGE = 50
 
-/* How far each terminal column was opened, for as long as the tab lives: going
- * to a ticket and back to the board is not starting again from thirty. */
+/* How far each column was opened, for as long as the tab lives: going to a
+ * ticket and back to the board is not starting again from the first page. */
 const opened = new Map<string, number>()
 
 const touched = (row: RowInterface) => Date.parse(String(row.data?.edited ?? "")) || 0
 
-/** One column of the board, as the package draws it — terminal ones cut short, with the way to the rest. */
+/** One column of the board, as the package draws it — cut short, with the way to the rest. */
 function BoardColumn({
   column,
   label,
@@ -716,12 +742,15 @@ function BoardColumn({
   dragging: boolean
   onDragging: (dragging: boolean) => void
 }) {
-  const [shown, setShown] = React.useState(() => opened.get(column) ?? TERMINAL_PAGE)
+  const page = TERMINAL.has(column) ? TERMINAL_PAGE : WORK_PAGE
+  const [shown, setShown] = React.useState(() => opened.get(column) ?? page)
+  // The tickets dropped here since the board was opened, by id.
+  const [dropped, setDropped] = React.useState<ReadonlySet<string>>(() => new Set())
   const mine = React.useMemo(() => {
     const own = rows.filter((row) => row.data?.column === column)
     return TERMINAL.has(column) ? own.sort((a, b) => touched(b) - touched(a)) : own
   }, [rows, column])
-  const drawn = TERMINAL.has(column) ? mine.slice(0, shown) : mine
+  const drawn = mine.filter((row, index) => index < shown || dropped.has(String(row.data?.id)))
   const left = mine.length - drawn.length
   // The package's column finds the card dropped on it among the rows it is
   // handed, and draws only those of its own column: handed the others too, a
@@ -729,9 +758,15 @@ function BoardColumn({
   const carried = [...rows.filter((row) => row.data?.column !== column), ...drawn]
 
   const more = () => {
-    const next = shown + TERMINAL_PAGE
+    const next = shown + page
     opened.set(column, next)
     setShown(next)
+  }
+
+  // The package's column writes the drop; this only remembers which card it was.
+  const keepDropped = (event: React.DragEvent) => {
+    const id = event.dataTransfer.getData("text")
+    if (id && !dropped.has(id)) setDropped(new Set(dropped).add(id))
   }
 
   // The package draws its column 18rem wide and rigid; the wrapper is what
@@ -740,6 +775,7 @@ function BoardColumn({
   // hidden: it counts what it was handed, and the heading says the column's.
   return (
     <div
+      onDrop={keepDropped}
       className={cn(
         "flex flex-1 basis-0 snap-start flex-col gap-2 *:w-auto *:min-w-0 [&_header>p]:flex-1 [&_header>span]:hidden",
         COLUMN_MIN
@@ -850,6 +886,7 @@ function DropZone({
 function BoardColumns({ rows: all = [] }: ListComponentPropsInterface) {
   const board = useBoard()
   const { kept: rows, filtering } = useTicketFilter(all)
+  const everyTicket = React.useMemo(() => all.map((row) => row.data as Ticket), [all])
   const { resource } = useCurrentViewResourceContext()
   const [dragging, setDragging] = React.useState(false)
   const [emptyShown, setEmptyShown] = useEmptyColumnsShown()
@@ -897,7 +934,7 @@ function BoardColumns({ rows: all = [] }: ListComponentPropsInterface) {
   return (
     <div className="flex min-w-0 flex-col gap-2">
       <TicketSearch
-        tickets={all.map((row) => row.data as Ticket)}
+        tickets={everyTicket}
         shown={rows.length}
         projects={resource["@id"] !== PROJECT_TICKETS}
       />
@@ -980,11 +1017,12 @@ function BoardColumns({ rows: all = [] }: ListComponentPropsInterface) {
  * handed the rows the search keeps. */
 function TicketTable({ rows: all = [] }: ListComponentPropsInterface) {
   const { kept, filtering } = useTicketFilter(all)
+  const everyTicket = React.useMemo(() => all.map((row) => row.data as Ticket), [all])
   const { resource } = useCurrentViewResourceContext()
   return (
     <div className="flex min-w-0 flex-col gap-3">
       <TicketSearch
-        tickets={all.map((row) => row.data as Ticket)}
+        tickets={everyTicket}
         shown={kept.length}
         projects={resource["@id"] !== PROJECT_TICKETS}
       />
