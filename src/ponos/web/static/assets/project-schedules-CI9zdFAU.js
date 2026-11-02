@@ -1,5 +1,0 @@
-<<<<<<<< HEAD:src/ponos/web/static/assets/project-schedules-CI9zdFAU.js
-import{r as e}from"./react-CFebUx29.js";import{Ct as t,u as n}from"./views-9XChj8nq.js";import{f as r}from"./console-Cw7bcfnf.js";var i=e();function a({project:e}){return(0,i.jsx)(n,{resource:r,resourceAction:t.list,filter:{project:e.id},defaultData:{project_id:e.id}},e.id)}export{a as ProjectSchedules};
-========
-import{r as e}from"./react-CFebUx29.js";import{Ct as t,u as n}from"./views-9XChj8nq.js";import{f as r}from"./console-DEScg6cO.js";var i=e();function a({project:e}){return(0,i.jsx)(n,{resource:r,resourceAction:t.list,filter:{project:e.id},defaultData:{project_id:e.id}},e.id)}export{a as ProjectSchedules};
->>>>>>>> c9d0281c (feat: le récapitulatif nomme l'espace Notion par son titre, en lien vers sa page, et le bandeau de santé range l'identifiant d'une base dans ses détails):src/ponos/web/static/assets/project-schedules-G0_yzmIh.js
