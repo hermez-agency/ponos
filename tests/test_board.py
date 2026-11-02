@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import time
 from concurrent.futures import Future
 from datetime import datetime, timedelta
@@ -10,8 +11,9 @@ from pathlib import Path
 from support import _board_runner, _BoardClient, _in_progress, _ready, _reviewed, case
 
 from ponos import config as C
-from ponos import conversation, notion, priority, projects, state, store, sync, voice
+from ponos import conversation, db, journal, notion, priority, projects, state, store, sync, voice
 from ponos.board import InHand
+from ponos.config import state_dir
 from ponos.ticket import Ticket
 
 STATUS = {"ready": "Ready", "running": "In progress", "review": "In review", "done": "Done"}
@@ -407,6 +409,32 @@ def a_ticket_claimed_by_this_pass_or_just_edited_is_not_swept(state_home):
     runner._claimed = {"t1"}
     assert runner.sweep() == 1, "only the one whose edit cannot be read: a day old"
     assert [page_id for page_id, _ in runner.client.written] == ["t3"]
+
+
+@case
+def a_run_a_dead_runner_left_open_is_closed_and_a_live_one_kept(state_home):
+    try:
+        dead = journal.Run.start(ticket="a" * 32)
+        dead.event({"type": "assistant", "message": {"content": [{"type": "text", "text": "Hi"}]}})
+        journal.Run.start(ticket="b" * 32)
+        stops = state_dir() / "stops"
+        stops.mkdir(parents=True, exist_ok=True)
+        (stops / f"{'b' * 32}.live").write_text(str(os.getpid()))
+        journal.Run.start(ticket="c" * 32)
+        (stops / f"{'c' * 32}.live").write_text("999999999")  # its pid is gone
+        runner = _board_runner([], STATUS)
+        runner.sweep()
+
+        (closed,) = journal.runs("a" * 32)
+        assert closed["status"] == "failed" and closed["code"] == "worktree.interrupted"
+        (last,) = journal.steps(closed["id"])["steps"]
+        assert closed["ended_at"] == last["at"], "ended on its last step"
+        (kept,) = journal.runs("b" * 32)
+        assert kept["status"] is None and kept["ended_at"] is None, "its session is alive"
+        (stepless,) = journal.runs("c" * 32)
+        assert stepless["status"] == "failed" and stepless["ended_at"] == stepless["started_at"]
+    finally:
+        db.close()
 
 
 @case

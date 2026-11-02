@@ -60,6 +60,9 @@ them on the program's normal path:
   exception, and it is the point of the next guardrail: a ticket abandoned *mid
   publication* is never silently redone — it goes to *Blocked* asking whether the thing
   went out.
+  Its run in the journal is closed too, *failed* on `worktree.interrupted` at the time of
+  its last step, so the console and `ponos logs` never count it as still going; a run whose
+  session is still alive is left as it is.
 - **Nothing reaches the outside world without your column.** A merge, a post, an email:
   the runner does none of them until a human has moved that ticket to *Validated*. A
   session cannot put itself there, and no configuration key merges a pull request the way
