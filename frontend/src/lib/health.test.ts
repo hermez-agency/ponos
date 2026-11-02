@@ -5,7 +5,7 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
 
-import { byGroup, failing, fixParams, shown } from "./health.ts"
+import { blocking, byGroup, failing, fixParams, shown, silent } from "./health.ts"
 import type { HealthCheck } from "./types.ts"
 
 const check = (code: string, state: HealthCheck["state"], extra: Partial<HealthCheck> = {}): HealthCheck => ({
@@ -58,4 +58,15 @@ test("a fix's sentences are filled with the check's params and what the fix woul
   })
   assert.deepEqual(fixParams(one), { project: "Ponos", missing: "“Runner”" })
   assert.deepEqual(fixParams(check("machine.disk", "error", { params: { free: "1" } })), { free: "1" })
+})
+
+test("only an error that stops the runner is said to stop tickets; a channel's is a lost notification", () => {
+  const slack = check("machine.notify", "error", { params: { channel: "Slack" } })
+  assert.equal(blocking(slack), false, "the tickets still run")
+  assert.deepEqual(silent([slack, check("machine.disk", "warn")]), ["Slack"])
+  for (const code of ["notion.token", "claude.login", "github.access", "projects.repository"]) {
+    assert.equal(blocking(check(code, "error")), true, code)
+  }
+  assert.equal(blocking(check("notion.token", "warn")), false)
+  assert.deepEqual(silent([check("machine.notify", "ok", { params: { channel: "Telegram" } })]), [])
 })

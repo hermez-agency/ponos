@@ -144,7 +144,9 @@ listening.
 Everything here fails quietly, like desktop notifications: a token that expired, a channel
 the bot was removed from, a network that is down. None of it is a reason for a ticket to
 fail, and the Notion comment stays the record either way. `ponos doctor` says which
-channel is live, as whom, and where. A channel the runner cannot read is said once in
+channel is live, as whom, and where; the console's health band says a channel in error in
+amber — *1 thing to fix: Slack notifications do not arrive* — and keeps *before tickets can
+run*, in red, for what stops the runner from taking a ticket. A channel the runner cannot read is said once in
 `ponos.log`, then again only when the error changes or goes away — not at every pass.
 
 **Why not WhatsApp.** Its API delivers inbound messages only to a public HTTPS webhook you
