@@ -2027,6 +2027,23 @@ export const FRENCH: Record<string, string> = {
   "Pull requests are opened as {{account}}.":
     "Les pull requests sont ouvertes en tant que {{account}}.",
   "gh is not signed in.": "gh n'est pas connecté.",
+  "gh is not installed": "gh n'est pas installé",
+  "claude is not installed": "Claude Code n'est pas installé",
+  "Claude Code is not installed": "Claude Code n'est pas installé",
+  "no token yet": "pas encore de jeton",
+  "not signed in": "pas connecté",
+  "the sessions run on OpenRouter: name its slugs": "les sessions passent par OpenRouter : nommez ses modèles par leur slug",
+  "There is no Notion token yet.": "Il n'y a pas encore de jeton Notion.",
+  "The Notion token and the board are not set yet.": "Le jeton Notion et le tableau ne sont pas encore réglés.",
+  "The Notion token is not set yet.": "Le jeton Notion n'est pas encore réglé.",
+  "The Notion board is not chosen yet.": "Le tableau Notion n'est pas encore choisi.",
+  "No Anthropic API key is set.": "Aucune clé API Anthropic n'est renseignée.",
+  "No OpenRouter key is set.": "Aucune clé OpenRouter n'est renseignée.",
+  "Claude Code is not signed in.": "Claude Code n'est pas connecté.",
+  "{{name}} is not installed": "{{name}} n'est pas installé",
+  "{{mb}} MB free on the disk": "{{mb}} Mo libres sur le disque",
+  "Free {{missing}} MB: a ticket starts above {{minimum}} MB.":
+    "Libérez {{missing}} Mo : un ticket démarre au-dessus de {{minimum}} Mo.",
   "Set `GH_TOKEN` in the service's environment and redeploy — or sign in from its terminal:":
     "Renseignez `GH_TOKEN` dans l'environnement du service et redéployez — ou connectez-vous depuis son terminal :",
   "In a terminal on this machine:": "Dans un terminal de cette machine :",

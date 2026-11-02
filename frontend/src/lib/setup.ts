@@ -11,6 +11,7 @@
  */
 
 import { count, type Counted } from "./numbers.ts"
+import { explain, explainNeed, type Explained } from "./said.ts"
 import type { Demo, Provider, SetupHealth, SetupState, Summary } from "./types.ts"
 
 /** The steps, in the order somebody would say them — and the first ticket
@@ -45,6 +46,8 @@ export interface Row {
   state: SetupHealth
   /** What went wrong, as the server said it — untranslated. */
   said: string
+  /** The same, recognised so that the page can say it in its own language. */
+  notes: Explained[]
   /** The step of the first connection that changes it. */
   step: StepKey
   /** The section of the settings that changes it. */
@@ -147,6 +150,11 @@ function notionBoard(name: string, tickets: number | null): Pick<Row, "value" | 
     : withCount(count(tickets, "Notion workspace — {{count}} ticket", "Notion workspace — {{count}} tickets"), {})
 }
 
+/** What a line says of itself, if anything. */
+function noted(said: string): Explained[] {
+  return said ? [explain(said)] : []
+}
+
 /** The summary, one line per thing that has to work. */
 export function rows(summary: Summary): Row[] {
   const { provider, model, board, github, projects, channels, environment, machine } = summary
@@ -181,6 +189,7 @@ export function rows(summary: Summary): Row[] {
       params: { names: lacking.map((need) => need.name).join(", ") },
       state: machine.state,
       said: lacking.map((need) => (need.fix ? `${need.said} — ${need.fix}` : need.said)).join(" · "),
+      notes: lacking.flatMap(explainNeed),
       step: "summary",
       section: "update",
     },
@@ -190,6 +199,7 @@ export function rows(summary: Summary): Row[] {
       ...providerValue,
       state: provider.state,
       said: provider.said,
+      notes: noted(provider.said),
       step: "provider",
       section: "claude",
     },
@@ -206,6 +216,7 @@ export function rows(summary: Summary): Row[] {
       params: { model: model.model },
       state: model.state,
       said: model.said,
+      notes: noted(model.said),
       step: "summary",
       section: "models",
     },
@@ -215,6 +226,7 @@ export function rows(summary: Summary): Row[] {
       ...boardValue,
       state: board.state,
       said: board.said,
+      notes: noted(board.said),
       step: "notion",
       section: board.storage === "markdown" ? "storage" : "notion",
       link:
@@ -235,6 +247,7 @@ export function rows(summary: Summary): Row[] {
       params: { account: github.account },
       state: github.state,
       said: github.said,
+      notes: noted(github.said),
       step: "github",
       section: "github",
     },
@@ -251,6 +264,7 @@ export function rows(summary: Summary): Row[] {
       ),
       state: projects.state,
       said: "",
+      notes: [],
       step: "summary",
       section: "projects",
     },
@@ -261,6 +275,7 @@ export function rows(summary: Summary): Row[] {
       params: { names: channels.active.map((one) => one[0].toUpperCase() + one.slice(1)).join(", ") },
       state: channels.state,
       said: "",
+      notes: [],
       step: "channels",
       section: "notify",
     },
@@ -271,6 +286,7 @@ export function rows(summary: Summary): Row[] {
       params: { version: environment.version },
       state: environment.state,
       said: "",
+      notes: [],
       step: "summary",
       section: "update",
     },
