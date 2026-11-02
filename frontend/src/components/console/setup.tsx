@@ -28,6 +28,7 @@ import {
 
 import { ConnectGithub, TokenForm } from "@/components/console/github-page"
 import { Rich } from "@/components/console/text"
+import { explain, type Explained } from "@/lib/said"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -390,9 +391,26 @@ function Said({ ok, text }: { ok: boolean; text: string }) {
     <Alert variant={ok ? "success" : "destructive"} role="status">
       {ok ? <CircleCheck /> : <CircleAlert />}
       <AlertDescription>
-        <Rich text={text} />
+        {ok ? <Rich text={text} /> : <Explaining note={explain(text)} />}
       </AlertDescription>
     </Alert>
+  )
+}
+
+/** What the server said, in the page's language — its technical words behind a "Details". */
+function Explaining({ note }: { note: Explained }) {
+  const t = useT()
+  const said = Object.keys(note.params).length ? t(note.key, note.params) : t(note.key)
+  return (
+    <>
+      <Rich text={said} />
+      {note.detail ? (
+        <details className="mt-1 text-xs">
+          <summary className="cursor-pointer">{t("Details")}</summary>
+          <code className="font-mono break-all whitespace-pre-wrap">{note.detail}</code>
+        </details>
+      ) : null}
+    </>
   )
 }
 
@@ -1425,7 +1443,7 @@ function DemoStep({ onNext, onStep }: { onNext: () => void; onStep: (step: StepK
             <span className="min-w-0 flex-1">
               <span className="font-medium">{demo.title}</span>
               <span className="text-muted-foreground block text-xs">
-                {demo.status || t("no status")}
+                {demo.status ? t(demo.status) : t("no status")}
                 {demo.progress ? ` — ${demo.progress}` : ""}
               </span>
             </span>
@@ -1821,9 +1839,11 @@ export function SetupSummary({ change }: { change: (row: Row) => React.ReactNode
               <span className="break-words">
                 <RowValue row={row} />
               </span>
-              {row.said ? (
-                <span className="text-muted-foreground block text-xs break-words">{row.said}</span>
-              ) : null}
+              {row.notes.map((note, index) => (
+                <span key={index} className="text-muted-foreground block text-xs break-words">
+                  <Explaining note={note} />
+                </span>
+              ))}
             </dd>
             <div className="col-start-3 row-span-2 row-start-1 flex flex-col items-end gap-1 sm:col-start-4 sm:row-span-1">
               <Badge variant="outline" className={state.tone}>

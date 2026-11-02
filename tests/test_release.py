@@ -670,7 +670,9 @@ def the_console_is_downloaded_once_and_compressed():
     # tickets, in French too, then fits under; and 506 kB since a refusal to
     # overwrite is said in French, and toasted once rather than on every load:
     # main was 87 bytes under, `conflicts.ts` and its sentences 1.6 kB — most of
-    # it the bundle's short names shuffled, which gzip pays for).
+    # it the bundle's short names shuffled, which gzip pays for; and 507 kB
+    # since the first connection's steps say the server's sentences in French:
+    # main was 27 bytes over once they were in, the sentences 1.2 kB).
     # For a reader of French, that is with the dictionary the page then asks
     # for: the heavier of the two first loads is the one held to the budget.
     page = (STATIC / "index.html").read_text(encoding="utf-8")
@@ -681,7 +683,7 @@ def the_console_is_downloaded_once_and_compressed():
     assert len(french) == 1, f"one French dictionary expected, the build left {french}"
     assert french[0] not in first, "the French dictionary is fetched by readers of English too"
     weight = sum(len(gzip.compress(path.read_bytes(), compresslevel=9)) for path in first + french)
-    assert weight < 506_000, f"the first load in French is {weight // 1000} kB compressed"
+    assert weight < 507_000, f"the first load in French is {weight // 1000} kB compressed"
 
 
 @case
@@ -1685,6 +1687,37 @@ def the_console_says_the_configuration_in_french_too():
             rf"^\s*{re.escape(sentence)}:", dictionary, re.MULTILINE
         )
         assert not sentence or keyed, f"nothing translates “{sentence}” — add it to french.ts"
+
+
+@case
+def the_first_connection_says_what_the_machine_answers_in_french_too():
+    """The sentences the steps repeat from the server are ones `said.ts` knows.
+
+    `health.py`, `web/setup.py`, `provider.py`, `notion.py` and `config.py`
+    word them in English for the journal; the assistant translates them on
+    arrival (`frontend/src/lib/said.ts`). Each plain one must still be in the
+    Python as written, or the page would show the reworded English again, and
+    each key it translates to must be in `french.ts`.
+    """
+    said = (FRONTEND / "src/lib/said.ts").read_text(encoding="utf-8")
+    plain = re.search(r"PLAIN: readonly string\[\] = \[(.*?)\]", said, re.DOTALL)
+    assert plain
+    sentences = re.findall(r'"([^"]+)"', plain.group(1))
+    assert "gh is not installed" in sentences
+    sources = "".join(
+        (ROOT / "src/ponos" / name).read_text(encoding="utf-8")
+        for name in ("web/setup.py", "prerequisites.py", "provider.py", "notion.py", "config.py")
+    )
+    for sentence in sentences:
+        assert f'"{sentence}"' in sources or f'"{sentence[0].upper()}{sentence[1:]}"' in sources, (
+            f"the Python no longer says “{sentence}” — update said.ts"
+        )
+    dictionary = (FRONTEND / "src/lib/french.ts").read_text(encoding="utf-8")
+    keys = sentences + re.findall(r'key: "([^"]+)"', said)
+    for key in keys:
+        assert f"{json.dumps(key, ensure_ascii=False)}:" in dictionary, (
+            f"nothing translates “{key}” — add it to french.ts"
+        )
 
 
 @case
