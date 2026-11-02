@@ -2211,4 +2211,6 @@ class Stream(Shape):
     talk: TalkEvent
     sync: SyncEvent
     upgrade: UpgradeProgress
+    health: HealthReport
+    """Checked again behind an answer past its time — see `Upkeep.health`."""
     notice: NoticeEvent

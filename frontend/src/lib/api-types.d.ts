@@ -3710,6 +3710,8 @@ export interface components {
             talk: components["schemas"]["TalkEvent"];
             sync: components["schemas"]["SyncEvent"];
             upgrade: components["schemas"]["UpgradeProgress"];
+            /** @description Checked again behind an answer past its time — see `Upkeep.health`. */
+            health: components["schemas"]["HealthReport"];
             notice: components["schemas"]["NoticeEvent"];
         };
         /** @description One sub-type of a code ticket, whole, as the board sends the table of them. */
