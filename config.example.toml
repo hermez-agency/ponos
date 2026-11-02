@@ -668,7 +668,9 @@ schedule = true
 # asks the repository whether the installed code is still the newest, and brings
 # it up to date if it is not. The update happens before any ticket is claimed,
 # so it never lands in the middle of a session, and the new code takes over on
-# the next pass.
+# the next pass. A pass in flight asks too, on the same interval: once a newer
+# version is out — or once it has run for 30 minutes — it starts nothing more,
+# and ends with the sessions it has, so the next pass updates.
 #   ponos update --check   what is available, right now
 #   ponos update           apply it by hand
 # Only works on an installation made by install.sh from the repository: one made

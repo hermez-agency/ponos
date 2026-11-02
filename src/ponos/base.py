@@ -252,6 +252,9 @@ class Base(Chapters):
         # replaced even when this one holds nothing back.
         self._holding: dict[str, tuple[Ticket, str]] = {}
         self._explained: dict[str, str] | None = None
+        # When a pass in flight last asked whether a newer version is out —
+        # not written in the stamp, see `update.pending` and `Board.closing`.
+        self._update_looked = 0.0
 
     @property
     def agent_labels(self) -> set[str]:
