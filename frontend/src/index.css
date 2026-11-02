@@ -311,6 +311,30 @@
     }
   }
 
+  /* A page's head on a phone, under 200px: the audit found the first idea at
+     520px and the first schedule at 440px, under a head that said in four
+     lines what the menu had just named. The sentence under the title is the
+     desktop's — the package's lists and `PageHead` both draw it after the
+     `h2` —, and so is the icon beside the title, which the bottom bar shows
+     lit under the thumb. The layouts are their icons, their names kept for a
+     screen reader, so they share a line with "New …", and a tab's card, which
+     only named again the tab just picked in the row over it, is left out. */
+  @media (width < 48rem) {
+    [data-slot="list-header"] h2 + p,
+    [data-slot="list-header"] > :not([data-slot="list-header-controls"]):first-child > span:first-child,
+    [data-slot="tabs-content"] > [data-slot="card-header"] {
+      display: none;
+    }
+    [data-slot="list-header-controls"] [data-slot="tabs-trigger"] span {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+  }
+
   /* A board's columns whole on a phone. The package lets each column scroll
      inside a box a screen high less 14rem, so its last cards stay where the
      page's end cannot lift them out from under the discussion's bubble; left

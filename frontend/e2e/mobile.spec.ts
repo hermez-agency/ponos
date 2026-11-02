@@ -99,6 +99,48 @@ test("at 375px no label of the two bars is cut, in English or in French", async 
   }
 })
 
+/* At 375 × 812 the first idea started at 520px and the first schedule at
+ * 440px, under a head that said in four lines what the bar had just named: the
+ * sentence under the title, a row of gestures, five statuses on two lines and
+ * the filters on a third. The head is a title, a line of controls and a line of
+ * filters now, the rest behind "⋯" and "Filters" — and the first row of either
+ * list is on the screen without a scroll. The ideas are the route's: this board
+ * has none, and writing some would count on the others' tests. */
+const IDEA = {
+  id: 1, scope: "global", project: "", kind: "ticket", category: "ux", score: 80, score_reason: "",
+  score_error: "", scoring: false, title: "Read the header at a glance", description: "On a phone.", where: "",
+  done: [], out: [], status: "proposed", ticket: "", created: "", decided_at: null,
+  created_at: "2026-11-01T10:00:00+00:00", changed_at: "2026-11-01T10:00:00+00:00", origin: "ponos",
+  author: { kind: "ponos", name: "", avatar: "" }, edited: null,
+}
+
+test("at 375 × 812 the first idea and the first schedule are in sight without a scroll", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 })
+  await page.route("**/api/ideas/all*", (route) =>
+    route.fulfill({
+      json: { scope: "all", project: "", ideas: [IDEA], counts: { proposed: 1, kept: 0, discarded: 0, ticket: 0 } },
+    })
+  )
+  for (const [path, first] of [
+    ["/?view=console/ideas/list", '[data-slot="ideas-item"]'],
+    ["/?view=console/schedules/list", "[data-schedule-item]"],
+  ]) {
+    await open(page, path)
+    const row = page.locator(first).first()
+    await expect(row).toBeVisible()
+    await expect(page.locator('[data-slot="list-header"] h2 + p')).toBeHidden()
+    expect(await page.evaluate(() => window.scrollY), `${path} opens scrolled`).toBe(0)
+    expect((await row.boundingBox())!.y, `the first row of ${path} is under the fold`).toBeLessThan(300)
+  }
+  // What the head no longer shows is a tap away: the swipe and the settings behind "⋯".
+  await open(page, "/?view=console/ideas/list")
+  const find = page.getByRole("button", { name: "Ponos, find me ideas", exact: true })
+  await expect(find).toBeHidden()
+  await page.getByRole("button", { name: "More actions" }).click()
+  await expect(find).toBeVisible()
+  await expect(page.locator('[data-slot="ideas-settings"]')).toBeVisible()
+})
+
 test("every page is a tap or two away", async ({ page }) => {
   await open(page)
   for (const [name, address] of PAGES) {

@@ -892,9 +892,11 @@ const projectNameOf = (schedule: Schedule) =>
 const FILTER = "relative [&_[data-slot=field-label]]:sr-only"
 
 // Laid out as the projects' bar is, wrapping rather than scrolling: beside the
-// panel, the list's column is narrower than its three fields.
+// panel, the list's column is narrower than its three fields. The project and
+// the state fold behind "Filters" there, the search beside it: on a phone the
+// two buttons on a line of their own put the first schedule past 440px.
 const formFilter: FormInterface = {
-  components: { formInputs: listFilters({ lead: "q", grow: true }) },
+  components: { formInputs: listFilters({ lead: "q", grow: true, fold: true }) },
   inputs: {
     q: {
       label: "Search",

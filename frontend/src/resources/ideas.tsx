@@ -1,6 +1,6 @@
 import * as React from "react"
 import { createPortal } from "react-dom"
-import { Gauge, Lightbulb } from "lucide-react"
+import { Gauge, Lightbulb, MoreHorizontal } from "lucide-react"
 import {
   ActionList,
   SelectInputController,
@@ -63,6 +63,7 @@ import {
   statusOf,
 } from "@/lib/idea-search"
 import { onIdeasScored } from "@/lib/ideas-store"
+import { cn } from "@/lib/utils"
 import { money, number } from "@/lib/numbers"
 import { layoutOf, useLayoutInTheAddress } from "@/lib/resource-view"
 import type { Idea, Unscored } from "@/lib/types"
@@ -187,18 +188,49 @@ export function ideasChanged(idea?: Idea) {
 
 /* -- the filter bar ------------------------------------------------------- */
 
+const PHONE = "(width < 48rem)"
+
+/** Whether the screen is a phone's, where the head of the list keeps to a line or two. */
+function usePhone(): boolean {
+  return React.useSyncExternalStore(
+    (listener) => {
+      const query = window.matchMedia(PHONE)
+      query.addEventListener("change", listener)
+      return () => query.removeEventListener("change", listener)
+    },
+    () => window.matchMedia(PHONE).matches
+  )
+}
+
 /* The status: a row of buttons, each with how many ideas it would show, as the
  * pane had them. A select would hide the counts, which are what the row is
- * read for: it is the one filter always in sight, and wraps on a phone rather
- * than running past its edge. The counts follow the other filters (see
- * `idea-search.ts`). */
+ * read for: it is the one filter always in sight. The counts follow the other
+ * filters (see `idea-search.ts`). On a phone the row took two lines of its
+ * own, over "Filters" on a third: there it is one button beside "Filters",
+ * saying the status picked and its count, the others with theirs in it. */
 const StatusFilter: InputControllerComponentInterface = ({ formInput, onChange }) => {
   const { filter } = useCurrentViewResourceContext()
   const known = useIdeas().ideas ?? []
   const words = useStatusWords()
+  const phone = usePhone()
   const counted = counts(known, filter ?? {})
   // The address says nothing for the new ideas, where the list rests, and "all" for every idea.
   const value = statusOf({ status: formInput.value })
+  if (phone)
+    return (
+      <FilterSelect
+        label={t("Status")}
+        data-slot="ideas-status-filter"
+        value={value}
+        resting="proposed"
+        always
+        onChange={(key) => onChange({ ...formInput, value: key || EVERY_STATUS })}
+        options={(["", ...STATUSES] as const).map((key) => ({
+          value: key,
+          label: `${key ? words.many[key] : t("All")} ${counted[key || "all"]}`,
+        }))}
+      />
+    )
   return (
     <div className="flex flex-wrap gap-1" role="group" aria-label={t("Status")}>
       {(["", ...STATUSES] as const).map((key) => (
@@ -505,11 +537,44 @@ function useHeaderControls(anchor: React.RefObject<HTMLElement | null>) {
   return controls
 }
 
+/* The gestures beside "New idea" that are not writing one — the swipe, the
+ * scoring, the settings — and on a phone the line that says when Ponos looks
+ * next: in a row of their own there, they and the line over the title put the
+ * first card at 520px. So a phone has them behind "⋯", unfolded under the
+ * row; anything wider draws them in it, as before. Unfolded rather than a
+ * menu: each opens a window of its own, which a menu would close with it. */
+function IdeasMore({ children }: { children: React.ReactNode }) {
+  const phone = usePhone()
+  const [unfolded, setUnfolded] = React.useState(false)
+  if (!phone) return <>{children}</>
+  return (
+    <>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        data-slot="ideas-more"
+        aria-label={t("More actions")}
+        title={t("More actions")}
+        aria-expanded={unfolded}
+        onClick={() => setUnfolded(!unfolded)}
+      >
+        <MoreHorizontal />
+      </Button>
+      <div className={cn("basis-full flex-col gap-2", unfolded ? "flex" : "hidden")}>
+        <IdeasPlanLine />
+        <div className="flex flex-wrap items-center gap-2">{children}</div>
+      </div>
+    </>
+  )
+}
+
 /** The swipe, for the project the filter is on — or the workspace's — beside "New idea", and why nothing was read, where nothing was. */
 function IdeasTop() {
   const { filter, fetchData } = useCurrentViewResourceContext()
   const { problem } = useIdeas()
   const projects = useProjects()
+  const phone = usePhone()
   const anchor = React.useRef<HTMLDivElement>(null)
   const controls = useHeaderControls(anchor)
   useLayoutInTheAddress(IDEAS)
@@ -518,14 +583,14 @@ function IdeasTop() {
   const name = projects?.projects.find((one) => bare(one.id) === project)?.name
   return (
     <div ref={anchor} className={problem ? "mb-2" : undefined}>
-      <IdeasPlanLine />
+      {phone ? null : <IdeasPlanLine />}
       {controls
         ? createPortal(
-            <>
+            <IdeasMore>
               <IdeasButton project={project} name={name} onClose={() => void fetchData?.()} />
               <ScoreUnscored />
               <IdeasSettingsButton />
-            </>,
+            </IdeasMore>,
             controls
           )
         : null}
