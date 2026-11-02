@@ -335,6 +335,10 @@ export const HEALTH_FRENCH: Record<string, string> = {
     "runner.max_load_per_core = 0 : pas de garde sur la charge ; charge de {{load}} sur {{cores}} cœurs.",
   "The load average is unreadable here: the load guard cannot tell.":
     "La charge moyenne est illisible ici : la garde sur la charge ne peut pas trancher.",
+  "runner.session_workers = {{workers}}: each session's tests take {{workers}} workers at most.":
+    "runner.session_workers = {{workers}} : les tests de chaque session prennent {{workers}} workers au plus.",
+  "Each session's tests take {{workers}} workers at most: {{cores}} cores shared by runner.max_concurrent ({{concurrent}}).":
+    "Les tests de chaque session prennent {{workers}} workers au plus : {{cores}} cœurs partagés par runner.max_concurrent ({{concurrent}}).",
   "{{free}} MB available, under runner.min_free_memory_mb ({{minimum}} MB): no session is started until it is back.": "{{free}} Mo disponibles, sous runner.min_free_memory_mb ({{minimum}} Mo) : aucune session ne démarre tant qu'elle n'est pas revenue.",
   "{{project}} is not given a key it was granted.": "{{project}} ne reçoit pas une clé qui lui a été accordée.",
   "{{repository}} is not reached by the GitHub App.": "{{repository}} n'est pas atteint par l'App GitHub.",

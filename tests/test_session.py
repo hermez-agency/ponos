@@ -10,7 +10,7 @@ import tempfile
 import uuid
 from pathlib import Path
 
-from support import case
+from support import _bare_runner, case
 
 from ponos import config, session, vault
 
@@ -189,6 +189,59 @@ def a_session_is_not_given_the_runners_own_secrets():
                     os.environ.pop(name, None)
                 else:
                     os.environ[name] = value
+
+
+@case
+def a_session_of_a_run_is_given_its_share_of_the_cores_for_its_tests(state_home):
+    """Every runner its tests call reads its number of workers from the environment.
+
+    On 23 October seven sessions took the load to 74 on twenty cores: Vitest
+    took a worker per core, Playwright nine browsers, each believing the machine
+    was its own. With `max_concurrent = 7` on twenty cores a session gets two —
+    and what the project's vault grants under one of these names still wins.
+    """
+    with tempfile.TemporaryDirectory() as directory:
+        home = Path(directory)
+        seen = home / "seen.json"
+        (home / "claude").write_text(
+            "#!" + sys.executable + "\n"
+            "import json, os, sys\n"
+            "sys.stdin.read()\n"
+            f"open({str(seen)!r}, 'w').write(json.dumps(dict(os.environ)))\n"
+            "print(json.dumps({'type': 'result', 'result': 'RESULT: ok', 'session_id': 's'}))\n"
+        )
+        (home / "claude").chmod(0o755)
+        previous, affinity = os.environ["PATH"], os.sched_getaffinity
+        os.environ["PATH"] = f"{home}{os.pathsep}{previous}"
+        os.sched_getaffinity = lambda pid: set(range(20))
+        runner = _bare_runner(None)
+        runner.config.runner.max_concurrent = 7
+
+        def environment(**given: str) -> dict[str, str]:
+            outcome = runner._paid(
+                "1" * 32,
+                "go",
+                cwd=home,
+                log=home / "session.jsonl",
+                timeout_minutes=1,
+                environment=given,
+            )
+            assert outcome.ok, outcome.error
+            return json.loads(seen.read_text())
+
+        try:
+            got = environment(GOMAXPROCS="8")
+            assert {name: got[name] for name in session.WORKERS} == {
+                **dict.fromkeys(session.WORKERS, "2"),
+                "GOMAXPROCS": "8",
+            }, got
+            runner.config.runner.max_concurrent = 40
+            assert environment()["VITEST_MAX_WORKERS"] == "1", "one at the least"
+            runner.config.runner.session_workers = 5
+            got = environment()
+            assert all(got[name] == "5" for name in session.WORKERS), got
+        finally:
+            os.environ["PATH"], os.sched_getaffinity = previous, affinity
 
 
 @case

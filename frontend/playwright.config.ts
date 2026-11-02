@@ -71,6 +71,10 @@ const serve = (port: number, mode = "") => ({
 export default defineConfig({
   testDir: "e2e",
   fullyParallel: true,
+  // Its share of the cores when Ponos runs it from a ticket's session, beside
+  // others (session.WORKERS); a worker per core otherwise, as Playwright does.
+  // `--workers` on the command line still wins.
+  workers: Number(process.env.PLAYWRIGHT_WORKERS) || undefined,
   // One second chance on GitHub's runners, none here. Two cores share the
   // browsers, both servers and their outbox threads there, and a gesture that
   // waits on the stream (gestures.spec.ts, set aside then made ready again)

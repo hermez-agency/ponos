@@ -117,10 +117,14 @@ def run(argv: list[str]) -> int:
     The cases are shared among one process per core, as `pytest -n auto` shares
     them: forked once every file is imported, each worker `isolate`s itself
     and is handed the cases one by one, so that none can lean on another having
-    run before it. `-j 1` runs them in this process, in order.
+    run before it. `-j 1` runs them in this process, in order. As `-n auto`,
+    the default heeds `PYTEST_XDIST_AUTO_NUM_WORKERS`: a ticket's session is
+    handed its share of the cores in it (session.WORKERS).
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument("-j", "--jobs", type=int, default=os.cpu_count() or 1)
+    share = os.environ.get("PYTEST_XDIST_AUTO_NUM_WORKERS", "")
+    default = int(share) if share.isdigit() and int(share) > 0 else os.cpu_count() or 1
+    parser.add_argument("-j", "--jobs", type=int, default=default)
     jobs = parser.parse_args(argv).jobs
     started = time.monotonic()
     failures = skips = 0

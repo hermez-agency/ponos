@@ -141,6 +141,20 @@ def the_secrets_come_last_whatever_the_template():
         assert text.rstrip().endswith(prompt.held_secrets(["STRIPE_KEY"]).rstrip()), template[:40]
 
 
+@case
+def every_frame_says_how_many_workers_its_tests_may_take():
+    assert prompt.held_workers(0) == "", "nothing said, nothing added"
+    said = prompt.held_workers(2)
+    assert said.startswith("# Your share of the machine")
+    assert "get 2 workers" in said and "--workers=2" in said and "-n 2" in said
+    assert "get 1 worker." in prompt.held_workers(1)
+    for template in (prompt.DEFAULT, prompt.DOCUMENT, prompt.RESOLVE, "{title}"):
+        text = prompt.build(template, **_COMMON, workers=3, secrets=["STRIPE_KEY"])
+        assert prompt.held_workers(3).rstrip() in text, template[:40]
+        assert text.index("# Your share") < text.index("# Secrets"), "the secrets stay last"
+    assert "# Your share" not in prompt.build(prompt.DEFAULT, **_COMMON)
+
+
 # -- the type of a ticket -----------------------------------------------------
 
 

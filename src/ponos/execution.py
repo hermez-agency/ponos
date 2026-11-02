@@ -253,6 +253,7 @@ class Execution(Base):
                 else ""
             ),
             secrets=sorted(job.secrets),
+            workers=self.workers,
         )
         log = job.log or state.log_file(short_id(job.ticket.id))
         # The ticket first, then its agent, then the runner: the narrower the

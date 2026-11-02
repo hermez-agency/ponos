@@ -9,6 +9,10 @@ says only that it was killed; with eight of them, `tsc`, `vitest` and PHPUnit
 side by side the likeliest killer is the OOM killer, and a ticket blocked on
 "killed" sends somebody looking for a bug that is not in the ticket.
 
+And one answer it gives every session it starts: how many workers its tests may
+take, its part of the cores (`share`), so that the sessions side by side do not
+each spread their suite over the whole machine.
+
 Everything here answers "I do not know" rather than raising — an unreadable
 `/proc/meminfo`, a machine with no `journalctl`, a firewall that eats probes —
 because a guard that can itself stop the runner is worse than no guard. Linux
@@ -90,22 +94,40 @@ def short_of_disk(minimum_mb: int, path: Path) -> int | None:
     return measured[0] if measured is not None and measured[0] < minimum_mb else None
 
 
-def load() -> tuple[float, int] | None:
-    """(load over the last minute, cores this process may use) — None when unknown.
+def cores() -> int:
+    """The cores this process may use, as `nproc` counts them.
 
-    The cores are the ones the scheduler lets this process run on, as `nproc`
-    counts them, not every core the machine has: a runner pinned to eight of
-    twenty must not believe it has twenty.
+    The ones the scheduler lets it run on, not every core the machine has: a
+    runner pinned to eight of twenty must not believe it has twenty.
     """
+    try:
+        found = len(os.sched_getaffinity(0))
+    except (OSError, AttributeError):
+        found = os.cpu_count() or 1
+    return max(1, found)
+
+
+def load() -> tuple[float, int] | None:
+    """(load over the last minute, cores this process may use) — None when unknown."""
     try:
         minute = os.getloadavg()[0]
     except (OSError, AttributeError):
         return None
-    try:
-        cores = len(os.sched_getaffinity(0))
-    except (OSError, AttributeError):
-        cores = os.cpu_count() or 1
-    return minute, max(1, cores)
+    return minute, cores()
+
+
+def share(workers: int, concurrent: int) -> int:
+    """How many test workers one session may start: `workers`, or its part of the cores.
+
+    Zero is the part: the cores divided among the `max_concurrent` sessions
+    that may run at once, one at the least. Every runner a session calls takes
+    a worker per core when nobody says otherwise — Vitest, Playwright,
+    `pytest -n auto` — and seven of them each believing they had twenty cores
+    is how the load reached 74.
+    """
+    if workers > 0:
+        return workers
+    return max(1, cores() // max(1, concurrent))
 
 
 def overloaded(per_core: float) -> tuple[float, int] | None:

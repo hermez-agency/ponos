@@ -827,6 +827,14 @@ SECTIONS: tuple[Section, ...] = (
             ),
             Field(
                 "runner",
+                "session_workers",
+                "int",
+                "Test workers per session",
+                "0 shares the cores among the tickets in parallel.",
+                minimum=0,
+            ),
+            Field(
+                "runner",
                 "min_free_disk_mb",
                 "int",
                 "Disk space to keep free",

@@ -285,6 +285,30 @@ def inheritable(environ: Mapping[str, str]) -> dict[str, str]:
     return {name: value for name, value in environ.items() if name not in withheld}
 
 
+# What the usual test runners and builds read for how many workers to start.
+# Vitest from 4 on reads the first, 1 to 3 the next two; pytest-xdist reads its
+# own for `-n auto`, Cargo and Go theirs. Playwright and Jest read nothing:
+# PLAYWRIGHT_WORKERS and JEST_WORKERS are for a configuration that asks for
+# them (Ponos's own playwright.config.ts does), and the prompt names their
+# flags. MAKEFLAGS is left out on purpose: `make` runs one job when nobody says
+# otherwise, and `-j` would raise that rather than cap it.
+WORKERS = (
+    "VITEST_MAX_WORKERS",
+    "VITEST_MAX_THREADS",
+    "VITEST_MAX_FORKS",
+    "PLAYWRIGHT_WORKERS",
+    "JEST_WORKERS",
+    "PYTEST_XDIST_AUTO_NUM_WORKERS",
+    "CARGO_BUILD_JOBS",
+    "GOMAXPROCS",
+)
+
+
+def workers(count: int) -> dict[str, str]:
+    """The environment that holds a session's tests to `count` workers — see resources.share."""
+    return dict.fromkeys(WORKERS, str(max(1, count)))
+
+
 def _command(
     binary: str,
     session_id: str,
