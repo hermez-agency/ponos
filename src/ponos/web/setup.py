@@ -453,6 +453,29 @@ def play(ticket: str) -> None:
         )
 
 
+def _demo_cause(api: Api) -> tuple[str, str]:
+    """Why a session cannot start on this machine, when that is knowable — and the command that mends it.
+
+    Asked of the machine rather than read in the log: the log says "would not
+    start", which is the effect, and a beginner reads nothing in it. The two
+    answers are English sentences, which the page translates.
+    """
+    which = provider.chosen(api.config)
+    if which == "cli":
+        if not session.available():
+            return "Claude Code is not installed on this machine", prerequisites.CLAUDE_INSTALL
+        if not provider.cli_login().ok:
+            return "Claude Code is not signed in", provider.LOGIN
+        return "", ""
+    return provider.problem(api.config), ""
+
+
+# What a run writes that means nothing to somebody playing the demonstration:
+# a warning is not why it stopped, and the first connection has its own summary.
+def _noise(line: str) -> bool:
+    return line.strip().startswith("!")
+
+
 def demo_state(api: Api, ticket: str) -> dict[str, Any]:
     """Where the demonstration ticket stands, and — once its run ended badly — why."""
     ticket = ticket.replace("-", "")
@@ -461,11 +484,18 @@ def demo_state(api: Api, ticket: str) -> dict[str, Any]:
         raise LookupError("no such ticket on the board")
     process = _PLAYED.get(ticket)
     code = process.poll() if process else None
-    said = ""
-    if code:
+    ended = process is None or code is not None
+    said, cause, command = "", "", ""
+    if ended and (code or found["column"] == "failed"):
         log = config_module.state_dir() / "web" / f"demo-{ticket}.log"
-        lines = [line for line in log.read_text(errors="replace").splitlines() if line.strip()]
-        said = "\n".join(lines[-12:])
+        if log.is_file():
+            lines = [
+                line
+                for line in log.read_text(errors="replace").splitlines()
+                if line.strip() and not _noise(line)
+            ]
+            said = "\n".join(lines[-12:])
+        cause, command = _demo_cause(api)
     return {
         "id": ticket,
         "title": found["title"],
@@ -476,6 +506,8 @@ def demo_state(api: Api, ticket: str) -> dict[str, Any]:
         "running": process is not None and code is None,
         "code": code,
         "said": said,
+        "cause": cause,
+        "command": command,
     }
 
 
