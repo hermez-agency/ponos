@@ -364,10 +364,24 @@ class Execution(Base):
         same minutes again. The conversation is carried on when Claude Code
         filed it, and opened afresh under the same identifier when the kill came
         before it wrote a line.
+
+        Only for a ticket nobody let go of meanwhile. A kill from a terminal is
+        often how somebody gives up on a session, and the pause is when the
+        console's Abandon or a drag on the board lands: a Stop asked for ends it
+        as the console's Stop does — see `_halted` — and a ticket no longer in
+        progress keeps the column it was moved to, see `_still`.
         """
         delay = self.config.runner.relaunch_delay_seconds
         self.say(f"    ↻ session killed ({why}) — one more try in {delay}s if the network answers")
         time.sleep(delay)
+        if action := stopping.requested(job.ticket.id):
+            self.say(f"    · not tried again: {action} asked during the pause")
+            outcome.stopped = True
+            return outcome
+        if moved := self._moved_away(job):
+            self.say(f"    · not tried again: moved to {moved} during the pause")
+            outcome.killed = why
+            return outcome
         if not resources.reachable():
             outcome.killed = f"{why} ; {self.voice.say('killed-network')}"
             return outcome
@@ -377,6 +391,21 @@ class Execution(Base):
         again = self._session(job, text, log, model, live, run)
         again.killed = self._died(again)
         return _added(outcome, again)
+
+    def _moved_away(self, job: Job) -> str:
+        """The column the ticket was moved to since its session began, or "".
+
+        Read afresh: the page the run holds says what it was when claimed. One
+        that cannot be read is relaunched as before — the session was the
+        run's, and nothing says otherwise.
+        """
+        status = self.config.notion.prop("status")
+        try:
+            found = store.read(self.client.page(job.ticket.page.id), status)
+        except store.StoreError:
+            return ""
+        running = self.config.notion.state("running")
+        return "" if found == running else str(found or "no status")
 
     def _session(
         self,
