@@ -459,9 +459,14 @@ elif [ "$SERVICES" = background ]; then
             ok "a console already answers on $CONSOLE"
         else
             mkdir -p "$STATE_DIR/web"
-            nohup "$BIN" serve >>"$STATE_DIR/web/serve.log" 2>&1 </dev/null &
-            # Kept for uninstall.sh: nothing else knows this process is ours.
-            echo $! > "$STATE_DIR/web/serve.pid"
+            # Both files for this account only: the log holds what the console
+            # said, and `ponos doctor` flags anything else under the state.
+            (
+                umask 077
+                nohup "$BIN" serve >>"$STATE_DIR/web/serve.log" 2>&1 </dev/null &
+                # Kept for uninstall.sh: nothing else knows this process is ours.
+                echo $! > "$STATE_DIR/web/serve.pid"
+            )
             CONSOLE_UP=1
             ok "started in the background — $CONSOLE (until this machine restarts: then “ponos serve”)"
         fi

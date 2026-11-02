@@ -44,6 +44,7 @@ for the file never writes in the state directory.
 
 from __future__ import annotations
 
+import io
 import logging
 import logging.handlers
 import os
@@ -51,7 +52,7 @@ import sys
 from pathlib import Path
 from typing import TextIO
 
-from . import redaction, vault
+from . import disk, redaction, vault
 
 NAME = "ponos"
 FILE = "ponos.log"
@@ -103,6 +104,13 @@ class _Said(logging.Formatter):
 
 class _Rotating(logging.handlers.RotatingFileHandler):
     """A rotating file two processes write: reopened when the other turned it over."""
+
+    def _open(self) -> io.TextIOWrapper:
+        # Created for this account only, whatever the umask: a trace carries
+        # paths, ticket titles and arguments, and `doctor` would flag it.
+        return open(  # noqa: SIM115
+            self.baseFilename, "a", encoding=self.encoding, errors=self.errors, opener=disk.opener()
+        )
 
     def emit(self, record: logging.LogRecord) -> None:
         if self.stream is not None:
