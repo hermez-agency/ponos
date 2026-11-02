@@ -80,6 +80,23 @@ test("the first connection goes from the account to the summary", async ({ page 
   await expect(page.getByTestId("setup-provider")).toBeVisible()
   await expect(page.getByTestId("provider-cli")).toHaveAttribute("aria-checked", "true")
 
+  // Each step is marked by its lines, read once: going from one to another asks nothing again.
+  const steps = page.getByRole("list", { name: "Steps" })
+  await expect(steps.getByRole("button", { name: /Notion/ })).toHaveAttribute("data-state", "ok")
+  await expect(steps.getByRole("button", { name: /Claude provider/ })).toHaveAttribute("data-state", "missing")
+  let reads = 0
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname === "/api/setup/summary") reads += 1
+  })
+  await steps.getByRole("button", { name: /GitHub/ }).click()
+  await expect(page.getByTestId("setup-github")).toBeVisible()
+  await steps.getByRole("button", { name: /Summary/ }).click()
+  await expect(page.getByTestId("summary-rows")).toBeVisible()
+  expect(reads).toBe(0)
+
+  // Claimed, the page leads back to the console.
+  await expect(page.getByRole("link", { name: "Back to the console" })).toHaveAttribute("href", "/")
+
   // And the console opens, signed in by the account the first step made.
   await page.goto("/setup?step=summary")
   await page.getByRole("link", { name: "Open the console" }).click()

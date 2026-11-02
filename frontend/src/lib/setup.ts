@@ -58,14 +58,47 @@ export function stepsFor(state: Pick<SetupState, "claimed">): StepKey[] {
   return STEPS.filter((step) => step !== "access" || !state.claimed)
 }
 
-/** The step an address asks for, if this console has it — else the first.
+/** The step an address asks for, if this console has it — else the first,
+ * or the summary on an installation that has nothing left to do.
  *
  * The first is the language, the one step that needs nobody signed in: chosen
  * in this browser at once, and written with the account, or straight away
  * once there is one. */
-export function stepFrom(state: Pick<SetupState, "claimed">, asked: string | null): StepKey {
+export function stepFrom(
+  state: Pick<SetupState, "claimed">,
+  asked: string | null,
+  summary: Summary | null = null
+): StepKey {
   const steps = stepsFor(state)
-  return steps.find((step) => step === asked) ?? steps[0]
+  const found = steps.find((step) => step === asked)
+  if (found) return found
+  return summary && rows(summary).every((row) => row.state === "ok") ? "summary" : steps[0]
+}
+
+/** The lines of the summary each step answers for: the first ticket needs all
+ * but the channels and the environment, the summary is every line. */
+const STEP_ROWS: Partial<Record<StepKey, string[]>> = {
+  provider: ["provider"],
+  notion: ["board"],
+  github: ["github"],
+  project: ["projects"],
+  channels: ["channels"],
+  demo: ["machine", "provider", "model", "board", "github", "projects"],
+}
+
+const SEVERITY: SetupHealth[] = ["ok", "missing", "error"]
+
+/** Where each step stands, by the worst of its lines — the language is always
+ * chosen, and the account is no step any more once there is a summary. */
+export function stepStates(summary: Summary): Partial<Record<StepKey, SetupHealth>> {
+  const lines = rows(summary)
+  const worst = (keys: string[]): SetupHealth =>
+    lines
+      .filter((line) => keys.includes(line.key))
+      .reduce<SetupHealth>((held, line) => (SEVERITY.indexOf(line.state) > SEVERITY.indexOf(held) ? line.state : held), "ok")
+  const states: Partial<Record<StepKey, SetupHealth>> = { language: "ok", summary: worst(lines.map((line) => line.key)) }
+  for (const [step, keys] of Object.entries(STEP_ROWS)) states[step as StepKey] = worst(keys)
+  return states
 }
 
 /** The step after this one, or this one when it is the last. */

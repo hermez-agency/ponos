@@ -921,6 +921,12 @@ the ones before it standing, exactly as `init` does, since pages created in some
 Notion are not a thing to roll back. `/setup` is where the steps are afterwards, and the
 bare address of a console that has no board yet leads there on its own.
 
+Once the console is claimed, *Back to the console* sits at the top of `/setup`, and each
+step's pill is marked by the lines of the summary it answers for — a green check when they
+are OK, an amber or red mark when one is missing or failing; the summary is read once per
+visit, and again only after a step writes something. An installation whose summary is
+OK on every line opens `/setup` on the summary rather than on the language.
+
 `serve` starts on the file `install.sh` leaves, Notion token or not — these steps are where
 the token gets filled in, so the console only refuses a configuration that is missing or
 does not parse. Until a token is there, `ponos run`, which is what the timer calls, keeps

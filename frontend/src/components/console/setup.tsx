@@ -1,5 +1,6 @@
 import * as React from "react"
 import {
+  ArrowLeft,
   ArrowRight,
   Bell,
   Bot,
@@ -43,6 +44,7 @@ import {
   nextStep,
   rows,
   stepFrom,
+  stepStates,
   stepsFor,
   type Row,
   type StepKey,
@@ -93,6 +95,23 @@ function askedStep(): string | null {
   return new URLSearchParams(window.location.search).get("step")
 }
 
+/** The summary, read once for the visit and shared by every step that shows a
+ * part of it — each read costs Notion, GitHub and `claude` a second or more.
+ * A step that writes something says so with `reread`, and the summary is read
+ * again then, not at each change of step. */
+interface Known {
+  summary: Summary | null
+  failed: string
+  reread: () => void
+}
+
+const KnownContext = React.createContext<Known | null>(null)
+
+/** A step's own reading of the summary: empty until it is read. */
+function useKnown(): Known {
+  return React.useContext(KnownContext) ?? { summary: null, failed: "", reread: () => undefined }
+}
+
 function remember(step: StepKey) {
   // `/setup`, whatever the page was opened as: an unclaimed console draws this
   // at any address, and once it is claimed only `/setup` still does.
@@ -106,6 +125,24 @@ export function SetupApp() {
   const [state, setState] = React.useState<SetupState | null>(null)
   const [failed, setFailed] = React.useState("")
   const [step, setStep] = React.useState<StepKey>("access")
+  const [summary, setSummary] = React.useState<Summary | null>(null)
+  const [unread, setUnread] = React.useState("")
+
+  const reread = React.useCallback(async () => {
+    try {
+      const read = await api.summary()
+      setSummary(read)
+      setUnread("")
+      return read
+    } catch (error) {
+      setUnread(why(error))
+      return null
+    }
+  }, [])
+  const known = React.useMemo<Known>(
+    () => ({ summary, failed: unread, reread: () => void reread() }),
+    [summary, unread, reread]
+  )
 
   const load = React.useCallback(async () => {
     try {
@@ -117,24 +154,30 @@ export function SetupApp() {
       }
       setState(read)
       setStep((current) => (read.claimed && current === "access" ? stepFrom(read, null) : current))
+      if (read.claimed) void reread()
     } catch (error) {
       setFailed(why(error))
     }
-  }, [])
+  }, [reread])
 
   React.useEffect(() => {
     void api.setupState().then(
-      (read) => {
+      async (read) => {
         if (!read) {
           window.location.assign("/")
           return
         }
+        // Claimed, the summary decides where a bare `/setup` opens: on itself
+        // when nothing is left to do, rather than on the language again.
+        const asked = askedStep()
+        const pending = read.claimed ? reread() : null
+        const opened = pending && !asked ? await pending : null
         setState(read)
-        setStep(stepFrom(read, askedStep()))
+        setStep(stepFrom(read, asked, opened))
       },
       (error) => setFailed(why(error))
     )
-  }, [])
+  }, [reread])
 
   React.useEffect(() => {
     document.title = `${t("First connection")} · Ponos`
@@ -165,44 +208,61 @@ export function SetupApp() {
   const forward = () => go(nextStep(state, step))
 
   return (
-    <Shell>
-      <Stepper steps={steps} current={step} reachable={state.claimed} onStep={go} />
-      <div data-testid={`setup-${step}`}>
-        {step === "language" ? (
-          <LanguageStep claimed={state.claimed} onNext={forward} />
-        ) : step === "access" ? (
-          <AccessStep
-            state={state}
-            onClaimed={async () => {
-              await load()
-              go("provider")
-            }}
-          />
-        ) : step === "provider" ? (
-          <ProviderStep container={state.container} onNext={forward} />
-        ) : step === "notion" ? (
-          <NotionStep storage={state.storage} onNext={forward} />
-        ) : step === "github" ? (
-          <GithubStep container={state.container} onNext={forward} />
-        ) : step === "project" ? (
-          <ProjectStep onNext={forward} />
-        ) : step === "channels" ? (
-          <ChannelsStep container={state.container} onNext={forward} />
-        ) : step === "demo" ? (
-          <DemoStep onNext={forward} onStep={go} />
-        ) : (
-          <SummaryStep onStep={go} />
-        )}
-      </div>
-    </Shell>
+    <KnownContext.Provider value={known}>
+      <Shell back={state.claimed}>
+        <Stepper
+          steps={steps}
+          current={step}
+          reachable={state.claimed}
+          marks={summary ? stepStates(summary) : {}}
+          onStep={go}
+        />
+        <div data-testid={`setup-${step}`}>
+          {step === "language" ? (
+            <LanguageStep claimed={state.claimed} onNext={forward} />
+          ) : step === "access" ? (
+            <AccessStep
+              state={state}
+              onClaimed={async () => {
+                await load()
+                go("provider")
+              }}
+            />
+          ) : step === "provider" ? (
+            <ProviderStep container={state.container} onNext={forward} />
+          ) : step === "notion" ? (
+            <NotionStep storage={state.storage} onNext={forward} />
+          ) : step === "github" ? (
+            <GithubStep container={state.container} onNext={forward} />
+          ) : step === "project" ? (
+            <ProjectStep onNext={forward} />
+          ) : step === "channels" ? (
+            <ChannelsStep container={state.container} onNext={forward} />
+          ) : step === "demo" ? (
+            <DemoStep onNext={forward} onStep={go} />
+          ) : (
+            <SummaryStep onStep={go} />
+          )}
+        </div>
+      </Shell>
+    </KnownContext.Provider>
   )
 }
 
-function Shell({ children }: { children: React.ReactNode }) {
+/** The page, and — once the console is claimed — the way back to it. */
+function Shell({ back = false, children }: { back?: boolean; children: React.ReactNode }) {
   const t = useT()
   return (
     <main className="bg-background text-foreground min-h-svh px-4 py-10">
       <div className="mx-auto w-full max-w-3xl">
+        {back ? (
+          <Button asChild variant="ghost" size="sm" className="-ml-2 mb-4">
+            <a href="/">
+              <ArrowLeft />
+              {t("Back to the console")}
+            </a>
+          </Button>
+        ) : null}
         <header className="mb-6">
           <p className="text-muted-foreground font-mono text-xs tracking-wide uppercase">Ponos</p>
           <h1 className="text-2xl leading-tight font-bold tracking-[-0.03em] sm:text-[1.75rem]">
@@ -215,15 +275,24 @@ function Shell({ children }: { children: React.ReactNode }) {
   )
 }
 
+/** A step's mark: done, or still something to see to. */
+const MARKS: Record<SetupHealth, { label: string; icon: React.ComponentType<{ className?: string }>; tone: string }> = {
+  ok: { label: "OK", icon: CircleCheck, tone: "text-tr-green" },
+  missing: { label: "Missing", icon: CircleAlert, tone: "text-tr-amber" },
+  error: { label: "Error", icon: CircleAlert, tone: "text-destructive" },
+}
+
 function Stepper({
   steps,
   current,
   reachable,
+  marks,
   onStep,
 }: {
   steps: StepKey[]
   current: StepKey
   reachable: boolean
+  marks: Partial<Record<StepKey, SetupHealth>>
   onStep: (step: StepKey) => void
 }) {
   const t = useT()
@@ -233,12 +302,15 @@ function Stepper({
       {steps.map((step, index) => {
         const Icon = ICONS[step]
         const here = step === current
+        const mark = marks[step] ? MARKS[marks[step]] : null
+        const Mark = mark?.icon
         return (
           <li key={step}>
             <button
               type="button"
               disabled={!reachable}
               aria-current={here ? "step" : undefined}
+              data-state={marks[step]}
               onClick={() => (here ? undefined : onStep(step))}
               className={cn(
                 "flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
@@ -253,6 +325,12 @@ function Stepper({
               <span className="tabular-nums">{index + 1}</span>
               <Icon className="size-3.5" />
               {t(TITLES[step])}
+              {mark && Mark ? (
+                <>
+                  <Mark className={cn("size-3.5", here ? undefined : mark.tone)} aria-hidden />
+                  <span className="sr-only">{t(mark.label)}</span>
+                </>
+              ) : null}
             </button>
           </li>
         )
@@ -564,17 +642,17 @@ function ProviderStep({ container, onNext }: { container: boolean; onNext: () =>
   const [busy, setBusy] = React.useState(false)
   const [said, setSaid] = React.useState<{ ok: boolean; text: string } | null>(null)
   const [command, setCommand] = React.useState("")
+  const { summary, reread } = useKnown()
+  const seeded = React.useRef(false)
 
   React.useEffect(() => {
-    // What the file already says, so coming back to the step shows it chosen.
-    void api.summary().then(
-      (summary) => {
-        if (summary.provider.stated) setChosen(summary.provider.provider)
-        setRouted(summary.provider.provider !== "openrouter" || summary.provider.route_sessions)
-      },
-      () => undefined
-    )
-  }, [])
+    // What the file already says, so coming back to the step shows it chosen —
+    // once: a summary read again after a save does not undo a click.
+    if (!summary || seeded.current) return
+    seeded.current = true
+    if (summary.provider.stated) setChosen(summary.provider.provider)
+    setRouted(summary.provider.provider !== "openrouter" || summary.provider.route_sessions)
+  }, [summary])
 
   const save = async (provider: Provider) => {
     setBusy(true)
@@ -593,6 +671,7 @@ function ProviderStep({ container, onNext }: { container: boolean; onNext: () =>
           : answer.said,
       })
       if (answer.ok) setKey("")
+      reread()
     } catch (error) {
       setSaid({ ok: false, text: why(error) })
     } finally {
@@ -609,6 +688,7 @@ function ProviderStep({ container, onNext }: { container: boolean; onNext: () =>
         ok: answer.ok,
         text: answer.ok ? t("Claude Code is signed in as {{who}}.", { who: answer.said }) : answer.said,
       })
+      reread()
     } catch (error) {
       setSaid({ ok: false, text: why(error) })
     } finally {
@@ -748,13 +828,14 @@ function NotionStep({ storage, onNext }: { storage: string; onNext: () => void }
   const [busy, setBusy] = React.useState(false)
   const [done, setDone] = React.useState<Provisioned | null>(null)
   const [problem, setProblem] = React.useState("")
+  const { summary, reread } = useKnown()
+
+  React.useEffect(() => {
+    if (summary) setBoard(summary.board)
+  }, [summary])
 
   React.useEffect(() => {
     if (storage === "markdown") return
-    void api.summary().then(
-      (summary) => setBoard(summary.board),
-      () => undefined
-    )
     // A token already written — a step left half-way, a reload — is asked again.
     void api.sharedWithNotion("").then(
       (answer) => answer.ok && setShared(answer),
@@ -802,6 +883,7 @@ function NotionStep({ storage, onNext }: { storage: string; onNext: () => void }
       const answer = await api.saveNotion({ token: "", page: chosen.page ?? "", workspace: chosen.workspace })
       setDone(answer)
       setBoard(answer.board)
+      reread()
     } catch (error) {
       setProblem(why(error))
     } finally {
@@ -1022,6 +1104,7 @@ function GithubStep({ container, onNext }: { container: boolean; onNext: () => v
   const t = useT()
   const [github, setGithub] = React.useState<Summary["github"] | null>(null)
   const [busy, setBusy] = React.useState(false)
+  const { reread } = useKnown()
 
   const check = React.useCallback(async () => {
     setBusy(true)
@@ -1046,7 +1129,15 @@ function GithubStep({ container, onNext }: { container: boolean; onNext: () => v
       )}
       footer={
         <>
-          <Button type="button" variant="outline" disabled={busy} onClick={() => void check()}>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={busy}
+            onClick={() => {
+              void check()
+              reread()
+            }}
+          >
             <RefreshCw />
             {t("Check again")}
           </Button>
@@ -1062,7 +1153,13 @@ function GithubStep({ container, onNext }: { container: boolean; onNext: () => v
         <details data-testid="github-token-choice">
           <summary className="cursor-pointer text-sm font-medium">{t("Or use an access token instead")}</summary>
           <div className="pt-3">
-            <TokenForm createUrl={github?.create_url ?? ""} onSaved={() => void check()} />
+            <TokenForm
+              createUrl={github?.create_url ?? ""}
+              onSaved={() => {
+                void check()
+                reread()
+              }}
+            />
           </div>
         </details>
       ) : null}
@@ -1127,6 +1224,7 @@ function ProjectStep({ onNext }: { onNext: () => void }) {
   const [busy, setBusy] = React.useState(false)
   const [made, setMade] = React.useState("")
   const [problem, setProblem] = React.useState("")
+  const { reread } = useKnown()
 
   const read = React.useCallback(() => {
     void api.setupProjects().then(setChoices, (error) => setFailed(why(error)))
@@ -1140,6 +1238,7 @@ function ProjectStep({ onNext }: { onNext: () => void }) {
       const written = await api.createProject(values)
       window.localStorage.setItem(PROJECT_KEY, written.id)
       setMade(written.name)
+      reread()
       setName("")
       setRepository("")
       // Added here rather than read again: the board's list of projects is
@@ -1400,6 +1499,7 @@ function ChannelsStep({ container, onNext }: { container: boolean; onNext: () =>
   const [busy, setBusy] = React.useState(false)
   const [done, setDone] = React.useState<ChannelsProvisioned | null>(null)
   const [problem, setProblem] = React.useState("")
+  const { reread } = useKnown()
   const set = (key: keyof typeof typed) => (event: React.ChangeEvent<HTMLInputElement>) =>
     setTyped({ ...typed, [key]: event.target.value })
 
@@ -1412,6 +1512,7 @@ function ChannelsStep({ container, onNext }: { container: boolean; onNext: () =>
       setDone(answer)
       if (!answer.problem)
         setTyped({ telegram_token: "", telegram_chat: "", slack_token: "", slack_channel: "" })
+      reread()
     } catch (error) {
       setProblem(why(error))
     } finally {
@@ -1679,10 +1780,15 @@ function RowValue({ row }: { row: Row }) {
 /** The installation at a glance, as a record: one line per field, its state, and where it changes. */
 export function SetupSummary({ change }: { change: (row: Row) => React.ReactNode }) {
   const t = useT()
-  const [summary, setSummary] = React.useState<Summary | null>(null)
-  const [failed, setFailed] = React.useState("")
+  // In the first connection, the summary it has already read; elsewhere, its own.
+  const known = React.useContext(KnownContext)
+  const [own, setSummary] = React.useState<Summary | null>(null)
+  const [ownFailed, setFailed] = React.useState("")
+  const summary = known ? known.summary : own
+  const failed = known ? known.failed : ownFailed
 
   React.useEffect(() => {
+    if (known) return
     let live = true
     api.summary().then(
       (read) => live && setSummary(read),
@@ -1691,9 +1797,9 @@ export function SetupSummary({ change }: { change: (row: Row) => React.ReactNode
     return () => {
       live = false
     }
-  }, [])
+  }, [known])
 
-  if (failed) return <Said ok={false} text={failed} />
+  if (failed && !summary) return <Said ok={false} text={failed} />
   if (!summary) return <p className="text-muted-foreground text-sm">{t("Checking…")}</p>
 
   return (
