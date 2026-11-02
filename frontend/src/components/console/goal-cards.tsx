@@ -1,5 +1,19 @@
 import * as React from "react"
-import { Ban, CalendarDays, CircleCheck, ExternalLink, LayoutGrid, Pencil, Plus, SearchX, Target, Trash2, X } from "lucide-react"
+import {
+  Ban,
+  CalendarDays,
+  CircleCheck,
+  ExternalLink,
+  FolderGit2,
+  LayoutGrid,
+  Link2,
+  Pencil,
+  Plus,
+  SearchX,
+  Target,
+  Trash2,
+  X,
+} from "lucide-react"
 import { toast } from "sonner"
 import { ActionList } from "react-data-form"
 import {
@@ -30,7 +44,7 @@ import { EMPTY, writeQuery } from "@/lib/ticket-search"
 import { carrying } from "@/lib/resource-view"
 import type { Goal } from "@/lib/types"
 import { cn } from "@/lib/utils"
-import { goalHref, goals, goalsHref, goalsOnce, useGoals, type GoalItem } from "@/resources/goals"
+import { ON_TICKETS, goalHref, goals, goalsHref, goalsOnce, useGoals, type GoalItem } from "@/resources/goals"
 import { boardHref, ticketHref, tickets } from "@/resources/tickets"
 
 import { EmptyState } from "./empty-state"
@@ -131,6 +145,63 @@ function SeeOnTheBoard({ goal }: { goal: Goal }) {
   )
 }
 
+/** Whether any ticket points at the goal, cancelled ones included. */
+const tied = (goal: Goal) => Object.values(goal.tickets ?? {}).some(Boolean)
+
+/* The projects a goal is for, by name: the tickets that serve it are theirs. */
+function Projects({ goal }: { goal: Goal }) {
+  const t = useT()
+  if (!goal.projects.length) return null
+  return (
+    <span
+      data-slot="goal-projects"
+      title={t("Projects")}
+      className="text-muted-foreground inline-flex min-w-0 items-center gap-1 text-xs"
+    >
+      <FolderGit2 className="size-3.5 shrink-0" />
+      <span className="truncate">{goal.projects.join(", ")}</span>
+    </span>
+  )
+}
+
+/* A goal no ticket serves yet: "0 of 0" says nothing, so the card says so and
+ * offers the two ways to tie some — the goal's form, opened on its Tickets
+ * field, and a new ticket with the goal already in its field. Above the link
+ * the title spreads over the card, as the pencil is. */
+function Untied({ goal }: { goal: Goal }) {
+  const t = useT()
+  const ready = useFrench(words)
+  const edit = useViewLink({ resource: goals, action: ActionList.update, id: goal.id })
+  const create = useViewLink({ resource: tickets, action: ActionList.create })
+  // Not drawn in English while its French is on the way.
+  if (!ready) return null
+  return (
+    <div className="flex flex-col gap-2" data-slot="goal-untied">
+      <span className="text-muted-foreground text-xs">{t("No ticket tied yet")}</span>
+      <div className="relative flex flex-wrap gap-2">
+        <Link
+          to={`${edit.to}${edit.to.includes("?") ? "&" : "?"}${ON_TICKETS}`}
+          onClick={edit.onOpen}
+          data-slot="goal-tie-tickets"
+          className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+        >
+          <Link2 />
+          {t("Tie tickets")}
+        </Link>
+        <Link
+          to={carrying(create.to, { goal: goal.id })}
+          onClick={create.onOpen}
+          data-slot="goal-untied-new-ticket"
+          className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+        >
+          <Plus />
+          {t("New ticket for this goal")}
+        </Link>
+      </div>
+    </div>
+  )
+}
+
 function GoalCard({ goal }: { goal: Goal }) {
   const t = useT()
   return (
@@ -167,9 +238,8 @@ function GoalCard({ goal }: { goal: Goal }) {
         <Due goal={goal} />
       </div>
       {goal.criterion ? <p className="text-muted-foreground line-clamp-3 leading-relaxed">{goal.criterion}</p> : null}
-      <div className="mt-auto">
-        <Progress goal={goal} />
-      </div>
+      <Projects goal={goal} />
+      <div className="mt-auto">{tied(goal) ? <Progress goal={goal} /> : <Untied goal={goal} />}</div>
     </li>
   )
 }

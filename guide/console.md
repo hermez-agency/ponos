@@ -531,8 +531,10 @@ wrote is in the language [`runner.language`](configuration.md#4-the-rest-of-the-
 ### Goals
 
 **Goals** is the [goals database](board.md#the-goals-database--what-the-ticket-is-for) drawn as a page:
-one card per goal — its status, its due date, its name, what it means, and **« n of m tickets
-done »**, written in words over a bar. The count is the console's, not a Notion rollup: the
+one card per goal — its status, its due date, its name, what it means, the projects it is for, and **« n of m tickets
+done »**, written in words over a bar. A goal no ticket points at yet says **« No ticket tied
+yet »** (« Aucun ticket rattaché ») instead, with **Tie tickets** — its form, opened on the
+*Tickets* field — and **New ticket for this goal**, the form with the goal already chosen. The count is the console's, not a Notion rollup: the
 tickets of the board that point at the goal, the cancelled ones left out, so it is the same on a
 board of Markdown files as on Notion's. The list rests on the active goals (no `Statut`, or
 `actif`); its filters are the status — *All statuses*, or any one the database holds — and a

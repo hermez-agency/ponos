@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest"
 
 import type { Goal } from "@/lib/types"
 
-import { GoalPage, NoGoal } from "./goal-cards"
+import { GoalCards, GoalPage, NoGoal } from "./goal-cards"
 
 /* A goal's page and the empty list, on either board: a board of Markdown files
  * keeps a goal as a file under goals/, so its page has no Notion to open — its
@@ -21,7 +21,11 @@ vi.mock("react-resource-view", async (original) => ({
   useCurrentViewResourceContext: () => ({ data: world.goal, fetchData: () => {} }),
   useListViewContext: () => ({ filterContext: { filter: {}, filterIsEmpty: true } }),
   useNavigate: () => () => {},
-  useViewLink: () => ({ to: "/tickets/new", onOpen: () => {} }),
+  useViewLink: ({ resource, action, id }: { resource: { name: string }; action: string; id?: string }) => ({
+    to: `/${resource.name}/${action}${id ? `/${id}` : ""}?view=console`,
+    onOpen: () => {},
+  }),
+  ListPagination: () => null,
   ResourceViewButton: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   Link: ({ to, children, ...props }: { to: string; children: React.ReactNode }) => (
     <a href={to} {...props}>
@@ -31,7 +35,8 @@ vi.mock("react-resource-view", async (original) => ({
 }))
 
 vi.mock("@/resources/goals", () => ({
-  goals: { onChange: { publish: () => {} } },
+  ON_TICKETS: "goal-field=tickets",
+  goals: { name: "goals", onChange: { publish: () => {} } },
   goalHref: (id: string) => `/goals/${id}`,
   goalsHref: () => "/goals",
   goalsOnce: () => Promise.resolve([]),
@@ -41,7 +46,7 @@ vi.mock("@/resources/goals", () => ({
 vi.mock("@/resources/tickets", () => ({
   boardHref: () => "/?view=console/tickets/list",
   ticketHref: (id: string) => `/tickets/${id}`,
-  tickets: {},
+  tickets: { name: "tickets" },
 }))
 vi.mock("@/lib/board-store", () => ({ useBoard: () => ({ columns: [], tickets: [] }) }))
 vi.mock("./record-window", () => ({ useOpensOverTheList: () => ({ to: "", onClick: () => {} }) }))
@@ -90,5 +95,34 @@ describe("the empty list of goals", () => {
     world.read = { goals: [], configured: false, storage: "notion", problem: "" }
     const { container } = render(<NoGoal />)
     expect(container.textContent).toContain("Goals database")
+  })
+})
+
+describe("a goal's card", () => {
+  const card = (tickets: Record<string, number>, projects: string[] = []) =>
+    render(<GoalCards rows={[{ data: { ...goal(""), projects, tickets } }] as never} />).container
+
+  test("says a goal no ticket serves has none, and offers to tie some or write one", () => {
+    const drawn = card({}, ["Trouver mission", "Leadz Ninja"])
+    expect(drawn.textContent).toContain("No ticket tied yet")
+    expect(drawn.textContent).not.toContain("0 of 0")
+    expect(screen.queryByRole("progressbar")).toBeNull()
+    const tie = screen.getByRole("link", { name: "Tie tickets" }).getAttribute("href") ?? ""
+    expect(tie).toContain("/goals/update/g1")
+    expect(tie).toContain("goal-field=tickets")
+    const write = screen.getByRole("link", { name: "New ticket for this goal" }).getAttribute("href")
+    expect(write).toMatch(/^\/tickets\/create/)
+  })
+
+  test("draws the count and the bar of a goal tickets serve", () => {
+    const drawn = card({ done: 2, ready: 1 })
+    expect(screen.getByRole("progressbar").getAttribute("aria-label")).toBe("2 of 3 tickets done")
+    expect(drawn.textContent).not.toContain("No ticket tied yet")
+    expect(screen.queryByRole("link", { name: "Tie tickets" })).toBeNull()
+  })
+
+  test("names the projects the goal is for", () => {
+    card({ done: 1 }, ["Trouver mission", "Leadz Ninja"])
+    expect(document.querySelector("[data-slot=goal-projects]")?.textContent).toBe("Trouver mission, Leadz Ninja")
   })
 })
