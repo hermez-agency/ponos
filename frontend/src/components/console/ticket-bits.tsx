@@ -581,6 +581,21 @@ function FootCi({ ci }: { ci?: Ci | null }) {
   )
 }
 
+/* The moment under a card's age, as its tooltip says it. One formatter per
+ * language: `toLocaleString` makes a new one at every call, and on a board of
+ * 1 800 cards that was 200 ms of every time the board was drawn. */
+const stamps = new Map<string, Intl.DateTimeFormat>()
+
+function stamp(at: string): string {
+  const language = currentLanguage()
+  let format = stamps.get(language)
+  if (!format) {
+    format = new Intl.DateTimeFormat(language, { dateStyle: "medium", timeStyle: "short" })
+    stamps.set(language, format)
+  }
+  return format.format(new Date(at))
+}
+
 /* The line along the bottom of a card: where the work goes and how long ago the
  * ticket was made, what it has cost, and the way out to the page it is written
  * on. All facts rather than prose, so all set in the mono face and read as a
@@ -613,10 +628,7 @@ export function TicketFoot({ ticket }: { ticket: Ticket }) {
       {ago(ticket.created) ? (
         <span
           className="text-muted-foreground whitespace-nowrap"
-          title={new Date(ticket.created).toLocaleString(currentLanguage(), {
-            dateStyle: "medium",
-            timeStyle: "short",
-          })}
+          title={stamp(ticket.created)}
         >
           {ago(ticket.created)}
         </span>

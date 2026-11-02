@@ -99,7 +99,9 @@ kept on disk (`~/.local/state/ponos/web/outbox.json`), so a console restarted
 mid-way still sends it. A gesture that sends a card off the screen —
 *hold*, into your *Blocked* column — says where it went. A ticket with no status, or one
 your board has not named, is not hidden: it sits in the first column, *Draft* (*Brouillon*
-in French), with the drafts. Seven columns do not fit a laptop, so the board scrolls sideways, and each
+in French), with the drafts. A long column draws its first fifty cards — *Done* and
+*Cancelled* their thirty latest — and *Show more* under it the next ones; a card you drop
+there stays in sight, wherever the queue ranks it. Seven columns do not fit a laptop, so the board scrolls sideways, and each
 edge with more beyond it shows a fade and an arrow. The *table* tab shows the same tickets
 as rows, one column per property.
 

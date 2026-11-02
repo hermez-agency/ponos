@@ -104,13 +104,21 @@ export function useOpensOverTheList(
 ) {
   const link = useViewLink({ resource, action, id })
   const navigate = useNavigate()
-  return (event: React.MouseEvent<HTMLElement>) => {
+  // One function for the life of the link, with the address of the last
+  // render: a board's card is drawn again only when what it is handed
+  // changes, and a new function at every render was a change (see `TicketCard`).
+  const latest = React.useRef({ link, navigate, query })
+  React.useLayoutEffect(() => {
+    latest.current = { link, navigate, query }
+  })
+  return React.useCallback((event: React.MouseEvent<HTMLElement>) => {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
     event.preventDefault()
+    const { link, navigate, query } = latest.current
     // So that closing the window is Back, and the focus comes back to the link.
     link.onOpen(event)
     void navigate({ to: query ? `${link.to}${link.to.includes("?") ? "&" : "?"}${query}` : link.to })
-  }
+  }, [])
 }
 
 function RecordWindow({

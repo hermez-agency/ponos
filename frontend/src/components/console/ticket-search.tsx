@@ -82,10 +82,14 @@ export function useTicketQuery(): [TicketQuery, (change: (query: TicketQuery) =>
   return [query, update]
 }
 
-/** The words a card marks, from what the address says. */
+/** The words a card marks, from what the address says.
+ *
+ * The same array for as long as the words are the same: a ticket's window is
+ * written in the address too, and a card is drawn again only when what it is
+ * handed changes (see `TicketCard`). */
 export function useSearchWords(): string[] {
-  const { searchStr } = useLocation()
-  return React.useMemo(() => marked(readQuery(searchStr).text), [searchStr])
+  const text = useLocation({ select: (location) => readQuery(location.searchStr).text })
+  return React.useMemo(() => marked(text), [text])
 }
 
 /** Which of a list's rows the query keeps, and whether it is asking for anything. */
@@ -375,57 +379,63 @@ export function TicketSearch({
   const set = <K extends keyof TicketQuery>(key: K) => (value: TicketQuery[K]) =>
     update((current) => ({ ...current, [key]: value }))
 
-  const choices = board.choices ?? {}
-  const facets: Record<Facet, Option[]> = {
-    type: offered(tickets, (ticket) => ticket.type, said(choices.type), choiceWord),
-    // In the table's order, each behind its dot, in the developers' word.
-    subtype: offered(
-      tickets,
-      (ticket) => ticket.subtype ?? "",
-      (board.subtypes ?? []).map((subtype) => ({
-        value: subtype.key,
-        label: subtype.label,
-        subtype: subtype.key,
-      }))
-    ),
-    status: board.columns
-      .filter(
-        (column) =>
-          (column.key !== "validated" || board.validate) && (column.key !== "cancelled" || board.cancel)
-      )
-      .map((column) => ({
-        value: column.key,
-        label: capital(columnTitle(column.key, column.name)),
-        count: tickets.filter((ticket) => ticket.column === column.key).length,
-      })),
-    // The scores the board's tickets carry, the highest first, each in its badge's colour.
-    priority: offered(tickets, scoreOf)
-      .map((option) => ({ ...option, score: Number(option.value) }))
-      .sort((a, b) => b.score - a.score),
-    model: offered(
-      tickets,
-      (ticket) => ticket.model,
-      choices.model,
-      (value, ticket) => ticket?.model_label || value
-    ),
-    project: projects
-      ? offered(tickets, (ticket) => ticket.project).sort((a, b) => a.label.localeCompare(b.label))
-      : [],
-    // The goal by its id, said by its name: the one on the card.
-    goal: offered(
-      tickets,
-      (ticket) => ticket.goal_id ?? "",
-      [],
-      (value, ticket) => ticket?.goal || value
-    ).sort((a, b) => a.label.localeCompare(b.label)),
-    // Why the stopped ones stopped, the commonest cause first.
-    block: offered(
-      tickets,
-      (ticket) => ticket.block?.code ?? "",
-      [],
-      (value, ticket) => (ticket?.block ? blockSaid(ticket.block.label) : value)
-    ).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label)),
-  }
+  // Counted again only when the tickets or the board change: the bar is drawn
+  // again at every change of the address, a ticket's window opened over the
+  // board among them, and on 1 800 tickets the counting was 50 ms of the click.
+  // `t` is there for the language the labels are said in.
+  const facets = React.useMemo((): Record<Facet, Option[]> => {
+    const choices = board.choices ?? {}
+    return {
+      type: offered(tickets, (ticket) => ticket.type, said(choices.type), choiceWord),
+      // In the table's order, each behind its dot, in the developers' word.
+      subtype: offered(
+        tickets,
+        (ticket) => ticket.subtype ?? "",
+        (board.subtypes ?? []).map((subtype) => ({
+          value: subtype.key,
+          label: subtype.label,
+          subtype: subtype.key,
+        }))
+      ),
+      status: board.columns
+        .filter(
+          (column) =>
+            (column.key !== "validated" || board.validate) && (column.key !== "cancelled" || board.cancel)
+        )
+        .map((column) => ({
+          value: column.key,
+          label: capital(columnTitle(column.key, column.name)),
+          count: tickets.filter((ticket) => ticket.column === column.key).length,
+        })),
+      // The scores the board's tickets carry, the highest first, each in its badge's colour.
+      priority: offered(tickets, scoreOf)
+        .map((option) => ({ ...option, score: Number(option.value) }))
+        .sort((a, b) => b.score - a.score),
+      model: offered(
+        tickets,
+        (ticket) => ticket.model,
+        choices.model,
+        (value, ticket) => ticket?.model_label || value
+      ),
+      project: projects
+        ? offered(tickets, (ticket) => ticket.project).sort((a, b) => a.label.localeCompare(b.label))
+        : [],
+      // The goal by its id, said by its name: the one on the card.
+      goal: offered(
+        tickets,
+        (ticket) => ticket.goal_id ?? "",
+        [],
+        (value, ticket) => ticket?.goal || value
+      ).sort((a, b) => a.label.localeCompare(b.label)),
+      // Why the stopped ones stopped, the commonest cause first.
+      block: offered(
+        tickets,
+        (ticket) => ticket.block?.code ?? "",
+        [],
+        (value, ticket) => (ticket?.block ? blockSaid(ticket.block.label) : value)
+      ).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label)),
+    }
+  }, [tickets, board, projects, t])
   const names: Record<Facet, string> = {
     type: t("Type"),
     subtype: t("Sub-type"),
