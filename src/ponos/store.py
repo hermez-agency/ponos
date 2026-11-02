@@ -126,6 +126,16 @@ class StoreError(Exception):
     """
 
 
+class Missing(StoreError):
+    """The board answered, and the page asked for is not on it.
+
+    Deleted, in another workspace, or never shared with the integration: Notion
+    says the same 404 for all three. Told apart from a board that failed to
+    answer because asking again changes nothing — the console says "not there"
+    rather than offering to try again.
+    """
+
+
 class Unreachable(StoreError):
     """The board could not be reached at all: no DNS answer, no connection.
 

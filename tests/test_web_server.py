@@ -15,7 +15,16 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 
-from support import _environment, _Fresh, _saved, _state_home, _time_passes, case
+from support import (
+    _bare_api,
+    _environment,
+    _Fresh,
+    _http_answering,
+    _saved,
+    _state_home,
+    _time_passes,
+    case,
+)
 
 from ponos import config as C
 from ponos import git as git_module
@@ -448,6 +457,32 @@ def the_openapi_schema_is_behind_the_same_door_as_the_api():
         assert status == 400 and said["error"].startswith("ready: "), said
         status, _, said = _talk_to(console, "POST", "/api/chat", {"attachments": "x"}, **key)
         assert status == 400 and said["error"].startswith("attachments"), said
+
+
+@case
+def a_ticket_notion_does_not_have_is_a_404_not_the_boards_failure():
+    """A link to a deleted ticket, or one of another workspace: Notion says 404.
+
+    That is the board answering, and its answer is "no such page" — not a board
+    that failed to answer, which is the 502 a page offers to try again. The
+    sentence is one the page can translate; Notion's, in English and naming the
+    integration, stays in the journal.
+    """
+    import httpx
+
+    from ponos import notion
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            404,
+            json={"message": "Could not find page with ID: 00000000-0000-0000-0000-00000000dead."},
+        )
+
+    gone = "0" * 28 + "dead"
+    with _http_answering(handler), _console(_bare_api(notion.Client("ntn_x"))) as console:
+        key = {"Authorization": "Bearer tok"}
+        status, _, said = _talk_to(console, "GET", f"/api/tickets/{gone}", **key)
+    assert (status, said) == (404, {"error": f"no ticket with id {gone}"}), (status, said)
 
 
 @case

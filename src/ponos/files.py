@@ -62,7 +62,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from . import disk, ids, vault
-from .store import SLOTS, Comment, Page, Picture, StoreError, read, written
+from .store import SLOTS, Comment, Missing, Page, Picture, StoreError, read, written
 
 if TYPE_CHECKING:
     from .config import Notion
@@ -393,7 +393,7 @@ class Board:
                     continue
                 if ids.bare(parse(_text(path))[0].get("id", "")) in (bare, ""):
                     return collection, path
-        raise StoreError(f"no such page in {self._root}: {page_id}")
+        raise Missing(f"no such page in {self._root}: {page_id}")
 
     # -- reading -------------------------------------------------------------
 

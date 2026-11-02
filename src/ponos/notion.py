@@ -23,7 +23,7 @@ import re
 from collections.abc import Callable, Iterator
 from typing import TYPE_CHECKING, Any
 
-from . import http, vault
+from . import http, store, vault
 from .config import PLACEHOLDER
 from .store import SLOTS, Comment, Page, Picture, StoreError, Unreachable, read
 
@@ -74,6 +74,10 @@ def _replayable(method: str, path: str) -> bool:
 
 class NotionError(StoreError):
     """The API returned an error, or the network is unreachable."""
+
+
+class Missing(NotionError, store.Missing):
+    """Notion's 404: no such page, or none this integration was shown."""
 
 
 class Offline(NotionError, Unreachable):
@@ -154,6 +158,8 @@ class Client:
                 last += f" (gave up after {MAX_ATTEMPTS} attempts)"
             # Anything else is our fault — or a 5xx on a write, which Notion
             # may have carried out before failing to say so.
+            if answer.status == 404:
+                raise Missing(f"{method} {path}: {last}")
             raise NotionError(f"{method} {path}: {last}")
         try:
             decoded: dict[str, Any] = json.loads(answer.body or b"{}")

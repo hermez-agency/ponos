@@ -3,6 +3,7 @@ import { act, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, test, vi } from "vitest"
 
+import { ApiError } from "@/lib/api"
 import type { TicketDetail } from "@/lib/types"
 
 import { TicketHead, TicketPage } from "./ticket-page"
@@ -189,6 +190,21 @@ describe("before the brief is read", () => {
     expect(screen.getByRole("link", { name: "Back to the board" }).getAttribute("href")).toBe("/board")
     await user.click(screen.getByRole("button", { name: "Try again" }))
     expect(world.context.fetchData).toHaveBeenCalledOnce()
+  })
+
+  test("a ticket the board does not have says so, and offers only the way back", () => {
+    const gone = new ApiError("no ticket with id 0000000000000000000000000000dead", 404)
+    world.context = { error: true, loadError: gone, fetchData: vi.fn() }
+    render(<TicketPage />)
+    expect(screen.getByText("This ticket could not be found.")).toBeTruthy()
+    expect(
+      screen.getByText(
+        "This ticket does not exist, or Ponos has no access to it (the Notion integration must be added to the page)."
+      )
+    ).toBeTruthy()
+    expect(screen.queryByText(/no ticket with id/)).toBeNull()
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull()
+    expect(screen.getByRole("link", { name: "Back to the board" }).getAttribute("href")).toBe("/board")
   })
 })
 

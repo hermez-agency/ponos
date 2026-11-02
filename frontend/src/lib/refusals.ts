@@ -37,6 +37,8 @@ export const REFUSALS: readonly string[] = [
   "unknown type “{{kind}}”",
   "unknown sub-type “{{subtype}}”",
   "this schedule is already being launched",
+  // tickets.py: a ticket the board does not have.
+  "no ticket with id {{id}}",
   // projects.py: a project, its brief and its pictures.
   "no project with id {{id}}",
   "this workspace has no projects database",
