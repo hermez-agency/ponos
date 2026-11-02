@@ -93,6 +93,8 @@ export const HEALTH_FRENCH: Record<string, string> = {
   "Empty role under [notion.properties]: the property is not a relation.": "Videz role sous [notion.properties] : la propriété n’est pas une relation.",
   "Stop reading {{missing}} as the ticket's agent? An empty role is written under [notion.properties] in config.toml.": "Ne plus lire {{missing}} comme l’agent du ticket ? Un role vide est écrit sous [notion.properties] dans config.toml.",
   "Add {{missing}} to the tickets database? Existing properties are left as they are.": "Ajouter {{missing}} à la base de tickets ? Les propriétés existantes ne sont pas touchées.",
+  "`ponos init <page-url>` adds them, as does Configure on the console's health band.": "`ponos init <page-url>` les ajoute, tout comme Configurer dans la bande de santé de la console.",
+  "Add {{missing}} to the schedules database? Existing properties are left as they are.": "Ajouter {{missing}} à la base de récurrences ? Les propriétés existantes ne sont pas touchées.",
   "Every status the runner moves tickets through is offered.": "Tous les statuts par lesquels le runner fait passer les tickets sont proposés.",
   "Statuses missing: {{missing}}.": "Statuts manquants : {{missing}}.",
   "The board was built by hand, or by an older Ponos.": "Le tableau a été construit à la main, ou par un Ponos plus ancien.",

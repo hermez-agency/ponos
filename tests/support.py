@@ -539,6 +539,7 @@ def _recurring(
         notify=C.Notify(desktop=False),
     )
     runner._workspace = workspace.Workspace(tickets="db-tickets", schedules="db-schedules")
+    runner.resolver = projects.Resolver(Path("/nowhere"), {})
     runner.agent_label = "ponos@laptop"
     runner.quiet = True
     runner.dry_run = dry_run

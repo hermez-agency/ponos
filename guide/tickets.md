@@ -593,7 +593,11 @@ A row is the recipe. `Cadence` (Hourly, Daily, Weekly, Monthly), `At` (the hour,
 carries too — and the **body of the schedule's page is the brief**, copied into each
 ticket, so the ticket reads on its own and its history shows what was asked for that day.
 A ticket born with a `Type` is never classified: set it to *Code* on a schedule whose
-tickets are code, or a long, well-written brief may well read as *Writing*. Three columns
+tickets are code, or a long, well-written brief may well read as *Writing*. A schedules
+database built before those two columns existed is offered them by `ponos doctor` and the
+console's health band (or by running `ponos init` again); until then, a schedule whose
+project declares a repository makes *Code* tickets rather than leave them to the
+classifier. Three columns
 are the runner's to write: `Next`, `Last`, and `Last ticket`.
 
 ```
