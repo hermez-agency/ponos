@@ -62,6 +62,7 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Fixed
 
+- `ponos doctor` et la bande de santé ne signalent plus « Laissé en marche » pour les processus et les conteneurs d'une session encore en cours (son `claude`, ses serveurs MCP, son serveur de dev, jusqu'au `ponos doctor` qu'elle lance) : seuls ceux d'un worktree sans session vivante restent signalés, et le vrai résidu d'un ticket fini ne se perd plus dans une vingtaine d'avertissements pendant une passe.
 - Les boutons « Copier » de la console (commandes MCP et de mise à jour, identifiants de ticket et de projet, chemins, diagnostic) copient aussi depuis une console ouverte en HTTP par son adresse sur le réseau local ou une IP, où le navigateur n'offre pas de presse-papiers : la page copie alors le texte elle-même. Quand rien n'y arrive, un message « Copie impossible : sélectionnez le texte » le dit, au lieu d'un bouton qui ne faisait rien.
 - Une récurrence calculée à partir d'une date donnée dans un autre fuseau — un *Last run* en UTC, ou une heure gardée avec son décalage d'avant le passage à l'heure d'hiver — ne tombe plus une heure à côté : la date est d'abord ramenée à l'heure de la machine, et le même instant donne la même prochaine occurrence, pour les cadences comme pour les lignes cron.
 - En français, les nombres comptés posés sur un ticket prennent le singulier à 0 : « 0 commit », « 0 étape », « 0 minute », et non plus « 0 commits ». La règle de pluriel suit maintenant la langue ; l'anglais garde « 0 commits ».

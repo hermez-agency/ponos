@@ -87,6 +87,15 @@ def held(ticket_id: str) -> bool:
     return True
 
 
+def live() -> set[str]:
+    """The tickets — their ids without dashes — whose session a run is on right now."""
+    try:
+        written = list((state_dir() / "stops").glob("*.live"))
+    except OSError:
+        return set()
+    return {path.stem for path in written if held(path.stem)}
+
+
 def clear(ticket_id: str) -> None:
     for suffix in ("ask", "done"):
         _file(ticket_id, suffix).unlink(missing_ok=True)

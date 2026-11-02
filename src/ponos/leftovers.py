@@ -30,6 +30,7 @@ import re
 import shutil
 import signal
 import time
+from collections.abc import Collection
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -108,8 +109,11 @@ def compose_projects(under: Path) -> list[Project]:
     return list(projects.values())
 
 
-def processes(under: Path) -> list[tuple[int, str]]:
-    """(pid, command) of every process other than this one whose cwd is in `under`."""
+def processes(under: Path, *, spared: Collection[Path] = ()) -> list[tuple[int, str]]:
+    """(pid, command) of every process other than this one whose cwd is in `under`.
+
+    Those whose cwd is in one of the `spared` worktrees are left out.
+    """
     held = []
     try:
         entries = list(Path("/proc").iterdir())
@@ -120,7 +124,7 @@ def processes(under: Path) -> list[tuple[int, str]]:
             continue
         try:
             cwd = Path(os.readlink(entry / "cwd"))
-            if _below(cwd, under):
+            if _below(cwd, under) and worktree_of(cwd) not in spared:
                 command = (
                     (entry / "cmdline").read_bytes().replace(b"\0", b" ").decode(errors="replace")
                 )
