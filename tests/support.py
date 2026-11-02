@@ -533,7 +533,7 @@ def _recurring(
     runner.client = _ScheduleClient(pages, tickets, refuses, marks, columns)
     runner.config = C.Config(
         notion=C.Notion(properties=dict(C._DEFAULT_PROPERTIES), status={}),
-        runner=C.Runner(schedule=schedule),
+        runner=C.Runner(schedule=schedule, max_load_per_core=0),
         projects={},
         path=Path("/nowhere"),
         notify=C.Notify(desktop=False),
@@ -730,7 +730,8 @@ def _board_runner(
     runner.config = C.Config(
         notion=C.Notion(properties=dict(C._DEFAULT_PROPERTIES), status=status),
         # No update looked for mid-pass: that is a `git fetch` of this checkout.
-        runner=C.Runner(auto_update=False),
+        # Nor the load of whatever else this machine runs: a test case asks for it.
+        runner=C.Runner(auto_update=False, max_load_per_core=0),
         projects={},
         path=Path("/nowhere"),
         notify=C.Notify(desktop=False),

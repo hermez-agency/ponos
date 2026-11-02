@@ -1,8 +1,10 @@
 """What the machine has left, and whether it can still reach anybody.
 
-Three questions a pass asks before it trusts a session, none of them about the
-ticket: is there memory for one more, did the network go away under the last
-one, and was it the kernel that killed it. A session that dies on exit code 137
+Four questions a pass asks before it trusts a session, none of them about the
+ticket: is there memory for one more, are the cores not already drowning (on
+23 October seven sessions took the load to 74 on twenty of them, and every
+session and every e2e timeout stretched with it), did the network go away under
+the last one, and was it the kernel that killed it. A session that dies on exit code 137
 says only that it was killed; with eight of them, `tsc`, `vitest` and PHPUnit
 side by side the likeliest killer is the OOM killer, and a ticket blocked on
 "killed" sends somebody looking for a bug that is not in the ticket.
@@ -15,6 +17,7 @@ is the one platform the runner lives on, and the one `/proc/meminfo` exists on.
 
 from __future__ import annotations
 
+import os
 import re
 import shutil
 import signal
@@ -85,6 +88,36 @@ def short_of_disk(minimum_mb: int, path: Path) -> int | None:
         return None
     measured = disk_mb(path)
     return measured[0] if measured is not None and measured[0] < minimum_mb else None
+
+
+def load() -> tuple[float, int] | None:
+    """(load over the last minute, cores this process may use) — None when unknown.
+
+    The cores are the ones the scheduler lets this process run on, as `nproc`
+    counts them, not every core the machine has: a runner pinned to eight of
+    twenty must not believe it has twenty.
+    """
+    try:
+        minute = os.getloadavg()[0]
+    except (OSError, AttributeError):
+        return None
+    try:
+        cores = len(os.sched_getaffinity(0))
+    except (OSError, AttributeError):
+        cores = os.cpu_count() or 1
+    return minute, max(1, cores)
+
+
+def overloaded(per_core: float) -> tuple[float, int] | None:
+    """(load, cores) when the load is over `per_core` times the cores, else None.
+
+    As `short_of_memory`: zero switches the guard off, and so does a machine
+    that cannot say.
+    """
+    if per_core <= 0:
+        return None
+    measured = load()
+    return measured if measured is not None and measured[0] > per_core * measured[1] else None
 
 
 def _board() -> tuple[str, int]:

@@ -178,7 +178,9 @@ def stage(
     """
     config = here / "config.toml"
     config.write_text(
-        f'[storage]\nmode = "markdown"\npath = "{board}"\n\n[runner]\nauto_update = false\n',
+        # No load guard: a busy machine must not hold the board's tickets back.
+        f'[storage]\nmode = "markdown"\npath = "{board}"\n\n[runner]\nauto_update = false\n'
+        "max_load_per_core = 0\n",
         encoding="utf-8",
     )
     if token is not None:

@@ -236,6 +236,8 @@ class Base(Chapters):
         self._usage_warned = False
         # Same, for the memory guard: see `Board.room_for_a_session`.
         self._memory_warned = False
+        # And for the load guard: see `Reports.room_on_cpu`.
+        self._load_warned = False
         # And for the disk guard, with the time of its last emergency tidy.
         self._disk_warned = False
         self._disk_tidied = 0.0

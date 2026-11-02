@@ -912,12 +912,40 @@ class Reports(Base):
         )
         if free is None:
             self._memory_warned = False
-            return self.room_on_disk()
+            return self.room_on_cpu() and self.room_on_disk()
         if not self._memory_warned:
             self._memory_warned = True
             self.say(
                 self.voice.say(
                     "memory-short", free=free, minimum=self.config.runner.min_free_memory_mb
+                )
+            )
+        return False
+
+    def room_on_cpu(self) -> bool:
+        """Are the cores free enough for one more session? Said once while not.
+
+        The memory guard's twin, for the load over the last minute: above
+        `max_load_per_core` times the cores nothing new is started, the ticket
+        stays in ready, and what is running is left alone. One minute rather
+        than five or fifteen: a pass asks again every few seconds, and a load
+        that has just come down is room now, not in a quarter of an hour.
+        """
+        per_core = self.config.runner.max_load_per_core
+        measured = None if self.dry_run else resources.overloaded(per_core)
+        if measured is None:
+            self._load_warned = False
+            return True
+        if not self._load_warned:
+            self._load_warned = True
+            load, cores = measured
+            self.say(
+                self.voice.say(
+                    "load-high",
+                    load=f"{load:.1f}",
+                    ceiling=f"{per_core * cores:g}",
+                    per_core=f"{per_core:g}",
+                    cores=cores,
                 )
             )
         return False

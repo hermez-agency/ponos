@@ -230,6 +230,7 @@ for reading rather than for filling in.
 | `runner.force_validated_writing`, `runner.force_validated_external` | `false` | the same switch for Writing and External action — which already end in *Done*, so they change nothing today |
 | `runner.relaunch_delay_seconds` | `15` | a session killed from outside (SIGKILL/SIGTERM, or cut by a network outage) is resumed once after this delay if the network answers, the ticket is still in progress and no Stop was asked for meanwhile; killed again, the ticket is blocked as `session.killed` with the exact reason |
 | `runner.min_free_memory_mb` | `2048` | no session is started while less memory than this is available (`MemAvailable`); `0` turns the guard off. `ponos doctor` reports it |
+| `runner.max_load_per_core` | `1.5` | no session is started while the load over the last minute is above this many times the cores (`nproc`) — 30 on 20 cores; the ticket waits in *Ready* and the runner says it once. `0` turns the guard off. `ponos doctor` reports it |
 | `runner.keep_worktree_on_failure` | `true` | keep enough around to understand a failure |
 | `runner.notify` | `true` | one desktop notification per finished ticket, clicked to open its Notion page — `[notify]` carries it to your phone |
 | `runner.auto_update` | `true` | a run keeps the installation on the latest version |
