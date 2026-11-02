@@ -290,8 +290,9 @@ def _board(
                 "notion.tickets",
                 WARN,
                 "Tickets database",
-                "Resolved from “{{reference}}” to the database {{database}}.",
-                params={"reference": reference, "database": space.tickets},
+                "Found by its name, “{{reference}}”.",
+                params={"reference": reference},
+                evidence=space.tickets,
             )
         )
 
@@ -395,8 +396,9 @@ def _workspace(config: config_module.Config, space: workspace_module.Workspace) 
                     "notion.workspace",
                     OK,
                     "Notion workspace",
-                    "“{{page}}” is the database {{database}}.",
-                    params={"page": settings.page(key), "database": resolved},
+                    "“{{page}}” found.",
+                    params={"page": settings.page(key)},
+                    evidence=resolved,
                 )
             )
     return found

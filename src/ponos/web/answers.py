@@ -1935,6 +1935,11 @@ class SetupBoard(Shape):
     state: SetupHealth
     storage: str
     workspace: str
+    """The ID, for the technical detail: `name` is what the page says."""
+    name: str
+    """The workspace's title on Notion, "" when Notion did not say it."""
+    url: str
+    """Where it opens on Notion, "" when Notion did not say it."""
     path: str
     tickets: int | None
     """Null when the board could not be counted."""

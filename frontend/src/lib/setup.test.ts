@@ -46,7 +46,16 @@ test("the account step refuses what the server would", () => {
 const summary: Summary = {
   provider: { state: "ok", provider: "openrouter", stated: "openrouter", account: "", key: "sk-or-…7890", route_sessions: true, said: "" },
   model: { state: "ok", model: "", auto: true, said: "" },
-  board: { state: "ok", storage: "notion", workspace: "abc", path: "", tickets: 12, said: "" },
+  board: {
+    state: "ok",
+    storage: "notion",
+    workspace: "3a8451680af480918afcf0eb9cf70e7b",
+    name: "Master workspace",
+    url: "https://www.notion.so/3a8451680af480918afcf0eb9cf70e7b",
+    path: "",
+    tickets: 12,
+    said: "",
+  },
   github: { state: "missing", account: "", via: "gh", said: "not signed in", command: "gh auth login", create_url: "" },
   projects: { state: "ok", root: "/workspace", repositories: 3, configured: 0 },
   channels: { state: "ok", active: ["telegram"] },
@@ -77,6 +86,22 @@ test("every line of the summary says its state and where it is changed", () => {
   assert.equal(channels.params.names, "Telegram")
   assert.match(environment.value, /^Container/)
   for (const line of lines) assert.ok(line.section, `${line.key} leads to a setting`)
+})
+
+test("a Notion board is said by its name, a link to it, and never by its ID", () => {
+  const board = rows(summary)[3]
+  assert.equal(board.value, "Notion workspace “{{workspace}}” — {{count}} tickets")
+  assert.equal(board.params.workspace, "Master workspace")
+  assert.deepEqual(board.link, {
+    param: "workspace",
+    url: "https://www.notion.so/3a8451680af480918afcf0eb9cf70e7b",
+    title: "3a8451680af480918afcf0eb9cf70e7b",
+  })
+  const nameless = rows({ ...summary, board: { ...summary.board, name: "", url: "" } })[3]
+  assert.equal(nameless.value, "Notion workspace — {{count}} tickets")
+  assert.equal(nameless.link, undefined)
+  for (const line of [board, nameless])
+    assert.ok(!Object.values(line.params).includes(summary.board.workspace), "the ID is no sentence's parameter")
 })
 
 test("a CLI nobody signed in is said as such", () => {
