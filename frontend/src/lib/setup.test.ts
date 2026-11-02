@@ -7,7 +7,7 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
 
-import { accessProblem, demoOutcome, nextStep, rows, stepFrom, stepsFor } from "./setup.ts"
+import { accessProblem, demoOutcome, nextStep, rows, stepFrom, stepStates, stepsFor } from "./setup.ts"
 import type { Summary } from "./types.ts"
 
 test("the language comes first, and a claimed console skips the account", () => {
@@ -68,6 +68,30 @@ const summary: Summary = {
     ],
   },
 }
+
+test("a configured installation opens on its summary, and each step is marked by its lines", () => {
+  const healthy: Summary = {
+    ...summary,
+    github: { ...summary.github, state: "ok", account: "me" },
+    machine: { state: "ok", needs: [] },
+  }
+  assert.equal(stepFrom({ claimed: true }, null, healthy), "summary")
+  assert.equal(stepFrom({ claimed: true }, "github", healthy), "github", "the address still wins")
+  assert.equal(stepFrom({ claimed: true }, null, summary), "language", "something left to do")
+  const marks = stepStates(healthy)
+  assert.deepEqual(
+    stepsFor({ claimed: true }).map((step) => marks[step]),
+    Array(8).fill("ok")
+  )
+  const some = stepStates({ ...healthy, channels: { state: "missing", active: [] } })
+  assert.equal(some.channels, "missing")
+  assert.equal(some.summary, "missing")
+  assert.equal(some.demo, "ok", "the first ticket does not need a channel")
+  const broken = stepStates(summary)
+  assert.equal(broken.github, "missing")
+  assert.equal(broken.demo, "error")
+  assert.equal(broken.summary, "error")
+})
 
 test("every line of the summary says its state and where it is changed", () => {
   const lines = rows(summary)
