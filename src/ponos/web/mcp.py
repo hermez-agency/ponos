@@ -710,7 +710,7 @@ def _task(card: dict[str, Any]) -> dict[str, Any]:
 
 def _goal(api: Api, reference: str) -> dict[str, Any]:
     """The goal a name or an id designates — or a refusal that lists the known ones."""
-    said = api.goals()
+    said = api.goals(fresh=True)
     if not said["configured"]:
         raise ToolError("Cet espace de travail n'a pas de base d'objectifs.")
     wanted = reference.strip()
@@ -888,7 +888,7 @@ def list_ideas(api: Api, project: str = "", status: str = "proposed") -> dict[st
 
 
 def list_goals(api: Api) -> dict[str, Any]:
-    said = api.goals()
+    said = api.goals(fresh=True)
     rows = []
     for goal in said["goals"]:
         # Counted as the console's Goals page counts it: done, out of every

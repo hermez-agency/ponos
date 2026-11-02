@@ -12,7 +12,9 @@ from __future__ import annotations
 import contextlib
 import dataclasses
 import logging
+import threading
 import time
+from collections.abc import Callable
 from typing import Any
 
 from .. import goals as goals_module
@@ -27,6 +29,10 @@ logger = logging.getLogger(__name__)
 
 # The columns `goals.resolve` and `goals.active` read too, under the same names.
 GOAL_COLUMNS = goals_module.GOAL_COLUMNS
+
+# Who reads again behind an answer already given, so that ten pages opened at
+# once start one read, not ten. See `Goals.goals`.
+_BEHIND = threading.Lock()
 
 
 def _active(status: str) -> bool:
@@ -87,7 +93,7 @@ class Goals(Base):
         self._goals_at = time.time()
         return self._goals
 
-    def goals(self) -> dict[str, Any]:
+    def goals(self, fresh: bool = False) -> dict[str, Any]:
         """Every goal, and how far its tickets have gone.
 
         How far is counted, not read: Notion's rollup is not a column `store`
@@ -95,11 +101,22 @@ class Goals(Base):
         lists already say it — their column, and the goal they point at — so
         a goal's progress is the same data the dashboard draws, column by
         column, on either board.
+
+        And answered from what the console holds — the goals last read, the
+        tickets the board brought, the projects' index however old — never
+        from Notion when it holds them: the first opening of the page after a
+        few idle minutes was measured at sixteen seconds, the board read again
+        under it. What is out of date is read again behind the answer, and the
+        page is told on the stream (`goals`) when that changed something.
+        Only an MCP client, which no stream tells, asks `fresh`: what it is
+        given is read there and then.
         """
-        pages = self._goal_pages()
-        # Read here, so the cards that follow name a goal created a minute ago.
-        self._remember_goals(pages)
-        projects = self.projects()
+        pages = self._read_goals() if fresh else self._held_goal_pages()
+        if fresh and not self.reader.synced_at:
+            self._read_board()
+        # The index as the board last read it: the watcher reads it again
+        # with the board, and a project renamed meanwhile is a name late.
+        projects = self._projects if self._projects_at else self.projects()
         counts: dict[str, dict[str, int]] = {}
         serving: dict[str, list[dict[str, str]]] = {}
         for ticket in self._goal_tickets():
@@ -148,6 +165,62 @@ class Goals(Base):
             "storage": self.config.storage.mode,
         }
 
+    def _held_goal_pages(self) -> list[store.Page]:
+        """The goals' pages as last read: read there and then only when none are held.
+
+        Older than the watcher's period, they are still the ones answered, and
+        read again behind — a goal written in Notion reaches the page a moment
+        later. A write from the console lets go of them (`_drop_goals`), so the
+        list it opens next says what was just written.
+        """
+        held: tuple[float, list[store.Page]] | None = getattr(self, "_goal_pages_held", None)
+        if held is None:
+            return self._read_goals()
+        if time.monotonic() - held[0] >= self.config.web.poll_seconds:
+            self._behind("_goals_reading", self._goals_changed)
+        return held[1]
+
+    def _read_goals(self) -> list[store.Page]:
+        pages = self._goal_pages()
+        self._goal_pages_held: tuple[float, list[store.Page]] | None = (time.monotonic(), pages)
+        # Read here, so the cards that follow name a goal created a minute ago.
+        self._remember_goals(pages)
+        return pages
+
+    def _goals_changed(self) -> bool:
+        held: tuple[float, list[store.Page]] | None = getattr(self, "_goal_pages_held", None)
+        before = [page.raw for page in held[1]] if held is not None else None
+        return before != [page.raw for page in self._read_goals()]
+
+    def _drop_goals(self) -> None:
+        """Read the goals again, there and then, next time: one was just written."""
+        self._goal_pages_held = None
+        self._goals_at = 0.0
+
+    def _behind(self, flag: str, work: Callable[[], bool]) -> None:
+        """`work` in a thread of its own, one at a time, and `goals` said when it changed something."""
+        with _BEHIND:
+            if getattr(self, flag, False):
+                return
+            setattr(self, flag, True)
+
+        def run() -> None:
+            try:
+                changed = work()
+            except store.StoreError as error:
+                # What is held stays, and the next answer tries again.
+                logger.warning("goals: the read behind the answer failed: %s", error)
+                return
+            except Exception:
+                logger.exception("goals: the read behind the answer failed")
+                return
+            finally:
+                setattr(self, flag, False)
+            if changed:
+                self.hub.publish("goals")
+
+        threading.Thread(target=run, name="ponos-goals", daemon=True).start()
+
     def _goal_statuses(self) -> list[str]:
         """The options of the goals' status column, as the database spells them.
 
@@ -172,13 +245,14 @@ class Goals(Base):
         own moves still on their way, as the cards wear them: the whole of
         `board` — the journal, the systemd calls of `_hold` — only to count
         columns, at every opening of the list and after every write, was most
-        of what a goal cost. A console that has not read the board yet reads it
-        once, as `board` would.
+        of what a goal cost. A console that has not read the board yet counts
+        nothing, and reads it behind the answer: 1 800 tickets are sixteen
+        seconds of Notion, and the page reads its goals again once they are in.
         """
         settings = self.config.notion
-        pages = self.reader.pages() or self.reader.read(
-            self.runner.client, self.runner.database, settings.prop("status")
-        )
+        pages = self.reader.pages()
+        if not self.reader.synced_at:
+            self._behind("_goal_board_reading", self._read_board)
         names = _columns(settings)
         writes = self.outbox.marks()
         tickets = []
@@ -198,6 +272,12 @@ class Goals(Base):
                 }
             )
         return tickets
+
+    def _read_board(self) -> bool:
+        self.reader.read(
+            self.runner.client, self.runner.database, self.config.notion.prop("status")
+        )
+        return True
 
     def create_goal(self, name: str, values: dict[str, Any]) -> dict[str, Any]:
         """A new row in the Goals database, written with the rest of its form."""
@@ -260,7 +340,7 @@ class Goals(Base):
                 wanted, [str(one).replace("-", "") for one in values["tickets"] or []]
             )
         # The cards name their goal: read the board again, under its new name.
-        self._goals_at = 0.0
+        self._drop_goals()
         self.watch.nudge()
         self.hub.publish("goals", saved=wanted)
         return {"id": wanted, **served}
@@ -301,6 +381,9 @@ class Goals(Base):
             (one for one in self._goal_index() if one.replace("-", "") == goal_id), goal_id
         )
         wanted = set(tickets)
+        # Untying needs every ticket that points here: none held is the board read now.
+        if not self.reader.synced_at:
+            self._read_board()
         pointing = {ticket["id"]: ticket["goal_id"] for ticket in self._goal_tickets()}
         held = {page.id.replace("-", ""): page for page in self.reader.pages()}
         changes = [
@@ -358,7 +441,7 @@ class Goals(Base):
         if row is None:
             raise LookupError(f"no goal with id {wanted}")
         self.runner.client.trash(page_id)
-        self._goals_at = 0.0
+        self._drop_goals()
         self.watch.nudge()
         self.hub.publish("goals", deleted=wanted)
         return {"id": wanted, "name": row["name"]}

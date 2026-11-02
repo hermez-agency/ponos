@@ -534,6 +534,10 @@ the highest priority first. Beside its due date, an active goal whose day is pas
 (« En retard »), and one due within a week **« In n days »** (« Dans n jours ») — *Today* on the
 day itself; a goal reached or given up says neither. It follows the event stream: a goal written in another tab, a ticket tied to one, or a
 ticket of a goal moving to *Done* reads the list again, and the count moves without a reload.
+The list is answered from what the console already holds, so it opens at once: a goal written
+in Notion itself shows a moment later, once the read the console makes behind the answer finds
+it, and a console that has not read its board yet shows the goals first and their counts
+when the board is in.
 
 #### How a goal's tickets are counted
 
