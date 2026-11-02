@@ -413,6 +413,9 @@ export const newGoalHref = () =>
     childViewResource: { resource: goals, resourceAction: ActionList.create },
   })
 
+/** In the address of a goal's form, what opens it on its Tickets field: a card no ticket serves sends there. */
+export const ON_TICKETS = "goal-field=tickets"
+
 /** One goal's page. */
 export const goalHref = (id: string) => generateLinkByResource({ resource: goals, resourceAction: ActionList.read, id })
 

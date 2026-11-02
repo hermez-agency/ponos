@@ -99,8 +99,17 @@ test("the ticket names its goal, and another can be chosen from it", async ({ pa
   await page.getByRole("option", { name: "Aucun objectif" }).click()
   await expect(window_.locator('[data-slot="ticket-goal"]')).toHaveCount(0)
 
+  // A goal no ticket serves says so, and leads to its form on the Tickets field.
   await page.goto(LIST)
-  await expect(page.locator('[data-slot="goals-item"]', { hasText: "Lancer la v2" })).toContainText("0 sur 0 ticket")
+  const card = page.locator('[data-slot="goals-item"]', { hasText: "Lancer la v2" })
+  await expect(card).toContainText("Aucun ticket rattaché")
+  await expect(card.getByRole("progressbar")).toHaveCount(0)
+  await card.getByRole("link", { name: "Nouveau ticket pour cet objectif" }).click()
+  const form = page.getByRole("dialog", { name: "Nouveau ticket" })
+  await expect(form).toContainText("Lancer la v2")
+  await page.goBack()
+  await card.getByRole("link", { name: "Rattacher des tickets" }).click()
+  await expect(page.getByRole("dialog").getByRole("combobox", { name: "Tickets" })).toBeFocused()
 })
 
 test("a ticket of a goal moved elsewhere moves its progress on the open page", async ({ page }) => {

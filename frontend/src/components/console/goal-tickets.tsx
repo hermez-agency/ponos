@@ -1,4 +1,5 @@
 import * as React from "react"
+import { useLocation } from "@tanstack/react-router"
 import { Plus, X } from "lucide-react"
 import { useFormContext, type InputControllerComponentInterface } from "react-data-form"
 
@@ -8,6 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { titleOf, useBoard } from "@/lib/board-store"
 import { ticketsFor } from "@/lib/goal-search"
 import { t, useFrench } from "@/lib/i18n"
+import { ON_TICKETS } from "@/resources/goals"
 
 /* The tickets a goal is tied to: the ones chosen, a line each, and a search
  * to add another.
@@ -35,8 +37,17 @@ export const GoalTicketsInputController: InputControllerComponentInterface = ({ 
     return ticket ? `#${ticket.short} ${titleOf(ticket)}` : id
   }
   const write = (value: string[]) => onChange({ ...formInput, value })
+  const ready = useFrench(words)
+  // Sent here by a card no ticket serves: the field is what the form was opened for.
+  const asked = useLocation({ select: (location) => location.searchStr.includes(ON_TICKETS) })
+  const field = React.useRef<HTMLButtonElement>(null)
+  React.useEffect(() => {
+    if (!asked || !ready) return
+    field.current?.scrollIntoView({ block: "center" })
+    field.current?.focus()
+  }, [asked, ready])
   // Not drawn in English while its French is on the way.
-  if (!useFrench(words)) return null
+  if (!ready) return null
 
   return (
     <div className="flex min-w-0 flex-col gap-2" data-slot="goal-tickets">
@@ -61,6 +72,7 @@ export const GoalTicketsInputController: InputControllerComponentInterface = ({ 
       <Popover open={open} onOpenChange={setOpen} modal>
         <PopoverTrigger asChild>
           <button
+            ref={field}
             type="button"
             id={formInput.id}
             name={formInput.name}

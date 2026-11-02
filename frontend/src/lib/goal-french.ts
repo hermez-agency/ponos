@@ -24,4 +24,8 @@ export const GOAL_FRENCH: Record<string, string> = {
   "Search a ticket...": "Rechercher un ticket…",
   "{{count}} more: narrow the search.": "{{count}} de plus : précisez la recherche.",
   "Finished tickets and other projects too": "Aussi les tickets terminés et ceux des autres projets",
+  // A goal's card, while no ticket serves it.
+  "No ticket tied yet": "Aucun ticket rattaché",
+  "Tie tickets": "Rattacher des tickets",
+  "New ticket for this goal": "Nouveau ticket pour cet objectif",
 }
