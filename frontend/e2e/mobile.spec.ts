@@ -13,7 +13,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test"
 const PHONE = { width: 360, height: 780 }
 
 const PAGES: [string, RegExp][] = [
-  ["Dashboard", /\/\?view=console\/tickets\//],
+  ["Board", /\/\?view=console\/tickets\//],
   ["Projects", /\/\?view=console\/projects\//],
   ["Schedules", /\/\?view=console\/schedules\//],
   ["Ideas", /\/\?view=console\/ideas\//],
@@ -61,10 +61,40 @@ test("each label of the bottom bar is read whole, at 360 and at 390", async ({ p
     await page.setViewportSize({ width, height: PHONE.height })
     await open(page)
     const labels = await bar(page).getByRole("button").locator("span").allTextContents()
-    expect(labels, `the bar's labels at ${width}px`).toEqual(["Dashboard", "Projects", "Ideas", "Sessions", "More"])
+    expect(labels, `the bar's labels at ${width}px`).toEqual(["Board", "Projects", "Ideas", "Sessions", "More"])
     for (const label of await bar(page).getByRole("button").locator("span").all()) {
       const [scroll, client] = await label.evaluate((element) => [element.scrollWidth, element.clientWidth])
       expect(scroll, `${await label.textContent()} is cut at ${width}px`).toBeLessThanOrEqual(client)
+    }
+  }
+})
+
+/* At 375px, in either language, nothing the bar over the page or the bar along
+ * the bottom names is cut: "Tableau de bord" ran past both, and a ticket's
+ * title has no length at all. Every page the audit found one cut on. */
+test("at 375px no label of the two bars is cut, in English or in French", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 })
+  await page.context().addCookies([{ name: "ponos_token", value: "e2e", url: test.info().project.use.baseURL }])
+  for (const [language, first] of [["en", "Board"], ["fr", "Tableau"]]) {
+    await page.addInitScript((code) => localStorage.setItem("ponos-language", code), language)
+    for (const path of [
+      "/",
+      "/?view=console/schedules/list",
+      "/?view=console/tickets/read/00000000000000000000000000000a5c",
+      "/?view=console/settings/read/config/communication",
+    ]) {
+      await page.goto(path)
+      // Read once the language's words are in: French is fetched after the page.
+      await expect(bar(page).getByRole("button").first()).toHaveText(first)
+      const labels = [
+        ...(await bar(page).getByRole("button").locator("span").all()),
+        ...(await page.locator("header").first().locator("a span, nav, nav li, nav li > *").all()),
+      ]
+      for (const label of labels) {
+        if (!(await label.isVisible())) continue
+        const [scroll, client] = await label.evaluate((element) => [element.scrollWidth, element.clientWidth])
+        expect(scroll, `« ${await label.textContent()} » is cut on ${path} in ${language}`).toBeLessThanOrEqual(client)
+      }
     }
   }
 })
