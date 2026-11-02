@@ -11,6 +11,11 @@
  *
  * `info` is a setting said rather than judged — what `ponos doctor` prints in
  * grey. The band lists what is to be fixed, so it leaves it out with the greens.
+ *
+ * Not every error stops a ticket: a messaging channel that does not answer
+ * (`machine.notify`) leaves the runner taking tickets, only its notifications
+ * are lost. The band says so, in amber, rather than "before tickets can run" in
+ * red — a red band over tickets that run is a band one learns to ignore.
  */
 
 import type { HealthCheck, HealthGroup } from "./types.ts"
@@ -31,6 +36,20 @@ export function failing(checks: HealthCheck[]): HealthCheck[] {
         a.index - b.index
     )
     .map(({ check }) => check)
+}
+
+/** The checks that report a channel the notifications go through. */
+const CHANNEL = "machine.notify"
+
+/** Whether a check stops the runner from taking tickets: an error, but not a channel's. */
+export function blocking(check: HealthCheck): boolean {
+  return check.state === "error" && check.code !== CHANNEL
+}
+
+/** The channels whose notifications do not arrive — "Slack" — each named once. */
+export function silent(checks: HealthCheck[]): string[] {
+  const named = checks.filter((check) => check.state === "error" && check.code === CHANNEL)
+  return [...new Set(named.map((check) => check.params.channel ?? ""))]
 }
 
 /** Whether the band is drawn at all: nothing, while everything is green. */

@@ -5,9 +5,10 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { api, why } from "@/lib/api"
-import { failing, fixParams, shown } from "@/lib/health"
+import { blocking, failing, fixParams, shown, silent } from "@/lib/health"
 import type { HealthCheck, HealthReport } from "@/lib/types"
 import { counted, useFrench, useT } from "@/lib/i18n"
+import { count } from "@/lib/numbers"
 import { cn } from "@/lib/utils"
 
 import { ConfirmDialog } from "./confirm-dialog"
@@ -123,9 +124,16 @@ export function HealthBand() {
 
   if (!report || !worded || !shown(report.checks)) return null
   const checks = failing(report.checks)
-  const blocking = checks.filter((one) => one.state === "error").length
-  const errors = blocking > 0
+  const stopping = checks.filter(blocking).length
+  const channels = silent(checks)
+  const errors = stopping > 0
   const Icon = errors ? OctagonAlert : AlertTriangle
+  const lost = count(
+    channels.length,
+    "{{count}} thing to fix: {{channels}} notifications do not arrive",
+    "{{count}} things to fix: {{channels}} notifications do not arrive"
+  )
+  const fixes = checks.filter((one) => one.state === "error").length
 
   return (
     <section className="py-3" data-testid="health-band">
@@ -139,16 +147,17 @@ export function HealthBand() {
             <Icon className={cn("size-4 shrink-0", errors ? "text-destructive" : "text-amber-600")} />
             <span className="min-w-0 truncate text-sm font-medium">
               {/* "Before tickets can run" only when something stops them: a
-                  warning is a ticket that runs, with something to look at. */}
+                  warning is a ticket that runs, with something to look at, and
+                  a channel in error is a notification lost, not a ticket. */}
               {[
                 errors &&
                   counted(
-                    blocking,
+                    stopping,
                     "{{count}} thing to fix before tickets can run",
                     "{{count}} things to fix before tickets can run"
                   ),
-                checks.length > blocking &&
-                  counted(checks.length - blocking, "{{count}} warning", "{{count}} warnings"),
+                channels.length > 0 && t(lost.key, { ...lost.params, channels: channels.join(", ") }),
+                checks.length > fixes && counted(checks.length - fixes, "{{count}} warning", "{{count}} warnings"),
               ]
                 .filter(Boolean)
                 .join(" · ")}
@@ -174,7 +183,7 @@ export function HealthBand() {
 function Problem({ check, onFix }: { check: HealthCheck; onFix: (check: HealthCheck) => Promise<boolean | void> }) {
   const t = useT()
   const [more, setMore] = React.useState(false)
-  const error = check.state === "error"
+  const error = blocking(check)
   const Icon = error ? OctagonAlert : AlertTriangle
   const params = fixParams(check)
   const detailed = Boolean(check.cause || check.steps.length || check.notes.length || check.evidence)

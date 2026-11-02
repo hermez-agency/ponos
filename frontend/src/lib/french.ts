@@ -2555,6 +2555,10 @@ export const FRENCH: Record<string, string> = {
   "Installation status": "État de l'installation",
   "{{count}} thing to fix before tickets can run": "{{count}} point à corriger pour que les tickets partent",
   "{{count}} things to fix before tickets can run": "{{count}} points à corriger pour que les tickets partent",
+  "{{count}} thing to fix: {{channels}} notifications do not arrive":
+    "{{count}} point à corriger : les notifications {{channels}} n'arrivent pas",
+  "{{count}} things to fix: {{channels}} notifications do not arrive":
+    "{{count}} points à corriger : les notifications {{channels}} n'arrivent pas",
   "{{count}} warning": "{{count}} avertissement",
   "{{count}} warnings": "{{count}} avertissements",
   "Recheck": "Revérifier",

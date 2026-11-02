@@ -229,6 +229,17 @@ test("warnings alone never say the tickets are stopped", async ({ page }) => {
   await expect(toggle).not.toContainText("before tickets can run")
 })
 
+test("a channel in error says the notifications are lost, in amber, not that the tickets are stopped", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("ponos-language", "fr"))
+  const slack = check("machine.notify", "error", { params: { channel: "Slack" } })
+  const warned = RED.checks.filter((one) => one.state !== "error")
+  await open(page, [{ ...RED, checks: [slack, ...warned], problems: 1 }])
+  const toggle = page.getByTestId("health-toggle")
+  await expect(toggle).toContainText("1 point à corriger : les notifications Slack n'arrivent pas · 1 avertissement")
+  await expect(toggle).not.toContainText("pour que les tickets partent")
+  await expect(toggle.locator(".text-destructive")).toHaveCount(0)
+})
+
 test("the band shows what the server itself found: a schedule nobody fired, nothing merely said", async ({ page }) => {
   // Not answered here: the console's own checks, on its board of files, whose
   // "Weekly digest" has been due for weeks — what `ponos doctor` used to be
