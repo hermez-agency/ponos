@@ -55,6 +55,15 @@ LONGEST_WAIT = 6 * 3600
 # its balance down. Anything else — a timeout, a crash, a refusal — is a failure
 # and is reported as one.
 _SPENT = re.compile(r"usage limit reached|credit balance is too low", re.IGNORECASE)
+# What Claude Code says when the account it was signed in with is gone: an
+# OAuth sign-in that expired and could not be refreshed. Not a quota — nothing
+# comes back by waiting, somebody has to run `claude login` — so it is a wait of
+# its own, `login`, which `claude auth status` answering signed in again lifts.
+# Read the same way as the two above, on a failure only, and for the
+# subscription only: a key that is refused is a failure like any other.
+_SIGNED_OUT = re.compile(
+    r"failed to authenticate|oauth session expired|oauth token has expired", re.IGNORECASE
+)
 # The timestamp the CLI appends to the first of them, in seconds since the epoch
 # — or in milliseconds, which is the same moment written longer.
 _UNTIL = re.compile(r"limit reached\s*\|\s*(\d{9,})")
@@ -85,6 +94,11 @@ def reached(text: str) -> float:
     return min(until, time.time() + LONGEST_WAIT)
 
 
+def signed_out(text: str) -> bool:
+    """Is this a session that died on a sign-in that is no longer valid?"""
+    return bool(_SIGNED_OUT.search(str(text or "")))
+
+
 # The two waits, and they are not the same wait. `spent` is the wall: the CLI
 # has refused, and no session can run. `reserve` is the line drawn short of it —
 # there is credit left, we are simply not spending the last of it. A pass meets
@@ -109,6 +123,26 @@ def hold(until: float, *, what: str = "spent") -> None:
             )
     except db.ERRORS:
         pass
+
+
+def hold_once(until: float, *, what: str) -> bool:
+    """`hold`, unless that wait is already standing. True when this one wrote it.
+
+    In one transaction, because the sessions of a pass end on their own
+    threads: two that die on the same sentence must not both say it.
+    """
+    try:
+        with db.transaction() as connection:
+            row = connection.execute("SELECT until FROM waits WHERE what = ?", (what,)).fetchone()
+            if row and float(row[0]) > time.time():
+                return False
+            connection.execute(
+                "INSERT OR REPLACE INTO waits (what, until, since) VALUES (?, ?, ?)",
+                (what, float(until), time.time()),
+            )
+            return True
+    except db.ERRORS:
+        return False
 
 
 def held(*, what: str = "spent") -> float:

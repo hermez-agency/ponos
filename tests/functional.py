@@ -52,8 +52,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import support  # noqa: E402
 from support import case, fixture  # noqa: E402
 
-from ponos import config as C  # noqa: E402
 from ponos import (  # noqa: E402
+    base,
     credits,
     db,
     images,
@@ -61,9 +61,11 @@ from ponos import (  # noqa: E402
     local_ci,
     notion,
     project_settings,
+    provider,
     state,
     store,
 )
+from ponos import config as C  # noqa: E402
 from ponos import http as http_module  # noqa: E402
 from ponos.runner import Runner  # noqa: E402
 from ponos.ticket import short_id  # noqa: E402
@@ -544,6 +546,14 @@ import json, os, subprocess, sys, time
 from pathlib import Path
 
 args = sys.argv[1:]
+
+# `claude auth status`, as `provider.cli_login` asks it: signed in, unless
+# `FAKE_CLAUDE_SIGNED_OUT` says the account's sign-in has expired.
+if args[:2] == ["auth", "status"]:
+    print(json.dumps({"loggedIn": not os.environ.get("FAKE_CLAUDE_SIGNED_OUT"),
+                      "authMethod": "claude.ai", "email": "ada@example.com"}))
+    raise SystemExit(0)
+
 # The prompt is never an argument: `--print` reads it from stdin, where the
 # runner always sends it — see session.py.
 prompt = sys.stdin.read()
@@ -663,6 +673,13 @@ if asked:
           "result": "RESULT: blocked — " + asked, "session_id": session,
           "num_turns": 2, "total_cost_usd": spent})
     raise SystemExit(0)
+
+# A sign-in that expired: the session dies at once, free, on this sentence.
+if os.environ.get("FAKE_CLAUDE_SIGNED_OUT"):
+    emit({"type": "result", "subtype": "success", "is_error": True,
+          "result": "Failed to authenticate: OAuth session expired and could not be refreshed",
+          "session_id": session, "num_turns": 0, "total_cost_usd": 0})
+    raise SystemExit(1)
 
 refused = os.environ.get("FAKE_CLAUDE_FAIL", "")
 if refused:
@@ -2585,6 +2602,44 @@ def past_the_daily_limit_nothing_new_is_started_and_the_ready_tickets_wait(machi
     assert machine.status(second) == "Ready", machine.status(second)
     assert results == [], results
     assert credits.held(what="budget") > time.time(), "the wait is written down for the runs after"
+
+
+@case
+@runner_settings(max_concurrent=1)
+def a_claude_signed_out_puts_the_ticket_back_in_ready_and_waits_for_a_login(machine):
+    """An expired sign-in is a quota nobody will refill by waiting: it needs you.
+
+    Read as a session with no answer, it blocked one ticket after the other,
+    each in ten seconds and for nothing. Here the ticket goes back to ready, the
+    runner stops taking any, and your phone is told once to sign in again; the
+    pass that finds `claude auth status` signed in again carries on by itself.
+    """
+    repository = machine.repository("site")
+    project = machine.project("Site", repository)
+    first = machine.ticket("Une tâche", "Fais-la.", project)
+    second = machine.ticket("Une autre tâche", "Fais-la aussi.", project)
+    told: list[str] = []
+    announce = base.Base._announce
+    base.Base._announce = lambda self, title, body: told.append(f"{title} {body}")  # type: ignore[method-assign]
+    try:
+        with _environ({"FAKE_CLAUDE_SIGNED_OUT": "1"}):
+            results = machine.run()
+            assert len(machine.sessions()) == 1, (
+                "another ticket was claimed past the expired sign-in"
+            )
+            assert results[0]["status"] == "waiting", results
+            assert machine.status(first) == "Ready", machine.status(first)
+            assert machine.status(second) == "Ready", machine.status(second)
+            machine.run()
+            assert machine.sessions() == [], "a session was started while signed out"
+        assert len(told) == 1, told
+        assert provider.LOGIN in told[0], told
+        machine.run()
+    finally:
+        base.Base._announce = announce  # type: ignore[method-assign]
+    assert len(machine.sessions()) == 2, "the pass signed in again did not carry on"
+    assert machine.status(first) == "In review", machine.status(first)
+    assert machine.status(second) == "In review", machine.status(second)
 
 
 @case

@@ -816,6 +816,16 @@ class Reports(Base):
         """
         if not self._out_of_credit(outcome):
             return
+        if outcome.signed_out:
+            # Said once, however many sessions die on it: the first wins the
+            # note, and the passes after it start nothing that could die again.
+            if credits.hold_once(outcome.resets_at, what="login"):
+                self.say(f"  ⏸ signed out of Claude — nothing is run until `{provider.LOGIN}`")
+                self._announce(
+                    self.voice.say("signed-out"),
+                    self.voice.say("signed-out-detail", command=provider.LOGIN),
+                )
+            return
         credits.hold(outcome.resets_at)
         when = credits.when(outcome.resets_at)
         self.say(f"  ⏸ out of credit — nothing is run until {when}")
@@ -851,7 +861,13 @@ class Reports(Base):
         """
         said = self.voice
         when = credits.when(outcome.resets_at)
-        self.say(f"    ⏸ {ticket.title} — out of credit, back in “{status}” until {when}")
+        # A sign-in that expired has no hour to give: the ticket waits for one.
+        why = (
+            said.say("signed-out-back", status=status, command=provider.LOGIN)
+            if outcome.signed_out
+            else said.say("credits-out", status=status, when=when)
+        )
+        self.say(f"    ⏸ {ticket.title} — {why}")
         # The session goes with it, because it is what the pass with credit
         # again picks the ticket back up by — and it may not be the one the
         # claim wrote, if the one the claim wrote could not be resumed.
@@ -866,7 +882,7 @@ class Reports(Base):
         self._comment(
             ticket,
             said.report(
-                said.verdict("waiting", said.say("credits-out", status=status, when=when)),
+                said.verdict("waiting", why),
                 note,
             ),
         )
@@ -874,7 +890,9 @@ class Reports(Base):
             "ticket": ticket.title,
             "id": ticket.id,
             "status": "waiting",
-            "reason": f"out of credit until {when}",
+            "reason": "signed out of Claude"
+            if outcome.signed_out
+            else f"out of credit until {when}",
         }
 
     def room_for_a_session(self) -> bool:
@@ -1079,7 +1097,13 @@ class Reports(Base):
         when = credits.when(until or self.under_reserve() or credits.held())
         # The day's limit has its own sentence: "the credit comes back" would be
         # a lie about money that is not missing, only not to be spent.
-        parked_for = "budget-parked" if self.budget_reached() else "credit-parked"
+        parked_for = (
+            "budget-parked"
+            if self.budget_reached()
+            else "login-parked"
+            if credits.held(what="login")
+            else "credit-parked"
+        )
         parked: list[dict[str, Any]] = []
         for ticket in tickets:
             if store.read(ticket.page, flag):
@@ -1117,6 +1141,14 @@ class Reports(Base):
         """
         if not self._waits_for_credits:
             return 0.0
+        # Before the credits, and asked of the CLI rather than of a clock:
+        # nobody knows when you will sign in again, only whether you have.
+        signed_out = credits.held(what="login")
+        if signed_out:
+            if not provider.cli_login().ok:
+                return signed_out
+            credits.release(what="login")
+            self.say("  ▶ signed in to Claude again — carrying on")
         until = credits.held()
         if until:
             return until
