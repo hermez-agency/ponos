@@ -326,3 +326,19 @@ def the_timer_counts_from_its_own_start():
     for directive in ("OnActiveSec=600s", "OnBootSec=600s", "OnUnitActiveSec=600s"):
         assert directive in timer, directive
     assert "@" not in timer, "a placeholder left in the unit"
+
+
+@case
+def the_runner_unit_runs_its_sessions_behind_the_desktop():
+    """Five sessions at nice 0, as equals of the browser they drive, and the
+    desktop stopped answering: the unit `ponos enable` writes sets them back."""
+    previous = os.environ.get("HOME")
+    os.environ["HOME"] = tempfile.mkdtemp()
+    try:
+        units = update.write_units(600, ROOT)
+    finally:
+        os.environ["HOME"] = previous
+    service = (units / "ponos.service").read_text().splitlines()
+    for directive in ("Nice=10", "CPUWeight=20", "IOSchedulingClass=idle", "MemoryHigh=60%"):
+        assert directive in service, directive
+    assert all("@" not in line for line in service if not line.startswith("#")), service

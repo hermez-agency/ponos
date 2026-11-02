@@ -962,16 +962,50 @@ def health_says_a_timer_that_will_never_fire_and_how_often_a_run_comes():
     config = _config("[runner]\ninterval_seconds = 120\nprogress = false\n")
     with (
         _patched(health.shutil, which=lambda name: f"/usr/bin/{name}"),
-        _patched(health.systemd, read=lambda: Timer("enabled", substate="waiting", armed=True)),
+        _patched(
+            health.systemd,
+            read=lambda: Timer("enabled", substate="waiting", armed=True),
+            priority=lambda: {"Nice": "10", "IOSchedulingClass": "3"},
+        ),
     ):
         found = health._runner(config)
     assert _verdicts(found) == [
         ("machine.runner", "info"),
         ("machine.runner", "ok"),
+        ("machine.priority", "ok"),
         ("settings.permissions", "info"),
         ("settings.progress", "info"),
     ], found
     assert found[0].params["interval"] == "120"
+
+
+@case
+def health_says_the_rank_the_sessions_run_at():
+    from ponos import health
+
+    shown = {
+        "Nice": "10",
+        "CPUWeight": "20",
+        "IOSchedulingClass": "3",
+        "MemoryHigh": str(18 * 2**30),
+    }
+    background = health._priority(shown)
+    assert background and background.state == "ok", background
+    assert background.text(background.said) == (
+        "Sessions in the background: nice 10, CPUWeight 20, I/O idle, MemoryHigh 18.0 GB."
+    )
+    former = health._priority(
+        {"Nice": "0", "CPUWeight": "[not set]", "IOSchedulingClass": "2", "MemoryHigh": "infinity"}
+    )
+    assert former and former.state == "warn" and "ponos enable" in former.steps[0], former
+    assert "MemoryHigh infinity" in former.text(former.said)
+    assert health._priority({}) is None, "no systemd, nothing to say"
+    french = _french()
+    for check in (background, former):
+        for sentence in (check.title, check.said, check.cause, *check.steps):
+            assert not sentence or f'"{sentence}"' in french, (
+                f"nothing translates “{sentence}” — add it to health-french.ts"
+            )
 
 
 @case
@@ -1288,7 +1322,11 @@ def _machine(*, healthy: bool = True):
             cli_login=lambda: type("Login", (), {"ok": True, "said": "me@example.com"})(),
         ),
         _patched(health.shutil, which=lambda name: f"/usr/bin/{name}"),
-        _patched(health.systemd, read=lambda: Timer("enabled", substate="waiting", armed=True)),
+        _patched(
+            health.systemd,
+            read=lambda: Timer("enabled", substate="waiting", armed=True),
+            priority=lambda: {"Nice": "10", "IOSchedulingClass": "3"},
+        ),
         _patched(health.github_app, describe=lambda with_repositories=True: []),
         _patched(health.github_token, unavailable=lambda: "", token=lambda: ""),
         _patched(health.update_module, check=lambda **_: same, installed_version=lambda: None),

@@ -69,6 +69,28 @@ What a script, a cron line or a container's healthcheck can read from `$?`:
 | `2` | Nothing was tried: the configuration cannot be read or is unusable (`run`, `status`, `doctor`, `init`, `notify`…), a command line `ponos` does not understand, or a checkout refused because it would write the real state. |
 | `130` | Stopped with Ctrl-C. |
 
+### The runner gives way to your desktop
+
+The sessions are children of the runner's unit, `ponos.service`, and the unit
+puts them in the background: `Nice=10`, `CPUWeight=20` (the desktop's apps keep
+the default 100), `IOSchedulingClass=idle` (they touch the disk when nothing else
+wants it), and `MemoryHigh=60%` — past 60% of the machine's memory, the kernel
+reclaims theirs and slows them down rather than yours. Five sessions at once no
+longer make the browser they share with you crawl; they take longer instead.
+
+`ponos enable` rewrites the unit, and `ponos doctor` reads back what systemd
+applies (*Priority*, under the machine): a unit written before this warns until
+it is rewritten. To give the runner more room, override a line in a drop-in
+rather than in the unit, which `ponos enable` and every update write again:
+
+```ini
+# ~/.config/systemd/user/ponos.service.d/priority.conf
+[Service]
+MemoryHigh=80%
+```
+
+then `systemctl --user daemon-reload`.
+
 ### What `clean` removes, and what it refuses to
 
 A branch is named after its ticket, so it is the same name on every attempt. A

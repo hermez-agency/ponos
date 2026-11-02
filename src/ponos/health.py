@@ -2417,6 +2417,9 @@ def _runner(config: config_module.Config) -> list[Check]:
             )
         )
         found.append(_timer(systemd.read()))
+        priority = _priority(systemd.priority())
+        if priority:
+            found.append(priority)
     found.append(
         _check(
             "settings.permissions",
@@ -2484,6 +2487,42 @@ def _timer(timer: systemd.Timer) -> Check:
         if timer.running
         else "The runner's timer is active.",
         evidence=timer.row,
+    )
+
+
+# `IOSchedulingClass` as `show` writes it: the kernel's number for the class.
+IO_CLASSES = {"0": "none", "1": "realtime", "2": "best-effort", "3": "idle"}
+
+
+def _priority(shown: dict[str, str]) -> Check | None:
+    """The rank the runner's sessions run at, and a warning while it is the desktop's.
+
+    Five sessions at nice 0 shared the machine with the browser they drive, as
+    equals, until the desktop stopped answering. A unit written before
+    `ponos.service.in` lowered them keeps them there until `ponos enable`.
+    """
+    if not shown.get("Nice"):
+        return None
+    memory = shown.get("MemoryHigh", "")
+    params = {
+        "nice": shown["Nice"],
+        "weight": shown.get("CPUWeight", "") or "[not set]",
+        "io": IO_CLASSES.get(shown.get("IOSchedulingClass", ""), "best-effort"),
+        "memory": f"{int(memory) / 2**30:.1f} GB" if memory.isdigit() else memory or "infinity",
+    }
+    said = "nice {{nice}}, CPUWeight {{weight}}, I/O {{io}}, MemoryHigh {{memory}}."
+    if params["nice"] == "0" and params["io"] != "idle":
+        return _check(
+            "machine.priority",
+            WARN,
+            "Priority",
+            "The sessions run at the desktop's priority: " + said,
+            params=params,
+            cause="The runner's unit was written before it ran its sessions in the background.",
+            steps=["In a terminal on this machine, run `ponos enable` to rewrite it."],
+        )
+    return _check(
+        "machine.priority", OK, "Priority", "Sessions in the background: " + said, params=params
     )
 
 

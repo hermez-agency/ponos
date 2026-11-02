@@ -16,6 +16,17 @@ TimeoutStartSec=infinity
 Environment=PATH=@PATH@
 Environment=PYTHONUNBUFFERED=1
 
+# The sessions are children of this unit, and five of them at once took the
+# desktop down with them on 2 November 2026: nice 0, the same rank as the
+# browser they drive. They run in the background instead — a lower CPU weight
+# than the desktop's 100, disk access only when nobody else wants it, and
+# memory reclaimed from them past 60% of the machine's (19.6 GB and 7.4 GB of
+# swap on 24 October, on 30 GB), long before the OOM killer picks a victim.
+Nice=10
+CPUWeight=20
+IOSchedulingClass=idle
+MemoryHigh=60%
+
 # At a ten-second cadence, systemd's own "Starting…/Finished…" pair writes some
 # seventeen thousand lines a day and buries the runs that matter. LogLevelMax
 # drops them — but a service's stdout is journalled at info level too, so
