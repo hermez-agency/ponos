@@ -40,6 +40,9 @@ test("the first connection goes from the account to the summary", async ({ page 
   await page.getByTestId("provider-cli").click()
   await expect(page.getByTestId("provider-cli")).toHaveAttribute("aria-checked", "true")
   await expect(page.getByText("claude auth login").first()).toBeVisible()
+  // Asked at once: installed but signed in as nobody, the sign-in — and a key, for who would rather not.
+  await expect(page.getByRole("status")).toContainText("not signed in")
+  await expect(page.getByRole("button", { name: "Use an Anthropic API key" })).toBeVisible()
   await page.getByRole("button", { name: "Use the CLI" }).click()
   // The e2e `claude` is signed in as nobody: written all the same, and said.
   await expect(page.getByRole("status")).toContainText("claude auth login")

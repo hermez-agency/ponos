@@ -58,6 +58,38 @@ def the_first_connection_writes_the_provider_only_once_it_answers():
 
 
 @case
+def the_cli_step_says_whether_claude_is_installed_then_signed_in():
+    """Missing, the step gives both commands; installed, the sign-in; signed in, a green tick."""
+    import json
+    import subprocess
+
+    from ponos import prerequisites, provider
+    from ponos.web import setup as web_setup
+
+    signed: dict[str, object] = {}
+    original = provider.session.available, provider.subprocess.run
+    try:
+        provider.subprocess.run = lambda *_, **__: subprocess.CompletedProcess(
+            [], 0, json.dumps(signed), ""
+        )
+        provider.session.available = lambda: ""
+        missing = web_setup.claude_login()
+        assert missing["ok"] is False and missing["installed"] is False, missing
+        assert missing["install"] == prerequisites.CLAUDE_INSTALL
+        assert missing["command"] == "claude auth login"
+        provider.session.available = lambda: "/usr/bin/claude"
+        unsigned = web_setup.claude_login()
+        assert unsigned["ok"] is False and unsigned["installed"] is True, unsigned
+        assert unsigned["said"] == "not signed in — claude auth login"
+        signed.update(loggedIn=True, email="me@example.com", subscriptionType="max")
+        ready = web_setup.claude_login()
+        assert ready["ok"] and ready["installed"] and ready["said"] == "me@example.com (max)"
+        answers.ClaudeLogin.model_validate(ready)
+    finally:
+        provider.session.available, provider.subprocess.run = original
+
+
+@case
 def the_test_button_tries_the_key_typed_or_the_one_saved_and_writes_nothing():
     """Trying a key is not saving it: the settings keep their own Save for that."""
     from ponos import provider

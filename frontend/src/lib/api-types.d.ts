@@ -2124,6 +2124,10 @@ export interface components {
             said: string;
             /** @description What to run in a terminal to sign it in. */
             command: string;
+            /** @description Is `claude` on the PATH at all — else `install` comes before `command`. */
+            installed: boolean;
+            /** @description What to run in a terminal to install it. */
+            install: string;
         };
         /** @description What a tidy asked from the console removed, and the room left after it. */
         Cleaned: {
@@ -3100,6 +3104,10 @@ export interface components {
             said: string;
             /** @description For the CLI only: what to run in a terminal to sign it in. */
             command?: string;
+            /** @description For the CLI only: is `claude` on the PATH at all. */
+            installed?: boolean;
+            /** @description For the CLI only: what to run in a terminal to install it. */
+            install?: string;
         };
         Question: {
             ask: string;

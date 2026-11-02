@@ -879,8 +879,12 @@ steps, drawn by the console itself, one write each:
    below.
 3. **Claude provider** — who answers the sessions, in three cards: the CLI signed in as you,
    an Anthropic key, or OpenRouter (see [Who answers the sessions](configuration.md#who-answers-the-sessions)).
-   A key is tried against its provider before it is written; for the CLI the page shows the
-   command to type in a terminal (`claude auth login`) and asks again once you have.
+   A key is tried against its provider before it is written. The CLI is asked the moment its
+   card is chosen, as `ponos doctor` asks it: not installed, the step gives both commands —
+   `curl -fsSL https://claude.ai/install.sh | bash`, then `claude auth login`; installed but
+   not signed in, the second one; signed in, a green tick and the account. *Check again* asks
+   once more after you have typed them, and a link moves to an Anthropic key for whoever would
+   rather not install the CLI.
 4. **Notion** — three gestures, drawn as such. Create the integration (a button opens
    Notion's page for it) and paste its secret: it is asked of Notion before it is written, and
    a refused one says where to copy it again. Then *Add Ponos to your Notion page* — `···` →

@@ -1996,7 +1996,13 @@ export const FRENCH: Record<string, string> = {
   "In a terminal on this machine, sign Claude Code in:":
     "Dans un terminal de cette machine, connectez Claude Code :",
   "Use the CLI": "Utiliser le CLI",
-  "Check the sign-in": "Vérifier la connexion",
+  "Claude Code is not installed in the container. In its terminal — Dokploy's Terminal tab on the service, or `docker compose exec ponos bash` — install it, then sign it in:":
+    "Claude Code n'est pas installé dans le conteneur. Dans son terminal — l'onglet Terminal du service sur Dokploy, ou `docker compose exec ponos bash` —, installez-le, puis connectez-le :",
+  "Claude Code is not installed on this machine. In a terminal, install it, then sign it in:":
+    "Claude Code n'est pas installé sur cette machine. Dans un terminal, installez-le, puis connectez-le :",
+  "Rather not install the CLI? An API key needs nothing on this machine.":
+    "Pas envie d'installer le CLI ? Une clé API ne demande rien sur cette machine.",
+  "Use an Anthropic API key": "Utiliser une clé API Anthropic",
   "Left empty, the key already in the configuration — or in the container's environment — is the one checked.":
     "Laissé vide, c'est la clé déjà dans la configuration — ou dans l'environnement du conteneur — qui est vérifiée.",
   "Run the sessions on OpenRouter": "Faire tourner les sessions sur OpenRouter",
