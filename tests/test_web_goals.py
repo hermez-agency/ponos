@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import threading
+import time
 
 import httpx
 from support import _bare_api, _board, _http_answering, _markdown_api, case
@@ -190,6 +192,8 @@ def a_goal_s_priority_is_read_as_a_score_whatever_its_column_holds():
         goal = api.create_goal("Lancer la v1", {})["id"]
         for cell, score in (("High", 75), ("haute", 50), ("150", 100), ("80", 80)):
             board.update("goals", goal, {"Priorité": cell})
+            # Written outside the console: what the read behind the answer finds.
+            api._drop_goals()
             assert api.goals()["goals"][0]["priority"] == score, (cell, api.goals())
 
 
@@ -318,6 +322,9 @@ def _notion_api(fake: _Notion):
     api.watch = _Watch()
     api._goals, api._goals_at = {}, 0.0
     api.board = lambda max_age=0.0: {"tickets": []}
+    # The board read once, as the watcher would have: nothing is read behind
+    # an answer, on a Notion that is gone once the case is over.
+    api.reader.read(api.runner.client, api.runner.database, api.config.notion.prop("status"))
     return api
 
 
@@ -443,3 +450,77 @@ def a_goal_created_without_a_status_takes_the_one_its_notion_status_column_defau
         # A status cannot be emptied: saying none leaves the one it has.
         api.save_goal(created["id"], {"status": "", "name": "Lancer la v2"})
         assert api.goals()["goals"][0]["status"] == "Atteint"
+
+
+def _serving(fake: _Notion, goal: str) -> str:
+    """A ticket of the board, pointing at this goal."""
+    fake.schemas["tickets"] = {"Name": "title", "Objectif": "relation"}
+    ticket = fake.row("tickets", "un")
+    fake.pages[ticket]["properties"]["Objectif"] = {"type": "relation", "relation": [{"id": goal}]}
+    return ticket
+
+
+@case
+def the_goals_are_answered_from_what_the_console_holds_without_asking_notion():
+    """Sixteen seconds measured for the goals page opened after a few idle minutes.
+
+    The board held and the goals read once, the next answer asks Notion
+    nothing — the tickets' database least of all. Past the watcher's period it
+    is still the one given, at once, and the goals are read again behind it:
+    what that finds reaches the page on the stream.
+    """
+    fake = _Notion(_GOALS_SCHEMA)
+    asked: list[str] = []
+
+    def counted(request: httpx.Request) -> httpx.Response:
+        asked.append(f"{request.method} {request.url.path.split('/v1', 1)[-1]}")
+        return fake(request)
+
+    with _http_answering(counted):
+        api = _notion_api(fake)
+        goal = api.create_goal("Lancer la v1", {})["id"]
+        _serving(fake, goal)
+        api.reader.read(api.runner.client, api.runner.database, "Status")
+        api.goals()
+        asked.clear()
+        row = api.goals()["goals"][0]
+        assert asked == [], asked
+        assert row["tickets"] == {"draft": 1}, row
+
+        channel = api.hub.subscribe()
+        fake.row("goals", "Ranger")  # written in Notion meanwhile
+        read_at, pages = api._goal_pages_held
+        api._goal_pages_held = (read_at - api.config.web.poll_seconds, pages)
+        assert [row["name"] for row in api.goals()["goals"]] == ["Lancer la v1"]
+        assert channel.get(timeout=10).kind == "goals"
+        assert asked == ["POST /databases/goals/query"], "the goals, and not the board"
+        names = sorted(row["name"] for row in api.goals()["goals"])
+        assert names == ["Lancer la v1", "Ranger"], names
+
+
+@case
+def a_console_that_holds_no_ticket_answers_its_goals_and_counts_them_behind():
+    """1 800 tickets are sixteen seconds of Notion: the page is not kept waiting for them."""
+    fake = _Notion(_GOALS_SCHEMA)
+    gate = threading.Event()
+
+    def held_back(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/databases/tickets/query") and not gate.is_set():
+            gate.wait(10)
+        return fake(request)
+
+    with _http_answering(held_back):
+        gate.set()
+        api = _notion_api(fake)
+        gate.clear()
+        api._reader = None  # a console that has not read its board yet
+        goal = api.create_goal("Lancer la v1", {})["id"]
+        _serving(fake, goal)
+        channel = api.hub.subscribe()
+        started = time.monotonic()
+        row = api.goals()["goals"][0]
+        assert time.monotonic() - started < 2, "the board is not waited for"
+        assert row["tickets"] == {}, row
+        gate.set()
+        assert channel.get(timeout=10).kind == "goals"
+        assert api.goals()["goals"][0]["tickets"] == {"draft": 1}
