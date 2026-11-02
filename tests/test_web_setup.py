@@ -267,3 +267,41 @@ def a_fresh_container_is_sent_to_the_steps_until_they_have_been_gone_through():
         assert not web_setup.pending()
     with _state_home(), _environment(PONOS_CONTAINER=None):
         assert not web_setup.pending(), "a machine installed with install.sh is not sent there"
+
+
+@case
+def the_summary_names_a_notion_board_by_its_title_and_links_to_it():
+    """Thirty-two hexadecimal characters say nothing to whoever reads the summary."""
+    from types import SimpleNamespace
+
+    from ponos.web import setup as web_setup
+
+    workspace = "3a8451680af480918afcf0eb9cf70e7b"
+
+    class Answering(notion.Client):
+        def __init__(self, answer: dict | Exception) -> None:
+            super().__init__("ntn_setup")
+            self.answer = answer
+
+        def resolve_database(self, identifier: str) -> str:
+            return identifier
+
+        def database(self, database_id: str) -> dict:
+            if isinstance(self.answer, Exception):
+                raise self.answer
+            return self.answer
+
+    def titled(client: object) -> dict[str, str]:
+        api = SimpleNamespace(runner=SimpleNamespace(client=client))
+        return web_setup._titled(api, workspace)  # type: ignore[arg-type]
+
+    answered = {
+        "title": [{"plain_text": "Master "}, {"plain_text": "workspace"}],
+        "url": f"https://www.notion.so/{workspace}",
+    }
+    assert titled(Answering(answered)) == {
+        "name": "Master workspace",
+        "url": f"https://www.notion.so/{workspace}",
+    }
+    assert titled(Answering(notion.NotionError("object not found"))) == {}, "no name, no failure"
+    assert titled(object()) == {}, "a board that is not Notion has no title to read"

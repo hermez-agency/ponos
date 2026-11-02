@@ -2138,9 +2138,12 @@ export const FRENCH: Record<string, string> = {
   "{{name}} — {{key}}, sessions still on the CLI":
     "{{name}} — {{key}}, sessions toujours sur le CLI",
   "Markdown board in {{path}}": "Tableau Markdown dans {{path}}",
-  "Notion workspace {{workspace}}": "Espace Notion {{workspace}}",
-  "Notion workspace {{workspace}} — {{count}} ticket": "Espace Notion {{workspace}} — {{count}} ticket",
-  "Notion workspace {{workspace}} — {{count}} tickets": "Espace Notion {{workspace}} — {{count}} tickets",
+  "Notion workspace “{{workspace}}”": "Espace Notion « {{workspace}} »",
+  "Notion workspace “{{workspace}}” — {{count}} ticket": "Espace Notion « {{workspace}} » — {{count}} ticket",
+  "Notion workspace “{{workspace}}” — {{count}} tickets": "Espace Notion « {{workspace}} » — {{count}} tickets",
+  "A Notion workspace": "Un espace Notion",
+  "Notion workspace — {{count}} ticket": "Espace Notion — {{count}} ticket",
+  "Notion workspace — {{count}} tickets": "Espace Notion — {{count}} tickets",
   "No board yet": "Pas encore de tableau",
   "{{model}} by default, chosen per ticket by the rules":
     "{{model}} par défaut, choisi par ticket selon les règles",

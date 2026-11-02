@@ -1658,6 +1658,24 @@ const ROW_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   environment: Terminal,
 }
 
+/** A line's sentence, its linked parameter drawn as a link where the translation put it. */
+function RowValue({ row }: { row: Row }) {
+  const t = useT()
+  const { link } = row
+  if (!link) return <>{t(row.value, row.params)}</>
+  const mark = "\u0000"
+  const [before, after = ""] = t(row.value, { ...row.params, [link.param]: mark }).split(mark)
+  return (
+    <>
+      {before}
+      <a href={link.url} target="_blank" rel="noreferrer" title={link.title} className="underline underline-offset-2">
+        {row.params[link.param]}
+      </a>
+      {after}
+    </>
+  )
+}
+
 /** The installation at a glance, as a record: one line per field, its state, and where it changes. */
 export function SetupSummary({ change }: { change: (row: Row) => React.ReactNode }) {
   const t = useT()
@@ -1694,7 +1712,9 @@ export function SetupSummary({ change }: { change: (row: Row) => React.ReactNode
             <Icon className="text-muted-foreground mt-0.5 size-4" />
             <dt className="text-sm font-medium">{t(row.label)}</dt>
             <dd className="col-start-2 min-w-0 text-sm sm:col-start-3 sm:row-start-1">
-              <span className="break-words">{t(row.value, row.params)}</span>
+              <span className="break-words">
+                <RowValue row={row} />
+              </span>
               {row.said ? (
                 <span className="text-muted-foreground block text-xs break-words">{row.said}</span>
               ) : null}

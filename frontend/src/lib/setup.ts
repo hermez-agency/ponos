@@ -49,6 +49,8 @@ export interface Row {
   step: StepKey
   /** The section of the settings that changes it. */
   section: string
+  /** The parameter drawn as a link, where it leads, and the ID it stands for. */
+  link?: { param: string; url: string; title: string }
 }
 
 /** The steps this console still has: the account is gone once it is claimed. */
@@ -98,6 +100,20 @@ function withCount(said: Counted, params: Record<string, string>): Pick<Row, "va
   return { value: said.key, params: { ...params, ...said.params } }
 }
 
+/** A Notion board by its name — never by its ID, which says nothing and leads nowhere. */
+function notionBoard(name: string, tickets: number | null): Pick<Row, "value" | "params"> {
+  if (tickets === null)
+    return name
+      ? { value: "Notion workspace “{{workspace}}”", params: { workspace: name } }
+      : { value: "A Notion workspace", params: {} }
+  return name
+    ? withCount(
+        count(tickets, "Notion workspace “{{workspace}}” — {{count}} ticket", "Notion workspace “{{workspace}}” — {{count}} tickets"),
+        { workspace: name }
+      )
+    : withCount(count(tickets, "Notion workspace — {{count}} ticket", "Notion workspace — {{count}} tickets"), {})
+}
+
 /** The summary, one line per thing that has to work. */
 export function rows(summary: Summary): Row[] {
   const { provider, model, board, github, projects, channels, environment, machine } = summary
@@ -120,16 +136,7 @@ export function rows(summary: Summary): Row[] {
     board.storage === "markdown"
       ? { value: "Markdown board in {{path}}", params: { path: board.path } }
       : board.workspace
-        ? board.tickets === null
-          ? { value: "Notion workspace {{workspace}}", params: { workspace: board.workspace } }
-          : withCount(
-              count(
-                board.tickets,
-                "Notion workspace {{workspace}} — {{count}} ticket",
-                "Notion workspace {{workspace}} — {{count}} tickets"
-              ),
-              { workspace: board.workspace }
-            )
+        ? notionBoard(board.name, board.tickets)
         : { value: "No board yet", params: {} }
 
   const lacking = machine.needs.filter((need) => !need.ok)
@@ -177,6 +184,10 @@ export function rows(summary: Summary): Row[] {
       said: board.said,
       step: "notion",
       section: board.storage === "markdown" ? "storage" : "notion",
+      link:
+        board.storage !== "markdown" && board.name && board.url
+          ? { param: "workspace", url: board.url, title: board.workspace }
+          : undefined,
     },
     {
       key: "github",

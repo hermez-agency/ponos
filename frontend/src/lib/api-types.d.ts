@@ -3489,7 +3489,12 @@ export interface components {
             /** @enum {string} */
             state: "ok" | "missing" | "error";
             storage: string;
+            /** @description The ID, for the technical detail: `name` is what the page says. */
             workspace: string;
+            /** @description The workspace's title on Notion, "" when Notion did not say it. */
+            name: string;
+            /** @description Where it opens on Notion, "" when Notion did not say it. */
+            url: string;
             path: string;
             /** @description Null when the board could not be counted. */
             tickets: number | null;

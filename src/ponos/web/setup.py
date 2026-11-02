@@ -611,6 +611,8 @@ def _board(api: Api) -> dict[str, Any]:
         "state": "ok",
         "storage": configuration.storage.mode,
         "workspace": configuration.notion.workspace or configuration.notion.tickets_database,
+        "name": "",
+        "url": "",
         "path": str(configuration.storage.path) if configuration.storage.markdown else "",
         "tickets": None,
         "said": "",
@@ -624,7 +626,33 @@ def _board(api: Api) -> dict[str, Any]:
     except Exception as error:  # the summary says it, it does not fail on it
         logger.exception("setup: the board could not be read", extra=log.FILE_ONLY)
         return {**drawn, "state": "error", "said": str(error).splitlines()[0]}
+    if configuration.storage.notion and drawn["workspace"]:
+        drawn.update(_titled(api, drawn["workspace"]))
     return drawn
+
+
+def _titled(api: Api, identifier: str) -> dict[str, str]:
+    """The workspace's name and link, as Notion shows them.
+
+    Thirty-two hexadecimal characters say nothing to whoever reads the summary,
+    and cannot be clicked: the name can, and the ID stays behind it. A board the
+    tickets were just counted on answers this too — what it does not answer
+    leaves the line without a name, not in error.
+    """
+    from ..sync import Mirror
+
+    client: object = api.runner.client
+    if isinstance(client, Mirror):
+        client = client.primary
+    if not isinstance(client, notion.Client):
+        return {}
+    try:
+        database = client.database(client.resolve_database(identifier))
+    except Exception:  # the line goes without a name, it does not fail on it
+        logger.exception("setup: the workspace's name could not be read", extra=log.FILE_ONLY)
+        return {}
+    title = "".join(part.get("plain_text", "") for part in database.get("title") or [])
+    return {"name": title.strip(), "url": str(database.get("url") or "")}
 
 
 def summary(api: Api) -> dict[str, Any]:
