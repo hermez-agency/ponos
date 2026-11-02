@@ -122,6 +122,8 @@ export const HEALTH_FRENCH: Record<string, string> = {
   "Install the GitHub App on your account, and choose the repositories.": "Installez l'App GitHub sur votre compte, et choisissez les dépôts.",
   "No GitHub App is connected and `gh` is not installed.": "Aucune App GitHub n'est connectée et `gh` n'est pas installé.",
   "Pull requests are opened with a GitHub App or with the `gh` command.": "Les pull requests s'ouvrent avec une App GitHub ou avec la commande `gh`.",
+  "GitHub is not connected: no pull request can be opened until it is.": "GitHub n'est pas connecté : aucune pull request ne peut s'ouvrir tant qu'il ne l'est pas.",
+  "No project of the board has a repository: writing, external and publishing tickets do without GitHub.": "Aucun projet du board n'a de dépôt : les tickets de rédaction, d'action externe et de publication se passent de GitHub.",
   "Connect a GitHub App from Settings › GitHub, or install `gh` and run `gh auth login`.": "Connectez une App GitHub depuis Réglages › GitHub, ou installez `gh` et lancez `gh auth login`.",
   "`gh` is signed in.": "`gh` est connecté.",
   "`gh` is not signed in.": "`gh` n'est pas connecté.",

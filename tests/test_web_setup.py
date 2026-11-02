@@ -305,3 +305,29 @@ def the_summary_names_a_notion_board_by_its_title_and_links_to_it():
     }
     assert titled(Answering(notion.NotionError("object not found"))) == {}, "no name, no failure"
     assert titled(object()) == {}, "a board that is not Notion has no title to read"
+
+
+@case
+def the_summary_does_not_count_gh_among_what_this_machine_lacks():
+    """gh is optional, and the GitHub line already says whether it answers."""
+    from ponos import prerequisites
+    from ponos.web import setup as web_setup
+
+    def lacking(*missing: str) -> dict:
+        needs = [
+            prerequisites.Need(name, name not in missing, name != "gh", "")
+            for name in ("git", "gh", "claude", "disk")
+        ]
+        original = prerequisites.check
+        prerequisites.check = lambda state, minimum: needs  # type: ignore[assignment]
+        try:
+            return web_setup._machine(0)
+        finally:
+            prerequisites.check = original  # type: ignore[assignment]
+
+    alone = lacking("gh")
+    assert alone["state"] == "ok"
+    assert "gh" not in [need["name"] for need in alone["needs"]]
+    with_claude = lacking("gh", "claude")
+    assert with_claude["state"] == "error"
+    assert [need["name"] for need in with_claude["needs"] if not need["ok"]] == ["claude"]
