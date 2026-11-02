@@ -221,6 +221,21 @@ def _remember(name: str, changes: dict[str, Any]) -> None:
         pass
 
 
+def news(name: str, error: str) -> bool:
+    """Whether `error` — "" once the channel reads again — is not what it last said.
+
+    Kept on disk with the cursor, because every pass is a process of its own: a
+    channel that cannot be read is the same channel every ten seconds, and that
+    one line, written at each of them, was 95 % of ponos.log and pushed the
+    rest out of its rotation. Said when it starts, when it changes, and when it
+    stops.
+    """
+    if _memory().get(name, {}).get("error", "") == error:
+        return False
+    _remember(name, {"error": error})
+    return True
+
+
 # -- a channel ---------------------------------------------------------------
 
 

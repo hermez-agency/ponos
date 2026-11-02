@@ -1012,7 +1012,9 @@ chat = ""
 #      secrets.env or the environment
 #   4. /invite @your-bot in the channel — the step everyone forgets
 # `channel` is the channel ID: in Slack, ··· → View channel details, at the
-# bottom of the panel.
+# bottom of the panel. Its name ("infra" or "#infra") works too, with the
+# channels:read scope (groups:read for a private one): looked up once, its ID
+# remembered.
 [notify.slack]
 channel = ""
 # Who may answer, by Slack member id (profile → ··· → Copy member ID, "U…").
