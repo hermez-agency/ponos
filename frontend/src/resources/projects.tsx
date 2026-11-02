@@ -2,6 +2,7 @@ import * as React from "react"
 import { Check, Clock, Columns2, Copy, FileText, Folder, FolderGit2, LayoutGrid, Plus, SearchX, X } from "lucide-react"
 import {
   ActionList,
+  useFormContext,
   type FormInterface,
   type InputControllerComponentInterface,
 } from "react-data-form"
@@ -45,10 +46,11 @@ import { Button, buttonVariants } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api } from "@/lib/api"
 import { copy } from "@/lib/copy"
-import { useTicketTallies, type Tally } from "@/lib/board-store"
+import { boardOnce, currentTallies, useTicketTallies, type Tally } from "@/lib/board-store"
 import { counted, t, useT } from "@/lib/i18n"
 import { repositoryName, shortPath } from "@/lib/places"
 import { KINDS, filtering, keeps } from "@/lib/project-search"
+import { SORTS, directionOf, naturalDirection, ordered, sortOf } from "@/lib/project-sort"
 import { carrying, layoutOf, useLayoutInTheAddress } from "@/lib/resource-view"
 import { useRoute } from "@/lib/router"
 import type { Project, Projects } from "@/lib/types"
@@ -190,7 +192,7 @@ function readAgain(): Promise<Projects> {
  * holds rather than asked of the server with the list. The list is drawn as
  * soon as it is read; until the first board arrives, the count is a skeleton
  * in its place. */
-const NONE: Tally = { count: 0, ready: 0, running: 0, review: 0, edited: "" }
+const NONE: Tally = { count: 0, ready: 0, running: 0, review: 0, created: "", edited: "" }
 
 export function useTally(name: string): Tally | null {
   const tallies = useTicketTallies()
@@ -233,7 +235,7 @@ function markCreated(id: string) {
 }
 
 /** The list, the project just created first. */
-const createdFirst = (rows: Project[]) => {
+const createdFirst = <T extends Project>(rows: T[]) => {
   const first = rows.find((project) => project.id === created)
   return first ? [first, ...rows.filter((project) => project !== first)] : rows
 }
@@ -635,6 +637,18 @@ export function LastActivity({ project }: { project: ProjectItem }) {
   )
 }
 
+/** When its latest ticket was created, in the words a card has room for. */
+export function LastTicket({ project, className, bare = false }: { project: ProjectItem; className?: string; bare?: boolean }) {
+  const created = useTally(project.name)?.created ?? ""
+  const said = created ? ago(created) : ""
+  if (!said) return null
+  return (
+    <span className={cn("text-muted-foreground text-xs whitespace-nowrap", className)} title={created}>
+      {bare ? said : t("Last ticket {{when}}", { when: said })}
+    </span>
+  )
+}
+
 /** What the hover and the keyboard's focus look like on a link that is a whole card or row. */
 const REACHABLE =
   "outline-none transition-colors focus-visible:ring-ring/50 focus-visible:ring-[3px] focus-visible:border-ring"
@@ -712,6 +726,7 @@ function ProjectCard({ project, onDeleted }: { project: ProjectItem; onDeleted: 
         </div>
 
         <Whereabouts project={project} />
+        <LastTicket project={project} className="-mt-1.5" />
 
         <div className="mt-auto flex min-w-0 items-center justify-between gap-3 border-t pt-3">
           <TicketTally project={project} />
@@ -744,7 +759,7 @@ function ProjectCards({ rows = [] }: ListComponentPropsInterface) {
 
 /** The columns of a row, shared by the heading and every row so they line up. */
 const COLUMNS =
-  "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 px-4 md:grid-cols-[minmax(0,2fr)_6rem_minmax(0,1.5fr)_minmax(0,1.5fr)_7rem]"
+  "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 px-4 md:grid-cols-[minmax(0,2fr)_6rem_minmax(0,1.5fr)_minmax(0,1.5fr)_6.5rem_7rem]"
 
 /* The table layout: to compare projects rather than to look at them. Each row
  * is a link too, for the same reasons as a card — which a `<table>` cannot
@@ -759,6 +774,7 @@ function ProjectRows({ rows = [] }: ListComponentPropsInterface) {
           <span className="hidden md:block">{t("Type")}</span>
           <span className="hidden md:block">{t("Repository")}</span>
           <span className="hidden md:block">{t("On this machine")}</span>
+          <span className="hidden md:block">{t("Last ticket")}</span>
           <span className="text-right">{t("Tickets")}</span>
         </div>
         <ul>
@@ -792,6 +808,9 @@ function ProjectRows({ rows = [] }: ListComponentPropsInterface) {
                     title={project.where || undefined}
                   >
                     {project.where ? shortPath(project.where) : "—"}
+                  </span>
+                  <span className="hidden md:block">
+                    <LastTicket project={project} bare />
                   </span>
                   <span className="text-right">
                     <TicketTally project={project} withStatuses={false} />
@@ -1130,6 +1149,53 @@ const TypeFilter: InputControllerComponentInterface = ({ formInput, onChange }) 
   )
 }
 
+/* How the list is ordered, in two of the same buttons: by what, and which way.
+ * Both rest on "" — the default order — and say their choice even there, as an
+ * order is always one. The direction rests on the key's own, so a new key never
+ * opens on a direction nobody asked for. */
+const SORT_LABEL: Record<(typeof SORTS)[number], string> = {
+  created: "Last ticket created",
+  name: "Name",
+  count: "Number of tickets",
+  running: "Tickets running",
+}
+
+const SortFilter: InputControllerComponentInterface = ({ formInput, onChange }) => {
+  const t = useT()
+  return (
+    <FilterSelect
+      label={t("Sort by")}
+      data-slot="projects-sort-filter"
+      value={sortOf({ sort: formInput.value })}
+      resting="created"
+      always
+      onChange={(value) => onChange({ ...formInput, value: value === "created" || !value ? "" : value })}
+      options={SORTS.map((sort) => ({ value: sort, label: t(SORT_LABEL[sort]) }))}
+    />
+  )
+}
+
+const DirectionFilter: InputControllerComponentInterface = ({ formInput, onChange }) => {
+  const t = useT()
+  const { form } = useFormContext()
+  const sort = sortOf({ sort: form.data?.sort })
+  const natural = naturalDirection(sort)
+  return (
+    <FilterSelect
+      label={t("Direction")}
+      data-slot="projects-direction-filter"
+      value={directionOf({ sort, dir: formInput.value })}
+      resting={natural}
+      always
+      onChange={(value) => onChange({ ...formInput, value: value === natural ? "" : value })}
+      options={[
+        { value: "desc", label: t("Descending") },
+        { value: "asc", label: t("Ascending") },
+      ]}
+    />
+  )
+}
+
 const formFilter: FormInterface = {
   components: { formInputs: listFilters({ lead: "q", grow: true }) },
   inputs: {
@@ -1140,6 +1206,8 @@ const formFilter: FormInterface = {
       },
     },
     type: { label: "Type", controller: TypeFilter },
+    sort: { label: "Sort by", controller: SortFilter },
+    dir: { label: "Direction", controller: DirectionFilter },
   },
 }
 
@@ -1154,12 +1222,24 @@ export const projects = createViewResource<ProjectItem, ProjectWrite>(PROJECTS, 
   repository: {
     getCollection: async (filter) => {
       const read = await readAgain()
+      // The order reads the tickets' dates, which the board holds: waited for
+      // once, and a board that cannot be read leaves every project without one.
+      await boardOnce().catch(() => undefined)
+      const tallies = currentTallies()
+      const items = read.projects
+        .map((project) => projectItem(project))
+        .filter((row) => keeps(row, filter))
+      const placed = ordered(
+        items.map((item) => {
+          const tally = tallies?.get(item.name)
+          return { item, name: item.name, created: tally?.created ?? "", count: tally?.count ?? 0, running: tally?.running ?? 0 }
+        }),
+        filter
+      ).map((one) => one.item)
       return {
         data: createResourceCollection({
           id: "/api/projects",
-          items: createdFirst(read.projects)
-            .map((project) => projectItem(project))
-            .filter((row) => keeps(row, filter)),
+          items: createdFirst(placed),
         }),
       } as never
     },
