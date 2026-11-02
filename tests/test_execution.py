@@ -352,6 +352,66 @@ def a_session_is_halted_only_when_it_stopped_and_somebody_asked(state_home):
     assert said == ["    ■ p-ticket — ended on request (pause)"]
 
 
+def _killed_then(runner, during) -> tuple[session.Outcome, list[Path]]:
+    """A session killed by a signal, and `during` done in the pause before its relaunch."""
+    from ponos import journal
+
+    started: list[Path] = []
+    runner._session = lambda job, text, log, *rest: started.append(log) or _outcome()
+    paused = execution.time.sleep
+    execution.time.sleep = lambda seconds: during()
+    try:
+        with _Network():
+            outcome = runner._relaunch(
+                runner.job,
+                "text",
+                Path("/logs/x.jsonl"),
+                "",
+                None,
+                journal.Run(None),
+                _outcome(ok=False, code=-9, resulted=False),
+                "signal SIGKILL",
+            )
+    finally:
+        execution.time.sleep = paused
+    return outcome, started
+
+
+@case
+def a_killed_session_whose_ticket_is_cancelled_in_the_pause_is_not_tried_again(state_home):
+    runner, page, _ = _runner({"cancelled": "Cancelled"})
+    runner.job = job = _job(code=True, page=page)
+
+    def cancel() -> None:
+        # Moved on the board, under the page this run holds: Notion's copy, not ours.
+        runner.client._pages = [_reviewed("p-ticket", "Cancelled", None)]
+
+    outcome, started = _killed_then(runner, cancel)
+    assert started == [], "no session -again for a ticket somebody gave up on"
+    assert outcome.killed == "signal SIGKILL" and not outcome.ok
+    with _git_answering(remove_worktree=lambda repo, path: None):
+        runner._code_stopped(job, outcome)
+    assert [values for _, values in runner.client.written if "Status" in values] == [], (
+        "the ticket stays cancelled"
+    )
+
+
+@case
+def a_killed_session_asked_to_stop_in_the_pause_is_not_tried_again(state_home):
+    runner, page, said = _runner()
+    runner.job = job = _job(page=page)
+    outcome, started = _killed_then(runner, lambda: stopping.request(job.ticket.id, "abandon"))
+    assert started == [], "the Stop came before the relaunch: there is none"
+    assert runner._halted(job, outcome) is not None, "ended as the console's Stop ends it"
+    assert stopping._file(job.ticket.id, "done").exists()
+    stopping.clear(job.ticket.id)  # the console's, once it has the ticket
+
+    runner, page, _ = _runner()
+    runner.job = _job(page=page)
+    outcome, started = _killed_then(runner, lambda: None)
+    assert len(started) == 1 and started[0].name == "x-again.jsonl", "nobody let go: tried again"
+
+
 # -- a code ticket that did not get there -----------------------------------------
 
 

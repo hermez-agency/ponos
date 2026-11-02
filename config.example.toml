@@ -394,7 +394,8 @@ timeout_minutes = 30
 
 # A session killed from outside — SIGKILL (exit 137), SIGTERM (143), or cut off
 # while the network was down — is carried on once with `--resume`, this many
-# seconds later, and only if the network answers. Killed again, the ticket is
+# seconds later, and only if the network answers, the ticket is still in
+# progress and nobody asked the console to stop it meanwhile. Killed again, the ticket is
 # blocked as `session.killed` with the reason: the signal, the kernel's OOM line
 # when `journalctl -k` or `dmesg` has one, or the network.
 relaunch_delay_seconds = 15

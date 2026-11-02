@@ -635,7 +635,7 @@ def a_death_by_signal_is_told_from_a_failure_and_named():
 
 
 @case
-def a_relaunched_session_adds_up_what_both_tries_cost():
+def a_relaunched_session_adds_up_what_both_tries_cost(state_home):
     """The killed try was paid for too: its price is not overwritten by the second's."""
     from types import SimpleNamespace
 
@@ -668,7 +668,11 @@ def a_relaunched_session_adds_up_what_both_tries_cost():
         seconds=60.0,
     )
     runner._session = lambda *arguments: again
-    job = SimpleNamespace(session_id="s", resume=False)
+    job = SimpleNamespace(
+        session_id="s",
+        resume=False,
+        ticket=ticket_module.Ticket(_reviewed("p-ticket", "In progress", None)),
+    )
     original = resources.reachable, session.exists
     try:
         resources.reachable = lambda: True
