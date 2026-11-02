@@ -667,6 +667,53 @@ def a_schedule_deleted_from_the_console_goes_to_the_trash_and_is_no_longer_read(
 
 
 @case
+def the_schedules_are_answered_from_what_the_console_holds_and_read_again_behind():
+    """Nineteen seconds at the first opening, 350 ms at every other, for two rows.
+
+    The rows held are answered without asking Notion; older than the watcher's
+    period, they are read again behind the answer, and the page told on the
+    stream when that changed something. A write lets go of them.
+    """
+    api = _bare_api(_TalkClient([]))
+    api._runner = _recurring([_schedule_page("s-1")])
+    api._config = api._runner.config
+    api.projects = lambda: {"projects": []}
+    client = api._runner.client
+    asked: list[str] = []
+    query = client.query
+
+    def counted(database_id, filter_=None):
+        asked.append(database_id)
+        return query(database_id, filter_)
+
+    client.query = counted
+    assert [row["id"] for row in api.schedules()["schedules"]] == ["s1"]
+    assert [row["id"] for row in api.schedules()["schedules"]] == ["s1"]
+    assert asked == ["db-schedules"], "the second answer is the rows held"
+    assert api.schedule("s-1")["id"] == "s1" and asked == ["db-schedules"]
+
+    # Written in Notion meanwhile, and the watcher's period gone by.
+    channel = api.hub.subscribe()
+    client._pages = [*client._pages, _schedule_page("s-2", name="Le rapport")]
+    read_at, *rest = api._schedules_held
+    api._schedules_held = (read_at - api.config.web.poll_seconds, *rest)
+    assert [row["id"] for row in api.schedules()["schedules"]] == ["s1"], "not waited for"
+    event = channel.get(timeout=10)
+    assert (event.kind, event.payload) == ("schedules", {"read": True})
+    assert [row["id"] for row in api.schedules()["schedules"]] == ["s1", "s2"]
+
+    # A row the list does not hold yet is read for, rather than said missing.
+    client._pages = [*client._pages, _schedule_page("s-3", name="Le bilan")]
+    assert api.schedule("s-3")["name"] == "Le bilan"
+
+    # A write from the console: the next list says what was just written.
+    asked.clear()
+    api.save_schedule("s-1", {"at": "07:30"})
+    api.schedules()
+    assert asked == ["db-schedules"], asked
+
+
+@case
 def the_console_never_shows_a_next_occurrence_already_behind_us():
     """`Next` is the pass's bookmark; the list says when a ticket is born.
 

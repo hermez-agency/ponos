@@ -405,6 +405,9 @@ around: `Active` is the only cell you can type in, so **unticking a row in the l
 it**, without deleting anything and without opening a form. *Calendar* is for the only
 question a schedule really answers — when the next one lands: the occurrences are laid out
 by day, week or month, and clicking one opens what it will make.
+The list is answered from the rows the console already holds — read once when `ponos serve`
+starts — so it opens at once: a schedule written in Notion itself shows a moment later, once
+the read the console makes behind the answer finds it, and the page reads its list again then.
 
 *Split*, the layout the page opens on, is the projects' two columns: the schedules on the
 left — rule, switch, next run, project, a badge when something is wrong — and on the right

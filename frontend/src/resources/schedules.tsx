@@ -1121,6 +1121,14 @@ const options: ResourceDefinition<ScheduleItem, ScheduleWrite> = {
 
 export const schedules = createViewResource<ScheduleItem, ScheduleWrite>(SCHEDULES, options)
 
+/* The rows the server answered from were read again behind the page — a row
+ * written in Notion, the ticket an occurrence just made — and something
+ * changed: the stream says `schedules`, and every list of them reads again,
+ * said the way the package says it after a form. */
+window.addEventListener("ponos:schedules", () => {
+  schedules.onChange.publish({ data: {} as ScheduleItem, action: ActionList.update })
+})
+
 /* The same schedules under a project's tab, as the tickets and the ideas have
  * theirs: this declaration, kept to the project's (see `ProjectSchedules`),
  * with a bar that has no project to choose and an empty line that speaks of

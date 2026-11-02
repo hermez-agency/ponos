@@ -82,6 +82,9 @@ def serve_never_prints_the_token_it_is_opened_with(state_home):
         def __init__(self, config: C.Config) -> None:
             self.upgrade = self.planned = self.watch = Watched()
 
+        def hold_schedules(self) -> None:
+            pass
+
     class Console:
         server_address = ("127.0.0.1", 8787)
 
