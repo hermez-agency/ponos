@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 
-from support import _board_runner, _github, _in_progress, _ready, _reviewed, case
+from support import ROOT, _board_runner, _github, _in_progress, _ready, _reviewed, case
 
 from ponos import config as C
 from ponos import credits, notion, projects, state, store, workspace
@@ -170,6 +170,24 @@ def generated_files_are_declared_in_a_toml_file_and_read_as_globs():
     assert not rules.covers("src/ponos/web/console.py")
     for broken in ("", "generated = [", 'generated = "dist/**"\nbuild = 3\n'):
         assert generated.parse(broken) == generated.Rules(), broken
+
+
+@case
+def this_repository_regenerates_its_api_types_with_its_bundle_on_a_replay():
+    """`api-types.d.ts` follows `web/answers.py` as the bundle follows `frontend/`.
+
+    A route merged on `main` under a pull request that is replayed on top left
+    the types of the branch behind the schema, and the CI refused it by
+    construction: they are generated, and built before the bundle that reads them.
+    """
+    from ponos import generated
+
+    rules = generated.parse((ROOT / ".ponos.toml").read_text(encoding="utf-8"))
+    assert rules.covers("frontend/src/lib/api-types.d.ts"), rules.paths
+    assert rules.covers("src/ponos/web/static/index.html"), rules.paths
+    steps = [step.strip() for step in rules.build.split("&&")]
+    assert "npm run types" in steps, rules.build
+    assert steps.index("npm ci") < steps.index("npm run types") < steps.index("npm run build")
 
 
 @case
