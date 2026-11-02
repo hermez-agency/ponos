@@ -105,7 +105,8 @@ def _added(first: session.Outcome, then: session.Outcome) -> session.Outcome:
 # that did not do its work — see `_done_elsewhere`.
 _ELSEWHERE = re.compile(
     r"\b(?:dokploy|coolify|vercel|netlify|cloudflare|hostinger|ovh|registrar|dns|"
-    r"notion|slack|telegram|linkedin|browser|navigateur|chrome|dashboard|"
+    r"notion|master tickets|slack|telegram|linkedin|google|search console|"
+    r"browser|navigateur|chrome|dashboard|"
     r"tableau de bord|traefik|en prod(?:uction)?|in production|prod|"
     r"(?:re)?deploy(?:ed|ment)?|(?:re)?d[ée]ploy[ée]e?s?|(?:re)?d[ée]ploiement|"
     r"environment variables?|variables? d'environnement|env vars?)\b",
@@ -125,6 +126,27 @@ _CODE_CLAIM = re.compile(
 def _done_elsewhere(answer: str) -> bool:
     """Does this report describe work done outside the repository, and only there?"""
     return bool(_ELSEWHERE.search(answer or "")) and not _CODE_CLAIM.search(answer or "")
+
+
+# What a verdict says when there was nothing to commit because the change is
+# already made: on main, by a pull request or a commit it names — or because the
+# ticket's work was other pull requests, rebased, fixed and merged on their own
+# branches. Read on the RESULT line only: the report above it cites the files it
+# checked as its evidence, and `_CODE_CLAIM` would take each for a change.
+_SETTLED = re.compile(
+    r"\b(?:rien à changer|aucun changement|aucun correctif[^.;\n]{0,30}? nécessaire|"
+    r"pas de PR|nothing to change|no changes? (?:needed|required)|no PR)\b"
+    r"|\b(?:déjà|already)\b[^.;\n]{0,40}?"
+    r"\b(?:corrig|répar|fusionn|en place|correct|sur main|fixed|merged|in place|on main)"
+    r"|(?:#\d+|\b[0-9a-f]{7,40}\b)[^;\n]{0,160}?\b(?:fusionn|merged)"
+    r"|\b(?:fusionn|merged)\w*\b[^;\n]{0,160}?(?:#\d+|\b[0-9a-f]{7,40}\b)",
+    re.IGNORECASE,
+)
+
+
+def _settled(summary: str) -> bool:
+    """Does this verdict name what made the change needless, or the PRs it went to?"""
+    return bool(_SETTLED.search(summary or "")) and not _CODE_CLAIM.search(summary or "")
 
 
 def _report(answer: str) -> str:
@@ -858,6 +880,20 @@ class Execution(Base):
                 outcome,
                 _report(outcome.answer) or outcome.summary,
                 note=said.say("done-elsewhere"),
+            )
+        if not dirty and _settled(outcome.summary):
+            # Nothing to commit because the change was already made — on main,
+            # by the pull request the verdict names — or went to other pull
+            # requests. Its report is what it delivers, in review: whether the
+            # ticket is closed by it is yours to say.
+            git.remove_worktree(project.path, job.workdir)
+            self.say("    · nothing committed, the change was already made — sent to review")
+            return self._deliver_text(
+                job,
+                outcome,
+                _report(outcome.answer) or outcome.summary,
+                review=True,
+                note=said.say("already-settled"),
             )
         if not dirty:
             git.remove_worktree(project.path, job.workdir)

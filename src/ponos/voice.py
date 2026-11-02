@@ -548,6 +548,12 @@ _SAID: dict[str, dict[str, str]] = {
         "fr": "Aucun commit : le travail a été fait hors du dépôt, et son compte rendu est "
         "dans la page.",
     },
+    "already-settled": {
+        "en": "Nothing committed: the change was already made, on main or in the pull "
+        "requests the report names — to read before closing the ticket.",
+        "fr": "Aucun commit : le changement était déjà fait, sur main ou dans les PR que nomme "
+        "le compte rendu — à relire avant de clore le ticket.",
+    },
     "push-refused": {
         "en": "the commits are there, but pushing them was refused",
         "fr": "les commits sont là, mais leur push a été refusé",

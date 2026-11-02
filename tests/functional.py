@@ -713,7 +713,7 @@ if silent:
 # and the report says where it went — `FAKE_CLAUDE_ELSEWHERE` is that report.
 elsewhere = os.environ.get("FAKE_CLAUDE_ELSEWHERE", "")
 if elsewhere and (here / ".git").exists():
-    finish(elsewhere + "\\nRESULT: ok — fait hors du dépôt")
+    finish(elsewhere if "RESULT:" in elsewhere else elsewhere + "\\nRESULT: ok — fait hors du dépôt")
 
 # A code ticket that changed a file and committed nothing.
 if os.environ.get("FAKE_CLAUDE_DIRTY") and (here / ".git").exists():
@@ -2445,6 +2445,27 @@ def an_external_action_that_commits_nothing_is_done_with_its_report(machine):
     assert report in machine.board.body(coded), machine.board.body(coded)
     assert "RESULT:" not in machine.board.body(coded), "the verdict is the status"
     assert not machine.pull_requests(), "nothing to review"
+    assert not machine.worktrees(repository), machine.worktrees(repository)
+
+
+@case
+def a_code_ticket_already_settled_on_main_is_sent_to_review_with_its_report(machine):
+    """Nothing to commit, because a pull request the verdict names made the change."""
+    repository = machine.repository("site")
+    project = machine.project("Site", repository)
+    ticket = machine.ticket("Corriger les clés i18n", "Deux clés manquent.", project)
+    report = (
+        "Je n'ai rien changé : le commit `327a1c6` a ajouté les deux clés dans "
+        "`src/i18n/translationKeys.ts`.\nRESULT: ok — Aucun changement : les deux clés "
+        "sont déjà corrigées sur main par #63."
+    )
+    with _environ({"FAKE_CLAUDE_ELSEWHERE": report}):
+        results = machine.run()
+
+    assert [(result["id"], result["status"]) for result in results] == [(ticket, "done")], results
+    assert machine.status(ticket) == "In review", machine.status(ticket)
+    assert "327a1c6" in machine.board.body(ticket), machine.board.body(ticket)
+    assert not machine.pull_requests(), "nothing to merge"
     assert not machine.worktrees(repository), machine.worktrees(repository)
 
 
