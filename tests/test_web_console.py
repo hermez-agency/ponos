@@ -7,6 +7,7 @@ import io
 import json
 import os
 import re
+import select
 import sys
 import tempfile
 import threading
@@ -120,18 +121,19 @@ def a_command_that_runs_too_long_takes_what_it_started_with_it():
     assert events[-1] == ("command", {"stage": "ended", "code": events[-1][1]["code"]})
     assert events[-1][1]["code"] != 0
     assert any("stopped after" in said.get("text", "") for _, said in events), events
-    # SIGKILL is delivered, not instantaneous: the child may still be scheduled
-    # for a moment after the group's leader was reaped.
-    deadline = time.monotonic() + 5
-    while True:
-        try:
-            stat = Path(f"/proc/{child}/stat").read_text()
-        except OSError:
-            return  # gone entirely
-        if stat.split(")")[-1].split()[0] in ("Z", "X") or time.monotonic() > deadline:
-            break
-        time.sleep(0.05)
-    assert stat.split(")")[-1].split()[0] in ("Z", "X"), f"the child is still running: {stat}"
+    # SIGKILL is delivered, not instantaneous: on a loaded machine the child may
+    # take seconds to be scheduled and die. A pidfd turns readable the moment it
+    # has, whatever the load; the bound only keeps a child that was never
+    # killed from outliving it — its `sleep 60` is still running past 25s more.
+    try:
+        handle = os.pidfd_open(child)
+    except ProcessLookupError:
+        return  # gone entirely
+    try:
+        ended = select.select([handle], [], [], 25)[0]
+    finally:
+        os.close(handle)
+    assert ended, f"the child is still running: {Path(f'/proc/{child}/stat').read_text()}"
 
 
 @case
@@ -530,7 +532,8 @@ def _halting(chat, exists: bool = True):
     def run(prompt, **rest):
         calls.append(rest)
         chat.prompts.append(prompt)
-        if rest["stop"].wait(5):
+        # Long past any load: a turn of these cases ends on the Stop they press.
+        if rest["stop"].wait(60):
             return session.Outcome(
                 False,
                 False,
@@ -550,12 +553,22 @@ def _halting(chat, exists: bool = True):
     return calls
 
 
-def _settled(chat) -> None:
-    for _ in range(300):
-        if not chat.busy:
-            return
+def _until(condition, what: str, seconds: float = 60) -> None:
+    """Wait for a state the case can see, not for a length of time.
+
+    A turn ends on a thread of its own, after a commit to `ponos.db`: on a busy
+    machine that is seconds, not the hundredths it takes here. The bound is
+    only there for a case that would never get there to fail rather than hang.
+    """
+    deadline = time.monotonic() + seconds
+    while not condition():
+        if time.monotonic() > deadline:
+            raise AssertionError(what)
         time.sleep(0.01)
-    raise AssertionError("the turn never ended")
+
+
+def _settled(chat) -> None:
+    _until(lambda: not chat.busy, "the turn never ended")
 
 
 @case
@@ -859,10 +872,7 @@ def a_stop_holds_the_queue_until_it_is_sent_or_thrown_away():
             released = chat.release()
             assert released["queue"] == [] and released["held"] is False
             # The released turn starts in its own thread: wait for its prompt.
-            for _ in range(300):
-                if len(chat.prompts) == 2:
-                    break
-                time.sleep(0.01)
+            _until(lambda: len(chat.prompts) == 2, "the released message was never sent")
             assert chat.prompts[-1].endswith("and the tests")
             chat.stop()
             _settled(chat)
