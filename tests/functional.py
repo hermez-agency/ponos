@@ -2435,6 +2435,36 @@ def a_session_that_stops_without_its_report_is_asked_for_it_once(machine):
     assert len(machine.sessions()) == 1, "not picked up a second time"
 
 
+@case
+def a_writing_ticket_blocked_on_a_question_is_not_said_to_have_written_nothing(machine):
+    """A Rédaction session that stops on its question is a question for you.
+
+    `session.no-answer` is kept for the one that wrote neither ANSWER.md nor a
+    question: the two used to share it, and the board's « Blocage » column, and
+    the counts by cause, could not tell a question from a silence.
+    """
+    machine.typed()
+    machine.board.databases[machine.database]["properties"] = {
+        **machine.board.databases[machine.database]["properties"],
+        "Blocage": {"type": "select", "select": {"options": []}},
+    }
+    project = machine.project("Lettre d'information", None)
+    asking = machine.ticket("L'édito", "Deux paragraphes.", project)
+    machine.board.pages[asking]["properties"]["Type"] = _stored({"select": {"name": "Rédaction"}})
+    asked = "Ton ou vous ?\nCATEGORY: question\nQUESTION: Tutoyer ou vouvoyer ?\nMODE: free"
+    with _environ({"FAKE_CLAUDE_BLOCK": asked}):
+        results = machine.run()
+    assert results[0]["status"] == "blocked", results
+    assert machine.board.value(asking, "Blocage") == "session.question"
+
+    silent = machine.ticket("Le sommaire", "Trois titres.", project)
+    machine.board.pages[silent]["properties"]["Type"] = _stored({"select": {"name": "Rédaction"}})
+    with _environ({"FAKE_CLAUDE_SILENT": "always"}):
+        results = machine.run()
+    assert results[0]["status"] == "blocked", results
+    assert machine.board.value(silent, "Blocage") == "session.no-answer"
+
+
 def _budget(machine: Bench, **limits: float) -> None:
     """The installation's `[budget]`, written into its configuration."""
     with open(machine.config, "a", encoding="utf-8") as handle:
