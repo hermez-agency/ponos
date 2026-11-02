@@ -8,7 +8,7 @@ The `ponos` command, from a terminal.
 
 ```sh
 ponos init <url>   # build (or complete) the Notion board under a page
-ponos init <url> --token <token>  # the same, saving the Notion token (--no-demo: no demonstration ticket)
+ponos init <url> --token -  # the same, saving the Notion token read from stdin or asked unechoed (--no-demo: no demonstration ticket)
 ponos config       # open config.toml in your editor
 ponos list         # the ready tickets, and their project
 ponos run          # one run, right now

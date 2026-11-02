@@ -95,8 +95,14 @@ itself access, so it is the one step no command can take for you.
 ### 3. Let the runner build the rest
 
 ```sh
-ponos init https://www.notion.so/your-page --token ntn_…
+ponos init https://www.notion.so/your-page --token -
 ```
+
+`--token -` asks for the token without showing it — or reads it from a pipe
+(`pass show notion | ponos init <url> --token -`) — so it stays out of the shell's
+history and of `ps`; a bare `ponos init <url>` asks too, in a terminal, when none is
+saved yet, and `PONOS_NOTION_TOKEN` in the environment is taken as given.
+`--token ntn_…` still works, history and all.
 
 It creates everything under that page and writes the result into your configuration —
 the token into `secrets.env`, the workspace into `config.toml`:
