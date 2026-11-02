@@ -493,6 +493,9 @@ export const FRENCH: Record<string, string> = {
   "Try again": "Réessayer",
   "Back to the board": "Retour au tableau",
   "The server gave no reason.": "Le serveur n'a pas donné de raison.",
+  "This ticket could not be found.": "Ce ticket est introuvable.",
+  "This ticket does not exist, or Ponos has no access to it (the Notion integration must be added to the page).":
+    "Ce ticket n'existe pas, ou Ponos n'y a pas accès (l'intégration Notion doit être ajoutée à la page).",
   "A ticket needs a title.": "Un ticket a besoin d'un titre.",
   "Remove the banner from the dashboard": "Retirer le bandeau du tableau de bord",
   "Earlier columns": "Colonnes précédentes",
@@ -2858,6 +2861,8 @@ export const FRENCH: Record<string, string> = {
   "unknown type “{{kind}}”": "Type inconnu : « {{kind}} ».",
   "unknown sub-type “{{subtype}}”": "Sous-type inconnu : « {{subtype}} ».",
   "this schedule is already being launched": "Cette récurrence est déjà en train d'être lancée.",
+  "no ticket with id {{id}}":
+    "Ce ticket n'existe pas, ou Ponos n'y a pas accès (l'intégration Notion doit être ajoutée à la page).",
   "no project with id {{id}}": "Aucun projet ne porte l'identifiant {{id}}.",
   "this workspace has no projects database": "Cet espace de travail n'a pas de base de projets.",
   "this brief changed in the board since it was opened":

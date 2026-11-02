@@ -394,6 +394,11 @@ class Tickets(Base):
         try:
             page = self.runner.client.page(page_id)
             content = self._brief(page_id, page, started)
+        except store.Missing as error:
+            # Deleted, or never shared with the integration: the board's own
+            # words name both, in English, and belong in the journal.
+            logger.warning("%s: no such ticket: %s", page_id, error)
+            raise LookupError(f"no ticket with id {page_id}") from error
         except store.StoreError:
             self.forget()
             raise

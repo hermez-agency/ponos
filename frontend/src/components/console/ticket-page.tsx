@@ -8,7 +8,7 @@ import { Button, buttonVariants } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useConsole, useSteps } from "@/hooks/use-console"
-import { why } from "@/lib/api"
+import { ApiError, why } from "@/lib/api"
 import { copy } from "@/lib/copy"
 import { type DecisionTab, actionOf } from "@/lib/decision"
 import { useT } from "@/lib/i18n"
@@ -146,6 +146,23 @@ export function TicketPage() {
             />
           </TicketTabContext.Provider>
         </>
+      ) : context.loadError instanceof ApiError && context.loadError.status === 404 ? (
+        // Not there, or not shown to the integration: asking again changes
+        // nothing, and what the board said is in the journal.
+        <EmptyState
+          robot="error"
+          title={t("This ticket could not be found.")}
+          action={
+            <Link to={back} className={buttonVariants({ variant: "ghost", size: "sm" })}>
+              <ArrowLeft />
+              {t("Back to the board")}
+            </Link>
+          }
+        >
+          {t(
+            "This ticket does not exist, or Ponos has no access to it (the Notion integration must be added to the page)."
+          )}
+        </EmptyState>
       ) : context.error ? (
         // Why, as the server said it, and the two ways on from here: a
         // board that did not answer often answers the second time.

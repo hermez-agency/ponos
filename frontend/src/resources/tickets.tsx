@@ -71,7 +71,7 @@ import {
 } from "@/components/console/ticket-search"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { api } from "@/lib/api"
+import { ApiError, api } from "@/lib/api"
 import {
   addTicket,
   boardOnce,
@@ -108,7 +108,8 @@ export const TICKETS = "tickets"
  * times. The read is kept, promise and all, for as long as the page is open:
  * asked again for the same ticket it is the same read, unless the board says
  * the ticket was edited since. Leaving the page lets go of it, so the next
- * opening reads a brief changed in Notion. */
+ * opening reads a brief changed in Notion. A ticket the board does not have
+ * stays not had: asking again would only fetch the same 404. */
 let held: { id: string; edited: string; read: Promise<TicketDetail> } | null = null
 let letGo: ReturnType<typeof setTimeout> | undefined
 
@@ -121,9 +122,9 @@ export function readTicket(id: string, edited = ""): Promise<TicketDetail> {
       (detail) => {
         if (!reading.edited) reading.edited = detail.edited
       },
-      () => {
+      (error) => {
         // A failed read is not kept: "Try again" has to try.
-        if (held === reading) held = null
+        if (held === reading && !(error instanceof ApiError && error.status === 404)) held = null
       }
     )
   }
