@@ -30,6 +30,7 @@ import importlib.util
 import json
 import os
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -581,6 +582,16 @@ if held:
         if os.path.exists(held):
             break
         time.sleep(0.1)
+
+
+# What the Bash tool does with every command it runs: a session of its own, out
+# of the CLI's process group — a `pnpm dev` started that way is not in the group
+# the runner kills. `FAKE_CLAUDE_DETACH` is where its pid is written.
+detached = os.environ.get("FAKE_CLAUDE_DETACH", "")
+if detached:
+    server = subprocess.Popen(["setsid", "sleep", "600"], stdin=subprocess.DEVNULL,
+                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    Path(detached).write_text(str(server.pid))
 
 
 def emit(event):
@@ -1302,6 +1313,7 @@ def bench(**overrides: object):
                 "FAKE_CLAUDE_ELSEWHERE": "",
                 "FAKE_CLAUDE_DIRTY": "",
                 "FAKE_CLAUDE_SUBTYPE": "",
+                "FAKE_CLAUDE_DETACH": "",
                 "FAKE_GH_REFUSE": "",
                 "FAKE_GH_CHECKS": "",
                 "FAKE_GH_ANNOTATION": "",
@@ -1503,6 +1515,45 @@ def a_code_ticket_comes_back_as_a_pull_request(machine):
     ], steps
     assert "git commit" in steps[1]["detail"], steps[1]
     db.close()
+
+
+@case
+def a_server_the_bash_tool_started_in_its_own_session_does_not_outlive_the_session(machine):
+    """`setsid sleep 600` from the worktree, then the session ends: the sleep goes too.
+
+    Each command of Claude Code's Bash tool opens a session of its own, so the
+    group the runner kills at the end of a session does not hold a Vitest, a
+    Playwright or a `pnpm dev` it started. What still ties them to the ticket is
+    the directory they run in.
+    """
+    pidfile = machine.root / "detached.pid"
+    repository = machine.repository("site")
+    project = machine.project("Site", repository)
+    machine.ticket("Lancer le serveur", "Lance le serveur de dev.", project)
+
+    with _environ({"FAKE_CLAUDE_DETACH": str(pidfile)}):
+        results = machine.run()
+
+    assert results and results[0]["status"] == "done", results
+    pid = int(pidfile.read_text())
+    deadline = time.monotonic() + 10
+    while _running(pid) and time.monotonic() < deadline:
+        time.sleep(0.1)
+    try:
+        assert not _running(pid), "a process the session started from its worktree survived it"
+    finally:
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except OSError:
+            pass
+
+
+def _running(pid: int) -> bool:
+    """Whether `pid` is alive — a zombie, already ended, is not."""
+    try:
+        return Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[0] != "Z"
+    except OSError:
+        return False
 
 
 @case

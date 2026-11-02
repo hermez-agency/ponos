@@ -247,6 +247,7 @@ def run(
             # Whatever the way out — a result, a timeout, a Stop, an exception —
             # nothing the session started stays behind it.
             reap(process)
+            leftovers.stop_processes(cwd)
             leftovers.sweep(cwd)
     # Written by the CLI itself, so masked once it has let go of it.
     vault.scrub(stderr_path)
