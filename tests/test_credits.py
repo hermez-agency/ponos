@@ -59,6 +59,27 @@ def an_exhausted_quota_is_told_apart_from_every_other_failure():
 
 
 @case
+def an_expired_sign_in_is_read_apart_from_an_exhausted_quota():
+    """Nothing comes back by waiting for it: it is not a reset, it is a login."""
+    said = "Failed to authenticate: OAuth session expired and could not be refreshed"
+    assert credits.signed_out(said)
+    assert credits.reached(said) == 0.0, "no moment to wait for"
+    assert not credits.signed_out("Claude AI usage limit reached|1758031200")
+    assert not credits.signed_out("claude exited with code 1")
+    assert not credits.signed_out("")
+
+
+@case
+def a_wait_held_once_is_written_by_the_first_only(state_home):
+    """Two sessions dying on the same sentence must not both tell your phone."""
+    assert credits.hold_once(time.time() + 300, what="login")
+    assert not credits.hold_once(time.time() + 300, what="login")
+    assert credits.held(what="login") > time.time()
+    credits.release(what="login")
+    assert credits.hold_once(time.time() + 300, what="login"), "a lifted wait can be held again"
+
+
+@case
 def a_wait_outlives_the_run_that_wrote_it(state_home):
     """A run is a process the timer starts: what it learned only travels on disk."""
     assert credits.held() == 0.0, "nothing waited for until something says so"

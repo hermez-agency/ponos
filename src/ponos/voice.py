@@ -265,6 +265,10 @@ _SAID: dict[str, dict[str, str]] = {
         "en": "out of credit, back in “{status}” until {when}",
         "fr": "crédits épuisés, retour dans « {status} » jusqu'à {when}",
     },
+    "signed-out-back": {
+        "en": "Claude is signed out, back in “{status}” until `{command}`",
+        "fr": "Claude est déconnecté, retour dans « {status} » jusqu'à `{command}`",
+    },
     "abandoned": {
         "en": "nobody was working on it any more, {minutes} after the last trace",
         "fr": "plus personne ne s'en occupait, {minutes} après la dernière trace",
@@ -920,6 +924,10 @@ _SAID: dict[str, dict[str, str]] = {
         "fr": "rien n'a été lancé pour lui, et rien ne cloche de son côté : "
         "le crédit revient à {when}",
     },
+    "login-parked": {
+        "en": "nothing was started for it, and nothing is wrong with it: Claude is signed out",
+        "fr": "rien n'a été lancé pour lui, et rien ne cloche de son côté : Claude est déconnecté",
+    },
     # -- a run that died in the middle ---------------------------------------
     "abandoned-requeued": {
         "en": "I am picking it up again from the start.",
@@ -1028,6 +1036,11 @@ _SAID: dict[str, dict[str, str]] = {
     # -- about the runner itself, wherever you are reachable ------------------
     "out-of-credit": {"en": "Ponos is out of credit", "fr": "Ponos n'a plus de crédit"},
     "out-of-credit-detail": {"en": "Back to work at {when}.", "fr": "Retour au travail à {when}."},
+    "signed-out": {"en": "Ponos is signed out of Claude", "fr": "Ponos est déconnecté de Claude"},
+    "signed-out-detail": {
+        "en": "Sign Claude in again ({command}): work resumes by itself.",
+        "fr": "Reconnecte Claude ({command}) : le travail reprend tout seul.",
+    },
     "credit-again": {"en": "Ponos has credit again", "fr": "Ponos a de nouveau du crédit"},
     "credit-again-detail": {
         "en": "{used}% of the subscription spent — back to work.",

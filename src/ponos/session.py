@@ -55,6 +55,10 @@ class Outcome:
     # since the epoch. See credits.py, and what the runner does with it.
     exhausted: bool = False
     resets_at: float = 0.0
+    # Of those, the one whose wait no clock ends: the CLI's sign-in expired.
+    # `exhausted` too, so that the ticket goes back where it came from; what
+    # lifts the wait is a sign-in, not `resets_at`.
+    signed_out: bool = False
     # Ended by whoever started it, on purpose: not a failure, and not an answer.
     # `answer` is what it had said by then; the conversation is still on disk.
     stopped: bool = False
@@ -415,13 +419,18 @@ def _outcome(
     blocked = over_budget or _verdict(answer) == "blocked"
     error = ""
     resets_at = 0.0
+    signed_out = False
     if failed:
         tail = _tail(stderr_path)
         error = answer[-800:] or tail or f"claude exited with code {code}"
         # Read on a failure only: a session that *talks* about usage limits must
         # not put the runner to sleep. And out of both the answer and stderr,
         # because the CLI says it in whichever of the two it was writing to.
-        resets_at = credits.reached(f"{answer}\n{tail}")
+        said = f"{answer}\n{tail}"
+        signed_out = credits.signed_out(said)
+        # As far off as any wait may be: a sign-in is what ends this one, and
+        # the moment is only there for a runner that never hears of one.
+        resets_at = time.time() + credits.LONGEST_WAIT if signed_out else credits.reached(said)
 
     return Outcome(
         ok=not failed and not blocked,
@@ -435,6 +444,7 @@ def _outcome(
         turns=int(final.get("num_turns") or 0),
         seconds=seconds,
         exhausted=bool(resets_at),
+        signed_out=signed_out,
         question=parse(answer) if blocked and not over_budget else None,
         caveats=caveats(answer) if not failed and not blocked else [],
         resets_at=resets_at,

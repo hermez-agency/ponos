@@ -45,6 +45,13 @@ init` adds it to a database it did not build, where an option on a real `status`
 widened from outside Notion. Without it nothing breaks — the ticket goes back to *ready*
 and the credit is waited out exactly as before, only with nothing on the board to say so.
 
+A sign-in that expired is waited out the same way. When a session dies on *Failed to
+authenticate: OAuth session expired and could not be refreshed*, the ticket goes back to
+*ready* without being blocked, nothing else is started, and one notification asks you to
+sign Claude in again (`claude auth login`). No clock ends that wait: each pass asks
+`claude auth status`, and the first one that finds Claude signed in again carries on by
+itself, with the ticket it put back.
+
 Set `runner.wait_for_credits = false` to have the old behaviour back — an exhausted quota
 reported as the session failure it looks like. There is one case for it: an
 `ANTHROPIC_API_KEY` runner, which is billed per token and hits nothing to wait for.
