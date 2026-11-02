@@ -41,10 +41,12 @@ console's header does, rather than fetching on every page that opens.
 from __future__ import annotations
 
 import logging
+import os
 import re
 import shlex
 import shutil
 import subprocess
+import sys
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
@@ -2174,7 +2176,7 @@ def _tools() -> list[Check]:
                 "A video sent to the workspace is looked at through its frames.",
             )
         )
-    else:
+    elif _video_sent():
         found.append(
             _check(
                 "machine.ffmpeg",
@@ -2184,7 +2186,34 @@ def _tools() -> list[Check]:
                 **_installing("ffmpeg"),
             )
         )
+    else:
+        found.append(
+            _check(
+                "machine.ffmpeg",
+                INFO,
+                "ffmpeg",
+                "Optional: with ffmpeg, a video sent to the workspace can be looked at through its frames.",
+            )
+        )
     return found
+
+
+def _has_display() -> bool:
+    """A graphical session to notify on: always true off Linux, where notify-send is not the way."""
+    if not sys.platform.startswith("linux"):
+        return True
+    return bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
+
+
+def _video_sent() -> bool:
+    """Whether a video was ever dropped in the workspace: only then is a missing ffmpeg a loss."""
+    root = config_module.state_dir() / "web" / "attachments"
+    try:
+        return any(
+            path.suffix.lower().lstrip(".") in ("mp4", "webm", "mov") for path in root.glob("*/*")
+        )
+    except OSError:
+        return False
 
 
 def _disk(config: config_module.Config) -> list[Check]:
@@ -2645,6 +2674,15 @@ def _notifications(config: config_module.Config) -> list[Check]:
                 INFO,
                 "Desktop notifications",
                 "No desktop in a container: Telegram or Slack are the way to be told.",
+            )
+        )
+    elif not _has_display():
+        found.append(
+            _check(
+                "machine.desktop",
+                INFO,
+                "Desktop notifications",
+                "Not applicable: this machine has no graphical session.",
             )
         )
     elif shutil.which("notify-send"):

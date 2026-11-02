@@ -898,11 +898,45 @@ def health_says_the_tools_the_machine_lacks():
 
     with _patched(health.shutil, which=lambda name: None):
         found = health._tools()
-    assert _verdicts(found) == [("machine.git", "error"), ("machine.ffmpeg", "warn")]
+    assert _verdicts(found) == [("machine.git", "error"), ("machine.ffmpeg", "info")]
     with _patched(health.shutil, which=lambda name: f"/usr/bin/{name}"):
         found = health._tools()
     assert _verdicts(found) == [("machine.git", "ok"), ("machine.ffmpeg", "ok")]
     assert found[0].params["version"].startswith("git version"), found[0].params
+
+
+@case
+def health_warns_about_ffmpeg_only_once_a_video_was_sent(state_home):
+    from ponos import health
+
+    with _patched(health.shutil, which=lambda name: None):
+        assert ("machine.ffmpeg", "info") in _verdicts(health._tools())
+        folder = state_home / "web" / "attachments" / "chat"
+        folder.mkdir(parents=True)
+        (folder / "1-notes.txt").write_text("x")
+        assert ("machine.ffmpeg", "info") in _verdicts(health._tools()), "a document is no video"
+        (folder / "2-demo.mp4").write_bytes(b"x")
+        assert ("machine.ffmpeg", "warn") in _verdicts(health._tools())
+
+
+@case
+def health_calls_desktop_notifications_not_applicable_without_a_display():
+    from ponos import health
+
+    desktop = _config("[notify]\ndesktop = true\n")
+    for display, state in ((False, "info"), (True, "warn")):
+        with (
+            _patched(health.channels, open=lambda settings: []),
+            _patched(health.shutil, which=lambda name: None),
+            _patched(health, _has_display=lambda display=display: display),
+            _patched(health.config_module, in_container=lambda: False),
+        ):
+            found = health._notifications(desktop)
+        assert found[0].code == "machine.desktop" and found[0].state == state, found[0]
+    with _patched(health.sys, platform="linux"), _patched(health.os, environ={}):
+        assert not health._has_display()
+    with _patched(health.sys, platform="linux"), _patched(health.os, environ={"DISPLAY": ":0"}):
+        assert health._has_display()
 
 
 @case
@@ -1116,6 +1150,7 @@ def health_says_who_may_answer_on_each_channel():
     with (
         _patched(health.channels, open=lambda settings: []),
         _patched(health.shutil, which=lambda name: None),
+        _patched(health, _has_display=lambda: True),
     ):
         found = health._notifications(desktop)
     assert _verdicts(found) == [("machine.desktop", "warn"), ("machine.notify", "info")]
