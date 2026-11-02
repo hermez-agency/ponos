@@ -6,7 +6,7 @@ import assert from "node:assert/strict"
 import { test } from "node:test"
 
 import { byDeadline, deadlineOf, todayOf } from "./goal-deadline.ts"
-import { EVERY_STATUS, dueOf, keeps, offeredTo, progressOf, projectFirst, valuesOf } from "./goal-search.ts"
+import { EVERY_STATUS, dueOf, keeps, offeredTo, progressOf, projectFirst, ticketsFor, valuesOf } from "./goal-search.ts"
 
 const LAUNCH = {
   status: "En cours",
@@ -112,4 +112,32 @@ test("the project's come first, the rest in the order they came", () => {
   const order = (project: string) => projectFirst(choices, project, (choice) => choice.projects).map((one) => one.value)
   assert.deepEqual(order(""), ["", "a", "b"])
   assert.deepEqual(order("site"), ["b", "", "a"])
+})
+
+const ticket = (id: string, column = "ready", project_id = "web", title = `Ticket ${id}`) => ({
+  id,
+  short: id,
+  title,
+  column,
+  project: project_id === "web" ? "Website" : "Ponos",
+  project_id,
+})
+
+test("a goal is offered the tickets still to do in its projects, until asked for every one", () => {
+  const board = [ticket("a"), ticket("b", "done"), ticket("c", "cancelled"), ticket("d", "ready", "ponos")]
+  const ids = (query: Parameters<typeof ticketsFor>[1]) => ticketsFor(board, query).shown.map((one) => one.id)
+  assert.deepEqual(ids({}), ["a", "d"])
+  assert.deepEqual(ids({ projects: ["web"] }), ["a"])
+  assert.deepEqual(ids({ projects: ["web"], every: true }), ["a", "b", "c", "d"])
+  assert.deepEqual(ids({ chosen: ["a"] }), ["d"])
+})
+
+test("the search finds a ticket by any of its words, accents aside, and shows twenty at most", () => {
+  const board = [ticket("a", "ready", "web", "Rédiger la page"), ticket("b", "ready", "web", "Corriger le menu")]
+  assert.deepEqual(ticketsFor(board, { search: "redig" }).shown.map((one) => one.id), ["a"])
+  assert.deepEqual(ticketsFor(board, { search: "ponos" }).shown, [])
+  const many = Array.from({ length: 45 }, (_, at) => ticket(String(at)))
+  const found = ticketsFor(many)
+  assert.equal(found.shown.length, 20)
+  assert.equal(found.more, 25)
 })

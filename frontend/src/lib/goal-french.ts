@@ -1,5 +1,6 @@
 /* The French of the badge beside a goal's due date (`goal-deadline.ts`), and of
-   what the Goals page says on a board of Markdown files.
+   what the Goals page says on a board of Markdown files, and of the search
+   that ties tickets to a goal in its form (`goal-tickets.tsx`).
 
    Apart from `french.ts`, as `health-french.ts` is, and fetched by the goal
    cards when they are drawn in French: the first load of a French page is held
@@ -18,4 +19,9 @@ export const GOAL_FRENCH: Record<string, string> = {
     "L'objectif est supprimé : son fichier part dans la corbeille du board. Ses tickets restent où ils sont, sans objectif. Pour clore un objectif terminé, marquez-le plutôt atteint ou abandonné.",
   "The board has no goals/ folder: add one, and goals can be written here.":
     "Le board n'a pas de dossier goals/ : ajoutez-en un, et les objectifs s'écriront ici.",
+  // The search that ties tickets to a goal, in its form.
+  "Add a ticket…": "Ajouter un ticket…",
+  "Search a ticket...": "Rechercher un ticket…",
+  "{{count}} more: narrow the search.": "{{count}} de plus : précisez la recherche.",
+  "Finished tickets and other projects too": "Aussi les tickets terminés et ceux des autres projets",
 }
