@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { api, why } from "@/lib/api"
 import { useT } from "@/lib/i18n"
-import { money } from "@/lib/numbers"
+import { cents, money } from "@/lib/numbers"
 import type { TicketDetail, Transition } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
@@ -103,7 +103,11 @@ export function TicketOn({ ticket }: { ticket: TicketDetail }) {
                   {t(STATE[run.state]?.word ?? run.state)}
                 </span>
                 <span className="text-muted-foreground text-xs">{when(run.seen_at)}</span>
-                {run.cost_usd ? <span className="text-xs">{money(run.cost_usd, 3)}</span> : null}
+                {run.cost_usd ? (
+                  <span className="text-xs" title={money(run.cost_usd, 3)}>
+                    {cents(run.cost_usd)}
+                  </span>
+                ) : null}
                 {run.seconds ? <span className="text-muted-foreground text-xs">{lasted(run.seconds / 60)}</span> : null}
                 {run.depth ? (
                   <span className="text-muted-foreground text-xs">

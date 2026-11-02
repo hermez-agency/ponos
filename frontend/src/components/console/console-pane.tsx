@@ -11,10 +11,10 @@ import { useConsole, type Entry } from "@/hooks/use-console"
 import { hotkeyLabel, useHotkeys } from "@/hooks/use-hotkeys"
 import { connection, ponosOf } from "@/lib/agui"
 import { api, why } from "@/lib/api"
-import { clock } from "@/lib/composer"
 import { currentLanguage, useT } from "@/lib/i18n"
-import { money } from "@/lib/numbers"
+import { cents, money } from "@/lib/numbers"
 import type { Attached } from "@/lib/types"
+import { clock } from "@/lib/worktime"
 import { settingsHref } from "@/resources/settings"
 
 import { AttachedGallery } from "./attachments"
@@ -297,11 +297,19 @@ const Said = React.memo(function Said({
       </div>
     )
 
+  // A span says what it measures — a bare « 8:34 » reads as the time of day —
+  // and the cost stops at the cent, the exact figure a hover away.
+  const stopped = ponos.role === "stopped"
+  const took = ponos.seconds !== undefined ? clock(ponos.seconds) : undefined
   const footer = [
-    ponos.role === "stopped" ? t("stopped by you") : "",
-    ponos.seconds !== undefined ? clock(ponos.seconds) : "",
-    ponos.cost ? money(ponos.cost, 4) : "",
+    stopped ? t("stopped by you") : "",
+    took ? t(stopped ? "after {{time}}" : "answered in {{time}}", { time: t(took.key, took.params) }) : "",
   ].filter(Boolean)
+  const cost = ponos.cost ? (
+    <span title={money(ponos.cost, 4)} className="tabular-nums">
+      {cents(ponos.cost)}
+    </span>
+  ) : null
 
   return (
     <div data-slot="said" data-role={ponos.role ?? "workspace"} className="flex flex-col gap-2">
@@ -317,9 +325,11 @@ const Said = React.memo(function Said({
           {ponos.error}
         </p>
       ) : null}
-      {footer.length ? (
+      {footer.length || cost ? (
         <p data-slot="said-footer" className="text-muted-foreground font-mono text-xs">
           {footer.join(" · ")}
+          {footer.length && cost ? " · " : ""}
+          {cost}
         </p>
       ) : null}
     </div>

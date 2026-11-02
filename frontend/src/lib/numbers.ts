@@ -27,7 +27,8 @@ export function number(value: number): string {
 
 /** Dollars — what the sessions cost — written where the language writes them.
  *  `digits` is how far past the cents it may go: 0 drops them, for a figure big
- *  enough not to need them, and 4 keeps what a single chat turn costs. */
+ *  enough not to need them, and 4 keeps what a single chat turn costs, for the
+ *  tooltip that says it exactly — what the page shows stops at the cent. */
 export function money(value: number, digits = 2): string {
   return new Intl.NumberFormat(locale, {
     style: "currency",
@@ -37,6 +38,12 @@ export function money(value: number, digits = 2): string {
     minimumFractionDigits: Math.min(2, digits),
     maximumFractionDigits: digits,
   }).format(value)
+}
+
+/** Dollars to the cent, the way the console shows a cost — and, under half a
+ *  cent, « < 0,01 $ » rather than a « 0,00 $ » that did cost something. */
+export function cents(value: number): string {
+  return value > 0 && value < 0.005 ? `< ${money(0.01)}` : money(value)
 }
 
 /** A size, the way the runner's `doctor` says it — powers of 1000, one decimal

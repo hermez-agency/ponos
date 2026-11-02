@@ -411,6 +411,8 @@ export const FRENCH: Record<string, string> = {
   "Time on hold": "Temps en pause",
   Sessions: "Sessions",
   "taken by": "pris par",
+  worked: "travaillé",
+  "last session {{time}}": "dernière session : {{time}}",
   created: "créé",
   scheduled: "prévu",
   "the brief": "le brief",
@@ -630,6 +632,8 @@ export const FRENCH: Record<string, string> = {
   "The waiting message could not be removed": "Le message en attente n'a pas pu être retiré",
   Discard: "Jeter",
   "stopped by you": "interrompu par vous",
+  "answered in {{time}}": "répondu en {{time}}",
+  "after {{time}}": "au bout de {{time}}",
   // Brand Assets' chat kit, in `components/chat`: the words it said in French
   // only, in the French it said them in.
   Conversation: "Conversation",
