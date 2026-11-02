@@ -159,8 +159,8 @@
 
   /* How tall the bar along the bottom of a phone is — the package's, drawn
      under the admin layout's own line between a phone and the rest. What
-     floats over the page's bottom edge (the discussion's bubble, a section's
-     save bar) stands on it rather than under it. */
+     floats over the page's bottom edge (a section's save bar, a toast) stands
+     on it rather than under it. */
   :root { --bottom-nav: 0px; }
   @media (width < 48rem) {
     :root { --bottom-nav: 3.375rem; }
@@ -300,17 +300,6 @@
     }
   }
 
-  /* The end of a page clear of the discussion's bubble on a phone. The
-     package leaves room under the content for its bottom bar, and the bubble
-     floats over the corner above that bar: the last card's cost and link, a
-     token's "forget", the top of a chart sat under it, with no more page to
-     scroll them out. Room for the bar, the bubble, and a gap either side. */
-  @media (width < 48rem) {
-    [data-slot="admin-content"] {
-      padding-bottom: calc(var(--bottom-nav) + 5rem);
-    }
-  }
-
   /* A page's head on a phone, under 200px: the audit found the first idea at
      520px and the first schedule at 440px, under a head that said in four
      lines what the menu had just named. The sentence under the title is the
@@ -337,8 +326,8 @@
 
   /* A board's columns whole on a phone. The package lets each column scroll
      inside a box a screen high less 14rem, so its last cards stay where the
-     page's end cannot lift them out from under the discussion's bubble; left
-     to grow, the room under the content above does it. */
+     page's end cannot lift them out from under the bottom bar; left to grow,
+     the room the package leaves under the content for that bar does it. */
   @media (width < 48rem) {
     [data-slot="board-column-cards"] {
       max-height: none;

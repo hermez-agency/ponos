@@ -1,16 +1,21 @@
 import { expect, test, type Locator, type Page } from "@playwright/test"
 
+import { underTheCorner } from "./corner"
+
 /* The console on a phone: every page within reach, nothing under the bubble.
  *
  * At 390px the bottom bar held six entries in a row 540px wide that scrolled
  * sideways without saying so — Statistics cut in two, Settings past the edge —
  * and the discussion's bubble sat over the last card's link, a token's
  * "forget", the top of a chart. So the narrowest phone worth drawing for is
- * where it is checked: the bar fits, each page is a tap or two away, and at the
- * end of every page no button, link or field has the bubble over it.
+ * where it is checked: the bar fits, each page is a tap or two away, and no
+ * button, link or field has the bubble over it — on a phone there is none, the
+ * discussion opens from More.
  */
 
 const PHONE = { width: 360, height: 780 }
+/** A ticket with a journal, so its Live tab has a button to cover. */
+const ASKING = "00000000000000000000000000000a5c"
 
 const PAGES: [string, RegExp][] = [
   ["Board", /\/\?view=console\/tickets\//],
@@ -157,43 +162,32 @@ test("the menu down the left has no More beside a phone", async ({ page }) => {
   await expect(page.getByRole("button", { name: "More", exact: true })).toHaveCount(0)
 })
 
-test("at the end of every page, nothing is under the bubble", async ({ page }) => {
+/* At 375px, nothing of the page under the discussion's button: there is none
+ * on a phone. Every screen of the page is checked where the bubble stood — the
+ * corner over the bottom bar — by asking the browser what a tap at each
+ * clickable thing there would land on. The Ideas page is checked in its own
+ * spec, where there are ideas. */
+test("at 375px, a tap in the corner over the bar lands on what the page draws there", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 })
   await open(page)
-  for (const [name, address] of PAGES) {
-    await go(page, name)
-    await expect(page).toHaveURL(address)
+  for (const path of ["/", `/?view=console/tickets/read/${ASKING}&tab=live`]) {
+    await page.goto(path)
     await page.waitForLoadState("networkidle")
-    // Measured again until the page has settled: a list that arrives after
-    // the scroll to the end grows the page under it, and the first reading
-    // then sees its last card where the bubble is — on a slow runner, a
-    // failure that said nothing about the console.
-    await expect(async () => {
-      await page.keyboard.press("End")
-      await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
-      const covered = await page.evaluate(() => {
-        const bubble = document.querySelector<HTMLElement>('button[aria-label^="Open "][aria-keyshortcuts]')
-        if (!bubble) return ["no bubble"]
-        const over = bubble.getBoundingClientRect()
-        const nav = document.querySelector('[data-slot="admin-mobile-nav"]')
-        return Array.from(document.querySelectorAll<HTMLElement>("a, button, input, textarea, select, [role=tab]"))
-          .filter((element) => element !== bubble && !nav?.contains(element) && element.checkVisibility())
-          .filter((element) => {
-            const box = element.getBoundingClientRect()
-            return box.width > 0 && box.left < over.right && box.right > over.left && box.top < over.bottom && box.bottom > over.top
-          })
-          .map((element) => element.getAttribute("aria-label") || element.textContent?.trim() || element.tagName)
-      })
-      expect(covered, `under the bubble on ${name}`).toEqual([])
-      // And whatever the page ends on — a card's link, a sentence — ends above
-      // it, so that a page holding a button there tomorrow is covered too.
-      const [end, bubbleTop] = await page.evaluate(() => {
-        const content = document.querySelector<HTMLElement>('[data-slot="admin-content"]')!
-        const end = content.getBoundingClientRect().bottom - parseFloat(getComputedStyle(content).paddingBottom)
-        return [end, document.querySelector('button[aria-label^="Open "][aria-keyshortcuts]')!.getBoundingClientRect().top]
-      })
-      expect(end, `the end of ${name} runs under the bubble`).toBeLessThanOrEqual(bubbleTop)
-    }).toPass()
+    await expect(page.getByRole("button", { name: "Open the console" })).toBeHidden()
+    expect(await underTheCorner(page), `covered on ${path}`).toEqual([])
   }
+  // Something was there to be covered: the live tab's own button, at its turn.
+  await expect(page.getByRole("button", { name: "Unfold everything" })).toBeVisible()
+})
+
+test("a phone opens the discussion from More, the drawer of More closed behind it", async ({ page }) => {
+  await open(page)
+  await bar(page).getByRole("button", { name: "More", exact: true }).click()
+  await page.getByRole("dialog").getByRole("button", { name: "Open the console" }).click()
+  const talk = page.getByRole("dialog", { name: "the console" })
+  await expect(talk).toBeVisible()
+  await expect(page.getByRole("dialog")).toHaveCount(1)
+  await expect(talk.getByRole("textbox")).toBeFocused()
 })
 
 test("the version, the last read and the two buttons are behind More", async ({ page }) => {

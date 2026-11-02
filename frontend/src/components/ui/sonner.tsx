@@ -24,9 +24,10 @@ function Toaster({ ...props }: ToasterProps) {
       // Above the button that opens the conversation (`talk-drawer.tsx`): a
       // toast that stays — "New version available" — took every click meant
       // for it, and covered the send button of the drawer once open. On a
-      // phone the bottom bar is the navigation, so above that as well.
+      // phone there is no bubble, but the bottom bar is the navigation: above
+      // that instead.
       offset={{ bottom: "5rem" }}
-      mobileOffset={{ bottom: "calc(var(--bottom-nav) + 5rem)" }}
+      mobileOffset={{ bottom: "calc(var(--bottom-nav) + 1rem)" }}
       icons={ICONS}
       style={
         {
