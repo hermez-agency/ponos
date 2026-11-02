@@ -1114,6 +1114,27 @@ def the_bell_says_a_ticket_once_however_many_times_it_rang(state_home):
 
 
 @case
+def the_bell_lists_every_ticket_it_counts_however_old(state_home):
+    """Sixty tickets, three of the ten oldest unread: the badge says 3, the list shows them."""
+    from ponos import notifications
+
+    for number in range(60):
+        notifications.add("review", f"t{number}", f"Ticket {number}")
+    for number in range(60):
+        if number not in (1, 4, 8):
+            notifications.read(notifications.recent(limit=60)["items"][59 - number]["id"])
+    heard = notifications.recent()
+    assert heard["unread"] == 3
+    assert len(heard["items"]) == notifications.LISTED
+    assert [i["ticket"] for i in heard["items"] if not i["read"]] == ["t8", "t4", "t1"]
+    assert [i["read"] for i in heard["items"][:3]] == [False] * 3, "what waits comes first"
+    assert heard["items"][3]["ticket"] == "t59", "then the latest read"
+    assert sum(not i["read"] for i in notifications.recent(limit=2)["items"]) == 3, (
+        "a short list still holds every ticket the badge counts"
+    )
+
+
+@case
 def the_bell_lets_go_of_a_ticket_that_left_the_column_it_rang_for(state_home):
     """Unblocked, merged, done: what rang for it no longer asks for anything."""
     from ponos import notifications
