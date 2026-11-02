@@ -1411,3 +1411,48 @@ def every_sentence_of_a_check_is_translated():
     untranslated = sorted(sentence for sentence in sentences if not translated(sentence))
     assert len(sentences) > 100, len(sentences)
     assert not untranslated, "add them to health-french.ts:\n" + "\n".join(untranslated)
+
+
+@case
+def health_adds_the_type_and_subtype_a_schedules_database_lacks_and_then_says_ok():
+    """“Master Scheluder” had no Type nor Sous-type, and doctor only said so:
+    its tickets were born untyped and classified, a code one as « Rédaction »."""
+    from ponos import health
+
+    settings = C.Notion(properties=dict(C._DEFAULT_PROPERTIES))
+    config = _config("")
+    config.notion = settings
+    wanted = provision.schedules_schema(settings, "db", "projects")
+    properties = {
+        name: {"type": next(iter(shape)), **shape}
+        for name, shape in wanted.items()
+        if name not in ("Type", "Sous-type")
+    }
+
+    class Schedules(_HealthBoard):
+        def query(self, database_id, filter_=None):
+            return []
+
+        def resolve_database(self, identifier: str) -> str:
+            return identifier
+
+    board = Schedules(properties)
+    space = workspace.Workspace(tickets="db", projects="projects", schedules="schedules")
+    found = health._schedules(config, board, space)
+    missing = next(check for check in found if check.state == health.WARN)
+    assert missing.params["missing"] == "“Type”, “Sous-type”", missing
+    assert missing.fix and missing.fix["action"] == "notion_schedule_columns", missing
+
+    with _patched(workspace, resolve=lambda backend, notion_settings: space):
+        done = health.fix(config, board, "notion_schedule_columns", confirmed=True)
+    assert set(board.added) == {"Type", "Sous-type"}, board.added
+    assert board.added["Type"] == provision.type_select(settings), "the options of the tickets"
+    assert board.added["Sous-type"] == provision.subtype_select()
+    assert done == "added Sous-type, Type", done
+
+    board.properties.update(
+        {name: {"type": next(iter(shape)), **shape} for name, shape in board.added.items()}
+    )
+    found = health._schedules(config, board, space)
+    assert ("notion.schedules", "ok") in _verdicts(found), found
+    assert health.problems(found) == 0

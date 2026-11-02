@@ -172,6 +172,45 @@ def a_schedule_without_a_type_leaves_its_ticket_to_be_classified():
 
 
 @case
+def a_schedules_database_without_a_type_column_makes_its_repository_tickets_code():
+    """“Whisper Desk — rattraper Wispr Flow” was born « Rédaction » twice: its
+    schedules database had no Type to say Code, and the classifier read its brief.
+    Until the column is there, a project with a repository is enough to say it."""
+    stale = (datetime.now().astimezone() - timedelta(hours=1)).isoformat()
+    project = notion.Page(
+        id="p-northwind",
+        url="",
+        title="Northwind",
+        properties={
+            "Repository": {
+                "type": "url",
+                "url": "https://github.com/hermez-agency/northwind",
+            }
+        },
+    )
+    runner = _recurring([_schedule_page("s-1", next=stale)], tickets={"p-northwind": project})
+    runner.recur()
+    _, values = runner.client.created[0]
+    assert values["Type"] == "Code", values
+    assert "Sous-type" not in values, "the sub-type is still the ticket's own to find"
+
+    # A project without one is a document: left to the classifier, as before.
+    paper = notion.Page(id="p-northwind", url="", title="Northwind", properties={})
+    runner = _recurring([_schedule_page("s-1", next=stale)], tickets={"p-northwind": paper})
+    runner.recur()
+    assert "Type" not in runner.client.created[0][1]
+
+    # And a database that has the column says what it says, even nothing.
+    runner = _recurring(
+        [_schedule_page("s-1", next=stale)],
+        tickets={"p-northwind": project},
+        columns={"Type": "select", "Sous-type": "select"},
+    )
+    runner.recur()
+    assert "Type" not in runner.client.created[0][1], "an empty Type is a choice: guessed"
+
+
+@case
 def launching_a_schedule_by_hand_makes_the_ticket_and_leaves_its_next_moment_alone():
     """Even paused: that is how one is tried. `Last` moves, `Next` does not."""
     later = (datetime.now().astimezone() + timedelta(days=2)).isoformat()

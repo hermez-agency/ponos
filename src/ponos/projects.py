@@ -183,6 +183,23 @@ class Resolver:
                 return match
         return None
 
+    def declares(self, backend: store.Store, page_id: str) -> bool:
+        """Does that project say it has a repository, wherever its clone is?
+
+        Read off the page and the configuration alone — no index, no GitHub —
+        for a schedule that wants to know what its tickets are before any of
+        them is claimed. A page that cannot be read declares nothing.
+        """
+        try:
+            page = backend.page(page_id)
+        except store.StoreError:
+            return False
+        return bool(
+            self._overrides.get(page.title)
+            or _property(page, "Path", "path")
+            or _property(page, "Repository", "github", "repo")
+        )
+
     def resolve(self, backend: store.Store, page_id: str, *, clone: bool = False) -> Project:
         """The project behind that page, and the repository its tickets run on.
 

@@ -230,6 +230,8 @@ class Recurrence(Base):
         ):
             if value:
                 values[settings.prop(key)] = value
+        if not schedule.kind and self._untyped(schedule):
+            values[settings.prop("type")] = settings.kind("code")
         # Always written: a ticket a schedule makes says its score on the board,
         # the schedule's or the middle one.
         values[settings.prop("priority")] = self.priority_cell(
@@ -276,6 +278,25 @@ class Recurrence(Base):
             "from": schedule.name,
             "schedule": schedule.page.id.replace("-", ""),
         }
+
+    def _untyped(self, schedule: schedules_module.Schedule) -> bool:
+        """Is this a schedule that could not say Code, for a project that is?
+
+        A schedules database built before the Type column has nowhere to write
+        it, and its tickets were classified on their brief — a long one read as
+        « Rédaction », its pull request never opened. Until `init` or the fix
+        `doctor` offers adds the column, a project with a repository says it.
+        An empty Type on a database that has one is somebody's choice: guessed.
+        """
+        if not schedule.project or not self.workspace.schedules:
+            return False
+        try:
+            schema = self.client.schema(self.workspace.schedules)
+        except store.StoreError:
+            return False
+        if self.config.notion.prop("type") in schema:
+            return False
+        return self.resolver.declares(self.client, schedule.project)
 
     def _mark(self, schedule: schedules_module.Schedule, values: dict[str, object]) -> bool:
         """Write back onto a schedule. Never a reason to fail a pass.

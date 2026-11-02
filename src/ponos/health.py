@@ -897,6 +897,10 @@ def _schedules(
                 )
             )
     if missing:
+        # What `init` would add, options included: a schedule without its Type
+        # makes tickets the classifier types, a code one as « Rédaction ».
+        wanted = provision.schedules_schema(settings, space.tickets, space.projects)
+        addable = sorted(provision.missing_properties(schema, wanted))
         found.append(
             _check(
                 "notion.schedules",
@@ -905,6 +909,19 @@ def _schedules(
                 "Properties missing on the schedules database: {{missing}}.",
                 params={"missing": ", ".join(f"“{note['name']}”" for note in missing)},
                 notes=missing,
+                steps=[
+                    "`ponos init <page-url>` adds them, as does Configure on the console's health band."
+                ]
+                if addable
+                else [],
+                fix=_fix(
+                    "notion_schedule_columns",
+                    "Configure",
+                    "Add {{missing}} to the schedules database? Existing properties are left as they are.",
+                    addable,
+                )
+                if addable
+                else None,
             )
         )
     else:
@@ -3586,6 +3603,15 @@ def fix(
         )
         board.add_properties(space.tickets, widened)
         return "statuses added" if widened else "nothing to add"
+    if action == "notion_schedule_columns":
+        space = workspace_module.resolve(client, config.notion)
+        if not space.schedules:
+            raise LookupError("this board has no schedules database")
+        wanted = provision.schedules_schema(config.notion, space.tickets, space.projects)
+        absent = provision.missing_properties(client.schema(space.schedules), wanted)
+        if absent:
+            _shaped(client).add_properties(space.schedules, absent)
+        return "added " + ", ".join(sorted(absent)) if absent else "nothing to add"
     if action == "notion_subtypes":
         space = workspace_module.resolve(client, config.notion)
         column = config.notion.prop("subtype")
