@@ -239,7 +239,10 @@ drawer, the cursor already in its message bar — type straight away — and giv
 back to wherever it was when it closes; Escape closes it too. **Ctrl+K** (⌘K) opens a
 palette: the pages (Sessions among them), the projects, the tickets on the board, and a
 few actions — every creation (a new ticket, project, idea, goal, schedule or session), the
-console, a resynchronisation —, found by typing a few letters and opened with Enter. On a
+console, a resynchronisation —, found by typing a few letters and opened with Enter. An
+entry is found when every word typed is in its name, in any order; tickets are found by
+their title, their project or the start of their short id, twenty at most, the open ones
+before the finished ones — more letters narrow the list. On a
 project's page, the new ticket is *New ticket for* that project, its form opened with the
 project already chosen. Both answer from inside a field as well; the magnifying glass in
 the bar opens the same palette, and its tooltip and the bubble's say the keys. A third,

@@ -33,7 +33,10 @@ import { useConsole } from "@/hooks/use-console"
 import { hotkeyLabel, useHotkeys } from "@/hooks/use-hotkeys"
 import { titleOf, useBoard } from "@/lib/board-store"
 import { useT } from "@/lib/i18n"
+import { OPENED } from "@/lib/palette"
+import { says, ticketsFor } from "@/lib/palette-search"
 import { useRoute } from "@/lib/router"
+import { terms } from "@/lib/ticket-search"
 import {
   PROJECTS,
   idOf,
@@ -72,11 +75,6 @@ import { openTalk, toggleTalk } from "@/lib/talk"
  * reading it from here would be a circle.
  */
 
-const OPENED = "ponos:palette"
-
-/** Open the palette, from anywhere on the page — the button in the bar. */
-export const openPalette = () => window.dispatchEvent(new Event(OPENED))
-
 const PAGES = [
   { name: "Dashboard", icon: LayoutGrid, href: boardHref },
   { name: "Projects", icon: FolderGit2, href: projectsHref },
@@ -87,6 +85,16 @@ const PAGES = [
   { name: "Global context", icon: BookOpen, href: () => `${projectsHref()}#${CONTEXT_ANCHOR}` },
   { name: "Settings", icon: Settings2, href: () => settingsHref() },
 ]
+
+/** An entry of the Actions group: what it says, what else finds it, and what it does. */
+interface Action {
+  value: string
+  keywords: string[]
+  icon: React.ComponentType
+  onSelect: () => void
+  shortcut?: string
+  count?: number
+}
 
 export function CommandPalette() {
   const t = useT()
@@ -105,6 +113,7 @@ export function CommandPalette() {
   const blocked = board.tickets.filter((ticket) => ticket.column === "blocked").length
   const review = board.tickets.filter((ticket) => ticket.column === "review").length
   const [open, setOpen] = React.useState(false)
+  const [search, setSearch] = React.useState("")
   // What had the focus before the palette opened, and gets it back: the
   // dialog has no trigger to hand it to.
   const before = React.useRef<HTMLElement | null>(null)
@@ -116,6 +125,7 @@ export function CommandPalette() {
     if (next) {
       before.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
       pending.current = null
+      setSearch("")
     }
     setOpen(next)
   }, [])
@@ -159,6 +169,84 @@ export function CommandPalette() {
   const ticketKey = hotkeyLabel("newTicket")
   const newTicket = here ? t("New ticket for {{project}}", { project: here.name }) : t("New ticket")
 
+  // What is typed filters here, not in cmdk — see `palette-search.ts`.
+  const words = terms(search)
+  const actions: Action[] = [
+    {
+      value: t("Open or close the console"),
+      keywords: ["console", "chat", "discussion"],
+      icon: MessageCircle,
+      onSelect: () => run(toggleTalk),
+      shortcut: drawerKey.label,
+    },
+    {
+      value: newTicket,
+      keywords: ["create", "ticket"],
+      icon: Plus,
+      onSelect: () => go(newTicketHref()),
+      shortcut: ticketKey.label,
+    },
+    {
+      value: t("New project"),
+      keywords: ["create", "project"],
+      icon: FolderPlus,
+      onSelect: () => go(newProjectHref()),
+    },
+    { value: t("New idea"), keywords: ["create", "idea"], icon: Lightbulb, onSelect: () => go(newIdeaHref()) },
+    { value: t("New goal"), keywords: ["create", "goal"], icon: Target, onSelect: () => go(newGoalHref()) },
+    {
+      value: t("New schedule"),
+      keywords: ["create", "schedule", "recurring"],
+      icon: CalendarClock,
+      onSelect: () => go(newScheduleHref()),
+    },
+    // As the Sessions page starts one: a fresh conversation, in the drawer.
+    {
+      value: t("New session"),
+      keywords: ["create", "session", "conversation", "chat"],
+      icon: MessageSquarePlus,
+      onSelect: () =>
+        run(() => {
+          void resetChat()
+          openTalk()
+        }),
+    },
+    {
+      value: t("Resynchronise now"),
+      keywords: ["refresh", "sync"],
+      icon: RefreshCw,
+      onSelect: () => run(() => void refresh()),
+    },
+    // The columns waiting on you, gone through one ticket after another — see `ticket-series.tsx`.
+    ...(blocked
+      ? [
+          {
+            value: t("Unblock the tickets"),
+            keywords: ["unblock", "blocked", "series"],
+            icon: ListChecks,
+            onSelect: () => run(() => openSeries("blocked")),
+            count: blocked,
+          },
+        ]
+      : []),
+    ...(review
+      ? [
+          {
+            value: t("Decide on the tickets in review"),
+            keywords: ["decide", "review", "series"],
+            icon: Scale,
+            onSelect: () => run(() => openSeries("review")),
+            count: review,
+          },
+        ]
+      : []),
+  ].filter(({ value, keywords }) => says([value, ...keywords], words))
+  const pages = PAGES.filter(({ name }) => says([t(name), name, "page"], words))
+  const projects = (listed?.projects ?? []).filter((project) =>
+    says([project.name, idOf(project), "project"], words)
+  )
+  const found = open ? ticketsFor(board.tickets, search) : []
+
   return (
     <CommandDialog
       open={open}
@@ -167,6 +255,7 @@ export function CommandPalette() {
       description={t("Find a page, a project or a ticket, or run an action.")}
       closeLabel={t("Close")}
       className="top-[20%] translate-y-0 sm:max-w-xl"
+      shouldFilter={false}
       onCloseAutoFocus={(event) => {
         event.preventDefault()
         const back = before.current
@@ -177,120 +266,49 @@ export function CommandPalette() {
         action?.()
       }}
     >
-      <CommandInput placeholder={t("Type a page, a project, a ticket…")} />
+      <CommandInput
+        value={search}
+        onValueChange={setSearch}
+        placeholder={t("Type a page, a project, a ticket…")}
+      />
       <CommandList className="max-h-[min(60vh,420px)]">
         <CommandEmpty>{t("Nothing matches.")}</CommandEmpty>
 
-        <CommandGroup heading={t("Actions")}>
-          <CommandItem
-            value={t("Open or close the console")}
-            keywords={["console", "chat", "discussion"]}
-            onSelect={() => run(toggleTalk)}
-          >
-            <MessageCircle />
-            {t("Open or close the console")}
-            <CommandShortcut>{drawerKey.label}</CommandShortcut>
-          </CommandItem>
-          <CommandItem value={newTicket} keywords={["create", "ticket"]} onSelect={() => go(newTicketHref())}>
-            <Plus />
-            <span className="truncate">{newTicket}</span>
-            <CommandShortcut>{ticketKey.label}</CommandShortcut>
-          </CommandItem>
-          <CommandItem
-            value={t("New project")}
-            keywords={["create", "project"]}
-            onSelect={() => go(newProjectHref())}
-          >
-            <FolderPlus />
-            {t("New project")}
-          </CommandItem>
-          <CommandItem value={t("New idea")} keywords={["create", "idea"]} onSelect={() => go(newIdeaHref())}>
-            <Lightbulb />
-            {t("New idea")}
-          </CommandItem>
-          <CommandItem value={t("New goal")} keywords={["create", "goal"]} onSelect={() => go(newGoalHref())}>
-            <Target />
-            {t("New goal")}
-          </CommandItem>
-          <CommandItem
-            value={t("New schedule")}
-            keywords={["create", "schedule", "recurring"]}
-            onSelect={() => go(newScheduleHref())}
-          >
-            <CalendarClock />
-            {t("New schedule")}
-          </CommandItem>
-          {/* As the Sessions page starts one: a fresh conversation, in the drawer. */}
-          <CommandItem
-            value={t("New session")}
-            keywords={["create", "session", "conversation", "chat"]}
-            onSelect={() =>
-              run(() => {
-                void resetChat()
-                openTalk()
-              })
-            }
-          >
-            <MessageSquarePlus />
-            {t("New session")}
-          </CommandItem>
-          <CommandItem
-            value={t("Resynchronise now")}
-            keywords={["refresh", "sync"]}
-            onSelect={() => run(() => void refresh())}
-          >
-            <RefreshCw />
-            {t("Resynchronise now")}
-          </CommandItem>
-          {/* The columns waiting on you, gone through one ticket after another — see `ticket-series.tsx`. */}
-          {blocked ? (
-            <CommandItem
-              value={t("Unblock the tickets")}
-              keywords={["unblock", "blocked", "series"]}
-              onSelect={() => run(() => openSeries("blocked"))}
-            >
-              <ListChecks />
-              {t("Unblock the tickets")}
-              <CommandShortcut className="tracking-normal">{blocked}</CommandShortcut>
-            </CommandItem>
-          ) : null}
-          {review ? (
-            <CommandItem
-              value={t("Decide on the tickets in review")}
-              keywords={["decide", "review", "series"]}
-              onSelect={() => run(() => openSeries("review"))}
-            >
-              <Scale />
-              {t("Decide on the tickets in review")}
-              <CommandShortcut className="tracking-normal">{review}</CommandShortcut>
-            </CommandItem>
-          ) : null}
-        </CommandGroup>
+        {actions.length ? (
+          <CommandGroup heading={t("Actions")}>
+            {actions.map(({ value, icon: Icon, onSelect, shortcut, count }) => (
+              <CommandItem key={value} value={value} onSelect={onSelect}>
+                <Icon />
+                <span className="truncate">{value}</span>
+                {shortcut ? <CommandShortcut>{shortcut}</CommandShortcut> : null}
+                {count ? <CommandShortcut className="tracking-normal">{count}</CommandShortcut> : null}
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        ) : null}
 
-        <CommandSeparator />
-        <CommandGroup heading={t("Pages")}>
-          {PAGES.map(({ name, icon: Icon, href }) => (
-            <CommandItem
-              key={name}
-              value={t(name)}
-              keywords={[name, "page"]}
-              onSelect={() => go(href())}
-            >
-              <Icon />
-              {t(name)}
-            </CommandItem>
-          ))}
-        </CommandGroup>
-
-        {listed?.projects.length ? (
+        {pages.length ? (
           <>
-            <CommandSeparator />
+            {actions.length ? <CommandSeparator /> : null}
+            <CommandGroup heading={t("Pages")}>
+              {pages.map(({ name, icon: Icon, href }) => (
+                <CommandItem key={name} value={t(name)} onSelect={() => go(href())}>
+                  <Icon />
+                  {t(name)}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </>
+        ) : null}
+
+        {projects.length ? (
+          <>
+            {actions.length || pages.length ? <CommandSeparator /> : null}
             <CommandGroup heading={t("Projects")}>
-              {listed.projects.map((project) => (
+              {projects.map((project) => (
                 <CommandItem
                   key={idOf(project)}
                   value={`${project.name} ${idOf(project)}`}
-                  keywords={["project"]}
                   onSelect={() => go(projectHref(idOf(project)))}
                 >
                   <FolderGit2 />
@@ -301,15 +319,14 @@ export function CommandPalette() {
           </>
         ) : null}
 
-        {board.tickets.length ? (
+        {found.length ? (
           <>
-            <CommandSeparator />
+            {actions.length || pages.length || projects.length ? <CommandSeparator /> : null}
             <CommandGroup heading={t("Tickets")}>
-              {board.tickets.map((ticket) => (
+              {found.map((ticket) => (
                 <CommandItem
                   key={ticket.id}
                   value={`${titleOf(ticket)} ${ticket.short} ${ticket.id}`}
-                  keywords={["ticket", ticket.project]}
                   onSelect={() => go(ticketHref(ticket.id))}
                 >
                   <LayoutGrid />
