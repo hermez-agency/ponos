@@ -331,3 +331,19 @@ def the_summary_does_not_count_gh_among_what_this_machine_lacks():
     with_claude = lacking("gh", "claude")
     assert with_claude["state"] == "error"
     assert [need["name"] for need in with_claude["needs"] if not need["ok"]] == ["claude"]
+
+
+@case
+def the_summary_and_doctor_agree_on_a_workspace_folder_that_does_not_exist_yet():
+    """The default folder is created, not reported: the summary's OK is what doctor sees next."""
+    from ponos import health
+    from ponos.web import setup as web_setup
+
+    root = Path(tempfile.mkdtemp()) / "workspace"
+    path, _ = _saved(f'[runner]\nworkspace_root = "{root}"\n')
+    api = _Fresh(path)
+    said = web_setup._projects(api.config)
+    assert said == {"state": "ok", "root": str(root), "repositories": 0, "configured": 0}
+    assert root.is_dir()
+    (check,) = health._workspace_root(api.config)
+    assert check.state == health.OK, check

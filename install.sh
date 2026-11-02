@@ -279,6 +279,23 @@ else
     # a form with a check behind each field says more than a terminal prompt.
 fi
 
+# The folder the repositories are found or cloned in: a fresh machine has none,
+# and `ponos doctor` would count its absence as an error. Read from the
+# configuration, so a workspace_root somebody chose is the one created.
+WORKSPACE=$(PYTHONPATH="$APP_DIR/src" "$PYTHON" - "$CONFIG" <<'PY'
+import pathlib, sys
+from ponos import config
+try:
+    runner = config.load(pathlib.Path(sys.argv[1])).runner
+except (config.ConfigError, OSError, ValueError):
+    runner = config.Runner()
+print(runner.workspace_root)
+PY
+)
+if [ -n "$WORKSPACE" ] && mkdir -p "$WORKSPACE" 2>/dev/null; then
+    ok "workspace folder: $WORKSPACE"
+fi
+
 # The address the console answers on — read from the configuration rather than
 # assumed, so a machine that moved the port is told where its own console is.
 # The second word says how it is opened: "claimed" when somebody chose a token
