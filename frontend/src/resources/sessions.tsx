@@ -1,7 +1,7 @@
 import * as React from "react"
 import { MessagesSquare } from "lucide-react"
 import { ActionList } from "react-data-form"
-import { createViewResource, generateLink } from "react-resource-view"
+import { createResourceCollection, createViewResource, generateLink } from "react-resource-view"
 
 import { SCOPE } from "@/lib/resource-view"
 
@@ -45,7 +45,10 @@ export const sessions = createViewResource<SessionsItem>(SESSIONS, {
   permissions: ["list"],
   repository: {
     getItem: refused,
-    getCollection: refused,
+    // Still asked for, as every list is when its view opens: an empty one, so
+    // the opening leaves no "Fetch Error" in the browser's console.
+    getCollection: async () =>
+      ({ data: createResourceCollection({ id: "/api/chat/sessions", items: [] }) }) as never,
     createItem: refused,
     updateItem: refused,
     removeItem: refused,
