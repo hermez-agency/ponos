@@ -732,6 +732,7 @@ def serve(
 
     api.upgrade.watch()
     api.planned.watch()
+    api.hold_schedules()
     try:
         # In this thread: uvicorn answers Ctrl-C and systemd's SIGTERM itself,
         # lets the requests in flight finish, and gives the signal back.

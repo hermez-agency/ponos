@@ -129,6 +129,8 @@ class Base(Chapters):
         self._briefs: dict[str, tuple[str, str]] = {}
         self._disk: tuple[float, dict[str, int], list[tuple[str, int]]] | None = None
         self._health: tuple[float, dict[str, Any]] | None = None
+        # The schedules last read, and when: see `Schedules.schedules`.
+        self._schedules_held: tuple[Any, ...] | None = None
         # The schedules being launched now: see `launch_schedule`.
         self._launching: set[str] = set()
         self._launch_guard = threading.Lock()
@@ -165,6 +167,7 @@ class Base(Chapters):
             # the old one.
             self._reader = board_module.Reader()
             self._drawn = None
+            self._schedules_held = None
             self.chat.config = fresh
         return self._config
 

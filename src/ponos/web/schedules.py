@@ -9,6 +9,9 @@ is an occurrence you could make happen twice.
 
 from __future__ import annotations
 
+import logging
+import threading
+import time
 from datetime import datetime
 from typing import Any
 
@@ -18,6 +21,17 @@ from .. import schedules as schedules_module
 from .. import state, store, subtypes
 from . import lineage
 from .base import Base
+
+logger = logging.getLogger(__name__)
+
+# One read of the Schedules database at a time: ten pages opened together, and
+# the read `serve` starts, all wait for the same one. See `Schedules.schedules`.
+_READING = threading.Lock()
+_BEHIND = threading.Lock()
+
+# The rows as last read, whether the workspace has the database, and what the
+# form offers for the type and the sub-type — and when that was read.
+Held = tuple[float, list[schedules_module.Schedule], bool, dict[str, list[dict[str, str]]]]
 
 
 class Schedules(Base):
@@ -79,6 +93,7 @@ class Schedules(Base):
         # born with, a value like a project's. See `save_project`.
         if "body" in values:
             self.runner.client.replace_markdown(page_id, str(values["body"]))
+        self._drop_schedules()
         self.hub.publish("schedules", saved=page_id)
         return {"id": page_id.replace("-", "")}
 
@@ -110,10 +125,9 @@ class Schedules(Base):
         are rows of another database and are not touched.
         """
         wanted = page_id.replace("-", "")
-        row = next((item for item in self.schedules()["schedules"] if item["id"] == wanted), None)
-        if row is None:
-            raise LookupError(f"no schedule with id {wanted}")
+        row = self._schedule_row(wanted)
         self.runner.client.trash(page_id)
+        self._drop_schedules()
         self.hub.publish("schedules", deleted=wanted)
         return {"id": wanted, "name": row["name"]}
 
@@ -136,6 +150,8 @@ class Schedules(Base):
         finally:
             with self._launch_guard:
                 self._launching.discard(wanted)
+            # `Last` and the ticket it made were written back, or may have been.
+            self._drop_schedules()
         self.hub.publish("schedules", launched=wanted)
         return {"ticket": entry["id"], "title": entry["ticket"]}
 
@@ -147,17 +163,23 @@ class Schedules(Base):
         that database would be asking Notion a question whose answer has not
         changed since breakfast.
 
+        And answered from the rows the console holds, never from Notion when it
+        holds some: the first opening of the page was measured at nineteen
+        seconds — the workspace resolved again, the database and its schema
+        read behind the board's 1 800 tickets — and every later one at 350 ms,
+        for two rows. Older than the watcher's period, they are read again
+        behind the answer, and the page is told on the stream (`schedules`,
+        `read`) when that changed something; a write from the console lets go
+        of them, so the list it reads next says what was just written. `serve`
+        reads them once at start (`hold_schedules`), so the first opening has
+        them too.
+
         Two facts travel with the rows, because a list of schedules that all
         look fine explains nothing on an installation where none of them fire:
         whether the workspace has the database at all, and whether
         `runner.schedule` is on.
         """
-        try:
-            rows = self.runner.schedules()
-            database = bool(self.runner.workspace.schedules)
-        except store.StoreError:
-            self.forget()
-            raise
+        _, rows, database, choices = self._held_schedules()
         # The names the board has already read, and no more: a projects cache
         # gone cold is a query the rows do not have to wait for. A row whose
         # project is not in it still carries the page it points at, and the
@@ -179,8 +201,82 @@ class Schedules(Base):
             # What the form offers for the type and the sub-type, only where the
             # Schedules database has the column: a value for a missing one would
             # be dropped on its way in. `ponos init` adds them.
-            "choices": self._schedule_choices(),
+            "choices": choices,
         }
+
+    def hold_schedules(self) -> None:
+        """Read the schedules behind `serve`'s start, so the first opening of their page waits on nothing."""
+        self._schedules_behind()
+
+    def _held_schedules(self) -> Held:
+        """The schedules as last read: read there and then only when none are held."""
+        held: Held | None = getattr(self, "_schedules_held", None)
+        if held is None:
+            # Whatever another request read while this one waited will do.
+            return self._read_schedules(0.0)
+        if time.monotonic() - held[0] >= self.config.web.poll_seconds:
+            self._schedules_behind()
+        return held
+
+    def _read_schedules(self, wanted: float) -> Held:
+        """The Schedules database read — or the read another request finished
+        since `wanted`, which it waited for rather than asking Notion twice."""
+        with _READING:
+            held: Held | None = getattr(self, "_schedules_held", None)
+            if held is not None and held[0] >= wanted:
+                return held
+            started = time.monotonic()
+            try:
+                rows = self.runner.schedules()
+                database = bool(self.runner.workspace.schedules)
+            except store.StoreError:
+                self.forget()
+                raise
+            fresh: Held = (started, rows, database, self._schedule_choices())
+            self._schedules_held = fresh
+            return fresh
+
+    def _drop_schedules(self) -> None:
+        """Read the schedules again, there and then, next time: one was just written."""
+        self._schedules_held = None
+
+    def _schedules_behind(self) -> None:
+        """The schedules read again in a thread of its own, one at a time, and
+        `schedules` said on the stream when that changed something."""
+        with _BEHIND:
+            if getattr(self, "_schedules_reading", False):
+                return
+            self._schedules_reading = True
+
+        def run() -> None:
+            try:
+                before: Held | None = getattr(self, "_schedules_held", None)
+                after = self._read_schedules(time.monotonic())
+            except store.StoreError as error:
+                # What is held stays, and the next answer tries again.
+                logger.warning("schedules: the read behind the answer failed: %s", error)
+                return
+            except Exception:
+                logger.exception("schedules: the read behind the answer failed")
+                return
+            finally:
+                self._schedules_reading = False
+            if before is None or _said(before) != _said(after):
+                self.hub.publish("schedules", read=True)
+
+        threading.Thread(target=run, name="ponos-schedules", daemon=True).start()
+
+    def _schedule_row(self, wanted: str) -> dict[str, Any]:
+        """One schedule as the list says it, read again when the rows held do not have it."""
+        for fresh in (False, True):
+            if fresh:
+                self._drop_schedules()
+            row: dict[str, Any] | None = next(
+                (item for item in self.schedules()["schedules"] if item["id"] == wanted), None
+            )
+            if row is not None:
+                return row
+        raise LookupError(f"no schedule with id {wanted}")
 
     def _schedule_column(self, name: str) -> str | None:
         """The kind of one column of the Schedules database, None when it has none."""
@@ -216,10 +312,7 @@ class Schedules(Base):
         rather than with every row — a list of twenty schedules would otherwise
         be twenty pages read to draw a table that shows none of them.
         """
-        wanted = page_id.replace("-", "")
-        row = next((item for item in self.schedules()["schedules"] if item["id"] == wanted), None)
-        if row is None:
-            raise LookupError(f"no schedule with id {wanted}")
+        row = self._schedule_row(page_id.replace("-", ""))
         return {**row, "body": self.runner.client.blocks_text(page_id)}
 
     def schedule_activity(self, page_id: str) -> dict[str, Any]:
@@ -229,12 +322,12 @@ class Schedules(Base):
         the console's own, and the passes are this machine's. See `lineage`.
         """
         wanted = page_id.replace("-", "")
-        row = next((item for item in self.schedules()["schedules"] if item["id"] == wanted), None)
-        if row is None:
-            raise LookupError(f"no schedule with id {wanted}")
+        row = self._schedule_row(wanted)
         return lineage.of(
             row,
-            self.board()["tickets"],
+            # The board the watcher last drew, as the ideas take theirs: the
+            # panel opened is not worth a read of every ticket.
+            self.board(max_age=self.config.web.poll_seconds)["tickets"],
             state.history(1_000_000),
             state.occurrences(wanted),
         )
@@ -273,3 +366,9 @@ class Schedules(Base):
             "subtype": subtypes.of(schedule.subtype),
             "problem": schedule.problem,
         }
+
+
+def _said(held: Held) -> tuple[Any, ...]:
+    """What of a read the page draws: two reads that say the same are not news."""
+    _, rows, database, choices = held
+    return ([row.page.raw for row in rows], database, choices)

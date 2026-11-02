@@ -462,6 +462,11 @@ export function ConsoleProvider({ children }: { children: React.ReactNode }) {
     // A goal written — here, in another tab, by the assistant — or a ticket tied to one.
     goals: () => goalsMoved(),
 
+    // The schedules read again behind an answer, and something had changed: their lists read again.
+    schedules: (event: { read?: boolean }) => {
+      if (event?.read) window.dispatchEvent(new CustomEvent("ponos:schedules"))
+    },
+
     // A turn of the conversation, as AG-UI: for the panel's `useChat`.
     agui: (event: AguiEvent) => publishAgui(event.event),
 
