@@ -728,7 +728,8 @@ def _board_runner(
     runner.client = _BoardClient(pages, options, waiting)
     runner.config = C.Config(
         notion=C.Notion(properties=dict(C._DEFAULT_PROPERTIES), status=status),
-        runner=C.Runner(),
+        # No update looked for mid-pass: that is a `git fetch` of this checkout.
+        runner=C.Runner(auto_update=False),
         projects={},
         path=Path("/nowhere"),
         notify=C.Notify(desktop=False),
@@ -739,6 +740,7 @@ def _board_runner(
     runner.dry_run = False
     runner._claimed = set()
     runner._holding, runner._explained = {}, None
+    runner._update_looked = 0.0
     runner._comments = {}
     runner._usage_warned = False
     runner._spellings = conversation.names()

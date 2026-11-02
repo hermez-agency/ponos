@@ -354,6 +354,24 @@ def between_runs(
     notify("Ponos updated", short)
 
 
+def pending(settings: Runner) -> bool:
+    """Is a newer version out? Asked by a pass still running, never applied by it.
+
+    A pass that keeps refilling its places can last a day, and `between_runs`
+    is only at its top: on 23 October a fix merged at 14:49 was not loaded
+    before the next morning. The pass asks here instead, on the same interval,
+    and ends once the answer is yes — the update itself waits for the top of
+    the next one, with no session underneath it. How often is the caller's
+    business (`Board.closing`).
+
+    `clock=False`, as the console's look: a check written down here would make
+    the next pass find its own not due, and install nothing for an hour.
+    """
+    if in_container() or not settings.auto_update:
+        return False
+    return check(channel=settings.update_channel, clock=False).stale
+
+
 def heal_environment() -> str:
     """The environment of the version in use, made if an update left it without one.
 

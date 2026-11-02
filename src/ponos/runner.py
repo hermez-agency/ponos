@@ -16,7 +16,10 @@ The two phases interleave, because the second one is long. `max_concurrent`
 sessions run at a time, and every session that ends frees a place the board is
 asked to fill straight away: a ticket made ready at 14:10 starts at 14:10, not
 when the session that began at 14:04 is finally done. A pass therefore ends
-when the ready column is empty and nothing is left in flight — see `_work`.
+when the ready column is empty and nothing is left in flight — or once it has
+stopped taking work, when a newer version is out or it has run its span (see
+`Board.closing`): a busy board never empties, and a pass of a day ran on code
+a day old.
 
 The validated column is read on that same cadence, and for the same reason: a
 merge you asked for at 14:20 has nothing to do with the session that began at
@@ -33,6 +36,7 @@ way they are rather than held at arm's length.
 
 from __future__ import annotations
 
+import time
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from typing import Any
 
@@ -227,7 +231,8 @@ class Runner(
         queued = list(ready)
         publishing: list[tuple[Ticket, Project]] = []
         flight: set[Future[dict[str, Any] | None]] = set()
-        stalled = False  # the credits ran out: nothing more is begun
+        stalled = False  # the credits ran out, or the pass is closing: nothing more is begun
+        began = time.time()
         said: list[dict[str, Any]] = []  # what `talk` answered, once it has a place
 
         with ThreadPoolExecutor(max_workers=width) as pool:
@@ -242,6 +247,13 @@ class Runner(
                     results += state.record_all(self.park(queued))
                     queued = []
                     publishing = []
+                # Closing leaves the ready tickets where they are, for the next
+                # pass: nothing is wrong with them, only with this pass's age.
+                why = "" if stalled or not refill else self.closing(began)
+                if why:
+                    stalled = True
+                    queued, publishing = [], []
+                    self.say(f"  ⏸ {why} — nothing more is begun until the next pass.")
                 # Publications first: a validated ticket is one gesture from
                 # done, and a place is better spent finishing work you have
                 # accepted than beginning work nobody has read yet. `--limit`

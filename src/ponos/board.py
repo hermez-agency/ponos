@@ -25,6 +25,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from . import conversation, git, kinds, priority, state, store, subtypes
+from . import update as update_module
 from . import voice as voice_module
 from .base import Base
 from .projects import Project
@@ -41,6 +42,12 @@ from .ticket import Ticket
 # was made (see web/board.py), so a ticket failed in a second could still come
 # back "ready" from the status it had before — and be run a second time.
 SETTLE = 15.0
+
+# How long a pass goes on taking new work. Past it, nothing more is begun and
+# the pass ends with its last session — `timeout_minutes` later at the most —
+# so the unit's end, which takes with it what the sessions left running, and
+# the update at the top of the next pass come at least that often.
+PASS_SPAN = 30 * 60.0
 
 
 class InHand:
@@ -731,6 +738,28 @@ class Board(Base):
         # The ones still open are the ones whose CI is worth knowing.
         self.follow_ci(waiting)
         return closed
+
+    def closing(self, began: float) -> str:
+        """Why this pass should take nothing more, or "" while it may go on.
+
+        A pass that refills itself only ends once the ready column is empty,
+        and a busy board never is: the pass of 23 October lasted a day and
+        fifty minutes, on the code it had started with — a fix merged at 14:49
+        was not loaded, and the pull requests it would have held were merged
+        without it. Two things end a pass now: a newer version out, which only
+        lands at the top of the next one, and `PASS_SPAN` gone by. Either way
+        what is in flight is left to finish, and the ready tickets stay ready
+        for the pass that follows on the timer.
+        """
+        if time.time() - began >= PASS_SPAN:
+            return "this pass has run long enough"
+        # On the update interval, as the top of a pass would have asked.
+        settings = self.config.runner
+        last = max(update_module.last_check(), self._update_looked)
+        if time.time() - last < settings.update_interval_seconds:
+            return ""
+        self._update_looked = time.time()
+        return "a newer version is out" if update_module.pending(settings) else ""
 
     def _again(self, hand: InHand) -> list[Ticket]:
         """The tickets a freed place can be filled with, board read afresh.

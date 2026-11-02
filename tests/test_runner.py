@@ -234,6 +234,102 @@ def a_place_that_was_never_filled_is_looked_at_before_a_session_ends(state_home)
     assert sorted(result["id"] for result in results) == ["p-long", "p-second"]
 
 
+def _closing_runner(state_home, announce):
+    """One long ticket, a free place, and a second ticket made ready while it runs.
+
+    `announce` is what happens once the long session is under way — an update
+    published, the clock moved on — before the pass looks at the board again.
+    """
+    second_started = threading.Event()
+    started: list[str] = []
+    runner = _board_runner([_ready("p-long")], {})
+    runner.config.runner.max_concurrent = 2
+    runner.config.runner.interval_seconds = 1
+    runner.prepare = lambda ticket: ticket_module.Job(
+        ticket,
+        projects.Project(name="", path=None),
+        branch="",
+        base="",
+        workdir=Path(tempfile.mkdtemp()) / "doc",
+    )
+
+    def execute(job):
+        name = job.ticket.page.id
+        started.append(name)
+        if name == "p-long":
+            announce()
+            runner.client._pages.append(_ready("p-second"))
+            # Long enough for the pass to look at the board twice.
+            second_started.wait(2)
+        else:
+            second_started.set()
+        return {"ticket": name, "id": name, "status": "done"}
+
+    runner.execute = execute
+    return runner, started
+
+
+@case
+def an_update_announced_mid_pass_claims_nothing_more_and_ends_the_pass(state_home):
+    """The 23 October pass: a day and fifty minutes on the code it started with.
+
+    A pass that refills itself never reaches the top of the next one, which is
+    where an update lands — so a fix merged at 14:49 was never loaded, and the
+    pull requests merged after it were merged by the code it fixed. Once a newer
+    version is out, the pass starts nothing more, lets what runs finish, and
+    ends: the next one starts on the new code.
+    """
+    from ponos import update as update_module
+
+    announced = threading.Event()
+    real = update_module.check
+
+    def check(app=None, channel="release", *, clock=True):
+        if not announced.is_set():
+            return update_module.Status(current="a", latest="a")
+        return update_module.Status(current="a", latest="b")
+
+    runner, started = _closing_runner(state_home, announced.set)
+    runner.config.runner.auto_update = True
+    runner.config.runner.update_interval_seconds = 0  # asked at every look
+    update_module.check = check
+    try:
+        began = time.monotonic()
+        results = runner._work(runner.queue()[0], None, refill=True)
+        lasted = time.monotonic() - began
+    finally:
+        update_module.check = real
+
+    assert started == ["p-long"], "nothing claimed once the update was out"
+    assert [result["id"] for result in results] == ["p-long"]
+    assert lasted < 3, "the pass ended as soon as the session in flight did"
+    tickets = {ticket.page.id for ticket in runner.queue()[0]}
+    assert "p-second" in tickets, "left in ready for the next pass"
+
+
+@case
+def a_pass_takes_no_new_ticket_past_its_span(state_home):
+    """A pass with a board that never empties still ends.
+
+    Past `PASS_SPAN` nothing more is begun: what is in flight finishes and the
+    pass returns, so the systemd unit's end — which takes with it what the
+    sessions left running — and the next pass's update come within a span and
+    one session, never a day.
+    """
+    from ponos import board
+
+    span = board.PASS_SPAN
+    runner, started = _closing_runner(state_home, lambda: None)
+    board.PASS_SPAN = 0.5
+    try:
+        results = runner._work(runner.queue()[0], None, refill=True)
+    finally:
+        board.PASS_SPAN = span
+
+    assert started == ["p-long"], started
+    assert [result["id"] for result in results] == ["p-long"]
+
+
 def _talking_runner(tickets, places):
     """A board with ready tickets and comments waiting, the sessions recorded."""
     runner = _board_runner([_ready(name) for name in tickets], {})

@@ -45,6 +45,14 @@ launcher and the systemd units included — before claiming a single ticket. The
 therefore lands between two sessions, never inside one, and the new code takes over on the
 next pass.
 
+A pass that keeps finding work would otherwise never reach the top of the next one, so a
+pass in flight asks the same question on the same hourly cadence, without installing
+anything. Once a newer version is out — or once the pass has run for 30 minutes — it starts
+nothing more: the sessions in flight finish, the pass ends, and the ready tickets wait for
+the next one, which updates first. A pass therefore lasts about 30 minutes plus, at most,
+`runner.timeout_minutes`, and its end is also when systemd stops whatever the sessions left
+running.
+
 What it asks about is **the newest release** — the highest `vX.Y.Z` tag on the remote —
 and not the tip of `main`. A commit merged into `main` is not something every installation
 should be running an hour later; a release is somebody having said *this one*. No release
