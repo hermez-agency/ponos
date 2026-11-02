@@ -1842,13 +1842,17 @@ class Notification(Shape):
     title: str
     at: str
     read: bool
+    count: int
+    """How many times the ticket rang for this kind: one line says them all."""
 
 
 class Bell(Shape):
     """The bell as the stream says it — a state, replayed to every tab that connects."""
 
     items: list[Notification]
+    """One per ticket, by what it rang for last."""
     unread: int
+    """Tickets waiting, not notifications."""
 
 
 # -- signing in, and the first connection --------------------------------------

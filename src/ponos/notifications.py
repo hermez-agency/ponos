@@ -12,6 +12,12 @@ it already holds. And **one unread notification per ticket and kind**: a ticket 
 asks twice before you looked is still one question waiting, and a bell that
 counted retries would be one nobody trusts.
 
+And **one line per ticket**: a ticket that asked four questions, each answered
+in turn, read back as four lines would make the bell a log of the day rather
+than a list of what waits. So the console is handed each ticket once, by what
+it last rang for and how many times it rang so, and the count is of tickets
+that wait — reading a line reads all its ticket rang.
+
 And **a bell lets go of a ticket that moved on**: a question answered, a pull
 request merged, a ticket the board now shows in another column asks for nothing
 any more, and a count that kept it would be one nobody looks at. The console
@@ -54,7 +60,7 @@ SETTLING = timedelta(minutes=2)
 # How long a notification you have read is kept.
 KEEP_DAYS = 30
 
-# How many the console is handed: the bell lists the latest, not the archive.
+# How many tickets the console is handed: the bell lists the latest, not the archive.
 LISTED = 50
 
 
@@ -147,37 +153,46 @@ def _purge(connection: sqlite3.Connection) -> None:
 
 
 def recent(limit: int = LISTED) -> dict[str, object]:
-    """The latest notifications, newest first, and how many are unread in all."""
+    """One line per ticket, the latest first, and how many tickets wait in all.
+
+    A line is what its ticket rang for last, with `count` the times it rang for
+    that kind; it is unread while anything its ticket rang for is.
+    """
     try:
         with db.transaction(immediate=False) as connection:
             rows = connection.execute(
-                "SELECT id, kind, ticket, title, at, read_at FROM notifications "
-                "ORDER BY id DESC LIMIT ?",
-                (limit,),
+                "SELECT id, kind, ticket, title, at, read_at FROM notifications ORDER BY id DESC"
             ).fetchall()
-            unread = connection.execute(
-                "SELECT COUNT(*) FROM notifications WHERE read_at = ''"
-            ).fetchone()[0]
     except db.ERRORS:
         return {"items": [], "unread": 0}
+    latest: dict[str, tuple[int, str, str, str]] = {}
+    counts: dict[str, int] = {}
+    waiting: set[str] = set()
+    for identifier, kind, ticket, title, at, read_at in rows:
+        latest.setdefault(ticket, (identifier, kind, title, at))
+        if kind == latest[ticket][1]:
+            counts[ticket] = counts.get(ticket, 0) + 1
+        if not read_at:
+            waiting.add(ticket)
     return {
         "items": [
             {
-                "id": row[0],
-                "kind": row[1],
-                "ticket": row[2],
-                "title": row[3],
-                "at": row[4],
-                "read": bool(row[5]),
+                "id": identifier,
+                "kind": kind,
+                "ticket": ticket,
+                "title": title,
+                "at": at,
+                "read": ticket not in waiting,
+                "count": counts[ticket],
             }
-            for row in rows
+            for ticket, (identifier, kind, title, at) in list(latest.items())[:limit]
         ],
-        "unread": int(unread),
+        "unread": len(waiting),
     }
 
 
 def read(identifier: int | None = None) -> None:
-    """Mark one notification read — or, with no identifier, all of them."""
+    """Mark read the ticket of one notification — or, with no identifier, all of them."""
     try:
         with db.transaction() as connection:
             if identifier is None:
@@ -186,7 +201,8 @@ def read(identifier: int | None = None) -> None:
                 )
             else:
                 connection.execute(
-                    "UPDATE notifications SET read_at = ? WHERE id = ? AND read_at = ''",
+                    "UPDATE notifications SET read_at = ? WHERE read_at = '' AND ticket = "
+                    "(SELECT ticket FROM notifications WHERE id = ?)",
                     (_now(), identifier),
                 )
             _purge(connection)

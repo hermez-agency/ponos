@@ -1791,7 +1791,9 @@ export interface components {
         };
         /** @description The bell as the stream says it — a state, replayed to every tab that connects. */
         Bell: {
+            /** @description One per ticket, by what it rang for last. */
             items: components["schemas"]["Notification"][];
+            /** @description Tickets waiting, not notifications. */
             unread: number;
         };
         /** @description Why a ticket stopped, as `blocks.py` describes it — its words in both languages. */
@@ -2838,6 +2840,8 @@ export interface components {
             title: string;
             at: string;
             read: boolean;
+            /** @description How many times the ticket rang for this kind: one line says them all. */
+            count: number;
         };
         NotionProvisioned: {
             /** @description Each a kind — `created`, `kept` — and the sentence that says it. */

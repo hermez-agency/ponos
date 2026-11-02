@@ -1059,31 +1059,58 @@ def the_bell_keeps_what_is_unread_once_and_forgets_what_was_read_after_thirty_da
 
     notifications.add("question", "a", "Le header")
     notifications.add("question", "a", "Le header")  # asked twice before anyone looked
-    notifications.add("review", "a", "Le header")
+    notifications.add("review", "b", "Le footer")
     notifications.add("routine", "a", "never")
     heard = notifications.recent()
     assert heard["unread"] == 2
     assert [item["kind"] for item in heard["items"]] == ["review", "question"], "newest first"
-    assert all(item["read"] is False and item["ticket"] == "a" for item in heard["items"])
+    assert [item["count"] for item in heard["items"]] == [1, 1]
+    assert all(item["read"] is False for item in heard["items"])
 
     notifications.read(heard["items"][0]["id"])
     assert notifications.recent()["unread"] == 1
-    notifications.add("review", "a", "Le header")  # read: a new one may ring
+    notifications.add("review", "b", "Le footer")  # read: a new one may ring
     assert notifications.recent()["unread"] == 2
 
     notifications.read()
     heard = notifications.recent()
-    assert (
-        heard["unread"] == 0 and len(heard["items"]) == 3 and all(i["read"] for i in heard["items"])
-    )
+    assert heard["unread"] == 0 and all(i["read"] for i in heard["items"])
+    assert [item["count"] for item in heard["items"]] == [2, 1]
 
     old = (datetime.now(UTC) - timedelta(days=31)).isoformat(timespec="seconds")
     with db.transaction() as connection:
-        connection.execute(
-            "UPDATE notifications SET read_at = ? WHERE id = ?", (old, heard["items"][2]["id"])
-        )
+        connection.execute("UPDATE notifications SET read_at = ? WHERE ticket = 'a'", (old,))
     notifications.read()
-    assert len(notifications.recent()["items"]) == 2, "read more than thirty days ago: purged"
+    assert [i["ticket"] for i in notifications.recent()["items"]] == ["b"], (
+        "read more than thirty days ago: purged"
+    )
+
+
+@case
+def the_bell_says_a_ticket_once_however_many_times_it_rang(state_home):
+    """Four questions, each answered in turn, are one line — and one ticket waiting."""
+    from ponos import notifications
+
+    for _ in range(4):
+        notifications.add("question", "cpf", "Ajouter un diagnostic")
+        notifications.read(notifications.recent()["items"][0]["id"])
+    notifications.add("review", "other", "Portfolio")
+    notifications.add("question", "cpf", "Ajouter un diagnostic")
+    heard = notifications.recent()
+    assert [(i["ticket"], i["kind"], i["count"]) for i in heard["items"]] == [
+        ("cpf", "question", 5),
+        ("other", "review", 1),
+    ]
+    assert heard["unread"] == 2, "tickets that wait, not notifications"
+
+    notifications.add("ci", "cpf", "Ajouter un diagnostic")
+    line = notifications.recent()["items"][0]
+    assert (line["kind"], line["count"]) == ("ci", 1), "the line says what it rang for last"
+    notifications.read(line["id"])
+    heard = notifications.recent()
+    assert heard["unread"] == 1, "reading the line reads all its ticket rang"
+    assert [i["ticket"] for i in heard["items"] if not i["read"]] == ["other"]
+    assert notifications.recent(limit=1)["unread"] == 1
 
 
 @case
@@ -1153,4 +1180,5 @@ def a_question_a_review_and_a_failure_ring_the_bell_but_a_dry_run_does_not(state
     assert notifications.recent()["unread"] == 0, "routine"
     runner._tell("blocked", ticket, "blocked", "Which?", ask=True, code="session.question")
     runner._tell("done", ticket, "review", "branch")
-    assert [i["kind"] for i in notifications.recent()["items"]] == ["review", "question"]
+    assert [(i["kind"], i["read"]) for i in notifications.recent()["items"]] == [("review", False)]
+    assert notifications.recent()["unread"] == 1, "one ticket waits"
