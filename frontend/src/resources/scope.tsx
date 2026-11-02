@@ -46,7 +46,8 @@ const entry = (
   name: string,
   href: () => string,
   badge?: MenuItemInterface["badge"],
-  hidden?: () => boolean
+  hidden?: () => boolean,
+  short?: string
 ): MenuItemInterface => ({
   icon,
   badge,
@@ -54,7 +55,7 @@ const entry = (
     return hidden?.()
   },
   get name() {
-    return t(name)
+    return t(short && phone() ? short : name)
   },
   get href() {
     return href()
@@ -62,9 +63,11 @@ const entry = (
 })
 
 /* The pages you go to every day, down the left — and along the bottom of a
- * phone, where four of them and More are what fits a 360px screen. */
+ * phone, where four of them and More are what fits a 360px screen. There the
+ * Dashboard is named after what it draws, the board: « Tableau de bord » is cut
+ * at 375px, « Tableau » is not. */
 const MENU: MenuItemInterface[] = [
-  entry(tickets.icon, "Dashboard", boardHref, BoardCount),
+  entry(tickets.icon, "Dashboard", boardHref, BoardCount, undefined, "Board"),
   entry(projects.icon, "Projects", projectsHref),
   // No count, here as under Projects: the only way to know is to ask the
   // board, and this menu is redrawn every time the board moves.

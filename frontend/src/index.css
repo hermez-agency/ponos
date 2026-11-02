@@ -513,3 +513,14 @@
     padding-inline: 0;
   }
 }
+
+/* The package's breadcrumb, beside the mark in the bar over the page, has what
+   is left of 375px once the mark and the bar's end are drawn: « Tableau de
+   bord » was cut there, and a ticket's title always is. A phone does without
+   it — the page's own heading says where you are, and the bottom bar is the
+   way back. */
+@media (width < 48rem) {
+  header nav[aria-label="Breadcrumb"] {
+    display: none;
+  }
+}

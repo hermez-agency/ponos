@@ -16,6 +16,7 @@
  * The words, one per thing, the same everywhere:
  *
  * - le tableau de bord — the console's page that draws the board (Dashboard);
+ *   « Tableau » (Board) in a phone's bottom bar, where the three words are cut;
  * - le tableau — the board itself, in a sentence: never « board »;
  * - un ticket — a card on it; lancer, relancer — what sends it to the runner;
  * - une récurrence — a ticket that comes back by itself (a schedule);
