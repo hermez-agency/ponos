@@ -11,6 +11,7 @@ itself: a button for a column Notion does not have is a button that fails.
 
 from __future__ import annotations
 
+import json
 import logging
 import shutil
 import threading
@@ -19,9 +20,11 @@ from pathlib import Path
 from typing import Any
 
 from .. import (
+    __version__,
     blocks,
     ci,
     credits,
+    disk,
     estimates,
     git,
     journal,
@@ -91,6 +94,53 @@ COLUMNS = (
     "cancelled",
 )
 
+# How many tickets of each closed column `/api/board` answers, unless asked for
+# all of them (`closed=all`): the last ones to change. 1 855 done tickets out of
+# 2 110 were 1.9 of the 2.2 MB every reader of the board was sent, to look at
+# the open ones; a ticket just closed is still there.
+CLOSED = 50
+CLOSED_COLUMNS = ("done", "cancelled")
+
+# Who reads the board again behind an answer already given, so that ten
+# readers past the watcher's period start one read, not ten. See `served_board`.
+_BEHIND = threading.Lock()
+
+
+def _closed(board: dict[str, Any], every: bool) -> dict[str, Any]:
+    """`board` with only the `CLOSED` latest tickets of each closed column — all of them with `every`.
+
+    The rest are counted in `hidden`, column by column, so that a reader knows
+    there are more and how to ask for them.
+    """
+    if every:
+        return board
+    latest: dict[str, list[dict[str, Any]]] = {}
+    for ticket in board["tickets"]:
+        if ticket.get("column") in CLOSED_COLUMNS:
+            latest.setdefault(ticket["column"], []).append(ticket)
+    kept: set[int] = set()
+    hidden: dict[str, int] = {}
+    for column, tickets in latest.items():
+        tickets.sort(key=lambda ticket: timestamps.sortable(ticket.get("edited")), reverse=True)
+        kept.update(id(ticket) for ticket in tickets[:CLOSED])
+        if len(tickets) > CLOSED:
+            hidden[column] = len(tickets) - CLOSED
+    if not hidden:
+        return board
+    return {
+        **board,
+        "tickets": [
+            ticket
+            for ticket in board["tickets"]
+            if ticket.get("column") not in CLOSED_COLUMNS or id(ticket) in kept
+        ],
+        "hidden": hidden,
+    }
+
+
+def _kept_path() -> Path:
+    return state_dir() / "web" / "board.json"
+
 
 class Tickets(Base):
     # -- reading --------------------------------------------------------------
@@ -121,7 +171,100 @@ class Tickets(Base):
             remember = getattr(getattr(self, "watch", None), "remember", None)
             if remember is not None:
                 remember(started, payload)
+            self._keep(payload)
             return payload
+
+    def served_board(self, every: bool = False) -> dict[str, Any]:
+        """The board `/api/board` answers: the one the console holds, at once.
+
+        Measured on a board of 2 110 tickets: fourteen seconds to read it whole
+        from Notion, at the start and whenever nobody had a page open for the
+        watcher's period — the board drawn last was then read again under the
+        request. So the one held is answered whatever its age, and read again
+        behind the answer once older than the watcher's period; a console that
+        has drawn none yet answers the one it drew before it was restarted
+        (`_kept_board`). Only a write from the console makes it wait: the
+        reader that just moved a card asks to see it moved. And the closed
+        columns are cut to their latest tickets unless asked for all (`_closed`).
+        """
+        max_age = self.config.web.poll_seconds
+        written = getattr(getattr(self, "watch", None), "nudges", 0)
+        drawn: tuple[float, int, dict[str, Any]] | None = getattr(self, "_drawn", None)
+        if drawn is None and not written and not every:
+            kept = self._kept_board()
+            if kept is not None:
+                self._behind_board(max_age)
+                return kept
+        if drawn is None or drawn[1] != written:
+            return _closed(self.board(max_age=max_age), every)
+        if time.monotonic() - drawn[0] >= max_age:
+            self._behind_board(max_age)
+        return _closed(drawn[2], every)
+
+    def _behind_board(self, max_age: float) -> None:
+        """The board read again in a thread of its own, one read at a time."""
+        with _BEHIND:
+            if getattr(self, "_board_reading", False):
+                return
+            self._board_reading = True
+
+        def run() -> None:
+            try:
+                self.board(max_age=max_age)
+            except store.StoreError as error:
+                # What is held stays, and the next answer tries again.
+                logger.warning("board: the read behind the answer failed: %s", error)
+            except Exception:
+                logger.exception("board: the read behind the answer failed")
+            finally:
+                self._board_reading = False
+
+        threading.Thread(target=run, name="ponos-board", daemon=True).start()
+
+    def _keep(self, payload: dict[str, Any]) -> None:
+        """Write the board as `/api/board` answers it, for the console's next start.
+
+        Only when it changed: the watcher draws it every fifteen seconds while
+        a page is open, and it has not moved for most of them.
+        """
+        try:
+            text = json.dumps(
+                {
+                    "version": __version__,
+                    "board_of": self._board_of(),
+                    "board": _closed(payload, False),
+                },
+                ensure_ascii=False,
+            )
+            if text == getattr(self, "_kept", None):
+                return
+            path = _kept_path()
+            path.parent.mkdir(parents=True, exist_ok=True)
+            disk.write_atomic(path, text)
+            self._kept = text
+        except (OSError, TypeError, ValueError) as error:
+            logger.warning("board: could not keep the board for the next start: %s", error)
+
+    def _board_of(self) -> list[str]:
+        """Which board this is, as the configuration names it: nothing to ask Notion at the start."""
+        storage, notion = self.config.storage, self.config.notion
+        return [storage.mode, str(storage.path), notion.workspace, notion.tickets_database]
+
+    def _kept_board(self) -> dict[str, Any] | None:
+        """The board kept by the last `_keep`, when it is this version's, of this board."""
+        try:
+            kept = json.loads(_kept_path().read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        if (
+            not isinstance(kept, dict)
+            or kept.get("version") != __version__
+            or kept.get("board_of") != self._board_of()
+            or not isinstance(kept.get("board"), dict)
+        ):
+            return None
+        board: dict[str, Any] = kept["board"]
+        return board
 
     def _draw(self) -> dict[str, Any]:
         settings = self.config.notion

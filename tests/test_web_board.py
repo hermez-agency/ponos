@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import shutil
 import tempfile
+import threading
 import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -530,3 +532,135 @@ def the_board_then_the_statistics_cost_notion_one_query_not_two(state_home):
     api.watch.nudge()
     web_routes.board(request)  # type: ignore[arg-type]
     assert client.queries == 3, "a write from the console makes the next one read again"
+
+
+class _HeldBack(_Counted):
+    """The same, with a query that waits for `gate` once `held` is set: a slow Notion."""
+
+    def __init__(self, statuses: list[str]) -> None:
+        super().__init__(statuses)
+        self.held = False
+        self.gate = threading.Event()
+
+    def query(self, database: str, *args, **kwargs) -> list[notion.Page]:
+        if self.held:
+            self.gate.wait(10)
+        return super().query(database, *args, **kwargs)
+
+
+def _served(client: _Counted):
+    """An Api over `client`, and `/api/board` as the route answers it."""
+    from types import SimpleNamespace
+
+    from ponos.web import live as web_live
+    from ponos.web import routes as web_routes
+
+    api = _bare_api(client)
+    api._runner._workspace = type("W", (), {"goals": "", "projects": "", "tickets": "db"})()
+    api._schema_at = time.time()
+    api._reader = web_board.Reader(journal=lambda report: None)
+    api._outbox = web_board.Outbox(journal=lambda report: None)
+    api.watch = web_live.Watch(api.hub, api.board)
+    request = SimpleNamespace(
+        app=SimpleNamespace(state=SimpleNamespace(console=SimpleNamespace(api=api)))
+    )
+
+    def board(closed: str = "") -> dict:
+        response = web_routes.board(request, closed)  # type: ignore[arg-type]
+        return json.loads(response.body)
+
+    return api, board
+
+
+def _waited(condition, seconds: float = 10.0) -> bool:
+    deadline = time.monotonic() + seconds
+    while not condition():
+        if time.monotonic() > deadline:
+            return False
+        time.sleep(0.01)
+    return True
+
+
+@case
+def the_board_is_answered_as_held_and_read_again_behind_the_answer(state_home):
+    """Fourteen seconds measured for `/api/board` once nobody had a page open for a while.
+
+    The board drawn last was read again under the request. Past the watcher's
+    period it is now answered at once, and read again behind: a Notion that
+    does not answer keeps nobody waiting.
+    """
+    client = _HeldBack(["Ready", "Done"])
+    api, board = _served(client)
+    assert len(board()["tickets"]) == 2
+    assert client.queries == 1
+
+    client.held = True
+    started, written, drawn = api._drawn
+    api._drawn = (started - api.config.web.poll_seconds, written, drawn)
+    answered = time.monotonic()
+    assert len(board()["tickets"]) == 2
+    assert time.monotonic() - answered < 1, "not a wait on Notion"
+    assert len(board()["tickets"]) == 2, "a second reader meanwhile"
+    client.gate.set()
+    assert _waited(lambda: client.queries == 2), "read once behind, for both"
+    assert _waited(lambda: not api._board_reading)
+    assert api._drawn[0] > started, "and held, for the next answer"
+
+
+@case
+def a_restarted_console_answers_the_board_it_kept(state_home):
+    """Right after a restart the console holds nothing: it answers what it drew before it."""
+    client = _HeldBack(["Ready", "Done"])
+    _, board = _served(client)
+    before = board()
+
+    client = _HeldBack(["Ready", "Done", "Done"])
+    client.held = True
+    api, board = _served(client)
+    answered = time.monotonic()
+    assert board() == before
+    assert time.monotonic() - answered < 1, "not a wait on Notion"
+    client.gate.set()
+    assert _waited(lambda: getattr(api, "_drawn", None) is not None), "read behind the answer"
+    assert len(board()["tickets"]) == 3, "and answered next"
+
+
+@case
+def a_kept_board_is_not_answered_for_another_board_or_after_a_write(state_home):
+    """Kept for this configuration's board only — and a write from the console reads Notion."""
+    _, board = _served(_HeldBack(["Ready"]))
+    board()
+
+    client = _HeldBack(["Ready", "Done"])
+    api, board = _served(client)
+    api._config.notion.tickets_database = "b" * 32
+    assert len(board()["tickets"]) == 2, "another database is read, not answered from the file"
+
+    client = _HeldBack(["Ready", "Done", "Done"])
+    api, board = _served(client)
+    api.watch.nudge()
+    assert len(board()["tickets"]) == 3, "a write from the console is read"
+    assert client.queries == 1
+
+
+@case
+def the_closed_columns_are_answered_by_their_latest_tickets():
+    """1 855 done tickets out of 2 110 were most of the 2.2 MB every reader of the board was sent."""
+    from ponos.web import tickets as web_tickets
+
+    def ticket(index: int, column: str) -> dict:
+        edited = datetime(2026, 10, 1, tzinfo=UTC) + timedelta(hours=index)
+        return {"id": f"{column}{index}", "column": column, "edited": edited.isoformat()}
+
+    closed = web_tickets.CLOSED
+    tickets = [ticket(index, "done") for index in range(closed + 10)]
+    tickets[3:3] = [ticket(0, "ready"), ticket(1, "cancelled")]
+    board = {"tickets": tickets, "columns": []}
+
+    cut = web_tickets._closed(board, False)
+    assert cut["hidden"] == {"done": 10}, cut["hidden"]
+    ids = [item["id"] for item in cut["tickets"]]
+    assert ids[:2] == ["ready0", "cancelled1"], "the open ones, and what is under the limit, all"
+    assert ids[2:] == [f"done{index}" for index in range(10, closed + 10)], "the latest, in order"
+    assert web_tickets._closed(board, True) is board, "and all of them when asked"
+    assert "hidden" not in web_tickets._closed({"tickets": tickets[:5]}, False)
