@@ -827,7 +827,7 @@ def docs_holds_the_site_and_nothing_written_for_the_team():
     assert not markdown, f"docs/ is the public site, and these are not pages of it: {markdown}"
     site = {
         ".nojekyll", "404.html", "CNAME", "apple-touch-icon.png", "architecture.png",
-        "architecture.webp", "console", "favicon.ico", "icon.svg", "index.html", "llms.txt",
+        "architecture.webp", "console", "favicon.ico", "fr", "icon.svg", "index.html", "llms.txt",
         "mascot", "media", "robots.txt", "sitemap.xml", "tokens.css",
     }  # fmt: skip
     unknown = sorted({path.parts[1] for path in files if len(path.parts) > 1} - site)
@@ -1184,6 +1184,41 @@ def the_site_links_documentation_anchors_that_exist():
             assert _resolves(target or "README.md", anchor), (
                 f"{source} links {target or 'README.md'}#{anchor}, which has no such heading"
             )
+
+
+@case
+def the_french_landing_page_answers_the_english_one():
+    """`/fr/` is the same page in French, and each says so to the other.
+
+    A visitor who writes French finds a page in their language, and a search
+    engine is told which is which: reciprocal `hreflang`, a canonical of its own,
+    both in the sitemap, and the signature in the footer. What the page links
+    must exist from its own folder, one level down.
+    """
+    english = LANDING.read_text(encoding="utf-8")
+    french_file = ROOT / "docs/fr/index.html"
+    french = french_file.read_text(encoding="utf-8")
+    assert '<html lang="fr">' in french and '<html lang="en">' in english
+    assert '<link rel="canonical" href="https://the-ponos.app/fr/">' in french
+    for page in (english, french):
+        for lang, url in (("en", "https://the-ponos.app/"), ("fr", "https://the-ponos.app/fr/")):
+            assert f'<link rel="alternate" hreflang="{lang}" href="{url}">' in page
+        assert 'hreflang="x-default" href="https://the-ponos.app/"' in page
+    assert 'href="fr/"' in english and 'href="../"' in french, "the language switch is missing"
+    assert "Un produit Hermez" in french and "A Hermez product" in english
+    assert "Écris le ticket. <span>Il revient fait.</span>" in french
+    sitemap = (ROOT / "docs/sitemap.xml").read_text(encoding="utf-8")
+    for url in ("https://the-ponos.app/", "https://the-ponos.app/fr/"):
+        assert f"<loc>{url}</loc>" in sitemap
+    ids = set(re.findall(r'\bid="([^"]+)"', french))
+    assert ids == set(re.findall(r'\bid="([^"]+)"', english)), (
+        "the two pages no longer share their anchors"
+    )
+    for anchor in re.findall(r'href="#([^"]*)"', french):
+        assert anchor in ids, f"the French page links #{anchor}, which it does not have"
+    for target in re.findall(r'(?:href|src|poster)="([^"#:]+)"', french):
+        target = target.split("?", 1)[0]
+        assert (french_file.parent / target).exists(), f"/fr/ links {target}, which is not there"
 
 
 @case

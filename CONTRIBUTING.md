@@ -573,7 +573,7 @@ headless Chrome through one ticket — *New ticket*, *In progress* with its live
 `docs/media/console-loop-{light,dark}.mp4` and their posters (ffmpeg makes the videos). No
 Claude Code session runs: a stand-in holds the run lock, writes the session log and moves
 the ticket with the runner's own pieces, so the console shows what it shows of a real run.
-The script also writes, into `docs/index.html`, the second at which each of the four
+The script also writes, into `docs/index.html` and its French twin `docs/fr/index.html`, the second at which each of the four
 gestures begins, for the legend under the film to follow it.
 
 `.github/workflows/ci.yml` runs both suites on every pull request and on every push to

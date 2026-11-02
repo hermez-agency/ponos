@@ -6,6 +6,9 @@
 <title>Ponos — Write the ticket. It comes back done.</title>
 <meta name="description" content="Write the ticket. It comes back done. Ponos is a harness around Claude Code that runs your tasks on your machine — code, writing, actions, posts — on a board of its own, the console or a folder of Markdown files. Notion and GitHub plug in when you want them, and nothing ships until you say yes.">
 <link rel="canonical" href="https://the-ponos.app/">
+<link rel="alternate" hreflang="en" href="https://the-ponos.app/">
+<link rel="alternate" hreflang="fr" href="https://the-ponos.app/fr/">
+<link rel="alternate" hreflang="x-default" href="https://the-ponos.app/">
 <link rel="icon" type="image/svg+xml" href="mascot/favicon.svg?v=ecran">
 <link rel="icon" href="favicon.ico" sizes="16x16 32x32 48x48">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -13,6 +16,8 @@
 <meta property="og:title" content="Ponos — Write the ticket. It comes back done.">
 <meta property="og:description" content="A harness around Claude Code that runs your tasks on your machine — a pull request, a text, an action, a post. A board of its own; Notion and GitHub only if you want them.">
 <meta property="og:url" content="https://the-ponos.app/">
+<meta property="og:locale" content="en">
+<meta property="og:locale:alternate" content="fr">
 <meta property="og:image" content="https://the-ponos.app/mascot/og.png?v=ecran">
 <meta property="og:image:alt" content="Ponos, the robot, jumping beside its name and the words: Write the ticket. It comes back done.">
 <meta property="og:image:width" content="1200">
@@ -197,6 +202,7 @@
   .nav-links { display: flex; align-items: center; gap: .25rem; }
   .nav-links .btn-ghost { color: var(--muted-foreground); }
   .nav-links .btn-ghost:hover { color: var(--foreground); }
+  .nav-links .lang-switch { font-weight: 600; }
   @media (max-width: 860px) { .nav-links .btn-ghost.section-link { display: none; } }
   .theme-toggle .moon { display: none; }
   .dark .theme-toggle .moon { display: block; }
@@ -625,6 +631,7 @@
         <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
         Docs
       </a>
+      <a class="btn btn-ghost btn-sm lang-switch" href="fr/" hreflang="fr" lang="fr" aria-label="Lire cette page en français">FR</a>
       <button class="btn btn-ghost btn-icon theme-toggle" id="theme-toggle" type="button" aria-label="Switch between light and dark">
         <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2m-7.07-2.93 1.41-1.41m11.32-11.32 1.41-1.41M2 12h2m16 0h2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41"/></svg>
         <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
@@ -1199,6 +1206,7 @@ url = "https://&lt;machine&gt;.&lt;tailnet&gt;.ts.net"</pre>
       <a href="#server">Install with Dokploy</a>
       <a href="https://github.com/hermez-agency/ponos/issues">Report a bug</a>
       <a href="llms.txt">llms.txt</a>
+      <a href="fr/" hreflang="fr" lang="fr">Français</a>
     </nav>
   </div>
 </footer>
