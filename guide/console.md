@@ -164,7 +164,8 @@ asks it for words instead. Nothing is kept on the side; the same sentence typed 
 does the same thing.
 
 **The bell.** The icon in the header counts the tickets waiting for you — not the notifications —
-and opens a dropdown over the board: one line per ticket, the latest first, saying what it rang for
+and opens a dropdown over the board: one line per ticket, those still waiting first — every one the badge counts, however old — then
+the latest read, saying what it rang for
 last with an icon, how many times it rang so (« 3 questions »), the ticket's title, its project and
 how long ago. A click opens the ticket's card and marks everything that ticket rang for read; *Mark all as
 read* empties the badge; Tab and Enter reach everything, Escape closes it, and on a phone it spans

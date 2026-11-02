@@ -60,7 +60,8 @@ SETTLING = timedelta(minutes=2)
 # How long a notification you have read is kept.
 KEEP_DAYS = 30
 
-# How many tickets the console is handed: the bell lists the latest, not the archive.
+# How many tickets the console is handed: the bell lists the latest, not the archive
+# — but never fewer than wait, which come first however old they are.
 LISTED = 50
 
 
@@ -153,10 +154,13 @@ def _purge(connection: sqlite3.Connection) -> None:
 
 
 def recent(limit: int = LISTED) -> dict[str, object]:
-    """One line per ticket, the latest first, and how many tickets wait in all.
+    """One line per ticket, those that wait first, and how many tickets wait in all.
 
     A line is what its ticket rang for last, with `count` the times it rang for
-    that kind; it is unread while anything its ticket rang for is.
+    that kind; it is unread while anything its ticket rang for is. Every ticket
+    the count counts is listed, `limit` or not: a badge saying five over a list
+    showing two would ask you to find three lines it does not hand you. The read
+    ones, latest first, fill what is left of `limit`.
     """
     try:
         with db.transaction(immediate=False) as connection:
@@ -174,6 +178,7 @@ def recent(limit: int = LISTED) -> dict[str, object]:
             counts[ticket] = counts.get(ticket, 0) + 1
         if not read_at:
             waiting.add(ticket)
+    lines = sorted(latest.items(), key=lambda line: line[0] not in waiting)
     return {
         "items": [
             {
@@ -185,7 +190,7 @@ def recent(limit: int = LISTED) -> dict[str, object]:
                 "read": ticket not in waiting,
                 "count": counts[ticket],
             }
-            for ticket, (identifier, kind, title, at) in list(latest.items())[:limit]
+            for ticket, (identifier, kind, title, at) in lines[: max(limit, len(waiting))]
         ],
         "unread": len(waiting),
     }
