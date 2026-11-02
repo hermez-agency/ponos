@@ -7,7 +7,7 @@ from pathlib import Path
 from support import _nameless, _naming_session, _saved, _state_home, _TypedClient, case
 
 from ponos import config as C
-from ponos import kinds, projects, prompt, question, state, voice
+from ponos import decisions, kinds, projects, prompt, question, state, store, voice
 from ponos.web import settings as web_settings
 
 # -- the type of a ticket ----------------------------------------------------
@@ -379,6 +379,78 @@ def a_classification_that_is_not_sure_blocks_the_ticket_with_the_question():
     runner, ticket = _typed()
     with _state_home(), _naming_session("", missing=True):
         assert runner.prepare(ticket) is None, "no answer at all is the deepest doubt"
+
+
+def _answered(runner, ticket, *answers: str):
+    """The ticket blocked on its type, then answered on the page — as the next pass reads it."""
+    hesitant = (
+        '{"type": "writing", "reason": "Rédiger, ou agir ?", "confidence": "high", '
+        '"alternative": "external"}'
+    )
+    with _naming_session(hesitant):
+        assert runner.prepare(ticket) is None
+    comments = [store.Comment(runner.client.said[-1], created_by="ponos")] + [
+        store.Comment(answer, created_by="you") for answer in answers
+    ]
+    runner.client.said.clear()
+    runner.client.written.clear()
+    runner.client.comments = lambda page_id: comments
+    runner._me = "ponos"
+    runner.forget_comments(ticket.page.id)
+
+
+@case
+def the_question_of_a_type_offers_one_button_per_type(state_home):
+    runner, ticket = _typed()
+    _answered(runner, ticket)
+    found = decisions.blockage(comment.text for comment in runner.client.comments(""))
+    assert found.question.mode == "choice", found.question
+    assert found.question.options == ["Rédaction", "Action externe"]
+    assert found.category == "question" and found.declared
+    offered = decisions.unblocking(found)
+    assert [solution.text for solution in offered if solution.key == "option"] == [
+        "Rédaction",
+        "Action externe",
+    ]
+
+
+@case
+def an_answer_that_names_a_type_fills_the_column_rather_than_asking_again(state_home):
+    """“action externe”, typed under the question, is the type — not one more question."""
+    for answers in (
+        ("action externe",),
+        ("Répondu depuis la console.\nDécision : réponse à la question.\naction externe",),
+        (
+            "Répondu depuis la console.\nDécision : option 2, « Action externe ».\nOption 2 : Action externe.",
+        ),
+        ("2",),
+        ("readction", "Décision : réponse à la question. action externe"),
+    ):
+        runner, ticket = _typed()
+        _answered(runner, ticket, *answers)
+        with _naming_session('{"type": "writing", "confidence": "low"}') as asked:
+            job = runner.prepare(ticket)
+        assert asked == [], ("an answer costs no session", answers)
+        assert runner.client.written[0] == {"Type": "Action externe"}, (
+            answers,
+            runner.client.written,
+        )
+        assert job is not None and job.kind == "external", answers
+
+
+@case
+def an_answer_that_names_no_type_or_two_is_classified_as_before(state_home):
+    for answers in (("je ne sais pas",), ("rédaction ou action externe, je ne sais pas",)):
+        runner, ticket = _typed()
+        _answered(runner, ticket, *answers)
+        sure = '{"type": "writing", "reason": "Un texte.", "confidence": "high", "alternative": ""}'
+        with _naming_session(sure) as asked:
+            job = runner.prepare(ticket)
+        assert len(asked) == 1, answers
+        assert job is not None and job.kind == "writing", answers
+    assert kinds.named("readction", {"writing": ("Rédaction",), "code": ("Code",)}) == "writing"
+    assert kinds.named("action", {"writing": ("Redaction",)}) == ""
+    assert kinds.named("le mode", {"code": ("Code",)}) == "", "four letters are spelled right"
 
 
 @case

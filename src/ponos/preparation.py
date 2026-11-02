@@ -25,6 +25,8 @@ import shutil
 
 from . import (
     agents,
+    blocks,
+    conversation,
     git,
     goals,
     journal,
@@ -38,6 +40,7 @@ from . import (
     store,
     subtypes,
 )
+from . import question as question_module
 from . import voice as voice_module
 from .base import Base
 from .config import state_dir
@@ -376,7 +379,62 @@ class Preparation(Base):
         if self.dry_run:
             self.say("    (dry run) no type — it would be classified before it runs")
             return "", ""
+        answered = self._answered_kind(ticket)
+        if answered:
+            try:
+                self.client.update(
+                    self.database, ticket.page.id, {column: self.kind_name(answered)}
+                )
+            except store.StoreError as error:
+                self.say(f"  ! the type could not be written: {voice_module.line(error)}")
+            self.say(f"    · type {answered} — as answered on the ticket")
+            return answered, ""
         return self._classify(ticket, body, project)
+
+    def _answered_kind(self, ticket: Ticket) -> str:
+        """The type somebody answered the question of its type with, "" when none.
+
+        The question is asked on the page and answered there — by a button of
+        the console, a “2” from a phone, or “action externe” typed in a hurry —
+        while the column stays empty: read as no type, the answer used to be
+        classified again, and doubted again, and the same question came back
+        under it. Only what was said since the last report, and only when that
+        report asked for the type; the newest answer that names one wins.
+        """
+        try:
+            comments = self.comments(ticket.page.id)
+        except store.StoreError:
+            return ""
+        last = max(
+            (
+                index
+                for index, comment in enumerate(comments)
+                if voice_module.is_report(comment.text)
+            ),
+            default=-1,
+        )
+        if last < 0:
+            return ""
+        report = voice_module.plain(comments[last].text).strip()
+        if blocks.classify(report.split("\n\n", 1)[0]) != "ticket.kind-unsure":
+            return ""
+        asked = question_module.found(report)
+        settings = self.config.notion
+        names = {kind: settings.kind_names(kind) for kind in kinds.KINDS}
+        me = self.myself()
+        for comment in reversed(comments[last + 1 :]):
+            if voice_module.is_report(comment.text) or conversation.ours(comment, me):
+                continue
+            text = conversation.said(comment.text)
+            reading = question_module.read(text, asked)
+            kind = (
+                settings.kind_of(reading.label)
+                if reading.kind == "option"
+                else kinds.named(text, names)
+            )
+            if kind:
+                return kind
+        return ""
 
     def _subtype(self, ticket: Ticket, body: str, answer: str = "") -> tuple[str, str]:
         """A code ticket's sub-type, and the note its report carries about it.
@@ -513,6 +571,9 @@ class Preparation(Base):
         why = kinds.doubt(guess, self.config.runner.classify_confidence)
         if why:
             between = [kind for kind in (guess.kind, guess.alternative) if kind]
+            # One button per type the doubt is between — all four when it is
+            # between nothing: a click is the answer, read back by `_answered_kind`.
+            options = between if len(between) == 2 else list(kinds.KINDS)
             if len(between) == 2:
                 question = said.say(
                     "kind-question-between",
@@ -522,11 +583,7 @@ class Preparation(Base):
                     prudent=self.kind_name(kinds.prudent(*between)),
                 )
             else:
-                question = said.say(
-                    "kind-question",
-                    choices=", ".join(self.kind_name(kind) for kind in kinds.KINDS),
-                    property=column,
-                )
+                question = said.say("kind-question", property=column)
             reason = said.say(f"kind-{why}")
             self._fail(
                 ticket,
@@ -534,7 +591,13 @@ class Preparation(Base):
                 said.paragraphs(said.sentence(reason), guess.reason),
                 code="ticket.kind-unsure",
                 blocked=True,
-                question=question,
+                question=question_module.Question(
+                    ask=question,
+                    mode="choice",
+                    options=[self.kind_name(kind) for kind in options],
+                    why=" ".join(part for part in (said.sentence(reason), guess.reason) if part),
+                    category="question",
+                ),
             )
             return None, ""
 

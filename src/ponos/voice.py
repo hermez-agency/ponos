@@ -391,16 +391,16 @@ _SAID: dict[str, dict[str, str]] = {
         "fr": "j'hésite entre deux types, et l'un d'eux agit sur le monde",
     },
     "kind-question": {
-        "en": "Which type is it — {choices}? Choose it in the {property} column; nothing "
-        "runs until then.",
-        "fr": "De quel type est-il — {choices} ? Choisis-le dans la colonne {property} ; "
-        "rien ne s'exécute d'ici là.",
+        "en": "Which type is it? Answer with one, or choose it in the {property} column; "
+        "nothing runs until then.",
+        "fr": "De quel type est-il ? Réponds par l'un d'eux, ou choisis-le dans la colonne "
+        "{property} ; rien ne s'exécute d'ici là.",
     },
     "kind-question-between": {
-        "en": "{first} or {second}? Choose it in the {property} column; nothing runs until "
-        "then. In doubt, I would take {prudent}.",
-        "fr": "{first} ou {second} ? Choisis-le dans la colonne {property} ; rien ne "
-        "s'exécute d'ici là. Dans le doute, je retiendrais {prudent}.",
+        "en": "{first} or {second}? Answer with one, or choose it in the {property} column; "
+        "nothing runs until then. In doubt, I would take {prudent}.",
+        "fr": "{first} ou {second} ? Réponds par l'un d'eux, ou choisis-le dans la colonne "
+        "{property} ; rien ne s'exécute d'ici là. Dans le doute, je retiendrais {prudent}.",
     },
     "no-project": {
         "en": "I could not find its project on this machine",
