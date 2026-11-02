@@ -204,6 +204,11 @@ export const FRENCH: Record<string, string> = {
   waiting: "en attente",
   "“{{title}}” did not reach Notion": "« {{title}} » n’est pas arrivé dans Notion",
   "“{{title}}” was changed in Notion meanwhile": "« {{title}} » a été modifié dans Notion entre-temps",
+  // Why, with the two columns put in (`conflicts.ts`).
+  "Ponos wanted to move it to {{wanted}}, but it is {{found}} in Notion: left as it is.":
+    "Ponos voulait le passer en {{wanted}}, mais il est {{found}} dans Notion : laissé tel quel.",
+  "You moved it to {{wanted}}, but it is {{found}} in Notion: left as it is.":
+    "Vous l’aviez passé en {{wanted}}, mais il est {{found}} dans Notion : laissé tel quel.",
   "event stream": "flux d'événements",
   "connecting…": "connexion…",
   "reconnecting…": "reconnexion…",

@@ -4,6 +4,7 @@ import { toast } from "sonner"
 import { api, why } from "@/lib/api"
 import { applyChanges, currentBoard, moveTicket, publishBoard, titleOf } from "@/lib/board-store"
 import { t } from "@/lib/i18n"
+import { unshown } from "@/lib/conflicts"
 import { goalsMoved, movesGoals } from "@/lib/goals-store"
 import { ideasScored } from "@/lib/ideas-store"
 import { publishBell } from "@/lib/notifications-store"
@@ -36,6 +37,7 @@ import { publishAgui } from "@/lib/agui"
 import { planOf, readPlan, type Task } from "@/lib/plan"
 import { justUpdated, type UpgradePhase } from "@/lib/upgrade"
 import { useStream, type Connection } from "./use-stream"
+import { conflictSaid } from "@/components/console/ticket-bits"
 
 /* Everything the console knows, in three places.
  *
@@ -62,6 +64,30 @@ const KEPT = 200
 
 /** Where a page reloaded after an update leaves the version it came back on. */
 const UPDATED = "ponos:updated"
+
+/* The refusals this browser has already toasted, one line each (`conflicts.ts`).
+ * Kept in `localStorage`, so that a reload or a new tab does not say them
+ * again; in memory where the browser keeps nothing. */
+const SHOWN = "ponos:conflicts-shown"
+let shownHere: string[] = []
+
+function shownConflicts(): string[] {
+  try {
+    const kept = localStorage.getItem(SHOWN)
+    return kept ? (JSON.parse(kept) as string[]) : []
+  } catch {
+    return shownHere
+  }
+}
+
+function rememberConflicts(kept: string[]) {
+  shownHere = kept
+  try {
+    localStorage.setItem(SHOWN, JSON.stringify(kept))
+  } catch {
+    // Private browsing, a full quota: this tab still remembers.
+  }
+}
 
 /* What the console's transcript holds besides the conversation: the `>`
  * commands run from it and the problems it met on the way. The conversation
@@ -353,15 +379,22 @@ export function ConsoleProvider({ children }: { children: React.ReactNode }) {
       // A move that did not reach Notion is said once, when it stops being on
       // its way — the card keeps saying it after the toast is gone.
       for (const item of touched) {
-        if (item.sync !== "failed" && item.sync !== "conflict") continue
-        if (before.get(item.id) === item.sync) continue
-        toast.error(
-          item.sync === "failed"
-            ? t("“{{title}}” did not reach Notion", { title: titleOf(item) })
-            : t("“{{title}}” was changed in Notion meanwhile", { title: titleOf(item) }),
-          { description: item.sync_error }
-        )
+        if (item.sync !== "failed" || before.get(item.id) === item.sync) continue
+        toast.error(t("“{{title}}” did not reach Notion", { title: titleOf(item) }), {
+          description: item.sync_error,
+        })
       }
+      // A move not made because Notion had changed is said once as well — but
+      // it is read from the journal, and stays on the card until somebody acts:
+      // what this browser has already shown is remembered across loads, or
+      // every new tab said an old refusal again (`conflicts.ts`).
+      const { fresh: refused, kept } = unshown(fresh.tickets, shownConflicts())
+      for (const item of refused) {
+        toast.error(t("“{{title}}” was changed in Notion meanwhile", { title: titleOf(item) }), {
+          description: conflictSaid(item),
+        })
+      }
+      rememberConflicts(kept)
       setBoard(fresh)
       // The board moved: keep the open ticket's terminal describing the right
       // one. Reread the discussion only when the ticket *changed column* — that
