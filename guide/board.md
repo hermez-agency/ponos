@@ -299,9 +299,11 @@ that left files changed, or says it changed the code, is still blocked
 The comment asks *Writing or Publication?* and says which is the more careful of the two —
 in doubt, always the one further along *Writing → Code → External action → Publication*.
 **The Type column is left empty** rather than filled with that guess: a type the runner
-wrote would read, on the next pass, as a type you had chosen. Pick it, answer in the
-comment, and the ticket runs on the next pass — an answer that names the type is read by
-the next classification too.
+wrote would read, on the next pass, as a type you had chosen. Pick it, or answer: the
+question offers one button per type, in the console and on your phone, and the next pass
+writes the type you clicked — or named in a sentence, *action externe*, a typo apart
+(*readction*), or by its number — into the column, then runs the ticket without asking
+again. An answer that names two types, or none, goes back to the classification.
 
 **A type somebody chose is never touched.** Not overwritten, not re-classified, not asked
 about. An option that is none of the four — a column you use for something else — is left

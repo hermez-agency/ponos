@@ -2402,7 +2402,7 @@ export const FRENCH: Record<string, string> = {
   "Yes, close it": "Oui, clos-le",
   Yes: "Oui",
   No: "Non",
-  "Run it again as it is": "Relancez tel quel",
+  "Run it again as it is": "Relancer tel quel",
   "Quick replies": "Réponses rapides",
   Abandon: "Abandonner",
   "Abandon this ticket?": "Abandonner ce ticket ?",

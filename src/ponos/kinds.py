@@ -51,7 +51,10 @@ from __future__ import annotations
 
 import json
 import re
+import unicodedata
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
+from difflib import SequenceMatcher
 
 from . import subtypes
 from .config import CONFIDENCES
@@ -70,6 +73,11 @@ RISKY = ("external", "publication")
 # Neither of these three is worked in a repository, whatever the project holds:
 # what they produce does not go into one — nor does it ever ask for a commit.
 WITHOUT_REPOSITORY = ("writing", "external", "publication")
+
+# How close a word typed in an answer must be to a type's name to be read as
+# it: “readction” is Rédaction, “action” alone is not. A name of four
+# letters or fewer is spelled right or not at all — “mode” is not Code.
+CLOSE = 0.85
 
 # One JSON object. A session still thinking about it after two minutes is a
 # session that misunderstood the question.
@@ -247,6 +255,45 @@ def prudent(*kinds: str) -> str:
     """The more careful of these types — see `PRUDENCE`."""
     known = [kind for kind in kinds if kind in PRUDENCE]
     return max(known, key=PRUDENCE.index) if known else ""
+
+
+def named(answer: str, names: Mapping[str, Sequence[str]]) -> str:
+    """The one type an answer names, by any of its spellings — "" for none or two.
+
+    The question of a type is answered on the page, from a phone more often
+    than not: “action externe”, « la 2 » read as its option, or “readction”
+    typed in a hurry. Each spelling is looked for among as many words of the
+    answer as it has, a typo apart; an answer that names two types — “rédaction
+    ou action externe ?” — has not chosen, and names none.
+    """
+    words = _folded(answer).split()
+    found = {
+        kind
+        for kind, spellings in names.items()
+        for spelling in spellings
+        if _among(_folded(spelling).split(), words)
+    }
+    return found.pop() if len(found) == 1 else ""
+
+
+def _among(name: list[str], words: list[str]) -> bool:
+    if not name:
+        return False
+    wanted = " ".join(name)
+    for start in range(len(words) - len(name) + 1):
+        typed = " ".join(words[start : start + len(name)])
+        if typed == wanted or (
+            len(wanted) > 4 and SequenceMatcher(None, typed, wanted).ratio() >= CLOSE
+        ):
+            return True
+    return False
+
+
+def _folded(text: str) -> str:
+    """Lower case, without accents or punctuation: what `named` compares."""
+    bare = unicodedata.normalize("NFKD", str(text or ""))
+    bare = "".join(char for char in bare if not unicodedata.combining(char)).lower()
+    return re.sub(r"[^\w]+", " ", bare)
 
 
 def worked_in(project: Project, kind: str) -> Project:
