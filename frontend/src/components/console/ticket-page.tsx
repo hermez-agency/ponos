@@ -333,8 +333,14 @@ function TicketSummary({ ticket, onSession }: { ticket: TicketDetail; onSession:
             ) : null}
             {/* The runs' time with the clock stopped while it waited — not the
                 time since it was made, which holds the queue and the review. */}
-            {ticket.worktime ? <TicketTime time={ticket.worktime} /> : null}
-            {took ? <span className="text-muted-foreground">{took}</span> : null}
+            {ticket.worktime ? (
+              <span className="inline-flex min-w-0 items-center gap-1">
+                <span className="text-muted-foreground">{t("worked")}</span>
+                <TicketTime time={ticket.worktime} />
+              </span>
+            ) : null}
+            {/* The last session alone: the column the runner writes after each run. */}
+            {took ? <span className="text-muted-foreground">{t("last session {{time}}", { time: took })}</span> : null}
           </div>
           {ticket.session || ticket.runner ? (
             // A separator leads the item it precedes and sits in a margin the

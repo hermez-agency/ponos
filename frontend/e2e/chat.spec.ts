@@ -51,7 +51,10 @@ test("a turn streams what Ponos says and does, then the answer, and is kept that
   const check = turn.locator("[data-slot=chat-tool-call]").filter({ hasText: "python3 -m app.check" })
   await expect(check).toHaveAttribute("data-status", "error")
   await expect(turn.locator("[data-slot=chat-tool-result][data-state=error]")).toContainText("boom")
-  await expect(turn.locator("[data-slot=said-footer]")).toContainText("$0.0123")
+  // The cost to the cent, the exact figure a hover away; the span says what it measures.
+  await expect(turn.locator("[data-slot=said-footer]")).toContainText("answered in")
+  await expect(turn.locator("[data-slot=said-footer]")).toContainText("$0.01")
+  await expect(turn.locator("[data-slot=said-footer]").getByTitle("$0.0123")).toBeVisible()
 
   // Read again from the server, the conversation is drawn as it was watched.
   await page.reload()
@@ -59,7 +62,7 @@ test("a turn streams what Ponos says and does, then the answer, and is kept that
   const kept = page.locator("[data-slot=said][data-role=workspace]").last()
   await expect(kept.getByText("Done. The board has 13 tickets.")).toBeVisible()
   await expect(kept.locator("[data-slot=chat-tool-call]")).toHaveCount(2)
-  await expect(kept.locator("[data-slot=said-footer]")).toContainText("$0.0123")
+  await expect(kept.locator("[data-slot=said-footer]").getByTitle("$0.0123")).toHaveText("$0.01")
   await expect(page.locator("[data-slot=said][data-role=you]").last()).toContainText("what is on the board?")
 })
 
