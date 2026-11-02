@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import fcntl
 import json
+import logging
 import os
 import time
 from collections.abc import Iterable, Iterator
@@ -24,6 +25,8 @@ from typing import Any
 
 from . import db, disk
 from .config import state_dir
+
+logger = logging.getLogger(__name__)
 
 
 def logs_dir() -> Path:
@@ -689,17 +692,96 @@ def spend(cost_usd: float, ticket: str = "") -> None:
     a line per ticket and could not say all of that; this is what the day's
     limit adds up. Nothing to write when nothing was paid: a subscription
     reports no cost.
+
+    A write that fails is no longer passed over: swallowed, it left the limit
+    adding up a cheaper day than the one paid for, and nobody the wiser. The
+    trace goes to ponos.log, and the line to `spending.owed` beside the
+    database — a file, because the database is what just refused — which
+    `spent_today` counts as it is and `settle_spending` writes down at the next pass
+    that can.
     """
     if not cost_usd:
         return
+    settle_spending()
+    row = (datetime.now(UTC).isoformat(timespec="seconds"), ticket, float(cost_usd))
     try:
-        with db.transaction() as connection:
-            connection.execute(
-                "INSERT INTO spending (at, ticket, cost_usd) VALUES (?, ?, ?)",
-                (datetime.now(UTC).isoformat(timespec="seconds"), ticket, float(cost_usd)),
-            )
+        _write_spending([row])
     except db.ERRORS:
-        pass
+        logger.exception(
+            "    ! the %.2f $ a session of %s cost could not be written down — kept in %s",
+            row[2],
+            ticket or "no ticket",
+            _owed_path(),
+        )
+        _owe(row)
+
+
+def settle_spending() -> list[tuple[str, str, float]]:
+    """Write down what `spend` could not, and hand back what is still owed.
+
+    Under a lock on the file, so that two sessions ending together neither
+    write a line twice nor lose one written while the other was settling. The
+    file is emptied, never removed: whoever waits on its lock holds this inode.
+    """
+    path = _owed_path()
+    try:
+        handle = open(path, "r+", encoding="utf-8")  # noqa: SIM115
+    except FileNotFoundError:
+        return []
+    except OSError:
+        logger.exception("    ! cannot read %s: the sessions it holds are not counted", path)
+        return []
+    try:
+        with handle:
+            fcntl.flock(handle, fcntl.LOCK_EX)
+            rows = _owed_rows(handle.read())
+            if not rows:
+                return []
+            try:
+                _write_spending(rows)
+            except db.ERRORS:
+                logger.exception(
+                    "    ! %d session cost(s) still not written down — kept in %s", len(rows), path
+                )
+                return rows
+            handle.seek(0)
+            handle.truncate()
+            return []
+    except OSError:
+        logger.exception("    ! cannot settle %s: the sessions it holds stay owed", path)
+        return []
+
+
+def _owed_path() -> Path:
+    return state_dir() / "spending.owed"
+
+
+def _owed_rows(text: str) -> list[tuple[str, str, float]]:
+    rows = []
+    for line in text.splitlines():
+        try:
+            at, ticket, cost = json.loads(line)
+            rows.append((str(at), str(ticket), float(cost)))
+        except (ValueError, TypeError):
+            continue
+    return rows
+
+
+def _owe(row: tuple[str, str, float]) -> None:
+    """Add `row` to `spending.owed`, under the lock `settle_spending` takes."""
+    path = _owed_path()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "a+", encoding="utf-8", opener=disk.opener()) as handle:
+            fcntl.flock(handle, fcntl.LOCK_EX)
+            handle.write(json.dumps(row) + "\n")
+    except OSError:
+        logger.exception("    ! cannot keep %s either: this session's cost is lost", path)
+
+
+def _write_spending(rows: list[tuple[str, str, float]]) -> None:
+    with db.transaction() as connection:
+        connection.executemany("INSERT INTO spending (at, ticket, cost_usd) VALUES (?, ?, ?)", rows)
 
 
 def spent_today() -> float:
@@ -707,18 +789,23 @@ def spent_today() -> float:
 
     A session is written down when it ends, so one still in flight is not in
     the figure yet: the daily limit is read where a session is about to
-    *start*, and one that began under it is left to finish.
+    *start*, and one that began under it is left to finish. What could not be
+    written down yet is counted all the same, from `spending.owed`.
     """
     midnight = datetime.now().astimezone().replace(hour=0, minute=0, second=0, microsecond=0)
     since = midnight.astimezone(UTC).isoformat(timespec="seconds")
+    owed = sum(cost for at, _, cost in settle_spending() if at >= since)
     try:
         with db.transaction(immediate=False) as connection:
             (total,) = connection.execute(
                 "SELECT COALESCE(SUM(cost_usd), 0) FROM spending WHERE at >= ?", (since,)
             ).fetchone()
     except db.ERRORS:
-        return 0.0
-    return float(total or 0.0)
+        logger.exception(
+            "    ! what was spent today cannot be read: the limit counts only what is owed"
+        )
+        return owed
+    return float(total or 0.0) + owed
 
 
 def spent_by_project(since: datetime) -> list[tuple[str, int, float]]:

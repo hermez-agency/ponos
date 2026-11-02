@@ -115,7 +115,9 @@ a session cost — which a subscription does not, so they are for an API key or 
 
 - **`budget.daily_usd`** is read where a session is about to *start*, against what the
   sessions started since local midnight cost — every one of them, those that name, classify
-  or repair a ticket included, each written down the moment it ends. Past it nothing new begins — not a ticket, not
+  or repair a ticket included, each written down the moment it ends. A cost the database
+  refuses is not lost: the error goes to `ponos.log`, the line waits in `spending.owed` beside
+  `ponos.db`, counted all the same, and the next pass writes it down. Past it nothing new begins — not a ticket, not
   a publication, not an answer in a thread — and what is running finishes. The ready tickets
   are ticked as waiting, Telegram and Slack are told once, and the console shows a banner;
   merges and everything else that costs nothing carry on. It lifts at midnight.
