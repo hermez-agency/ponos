@@ -717,6 +717,14 @@ find me ideas* asks for a batch for the project picked in that filter, and the s
 stays the quick way to sort them. The console reads the list through `GET
 /api/ideas/all?scope=all`.
 
+On a phone the head of a list keeps to a few lines, so its first row is on the screen without a
+scroll: the sentence under the title and the icon beside it are left out, the layouts are their
+icons, and the filters fold behind one *Filters* button — the search of the *Schedules* beside it,
+the status of the *Ideas* as a single button with its count. The Ideas' other gestures —
+*Ponos, find me ideas*, *Score the unscored ideas*, *Settings* — and the line that says when Ponos
+looks next are behind the **⋯** beside *New idea*. On the *Settings* page, the card that only
+named again the tab just picked is left out.
+
 Ideas live in the local database, `ponos.db`, with what each batch cost, who wrote them, and
 when their status last changed, and their score (migration `ideas_have_a_score`: a `score`
 column, NULL for not scored; the reason is kept in the idea's detail) — they survive restarts and
