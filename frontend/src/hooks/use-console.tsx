@@ -17,6 +17,7 @@ import type {
   ChatEvent,
   ColumnKey,
   CommandEvent,
+  HealthReport,
   Message,
   NoticeEvent,
   Project,
@@ -610,6 +611,10 @@ export function ConsoleProvider({ children }: { children: React.ReactNode }) {
         window.location.reload()
       }
     },
+
+    // The installation checked again behind an answer past its time (see
+    // `Upkeep.health`): the band, wherever it is drawn, takes it if it is newer.
+    health: (event: HealthReport) => window.dispatchEvent(new CustomEvent("ponos:health", { detail: event })),
 
     notice: (event: NoticeEvent) => {
       toast.error(event.where, { description: event.message })

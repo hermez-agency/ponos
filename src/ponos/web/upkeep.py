@@ -8,6 +8,8 @@ fix confirmed, a tidy under the run lock.
 
 from __future__ import annotations
 
+import logging
+import threading
 import time
 from datetime import UTC, datetime
 from typing import Any
@@ -15,6 +17,8 @@ from typing import Any
 from .. import cleanup, health, resources, state
 from .. import config as config_module
 from .base import Base
+
+logger = logging.getLogger(__name__)
 
 # Measuring the state directory walks every file of every worktree — 25 GB of
 # them on the day the console started showing it. Once in a while is plenty: it
@@ -27,6 +31,10 @@ DISK_TTL = 600
 # changes when somebody mends it — a fix, a saved setting, "Recheck" — and those
 # ask afresh; the rest of the time a few minutes old is the same answer.
 HEALTH_TTL = 300
+
+# Who is checking again in the background, so that ten pages opened on an
+# expired answer start one check, not ten. See `Upkeep.health`.
+_RECHECKING = threading.Lock()
 
 
 class Upkeep(Base):
@@ -65,18 +73,49 @@ class Upkeep(Base):
         }
 
     def health(self, *, fresh: bool = False) -> dict[str, Any]:
-        """What is wrong with the installation, for the top of the dashboard. See `health.py`."""
-        held = getattr(self, "_health", None)
-        if fresh or held is None or time.time() - held[0] > HEALTH_TTL:
-            checks = health.run(self.config, self.runner.client)
-            report = {
-                "checks": [check.asdict() for check in checks],
-                "problems": health.problems(checks),
-                "checked_at": datetime.now(UTC).isoformat(),
-            }
-            held = (time.time(), report)
-            self._health = held
+        """What is wrong with the installation, for the top of the dashboard. See `health.py`.
+
+        An answer past its time is still the one given: whoever opened the
+        dashboard then waited the whole check — eighteen seconds, measured —
+        for a band that most days says nothing. It is checked again behind the
+        answer, and what that finds reaches the page on the stream (`health`).
+        Only "Recheck", a fix or a saved setting — nothing held — wait for it.
+        """
+        held: tuple[float, dict[str, Any]] | None = getattr(self, "_health", None)
+        if fresh or held is None:
+            return self._check_health()
+        if time.time() - held[0] > HEALTH_TTL:
+            self._recheck_health()
         return held[1]
+
+    def _check_health(self) -> dict[str, Any]:
+        checks = health.run(self.config, self.runner.client)
+        report = {
+            "checks": [check.asdict() for check in checks],
+            "problems": health.problems(checks),
+            "checked_at": datetime.now(UTC).isoformat(),
+        }
+        self._health = (time.time(), report)
+        return report
+
+    def _recheck_health(self) -> None:
+        with _RECHECKING:
+            if getattr(self, "_health_rechecking", False):
+                return
+            self._health_rechecking = True
+
+        def work() -> None:
+            try:
+                report = self._check_health()
+            except Exception:
+                # The answer held stays, and the next page tries again.
+                logger.exception("health: the background check failed")
+                return
+            finally:
+                self._health_rechecking = False
+            self.hub.publish("health", **report)
+
+        threading.Thread(target=work, name="ponos-health", daemon=True).start()
 
     def fix_health(self, payload: dict[str, Any]) -> dict[str, Any]:
         """One fix a check offered, once the page says it was confirmed."""

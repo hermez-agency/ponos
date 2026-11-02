@@ -97,6 +97,17 @@ export function HealthBand() {
 
   React.useEffect(() => check(), [check])
 
+  // An answer past its time is still the one given, and the check it started
+  // arrives on the stream. A reconnection replays older ones: the newest wins.
+  React.useEffect(() => {
+    const listener = (event: Event) => {
+      const read = (event as CustomEvent<HealthReport>).detail
+      setReport((current) => (current && current.checked_at >= read.checked_at ? current : read))
+    }
+    window.addEventListener("ponos:health", listener)
+    return () => window.removeEventListener("ponos:health", listener)
+  }, [])
+
   const fix = async (one: HealthCheck) => {
     if (!one.fix) return false
     try {
