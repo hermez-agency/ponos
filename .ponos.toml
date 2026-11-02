@@ -1,3 +1,5 @@
 # What `ponos` settles by itself when it replays a branch: see src/ponos/generated.py.
-generated = ["src/ponos/web/static/**"]
-build = "cd frontend && npm ci && npm run build"
+# `npm run types` reads the schema with FastAPI, which a fresh worktree has only once
+# `uv sync` has made its `.venv`.
+generated = ["src/ponos/web/static/**", "frontend/src/lib/api-types.d.ts"]
+build = "uv sync --frozen --no-dev && cd frontend && npm ci && npm run types && npm run build"

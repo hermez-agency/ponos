@@ -414,8 +414,8 @@ before a pull request opens, when a merge is refused for being behind, and at st
   (read from the base, not from the branch):
 
   ```toml
-  generated = ["src/ponos/web/static/**"]
-  build = "cd frontend && npm ci && npm run build"
+  generated = ["src/ponos/web/static/**", "frontend/src/lib/api-types.d.ts"]
+  build = "uv sync --frozen --no-dev && cd frontend && npm ci && npm run types && npm run build"
   ```
 
   A conflict on one of those paths takes the base's version. When the replay reaches its

@@ -2902,6 +2902,62 @@ def a_conflict_in_code_is_resolved_by_a_session_that_is_not_told_about_generated
 
 
 @case
+def a_replay_over_a_new_route_regenerates_the_api_types_with_the_bundle(machine):
+    """The types follow the routes of both sides, in the one regeneration commit.
+
+    As `npm run types` writes `api-types.d.ts` from `web/answers.py`, the build
+    here writes `api-types.d.ts` from it. A route lands on `main` under a pull
+    request that adds another: the session keeps both routes, and the types the
+    replay pushes are those of both — not the branch's, which the CI refuses.
+    """
+    repository = machine.repository("console")
+    _write(
+        repository,
+        {
+            ".ponos.toml": 'generated = ["dist/**", "api-types.d.ts"]\nbuild = "'
+            "sed 's/^/type /' web/answers.py > api-types.d.ts"
+            ' && mkdir -p dist && cat parts/*.txt > dist/bundle.js"\n',
+            "web/answers.py": "route /api/health\n",
+            "api-types.d.ts": "type route /api/health\n",
+            "parts/0.txt": "zéro\n",
+            "dist/bundle.js": "zéro\n",
+        },
+        "routes, types et bundle",
+    )
+    project = machine.project("Console", repository)
+    ticket = machine.ticket("Ajouter a", "Ajoute la route a.", project)
+
+    def route(name: str) -> dict[str, str]:
+        return {
+            "web/answers.py": f"route /api/health\nroute /api/{name}\n",
+            "api-types.d.ts": f"type route /api/health\ntype route /api/{name}\n",
+            f"parts/{name}.txt": f"{name}\n",
+            "dist/bundle.js": f"zéro\n{name}\n",
+        }
+
+    with _environ({"FAKE_CLAUDE_ALSO": json.dumps({"la route a.": route("a")})}):
+        machine.run()
+    _write(repository, route("setup"), "Un autre ticket — /api/setup")
+    machine.move(ticket, "Validated")
+    results = machine.run()
+
+    assert results and results[0]["status"] == "done", results
+    answers = machine.content(repository, "main", "web/answers.py")
+    assert "/api/setup" in answers and "/api/a" in answers, answers
+    types = machine.content(repository, "main", "api-types.d.ts")
+    assert types.splitlines() == [f"type {line}" for line in answers.splitlines()], types
+    tip = subprocess.run(
+        ["git", "show", "--name-only", "--format=%s", "main"],
+        cwd=str(machine.root / "remotes" / "console.git"),
+        capture_output=True,
+        text=True,
+        timeout=60,
+    ).stdout.split()
+    assert tip[:4] == ["Regenerate", "the", "generated", "files"], tip
+    assert "api-types.d.ts" in tip and "dist/bundle.js" in tip, tip
+
+
+@case
 def a_failing_build_stops_the_replay_and_nothing_is_pushed(machine):
     """Bundles that do not match their sources are worse than a blocked ticket."""
     repository = _with_a_bundle(machine, "site")
