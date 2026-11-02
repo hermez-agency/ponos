@@ -1112,8 +1112,15 @@ class Execution(Base):
             outcome = replace(outcome, ok=True, blocked=False)
 
         if not outcome.ok or not content:
+            # A session that stopped on its question asked something, like a
+            # code ticket's: "no answer" is for the one that wrote neither.
             code, reason, detail = self._why_stopped(
-                outcome, "session.no-answer" if outcome.blocked or not content else "session.killed"
+                outcome,
+                "session.question"
+                if outcome.blocked
+                else "session.no-answer"
+                if not content
+                else "session.killed",
             )
             if not content and outcome.ok:
                 detail = said.say("no-answer-detail", summary=outcome.summary)
