@@ -667,7 +667,10 @@ def the_console_is_downloaded_once_and_compressed():
     # page keeps, dated, the line its card in ready no longer draws: main was
     # 57 bytes under, the line and its two French sentences 135 bytes — a
     # budget the band's title, telling its warnings from what stops the
-    # tickets, in French too, then fits under).
+    # tickets, in French too, then fits under; and 506 kB since a refusal to
+    # overwrite is said in French, and toasted once rather than on every load:
+    # main was 87 bytes under, `conflicts.ts` and its sentences 1.6 kB — most of
+    # it the bundle's short names shuffled, which gzip pays for).
     # For a reader of French, that is with the dictionary the page then asks
     # for: the heavier of the two first loads is the one held to the budget.
     page = (STATIC / "index.html").read_text(encoding="utf-8")
@@ -678,7 +681,7 @@ def the_console_is_downloaded_once_and_compressed():
     assert len(french) == 1, f"one French dictionary expected, the build left {french}"
     assert french[0] not in first, "the French dictionary is fetched by readers of English too"
     weight = sum(len(gzip.compress(path.read_bytes(), compresslevel=9)) for path in first + french)
-    assert weight < 504_000, f"the first load in French is {weight // 1000} kB compressed"
+    assert weight < 506_000, f"the first load in French is {weight // 1000} kB compressed"
 
 
 @case
@@ -1737,6 +1740,48 @@ def the_console_says_what_the_server_refuses_in_french_too():
         assert f"{json.dumps(template, ensure_ascii=False)}:" in dictionary, (
             f"nothing translates “{template}” — add it to french.ts"
         )
+
+
+@case
+def the_console_says_a_ticket_changed_in_notion_meanwhile_in_its_own_words():
+    """The two refusals to overwrite are sentences `conflicts.ts` recognises.
+
+    The runner's (`reports.py`) and the console's (`web/board.py`) reach the
+    page in the English of the sync journal, and the page says them again in
+    its language with the two statuses they name. One reworded in Python and
+    not there would toast the journal's English again: each is written here
+    with its values in, and must be matched by the page's pattern.
+    """
+    from ponos.web import board
+
+    conflicts = (FRONTEND / "src/lib/conflicts.ts").read_text(encoding="utf-8")
+    patterns = {
+        name: re.compile(re.search(rf"^const {name} =\s*/(.*)/$", conflicts, re.MULTILINE).group(1))  # type: ignore[union-attr]
+        for name in ("RUNNER", "CONSOLE")
+    }
+
+    tree = ast.parse((ROOT / "src/ponos/reports.py").read_text(encoding="utf-8"))
+    written = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.JoinedStr)
+        and any(
+            isinstance(part, ast.Constant) and "the runner would have written" in str(part.value)
+            for part in node.values
+        )
+    ]
+    assert len(written) == 1, "reports.py no longer journals the runner's refusal"
+    words = iter(("blocked", "cancelled", "progress"))
+    sentence = "".join(
+        str(part.value) if isinstance(part, ast.Constant) else next(words)
+        for part in written[0].values
+    )
+    found = patterns["RUNNER"].match(sentence)
+    assert found and found.groups() == ("blocked", "cancelled"), sentence
+
+    sentence = str(board.Conflict("Done"))
+    found = patterns["CONSOLE"].match(sentence)
+    assert found and found.groups() == ("Done",), sentence
 
 
 @case

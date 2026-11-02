@@ -33,6 +33,7 @@ import { DecideButton } from "@/components/console/ticket-decision"
 import { CardTime } from "@/components/console/ticket-time"
 import { moveWithToast as move } from "@/hooks/use-console"
 import { currentBoard, titleOf, useBoard } from "@/lib/board-store"
+import { conflictOf } from "@/lib/conflicts"
 import { actionsOf } from "@/lib/decision"
 import { currentLanguage, t, useT } from "@/lib/i18n"
 import { money } from "@/lib/numbers"
@@ -74,6 +75,23 @@ export function columnTitle(key: string, name?: string): string {
   const ours = LABEL[key]
   if (ours) return t(ours)
   return name || key
+}
+
+/** A status, as the column it is drawn in is headed — an empty one is a draft's. */
+function statusWord(status: string): string {
+  const spelt = status.toLowerCase()
+  const column = status
+    ? currentBoard()?.columns.find((column) => column.name.toLowerCase() === spelt)
+    : { key: "draft", name: "" }
+  return capital(column ? columnTitle(column.key, column.name) : status)
+}
+
+/** Why a card in conflict was not moved, in the console's words — the server's
+ * sentence as it came when it is not one `conflicts.ts` knows. */
+export function conflictSaid(ticket: Pick<Ticket, "sync_error" | "sync_status">): string {
+  const conflict = conflictOf(ticket)
+  if (!conflict) return ticket.sync_error ?? ""
+  return t(conflict.key, { wanted: statusWord(conflict.wanted), found: statusWord(conflict.found) })
 }
 
 /* The words a ticket's type is written in on the board: the runner's own
@@ -504,7 +522,7 @@ export function TicketSync({ ticket }: { ticket: Ticket }) {
           ticket.sync === "conflict" && "border-tr-amber text-tr-amber"
         )}
       >
-        <span title={ticket.sync_error || undefined}>{said}</span>
+        <span title={(ticket.sync === "conflict" ? conflictSaid(ticket) : ticket.sync_error) || undefined}>{said}</span>
       </Chip>
     </div>
   )
