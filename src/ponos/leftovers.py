@@ -4,7 +4,10 @@ A ticket's session runs `docker compose up` or `pnpm dev` from its worktree and
 ends without a word about them. Two things outlive it, and they are not found
 the same way. A background process stays in the session's process group, which
 `session.halt` already kills — now at the end of every session, not only on a
-timeout or a Stop. A container belongs to the Docker daemon, not to any group:
+timeout or a Stop. Not every one, though: Claude Code's Bash tool runs each
+command in a session of its own, so the Vitest, the Playwright or the `pnpm dev`
+it started is in no group of ours. What still ties them to the ticket is their
+working directory, under the worktree — `stop_processes` ends those. A container belongs to the Docker daemon, not to any group:
 the only link back to the session is the label Compose puts on it,
 `com.docker.compose.project.working_dir`, which is the worktree's path.
 
@@ -147,8 +150,24 @@ def stop_project(project: Project) -> bool:
     return stopped
 
 
+def stop_processes(workdir: Path) -> list[int]:
+    """End every process still running in the worktree of `workdir`, its session over.
+
+    The whole worktree, not `workdir` alone: a command run from `frontend/` is
+    the ticket's as much as one run from the root.
+    """
+    worktree = worktree_of(workdir)
+    if worktree is None:
+        return []
+    pids = [pid for pid, _ in processes(worktree)]
+    if pids:
+        kill(pids)
+        logger.info("leftovers: stopped %d process(es) left running in %s", len(pids), worktree)
+    return pids
+
+
 def sweep(workdir: Path) -> list[Project]:
-    """Bring down what was started from `workdir`; the processes are `session.halt`'s."""
+    """Bring down what was started from `workdir`; the processes are `stop_processes`'s."""
     if not is_worktree(workdir):
         return []
     stopped = [project for project in compose_projects(workdir) if stop_project(project)]
