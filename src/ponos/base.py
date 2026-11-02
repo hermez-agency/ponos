@@ -34,6 +34,7 @@ from . import (
     legacy,
     notify,
     provider,
+    resources,
     session,
     state,
     stopping,
@@ -315,6 +316,16 @@ class Base(Chapters):
         """
         return provider.environment(self.config, model)
 
+    @property
+    def workers(self) -> int:
+        """How many test workers each session of this run may start — see resources.share.
+
+        Read off the configuration each time, as `environment`: the console
+        changes `max_concurrent` without restarting the service.
+        """
+        runner = self.config.runner
+        return resources.share(runner.session_workers, runner.max_concurrent)
+
     def _paid(self, ticket: str, prompt: str, **options: Any) -> session.Outcome:
         """`session.run`, and what it cost written down before anything else.
 
@@ -327,6 +338,12 @@ class Base(Chapters):
         # Every session of a ticket can be ended from the console — see stopping.py.
         over = threading.Event()
         options.setdefault("stop", stopping.watch(ticket, over))
+        # Its tests' share of the cores, under what the caller gives: a key the
+        # project's vault holds by one of these names is the project's choice.
+        options["environment"] = {
+            **session.workers(self.workers),
+            **(options.get("environment") or {}),
+        }
         try:
             outcome = session.run(prompt, **options)
         finally:

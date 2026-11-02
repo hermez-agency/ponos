@@ -2479,6 +2479,7 @@ def _runner(config: config_module.Config) -> list[Check]:
             params={"mode": runner.permission_mode},
         )
     )
+    found.append(_workers(runner))
     if runner.progress:
         found.append(
             _check(
@@ -2499,6 +2500,31 @@ def _runner(config: config_module.Config) -> list[Check]:
             )
         )
     return found
+
+
+def _workers(runner: config_module.Runner) -> Check:
+    """How many test workers a session is given — see resources.share."""
+    count = resources.share(runner.session_workers, runner.max_concurrent)
+    params = {
+        "workers": str(count),
+        "cores": str(resources.cores()),
+        "concurrent": str(runner.max_concurrent),
+    }
+    if runner.session_workers > 0:
+        return _check(
+            "settings.workers",
+            INFO,
+            "Sessions",
+            "runner.session_workers = {{workers}}: each session's tests take {{workers}} workers at most.",
+            params=params,
+        )
+    return _check(
+        "settings.workers",
+        INFO,
+        "Sessions",
+        "Each session's tests take {{workers}} workers at most: {{cores}} cores shared by runner.max_concurrent ({{concurrent}}).",
+        params=params,
+    )
 
 
 def _timer(timer: systemd.Timer) -> Check:

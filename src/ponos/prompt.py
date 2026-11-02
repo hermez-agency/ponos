@@ -651,6 +651,27 @@ def held_secrets(names: Iterable[str]) -> str:
     )
 
 
+def held_workers(count: int) -> str:
+    """The line that holds a session's tests to `count` workers, or nothing.
+
+    The environment already says it to the runners that read it (session.WORKERS);
+    this is for the ones that do not, and for a session tempted to pass
+    `--workers` or `-n auto` itself. Other sessions run beside this one.
+    """
+    if count < 1:
+        return ""
+    return (
+        "# Your share of the machine\n\n"
+        f"Other sessions run on this machine at the same time: your tests and builds "
+        f"get {count} worker{'s' if count > 1 else ''}. `VITEST_MAX_WORKERS`, "
+        "`PLAYWRIGHT_WORKERS`, `JEST_WORKERS`, `PYTEST_XDIST_AUTO_NUM_WORKERS`, "
+        "`CARGO_BUILD_JOBS` and `GOMAXPROCS` already hold that number. Do not go "
+        "over it: pass it where a tool does not read them (`playwright test "
+        f"--workers={count}`, `jest --maxWorkers={count}`, `pytest -n {count}` rather "
+        f"than `-n auto`, `make -j{count}` at most), and never raise it to go faster.\n"
+    )
+
+
 def kind(kind: str, repository: object = "") -> str:
     """The section a type of ticket adds to the document frame, or nothing.
 
@@ -693,6 +714,7 @@ def build(
     ask: Iterable[str] = (),
     secrets: Iterable[str] = (),
     owners: Iterable[str] = (),
+    workers: int = 0,
 ) -> str:
     scope, frame, heading, aim, role, discussion = _frames(
         project,
@@ -738,6 +760,11 @@ def build(
     if kind and "{kind}" not in template:
         # A prompt file of your own, older than the types: see the docstring.
         text = f"{text.rstrip()}\n\n{kind}"
+    share = held_workers(workers)
+    if share:
+        # Whatever the template, as the secrets below: every frame that runs a
+        # test may run it beside six others.
+        text = f"{text.rstrip()}\n\n{share}"
     held = held_secrets(secrets)
     if held:
         # Last, and whatever the template: every frame — a code ticket, a

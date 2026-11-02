@@ -311,3 +311,14 @@ def a_load_per_core_reads_as_the_console_writes_it_and_a_typo_keeps_the_default(
         ("max_load_per_core = -1\n", 0.0),
     ):
         assert _config("[runner]\n" + written).runner.max_load_per_core == read, written
+
+
+@case
+def session_workers_default_to_the_share_of_the_cores_and_refuse_none_under_zero():
+    for written, read in (
+        ("", 0),
+        ("session_workers = 3\n", 3),
+        ('session_workers = "4"\n', 4),
+        ("session_workers = -2\n", 0),
+    ):
+        assert _config("[runner]\n" + written).runner.session_workers == read, written

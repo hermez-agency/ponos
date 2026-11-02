@@ -967,6 +967,22 @@ def health_says_when_the_load_is_too_high_and_when_it_cannot_tell():
 
 
 @case
+def health_says_how_many_workers_a_session_is_given():
+    from ponos import health
+
+    for written, words in (
+        (
+            "max_concurrent = 7\n",
+            "take 2 workers at most: 20 cores shared by runner.max_concurrent (7)",
+        ),
+        ("session_workers = 6\n", "runner.session_workers = 6"),
+    ):
+        with _patched(health.resources, cores=lambda: 20):
+            found = health._workers(_config("[runner]\n" + written).runner)
+        assert found.state == "info" and words in _lines([found]), _lines([found])
+
+
+@case
 def health_says_a_timer_that_will_never_fire_and_how_often_a_run_comes():
     from ponos import health
     from ponos.systemd import Timer
@@ -992,6 +1008,7 @@ def health_says_a_timer_that_will_never_fire_and_how_often_a_run_comes():
         ("machine.runner", "ok"),
         ("machine.priority", "ok"),
         ("settings.permissions", "info"),
+        ("settings.workers", "info"),
         ("settings.progress", "info"),
     ], found
     assert found[0].params["interval"] == "120"

@@ -416,6 +416,18 @@ min_free_memory_mb = 2048
 # 0 turns the guard off. `ponos doctor` shows the load now.
 max_load_per_core = 1.5
 
+# How many workers the tests of one session may take. Vitest, Playwright,
+# Jest and `pytest -n auto` each start one per core when nobody says otherwise,
+# and seven sessions doing it at once took the load to 74 on 20 cores. The
+# number is exported to every session — VITEST_MAX_WORKERS (and the
+# VITEST_MAX_THREADS / VITEST_MAX_FORKS of Vitest 1–3), PLAYWRIGHT_WORKERS,
+# JEST_WORKERS, PYTEST_XDIST_AUTO_NUM_WORKERS, CARGO_BUILD_JOBS, GOMAXPROCS —
+# and its prompt says to stay under it, flags included (`--workers`,
+# `--maxWorkers`, `-n`). 0 is each session's part of the cores: `nproc` divided
+# by max_concurrent, 1 at least (2 on 20 cores with max_concurrent = 7).
+# `ponos doctor` shows the number a session gets.
+session_workers = 0
+
 # The same guard for the disk the state directory (worktrees, logs) is on, in
 # MB. Under it, a tidy runs before anything is started — at most every ten
 # minutes — and if the space is still short no ticket is started: it stays in

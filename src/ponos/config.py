@@ -303,6 +303,11 @@ class Runner:
     # many times the cores: a saturated machine stretches every session already
     # running, and its tests time out. Zero turns the guard off.
     max_load_per_core: float = 1.5
+    # How many workers the tests of one session may take — Vitest, Playwright,
+    # pytest-xdist, Jest — exported to its environment and said in its prompt.
+    # Zero is its part of the cores: `nproc // max_concurrent`, one at least.
+    # See resources.share.
+    session_workers: int = 0
     # Same guard for the disk the state directory is on, in MB: below it, a
     # tidy runs before anything is started, and if that does not bring it back
     # the ticket stays in Ready. A full disk fails every ticket at once. See

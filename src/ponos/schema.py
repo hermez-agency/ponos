@@ -221,6 +221,7 @@ class RunnerTable(Table):
     relaunch_delay_seconds: AtLeast0 = Runner.relaunch_delay_seconds
     min_free_memory_mb: AtLeast0 = Runner.min_free_memory_mb
     max_load_per_core: PerCore = Runner.max_load_per_core
+    session_workers: AtLeast0 = Runner.session_workers
     min_free_disk_mb: AtLeast0 = Runner.min_free_disk_mb
     wait_for_credits: bool = Runner.wait_for_credits
     # Both ends clamped rather than refused: a file saying 150 meant "keep
