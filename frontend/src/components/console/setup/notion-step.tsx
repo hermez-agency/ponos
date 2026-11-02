@@ -1,5 +1,5 @@
 import * as React from "react"
-import { ArrowRight } from "lucide-react"
+import { ArrowRight, CircleCheck } from "lucide-react"
 
 import { Command, Said, StepCard } from "@/components/console/setup/bits"
 import { useKnown } from "@/components/console/setup/known"
@@ -8,6 +8,7 @@ import { NotionPlace } from "@/components/console/setup/notion-place"
 import { NotionShare } from "@/components/console/setup/notion-share"
 import { Button } from "@/components/ui/button"
 import { api, why } from "@/lib/api"
+import { cn } from "@/lib/utils"
 import { counted, useT } from "@/lib/i18n"
 import type { Provisioned, Shared, Summary } from "@/lib/types"
 
@@ -22,6 +23,7 @@ export function NotionStep({ storage, onNext }: { storage: string; onNext: () =>
   const [busy, setBusy] = React.useState(false)
   const [done, setDone] = React.useState<Provisioned | null>(null)
   const [problem, setProblem] = React.useState("")
+  const [picked, setPicked] = React.useState<"" | "notion" | "markdown">("")
   const { summary, reread } = useKnown()
 
   React.useEffect(() => {
@@ -29,15 +31,17 @@ export function NotionStep({ storage, onNext }: { storage: string; onNext: () =>
   }, [summary])
 
   React.useEffect(() => {
-    if (storage === "markdown") return
     // A token already written — a step left half-way, a reload — is asked again.
     void api.sharedWithNotion("").then(
       (answer) => answer.ok && setShared(answer),
       () => undefined
     )
-  }, [storage])
+  }, [])
 
   const found = board?.state === "ok"
+  // What the file says now, which a click on "files" changes without a reload.
+  const kept = board?.storage ?? storage
+  const choice = picked || (kept === "markdown" ? "markdown" : found || kept === "both" ? "notion" : "")
   const waiting = Boolean(shared?.ok && !found && !shared.pages.length && !shared.boards.length)
 
   // Nothing shared yet: somebody is in Notion adding the integration to a page,
@@ -69,12 +73,32 @@ export function NotionStep({ storage, onNext }: { storage: string; onNext: () =>
     }
   }
 
+  const files = async () => {
+    setPicked("markdown")
+    setProblem("")
+    if (kept === "markdown") return
+    setBusy(true)
+    try {
+      const answer = await api.saveNotion({ token: "", page: "", storage: "markdown" })
+      setBoard(answer.board)
+      reread()
+    } catch (error) {
+      setProblem(why(error))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const build = async (chosen: { page?: string; workspace?: string }) => {
     setBusy(true)
     setProblem("")
     setDone(null)
     try {
-      const answer = await api.saveNotion({ token: "", page: chosen.page ?? "", workspace: chosen.workspace })
+      let answer = await api.saveNotion({ token: "", page: chosen.page ?? "", workspace: chosen.workspace })
+      // The board was files until now: Notion takes over once there is one to read.
+      if (kept === "markdown" && !answer.problem) {
+        answer = { ...answer, board: (await api.saveNotion({ token: "", page: "", storage: "notion" })).board }
+      }
       setDone(answer)
       setBoard(answer.board)
       reread()
@@ -86,31 +110,74 @@ export function NotionStep({ storage, onNext }: { storage: string; onNext: () =>
   }
 
   const footer = (
-    <Button type="button" variant={found ? "default" : "outline"} onClick={onNext}>
+    <Button
+      type="button"
+      variant={found || choice === "markdown" ? "default" : "outline"}
+      disabled={!choice}
+      onClick={onNext}
+    >
       {t("Continue")}
       <ArrowRight />
     </Button>
   )
 
-  if (storage === "markdown")
-    return (
-      <StepCard
-        title={t("The board")}
-        blurb={t("This console keeps its board in Markdown files: there is nothing to connect.")}
-        footer={footer}
-      >
-        {board?.path ? <Command text={board.path} /> : null}
-      </StepCard>
-    )
+  const roads = [
+    {
+      key: "notion",
+      title: "My board in Notion",
+      lines: ["Needs an integration token, and one page shared with it.", "Ponos builds the databases itself."],
+    },
+    {
+      key: "markdown",
+      title: "A board of Markdown files",
+      lines: ["Nothing to connect, no account, no network.", "A folder you can keep under git."],
+    },
+  ] as const
 
   return (
     <StepCard
-      title={t("The board, in Notion")}
-      blurb={t(
-        "Three gestures in Notion, and Ponos does the rest: it builds the Tickets and Projects databases itself, with every column spelled the way it reads them — there is no template to duplicate."
-      )}
+      title={t("The board")}
+      blurb={t("Where your tickets live. Both roads run the same tickets; you can change your mind later in the settings.")}
       footer={footer}
     >
+      <div className="grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label={t("Where the board lives")}>
+        {roads.map((road) => (
+          <button
+            key={road.key}
+            type="button"
+            role="radio"
+            aria-checked={choice === road.key}
+            data-testid={`board-${road.key}`}
+            disabled={busy}
+            onClick={() => (road.key === "markdown" ? void files() : setPicked("notion"))}
+            className={cn(
+              "flex flex-col gap-2 rounded-xl border p-4 text-left transition-colors",
+              choice === road.key ? "border-primary ring-primary/30 bg-primary/5 ring-2" : "hover:bg-muted/60"
+            )}
+          >
+            <span className="flex items-center justify-between gap-2 font-semibold">
+              {t(road.title)}
+              {choice === road.key ? <CircleCheck className="text-primary size-4" /> : null}
+            </span>
+            <ul className="text-muted-foreground flex flex-col gap-1 text-xs leading-relaxed">
+              {road.lines.map((line) => (
+                <li key={line}>{t(line)}</li>
+              ))}
+            </ul>
+          </button>
+        ))}
+      </div>
+      {choice === "markdown" ? (
+        <div className="flex flex-col gap-3" data-testid="board-files">
+          <p className="text-muted-foreground text-sm leading-relaxed">
+            {t("This console keeps its board in Markdown files: there is nothing to connect.")}
+          </p>
+          {board?.path ? <Command text={board.path} /> : null}
+          <Said ok={false} text={problem} />
+        </div>
+      ) : null}
+      {choice === "notion" ? (
+        <>
       {/* Only once there is one: before, what is missing is what the three
           gestures below are about, and the configuration's own words for it
           would only alarm somebody who has not started yet. */}
@@ -142,6 +209,8 @@ export function NotionStep({ storage, onNext }: { storage: string; onNext: () =>
         />
       ) : null}
       <Said ok={false} text={problem} />
+        </>
+      ) : null}
     </StepCard>
   )
 }

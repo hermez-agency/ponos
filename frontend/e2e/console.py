@@ -398,16 +398,27 @@ def main() -> None:
     port = sys.argv[1] if len(sys.argv) > 1 else "8790"
     # `unclaimed`: no token and no sign-in, for the first connection's steps.
     mode = sys.argv[2] if len(sys.argv) > 2 else ""
-    unclaimed = mode == "unclaimed"
+    # `fresh`: unclaimed too, on the configuration `install.sh` used to leave —
+    # Notion as the board and no token to read it with.
+    fresh = mode == "fresh"
+    unclaimed = mode == "unclaimed" or fresh
     here = Path(tempfile.mkdtemp(prefix="ponos-e2e-"))
     if mode == "series":
         series_board(here / "board")
-    else:
+    elif not fresh:
         board(here / "board", doomed=mode == "doomed")
-    workbench.stage(here, here / "board", token=None if unclaimed else TOKEN, signed=not unclaimed, newer=NEWER)
-    journal_of(ASKING)
-    bell_of()
-    checks_of()
+    workbench.stage(
+        here,
+        here / "board",
+        token=None if unclaimed else TOKEN,
+        signed=not unclaimed,
+        newer=NEWER,
+        notion=fresh,
+    )
+    if not fresh:
+        journal_of(ASKING)
+        bell_of()
+        checks_of()
     workbench.serve(port)
 
 

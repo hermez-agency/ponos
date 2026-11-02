@@ -51,6 +51,7 @@ if (!process.env.PONOS_E2E_CHAT_PORT) {
   process.env.PONOS_E2E_IDEAS_PORT = String(given ? given + 4 : await free())
   process.env.PONOS_E2E_SESSIONS_PORT = String(given ? given + 5 : await free())
   process.env.PONOS_E2E_SERIES_PORT = String(given ? given + 6 : await free())
+  process.env.PONOS_E2E_FRESH_PORT = String(given ? given + 7 : await free())
 }
 const PORT = Number(process.env.PONOS_E2E_PORT)
 const CHAT_PORT = Number(process.env.PONOS_E2E_CHAT_PORT)
@@ -59,6 +60,7 @@ const DELETE_PORT = Number(process.env.PONOS_E2E_DELETE_PORT)
 const IDEAS_PORT = Number(process.env.PONOS_E2E_IDEAS_PORT)
 const SESSIONS_PORT = Number(process.env.PONOS_E2E_SESSIONS_PORT)
 const SERIES_PORT = Number(process.env.PONOS_E2E_SERIES_PORT)
+const FRESH_PORT = Number(process.env.PONOS_E2E_FRESH_PORT)
 
 const PYTHON = existsSync("../.venv/bin/python") ? "../.venv/bin/python" : "python3"
 
@@ -127,6 +129,11 @@ export default defineConfig({
       testMatch: "setup.spec.ts",
       use: { baseURL: `http://127.0.0.1:${SETUP_PORT}` },
     },
+    {
+      name: "fresh",
+      testMatch: "setup-without-notion.spec.ts",
+      use: { baseURL: `http://127.0.0.1:${FRESH_PORT}` },
+    },
   ],
-  webServer: [serve(PORT), serve(CHAT_PORT), serve(SETUP_PORT, "unclaimed"), serve(DELETE_PORT, "doomed"), serve(IDEAS_PORT), serve(SESSIONS_PORT), serve(SERIES_PORT, "series")],
+  webServer: [serve(PORT), serve(CHAT_PORT), serve(SETUP_PORT, "unclaimed"), serve(DELETE_PORT, "doomed"), serve(IDEAS_PORT), serve(SESSIONS_PORT), serve(SERIES_PORT, "series"), serve(FRESH_PORT, "fresh")],
 })

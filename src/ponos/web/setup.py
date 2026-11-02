@@ -281,7 +281,16 @@ def save_notion(api: Api, payload: dict[str, Any]) -> dict[str, Any]:
     Nothing to type when the board is already there — the step says what it
     found and leaves it alone. A page given here is the same provisioning
     `ponos init` runs, through the same `_notion` the old first connection used.
+    `storage` is the other road, files instead of Notion: written alone, since
+    the configuration is reread at once and nothing has to be restarted.
     """
+    storage = _text(payload, "storage")
+    if storage:
+        if storage not in ("markdown", "notion"):
+            raise ValueError(f"“{storage}” is not a board: markdown or notion")
+        if storage != api.config.storage.mode:
+            api.save_settings({"settings": {"storage.mode": storage}})
+        return {"steps": [], "problem": "", "board": _board(api)}
     token = _text(payload, "token")
     page = _text(payload, "page")
     page_id = config_module.identifier(page)
