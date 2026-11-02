@@ -66,8 +66,9 @@ class Goals(Base):
         # at every reading of the board.
         if time.time() - getattr(self, "_goals_at", 0.0) < PROJECT_TTL:
             return held
+        began = getattr(self, "_goals_written", 0)
         try:
-            return self._remember_goals(self._goal_pages())
+            return self._remember_goals(self._goal_pages(), began)
         except store.StoreError:
             return held
 
@@ -75,7 +76,18 @@ class Goals(Base):
         database = self.runner.workspace.goals
         return self.runner.client.query(database) if database else []
 
-    def _remember_goals(self, pages: list[store.Page]) -> dict[str, dict[str, Any]]:
+    def _forget_goals(self) -> None:
+        """Have the next reading of the index ask the goals database again.
+
+        Counted as well as forgotten: a reading already under way — the list of
+        the goals, the watcher's board — may have read the rows before this
+        write and keep them after it, and the cards and the new ticket's form
+        would say the old name for minutes (`_remember_goals`).
+        """
+        self._goals_written = getattr(self, "_goals_written", 0) + 1
+        self._goals_at = 0.0
+
+    def _remember_goals(self, pages: list[store.Page], began: int) -> dict[str, dict[str, Any]]:
         self._goals = {}
         for page in pages:
             if not page.title:
@@ -90,7 +102,9 @@ class Goals(Base):
                     one.replace("-", "") for one in _relation(page, *GOAL_COLUMNS["projects"])
                 ],
             }
-        self._goals_at = time.time()
+        # Read before a write that came since: held, but not for long.
+        fresh = began == getattr(self, "_goals_written", 0)
+        self._goals_at = time.time() if fresh else 0.0
         return self._goals
 
     def goals(self, fresh: bool = False) -> dict[str, Any]:
@@ -181,10 +195,15 @@ class Goals(Base):
         return held[1]
 
     def _read_goals(self) -> list[store.Page]:
+        began = getattr(self, "_goals_written", 0)
         pages = self._goal_pages()
-        self._goal_pages_held: tuple[float, list[store.Page]] | None = (time.monotonic(), pages)
+        # Read before a write that came since: answered, but not held.
+        fresh = began == getattr(self, "_goals_written", 0)
+        self._goal_pages_held: tuple[float, list[store.Page]] | None = (
+            (time.monotonic(), pages) if fresh else None
+        )
         # Read here, so the cards that follow name a goal created a minute ago.
-        self._remember_goals(pages)
+        self._remember_goals(pages, began)
         return pages
 
     def _goals_changed(self) -> bool:
@@ -195,7 +214,7 @@ class Goals(Base):
     def _drop_goals(self) -> None:
         """Read the goals again, there and then, next time: one was just written."""
         self._goal_pages_held = None
-        self._goals_at = 0.0
+        self._forget_goals()
 
     def _behind(self, flag: str, work: Callable[[], bool]) -> None:
         """`work` in a thread of its own, one at a time, and `goals` said when it changed something."""
@@ -372,7 +391,7 @@ class Goals(Base):
         down beside the others, and the rest are still written.
         """
         # A goal made a moment ago is not in the index yet: read it again.
-        self._goals_at = 0.0
+        self._forget_goals()
         column = self._goal_relation(goal_id)
         client = self.runner.client
         # The goal as a page read back would name it: the index's own id, which

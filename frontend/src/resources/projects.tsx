@@ -162,7 +162,10 @@ export function useProjects(): Projects | null {
 /** What was last read, for what reads it outside a component: the schedules' search. */
 export const projectsRead = (): Projects | null => drawn
 
-let asked: Promise<Projects> | null = null
+let asked: { writes: number; read: Promise<Projects> } | null = null
+/* How many projects this page has written. A request already out when one was
+ * created left before it: shared, it would answer the list without it. */
+let writes = 0
 
 /** The list, for a page that only wants the names: what was last read, or one
  * request shared by whoever asks while it is out. */
@@ -172,18 +175,23 @@ export function projectsOnce(): Promise<Projects> {
 
 /* The list, read again — but once for everybody who asks while it is out: the
  * list itself, the names a schedule's row waits for, the palette, a project
- * written to and the list reading itself again after it, in the same instant. */
+ * written to and the list reading itself again after it, in the same instant.
+ * Unless a project was written since it left: then a request of its own, and
+ * the older one no longer publishes what it reads. */
 function readAgain(): Promise<Projects> {
-  asked ??= api
+  if (asked?.writes === writes) return asked.read
+  const since = writes
+  const read = api
     .projects()
     .then((fresh) => {
-      publish(fresh)
+      if (since === writes) publish(fresh)
       return fresh
     })
     .finally(() => {
-      asked = null
+      if (asked?.read === read) asked = null
     })
-  return asked
+  asked = { writes: since, read }
+  return read
 }
 
 /* What the tickets of a project come to, counted on the board the console
@@ -1185,6 +1193,7 @@ export const projects = createViewResource<ProjectItem, ProjectWrite>(PROJECTS, 
       })
       // The list is drawn from what was last read, and a rename that only showed
       // on the page you renamed it on would be a rename made twice.
+      writes += 1
       await api.projects().then(publish)
       held.set(id, Promise.resolve(projectItem(written)))
       heldListeners.forEach((listener) => listener())
@@ -1203,6 +1212,7 @@ export const projects = createViewResource<ProjectItem, ProjectWrite>(PROJECTS, 
         content: String(fresh.content ?? ""),
       })
       markCreated(written.id)
+      writes += 1
       // Read again, for the count over the list and the names everywhere else.
       await readAgain().catch(() => undefined)
       return { data: projectItem(written) }

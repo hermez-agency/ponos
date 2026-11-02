@@ -9,6 +9,13 @@ import { expect, test } from "@playwright/test"
 
 const LIST = "/?view=console/goals/list"
 
+/* The names of this attempt's goals. A retry runs the file again from its first
+ * test, on the same board: under the same names, it would find two of each. */
+const RUN = Date.now().toString(36).slice(-5)
+const V1 = `Lancer la v1 · ${RUN}`
+const V2 = `Lancer la v2 · ${RUN}`
+const SHOP = `Ouvrir la boutique · ${RUN}`
+
 test.use({ locale: "fr-FR" })
 test.describe.configure({ mode: "serial" })
 
@@ -20,7 +27,7 @@ test("a goal is created from the list, then changed, and both show", async ({ pa
   await page.goto(LIST)
   await page.getByText("Nouvel objectif").first().click()
   const form = page.getByRole("dialog")
-  await form.getByLabel("Nom").fill("Lancer la v1")
+  await form.getByLabel("Nom").fill(V1)
   await form.getByLabel("Description").fill("La première version")
   await form.getByLabel("Atteint quand").fill("Dix clients payants")
   await form.getByLabel("Échéance").fill("2026-12-31")
@@ -37,29 +44,29 @@ test("a goal is created from the list, then changed, and both show", async ({ pa
   await form.getByRole("button", { name: "Enregistrer" }).click()
   await expect(page.getByText("Objectif créé")).toBeVisible()
 
-  const card = page.locator('[data-slot="goals-item"]', { hasText: "Lancer la v1" })
+  const card = page.locator('[data-slot="goals-item"]', { hasText: V1 })
   await expect(card).toBeVisible()
   await expect(card).toContainText("Dix clients payants")
   await expect(card).toContainText("0 sur 1 ticket fait")
   await expect(card.locator('[data-slot="goals-title"]')).toBeVisible()
 
   // The pencil is a target of 24 px at least, named after its goal.
-  const pencil = card.getByRole("link", { name: "Modifier l'objectif « Lancer la v1 »" })
+  const pencil = card.getByRole("link", { name: `Modifier l'objectif « ${V1} »` })
   const box = await pencil.locator('[data-slot="goals-edit"]').boundingBox()
   expect(box?.width).toBeGreaterThanOrEqual(24)
   expect(box?.height).toBeGreaterThanOrEqual(24)
   await pencil.click()
   const edit = page.getByRole("dialog")
-  await edit.getByLabel("Nom").fill("Lancer la v2")
+  await edit.getByLabel("Nom").fill(V2)
   await edit.getByRole("button", { name: "Enregistrer" }).click()
-  await expect(page.locator('[data-slot="goals-item"]', { hasText: "Lancer la v2" })).toBeVisible()
-  await expect(page.locator('[data-slot="goals-item"]', { hasText: "Lancer la v1" })).toHaveCount(0)
+  await expect(page.locator('[data-slot="goals-item"]', { hasText: V2 })).toBeVisible()
+  await expect(page.locator('[data-slot="goals-item"]', { hasText: V1 })).toHaveCount(0)
 })
 
 test("a goal's page lists its tickets by column, and makes one more for it", async ({ page }) => {
   await page.goto(LIST)
   // Anywhere on the card opens the goal, not only its title.
-  const card = page.locator('[data-slot="goals-item"]', { hasText: "Lancer la v2" })
+  const card = page.locator('[data-slot="goals-item"]', { hasText: V2 })
   const box = await card.boundingBox()
   await card.click({ position: { x: 24, y: (box?.height ?? 0) - 16 } })
   const listed = page.locator('[data-slot="goal-tickets"]')
@@ -71,22 +78,22 @@ test("a goal's page lists its tickets by column, and makes one more for it", asy
   await listed.locator('[data-slot="goal-new-ticket"]').click()
   const form = page.getByRole("dialog", { name: "Nouveau ticket" })
   await expect(form).toBeVisible()
-  await expect(form).toContainText("Lancer la v2")
+  await expect(form).toContainText(V2)
   // Back on the goal's page, which the form was opened over.
   await page.goBack()
   await row.getByRole("link").click()
-  await expect(page.getByRole("dialog").locator('[data-slot="ticket-goal"]')).toContainText("Lancer la v2")
+  await expect(page.getByRole("dialog").locator('[data-slot="ticket-goal"]')).toContainText(V2)
 })
 
 test("a goal's page leads to the board filtered on it, and its card says the goal", async ({ page }) => {
   await page.goto(LIST)
-  await page.locator('[data-slot="goals-title"]', { hasText: "Lancer la v2" }).click()
+  await page.locator('[data-slot="goals-title"]', { hasText: V2 }).click()
   await page.locator('[data-slot="goal-board"]').click()
   await expect(page).toHaveURL(/[?&]goal=[0-9a-f-]+/)
   const cards = page.locator("[data-ticket-card]")
   await expect(cards).toHaveCount(1)
   await expect(cards.first()).toContainText("Ticket 3")
-  await expect(cards.first().locator('[data-slot="ticket-card-goal"]')).toHaveText("Lancer la v2")
+  await expect(cards.first().locator('[data-slot="ticket-card-goal"]')).toHaveText(V2)
   await expect(page.locator('[data-slot="search-count"]')).toContainText("1 /")
 })
 
@@ -94,19 +101,19 @@ test("the ticket names its goal, and another can be chosen from it", async ({ pa
   await page.goto("/?view=console/tickets/list")
   await page.getByRole("link", { name: /Ticket 3$/ }).first().click()
   const window_ = page.getByRole("dialog")
-  await expect(window_.locator('[data-slot="ticket-goal"]')).toContainText("Lancer la v2")
+  await expect(window_.locator('[data-slot="ticket-goal"]')).toContainText(V2)
   await window_.locator('[data-slot="ticket-goal-select"]').click()
   await page.getByRole("option", { name: "Aucun objectif" }).click()
   await expect(window_.locator('[data-slot="ticket-goal"]')).toHaveCount(0)
 
   // A goal no ticket serves says so, and leads to its form on the Tickets field.
   await page.goto(LIST)
-  const card = page.locator('[data-slot="goals-item"]', { hasText: "Lancer la v2" })
+  const card = page.locator('[data-slot="goals-item"]', { hasText: V2 })
   await expect(card).toContainText("Aucun ticket rattaché")
   await expect(card.getByRole("progressbar")).toHaveCount(0)
   await card.getByRole("link", { name: "Nouveau ticket pour cet objectif" }).click()
   const form = page.getByRole("dialog", { name: "Nouveau ticket" })
-  await expect(form).toContainText("Lancer la v2")
+  await expect(form).toContainText(V2)
   await page.goBack()
   await card.getByRole("link", { name: "Rattacher des tickets" }).click()
   await expect(page.getByRole("dialog").getByRole("combobox", { name: "Tickets" })).toBeFocused()
@@ -117,12 +124,14 @@ test("a ticket of a goal moved elsewhere moves its progress on the open page", a
   const write = (path: string, data: Record<string, unknown>) =>
     page.request.post(path, { headers: { "X-Ponos": "1" }, data })
   const ticket = `${7}`.padStart(32, "0")
-  const made = await write("/api/goals", { name: "Ouvrir la boutique", tickets: [ticket] })
+  // In its column of the board's start: a retry finds it where the first attempt left it.
+  expect((await write(`/api/tickets/${ticket}/status`, { column: "draft" })).ok()).toBeTruthy()
+  const made = await write("/api/goals", { name: SHOP, tickets: [ticket] })
   expect(made.ok()).toBeTruthy()
 
   await page.goto(LIST)
-  const card = page.locator('[data-slot="goals-item"]', { hasText: "Ouvrir la boutique" })
-  await expect(card).toContainText("0 sur 1 ticket fait")
+  const card = page.locator('[data-slot="goals-item"]', { hasText: SHOP })
+  await expect(card).toContainText("0 sur 1 ticket fait", { timeout: 15_000 })
 
   expect((await write(`/api/tickets/${ticket}/status`, { column: "done" })).ok()).toBeTruthy()
   await expect(card).toContainText("1 sur 1 ticket fait", { timeout: 15_000 })
@@ -139,7 +148,7 @@ test("a ticket of a goal moved elsewhere moves its progress on the open page", a
 
 test("a goal marked reached leaves the list, and comes back under every status", async ({ page }) => {
   await page.goto(LIST)
-  await page.locator('[data-slot="goals-title"]', { hasText: "Ouvrir la boutique" }).click()
+  await page.locator('[data-slot="goals-title"]', { hasText: SHOP }).click()
   const whole = page.locator('[data-slot="goals-page"]')
   await whole.locator('[data-close-goal="atteint"]').click()
   await expect(whole).toContainText("atteint")
@@ -147,8 +156,8 @@ test("a goal marked reached leaves the list, and comes back under every status",
   await expect(whole).toContainText("1 sur 2 tickets faits")
 
   await page.goto(LIST)
-  const card = page.locator('[data-slot="goals-item"]', { hasText: "Ouvrir la boutique" })
-  await expect(page.locator('[data-slot="goals-item"]', { hasText: "Lancer la v2" })).toBeVisible()
+  const card = page.locator('[data-slot="goals-item"]', { hasText: SHOP })
+  await expect(page.locator('[data-slot="goals-item"]', { hasText: V2 })).toBeVisible()
   await expect(card).toHaveCount(0)
   await page.locator('[data-slot="goals-status-filter"]').click()
   await page.getByRole("option", { name: "Tous les statuts" }).click()
@@ -158,17 +167,17 @@ test("a goal marked reached leaves the list, and comes back under every status",
 
 test("a goal is deleted after a confirmation that says so", async ({ page }) => {
   await page.goto(LIST)
-  await page.locator('[data-slot="goals-title"]', { hasText: "Lancer la v2" }).click()
+  await page.locator('[data-slot="goals-title"]', { hasText: V2 }).click()
   await page.locator("[data-delete-goal]").click()
   const dialog = page.getByRole("alertdialog")
-  await expect(dialog).toContainText("Supprimer « Lancer la v2 » ?")
+  await expect(dialog).toContainText(`Supprimer « ${V2} » ?`)
   await expect(dialog).toContainText("corbeille")
   await dialog.getByRole("button", { name: "Annuler" }).click()
   await expect(dialog).toBeHidden()
   await expect(page.locator("[data-delete-goal]")).toBeVisible()
   await page.locator("[data-delete-goal]").click()
   await page.getByRole("alertdialog").getByRole("button", { name: "Supprimer l'objectif" }).click()
-  await expect(page.locator('[data-slot="goals-item"]', { hasText: "Lancer la v2" })).toHaveCount(0)
+  await expect(page.locator('[data-slot="goals-item"]', { hasText: V2 })).toHaveCount(0)
 })
 
 test("a refused write says why", async ({ page }) => {

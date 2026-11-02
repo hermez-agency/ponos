@@ -171,6 +171,26 @@ def a_goal_is_archived_and_leaves_the_list():
 
 
 @case
+def a_read_under_way_when_a_goal_is_renamed_does_not_keep_its_old_name():
+    with _board() as board:
+        api = _api(board)
+        goal = api.create_goal("Lancer la v1", {})["id"]
+        read = api._goal_pages
+
+        def renamed_meanwhile() -> list[store.Page]:
+            pages = read()
+            api.save_goal(goal, {"name": "Lancer la v2"})
+            return pages
+
+        # The list of the goals, asked by the page while the rename is written.
+        api._goal_pages = renamed_meanwhile
+        api.goals()
+        api._goal_pages = read
+        names = [one["name"] for one in api._goal_index().values()]
+        assert names == ["Lancer la v2"], names
+
+
+@case
 def renaming_a_goal_with_no_priority_gives_it_none():
     with _board() as board:
         api = _api(board)

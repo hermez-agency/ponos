@@ -15,8 +15,31 @@ test.describe.configure({ mode: "serial" })
 
 const FIELD = "Ask the workspace, or type >status"
 
+/* The conversation at rest: no turn running, nothing waiting. The test before
+ * may have seen its answer while its turn was still ending, and the first
+ * message here would then wait behind it. A second attempt stops and empties
+ * what the first one left. */
+async function atRest(page: Page) {
+  const post = (path: string) => page.request.post(path, { headers: { "X-Ponos": "1" } })
+  const chat = async () =>
+    (await (await page.request.get("/api/chat")).json()) as { busy?: boolean; stopping?: boolean; queue?: unknown[] }
+  if (test.info().retry) await post("/api/chat/stop")
+  await expect
+    .poll(
+      async () => {
+        const now = await chat()
+        return Boolean(now.busy || now.stopping)
+      },
+      { timeout: 30_000 }
+    )
+    .toBe(false)
+  if (test.info().retry) await post("/api/chat/queue/discard")
+  await expect.poll(async () => (await chat()).queue?.length ?? 0).toBe(0)
+}
+
 async function openConsole(page: Page) {
   await page.context().addCookies([{ name: "ponos_token", value: "e2e", url: test.info().project.use.baseURL }])
+  await atRest(page)
   await page.goto("/")
   await page.getByRole("button", { name: "Open the console" }).click()
   await expect(page.getByRole("textbox", { name: FIELD })).toBeVisible()
