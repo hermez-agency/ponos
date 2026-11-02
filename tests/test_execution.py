@@ -149,6 +149,41 @@ def a_report_of_work_done_on_a_dashboard_is_told_from_one_about_the_code():
     assert not execution._done_elsewhere("")
 
 
+@case
+def the_work_of_tickets_that_ended_without_a_commit_is_told_from_their_verdict():
+    """The verdicts of the sessions blocked in session.no-commit over a month."""
+    settled = (
+        "Rien à changer : #142 a déjà réparé dev (FrankenPHP figé en 1.12) et sa CI est verte.",
+        "Aucun changement : les deux clés i18n sont déjà corrigées sur main par #63, et les "
+        "tests passent (702 OK) ; le ticket peut être clos.",
+        "Rien à changer : le correctif est déjà fusionné sur main par la PR #32 (squash "
+        "5a8c37a), avec ses tests et son changeset.",
+        "Garde fusionnée dans db.open_at (#386) et base réparée par #364 : schéma 34.",
+        "Les 3 PR (#347, #351, #353) sont rebasées, corrigées, CI verte et fusionnées ; les "
+        "tickets sont en done, Blocage vidé.",
+        "PR #364 rebasée sur main (`_occurrences` en dernier, console allégée sous 500 kB), "
+        "CI verte, fusionnée ; après `ponos update`, la vraie base s'ouvre au schéma 30.",
+        "Audit complet : le site et son code sont déjà corrects, pas de PR.",
+        "Already fixed on main by #12.",
+    )
+    for summary in settled:
+        assert execution._settled(summary), summary
+    for outside in (
+        "8 tickets créés vers react-resource-view 1.2.2 dans Master Tickets.",
+        "Sitemaps envoyés et lus par Google, indexation demandée pour 8 pages publiques.",
+    ):
+        assert execution._done_elsewhere(outside), outside
+    for unsettled in (
+        "J'ai modifié src/x.py.",
+        "J'ai modifié src/x.py, le bug #12 est corrigé.",
+        "Le titre de la page est corrigé.",
+        "J'ai lu le ticket et je n'ai rien trouvé.",
+        "",
+    ):
+        assert not execution._settled(unsettled), unsettled
+        assert not execution._done_elsewhere(unsettled), unsettled
+
+
 # -- why a session died ----------------------------------------------------------
 
 

@@ -287,6 +287,15 @@ deliverable is its report, whatever its confidence, and the comment says so: *it
 been Code: I took External action, which asks for no commit*. One click in the column puts
 it back.
 
+**A Code ticket that commits nothing is not always blocked for it.** Its worktree clean, the
+session's report decides: work done outside the repository (Dokploy, DNS, Notion, the
+Search Console…) and no word of a code change, it is *Done* with its report in the page; a
+verdict that names what made the change needless — *nothing to change*, *already fixed on
+main by #63*, a commit or a merged pull request — or the other pull requests it rebased,
+fixed and merged, it goes to *In review* with its report, for you to close it. A session
+that left files changed, or says it changed the code, is still blocked
+(`session.no-commit`).
+
 The comment asks *Writing or Publication?* and says which is the more careful of the two —
 in doubt, always the one further along *Writing → Code → External action → Publication*.
 **The Type column is left empty** rather than filled with that guess: a type the runner
