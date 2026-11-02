@@ -1904,11 +1904,19 @@ class Checked(Shape):
 class ProviderChecked(Checked):
     command: str = omitted()
     """For the CLI only: what to run in a terminal to sign it in."""
+    installed: bool = omitted()
+    """For the CLI only: is `claude` on the PATH at all."""
+    install: str = omitted()
+    """For the CLI only: what to run in a terminal to install it."""
 
 
 class ClaudeLogin(Checked):
     command: str
     """What to run in a terminal to sign it in."""
+    installed: bool
+    """Is `claude` on the PATH at all — else `install` comes before `command`."""
+    install: str
+    """What to run in a terminal to install it."""
 
 
 class SetupProvider(Shape):

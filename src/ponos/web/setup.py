@@ -62,6 +62,7 @@ from .. import (
     projects,
     provider,
     provision,
+    session,
     store,
     voice,
 )
@@ -232,8 +233,7 @@ def save_provider(api: Api, payload: dict[str, Any]) -> dict[str, Any]:
     if which == "cli":
         if keep:
             api.save_settings({"settings": values})
-        check = provider.cli_login()
-        return {"ok": check.ok, "said": check.said, "command": provider.LOGIN}
+        return claude_login()
     if which == "api_key":
         check = provider.api_key(key or api.config.claude.api_key)
         if key:
@@ -250,9 +250,21 @@ def save_provider(api: Api, payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def claude_login() -> dict[str, Any]:
-    """Has somebody run `claude auth login` yet? Asked again on every click."""
+    """Is `claude` there, and has somebody run `claude auth login` yet?
+
+    Asked the moment the CLI is chosen, then again on every click: a `curl | sh`
+    without a terminal installs Ponos and only warns that Claude Code is
+    missing, and the step is where somebody learns it — not the summary, nor
+    the demo ticket failing on it. Not installed, the page gives both commands.
+    """
     check = provider.cli_login()
-    return {"ok": check.ok, "said": check.said, "command": provider.LOGIN}
+    return {
+        "ok": check.ok,
+        "said": check.said,
+        "command": provider.LOGIN,
+        "installed": bool(session.available()),
+        "install": prerequisites.CLAUDE_INSTALL,
+    }
 
 
 def save_notion(api: Api, payload: dict[str, Any]) -> dict[str, Any]:

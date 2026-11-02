@@ -659,7 +659,10 @@ function ProviderStep({ container, onNext }: { container: boolean; onNext: () =>
   const [routed, setRouted] = React.useState(true)
   const [busy, setBusy] = React.useState(false)
   const [said, setSaid] = React.useState<{ ok: boolean; text: string } | null>(null)
-  const [command, setCommand] = React.useState("")
+  // What `claude` answered last: installed or not, and the commands that follow.
+  const [login, setLogin] = React.useState<{ installed: boolean; install: string; command: string } | null>(
+    null
+  )
   const { summary, reread } = useKnown()
   const seeded = React.useRef(false)
 
@@ -669,6 +672,7 @@ function ProviderStep({ container, onNext }: { container: boolean; onNext: () =>
     if (!summary || seeded.current) return
     seeded.current = true
     if (summary.provider.stated) setChosen(summary.provider.provider)
+    if (summary.provider.stated && summary.provider.provider === "cli") void checkLogin(false)
     setRouted(summary.provider.provider !== "openrouter" || summary.provider.route_sessions)
   }, [summary])
 
@@ -681,7 +685,8 @@ function ProviderStep({ container, onNext }: { container: boolean; onNext: () =>
         key: key.trim(),
         route_sessions: provider === "openrouter" ? routed : undefined,
       })
-      setCommand(answer.command ?? "")
+      if (answer.command)
+        setLogin({ installed: answer.installed ?? true, install: answer.install ?? "", command: answer.command })
       setSaid({
         ok: answer.ok,
         text: answer.ok
@@ -697,16 +702,18 @@ function ProviderStep({ container, onNext }: { container: boolean; onNext: () =>
     }
   }
 
-  const checkLogin = async () => {
+  // Asked on its own when the CLI is chosen, the summary is not read again: it
+  // asked `claude` the same question. A click may follow a sign-in, and does.
+  const checkLogin = async (again = true) => {
     setBusy(true)
     try {
       const answer = await api.claudeLogin()
-      setCommand(answer.command)
+      setLogin(answer)
       setSaid({
         ok: answer.ok,
         text: answer.ok ? t("Claude Code is signed in as {{who}}.", { who: answer.said }) : answer.said,
       })
-      reread()
+      if (again) reread()
     } catch (error) {
       setSaid({ ok: false, text: why(error) })
     } finally {
@@ -739,6 +746,8 @@ function ProviderStep({ container, onNext }: { container: boolean; onNext: () =>
               setChosen(choice.key)
               setSaid(null)
               setKey("")
+              // The CLI is asked at once: installed? signed in? — not at the summary.
+              if (choice.key === "cli") void checkLogin(false)
             }}
             className={cn(
               "flex flex-col gap-2 rounded-xl border p-4 text-left transition-colors",
@@ -763,28 +772,63 @@ function ProviderStep({ container, onNext }: { container: boolean; onNext: () =>
       </div>
 
       {chosen === "cli" ? (
-        <div className="flex flex-col gap-3">
-          <p className="text-muted-foreground text-sm leading-relaxed">
-            <Rich
-              text={
-                container
-                  ? t(
-                      "Open a terminal in the container — Dokploy's Terminal tab on the service, or `docker compose exec ponos bash` — and sign in there. The sign-in is kept in the `~/.claude` volume."
-                    )
-                  : t("In a terminal on this machine, sign Claude Code in:")
-              }
-            />
-          </p>
-          <Command text={command || "claude auth login"} />
+        <div className="flex flex-col gap-3" data-testid="provider-cli-login">
+          {login && !login.installed ? (
+            <>
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                <Rich
+                  text={
+                    container
+                      ? t(
+                          "Claude Code is not installed in the container. In its terminal — Dokploy's Terminal tab on the service, or `docker compose exec ponos bash` — install it, then sign it in:"
+                        )
+                      : t("Claude Code is not installed on this machine. In a terminal, install it, then sign it in:")
+                  }
+                />
+              </p>
+              <Command text={login.install} />
+              <Command text={login.command} />
+            </>
+          ) : said?.ok ? null : (
+            <>
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                <Rich
+                  text={
+                    container
+                      ? t(
+                          "Open a terminal in the container — Dokploy's Terminal tab on the service, or `docker compose exec ponos bash` — and sign in there. The sign-in is kept in the `~/.claude` volume."
+                        )
+                      : t("In a terminal on this machine, sign Claude Code in:")
+                  }
+                />
+              </p>
+              <Command text={login?.command || "claude auth login"} />
+            </>
+          )}
           <div className="flex flex-wrap gap-2">
             <Button type="button" disabled={busy} onClick={() => void save("cli")}>
               {t("Use the CLI")}
             </Button>
             <Button type="button" variant="outline" disabled={busy} onClick={() => void checkLogin()}>
               <RefreshCw />
-              {t("Check the sign-in")}
+              {t("Check again")}
             </Button>
           </div>
+          {login && !said?.ok ? (
+            <p className="text-muted-foreground text-xs leading-relaxed">
+              {t("Rather not install the CLI? An API key needs nothing on this machine.")}{" "}
+              <button
+                type="button"
+                className="text-foreground underline underline-offset-2"
+                onClick={() => {
+                  setChosen("api_key")
+                  setSaid(null)
+                }}
+              >
+                {t("Use an Anthropic API key")}
+              </button>
+            </p>
+          ) : null}
         </div>
       ) : chosen === "api_key" || chosen === "openrouter" ? (
         <form
