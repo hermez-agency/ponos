@@ -754,7 +754,7 @@ def health_merges_the_github_app_and_gh_into_one_way_to_reach_github():
     signed = subprocess.CompletedProcess([], 0, "", "")
     unsigned = subprocess.CompletedProcess([], 1, "", "You are not logged into any GitHub hosts")
 
-    def access(apps, gh, answered=signed, token="ghs_x", account=""):
+    def access(apps, gh, answered=signed, token="ghs_x", account="", code=True):
         with (
             _patched(health.github_app, describe=lambda with_repositories=True: apps),
             _patched(health.github_app, token=lambda owner: token),
@@ -762,7 +762,7 @@ def health_merges_the_github_app_and_gh_into_one_way_to_reach_github():
             _patched(health.subprocess, run=lambda command, **_: answered),
             _patched(health.git, account_token=lambda name: account),
         ):
-            return health._github_access(config)
+            return health._github_access(config, code=code)
 
     installed = [{**app, "error": "", "installations": [{"account": "acme", "selection": "all"}]}]
     assert _verdicts(access(installed, gh=True, account="gho_x")) == [
@@ -780,6 +780,11 @@ def health_merges_the_github_app_and_gh_into_one_way_to_reach_github():
     alone = access([], gh=True, answered=unsigned)
     assert ("github.access", "error") in _verdicts(alone)
     assert ("github.account", "error") in _verdicts(alone), "[github] names nobody signed in"
+    # Without a project that has a repository, GitHub not connected is only said.
+    assert _verdicts(access([], gh=False, code=False)) == [("github.access", "info")]
+    assert ("github.access", "info") in _verdicts(
+        access([], gh=True, answered=unsigned, code=False)
+    )
 
     nowhere = [{**app, "error": "", "installations": []}]
     assert _verdicts(access(nowhere, gh=True, account="x"))[0] == ("github.access", "error")
@@ -787,6 +792,39 @@ def health_merges_the_github_app_and_gh_into_one_way_to_reach_github():
     assert access(broken, gh=True, account="x")[0].evidence == "401 bad credentials"
     tokenless = access(installed, gh=True, token="", account="x")
     assert tokenless[0].state == "error" and tokenless[0].params["account"] == "acme"
+
+
+@case
+def doctor_counts_github_missing_only_once_a_project_has_a_repository():
+    """gh is optional: a board of writing tickets does not need it, a code project does."""
+    from ponos import health
+
+    config = _config("")
+    nothing = lambda *_, **__: []  # noqa: E731
+    project = {"id": "p1", "name": "Site", "repository": "acme/site", "path": ""}
+
+    def checked(rows):
+        with (
+            _patched(health, _guard_notion=lambda config, client: ([], None)),
+            _patched(health, _project_rows=lambda client, space: rows),
+            _patched(health, _project=nothing),
+            _patched(health, _claude=nothing, _models=nothing, _github_token=nothing),
+            _patched(health, _github_billing=nothing, _workspace_root=nothing),
+            _patched(health, _machine=nothing, _notifications=nothing, _version=nothing),
+            _patched(health, _environment=nothing, _database=nothing, _stray=nothing),
+            _patched(health, _settings=nothing),
+            _patched(health.github_app, describe=lambda with_repositories=True: []),
+            _patched(health.shutil, which=lambda name: None),
+        ):
+            return health.run(config, object())  # type: ignore[arg-type]
+
+    alone = checked([])
+    assert _verdicts(alone) == [("github.access", "info")]
+    assert health.problems(alone) == 0, "doctor exits 0 when nothing else is missing"
+    assert "no pull request" in alone[0].said
+    coded = checked([project])
+    assert _verdicts(coded) == [("github.access", "error")]
+    assert health.problems(coded) == 1
 
 
 @case
@@ -1474,12 +1512,12 @@ def doctor_finds_a_sound_installation_in_place_and_a_broken_one_wrong(state_home
     assert code == 1, said
     for line in (
         "✗ Claude Code: Claude Code is not installed on this machine.",
-        "✗ GitHub access: `gh` is not signed in.",
         "✗ Disk space: 100 MB free, under the 5120 MB a ticket needs to start.",
     ):
         assert line in said, line
-    assert "    - In a terminal on this machine, run `gh auth login`." in said, "and the way out"
-    assert said.rstrip().endswith("3 problem(s) to fix."), said
+    # No project has a repository: `gh` signed out is said, not counted.
+    assert "  GitHub access: `gh` is not signed in." in said
+    assert said.rstrip().endswith("2 problem(s) to fix."), said
 
 
 @case

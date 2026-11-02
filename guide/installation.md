@@ -33,6 +33,9 @@ ponos doctor
 
 tells you, line by line, what is still missing — the same text as *Run the full diagnosis*
 in the console.
+GitHub is not among them until a project of the board has a repository: before that, a
+machine without `gh` or a GitHub App gets an information line — no pull request until GitHub
+is connected — and `doctor` still exits 0.
 
 Running the same command again **updates** the installation: the code is replaced, your
 configuration is kept.

@@ -1471,8 +1471,12 @@ def _models(config: config_module.Config) -> list[Check]:
 _WRITING = {"WRITE", "MAINTAIN", "ADMIN"}
 
 
-def _github_access(config: config_module.Config) -> list[Check]:
-    """The apps connected from the console, then `gh`, then the accounts `[github]` names."""
+def _github_access(config: config_module.Config, *, code: bool = True) -> list[Check]:
+    """The apps connected from the console, then `gh`, then the accounts `[github]` names.
+
+    `code`: whether a project of the board has a repository. Without one no
+    ticket opens a pull request, and GitHub not connected is only said.
+    """
     found: list[Check] = []
     connected = github_app.describe(with_repositories=False)
     for app in connected:
@@ -1532,15 +1536,16 @@ def _github_access(config: config_module.Config) -> list[Check]:
                         params=reached,
                     )
                 )
-    found.extend(_gh(config, apps=bool(connected)))
+    found.extend(_gh(config, apps=bool(connected), code=code))
     return found
 
 
-def _gh(config: config_module.Config, *, apps: bool) -> list[Check]:
+def _gh(config: config_module.Config, *, apps: bool, code: bool = True) -> list[Check]:
     """`gh`: what opens pull requests without an App, and the fallback beside one.
 
-    Without an App it is the only way, and missing or signed out is an error;
-    beside one, only a repository the App does not reach needs it.
+    Without an App it is the only way, and missing or signed out is an error
+    once a project has a repository — before that, a line for the day one has;
+    beside an App, only a repository the App does not reach needs it.
     """
     if not shutil.which("gh"):
         if apps:
@@ -1552,6 +1557,21 @@ def _gh(config: config_module.Config, *, apps: bool) -> list[Check]:
                     "`gh` is not installed: a repository the GitHub App does not reach gets no pull request.",
                     url="https://cli.github.com",
                     **_installing("gh"),
+                )
+            ]
+        if not code:
+            return [
+                _check(
+                    "github.access",
+                    INFO,
+                    "GitHub access",
+                    "GitHub is not connected: no pull request can be opened until it is.",
+                    cause="No project of the board has a repository: writing, external and publishing tickets do without GitHub.",
+                    url="https://cli.github.com",
+                    **_installing(
+                        "gh",
+                        "Connect a GitHub App from Settings › GitHub, or install `gh` and run `gh auth login`.",
+                    ),
                 )
             ]
         return [
@@ -1578,7 +1598,7 @@ def _gh(config: config_module.Config, *, apps: bool) -> list[Check]:
         found.append(
             _check(
                 "github.access",
-                WARN if apps else ERROR,
+                WARN if apps else ERROR if code else INFO,
                 "GitHub access",
                 "`gh` is not signed in.",
                 cause="Without a token Ponos can neither push nor open a pull request.",
@@ -3622,7 +3642,6 @@ def run(
     jobs: list[tuple[str, Callable[[], list[Check]]]] = [
         ("claude", lambda: _claude(config)),
         ("claude", lambda: _models(config)),
-        ("github", lambda: _github_access(config)),
         ("github", _github_token),
         ("github", _github_billing),
         ("projects", lambda: _workspace_root(config)),
@@ -3638,10 +3657,15 @@ def run(
         futures = [pool.submit(_guarded(group, job)) for group, job in jobs]
         notion_found, space = _guard_notion(config, client)
         rows = _project_rows(client, space)
+        # Only now: whether GitHub missing is a problem depends on the projects.
+        access = pool.submit(_guarded("github", partial(_github_access, config, code=bool(rows))))
         per_project = [
             pool.submit(_guarded("projects", partial(_project, config, row))) for row in rows
         ]
-        found = [check for future in futures for check in future.result()]
+        found = [
+            *access.result(),
+            *(check for future in futures for check in future.result()),
+        ]
         project_found = [check for future in per_project for check in future.result()]
     # A repository the board's projects already answered for is said once, there.
     covered = {

@@ -539,6 +539,32 @@ def _github() -> dict[str, Any]:
     return {"state": "missing", "account": "", "via": via, "said": said, "command": "gh auth login"}
 
 
+def _machine(minimum_disk_mb: int) -> dict[str, Any]:
+    """What this machine lacks — gh aside: optional, and said on the GitHub line."""
+    needs = [
+        need
+        for need in prerequisites.check(config_module.state_dir(), minimum_disk_mb)
+        if need.name != "gh"
+    ]
+    return {
+        "state": "error"
+        if any(not need.ok and need.required for need in needs)
+        else "missing"
+        if any(not need.ok for need in needs)
+        else "ok",
+        "needs": [
+            {
+                "name": need.name,
+                "ok": need.ok,
+                "required": need.required,
+                "said": need.said,
+                "fix": need.fix,
+            }
+            for need in needs
+        ],
+    }
+
+
 def save_channels(api: Api, payload: dict[str, Any]) -> dict[str, Any]:
     """The channels step: what was typed, the Telegram chat found, each one asked."""
     bot = _text(payload, "telegram_token")
@@ -713,26 +739,8 @@ def summary(api: Api) -> dict[str, Any]:
     }
 
     active = [channel.name for channel in channels.open(configuration.notify)]
-    needs = prerequisites.check(config_module.state_dir(), runner.min_free_disk_mb)
-    machine = {
-        "state": "error"
-        if any(not need.ok and need.required for need in needs)
-        else "missing"
-        if any(not need.ok for need in needs)
-        else "ok",
-        "needs": [
-            {
-                "name": need.name,
-                "ok": need.ok,
-                "required": need.required,
-                "said": need.said,
-                "fix": need.fix,
-            }
-            for need in needs
-        ],
-    }
     return {
-        "machine": machine,
+        "machine": _machine(runner.min_free_disk_mb),
         "provider": claude,
         "model": model,
         "board": _board(api),
