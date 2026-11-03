@@ -307,7 +307,7 @@ def a_bare_command_line_presents_the_product_and_its_version(state_home):
     printed = _plain(buffer.getvalue())
 
     assert f"Ponos {__version__}" in printed
-    assert "Turns ready Notion tickets into Claude Code sessions." in printed
+    assert "Runs your tickets with Claude Code — on its own board, or Notion's." in printed
     for name in subcommands():
         assert f"\n    {name} " in printed or f"\n    {name}  " in printed, (
             f"{name} is a command the welcome screen does not name"
@@ -375,6 +375,22 @@ def every_option_says_what_it_does():
             if not action.help:
                 silent.append(f"{name} {'/'.join(action.option_strings) or action.dest}")
     assert not silent, f"options without a help: {silent}"
+
+
+@case
+def the_help_presents_the_board_before_notion():
+    """`ponos --help` is the first thing a stranger types: Notion is an option.
+
+    So its description is the positioning of the README, not "Notion tickets",
+    and `init` says it only serves the Notion board.
+    """
+    parser = build_parser()
+    assert (
+        parser.description == "Runs your tickets with Claude Code — on its own board, or Notion's."
+    )
+    verbs = next(a for a in parser._actions if isinstance(a, argparse._SubParsersAction))
+    init_help = next(c.help for c in verbs._choices_actions if c.dest == "init")
+    assert init_help and "Notion board only" in init_help
 
 
 @case

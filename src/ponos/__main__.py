@@ -57,7 +57,7 @@ if sys.stdout.isatty():
 # first, sentences the second.
 PRODUCT = "ponos"
 NAME = "Ponos"
-TAGLINE = "Turns ready Notion tickets into Claude Code sessions."
+TAGLINE = "Runs your tickets with Claude Code — on its own board, or Notion's."
 
 
 def ok(message: str) -> None:
@@ -1835,7 +1835,8 @@ def build_parser() -> argparse.ArgumentParser:
     doctor.set_defaults(function=command_doctor)
 
     initialise = subparsers.add_parser(
-        "init", help="create the Notion databases from one page link"
+        "init",
+        help="create the Notion databases from one page link (Notion board only)",
     )
     initialise.add_argument("page", help="URL of the Notion page to build under")
     initialise.add_argument(
