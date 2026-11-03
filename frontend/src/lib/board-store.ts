@@ -132,6 +132,8 @@ export interface Tally {
   ready: number
   running: number
   review: number
+  /** The latest `created` of its tickets, empty when none says. */
+  created: string
   /** The latest `edited` of its tickets, empty when none says. */
   edited: string
 }
@@ -143,18 +145,22 @@ function talliesOf(from: Board): Map<string, Tally> {
     const tallies = new Map<string, Tally>()
     for (const ticket of from.tickets) {
       if (!ticket.project) continue
-      const tally = tallies.get(ticket.project) ?? { count: 0, ready: 0, running: 0, review: 0, edited: "" }
+      const tally = tallies.get(ticket.project) ?? { count: 0, ready: 0, running: 0, review: 0, created: "", edited: "" }
       tally.count += 1
       if (ticket.column === "ready" || ticket.column === "running" || ticket.column === "review")
         tally[ticket.column] += 1
       // Compared as instants: a board of files may write them with an offset.
       if (Date.parse(ticket.edited) > (Date.parse(tally.edited) || 0)) tally.edited = ticket.edited
+      if (Date.parse(ticket.created) > (Date.parse(tally.created) || 0)) tally.created = ticket.created
       tallies.set(ticket.project, tally)
     }
     counted = { from, tallies }
   }
   return counted.tallies
 }
+
+/** The same count, for what reads it outside a component: the order of the projects. */
+export const currentTallies = (): Map<string, Tally> | null => (board ? talliesOf(board) : null)
 
 /** The tickets of each project, by name — `null` until the first board arrives. */
 export function useTicketTallies(): Map<string, Tally> | null {
