@@ -880,6 +880,15 @@ def _spending(connection: sqlite3.Connection) -> None:
     )
 
 
+def _digests(connection: sqlite3.Connection) -> None:
+    # One row per period a digest was claimed for, named by the moment it ends:
+    # the row is written before the message goes, which is what makes it go once
+    # whatever number of passes meet the same period.
+    connection.execute(
+        "CREATE TABLE digests (period TEXT PRIMARY KEY, at TEXT NOT NULL DEFAULT '')"
+    )
+
+
 def _stamps_print_the_file(connection: sqlite3.Connection) -> None:
     connection.execute("ALTER TABLE sync_stamps ADD COLUMN content TEXT NOT NULL DEFAULT ''")
 
@@ -1006,6 +1015,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     _indexes_for_what_is_asked,
     _sync_conflicts_by_page,
     _billing_holds,
+    _digests,
 )
 
 # Any way a read or a write of the database can fail. A note the runner keeps

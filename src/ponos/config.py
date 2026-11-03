@@ -569,6 +569,11 @@ MOST_RESERVED = 50
 # the only one that expects something back from you.
 EVENTS = ("blocked", "failed", "done")
 
+# How often the digest goes out, and the days a weekly one can be set to: the
+# order is `datetime.weekday()`'s, so a name's rank is its day.
+DIGESTS = ("off", "daily", "weekly")
+DIGEST_DAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
+
 
 @dataclass
 class Notify:
@@ -583,6 +588,9 @@ class Notify:
     desktop: bool = True
     replies: bool = True
     events: tuple[str, ...] = EVENTS
+    digest: str = "off"
+    digest_day: str = "monday"
+    digest_hour: int = 9
     telegram: dict[str, str] = field(default_factory=dict)
     slack: dict[str, str] = field(default_factory=dict)
 
@@ -1730,6 +1738,9 @@ def _notify(table: schema.NotifyTable, stored: dict[str, str], runner: Runner) -
         desktop=runner.notify if table.desktop is None else table.desktop,
         replies=table.replies,
         events=table.events,
+        digest=table.digest,
+        digest_day=table.digest_day,
+        digest_hour=min(table.digest_hour, 23),
         telegram=_channel(table.telegram, secret(stored, "notify.telegram", "token")),
         slack=_channel(table.slack, secret(stored, "notify.slack", "token")),
     )

@@ -1082,6 +1082,30 @@ _SAID: dict[str, dict[str, str]] = {
             "ne démarre avant {when}."
         ),
     },
+    # The digest: the period's figures, sent by `digest.py` without a session.
+    "digest-weekly": {
+        "en": "📊 Weekly digest · {since} – {until}",
+        "fr": "📊 Bilan de la semaine · {since} – {until}",
+    },
+    "digest-daily": {"en": "📊 Daily digest · {day}", "fr": "📊 Bilan du jour · {day}"},
+    "digest-delivered": {"en": "Delivered: {count}", "fr": "Livrés : {count}"},
+    "digest-cost": {"en": "Cost: {total}", "fr": "Coût : {total}"},
+    "digest-merge": {
+        "en": "Merge rate: {rate}% ({merged}/{opened} pull requests)",
+        "fr": "Taux de fusion : {rate} % ({merged}/{opened} pull requests)",
+    },
+    "digest-stops": {"en": "Stops: {count} — {causes}", "fr": "Blocages : {count} — {causes}"},
+    "digest-quiet": {"en": "Nothing ran this period.", "fr": "Rien n'a tourné sur la période."},
+    "digest-waiting": {
+        "en": "Waiting for a decision ({count}):",
+        "fr": "En attente d'une décision ({count}) :",
+    },
+    "digest-nothing-waiting": {
+        "en": "Nothing is waiting for a decision.",
+        "fr": "Rien n'attend de décision.",
+    },
+    "digest-more": {"en": "… and {count} more", "fr": "… et {count} de plus"},
+    "digest-no-project": {"en": "no project", "fr": "sans projet"},
     # The button a desktop draws under a notification that has a ticket to open.
     "open-ticket": {"en": "Open the ticket", "fr": "Ouvrir le ticket"},
     # And the one beside it when the ticket ended on a pull request.

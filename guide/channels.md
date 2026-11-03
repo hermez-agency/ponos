@@ -179,6 +179,33 @@ amber — *1 thing to fix: Slack notifications do not arrive* — and keeps *bef
 run*, in red, for what stops the runner from taking a ticket. A channel the runner cannot read is said once in
 `ponos.log`, then again only when the error changes or goes away — not at every pass.
 
+### The week in one message — the digest
+
+The figures are in the console, and nobody opens the console on a Friday evening. With a
+digest on, the runner sends them to the channel itself:
+
+```toml
+[notify]
+digest = "weekly"     # "off" (the default), "daily" or "weekly"
+digest_day = "monday" # weekly only
+digest_hour = 9       # this machine's clock, 0–23
+```
+
+One short message per period: the tickets **delivered** (a pull request opened, a merge, a
+document — each ticket once), by project; the **cost**, in total and by project; the **merge
+rate** (merged over opened); the **stops** by cause (the same codes as the console's
+statistics); and the tickets **waiting for a decision** — those in review, blocked or failed —
+each with its project and its link.
+
+It is computed from `ponos.db` and the board, with no Claude session: it costs nothing. A
+period is named by the moment it ends, so it is sent **once** however many passes meet it —
+the timer's, the console's — and a machine that was asleep at the hour sends it on waking, up
+to a day late; a digest switched on on a Wednesday does not send Monday's. A period no channel
+took is tried again at the next pass.
+
+`ponos notify --digest` sends the period under way (the last seven days, or the last day for
+`daily`) right now, whatever was already sent, to see what it says before Monday does.
+
 **Why not WhatsApp.** Its API delivers inbound messages only to a public HTTPS webhook you
 host and have verified by Meta, on a business account — a server, in other words, which is
 the opposite of a runner living on your machine. Outbound alone would be a notification you
