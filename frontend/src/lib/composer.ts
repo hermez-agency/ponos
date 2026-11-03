@@ -201,3 +201,41 @@ export function inserted(text: string, transcription: string): string {
   if (!text.trim()) return said
   return `${text.replace(/\s+$/, "")} ${said}`
 }
+
+/** What a key needs to say for the bar to read it: `KeyboardEvent` has it, and so does a test. */
+export interface KeyLike {
+  key?: string
+  code?: string
+  altKey: boolean
+  shiftKey: boolean
+  ctrlKey: boolean
+  metaKey: boolean
+}
+
+/** Alt+Shift+M: the microphone, the way Alt+Shift+F is the full screen. */
+export const isTalkKey = (event: KeyLike) =>
+  event.altKey && event.shiftKey && !event.ctrlKey && !event.metaKey && event.code === "KeyM"
+
+/* Why the microphone is greyed out, before anybody presses it: dictation not
+ * set up on the server comes first, since no browser can make up for it. */
+export function micRefusal(
+  ready: boolean,
+  access: "unknown" | "granted" | "denied" | "unsupported"
+): "dictation" | "unsupported" | "denied" | null {
+  if (!ready) return "dictation"
+  if (access === "unsupported" || access === "denied") return access
+  return null
+}
+
+/** The command the arrows move to, round from the last one to the first. */
+export const cycled = (choice: number, step: 1 | -1, length: number) => (choice + step + length) % length
+
+/* What a message carries: the files the server has kept, in the order they
+ * were added — and nothing with a command, which runs on its own. */
+export function carried<T>(text: string, attachments: Pending[], kept: ReadonlyMap<string, T>): T[] {
+  if (isCommand(text)) return []
+  return attachments.flatMap((item) => {
+    const attached = item.state === "done" ? kept.get(item.key) : undefined
+    return attached ? [attached] : []
+  })
+}

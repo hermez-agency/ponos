@@ -10,11 +10,15 @@ import { test } from "node:test"
 
 import {
   canSend,
+  carried,
   completed,
+  cycled,
   completions,
   inserted,
   isCommand,
+  isTalkKey,
   kindOf,
+  micRefusal,
   nameFor,
   pastedFiles,
   screen,
@@ -127,4 +131,39 @@ test("Escape stops a turn only from an empty bar, and only where Stop is offered
   assert.equal(stopsOnEscape({ ...empty, attachments: [image("a.png")] }), false)
   assert.equal(stopsOnEscape({ ...empty, busy: false }), false)
   assert.equal(stopsOnEscape({ ...empty, stoppable: false }), false)
+})
+
+test("Alt+Shift+M opens the microphone, and no other chord does", () => {
+  const keys = { altKey: true, shiftKey: true, ctrlKey: false, metaKey: false, code: "KeyM" }
+  assert.equal(isTalkKey(keys), true)
+  assert.equal(isTalkKey({ ...keys, shiftKey: false }), false)
+  assert.equal(isTalkKey({ ...keys, ctrlKey: true }), false)
+  assert.equal(isTalkKey({ ...keys, metaKey: true }), false)
+  assert.equal(isTalkKey({ ...keys, code: "KeyN" }), false)
+})
+
+test("the microphone says why it is off: dictation first, then the browser", () => {
+  assert.equal(micRefusal(false, "granted"), "dictation")
+  assert.equal(micRefusal(false, "denied"), "dictation")
+  assert.equal(micRefusal(true, "unsupported"), "unsupported")
+  assert.equal(micRefusal(true, "denied"), "denied")
+  assert.equal(micRefusal(true, "unknown"), null)
+  assert.equal(micRefusal(true, "granted"), null)
+})
+
+test("the arrows go round the commands", () => {
+  assert.equal(cycled(0, 1, 3), 1)
+  assert.equal(cycled(2, 1, 3), 0)
+  assert.equal(cycled(0, -1, 3), 2)
+})
+
+test("a message carries the files kept, and a command carries none", () => {
+  const kept = new Map([
+    ["a", "file a"],
+    ["c", "file c"],
+  ])
+  const list = [image("a"), image("b", "uploading"), image("c"), image("d", "error")]
+  assert.deepEqual(carried("look", list, kept), ["file a", "file c"])
+  assert.deepEqual(carried("", list, kept), ["file a", "file c"])
+  assert.deepEqual(carried(">status", list, kept), [])
 })
