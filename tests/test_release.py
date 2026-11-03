@@ -18,11 +18,22 @@ import threading
 from pathlib import Path
 
 import release
-from support import FRONTEND, ROOT, Skip, _bare_api, _environment, _head, _plain, _TalkClient, case
+from support import (
+    FRONTEND,
+    ROOT,
+    Skip,
+    _bare_api,
+    _config,
+    _environment,
+    _head,
+    _plain,
+    _TalkClient,
+    case,
+)
 
-from ponos import __version__, update
+from ponos import __version__, state, update
 from ponos import config as C
-from ponos.__main__ import banner, build_parser, subcommands, welcome
+from ponos.__main__ import _status_budget, banner, build_parser, subcommands, welcome
 from ponos.__main__ import main as cli_main
 from ponos.web import overview as web_overview
 from ponos.web import settings as web_settings
@@ -443,6 +454,24 @@ def the_usage_block_names_every_verb_and_option_the_parser_has():
                         )
     for line in lines:
         assert line[1] in verbs, f"the usage block names ponos {line[1]}, which the parser has not"
+
+
+@case
+def the_status_says_the_daily_limit_and_whether_it_is_spent(state_home):
+    """A block of `ponos status` is read from a configuration, without the parser."""
+    configuration = _config("[budget]\ndaily_usd = 5\nper_ticket_usd = 2\n")
+    configuration.runner.on = False
+    buffer = io.StringIO()
+    with contextlib.redirect_stdout(buffer):
+        _status_budget(configuration)
+    said = _plain(buffer.getvalue())
+    assert "0.00 $ spent today, daily limit 5.00 $\n" in said, said
+    assert "per-ticket limit 2.00 $" in said, said
+    state.spend(5.0, "a")
+    buffer = io.StringIO()
+    with contextlib.redirect_stdout(buffer):
+        _status_budget(configuration)
+    assert "— nothing new is started until midnight" in _plain(buffer.getvalue())
 
 
 @case
