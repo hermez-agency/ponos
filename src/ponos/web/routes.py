@@ -312,10 +312,11 @@ def state(request: Request) -> Response:
 
 
 @router.get("/api/board", response_model=answers.Board)
-def board(request: Request) -> Response:
-    # The watcher's last board, when it is younger than the watcher's period.
-    api = _api(request)
-    return answer(api.board(max_age=api.config.web.poll_seconds))
+def board(request: Request, closed: str = "") -> Response:
+    # The board the console holds, read again behind the answer when it is
+    # older than the watcher's period; done and cancelled cut to their latest
+    # tickets unless `closed=all`. See `Tickets.served_board`.
+    return answer(_api(request).served_board(every=closed == "all"))
 
 
 @router.get("/api/notifications", response_model=answers.Bell)

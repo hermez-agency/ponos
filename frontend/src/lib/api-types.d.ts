@@ -1912,6 +1912,13 @@ export interface components {
             places?: number;
             /** @description Which board the stream sent, for the changes that follow it. */
             version?: number;
+            /**
+             * @description How many tickets of each closed column `GET /api/board` left out — only its latest are
+             *     answered; `?closed=all` answers them all.
+             */
+            hidden?: {
+                [key: string]: number;
+            };
         };
         /** @description What moved on the board since version `base`, as the stream sends it. */
         BoardChanges: {
@@ -4248,7 +4255,9 @@ export interface operations {
     };
     board_api_board_get: {
         parameters: {
-            query?: never;
+            query?: {
+                closed?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -4262,6 +4271,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Board"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

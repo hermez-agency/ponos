@@ -1394,12 +1394,14 @@ def a_write_refused_before_its_body_is_read_closes_the_connection():
 
 
 @case
-def a_client_that_hangs_up_mid_answer_leaves_no_trace():
+def a_client_that_hangs_up_mid_answer_leaves_no_trace(state_home):
     """A tab closed while its board was on the way is not an error.
 
     The journal of `ponos-web.service` held 38 tracebacks by 1 October
     2026, two per closed tab: the `BrokenPipeError` of the write, then the 500
     the route's `except Exception` tried to send on the same dead socket.
+    Its own state: a board another case kept on disk would be answered in place
+    of the one that raises.
     """
     import socket as sockets
 

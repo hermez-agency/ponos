@@ -346,6 +346,9 @@ class Board(Shape):
     column of work in flight is counted against."""
     version: int = omitted()
     """Which board the stream sent, for the changes that follow it."""
+    hidden: dict[str, int] = omitted()
+    """How many tickets of each closed column `GET /api/board` left out — only its latest are
+    answered; `?closed=all` answers them all."""
 
 
 class Changed(Shape):
