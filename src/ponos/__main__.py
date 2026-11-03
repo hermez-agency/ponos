@@ -27,6 +27,7 @@ from . import (
     db,
     environment,
     git,
+    github_checks,
     health,
     journal,
     leftovers,
@@ -1256,7 +1257,7 @@ def _branch_kept(
     established that nobody else holds what is on it.
     """
     if git.has_ref(repo, f"origin/{branch}"):
-        url = git.pull_request_on(repo, branch, accounts)
+        url = github_checks.pull_request_on(repo, branch, accounts)
         if url:
             return f"it is pushed and its pull request is open — {url}"
     if not git.has_ref(repo, f"origin/{base}") and not git.has_ref(repo, base):

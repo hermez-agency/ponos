@@ -13,7 +13,16 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from .. import channels, conversation, decisions, git, question, redaction, store, voice
+from .. import (
+    channels,
+    conversation,
+    decisions,
+    github_checks,
+    question,
+    redaction,
+    store,
+    voice,
+)
 from .. import goals as goals_module
 from . import board as board_module
 from .base import Base
@@ -120,7 +129,7 @@ class Discussion(Base):
             url = found.pull_request or str(store.read(page, settings.prop("pull_request")) or "")
             # Asked of GitHub when the panel opens, not kept: a check that went
             # green a minute ago is the thing this panel exists to say.
-            listed = git.checks(url, self.config.github, timeout=20) if url else []
+            listed = github_checks.checks(url, self.config.github, timeout=20) if url else []
             state = decisions.checks_state(listed) if listed else ("unknown" if url else "none")
             failing = next(
                 (check for check in listed if check.get("bucket") in ("fail", "cancel")), None

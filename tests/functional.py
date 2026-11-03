@@ -2059,8 +2059,7 @@ def a_forced_merge_github_refuses_for_the_billing_waits_validated_until_it_is_pa
     the health of the installation, and the passes after ask nothing of a
     session. Paid, the refused jobs are run again and the pull request lands.
     """
-    from ponos import git as git_module
-    from ponos import health
+    from ponos import github_checks, health
 
     machine.board.databases[machine.database]["properties"] = {
         **machine.board.databases[machine.database]["properties"],
@@ -2095,11 +2094,11 @@ def a_forced_merge_github_refuses_for_the_billing_waits_validated_until_it_is_pa
     os.environ["FAKE_GH_ANNOTATION"] = ""
     for hold in state.billing_holds():
         state.billing_probed(hold["account"], 0.0)
-    settle, git_module.RERUN_SETTLE_SECONDS = git_module.RERUN_SETTLE_SECONDS, 0
+    settle, github_checks.RERUN_SETTLE_SECONDS = github_checks.RERUN_SETTLE_SECONDS, 0
     try:
         machine.run()
     finally:
-        git_module.RERUN_SETTLE_SECONDS = settle
+        github_checks.RERUN_SETTLE_SECONDS = settle
 
     assert machine.status(ticket) == "Done", machine.status(ticket)
     assert len(machine.merges()) == 1, machine.merges()

@@ -47,7 +47,7 @@ itself and nothing else. The rest is one chapter per module:
 | `ticket.py` | `Ticket` and `Job`, the two nouns everything else passes around |
 
 Around them sit the modules a run leans on rather than consists of: `store.py` and the
-two boards behind it (`notion.py`, `files.py`, `sync.py`), `git.py`, `github_app.py` (the GitHub App and its tokens), `session.py`,
+two boards behind it (`notion.py`, `files.py`, `sync.py`), `git.py`, `github_checks.py` (a pull request's checks, and the merge that waits on them), `github_app.py` (the GitHub App and its tokens), `session.py`,
 `voice.py`, `kinds.py` (the four types of ticket, and what counts as a doubt), `progress.py`, `conversation.py`, `schedules.py`, `credits.py`, `db.py` (the local SQLite
 memory, `ponos.db`, and its numbered migrations), `journal.py` (every run and its steps, in it), `channels/` and `web/`.
 

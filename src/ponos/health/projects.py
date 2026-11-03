@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from .. import config as config_module
-from .. import git, github_app, projects
+from .. import git, github_app, github_checks, projects
 from .check import ERROR, OK, PROBE_TIMEOUT, WARN, Check, _check, _first_line, _fix
 from .github import _github_rights, _repository
 
@@ -208,9 +208,9 @@ def _local_repository(config: config_module.Config, repo: Path) -> list[Check]:
 
 
 def _ci_at_push(repo: Path, accounts: git.Accounts | None = None) -> tuple[str, str]:
-    """The base of that repository, and what its CI does at push — see `git.ci_at_push`."""
+    """The base of that repository, and what its CI does at push — see `github_checks.ci_at_push`."""
     base = git.default_branch(repo)
-    return base, git.ci_at_push(repo, base, accounts)
+    return base, github_checks.ci_at_push(repo, base, accounts)
 
 
 def base_without_ci(repo: Path, accounts: git.Accounts | None = None) -> str:

@@ -24,7 +24,7 @@ from support import (
     case,
 )
 
-from ponos import db, journal, notion, projects, state, voice, workspace
+from ponos import db, github_checks, journal, notion, projects, state, voice, workspace
 from ponos import git as git_module
 from ponos import ticket as ticket_module
 from ponos.runner import Runner
@@ -1230,7 +1230,7 @@ def an_older_gh_reads_the_checks_from_the_pull_request_itself():
     try:
         with _git_answering(run=run, token_for=lambda reference, accounts=None: ""):
             url = "https://github.com/x/y/pull/1"
-            listed = git_module.checks(url)
+            listed = github_checks.checks(url)
             assert [(one["name"], one["bucket"]) for one in listed] == [
                 ("Tests", "fail"),
                 ("Lint", "pass"),
@@ -1238,15 +1238,15 @@ def an_older_gh_reads_the_checks_from_the_pull_request_itself():
                 ("GitGuardian", "pass"),
             ], listed
             assert listed[0]["link"].endswith("/actions/runs/38/job/116"), listed[0]
-            assert git_module.failing_checks(url) == ["Tests"]
-            assert git_module.unstarted_checks(url) == _NOT_STARTED
+            assert github_checks.failing_checks(url) == ["Tests"]
+            assert github_checks.unstarted_checks(url) == _NOT_STARTED
             assert any(
                 "repos/x/y/check-runs/116/annotations" in part for one in asked for part in one
             )
 
             # One red check that did run is enough: that red is the code's.
             rollup["statusCheckRollup"][1]["conclusion"] = "FAILURE"
-            assert git_module.unstarted_checks(url) == ""
+            assert github_checks.unstarted_checks(url) == ""
     finally:
         git_module.shutil.which = original_which
 
@@ -1340,8 +1340,8 @@ def the_checks_gh_lists_are_read_into_names_and_runs_to_start_again():
     try:
         with _git_answering(run=run, token_for=lambda reference, accounts=None: ""):
             url = "https://github.com/x/y/pull/1"
-            assert git_module.failing_checks(url) == ["GitGuardian", "frontend"]
-            assert git_module.rerun_failed_checks(url)
+            assert github_checks.failing_checks(url) == ["GitGuardian", "frontend"]
+            assert github_checks.rerun_failed_checks(url)
             assert [
                 "gh",
                 "run",
@@ -1352,12 +1352,12 @@ def the_checks_gh_lists_are_read_into_names_and_runs_to_start_again():
                 "github.com/x/y",
             ] in asked
             assert len([one for one in asked if one[:3] == ["gh", "run", "rerun"]]) == 1
-            assert git_module.failing_on(url, "main") == ["frontend"]
+            assert github_checks.failing_on(url, "main") == ["frontend"]
             assert any("repos/x/y/commits/main/check-runs" in part for one in asked for part in one)
         with _git_answering(
             run=lambda *args, **kept: git_module.Result(1, "unknown flag: --json", "")
         ):
-            assert git_module.failing_checks("https://github.com/x/y/pull/1") == []
+            assert github_checks.failing_checks("https://github.com/x/y/pull/1") == []
     finally:
         git_module.shutil.which = original_which
         git_module.time.sleep = original_sleep
@@ -1681,7 +1681,7 @@ def the_failures_of_a_base_and_its_ci_at_push_are_read_from_gh():
             run=answering("frontend\thttps://github.com/x/y/runs/1\nlint\t"),
             token_for=lambda reference, accounts=None: "",
         ):
-            assert git_module.base_failures(url, "main") == [
+            assert github_checks.base_failures(url, "main") == [
                 ("frontend", "https://github.com/x/y/runs/1"),
                 ("lint", ""),
             ]
@@ -1697,13 +1697,13 @@ def the_failures_of_a_base_and_its_ci_at_push_are_read_from_gh():
                 remote_url=lambda repo: "git@github.com:x/y.git",
                 token_for=lambda reference, accounts=None: "",
             ):
-                assert git_module.ci_at_push(repo, "main") == wanted, (out, wanted)
+                assert github_checks.ci_at_push(repo, "main") == wanted, (out, wanted)
         with _git_answering(
             run=answering("", ok=False),
             remote_url=lambda repo: "git@github.com:x/y.git",
             token_for=lambda reference, accounts=None: "",
         ):
-            assert git_module.ci_at_push(repo, "main") == "", "a question GitHub did not answer"
+            assert github_checks.ci_at_push(repo, "main") == "", "a question GitHub did not answer"
     finally:
         git_module.shutil.which = original_which
 
