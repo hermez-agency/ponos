@@ -271,7 +271,7 @@ it. The *dialect* is twenty lines in
 French is `frontend/src/lib/french.ts` — one line per sentence, and a key nobody has
 translated is drawn as it was written rather than as a name nobody meant to read. The
 machinery is `frontend/src/lib/i18n.ts`: which language, how it was guessed, and `useT()`,
-which is `t` plus the redraw. The checks of the dashboard's health band (`health.py`) keep
+which is `t` plus the redraw. The checks of the dashboard's health band (`health/`) keep
 their French apart, in `frontend/src/lib/health-french.ts`, which the band fetches when it is
 drawn (`useFrench`): the first load of a French page is held to 500 kB, and most pages never
 say one of those sentences. Two of the sentences the console shows are not written in it —
@@ -607,7 +607,7 @@ installation ends, the console answers `GET /api/setup` unclaimed, `ponos doctor
 problem but Claude Code missing and the Notion token (both the first connection's), and
 `ponos update --check` answers and never offers a version older than the one installed.
 It runs on a pull request that touches `install.sh`, `update.py`, `environment.py`,
-`health.py` or the job itself, every night on `main`, and by hand; locally, from a clone
+`health/` or the job itself, every night on `main`, and by hand; locally, from a clone
 with its tags:
 
 ```sh

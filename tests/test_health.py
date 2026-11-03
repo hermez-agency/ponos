@@ -928,7 +928,7 @@ def health_calls_desktop_notifications_not_applicable_without_a_display():
         with (
             _patched(health.channels, open=lambda settings: []),
             _patched(health.shutil, which=lambda name: None),
-            _patched(health, _has_display=lambda display=display: display),
+            _patched(health.installation, _has_display=lambda display=display: display),
             _patched(health.config_module, in_container=lambda: False),
         ):
             found = health._notifications(desktop)
@@ -1165,7 +1165,7 @@ def health_says_who_may_answer_on_each_channel():
     with (
         _patched(health.channels, open=lambda settings: []),
         _patched(health.shutil, which=lambda name: None),
-        _patched(health, _has_display=lambda: True),
+        _patched(health.installation, _has_display=lambda: True),
     ):
         found = health._notifications(desktop)
     assert _verdicts(found) == [("machine.desktop", "warn"), ("machine.notify", "info")]
@@ -1582,7 +1582,8 @@ def every_sentence_of_a_check_is_translated():
 
     from ponos import health
 
-    tree = ast.parse(Path(health.__file__).read_text(encoding="utf-8"))
+    package = Path(health.__file__).parent
+    trees = [ast.parse(path.read_text(encoding="utf-8")) for path in package.glob("*.py")]
     sentences: set[str] = set()
 
     def strings(node):
@@ -1595,7 +1596,7 @@ def every_sentence_of_a_check_is_translated():
             for item in node.elts:
                 yield from strings(item)
 
-    for node in ast.walk(tree):
+    for node in (node for tree in trees for node in ast.walk(tree)):
         # A title or steps said once for several checks are a name's.
         if isinstance(node, ast.Assign) and getattr(node.targets[0], "id", "") in (
             "title",

@@ -35,7 +35,7 @@ set -eu
 
 SOURCE=/srv/ponos.git
 REPOSITORY=https://github.com/hermez-agency/ponos.git
-# What doctor may still count as a problem here: the codes of `health.py`,
+# What doctor may still count as a problem here: the codes of `health/`,
 # matched on their first part — the group of the check.
 ACCEPTED="claude notion"
 
