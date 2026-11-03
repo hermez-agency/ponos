@@ -22,6 +22,7 @@ kinds.py for why a doubt is never settled by running the ticket.
 from __future__ import annotations
 
 import shutil
+from pathlib import Path
 
 from . import (
     agents,
@@ -53,38 +54,62 @@ class Preparation(Base):
 
     def prepare(self, ticket: Ticket) -> Job | None:
         """Locate the project and claim the ticket. None if it is unusable."""
+        project = self._locate(ticket)
+        if project is None:
+            return None
+        short = short_id(ticket.id)
+        body = self._read(ticket, short)
+        if body is None:
+            return None
+        # After the name, which the classification reads, and before the branch
+        # is drawn, which the type decides whether there is one at all.
+        sorted_ = self._sort(ticket, body, project)
+        if sorted_ is None:
+            return None
+        kind, project, reference, subtype, note = sorted_
+        job = self._job(ticket, project, body, short, kind, reference, subtype)
+        if note:
+            job.notes.append(note)
+        if not self._settle_model(ticket, job):
+            return None
+        self._say_job(ticket, job)
+        if not self._take(ticket, job):
+            return None
+        return job
+
+    def _locate(self, ticket: Ticket) -> Project | None:
+        """The project the ticket points at — None, failed, when nobody can find it."""
         relation = store.read(ticket.page, self.config.notion.prop("project")) or []
         if not relation:
             # No project at all is not an error: it is the plainest possible
             # document ticket. "Draft me an email", "summarise this" — there is
             # nothing to commit and nowhere to commit it, so the answer goes
             # back into the page, exactly as for a project without a repository.
-            project = Project(name="", path=None)
-        else:
-            try:
-                # The one caller allowed to fetch a repository that is declared
-                # but not on this machine: a ticket about to run needs the
-                # clone to exist, and a project created from its GitHub link
-                # alone has never had one made. A dry run stays a dry run.
-                project = self.resolver.resolve(self.client, relation[0], clone=not self.dry_run)
-            except (LookupError, store.StoreError) as error:
-                self._fail(
-                    ticket,
-                    self.voice.say("no-project"),
-                    str(error),
-                    code="project.no-repo",
-                    blocked=True,
-                )
-                return None
+            return Project(name="", path=None)
+        try:
+            # The one caller allowed to fetch a repository that is declared
+            # but not on this machine: a ticket about to run needs the
+            # clone to exist, and a project created from its GitHub link
+            # alone has never had one made. A dry run stays a dry run.
+            return self.resolver.resolve(self.client, relation[0], clone=not self.dry_run)
+        except (LookupError, store.StoreError) as error:
+            self._fail(
+                ticket,
+                self.voice.say("no-project"),
+                str(error),
+                code="project.no-repo",
+                blocked=True,
+            )
+            return None
 
-        short = short_id(ticket.id)
+    def _read(self, ticket: Ticket, short: str) -> str | None:
+        """The ticket's body, its page named if it had no title — None, failed, when unusable."""
         try:
             body = self.client.blocks_text(ticket.page.id, live=False)
         except store.StoreError as error:
             self._fail(ticket, self.voice.say("unreadable"), str(error), code="notion.read-failed")
             return None
         if is_blank(body):
-            body = ""
             if not ticket.page.title.strip():
                 self._fail(
                     ticket,
@@ -94,14 +119,22 @@ class Preparation(Base):
                     blocked=True,
                 )
                 return None
-        elif not ticket.page.title.strip() and not self.dry_run:
+            return ""
+        if not ticket.page.title.strip() and not self.dry_run:
             # Named before the branch is drawn, since the branch is made of the
             # title. Only a page whose title is empty ever gets here, so the
             # common case costs nothing — and a dry run writes nowhere.
             self._name(ticket, body, short)
+        return body
 
-        # After the name, which the classification reads, and before the branch
-        # is drawn, which the type decides whether there is one at all.
+    def _sort(
+        self, ticket: Ticket, body: str, project: Project
+    ) -> tuple[str, Project, Path | None, str, str] | None:
+        """Type and sub-type, and the project the type is worked in — None to stop here.
+
+        Besides them, the repository a ticket worked elsewhere refers to, and
+        the note its report carries about the sub-type.
+        """
         kind, answer = self._kind(ticket, body, project)
         if kind is None:
             return None
@@ -111,7 +144,19 @@ class Preparation(Base):
             reference, project = project.path, worked
         # Only on the road of a code ticket: the column is ignored on the others.
         subtype, note = self._subtype(ticket, body, answer) if project.is_code else ("", "")
+        return kind, project, reference, subtype, note
 
+    def _job(
+        self,
+        ticket: Ticket,
+        project: Project,
+        body: str,
+        short: str,
+        kind: str,
+        reference: Path | None,
+        subtype: str,
+    ) -> Job:
+        """The job itself: where it runs, as whom, for what, in which session."""
         stem = f"{slugify(project.name, 24)}-{short}"
         if project.path is not None:  # `is_code`, spelled out for mypy to narrow
             base = self.config.runner.base_branch or git.default_branch(project.path)
@@ -146,7 +191,7 @@ class Preparation(Base):
         # — and the session is what remembers the half of the work that is not
         # in a commit yet. Anything else gets a fresh identifier, as ever.
         carried = self._carried_session(ticket)
-        job = Job(
+        return Job(
             ticket,
             project,
             branch,
@@ -164,8 +209,10 @@ class Preparation(Base):
             reference=reference,
             subtype=subtype,
         )
-        if note:
-            job.notes.append(note)
+
+    def _settle_model(self, ticket: Ticket, job: Job) -> bool:
+        """The model the job runs on, chosen when nobody wrote one — False, failed, when unusable."""
+        agent = job.agent
         written = job.model or agent.model
         if written and self.config.runner.allowed(written) != written:
             # Written by somebody, so said on the ticket: a Model that is not
@@ -182,13 +229,20 @@ class Preparation(Base):
                 code="access.credentials",
                 blocked=True,
             )
-            return None
+            return False
         if not job.model and not agent.model and self.config.runner.auto_model:
             self._choose_model(ticket, job)
-        where = f"{project.path} · {branch}" if project.is_code else "document → the ticket's page"
+        return True
+
+    def _say_job(self, ticket: Ticket, job: Job) -> None:
+        """The job's lines in the log, and the project's own notes on the ticket."""
+        project, agent = job.project, job.agent
+        where = (
+            f"{project.path} · {job.branch}" if project.is_code else "document → the ticket's page"
+        )
         said = f" · {len(job.comments)} comment(s)" if job.comments else ""
         role = f" · as {agent.name}" if agent else ""
-        typed = f" · {kind}" if kind else ""
+        typed = f" · {job.kind}" if job.kind else ""
         model = f" · {job.model} (chosen)" if job.chosen else ""
         self.say(
             f"  → {ticket.title}\n    {project.name or 'no project'} · {where}{typed}{role}"
@@ -203,29 +257,32 @@ class Preparation(Base):
             if line:
                 self.say("    · " + line)
                 job.notes.append(line)
-        if not self.dry_run:
-            # The session identifier is written now, not at the end: a ticket
-            # still in progress is exactly the one you want to look into, and
-            # `claude --resume <id>` replays it even while it runs.
-            claimed = self._claim(
-                ticket,
-                **{
-                    self.config.notion.prop("status"): self.config.notion.state("running"),
-                    self.config.notion.prop("agent"): self.agent_label,
-                    # The wait is over for this one: see the same line in
-                    # `_publish`. Read before this write, by `_carried_session`.
-                    self.config.notion.prop("waiting"): False,
-                    self.config.notion.prop("session"): self._session_value(
-                        job.session_id, project.path
-                    ),
-                },
-            )
-            if not claimed:
-                # Moved by somebody while it was being prepared: their move is
-                # the answer, so no failure is written over it — only the log.
-                self.say(f"    · {ticket.title} — not started: it left ready before its claim")
-                return None
-        return job
+
+    def _take(self, ticket: Ticket, job: Job) -> bool:
+        """Claim the ticket — False when it left ready before the claim took."""
+        if self.dry_run:
+            return True
+        # The session identifier is written now, not at the end: a ticket
+        # still in progress is exactly the one you want to look into, and
+        # `claude --resume <id>` replays it even while it runs.
+        claimed = self._claim(
+            ticket,
+            **{
+                self.config.notion.prop("status"): self.config.notion.state("running"),
+                self.config.notion.prop("agent"): self.agent_label,
+                # The wait is over for this one: see the same line in
+                # `_publish`. Read before this write, by `_carried_session`.
+                self.config.notion.prop("waiting"): False,
+                self.config.notion.prop("session"): self._session_value(
+                    job.session_id, job.project.path
+                ),
+            },
+        )
+        if not claimed:
+            # Moved by somebody while it was being prepared: their move is
+            # the answer, so no failure is written over it — only the log.
+            self.say(f"    · {ticket.title} — not started: it left ready before its claim")
+        return claimed
 
     def _written_model(self, ticket: Ticket) -> str:
         """The model somebody wrote on the ticket — not the one this runner did.
@@ -530,75 +587,15 @@ class Preparation(Base):
         type written by the runner would read, on the next pass, as a type you
         had chosen.
         """
-        short = short_id(ticket.id)
-        workdir = state_dir() / "scratch" / f"kind-{short}"
-        answer = ""
-        try:
-            workdir.mkdir(parents=True, exist_ok=True)
-            outcome = self._paid(
-                ticket.id,
-                kinds.prompt(
-                    ticket.title,
-                    body,
-                    project=project.name,
-                    repository=project.is_code,
-                    comments=self.discussion(ticket),
-                ),
-                cwd=workdir,
-                log=state.log_file(f"{short}-kind"),
-                model=self.config.runner.allowed(self.config.runner.classify_model),
-                # It reads one page and answers one object: the mode a
-                # conversation runs in is more than it needs.
-                permission_mode=self.config.runner.reply_permission_mode,
-                timeout_minutes=kinds.TIMEOUT_MINUTES,
-                environment=self.environment,
-            )
-            if self._out_of_credit(outcome):
-                # Not a doubt about the ticket: there was nothing to ask with.
-                # It stays in ready, untouched, for the pass that has credit.
-                self._hold_credits(outcome)
-                self.say("    · out of credit before it could be classified — left in ready")
-                return None, ""
-            answer = outcome.answer if outcome.ok else ""
-        except (OSError, ValueError) as error:
-            self.say(f"  ! the ticket could not be classified: {voice_module.line(error)}")
-        finally:
-            shutil.rmtree(workdir, ignore_errors=True)
-
+        answer = self._ask_kind(ticket, body, project)
+        if answer is None:
+            return None, ""
         guess = kinds.settle(kinds.parse(answer))
         column = self.config.notion.prop("type")
         said = self.voice
         why = kinds.doubt(guess, self.config.runner.classify_confidence)
         if why:
-            between = [kind for kind in (guess.kind, guess.alternative) if kind]
-            # One button per type the doubt is between — all four when it is
-            # between nothing: a click is the answer, read back by `_answered_kind`.
-            options = between if len(between) == 2 else list(kinds.KINDS)
-            if len(between) == 2:
-                question = said.say(
-                    "kind-question-between",
-                    first=self.kind_name(between[0]),
-                    second=self.kind_name(between[1]),
-                    property=column,
-                    prudent=self.kind_name(kinds.prudent(*between)),
-                )
-            else:
-                question = said.say("kind-question", property=column)
-            reason = said.say(f"kind-{why}")
-            self._fail(
-                ticket,
-                reason,
-                said.paragraphs(said.sentence(reason), guess.reason),
-                code="ticket.kind-unsure",
-                blocked=True,
-                question=question_module.Question(
-                    ask=question,
-                    mode="choice",
-                    options=[self.kind_name(kind) for kind in options],
-                    why=" ".join(part for part in (said.sentence(reason), guess.reason) if part),
-                    category="question",
-                ),
-            )
+            self._doubt(ticket, guess, why, column)
             return None, ""
 
         name = self.kind_name(guess.kind)
@@ -625,3 +622,73 @@ class Preparation(Base):
             ),
         )
         return guess.kind, answer
+
+    def _ask_kind(self, ticket: Ticket, body: str, project: Project) -> str | None:
+        """What a short session says the type is — "" when it said nothing, None out of credit."""
+        short = short_id(ticket.id)
+        workdir = state_dir() / "scratch" / f"kind-{short}"
+        try:
+            workdir.mkdir(parents=True, exist_ok=True)
+            outcome = self._paid(
+                ticket.id,
+                kinds.prompt(
+                    ticket.title,
+                    body,
+                    project=project.name,
+                    repository=project.is_code,
+                    comments=self.discussion(ticket),
+                ),
+                cwd=workdir,
+                log=state.log_file(f"{short}-kind"),
+                model=self.config.runner.allowed(self.config.runner.classify_model),
+                # It reads one page and answers one object: the mode a
+                # conversation runs in is more than it needs.
+                permission_mode=self.config.runner.reply_permission_mode,
+                timeout_minutes=kinds.TIMEOUT_MINUTES,
+                environment=self.environment,
+            )
+            if self._out_of_credit(outcome):
+                # Not a doubt about the ticket: there was nothing to ask with.
+                # It stays in ready, untouched, for the pass that has credit.
+                self._hold_credits(outcome)
+                self.say("    · out of credit before it could be classified — left in ready")
+                return None
+            return outcome.answer if outcome.ok else ""
+        except (OSError, ValueError) as error:
+            self.say(f"  ! the ticket could not be classified: {voice_module.line(error)}")
+            return ""
+        finally:
+            shutil.rmtree(workdir, ignore_errors=True)
+
+    def _doubt(self, ticket: Ticket, guess: kinds.Guess, why: str, column: str) -> None:
+        """Block the ticket with the question of its type, one button per type in doubt."""
+        said = self.voice
+        between = [kind for kind in (guess.kind, guess.alternative) if kind]
+        # One button per type the doubt is between — all four when it is
+        # between nothing: a click is the answer, read back by `_answered_kind`.
+        options = between if len(between) == 2 else list(kinds.KINDS)
+        if len(between) == 2:
+            question = said.say(
+                "kind-question-between",
+                first=self.kind_name(between[0]),
+                second=self.kind_name(between[1]),
+                property=column,
+                prudent=self.kind_name(kinds.prudent(*between)),
+            )
+        else:
+            question = said.say("kind-question", property=column)
+        reason = said.say(f"kind-{why}")
+        self._fail(
+            ticket,
+            reason,
+            said.paragraphs(said.sentence(reason), guess.reason),
+            code="ticket.kind-unsure",
+            blocked=True,
+            question=question_module.Question(
+                ask=question,
+                mode="choice",
+                options=[self.kind_name(kind) for kind in options],
+                why=" ".join(part for part in (said.sentence(reason), guess.reason) if part),
+                category="question",
+            ),
+        )
