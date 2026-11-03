@@ -22,6 +22,7 @@ ponos logs <ticket> --runs   # the ticket's runs, from the local journal
 ponos logs --service         # the runner's and the console's own log, ponos.log
 ponos status       # timer, console, current run, recent tickets
 ponos history      # what has been handled, with the pull requests (-n, --number: how many)
+ponos history --csv --project <name> --month 2026-10   # every session of a project and what it cost, as CSV (--since, --to: another period)
 ponos projects     # Notion project → local repository mapping
 ponos subtypes     # the code tickets by sub-type
 ponos subtypes --backfill    # fill the empty ones from their prefix (--dry-run: write nothing, --all: done and cancelled ones too)

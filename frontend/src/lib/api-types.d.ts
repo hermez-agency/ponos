@@ -445,6 +445,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/spending.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Spending
+         * @description Every session of a project over a period, for the invoice: see `spending.py`.
+         */
+        get: operations["spending_api_spending_csv_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/chat": {
         parameters: {
             query?: never;
@@ -5165,6 +5185,38 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Statistics"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    spending_api_spending_csv_get: {
+        parameters: {
+            query?: {
+                from?: string;
+                to?: string;
+                month?: string;
+                project?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

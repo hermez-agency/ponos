@@ -1013,6 +1013,7 @@ export const FRENCH: Record<string, string> = {
   From: "Du",
   To: "Au",
   "Counting the tickets…": "Je compte les tickets…",
+  "Export (CSV)": "Exporter (CSV)",
   Open: "Ouverts",
   Closed: "Fermés",
   Created: "Créés",
