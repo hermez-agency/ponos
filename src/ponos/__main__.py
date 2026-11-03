@@ -584,7 +584,14 @@ def command_status(args: argparse.Namespace) -> int:
         else:
             print(f"    {DIM}ponos enable   to start it{RESET}")
     else:
-        warn("no systemd — the runner only runs on demand")
+        if systemd.looping():
+            ok(
+                f"no systemd — the loop `ponos run --every` runs, one run every {configuration.runner.interval_seconds}s"
+            )
+        else:
+            warn(
+                "no systemd and no runner loop — no ticket is taken until `ponos run --every` is started"
+            )
 
     held = state.running()
     if held:

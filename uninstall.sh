@@ -49,20 +49,21 @@ done
 # The console install.sh started with nohup, where neither systemd nor launchd
 # keeps it. Its PID is checked against its command line first: after a restart
 # the number may well be somebody else's.
-PIDFILE="$STATE/web/serve.pid"
-if [ -f "$PIDFILE" ]; then
+for NAME in serve run; do
+    PIDFILE="$STATE/web/$NAME.pid"
+    [ -f "$PIDFILE" ] || continue
     PID=$(cat "$PIDFILE" 2>/dev/null || true)
     case "$PID" in
         ''|*[!0-9]*) ;;
         *)
             if ps -p "$PID" -o args= 2>/dev/null | grep -q ponos; then
-                say "Stopping the console started in the background"
+                say "Stopping the $NAME process started in the background"
                 kill "$PID" 2>/dev/null || true
             fi
             ;;
     esac
     rm -f "$PIDFILE"
-fi
+done
 
 # The ponos:// handler, both schemes the installer gave it, and the icons.
 DATA="${XDG_DATA_HOME:-$HOME/.local/share}"
