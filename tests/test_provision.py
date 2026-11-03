@@ -12,7 +12,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from unittest import mock
 
-from support import _Board, _settings, case
+from support import _Board, _http_answering, _settings, case
 
 from ponos import config as C
 from ponos import provision, store
@@ -284,3 +284,51 @@ def init_with_a_piped_token_hands_it_to_notion_without_printing_it():
     assert code == 1, printed.getvalue()
     assert given == ["ntn_piped"]
     assert "ntn_piped" not in printed.getvalue()
+
+
+def _init_against(status: int, message: str) -> tuple[int, str]:
+    """`ponos init` with a token and a page, Notion answering `status` to the page read."""
+    import httpx
+
+    from ponos import __main__ as cli
+
+    path = Path(tempfile.mkdtemp()) / "config.toml"
+    path.write_text('[notion]\nworkspace = ""\n')
+    printed = io.StringIO()
+    with (
+        _http_answering(lambda request: httpx.Response(status, json={"message": message})),
+        _stdin("ntn_faux\n", terminal=False),
+        mock.patch.dict(os.environ, {"PONOS_CONFIG": str(path)}),
+        contextlib.redirect_stdout(printed),
+    ):
+        code = cli.main(["init", "https://www.notion.so/Page-" + "a" * 32, "--token", "-"])
+    return code, printed.getvalue()
+
+
+@case
+def init_tells_a_refused_token_from_a_page_not_shared():
+    code, said = _init_against(401, "API token is invalid.")
+    assert code == 1, said
+    assert "notion.so/profile/integrations" in said, said
+    assert "Connections" not in said, "a wrong token is not cured by sharing the page"
+
+    code, said = _init_against(404, "Could not find page with ID")
+    assert code == 1, said
+    assert "Connections" in said, said
+    assert "profile/integrations" not in said, said
+
+
+@case
+def the_wizard_tells_a_refused_token_from_a_page_not_shared():
+    import httpx
+
+    from ponos import notion
+    from ponos.web import setup
+
+    for status, expected in ((401, "profile/integrations"), (404, "Connections")):
+        with _http_answering(lambda request, s=status: httpx.Response(s, json={"message": "x"})):
+            try:
+                notion.Client("ntn_faux").page("a" * 32)
+            except store.StoreError as error:
+                said = setup.notion_problem(error)
+        assert expected in said, said

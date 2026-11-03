@@ -850,7 +850,7 @@ def command_init(args: argparse.Namespace) -> int:
         target = client.page(page)
     except store.StoreError as error:
         bad(f"unreachable: {str(error).splitlines()[0]}")
-        warn("open the page in Notion → ··· → Connections → add your integration")
+        warn(notion.advice(error))
         return 1
     ok(f"“{target.title or page}”")
 

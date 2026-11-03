@@ -76,12 +76,29 @@ class NotionError(StoreError):
     """The API returned an error, or the network is unreachable."""
 
 
+class Refused(NotionError):
+    """Notion's 401: the token itself is wrong or revoked — sharing a page cannot help."""
+
+
 class Missing(NotionError, store.Missing):
     """Notion's 404: no such page, or none this integration was shown."""
 
 
 class Offline(NotionError, Unreachable):
     """Every attempt died on DNS or on the connection: Notion was never reached."""
+
+
+INTEGRATIONS = "https://www.notion.so/profile/integrations"
+
+
+def advice(error: Exception) -> str:
+    """What to do about a refusal on a page: the token is wrong, or the page was not shared."""
+    if isinstance(error, Refused):
+        return (
+            "this token is refused by Notion — copy the “Internal Integration Secret” "
+            f"from {INTEGRATIONS}"
+        )
+    return "open the page in Notion → ··· → Connections → add your integration"
 
 
 class Client:
@@ -160,6 +177,8 @@ class Client:
             # may have carried out before failing to say so.
             if answer.status == 404:
                 raise Missing(f"{method} {path}: {last}")
+            if answer.status == 401:
+                raise Refused(f"{method} {path}: {last}")
             raise NotionError(f"{method} {path}: {last}")
         try:
             decoded: dict[str, Any] = json.loads(answer.body or b"{}")
