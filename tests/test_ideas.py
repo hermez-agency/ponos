@@ -9,7 +9,9 @@ import shutil
 import subprocess
 import tempfile
 import threading
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 from support import FRONTEND, _bare_api, _board, _ideas_api, _markdown_api, _state_home, case
 
@@ -32,11 +34,13 @@ from ponos import (
 # -- ideas -------------------------------------------------------------------
 
 
-def _proposing(answers: list[list[dict]], cost: float = 0.02):
+def _proposing(
+    answers: list[list[dict[str, Any]]], cost: float = 0.02
+) -> tuple[Callable[..., session.Outcome], list[dict[str, Any]]]:
     """A `session.run` that answers each batch in turn, and keeps what it was asked."""
-    asked: list[dict] = []
+    asked: list[dict[str, Any]] = []
 
-    def fake_run(text, **rest):
+    def fake_run(text: str, **rest: Any) -> session.Outcome:
         asked.append({"prompt": text, **rest})
         return session.Outcome(
             ok=True,
@@ -53,7 +57,7 @@ def _proposing(answers: list[list[dict]], cost: float = 0.02):
     return fake_run, asked
 
 
-def _idea(title: str, kind: str = "ticket", **more) -> dict:
+def _idea(title: str, kind: str = "ticket", **more: Any) -> dict[str, Any]:
     return {
         "title": title,
         "description": more.pop("description", f"Parce que {title.lower()}."),
@@ -65,7 +69,7 @@ def _idea(title: str, kind: str = "ticket", **more) -> dict:
 
 
 @case
-def an_idea_answer_is_read_whatever_wraps_it():
+def an_idea_answer_is_read_whatever_wraps_it() -> None:
     """A fence, a sentence, a kind a project cannot have, a description too long."""
     answer = (
         'Sure!\n```json\n[{"title": "  Mode   sombre ", "kind": "project",'
@@ -94,7 +98,7 @@ def an_idea_answer_is_read_whatever_wraps_it():
 
 
 @case
-def an_idea_is_sorted_into_one_category_or_left_unsorted(state_home):
+def an_idea_is_sorted_into_one_category_or_left_unsorted(state_home: Path) -> None:
     """UX/UI, feature, security or technical — one of the four, or "" rather than a guess."""
     assert '"category"' in ideas.prompt(project="Usine"), "the model is asked to choose"
     answer = json.dumps(
@@ -124,7 +128,7 @@ def an_idea_is_sorted_into_one_category_or_left_unsorted(state_home):
 
 
 @case
-def an_idea_comes_with_a_score_bounded_by_the_grid_or_none_at_all(state_home):
+def an_idea_comes_with_a_score_bounded_by_the_grid_or_none_at_all(state_home: Path) -> None:
     """Out of 100, by the grid written in the prompt; bounded, and "not scored" for anything else."""
     asked = ideas.prompt(project="Usine")
     for line in ('"score"', '"score_reason"', "up to 40", "up to 25", "up to 20", "up to 15"):
@@ -169,7 +173,7 @@ def an_idea_comes_with_a_score_bounded_by_the_grid_or_none_at_all(state_home):
 
 
 @case
-def a_score_is_green_orange_or_red_by_the_same_two_thresholds_on_both_sides():
+def a_score_is_green_orange_or_red_by_the_same_two_thresholds_on_both_sides() -> None:
     """39 is red, 40 and 69 orange, 70 green — and the console reads the same numbers."""
     assert [ideas.tone(score) for score in (0, 39, 40, 69, 70, 100)] == [
         "red",
@@ -190,7 +194,7 @@ def a_score_is_green_orange_or_red_by_the_same_two_thresholds_on_both_sides():
 
 
 @case
-def the_ideas_from_before_scores_are_not_scored(state_home):
+def the_ideas_from_before_scores_are_not_scored(state_home: Path) -> None:
     """The migration adds a score to every idea, NULL — not a zero."""
     location = db.path()
     before = db.MIGRATIONS.index(db._ideas_have_a_score)
@@ -209,15 +213,15 @@ def the_ideas_from_before_scores_are_not_scored(state_home):
 
 
 @case
-def an_idea_written_by_hand_is_scored_behind_the_answer_that_saved_it(state_home):
+def an_idea_written_by_hand_is_scored_behind_the_answer_that_saved_it(state_home: Path) -> None:
     """Saved, it says "…"; the light model scores it by the grid; a failed answer leaves it not scored."""
     with _board() as board:
         project = board.create_row("projects", "Usine", {})
         board.replace_markdown(project, "Un jeu d'usine en navigateur.")
         api = _ideas_api(board)
         api._ideas_person = ("Salva", "")
-        put_aside: list = []
-        api.ideas_later = put_aside.append
+        put_aside: list[Callable[[], object]] = []
+        api.ideas_later = put_aside.append  # type: ignore[method-assign, assignment]  # a double: the case runs what is put aside
         ideas.written(project, "Un mode sombre")
         written = api.create_idea(
             {"project": project, "title": "Une carte des usines", "description": "Pour voir."}
@@ -225,9 +229,9 @@ def an_idea_written_by_hand_is_scored_behind_the_answer_that_saved_it(state_home
         assert written["score"] is None and written["scoring"] is True, "the pill says …"
         assert len(put_aside) == 1, "scored behind the answer, not before it"
 
-        asked: list[dict] = []
+        asked: list[dict[str, Any]] = []
 
-        def fake_run(text, **rest):
+        def fake_run(text: str, **rest: Any) -> session.Outcome:
             asked.append({"prompt": text, **rest})
             return session.Outcome(
                 ok=True,
@@ -241,7 +245,7 @@ def an_idea_written_by_hand_is_scored_behind_the_answer_that_saved_it(state_home
                 ),
             )
 
-        original, session.run = session.run, fake_run
+        original, session.run = session.run, fake_run  # type: ignore[assignment]  # a double: it reads the keywords it is given
         try:
             put_aside.pop()()
         finally:
@@ -278,23 +282,23 @@ def an_idea_written_by_hand_is_scored_behind_the_answer_that_saved_it(state_home
 
 
 @case
-def a_scoring_that_fails_says_why_on_the_idea_instead_of_staying_silent(state_home):
+def a_scoring_that_fails_says_why_on_the_idea_instead_of_staying_silent(state_home: Path) -> None:
     """Over budget, unreadable, or too big to start: the cause stays on the idea, and the pass tells the page."""
     with _board() as board:
         project = board.create_row("projects", "Usine", {})
         api = _ideas_api(board)
-        put_aside: list = []
-        api.ideas_later = put_aside.append
-        published: list = []
+        put_aside: list[Callable[[], object]] = []
+        api.ideas_later = put_aside.append  # type: ignore[method-assign, assignment]  # a double: the case runs what is put aside
+        published: list[tuple[str, dict[str, object]]] = []
         original_publish = api.hub.publish
-        api.hub.publish = lambda topic, **rest: published.append((topic, rest))
+        api.hub.publish = lambda topic, **rest: published.append((topic, rest))  # type: ignore[method-assign]  # a double: what the pages are told
         first = ideas.written(project, "Une carte des usines")
         second = ideas.written(project, "Un tutoriel")
         assert ideas.SCORE_CEILING_USD >= 0.5, (
             "a call costs 0.12 to 0.14 dollars: 0.10 stopped every one"
         )
 
-        def outcome(**rest):
+        def outcome(**rest: Any) -> session.Outcome:
             return session.Outcome(
                 ok=False, blocked=True, session_id="s", summary="", log=Path("/dev/null"), **rest
             )
@@ -340,10 +344,10 @@ def a_scoring_that_fails_says_why_on_the_idea_instead_of_staying_silent(state_ho
             session.run = original
         assert "could not be read" in ideas.get(second.id).shown()["score_error"]
 
-        def crash(text, **rest):
+        def crash(text: str, **rest: Any) -> session.Outcome:
             raise OSError("no claude")
 
-        original, session.run = session.run, crash
+        original, session.run = session.run, crash  # type: ignore[assignment]  # a double: it reads the keywords it is given
         try:
             api.score_ideas([second.id])
         finally:
@@ -369,11 +373,13 @@ def a_scoring_that_fails_says_why_on_the_idea_instead_of_staying_silent(state_ho
             session.run = original
         done = ideas.get(second.id).shown()
         assert (done["score"], done["score_error"]) == (60, ""), "a score clears the error"
-        api.hub.publish = original_publish
+        api.hub.publish = original_publish  # type: ignore[method-assign]  # the double taken back
 
 
 @case
-def a_scoring_prompt_of_the_real_size_fits_under_the_ceiling_and_a_huge_one_is_not_started():
+def a_scoring_prompt_of_the_real_size_fits_under_the_ceiling_and_a_huge_one_is_not_started() -> (
+    None
+):
     """The estimate is checked before the session starts: a call that would be stopped is not paid for."""
     big = [
         ideas.Idea(
@@ -401,7 +407,9 @@ def a_scoring_prompt_of_the_real_size_fits_under_the_ceiling_and_a_huge_one_is_n
 
 
 @case
-def the_ideas_with_no_score_are_scored_in_batches_under_a_ceiling_said_first(state_home):
+def the_ideas_with_no_score_are_scored_in_batches_under_a_ceiling_said_first(
+    state_home: Path,
+) -> None:
     """A ceiling before it starts, twenty to a call, a scope per call — and one pass at a time."""
     with _board() as board:
         project = board.create_row("projects", "Usine", {})
@@ -419,8 +427,8 @@ def the_ideas_with_no_score_are_scored_in_batches_under_a_ceiling_said_first(sta
         )
         assert api.unscored_ideas("")["count"] == 1
 
-        put_aside: list = []
-        api.ideas_later = put_aside.append
+        put_aside: list[Callable[[], object]] = []
+        api.ideas_later = put_aside.append  # type: ignore[method-assign, assignment]  # a double: the case runs what is put aside
         started = api.score_unscored_ideas(None)
         assert started["running"] is True and started["count"] == 26
         try:
@@ -432,7 +440,7 @@ def the_ideas_with_no_score_are_scored_in_batches_under_a_ceiling_said_first(sta
 
         sizes: list[int] = []
 
-        def fake_run(text, **rest):
+        def fake_run(text: str, **rest: Any) -> session.Outcome:
             numbers = [int(found) for found in re.findall(r"^(\d+)\. ", text, re.M)]
             sizes.append(len(numbers))
             return session.Outcome(
@@ -449,7 +457,7 @@ def the_ideas_with_no_score_are_scored_in_batches_under_a_ceiling_said_first(sta
                 ),
             )
 
-        original, session.run = session.run, fake_run
+        original, session.run = session.run, fake_run  # type: ignore[assignment]  # a double: it reads the keywords it is given
         try:
             put_aside.pop()()
         finally:
@@ -466,7 +474,7 @@ def the_ideas_with_no_score_are_scored_in_batches_under_a_ceiling_said_first(sta
 
 
 @case
-def ideas_for_a_project_are_found_in_one_call_and_never_proposed_twice(state_home):
+def ideas_for_a_project_are_found_in_one_call_and_never_proposed_twice(state_home: Path) -> None:
     """Ten in one light session, given the brief, the README and the tickets.
 
     What was thrown away goes into the next prompt, and what the model proposes
@@ -535,7 +543,7 @@ def ideas_for_a_project_are_found_in_one_call_and_never_proposed_twice(state_hom
 
 
 @case
-def an_idea_turned_into_a_ticket_is_a_draft_and_a_project_idea_a_project(state_home):
+def an_idea_turned_into_a_ticket_is_a_draft_and_a_project_idea_a_project(state_home: Path) -> None:
     """Turned into a ticket: a draft in the tickets database, What / Where / Done when / Out of
     scope, attached to its project, no model. A new project's idea creates the
     project, its description as the brief, and a first ticket to frame it.
@@ -613,7 +621,7 @@ def an_idea_turned_into_a_ticket_is_a_draft_and_a_project_idea_a_project(state_h
 
 
 @case
-def an_idea_is_kept_thrown_reopened_and_nothing_is_ever_deleted(state_home):
+def an_idea_is_kept_thrown_reopened_and_nothing_is_ever_deleted(state_home: Path) -> None:
     """Keeping writes nothing on the board; throwing away keeps the idea; every
     status is counted, and a ticket must be made new again before it is thrown."""
     with _board() as board:
@@ -664,7 +672,7 @@ def an_idea_is_kept_thrown_reopened_and_nothing_is_ever_deleted(state_home):
 
 
 @case
-def an_idea_written_by_hand_is_signed_and_never_proposed_again(state_home):
+def an_idea_written_by_hand_is_signed_and_never_proposed_again(state_home: Path) -> None:
     """Origin manual, its author's name and picture; reworded, the editor and the
     moment; Ponos's own say Ponos. And the next batch is told about it."""
     with _board() as board:
@@ -729,7 +737,7 @@ def an_idea_written_by_hand_is_signed_and_never_proposed_again(state_home):
 
 
 @case
-def the_ideas_kept_before_their_author_was_known_became_tickets(state_home):
+def the_ideas_kept_before_their_author_was_known_became_tickets(state_home: Path) -> None:
     """Migration 13 on a file of migration 12: a kept idea had become a ticket,
     and every idea is Ponos's, dated by its last decision."""
     location = db.path()
@@ -750,7 +758,7 @@ def the_ideas_kept_before_their_author_was_known_became_tickets(state_home):
 
 
 @case
-def the_console_writes_a_schedule_without_touching_what_a_pass_writes_back():
+def the_console_writes_a_schedule_without_touching_what_a_pass_writes_back() -> None:
     """`Next`, `Last` and `Last ticket` are the runner's, not the form's.
 
     Letting the console edit them would let somebody make an occurrence happen
@@ -805,7 +813,7 @@ def the_console_writes_a_schedule_without_touching_what_a_pass_writes_back():
 
 
 @case
-def the_console_reads_and_rewrites_the_brief_a_schedule_is_born_with():
+def the_console_reads_and_rewrites_the_brief_a_schedule_is_born_with() -> None:
     """A schedule's page body is copied under every ticket it makes.
 
     The list leaves it out — twenty rows would be twenty pages read — so one
@@ -836,7 +844,7 @@ def the_console_reads_and_rewrites_the_brief_a_schedule_is_born_with():
 
 
 @case
-def the_console_says_which_board_it_is_looking_at():
+def the_console_says_which_board_it_is_looking_at() -> None:
     """The panes read it: a Notion link is worth drawing on one and not the other."""
     with _board() as board, _state_home():
         said = _markdown_api(board).state()
@@ -845,7 +853,7 @@ def the_console_says_which_board_it_is_looking_at():
 
 
 @case
-def a_block_reads_back_whichever_end_of_the_wire_it_came_from():
+def a_block_reads_back_whichever_end_of_the_wire_it_came_from() -> None:
     """`plain` serves two callers, and they hand it two shapes.
 
     Notion returns a piece of rich text with `plain_text` on it; a block this
@@ -863,7 +871,7 @@ def a_block_reads_back_whichever_end_of_the_wire_it_came_from():
 
 
 @case
-def an_image_in_a_brief_is_named_for_the_session_and_drawn_by_the_console():
+def an_image_in_a_brief_is_named_for_the_session_and_drawn_by_the_console() -> None:
     """A capture in a Notion brief: no dead link anywhere, a fresh one on demand.
 
     The line used to carry the file's address cut off its signature, which S3
@@ -874,7 +882,7 @@ def an_image_in_a_brief_is_named_for_the_session_and_drawn_by_the_console():
     """
     signed = "https://prod-files-secure.s3.us-west-2.amazonaws.com/w/f/opoil-bug-prix-negatif.png?X-Amz-Signature=abc"
     block_id = "3ec45168-0af4-8106-be46-dbf34ca5cc95"
-    image = {
+    image: dict[str, Any] = {
         "id": block_id,
         "type": "image",
         "image": {
@@ -894,14 +902,16 @@ def an_image_in_a_brief_is_named_for_the_session_and_drawn_by_the_console():
     assert read["label"] == "Prix négatif affiché au client"
     # Without a caption, the file's own name says what it is.
     image["image"]["caption"] = []
-    assert markdown.ATTACHED.match(markdown.plain(image))["label"] == "opoil-bug-prix-negatif.png"
+    nameless = markdown.ATTACHED.match(markdown.plain(image))
+    assert nameless and nameless["label"] == "opoil-bug-prix-negatif.png"
     pdf = {"id": "b" * 32, "type": "pdf", "pdf": {"type": "external", "external": {"url": ""}}}
-    assert markdown.ATTACHED.match(markdown.plain(pdf))["label"] is None
+    unlabelled = markdown.ATTACHED.match(markdown.plain(pdf))
+    assert unlabelled and unlabelled["label"] is None
 
     client = notion.Client("ntn_x")
     asked: list[str] = []
 
-    def request(method, path, body=None, **_):
+    def request(method: str, path: str, body: Any = None, **_: Any) -> dict[str, Any]:
         asked.append(path)
         if path == f"/blocks/{'c' * 32}":
             return {"id": "c" * 32, "type": "paragraph", "paragraph": {"rich_text": []}}
@@ -949,7 +959,7 @@ def an_image_in_a_brief_is_named_for_the_session_and_drawn_by_the_console():
 
 
 @case
-def the_live_report_writes_its_steps_into_the_file():
+def the_live_report_writes_its_steps_into_the_file() -> None:
     """A text file has no fold to hide a session's story in, so it keeps it.
 
     The toggle's title is the one thing lost — there is no line to rewrite in
@@ -995,7 +1005,7 @@ def _to_score() -> ideas.Idea:
 
 
 @case
-def the_goals_of_the_moment_are_read_by_both_prompts_or_left_out():
+def the_goals_of_the_moment_are_read_by_both_prompts_or_left_out() -> None:
     """Material to read, never a criterion: without any, the prompt is what it was."""
     caps = [
         goals.Goal("Lancer la v1", criterion="Dix clients payants", due="2026-12-31"),
@@ -1016,7 +1026,7 @@ def the_goals_of_the_moment_are_read_by_both_prompts_or_left_out():
 
 
 @case
-def the_goals_of_the_moment_stop_at_their_limit():
+def the_goals_of_the_moment_stop_at_their_limit() -> None:
     many = [goals.Goal(f"Cap {number} " + "x" * 80) for number in range(100)]
     asked = ideas.prompt(objectives=many)
     section = asked.split("# Les caps du moment\n\n", 1)[1]

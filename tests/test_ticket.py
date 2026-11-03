@@ -11,7 +11,7 @@ from ponos.ticket import short_id, slugify
 
 
 @case
-def short_ids_tell_same_day_tickets_apart():
+def short_ids_tell_same_day_tickets_apart() -> None:
     """Notion IDs are time-ordered, so same-day tickets share a long prefix.
 
     Two real tickets, created minutes apart, collided on their first eight
@@ -26,7 +26,7 @@ def short_ids_tell_same_day_tickets_apart():
 
 
 @case
-def a_log_is_found_however_its_id_was_pasted():
+def a_log_is_found_however_its_id_was_pasted() -> None:
     b = "3ca451680af480beb02ac9d2cb79078c"
     name = f"20260828-112441-{short_id(b)}.jsonl"
     assert _names(b, name)
@@ -37,7 +37,7 @@ def a_log_is_found_however_its_id_was_pasted():
 
 
 @case
-def slugs_survive_accents_and_emptiness():
+def slugs_survive_accents_and_emptiness() -> None:
     assert slugify("Supprimer la description") == "supprimer-la-description"
     assert slugify("Corriger l'entête « à faire »") == "corriger-l-entete-a-faire"
     assert slugify("") == "ticket"

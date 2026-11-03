@@ -20,7 +20,7 @@ def _alive(pid: int) -> bool:
 
 
 @case
-def a_background_process_does_not_outlive_a_session_that_ended_normally(state_home):
+def a_background_process_does_not_outlive_a_session_that_ended_normally(state_home: Path) -> None:
     worktree = leftovers.worktrees() / "demo-0a1b2c3d"
     worktree.mkdir(parents=True)
     pidfile = worktree / "server.pid"
@@ -51,7 +51,7 @@ def a_background_process_does_not_outlive_a_session_that_ended_normally(state_ho
 
 
 @case
-def containers_started_from_a_worktree_are_brought_down(state_home):
+def containers_started_from_a_worktree_are_brought_down(state_home: Path) -> None:
     worktree = leftovers.worktrees() / "java-mcv-ab39bb37"
     shared = leftovers.worktrees() / "opoil-724cd12d"
     elsewhere = Path("/srv/dev/opoil")
@@ -87,14 +87,14 @@ def containers_started_from_a_worktree_are_brought_down(state_home):
 
 
 @case
-def a_session_in_a_worktree_gets_its_own_compose_project(state_home):
+def a_session_in_a_worktree_gets_its_own_compose_project(state_home: Path) -> None:
     worktree = leftovers.worktrees() / "Opoil_724CD12D"
     assert leftovers.environment(worktree / "src") == {"COMPOSE_PROJECT_NAME": "opoil_724cd12d"}
     assert leftovers.environment(Path("/tmp")) == {}
 
 
 @case
-def a_compose_file_that_pins_container_names_is_reported(state_home):
+def a_compose_file_that_pins_container_names_is_reported(state_home: Path) -> None:
     worktree = leftovers.worktrees() / "opoil-724cd12d"
     worktree.mkdir(parents=True)
     (worktree / "docker-compose.yml").write_text(
@@ -105,7 +105,7 @@ def a_compose_file_that_pins_container_names_is_reported(state_home):
 
 
 @case
-def processes_are_found_by_their_working_directory(state_home):
+def processes_are_found_by_their_working_directory(state_home: Path) -> None:
     import subprocess
 
     worktree = leftovers.worktrees() / "demo-0a1b2c3d"

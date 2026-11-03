@@ -8,6 +8,7 @@ import io
 import os
 import sys
 import tempfile
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 from unittest import mock
@@ -21,9 +22,9 @@ from ponos import provision, store
 
 
 @case
-def a_bare_page_becomes_the_whole_board():
+def a_bare_page_becomes_the_whole_board() -> None:
     board = _Board()
-    report = provision.provision(board, _settings(), "root")
+    report = provision.provision(board, _settings(), "root")  # type: ignore[arg-type]  # a fake board
 
     assert report.workspace == "db-ponos"
     assert report.tickets == "db-tickets"
@@ -65,13 +66,13 @@ def a_bare_page_becomes_the_whole_board():
 
 
 @case
-def running_init_twice_changes_nothing():
+def running_init_twice_changes_nothing() -> None:
     board = _Board()
-    provision.provision(board, _settings(), "root")
+    provision.provision(board, _settings(), "root")  # type: ignore[arg-type]  # a fake board
     before = dict(board._schemas["db-tickets"])
     board.created.clear()
 
-    second = provision.provision(board, _settings(), "root")
+    second = provision.provision(board, _settings(), "root")  # type: ignore[arg-type]  # a fake board
     assert board.created == [], "nothing is created a second time"
     assert board._schemas["db-tickets"] == before
     assert second.tickets == "db-tickets"
@@ -79,7 +80,7 @@ def running_init_twice_changes_nothing():
 
 
 @case
-def init_completes_a_board_that_predates_a_column():
+def init_completes_a_board_that_predates_a_column() -> None:
     """The second reason this command exists: adding what a version did not have.
 
     A board built before `Scheduled` gets the column rather than a line in a
@@ -102,7 +103,7 @@ def init_completes_a_board_that_predates_a_column():
             }
         },
     )
-    provision.provision(board, _settings(), "root")
+    provision.provision(board, _settings(), "root")  # type: ignore[arg-type]  # a fake board
 
     schema = board._schemas["db-tickets"]
     assert "Scheduled" in schema and "Cost" in schema
@@ -114,7 +115,7 @@ def init_completes_a_board_that_predates_a_column():
 
 
 @case
-def a_real_status_column_is_reported_rather_than_patched():
+def a_real_status_column_is_reported_rather_than_patched() -> None:
     """The one thing the API cannot do, said out loud instead of discovered late.
 
     A `status` property built in Notion's own interface accepts no new options
@@ -138,7 +139,7 @@ def a_real_status_column_is_reported_rather_than_patched():
             }
         },
     )
-    report = provision.provision(board, _settings(), "root")
+    report = provision.provision(board, _settings(), "root")  # type: ignore[arg-type]  # a fake board
 
     assert not any(name == "Status" for _, names in board.patched for name in names)
     told = [what for verb, what in report.steps if verb == "by hand"]
@@ -147,18 +148,18 @@ def a_real_status_column_is_reported_rather_than_patched():
 
 
 @case
-def a_column_someone_retyped_is_left_alone():
+def a_column_someone_retyped_is_left_alone() -> None:
     board = _Board(
         databases={"root": {"ponos": "dir"}, "page-tickets": {"Tickets": "db-tickets"}},
         rows={"dir": {"Tickets": "page-tickets"}},
         schemas={"db-tickets": {"Name": {"title": {}}, "Cost": {"rich_text": {}}}},
     )
-    provision.provision(board, _settings(), "root")
+    provision.provision(board, _settings(), "root")  # type: ignore[arg-type]  # a fake board
     assert board._schemas["db-tickets"]["Cost"] == {"rich_text": {}}, "not overruled"
 
 
 @case
-def two_states_on_one_column_produce_one_option():
+def two_states_on_one_column_produce_one_option() -> None:
     """Notion refuses a select that lists the same option twice."""
     settings = _settings()
     settings.status = {"failed": "Needs you", "blocked": "Needs you"}
@@ -176,7 +177,7 @@ def two_states_on_one_column_produce_one_option():
 
 
 @case
-def the_workspace_is_written_back_into_the_configuration():
+def the_workspace_is_written_back_into_the_configuration() -> None:
     path = Path(tempfile.mkdtemp()) / "config.toml"
     path.write_text(
         '[notion]\n# keep me\ntoken = "ntn_x"\nworkspace = ""\n\n[runner]\nfetch = true\n'
@@ -207,7 +208,7 @@ class _Stdin(io.StringIO):
 
 
 @contextmanager
-def _stdin(text: str, terminal: bool, typed: str = ""):
+def _stdin(text: str, terminal: bool, typed: str = "") -> Iterator[list[str]]:
     """stdin replaced, and `getpass` answering `typed`: yields the prompts it showed."""
     prompts: list[str] = []
 
@@ -230,7 +231,7 @@ def _stdin(text: str, terminal: bool, typed: str = ""):
 
 
 @case
-def init_reads_its_token_from_stdin_or_asks_for_it_unechoed():
+def init_reads_its_token_from_stdin_or_asks_for_it_unechoed() -> None:
     """`--token ntn_…` left the token in the shell's history and in `ps`."""
     from ponos import __main__ as cli
 
@@ -259,8 +260,9 @@ def init_reads_its_token_from_stdin_or_asks_for_it_unechoed():
 
 
 @case
-def init_with_a_piped_token_hands_it_to_notion_without_printing_it():
+def init_with_a_piped_token_hands_it_to_notion_without_printing_it() -> None:
     from ponos import __main__ as cli
+    from ponos import notion
 
     path = Path(tempfile.mkdtemp()) / "config.toml"
     path.write_text('[notion]\nworkspace = ""\n')
@@ -270,14 +272,14 @@ def init_with_a_piped_token_hands_it_to_notion_without_printing_it():
         def __init__(self, token: str) -> None:
             given.append(token)
 
-        def page(self, page: str):
+        def page(self, page: str) -> store.Page:
             raise store.StoreError("stopped here")
 
     printed = io.StringIO()
     with (
         _stdin("ntn_piped\n", terminal=False),
         mock.patch.dict(os.environ, {"PONOS_CONFIG": str(path)}),
-        mock.patch.object(cli.notion, "Client", Client),
+        mock.patch.object(notion, "Client", Client),
         contextlib.redirect_stdout(printed),
     ):
         code = cli.main(["init", "https://www.notion.so/Page-" + "a" * 32, "--token", "-"])
@@ -306,7 +308,7 @@ def _init_against(status: int, message: str) -> tuple[int, str]:
 
 
 @case
-def init_tells_a_refused_token_from_a_page_not_shared():
+def init_tells_a_refused_token_from_a_page_not_shared() -> None:
     code, said = _init_against(401, "API token is invalid.")
     assert code == 1, said
     assert "notion.so/profile/integrations" in said, said
@@ -319,14 +321,18 @@ def init_tells_a_refused_token_from_a_page_not_shared():
 
 
 @case
-def the_wizard_tells_a_refused_token_from_a_page_not_shared():
+def the_wizard_tells_a_refused_token_from_a_page_not_shared() -> None:
     import httpx
 
     from ponos import notion
     from ponos.web import setup
 
     for status, expected in ((401, "profile/integrations"), (404, "Connections")):
-        with _http_answering(lambda request, s=status: httpx.Response(s, json={"message": "x"})):
+
+        def refusing(request: httpx.Request, status: int = status) -> httpx.Response:
+            return httpx.Response(status, json={"message": "x"})
+
+        with _http_answering(refusing):
             try:
                 notion.Client("ntn_faux").page("a" * 32)
             except store.StoreError as error:

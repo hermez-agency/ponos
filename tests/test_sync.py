@@ -14,7 +14,7 @@ from ponos import db, files, store, sync
 
 
 @case
-def a_ticket_written_in_notion_appears_in_the_files():
+def a_ticket_written_in_notion_appears_in_the_files() -> None:
     with _mirror("Je suis Camille Martin.") as (here, there, both, marks):
         page_id = here.create_row("tickets", "Corriger l'entête", {"Status": "Ready"})
         here.replace_markdown(page_id, "Relire la page d'accueil.")
@@ -42,7 +42,7 @@ def a_ticket_written_in_notion_appears_in_the_files():
 
 
 @case
-def a_pass_on_an_unchanged_board_writes_no_stamp():
+def a_pass_on_an_unchanged_board_writes_no_stamp() -> None:
     """Only the stamps a pass moved are written back.
 
     Rewriting every page's stamp on every pass would cost a board of a few
@@ -72,7 +72,7 @@ def a_pass_on_an_unchanged_board_writes_no_stamp():
 
 
 @case
-def a_ticket_written_in_a_file_appears_in_notion():
+def a_ticket_written_in_a_file_appears_in_notion() -> None:
     with _mirror() as (here, there, both, marks):
         local = there.create_row("tickets", "Écrire l'annonce", {"Status": "Ready"})
         there.replace_markdown(local, "Une annonce courte.")
@@ -97,7 +97,7 @@ def a_ticket_written_in_a_file_appears_in_notion():
 
 
 @case
-def a_page_moved_on_both_sides_is_a_conflict_the_newest_wins():
+def a_page_moved_on_both_sides_is_a_conflict_the_newest_wins() -> None:
     """The rule `storage.conflict` names, and the line it leaves behind.
 
     Losing an edit is not the failure mode to avoid here — one of the two is
@@ -131,7 +131,7 @@ def a_page_moved_on_both_sides_is_a_conflict_the_newest_wins():
 
 
 @case
-def a_conflict_in_the_same_minute_goes_to_notion_and_says_so():
+def a_conflict_in_the_same_minute_goes_to_notion_and_says_so() -> None:
     """Notion's time is to the minute, a file's to the microsecond: compare minutes.
 
     A file changed at 10:05:30 and a page changed at 10:05:50 — which Notion
@@ -158,7 +158,7 @@ def a_conflict_in_the_same_minute_goes_to_notion_and_says_so():
 
 
 @case
-def a_file_edited_by_hand_without_touching_edited_reaches_notion():
+def a_file_edited_by_hand_without_touching_edited_reaches_notion() -> None:
     """`$EDITOR` does not bump `edited`, and the file is still the side that moved.
 
     The board in files is meant to be edited by hand — git, grep and an editor
@@ -199,7 +199,7 @@ def a_file_edited_by_hand_without_touching_edited_reaches_notion():
 
 
 @case
-def a_deletion_is_written_down_and_never_carried_across():
+def a_deletion_is_written_down_and_never_carried_across() -> None:
     """Nothing the sync does may remove a page. It says so instead.
 
     A file disappears for a hundred reasons — a bad merge, a stray `rm`, an
@@ -233,7 +233,7 @@ def a_deletion_is_written_down_and_never_carried_across():
 
 
 @case
-def the_journal_keeps_what_the_reconciliations_did():
+def the_journal_keeps_what_the_reconciliations_did() -> None:
     with tempfile.TemporaryDirectory() as directory:
         path = Path(directory) / "ponos.db"
         report = sync.Report()
@@ -249,7 +249,7 @@ def the_journal_keeps_what_the_reconciliations_did():
 
 
 @case
-def the_standing_context_travels_both_ways():
+def the_standing_context_travels_both_ways() -> None:
     with _mirror("Écrit dans Notion.") as (here, there, both, marks):
         both.synchronise(_settings(), stamps=marks)
         assert there.context() == "Écrit dans Notion."
@@ -266,7 +266,7 @@ def the_standing_context_travels_both_ways():
 
 
 @case
-def a_mirrored_write_lands_on_both_boards_at_once():
+def a_mirrored_write_lands_on_both_boards_at_once() -> None:
     """Between two reconciliations, the run's own work must be on both sides.
 
     A ticket claimed at 14:02 and reconciled at 14:15 would otherwise spend

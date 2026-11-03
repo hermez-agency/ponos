@@ -7,6 +7,7 @@ import tempfile
 import threading
 import time
 from pathlib import Path
+from typing import Any
 
 from support import _bare_api, _bare_runner, _ColumnsClient, case
 
@@ -15,12 +16,13 @@ from ponos import notion, session, state, stopping
 from ponos import ticket as ticket_module
 from ponos.config import state_dir
 from ponos.projects import Project
+from ponos.web import api as web_api
 
 TICKET = "1" * 32
 
 
 @case
-def a_request_is_read_until_it_goes_stale_and_cleared_by_the_console(state_home):
+def a_request_is_read_until_it_goes_stale_and_cleared_by_the_console(state_home: Path) -> None:
     assert stopping.requested(TICKET) == ""
     stopping.request(TICKET, "pause")
     assert stopping.requested("11111111-1111-1111-1111-111111111111") == "pause"
@@ -35,7 +37,7 @@ def a_request_is_read_until_it_goes_stale_and_cleared_by_the_console(state_home)
 
 
 @case
-def a_session_is_told_to_stop_when_its_ticket_is_asked_for_and_not_before(state_home):
+def a_session_is_told_to_stop_when_its_ticket_is_asked_for_and_not_before(state_home: Path) -> None:
     over = threading.Event()
     asked = stopping.watch(TICKET, over)
     assert stopping.held(TICKET), "the console only waits for a session that is there"
@@ -55,7 +57,7 @@ def a_session_is_told_to_stop_when_its_ticket_is_asked_for_and_not_before(state_
 
 
 @case
-def a_mark_left_by_a_run_that_died_is_no_session(state_home):
+def a_mark_left_by_a_run_that_died_is_no_session(state_home: Path) -> None:
     path = state_dir() / "stops" / f"{TICKET}.live"
     path.parent.mkdir(parents=True)
     path.write_text("2147483646")
@@ -65,7 +67,7 @@ def a_mark_left_by_a_run_that_died_is_no_session(state_home):
 
 
 @case
-def a_worktree_stopped_mid_work_is_saved_on_its_branch_and_a_clean_one_is_left_alone():
+def a_worktree_stopped_mid_work_is_saved_on_its_branch_and_a_clean_one_is_left_alone() -> None:
     with tempfile.TemporaryDirectory() as home:
         repo = Path(home) / "repo"
         repo.mkdir()
@@ -103,7 +105,7 @@ class _Running(_ColumnsClient):
     def options(self, database: str, prop: str) -> list[str]:
         return [*super().options(database, prop), *self.extra]
 
-    def page(self, page_id: str, **rest) -> notion.Page:
+    def page(self, page_id: str, **rest: Any) -> notion.Page:
         return notion.Page(
             id=page_id,
             url="",
@@ -116,8 +118,9 @@ class _Running(_ColumnsClient):
         self.comments_written.append((page_id, text))
 
 
-def _console(client: _Running):
+def _console(client: _Running) -> web_api.Api:
     api = _bare_api(client)
+    assert api._runner is not None
     api._runner._workspace = type("W", (), {"goals": "", "projects": "", "tickets": "db"})()
     api.watch = type("W", (), {"nudge": lambda self: None})()
     api._schema_at = time.time()
@@ -133,7 +136,7 @@ def _scratch(name: str = "notes-11111111") -> Path:
 
 
 @case
-def a_ticket_in_progress_is_paused_with_its_work_kept_and_one_short_line(state_home):
+def a_ticket_in_progress_is_paused_with_its_work_kept_and_one_short_line(state_home: Path) -> None:
     client = _Running()
     api = _console(client)
     path = _scratch()
@@ -147,7 +150,9 @@ def a_ticket_in_progress_is_paused_with_its_work_kept_and_one_short_line(state_h
 
 
 @case
-def a_ticket_is_abandoned_with_its_directory_removed_and_never_left_as_residue(state_home):
+def a_ticket_is_abandoned_with_its_directory_removed_and_never_left_as_residue(
+    state_home: Path,
+) -> None:
     client = _Running()
     api = _console(client)
     path = _scratch()
@@ -157,7 +162,9 @@ def a_ticket_is_abandoned_with_its_directory_removed_and_never_left_as_residue(s
 
 
 @case
-def the_console_waits_for_the_session_to_be_gone_before_it_touches_the_worktree(state_home):
+def the_console_waits_for_the_session_to_be_gone_before_it_touches_the_worktree(
+    state_home: Path,
+) -> None:
     api = _console(_Running())
     path = _scratch()
     seen: list[bool] = []
@@ -183,19 +190,23 @@ def the_console_waits_for_the_session_to_be_gone_before_it_touches_the_worktree(
 
 
 @case
-def a_ticket_that_is_not_in_progress_is_only_moved_and_no_session_is_asked_to_stop(state_home):
+def a_ticket_that_is_not_in_progress_is_only_moved_and_no_session_is_asked_to_stop(
+    state_home: Path,
+) -> None:
     client = _Running("Ready")
     api = _console(client)
     assert api.set_status(TICKET, "paused")["sync"] == "pending"
     assert stopping.requested(TICKET) == "" and client.comments_written == []
     # Or a card dragged there that still shows the status it was in.
-    stale = _console(_Running())
-    stale.set_status(TICKET, "cancelled", "Ready")
-    assert stale.runner.client.comments_written == []
+    stale = _Running()
+    _console(stale).set_status(TICKET, "cancelled", "Ready")
+    assert stale.comments_written == []
 
 
 @case
-def a_board_without_the_option_is_never_written_into_and_does_not_offer_it(state_home):
+def a_board_without_the_option_is_never_written_into_and_does_not_offer_it(
+    state_home: Path,
+) -> None:
     for options, key, word in (
         (("Cancelled",), "paused", "no “Paused” option"),
         (("Paused",), "cancelled", "no “Cancelled” option"),
@@ -206,16 +217,19 @@ def a_board_without_the_option_is_never_written_into_and_does_not_offer_it(state
             assert word in str(error), error
         else:
             raise AssertionError(f"a ticket was moved into a status the board lacks: {key}")
-    columns = lambda client: [item["key"] for item in _console(client).board()["columns"]]  # noqa: E731
+
+    def columns(client: _Running) -> list[str]:
+        return [item["key"] for item in _console(client).board()["columns"]]
+
     assert "paused" in columns(_Running())
     assert "paused" not in columns(_Running(options=("Cancelled",)))
 
 
 @case
-def a_session_the_console_asked_to_end_is_ended_and_left_to_the_console(state_home):
+def a_session_the_console_asked_to_end_is_ended_and_left_to_the_console(state_home: Path) -> None:
     ended: list[bool] = []
 
-    def fake_run(prompt, **options):
+    def fake_run(prompt: str, **options: Any) -> session.Outcome:
         # What session.run does with its `stop`: it ends the session when it is set.
         ended.append(options["stop"].wait(5))
         return session.Outcome(

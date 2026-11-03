@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 from datetime import UTC, date
+from pathlib import Path
+from typing import Any
 
 from support import FRONTEND, _nameless, _naming_session, _saved, _state_home, _TypedClient, case
 
 from ponos import config as C
 from ponos import files, models, notion, prompt, provision, state, subtypes
+from ponos.runner import Runner
+from ponos.ticket import Ticket
 from ponos.web import statistics as web_statistics
 from ponos.web import tickets as web_tickets
 
@@ -23,9 +27,9 @@ class _SubtypedClient(_TypedClient):
 
 def _subtyped(
     title: str, *, kind: str = "Code", subtype: str = "", body: str = "Le bouton ne répond plus."
-):
+) -> tuple[Runner, Ticket]:
     runner, ticket = _nameless(title, body)
-    runner.client = _SubtypedClient(body)
+    runner.client = _SubtypedClient(body)  # type: ignore[assignment]  # a fake: one ticket, typed
     if kind:
         ticket.page.properties["Type"] = {"type": "select", "select": {"name": kind}}
     if subtype:
@@ -33,12 +37,14 @@ def _subtyped(
     return runner, ticket
 
 
-def _subtype_written(runner) -> list[str]:
-    return [values["Sous-type"] for values in runner.client.written if "Sous-type" in values]
+def _subtype_written(runner: Runner) -> list[str]:
+    client = runner.client
+    assert isinstance(client, _SubtypedClient)
+    return [values["Sous-type"] for values in client.written if "Sous-type" in values]
 
 
 @case
-def a_prefix_says_the_sub_type_without_asking_anybody(state_home):
+def a_prefix_says_the_sub_type_without_asking_anybody(state_home: Path) -> None:
     for title, key in (
         ("[Bug] Le bouton ne répond plus", "bug"),
         ("Ponos — [Feature] Un badge sur la carte", "feature"),
@@ -63,7 +69,7 @@ def a_prefix_says_the_sub_type_without_asking_anybody(state_home):
 
 
 @case
-def the_sub_type_session_counts_against_the_daily_limit(state_home):
+def the_sub_type_session_counts_against_the_daily_limit(state_home: Path) -> None:
     runner, ticket = _subtyped("Le bouton Envoyer ne répond plus")
     answer = '{"subtype": "bug", "reason": "Il ne marche plus.", "confidence": "high"}'
     with _naming_session(answer, cost=0.25):
@@ -72,7 +78,7 @@ def the_sub_type_session_counts_against_the_daily_limit(state_home):
 
 
 @case
-def a_sub_type_without_a_prefix_is_deduced_by_the_light_model():
+def a_sub_type_without_a_prefix_is_deduced_by_the_light_model() -> None:
     runner, ticket = _subtyped("Le bouton Envoyer ne répond plus")
     answer = '{"subtype": "bug", "reason": "Il ne marche plus.", "confidence": "high"}'
     with _state_home(), _naming_session(answer) as asked:
@@ -96,7 +102,7 @@ def a_sub_type_without_a_prefix_is_deduced_by_the_light_model():
 
 
 @case
-def a_sub_type_in_doubt_is_an_improvement_and_the_report_says_so():
+def a_sub_type_in_doubt_is_an_improvement_and_the_report_says_so() -> None:
     runner, ticket = _subtyped("Revoir le bouton Envoyer")
     with _state_home(), _naming_session('{"subtype": "bug", "confidence": "low"}'):
         job = runner.prepare(ticket)
@@ -114,7 +120,7 @@ def a_sub_type_in_doubt_is_an_improvement_and_the_report_says_so():
 
 
 @case
-def a_sub_type_somebody_wrote_is_never_overwritten():
+def a_sub_type_somebody_wrote_is_never_overwritten() -> None:
     runner, ticket = _subtyped("[Bug] Le README", subtype="Docs")
     with _state_home(), _naming_session('{"subtype": "bug", "confidence": "high"}') as asked:
         job = runner.prepare(ticket)
@@ -124,6 +130,7 @@ def a_sub_type_somebody_wrote_is_never_overwritten():
     runner, ticket = _subtyped("[Bug] Annoncer la v2", kind="Rédaction")
     with _state_home(), _naming_session("{}") as asked:
         job = runner.prepare(ticket)
+    assert job is not None
     assert asked == [] and job.subtype == "" and _subtype_written(runner) == [], (
         "ignored on the other types"
     )
@@ -131,11 +138,12 @@ def a_sub_type_somebody_wrote_is_never_overwritten():
     runner, ticket = _nameless("Le bouton ne répond plus", "x")
     with _state_home(), _naming_session('{"subtype": "bug", "confidence": "high"}') as asked:
         job = runner.prepare(ticket)
+    assert job is not None
     assert asked == [] and job.subtype == "", "a board without the column asks nobody"
 
 
 @case
-def a_sub_type_is_the_developers_word_in_every_language():
+def a_sub_type_is_the_developers_word_in_every_language() -> None:
     """« Feature » in French too, not « Fonctionnalité »: one label, no entry in french.ts.
 
     The French words it used to be shown as are still understood, in a title or
@@ -168,7 +176,7 @@ def a_sub_type_is_the_developers_word_in_every_language():
 
 
 @case
-def the_commit_the_pull_request_and_the_changelog_follow_the_sub_type():
+def the_commit_the_pull_request_and_the_changelog_follow_the_sub_type() -> None:
     for key, commit, section in (
         ("bug", "fix", "Fixed"),
         ("feature", "feat", "Added"),
@@ -192,14 +200,16 @@ def the_commit_the_pull_request_and_the_changelog_follow_the_sub_type():
     assert subtypes.titled("bug", "fix: déjà dit") == "fix: déjà dit"
     assert subtypes.titled("", "[Bug] x") == "[Bug] x"
 
-    common = dict(project="p", title="T", body="b", repo="/r", branch="b", base="main", url="u")
+    common: dict[str, Any] = dict(
+        project="p", title="T", body="b", repo="/r", branch="b", base="main", url="u"
+    )
     built = prompt.build(prompt.DEFAULT, **common, kind=subtypes.section("bug"))
     assert built.index("`fix: `") < built.index("# What is expected")
     assert "- Notion ticket: u\n\n# What is expected" in prompt.build(prompt.DEFAULT, **common)
 
 
 @case
-def the_sub_type_moves_the_level_a_code_ticket_starts_at():
+def the_sub_type_moves_the_level_a_code_ticket_starts_at() -> None:
     grid = C.Runner(use_fable=True).model_grid()
     body = "Une phrase."
     assert models.choose("Le README", body, kind="code", code=True, grid=grid).level == "standard"
@@ -227,7 +237,7 @@ def the_sub_type_moves_the_level_a_code_ticket_starts_at():
 
 
 @case
-def init_offers_the_sub_type_column_and_doctor_names_it_when_it_is_missing():
+def init_offers_the_sub_type_column_and_doctor_names_it_when_it_is_missing() -> None:
     settings = C.Notion(properties=dict(C._DEFAULT_PROPERTIES))
     column = provision.tickets_schema(settings)["Sous-type"]
     options = [option["name"] for option in column["select"]["options"]]
@@ -249,9 +259,9 @@ def init_offers_the_sub_type_column_and_doctor_names_it_when_it_is_missing():
 
 
 @case
-def the_backfill_fills_the_code_tickets_from_their_prefix_alone(state_home):
+def the_backfill_fills_the_code_tickets_from_their_prefix_alone(state_home: Path) -> None:
     def page(identifier: str, title: str, kind: str, subtype: str = "") -> notion.Page:
-        properties = {"Type": {"type": "select", "select": {"name": kind}}}
+        properties: dict[str, Any] = {"Type": {"type": "select", "select": {"name": kind}}}
         if subtype:
             properties["Sous-type"] = {"type": "select", "select": {"name": subtype}}
         return notion.Page(id=identifier, url="", title=title, properties=properties)
@@ -268,24 +278,27 @@ def the_backfill_fills_the_code_tickets_from_their_prefix_alone(state_home):
     ]
 
     class Board(_SubtypedClient):
-        def query(self, database_id, filter_=None):
+        def query(
+            self, database_id: str, filter_: dict[str, Any] | None = None
+        ) -> list[notion.Page]:
             return pages
 
-        def update(self, database_id, page_id, values):
+        def update(self, database_id: str, page_id: str, values: dict[str, Any]) -> None:
             self.written.append({"id": page_id, **values})
 
     runner, _ = _nameless("x", "")
-    runner.client = Board("")
+    client = Board("")
+    runner.client = client  # type: ignore[assignment]  # a fake: the whole board
     with _naming_session("{}") as asked:
         dry = runner.backfill_subtypes(write=False)
         assert [(one.id, key) for one, key in dry] == [("a", "bug"), ("e", "chore")]
-        assert runner.client.written == []
+        assert client.written == []
         runner.backfill_subtypes()
     assert asked == [], "never a session"
-    assert runner.client.written == [
+    assert client.written == [
         {"id": "a", "Sous-type": "Bug"},
         {"id": "e", "Sous-type": "Chore"},
-    ], runner.client.written
+    ], client.written
     assert [one.id for one, _ in runner.backfill_subtypes(write=False, closed=True)] == [
         "f",
         "a",
@@ -300,9 +313,11 @@ def the_backfill_fills_the_code_tickets_from_their_prefix_alone(state_home):
 
 
 @case
-def the_statistics_count_the_closed_tickets_by_sub_type_and_by_week():
+def the_statistics_count_the_closed_tickets_by_sub_type_and_by_week() -> None:
 
-    def card(identifier, subtype, edited, duration=None):
+    def card(
+        identifier: str, subtype: str, edited: str, duration: int | None = None
+    ) -> dict[str, Any]:
         return {
             "id": identifier,
             "column": "done",

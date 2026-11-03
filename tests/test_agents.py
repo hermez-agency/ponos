@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from support import case
 
 from ponos import agents, notion
@@ -25,16 +27,20 @@ class _AgentClient:
 
 
 def _agent_page(title: str, model: str = "") -> notion.Page:
-    properties = {"Name": {"type": "title", "title": [{"plain_text": title}]}}
+    properties: dict[str, Any] = {"Name": {"type": "title", "title": [{"plain_text": title}]}}
     if model:
         properties["Model"] = {"type": "select", "select": {"name": model}}
     return notion.Page(id="p-agent", url="", title=title, properties=properties)
 
 
+def _resolve(client: _AgentClient, page_id: str) -> agents.Agent:
+    return agents.resolve(client, page_id)  # type: ignore[arg-type]  # a fake: a page and its body
+
+
 @case
-def an_agent_is_a_page_and_may_name_its_model():
+def an_agent_is_a_page_and_may_name_its_model() -> None:
     client = _AgentClient(_agent_page("Rédacteur", "haiku"), brief="Ton direct, pas d'emoji.")
-    agent = agents.resolve(client, "p-agent")
+    agent = _resolve(client, "p-agent")
     assert agent.name == "Rédacteur"
     assert agent.brief == "Ton direct, pas d'emoji."
     assert agent.model == "haiku"
@@ -42,9 +48,9 @@ def an_agent_is_a_page_and_may_name_its_model():
 
 
 @case
-def an_unreadable_agent_is_no_agent_rather_than_a_failed_ticket():
-    assert not agents.resolve(_AgentClient(None), "p-agent").name
+def an_unreadable_agent_is_no_agent_rather_than_a_failed_ticket() -> None:
+    assert not _resolve(_AgentClient(None), "p-agent").name
     # The page reads but its body does not: the role is lost, the run is not.
-    partial = agents.resolve(_AgentClient(_agent_page("Rédacteur"), broken=True), "p-agent")
+    partial = _resolve(_AgentClient(_agent_page("Rédacteur"), broken=True), "p-agent")
     assert partial.name == "Rédacteur" and partial.brief == ""
     assert not agents.Agent(), "no agent at all is falsy"

@@ -23,7 +23,7 @@ from ponos.runner import Runner
 
 
 @case
-def an_installation_from_before_the_rename_starts_with_everything_it_had():
+def an_installation_from_before_the_rename_starts_with_everything_it_had() -> None:
     """Old directories, old variables, an old worktree: the first launch moves them all."""
     home = Path(tempfile.mkdtemp())
     old_config = home / ".config" / legacy.OLD
@@ -114,7 +114,7 @@ def an_installation_from_before_the_rename_starts_with_everything_it_had():
 
 
 @case
-def an_old_state_directory_holding_only_a_console_token_is_tidied_once_and_silently():
+def an_old_state_directory_holding_only_a_console_token_is_tidied_once_and_silently() -> None:
     """Recreated by an old checkout's test suite, with nothing but an empty
     `logs` and a `web/token` in it: the new state already has its own, and the
     line « was left in place » came back on every command, every ten seconds."""
@@ -158,7 +158,7 @@ def an_old_state_directory_holding_only_a_console_token_is_tidied_once_and_silen
 
 
 @case
-def an_old_variable_is_read_under_its_new_name_unless_the_new_one_is_set():
+def an_old_variable_is_read_under_its_new_name_unless_the_new_one_is_set() -> None:
     environment = {
         legacy.OLD_PREFIX + "CONFIG": "/old",
         legacy.OLD_PREFIX + "TERMINAL": "kitty",
@@ -170,7 +170,7 @@ def an_old_variable_is_read_under_its_new_name_unless_the_new_one_is_set():
 
 
 @case
-def an_old_session_link_opens_the_worktree_where_it_went():
+def an_old_session_link_opens_the_worktree_where_it_went() -> None:
     previous = os.environ.get("XDG_STATE_HOME")
     os.environ["XDG_STATE_HOME"] = "/srv/state"
     try:
@@ -187,7 +187,7 @@ def an_old_session_link_opens_the_worktree_where_it_went():
 
 
 @case
-def the_old_command_says_it_was_renamed_and_runs_ponos():
+def the_old_command_says_it_was_renamed_and_runs_ponos() -> None:
     directory = Path(tempfile.mkdtemp())
     target = directory / "ponos"
     target.write_text('#!/bin/sh\necho "ponos $*"\n')
@@ -202,7 +202,7 @@ def the_old_command_says_it_was_renamed_and_runs_ponos():
 
 
 @case
-def a_ticket_this_machine_took_before_the_rename_is_still_its_own():
+def a_ticket_this_machine_took_before_the_rename_is_still_its_own() -> None:
     runner = object.__new__(Runner)
     runner._journals = {}
     runner.agent_label = "ponos@laptop"

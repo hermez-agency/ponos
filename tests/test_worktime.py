@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from datetime import datetime
+from pathlib import Path
+from typing import Any
 
 from support import case
 
@@ -13,7 +15,7 @@ from ponos import journal, worktime
 
 def _span(
     start: str, end: str | None, status: str | None = "done", code: str = "", last: str = ""
-) -> dict:
+) -> dict[str, Any]:
     day = "2026-10-14T"
     return {
         "start": day + start + "+00:00",
@@ -29,7 +31,7 @@ def _at(clock: str) -> datetime:
 
 
 @case
-def a_ticket_that_works_waits_for_an_answer_and_works_again_counts_only_the_work():
+def a_ticket_that_works_waits_for_an_answer_and_works_again_counts_only_the_work() -> None:
     """10 min, 30 min waiting on a question, 5 min more: the clock reads 15."""
     spans = [
         _span("10:00:00", "10:10:00", "blocked", "session.question"),
@@ -40,7 +42,7 @@ def a_ticket_that_works_waits_for_an_answer_and_works_again_counts_only_the_work
 
 
 @case
-def the_clock_runs_on_a_live_run_and_stops_on_a_blocked_one():
+def the_clock_runs_on_a_live_run_and_stops_on_a_blocked_one() -> None:
     live = [_span("10:00:00", None, None, last="10:04:30")]
     going = worktime.measure(live, "progress", _at("10:05:00"))
     assert going and going["running"] and going["work"] == 300 and going["pause"] == "", going
@@ -53,7 +55,7 @@ def the_clock_runs_on_a_live_run_and_stops_on_a_blocked_one():
 
 
 @case
-def review_and_the_wait_in_ready_are_nobodys_pause_and_credit_is_one():
+def review_and_the_wait_in_ready_are_nobodys_pause_and_credit_is_one() -> None:
     reviewed = worktime.measure([_span("10:00:00", "10:20:00", "done")], "review", _at("18:00:00"))
     assert (
         reviewed
@@ -77,7 +79,7 @@ def review_and_the_wait_in_ready_are_nobodys_pause_and_credit_is_one():
 
 
 @case
-def a_run_the_runner_never_closed_stops_at_its_last_step_and_an_overlap_counts_once():
+def a_run_the_runner_never_closed_stops_at_its_last_step_and_an_overlap_counts_once() -> None:
     killed = worktime.measure(
         [_span("10:00:00", None, None, last="10:07:00")], "ready", _at("20:00:00")
     )
@@ -95,7 +97,9 @@ def a_run_the_runner_never_closed_stops_at_its_last_step_and_an_overlap_counts_o
 
 
 @case
-def the_time_of_a_ticket_survives_a_restart_because_it_is_read_from_the_journal(state_home):
+def the_time_of_a_ticket_survives_a_restart_because_it_is_read_from_the_journal(
+    state_home: Path,
+) -> None:
     ticket = "a" * 32
     first = journal.Run.start(ticket=ticket)
     first.end("blocked", "", "session.question")

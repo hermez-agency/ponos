@@ -7,6 +7,7 @@ import os
 import subprocess
 import tempfile
 from pathlib import Path
+from typing import Any
 
 from support import _config, case
 
@@ -17,7 +18,7 @@ from ponos import openrouter, session
 
 
 @case
-def no_openrouter_key_starts_a_session_exactly_as_before():
+def no_openrouter_key_starts_a_session_exactly_as_before() -> None:
     """The one thing an unconfigured key must cost: nothing at all."""
     config = _config("")
     assert config.openrouter.key == ""
@@ -32,7 +33,7 @@ def no_openrouter_key_starts_a_session_exactly_as_before():
 
 
 @case
-def a_routed_session_is_told_where_to_go_and_with_what():
+def a_routed_session_is_told_where_to_go_and_with_what() -> None:
     """`ANTHROPIC_AUTH_TOKEN`, not `ANTHROPIC_API_KEY`: a gateway wants a bearer."""
     config = _config('[openrouter]\nkey = "sk-or-v1-secret"\nroute_sessions = true\n')
     variables = openrouter.environment(config.openrouter)
@@ -57,7 +58,7 @@ def a_routed_session_is_told_where_to_go_and_with_what():
 
 
 @case
-def what_the_runner_adds_wins_over_the_shell_it_was_started_from():
+def what_the_runner_adds_wins_over_the_shell_it_was_started_from() -> None:
     """A key configured for the runner beats one that happens to be exported."""
     seen: dict[str, str] = {}
 
@@ -70,14 +71,14 @@ def what_the_runner_adds_wins_over_the_shell_it_was_started_from():
         def wait(self) -> None:
             pass
 
-    def _popen(command, **arguments):
+    def _popen(command: list[str], **arguments: Any) -> _Process:
         seen.update(arguments["env"])
         return _Process()
 
     directory = Path(tempfile.mkdtemp())
     original = (session.available, subprocess.Popen)
     session.available = lambda: "/usr/bin/claude"
-    subprocess.Popen = _popen
+    subprocess.Popen = _popen  # type: ignore[assignment, misc]  # a double: the session it starts
     os.environ["OPENROUTER_API_KEY"] = "sk-or-v1-shell"
     try:
         session.run(
@@ -87,7 +88,7 @@ def what_the_runner_adds_wins_over_the_shell_it_was_started_from():
             environment={"OPENROUTER_API_KEY": "sk-or-v1-configured"},
         )
     finally:
-        session.available, subprocess.Popen = original
+        session.available, subprocess.Popen = original  # type: ignore[misc]  # the class put back
         os.environ.pop("OPENROUTER_API_KEY", None)
     assert seen["OPENROUTER_API_KEY"] == "sk-or-v1-configured"
     assert seen["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] == "1"

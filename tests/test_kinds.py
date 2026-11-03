@@ -3,18 +3,21 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from support import _nameless, _naming_session, _saved, _state_home, _TypedClient, case
 
 from ponos import config as C
 from ponos import decisions, kinds, projects, prompt, question, state, store, voice
+from ponos.runner import Runner
+from ponos.ticket import Ticket
 from ponos.web import settings as web_settings
 
 # -- the type of a ticket ----------------------------------------------------
 
 
 @case
-def a_classification_is_read_out_of_whatever_the_session_wrapped_it_in():
+def a_classification_is_read_out_of_whatever_the_session_wrapped_it_in() -> None:
     said = (
         'Voici :\n```json\n{"type": "Publication", "reason": "Un  post.", '
         '"confidence": "HIGH", "alternative": "writing"}\n```'
@@ -30,7 +33,7 @@ def a_classification_is_read_out_of_whatever_the_session_wrapped_it_in():
 
 
 @case
-def a_doubt_is_never_settled_by_running_the_ticket():
+def a_doubt_is_never_settled_by_running_the_ticket() -> None:
     """Too unsure, or unsure between a harmless type and one that acts on the
     world: either way it is a question — and in doubt, the careful type."""
     sure = kinds.Guess("writing", "", "high", "")
@@ -50,7 +53,7 @@ def a_doubt_is_never_settled_by_running_the_ticket():
 
 
 @case
-def a_doubt_between_code_and_another_type_takes_the_one_that_needs_no_commit():
+def a_doubt_between_code_and_another_type_takes_the_one_that_needs_no_commit() -> None:
     """An audit, a deployment, a setting in production: about code, not code.
 
     Settled rather than asked, whatever the confidence — and said, so the
@@ -79,8 +82,8 @@ def a_doubt_between_code_and_another_type_takes_the_one_that_needs_no_commit():
 
 
 @case
-def a_ticket_settled_off_code_says_so_on_the_ticket(state_home):
-    runner, ticket = _typed(body="Vérifie que la prod répond, ne code rien.")
+def a_ticket_settled_off_code_says_so_on_the_ticket(state_home: Path) -> None:
+    runner, ticket, client = _typed(body="Vérifie que la prod répond, ne code rien.")
     answer = (
         '{"type": "code", "reason": "Peut-être un correctif.", "confidence": "low", '
         '"alternative": "external"}'
@@ -89,13 +92,13 @@ def a_ticket_settled_off_code_says_so_on_the_ticket(state_home):
         job = runner.prepare(ticket)
 
     assert job is not None and job.kind == "external" and not job.project.is_code
-    assert runner.client.written[0] == {"Type": "Action externe"}, runner.client.written
-    said = runner.client.said[0]
+    assert client.written[0] == {"Type": "Action externe"}, client.written
+    said = client.said[0]
     assert "Code" in said and "commit" in said, said
 
 
 @case
-def a_report_of_work_done_outside_the_repository_is_told_from_a_code_change():
+def a_report_of_work_done_outside_the_repository_is_told_from_a_code_change() -> None:
     from ponos import execution
 
     for outside in (
@@ -116,7 +119,7 @@ def a_report_of_work_done_outside_the_repository_is_told_from_a_code_change():
 
 
 @case
-def the_classification_is_told_whether_there_is_a_repository():
+def the_classification_is_told_whether_there_is_a_repository() -> None:
     asked = kinds.prompt(
         "Le DNS",
         "Ajoute un CNAME.",
@@ -131,7 +134,7 @@ def the_classification_is_told_whether_there_is_a_repository():
 
 
 @case
-def a_board_spells_the_types_in_either_language():
+def a_board_spells_the_types_in_either_language() -> None:
     """A board built by hand in French reads as typed, not as four unknown words."""
     settings = C.Notion()
     assert settings.kind_of("Rédaction") == "writing"
@@ -144,7 +147,7 @@ def a_board_spells_the_types_in_either_language():
 
 
 @case
-def a_type_somebody_chose_takes_a_repository_ticket_off_its_repository():
+def a_type_somebody_chose_takes_a_repository_ticket_off_its_repository() -> None:
     project = projects.Project(name="Site", path=Path("/repo"))
     assert kinds.worked_in(project, "code") is project
     assert kinds.worked_in(project, "") is project
@@ -158,7 +161,7 @@ def a_type_somebody_chose_takes_a_repository_ticket_off_its_repository():
 
 
 @case
-def a_prompt_file_older_than_the_types_still_says_do_not_publish():
+def a_prompt_file_older_than_the_types_still_says_do_not_publish() -> None:
     """A template of your own has no `{kind}`: the rule is added at its end."""
     built = prompt.build(
         "Old template — {title}\n{body}",
@@ -199,9 +202,11 @@ def a_prompt_file_older_than_the_types_still_says_do_not_publish():
 
 
 @case
-def every_session_reads_what_it_may_do_alone():
+def every_session_reads_what_it_may_do_alone() -> None:
     """The policy is in the prompt of each ticket, the list written or the default."""
-    common = dict(project="", title="T", body="b", repo="/tmp/x", branch="", base="", url="u")
+    common: dict[str, Any] = dict(
+        project="", title="T", body="b", repo="/tmp/x", branch="", base="", url="u"
+    )
     for template in (prompt.DEFAULT, prompt.DOCUMENT, prompt.DELIVERY, prompt.RESOLVE):
         text = prompt.build(
             template, **common, allowed=["relancer une CI"], ask=["modifier un DNS"]
@@ -229,7 +234,7 @@ def every_session_reads_what_it_may_do_alone():
 
 
 @case
-def the_permissions_name_nobody():
+def the_permissions_name_nobody() -> None:
     """Every installation reads them: the defaults and the prompt around them are
     nobody's in particular — the owners named are the ones `[github]` knows."""
     names = ("Salva", "SalvadorCardona", "hermez", "cardona", "Northwind", "Dokploy")
@@ -250,7 +255,7 @@ def the_permissions_name_nobody():
 
 
 @case
-def the_permissions_are_edited_in_the_settings_and_an_empty_list_is_an_answer():
+def the_permissions_are_edited_in_the_settings_and_an_empty_list_is_an_answer() -> None:
     path, config = _saved()
     drawn = {
         field["name"]: field
@@ -281,7 +286,7 @@ def the_permissions_are_edited_in_the_settings_and_an_empty_list_is_an_answer():
 
 
 @case
-def a_ticket_that_needs_sudo_blocks_with_the_commands_and_no_yes_no():
+def a_ticket_that_needs_sudo_blocks_with_the_commands_and_no_yes_no() -> None:
     answer = (
         "Tailscale needs root.\n"
         "DONE: nothing\n"
@@ -294,6 +299,7 @@ def a_ticket_that_needs_sudo_blocks_with_the_commands_and_no_yes_no():
         "RESULT: blocked — sudo demande un mot de passe"
     )
     asked = question.parse(answer)
+    assert asked is not None
     assert asked.code == "access.sudo" and asked.mode == "free", "never a yes-no"
     assert asked.commands == ["sudo apt install -y tailscale", "sudo tailscale up"]
     lines = voice.Voice("fr").question(asked)
@@ -301,21 +307,25 @@ def a_ticket_that_needs_sudo_blocks_with_the_commands_and_no_yes_no():
     assert lines[2:4] == ["`sudo apt install -y tailscale`", "`sudo tailscale up`"]
     assert lines[-1].startswith("Lance ces commandes") and "oui" not in lines[-1].lower()
     unknown = question.parse("QUESTION: ok ?\nMODE: yes-no\nCODE: whatever\nCOMMAND: rm -rf /")
+    assert unknown is not None
     assert unknown.code == "" and unknown.commands == [] and unknown.mode == "yes-no"
 
 
-def _typed(kind: str = "", body: str = "Poste l'annonce de la v2 sur LinkedIn."):
+def _typed(
+    kind: str = "", body: str = "Poste l'annonce de la v2 sur LinkedIn."
+) -> tuple[Runner, Ticket, _TypedClient]:
     runner, ticket = _nameless("Annoncer la v2", body)
-    runner.client = _TypedClient(body)
+    client = _TypedClient(body)
+    runner.client = client  # type: ignore[assignment]  # a fake: one ticket, typed
     if kind:
         ticket.page.properties["Type"] = {"type": "select", "select": {"name": kind}}
-    return runner, ticket
+    return runner, ticket, client
 
 
 @case
-def a_ticket_with_no_type_is_classified_before_it_runs(state_home):
+def a_ticket_with_no_type_is_classified_before_it_runs(state_home: Path) -> None:
     """Written on the page in the board's own spelling, and explained in a comment."""
-    runner, ticket = _typed()
+    runner, ticket, client = _typed()
     answer = (
         '{"type": "writing", "reason": "Il demande un texte.", "confidence": "high", '
         '"alternative": ""}'
@@ -324,8 +334,8 @@ def a_ticket_with_no_type_is_classified_before_it_runs(state_home):
         job = runner.prepare(ticket)
 
     assert len(asked) == 1 and "say what kind of ticket it is" in asked[0]
-    assert runner.client.written[0] == {"Type": "Rédaction"}, runner.client.written
-    assert runner.client.said[0].startswith("🏷️") and "Il demande un texte." in runner.client.said[0]
+    assert client.written[0] == {"Type": "Rédaction"}, client.written
+    assert client.said[0].startswith("🏷️") and "Il demande un texte." in client.said[0]
     assert job is not None and job.kind == "writing"
     assert not job.project.is_code and job.reference == Path("/repo"), (
         "a text is not worked in the repository, only allowed to read it"
@@ -333,8 +343,8 @@ def a_ticket_with_no_type_is_classified_before_it_runs(state_home):
 
 
 @case
-def the_classification_session_counts_against_the_daily_limit(state_home):
-    runner, ticket = _typed()
+def the_classification_session_counts_against_the_daily_limit(state_home: Path) -> None:
+    runner, ticket, client = _typed()
     answer = '{"type": "writing", "reason": "Un texte.", "confidence": "high", "alternative": ""}'
     with _naming_session(answer, cost=0.25):
         runner.prepare(ticket)
@@ -342,20 +352,20 @@ def the_classification_session_counts_against_the_daily_limit(state_home):
 
 
 @case
-def a_type_somebody_chose_is_never_classified_again(state_home):
-    runner, ticket = _typed("Code")
+def a_type_somebody_chose_is_never_classified_again(state_home: Path) -> None:
+    runner, ticket, client = _typed("Code")
     with _naming_session('{"type": "publication", "confidence": "high"}') as asked:
         job = runner.prepare(ticket)
 
     assert asked == [], "a chosen type costs no session"
-    assert all("Type" not in values for values in runner.client.written)
+    assert all("Type" not in values for values in client.written)
     assert job is not None and job.kind == "code" and job.project.is_code
 
 
 @case
-def a_classification_that_is_not_sure_blocks_the_ticket_with_the_question():
+def a_classification_that_is_not_sure_blocks_the_ticket_with_the_question() -> None:
     """Nothing claimed, no type written — the column is left for you to fill."""
-    runner, ticket = _typed()
+    runner, ticket, client = _typed()
     answer = (
         '{"type": "writing", "reason": "Rédiger, ou publier ?", "confidence": "high", '
         '"alternative": "publication"}'
@@ -364,24 +374,24 @@ def a_classification_that_is_not_sure_blocks_the_ticket_with_the_question():
         job = runner.prepare(ticket)
 
     assert job is None
-    assert runner.client.written == [{"Status": "Blocked", "Blocage": "ticket.kind-unsure"}], (
-        runner.client.written
+    assert client.written == [{"Status": "Blocked", "Blocage": "ticket.kind-unsure"}], (
+        client.written
     )
-    question = runner.client.said[-1]
+    question = client.said[-1]
     assert "Rédaction or Publication?" in question and "Rédiger, ou publier ?" in question
     assert "I would take Publication" in question, "in doubt, the careful one"
 
-    runner, ticket = _typed()
+    runner, ticket, client = _typed()
     with _state_home(), _naming_session('{"type": "code", "confidence": "low"}'):
         assert runner.prepare(ticket) is None
-    assert runner.client.written == [{"Status": "Blocked", "Blocage": "ticket.kind-unsure"}]
+    assert client.written == [{"Status": "Blocked", "Blocage": "ticket.kind-unsure"}]
 
-    runner, ticket = _typed()
+    runner, ticket, client = _typed()
     with _state_home(), _naming_session("", missing=True):
         assert runner.prepare(ticket) is None, "no answer at all is the deepest doubt"
 
 
-def _answered(runner, ticket, *answers: str):
+def _answered(runner: Runner, ticket: Ticket, client: _TypedClient, *answers: str) -> None:
     """The ticket blocked on its type, then answered on the page — as the next pass reads it."""
     hesitant = (
         '{"type": "writing", "reason": "Rédiger, ou agir ?", "confidence": "high", '
@@ -389,21 +399,22 @@ def _answered(runner, ticket, *answers: str):
     )
     with _naming_session(hesitant):
         assert runner.prepare(ticket) is None
-    comments = [store.Comment(runner.client.said[-1], created_by="ponos")] + [
+    comments = [store.Comment(client.said[-1], created_by="ponos")] + [
         store.Comment(answer, created_by="you") for answer in answers
     ]
-    runner.client.said.clear()
-    runner.client.written.clear()
-    runner.client.comments = lambda page_id: comments
+    client.said.clear()
+    client.written.clear()
+    client.comments = lambda page_id: comments  # type: ignore[method-assign]  # the answers, as the page holds them
     runner._me = "ponos"
     runner.forget_comments(ticket.page.id)
 
 
 @case
-def the_question_of_a_type_offers_one_button_per_type(state_home):
-    runner, ticket = _typed()
-    _answered(runner, ticket)
-    found = decisions.blockage(comment.text for comment in runner.client.comments(""))
+def the_question_of_a_type_offers_one_button_per_type(state_home: Path) -> None:
+    runner, ticket, client = _typed()
+    _answered(runner, ticket, client)
+    found = decisions.blockage(comment.text for comment in client.comments(""))
+    assert found.question is not None
     assert found.question.mode == "choice", found.question
     assert found.question.options == ["Rédaction", "Action externe"]
     assert found.category == "question" and found.declared
@@ -415,7 +426,7 @@ def the_question_of_a_type_offers_one_button_per_type(state_home):
 
 
 @case
-def an_answer_that_names_a_type_fills_the_column_rather_than_asking_again(state_home):
+def an_answer_that_names_a_type_fills_the_column_rather_than_asking_again(state_home: Path) -> None:
     """“action externe”, typed under the question, is the type — not one more question."""
     for answers in (
         ("action externe",),
@@ -426,23 +437,23 @@ def an_answer_that_names_a_type_fills_the_column_rather_than_asking_again(state_
         ("2",),
         ("readction", "Décision : réponse à la question. action externe"),
     ):
-        runner, ticket = _typed()
-        _answered(runner, ticket, *answers)
+        runner, ticket, client = _typed()
+        _answered(runner, ticket, client, *answers)
         with _naming_session('{"type": "writing", "confidence": "low"}') as asked:
             job = runner.prepare(ticket)
         assert asked == [], ("an answer costs no session", answers)
-        assert runner.client.written[0] == {"Type": "Action externe"}, (
+        assert client.written[0] == {"Type": "Action externe"}, (
             answers,
-            runner.client.written,
+            client.written,
         )
         assert job is not None and job.kind == "external", answers
 
 
 @case
-def an_answer_that_names_no_type_or_two_is_classified_as_before(state_home):
+def an_answer_that_names_no_type_or_two_is_classified_as_before(state_home: Path) -> None:
     for answers in (("je ne sais pas",), ("rédaction ou action externe, je ne sais pas",)):
-        runner, ticket = _typed()
-        _answered(runner, ticket, *answers)
+        runner, ticket, client = _typed()
+        _answered(runner, ticket, client, *answers)
         sure = '{"type": "writing", "reason": "Un texte.", "confidence": "high", "alternative": ""}'
         with _naming_session(sure) as asked:
             job = runner.prepare(ticket)
@@ -454,14 +465,16 @@ def an_answer_that_names_no_type_or_two_is_classified_as_before(state_home):
 
 
 @case
-def a_board_without_the_column_or_the_setting_runs_tickets_as_before():
+def a_board_without_the_column_or_the_setting_runs_tickets_as_before() -> None:
     runner, ticket = _nameless("Retirer le shader", "Il coûte 12 % de CPU pour rien.")
     with _state_home(), _naming_session('{"type": "writing", "confidence": "high"}') as asked:
         job = runner.prepare(ticket)
+    assert job is not None
     assert asked == [] and job.kind == "" and job.project.is_code
 
-    runner, ticket = _typed()
+    runner, ticket, client = _typed()
     runner.config.runner.classify = False
     with _state_home(), _naming_session('{"type": "writing", "confidence": "high"}') as asked:
         job = runner.prepare(ticket)
+    assert job is not None
     assert asked == [] and job.kind == "" and job.project.is_code

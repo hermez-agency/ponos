@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any, cast
 
 from support import (
     TICKET,
     _answering,
+    _AnsweringClient,
     _board_runner,
+    _BoardClient,
     _closing,
     _config,
     _reviewed,
@@ -22,6 +25,11 @@ from ponos.runner import Runner
 from ponos.web import settings as web_settings
 
 # -- the question a blocked ticket asks ---------------------------------------
+
+
+def _board(runner: Runner) -> _BoardClient:
+    """The fake board `_board_runner` put under `runner`, with what it remembers."""
+    return cast(_BoardClient, runner.client)
 
 
 # What the session of the 02/10 ticket would hand over: PR #58 verified and
@@ -40,7 +48,9 @@ PR_58 = (
 )
 
 
-def _asking(question: object, language: str = "fr") -> tuple[Runner, str, list[str]]:
+def _asking(
+    question: str | question.Question | None, language: str = "fr"
+) -> tuple[Runner, str, list[str]]:
     """A ticket blocked on `question`: the comment written, and what reached the phone."""
     runner = _board_runner([_reviewed("p-stuck", "In progress", None)], {"blocked": "Blocked"})
     runner.config.runner.language = language
@@ -49,10 +59,10 @@ def _asking(question: object, language: str = "fr") -> tuple[Runner, str, list[s
     ).notify
     sent: list[str] = []
     original = channels.announce
-    channels.announce = lambda settings, text, **rest: sent.append(text)
+    channels.announce = lambda settings, text, **rest: sent.append(text)  # type: ignore[assignment]  # a double: what reached the phone
     try:
         runner._fail(
-            ticket_module.Ticket(runner.client._pages[0]),
+            ticket_module.Ticket(_board(runner)._pages[0]),
             runner.voice.say("asked-something"),
             "la session a résumé ça autrement",
             code="session.question",
@@ -62,11 +72,11 @@ def _asking(question: object, language: str = "fr") -> tuple[Runner, str, list[s
         )
     finally:
         channels.announce = original
-    return runner, runner.client.comments_written[0], sent
+    return runner, _board(runner).comments_written[0], sent
 
 
 @case
-def a_yes_no_question_says_the_two_words_that_answer_it():
+def a_yes_no_question_says_the_two_words_that_answer_it() -> None:
 
     asked = question.Question(
         ask="Je fusionne et je déploie ?",
@@ -92,7 +102,7 @@ def a_yes_no_question_says_the_two_words_that_answer_it():
 
 
 @case
-def a_choice_is_numbered_on_one_line_so_that_a_number_answers_it():
+def a_choice_is_numbered_on_one_line_so_that_a_number_answers_it() -> None:
 
     _, comment, _ = _asking(
         question.Question(
@@ -114,7 +124,7 @@ def a_choice_is_numbered_on_one_line_so_that_a_number_answers_it():
 
 
 @case
-def a_free_question_stands_alone_and_says_what_to_give():
+def a_free_question_stands_alone_and_says_what_to_give() -> None:
 
     _, comment, _ = _asking(question.Question(ask="Quelle URL pour le site de Wizaplace ?"))
     assert comment == "🙋 Bloqué\nQuelle URL pour le site de Wizaplace ?", comment
@@ -125,7 +135,7 @@ def a_free_question_stands_alone_and_says_what_to_give():
 
 
 @case
-def a_blocked_comment_reaches_notion_with_real_line_breaks_and_a_link():
+def a_blocked_comment_reaches_notion_with_real_line_breaks_and_a_link() -> None:
 
     _, comment, _ = _asking(question.parse(PR_58))
     pieces = notion._comment_text(comment)
@@ -148,7 +158,7 @@ def a_blocked_comment_reaches_notion_with_real_line_breaks_and_a_link():
 
 
 @case
-def the_pull_request_58_comes_back_as_a_clear_choice_in_four_lines():
+def the_pull_request_58_comes_back_as_a_clear_choice_in_four_lines() -> None:
     """The 02/10 comment, played again: a choice, and nothing else."""
 
     asked = question.parse(PR_58)
@@ -163,11 +173,12 @@ def the_pull_request_58_comes_back_as_a_clear_choice_in_four_lines():
     assert "56 s" not in comment and "QR" not in comment, "the detail stays in the folded block"
     # What was written is what is read back when the answer arrives.
     again = question.found(comment)
+    assert again is not None
     assert (again.mode, again.ask, again.options) == ("choice", asked.ask, asked.options)
 
 
 @case
-def a_session_that_wrote_no_question_blocks_the_way_it_always_did():
+def a_session_that_wrote_no_question_blocks_the_way_it_always_did() -> None:
 
     assert question.parse("RESULT: blocked — quel en-tête ?") is None
     found = question.parse("**QUESTION:** On publie ?\n- MODE: yes/no\nRESULT: blocked — x")
@@ -179,7 +190,7 @@ def a_session_that_wrote_no_question_blocks_the_way_it_always_did():
 
 
 @case
-def an_answer_is_read_as_the_option_it_names_whatever_its_shape():
+def an_answer_is_read_as_the_option_it_names_whatever_its_shape() -> None:
 
     choice = question.Question(
         ask="Qui fusionne ?",
@@ -210,7 +221,7 @@ def an_answer_is_read_as_the_option_it_names_whatever_its_shape():
 
 
 @case
-def an_answer_from_a_phone_is_written_as_the_option_it_chose():
+def an_answer_from_a_phone_is_written_as_the_option_it_chose() -> None:
 
     _, comment, _ = _asking(question.parse(PR_58))
     said = voice.Voice("fr")
@@ -235,11 +246,12 @@ def an_answer_from_a_phone_is_written_as_the_option_it_chose():
         [channels.Reply(channel="telegram", text="3", ticket=TICKET, title="Le site")],
         asked=[comment],
     )
-    assert runner.client.written[0][1].endswith("Option 3: On attend."), runner.client.written
+    written = cast(_AnsweringClient, runner.client).written
+    assert written[0][1].endswith("Option 3: On attend."), written
 
 
 @case
-def the_next_run_is_told_the_question_and_what_the_answer_chose():
+def the_next_run_is_told_the_question_and_what_the_answer_chose() -> None:
 
     _, comment, _ = _asking(question.parse(PR_58))
     _, lines = _runner_reading([comment, "la 2"])
@@ -254,8 +266,10 @@ def the_next_run_is_told_the_question_and_what_the_answer_chose():
 
 
 @case
-def every_session_that_can_block_is_told_how_to_ask():
-    common = dict(project="p", title="t", body="b", repo="/r", branch="br", base="main", url="u")
+def every_session_that_can_block_is_told_how_to_ask() -> None:
+    common: dict[str, Any] = dict(
+        project="p", title="t", body="b", repo="/r", branch="br", base="main", url="u"
+    )
     for template in (prompt.DEFAULT, prompt.DOCUMENT, prompt.DELIVERY, prompt.RESOLVE):
         text = prompt.build(template, **common)
         assert "QUESTION: <" in text and "MODE: <yes-no, choice or free>" in text, template[:40]
@@ -263,7 +277,7 @@ def every_session_that_can_block_is_told_how_to_ask():
 
 
 @case
-def an_answer_is_understood_in_either_language_and_relayed_in_the_runners():
+def an_answer_is_understood_in_either_language_and_relayed_in_the_runners() -> None:
     """« oui » on a board told to speak English, `yes` on one told French: the
     word is read whatever it was typed in, and spelled out in the runner's."""
     for text, verdict in (("oui", "yes"), ("yes", "yes"), ("non", "no"), ("no", "no")):
@@ -281,7 +295,7 @@ def an_answer_is_understood_in_either_language_and_relayed_in_the_runners():
 
 
 @case
-def what_the_runner_writes_on_github_and_on_a_schedules_ticket_follows_the_language():
+def what_the_runner_writes_on_github_and_on_a_schedules_ticket_follows_the_language() -> None:
     said = voice.Voice("fr")
     body = said.pull_request_body("Le header est parti.", "https://notion.so/t", "abc", 3)
     assert body == (
@@ -300,7 +314,7 @@ def what_the_runner_writes_on_github_and_on_a_schedules_ticket_follows_the_langu
 
 
 @case
-def the_console_opens_in_the_language_the_file_names_and_follows_the_reports_by_default():
+def the_console_opens_in_the_language_the_file_names_and_follows_the_reports_by_default() -> None:
     """One line — `language = "fr"` — is enough to have everything in French;
     `app_language` is for whoever wants the two apart."""
     from ponos.web import server as web_server
@@ -327,7 +341,7 @@ def the_console_opens_in_the_language_the_file_names_and_follows_the_reports_by_
 
 
 @case
-def a_ticket_is_never_closed_on_an_answer_github_did_not_give():
+def a_ticket_is_never_closed_on_an_answer_github_did_not_give() -> None:
     """No pull request, or no `gh` to ask: the ticket stays where it is."""
     client, closed = _closing(
         [
@@ -342,7 +356,7 @@ def a_ticket_is_never_closed_on_an_answer_github_did_not_give():
 
 
 @case
-def the_columns_are_read_in_one_order_with_blocked_right_after_running():
+def the_columns_are_read_in_one_order_with_blocked_right_after_running() -> None:
     """The console, its filters and the MCP tools share one order, cancelled last."""
     from ponos.web import mcp, tickets
 
@@ -362,7 +376,7 @@ def the_columns_are_read_in_one_order_with_blocked_right_after_running():
 
 
 @case
-def a_board_without_a_review_column_is_never_even_queried():
+def a_board_without_a_review_column_is_never_even_queried() -> None:
     """`review` following `done` means there is nowhere for a ticket to wait."""
     client, closed = _closing(
         [_reviewed("p-done", "Done", "https://github.com/x/y/pull/1")],

@@ -28,7 +28,7 @@ def _tools(**scripts: str) -> Path:
 
 
 @case
-def a_declared_command_comes_first_then_act_on_the_workflows_then_nothing():
+def a_declared_command_comes_first_then_act_on_the_workflows_then_nothing() -> None:
     workdir = Path(tempfile.mkdtemp())
     previous = os.environ["PATH"]
     os.environ["PATH"] = str(_tools(act="exit 0"))
@@ -48,7 +48,7 @@ def a_declared_command_comes_first_then_act_on_the_workflows_then_nothing():
 
 
 @case
-def a_run_is_named_after_its_ticket_and_keeps_the_end_of_what_it_said():
+def a_run_is_named_after_its_ticket_and_keeps_the_end_of_what_it_said() -> None:
     workdir = Path(tempfile.mkdtemp())
     log = workdir / "ci.log"
     chosen = local_ci.plan(
@@ -64,7 +64,7 @@ def a_run_is_named_after_its_ticket_and_keeps_the_end_of_what_it_said():
 
 
 @case
-def a_local_ci_waits_for_a_place_when_the_machine_has_none_left(state_home):
+def a_local_ci_waits_for_a_place_when_the_machine_has_none_left(state_home: Path) -> None:
     order: list[str] = []
     waited = threading.Event()
     local_ci.WAIT_SECONDS, previous = 0.05, local_ci.WAIT_SECONDS
@@ -88,7 +88,7 @@ def a_local_ci_waits_for_a_place_when_the_machine_has_none_left(state_home):
 
 
 @case
-def a_project_says_its_own_word_on_its_local_ci_or_leaves_it_to_the_file(state_home):
+def a_project_says_its_own_word_on_its_local_ci_or_leaves_it_to_the_file(state_home: Path) -> None:
     assert project_settings.local_ci("abc") == {"enabled": None, "command": ""}
     project_settings.set_local_ci("abc", "Site", True, " make ci ")
     assert project_settings.local_ci("a-b-c") == {"enabled": True, "command": "make ci"}
@@ -99,7 +99,7 @@ def a_project_says_its_own_word_on_its_local_ci_or_leaves_it_to_the_file(state_h
 
 
 @case
-def without_docker_the_switch_is_greyed_with_its_reason_and_cannot_be_saved_on():
+def without_docker_the_switch_is_greyed_with_its_reason_and_cannot_be_saved_on() -> None:
     path, config = _saved()
     try:
         _docker_is(local_ci.Docker(False, False))
@@ -130,7 +130,7 @@ def without_docker_the_switch_is_greyed_with_its_reason_and_cannot_be_saved_on()
 
 
 @case
-def the_health_of_docker_warns_only_when_the_local_ci_wants_it():
+def the_health_of_docker_warns_only_when_the_local_ci_wants_it() -> None:
     previous = local_ci._probe
     try:
         local_ci._probe = lambda: local_ci.Docker(True, False, error="permission denied")

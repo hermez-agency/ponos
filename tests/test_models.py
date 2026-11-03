@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import contextlib
 import tempfile
+from collections.abc import Iterator
 from pathlib import Path
+from typing import Any, cast
 
-from support import _config, _nameless, _state_home, case
+from support import _config, _nameless, _NamelessClient, _state_home, case
 
 from ponos import config as C
 from ponos import journal, models, naming, notion, priority, store, voice, workspace
+from ponos import ticket as ticket_module
 from ponos.runner import Runner
 
 # -- the model of a ticket ----------------------------------------------------
@@ -19,14 +22,14 @@ from ponos.runner import Runner
 _GRID = C.Runner(use_fable=True).model_grid()
 
 
-def _chosen(title: str, body: str = "", **given) -> models.Choice:
+def _chosen(title: str, body: str = "", **given: Any) -> models.Choice:
     given.setdefault("kind", "code")
     given.setdefault("code", True)
     return models.choose(title, body, grid=given.pop("grid", _GRID), **given)
 
 
 @case
-def a_small_change_runs_on_the_light_model_and_says_why():
+def a_small_change_runs_on_the_light_model_and_says_why() -> None:
     choice = _chosen("Retirer un paragraphe des Réglages", "Le texte sous le titre ne sert à rien.")
     assert (choice.model, choice.level) == ("haiku", "light"), choice
     assert ("model-small", {"words": "retirer"}) in choice.signals, choice.signals
@@ -49,7 +52,7 @@ def a_small_change_runs_on_the_light_model_and_says_why():
 
 
 @case
-def a_standard_bug_or_feature_runs_on_the_standard_model():
+def a_standard_bug_or_feature_runs_on_the_standard_model() -> None:
     body = " ".join(
         ["Le formulaire de connexion renvoie une erreur quand l'email a une majuscule."] * 12
     )
@@ -61,7 +64,7 @@ def a_standard_bug_or_feature_runs_on_the_standard_model():
 
 
 @case
-def heavy_work_runs_on_a_heavy_model_and_the_heaviest_when_it_is_long_too():
+def heavy_work_runs_on_a_heavy_model_and_the_heaviest_when_it_is_long_too() -> None:
     audit = _chosen("Audit de sécurité complet", "Passer tout le dépôt en revue.")
     assert (audit.model, audit.level) == ("opus", "heavy"), audit
     assert audit.signals[1] == ("model-heavy", {"words": "audit, sécurité"}), audit.signals
@@ -75,7 +78,7 @@ def heavy_work_runs_on_a_heavy_model_and_the_heaviest_when_it_is_long_too():
 
 
 @case
-def an_action_on_the_world_or_an_urgent_ticket_never_runs_on_the_lightest_model():
+def an_action_on_the_world_or_an_urgent_ticket_never_runs_on_the_lightest_model() -> None:
     post = _chosen("Retirer le post LinkedIn", "", kind="publication", code=False)
     assert post.model == "sonnet", post
     urgent = _chosen("Renommer le bouton", "", priority=75)
@@ -84,7 +87,7 @@ def an_action_on_the_world_or_an_urgent_ticket_never_runs_on_the_lightest_model(
 
 
 @case
-def a_priority_is_a_score_from_0_to_100_and_the_old_words_still_read():
+def a_priority_is_a_score_from_0_to_100_and_the_old_words_still_read() -> None:
     """Urgent, High, Normal, Low read as the scores their migration gives them,
     so a board not migrated yet keeps its order; what a cell says outside 0–100
     is clamped, what somebody gives is refused."""
@@ -118,8 +121,8 @@ def a_priority_is_a_score_from_0_to_100_and_the_old_words_still_read():
 
 
 @case
-def the_ready_tickets_run_by_score_highest_first_and_the_oldest_on_a_tie():
-    def ready(identifier: str, created: str, cell: dict | None) -> notion.Page:
+def the_ready_tickets_run_by_score_highest_first_and_the_oldest_on_a_tie() -> None:
+    def ready(identifier: str, created: str, cell: dict[str, Any] | None) -> notion.Page:
         properties = {"Priority": cell} if cell else {}
         return notion.Page(
             id=identifier,
@@ -141,9 +144,9 @@ def the_ready_tickets_run_by_score_highest_first_and_the_oldest_on_a_tie():
     runner.config = _config("")
     runner._workspace = workspace.Workspace(tickets="db", projects="projects", agents="agents")
     runner.client = type("S", (), {"query": lambda self, database, query=None: pages})()
-    runner._ready_filter = lambda: {}
-    runner.woken = lambda: []
-    runner.parked = lambda tickets: set()
+    runner._ready_filter = lambda: {}  # type: ignore[method-assign]  # a double: every page is ready
+    runner.woken = lambda: []  # type: ignore[method-assign]  # a double: nothing woken
+    runner.parked = lambda tickets: set()  # type: ignore[method-assign]  # a double: nothing parked
     eligible, waiting = runner.queue()
     assert [ticket.id for ticket in eligible] == [
         "tieold",
@@ -157,7 +160,7 @@ def the_ready_tickets_run_by_score_highest_first_and_the_oldest_on_a_tie():
 
 
 @case
-def a_failed_choice_climbs_one_level_once_and_stays_there():
+def a_failed_choice_climbs_one_level_once_and_stays_there() -> None:
     earlier = models.Earlier("haiku", "failed")
     again = _chosen("Retirer le bandeau", earlier=earlier)
     assert (again.model, again.escalated) == ("sonnet", True), again
@@ -176,7 +179,7 @@ def a_failed_choice_climbs_one_level_once_and_stays_there():
 
 
 @case
-def the_grid_is_the_configurations_and_an_empty_level_borrows_the_nearest():
+def the_grid_is_the_configurations_and_an_empty_level_borrows_the_nearest() -> None:
     path = Path(tempfile.mkdtemp()) / "config.toml"
     path.write_text(
         '[notion]\ntoken = "x"\n[runner]\nauto_model_light = ""\n'
@@ -194,7 +197,7 @@ def the_grid_is_the_configurations_and_an_empty_level_borrows_the_nearest():
 
 
 @case
-def without_use_fable_the_heaviest_level_and_an_escalation_stop_at_opus():
+def without_use_fable_the_heaviest_level_and_an_escalation_stop_at_opus() -> None:
     steps = "\n".join(f"- point {number} à vérifier" for number in range(30))
     heavy = "Audit complet et migration de l'architecture"
     assert C.Runner().use_fable is False, "Fable is a choice somebody makes"
@@ -211,7 +214,7 @@ def without_use_fable_the_heaviest_level_and_an_escalation_stop_at_opus():
 
 
 @case
-def a_config_without_use_fable_has_no_fable_and_true_brings_it_back():
+def a_config_without_use_fable_has_no_fable_and_true_brings_it_back() -> None:
     path = Path(tempfile.mkdtemp()) / "config.toml"
     path.write_text('[notion]\ntoken = "x"\n[runner]\n', encoding="utf-8")
     settings = C.load(path).runner
@@ -224,31 +227,42 @@ def a_config_without_use_fable_has_no_fable_and_true_brings_it_back():
     assert settings.use_fable is True and settings.allowed("fable") == "fable"
 
 
-def _modelled(title: str, body: str, **properties):
+def _modelled(title: str, body: str, **properties: Any) -> tuple[Runner, ticket_module.Ticket]:
     runner, ticket = _nameless(title, body)
-    runner.client.said = []
-    runner.client.comment = lambda page_id, text, discussion_id="": runner.client.said.append(text)
+    client = cast(Any, runner.client)  # a fake: it learns to remember comments here
+    client.said = []
+    client.comment = lambda page_id, text, discussion_id="": client.said.append(text)
     ticket.page.properties.update(properties)
     return runner, ticket
 
 
+def _said(runner: Runner) -> list[str]:
+    """The comments `_modelled` taught its fake to remember."""
+    return cast(list[str], cast(Any, runner.client).said)
+
+
+def _written(runner: Runner) -> list[dict[str, Any]]:
+    return cast(_NamelessClient, runner.client).written
+
+
 @case
-def a_ticket_with_no_model_is_given_one_and_told_why_in_a_comment(state_home):
+def a_ticket_with_no_model_is_given_one_and_told_why_in_a_comment(state_home: Path) -> None:
     runner, ticket = _modelled("Retirer un paragraphe des Réglages", "Le texte sous le titre.")
     runner.config.runner.language = "fr"
     job = runner.prepare(ticket)
+    assert job is not None
     assert (job.model, job.chosen, job.escalated) == ("haiku", True, False), job
-    assert runner.client.said == [
+    assert _said(runner) == [
         "🧠 Modèle choisi automatiquement — haiku\n"
         "Ticket Code, petite modification ciblée (retirer)."
-    ], runner.client.said
-    assert [values["Model"] for values in runner.client.written if "Model" in values] == [
-        "haiku"
-    ], "the pick is written on the ticket, with the value the comment announces"
+    ], _said(runner)
+    assert [values["Model"] for values in _written(runner) if "Model" in values] == ["haiku"], (
+        "the pick is written on the ticket, with the value the comment announces"
+    )
 
 
 @contextlib.contextmanager
-def _failed_pick(model: str):
+def _failed_pick(model: str) -> Iterator[None]:
     """The journal remembering a run the runner chose `model` for, and lost."""
     original = journal.chosen
     journal.chosen = lambda ticket: {"model": model, "status": "failed", "escalated": False}
@@ -259,69 +273,75 @@ def _failed_pick(model: str):
 
 
 @case
-def a_model_written_by_the_runner_is_not_taken_for_one_somebody_chose():
+def a_model_written_by_the_runner_is_not_taken_for_one_somebody_chose() -> None:
     """The column holds the runner's pick on the next attempt: it must still
     be chosen for, or a run that failed could never climb. Another model there
     is somebody's, and is left alone."""
 
-    def column(name: str) -> dict:
+    def column(name: str) -> dict[str, Any]:
         return {"Model": {"type": "select", "select": {"name": name}}}
 
     runner, ticket = _modelled("Retirer un paragraphe", "Le texte.", **column("haiku"))
     with _state_home(), _failed_pick("haiku"):
         job = runner.prepare(ticket)
+        assert job is not None
     assert job.chosen and job.model == "sonnet", (job.model, job.chosen)
-    assert [values["Model"] for values in runner.client.written if "Model" in values] == ["sonnet"]
+    assert [values["Model"] for values in _written(runner) if "Model" in values] == ["sonnet"]
 
     runner, ticket = _modelled("Retirer un paragraphe", "Le texte.", **column("opus"))
     with _state_home(), _failed_pick("haiku"):
         job = runner.prepare(ticket)
+        assert job is not None
     assert (job.model, job.chosen) == ("opus", False)
-    assert not any("Model" in values for values in runner.client.written)
+    assert not any("Model" in values for values in _written(runner))
 
 
 @case
-def a_model_the_board_refuses_is_a_line_in_the_log_and_the_run_goes_on(state_home):
+def a_model_the_board_refuses_is_a_line_in_the_log_and_the_run_goes_on(state_home: Path) -> None:
     runner, ticket = _modelled("Retirer un paragraphe", "Le texte.")
     lines: list[str] = []
-    runner.say = lines.append
+    runner.say = lines.append  # type: ignore[method-assign,assignment]  # a double: the log, kept
     update = runner.client.update
 
-    def refuse(database, page, values):
+    def refuse(database_id: str, page_id: str, values: dict[str, Any]) -> None:
         if "Model" in values:
             raise store.StoreError("Model is expected to be rich_text")
-        update(database, page, values)
+        update(database_id, page_id, values)
 
-    runner.client.update = refuse
+    runner.client.update = refuse  # type: ignore[method-assign]  # a double: the board refuses
     job = runner.prepare(ticket)
+    assert job is not None
     assert (job.model, job.chosen) == ("haiku", True)
     assert any("model could not be written" in line for line in lines), lines
 
 
 @case
-def a_model_somebody_chose_or_a_switched_off_choice_is_the_runner_as_before():
+def a_model_somebody_chose_or_a_switched_off_choice_is_the_runner_as_before() -> None:
     forced = {"Model": {"type": "select", "select": {"name": "opus"}}}
     runner, ticket = _modelled("Retirer un paragraphe", "Le texte.", **forced)
     with _state_home():
         job = runner.prepare(ticket)
-    assert (job.model, job.chosen) == ("opus", False) and runner.client.said == []
+        assert job is not None
+    assert (job.model, job.chosen) == ("opus", False) and _said(runner) == []
 
     runner, ticket = _modelled("Retirer un paragraphe", "Le texte.")
     runner.config.runner.auto_model = False
     with _state_home():
         job = runner.prepare(ticket)
-    assert (job.model, job.chosen) == ("", False) and runner.client.said == [], (
+        assert job is not None
+    assert (job.model, job.chosen) == ("", False) and _said(runner) == [], (
         "empty: runner.model, as every ticket had it"
     )
 
 
 @case
-def a_fable_written_on_a_ticket_runs_on_opus_and_its_report_says_why():
+def a_fable_written_on_a_ticket_runs_on_opus_and_its_report_says_why() -> None:
     fable = {"Model": {"type": "select", "select": {"name": "fable"}}}
     runner, ticket = _modelled("Audit complet", "Tout le dépôt.", **fable)
     runner.config.runner.language = "fr"
     with _state_home():
         job = runner.prepare(ticket)
+        assert job is not None
     assert (job.model, job.chosen) == ("opus", False), job
     assert job.notes == ["Fable désactivé dans les réglages : lancé sur Opus."], job.notes
 
@@ -329,34 +349,40 @@ def a_fable_written_on_a_ticket_runs_on_opus_and_its_report_says_why():
     runner.config.runner.use_fable = True
     with _state_home():
         job = runner.prepare(ticket)
+        assert job is not None
     assert (job.model, job.notes) == ("fable", []), "allowed, taken as written"
 
 
 @case
-def a_run_begun_on_fable_carries_on_on_opus_once_it_is_turned_off(state_home):
+def a_run_begun_on_fable_carries_on_on_opus_once_it_is_turned_off(state_home: Path) -> None:
     runner, ticket = _modelled("Audit complet", "Tout le dépôt.")
     journal.Run.start(ticket=ticket.id, model="fable", chosen=True, escalated=True).end("failed")
     job = runner.prepare(ticket)
+    assert job is not None
     assert job.model == "opus", job
     runner, ticket = _modelled("Audit complet", "Tout le dépôt.")
     journal.Run.start(ticket=ticket.id, model="fable", chosen=True).end("waiting")
-    assert runner.prepare(ticket).model == "opus"
+    again = runner.prepare(ticket)
+    assert again is not None and again.model == "opus"
 
 
 @case
-def a_chosen_model_that_failed_comes_back_one_level_up_from_the_journal(state_home):
+def a_chosen_model_that_failed_comes_back_one_level_up_from_the_journal(state_home: Path) -> None:
     runner, ticket = _modelled("Retirer un paragraphe", "Le texte.")
     first = runner.prepare(ticket)
+    assert first is not None
     journal.Run.start(ticket=ticket.id, model=first.model, chosen=True).end("failed")
     runner, ticket = _modelled("Retirer un paragraphe", "Le texte.")
     second = runner.prepare(ticket)
+    assert second is not None
     assert (second.model, second.escalated) == ("sonnet", True), second
-    assert "one level up after a failed run on haiku" in runner.client.said[-1]
+    assert "one level up after a failed run on haiku" in _said(runner)[-1]
     journal.Run.start(ticket=ticket.id, model=second.model, chosen=True, escalated=True).end(
         "failed"
     )
     runner, ticket = _modelled("Retirer un paragraphe", "Le texte.")
     third = runner.prepare(ticket)
+    assert third is not None
     assert third.model == "sonnet", "once, not to the top of the price list"
     assert journal.chosen(ticket.id) == {
         "model": "sonnet",
@@ -366,7 +392,7 @@ def a_chosen_model_that_failed_comes_back_one_level_up_from_the_journal(state_ho
 
 
 @case
-def a_title_is_one_line_however_the_session_wrapped_it():
+def a_title_is_one_line_however_the_session_wrapped_it() -> None:
     assert (
         naming.clean('Voici le titre :\n\n"Réparer le bandeau blanc"') == "Réparer le bandeau blanc"
     )
@@ -377,7 +403,7 @@ def a_title_is_one_line_however_the_session_wrapped_it():
 
 
 @case
-def a_fallback_title_is_the_first_line_that_says_something():
+def a_fallback_title_is_the_first_line_that_says_something() -> None:
     body = "# Ce qu'il faut faire\n\n---\n- Retirer le shader.\nEt aussi le reste."
     assert naming.fallback(body) == "Retirer le shader"
     assert naming.fallback("## Titre\n## Autre\n") == "", "a bare template names nothing"

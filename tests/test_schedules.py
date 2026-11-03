@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import time
+from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime
 
@@ -15,7 +16,7 @@ from ponos import notion, schedules, store
 
 
 @case
-def a_bare_date_means_the_start_of_that_day_here():
+def a_bare_date_means_the_start_of_that_day_here() -> None:
     """Not midnight UTC: a ticket dated "30 August" starts on the 30th, locally."""
     from datetime import datetime
 
@@ -28,17 +29,18 @@ def a_bare_date_means_the_start_of_that_day_here():
 
 
 @case
-def a_date_with_a_time_keeps_its_offset():
+def a_date_with_a_time_keeps_its_offset() -> None:
     from ponos.schedules import scheduled_for
 
     moment = scheduled_for("2026-08-30T14:30:00.000+02:00")
     assert moment is not None
     assert (moment.hour, moment.minute) == (14, 30)
-    assert moment.utcoffset().total_seconds() == 7200
+    offset = moment.utcoffset()
+    assert offset is not None and offset.total_seconds() == 7200
 
 
 @case
-def an_unreadable_date_never_holds_a_ticket_back():
+def an_unreadable_date_never_holds_a_ticket_back() -> None:
     """A value the runner cannot parse must not silently freeze a ticket."""
     from ponos.schedules import scheduled_for
 
@@ -48,7 +50,7 @@ def an_unreadable_date_never_holds_a_ticket_back():
 
 
 @case
-def notion_truncates_a_datetime_to_the_minute():
+def notion_truncates_a_datetime_to_the_minute() -> None:
     """Not our doing, but it decides how precise scheduling can be.
 
     Sending 14:48:27 stores 14:48:00, so a ticket fires at the top of the minute
@@ -62,7 +64,7 @@ def notion_truncates_a_datetime_to_the_minute():
 
 
 @contextmanager
-def _paris():
+def _paris() -> Iterator[None]:
     """The machine in Paris for a moment: what a schedule's hours are said in."""
     before = os.environ.get("TZ")
     os.environ["TZ"] = "Europe/Paris"
@@ -82,13 +84,15 @@ def _walk(cadence: str, at: str, day: str, start: str, count: int) -> list[str]:
     found: list[str] = []
     after = datetime.fromisoformat(start).astimezone()
     for _ in range(count):
-        after = schedules.next_occurrence(cadence, at, day, after=after)
+        following = schedules.next_occurrence(cadence, at, day, after=after)
+        assert following is not None
+        after = following
         found.append(after.strftime("%Y-%m-%d %H:%M %Z"))
     return found
 
 
 @case
-def a_schedule_keeps_its_wall_clock_hour_across_the_change_to_winter_time():
+def a_schedule_keeps_its_wall_clock_hour_across_the_change_to_winter_time() -> None:
     """The clocks go back on 25 October 2026: nine in the morning stays nine."""
     with _paris():
         assert schedules.timezone_name() == "Europe/Paris"
@@ -114,7 +118,7 @@ def a_schedule_keeps_its_wall_clock_hour_across_the_change_to_winter_time():
 
 
 @case
-def the_same_moment_in_any_offset_gives_the_same_occurrence():
+def the_same_moment_in_any_offset_gives_the_same_occurrence() -> None:
     """A Last run from Notion comes in UTC, an offset may predate the change of time: same instant, same answer."""
     with _paris():
         here = datetime.fromisoformat("2026-10-26T07:30:00+01:00")
@@ -141,7 +145,7 @@ def the_same_moment_in_any_offset_gives_the_same_occurrence():
 
 
 @case
-def weekly_and_monthly_schedules_walk_their_day_in_a_row():
+def weekly_and_monthly_schedules_walk_their_day_in_a_row() -> None:
     with _paris():
         assert _walk("Weekly", "09:00", "Monday", "2026-10-14T12:00:00+02:00", 3) == [
             "2026-10-19 09:00 CEST",
@@ -156,7 +160,7 @@ def weekly_and_monthly_schedules_walk_their_day_in_a_row():
 
 
 @case
-def a_paused_or_unreadable_schedule_has_no_upcoming_moment():
+def a_paused_or_unreadable_schedule_has_no_upcoming_moment() -> None:
     """The calendar draws from `upcoming`: a schedule that is off is a schedule nothing is due from."""
     now = datetime.fromisoformat("2026-10-14T21:00:00+02:00")
     page = store.Page(id="a" * 32, title="Whisper Desk", properties={}, url="")
@@ -172,7 +176,7 @@ def a_paused_or_unreadable_schedule_has_no_upcoming_moment():
         last_ticket="",
         project="",
         model="",
-        priority="",
+        priority=None,
     )
     assert schedules.upcoming(due, now) == now, "due: it fires on the next pass, never in the past"
     due.active = False
@@ -182,7 +186,7 @@ def a_paused_or_unreadable_schedule_has_no_upcoming_moment():
 
 
 @case
-def a_date_range_schedules_on_its_end():
+def a_date_range_schedules_on_its_end() -> None:
     """Notion dates may be ranges; the runner reads the moment work is due."""
     page = notion.Page(
         id="x",

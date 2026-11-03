@@ -15,6 +15,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+from email.message import Message
 from pathlib import Path
 
 import release
@@ -38,11 +39,19 @@ from ponos.__main__ import main as cli_main
 from ponos.web import overview as web_overview
 from ponos.web import settings as web_settings
 
+
+def _searched(pattern: str, text: str, flags: int = 0) -> re.Match[str]:
+    """`re.search` where the test expects a match: none is a failure, said with its pattern."""
+    found = re.search(pattern, text, flags)
+    assert found is not None, pattern
+    return found
+
+
 # -- releases ----------------------------------------------------------------
 
 
 @case
-def the_version_and_the_changelog_never_drift():
+def the_version_and_the_changelog_never_drift() -> None:
     """The one invariant the whole release system rests on.
 
     `__version__` and the newest released section of CHANGELOG.md are written by
@@ -69,13 +78,18 @@ def the_version_and_the_changelog_never_drift():
 
 
 @case
-def a_version_main_carries_gets_the_tag_nobody_pushed():
+def a_version_main_carries_gets_the_tag_nobody_pushed() -> None:
     """0.2.0 was merged and never tagged: `tag` is what ci.yml runs so that cannot recur."""
     calls: list[tuple[str, ...]] = []
     done = subprocess.CompletedProcess([], 0, "", "")
     saved = release.tag_exists, release.command_check, release.git
     try:
-        release.git = lambda *arguments: calls.append(arguments) or done  # type: ignore[assignment]
+
+        def git(*arguments: str) -> subprocess.CompletedProcess[str]:
+            calls.append(arguments)
+            return done
+
+        release.git = git
         arguments = release.build_parser().parse_args(["tag", "--branch", "HEAD"])
 
         release.tag_exists = lambda tag: False
@@ -100,7 +114,7 @@ def a_version_main_carries_gets_the_tag_nobody_pushed():
 
 
 @case
-def main_tags_its_version_and_starts_the_release_workflow_itself():
+def main_tags_its_version_and_starts_the_release_workflow_itself() -> None:
     """A tag pushed with the workflow token starts nothing: ci.yml has to dispatch the release."""
     workflows = ROOT / ".github" / "workflows"
     ci = (workflows / "ci.yml").read_text(encoding="utf-8")
@@ -109,7 +123,7 @@ def main_tags_its_version_and_starts_the_release_workflow_itself():
 
 
 @case
-def the_dokploy_template_pins_the_image_of_this_version():
+def the_dokploy_template_pins_the_image_of_this_version() -> None:
     """Never `latest`: the image the tag of this tree publishes, and `bump` moves it."""
     version = release.read_version()
     assert release.read_pins() == {"docker-compose.yml": version, "meta.json": version}
@@ -123,7 +137,7 @@ def the_dokploy_template_pins_the_image_of_this_version():
 
 
 @case
-def the_dokploy_template_keeps_to_the_catalogues_rules():
+def the_dokploy_template_keeps_to_the_catalogues_rules() -> None:
     """What Dokploy/templates refuses, and the variables both files must agree on."""
     import tomllib
 
@@ -172,7 +186,7 @@ def the_dokploy_template_keeps_to_the_catalogues_rules():
 
 
 @case
-def the_dokploy_template_deploys_a_console_that_answers_on_its_domain():
+def the_dokploy_template_deploys_a_console_that_answers_on_its_domain() -> None:
     """The template loaded the way Dokploy loads it: every variable, the port, a compose.
 
     Every `${NAME}` of the compose is given by template.toml — a missing one is an
@@ -233,7 +247,7 @@ def the_dokploy_template_deploys_a_console_that_answers_on_its_domain():
 
 
 @case
-def a_release_only_ever_moves_forward():
+def a_release_only_ever_moves_forward() -> None:
     assert release.next_version("0.1.0", "patch") == "0.1.1"
     assert release.next_version("0.1.9", "minor") == "0.2.0"
     assert release.next_version("0.9.3", "major") == "1.0.0"
@@ -253,7 +267,7 @@ def a_release_only_ever_moves_forward():
 
 
 @case
-def a_bump_promotes_the_notes_and_opens_an_empty_unreleased():
+def a_bump_promotes_the_notes_and_opens_an_empty_unreleased() -> None:
     text = (
         "# Changelog\n\n## [Unreleased]\n\n### Added\n\n- A thing.\n\n"
         "## [0.1.0] - 2026-01-01\n\n### Added\n\n- The first thing.\n"
@@ -270,7 +284,7 @@ def a_bump_promotes_the_notes_and_opens_an_empty_unreleased():
 
 
 @case
-def an_empty_unreleased_is_not_a_release():
+def an_empty_unreleased_is_not_a_release() -> None:
     """A tag with no notes is a tag, and nobody came here for a tag."""
     for refused in (
         "# Changelog\n\n## [Unreleased]\n\n## [0.1.0] - 2026-01-01\n\n- One.\n",
@@ -293,7 +307,7 @@ def an_empty_unreleased_is_not_a_release():
 
 
 @case
-def the_dash_in_a_changelog_heading_is_whichever_one_was_typed():
+def the_dash_in_a_changelog_heading_is_whichever_one_was_typed() -> None:
     """The file is written by hand, and a hand that writes em dashes writes them here.
 
     A heading the parser fails to see is a release whose notes silently come out
@@ -305,7 +319,7 @@ def the_dash_in_a_changelog_heading_is_whichever_one_was_typed():
 
 
 @case
-def a_bare_command_line_presents_the_product_and_its_version(state_home):
+def a_bare_command_line_presents_the_product_and_its_version(state_home: Path) -> None:
     """`ponos`, typed alone, is somebody's first look at what they installed.
 
     So it answers the two questions that come with that — what is this, and
@@ -329,7 +343,7 @@ def a_bare_command_line_presents_the_product_and_its_version(state_home):
 
 
 @case
-def the_exit_codes_are_the_ones_the_guide_tells_a_script(state_home):
+def the_exit_codes_are_the_ones_the_guide_tells_a_script(state_home: Path) -> None:
     """`0`, `1`, `2` and `130` are what a healthcheck reads, so the table says them all.
 
     `0` is a command done, `1` a problem it found, `2` a configuration it could
@@ -351,7 +365,7 @@ def the_exit_codes_are_the_ones_the_guide_tells_a_script(state_home):
             else:
                 raise AssertionError("run went ahead with no configuration")
 
-        def interrupted(args):
+        def interrupted(args: argparse.Namespace) -> int:
             raise KeyboardInterrupt
 
         history = cli.command_history
@@ -367,7 +381,7 @@ def the_exit_codes_are_the_ones_the_guide_tells_a_script(state_home):
 
 
 @case
-def every_option_says_what_it_does():
+def every_option_says_what_it_does() -> None:
     """`--help` is where somebody looks before typing `clean --force`.
 
     So no option is left as a bare flag: an action added without its `help`
@@ -389,7 +403,7 @@ def every_option_says_what_it_does():
 
 
 @case
-def the_help_presents_the_board_before_notion():
+def the_help_presents_the_board_before_notion() -> None:
     """`ponos --help` is the first thing a stranger types: Notion is an option.
 
     So its description is the positioning of the README, not "Notion tickets",
@@ -405,7 +419,7 @@ def the_help_presents_the_board_before_notion():
 
 
 @case
-def the_usage_block_names_every_verb_and_option_the_parser_has():
+def the_usage_block_names_every_verb_and_option_the_parser_has() -> None:
     """The block of `guide/usage.md` is the one place every command is listed.
 
     So it is held to the parser both ways: a verb or an option added to the
@@ -457,7 +471,7 @@ def the_usage_block_names_every_verb_and_option_the_parser_has():
 
 
 @case
-def the_status_says_the_daily_limit_and_whether_it_is_spent(state_home):
+def the_status_says_the_daily_limit_and_whether_it_is_spent(state_home: Path) -> None:
     """A block of `ponos status` is read from a configuration, without the parser."""
     configuration = _config("[budget]\ndaily_usd = 5\nper_ticket_usd = 2\n")
     configuration.runner.on = False
@@ -475,7 +489,7 @@ def the_status_says_the_daily_limit_and_whether_it_is_spent(state_home):
 
 
 @case
-def a_waiting_update_is_said_on_the_welcome_screen(state_home):
+def a_waiting_update_is_said_on_the_welcome_screen(state_home: Path) -> None:
     """The one thing worth adding to a version number: that it is not the newest.
 
     Read from the stamp a run already wrote — a welcome screen that fetched
@@ -490,7 +504,7 @@ def a_waiting_update_is_said_on_the_welcome_screen(state_home):
 
 
 @case
-def the_welcome_screen_says_the_cli_stays_in_english(state_home):
+def the_welcome_screen_says_the_cli_stays_in_english(state_home: Path) -> None:
     """`language = "fr"` turns the console and the reports French, not the CLI.
 
     Said where somebody who set it looks first, rather than leave them asking
@@ -519,7 +533,7 @@ def the_welcome_screen_says_the_cli_stays_in_english(state_home):
 
 
 @case
-def the_console_header_and_the_command_line_agree_on_the_version(state_home):
+def the_console_header_and_the_command_line_agree_on_the_version(state_home: Path) -> None:
     """One number, two surfaces: what --version prints is what the browser shows.
 
     The console reads it bare — an update waiting is a separate field, so the
@@ -549,7 +563,7 @@ def the_console_header_and_the_command_line_agree_on_the_version(state_home):
 
 
 @case
-def a_copy_that_is_not_a_repository_says_its_number_alone():
+def a_copy_that_is_not_a_repository_says_its_number_alone() -> None:
     """No `.git` beside the sources — a copy, an image: the number, and no commit."""
     with tempfile.TemporaryDirectory() as scratch:
         copy = Path(scratch) / "app"
@@ -579,7 +593,7 @@ def _git(where: Path, *args: str) -> str:
 
 
 @case
-def a_checkout_on_its_own_tag_says_its_number_alone():
+def a_checkout_on_its_own_tag_says_its_number_alone() -> None:
     """On `v0.2.0`, `0.2.0` names one commit; one commit past it, the commit is added.
 
     `update_channel = "main"` runs every commit under the same number: the
@@ -634,7 +648,7 @@ def _built(extension: str) -> Path:
 
 
 @case
-def the_console_ships_its_built_bundle():
+def the_console_ships_its_built_bundle() -> None:
     """A clone of this repository is a console that opens, with nothing built.
 
     `ponos` installs by cloning and running `python3`. If the bundle
@@ -654,7 +668,7 @@ def the_console_ships_its_built_bundle():
 
 
 @case
-def the_console_is_downloaded_once_and_compressed():
+def the_console_is_downloaded_once_and_compressed() -> None:
     """A second load fetches the page and nothing else; the first, gzipped.
 
     On 1 October 2026 every load of the console downloaded 1.3 MB again: every
@@ -672,7 +686,7 @@ def the_console_is_downloaded_once_and_compressed():
     threading.Thread(target=console.serve_forever, daemon=True).start()
     port = console.server_address[1]
 
-    def get(path: str, **headers: str):
+    def get(path: str, **headers: str) -> tuple[Message, bytes]:
         request = urllib.request.Request(
             f"http://127.0.0.1:{port}{path}", headers={"Authorization": "Bearer tok", **headers}
         )
@@ -732,7 +746,7 @@ def the_console_is_downloaded_once_and_compressed():
 
 
 @case
-def the_console_is_installable_as_an_app():
+def the_console_is_installable_as_an_app() -> None:
     """A manifest, three icons and a worker, served to a browser with no cookie.
 
     A browser fetches the manifest and the worker for itself, and a manifest
@@ -753,7 +767,7 @@ def the_console_is_installable_as_an_app():
     threading.Thread(target=console.serve_forever, daemon=True).start()
     port = console.server_address[1]
 
-    def get(path: str):
+    def get(path: str) -> tuple[Message, bytes]:
         with urllib.request.urlopen(f"http://127.0.0.1:{port}{path}", timeout=5) as response:
             return response.headers, response.read()
 
@@ -792,7 +806,7 @@ def the_console_is_installable_as_an_app():
 
 
 @case
-def the_console_and_the_landing_page_draw_one_robot():
+def the_console_and_the_landing_page_draw_one_robot() -> None:
     """The mascot is one file, and the console bundles it rather than a copy.
 
     The landing page loads `docs/mascot/ponos-robot.js` from a <script>
@@ -820,7 +834,7 @@ def the_console_and_the_landing_page_draw_one_robot():
 
 
 @case
-def the_icon_is_the_logo_and_the_robot_is_flat():
+def the_icon_is_the_logo_and_the_robot_is_flat() -> None:
     """The app's icon is the logo, a file of its own; the robot is three flat shapes.
 
     The favicon used to be the robot's face, and the robot wore gradients, a
@@ -858,7 +872,7 @@ LANDING = ROOT / "docs/index.html"
 
 
 @case
-def docs_holds_the_site_and_nothing_written_for_the_team():
+def docs_holds_the_site_and_nothing_written_for_the_team() -> None:
     """Everything under `docs/` is served by GitHub Pages, at the-ponos.app.
 
     `docs/CNAME` makes the folder the site's root: a file dropped there is a
@@ -880,7 +894,7 @@ def docs_holds_the_site_and_nothing_written_for_the_team():
 
 
 @case
-def the_console_and_the_landing_page_share_one_set_of_tokens():
+def the_console_and_the_landing_page_share_one_set_of_tokens() -> None:
     """One file of colours, faces and radius, and the site has no other.
 
     The console imports `frontend/src/tokens.css`; the site has no build step,
@@ -928,7 +942,7 @@ def the_console_and_the_landing_page_share_one_set_of_tokens():
 
 
 @case
-def the_landing_page_opens_on_ponos_and_tells_the_loop_in_seven_sections():
+def the_landing_page_opens_on_ponos_and_tells_the_loop_in_seven_sections() -> None:
     """Seven sections at most, the first one Ponos and the promise.
 
     Seventeen sections at the same level is a manual, and the manual is the
@@ -945,21 +959,21 @@ def the_landing_page_opens_on_ponos_and_tells_the_loop_in_seven_sections():
     assert "Write the ticket." in hero and "It comes back done." in hero, (
         "the promise is not the headline"
     )
-    title = re.search(r"<title>(.*?)</title>", page).group(1)
+    title = _searched(r"<title>(.*?)</title>", page).group(1)
     assert "Write the ticket. It comes back done." in title
     assert "Notion" not in title and "Claude" not in title, (
         "the promise leans on somebody else's brand"
     )
-    description = re.search(r'<meta name="description" content="([^"]*)"', page).group(1)
+    description = _searched(r'<meta name="description" content="([^"]*)"', page).group(1)
     assert "It comes back done." in description
-    assert "It comes back done." in re.search(
+    assert "It comes back done." in _searched(
         r'<meta property="og:title" content="([^"]*)"', page
     ).group(1)
     assert "It comes back done." in (ROOT / "docs/llms.txt").read_text(encoding="utf-8")
 
 
 @case
-def the_heros_picture_is_the_loop_and_ends_on_your_decision():
+def the_heros_picture_is_the_loop_and_ends_on_your_decision() -> None:
     """Three numbered steps, and the third a decision rather than a pull request.
 
     The promise is *nothing ships until you say yes*: the picture shows the two
@@ -984,7 +998,7 @@ def the_heros_picture_is_the_loop_and_ends_on_your_decision():
     assert "<ponos-robot" in figure
     statuses = re.findall(r'<span class="status[^"]*">([^<]+)</span>', figure)
     assert statuses == ["Ready"], f"the ticket of step one moves on: {statuses}"
-    label = re.search(r'role="img" aria-label="([^"]+)"', figure).group(1)
+    label = _searched(r'role="img" aria-label="([^"]+)"', figure).group(1)
     assert "Validate" in label and "Run again" in label, (
         "the picture's description does not tell the decision"
     )
@@ -994,7 +1008,7 @@ def the_heros_picture_is_the_loop_and_ends_on_your_decision():
 
 
 @case
-def the_landing_page_shows_the_console_filmed_right_after_its_hero():
+def the_landing_page_shows_the_console_filmed_right_after_its_hero() -> None:
     """The hero promises; the section under it shows the real console doing it.
 
     A schematic board drawn in the page's own markup came second, and it looked
@@ -1010,7 +1024,7 @@ def the_landing_page_shows_the_console_filmed_right_after_its_hero():
     assert order[:3] == ["top", "loop", "tasks"], f"the loop no longer follows the hero: {order}"
     assert "board-demo" not in page and 'id="board"' not in page, "the schematic board is back"
     loop = page.split('<section id="loop">', 1)[1].split("</section>", 1)[0]
-    video = re.search(r"<video\b[^>]*>", loop, re.S).group(0)
+    video = _searched(r"<video\b[^>]*>", loop, re.S).group(0)
     for attribute in ("muted", "loop", "playsinline", 'preload="none"'):
         assert re.search(rf"\s{attribute}(?=[\s>])", video), f"the film is not {attribute}"
     assert "autoplay" not in video, "the film starts before the page can ask about motion"
@@ -1030,7 +1044,7 @@ def the_landing_page_shows_the_console_filmed_right_after_its_hero():
             )
     for theme in ("light", "dark"):
         cues = [
-            float(at) for at in re.search(rf'data-cues-{theme}="([^"]+)"', video).group(1).split()
+            float(at) for at in _searched(rf'data-cues-{theme}="([^"]+)"', video).group(1).split()
         ]
         assert len(cues) == 4 and cues[0] == 0 and cues == sorted(cues), (
             f"one cue per gesture, in order: {cues}"
@@ -1047,7 +1061,7 @@ def the_landing_page_shows_the_console_filmed_right_after_its_hero():
 
 
 @case
-def the_site_answers_the_icons_a_browser_asks_for_and_a_page_of_its_own_for_a_lost_one():
+def the_site_answers_the_icons_a_browser_asks_for_and_a_page_of_its_own_for_a_lost_one() -> None:
     """`/favicon.ico` and `/apple-touch-icon.png` are asked for whatever the page declares.
 
     A browser, a feed reader or an iPhone saving the page look for them at the
@@ -1080,7 +1094,7 @@ def the_site_answers_the_icons_a_browser_asks_for_and_a_page_of_its_own_for_a_lo
 
 
 @case
-def the_repository_s_homepage_is_the_site():
+def the_repository_s_homepage_is_the_site() -> None:
     """The package says where Ponos lives, and the example says whose repositories a session may touch."""
     import tomllib
 
@@ -1094,7 +1108,7 @@ def the_repository_s_homepage_is_the_site():
 
 
 @case
-def ponos_is_named_on_the_site_in_the_readme_and_in_the_console():
+def ponos_is_named_on_the_site_in_the_readme_and_in_the_console() -> None:
     """The robot's name, in both languages, wherever the robot is."""
     assert "Ponos" in LANDING.read_text(encoding="utf-8")
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
@@ -1114,7 +1128,7 @@ def ponos_is_named_on_the_site_in_the_readme_and_in_the_console():
 
 
 @case
-def the_landing_page_tells_notion_in_one_band_with_its_badge_served_locally():
+def the_landing_page_tells_notion_in_one_band_with_its_badge_served_locally() -> None:
     """Notion is optional: one band, not four rows longer than the console.
 
     One window chains the three captures and steps that follow it; a video
@@ -1155,7 +1169,7 @@ def the_landing_page_tells_notion_in_one_band_with_its_badge_served_locally():
     badges = re.findall(r'<img\b[^>]*alt="Made for Notion"[^>]*>', band)
     assert len(badges) == 2, "the badge needs its light and its dark variant"
     for badge in badges:
-        src = re.search(r'src="([^"]+)"', badge).group(1)
+        src = _searched(r'src="([^"]+)"', badge).group(1)
         assert src.startswith("media/notion/") and (ROOT / "docs" / src).exists(), (
             f"the badge is not served from docs/: {src}"
         )
@@ -1203,7 +1217,7 @@ def _resolves(page: str, anchor: str) -> bool:
 
 
 @case
-def the_site_links_documentation_anchors_that_exist():
+def the_site_links_documentation_anchors_that_exist() -> None:
     """A link into the documentation is a promise the documentation keeps.
 
     The site sends everything it no longer explains to a heading of the README
@@ -1232,7 +1246,7 @@ def the_site_links_documentation_anchors_that_exist():
 
 
 @case
-def the_french_landing_page_answers_the_english_one():
+def the_french_landing_page_answers_the_english_one() -> None:
     """`/fr/` is the same page in French, and each says so to the other.
 
     A visitor who writes French finds a page in their language, and a search
@@ -1267,7 +1281,7 @@ def the_french_landing_page_answers_the_english_one():
 
 
 @case
-def the_documentation_links_pages_and_anchors_that_exist():
+def the_documentation_links_pages_and_anchors_that_exist() -> None:
     """Every page of the documentation sends its reader somewhere that is there.
 
     The README was cut into the guide and CONTRIBUTING.md: a section moved to
@@ -1295,7 +1309,7 @@ def the_documentation_links_pages_and_anchors_that_exist():
 
 
 @case
-def the_readme_stays_a_welcome_page():
+def the_readme_stays_a_welcome_page() -> None:
     """The README says what Ponos is, how to install it, and where the rest is.
 
     It had grown to 300 KB, two installation chapters and the contributors'
@@ -1337,7 +1351,7 @@ def _commands(text: str, html: bool = False) -> list[str]:
 
 
 @case
-def the_documentation_only_cites_commands_the_cli_has():
+def the_documentation_only_cites_commands_the_cli_has() -> None:
     """A command the documentation names is one `ponos` answers to.
 
     The guide once said `ponos next`, a verb the parser never had: whoever typed
@@ -1355,7 +1369,7 @@ def the_documentation_only_cites_commands_the_cli_has():
 
 
 @case
-def the_console_says_the_version_it_is_running_beside_the_stream_s_dot():
+def the_console_says_the_version_it_is_running_beside_the_stream_s_dot() -> None:
     """The number reaches the page, rather than staying in the payload.
 
     It used to be a pill in the bar, beside four others — the timer, a run in
@@ -1377,7 +1391,7 @@ def the_console_says_the_version_it_is_running_beside_the_stream_s_dot():
 
 
 @case
-def the_discussion_opens_from_a_bubble_rather_than_from_a_column():
+def the_discussion_opens_from_a_bubble_rather_than_from_a_column() -> None:
     """One way in, in the corner every reader already looks in for a chat.
 
     Half the screen used to be given to a conversation whether or not there was
@@ -1409,7 +1423,7 @@ def the_discussion_opens_from_a_bubble_rather_than_from_a_column():
 
 
 @case
-def the_console_is_drawn_in_react_resource_view_s_admin_layout():
+def the_console_is_drawn_in_react_resource_view_s_admin_layout() -> None:
     """One admin interface, the package's, rather than two kept side by side.
 
     The console had a frame of its own — a sidebar, a bar, a router over the
@@ -1461,7 +1475,7 @@ def the_console_is_drawn_in_react_resource_view_s_admin_layout():
 
 
 @case
-def a_project_is_a_resource_with_two_layouts_and_a_form():
+def a_project_is_a_resource_with_two_layouts_and_a_form() -> None:
     """Clickable, editable, and drawn two ways — which is what the screen is for.
 
     Read from the React source rather than from the bundle: the bundle is
@@ -1488,7 +1502,7 @@ def a_project_is_a_resource_with_two_layouts_and_a_form():
 
 
 @case
-def a_schedule_is_a_resource_drawn_in_the_package_s_own_layouts():
+def a_schedule_is_a_resource_drawn_in_the_package_s_own_layouts() -> None:
     """The one page whose rows are dates, laid out as dates.
 
     It was a pane: cards drawn by hand, a form written by hand, and a date
@@ -1528,7 +1542,7 @@ def a_schedule_is_a_resource_drawn_in_the_package_s_own_layouts():
 
 
 @case
-def a_session_is_followed_on_its_ticket_rather_than_on_a_page_of_sessions():
+def a_session_is_followed_on_its_ticket_rather_than_on_a_page_of_sessions() -> None:
     """The live page listed sessions by the id of their log, and nothing more.
 
     `24f9704c` said nothing of the ticket it was: the session is read where the
@@ -1556,7 +1570,7 @@ def a_session_is_followed_on_its_ticket_rather_than_on_a_page_of_sessions():
 
 
 @case
-def the_console_menu_is_a_name_and_a_count():
+def the_console_menu_is_a_name_and_a_count() -> None:
     """Seven entries of two lines each is a page to read, not a menu to use.
 
     Every entry used to carry a sentence under its name — how many tickets were
@@ -1575,7 +1589,7 @@ def the_console_menu_is_a_name_and_a_count():
 
 
 @case
-def a_project_that_cannot_be_read_says_what_the_server_answered():
+def a_project_that_cannot_be_read_says_what_the_server_answered() -> None:
     """The one screen where a generic sentence cost an afternoon.
 
     The page a project opens on was handed `error: true` and nothing else, so
@@ -1593,12 +1607,14 @@ def a_project_that_cannot_be_read_says_what_the_server_answered():
 
 
 @case
-def no_two_routes_of_the_console_answer_one_path():
+def no_two_routes_of_the_console_answer_one_path() -> None:
     """A path finds one route of its method, so the order they are filed in decides nothing.
 
     Each route is given a path its parameters accept — a Notion ID, a chat
     identifier, a number, a word — and that path must find that route alone.
     """
+    from starlette.routing import Route
+
     from ponos.web import app, routes
 
     examples = {
@@ -1609,25 +1625,27 @@ def no_two_routes_of_the_console_answer_one_path():
         r"[\w.\-]+": "20260828-112441-3eaf7e7b.jsonl",
         ".*": "assets/index.js",
     }
-    table = [*routes.router.routes, *app.doors.routes]
+    filed = [*routes.router.routes, *app.doors.routes]
+    table = [route for route in filed if isinstance(route, Route)]
+    assert len(table) == len(filed), "a route that is not a path"
     assert len({route.name for route in table}) == len(table), "two routes, one name"
     for route in table:
         path = route.path_format
         for name, convertor in route.param_convertors.items():
             path = path.replace(f"{{{name}}}", examples[convertor.regex])
         assert route.path_regex.fullmatch(path), (route.path, path)
-        for method in route.methods:
+        for method in route.methods or ():
             answering = [
                 other.name
                 for other in table
-                if method in other.methods and other.path_regex.fullmatch(path)
+                if method in (other.methods or ()) and other.path_regex.fullmatch(path)
             ]
             assert answering == [route.name], (method, path, answering)
     assert len(table) > 80, "the routes are filed somewhere else now"
 
 
 @case
-def the_console_route_of_one_project_is_the_one_the_page_asks_for():
+def the_console_route_of_one_project_is_the_one_the_page_asks_for() -> None:
     """The address the browser builds has to be an address the server answers.
 
     They are written in two languages: the page asks `/api/projects/{project_id}`
@@ -1636,13 +1654,17 @@ def the_console_route_of_one_project_is_the_one_the_page_asks_for():
     carry. A 404 there reads, in the browser, as a project that could not be
     read.
     """
+    from starlette.routing import Route
+
     from ponos.web import routes
 
     asked = "/api/projects/" + "3eaf7e7b99c04adeae76ac6ecd52cdd0"
     routed = [
         route.name
         for route in routes.router.routes
-        if "GET" in route.methods and route.path_regex.fullmatch(asked)
+        if isinstance(route, Route)
+        and "GET" in (route.methods or ())
+        and route.path_regex.fullmatch(asked)
     ]
     assert routed == ["project"], f"{asked} is not a route this server answers: {routed}"
     assert 'client.GET("/api/projects/{project_id}"' in (FRONTEND / "src/lib/api.ts").read_text(
@@ -1651,7 +1673,7 @@ def the_console_route_of_one_project_is_the_one_the_page_asks_for():
 
 
 @case
-def a_turn_is_drawn_as_markdown_on_a_shadcn_bubble():
+def a_turn_is_drawn_as_markdown_on_a_shadcn_bubble() -> None:
     """Both sides write markdown, so neither side is shown its source.
 
     A session answers in headings, lists and fenced code, on a ticket and in
@@ -1667,7 +1689,7 @@ def a_turn_is_drawn_as_markdown_on_a_shadcn_bubble():
 
 
 @case
-def the_console_scrolls_in_its_own_colours():
+def the_console_scrolls_in_its_own_colours() -> None:
     """The bars the console scrolls on are drawn by the console, not the browser.
 
     Left alone, a browser paints them for a light page — pale and wide over a
@@ -1686,7 +1708,7 @@ def the_console_scrolls_in_its_own_colours():
 
 
 @case
-def the_console_buttons_show_the_hand():
+def the_console_buttons_show_the_hand() -> None:
     """Whatever can be clicked shows a hand, whatever is disabled says no.
 
     Tailwind 4's preflight stopped putting `cursor: pointer` on `<button>`, so
@@ -1705,7 +1727,7 @@ def the_console_buttons_show_the_hand():
 
 
 @case
-def the_console_asks_for_nothing_it_did_not_ship():
+def the_console_asks_for_nothing_it_did_not_ship() -> None:
     """Nothing the page loads comes from anywhere but this machine.
 
     The console is served by `http.server` on loopback, and a page that reached
@@ -1734,7 +1756,7 @@ def the_console_asks_for_nothing_it_did_not_ship():
 
 
 @case
-def the_console_says_the_configuration_in_french_too():
+def the_console_says_the_configuration_in_french_too() -> None:
     """Every sentence this module writes about a setting has a French entry.
 
     The settings page is the one place where what the console shows comes from
@@ -1770,7 +1792,7 @@ def the_console_says_the_configuration_in_french_too():
 
 
 @case
-def the_first_connection_says_what_the_machine_answers_in_french_too():
+def the_first_connection_says_what_the_machine_answers_in_french_too() -> None:
     """The sentences the steps repeat from the server are ones `said.ts` knows.
 
     `health.py`, `web/setup.py`, `provider.py`, `notion.py` and `config.py`
@@ -1801,7 +1823,7 @@ def the_first_connection_says_what_the_machine_answers_in_french_too():
 
 
 @case
-def the_console_says_what_the_server_refuses_in_french_too():
+def the_console_says_what_the_server_refuses_in_french_too() -> None:
     """Every sentence the console's chapters refuse with is one `refusals.ts` knows, in French.
 
     A refusal reaches the page as the English the Python raised, and `why()`
@@ -1829,7 +1851,7 @@ def the_console_says_what_the_server_refuses_in_french_too():
                 sentence = said.value
             elif isinstance(said, ast.JoinedStr):
                 sentence = "".join(
-                    part.value if isinstance(part, ast.Constant) else place(part.value)
+                    str(part.value) if isinstance(part, ast.Constant) else place(part.value)
                     for part in said.values
                     if isinstance(part, ast.Constant | ast.FormattedValue)
                 )
@@ -1844,7 +1866,7 @@ def the_console_says_what_the_server_refuses_in_french_too():
     listed = [
         json.loads(f'"{line}"') for line in re.findall(r'^  "(.*)",$', refusals, re.MULTILINE)
     ]
-    listed.append(re.search(r'SILENT = "(.*)"', refusals).group(1))  # type: ignore[union-attr]
+    listed.append(_searched(r'SILENT = "(.*)"', refusals).group(1))
     known = {re.sub(r"\{\{\w+\}\}", "{{}}", template) for template in listed}
     for sentence, where in raised.items():
         assert sentence in known, f"{where}: refusals.ts does not know “{sentence}”"
@@ -1856,7 +1878,7 @@ def the_console_says_what_the_server_refuses_in_french_too():
 
 
 @case
-def the_console_says_a_ticket_changed_in_notion_meanwhile_in_its_own_words():
+def the_console_says_a_ticket_changed_in_notion_meanwhile_in_its_own_words() -> None:
     """The two refusals to overwrite are sentences `conflicts.ts` recognises.
 
     The runner's (`reports.py`) and the console's (`web/board.py`) reach the
@@ -1869,7 +1891,7 @@ def the_console_says_a_ticket_changed_in_notion_meanwhile_in_its_own_words():
 
     conflicts = (FRONTEND / "src/lib/conflicts.ts").read_text(encoding="utf-8")
     patterns = {
-        name: re.compile(re.search(rf"^const {name} =\s*/(.*)/$", conflicts, re.MULTILINE).group(1))  # type: ignore[union-attr]
+        name: re.compile(_searched(rf"^const {name} =\s*/(.*)/$", conflicts, re.MULTILINE).group(1))
         for name in ("RUNNER", "CONSOLE")
     }
 
@@ -1898,7 +1920,7 @@ def the_console_says_a_ticket_changed_in_notion_meanwhile_in_its_own_words():
 
 
 @case
-def the_console_offers_the_two_languages_it_has():
+def the_console_offers_the_two_languages_it_has() -> None:
     """The settings carry the switch, and the browser is asked before you are.
 
     It sat at the right edge of the bar, on every page, which is a lot of room
@@ -1918,7 +1940,7 @@ def the_console_offers_the_two_languages_it_has():
 
 
 @case
-def the_version_is_rewritten_where_the_product_reads_it():
+def the_version_is_rewritten_where_the_product_reads_it() -> None:
     """`__version__` is what --version and the console header print.
 
     The rewrite is a regular expression over the real file, so this checks it
@@ -1934,7 +1956,7 @@ def the_version_is_rewritten_where_the_product_reads_it():
 
 
 @case
-def the_project_file_says_the_version_the_product_says():
+def the_project_file_says_the_version_the_product_says() -> None:
     """`pyproject.toml` must name a version, and it is a copy of `__version__`.
 
     `bump` writes both, against the real file's shape — the first `version =`

@@ -7,6 +7,7 @@ import json
 import os
 import time
 from datetime import UTC, datetime
+from typing import Any
 
 from support import _TEST_PEM, _github_answering, _test_app, case
 
@@ -19,7 +20,7 @@ from ponos.web import github as web_github
 
 
 @case
-def a_github_app_jwt_is_rs256_signed_by_its_key_and_lasts_under_ten_minutes():
+def a_github_app_jwt_is_rs256_signed_by_its_key_and_lasts_under_ten_minutes() -> None:
     import base64
 
     def part(text: str) -> bytes:
@@ -50,8 +51,10 @@ def a_github_app_jwt_is_rs256_signed_by_its_key_and_lasts_under_ten_minutes():
 
 
 @case
-def the_manifest_code_is_exchanged_once_and_the_app_kept_with_the_secrets():
-    def answer(method, path, headers, body):
+def the_manifest_code_is_exchanged_once_and_the_app_kept_with_the_secrets() -> None:
+    def answer(
+        method: str, path: str, headers: dict[str, str], body: bytes | None
+    ) -> tuple[int, Any]:
         if path.startswith("/app/installations?"):
             return 200, []
         assert (method, path) == ("POST", "/app-manifests/abc123/conversions"), (method, path)
@@ -92,7 +95,7 @@ def the_manifest_code_is_exchanged_once_and_the_app_kept_with_the_secrets():
 
 
 @case
-def a_github_state_that_is_unknown_used_or_expired_is_refused_before_github_is_asked():
+def a_github_state_that_is_unknown_used_or_expired_is_refused_before_github_is_asked() -> None:
     with _github_answering(lambda *_: (500, {})) as calls:
         assert github_app.take_state("") is None
         assert github_app.take_state("made-up") is None
@@ -109,7 +112,7 @@ def a_github_state_that_is_unknown_used_or_expired_is_refused_before_github_is_a
 
 
 @case
-def connecting_github_posts_a_manifest_for_an_account_or_an_organisation():
+def connecting_github_posts_a_manifest_for_an_account_or_an_organisation() -> None:
     mine = github_app.begin("http://127.0.0.1:8787/", "", "laptop")
     assert mine["action"].startswith("https://github.com/settings/apps/new?state=")
     theirs = github_app.begin("https://ponos.example", "@Hermez", "laptop")
@@ -131,10 +134,12 @@ def connecting_github_posts_a_manifest_for_an_account_or_an_organisation():
 
 
 @case
-def an_installation_token_is_kept_and_renewed_before_it_lapses():
+def an_installation_token_is_kept_and_renewed_before_it_lapses() -> None:
     minted: list[str] = []
 
-    def answer(method, path, headers, body):
+    def answer(
+        method: str, path: str, headers: dict[str, str], body: bytes | None
+    ) -> tuple[int, Any]:
         if path.startswith("/app/installations?"):
             return 200, [{"id": 7, "account": {"login": "Hermez"}, "repository_selection": "all"}]
         assert (method, path) == ("POST", "/app/installations/7/access_tokens"), path
@@ -159,8 +164,10 @@ def an_installation_token_is_kept_and_renewed_before_it_lapses():
 
 
 @case
-def a_session_and_a_push_on_an_installed_owner_carry_the_app_token_and_its_bot():
-    def answer(method, path, headers, body):
+def a_session_and_a_push_on_an_installed_owner_carry_the_app_token_and_its_bot() -> None:
+    def answer(
+        method: str, path: str, headers: dict[str, str], body: bytes | None
+    ) -> tuple[int, Any]:
         if path.startswith("/app/installations?"):
             return 200, [
                 {"id": 7, "account": {"login": "hermez"}, "repository_selection": "selected"}
@@ -199,7 +206,7 @@ def a_session_and_a_push_on_an_installed_owner_carry_the_app_token_and_its_bot()
 
 
 @case
-def without_a_github_app_the_gh_accounts_answer_as_before():
+def without_a_github_app_the_gh_accounts_answer_as_before() -> None:
     with _github_answering(lambda *_: (500, {})) as calls:
         assert github_app.apps() == []
         assert git_module.token_for("hermez/site", {}) == ""
@@ -209,7 +216,7 @@ def without_a_github_app_the_gh_accounts_answer_as_before():
 
 
 @case
-def git_is_given_the_app_token_through_its_environment_and_never_in_a_value():
+def git_is_given_the_app_token_through_its_environment_and_never_in_a_value() -> None:
     environment = github_app.git_environment(base={"GIT_CONFIG_COUNT": "2"})
     assert environment["GIT_CONFIG_COUNT"] == "7"
     assert "GIT_CONFIG_KEY_0" not in environment, "what was already carried stays where it was"

@@ -8,6 +8,7 @@ import logging
 import os
 import tempfile
 from pathlib import Path
+from typing import Any
 
 from support import case
 
@@ -20,11 +21,11 @@ from ponos.web import api as web_api
 # -- the run journal ---------------------------------------------------------
 
 
-def _said_event(text: str) -> dict:
+def _said_event(text: str) -> dict[str, Any]:
     return {"type": "assistant", "message": {"content": [{"type": "text", "text": text}]}}
 
 
-def _tool_event(name: str, payload: dict) -> dict:
+def _tool_event(name: str, payload: dict[str, Any]) -> dict[str, Any]:
     return {
         "type": "assistant",
         "message": {"content": [{"type": "tool_use", "name": name, "input": payload}]},
@@ -32,7 +33,7 @@ def _tool_event(name: str, payload: dict) -> dict:
 
 
 @case
-def a_file_at_schema_version_one_gets_the_tool_and_cost_columns_and_keeps_its_steps():
+def a_file_at_schema_version_one_gets_the_tool_and_cost_columns_and_keeps_its_steps() -> None:
     location = Path(tempfile.mkdtemp()) / "ponos.db"
     old = db.open_at(location, db.MIGRATIONS[:1])
     old.execute("INSERT INTO runs (ticket, started_at) VALUES ('t', 'now')")
@@ -51,7 +52,7 @@ def a_file_at_schema_version_one_gets_the_tool_and_cost_columns_and_keeps_its_st
 
 
 @case
-def a_model_is_said_as_provider_slash_model_wherever_it_is_shown():
+def a_model_is_said_as_provider_slash_model_wherever_it_is_shown() -> None:
 
     said = {
         "opus": "claude/opus",
@@ -78,7 +79,7 @@ def a_model_is_said_as_provider_slash_model_wherever_it_is_shown():
 
 
 @case
-def the_model_of_a_ticket_is_the_sessions_word_then_the_column_then_the_defaults():
+def the_model_of_a_ticket_is_the_sessions_word_then_the_column_then_the_defaults() -> None:
 
     settings = Path(os.environ["CLAUDE_CONFIG_DIR"]) / "settings.json"
     before = os.environ.pop("ANTHROPIC_MODEL", None)
@@ -114,7 +115,7 @@ def the_model_of_a_ticket_is_the_sessions_word_then_the_column_then_the_defaults
 
 
 @case
-def a_run_keeps_the_model_its_session_announced(state_home):
+def a_run_keeps_the_model_its_session_announced(state_home: Path) -> None:
     try:
         run = journal.Run.start(ticket="d" * 32, model="opus")
         run.event({"type": "system", "subtype": "init", "model": "claude-opus-4-1-20250805"})
@@ -125,7 +126,7 @@ def a_run_keeps_the_model_its_session_announced(state_home):
 
 
 @case
-def a_run_is_written_step_by_step_and_closed_on_what_the_ticket_came_to(state_home):
+def a_run_is_written_step_by_step_and_closed_on_what_the_ticket_came_to(state_home: Path) -> None:
     try:
         ticket = "3ed45168-0af4-8134-a677-f7f1e9024ae5"
         run = journal.Run.start(
@@ -177,9 +178,10 @@ def a_run_is_written_step_by_step_and_closed_on_what_the_ticket_came_to(state_ho
 
 
 @case
-def a_run_is_read_a_page_at_a_time_from_its_end(state_home):
+def a_run_is_read_a_page_at_a_time_from_its_end(state_home: Path) -> None:
     try:
         run = journal.Run.start(ticket="a" * 32)
+        assert run.id is not None
         for index in range(1, 451):
             run.event(_tool_event("Read", {"file_path": f"/f{index}"}))
         last = journal.steps(run.id)
@@ -201,7 +203,7 @@ def a_run_is_read_a_page_at_a_time_from_its_end(state_home):
 
 
 @case
-def a_journal_that_cannot_be_written_never_stops_a_ticket(state_home):
+def a_journal_that_cannot_be_written_never_stops_a_ticket(state_home: Path) -> None:
     state_home.mkdir(parents=True, exist_ok=True)
     (state_home / "ponos.db").write_bytes(b"this is not a database" * 100)
     said: list[str] = []
@@ -216,7 +218,7 @@ def a_journal_that_cannot_be_written_never_stops_a_ticket(state_home):
 
 
 @case
-def every_road_out_of_a_ticket_closes_its_run(state_home):
+def every_road_out_of_a_ticket_closes_its_run(state_home: Path) -> None:
     from ponos.execution import _both
 
     try:
@@ -239,9 +241,9 @@ def every_road_out_of_a_ticket_closes_its_run(state_home):
     finally:
         db.close()
 
-    heard: list[dict] = []
+    heard: list[dict[str, Any]] = []
 
-    def broken(event: dict) -> None:
+    def broken(event: dict[str, Any]) -> None:
         raise RuntimeError("Notion is down")
 
     listen = _both(heard.append, broken)
@@ -252,7 +254,7 @@ def every_road_out_of_a_ticket_closes_its_run(state_home):
 
 
 @case
-def the_console_reads_a_tickets_runs_and_their_steps_from_the_journal(state_home):
+def the_console_reads_a_tickets_runs_and_their_steps_from_the_journal(state_home: Path) -> None:
     try:
         api = web_api.Api.__new__(web_api.Api)
         older = journal.Run.start(ticket="c" * 32, title="first")
@@ -260,6 +262,7 @@ def the_console_reads_a_tickets_runs_and_their_steps_from_the_journal(state_home
         older.end("failed", "crashed")
         newer = journal.Run.start(ticket="c" * 32, title="second")
         newer.event(_tool_event("Bash", {"command": "ls"}))
+        assert older.id is not None and newer.id is not None
         runs = api.runs("c" * 32)["runs"]
         assert [run["title"] for run in runs] == ["second", "first"]
         page = api.run_steps(newer.id)
@@ -277,7 +280,7 @@ def the_console_reads_a_tickets_runs_and_their_steps_from_the_journal(state_home
 
 
 @case
-def ponos_logs_lists_a_tickets_runs_from_the_journal(state_home):
+def ponos_logs_lists_a_tickets_runs_from_the_journal(state_home: Path) -> None:
     try:
         run = journal.Run.start(
             ticket="d" * 32, title="A ticket", log=state.logs_dir() / "x-dddddddd.jsonl"
@@ -299,7 +302,7 @@ def ponos_logs_lists_a_tickets_runs_from_the_journal(state_home):
 
 
 @case
-def ponos_logs_service_prints_the_end_of_the_runners_own_journal(state_home):
+def ponos_logs_service_prints_the_end_of_the_runners_own_journal(state_home: Path) -> None:
     """`ponos logs --service` reads ponos.log — which the command itself opened."""
     out = io.StringIO()
     with contextlib.redirect_stdout(out):

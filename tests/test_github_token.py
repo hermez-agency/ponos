@@ -6,8 +6,10 @@ import json
 import os
 import shutil
 import tempfile
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Any
 
 from support import _config, _github_answering, _test_app, _tools, case
 
@@ -18,9 +20,12 @@ from ponos.web import github as web_github
 
 # -- the GitHub token ----------------------------------------------------------
 
+# GitHub as a case answers it: `(path, token) -> (status, headers, payload)`.
+Answer = Callable[[str, str], tuple[int, dict[str, str], Any]]
+
 
 @contextmanager
-def _token_answering(answer, configuration: str = ""):
+def _token_answering(answer: Answer, configuration: str = "") -> Iterator[list[str]]:
     """GitHub replaced by `answer(path, token) -> (status, headers, payload)`, with a config of its own.
 
     Yields the paths asked. Nothing here reads the machine's own configuration,
@@ -28,7 +33,7 @@ def _token_answering(answer, configuration: str = ""):
     """
     asked: list[str] = []
 
-    def send(url, bearer):
+    def send(url: str, bearer: str) -> tuple[int, dict[str, str], bytes]:
         path = url[len(github_app.api()) :]
         asked.append(path)
         status, headers, payload = answer(path, bearer)
@@ -60,10 +65,10 @@ def _token_answering(answer, configuration: str = ""):
         vault.forget()
 
 
-def _fine_grained(repositories, pulls=200):
+def _fine_grained(repositories: list[dict[str, Any]], pulls: int = 200) -> Answer:
     """A fine-grained token as GitHub answers for it: no scopes header, `pulls` for the pull requests."""
 
-    def answer(path, bearer):
+    def answer(path: str, bearer: str) -> tuple[int, dict[str, str], Any]:
         if path == "/user":
             return 200, {}, {"login": "salva"}
         if path.startswith("/user/repos"):
@@ -79,7 +84,7 @@ _WRITABLE = [{"full_name": "salva/site", "permissions": {"push": True, "pull": T
 
 
 @case
-def a_token_with_what_a_code_ticket_needs_is_kept_and_never_shown():
+def a_token_with_what_a_code_ticket_needs_is_kept_and_never_shown() -> None:
     with _token_answering(_fine_grained(_WRITABLE)):
         checked = github_token.check("github_pat_abcdef123456")
         assert checked["ok"] and checked["login"] == "salva" and checked["kind"] == "fine-grained"
@@ -97,7 +102,7 @@ def a_token_with_what_a_code_ticket_needs_is_kept_and_never_shown():
 
 
 @case
-def a_token_that_is_refused_or_too_narrow_says_what_it_lacks():
+def a_token_that_is_refused_or_too_narrow_says_what_it_lacks() -> None:
     with _token_answering(lambda path, bearer: (401, {}, {"message": "Bad credentials"})):
         try:
             github_token.check("github_pat_wrong")
@@ -120,7 +125,7 @@ def a_token_that_is_refused_or_too_narrow_says_what_it_lacks():
         assert github_token.check("github_pat_x")["missing"][0]["permission"] == "Repository access"
 
     # A classic token says its scopes in a header; `repo` is the one it cannot do without.
-    def classic(path, bearer):
+    def classic(path: str, bearer: str) -> tuple[int, dict[str, str], Any]:
         headers = {"x-oauth-scopes": "read:user"}
         if path == "/user":
             return 200, headers, {"login": "salva"}
@@ -134,36 +139,36 @@ def a_token_that_is_refused_or_too_narrow_says_what_it_lacks():
 
 
 @case
-def the_console_keeps_only_a_token_that_can_work_and_selects_it():
-    saved: list[dict] = []
+def the_console_keeps_only_a_token_that_can_work_and_selects_it() -> None:
+    saved: list[dict[str, Any]] = []
 
     class Api:
-        def save_settings(self, payload):
+        def save_settings(self, payload: dict[str, Any]) -> dict[str, Any]:
             saved.append(payload)
             return {"saved": []}
 
     with _token_answering(_fine_grained(_WRITABLE, pulls=403)):
-        answer = web_github.save_token(Api(), {"token": "github_pat_narrow"})
+        answer = web_github.save_token(Api(), {"token": "github_pat_narrow"})  # type: ignore[arg-type]  # a fake: only the settings
         assert answer["saved"] is False and answer["missing"][0]["permission"] == "Pull requests"
         assert github_token.token() == "" and saved == [], (
             "a token that lacks a permission is not kept"
         )
         try:
-            web_github.save_token(Api(), {"token": "has a space"})
+            web_github.save_token(Api(), {"token": "has a space"})  # type: ignore[arg-type]  # a fake: only the settings
         except ValueError as error:
             assert "one line" in str(error)
         else:
             raise AssertionError("a pasted sentence is no token")
     with _token_answering(_fine_grained(_WRITABLE)):
-        answer = web_github.save_token(Api(), {"token": "github_pat_good"})
+        answer = web_github.save_token(Api(), {"token": "github_pat_good"})  # type: ignore[arg-type]  # a fake: only the settings
         assert answer["saved"] is True and "github_pat_good" not in json.dumps(answer)
         assert saved == [{"settings": {"github_access.mode": "token"}}]
         assert github_token.token() == "github_pat_good"
 
 
 @case
-def a_token_comes_before_gh_and_after_or_before_the_app_as_the_mode_says():
-    def answer(path, bearer):
+def a_token_comes_before_gh_and_after_or_before_the_app_as_the_mode_says() -> None:
+    def answer(path: str, bearer: str) -> tuple[int, dict[str, str], Any]:
         if path.startswith("/app/installations?"):
             return (
                 200,
@@ -172,7 +177,9 @@ def a_token_comes_before_gh_and_after_or_before_the_app_as_the_mode_says():
             )
         raise AssertionError(path)
 
-    def app_token(method, path, headers, body):
+    def app_token(
+        method: str, path: str, headers: dict[str, str], body: bytes | None
+    ) -> tuple[int, Any]:
         if path.startswith("/app/installations?"):
             return 200, [{"id": 7, "account": {"login": "hermez"}, "repository_selection": "all"}]
         return 201, {"token": "ghs_app", "expires_at": "2099-01-01T00:00:00Z"}
@@ -210,7 +217,7 @@ def a_token_comes_before_gh_and_after_or_before_the_app_as_the_mode_says():
 
 
 @case
-def no_case_inherits_the_github_access_or_the_provider_of_the_machine_that_runs_it():
+def no_case_inherits_the_github_access_or_the_provider_of_the_machine_that_runs_it() -> None:
     # A laptop where `gh` is set up, or a cloud session, exports these: what a
     # case sees of GitHub and of who answers its sessions is what it poses.
     names = (
@@ -232,7 +239,7 @@ def no_case_inherits_the_github_access_or_the_provider_of_the_machine_that_runs_
 
 
 @case
-def a_token_is_read_from_the_environment_or_a_vault_and_masked():
+def a_token_is_read_from_the_environment_or_a_vault_and_masked() -> None:
     with _token_answering(lambda *_: (200, {}, {})):
         os.environ[C.GITHUB_TOKEN_ENV] = "github_pat_from_the_container"
         github_token._kept = None
@@ -260,7 +267,7 @@ def a_token_is_read_from_the_environment_or_a_vault_and_masked():
 
 
 @case
-def the_github_access_keys_are_documented_and_the_token_is_a_secret():
+def the_github_access_keys_are_documented_and_the_token_is_a_secret() -> None:
     assert C.SECRETS[("github_access", "token")] == "PONOS_GITHUB_TOKEN"
     example = (Path(__file__).resolve().parents[1] / "config.example.toml").read_text()
     assert "[github_access]" in example and "PONOS_GITHUB_TOKEN" in example

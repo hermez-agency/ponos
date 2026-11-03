@@ -5,6 +5,8 @@ from __future__ import annotations
 import csv
 import io
 from datetime import UTC, date
+from pathlib import Path
+from typing import Any
 
 from support import case
 
@@ -12,7 +14,7 @@ from ponos import spending, state
 from ponos.web import statistics as web_statistics
 
 
-def _session(ticket: str, at: str, cost: float, project: str = "Opoil", **more) -> None:
+def _session(ticket: str, at: str, cost: float, project: str = "Opoil", **more: Any) -> None:
     state.record(
         {
             "ticket": more.pop("title", f"Ticket {ticket}"),
@@ -32,7 +34,7 @@ def _read(text: str) -> list[list[str]]:
 
 
 @case
-def a_projects_month_adds_up_to_the_cost_its_page_shows(state_home):
+def a_projects_month_adds_up_to_the_cost_its_page_shows(state_home: Path) -> None:
     """Every session of the project in the month is a row, and the column sums to the page's cost."""
     _session("a1", "2026-10-03T10:00:00+00:00", 1.234, title="Réparer l’été, « vite »")
     _session("a1", "2026-10-04T10:00:00+00:00", 0.5, status="blocked")
@@ -71,7 +73,7 @@ def a_projects_month_adds_up_to_the_cost_its_page_shows(state_home):
 
 
 @case
-def the_command_line_goes_by_the_project_each_line_carries(state_home):
+def the_command_line_goes_by_the_project_each_line_carries(state_home: Path) -> None:
     """Without a board the name on the line selects, whatever its case, and the link is Notion's."""
     _session("d4", "2026-10-02T08:00:00+00:00", 1.0, project="Portfolio")
     _session("e5", "2026-10-02T09:00:00+00:00", 2.0, project="Opoil")
@@ -84,7 +86,7 @@ def the_command_line_goes_by_the_project_each_line_carries(state_home):
 
 
 @case
-def a_month_that_is_not_one_is_refused():
+def a_month_that_is_not_one_is_refused() -> None:
     for wrong in ("2026", "2026-13", "octobre"):
         try:
             spending.month_span(wrong)

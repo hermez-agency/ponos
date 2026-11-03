@@ -10,7 +10,7 @@ from ponos import markdown
 
 
 @case
-def markdown_keeps_its_shape_as_notion_blocks():
+def markdown_keeps_its_shape_as_notion_blocks() -> None:
     blocks = markdown.to_blocks(
         "# Plan\n\nUn **paragraphe**.\n\n## Étapes\n- point\n- [x] fait\n1. numéroté\n\n"
         "> citation\n\n---\n\n```python\nprint(1)\n```\n"
@@ -31,7 +31,7 @@ def markdown_keeps_its_shape_as_notion_blocks():
 
 
 @case
-def an_unknown_code_language_does_not_break_the_publish():
+def an_unknown_code_language_does_not_break_the_publish() -> None:
     """Notion rejects a language it does not know; we fall back rather than fail."""
     blocks = markdown.to_blocks("```klingon\nnuqneH\n```")
     assert blocks[0]["code"]["language"] == "plain text"
@@ -40,7 +40,7 @@ def an_unknown_code_language_does_not_break_the_publish():
 
 
 @case
-def inline_formatting_becomes_annotations_and_links():
+def inline_formatting_becomes_annotations_and_links() -> None:
     parts = markdown.inline("Un **gras**, un [lien](https://x.fr), et `du code`")
     assert parts[1]["annotations"]["bold"] is True
     assert parts[3]["text"]["link"] == {"url": "https://x.fr"}
@@ -50,14 +50,14 @@ def inline_formatting_becomes_annotations_and_links():
 
 
 @case
-def anything_unrecognised_still_reaches_the_page():
+def anything_unrecognised_still_reaches_the_page() -> None:
     blocks = markdown.to_blocks("| a | b |\n| - | - |\n| 1 | 2 |")
     assert all(block["type"] == "paragraph" for block in blocks)
     assert len(blocks) == 3, "a table degrades to rows, it does not vanish"
 
 
 @case
-def blocks_are_chunked_below_notions_append_limit():
+def blocks_are_chunked_below_notions_append_limit() -> None:
     blocks = markdown.to_blocks("\n\n".join(f"ligne {index}" for index in range(250)))
     batches = markdown.chunked(blocks)
     assert len(batches) == 3
@@ -67,7 +67,7 @@ def blocks_are_chunked_below_notions_append_limit():
 
 
 @case
-def a_long_text_is_split_into_pieces_and_never_cut():
+def a_long_text_is_split_into_pieces_and_never_cut() -> None:
     """Notion caps one piece of rich text, not the block: nothing past it is lost."""
     body = "".join(f"ligne {index:05d}\n" for index in range(834))[:10_000]
     for text in (f"```python\n{body}\n```", body.replace("\n", " ").strip()):
@@ -79,7 +79,7 @@ def a_long_text_is_split_into_pieces_and_never_cut():
 
 
 @case
-def past_a_hundred_pieces_the_text_goes_on_in_the_next_block():
+def past_a_hundred_pieces_the_text_goes_on_in_the_next_block() -> None:
     body = "x" * (markdown.MAX_CONTENT * 250)
     blocks = markdown.to_blocks(f"```python\n{body}\n```\n\nfin")
     assert [block["type"] for block in blocks] == ["code"] * 3 + ["paragraph"]

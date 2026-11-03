@@ -11,8 +11,10 @@ import subprocess
 import sys
 import tempfile
 import time
+from collections.abc import Callable
 from datetime import date
 from pathlib import Path
+from typing import Any
 
 from support import ROOT, case
 
@@ -24,7 +26,7 @@ from ponos.web import statistics as web_statistics
 
 
 @case
-def a_new_database_is_brought_to_the_current_schema(state_home):
+def a_new_database_is_brought_to_the_current_schema(state_home: Path) -> None:
     try:
         location, found, disorder = db.check()
         assert location == state_home / "ponos.db"
@@ -57,12 +59,12 @@ def a_new_database_is_brought_to_the_current_schema(state_home):
 
 
 @case
-def a_database_one_migration_behind_is_brought_up_to_date():
+def a_database_one_migration_behind_is_brought_up_to_date() -> None:
     """Faked with one more migration than the code has."""
     location = Path(tempfile.mkdtemp()) / "ponos.db"
     db.open_at(location).close()
 
-    def notes(connection):
+    def notes(connection: sqlite3.Connection) -> None:
         connection.execute("CREATE TABLE notes (text TEXT)")
 
     upgraded = db.open_at(location, (*db.MIGRATIONS, notes))
@@ -81,7 +83,7 @@ def a_database_one_migration_behind_is_brought_up_to_date():
 
 
 @case
-def a_migration_keeps_a_copy_of_the_file_as_it_was_before_it():
+def a_migration_keeps_a_copy_of_the_file_as_it_was_before_it() -> None:
     """The copy the version of before can open again — and only the last few."""
     location = Path(tempfile.mkdtemp()) / "ponos.db"
     db.open_at(location, db.MIGRATIONS[:5]).close()
@@ -107,13 +109,13 @@ def a_migration_keeps_a_copy_of_the_file_as_it_was_before_it():
         old.close()
     assert not list(location.parent.glob("*.bak.*")), "no copy left half-written"
 
-    def notes(connection):
+    def notes(connection: sqlite3.Connection) -> None:
         connection.execute("CREATE TABLE notes (text TEXT)")
 
-    def more(connection):
+    def more(connection: sqlite3.Connection) -> None:
         connection.execute("CREATE TABLE more (text TEXT)")
 
-    def again(connection):
+    def again(connection: sqlite3.Connection) -> None:
         connection.execute("CREATE TABLE again (text TEXT)")
 
     every = (*db.MIGRATIONS, notes, more, again)
@@ -126,11 +128,11 @@ def a_migration_keeps_a_copy_of_the_file_as_it_was_before_it():
 
 
 @case
-def a_migration_that_fails_leaves_the_file_as_it_was():
+def a_migration_that_fails_leaves_the_file_as_it_was() -> None:
     location = Path(tempfile.mkdtemp()) / "ponos.db"
     db.open_at(location).close()
 
-    def broken(connection):
+    def broken(connection: sqlite3.Connection) -> None:
         connection.execute("CREATE TABLE half (x)")
         raise RuntimeError("halfway")
 
@@ -149,7 +151,7 @@ def a_migration_that_fails_leaves_the_file_as_it_was():
 
 
 @case
-def two_processes_opening_a_new_database_together_both_get_it():
+def two_processes_opening_a_new_database_together_both_get_it() -> None:
     """The timer and the console start at once: one migrates, the other finds it done."""
     home = tempfile.mkdtemp()
     script = (
@@ -181,7 +183,7 @@ def two_processes_opening_a_new_database_together_both_get_it():
         connection.close()
 
 
-def _json_installation(state_home: Path) -> dict:
+def _json_installation(state_home: Path) -> dict[str, Any]:
     """The state directory of an installation from before the database, filled in.
 
     What each file holds is handed back, to be found again once it is a table.
@@ -285,7 +287,9 @@ def _json_installation(state_home: Path) -> dict:
 
 
 @case
-def an_installation_of_json_files_starts_on_the_database_with_everything_it_had(state_home):
+def an_installation_of_json_files_starts_on_the_database_with_everything_it_had(
+    state_home: Path,
+) -> None:
     """Same statistics, same conversations, same claims — and the files set aside, not deleted.
 
     Four processes open it at once, as the timer and the console do after an
@@ -359,7 +363,7 @@ def an_installation_of_json_files_starts_on_the_database_with_everything_it_had(
 
 
 @case
-def a_new_installation_has_nothing_to_import_and_nothing_to_set_aside(state_home):
+def a_new_installation_has_nothing_to_import_and_nothing_to_set_aside(state_home: Path) -> None:
     try:
         assert state.history() == [] and state.claims() == {} and sync.journal() == []
         assert conversation.Ledger.load().known_pages() == [] and credits.held() == 0.0
@@ -369,7 +373,7 @@ def a_new_installation_has_nothing_to_import_and_nothing_to_set_aside(state_home
 
 
 @case
-def a_database_newer_than_the_code_is_refused_untouched():
+def a_database_newer_than_the_code_is_refused_untouched() -> None:
     location = Path(tempfile.mkdtemp()) / "ponos.db"
     newer = len(db.MIGRATIONS) + 3
     raw = sqlite3.connect(location)
@@ -392,7 +396,7 @@ def a_database_newer_than_the_code_is_refused_untouched():
 
 
 @case
-def status_and_history_say_a_newer_database_in_a_line_rather_than_a_trace(state_home):
+def status_and_history_say_a_newer_database_in_a_line_rather_than_a_trace(state_home: Path) -> None:
     from ponos.__main__ import main
 
     state_home.mkdir(parents=True, exist_ok=True)
@@ -426,11 +430,11 @@ def status_and_history_say_a_newer_database_in_a_line_rather_than_a_trace(state_
         db.close()
 
 
-def _columns(connection, table):
+def _columns(connection: sqlite3.Connection, table: str) -> set[str]:
     return {row[1] for row in connection.execute(f"PRAGMA table_info({table})")}
 
 
-def _migrated_by_a_branch(location):
+def _migrated_by_a_branch(location: Path) -> None:
     """A file migrated by a branch whose last two migrations were in the other
     order — `_write_ups` before `_stops_have_a_cause`, as on 12/10/2026. Those
     that main has after them since, the branch did not have yet."""
@@ -442,7 +446,7 @@ def _migrated_by_a_branch(location):
 
 
 @case
-def a_database_migrated_by_a_branch_in_another_order_is_finished_by_main():
+def a_database_migrated_by_a_branch_in_another_order_is_finished_by_main() -> None:
     location = Path(tempfile.mkdtemp()) / "ponos.db"
     _migrated_by_a_branch(location)
     connection = db.open_at(location)
@@ -455,6 +459,7 @@ def a_database_migrated_by_a_branch_in_another_order_is_finished_by_main():
         assert {"write_ups", "mends", "history", "runs", "migrations"} <= tables, tables
         assert "code" in _columns(connection, "history") and "code" in _columns(connection, "runs")
         done = db.applied(connection)
+        assert done is not None
         assert sorted(done) == sorted(db.name(migration) for migration in db.MIGRATIONS), done
         first = done.index("write_ups")
         assert done[first : first + 2] == ["write_ups", "stops_have_a_cause"], (
@@ -470,7 +475,7 @@ def a_database_migrated_by_a_branch_in_another_order_is_finished_by_main():
 
 
 @case
-def a_database_from_before_the_names_is_given_them_by_its_version():
+def a_database_from_before_the_names_is_given_them_by_its_version() -> None:
     location = Path(tempfile.mkdtemp()) / "ponos.db"
     old = db.open_at(location, db.MIGRATIONS[:5])
     old.execute("DROP TABLE migrations")
@@ -488,10 +493,10 @@ def a_database_from_before_the_names_is_given_them_by_its_version():
 
 
 @case
-def a_database_that_went_through_a_migration_this_code_does_not_know_is_refused_untouched():
+def a_database_that_went_through_a_migration_this_code_does_not_know_is_refused_untouched() -> None:
     location = Path(tempfile.mkdtemp()) / "ponos.db"
 
-    def notes(connection):
+    def notes(connection: sqlite3.Connection) -> None:
         connection.execute("CREATE TABLE notes (text TEXT)")
 
     # Another branch's: in the middle of the list, at the rank main has one more.
@@ -514,7 +519,7 @@ def a_database_that_went_through_a_migration_this_code_does_not_know_is_refused_
 
 
 @case
-def a_checkout_does_not_write_the_real_state_unless_told_to(state_home):
+def a_checkout_does_not_write_the_real_state_unless_told_to(state_home: Path) -> None:
     if C.checkout() is None:
         return  # a copy without its .git: an installation, which this is not about
     assert C.checkout() == ROOT
@@ -551,7 +556,9 @@ def a_checkout_does_not_write_the_real_state_unless_told_to(state_home):
 
 
 @case
-def what_the_console_asks_of_runs_ideas_history_and_the_bell_is_searched_on_an_index(state_home):
+def what_the_console_asks_of_runs_ideas_history_and_the_bell_is_searched_on_an_index(
+    state_home: Path,
+) -> None:
     # The statements as the code emits them, values in, each planned by
     # SQLite: a SCAN of one of these tables is a read of all of it.
     try:
@@ -610,7 +617,9 @@ def what_the_console_asks_of_runs_ideas_history_and_the_bell_is_searched_on_an_i
 
 
 @case
-def a_checkout_does_not_migrate_the_installations_database_from_a_direct_import(state_home):
+def a_checkout_does_not_migrate_the_installations_database_from_a_direct_import(
+    state_home: Path,
+) -> None:
     if C.checkout() is None:
         return  # a copy without its .git: an installation, which this is not about
     home = Path(tempfile.mkdtemp())
@@ -624,7 +633,11 @@ def a_checkout_does_not_migrate_the_installations_database_from_a_direct_import(
     # alone no longer lets a branch's migrations into it.
     os.environ.update(HOME=str(home), XDG_STATE_HOME=str(home / ".local" / "state"))
     try:
-        for opening in (lambda: db.open_at(real), db.connect):
+        openings: tuple[Callable[[], sqlite3.Connection], ...] = (
+            lambda: db.open_at(real),
+            db.connect,
+        )
+        for opening in openings:
             try:
                 opening().close()
             except db.DatabaseError as error:

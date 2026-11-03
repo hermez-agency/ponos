@@ -98,7 +98,7 @@ def _uninstall(home: Path, fakes: Path, **variables: str) -> subprocess.Complete
 
 
 @case
-def uninstalling_takes_back_everything_install_sh_put_down():
+def uninstalling_takes_back_everything_install_sh_put_down() -> None:
     """Launchd agents, the ponos:// handler, the icons, the drop-ins, the console, the doors."""
     with tempfile.TemporaryDirectory() as directory:
         home, fakes = Path(directory) / "home", Path(directory) / "fakes"
@@ -169,7 +169,7 @@ def uninstalling_takes_back_everything_install_sh_put_down():
 
 
 @case
-def uninstalling_without_a_tailnet_or_a_desktop_still_ends_well():
+def uninstalling_without_a_tailnet_or_a_desktop_still_ends_well() -> None:
     """Nothing but sh: no tailscale to ask, no launchctl, no xdg — every step is optional."""
     with tempfile.TemporaryDirectory() as directory:
         home, fakes = Path(directory) / "home", Path(directory) / "fakes"
