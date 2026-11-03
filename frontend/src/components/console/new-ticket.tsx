@@ -8,6 +8,7 @@ import {
 } from "react-data-form"
 
 import { EDITOR_SETTLES } from "@/components/console/new-ticket-lazy"
+import { TicketEstimate } from "@/components/console/ticket-estimate"
 import { ComboboxInputController } from "@/components/console/combobox"
 import { Kbd } from "@/components/console/confirm-dialog"
 import { every } from "@/components/console/runner-strip"
@@ -20,7 +21,7 @@ import { enterLabel } from "@/lib/confirm"
 import { projectFirst } from "@/lib/goal-search"
 import { isMac } from "@/lib/hotkeys"
 import { t } from "@/lib/i18n"
-import type { Project } from "@/lib/types"
+import type { Estimate, Project } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 /* The "New ticket" dialog, in two columns: what the ticket says on the left,
@@ -59,6 +60,22 @@ export function WithProjects({ children }: { children: React.ReactNode }) {
 }
 
 const hasRepository = (project?: Project) => project?.kind === "code"
+
+/** What the ticket being written is likely to cost and take, asked again as its terms change. */
+function useEstimate(project: string, type: string, subtype: string, model: string): Estimate | null {
+  const [estimate, setEstimate] = React.useState<Estimate | null>(null)
+  React.useEffect(() => {
+    let alive = true
+    api
+      .estimate({ project, type, subtype, model })
+      .then((read) => alive && setEstimate(read.estimate ?? null))
+      .catch(() => alive && setEstimate(null))
+    return () => {
+      alive = false
+    }
+  }, [project, type, subtype, model])
+  return estimate
+}
 
 /* -- the fields ------------------------------------------------------------- */
 
@@ -195,6 +212,12 @@ export function NewTicketFields() {
   const type = String(data.type ?? "")
   const subtype = String(data.subtype ?? "")
   const code = type === "code"
+  const estimate = useEstimate(
+    String(data.project ?? ""),
+    type,
+    code ? subtype : "",
+    String(data.model ?? "")
+  )
 
   const inputOf = (name: string) => inputs.find((input) => input.name === name)
   const field = (name: string) => {
@@ -262,6 +285,11 @@ export function NewTicketFields() {
           {code ? field("subtype") : null}
           {field("priority")}
           {field("model")}
+          {estimate ? (
+            <p className="text-xs">
+              <TicketEstimate estimate={estimate} />
+            </p>
+          ) : null}
         </aside>
       </div>
     </Projects>

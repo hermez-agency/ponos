@@ -973,6 +973,12 @@ def _billing_holds(connection: sqlite3.Connection) -> None:
     )
 
 
+def _runs_say_their_subtype(connection: sqlite3.Connection) -> None:
+    # A code ticket's sub-type, beside its type: what an estimate compares a
+    # new ticket with first — see estimates.py.
+    connection.execute("ALTER TABLE runs ADD COLUMN subtype TEXT NOT NULL DEFAULT ''")
+
+
 # Appended to, never edited or renamed: a file remembers each of these by name,
 # and the version of a file is how many of them it has been through. Statements go through `execute` one at a time — `executescript`
 # commits whatever transaction is open before it starts, which would apply half
@@ -1016,6 +1022,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     _sync_conflicts_by_page,
     _billing_holds,
     _digests,
+    _runs_say_their_subtype,
 )
 
 # Any way a read or a write of the database can fail. A note the runner keeps

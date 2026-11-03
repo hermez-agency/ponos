@@ -22,6 +22,7 @@ from .. import (
     blocks,
     ci,
     credits,
+    estimates,
     git,
     journal,
     models,
@@ -158,6 +159,7 @@ class Tickets(Base):
         _checks(tickets)
         _phases(tickets)
         _times(tickets)
+        _estimates(tickets, settings)
         self._synced = board_module.describe(self.reader, tickets)
         self._hold(tickets)
 
@@ -281,6 +283,28 @@ class Tickets(Base):
         except store.StoreError:
             return False
         return self.config.notion.prop("priority") in schema
+
+    def estimate(
+        self, project_id: str, kind: str, subtype: str = "", model: str = ""
+    ) -> dict[str, Any]:
+        """What a ticket being written is likely to cost and take — see estimates.py.
+
+        Asked by the new ticket's form as its fields change: the project by its
+        page id, the type by its key, as the form holds them. A type left to
+        the runner is compared on the project's kind, as on a card.
+        """
+        wanted = project_id.replace("-", "")
+        project = next(
+            (one for one in self.projects().values() if wanted and one.get("id") == wanted), {}
+        )
+        return {
+            "estimate": estimates.estimate(
+                str(project.get("name") or ""),
+                kind or str(project.get("kind") or ""),
+                subtype if kind in ("code", "") else "",
+                model,
+            )
+        }
 
     def _hold(self, tickets: list[dict[str, Any]]) -> None:
         """Put on every ready card why it is still there — see `board.held`.
@@ -419,6 +443,7 @@ class Tickets(Base):
         _checks([card])
         _phases([card])
         _times([card])
+        _estimates([card], settings)
         # A board without the duration column still ran the session: its log
         # says how long. Only here, where one ticket is read — on the board it
         # would be a log opened per card.
@@ -815,6 +840,27 @@ def _times(tickets: list[dict[str, Any]]) -> None:
     for ticket in tickets:
         ticket["worktime"] = worktime.measure(
             spans.get(str(ticket.get("id", "")), []), str(ticket.get("column", ""))
+        )
+
+
+def _estimates(tickets: list[dict[str, Any]], settings: Notion) -> None:
+    """What every ready card is likely to cost and take, from the journal in one read.
+
+    On a draft too where one card is read — the ticket's page, opened before
+    it is put in Ready. A card with no type is compared on its project's kind,
+    the type a run of it is filed under until it is classified.
+    """
+    columns = ("ready", "draft") if len(tickets) == 1 else ("ready",)
+    waiting = [ticket for ticket in tickets if ticket.get("column") in columns]
+    done = estimates.tickets() if waiting else []
+    for ticket in waiting:
+        ticket["estimate"] = estimates.estimate(
+            str(ticket.get("project") or ""),
+            settings.kind_of(str(ticket.get("type") or "")) or str(ticket.get("kind") or ""),
+            str(ticket.get("subtype") or ""),
+            str(ticket.get("model") or ""),
+            ticket=str(ticket.get("id") or ""),
+            done=done,
         )
 
 

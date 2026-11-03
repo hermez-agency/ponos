@@ -171,6 +171,30 @@ class WorkTime(Shape):
     """Why the clock is stopped, if it is: `question`, `blocked` or `credit`."""
 
 
+class Estimate(Shape):
+    """What a ticket is likely to cost and take, from the tickets like it that ran — see
+    `estimates.py`."""
+
+    cost: float
+    """The median cost, in dollars."""
+    cost_high: float
+    """The 80th centile of the cost: one ticket in five went past it."""
+    seconds: float
+    """The median duration."""
+    seconds_high: float
+    """The 80th centile of the duration."""
+    tickets: int
+    """How many tickets it stands on: never fewer than `estimates.LEAST`."""
+    basis: Literal["subtype", "project", "type"]
+    """What they share with this one: project, type, sub-type and model; project and type; the
+    type alone."""
+
+
+class Estimated(Shape):
+    estimate: Estimate | None
+    """Null without enough tickets to compare with."""
+
+
 class Ticket(Shape):
     id: str
     short: str
@@ -229,6 +253,9 @@ class Ticket(Shape):
     worktime: WorkTime | None = omitted()
     """How long Ponos worked on it, the clock stopped while it waited — null when no run was made:
     see `worktime.py`."""
+    estimate: Estimate | None = omitted()
+    """On a ready or draft ticket only: what it is likely to cost and take — null without enough
+    history."""
 
 
 class ModelInUse(Shape):

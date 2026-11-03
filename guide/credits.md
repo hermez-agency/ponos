@@ -137,3 +137,20 @@ a session cost — which a subscription does not, so they are for an API key or 
 
 The cost of a session that ended *blocked* or *failed* is written in the ticket's **Cost** like
 any other — it was paid for all the same, and the daily limit counts it.
+
+### Before a ticket starts: the estimate
+
+The limits stop a session once it has spent; the estimate says beforehand what a ticket is
+likely to cost. The « New ticket » form, a card in *Ready* and the page of a ticket in *Ready*
+or in the drafts read « ≈ $0.80 · 5 min, up to $2.40 »: the median cost and duration of the
+tickets like it that ran, and their 80th centile — what one ticket in five went past. The
+tooltip says how many tickets it stands on; `GET /api/tickets/<id>` answers it as `estimate`,
+and `GET /api/estimate?project=<id>&type=code&subtype=bug&model=` for a ticket being written.
+
+It is read off the run journal in `ponos.db`, not asked of a model. A ticket's runs are added
+up — one stopped on a question and taken again is one bill — and the tickets compared with
+are, in this order, those of the same project, type, sub-type and model (the model only when
+the ticket names one), then of the same project and type, then of the same type: the first of
+the three with at least five tickets. Fewer than five everywhere, or no cost reported (a
+subscription), and nothing is shown — not a zero. The sub-type is written into the journal
+from this version on: the runs before it are compared on their project and type.

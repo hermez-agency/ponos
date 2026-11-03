@@ -92,6 +92,7 @@ class Run:
         ticket: str,
         title: str = "",
         kind: str = "",
+        subtype: str = "",
         project: str = "",
         agent: str = "",
         session: str = "",
@@ -104,12 +105,13 @@ class Run:
         try:
             with db.transaction() as connection:
                 identifier = connection.execute(
-                    "INSERT INTO runs (ticket, title, kind, project, agent, session, log, started_at,"
-                    " model, chosen, escalated) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    "INSERT INTO runs (ticket, title, kind, subtype, project, agent, session, log,"
+                    " started_at, model, chosen, escalated) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     (
                         ticket.replace("-", ""),
                         title,
                         kind,
+                        subtype,
                         project,
                         agent,
                         session,
@@ -374,3 +376,21 @@ def models() -> dict[str, str]:
     except db.ERRORS:
         return {}
     return {str(session): str(model) for session, model in rows if model}
+
+
+def ended() -> list[dict[str, Any]]:
+    """Every run that ended, oldest first, cut down to what an estimate compares — see estimates.py.
+
+    Empty when the journal cannot be read: a ticket without its estimate is
+    still a ticket.
+    """
+    try:
+        with db.transaction(immediate=False) as connection:
+            rows = connection.execute(
+                "SELECT ticket, project, kind, subtype, COALESCE(NULLIF(reported, ''), model, ''),"
+                " started_at, ended_at, cost_usd FROM runs WHERE ended_at IS NOT NULL ORDER BY id"
+            ).fetchall()
+    except _FAILURES:
+        return []
+    keys = ("ticket", "project", "kind", "subtype", "model", "started_at", "ended_at", "cost_usd")
+    return [dict(zip(keys, row, strict=True)) for row in rows]

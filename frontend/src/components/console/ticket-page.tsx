@@ -40,6 +40,7 @@ import { Robot } from "./robot"
 import { Pulse, TicketLive } from "./session-log"
 import { TicketDecision, TicketTabContext, WINDOW_TAB } from "./ticket-decision"
 import { TicketOn } from "./ticket-on"
+import { TicketEstimate } from "./ticket-estimate"
 import { TicketTime } from "./ticket-time"
 import {
   SEED,
@@ -342,6 +343,12 @@ function TicketSummary({ ticket, onSession }: { ticket: TicketDetail; onSession:
               <span>
                 {t("scheduled")} {when(ticket.scheduled)}
               </span>
+            </>
+          ) : null}
+          {ticket.estimate ? (
+            <>
+              {sep}
+              <TicketEstimate estimate={ticket.estimate} />
             </>
           ) : null}
         </div>

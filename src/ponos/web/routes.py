@@ -573,6 +573,13 @@ def github_status() -> Response:
     return answer(github.status())
 
 
+@router.get("/api/estimate", response_model=answers.Estimated)
+def estimate(
+    request: Request, project: str = "", type: str = "", subtype: str = "", model: str = ""
+) -> Response:
+    return answer(_api(request).estimate(project, type, subtype, model))
+
+
 @router.get("/api/tickets/{ticket_id:page}", response_model=answers.TicketDetail)
 def ticket(request: Request, ticket_id: str) -> Response:
     return answer(_api(request).ticket(ticket_id))

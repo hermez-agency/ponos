@@ -1,0 +1,1 @@
+export{n as GithubPage}from"./github-page-77_23N17.js";

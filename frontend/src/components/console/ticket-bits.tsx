@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { PriorityBadge } from "@/components/console/priority"
 import { DecideButton } from "@/components/console/ticket-decision"
+import { TicketEstimate } from "@/components/console/ticket-estimate"
 import { CardTime } from "@/components/console/ticket-time"
 import { moveWithToast as move } from "@/hooks/use-console"
 import { currentBoard, titleOf, useBoard } from "@/lib/board-store"
@@ -634,6 +635,8 @@ export function TicketFoot({ ticket }: { ticket: Ticket }) {
       ) : null}
       {/* 12 min · $0.64: the work beside what it cost, the quieter of the two. */}
       <CardTime time={ticket.worktime} />
+      {/* On a ready card: what it is likely to cost before it starts. */}
+      <TicketEstimate estimate={ticket.estimate} />
       {hasCost ? <span className="whitespace-nowrap tabular-nums">{money(ticket.cost as number)}</span> : null}
       {reachable(ticket.url) ? (
         <a

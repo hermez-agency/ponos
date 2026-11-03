@@ -558,6 +558,7 @@ class Execution(Base):
             ticket=job.ticket.id,
             title=job.ticket.title,
             kind=job.kind or ("code" if job.project.is_code else "document"),
+            subtype=job.subtype,
             project=job.project.name,
             agent=job.agent.name,
             session=job.session_id,
