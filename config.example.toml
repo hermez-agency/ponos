@@ -561,6 +561,12 @@ local_ci_attempts = 3
 # How many local CIs run at once on this machine, whatever the number of
 # tickets in flight: the next one waits for a place.
 local_ci_concurrent = 1
+# How long a project's setup command (`npm ci`, `uv sync`…) may run in a fresh
+# worktree before the session starts. The command is the one the project's
+# Settings tab declares, else the repository's `.ponos/setup.sh`; neither, and
+# nothing runs. Past this many minutes it is killed and the ticket is blocked
+# (`worktree.setup-failed`), without a session started.
+setup_timeout_minutes = 10
 
 # How a *validated* pull request is merged — see `validated` above. Nothing
 # is ever merged without that gesture; this only says what the gesture does.

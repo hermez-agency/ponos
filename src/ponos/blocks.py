@@ -369,6 +369,19 @@ _CAUSES = (
         "no-worktree",
     ),
     _cause(
+        "worktree.setup-failed",
+        "infrastructure",
+        "user",
+        "retry",
+        "ask",
+        ("Setup failed", "Préparation échouée"),
+        (
+            "The project's setup command failed in the new worktree: its last lines are in the comment, and no session was started.",
+            "La commande de préparation du projet a échoué dans le nouveau worktree : ses dernières lignes sont dans le commentaire, aucune session n'a été lancée.",
+        ),
+        "setup-failed",
+    ),
+    _cause(
         "worktree.interrupted",
         "infrastructure",
         "user",
@@ -557,6 +570,8 @@ _HEARD: tuple[tuple[str, str], ...] = (
     ("push was refused", "merge.push-refused"),
     ("pushing them was refused", "merge.push-refused"),
     ("push a ete refuse", "merge.push-refused"),
+    ("setup command", "worktree.setup-failed"),
+    ("commande de preparation", "worktree.setup-failed"),
     ("worktree", "worktree.residue"),
     ("publishing it did not work", "publish.failed"),
     ("publication n'a pas fonctionne", "publish.failed"),

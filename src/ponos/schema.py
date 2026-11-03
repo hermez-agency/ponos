@@ -258,6 +258,7 @@ class RunnerTable(Table):
     local_ci: bool = Runner.local_ci
     local_ci_attempts: AtLeast1 = Runner.local_ci_attempts
     local_ci_concurrent: AtLeast1 = Runner.local_ci_concurrent
+    setup_timeout_minutes: AtLeast1 = Runner.setup_timeout_minutes
     keep_worktree_on_failure: bool = Runner.keep_worktree_on_failure
     attach_sessions: bool = Runner.attach_sessions
     session_host: Text = Runner.session_host

@@ -722,3 +722,129 @@ def a_session_that_forgot_its_answer_is_picked_up_once_to_write_it(state_home):
     again.log = again.workdir.parent / "run.jsonl"
     _sessions(runner, forgot, _outcome(ok=False, error="No conversation found"))
     assert runner._run_session(again, "{title}") is forgot
+
+
+# -- the project's setup, before the session ---------------------------------------
+
+
+def _prepared(runner, job):
+    """`_prepare_worktree` with `_fail` recorded rather than written: what it was told."""
+    failed: list[dict] = []
+
+    def fail(ticket, reason, detail="", **rest):
+        failed.append({"reason": reason, "detail": detail, **rest})
+        return {"failed": True}
+
+    runner._fail = fail
+    job.workdir.mkdir(parents=True, exist_ok=True)
+    job.log = job.workdir.parent / "run.jsonl"
+    return runner._prepare_worktree(job), failed
+
+
+@case
+def a_project_setup_runs_in_the_worktree_before_the_session_and_the_session_is_told(state_home):
+    from ponos import project_settings
+
+    runner, _, said = _runner()
+    job = _job(code=True)
+    job.project.notion_id = "proj-1"
+    project_settings.set_setup("proj-1", "Northwind", "echo prepared > node_modules.txt")
+    done, failed = _prepared(runner, job)
+    assert done is None and not failed
+    assert (job.workdir / "node_modules.txt").read_text() == "prepared\n", "run in the worktree"
+    assert "Do not run the installation again" in job.prepared
+    assert "echo prepared" in job.prepared
+    assert (job.workdir.parent / "run.setup.log").is_file(), "its output is in a log of its own"
+    assert any("setup (project)" in line for line in said), said
+
+
+@case
+def a_project_without_a_setup_starts_its_session_as_before(state_home):
+    runner, _, _ = _runner()
+    job = _job(code=True)
+    job.project.notion_id = "proj-1"
+    done, failed = _prepared(runner, job)
+    assert done is None and not failed and job.prepared == ""
+    assert not (job.workdir.parent / "run.setup.log").exists()
+
+
+@case
+def the_repository_setup_script_runs_when_the_project_has_no_command_and_loses_to_it(state_home):
+    from ponos import project_settings
+
+    runner, _, _ = _runner()
+    job = _job(code=True)
+    job.project.notion_id = "proj-1"
+    job.workdir.mkdir(parents=True)
+    (job.workdir / ".ponos").mkdir()
+    (job.workdir / ".ponos" / "setup.sh").write_text("echo from-script > ran.txt\n")
+    done, failed = _prepared(runner, job)
+    assert done is None and not failed
+    assert (job.workdir / "ran.txt").read_text() == "from-script\n"
+
+    (job.workdir / "ran.txt").unlink()
+    project_settings.set_setup("proj-1", "Northwind", "echo from-project > ran.txt")
+    _prepared(runner, job)
+    assert (job.workdir / "ran.txt").read_text() == "from-project\n", "the project's word first"
+
+
+@case
+def a_setup_that_fails_blocks_the_ticket_with_the_end_of_its_output_and_no_session(state_home):
+    from ponos import project_settings
+
+    runner, _, _ = _runner()
+    runner.config.runner.keep_worktree_on_failure = True
+    job = _job(code=True)
+    job.project.notion_id = "proj-1"
+    project_settings.set_setup(
+        "proj-1", "Northwind", "echo installing; echo 'ERR! no lockfile'; exit 3"
+    )
+    done, failed = _prepared(runner, job)
+    assert done == {"failed": True}
+    assert len(failed) == 1
+    stop = failed[0]
+    assert stop["code"] == "worktree.setup-failed" and stop["blocked"] is True
+    assert "exit 3" in stop["detail"] and "ERR! no lockfile" in stop["detail"]
+    assert job.prepared == "", "the session is not told it was prepared"
+    assert stop["question"], "a blocked ticket asks what to do"
+
+
+@case
+def a_setup_secret_is_given_to_the_command_and_masked_in_what_the_ticket_shows(state_home):
+    from ponos import project_settings
+
+    runner, _, _ = _runner()
+    runner.config.runner.keep_worktree_on_failure = True
+    job = _job(code=True)
+    job.project.notion_id = "proj-1"
+    runner.config.vault.projects = {"northwind": {"NPM_TOKEN": "PONOS_TEST_SETUP_SECRET"}}
+    os.environ["PONOS_TEST_SETUP_SECRET"] = "npm_setup_case_0123456789"
+    project_settings.set_setup("proj-1", "Northwind", 'echo "token=$NPM_TOKEN"; exit 1')
+    try:
+        done, failed = _prepared(runner, job)
+    finally:
+        os.environ.pop("PONOS_TEST_SETUP_SECRET", None)
+    assert done and "npm_setup_case_0123456789" not in failed[0]["detail"], failed[0]["detail"]
+
+
+@case
+def a_setup_that_outlasts_its_time_is_killed_and_said_so(state_home):
+    from ponos import worktree_setup
+
+    root = Path(tempfile.mkdtemp())
+    saved = worktree_setup.subprocess.Popen.wait
+
+    def impatient(self, timeout=None):
+        if timeout:
+            raise worktree_setup.subprocess.TimeoutExpired("sleep", timeout)
+        return saved(self)
+
+    worktree_setup.subprocess.Popen.wait = impatient
+    try:
+        ran = worktree_setup.run(
+            worktree_setup.plan("sleep 30", root), root, root / "s.log", timeout_minutes=1
+        )
+    finally:
+        worktree_setup.subprocess.Popen.wait = saved
+    assert not ran.ok and ran.timed_out
+    assert "stopped after 1 minutes" in (root / "s.log").read_text()

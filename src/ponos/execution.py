@@ -56,6 +56,7 @@ from . import (
     store,
     subtypes,
     vault,
+    worktree_setup,
 )
 from . import prompt as prompt_module
 from . import voice as voice_module
@@ -270,7 +271,8 @@ class Execution(Base):
                 f"keeping.\n"
                 if job.backup
                 else ""
-            ),
+            )
+            + (f"- {job.prepared}\n" if job.prepared else ""),
             secrets=sorted(job.secrets),
             workers=self.workers,
         )
@@ -645,6 +647,8 @@ class Execution(Base):
                 ticket, self.voice.say("no-worktree"), str(error), code="worktree.residue"
             )
         self._note_worktree(job, worktree)
+        if failure := self._prepare_worktree(job):
+            return failure
 
         try:
             outcome = self._run_session(
@@ -706,6 +710,51 @@ class Execution(Base):
                 pull_request = self._open_pull_request(job, outcome, commits)
 
         return self._code_delivered(job, outcome, commits, pull_request)
+
+    def _prepare_worktree(self, job: Job) -> dict[str, Any] | None:
+        """The project's setup command, run in the fresh worktree before any session.
+
+        None when there was nothing to run or it went well — the session is
+        then told it has already run, so that it does not install again.
+        Otherwise what `_fail` made of it: the ticket is blocked with the end
+        of the output, and no session was started or paid for. See
+        worktree_setup.py.
+        """
+        ticket, project = job.ticket, job.project
+        chosen = worktree_setup.plan(project_settings.setup(project.notion_id), job.workdir)
+        if not chosen or self.dry_run:
+            return None
+        minutes = self.config.runner.setup_timeout_minutes
+        log = (job.log or state.log_file(short_id(ticket.id))).with_suffix(".setup.log")
+        self.say(f"    · setup ({chosen.source}): {chosen.shown}")
+        ran = worktree_setup.run(
+            chosen, job.workdir, log, timeout_minutes=minutes, secrets=self._secrets(job)
+        )
+        self.say(f"    · setup {'done' if ran.ok else 'failed'} in {ran.seconds:.0f}s — {log}")
+        if ran.ok:
+            job.prepared = self.voice.say("setup-done", command=chosen.shown)
+            return None
+        detail = (
+            f"`{chosen.shown}` — "
+            + (f"stopped after {minutes} minutes" if ran.timed_out else f"exit {ran.code}")
+            + f"\n\n```\n{vault.mask(ran.tail).strip() or '(no output)'}\n```"
+        )
+        said = self.voice
+        kept = ""
+        if self.config.runner.keep_worktree_on_failure:
+            kept = said.say("worktree-kept", path=job.workdir, branch=job.branch)
+        else:
+            assert project.path is not None
+            git.remove_worktree(project.path, job.workdir)
+        return self._fail(
+            ticket,
+            said.say("setup-failed"),
+            detail,
+            code="worktree.setup-failed",
+            blocked=True,
+            question=said.say("setup-question"),
+            note=kept,
+        )
 
     # -- the local CI, before the push ------------------------------------------
 

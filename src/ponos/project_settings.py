@@ -46,6 +46,10 @@ IDEAS = "ideas"
 # when the project says its own word against `runner.local_ci`, and `command`,
 # what runs it. Either may be absent.
 LOCAL_CI = "local_ci"
+# The shell command run in each fresh worktree before its session — see
+# worktree_setup.py. A string: absent, the repository's `.ponos/setup.sh` if it
+# has one.
+SETUP = "setup"
 
 
 def key(project: str) -> str:
@@ -169,6 +173,34 @@ def set_local_ci(project: str, name: str, enabled: bool | None, command: str) ->
     _write(project, name, change)
 
 
+def setup(project: str) -> str:
+    """The command the project runs in a fresh worktree, "" when it has none of its own.
+
+    Nothing readable is a project that said nothing: no command, and the
+    repository's own `.ponos/setup.sh` — the side that changes nothing from
+    what the runner did before.
+    """
+    if not key(project):
+        return ""
+    try:
+        own = _read(project).get(SETUP)
+    except db.ERRORS:
+        return ""
+    return own.strip() if isinstance(own, str) else ""
+
+
+def set_setup(project: str, name: str, command: str) -> None:
+    """Give the project a command to prepare its worktrees with, or none (empty)."""
+
+    def change(settings: dict[str, Any]) -> None:
+        if command.strip():
+            settings[SETUP] = command.strip()
+        else:
+            settings.pop(SETUP, None)
+
+    _write(project, name, change)
+
+
 def _write(project: str, name: str, change: Callable[[dict[str, Any]], None]) -> None:
     """Change one project's settings object, and drop the row when nothing is left in it."""
     if not key(project):
@@ -211,6 +243,26 @@ def owning_validation() -> list[dict[str, str]]:
             continue
         if isinstance(held, dict) and isinstance(held.get(VALIDATION), dict):
             owning.append({"id": str(project), "name": str(name)})
+    return owning
+
+
+def owning_setup() -> list[dict[str, str]]:
+    """The projects with a setup command of their own: their id, their name and the command."""
+    try:
+        with db.transaction(immediate=False) as connection:
+            rows = connection.execute(
+                "SELECT project, name, settings FROM project_settings ORDER BY name COLLATE NOCASE"
+            ).fetchall()
+    except db.ERRORS:
+        return []
+    owning = []
+    for project, name, settings in rows:
+        try:
+            held = json.loads(settings or "{}")
+        except ValueError:
+            continue
+        if isinstance(held, dict) and isinstance(held.get(SETUP), str) and held[SETUP].strip():
+            owning.append({"id": str(project), "name": str(name), "command": held[SETUP].strip()})
     return owning
 
 

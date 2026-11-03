@@ -226,6 +226,7 @@ for reading rather than for filling in.
 | `runner.local_ci` | `false` | run the project's CI on this machine, in Docker, once the session has committed and before the push — the command the project's Settings tab declares, else its workflows through `act`; a red one goes back to the same session to be fixed. Needs Docker; a project may say otherwise for itself. GitHub's CI still runs |
 | `runner.local_ci_attempts` | `3` | how many times the local CI runs, the first included; still red after the last, the ticket is blocked (`merge.local-ci-failed`) and no pull request is opened |
 | `runner.local_ci_concurrent` | `1` | how many local CIs run at once on this machine; the next waits for a place. Containers, networks and compose volumes are named `ponos-ci-<ticket>` and removed after each run |
+| `runner.setup_timeout_minutes` | `10` | how long a project's setup command may run in a fresh worktree before the session starts; past it the command is killed and the ticket is blocked (`worktree.setup-failed`). See [Preparing a worktree](#preparing-a-worktree-before-the-session) |
 | `runner.merge_method` | `"squash"` | how a **validated** pull request is merged — `squash`, `merge`, `rebase` |
 | `runner.force_validated_code` | `false` | merge a Code ticket's pull request as soon as its session succeeds, then *Done* — see [*Force validated*](tickets.md#force-validated-skipping-the-review) |
 | `runner.force_validated_publication` | `false` | publish a Publication as soon as it is prepared, without waiting in review |
@@ -326,6 +327,17 @@ sessions in flight than you allowed. An answer to a *blocked* ticket asks for wo
 than for a reply, so that one is picked up by the pass itself at the next freed place —
 including one typed in Telegram or Slack, which is written onto its ticket at every
 refill.
+
+### Preparing a worktree before the session
+
+A worktree cut for a ticket has no `node_modules`, no `.venv`, no local `.env`. Left to itself, each session guesses what to install and pays for it in time and tokens — three to fifteen of them at once are as many installs. Give the project a **setup command** and it runs once in the fresh worktree, before Claude is started:
+
+- in the project's **Settings** tab in the console (*Worktree setup*), e.g. `npm ci` or `uv sync`; or
+- in the repository itself, as `.ponos/setup.sh`, run with `sh` from the root of the worktree. The project's own command wins when both exist.
+
+Neither, and nothing runs: a ticket goes on as it always did. The command runs with the project's [vault](#keys-a-ticket-may-use-the-vault) keys in its environment, `CI=true` and `PONOS_SETUP=1`; its output goes to `<session log>.setup.log` beside the session's log. It is meant to be repeatable — a branch picked up again is prepared again.
+
+The session is told the preparation has already run and not to install again. If the command fails, or outlasts `runner.setup_timeout_minutes`, the ticket is **blocked** with the code `worktree.setup-failed` and the last lines of the output, and no session is started or paid for; fix the command, answer on the ticket, and it runs again. `ponos doctor` lists the projects that have a setup command.
 
 ### Who answers the sessions
 

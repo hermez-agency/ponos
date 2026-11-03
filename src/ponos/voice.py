@@ -484,6 +484,18 @@ _SAID: dict[str, dict[str, str]] = {
         "en": "I could not make the worktree to work in",
         "fr": "je n'ai pas pu créer le worktree pour travailler",
     },
+    "setup-failed": {
+        "en": "the project's setup command failed in the worktree, so no session was started",
+        "fr": "la commande de préparation du projet a échoué dans le worktree, aucune session n'a été lancée",
+    },
+    "setup-question": {
+        "en": "Fix the setup command (the project's Settings tab, or `.ponos/setup.sh`), then answer here to run the ticket again.",
+        "fr": "Corrige la commande de préparation (l'onglet Réglages du projet, ou `.ponos/setup.sh`), puis réponds ici pour relancer le ticket.",
+    },
+    "setup-done": {
+        "en": "The project's setup command has already run in this worktree (`{command}`): dependencies are installed and local files are in place. Do not run the installation again.",
+        "fr": "La commande de préparation du projet a déjà tourné dans ce worktree (`{command}`) : les dépendances sont installées et les fichiers locaux en place. Ne relance pas l'installation.",
+    },
     "asked-something": {
         "en": "the session stopped to ask you something",
         "fr": "la session s'est arrêtée pour poser une question",

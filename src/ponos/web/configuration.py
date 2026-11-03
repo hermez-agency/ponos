@@ -85,6 +85,7 @@ class Configuration(Base):
             },
             "ideas": self._project_ideas(bare),
             "local_ci": self._project_local_ci(bare),
+            "setup": project_settings.setup(bare),
         }
 
     def _project_local_ci(self, bare: str) -> dict[str, Any]:
@@ -130,7 +131,11 @@ class Configuration(Base):
         validation = payload.get("validation")
         finding = payload.get("ideas")
         checking = payload.get("local_ci")
-        if validation is None and isinstance(checking, dict):
+        preparing = payload.get("setup")
+        if validation is None and isinstance(preparing, dict):
+            if not isinstance(preparing.get("command"), str):
+                raise ValueError("say what runs in the project's worktrees before a session")
+        elif validation is None and isinstance(checking, dict):
             if not isinstance(checking.get("enabled"), bool) or not isinstance(
                 checking.get("command", ""), str
             ):
@@ -177,6 +182,8 @@ class Configuration(Base):
             project_settings.set_local_ci(
                 bare, name, None if agrees else wanted, str(checking.get("command", ""))
             )
+        if isinstance(preparing, dict):
+            project_settings.set_setup(bare, name, preparing["command"])
         self.hub.publish("settings", project=bare)
         return self.project_settings(bare)
 

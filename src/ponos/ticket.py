@@ -64,6 +64,9 @@ class Job:
     resumed: bool = False
     # The branch an interrupted worktree of this ticket was saved to, if one was.
     backup: str = ""
+    # What the session is told when the project's setup command has run in its
+    # worktree: that it has, and that it is not to install again.
+    prepared: str = ""
     # Which of the four types the ticket was run as — see kinds.py — and the
     # repository it is not worked in but may read, when the type took it off
     # one. Both empty for a ticket run the way every ticket used to be.

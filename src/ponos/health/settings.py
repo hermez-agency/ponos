@@ -207,6 +207,20 @@ def _validation(settings: config_module.Runner) -> list[Check]:
                 params={"names": ", ".join(project["name"] or project["id"] for project in owning)},
             )
         )
+    preparing = project_settings.owning_setup()
+    if preparing:
+        found.append(
+            _check(
+                "settings.setup",
+                OK,
+                "Worktree setup",
+                "A setup command runs in each fresh worktree before the session ({{minutes}} minutes at most): {{names}}.",
+                params={
+                    "minutes": settings.setup_timeout_minutes,
+                    "names": ", ".join(project["name"] or project["id"] for project in preparing),
+                },
+            )
+        )
     return found
 
 

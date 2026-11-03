@@ -302,6 +302,7 @@ export const api = {
       validation?: { own: boolean; values?: Partial<ProjectSettings["validation"]["values"]> }
       ideas?: { enabled: boolean }
       local_ci?: { enabled: boolean; command: string }
+      setup?: { command: string }
     }
   ) =>
     answer(
