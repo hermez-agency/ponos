@@ -38,7 +38,7 @@
  */
 
 import { spawn, execFileSync } from 'node:child_process';
-import { chmodSync, mkdtempSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -58,6 +58,8 @@ const HEIGHT = 800;
 const TOKEN = 'film-console';
 const TITLE = 'Add a FAQ to the pricing page';
 
+// What the console writes is kept to its owner, as the health band checks.
+process.umask(0o077);
 const scratch = mkdtempSync(join(tmpdir(), 'ponos-film-'));
 const children = [];
 const stop = () => {
@@ -70,8 +72,9 @@ process.on('SIGINT', () => process.exit(130));
 /* -- the board -------------------------------------------------------------- */
 
 // The demonstration board of the console's screenshots, written with the
-// board's own writer. Nothing in Done, nor in progress: the board opens on
-// four columns, and the one ticket that moves is the one filmed.
+// board's own writer. Nothing in progress: the board opens on Ready, In
+// review and Validated, and the one ticket that moves is the one filmed. Each
+// type of work is written once, or the health band opens on a warning.
 const SEED = `
 import datetime, sys
 from pathlib import Path
@@ -82,15 +85,17 @@ prop = board.settings().prop
 projects = {name: board.create_row("projects", name, {"Repository": f"acme/{slug}"})
             for name, slug in (("Landing page", "landing"), ("Billing API", "billing"), ("Newsletter", "newsletter"))}
 now = datetime.datetime.now(datetime.timezone.utc)
-for title, status, project, priority, cost, days in (
-    ("Add a dark mode to the pricing page", "Ready", "Landing page", "High", 0, 3),
-    ("Draft the October newsletter", "Ready", "Newsletter", "Normal", 0, 4),
-    ("Export invoices as CSV", "Ready", "Billing API", "Low", 0, 5),
-    ("Fix rounding on VAT totals", "In review", "Billing API", "High", 1.64, 5),
-    ("Write the release notes for 2.4", "In review", "Newsletter", "Normal", 0.73, 19),
-    ("Compress the hero images", "Validated", "Landing page", "Normal", 1.12, 16),
+for title, status, project, kind, priority, cost, days in (
+    ("Add a dark mode to the pricing page", "Ready", "Landing page", "Code", 75, 0, 3),
+    ("Fix rounding on VAT totals", "In review", "Billing API", "Code", 75, 1.64, 5),
+    ("Draft the October newsletter", "Done", "Newsletter", "Writing", 50, 0.52, 12),
+    ("Write the release notes for 2.4", "Done", "Newsletter", "Publication", 50, 0.73, 19),
+    ("Book the launch webinar", "Validated", "Newsletter", "External action", 25, 0.31, 9),
+    ("Compress the hero images", "Validated", "Landing page", "Code", 50, 1.12, 16),
 ):
-    values = {prop("status"): status, prop("project"): [projects[project]], prop("priority"): priority}
+    values = {prop("status"): status, prop("project"): [projects[project]], prop("type"): kind, prop("priority"): priority}
+    if kind == "Code":
+        values[prop("subtype")] = "Feature"
     if cost:
         values[prop("cost")] = cost
     page = board.create_row("tickets", title, values)
@@ -146,6 +151,8 @@ for line in sys.stdin:
         cost = float(rest)
         write({"type": "result", "result": "Done.", "total_cost_usd": cost, "duration_ms": 372000, "num_turns": 27})
         board.update("tickets", page, {prop("status"): "In review", prop("cost"): cost})
+        # The report a run leaves on the page, which the Decide tab reads back.
+        board.comment(page, "\u2705 Done \u2014 6 min, $%.2f\\nAdds a FAQ under the pricing table: six questions, one accordion.\\nhttps://github.com/acme/landing/pull/42" % cost)
         lock.__exit__(None, None, None)
         refresh()
     print("ok", flush=True)
@@ -156,11 +163,21 @@ for line in sys.stdin:
 // Each theme is filmed on a board of its own, fresh: the ticket the first
 // film validated is not on the second one's board.
 const CHROME_PORT = 9390 + Math.floor(Math.random() * 100);
-mkdirSync(join(scratch, 'bin'));
-// A `claude` on the PATH, for the console to find one — without it, Ponos
-// wears his error face. It is never called.
-writeFileSync(join(scratch, 'bin', 'claude'), '#!/bin/sh\nexit 0\n');
-chmodSync(join(scratch, 'bin', 'claude'), 0o755);
+// The console's own checks need a `claude`, a `gh` and a `systemctl` that
+// answer for themselves, or the health band opens the dashboard on a thing to
+// fix: scripts/workbench.py writes them, with a configuration, a state
+// directory and a HOME of their own, and says which environment points there.
+// The `python3` of the machine may not have FastAPI: the checkout's `.venv` does.
+const venv = join(root, '.venv', 'bin', 'python');
+const python = existsSync(venv) ? venv : 'python3';
+const STAGE = `
+import json, os, sys
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+import workbench
+workbench.stage(Path(sys.argv[2]), Path(sys.argv[3]), token=sys.argv[4])
+print(json.dumps({k: os.environ[k] for k in ("PATH", "HOME", "PONOS_CONFIG", "XDG_STATE_HOME", "PYTHONPATH")}))
+`;
 
 async function until(check, what, timeout = 20_000) {
   const start = Date.now();
@@ -181,22 +198,16 @@ async function stage(theme) {
   const board = join(here, 'board');
   const config = join(here, 'config.toml');
   const port = 8890 + Math.floor(Math.random() * 100);
-  mkdirSync(join(here, 'workspace'), { recursive: true });
-  mkdirSync(join(here, 'home'));
-  writeFileSync(
-    config,
-    `[storage]\nmode = "markdown"\npath = "${board}"\n\n[runner]\nworkspace_root = "${join(here, 'workspace')}"\n\n[web]\nport = ${port}\ntoken = "${TOKEN}"\n`,
-  );
+  mkdirSync(here, { recursive: true });
   const env = {
     ...process.env,
-    PATH: `${join(scratch, 'bin')}:${process.env.PATH}`,
-    HOME: join(here, 'home'),
-    PYTHONPATH: join(root, 'src'),
-    PONOS_CONFIG: config,
-    XDG_STATE_HOME: join(here, 'state'),
+    ...JSON.parse(execFileSync(python, ['-c', STAGE, join(root, 'scripts'), here, board, TOKEN], { encoding: 'utf-8' })),
   };
-  execFileSync('python3', ['-c', SEED, board], { env });
-  const server = spawn('python3', ['-m', 'ponos', 'serve', '--port', String(port)], {
+  // The workspace folder the health band looks for, and a state nobody else may read.
+  mkdirSync(join(env.HOME, 'workspace'));
+  execFileSync('chmod', ['-R', 'go-rwx', join(env.XDG_STATE_HOME, 'ponos')]);
+  execFileSync(python, ['-c', SEED, board], { env });
+  const server = spawn(python, ['-m', 'ponos', 'serve', '--port', String(port)], {
     cwd: root,
     env,
     stdio: 'ignore',
@@ -205,7 +216,7 @@ async function stage(theme) {
   const base = `http://127.0.0.1:${port}`;
   await until(() => fetch(`${base}/`).then((answer) => answer.status < 500), 'the console');
 
-  const run = spawn('python3', ['-c', RUN, board, base, TOKEN], { env, stdio: ['pipe', 'pipe', 'inherit'] });
+  const run = spawn(python, ['-c', RUN, board, base, TOKEN], { env, stdio: ['pipe', 'pipe', 'inherit'] });
   children.push(run);
   let answered = () => {};
   run.stdout.on('data', () => answered());
@@ -358,10 +369,12 @@ async function film(theme) {
   const { base, play, close } = await stage(theme);
   await send('Network.setCookie', { name: 'ponos_token', value: TOKEN, url: base });
   const { identifier } = await send('Page.addScriptToEvaluateOnNewDocument', {
-    source: `localStorage.setItem("ponos-theme", ${JSON.stringify(theme)}); localStorage.setItem("ponos-language", "en");`,
+    source: `localStorage.setItem("ponos-theme", ${JSON.stringify(theme)}); localStorage.setItem("ponos-language", "en"); localStorage.setItem("ponos-dashboard-statistics", "folded");`,
   });
   await send('Page.navigate', { url: `${base}/` });
   await until(() => evaluate(`!!(${card('Fix rounding on VAT totals')})`), 'the board');
+  // The board under the figures: the page is scrolled to it, as a person at work would.
+  await evaluate(`${named('h1, h2, h3', 'Board')}.scrollIntoView({ block: 'start' })`);
   await evaluate(POINTER);
   await send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...REST });
   await sleep(2000);
@@ -379,10 +392,10 @@ async function film(theme) {
   // 01 — you write the ticket.
   cue();
   await sleep(400);
-  await click(await where(named('button', 'New ticket'), 'New ticket'));
+  await click(await where(named('a', 'New ticket'), 'New ticket'));
   await sleep(400);
   await click(await where(`document.querySelector('[role="dialog"] [role="combobox"]')`, 'the project field'));
-  await click(await where(`[...document.querySelectorAll('[role="option"]')].find((o) => o.innerText.startsWith("Landing page"))`, 'the project'));
+  await click(await where(`[...document.querySelectorAll('[role="option"]')].find((o) => o.innerText.includes("Landing page"))`, 'the project'));
   await click(await where(`document.querySelector('[role="dialog"] input')`, 'the title'));
   await type(TITLE);
   await sleep(250);
@@ -414,16 +427,18 @@ async function film(theme) {
   // 03 — you read what came back: In review, with what it cost.
   cue();
   await play('deliver 0.84');
-  await until(() => evaluate(offers(TITLE, 'validate')), 'In review');
+  await until(() => evaluate(offers(TITLE, 'Decide')), 'In review');
   await sleep(1800);
 
   // 04 — you say yes, and he delivers: Validated.
   cue();
-  await click(await where(named('button', 'validate', card(TITLE)), 'validate'));
-  // Merging is asked twice: the card's button, then the dialog's.
-  await sleep(450);
-  await click(await where(named('[role="alertdialog"] button', 'Validate'), 'the confirmation'));
-  await until(() => evaluate(offers(TITLE, 'make ready')), 'Validated');
+  await click(await where(named('button', 'Decide', card(TITLE)), 'Decide'));
+  await sleep(1500);
+  await click(await where(`[...document.querySelectorAll('[data-solution]')].find((e) => e.innerText.includes("Validate"))`, 'Validate'));
+  await until(() => evaluate(offers(TITLE, 'Make ready')), 'Validated');
+  // The decision said, the window closed: the card stands in Validated.
+  await sleep(1600);
+  await click(await where(`document.querySelector('[data-ticket-window] button[aria-label="Close"], [role="dialog"] button[aria-label="Close"]')`, 'the close button'));
   await pointAt(REST);
   await sleep(1200);
 

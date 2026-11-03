@@ -41,6 +41,7 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Changed
 
+- Le site the-ponos.app et le README montrent la console actuelle (Hermez, Dashboard) : le film de la boucle est refilmé en clair et en sombre, et la vidéo promo, restée à l'ancienne console, est retirée au profit de ce film.
 - `install.sh` termine, quand des outils manquent, par une seule commande qui les installe tous (`sudo apt-get install -y python3 python3-venv git`), en plus du détail par outil ; sur Debian et Ubuntu, `python3-venv` accompagne désormais `python3`. Quand il faut télécharger uv, l'installeur le dit.
 - Le site the-ponos.app a une version française, sur `/fr/` : la même page d'accueil, avec un sélecteur de langue EN/FR dans l'en-tête, des balises `hreflang` croisées, les deux pages dans le sitemap et la signature « Un produit Hermez » en pied de page.
 - Sur the-ponos.app, l'animation du héros ne dessine plus Validate et Run again à 35 % d'opacité tant que rien n'est revenu : les deux boutons gardent leur place sans s'afficher, puis apparaissent une fois le volet « You decide » allumé. La pastille *Ready* a un fond moins teinté (4,52:1 au lieu de 4,27:1). Lighthouse Accessibilité remonte de 97 à 100, sur mobile comme sur desktop.
