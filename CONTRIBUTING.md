@@ -569,7 +569,7 @@ node scripts/film-console.mjs
 
 writes the demonstration board of the screenshots, serves it from this checkout and films
 headless Chrome through one ticket — *New ticket*, *In progress* with its live line,
-*In review* with its cost, *validate* — in light and in dark, into
+*In review* with its cost, *Decide* then *Validate* — in light and in dark, into
 `docs/media/console-loop-{light,dark}.mp4` and their posters (ffmpeg makes the videos). No
 Claude Code session runs: a stand-in holds the run lock, writes the session log and moves
 the ticket with the runner's own pieces, so the console shows what it shows of a real run.
