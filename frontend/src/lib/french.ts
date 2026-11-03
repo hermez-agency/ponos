@@ -408,6 +408,9 @@ export const FRENCH: Record<string, string> = {
   "On hold: the ticket is blocked": "En pause : le ticket est bloqué",
   "On hold: waiting for credit": "En pause : en attente de crédits",
   "Working time": "Temps de travail",
+  "≈ {{cost}} · {{time}}, up to {{high}}": "≈ {{cost}} · {{time}}, jusqu’à {{high}}",
+  "Estimated from {{count}} similar tickets: the median, and the 80th centile":
+    "Estimé d’après {{count}} tickets comparables : la médiane, et le 80e centile",
   "Time on hold": "Temps en pause",
   Sessions: "Sessions",
   "taken by": "pris par",

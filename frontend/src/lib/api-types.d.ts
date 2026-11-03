@@ -754,6 +754,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/estimate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Estimate */
+        get: operations["estimate_api_estimate_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tickets/{ticket_id}": {
         parameters: {
             query?: never;
@@ -2320,6 +2337,32 @@ export interface components {
         Entry: {
             name: string;
             folder: boolean;
+        };
+        /**
+         * @description What a ticket is likely to cost and take, from the tickets like it that ran — see
+         *     `estimates.py`.
+         */
+        Estimate: {
+            /** @description The median cost, in dollars. */
+            cost: number;
+            /** @description The 80th centile of the cost: one ticket in five went past it. */
+            cost_high: number;
+            /** @description The median duration. */
+            seconds: number;
+            /** @description The 80th centile of the duration. */
+            seconds_high: number;
+            /** @description How many tickets it stands on: never fewer than `estimates.LEAST`. */
+            tickets: number;
+            /**
+             * @description What they share with this one: project, type, sub-type and model; project and type; the
+             *     type alone.
+             * @enum {string}
+             */
+            basis: "subtype" | "project" | "type";
+        };
+        Estimated: {
+            /** @description Null without enough tickets to compare with. */
+            estimate: components["schemas"]["Estimate"] | null;
         };
         /** @description A folder of the runner's machine, for a path field to pick from. */
         Folder: {
@@ -3906,6 +3949,11 @@ export interface components {
              *     see `worktime.py`.
              */
             worktime?: components["schemas"]["WorkTime"] | null;
+            /**
+             * @description On a ready or draft ticket only: what it is likely to cost and take — null without enough
+             *     history.
+             */
+            estimate?: components["schemas"]["Estimate"] | null;
         };
         TicketChoices: {
             type?: components["schemas"]["Choice"][];
@@ -3991,6 +4039,11 @@ export interface components {
              *     see `worktime.py`.
              */
             worktime?: components["schemas"]["WorkTime"] | null;
+            /**
+             * @description On a ready or draft ticket only: what it is likely to cost and take — null without enough
+             *     history.
+             */
+            estimate?: components["schemas"]["Estimate"] | null;
             /** @description The page's blocks, flattened the way the runner reads them. */
             content: string;
             /** @description The model it runs on: the last session's own word, then the column, then the defaults. */
@@ -5760,6 +5813,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Github"];
+                };
+            };
+        };
+    };
+    estimate_api_estimate_get: {
+        parameters: {
+            query?: {
+                project?: string;
+                type?: string;
+                subtype?: string;
+                model?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Estimated"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

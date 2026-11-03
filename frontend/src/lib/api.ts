@@ -156,6 +156,9 @@ export const api = {
     answer(client.GET("/api/projects/{project_id}/brief", { params: { path: { project_id: id } } })),
   projectSettings: (id: string) =>
     answer(client.GET("/api/projects/{project_id}/settings", { params: { path: { project_id: id } } })),
+  /** What a ticket being written is likely to cost and take; null without enough history. */
+  estimate: (query: { project: string; type: string; subtype: string; model: string }) =>
+    answer(client.GET("/api/estimate", { params: { query } })),
   ticket: (id: string) =>
     answer(client.GET("/api/tickets/{ticket_id}", { params: { path: { ticket_id: id } } })),
   talk: (id: string) =>
