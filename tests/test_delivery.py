@@ -835,6 +835,41 @@ def publishing_hands_the_page_as_it_stands_to_a_session_and_then_closes_it():
 
 
 @case
+def a_publication_whose_session_does_not_start_fails_and_lets_its_claim_go(state_home):
+    """No `claude` to start: the ticket fails on that, and is not left claimed.
+
+    Nothing went out, so the note that would turn a crash into a question — the
+    post may be out already — is let go: the next run has nothing to ask about.
+    """
+    runner = _board_runner([_reviewed("p-post", "Validated", None)], {})
+    runner.config.runner.progress = False
+    runner.config.runner.attach_sessions = False
+    runner.resolver = None
+
+    def fake_run(prompt_text, **kwargs):
+        raise FileNotFoundError("[Errno 2] No such file or directory: 'claude'")
+
+    original = session.run
+    session.run = fake_run
+    try:
+        results = runner.deliver()
+    finally:
+        session.run = original
+
+    assert results and results[0]["status"] == "failed", results
+    assert results[0]["code"] == "session.not-started", results
+    assert [values["Status"] for _, values in runner.client.written] == [
+        "In progress",
+        "Failed",
+    ]
+    assert runner.client.written[-1][1]["Blocage"] == "session.not-started"
+    said = runner.client.comments_written[-1]
+    assert "Failed — The Claude session would not start" in said, said
+    assert "No such file or directory" in said, said
+    assert state.claims() == {}, "a publication that never started is not a question"
+
+
+@case
 def a_publication_whose_closing_write_found_notion_down_is_not_put_back_to_ready(state_home):
     """The post is out; only "done" could not be written. Ready would post it twice."""
     page = _reviewed("ppost", "Validated", None)

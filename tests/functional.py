@@ -731,6 +731,25 @@ if os.environ.get("FAKE_CLAUDE_DIRTY") and (here / ".git").exists():
     (here / "FAKE.md").write_text("changed, never committed\\n", encoding="utf-8")
     finish("J'ai modifié FAKE.md.\\nRESULT: ok — le fichier est modifié")
 
+# A second ticket landed on the base branch while this session was running.
+# `FAKE_CLAUDE_MOVES_BASE` names the clone it landed in: a commit on `main`,
+# pushed — which is what a merge on GitHub does under a session that started an
+# hour ago, and what the branch has to be replayed onto before its own pull
+# request is opened, or merged once its conflict is resolved.
+def move_base(moved):
+    clone = Path(moved)
+    other = clone / "OTHER.md"
+    before = other.read_text(encoding="utf-8") if other.exists() else ""
+    other.write_text(before + "un autre ticket est passé par là\\n", encoding="utf-8")
+    subprocess.run(["git", "add", "OTHER.md"], cwd=clone, check=True, capture_output=True)
+    subprocess.run(["git", "-c", "user.name=Autre", "-c", "user.email=autre@example.invalid",
+                    "-c", "commit.gpgsign=false", "commit", "-m", "Un autre ticket"],
+                   cwd=clone, check=True, capture_output=True)
+    subprocess.run(["git", "push", "origin", "main"], cwd=clone, check=True, capture_output=True)
+
+
+moved = os.environ.get("FAKE_CLAUDE_MOVES_BASE", "")
+
 # A pull request whose rebase stopped on a conflict. The fake resolves it the
 # way the prompt asks — both sides kept — by dropping the markers and keeping
 # every line, then carries the rebase to its end. `FAKE_CLAUDE_RESOLVE=blocked`
@@ -760,6 +779,22 @@ if "You are resolving that conflict" in prompt:
             resolved.append(name)
         subprocess.run(["git", *identity, "rebase", "--continue"], cwd=here,
                        env={**os.environ, "GIT_EDITOR": "true"}, capture_output=True)
+    # Somebody else pushed to the pull request's branch while it was resolved:
+    # one commit on top of the one the replay started from, which the lease the
+    # runner pushes on was taken on.
+    if os.environ.get("FAKE_CLAUDE_PUSHES_OVER"):
+        import re
+
+        branch, was = re.search(r"`([^`]+)` \\(at `([0-9a-f]+)`\\)", prompt).groups()
+        tree = subprocess.run(["git", "rev-parse", was + "^{tree}"], cwd=here, check=True,
+                              capture_output=True, text=True).stdout.strip()
+        theirs = subprocess.run(["git", *identity, "commit-tree", "-p", was, "-m",
+                                 "Poussé par quelqu'un d'autre", tree], cwd=here, check=True,
+                                capture_output=True, text=True).stdout.strip()
+        subprocess.run(["git", "push", "origin", theirs + ":refs/heads/" + branch], cwd=here,
+                       check=True, capture_output=True)
+    if moved:
+        move_base(moved)
     said = ("\\n".join(f"- `{name}` : les deux versions gardées" for name in resolved)
             + "\\nVérifications : aucune dans ce dépôt.\\n"
             "RESULT: ok — conflit résolu en gardant les deux côtés")
@@ -778,20 +813,8 @@ if "the project's CI was run on this machine" in prompt:
                    cwd=here, check=True, capture_output=True)
     finish("RESULT: ok — la CI locale est corrigée", turns=2, cost=0.01)
 
-# A second ticket landed on the base branch while this session was running.
-# `FAKE_CLAUDE_MOVES_BASE` names the clone it landed in: a commit on `main`,
-# pushed — which is what a merge on GitHub does under a session that started an
-# hour ago, and what the branch has to be replayed onto before its own pull
-# request is opened.
-moved = os.environ.get("FAKE_CLAUDE_MOVES_BASE", "")
 if moved and (here / ".git").exists():
-    clone = Path(moved)
-    (clone / "OTHER.md").write_text("un autre ticket est passé par là\\n", encoding="utf-8")
-    subprocess.run(["git", "add", "OTHER.md"], cwd=clone, check=True, capture_output=True)
-    subprocess.run(["git", "-c", "user.name=Autre", "-c", "user.email=autre@example.invalid",
-                    "-c", "commit.gpgsign=false", "commit", "-m", "Un autre ticket"],
-                   cwd=clone, check=True, capture_output=True)
-    subprocess.run(["git", "push", "origin", "main"], cwd=clone, check=True, capture_output=True)
+    move_base(moved)
 
 if (here / ".git").exists():
     # What a session does on its way, for the journal to keep and the page not
@@ -1334,6 +1357,7 @@ def bench(**overrides: object) -> Iterator[Bench]:
                 "FAKE_CLAUDE_KIND": "",
                 "FAKE_CLAUDE_SAY": "",
                 "FAKE_CLAUDE_RESOLVE": "",
+                "FAKE_CLAUDE_PUSHES_OVER": "",
                 "FAKE_CLAUDE_COST": "",
                 "FAKE_CLAUDE_BLOCK": "",
                 "FAKE_CLAUDE_OVER_BUDGET": "",
@@ -2855,6 +2879,171 @@ def a_conflict_that_is_a_decision_blocks_the_ticket_with_the_question(machine: B
     assert machine.content(repository, branch, "FAKE.md") == pushed, "the branch was rewritten"
     assert machine.content(repository, "main", "FAKE.md") == "ce que l'autre ticket a écrit\n"
     assert not machine.worktrees(repository), machine.worktrees(repository)
+
+
+def _in_conflict(machine: Bench) -> tuple[Path, str, str]:
+    """A pull request validated after another ticket rewrote the file it writes.
+
+    The board has its « Blocage » column, for the cases below to read the cause
+    a resolution stopped on. The repository, the ticket, and its branch.
+    """
+    machine.board.databases[machine.database]["properties"] = {
+        **machine.board.databases[machine.database]["properties"],
+        "Blocage": {"type": "select", "select": {"options": []}},
+    }
+    repository = machine.repository("site")
+    project = machine.project("Site", repository)
+    ticket = machine.ticket("Corriger l'entête", "Le titre est faux.", project)
+    branch = str(machine.run()[0]["branch"])
+    machine.land(repository, "FAKE.md", "ce que l'autre ticket a écrit\n")
+    machine.move(ticket, "Validated")
+    return repository, ticket, branch
+
+
+@case
+def a_branch_pushed_to_during_its_resolution_is_not_overwritten_and_asks_which_wins(
+    machine: Bench,
+) -> None:
+    """Somebody pushed to the pull request's branch while its conflict was resolved.
+
+    The lease the resolution is pushed on was taken on the commit the replay
+    started from: the push is refused, their commit stays where it is, nothing
+    is merged — and the ticket asks which of the two should win, with the
+    resolution set aside on a branch of its own.
+    """
+    from ponos import git
+
+    repository, ticket, branch = _in_conflict(machine)
+    # `push_leased` hands back git's last line, which after a lease refused is
+    # `error: failed to push some refs`, and `pushed_over` reads the line above
+    # it, `! [rejected] … (stale info)`: the refusal is git's own, only that line
+    # is the one handed back.
+    leased = git.push_leased
+    refusals: list[str] = []
+
+    def push_leased(worktree: Path, name: str, was: str, accounts: Any = None) -> str:
+        refused = leased(worktree, name, was, accounts)
+        refusals.append(refused)
+        return f" ! [rejected]        HEAD -> {name} (stale info)" if refused else ""
+
+    git.push_leased = push_leased  # type: ignore[assignment]  # a doublure on the module
+    try:
+        with _environ({"FAKE_CLAUDE_PUSHES_OVER": "1"}):
+            results = machine.run()
+    finally:
+        git.push_leased = leased
+
+    assert refusals and refusals[0], refusals
+
+    assert results and results[0]["status"] == "blocked", results
+    assert machine.status(ticket) == "Blocked", machine.status(ticket)
+    assert machine.board.value(ticket, "Blocage") == "merge.pushed-over"
+    said = machine.board.said(ticket)[-1]
+    assert f"pushed to `{branch}` by someone else" in said, said
+    assert not machine.merges(), "a branch somebody else pushed to was merged"
+    tip = subprocess.run(
+        ["git", "log", "-1", "--format=%s", branch],
+        cwd=str(machine.root / "remotes" / "site.git"),
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert tip.stdout.strip() == "Poussé par quelqu'un d'autre", tip.stdout
+    aside = [name for name in machine.branches(repository) if name.startswith(f"{branch}-rebased-")]
+    assert len(aside) == 1 and aside[0] in said, (machine.branches(repository), said)
+    assert not machine.worktrees(repository), machine.worktrees(repository)
+
+
+@case
+def a_resolution_whose_push_is_refused_fails_with_the_resolution_set_aside(
+    machine: Bench,
+) -> None:
+    """The remote refuses the pull request's branch — a rule, a hook, a protection.
+
+    Not somebody else's commits, so not a question about whose wins: the ticket
+    fails on the refusal, with what git said and the resolution pushed to a
+    branch the rule lets through.
+    """
+    repository, ticket, branch = _in_conflict(machine)
+    hook = machine.root / "remotes" / "site.git" / "hooks" / "pre-receive"
+    hook.write_text(
+        "#!/bin/sh\n"
+        "while read old new ref; do\n"
+        '  case "$ref" in *-rebased-*) ;; *) echo "branche protégée : $ref" >&2; exit 1 ;; esac\n'
+        "done\n",
+        encoding="utf-8",
+    )
+    hook.chmod(0o755)
+
+    results = machine.run()
+
+    assert results and results[0]["status"] == "failed", results
+    assert results[0]["code"] == "merge.push-refused", results
+    assert machine.status(ticket) == "Failed", machine.status(ticket)
+    assert machine.board.value(ticket, "Blocage") == "merge.push-refused"
+    said = machine.board.said(ticket)[-1]
+    assert "pushing them was refused" in said, said
+    assert not machine.merges(), "a resolution that never reached the remote was merged"
+    assert machine.content(repository, branch, "FAKE.md") == "the session was here\n"
+    aside = [name for name in machine.branches(repository) if name.startswith(f"{branch}-rebased-")]
+    assert len(aside) == 1 and aside[0] in said, (machine.branches(repository), said)
+    assert not machine.worktrees(repository), machine.worktrees(repository)
+
+
+@case
+def a_base_that_moves_between_the_resolution_and_the_merge_is_caught_up_next_pass(
+    machine: Bench,
+) -> None:
+    """Resolved and pushed, and `main` moved again before the merge was asked.
+
+    GitHub refuses the merge of a branch that is behind: the ticket goes back
+    to validated, says so, and the next pass — a replay with nothing left to
+    resolve — lands it with all three changes.
+    """
+    repository, ticket, branch = _in_conflict(machine)
+
+    with _environ({"FAKE_CLAUDE_MOVES_BASE": str(repository)}):
+        results = machine.run()
+
+    assert results and results[0]["status"] == "validated", results
+    assert machine.status(ticket) == "Validated", machine.status(ticket)
+    assert not machine.board.value(ticket, "Blocage"), machine.board.value(ticket, "Blocage")
+    said = machine.board.said(ticket)[-1]
+    assert "the base moved again in the meantime" in said, said
+    assert not machine.merges(), "a branch behind its base was merged"
+    assert "<<<<<<<" not in machine.content(repository, branch, "FAKE.md")
+    assert "OTHER.md" not in machine.files_on(repository, branch)
+
+    results = machine.run()
+
+    assert results and results[0]["status"] == "done", results
+    assert machine.status(ticket) == "Done", machine.status(ticket)
+    landed = machine.files_on(repository, "main")
+    assert "OTHER.md" in landed and "FAKE.md" in landed, landed
+    assert "ce que l'autre ticket a écrit" in machine.content(repository, "main", "FAKE.md")
+
+
+@case
+def a_base_that_keeps_moving_under_the_resolutions_blocks_the_ticket(machine: Bench) -> None:
+    """The same, once too often: past `MOST_REBASES`, the ticket asks.
+
+    One replay is already counted against the ticket; the resolution makes the
+    second, the base moves again under it, and chasing it a third time is the
+    question the ticket asks instead.
+    """
+    repository, ticket, _branch = _in_conflict(machine)
+    state.rebased(ticket)
+
+    with _environ({"FAKE_CLAUDE_MOVES_BASE": str(repository)}):
+        results = machine.run()
+
+    assert results and results[0]["status"] == "blocked", results
+    assert machine.status(ticket) == "Blocked", machine.status(ticket)
+    assert machine.board.value(ticket, "Blocage") == "merge.base-moving"
+    said = machine.board.said(ticket)[-1]
+    assert "replayed onto `main` 2 times" in said, said
+    assert state.rebases(ticket) == 0, "the count of a ticket that asks starts again"
+    assert not machine.merges(), machine.merges()
 
 
 @case
