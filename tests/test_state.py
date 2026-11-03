@@ -7,6 +7,7 @@ import sqlite3
 import tempfile
 import threading
 from pathlib import Path
+from typing import Any
 
 from support import ROOT, _state_home, case
 
@@ -17,7 +18,7 @@ from ponos import db, log, state, systemd, update
 
 
 @case
-def a_lock_left_by_a_dead_run_is_not_a_run(state_home):
+def a_lock_left_by_a_dead_run_is_not_a_run(state_home: Path) -> None:
     """`run.lock` on disk is what a killed run leaves behind; the flock is not.
 
     For two hours on 7 September 2026, `status` read the leftover file as a run
@@ -32,7 +33,7 @@ def a_lock_left_by_a_dead_run_is_not_a_run(state_home):
 
 
 @case
-def a_run_turned_away_leaves_the_lock_and_its_holder_alone(state_home):
+def a_run_turned_away_leaves_the_lock_and_its_holder_alone(state_home: Path) -> None:
     """The lock file is one inode for good, and its PID survives a refusal.
 
     Unlinking it on release let a run waiting on the old inode and a run that
@@ -60,26 +61,25 @@ def a_run_turned_away_leaves_the_lock_and_its_holder_alone(state_home):
 
 
 @case
-def a_copy_of_a_secret_is_private_before_it_holds_anything():
+def a_copy_of_a_secret_is_private_before_it_holds_anything() -> None:
     """The console's token, and the copies a save makes of the configuration.
 
     Written with the umask and tightened with `chmod` afterwards, each was
     readable by the group for the moment in between — the configuration holds
     the Notion token, the bot tokens and the console's password.
     """
-    from ponos import disk
     from ponos.web import server as web_server
 
     created: list[tuple[str, int]] = []
-    original = disk.os.open
+    original = os.open
 
-    def spying(path, flags, mode=0o777, *rest, **kept):
+    def spying(path: Any, flags: int, mode: int = 0o777, *rest: Any, **kept: Any) -> int:
         if flags & os.O_CREAT:
             created.append((str(path), mode))
         return original(path, flags, mode, *rest, **kept)
 
     previous = os.umask(0o022)
-    disk.os.open = spying
+    os.open = spying
     try:
         with _state_home():
             path = Path(tempfile.mkdtemp()) / "config.toml"
@@ -94,7 +94,7 @@ def a_copy_of_a_secret_is_private_before_it_holds_anything():
             assert backup.stat().st_mode & 0o777 == 0o600
             assert path.stat().st_mode & 0o777 == 0o600
     finally:
-        disk.os.open = original
+        os.open = original
         os.umask(previous)
     names = {Path(name).name: mode for name, mode in created}
     assert names.get("token") == 0o600, names
@@ -105,7 +105,7 @@ def a_copy_of_a_secret_is_private_before_it_holds_anything():
 
 
 @case
-def a_claim_is_written_whole_or_not_at_all(state_home):
+def a_claim_is_written_whole_or_not_at_all(state_home: Path) -> None:
     """A crash halfway through a write must leave the claims as they were.
 
     A lost claim reads as "no claim", and a validated ticket without its claim
@@ -138,7 +138,7 @@ def a_claim_is_written_whole_or_not_at_all(state_home):
 
 
 @case
-def what_a_session_said_is_kept_for_this_account_only(state_home):
+def what_a_session_said_is_kept_for_this_account_only(state_home: Path) -> None:
     """Transcripts and the history carry briefs, code and whatever was printed."""
     previous = os.umask(0o022)
     try:
@@ -151,7 +151,7 @@ def what_a_session_said_is_kept_for_this_account_only(state_home):
 
 
 @case
-def the_totals_count_every_line_of_the_history(state_home):
+def the_totals_count_every_line_of_the_history(state_home: Path) -> None:
     """The header's figures were summed over the last 10 000 lines, decoded one by one.
 
     One more and the oldest fell out of both: the count stuck at 10 000, and
@@ -166,7 +166,9 @@ def the_totals_count_every_line_of_the_history(state_home):
 
 
 @case
-def a_session_paid_while_the_database_is_locked_is_logged_and_counted_all_the_same(state_home):
+def a_session_paid_while_the_database_is_locked_is_logged_and_counted_all_the_same(
+    state_home: Path,
+) -> None:
     """`spend` swallowed every database error in silence.
 
     The audit of 2 November 2026 found 277 $ of sessions missing from
@@ -201,9 +203,9 @@ def a_session_paid_while_the_database_is_locked_is_logged_and_counted_all_the_sa
 
 
 @case
-def the_statistics_read_the_history_off_its_columns(state_home):
+def the_statistics_read_the_history_off_its_columns(state_home: Path) -> None:
     """What `outcomes` gives the statistics is what they read of the whole lines."""
-    entries = [
+    entries: list[dict[str, Any]] = [
         {"id": "a-1", "status": "done", "merged": "https://x/pull/1", "cost_usd": 1.5},
         {"id": "b-2", "status": "blocked", "reason": "credit balance is too low", "seconds": 30},
         {"id": "c-3", "status": "failed", "code": "unknown", "reason": "kept off its column"},
@@ -237,7 +239,7 @@ def the_statistics_read_the_history_off_its_columns(state_home):
 
 
 @case
-def a_timer_with_no_next_run_is_stalled_rather_than_enabled():
+def a_timer_with_no_next_run_is_stalled_rather_than_enabled() -> None:
     """What the incident's timer answered, and what a healthy one answers."""
     starved = systemd.describe(
         "enabled",
@@ -265,7 +267,7 @@ def a_timer_with_no_next_run_is_stalled_rather_than_enabled():
 
 
 @case
-def status_says_the_timer_and_the_run_in_local_time_and_from_now():
+def status_says_the_timer_and_the_run_in_local_time_and_from_now() -> None:
     """`status` printed the `list-timers` line bare — `-       - Fri 2026-10-23
     10:19:18 CEST 4h 54min ago` — and the run as a PID beside a UTC timestamp."""
     import time
@@ -313,10 +315,10 @@ def status_says_the_timer_and_the_run_in_local_time_and_from_now():
 
 
 @case
-def the_timer_counts_from_its_own_start():
+def the_timer_counts_from_its_own_start() -> None:
     """OnBootSec serves once; OnUnitActiveSec needs a service that ran. A timer
     restarted after a failed run had neither, and never fired again."""
-    previous = os.environ.get("HOME")
+    previous = os.environ["HOME"]
     os.environ["HOME"] = tempfile.mkdtemp()
     try:
         units = update.write_units(600, ROOT)
@@ -329,10 +331,10 @@ def the_timer_counts_from_its_own_start():
 
 
 @case
-def the_runner_unit_runs_its_sessions_behind_the_desktop():
+def the_runner_unit_runs_its_sessions_behind_the_desktop() -> None:
     """Five sessions at nice 0, as equals of the browser they drive, and the
     desktop stopped answering: the unit `ponos enable` writes sets them back."""
-    previous = os.environ.get("HOME")
+    previous = os.environ["HOME"]
     os.environ["HOME"] = tempfile.mkdtemp()
     try:
         units = update.write_units(600, ROOT)

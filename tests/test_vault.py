@@ -7,6 +7,7 @@ import os
 import sys
 import tempfile
 from pathlib import Path
+from typing import Any
 
 import httpx
 from support import _bare_runner, _config, _http_answering, _tools, case
@@ -18,7 +19,7 @@ from ponos import files, notion, prompt, session, vault
 
 
 @case
-def the_vault_is_read_project_by_project_and_checked():
+def the_vault_is_read_project_by_project_and_checked() -> None:
     """`[vault]` grants each project its own keys, and says what it cannot hand over."""
     settings = _config(
         '[vault]\nprovider = "pass"\n'
@@ -49,7 +50,7 @@ def the_vault_is_read_project_by_project_and_checked():
 
 
 @case
-def each_provider_reads_a_secret_and_tells_a_missing_one_from_a_locked_vault():
+def each_provider_reads_a_secret_and_tells_a_missing_one_from_a_locked_vault() -> None:
     vault.forget()
     os.environ["PONOS_TEST_VAULT"] = "from-the-environment"
     try:
@@ -114,7 +115,7 @@ def each_provider_reads_a_secret_and_tells_a_missing_one_from_a_locked_vault():
 
 
 @case
-def a_secret_read_is_masked_wherever_it_would_be_written():
+def a_secret_read_is_masked_wherever_it_would_be_written() -> None:
     vault.forget()
     try:
         vault.remember("abc")  # too short to be masked without masking the code
@@ -144,7 +145,7 @@ def a_secret_read_is_masked_wherever_it_would_be_written():
         # Notion: what is sent, whatever the call.
         sent: list[bytes] = []
 
-        def answer(request):
+        def answer(request: httpx.Request) -> httpx.Response:
             sent.append(request.content)
             return httpx.Response(200, json={})
 
@@ -156,7 +157,7 @@ def a_secret_read_is_masked_wherever_it_would_be_written():
 
 
 @case
-def a_session_given_a_secret_never_writes_it_down():
+def a_session_given_a_secret_never_writes_it_down() -> None:
     """What the session prints of its key is masked in its transcript, answer and stderr."""
     vault.forget()
     vault.remember("npm_supersecret_42")
@@ -173,7 +174,7 @@ def a_session_given_a_secret_never_writes_it_down():
         (home / "claude").chmod(0o755)
         previous = os.environ["PATH"]
         os.environ["PATH"] = f"{home}{os.pathsep}{previous}"
-        seen: list[dict] = []
+        seen: list[dict[str, Any]] = []
         try:
             outcome = session.run(
                 "go",
@@ -194,7 +195,7 @@ def a_session_given_a_secret_never_writes_it_down():
 
 
 @case
-def a_ticket_session_is_given_its_project_secrets_by_name_only():
+def a_ticket_session_is_given_its_project_secrets_by_name_only() -> None:
     vault.forget()
     runner = _bare_runner(None)
     runner.dry_run = False

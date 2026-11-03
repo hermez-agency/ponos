@@ -7,6 +7,8 @@ import json
 import threading
 import time
 import uuid
+from collections.abc import Iterator
+from typing import Any
 
 from support import _Clock, _run_on, case
 
@@ -15,16 +17,16 @@ from ponos import markdown, notion, progress, session, voice
 # -- the live report ---------------------------------------------------------
 
 
-def _assistant(*blocks) -> dict:
+def _assistant(*blocks: dict[str, Any]) -> dict[str, Any]:
     return {"type": "assistant", "message": {"content": list(blocks)}}
 
 
-def _tool(name: str, **payload) -> dict:
+def _tool(name: str, **payload: Any) -> dict[str, Any]:
     return {"type": "tool_use", "name": name, "input": payload}
 
 
 @case
-def an_event_becomes_the_line_a_human_would_write():
+def an_event_becomes_the_line_a_human_would_write() -> None:
     steps = progress.describe(
         _assistant(
             {"type": "text", "text": "I will read the config.\n\nThen the tests."},
@@ -42,7 +44,7 @@ def an_event_becomes_the_line_a_human_would_write():
 
 
 @case
-def what_the_agent_said_is_written_whole_and_not_cut_to_a_bullet():
+def what_the_agent_said_is_written_whole_and_not_cut_to_a_bullet() -> None:
     """A paragraph of reasoning is the part a human reads; it goes down entire."""
     said = "Le ticket parle de la documentation. " * 20  # far past a bullet's 200
     steps = progress.describe(_assistant({"type": "text", "text": said}))
@@ -67,7 +69,7 @@ def what_the_agent_said_is_written_whole_and_not_cut_to_a_bullet():
 
 
 @case
-def the_ticket_gets_what_the_agent_said_and_not_each_command():
+def the_ticket_gets_what_the_agent_said_and_not_each_command() -> None:
     """“Bash · npx vite --port 5199” teaches nothing to whoever reads a ticket.
 
     The calls stay counted in the title and shown in the board's column; their
@@ -99,7 +101,7 @@ def the_ticket_gets_what_the_agent_said_and_not_each_command():
 
 
 @case
-def a_turn_too_long_for_a_ticket_page_is_the_only_one_cut():
+def a_turn_too_long_for_a_ticket_page_is_the_only_one_cut() -> None:
     steps = progress.describe(_assistant({"type": "text", "text": "x" * (progress.SAID + 500)}))
     assert len(steps[0].label) == progress.SAID and steps[0].label.endswith("…")
 
@@ -112,7 +114,7 @@ def a_turn_too_long_for_a_ticket_page_is_the_only_one_cut():
 
 
 @case
-def the_markdown_an_agent_writes_reaches_the_page_as_markup():
+def the_markdown_an_agent_writes_reaches_the_page_as_markup() -> None:
     live, client, clock = _reporting()
     live.add(progress.Step("**Interprétation** : lire `README.md`.", said=True))
     clock.now += 11
@@ -123,14 +125,14 @@ def the_markdown_an_agent_writes_reaches_the_page_as_markup():
 
 
 @case
-def a_tool_nobody_named_still_says_what_it_touched():
+def a_tool_nobody_named_still_says_what_it_touched() -> None:
     """An MCP tool, a new built-in: unknown is not a reason to say nothing."""
     steps = progress.describe(_assistant(_tool("mcp__github__create_pull_request", url="x/y#3")))
     assert steps[0].line == "create_pull_request · x/y#3"
 
 
 @case
-def only_a_failing_tool_result_is_worth_a_line():
+def only_a_failing_tool_result_is_worth_a_line() -> None:
     quiet = progress.describe(
         {"type": "user", "message": {"content": [{"type": "tool_result", "content": "ok"}]}}
     )
@@ -153,16 +155,16 @@ def only_a_failing_tool_result_is_worth_a_line():
 class _Live:
     """A Notion that counts what a live report would have written to it."""
 
-    def __init__(self, refuse=False):
+    def __init__(self, refuse: bool = False) -> None:
         self.refuse = refuse
-        self.blocks = []  # the text of every child appended under the toggle
-        self.kinds = []  # and its block type
-        self.pieces = []  # and how many pieces of rich text it took
-        self.marks = []  # every annotation any of those pieces carried
-        self.titles = []  # every title the toggle has carried
-        self.properties = []  # every value written to the board column
+        self.blocks: list[str] = []  # the text of every child appended under the toggle
+        self.kinds: list[str] = []  # and its block type
+        self.pieces: list[int] = []  # and how many pieces of rich text it took
+        self.marks: list[dict[str, Any]] = []  # every annotation any of those pieces carried
+        self.titles: list[str] = []  # every title the toggle has carried
+        self.properties: list[str] = []  # every value written to the board column
 
-    def append_blocks(self, block_id, blocks):
+    def append_blocks(self, block_id: str, blocks: list[dict[str, Any]]) -> list[str]:
         if self.refuse:
             raise notion.NotionError("403 forbidden")
         if block_id == "page":
@@ -176,21 +178,21 @@ class _Live:
             self.marks += [part["annotations"] for part in parts if part.get("annotations")]
         return ["block"] * len(blocks)
 
-    def update_block(self, block_id, payload):
+    def update_block(self, block_id: str, payload: dict[str, Any]) -> None:
         if self.refuse:
             raise notion.NotionError("403 forbidden")
         self.titles.append(payload["toggle"]["rich_text"][0]["text"]["content"])
 
-    def update(self, database_id, page_id, values):
+    def update(self, database_id: str, page_id: str, values: dict[str, Any]) -> None:
         if self.refuse:
             raise notion.NotionError("403 forbidden")
         self.properties.append(values["Progress"])
 
 
-def _reporting(refuse=False, interval=10.0):
+def _reporting(refuse: bool = False, interval: float = 10.0) -> tuple[progress.Live, _Live, _Clock]:
     clock, client = _Clock(), _Live(refuse)
     live = progress.Live(
-        client,
+        client,  # type: ignore[arg-type]  # a fake: only what a live report writes
         "page",
         database="db",
         property_name="Progress",
@@ -202,7 +204,7 @@ def _reporting(refuse=False, interval=10.0):
 
 
 @case
-def the_steps_are_written_on_the_cadence_and_not_before():
+def the_steps_are_written_on_the_cadence_and_not_before() -> None:
     """Six events a second must not become six writes a second."""
     live, client, clock = _reporting()
     for index in range(5):
@@ -221,12 +223,12 @@ def the_steps_are_written_on_the_cadence_and_not_before():
 class _Stuck(_Live):
     """A Notion that holds every write until it is let go — a 429, waited out."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.free = threading.Event()
         self.held = threading.Event()
 
-    def append_blocks(self, block_id, blocks):
+    def append_blocks(self, block_id: str, blocks: list[dict[str, Any]]) -> list[str]:
         self.held.set()
         assert self.free.wait(10), "never let go"
         return super().append_blocks(block_id, blocks)
@@ -235,12 +237,12 @@ class _Stuck(_Live):
 class _Session:
     """What `session._read` reads: a process, reduced to its output."""
 
-    def __init__(self, lines):
+    def __init__(self, lines: Iterator[str]) -> None:
         self.stdout = iter(lines)
 
 
 @case
-def a_notion_that_takes_minutes_does_not_hold_up_reading_the_session():
+def a_notion_that_takes_minutes_does_not_hold_up_reading_the_session() -> None:
     """The report used to be written from the loop that reads the CLI's output.
 
     A write waiting out a 429 stopped that loop, the pipe filled, and the CLI
@@ -249,19 +251,19 @@ def a_notion_that_takes_minutes_does_not_hold_up_reading_the_session():
     what waited goes down in one write when Notion answers.
     """
     clock, client = _Clock(), _Stuck()
-    live = progress.Live(client, "page", interval=10.0, clock=clock, background=True)
+    live = progress.Live(client, "page", interval=10.0, clock=clock, background=True)  # type: ignore[arg-type]  # a fake: only what a live report writes
     said = [
         json.dumps(_assistant({"type": "text", "text": f"Étape {index}."})) + "\n"
         for index in range(200)
     ]
 
-    def ticking():
+    def ticking() -> Iterator[str]:
         for line in said:
             clock.now += 1  # a write comes due every ten lines
             yield line
 
     started = time.monotonic()
-    final, texts = session._read(_Session(ticking()), io.StringIO(), live.event)
+    final, texts = session._read(_Session(ticking()), io.StringIO(), live.event)  # type: ignore[arg-type]  # a process reduced to its output
     elapsed = time.monotonic() - started
 
     assert client.held.wait(5), "the writer had started its first write"
@@ -275,7 +277,7 @@ def a_notion_that_takes_minutes_does_not_hold_up_reading_the_session():
 
 
 @case
-def what_is_still_waiting_is_written_when_the_session_ends():
+def what_is_still_waiting_is_written_when_the_session_ends() -> None:
     live, client, clock = _reporting()
     live.add(progress.Step("Edit", "src/x.py"))
     clock.now += 120
@@ -288,7 +290,7 @@ def what_is_still_waiting_is_written_when_the_session_ends():
 
 
 @case
-def a_run_that_went_wrong_calls_its_block_a_trace_and_keeps_it_there():
+def a_run_that_went_wrong_calls_its_block_a_trace_and_keeps_it_there() -> None:
     """The report is two lines and says where the rest is; the rest is here.
 
     Which is the whole move: what every comment used to end on — the command
@@ -308,7 +310,7 @@ def a_run_that_went_wrong_calls_its_block_a_trace_and_keeps_it_there():
 
 
 @case
-def a_ticket_with_no_block_to_file_a_trace_in_keeps_it_in_the_report():
+def a_ticket_with_no_block_to_file_a_trace_in_keeps_it_in_the_report() -> None:
     """A trace nobody can find is a trace nobody has."""
     live, client, _ = _reporting()
     assert not live.detail("`claude --resume s-1`"), "no step, no toggle, nowhere to put it"
@@ -316,10 +318,10 @@ def a_ticket_with_no_block_to_file_a_trace_in_keeps_it_in_the_report():
 
 
 @case
-def the_block_a_run_leaves_speaks_the_language_the_report_does():
+def the_block_a_run_leaves_speaks_the_language_the_report_does() -> None:
     """“⏳ Live — 16 step(s)” under a French verdict is one glance, two languages."""
     clock, client = _Clock(), _Live()
-    live = progress.Live(client, "page", words=voice.Voice("fr"), clock=clock)
+    live = progress.Live(client, "page", words=voice.Voice("fr"), clock=clock)  # type: ignore[arg-type]  # a fake: only what a live report writes
     live.add(progress.Step("Edit", "src/x.py"))
     clock.now += 120
     live.close()
@@ -330,11 +332,11 @@ def the_block_a_run_leaves_speaks_the_language_the_report_does():
 class _Page:
     """A Notion page as a tree of blocks: written by a live report, read by the client."""
 
-    def __init__(self):
-        self.children: dict[str, list[dict]] = {"page": []}
+    def __init__(self) -> None:
+        self.children: dict[str, list[dict[str, Any]]] = {"page": []}
         self.asked: list[str] = []
 
-    def add(self, parent: str, block: dict) -> str:
+    def add(self, parent: str, block: dict[str, Any]) -> str:
         identifier = uuid.uuid4().hex
         kind = block["type"]
         rich = [
@@ -349,10 +351,10 @@ class _Page:
                 child["has_children"] = bool(self.children.get(child["id"]))
         return identifier
 
-    def append_blocks(self, block_id, blocks):
+    def append_blocks(self, block_id: str, blocks: list[dict[str, Any]]) -> list[str]:
         return [self.add(block_id, block) for block in blocks]
 
-    def update_block(self, block_id, payload):
+    def update_block(self, block_id: str, payload: dict[str, Any]) -> None:
         for held in self.children.values():
             for child in held:
                 if child["id"] == block_id:
@@ -361,17 +363,17 @@ class _Page:
                         for part in payload["toggle"]["rich_text"]
                     ]
 
-    def update(self, database_id, page_id, values):
+    def update(self, database_id: str, page_id: str, values: dict[str, Any]) -> None:
         pass
 
-    def request(self, method, path, body=None, **_):
+    def request(self, method: str, path: str, body: Any = None, **_: Any) -> dict[str, Any]:
         parent = path.split("/")[2]
         self.asked.append(parent)
         return {"results": self.children[parent], "has_more": False}
 
 
 @case
-def a_brief_is_read_without_the_story_of_earlier_runs():
+def a_brief_is_read_without_the_story_of_earlier_runs() -> None:
     """A ticket sent back to Ready is briefed on what you wrote, not on its past runs.
 
     Every run leaves its toggle on the page; read as a brief, the page skips
@@ -381,9 +383,9 @@ def a_brief_is_read_without_the_story_of_earlier_runs():
     page = _Page()
     page.add("page", markdown.to_blocks("## À faire\n\nCorriger l'entête.")[0])
     page.add("page", markdown.to_blocks("Corriger l'entête.")[0])
-    _run_on(page, "fr", "Je lis la configuration.", ok=False)
+    _run_on(page, "fr", "Je lis la configuration.", ok=False)  # type: ignore[arg-type]  # a fake: a page as a tree of blocks
     page.add("page", markdown.to_blocks("Pull request ouverte : x/y#3")[0])
-    _run_on(page, "en", "Reading the header again.")
+    _run_on(page, "en", "Reading the header again.")  # type: ignore[arg-type]  # a fake: a page as a tree of blocks
     by_hand = page.add(
         "page",
         {
@@ -415,8 +417,8 @@ def a_brief_is_read_without_the_story_of_earlier_runs():
 
 
 @case
-def a_toggle_that_only_looks_like_a_run_is_kept():
-    def toggle(title, bold=True):
+def a_toggle_that_only_looks_like_a_run_is_kept() -> None:
+    def toggle(title: str, bold: bool = True) -> dict[str, Any]:
         part = {"type": "text", "text": {"content": title}, "annotations": {"bold": bold}}
         return {"type": "toggle", "toggle": {"rich_text": [part]}}
 
@@ -431,14 +433,14 @@ def a_toggle_that_only_looks_like_a_run_is_kept():
 
 
 @case
-def a_session_that_did_nothing_leaves_no_toggle_behind():
+def a_session_that_did_nothing_leaves_no_toggle_behind() -> None:
     live, client, _ = _reporting()
     live.close("nothing to do")
     assert client.blocks == [] and client.titles == []
 
 
 @case
-def the_same_step_twice_in_a_row_is_said_once():
+def the_same_step_twice_in_a_row_is_said_once() -> None:
     live, client, clock = _reporting()
     live.add(progress.Step("Je lis la config.", said=True))
     live.add(progress.Step("Je lis la config.", said=True))
@@ -452,7 +454,7 @@ def the_same_step_twice_in_a_row_is_said_once():
 
 
 @case
-def a_notion_that_refuses_costs_the_report_and_not_the_ticket():
+def a_notion_that_refuses_costs_the_report_and_not_the_ticket() -> None:
     """Reporting is commentary: it never becomes a reason to fail a ticket."""
     live, client, clock = _reporting(refuse=True)
     for index in range(10):
@@ -463,7 +465,7 @@ def a_notion_that_refuses_costs_the_report_and_not_the_ticket():
 
 
 @case
-def a_reporter_never_writes_more_than_a_page_can_hold():
+def a_reporter_never_writes_more_than_a_page_can_hold() -> None:
     live, client, clock = _reporting()
     for index in range(progress.MAX_STEPS + 50):
         live.add(progress.Step(f"Paragraphe {index}.", said=True))
@@ -482,7 +484,7 @@ def a_reporter_never_writes_more_than_a_page_can_hold():
 
 
 @case
-def tool_calls_by_the_hundred_do_not_cost_the_prose_its_place():
+def tool_calls_by_the_hundred_do_not_cost_the_prose_its_place() -> None:
     live, client, clock = _reporting()
     for index in range(progress.MAX_STEPS + 50):
         live.add(progress.Step("Read", f"file-{index}.py"))
@@ -495,7 +497,7 @@ def tool_calls_by_the_hundred_do_not_cost_the_prose_its_place():
 # -- the plan ----------------------------------------------------------------
 
 
-def _todos(*tasks) -> dict:
+def _todos(*tasks: tuple[str, str]) -> dict[str, Any]:
     return _tool(
         "TodoWrite",
         todos=[
@@ -506,7 +508,7 @@ def _todos(*tasks) -> dict:
 
 
 @case
-def a_todo_list_becomes_a_plan_step_and_the_board_says_how_far_it_is():
+def a_todo_list_becomes_a_plan_step_and_the_board_says_how_far_it_is() -> None:
     """3/5, and the task under way — never a share of tool calls."""
     live, client, clock = _reporting()
     plan = progress.describe(
@@ -535,7 +537,7 @@ def a_todo_list_becomes_a_plan_step_and_the_board_says_how_far_it_is():
 
 
 @case
-def a_session_without_a_plan_publishes_its_last_step_and_no_figure():
+def a_session_without_a_plan_publishes_its_last_step_and_no_figure() -> None:
     live, client, clock = _reporting()
     live.add(progress.Step("Bash", "npm test"))
     clock.now += 11

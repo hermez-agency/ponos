@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import tempfile
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -16,7 +17,7 @@ from ponos.projects import _normalise
 
 
 @case
-def remotes_normalise_to_owner_and_name():
+def remotes_normalise_to_owner_and_name() -> None:
     for url in (
         "git@github.com:SalvadorCardona/trader-ia.git",
         "https://github.com/SalvadorCardona/trader-ia",
@@ -57,7 +58,7 @@ def _workspace(
     remotes: dict[str, str],
     renamed: dict[str, str] | None = None,
     cloned: list[tuple[str, Path]] | None = None,
-):
+) -> Iterator[tuple[projects.Resolver, list[str]]]:
     """A workspace_root of fake clones — folder name → origin remote — and a
     GitHub that answers `gh repo view` from `renamed`, old name → new name.
 
@@ -71,35 +72,36 @@ def _workspace(
     download anything from doing so for real.
     """
     asked: list[str] = []
-    original = projects.git.remote_url, projects.git.current_name, projects.git.clone
+    original = git_module.remote_url, git_module.current_name, git_module.clone
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
         for folder in remotes:
             (root / folder / ".git").mkdir(parents=True)
 
-        def clone(repository: str, into: Path, accounts=None) -> None:
+        def clone(repository: str, into: Path, accounts: git_module.Accounts | None = None) -> None:
             if cloned is None:
-                raise projects.git.GitError(
+                raise git_module.GitError(
                     f"{repository} could not be cloned into {into} — no network in this test"
                 )
             cloned.append((repository, into))
             (into / ".git").mkdir(parents=True)
             remotes[str(into.relative_to(root))] = f"git@github.com:{repository}.git"
 
-        projects.git.remote_url = lambda repo: remotes.get(str(repo.relative_to(root)), "")
-        projects.git.current_name = lambda name, accounts=None: (
-            asked.append(name),
-            (renamed or {}).get(name, ""),
-        )[1]
-        projects.git.clone = clone
+        def current_name(owner_and_name: str, accounts: git_module.Accounts | None = None) -> str:
+            asked.append(owner_and_name)
+            return (renamed or {}).get(owner_and_name, "")
+
+        git_module.remote_url = lambda repo: remotes.get(str(repo.relative_to(root)), "")
+        git_module.current_name = current_name
+        git_module.clone = clone
         try:
             yield projects.Resolver(root, {}), asked
         finally:
-            projects.git.remote_url, projects.git.current_name, projects.git.clone = original
+            git_module.remote_url, git_module.current_name, git_module.clone = original
 
 
 @case
-def locating_a_project_shows_its_clone_and_never_asks_github_nor_clones():
+def locating_a_project_shows_its_clone_and_never_asks_github_nor_clones() -> None:
     """The console shows where the clone is: found by path or by remote, else nowhere."""
     cloned: list[tuple[str, Path]] = []
     with _workspace(
@@ -118,7 +120,7 @@ def locating_a_project_shows_its_clone_and_never_asks_github_nor_clones():
 
 
 @case
-def a_path_that_exists_is_taken_before_anything_else():
+def a_path_that_exists_is_taken_before_anything_else() -> None:
     """Nothing is noted and GitHub is never asked: the first way answered."""
     with _workspace({"mobile-factory": "git@github.com:SalvadorCardona/mobile-factory.git"}) as (
         resolver,
@@ -129,14 +131,14 @@ def a_path_that_exists_is_taken_before_anything_else():
             Path=str(resolver._root / "mobile-factory"),  # noqa: SLF001
             Repository="https://github.com/SalvadorCardona/somewhere-else",
         )
-        project = resolver.resolve(client, "p-1")
-    assert project.path.name == "mobile-factory"
+        project = resolver.resolve(client, "p-1")  # type: ignore[arg-type]  # a fake: one project page
+    assert project.path is not None and project.path.name == "mobile-factory"
     assert not project.is_stale and project.note == ""
     assert asked == []
 
 
 @case
-def a_wrong_path_gives_way_to_the_repository_property():
+def a_wrong_path_gives_way_to_the_repository_property() -> None:
     """The case that blocked a real board: the clone was renamed on disk, and
     the page kept the old path — while its Repository column was still right.
     """
@@ -149,8 +151,8 @@ def a_wrong_path_gives_way_to_the_repository_property():
             Path=str(resolver._root / "factory-mobile"),  # noqa: SLF001
             Repository="https://github.com/SalvadorCardona/mobile-factory",
         )
-        project = resolver.resolve(client, "p-1")
-    assert project.is_code and project.path.name == "mobile-factory"
+        project = resolver.resolve(client, "p-1")  # type: ignore[arg-type]  # a fake: one project page
+    assert project.is_code and project.path is not None and project.path.name == "mobile-factory"
     assert project.is_stale, "found, but not by the declaration that should have found it"
     assert (
         "factory-mobile, from the project's Path property, is not a git repository" in project.note
@@ -160,7 +162,7 @@ def a_wrong_path_gives_way_to_the_repository_property():
 
 
 @case
-def a_repository_renamed_on_github_is_found_under_its_new_name():
+def a_repository_renamed_on_github_is_found_under_its_new_name() -> None:
     """GitHub redirects the old name, so `gh repo view old` says the new one."""
     with _workspace(
         {"mobile-factory": "git@github.com:SalvadorCardona/mobile-factory.git"},
@@ -169,15 +171,15 @@ def a_repository_renamed_on_github_is_found_under_its_new_name():
         client = _ProjectClient(
             "Jeu d'usine mobile", Repository="https://github.com/SalvadorCardona/factory-mobile"
         )
-        project = resolver.resolve(client, "p-1")
-    assert project.path.name == "mobile-factory"
+        project = resolver.resolve(client, "p-1")  # type: ignore[arg-type]  # a fake: one project page
+    assert project.path is not None and project.path.name == "mobile-factory"
     assert project.is_stale
     assert "which GitHub has renamed salvadorcardona/mobile-factory" in project.note
     assert asked == ["salvadorcardona/factory-mobile"], "asked once, about the name that failed"
 
 
 @case
-def a_project_no_way_leads_to_says_everything_that_was_tried():
+def a_project_no_way_leads_to_says_everything_that_was_tried() -> None:
     with _workspace({"other": "git@github.com:SalvadorCardona/other.git"}) as (resolver, asked):
         client = _ProjectClient(
             "Jeu d'usine mobile",
@@ -185,7 +187,7 @@ def a_project_no_way_leads_to_says_everything_that_was_tried():
             Repository="https://github.com/SalvadorCardona/factory-mobile",
         )
         try:
-            resolver.resolve(client, "p-1")
+            resolver.resolve(client, "p-1")  # type: ignore[arg-type]  # a fake: one project page
         except LookupError as error:
             message = str(error)
         else:
@@ -202,13 +204,13 @@ def a_project_no_way_leads_to_says_everything_that_was_tried():
 
 
 @case
-def a_wrong_path_alone_is_still_an_error_and_not_a_document():
+def a_wrong_path_alone_is_still_an_error_and_not_a_document() -> None:
     """Declaring a repository that is not there must not quietly turn the
     project's tickets into pages: the page meant a repository."""
     with _workspace({}) as (resolver, asked):
         client = _ProjectClient("Site", Path="/nowhere/at/all")
         try:
-            resolver.resolve(client, "p-1")
+            resolver.resolve(client, "p-1")  # type: ignore[arg-type]  # a fake: one project page
         except LookupError as error:
             assert "/nowhere/at/all, from the project's Path property" in str(error)
         else:
@@ -217,7 +219,7 @@ def a_wrong_path_alone_is_still_an_error_and_not_a_document():
 
 
 @case
-def a_folder_named_like_the_project_is_not_a_match():
+def a_folder_named_like_the_project_is_not_a_match() -> None:
     """Only the remote designates a repository. A clone whose folder happens to
     carry the declared name, with another remote, is somebody else's project."""
     with _workspace({"factory-mobile": "git@github.com:SomebodyElse/factory-mobile.git"}) as (
@@ -228,7 +230,7 @@ def a_folder_named_like_the_project_is_not_a_match():
             "Jeu", Repository="https://github.com/SalvadorCardona/factory-mobile"
         )
         try:
-            resolver.resolve(client, "p-1")
+            resolver.resolve(client, "p-1")  # type: ignore[arg-type]  # a fake: one project page
         except LookupError as error:
             assert "matches no origin remote" in str(error)
         else:
@@ -236,7 +238,7 @@ def a_folder_named_like_the_project_is_not_a_match():
 
 
 @case
-def two_clones_of_one_remote_answer_for_neither():
+def two_clones_of_one_remote_answer_for_neither() -> None:
     with _workspace(
         {
             "trader-ia": "git@github.com:SalvadorCardona/trader-ia.git",
@@ -245,7 +247,7 @@ def two_clones_of_one_remote_answer_for_neither():
     ) as (resolver, asked):
         client = _ProjectClient("Trader IA", Repository="SalvadorCardona/trader-ia")
         try:
-            resolver.resolve(client, "p-1")
+            resolver.resolve(client, "p-1")  # type: ignore[arg-type]  # a fake: one project page
         except LookupError as error:
             message = str(error)
         else:
@@ -255,7 +257,7 @@ def two_clones_of_one_remote_answer_for_neither():
 
 
 @case
-def a_project_made_of_its_github_link_alone_is_cloned():
+def a_project_made_of_its_github_link_alone_is_cloned() -> None:
     """The whole of "I created the project with just its GitHub": nothing on
     this machine answers for that remote, so the clone is made under the root
     and the ticket runs on it, instead of the project being put back."""
@@ -266,7 +268,7 @@ def a_project_made_of_its_github_link_alone_is_cloned():
         client = _ProjectClient(
             "Trader IA", Repository="https://github.com/SalvadorCardona/trader-ia"
         )
-        project = resolver.resolve(client, "p-1", clone=True)
+        project = resolver.resolve(client, "p-1", clone=True)  # type: ignore[arg-type]  # a fake: one project page
         root = resolver._root  # noqa: SLF001
     assert project.is_code and project.path == root / "trader-ia"
     assert cloned == [("SalvadorCardona/trader-ia", root / "trader-ia")], (
@@ -277,14 +279,14 @@ def a_project_made_of_its_github_link_alone_is_cloned():
 
 
 @case
-def reading_the_board_downloads_nothing():
+def reading_the_board_downloads_nothing() -> None:
     """`resolve` only clones when it is asked to: listing the projects, or a
     dry run, must not start pulling repositories down in the background."""
     cloned: list[tuple[str, Path]] = []
     with _workspace({}, cloned=cloned) as (resolver, asked):
         client = _ProjectClient("Trader IA", Repository="SalvadorCardona/trader-ia")
         try:
-            resolver.resolve(client, "p-1")
+            resolver.resolve(client, "p-1")  # type: ignore[arg-type]  # a fake: one project page
         except LookupError as error:
             assert "matches no origin remote" in str(error)
         else:
@@ -293,7 +295,7 @@ def reading_the_board_downloads_nothing():
 
 
 @case
-def a_clone_is_never_made_where_two_already_answer():
+def a_clone_is_never_made_where_two_already_answer() -> None:
     """Ambiguity is not something a third copy would settle."""
     cloned: list[tuple[str, Path]] = []
     with _workspace(
@@ -305,7 +307,7 @@ def a_clone_is_never_made_where_two_already_answer():
     ) as (resolver, asked):
         client = _ProjectClient("Trader IA", Repository="SalvadorCardona/trader-ia")
         try:
-            resolver.resolve(client, "p-1", clone=True)
+            resolver.resolve(client, "p-1", clone=True)  # type: ignore[arg-type]  # a fake: one project page
         except LookupError as error:
             assert "is the remote of 2 repositories" in str(error)
         else:
@@ -314,7 +316,7 @@ def a_clone_is_never_made_where_two_already_answer():
 
 
 @case
-def a_wrong_path_is_still_reported_under_the_repository_that_was_cloned():
+def a_wrong_path_is_still_reported_under_the_repository_that_was_cloned() -> None:
     """The clone is the fallback the tickets now run on, so the page is still
     wrong and the note still says which line of it to correct."""
     cloned: list[tuple[str, Path]] = []
@@ -324,18 +326,18 @@ def a_wrong_path_is_still_reported_under_the_repository_that_was_cloned():
             Path=str(resolver._root / "trader-ia-elsewhere"),  # noqa: SLF001
             Repository="SalvadorCardona/trader-ia",
         )
-        project = resolver.resolve(client, "p-1", clone=True)
+        project = resolver.resolve(client, "p-1", clone=True)  # type: ignore[arg-type]  # a fake: one project page
     assert project.is_stale and "is not a git repository" in project.note
     assert "matches no origin remote" not in project.note, "a missing clone is nobody's mistake"
     assert cloned and project.cloned
 
 
 @case
-def a_clone_that_cannot_be_made_joins_the_ways_that_were_tried():
+def a_clone_that_cannot_be_made_joins_the_ways_that_were_tried() -> None:
     with _workspace({}) as (resolver, asked):
         client = _ProjectClient("Trader IA", Repository="SalvadorCardona/trader-ia")
         try:
-            resolver.resolve(client, "p-1", clone=True)
+            resolver.resolve(client, "p-1", clone=True)  # type: ignore[arg-type]  # a fake: one project page
         except LookupError as error:
             message = str(error)
         else:

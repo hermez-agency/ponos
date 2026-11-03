@@ -15,20 +15,22 @@ import time
 import urllib.request
 from collections import Counter
 from pathlib import Path
+from types import ModuleType
 
 from support import ROOT, case
 
 _STAMP = re.compile(r"\d{4}-\d\d-\d\dT[\d:.+-]+")
 
 
-def _demo():
+def _demo() -> ModuleType:
     spec = importlib.util.spec_from_file_location("demo_script", ROOT / "scripts" / "demo.py")
+    assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
 
 
-def _written(demo, directory: Path) -> dict[str, str]:
+def _written(demo: ModuleType, directory: Path) -> dict[str, str]:
     """The board of one start, by file, with every date taken out: those are what may differ."""
     rng = random.Random(demo.SEED)
     demo.board(directory, rng, demo.tickets_of(rng))
@@ -39,7 +41,7 @@ def _written(demo, directory: Path) -> dict[str, str]:
 
 
 @case
-def the_demo_board_is_the_same_at_every_start():
+def the_demo_board_is_the_same_at_every_start() -> None:
     demo = _demo()
     with tempfile.TemporaryDirectory() as first, tempfile.TemporaryDirectory() as second:
         one = _written(demo, Path(first) / "board")
@@ -49,7 +51,7 @@ def the_demo_board_is_the_same_at_every_start():
 
 
 @case
-def the_demo_board_has_every_column_and_every_family_of_stop():
+def the_demo_board_has_every_column_and_every_family_of_stop() -> None:
     from ponos import blocks
 
     demo = _demo()
@@ -76,7 +78,7 @@ def the_demo_board_has_every_column_and_every_family_of_stop():
 
 
 @case
-def the_demo_goals_are_served_by_tickets_of_the_board():
+def the_demo_goals_are_served_by_tickets_of_the_board() -> None:
     demo = _demo()
     titles = {ticket.title for ticket in demo.tickets_of(random.Random(demo.SEED))}
     statuses = {goal[2] for goal in demo.GOALS}
@@ -89,7 +91,7 @@ def the_demo_goals_are_served_by_tickets_of_the_board():
 
 
 @case
-def the_demo_serves_its_board_and_removes_what_it_wrote():
+def the_demo_serves_its_board_and_removes_what_it_wrote() -> None:
     with socket.socket() as probe:
         probe.bind(("127.0.0.1", 0))
         port = probe.getsockname()[1]

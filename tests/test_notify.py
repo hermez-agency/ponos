@@ -6,15 +6,18 @@ import json
 import shutil
 import subprocess
 import tempfile
+from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any, TypeVar, cast
 
 import httpx
 from support import (
     ROOT,
     TICKET,
     _answering,
+    _AnsweringClient,
     _channel,
     _config,
     _http_answering,
@@ -32,12 +35,35 @@ from ponos.runner import Runner
 # -- being told, and answering ------------------------------------------------
 
 
-@contextmanager
-def _api(module, answers: dict):
-    """Replace one channel's HTTP call with a table of canned answers."""
-    calls: list[tuple[str, dict | None]] = []
+Found = TypeVar("Found")
 
-    def fake(url, payload=None, headers=None):
+
+def _found(value: Found | None) -> Found:
+    """What a lookup found, where finding nothing would fail the case."""
+    assert value is not None
+    return value
+
+
+def _answers(runner: Runner) -> _AnsweringClient:
+    """The fake Notion `_answering` put under `runner`, with what was written."""
+    return cast(_AnsweringClient, runner.client)
+
+
+def _bell(**limit: int) -> dict[str, Any]:
+    """`notifications.recent()`, read as the JSON the console serves."""
+    from ponos import notifications
+
+    return notifications.recent(**limit)
+
+
+@contextmanager
+def _api(module: Any, answers: dict[str, Any]) -> Iterator[list[tuple[str, Any]]]:
+    """Replace one channel's HTTP call with a table of canned answers."""
+    calls: list[tuple[str, Any]] = []
+
+    def fake(
+        url: str, payload: dict[str, Any] | None = None, headers: dict[str, str] | None = None
+    ) -> Any:
         calls.append((url, payload))
         for fragment, body in answers.items():
             if fragment in url:
@@ -53,7 +79,7 @@ def _api(module, answers: dict):
 
 
 @case
-def a_word_is_a_verdict_only_when_it_opens_the_sentence():
+def a_word_is_a_verdict_only_when_it_opens_the_sentence() -> None:
     assert channels.decide("oui") == "yes"
     assert channels.decide("Yes, and rename the column while you are there") == "yes"
     assert channels.decide("👍") == "yes"
@@ -65,7 +91,7 @@ def a_word_is_a_verdict_only_when_it_opens_the_sentence():
 
 
 @case
-def a_bare_yes_reaches_the_agent_as_a_sentence():
+def a_bare_yes_reaches_the_agent_as_a_sentence() -> None:
     """ "oui" means nothing to a session that never saw the notification."""
     written = channels.answer(channels.Reply(channel="telegram", text="oui", who="Salvador"))
     assert "Salvador" in written
@@ -92,24 +118,24 @@ def _asks() -> list[channels.Ask]:
 
 
 @case
-def an_answer_finds_its_ticket_by_thread_first_then_by_name():
+def an_answer_finds_its_ticket_by_thread_first_then_by_name() -> None:
     channel = telegram_channel.Telegram("token", "42")
     replied = channel._route(channels.Incoming(ref="12", thread="10", text="oui"), _asks())
-    assert replied.ticket == OTHER, "a reply to a message answers that message"
+    assert _found(replied).ticket == OTHER, "a reply to a message answers that message"
 
     named = channel._route(
         channels.Incoming(ref="12", text="oui pour 3ca45168-0af4-80be-b02a-c9d2cb79078c"),
         _asks(),
     )
-    assert named.ticket == OTHER, "a ticket named in the text is not a guess either"
+    assert _found(named).ticket == OTHER, "a ticket named in the text is not a guess either"
 
     last = channel._route(channels.Incoming(ref="12", text="oui"), _asks())
-    assert last.ticket == TICKET, "a bare yes answers the question just asked"
+    assert _found(last).ticket == TICKET, "a bare yes answers the question just asked"
     assert channel._route(channels.Incoming(ref="12", text="oui"), []) is None
 
 
 @case
-def a_channel_says_what_telegram_said_and_waits_when_asked_to():
+def a_channel_says_what_telegram_said_and_waits_when_asked_to() -> None:
     """A 4xx is Telegram's sentence ("chat not found"), not a number; and a
     429 — Telegram's "too many requests" — is a pause, not a lost message."""
     script = [
@@ -135,7 +161,7 @@ def a_channel_says_what_telegram_said_and_waits_when_asked_to():
 
 
 @case
-def a_telegram_message_from_anywhere_else_is_not_an_answer():
+def a_telegram_message_from_anywhere_else_is_not_an_answer() -> None:
     """A bot token is a public address: anyone can write to it."""
     channel = telegram_channel.Telegram("token", "42")
     updates = {
@@ -179,7 +205,7 @@ def a_telegram_message_from_anywhere_else_is_not_an_answer():
 
 
 @case
-def in_a_group_only_the_people_named_may_answer():
+def in_a_group_only_the_people_named_may_answer() -> None:
     """An answer becomes a comment, and a comment wakes a ticket whose session
     runs with `bypassPermissions`. In a group, "can write here" was "can run
     commands on the machine"; `allowed_users` names who may."""
@@ -219,7 +245,7 @@ def in_a_group_only_the_people_named_may_answer():
     assert cursor == "9", "what was dropped is still acknowledged, so it is never read again"
 
     channel = slack_channel.Slack("xoxb-token", "C1", frozenset({"U1"}))
-    assert channel._read({"ts": "2", "user": "U1", "text": "oui"}, "1").text == "oui"
+    assert _found(channel._read({"ts": "2", "user": "U1", "text": "oui"}, "1")).text == "oui"
     assert channel._read({"ts": "3", "user": "U2", "text": "rm -rf"}, "1") is None
     assert slack_channel.Slack("xoxb", "C1")._read({"ts": "3", "user": "U2", "text": "ok"}, "1")
 
@@ -232,7 +258,7 @@ def in_a_group_only_the_people_named_may_answer():
     assert channels.allowed_users("") == frozenset()
 
 
-def _update(identifier: int, message: int, text: str) -> dict:
+def _update(identifier: int, message: int, text: str) -> dict[str, Any]:
     return {
         "update_id": identifier,
         "message": {
@@ -248,7 +274,7 @@ SENT = {"sendMessage": {"ok": True, "result": {"message_id": 5}}}
 
 
 @case
-def nothing_said_before_the_runner_was_listening_is_an_answer():
+def nothing_said_before_the_runner_was_listening_is_an_answer() -> None:
     """Telegram keeps a day of updates; Slack keeps everything ever said."""
     channel = telegram_channel.Telegram("token", "42")
     backlog = {"ok": True, "result": [_update(7, 1, "oui"), _update(8, 2, "et le footer ?")]}
@@ -264,7 +290,7 @@ def nothing_said_before_the_runner_was_listening_is_an_answer():
 
 
 @case
-def what_a_channel_reads_once_it_never_reads_again():
+def what_a_channel_reads_once_it_never_reads_again() -> None:
     channel = telegram_channel.Telegram("token", "42")
     with _state():
         with _api(telegram_channel, {"getUpdates": {"ok": True, "result": []}, **SENT}):
@@ -280,20 +306,20 @@ def what_a_channel_reads_once_it_never_reads_again():
 
 
 @case
-def a_room_shared_with_other_people_never_guesses():
+def a_room_shared_with_other_people_never_guesses() -> None:
     """In Slack the message beside yours belongs to somebody else's thread."""
     ask = [channels.Ask(ref="100.0", ticket=TICKET, title="Le header")]
     loose = channels.Incoming(ref="100.4", text="ok")
     assert slack_channel.Slack("xoxb", "C1")._route(loose, ask) is None
-    assert telegram_channel.Telegram("token", "42")._route(loose, ask).ticket == TICKET
+    assert _found(telegram_channel.Telegram("token", "42")._route(loose, ask)).ticket == TICKET
     threaded = channels.Incoming(ref="100.4", thread="100.0", text="ok")
-    assert slack_channel.Slack("xoxb", "C1")._route(threaded, ask).ticket == TICKET
+    assert _found(slack_channel.Slack("xoxb", "C1")._route(threaded, ask)).ticket == TICKET
     named = channels.Incoming(ref="100.4", text=f"ok pour {TICKET}")
-    assert slack_channel.Slack("xoxb", "C1")._route(named, ask).ticket == TICKET
+    assert _found(slack_channel.Slack("xoxb", "C1")._route(named, ask)).ticket == TICKET
 
 
 @case
-def an_acknowledgement_hangs_where_each_service_counts_threads_from():
+def an_acknowledgement_hangs_where_each_service_counts_threads_from() -> None:
     """Slack threads from the first message; Telegram quotes the last one."""
     reply = channels.Reply(channel="", text="oui", ref="100.4", thread="100.0")
     assert slack_channel.Slack("xoxb", "C1")._thread_of(reply) == "100.0"
@@ -301,7 +327,7 @@ def an_acknowledgement_hangs_where_each_service_counts_threads_from():
 
 
 @case
-def slack_reads_the_thread_the_question_opened():
+def slack_reads_the_thread_the_question_opened() -> None:
     """A message in a thread never appears in the channel's history."""
     channel = slack_channel.Slack("xoxb-token", "C1")
     answers = {
@@ -329,16 +355,16 @@ def slack_reads_the_thread_the_question_opened():
 
 
 @case
-def slack_never_reads_its_own_voice_back():
+def slack_never_reads_its_own_voice_back() -> None:
     channel = slack_channel.Slack("xoxb-token", "C1")
     assert channel._read({"ts": "2", "bot_id": "B1", "text": "posted by us"}, "1") is None
     assert channel._read({"ts": "2", "subtype": "channel_join", "user": "U1"}, "1") is None
     assert channel._read({"ts": "1", "user": "U1", "text": "old"}, "1") is None
-    assert channel._read({"ts": "2", "user": "U1", "text": "oui"}, "1").text == "oui"
+    assert _found(channel._read({"ts": "2", "user": "U1", "text": "oui"}, "1")).text == "oui"
 
 
 @case
-def slack_finds_a_channel_given_by_its_name():
+def slack_finds_a_channel_given_by_its_name() -> None:
     """`channel = "infra"` is what people type: it is looked up, not refused by Slack."""
     answers = {
         "conversations.list": {
@@ -365,7 +391,7 @@ def slack_finds_a_channel_given_by_its_name():
 
 
 @case
-def slack_says_plainly_that_a_channel_name_matches_nothing():
+def slack_says_plainly_that_a_channel_name_matches_nothing() -> None:
     answers = {"conversations.list": {"ok": True, "channels": [{"id": "C1", "name": "general"}]}}
     with _state(), _api(slack_channel, answers):
         try:
@@ -378,7 +404,7 @@ def slack_says_plainly_that_a_channel_name_matches_nothing():
 
 
 @case
-def a_channel_that_keeps_failing_is_said_once_until_it_changes():
+def a_channel_that_keeps_failing_is_said_once_until_it_changes() -> None:
     """Every ten seconds, the same line, was 95 % of ponos.log."""
 
     class Failing(channels.Channel):
@@ -394,8 +420,8 @@ def a_channel_that_keeps_failing_is_said_once_until_it_changes():
     with _state():
         runner, _ = _answering([])
         said: list[str] = []
-        runner.say = said.append
-        with _channel(stub):
+        runner.say = said.append  # type: ignore[assignment, method-assign]  # a double: what it says is kept
+        with _channel(stub):  # type: ignore[arg-type]  # a double: any channel will do
             for _ in range(100):
                 runner.answers()
             assert len(said) == 1 and "not readable" in said[0], said
@@ -413,7 +439,7 @@ def a_channel_that_keeps_failing_is_said_once_until_it_changes():
 
 
 @case
-def a_question_outlives_the_run_that_asked_it():
+def a_question_outlives_the_run_that_asked_it() -> None:
     """An answer typed tomorrow morning still knows which ticket it settles."""
     channel = telegram_channel.Telegram("token", "42")
     with _state():
@@ -426,7 +452,7 @@ def a_question_outlives_the_run_that_asked_it():
 
 
 @case
-def a_channel_exists_only_once_both_of_its_values_are_there():
+def a_channel_exists_only_once_both_of_its_values_are_there() -> None:
     half = _config('[notify.telegram]\ntoken = "123:abc"\n')
     assert not half.notify.remote and channels.open(half.notify) == []
 
@@ -443,7 +469,7 @@ def a_channel_exists_only_once_both_of_its_values_are_there():
 
 
 @case
-def the_switch_that_came_first_still_means_what_it_said():
+def the_switch_that_came_first_still_means_what_it_said() -> None:
     """`runner.notify` was the desktop notification, and stays it."""
     assert _config("").notify.desktop is True
     assert _config("[runner]\nnotify = false\n").notify.desktop is False
@@ -451,7 +477,7 @@ def the_switch_that_came_first_still_means_what_it_said():
 
 
 @case
-def a_moment_nobody_named_is_dropped_rather_than_never_sent():
+def a_moment_nobody_named_is_dropped_rather_than_never_sent() -> None:
     every = _config("")
     assert every.notify.wants("blocked") and every.notify.wants("done")
     only = _config('[notify]\nevents = ["blocked", "Failed", "merged"]\n')
@@ -461,7 +487,7 @@ def a_moment_nobody_named_is_dropped_rather_than_never_sent():
 
 
 @case
-def a_value_can_be_written_into_a_table_that_has_a_dot_in_its_name():
+def a_value_can_be_written_into_a_table_that_has_a_dot_in_its_name() -> None:
     path = Path(tempfile.mkdtemp()) / "config.toml"
     path.write_text('[notion]\ntoken = "ntn_real"\ntickets_database = "abc"\n')
     assert C.write_value(path, "notify.telegram", "chat", "4242") is True
@@ -471,13 +497,13 @@ def a_value_can_be_written_into_a_table_that_has_a_dot_in_its_name():
 
 
 @case
-def an_answer_from_a_phone_becomes_the_comment_that_wakes_the_ticket():
+def an_answer_from_a_phone_becomes_the_comment_that_wakes_the_ticket() -> None:
     """One path, not two: the reply is a comment, and comments already wake."""
     runner, stub = _answering(
         [channels.Reply(channel="telegram", text="oui", ticket=TICKET, title="Le header")]
     )
-    assert len(runner.client.written) == 1
-    page, text = runner.client.written[0]
+    assert len(_answers(runner).written) == 1
+    page, text = _answers(runner).written[0]
     assert page == TICKET
     assert "go ahead" in text
     assert not text.startswith("ponos@"), (
@@ -487,29 +513,29 @@ def an_answer_from_a_phone_becomes_the_comment_that_wakes_the_ticket():
 
 
 @case
-def a_message_that_answers_nothing_is_never_written_to_a_ticket():
+def a_message_that_answers_nothing_is_never_written_to_a_ticket() -> None:
     runner, stub = _answering([channels.Reply(channel="telegram", text="tiens, une idée")])
-    assert runner.client.written == []
+    assert _answers(runner).written == []
     assert stub.said == [], "a bot that answers ordinary talk is a bot nobody keeps"
 
     runner, stub = _answering([channels.Reply(channel="telegram", text="oui")])
-    assert runner.client.written == []
+    assert _answers(runner).written == []
     assert stub.said, "a yes that landed nowhere was meant for us, and is told it missed"
 
 
 @case
-def a_notion_that_refuses_the_answer_says_so_where_it_was_typed():
+def a_notion_that_refuses_the_answer_says_so_where_it_was_typed() -> None:
     runner, stub = _answering(
         [channels.Reply(channel="telegram", text="oui", ticket=TICKET, title="Le header")],
         error="403 API token does not have access",
     )
-    assert runner.client.written == []
+    assert _answers(runner).written == []
     assert "403" in stub.said[0]
 
 
 @case
-def a_blocked_ticket_travels_with_its_question_and_its_link():
-    sent: list[dict] = []
+def a_blocked_ticket_travels_with_its_question_and_its_link() -> None:
+    sent: list[dict[str, Any]] = []
     runner = Runner.__new__(Runner)
     runner._journals = {}
     runner.config = _config(
@@ -529,7 +555,7 @@ def a_blocked_ticket_travels_with_its_question_and_its_link():
     )()
 
     original = channels.announce
-    channels.announce = lambda settings, text, **rest: sent.append({"text": text, **rest})
+    channels.announce = lambda settings, text, **rest: sent.append({"text": text, **rest})  # type: ignore[assignment]  # a double: what was sent is kept
     try:
         with _state_home():
             runner._tell(
@@ -552,7 +578,7 @@ def a_blocked_ticket_travels_with_its_question_and_its_link():
 
 
 @case
-def nothing_is_sent_anywhere_during_a_dry_run():
+def nothing_is_sent_anywhere_during_a_dry_run() -> None:
     sent: list[str] = []
     runner = Runner.__new__(Runner)
     runner._journals = {}
@@ -569,7 +595,7 @@ def nothing_is_sent_anywhere_during_a_dry_run():
         },
     )()
     original = channels.announce
-    channels.announce = lambda settings, text, **rest: sent.append(text)
+    channels.announce = lambda settings, text, **rest: sent.append(text)  # type: ignore[assignment]  # a double: what was sent is kept
     try:
         runner._tell("done", ticket, "review", "branch")
     finally:
@@ -578,7 +604,7 @@ def nothing_is_sent_anywhere_during_a_dry_run():
 
 
 @contextmanager
-def _notifying(*, missing: str = ""):
+def _notifying(*, missing: str = "") -> Iterator[list[list[str]]]:
     """The tools a notification uses, replaced by a note of what they were asked.
 
     One of them can be taken away, because on a real machine one of them is: a
@@ -589,22 +615,22 @@ def _notifying(*, missing: str = ""):
     tools = ("notify-send", "gdbus", "dbus-monitor", "xdg-open")
     found = {name: f"/usr/bin/{name}" for name in tools if name != missing}
 
-    def run(command, **rest):
+    def run(command: list[str], **rest: Any) -> subprocess.CompletedProcess[str]:
         launched.append(command)
         return subprocess.CompletedProcess(command, 0, "", "")
 
     originals = (shutil.which, subprocess.run, subprocess.Popen)
-    shutil.which = lambda name: found.get(name)
-    subprocess.run = run
-    subprocess.Popen = lambda command, **rest: launched.append(command)
+    shutil.which = lambda name: found.get(name)  # type: ignore[assignment]  # a double: only the tools found
+    subprocess.run = run  # type: ignore[assignment]  # a double: what was launched is kept
+    subprocess.Popen = lambda command, **rest: launched.append(command)  # type: ignore[assignment, misc]  # a double: what was launched is kept
     try:
         yield launched
     finally:
-        shutil.which, subprocess.run, subprocess.Popen = originals
+        shutil.which, subprocess.run, subprocess.Popen = originals  # type: ignore[misc]  # the real ones, put back
 
 
 @case
-def a_desktop_notification_takes_you_to_the_ticket_it_names():
+def a_desktop_notification_takes_you_to_the_ticket_it_names() -> None:
     """A line on screen you cannot follow is a title you then go and hunt for."""
     with _notifying() as launched:
         assert notify.send("Blocked · Le header", "Which header?", link="https://notion.so/t")
@@ -643,7 +669,7 @@ def a_desktop_notification_takes_you_to_the_ticket_it_names():
 
 
 @case
-def a_notification_with_nowhere_to_go_is_a_notification_all_the_same():
+def a_notification_with_nowhere_to_go_is_a_notification_all_the_same() -> None:
     for tool in ("gdbus", "dbus-monitor", "xdg-open"):
         with _notifying(missing=tool) as launched:
             assert notify.send("Ready to review · t", "branch", link="https://notion.so/t")
@@ -659,12 +685,15 @@ def a_notification_with_nowhere_to_go_is_a_notification_all_the_same():
 
 
 @case
-def the_notification_posted_over_dbus_is_the_one_notify_send_would_have_sent():
+def the_notification_posted_over_dbus_is_the_one_notify_send_would_have_sent() -> None:
     posted: list[list[str]] = []
     original = subprocess.run
-    subprocess.run = lambda command, **rest: (
-        posted.append(command) or subprocess.CompletedProcess(command, 0, "(uint32 42,)\n", "")
-    )
+
+    def run(command: list[str], **rest: Any) -> subprocess.CompletedProcess[str]:
+        posted.append(command)
+        return subprocess.CompletedProcess(command, 0, "(uint32 42,)\n", "")
+
+    subprocess.run = run  # type: ignore[assignment]  # a double: what was launched is kept
     try:
         assert notify._post("Blocked · t", '42 "why"', urgent=True, warning=True) == "42"
         assert (
@@ -698,7 +727,7 @@ def the_notification_posted_over_dbus_is_the_one_notify_send_would_have_sent():
 
 
 @case
-def the_icon_of_ponos_falls_back_on_the_system_ones():
+def the_icon_of_ponos_falls_back_on_the_system_ones() -> None:
     assert notify.ICON.is_file(), "the mascot's icon ships with the runner"
     assert notify._icon(False) == str(notify.ICON)
     assert notify._icon(True) == "dialog-warning", "a failure says so by its icon"
@@ -711,10 +740,10 @@ def the_icon_of_ponos_falls_back_on_the_system_ones():
 
 
 @case
-def only_a_click_opens_the_page_and_a_dismissal_never_does():
+def only_a_click_opens_the_page_and_a_dismissal_never_does() -> None:
     """`dbus-monitor` says it over several lines, and about every notification."""
 
-    def watching(*lines):
+    def watching(*lines: str) -> Any:
         return type("W", (), {"stdout": iter(lines)})()
 
     clicked = watching(
@@ -750,8 +779,8 @@ def only_a_click_opens_the_page_and_a_dismissal_never_does():
 
 
 @case
-def a_ticket_notification_carries_its_page_to_the_screen_too():
-    seen: list[dict] = []
+def a_ticket_notification_carries_its_page_to_the_screen_too() -> None:
+    seen: list[dict[str, Any]] = []
     runner = Runner.__new__(Runner)
     runner._journals = {}
     runner.config = _config("")
@@ -768,7 +797,7 @@ def a_ticket_notification_carries_its_page_to_the_screen_too():
         },
     )()
     original = notify.send
-    notify.send = lambda title, body, **rest: seen.append({"title": title, **rest})
+    notify.send = lambda title, body, **rest: seen.append({"title": title, **rest})  # type: ignore[assignment]  # a double: what was sent is kept
     try:
         with _state_home():
             runner._tell("done", ticket, "review", "branch")
@@ -787,7 +816,7 @@ def a_ticket_notification_carries_its_page_to_the_screen_too():
 
     seen.clear()
     runner.config.runner.language = "fr"
-    notify.send = lambda title, body, **rest: seen.append({"title": title, **rest})
+    notify.send = lambda title, body, **rest: seen.append({"title": title, **rest})  # type: ignore[assignment]  # a double: what was sent is kept
     try:
         with _state_home():
             runner._tell("done", ticket, "review", "branch")
@@ -797,7 +826,7 @@ def a_ticket_notification_carries_its_page_to_the_screen_too():
 
     seen.clear()
     pull = "https://github.com/o/r/pull/42"
-    notify.send = lambda title, body, **rest: seen.append({"title": title, "body": body, **rest})
+    notify.send = lambda title, body, **rest: seen.append({"title": title, "body": body, **rest})  # type: ignore[assignment]  # a double: what was sent is kept
     try:
         with _state_home():
             runner._tell(
@@ -825,7 +854,7 @@ def a_ticket_notification_carries_its_page_to_the_screen_too():
 
 
 @case
-def a_desktop_notification_says_what_happened_where_and_what_to_do():
+def a_desktop_notification_says_what_happened_where_and_what_to_do() -> None:
     """The comment's words do not fit a desktop: see `Voice.desktop`."""
     said = voice.Voice("fr")
     title, body = said.desktop(
@@ -890,12 +919,17 @@ def a_desktop_notification_says_what_happened_where_and_what_to_do():
 
 
 @case
-def a_ticket_that_speaks_again_replaces_its_notification_instead_of_stacking(state_home):
+def a_ticket_that_speaks_again_replaces_its_notification_instead_of_stacking(
+    state_home: Path,
+) -> None:
     posted: list[list[str]] = []
     original = subprocess.run
-    subprocess.run = lambda command, **rest: (
-        posted.append(command) or subprocess.CompletedProcess(command, 0, "(uint32 7,)\n", "")
-    )
+
+    def run(command: list[str], **rest: Any) -> subprocess.CompletedProcess[str]:
+        posted.append(command)
+        return subprocess.CompletedProcess(command, 0, "(uint32 7,)\n", "")
+
+    subprocess.run = run  # type: ignore[assignment]  # a double: what was launched is kept
     try:
         assert notify._post("t", "b", urgent=False, replaces="5", key="https://notion.so/t") == "7"
     finally:
@@ -922,7 +956,7 @@ def a_ticket_that_speaks_again_replaces_its_notification_instead_of_stacking(sta
 
 
 @case
-def the_icon_of_ponos_is_cut_out_in_the_sizes_a_desktop_asks_for():
+def the_icon_of_ponos_is_cut_out_in_the_sizes_a_desktop_asks_for() -> None:
     """An opaque square is drawn by a desktop as a black one."""
     import struct
 
@@ -981,7 +1015,7 @@ def _png_pixels(data: bytes) -> list[tuple[int, int, int, int]]:
 
 
 @case
-def the_icon_of_a_notification_is_the_orange_logo_and_the_mascot_script_draws_it():
+def the_icon_of_a_notification_is_the_orange_logo_and_the_mascot_script_draws_it() -> None:
     """The desktop icons were cut by hand once, and stayed blue when the robot went orange.
 
     They are the logo, like the app icons are, so `scripts/mascot.mjs` writes
@@ -1001,7 +1035,7 @@ def the_icon_of_a_notification_is_the_orange_logo_and_the_mascot_script_draws_it
 
 
 @case
-def the_app_icons_that_may_be_drawn_on_any_ground_are_cut_out_not_black_squares():
+def the_app_icons_that_may_be_drawn_on_any_ground_are_cut_out_not_black_squares() -> None:
     """Chrome drew the installed app on a black square: the "any" icons had a #141414 ground.
 
     An "any" icon is drawn as it is, so it is RGBA with transparent corners and a
@@ -1037,7 +1071,7 @@ def the_app_icons_that_may_be_drawn_on_any_ground_are_cut_out_not_black_squares(
 
 
 @case
-def only_the_moments_that_need_you_ring_the_bell():
+def only_the_moments_that_need_you_ring_the_bell() -> None:
     from ponos import notifications
 
     assert notifications.kind_of("review") == "review"
@@ -1054,26 +1088,28 @@ def only_the_moments_that_need_you_ring_the_bell():
 
 
 @case
-def the_bell_keeps_what_is_unread_once_and_forgets_what_was_read_after_thirty_days(state_home):
+def the_bell_keeps_what_is_unread_once_and_forgets_what_was_read_after_thirty_days(
+    state_home: Path,
+) -> None:
     from ponos import notifications
 
     notifications.add("question", "a", "Le header")
     notifications.add("question", "a", "Le header")  # asked twice before anyone looked
     notifications.add("review", "b", "Le footer")
     notifications.add("routine", "a", "never")
-    heard = notifications.recent()
+    heard = _bell()
     assert heard["unread"] == 2
     assert [item["kind"] for item in heard["items"]] == ["review", "question"], "newest first"
     assert [item["count"] for item in heard["items"]] == [1, 1]
     assert all(item["read"] is False for item in heard["items"])
 
     notifications.read(heard["items"][0]["id"])
-    assert notifications.recent()["unread"] == 1
+    assert _bell()["unread"] == 1
     notifications.add("review", "b", "Le footer")  # read: a new one may ring
-    assert notifications.recent()["unread"] == 2
+    assert _bell()["unread"] == 2
 
     notifications.read()
-    heard = notifications.recent()
+    heard = _bell()
     assert heard["unread"] == 0 and all(i["read"] for i in heard["items"])
     assert [item["count"] for item in heard["items"]] == [2, 1]
 
@@ -1081,22 +1117,22 @@ def the_bell_keeps_what_is_unread_once_and_forgets_what_was_read_after_thirty_da
     with db.transaction() as connection:
         connection.execute("UPDATE notifications SET read_at = ? WHERE ticket = 'a'", (old,))
     notifications.read()
-    assert [i["ticket"] for i in notifications.recent()["items"]] == ["b"], (
+    assert [i["ticket"] for i in _bell()["items"]] == ["b"], (
         "read more than thirty days ago: purged"
     )
 
 
 @case
-def the_bell_says_a_ticket_once_however_many_times_it_rang(state_home):
+def the_bell_says_a_ticket_once_however_many_times_it_rang(state_home: Path) -> None:
     """Four questions, each answered in turn, are one line — and one ticket waiting."""
     from ponos import notifications
 
     for _ in range(4):
         notifications.add("question", "cpf", "Ajouter un diagnostic")
-        notifications.read(notifications.recent()["items"][0]["id"])
+        notifications.read(_bell()["items"][0]["id"])
     notifications.add("review", "other", "Portfolio")
     notifications.add("question", "cpf", "Ajouter un diagnostic")
-    heard = notifications.recent()
+    heard = _bell()
     assert [(i["ticket"], i["kind"], i["count"]) for i in heard["items"]] == [
         ("cpf", "question", 5),
         ("other", "review", 1),
@@ -1104,17 +1140,17 @@ def the_bell_says_a_ticket_once_however_many_times_it_rang(state_home):
     assert heard["unread"] == 2, "tickets that wait, not notifications"
 
     notifications.add("ci", "cpf", "Ajouter un diagnostic")
-    line = notifications.recent()["items"][0]
+    line = _bell()["items"][0]
     assert (line["kind"], line["count"]) == ("ci", 1), "the line says what it rang for last"
     notifications.read(line["id"])
-    heard = notifications.recent()
+    heard = _bell()
     assert heard["unread"] == 1, "reading the line reads all its ticket rang"
     assert [i["ticket"] for i in heard["items"] if not i["read"]] == ["other"]
-    assert notifications.recent(limit=1)["unread"] == 1
+    assert _bell(limit=1)["unread"] == 1
 
 
 @case
-def the_bell_lists_every_ticket_it_counts_however_old(state_home):
+def the_bell_lists_every_ticket_it_counts_however_old(state_home: Path) -> None:
     """Sixty tickets, three of the ten oldest unread: the badge says 3, the list shows them."""
     from ponos import notifications
 
@@ -1122,20 +1158,20 @@ def the_bell_lists_every_ticket_it_counts_however_old(state_home):
         notifications.add("review", f"t{number}", f"Ticket {number}")
     for number in range(60):
         if number not in (1, 4, 8):
-            notifications.read(notifications.recent(limit=60)["items"][59 - number]["id"])
-    heard = notifications.recent()
+            notifications.read(_bell(limit=60)["items"][59 - number]["id"])
+    heard = _bell()
     assert heard["unread"] == 3
     assert len(heard["items"]) == notifications.LISTED
     assert [i["ticket"] for i in heard["items"] if not i["read"]] == ["t8", "t4", "t1"]
     assert [i["read"] for i in heard["items"][:3]] == [False] * 3, "what waits comes first"
     assert heard["items"][3]["ticket"] == "t59", "then the latest read"
-    assert sum(not i["read"] for i in notifications.recent(limit=2)["items"]) == 3, (
+    assert sum(not i["read"] for i in _bell(limit=2)["items"]) == 3, (
         "a short list still holds every ticket the badge counts"
     )
 
 
 @case
-def the_bell_lets_go_of_a_ticket_that_left_the_column_it_rang_for(state_home):
+def the_bell_lets_go_of_a_ticket_that_left_the_column_it_rang_for(state_home: Path) -> None:
     """Unblocked, merged, done: what rang for it no longer asks for anything."""
     from ponos import notifications
 
@@ -1165,7 +1201,7 @@ def the_bell_lets_go_of_a_ticket_that_left_the_column_it_rang_for(state_home):
             {"id": "quick", "column": "ready", "edited": later.replace("+00:00", "Z")},
         ]
     )
-    heard = notifications.recent()
+    heard = _bell()
     unread = {item["ticket"] for item in heard["items"] if not item["read"]}
     assert unread == {"reading", "red", "shared", "gone", "early"}, unread
     assert heard["unread"] == 5
@@ -1173,8 +1209,9 @@ def the_bell_lets_go_of_a_ticket_that_left_the_column_it_rang_for(state_home):
 
 
 @case
-def a_question_a_review_and_a_failure_ring_the_bell_but_a_dry_run_does_not(state_home):
-    from ponos import notifications
+def a_question_a_review_and_a_failure_ring_the_bell_but_a_dry_run_does_not(
+    state_home: Path,
+) -> None:
 
     runner = Runner.__new__(Runner)
     runner._journals = {}
@@ -1195,14 +1232,14 @@ def a_question_a_review_and_a_failure_ring_the_bell_but_a_dry_run_does_not(state
     )()
     runner.dry_run = True
     runner._tell("done", ticket, "review", "branch")
-    assert notifications.recent()["unread"] == 0
+    assert _bell()["unread"] == 0
     runner.dry_run = False
     runner._tell("done", ticket, "published", "merged")
-    assert notifications.recent()["unread"] == 0, "routine"
+    assert _bell()["unread"] == 0, "routine"
     runner._tell("blocked", ticket, "blocked", "Which?", ask=True, code="session.question")
     runner._tell("done", ticket, "review", "branch")
-    assert [(i["kind"], i["read"]) for i in notifications.recent()["items"]] == [("review", False)]
-    assert notifications.recent()["unread"] == 1, "one ticket waits"
+    assert [(i["kind"], i["read"]) for i in _bell()["items"]] == [("review", False)]
+    assert _bell()["unread"] == 1, "one ticket waits"
 
 
 # -- a ticket written from a phone ---------------------------------------------
@@ -1211,74 +1248,75 @@ def a_question_a_review_and_a_failure_ring_the_bell_but_a_dry_run_does_not(state
 class _Writing:
     """A board that remembers the rows written to it, and the projects it knows."""
 
-    def __init__(self):
-        self.rows: list[tuple[str, dict]] = []
+    def __init__(self) -> None:
+        self.rows: list[tuple[str, dict[str, Any]]] = []
         self.notes: list[str] = []
 
-    def query(self, database_id):
+    def query(self, database_id: str) -> list[notion.Page]:
         return [
             notion.Page(id="p1", properties={}, title="Ponos", url=""),
             notion.Page(id="p2", properties={}, title="Leadz", url=""),
         ]
 
-    def schema(self, database_id):
+    def schema(self, database_id: str) -> dict[str, str]:
         return {}
 
-    def create_row(self, database_id, title, values=None):
+    def create_row(self, database_id: str, title: str, values: dict[str, Any] | None = None) -> str:
         self.rows.append((title, values or {}))
         return "new"
 
-    def append_markdown(self, page_id, markdown):
+    def append_markdown(self, page_id: str, markdown: str) -> int:
         self.notes.append(markdown)
         return 1
 
-    def page(self, page_id):
+    def page(self, page_id: str) -> notion.Page:
         return notion.Page(id=page_id, properties={}, title="", url="https://notion.so/new")
 
 
 class _Phone(channels.Channel):
     name = "telegram"
 
-    def __init__(self, allowed=frozenset({"7"}), default=""):
+    def __init__(self, allowed: frozenset[str] = frozenset({"7"}), default: str = "") -> None:
         self.allowed = frozenset(allowed)
         self.default_project = default
         self.said: list[str] = []
 
-    def acknowledge(self, reply, text):
+    def acknowledge(self, reply: channels.Reply, text: str) -> bool:
         self.said.append(text)
         return True
 
 
-def _writing(text: str, **channel) -> tuple[_Writing, _Phone]:
+def _writing(text: str, **channel: Any) -> tuple[_Writing, _Phone]:
     runner = Runner.__new__(Runner)
     runner.config = _config('[notify.telegram]\ntoken = "123:abc"\nchat = "42"\n')
-    runner.client = _Writing()
+    board = _Writing()
+    runner.client = board  # type: ignore[assignment]  # a fake: the rows and the projects
     runner._workspace = workspace.Workspace(tickets="tickets-db", projects="projects-db")
     runner.dry_run = False
     runner.quiet = True
     phone = _Phone(**channel)
-    runner.ticketed(
-        phone, channels.Reply(channel="telegram", text=text), channels.capture.parse(text)
-    )
-    return runner.client, phone
+    command = channels.capture.parse(text)
+    assert command is not None, text
+    runner.ticketed(phone, channels.Reply(channel="telegram", text=text), command)
+    return board, phone
 
 
 @case
-def a_ticket_command_is_read_off_the_first_words():
+def a_ticket_command_is_read_off_the_first_words() -> None:
     parse = channels.capture.parse
-    assert parse("/ticket ponos fix it").text == "ponos fix it"
-    assert not parse("/ticket ponos fix it").ready
-    assert parse("/ticket! ponos fix it").ready
-    assert parse("/ticket@my_bot ponos").text == "ponos"
-    assert parse("Ticket: ponos fix it").text == "ponos fix it"
-    assert parse("ticket!: ponos fix it").ready
+    assert _found(parse("/ticket ponos fix it")).text == "ponos fix it"
+    assert not _found(parse("/ticket ponos fix it")).ready
+    assert _found(parse("/ticket! ponos fix it")).ready
+    assert _found(parse("/ticket@my_bot ponos")).text == "ponos"
+    assert _found(parse("Ticket: ponos fix it")).text == "ponos fix it"
+    assert _found(parse("ticket!: ponos fix it")).ready
     assert parse("oui") is None
     assert parse("/tickets ponos") is None, "a longer word is another command"
     assert parse("the ticket: is open") is None, "only at the start of the message"
 
 
 @case
-def the_first_word_is_a_project_by_name_or_by_prefix():
+def the_first_word_is_a_project_by_name_or_by_prefix() -> None:
     names = ["Ponos", "Leadz", "Portfolio"]
     project = channels.capture.project
     assert project("ponos fix the stop button", names) == ("Ponos", "fix the stop button")
@@ -1289,7 +1327,7 @@ def the_first_word_is_a_project_by_name_or_by_prefix():
 
 
 @case
-def a_ticket_command_writes_a_draft_and_tells_where(state_home):
+def a_ticket_command_writes_a_draft_and_tells_where(state_home: Path) -> None:
     board, phone = _writing("/ticket ponos le bouton Stop ne s'affiche pas sur mobile")
     title, values = board.rows[0]
     assert title == "le bouton Stop ne s'affiche pas sur mobile"
@@ -1299,13 +1337,13 @@ def a_ticket_command_writes_a_draft_and_tells_where(state_home):
 
 
 @case
-def a_bang_puts_the_ticket_straight_in_ready(state_home):
+def a_bang_puts_the_ticket_straight_in_ready(state_home: Path) -> None:
     board, _ = _writing("/ticket! ponos fix it")
     assert board.rows[0][1]["Status"] == "Ready"
 
 
 @case
-def a_ticket_without_a_project_goes_to_the_default_one_or_asks(state_home):
+def a_ticket_without_a_project_goes_to_the_default_one_or_asks(state_home: Path) -> None:
     board, phone = _writing("/ticket fix the footer", default="leadz")
     assert board.rows[0][1]["Project"] == ["p2"]
     board, phone = _writing("/ticket fix the footer")
@@ -1313,20 +1351,22 @@ def a_ticket_without_a_project_goes_to_the_default_one_or_asks(state_home):
 
 
 @case
-def a_ticket_command_is_refused_where_nobody_is_named(state_home):
+def a_ticket_command_is_refused_where_nobody_is_named(state_home: Path) -> None:
     board, phone = _writing("/ticket ponos fix it", allowed=frozenset())
     assert not board.rows and "allowed_users" in phone.said[0]
 
 
 @case
-def a_long_message_keeps_its_first_line_as_the_title_and_the_rest_as_the_body(state_home):
+def a_long_message_keeps_its_first_line_as_the_title_and_the_rest_as_the_body(
+    state_home: Path,
+) -> None:
     board, _ = _writing("/ticket ponos fix the stop button\nit hides on mobile\nunder 400px")
     assert board.rows[0][0] == "fix the stop button"
     assert board.notes == ["fix the stop button\nit hides on mobile\nunder 400px"]
 
 
 @case
-def a_voice_message_with_a_ticket_caption_is_transcribed():
+def a_voice_message_with_a_ticket_caption_is_transcribed() -> None:
     channel = telegram_channel.Telegram("token", "42", frozenset({"7"}))
     update = {
         "ok": True,

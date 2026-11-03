@@ -5,9 +5,11 @@ from __future__ import annotations
 import json
 import shutil
 import tempfile
+from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 from support import ROOT, _board, _markdown_api, case
 
@@ -25,8 +27,8 @@ JPEG = b"\xff\xd8\xff\xe0" + b"\x00" * 32
 def _project_page(
     page_id: str = "b" * 32,
     *,
-    cover: dict | None = None,
-    icon: dict | None = None,
+    cover: dict[str, Any] | None = None,
+    icon: dict[str, Any] | None = None,
     edited: str = "2026-09-30T08:00:00.000Z",
 ) -> notion.Page:
     """A project page as Notion hands one over: the pictures are beside the columns."""
@@ -38,7 +40,9 @@ def _project_page(
     )
 
 
-def _notion_file(path: str, signature: str, expires: str = "2026-09-30T09:00:00.000Z") -> dict:
+def _notion_file(
+    path: str, signature: str, expires: str = "2026-09-30T09:00:00.000Z"
+) -> dict[str, Any]:
     return {
         "type": "file",
         "file": {
@@ -72,7 +76,7 @@ class _Pictures:
 
 
 @contextmanager
-def _pictures(fetched: bytes = JPEG):
+def _pictures(fetched: bytes = JPEG) -> Iterator[_Pictures]:
     pictures = _Pictures(fetched)
     try:
         yield pictures
@@ -85,7 +89,7 @@ def _never(slot: str, picture: store.Picture) -> notion.Page:
 
 
 @case
-def a_project_picture_is_read_in_each_of_its_three_forms():
+def a_project_picture_is_read_in_each_of_its_three_forms() -> None:
     """A file Notion keeps, a URL somebody else keeps, an emoji — and never Notion's URL.
 
     The signature on a Notion file changes with every read of the page, the
@@ -129,7 +133,7 @@ def a_project_picture_is_read_in_each_of_its_three_forms():
 
 
 @case
-def a_notion_file_is_shown_hours_later_and_fetched_again_only_when_it_may_have_changed():
+def a_notion_file_is_shown_hours_later_and_fetched_again_only_when_it_may_have_changed() -> None:
     """The copy is what is shown; the page's last edit and the URL's hour decide the rest.
 
     A cover downloaded at nine is still the cover at noon: its URL expired at
@@ -170,14 +174,19 @@ def a_notion_file_is_shown_hours_later_and_fetched_again_only_when_it_may_have_c
             edited="2026-09-30T16:00:00.000Z",
         )
         asked: list[str] = []
-        pictures.cache.picture(page.id, "cover", lambda: asked.append("page") or fresh)
+
+        def renewed() -> notion.Page:
+            asked.append("page")
+            return fresh
+
+        pictures.cache.picture(page.id, "cover", renewed)
         assert asked == ["page"], "an expired URL is renewed by reading the page"
         assert pictures.fetched[-1].endswith("four"), pictures.fetched
         assert not any(url.endswith("three") for url in pictures.fetched)
 
 
 @case
-def a_picture_the_console_chose_is_not_read_back_as_a_change():
+def a_picture_the_console_chose_is_not_read_back_as_a_change() -> None:
     """What Notion answers a write with is agreed on at once.
 
     Otherwise the next reading of the board would find a picture it has never
@@ -215,7 +224,7 @@ def a_picture_the_console_chose_is_not_read_back_as_a_change():
 
 
 @case
-def a_picture_notion_refused_is_kept_here_and_sent_again_at_the_next_reading():
+def a_picture_notion_refused_is_kept_here_and_sent_again_at_the_next_reading() -> None:
     """No network, no right to update the page: the choice is not lost for that.
 
     It is shown as chosen, with what went wrong, and the next reading of the
@@ -249,7 +258,7 @@ def a_picture_notion_refused_is_kept_here_and_sent_again_at_the_next_reading():
 
 
 @case
-def when_both_sides_changed_the_picture_the_newest_wins_and_says_so():
+def when_both_sides_changed_the_picture_the_newest_wins_and_says_so() -> None:
     """A change still waiting here, another made in Notion meanwhile: the later one.
 
     The console's change carries the moment it was made, Notion's the page's
@@ -302,17 +311,24 @@ def when_both_sides_changed_the_picture_the_newest_wins_and_says_so():
 
 
 @case
-def the_notion_client_uploads_a_picture_then_sets_it_on_the_page():
+def the_notion_client_uploads_a_picture_then_sets_it_on_the_page() -> None:
     """The File Upload API, then one PATCH; a URL is attached without being fetched."""
     client = notion.Client("ntn_x")
-    calls: list[tuple] = []
+    calls: list[tuple[str, str, dict[str, Any] | None, bytes | None, str]] = []
 
-    def request(method, path, body=None, *, raw=None, kind="application/json"):
+    def request(
+        method: str,
+        path: str,
+        body: dict[str, Any] | None = None,
+        *,
+        raw: bytes | None = None,
+        kind: str = "application/json",
+    ) -> dict[str, Any]:
         calls.append((method, path, body, raw, kind))
         if path == "/file_uploads":
             return {"id": "upload-1", "status": "pending"}
         if path.startswith("/pages/"):
-            return {"id": "b" * 32, "properties": {}, **body}
+            return {"id": "b" * 32, "properties": {}, **(body or {})}
         return {"status": "uploaded"}
 
     client._request = request  # type: ignore[method-assign]
@@ -327,6 +343,7 @@ def the_notion_client_uploads_a_picture_then_sets_it_on_the_page():
     assert calls[0][2] == {"filename": "opoil.png", "content_type": "image/png"}
     sent, kind = calls[1][3], calls[1][4]
     assert kind.startswith("multipart/form-data; boundary=")
+    assert sent is not None
     assert PNG in sent and b'name="file"; filename="opoil.png"' in sent
     assert calls[2][2] == {"cover": {"type": "file_upload", "file_upload": {"id": "upload-1"}}}
     assert images.face(page.raw, "cover").identity == "upload:upload-1"
@@ -349,7 +366,7 @@ def the_notion_client_uploads_a_picture_then_sets_it_on_the_page():
 
 
 @case
-def a_markdown_project_keeps_its_picture_beside_it():
+def a_markdown_project_keeps_its_picture_beside_it() -> None:
     """The same gestures on a board of files: the picture is a file next to the page.
 
     Its name is in the frontmatter, so the directory moves, commits and syncs
@@ -387,7 +404,7 @@ def a_markdown_project_keeps_its_picture_beside_it():
 
 
 @case
-def the_console_serves_a_picture_as_a_picture_and_never_as_a_page():
+def the_console_serves_a_picture_as_a_picture_and_never_as_a_page() -> None:
     """An SVG opened at the console's own address must not be a page with a script."""
     routes = (ROOT / "src/ponos/web/routes.py").read_text(encoding="utf-8")
     assert "sandbox" in routes and "PICTURE_POLICY" in routes

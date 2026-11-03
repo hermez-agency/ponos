@@ -7,8 +7,10 @@ import io
 import os
 import shutil
 import tempfile
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Any
 
 import httpx
 from support import _http_answering, case
@@ -22,7 +24,9 @@ from ponos.__main__ import main as cli_main
 
 
 @contextmanager
-def _notion_answering(*answers):
+def _notion_answering(
+    *answers: dict[str, Any] | httpx.Response | BaseException,
+) -> Iterator[tuple[list[tuple[str, str]], list[float]]]:
     """Notion's transport replaced by a script: each call takes the next answer.
 
     An answer is a dict (the JSON Notion returns), an `httpx.Response`, or an
@@ -45,13 +49,13 @@ def _notion_answering(*answers):
         yield calls, pauses
 
 
-def _http_error(code: int, retry_after: str = ""):
+def _http_error(code: int, retry_after: str = "") -> httpx.Response:
     headers = {"Retry-After": retry_after} if retry_after else {}
     return httpx.Response(code, headers=headers, json={"message": f"status {code}"})
 
 
 @case
-def the_console_starts_on_the_file_install_sh_leaves(state_home):
+def the_console_starts_on_the_file_install_sh_leaves(state_home: Path) -> None:
     """`serve` used to require a usable configuration, and exit 2 without a
     Notion token — so the console whose first connection *asks* for that token
     could not be reached, and its unit restarted in a loop on a fresh install.
@@ -83,7 +87,7 @@ def the_console_starts_on_the_file_install_sh_leaves(state_home):
         assert printed.getvalue().strip(), "a token to open the console with"
         assert "notion.token" in errors.getvalue()
 
-    def refuse(request):
+    def refuse(request: httpx.Request) -> httpx.Response:
         raise AssertionError("the placeholder token was sent to Notion")
 
     with _http_answering(refuse):
@@ -97,7 +101,7 @@ def the_console_starts_on_the_file_install_sh_leaves(state_home):
 
 
 @case
-def a_read_that_times_out_is_asked_again_and_says_notion_when_it_gives_up():
+def a_read_that_times_out_is_asked_again_and_says_notion_when_it_gives_up() -> None:
     """A timeout or a reset while reading used to escape as a bare OSError.
 
     Nothing catches an OSError around a Notion call — `StoreError` is what the
@@ -125,7 +129,7 @@ def a_read_that_times_out_is_asked_again_and_says_notion_when_it_gives_up():
 
 
 @case
-def a_comment_is_never_posted_twice_on_the_strength_of_a_silence():
+def a_comment_is_never_posted_twice_on_the_strength_of_a_silence() -> None:
     """A write that may have landed is not sent again: a duplicate comment is
     worse than an error. Only what Notion refused outright — a 429, or a
     connection that never carried the request — is safe to send twice."""
@@ -173,7 +177,7 @@ def a_comment_is_never_posted_twice_on_the_strength_of_a_silence():
 
 
 @case
-def an_append_refused_halfway_takes_back_what_it_had_written():
+def an_append_refused_halfway_takes_back_what_it_had_written() -> None:
     """Notion takes a hundred blocks at a time: an answer longer than that was
     two requests, and a refusal on the second left the first on the page. The
     ticket failed, the next session wrote its answer whole after it — and the
@@ -198,7 +202,7 @@ def an_append_refused_halfway_takes_back_what_it_had_written():
 
 
 @case
-def the_api_is_notions_unless_a_test_says_otherwise():
+def the_api_is_notions_unless_a_test_says_otherwise() -> None:
     """The one seam `tests/functional.py` needs, and what it must not become.
 
     An installation talks to Notion and to nowhere else: the variable is unset,
@@ -222,7 +226,7 @@ def the_api_is_notions_unless_a_test_says_otherwise():
 
 
 @case
-def values_are_encoded_for_the_type_the_database_declares():
+def values_are_encoded_for_the_type_the_database_declares() -> None:
     assert notion._encode("status", "Done") == {"status": {"name": "Done"}}
     assert notion._encode("select", "Done") == {"select": {"name": "Done"}}
     assert notion._encode("url", "https://x") == {"url": "https://x"}
@@ -234,7 +238,7 @@ def values_are_encoded_for_the_type_the_database_declares():
 
 
 @case
-def long_text_is_split_below_notions_limit():
+def long_text_is_split_below_notions_limit() -> None:
     chunks = notion._rich_text("a" * 5000)
     assert len(chunks) == 3
     assert all(len(chunk["text"]["content"]) <= 1900 for chunk in chunks)
@@ -242,7 +246,7 @@ def long_text_is_split_below_notions_limit():
 
 
 @case
-def blocks_become_readable_text_for_the_prompt():
+def blocks_become_readable_text_for_the_prompt() -> None:
     todo = {"type": "to_do", "to_do": {"checked": True, "rich_text": [{"plain_text": "fait"}]}}
     assert notion._block_text(todo, 0) == "- [x] fait"
     heading = {"type": "heading_2", "heading_2": {"rich_text": [{"plain_text": "Titre"}]}}
@@ -252,7 +256,7 @@ def blocks_become_readable_text_for_the_prompt():
 
 
 @case
-def properties_are_read_back_as_plain_python():
+def properties_are_read_back_as_plain_python() -> None:
     page = notion.Page(
         id="x",
         url="u",

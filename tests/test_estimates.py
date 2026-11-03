@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import time
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 from support import _bare_api, _TalkClient, case
 
 from ponos import db, estimates, notion
+from ponos.web import api as web_api
 
 # Ten Code/Bug tickets of one project: the costs and the minutes each took.
 COSTS = (0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 10.0)
@@ -43,13 +45,20 @@ def _ran(
         )
 
 
+def _basis(*asked: str) -> str:
+    """Which tickets an estimate was drawn from: there must be one."""
+    found = estimates.estimate(*asked)
+    assert found is not None, asked
+    return str(found["basis"])
+
+
 def _ten_bugs() -> None:
     for number, (cost, minutes) in enumerate(zip(COSTS, MINUTES, strict=True)):
         _ran(f"{number:032d}", cost=cost, minutes=minutes)
 
 
 @case
-def a_new_bug_is_estimated_from_the_ten_bugs_of_its_project(state_home):
+def a_new_bug_is_estimated_from_the_ten_bugs_of_its_project(state_home: Path) -> None:
     _ten_bugs()
     found = estimates.estimate("Ponos", "code", "bug", "claude-opus-5-5")
     assert found == {
@@ -63,7 +72,7 @@ def a_new_bug_is_estimated_from_the_ten_bugs_of_its_project(state_home):
 
 
 @case
-def fewer_than_five_tickets_alike_make_no_estimate(state_home):
+def fewer_than_five_tickets_alike_make_no_estimate(state_home: Path) -> None:
     for number in range(4):
         _ran(f"{number:032d}")
     assert estimates.estimate("Ponos", "code", "bug") is None
@@ -71,21 +80,22 @@ def fewer_than_five_tickets_alike_make_no_estimate(state_home):
 
 
 @case
-def an_estimate_falls_back_on_the_project_and_type_then_on_the_type(state_home):
+def an_estimate_falls_back_on_the_project_and_type_then_on_the_type(state_home: Path) -> None:
     for number in range(3):
         _ran(f"a{number:031d}", subtype="bug")
     for number in range(3):
         _ran(f"b{number:031d}", subtype="feature")
-    assert estimates.estimate("Ponos", "code", "bug")["basis"] == "project"
+    assert _basis("Ponos", "code", "bug") == "project"
     for number in range(4):
         _ran(f"c{number:031d}", project="Leadz", subtype="bug")
     found = estimates.estimate("Leadz", "code", "bug")
+    assert found is not None
     assert found["basis"] == "type" and found["tickets"] == 10, found
     assert estimates.estimate("Leadz", "writing") is None
 
 
 @case
-def a_ticket_is_its_runs_added_up_and_never_its_own_precedent(state_home):
+def a_ticket_is_its_runs_added_up_and_never_its_own_precedent(state_home: Path) -> None:
     _ten_bugs()
     # Taken twice: the second run is the same ticket, its bill and its time added.
     _ran(f"{9:032d}", cost=2.0, minutes=20)
@@ -95,14 +105,15 @@ def a_ticket_is_its_runs_added_up_and_never_its_own_precedent(state_home):
     assert done[f"{9:032d}"].cost == 12.0 and done[f"{9:032d}"].seconds == 1800
     assert "f" * 32 not in done
     found = estimates.estimate("Ponos", "code", "bug", ticket=f"{0:032d}")
+    assert found is not None
     assert found["tickets"] == 9, found
 
 
 @case
-def an_estimate_compares_the_model_only_when_the_ticket_names_one(state_home):
+def an_estimate_compares_the_model_only_when_the_ticket_names_one(state_home: Path) -> None:
     _ten_bugs()
-    assert estimates.estimate("Ponos", "code", "bug", "haiku")["basis"] == "project"
-    assert estimates.estimate("Ponos", "code", "bug", "")["basis"] == "subtype"
+    assert _basis("Ponos", "code", "bug", "haiku") == "project"
+    assert _basis("Ponos", "code", "bug", "") == "subtype"
 
 
 class _BugClient(_TalkClient):
@@ -130,8 +141,9 @@ class _BugClient(_TalkClient):
         return "Le bandeau reste affiché."
 
 
-def _api(client: _TalkClient):
+def _api(client: _TalkClient) -> web_api.Api:
     api = _bare_api(client)
+    assert api._runner is not None
     api._runner._workspace = type("W", (), {"goals": "", "projects": ""})()
     api._projects = {"p" * 32: {"id": "p" * 32, "name": "Ponos", "kind": "code"}}
     api._projects_at = time.time()
@@ -139,7 +151,7 @@ def _api(client: _TalkClient):
 
 
 @case
-def the_page_of_a_ready_bug_says_what_it_is_likely_to_cost(state_home):
+def the_page_of_a_ready_bug_says_what_it_is_likely_to_cost(state_home: Path) -> None:
     _ten_bugs()
     found = _api(_BugClient()).ticket("1a2b3c4d000000000000000000000000")["estimate"]
     assert found["cost"] == 1.1 and found["cost_high"] == 1.64, found
@@ -147,7 +159,7 @@ def the_page_of_a_ready_bug_says_what_it_is_likely_to_cost(state_home):
 
 
 @case
-def the_page_of_a_ticket_without_history_has_no_estimate(state_home):
+def the_page_of_a_ticket_without_history_has_no_estimate(state_home: Path) -> None:
     for number in range(4):
         _ran(f"{number:032d}")
     page = _api(_BugClient()).ticket("1a2b3c4d000000000000000000000000")
@@ -155,7 +167,7 @@ def the_page_of_a_ticket_without_history_has_no_estimate(state_home):
 
 
 @case
-def the_new_ticket_form_asks_for_the_estimate_of_what_it_holds(state_home):
+def the_new_ticket_form_asks_for_the_estimate_of_what_it_holds(state_home: Path) -> None:
     _ten_bugs()
     api = _api(_BugClient())
     assert api.estimate("p" * 32, "code", "bug")["estimate"]["basis"] == "subtype"

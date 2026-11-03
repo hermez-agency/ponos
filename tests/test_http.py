@@ -9,7 +9,7 @@ from ponos import http as http_module
 
 
 @case
-def every_service_is_asked_again_as_notion_always_was():
+def every_service_is_asked_again_as_notion_always_was() -> None:
     """GitHub, OpenRouter, the channels, the pictures: one policy, Notion's.
 
     A read is asked again after a 5xx or a silence, a POST only when it was
@@ -17,7 +17,7 @@ def every_service_is_asked_again_as_notion_always_was():
     And what keeps failing comes back as the last answer, or `Unanswered`.
     """
     seen: list[str] = []
-    script: list = []
+    script: list[httpx.Response | BaseException] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
         seen.append(request.method)

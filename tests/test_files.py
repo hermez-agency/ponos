@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 from support import _board, _no_session, _run_on, case
 
@@ -15,7 +17,7 @@ from ponos.runner import Runner
 
 
 @case
-def a_frontmatter_survives_the_round_trip():
+def a_frontmatter_survives_the_round_trip() -> None:
     """What `render` writes, `parse` has to read back — every shape of it.
 
     The file is the board: a value that comes back as something else is a
@@ -42,13 +44,13 @@ def a_frontmatter_survives_the_round_trip():
 
 
 @case
-def a_file_with_no_frontmatter_is_all_body():
+def a_file_with_no_frontmatter_is_all_body() -> None:
     front, body = files.parse("Je suis Camille Martin.\n")
     assert front == {} and body == "Je suis Camille Martin."
 
 
 @case
-def tickets_are_written_and_read_back_as_markdown():
+def tickets_are_written_and_read_back_as_markdown() -> None:
     with _board() as board:
         page_id = board.create_row(
             "tickets", "Corriger l'entête", {"Status": "Ready", "Priority": "High"}
@@ -71,7 +73,7 @@ def tickets_are_written_and_read_back_as_markdown():
 
 
 @case
-def a_markdown_ticket_reads_its_brief_without_its_live_reports():
+def a_markdown_ticket_reads_its_brief_without_its_live_reports() -> None:
     """A file has no toggle: the story of a run is fenced, and the brief leaves it out."""
     with _board() as board:
         page_id = board.create_row("tickets", "Corriger l'entête", {"Status": "Ready"})
@@ -89,7 +91,7 @@ def a_markdown_ticket_reads_its_brief_without_its_live_reports():
 
 
 @case
-def a_markdown_board_answers_the_filters_the_runner_builds():
+def a_markdown_board_answers_the_filters_the_runner_builds() -> None:
     with _board() as board:
         ready = board.create_row("tickets", "À faire", {"Status": "Ready"})
         board.create_row("tickets", "Finie", {"Status": "Done"})
@@ -111,7 +113,7 @@ def a_markdown_board_answers_the_filters_the_runner_builds():
 
 
 @case
-def projects_the_context_and_the_schedules_live_in_files_too():
+def projects_the_context_and_the_schedules_live_in_files_too() -> None:
     """The three things the ticket's UI has to be able to show without Notion."""
     with _board() as board:
         project = board.create_row("projects", "ponos", {"Repository": "user/repo"})
@@ -135,7 +137,7 @@ def projects_the_context_and_the_schedules_live_in_files_too():
 
 
 @case
-def a_markdown_board_keeps_a_discussion_per_page():
+def a_markdown_board_keeps_a_discussion_per_page() -> None:
     with _board() as board:
         page_id = board.create_row("tickets", "Une question", {})
         board.comment(page_id, "La question ?")
@@ -150,7 +152,7 @@ def a_markdown_board_keeps_a_discussion_per_page():
 
 
 @case
-def the_whole_runner_runs_against_files_with_no_notion_at_all(state_home):
+def the_whole_runner_runs_against_files_with_no_notion_at_all(state_home: Path) -> None:
     """A full pass in `storage.mode = "markdown"`, network unplugged.
 
     The one test that answers the question the mode exists for: does the runner
@@ -172,7 +174,7 @@ def the_whole_runner_runs_against_files_with_no_notion_at_all(state_home):
 
         # Nothing here may be reached for. A configuration with no token would
         # only have produced a 401; this produces a traceback naming the caller.
-        def refuse(*_args, **_kwargs):
+        def refuse(*_args: Any, **_kwargs: Any) -> notion.Client:
             raise AssertionError("markdown mode must never construct a Notion client")
 
         # Typed by hand: a ticket with no type would first be classified, and
@@ -184,7 +186,7 @@ def the_whole_runner_runs_against_files_with_no_notion_at_all(state_home):
         board.set_context("Je suis Camille Martin.")
 
         real_client = notion.Client
-        notion.Client = refuse
+        notion.Client = refuse  # type: ignore[misc, assignment]  # a trap: no client may be built
         try:
             configuration.require_usable()  # no token, and that is not a fault
             run = Runner(configuration, quiet=True)
@@ -197,7 +199,7 @@ def the_whole_runner_runs_against_files_with_no_notion_at_all(state_home):
             with _no_session(answer="C'est écrit.", writes={"ANSWER.md": "# Annonce\n\nVoilà."}):
                 results = run.tick()
         finally:
-            notion.Client = real_client
+            notion.Client = real_client  # type: ignore[misc]  # the class put back
 
         assert [result["status"] for result in results] == ["done"], results
         done = board.page(page_id)
@@ -208,7 +210,7 @@ def the_whole_runner_runs_against_files_with_no_notion_at_all(state_home):
 
 
 @case
-def two_processes_writing_one_ticket_lose_nothing():
+def two_processes_writing_one_ticket_lose_nothing() -> None:
     """The runner and the console are two processes, and both write tickets.
 
     The console moves a status while the runner appends its report: each one
@@ -233,7 +235,12 @@ def two_processes_writing_one_ticket_lose_nothing():
                 assert files.parse(files._text(board._find(page_id)[1]))[0].get("id")
 
         children = []
-        for job in (lambda: writer("runner"), lambda: writer("console"), reader):
+        jobs: tuple[Callable[[], None], ...] = (
+            lambda: writer("runner"),
+            lambda: writer("console"),
+            reader,
+        )
+        for job in jobs:
             child = os.fork()
             if child == 0:
                 code = 1

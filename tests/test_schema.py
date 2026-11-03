@@ -8,8 +8,9 @@ import subprocess
 import sys
 import tempfile
 import tomllib
+from collections.abc import Iterator
 from pathlib import Path
-from typing import get_origin
+from typing import Any, get_origin
 
 from support import _config, _environment, case
 
@@ -50,7 +51,9 @@ def _documented() -> set[tuple[str, ...]]:
     return found
 
 
-def _walk(model: type[schema.Table], prefix: tuple[str, ...] = ()):
+def _walk(
+    model: type[schema.Table], prefix: tuple[str, ...] = ()
+) -> Iterator[tuple[tuple[str, ...], Any]]:
     for name, field in model.model_fields.items():
         kind = field.annotation
         if isinstance(kind, type) and issubclass(kind, schema.Table):
@@ -74,7 +77,7 @@ def _free_tables() -> set[tuple[str, ...]]:
 
 
 @case
-def every_key_the_example_documents_is_one_the_model_reads_and_back():
+def every_key_the_example_documents_is_one_the_model_reads_and_back() -> None:
     """config.example.toml and schema.py describe the same file.
 
     A key documented and not read is a setting that does nothing; a key read
@@ -91,7 +94,7 @@ def every_key_the_example_documents_is_one_the_model_reads_and_back():
 
 
 @case
-def the_example_reads_against_the_model_and_gives_the_defaults():
+def the_example_reads_against_the_model_and_gives_the_defaults() -> None:
     text = EXAMPLE.read_text(encoding="utf-8")
     file = schema.read(tomllib.loads(text), text, EXAMPLE)
     assert schema.unknown(tomllib.loads(text), text) == [], "the example names no key unread"
@@ -105,7 +108,7 @@ def the_example_reads_against_the_model_and_gives_the_defaults():
 
 
 @case
-def the_tolerances_of_the_old_loader_are_kept():
+def the_tolerances_of_the_old_loader_are_kept() -> None:
     """A typo in a choice is the default, a value past a floor is the floor.
 
     What `config.load` always did, and what an installation's file may rely on
@@ -148,7 +151,7 @@ def the_tolerances_of_the_old_loader_are_kept():
 
 
 @case
-def a_value_no_rule_reads_names_its_key_and_its_line():
+def a_value_no_rule_reads_names_its_key_and_its_line() -> None:
     """A port that is not a number used to be a traceback naming nothing."""
     path = Path(tempfile.mkdtemp()) / "config.toml"
     path.write_text(
@@ -172,7 +175,7 @@ def a_value_no_rule_reads_names_its_key_and_its_line():
 
 
 @case
-def a_key_nobody_reads_is_named_with_its_line_and_the_key_it_was_meant_to_be():
+def a_key_nobody_reads_is_named_with_its_line_and_the_key_it_was_meant_to_be() -> None:
     """Ignored, as it always was — but said: a misspelt key is a setting that does nothing."""
     config = _config(
         "[runner]\n"
@@ -208,7 +211,7 @@ def a_key_nobody_reads_is_named_with_its_line_and_the_key_it_was_meant_to_be():
 
 
 @case
-def doctor_warns_of_a_key_nobody_reads():
+def doctor_warns_of_a_key_nobody_reads() -> None:
     from test_health import _doctor_said
 
     from ponos import __main__ as cli
@@ -226,7 +229,7 @@ def doctor_warns_of_a_key_nobody_reads():
 
 
 @case
-def a_table_written_as_a_value_is_named_by_its_line():
+def a_table_written_as_a_value_is_named_by_its_line() -> None:
     text = 'web = "loopback"\n[runner]\n'
     assert schema.line_of(text, ("web",)) == 1
     assert schema.line_of(text, ("runner", "interval_seconds")) == 2, "its table, then"
@@ -235,7 +238,7 @@ def a_table_written_as_a_value_is_named_by_its_line():
 
 
 @case
-def doctor_prints_what_does_not_read():
+def doctor_prints_what_does_not_read() -> None:
     from test_health import _doctor_said
 
     from ponos import __main__ as cli
@@ -250,7 +253,7 @@ def doctor_prints_what_does_not_read():
 
 
 @case
-def a_python_without_pydantic_still_starts_and_says_so():
+def a_python_without_pydantic_still_starts_and_says_so() -> None:
     """The machine's Python, before the version's environment is made.
 
     The modules import, `load` says what is missing rather than raising an
@@ -281,7 +284,7 @@ def a_python_without_pydantic_still_starts_and_says_so():
 
 
 @case
-def a_pass_that_cannot_read_the_file_makes_the_environment_and_stops(state_home):
+def a_pass_that_cannot_read_the_file_makes_the_environment_and_stops(state_home: Path) -> None:
     from ponos import __main__ as cli
     from ponos import update
 
@@ -290,7 +293,12 @@ def a_pass_that_cannot_read_the_file_makes_the_environment_and_stops(state_home)
     link = Path(tempfile.mkdtemp()) / "app"
     link.symlink_to(link.parent)
     C.readable = lambda: False
-    update.heal_environment = lambda: made.append("made") or ""
+
+    def healing() -> str:
+        made.append("made")
+        return ""
+
+    update.heal_environment = healing
     update.app_dir = lambda: link
     try:
         code = cli.command_run(cli.build_parser().parse_args(["run"]))
@@ -301,7 +309,7 @@ def a_pass_that_cannot_read_the_file_makes_the_environment_and_stops(state_home)
 
 
 @case
-def a_load_per_core_reads_as_the_console_writes_it_and_a_typo_keeps_the_default():
+def a_load_per_core_reads_as_the_console_writes_it_and_a_typo_keeps_the_default() -> None:
     for written, read in (
         ("", 1.5),
         ("max_load_per_core = 2\n", 2.0),
@@ -314,7 +322,7 @@ def a_load_per_core_reads_as_the_console_writes_it_and_a_typo_keeps_the_default(
 
 
 @case
-def session_workers_default_to_the_share_of_the_cores_and_refuse_none_under_zero():
+def session_workers_default_to_the_share_of_the_cores_and_refuse_none_under_zero() -> None:
     for written, read in (
         ("", 0),
         ("session_workers = 3\n", 3),

@@ -9,6 +9,7 @@ import sys
 import tempfile
 import uuid
 from pathlib import Path
+from typing import Any
 
 from support import _bare_runner, case
 
@@ -18,7 +19,7 @@ from ponos import config, session, vault
 
 
 @case
-def a_verdict_is_read_from_the_last_result_line():
+def a_verdict_is_read_from_the_last_result_line() -> None:
     assert session._verdict("blah\nRESULT: ok — removed the header") == "ok"
     assert session._verdict("**RESULT: blocked — which page?**") == "blocked"
     assert session._verdict("nothing of the sort") == ""
@@ -27,14 +28,14 @@ def a_verdict_is_read_from_the_last_result_line():
 
 
 @case
-def a_summary_drops_the_verdict_it_repeats():
+def a_summary_drops_the_verdict_it_repeats() -> None:
     assert session._summary("x\nRESULT: ok — removed the header") == "removed the header"
     assert session._summary("**RESULT: blocked — which page?**") == "which page?"
     assert session._summary("no verdict here") == "no verdict here"
 
 
 @case
-def project_keys_match_what_claude_code_writes_on_disk():
+def project_keys_match_what_claude_code_writes_on_disk() -> None:
     """Observed against real ~/.claude/projects folders."""
     assert session.project_key(Path("/home/salva/workspace/labo/trader-ia")) == (
         "-home-salva-workspace-labo-trader-ia"
@@ -46,7 +47,7 @@ def project_keys_match_what_claude_code_writes_on_disk():
 
 
 @case
-def a_remote_link_carries_its_host():
+def a_remote_link_carries_its_host() -> None:
     """Once the runner is on a server, the session is there too.
 
     A link with a host resolves to an ssh command instead of a local claude,
@@ -64,7 +65,7 @@ def a_remote_link_carries_its_host():
 
 
 @case
-def a_deep_link_survives_a_round_trip():
+def a_deep_link_survives_a_round_trip() -> None:
     from urllib.parse import parse_qs, urlparse
 
     link = session.deep_link("0486a9fd-44f6-4fff-9dee-9e58bc4062ba", "/home/me/my work")
@@ -77,7 +78,7 @@ def a_deep_link_survives_a_round_trip():
 
 
 @case
-def a_prompt_never_reaches_the_command_line():
+def a_prompt_never_reaches_the_command_line() -> None:
     """The prompt goes on stdin, whatever its size, and argv keeps only options.
 
     Too long, an argument is refused by Linux before the session exists (E2BIG
@@ -127,7 +128,7 @@ def a_prompt_never_reaches_the_command_line():
 
 
 @case
-def a_session_is_not_given_the_runners_own_secrets():
+def a_session_is_not_given_the_runners_own_secrets() -> None:
     """A container holds every secret as a variable: none of them is the session's.
 
     An `env` run by the session printed them all into its transcript, the steps
@@ -192,7 +193,7 @@ def a_session_is_not_given_the_runners_own_secrets():
 
 
 @case
-def a_session_of_a_run_is_given_its_share_of_the_cores_for_its_tests(state_home):
+def a_session_of_a_run_is_given_its_share_of_the_cores_for_its_tests(state_home: Path) -> None:
     """Every runner its tests call reads its number of workers from the environment.
 
     On 23 October seven sessions took the load to 74 on twenty cores: Vitest
@@ -227,7 +228,8 @@ def a_session_of_a_run_is_given_its_share_of_the_cores_for_its_tests(state_home)
                 environment=given,
             )
             assert outcome.ok, outcome.error
-            return json.loads(seen.read_text())
+            given_to_it: dict[str, str] = json.loads(seen.read_text())
+            return given_to_it
 
         try:
             got = environment(GOMAXPROCS="8")
@@ -245,7 +247,7 @@ def a_session_of_a_run_is_given_its_share_of_the_cores_for_its_tests(state_home)
 
 
 @case
-def a_link_cannot_slip_an_option_into_ssh_or_claude():
+def a_link_cannot_slip_an_option_into_ssh_or_claude() -> None:
     """A link is something anybody can paste into a cell, and a click runs it.
 
     `host=-oProxyCommand=…` is not a machine, it is an ssh option that runs a
@@ -269,24 +271,24 @@ def a_link_cannot_slip_an_option_into_ssh_or_claude():
             raise AssertionError(f"accepted: {uri}")
 
     original = shutil.which
-    session.shutil.which = lambda name, *rest, **kept: f"/usr/bin/{name}"
+    shutil.which = lambda name, *rest, **kept: f"/usr/bin/{name}"  # type: ignore[assignment]  # a double: every program is installed
     try:
         cwd, command = session.resume_command(
             session.deep_link(identifier, "/srv/work/app", "salva@vps.example.org")
         )
         _, bracketed = session.resume_command(f"ponos://session/{identifier}?host=me%40%5B::1%5D")
     finally:
-        session.shutil.which = original
+        shutil.which = original
     assert command[:4] == ["ssh", "-t", "--", "salva@vps.example.org"], command
     assert command[4].endswith(f"claude --resume {identifier}"), command
     assert bracketed[3] == "me@[::1]", bracketed
 
 
 @case
-def a_session_cut_short_keeps_what_its_last_event_said_it_cost():
+def a_session_cut_short_keeps_what_its_last_event_said_it_cost() -> None:
     """The watchdog's kill and the console's Stop do not make a session free."""
 
-    def ended(final: dict, **flags) -> session.Outcome:
+    def ended(final: dict[str, Any], **flags: bool) -> session.Outcome:
         return session._outcome(
             final,
             ["half of it"],

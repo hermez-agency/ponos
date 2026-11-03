@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from support import case
 
 from ponos import legacy, prompt, voice
@@ -10,7 +12,7 @@ from ponos import legacy, prompt, voice
 
 
 @case
-def a_language_is_read_down_to_one_the_runner_speaks():
+def a_language_is_read_down_to_one_the_runner_speaks() -> None:
     """A locale, a capital, a language written out: all one answer."""
     for spelling in ("fr", "FR", "fr-FR", "fr_CA", " Français ", "french"):
         assert voice.understood(spelling) == "fr", spelling
@@ -22,14 +24,14 @@ def a_language_is_read_down_to_one_the_runner_speaks():
 
 
 @case
-def a_runner_nobody_told_a_language_says_exactly_what_it_used_to():
+def a_runner_nobody_told_a_language_says_exactly_what_it_used_to() -> None:
     """Empty is not “English”: it is “nobody decided”, and the prompts say so.
 
     Every template already carries its own rule — write in the language of the
     ticket, of the message — and a default that overrode it would answer a
     French ticket in English on the day this shipped.
     """
-    common = dict(
+    common: dict[str, Any] = dict(
         project="Northwind", title="t", body="b", repo="/r", branch="br", base="main", url="u"
     )
     assert prompt.build(prompt.DEFAULT, **common) == prompt.build(
@@ -46,7 +48,7 @@ def a_runner_nobody_told_a_language_says_exactly_what_it_used_to():
 
 
 @case
-def a_conversation_is_told_the_language_too_and_so_is_its_next_turn():
+def a_conversation_is_told_the_language_too_and_so_is_its_next_turn() -> None:
     """A thread that answers in French once and in English after is worse than
     a thread that never switched."""
     said = voice.Voice("fr")
@@ -68,7 +70,7 @@ def a_conversation_is_told_the_language_too_and_so_is_its_next_turn():
 
 
 @case
-def a_report_opens_on_what_is_expected_of_you_and_says_it_in_three_lines():
+def a_report_opens_on_what_is_expected_of_you_and_says_it_in_three_lines() -> None:
     """The first line is a notification: it has eighty characters, and that is
     the whole of the design.
 
@@ -103,7 +105,7 @@ def a_report_opens_on_what_is_expected_of_you_and_says_it_in_three_lines():
 
 
 @case
-def a_sentence_a_session_wrote_too_long_is_cut_on_a_word():
+def a_sentence_a_session_wrote_too_long_is_cut_on_a_word() -> None:
     """The prompt asks for one sentence and mostly gets one. Mostly is not a
     length, and a report is not where to find that out."""
     said = voice.Voice()
@@ -116,7 +118,7 @@ def a_sentence_a_session_wrote_too_long_is_cut_on_a_word():
 
 
 @case
-def a_report_is_told_from_an_answer_by_the_mark_it_opens_with():
+def a_report_is_told_from_an_answer_by_the_mark_it_opens_with() -> None:
     """Three places used to recognise the runner by the host it signed with, so
     dropping the host without putting something in its place would have had the
     next run read its own words back as an instruction."""
@@ -131,7 +133,7 @@ def a_report_is_told_from_an_answer_by_the_mark_it_opens_with():
 
 
 @case
-def a_measurement_is_rounded_to_something_a_person_would_say():
+def a_measurement_is_rounded_to_something_a_person_would_say() -> None:
     """Nobody reports their afternoon to the tenth of a minute."""
     said = voice.Voice()
     assert said.minutes(1092.0) == "18 minutes"
@@ -143,7 +145,7 @@ def a_measurement_is_rounded_to_something_a_person_would_say():
 
 
 @case
-def french_counts_zero_in_the_singular_and_english_does_not():
+def french_counts_zero_in_the_singular_and_english_does_not() -> None:
     """« 0 commit » in French, “0 commits” in English: the plural is the language's."""
     english, french = voice.Voice("en"), voice.Voice("fr")
     assert english.count(0, "commit") == "0 commits"
@@ -156,7 +158,7 @@ def french_counts_zero_in_the_singular_and_english_does_not():
 
 
 @case
-def every_phrase_exists_in_every_language_it_claims_to_speak():
+def every_phrase_exists_in_every_language_it_claims_to_speak() -> None:
     """A key nobody translated is a sentence that fails the day it is said.
 
     Which is the whole risk of a table like this: the missing one is always the

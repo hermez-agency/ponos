@@ -2,14 +2,19 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from typing import Any
 
 from support import _config, case
 
 from ponos import channels, digest, notion, state
+from ponos.config import Notify
 from ponos.projects import Project
 from ponos.runner import Runner
+from ponos.ticket import Ticket
 from ponos.voice import Voice
 
 WEEKLY = '[notify]\ndigest = "weekly"\n[notify.telegram]\ntoken = "123:abc"\nchat = "42"\n'
@@ -23,10 +28,17 @@ def _local(day: int, hour: int = 9, minute: int = 0) -> datetime:
     return datetime(2026, 10 if day > 20 else 11, day, hour, minute).astimezone()
 
 
-def _line(moment: datetime, **values) -> dict:
+def _line(moment: datetime, **values: Any) -> dict[str, Any]:
     entry = {"at": moment.astimezone(UTC).isoformat(timespec="seconds"), **values}
     state.record(entry)
     return entry
+
+
+def _period(settings: Notify, now: datetime) -> tuple[datetime, datetime]:
+    """`digest.period`, for a moment that has one."""
+    period = digest.period(settings, now)
+    assert period is not None
+    return period
 
 
 def _history() -> None:
@@ -49,7 +61,7 @@ def _history() -> None:
 
 
 @case
-def the_digest_is_off_unless_asked(state_home):
+def the_digest_is_off_unless_asked(state_home: Path) -> None:
     assert digest.period(_config("").notify, _local(2, 12)) is None
     assert _config('[notify]\ndigest = "monthly"\n').notify.digest == "off", "a typo asks nothing"
     settings = _config(
@@ -59,23 +71,23 @@ def the_digest_is_off_unless_asked(state_home):
 
 
 @case
-def a_weekly_period_ends_on_the_last_monday_at_nine(state_home):
+def a_weekly_period_ends_on_the_last_monday_at_nine(state_home: Path) -> None:
     settings = _config(WEEKLY).notify
-    start, end = digest.period(settings, _local(2, 9, 30))
+    start, end = _period(settings, _local(2, 9, 30))
     assert end == _local(2) and start == _local(26) and (end - start).days == 7
     # Before the hour, the period is the one before.
-    _, earlier = digest.period(settings, _local(2, 8))
+    _, earlier = _period(settings, _local(2, 8))
     assert earlier == end - timedelta(days=7)
     # Midweek, still Monday's.
-    assert digest.period(settings, _local(4, 15))[1] == end
+    assert _period(settings, _local(4, 15))[1] == end
     # Daily: yesterday's hour to today's.
     daily = _config('[notify]\ndigest = "daily"\n').notify
-    start, end = digest.period(daily, _local(4, 10))
+    start, end = _period(daily, _local(4, 10))
     assert end == _local(4) and start == _local(3)
 
 
 @case
-def a_period_is_sent_late_but_not_stale(state_home):
+def a_period_is_sent_late_but_not_stale(state_home: Path) -> None:
     settings = _config(WEEKLY).notify
     assert digest.due(settings, _local(2, 9, 40)), "a laptop woken at 9:40 still sends"
     assert digest.due(settings, _local(2, 20)), "and so does the evening"
@@ -83,7 +95,7 @@ def a_period_is_sent_late_but_not_stale(state_home):
 
 
 @case
-def the_figures_of_a_week_are_counted_by_ticket(state_home):
+def the_figures_of_a_week_are_counted_by_ticket(state_home: Path) -> None:
     _history()
     start, end = _local(26), _local(2)
     figures = digest.count(state.between(start, end))
@@ -94,7 +106,7 @@ def the_figures_of_a_week_are_counted_by_ticket(state_home):
 
 
 @case
-def the_message_names_the_numbers_and_the_tickets_waiting(state_home):
+def the_message_names_the_numbers_and_the_tickets_waiting(state_home: Path) -> None:
     _history()
     start, end = _local(26), _local(2)
     text = digest.compose(
@@ -122,7 +134,7 @@ class _Telegram(channels.Channel):
     def __init__(self) -> None:
         self.sent: list[str] = []
 
-    def send(self, text, *, ticket="", title="", ask=False) -> bool:
+    def send(self, text: str, *, ticket: str = "", title: str = "", ask: bool = False) -> bool:
         self.sent.append(text)
         return True
 
@@ -130,10 +142,11 @@ class _Telegram(channels.Channel):
 class _Board:
     """The two columns that wait for a person, and nothing else."""
 
-    def schema(self, database):
+    def schema(self, database: str) -> dict[str, str]:
         return {"Status": "status"}
 
-    def query(self, database, filter_=None):
+    def query(self, database: str, filter_: dict[str, Any] | None = None) -> list[notion.Page]:
+        assert filter_ is not None
         column = filter_["status"]["equals"]
         if column != "In review":
             return []
@@ -143,12 +156,12 @@ class _Board:
 class _Runner(Runner):
     database = "db"
 
-    def _project_of(self, ticket):
+    def _project_of(self, ticket: Ticket) -> Project:
         return Project(name="Ponos", path=None)
 
 
 @contextmanager
-def _open(live):
+def _open(live: list[channels.Channel]) -> Iterator[None]:
     original = channels.open
     channels.open = lambda settings: live
     try:
@@ -160,14 +173,14 @@ def _open(live):
 def _runner(body: str = WEEKLY) -> _Runner:
     runner = _Runner.__new__(_Runner)
     runner.config = _config(body)
-    runner.client = _Board()
+    runner.client = _Board()  # type: ignore[assignment]  # a fake: the waiting columns only
     runner.dry_run = False
     runner.quiet = True
     return runner
 
 
 @case
-def a_period_is_sent_once_however_many_passes_meet_it(state_home):
+def a_period_is_sent_once_however_many_passes_meet_it(state_home: Path) -> None:
     _history()
     stub = _Telegram()
     with _open([stub]):
@@ -183,9 +196,9 @@ def a_period_is_sent_once_however_many_passes_meet_it(state_home):
 
 
 @case
-def a_period_no_channel_took_is_tried_again(state_home):
+def a_period_no_channel_took_is_tried_again(state_home: Path) -> None:
     refusing = _Telegram()
-    refusing.send = lambda text, **_: False
+    refusing.send = lambda text, **_: False  # type: ignore[method-assign]  # a channel that takes nothing
     with _open([refusing]):
         assert _runner().digest(at=_local(2, 9, 5)) is False
     stub = _Telegram()
@@ -195,7 +208,7 @@ def a_period_no_channel_took_is_tried_again(state_home):
 
 
 @case
-def without_a_channel_or_with_the_digest_off_nothing_is_sent(state_home):
+def without_a_channel_or_with_the_digest_off_nothing_is_sent(state_home: Path) -> None:
     stub = _Telegram()
     with _open([stub]):
         assert (

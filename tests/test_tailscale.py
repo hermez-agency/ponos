@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import subprocess
 import threading
+from pathlib import Path
+from typing import Any
 
 from support import _board, _ideas_api, case
 
@@ -12,7 +14,7 @@ from support import _board, _ideas_api, case
 
 
 def _serve_status(
-    name: str, port: int = 8787, funnel: bool = True, extra: dict | None = None
+    name: str, port: int = 8787, funnel: bool = True, extra: dict[str, Any] | None = None
 ) -> str:
     local = f"http://127.0.0.1:{port}"
     web = {
@@ -28,7 +30,7 @@ def _serve_status(
 
 
 @case
-def tailscale_publishes_the_mcp_paths_on_the_funnel_port_and_the_console_on_another():
+def tailscale_publishes_the_mcp_paths_on_the_funnel_port_and_the_console_on_another() -> None:
     """Funnel is per host and port: the console on 443 beside /mcp would be public."""
     from ponos import tailscale
 
@@ -47,7 +49,7 @@ def tailscale_publishes_the_mcp_paths_on_the_funnel_port_and_the_console_on_anot
 
 
 @case
-def a_request_through_the_funnel_reaches_the_mcp_doors_and_nothing_else(state_home):
+def a_request_through_the_funnel_reaches_the_mcp_doors_and_nothing_else(state_home: Path) -> None:
     import urllib.error
     import urllib.request
 
@@ -76,7 +78,7 @@ def a_request_through_the_funnel_reaches_the_mcp_doors_and_nothing_else(state_ho
             )
             try:
                 with urllib.request.urlopen(request, timeout=5) as response:
-                    return response.status
+                    return int(response.status)
             except urllib.error.HTTPError as error:
                 return error.code
 
@@ -93,7 +95,7 @@ def a_request_through_the_funnel_reaches_the_mcp_doors_and_nothing_else(state_ho
 
 
 @case
-def tailscale_serve_status_is_read_as_in_place_only_when_both_doors_are_exactly_ours():
+def tailscale_serve_status_is_read_as_in_place_only_when_both_doors_are_exactly_ours() -> None:
     from ponos import tailscale
 
     name = "laptop.tail1234.ts.net"
@@ -111,7 +113,9 @@ def tailscale_serve_status_is_read_as_in_place_only_when_both_doors_are_exactly_
 
 
 @case
-def the_tailscale_watch_waits_for_the_tailnet_then_publishes_and_republishes_after_a_drift():
+def the_tailscale_watch_waits_for_the_tailnet_then_publishes_and_republishes_after_a_drift() -> (
+    None
+):
     import subprocess
 
     from ponos import tailscale
@@ -149,12 +153,12 @@ def the_tailscale_watch_waits_for_the_tailnet_then_publishes_and_republishes_aft
 
 
 @case
-def a_missing_tailscale_binary_is_said_once_by_the_watcher_and_does_not_stop_it():
+def a_missing_tailscale_binary_is_said_once_by_the_watcher_and_does_not_stop_it() -> None:
     from ponos import tailscale
 
     said: list[str] = []
 
-    def run(arguments: list[str]):
+    def run(arguments: list[str]) -> subprocess.CompletedProcess[str]:
         raise tailscale.TailscaleError("tailscale is not installed")
 
     tailscale.watch(8787, 1, run=run, sleep=lambda _: None, log=said.append, rounds=3)

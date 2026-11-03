@@ -13,23 +13,23 @@ from ponos.runner import Runner
 
 
 @case
-def a_subscription_token_in_the_environment_is_a_signed_in_cli():
+def a_subscription_token_in_the_environment_is_a_signed_in_cli() -> None:
     """`claude setup-token` handed over as CLAUDE_CODE_OAUTH_TOKEN: the CLI works, and says how."""
-    from ponos import provider
+    from ponos import provider, session
 
     answered = json.dumps({"loggedIn": True, "authMethod": "oauth_token"})
-    original = provider.subprocess.run, provider.session.available
-    provider.session.available = lambda: "/usr/bin/claude"
-    provider.subprocess.run = lambda *_, **__: subprocess.CompletedProcess([], 0, answered, "")
+    original = subprocess.run, session.available
+    session.available = lambda: "/usr/bin/claude"
+    subprocess.run = lambda *_, **__: subprocess.CompletedProcess([], 0, answered, "")  # type: ignore[assignment]  # a double: `claude auth status`, signed in
     try:
         check = provider.cli_login()
     finally:
-        provider.subprocess.run, provider.session.available = original
+        subprocess.run, session.available = original
     assert check.ok and "CLAUDE_CODE_OAUTH_TOKEN" in check.said, check
 
 
 @case
-def a_file_with_no_provider_runs_its_sessions_where_it_always_did():
+def a_file_with_no_provider_runs_its_sessions_where_it_always_did() -> None:
     """`claude.provider` is a choice; a file written before it is not moved anywhere."""
     from ponos import provider
 
@@ -73,7 +73,7 @@ def a_file_with_no_provider_runs_its_sessions_where_it_always_did():
 
 
 @case
-def only_the_cli_waits_for_credits():
+def only_the_cli_waits_for_credits() -> None:
     """A key is billed as it is used: no window to wait for, no share to reserve."""
     with _environment(ANTHROPIC_API_KEY=None, OPENROUTER_API_KEY=None):
         assert Runner(_saved()[1], quiet=True)._waits_for_credits
@@ -84,7 +84,7 @@ def only_the_cli_waits_for_credits():
 
 
 @case
-def a_slug_session_reaches_claude_code_without_the_v1_it_adds_itself():
+def a_slug_session_reaches_claude_code_without_the_v1_it_adds_itself() -> None:
     """`/api/v1` + Claude Code's `/v1/messages` was a 404, told as « issue with the selected model »."""
     from ponos import provider
 

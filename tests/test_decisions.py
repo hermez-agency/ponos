@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from support import _board, _ideas_api, case
 
 from ponos import config as C
@@ -11,15 +13,17 @@ from ponos import conversation, prompt, question, store, voice
 
 
 @case
-def a_blocked_session_names_what_it_stopped_on_and_a_finished_one_what_to_check():
+def a_blocked_session_names_what_it_stopped_on_and_a_finished_one_what_to_check() -> None:
     """CATEGORY and CAVEAT, read like the other fields: from the end, before RESULT."""
 
     asked = question.parse(
         "I tried.\nDONE: nothing\nWHY: no Cloudflare token\nCATEGORY: Access\n"
         "QUESTION: Which token?\nMODE: free\nRESULT: blocked — no token"
     )
+    assert asked is not None
     assert asked.category == "access" and asked.why == "no Cloudflare token"
     unknown = question.parse("WHY: x\nCATEGORY: weather\nQUESTION: Now?\nRESULT: blocked — x")
+    assert unknown is not None
     assert unknown.category == "", "a category nobody offered is no category"
     assert question.caveats(
         "CAVEAT: quoted earlier\nDone.\nCAVEAT: not tried on Safari\n- CAVEAT: **no screenshot**\n"
@@ -33,7 +37,7 @@ def a_blocked_session_names_what_it_stopped_on_and_a_finished_one_what_to_check(
 
 
 @case
-def a_blocked_report_says_its_category_and_the_console_reads_it_back():
+def a_blocked_report_says_its_category_and_the_console_reads_it_back() -> None:
     """Written in front of why, in the runner's language, and read back in either."""
     from ponos import decisions
 
@@ -52,19 +56,20 @@ def a_blocked_report_says_its_category_and_the_console_reads_it_back():
             "Worktree kept.",
         )
         assert named + "no Cloudflare token" in report
-        assert question.found(report).options == ["Production", "A new one"], (
-            "the layout still reads"
-        )
+        layout = question.found(report)
+        assert layout is not None
+        assert layout.options == ["Production", "A new one"], "the layout still reads"
         found = decisions.blockage(["an answer", report, "a reply of yours"])
         assert found.category == "access" and found.declared and found.reported
         assert found.reason == "no Cloudflare token" and found.done == "branch ready"
+        assert found.question is not None
         assert found.detail == "Worktree kept." and found.question.ask == "Which token?"
         keys = [solution.key for solution in decisions.unblocking(found)]
         assert keys == ["option", "option", "done-retry", "instruct", "abandon", "other"], keys
 
 
 @case
-def a_ticket_blocked_before_the_categories_still_reads_as_a_reason_and_offers_defaults():
+def a_ticket_blocked_before_the_categories_still_reads_as_a_reason_and_offers_defaults() -> None:
     """No name in front: the words give the kind away, and the defaults follow."""
     from ponos import decisions
 
@@ -104,7 +109,7 @@ def a_ticket_blocked_before_the_categories_still_reads_as_a_reason_and_offers_de
 
 
 @case
-def a_ticket_too_big_offers_its_sub_tickets_as_a_split():
+def a_ticket_too_big_offers_its_sub_tickets_as_a_split() -> None:
     from ponos import decisions
 
     found = decisions.Blockage(
@@ -117,7 +122,7 @@ def a_ticket_too_big_offers_its_sub_tickets_as_a_split():
 
 
 @case
-def a_question_that_proposes_to_close_the_ticket_offers_to_close_it_at_once():
+def a_question_that_proposes_to_close_the_ticket_offers_to_close_it_at_once() -> None:
     """A duplicate, nothing to do: "yes, close it" files it as done, no session to say so."""
     from ponos import decisions
 
@@ -142,7 +147,7 @@ def a_question_that_proposes_to_close_the_ticket_offers_to_close_it_at_once():
 
 
 @case
-def a_review_report_carries_what_to_check_and_the_panel_offers_to_send_it_back():
+def a_review_report_carries_what_to_check_and_the_panel_offers_to_send_it_back() -> None:
     from ponos import decisions
 
     said = voice.Voice("fr")
@@ -184,7 +189,9 @@ def a_review_report_carries_what_to_check_and_the_panel_offers_to_send_it_back()
 
 
 @case
-def each_choice_moves_the_ticket_and_leaves_the_instruction_for_the_next_session(state_home):
+def each_choice_moves_the_ticket_and_leaves_the_instruction_for_the_next_session(
+    state_home: Path,
+) -> None:
     """The panel's gestures, on a board of files: the comment, then the move.
 
     A choice that sends the ticket back to work writes the instruction first —

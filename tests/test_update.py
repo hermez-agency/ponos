@@ -11,8 +11,10 @@ import sys
 import tempfile
 import threading
 import time
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Any
 
 from support import ROOT, _bare_api, _config, _head, _TalkClient, case
 
@@ -23,7 +25,7 @@ from ponos import state, update
 
 
 @case
-def an_update_needs_both_sides_to_be_known():
+def an_update_needs_both_sides_to_be_known() -> None:
     """A check that could not reach the remote must not look like a new version.
 
     Everything else here fails quietly, so `stale` is the one place where a
@@ -37,7 +39,7 @@ def an_update_needs_both_sides_to_be_known():
 
 
 @case
-def the_check_is_hourly_rather_than_once_per_run(state_home):
+def the_check_is_hourly_rather_than_once_per_run(state_home: Path) -> None:
     """At a ten-second cadence the difference is 360 git fetches an hour."""
     assert update.due(3600), "an installation never checked is due at once"
     update.remember(update.Status(current="a" * 40, latest="a" * 40))
@@ -47,7 +49,7 @@ def the_check_is_hourly_rather_than_once_per_run(state_home):
 
 
 @case
-def a_stamp_that_cannot_be_read_makes_the_check_due(state_home):
+def a_stamp_that_cannot_be_read_makes_the_check_due(state_home: Path) -> None:
     state_home.mkdir(parents=True)
     (state_home / "update.json").write_text("half a line of jso")
     assert update.last_check() == 0.0
@@ -55,13 +57,13 @@ def a_stamp_that_cannot_be_read_makes_the_check_due(state_home):
 
 
 @contextmanager
-def _installation():
+def _installation() -> Iterator[tuple[Callable[..., str], Path, str]]:
     """A remote and an installation cloned from it, as `install.sh` leaves one.
 
     Yields `commit(message, tag="")`, which lands a commit on the remote's
     `main` — tagged when asked — and the installation's directory.
     """
-    quiet = {"capture_output": True, "check": True}
+    quiet: dict[str, Any] = {"capture_output": True, "check": True}
     who = ["-c", "user.name=t", "-c", "user.email=t@example.invalid", "-c", "commit.gpgsign=false"]
     with tempfile.TemporaryDirectory() as directory:
         remote, work, app = (Path(directory) / name for name in ("remote.git", "work", "app"))
@@ -92,7 +94,7 @@ def _installation():
 
 
 @case
-def an_installation_follows_releases_and_not_every_commit_of_main(state_home):
+def an_installation_follows_releases_and_not_every_commit_of_main(state_home: Path) -> None:
     """Every commit pushed to `main` used to run on every installation within
     the hour. The default now follows the newest `vX.Y.Z` tag — and with none,
     updates nothing and says why rather than falling back on `main`."""
@@ -128,7 +130,7 @@ def an_installation_follows_releases_and_not_every_commit_of_main(state_home):
 
 
 @case
-def a_shallow_clone_ahead_of_the_release_is_not_taken_back_to_it(state_home):
+def a_shallow_clone_ahead_of_the_release_is_not_taken_back_to_it(state_home: Path) -> None:
     """`install.sh` clones `main` with `--depth 1`: the tag's commit came in
     with `--tags`, but not the history joining it to HEAD, so the ancestry
     test failed and v0.2.0 passed for newer than 146 commits after it — then
@@ -156,7 +158,7 @@ def a_shallow_clone_ahead_of_the_release_is_not_taken_back_to_it(state_home):
 
 
 @case
-def the_update_channel_is_release_unless_the_file_says_main():
+def the_update_channel_is_release_unless_the_file_says_main() -> None:
     assert C.Runner().update_channel == "release"
     assert _config("[runner]\n").runner.update_channel == "release"
     assert _config('[runner]\nupdate_channel = "main"\n').runner.update_channel == "main"
@@ -169,14 +171,16 @@ def the_update_channel_is_release_unless_the_file_says_main():
 
 
 @case
-def a_copy_is_told_apart_from_a_clone_before_anything_is_fetched():
+def a_copy_is_told_apart_from_a_clone_before_anything_is_fetched() -> None:
     """An install made with TR_SRC has no remote: a reason, not a failure."""
     status = update._look(Path(tempfile.mkdtemp()))
     assert not status.stale and "copy" in status.reason
 
 
 @case
-def an_update_puts_the_console_on_the_code_it_just_installed(installation):
+def an_update_puts_the_console_on_the_code_it_just_installed(
+    installation: tuple[Callable[..., str], Path, str],
+) -> None:
     """A run ends and the next one is the new code; the console never ends.
 
     On 18 September 2026 the console had been up since the evening before,
@@ -211,7 +215,9 @@ def an_update_puts_the_console_on_the_code_it_just_installed(installation):
 
 
 @case
-def a_version_that_does_not_start_is_taken_back_and_one_that_does_is_kept(installation):
+def a_version_that_does_not_start_is_taken_back_and_one_that_does_is_kept(
+    installation: tuple[Callable[..., str], Path, str],
+) -> None:
     """An update is all of it or none of it.
 
     `git reset` was the whole update: a commit that failed at `import` would
@@ -261,7 +267,9 @@ def a_version_that_does_not_start_is_taken_back_and_one_that_does_is_kept(instal
 
 
 @case
-def each_version_runs_in_an_environment_of_its_own_made_before_it_is_pointed_at(installation):
+def each_version_runs_in_an_environment_of_its_own_made_before_it_is_pointed_at(
+    installation: tuple[Callable[..., str], Path, str],
+) -> None:
     """A version gets its `.venv` before `app` names it, and keeps it.
 
     The day the runner requires a package, it is installed in the version's own
@@ -297,8 +305,8 @@ def each_version_runs_in_an_environment_of_its_own_made_before_it_is_pointed_at(
 
 @case
 def an_installation_updated_by_a_version_without_environments_gets_one_on_its_next_pass(
-    installation,
-):
+    installation: tuple[Callable[..., str], Path, str],
+) -> None:
     """The first update onto this code is made by the code before it.
 
     That code copies the version, moves it, points `app` at it — and makes no
@@ -325,7 +333,7 @@ def an_installation_updated_by_a_version_without_environments_gets_one_on_its_ne
 
 
 @case
-def only_the_consoles_application_imports_a_package_from_outside():
+def only_the_consoles_application_imports_a_package_from_outside() -> None:
     """The runner, and `web/server.py`, stay the standard library's alone.
 
     The runner because a pass must not depend on an environment it may have
@@ -373,7 +381,7 @@ def only_the_consoles_application_imports_a_package_from_outside():
 
 
 @case
-def the_launcher_runs_the_environment_and_the_machines_python_without_one():
+def the_launcher_runs_the_environment_and_the_machines_python_without_one() -> None:
     from ponos import environment
 
     with tempfile.TemporaryDirectory() as directory:
@@ -408,7 +416,7 @@ def the_launcher_runs_the_environment_and_the_machines_python_without_one():
 
 
 @contextmanager
-def _bare_machine():
+def _bare_machine() -> Iterator[Path]:
     """A home of its own and a PATH with no uv on it — what a fresh Debian has.
 
     Yields the directory the uv archive is "published" in: `file://` URLs are
@@ -459,7 +467,7 @@ def _publish_uv(published: Path, script: str) -> str:
 
 
 @case
-def a_machine_without_pip_fetches_uv_and_installs_with_it():
+def a_machine_without_pip_fetches_uv_and_installs_with_it() -> None:
     """Debian without `python3-venv`: no ensurepip, no uv, and a package to install.
 
     The update used to be refused at every pass until somebody typed `sudo apt`.
@@ -506,7 +514,7 @@ def a_machine_without_pip_fetches_uv_and_installs_with_it():
 
 
 @case
-def an_environment_whose_python_the_distribution_replaced_is_made_again():
+def an_environment_whose_python_the_distribution_replaced_is_made_again() -> None:
     """A distribution upgrade takes away the Python `.venv` was made from.
 
     Either its link leads nowhere, or it leads to a newer `python3` the
@@ -544,7 +552,9 @@ def an_environment_whose_python_the_distribution_replaced_is_made_again():
 
 
 @case
-def the_header_does_not_offer_a_version_already_installed(installation):
+def the_header_does_not_offer_a_version_already_installed(
+    installation: tuple[Callable[..., str], Path, str],
+) -> None:
     """On 30 September 2026 the header said ↑ on an installation already on the
     newest commit: the stamp was written before the update it announced, and
     read for the hour after. What is on disk has the last word."""
@@ -568,7 +578,9 @@ def the_header_does_not_offer_a_version_already_installed(installation):
 
 
 @case
-def a_waiting_update_says_how_many_commits_it_brings_and_which(installation):
+def a_waiting_update_says_how_many_commits_it_brings_and_which(
+    installation: tuple[Callable[..., str], Path, str],
+) -> None:
     """The button carries a number and its tooltip the subjects: read at the
     check, from the clone that has just fetched, and kept in the stamp."""
     commit, app, first = installation
@@ -581,7 +593,9 @@ def a_waiting_update_says_how_many_commits_it_brings_and_which(installation):
 
 
 @case
-def the_console_looks_for_an_update_without_moving_the_run_s_clock(installation):
+def the_console_looks_for_an_update_without_moving_the_run_s_clock(
+    installation: tuple[Callable[..., str], Path, str],
+) -> None:
     """A run checks once its interval has passed since the last check. The
     console looking every quarter of an hour must not count as one — or a run
     would never find its own due again, and never install anything."""
@@ -591,7 +605,7 @@ def the_console_looks_for_an_update_without_moving_the_run_s_clock(installation)
     update.remember(update.Status(current=first, latest=first))
     checked = update.last_check()
     second = commit("two")
-    said: list[dict] = []
+    said: list[dict[str, object]] = []
     upgrade = web_upgrade.Upgrade(
         lambda kind, **payload: said.append(payload),
         lambda: C.Runner(update_channel="main"),
@@ -624,24 +638,27 @@ class _FakeUpdate:
         self.installed: list[str] = []
         self.status = update.Status(current="a" * 40, latest="b" * 40)
 
-    def __enter__(self):
+    def __enter__(self) -> _FakeUpdate:
         from ponos.web import upgrade as web_upgrade
 
-        self.module = web_upgrade.update_module
+        self.module = web_upgrade.update_module  # type: ignore[attr-defined]  # `update`, as it imports it
         self.kept = {name: getattr(self.module, name) for name in ("waiting", "check", "install")}
-        self.module.waiting = lambda app=None: self.status
-        self.module.check = lambda app=None, channel="release": self.status
-        self.module.install = lambda status, interval, app=None: (
-            self.installed.append(status.latest) or self.error
-        )
+
+        def install(status: update.Status, interval: int, app: Path | None = None) -> str:
+            self.installed.append(status.latest)
+            return self.error
+
+        setattr(self.module, "waiting", lambda app=None: self.status)  # noqa: B010
+        setattr(self.module, "check", lambda app=None, channel="release": self.status)  # noqa: B010
+        setattr(self.module, "install", install)  # noqa: B010
         return self
 
-    def __exit__(self, *_):
+    def __exit__(self, *_: object) -> None:
         for name, value in self.kept.items():
             setattr(self.module, name, value)
 
 
-def _until(condition, seconds: float = 5.0) -> None:
+def _until(condition: Callable[[], object], seconds: float = 5.0) -> None:
     deadline = time.time() + seconds
     while not condition():
         if time.time() > deadline:
@@ -650,7 +667,7 @@ def _until(condition, seconds: float = 5.0) -> None:
 
 
 @case
-def an_update_from_the_console_waits_for_the_ticket_in_flight(state_home):
+def an_update_from_the_console_waits_for_the_ticket_in_flight(state_home: Path) -> None:
     """A click while a ticket runs is queued behind the run lock, never under it.
 
     Every session a ticket starts runs inside a pass that holds the lock; the
@@ -661,7 +678,7 @@ def an_update_from_the_console_waits_for_the_ticket_in_flight(state_home):
     from ponos.web import upgrade as web_upgrade
 
     with _FakeUpdate() as fake:
-        said: list[dict] = []
+        said: list[dict[str, object]] = []
         restarted: list[int] = []
         talking = {"now": "a conversation turn is being answered"}
         upgrade = web_upgrade.Upgrade(
@@ -709,7 +726,7 @@ def an_update_from_the_console_waits_for_the_ticket_in_flight(state_home):
 
 
 @case
-def a_failed_update_from_the_console_says_why_and_restarts_nothing(state_home):
+def a_failed_update_from_the_console_says_why_and_restarts_nothing(state_home: Path) -> None:
     from ponos.web import upgrade as web_upgrade
 
     with _FakeUpdate("the new version does not start: boom — back on aaaaaaaa"):
@@ -732,7 +749,7 @@ def a_failed_update_from_the_console_says_why_and_restarts_nothing(state_home):
 
 
 @case
-def the_update_endpoint_answers_only_this_machine_and_the_console_page():
+def the_update_endpoint_answers_only_this_machine_and_the_console_page() -> None:
     """The one write that replaces the code answering it: loopback, the guard
     header, and an `Origin` that is the console's own — and a body that
     chooses nothing."""
@@ -744,20 +761,20 @@ def the_update_endpoint_answers_only_this_machine_and_the_console_page():
     started: list[int] = []
 
     class Upgrade:
-        def start(self):
+        def start(self) -> dict[str, str]:
             started.append(1)
             return {"phase": "waiting"}
 
-        def cancel(self):
+        def cancel(self) -> None:
             raise RuntimeError("the update is no longer waiting")
 
     api = _bare_api(_TalkClient([]))
-    api._upgrade = Upgrade()
+    api._upgrade = Upgrade()  # type: ignore[assignment]  # a fake: only start and cancel
     console = web_app.Console(("127.0.0.1", 0), api, "tok")
     threading.Thread(target=console.serve_forever, daemon=True).start()
     port = console.server_address[1]
 
-    def post(path: str, **headers: str):
+    def post(path: str, **headers: str) -> int:
         sent = {"Authorization": "Bearer tok", "Content-Type": "application/json", **headers}
         request = urllib.request.Request(
             f"http://127.0.0.1:{port}{path}",
@@ -767,7 +784,8 @@ def the_update_endpoint_answers_only_this_machine_and_the_console_page():
         )
         try:
             with urllib.request.urlopen(request, timeout=5) as response:
-                return response.status
+                status: int = response.status
+                return status
         except urllib.error.HTTPError as error:
             return error.code
 

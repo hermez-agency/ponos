@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from support import case
 
-from ponos import goals, notion
+from ponos import goals, notion, store
 
 # -- the goal a ticket serves ------------------------------------------------
 
@@ -24,8 +26,12 @@ class _GoalClient:
         return self._brief
 
 
+def _goal_client(page: notion.Page | None, brief: str = "", broken: bool = False) -> store.Store:
+    return _GoalClient(page, brief, broken)  # type: ignore[return-value]  # a fake: one page and its body
+
+
 def _goal_page(title: str, criterion: str = "", due: str = "") -> notion.Page:
-    properties: dict = {"Nom": {"type": "title", "title": [{"plain_text": title}]}}
+    properties: dict[str, Any] = {"Nom": {"type": "title", "title": [{"plain_text": title}]}}
     if criterion:
         properties["Critère"] = {"type": "rich_text", "rich_text": [{"plain_text": criterion}]}
     if due:
@@ -33,13 +39,13 @@ def _goal_page(title: str, criterion: str = "", due: str = "") -> notion.Page:
     return notion.Page(id="p-goal", url="", title=title, properties=properties)
 
 
-def _ticket(properties: dict) -> notion.Page:
+def _ticket(properties: dict[str, Any]) -> notion.Page:
     return notion.Page(id="p-ticket", url="", title="t", properties=properties)
 
 
 @case
-def a_goal_is_a_page_with_its_criterion_and_its_date():
-    client = _GoalClient(
+def a_goal_is_a_page_with_its_criterion_and_its_date() -> None:
+    client = _goal_client(
         _goal_page("Lancer la v1", "Dix clients payants", "2026-12-31"),
         brief="La version que l'on montre.",
     )
@@ -52,24 +58,24 @@ def a_goal_is_a_page_with_its_criterion_and_its_date():
 
 
 @case
-def an_unreadable_goal_is_no_goal_rather_than_a_failed_ticket():
-    assert not goals.resolve(_GoalClient(None), "p-goal")
+def an_unreadable_goal_is_no_goal_rather_than_a_failed_ticket() -> None:
+    assert not goals.resolve(_goal_client(None), "p-goal")
     # The page reads but its body does not: the brief is lost, the goal is not.
-    partial = goals.resolve(_GoalClient(_goal_page("Lancer la v1"), broken=True), "p-goal")
+    partial = goals.resolve(_goal_client(_goal_page("Lancer la v1"), broken=True), "p-goal")
     assert partial.name == "Lancer la v1" and partial.brief == ""
     assert not goals.Goal(), "no goal at all is falsy"
 
 
 @case
-def a_goal_in_the_trash_is_no_goal():
+def a_goal_in_the_trash_is_no_goal() -> None:
     for key in ("in_trash", "archived"):
         page = _goal_page("Lancer la v1", "Dix clients payants")
         page.raw = {key: True}
-        assert not goals.resolve(_GoalClient(page, brief="Le brief."), "p-goal"), key
+        assert not goals.resolve(_goal_client(page, brief="Le brief."), "p-goal"), key
 
 
 @case
-def only_a_goal_being_worked_toward_reaches_the_prompt():
+def only_a_goal_being_worked_toward_reaches_the_prompt() -> None:
     for status, kept in (
         ("Actif", True),
         ("En cours", True),
@@ -81,11 +87,11 @@ def only_a_goal_being_worked_toward_reaches_the_prompt():
         page = _goal_page("Lancer la v1", "Dix clients payants")
         if status:
             page.properties["Statut"] = {"type": "select", "select": {"name": status}}
-        assert bool(goals.resolve(_GoalClient(page), "p-goal")) is kept, status
+        assert bool(goals.resolve(_goal_client(page), "p-goal")) is kept, status
 
 
 @case
-def a_board_without_the_goal_column_points_at_nothing():
+def a_board_without_the_goal_column_points_at_nothing() -> None:
     assert goals.pointed(_ticket({}), "Objectif") == ""
     # A column of another type under that name is not a relation to read.
     text = {"Objectif": {"type": "rich_text", "rich_text": [{"plain_text": "p-goal"}]}}
@@ -93,7 +99,7 @@ def a_board_without_the_goal_column_points_at_nothing():
 
 
 @case
-def an_empty_relation_points_at_nothing_and_a_full_one_at_its_first_page():
+def an_empty_relation_points_at_nothing_and_a_full_one_at_its_first_page() -> None:
     empty = {"Objectif": {"type": "relation", "relation": []}}
     assert goals.pointed(_ticket(empty), "Objectif") == ""
     full = {"Objectif": {"type": "relation", "relation": [{"id": "p-a"}, {"id": "p-b"}]}}
@@ -104,10 +110,14 @@ class _GoalsDatabase:
     def __init__(self, pages: list[notion.Page], broken: bool = False):
         self._pages, self._broken = pages, broken
 
-    def query(self, database_id: str, filter_: dict | None = None) -> list[notion.Page]:
+    def query(self, database_id: str, filter_: dict[str, Any] | None = None) -> list[notion.Page]:
         if self._broken:
             raise notion.NotionError("object not found")
         return self._pages
+
+
+def _goals_database(pages: list[notion.Page], broken: bool = False) -> store.Store:
+    return _GoalsDatabase(pages, broken)  # type: ignore[return-value]  # a fake: one query
 
 
 def _cap(title: str, status: str = "", projects: tuple[str, ...] | None = None) -> notion.Page:
@@ -123,8 +133,8 @@ def _cap(title: str, status: str = "", projects: tuple[str, ...] | None = None) 
 
 
 @case
-def only_the_goals_being_worked_toward_are_active():
-    database = _GoalsDatabase(
+def only_the_goals_being_worked_toward_are_active() -> None:
+    database = _goals_database(
         [
             _cap("Lancer la v1", "Actif"),
             _cap("Sans statut"),
@@ -136,12 +146,12 @@ def only_the_goals_being_worked_toward_are_active():
     assert [goal.name for goal in goals.active(database, "db")] == ["Lancer la v1", "Sans statut"]
     assert goals.active(database, "db")[0].criterion == "Dix clients payants"
     assert goals.active(database, "") == [], "no goals database, no goal"
-    assert goals.active(_GoalsDatabase([], broken=True), "db") == []
+    assert goals.active(_goals_database([], broken=True), "db") == []
 
 
 @case
-def a_project_only_sees_the_goals_that_name_it():
-    database = _GoalsDatabase(
+def a_project_only_sees_the_goals_that_name_it() -> None:
+    database = _goals_database(
         [
             _cap("Pour Usine", "Actif", ("aaaa-bbbb",)),
             _cap("Pour une autre", "Actif", ("cccc",)),
@@ -170,10 +180,10 @@ def _english_goal(title: str) -> notion.Page:
 
 
 @case
-def a_goal_written_in_english_reads_as_the_console_shows_it():
-    goal = goals.resolve(_GoalClient(_english_goal("Ship v1")), "p-goal")
+def a_goal_written_in_english_reads_as_the_console_shows_it() -> None:
+    goal = goals.resolve(_goal_client(_english_goal("Ship v1")), "p-goal")
     assert (goal.criterion, goal.due) == ("Ten paying clients", "2026-12-31")
-    database = _GoalsDatabase([_english_goal("Ship v1"), _cap("Plus tard", "En pause")])
+    database = _goals_database([_english_goal("Ship v1"), _cap("Plus tard", "En pause")])
     [found] = goals.active(database, "db", "aaaabbbb")
     assert (found.name, found.criterion, found.due) == (
         "Ship v1",
@@ -182,4 +192,4 @@ def a_goal_written_in_english_reads_as_the_console_shows_it():
     )
     paused = _english_goal("Later")
     paused.properties["Status"] = {"type": "select", "select": {"name": "On hold"}}
-    assert goals.active(_GoalsDatabase([paused]), "db") == [], "an English status is read too"
+    assert goals.active(_goals_database([paused]), "db") == [], "an English status is read too"

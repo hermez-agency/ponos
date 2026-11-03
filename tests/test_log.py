@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import logging.handlers
 import os
+from pathlib import Path
 
 from support import case
 
@@ -12,7 +13,7 @@ from ponos import log
 
 
 @case
-def the_journal_is_kept_for_this_account_only(state_home):
+def the_journal_is_kept_for_this_account_only(state_home: Path) -> None:
     """ponos.log came out with the umask, 0644 on most machines.
 
     A trace carries paths, ticket titles and the arguments of the call that

@@ -9,14 +9,19 @@ import re
 import sqlite3
 import subprocess
 import tempfile
+from collections.abc import Callable, Iterable, Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 from support import FRONTEND, _config, _environment, _git_answering, case
 
 from ponos import config as C
-from ponos import db, provision, store, workspace
+from ponos import db, provision, store, update, workspace
+
+if TYPE_CHECKING:
+    from ponos.health import Check
 
 # -- the vault ---------------------------------------------------------------
 
@@ -32,14 +37,14 @@ def _french() -> str:
 class _HealthBoard:
     """The few calls `health` makes of a Notion board, over a database held in memory."""
 
-    def __init__(self, properties: dict[str, dict]) -> None:
+    def __init__(self, properties: dict[str, dict[str, Any]]) -> None:
         self.properties = properties
-        self.added: dict = {}
+        self.added: dict[str, Any] = {}
 
     def forget_database(self, database_id: str) -> None:
         pass
 
-    def database(self, database_id: str) -> dict:
+    def database(self, database_id: str) -> dict[str, Any]:
         return {"properties": self.properties}
 
     def schema(self, database_id: str) -> dict[str, str]:
@@ -51,11 +56,13 @@ class _HealthBoard:
             option["name"] for option in (prop.get(prop.get("type", "")) or {}).get("options", [])
         ]
 
-    def add_properties(self, database_id: str, properties: dict) -> None:
+    def add_properties(self, database_id: str, properties: dict[str, Any]) -> None:
         self.added.update(properties)
 
 
-def _health_board(skip: tuple[str, ...] = (), statuses: tuple[str, ...] = ()):
+def _health_board(
+    skip: tuple[str, ...] = (), statuses: tuple[str, ...] = ()
+) -> tuple[C.Notion, _HealthBoard]:
     settings = C.Notion(properties=dict(C._DEFAULT_PROPERTIES))
     schema = provision.tickets_schema(settings, "projects", "agents")
     properties = {
@@ -72,27 +79,31 @@ def _health_board(skip: tuple[str, ...] = (), statuses: tuple[str, ...] = ()):
 
 
 @case
-def health_says_nothing_of_a_board_that_is_complete():
+def health_says_nothing_of_a_board_that_is_complete() -> None:
     from ponos import health
 
     settings, board = _health_board()
     config = _config("")
     config.notion = settings
     found = health._schema(
-        config, board, workspace.Workspace(tickets="db", projects="projects", agents="agents")
+        config,
+        board,  # type: ignore[arg-type]  # a fake: a board in memory
+        workspace.Workspace(tickets="db", projects="projects", agents="agents"),
     )
     assert [check.state for check in found] == [health.OK, health.OK], found
 
 
 @case
-def health_offers_to_add_the_missing_properties_and_does_it_only_once_confirmed():
+def health_offers_to_add_the_missing_properties_and_does_it_only_once_confirmed() -> None:
     from ponos import health
 
     settings, board = _health_board(skip=("Runner", "Progress"))
     config = _config("")
     config.notion = settings
     found = health._schema(
-        config, board, workspace.Workspace(tickets="db", projects="projects", agents="agents")
+        config,
+        board,  # type: ignore[arg-type]  # a fake: a board in memory
+        workspace.Workspace(tickets="db", projects="projects", agents="agents"),
     )
     columns = next(check for check in found if check.code == "notion.columns")
     assert columns.state == health.ERROR
@@ -108,33 +119,33 @@ def health_offers_to_add_the_missing_properties_and_does_it_only_once_confirmed(
 
     client = Client(board.properties)
     original = workspace.resolve
-    workspace.resolve = lambda backend, notion_settings: workspace.Workspace(
+    workspace.resolve = lambda backend, settings: workspace.Workspace(
         tickets="db", projects="projects", agents="agents"
     )
     try:
         try:
-            health.fix(config, client, "notion_columns")
+            health.fix(config, client, "notion_columns")  # type: ignore[arg-type]  # a fake: a board in memory
         except PermissionError:
             pass
         else:
             raise AssertionError("a fix is never made unasked")
         assert not client.added, "nothing was written before the confirmation"
-        health.fix(config, client, "notion_columns", confirmed=True)
+        health.fix(config, client, "notion_columns", confirmed=True)  # type: ignore[arg-type]  # a fake: a board in memory
     finally:
         workspace.resolve = original
     assert set(client.added) == {"Runner", "Progress"}, client.added
 
 
 @case
-def health_adds_the_missing_properties_of_a_mirrored_board_on_its_notion_side():
+def health_adds_the_missing_properties_of_a_mirrored_board_on_its_notion_side() -> None:
     from ponos import files, health, sync
 
     settings, board = _health_board(skip=("Runner",))
     config = _config("")
     config.notion = settings
-    mirrored = sync.Mirror(board, files.Board(Path(tempfile.mkdtemp())))
+    mirrored = sync.Mirror(board, files.Board(Path(tempfile.mkdtemp())))  # type: ignore[arg-type]  # a fake: a board in memory
     original = workspace.resolve
-    workspace.resolve = lambda backend, notion_settings: workspace.Workspace(
+    workspace.resolve = lambda backend, settings: workspace.Workspace(
         tickets="db", projects="projects", agents="agents"
     )
     try:
@@ -146,14 +157,16 @@ def health_adds_the_missing_properties_of_a_mirrored_board_on_its_notion_side():
 
 
 @case
-def health_adds_a_missing_status_to_a_select_and_only_says_how_on_a_real_status():
+def health_adds_a_missing_status_to_a_select_and_only_says_how_on_a_real_status() -> None:
     from ponos import health
 
     settings, board = _health_board(statuses=("Ready", "In progress", "Done"))
     config = _config("")
     config.notion = settings
     found = health._schema(
-        config, board, workspace.Workspace(tickets="db", projects="projects", agents="agents")
+        config,
+        board,  # type: ignore[arg-type]  # a fake: a board in memory
+        workspace.Workspace(tickets="db", projects="projects", agents="agents"),
     )
     statuses = next(check for check in found if check.code == "notion.statuses")
     assert (
@@ -166,7 +179,9 @@ def health_adds_a_missing_status_to_a_select_and_only_says_how_on_a_real_status(
     name = settings.prop("status")
     board.properties[name] = {"type": "status", "status": {"options": [{"name": "Ready"}]}}
     found = health._schema(
-        config, board, workspace.Workspace(tickets="db", projects="projects", agents="agents")
+        config,
+        board,  # type: ignore[arg-type]  # a fake: a board in memory
+        workspace.Workspace(tickets="db", projects="projects", agents="agents"),
     )
     statuses = next(check for check in found if check.code == "notion.statuses")
     assert statuses.fix is None and statuses.steps, "Notion cannot widen a status from outside"
@@ -189,7 +204,7 @@ class _SubtypeBoard(_HealthBoard):
     def resolve_database(self, identifier: str) -> str:
         return "db"
 
-    def query(self, database_id: str, filter_: dict | None = None) -> list[store.Page]:
+    def query(self, database_id: str, filter_: dict[str, Any] | None = None) -> list[store.Page]:
         wanted = ((filter_ or {}).get("select") or {}).get("equals")
         return [
             store.Page(id=page, url="", title=page)
@@ -197,17 +212,19 @@ class _SubtypeBoard(_HealthBoard):
             if wanted is None or value == wanted
         ]
 
-    def update(self, database_id: str, page_id: str, values: dict) -> None:
+    def update(self, database_id: str, page_id: str, values: dict[str, Any]) -> None:
         self.tickets[page_id] = values[self.column]
 
-    def add_properties(self, database_id: str, properties: dict) -> None:
+    def add_properties(self, database_id: str, properties: dict[str, Any]) -> None:
         super().add_properties(database_id, properties)
         for name, shape in properties.items():
             self.properties[name] = {"type": next(iter(shape)), **shape}
 
 
 @case
-def health_says_the_sub_type_options_nobody_writes_and_rewrites_their_tickets_once_confirmed():
+def health_says_the_sub_type_options_nobody_writes_and_rewrites_their_tickets_once_confirmed() -> (
+    None
+):
     from ponos import health
 
     board = _SubtypeBoard(
@@ -217,7 +234,7 @@ def health_says_the_sub_type_options_nobody_writes_and_rewrites_their_tickets_on
     config = _config("")
     config.notion = board.settings
     space = workspace.Workspace(tickets="db", projects="projects", agents="agents")
-    (check,) = health._subtypes(config, board, space)
+    (check,) = health._subtypes(config, board, space)  # type: ignore[arg-type]  # a fake: a board in memory
     assert check.state == health.WARN, check
     assert check.params["count"] == "4", check.params
     assert "“Improvement” (2)" in check.params["options"], check.params
@@ -226,15 +243,15 @@ def health_says_the_sub_type_options_nobody_writes_and_rewrites_their_tickets_on
     assert check.fix["missing"] == "“Improvement”, “Security”", check.fix
 
     original = workspace.resolve
-    workspace.resolve = lambda backend, notion_settings: space
+    workspace.resolve = lambda backend, settings: space
     try:
         try:
-            health.fix(config, board, "notion_subtypes")
+            health.fix(config, board, "notion_subtypes")  # type: ignore[arg-type]  # a fake: a board in memory
             raise AssertionError("a fix is never made unasked")
         except PermissionError:
             pass
         assert board.tickets["a"] == "Improvement", "nothing was written before the confirmation"
-        done = health.fix(config, board, "notion_subtypes", confirmed=True)
+        done = health.fix(config, board, "notion_subtypes", confirmed=True)  # type: ignore[arg-type]  # a fake: a board in memory
     finally:
         workspace.resolve = original
     assert board.tickets == {
@@ -247,16 +264,16 @@ def health_says_the_sub_type_options_nobody_writes_and_rewrites_their_tickets_on
     assert board.options("db", board.column) == ["Bug", "Amélioration", "Later"], board.properties
     assert done.startswith("3 ticket(s) rewritten"), done
 
-    (check,) = health._subtypes(config, board, space)
+    (check,) = health._subtypes(config, board, space)  # type: ignore[arg-type]  # a fake: a board in memory
     assert check.fix is None, "only “Later” is left, and it is nobody's to rewrite"
     board.tickets["e"] = "Bug"
     board.properties[board.column]["select"]["options"].pop()
-    (check,) = health._subtypes(config, board, space)
+    (check,) = health._subtypes(config, board, space)  # type: ignore[arg-type]  # a fake: a board in memory
     assert check.state == health.OK, check
 
 
 @case
-def health_names_a_property_once_and_says_what_each_costs_in_french_too():
+def health_names_a_property_once_and_says_what_each_costs_in_french_too() -> None:
     from ponos import health
 
     settings, board = _health_board(skip=("Agent", "Progress"))
@@ -264,7 +281,9 @@ def health_names_a_property_once_and_says_what_each_costs_in_french_too():
     config = _config("")
     config.notion = settings
     found = health._schema(
-        config, board, workspace.Workspace(tickets="db", projects="projects", agents="agents")
+        config,
+        board,  # type: ignore[arg-type]  # a fake: a board in memory
+        workspace.Workspace(tickets="db", projects="projects", agents="agents"),
     )
     columns = next(check for check in found if check.code == "notion.columns")
     names = [note["name"] for note in columns.notes]
@@ -281,7 +300,7 @@ def health_names_a_property_once_and_says_what_each_costs_in_french_too():
 
 
 @case
-def health_reports_a_project_whose_folder_is_gone_and_one_with_no_remote():
+def health_reports_a_project_whose_folder_is_gone_and_one_with_no_remote() -> None:
     from ponos import health
 
     config = _config("")
@@ -305,7 +324,7 @@ def health_reports_a_project_whose_folder_is_gone_and_one_with_no_remote():
 
 
 @case
-def health_warns_when_two_settings_name_one_property():
+def health_warns_when_two_settings_name_one_property() -> None:
     from ponos import health
 
     settings, board = _health_board()
@@ -313,7 +332,9 @@ def health_warns_when_two_settings_name_one_property():
     config = _config("")
     config.notion = settings
     found = health._schema(
-        config, board, workspace.Workspace(tickets="db", projects="projects", agents="agents")
+        config,
+        board,  # type: ignore[arg-type]  # a fake: a board in memory
+        workspace.Workspace(tickets="db", projects="projects", agents="agents"),
     )
     shared = next(check for check in found if check.code == "notion.shared")
     assert shared.state == health.WARN
@@ -327,7 +348,7 @@ def health_warns_when_two_settings_name_one_property():
 
 
 @case
-def health_offers_to_take_the_role_off_a_text_column_the_agent_reads():
+def health_offers_to_take_the_role_off_a_text_column_the_agent_reads() -> None:
     from ponos import health
 
     settings, board = _health_board()
@@ -335,7 +356,9 @@ def health_offers_to_take_the_role_off_a_text_column_the_agent_reads():
     config = _config('[notion.properties]\nagent = "Agent"\nrole = "Agent"\n')
     config.notion.properties = {**settings.properties, "agent": "Agent", "role": "Agent"}
     found = health._schema(
-        config, board, workspace.Workspace(tickets="db", projects="projects", agents="agents")
+        config,
+        board,  # type: ignore[arg-type]  # a fake: a board in memory
+        workspace.Workspace(tickets="db", projects="projects", agents="agents"),
     )
     shared = next(check for check in found if check.code == "notion.shared")
     assert shared.fix and shared.fix["action"] == "notion_shared", shared
@@ -345,19 +368,21 @@ def health_offers_to_take_the_role_off_a_text_column_the_agent_reads():
         assert f'"{sentence}"' in french, f"nothing translates “{sentence}”"
 
     try:
-        health.fix(config, board, "notion_shared")
+        health.fix(config, board, "notion_shared")  # type: ignore[arg-type]  # a fake: a board in memory
     except PermissionError:
         pass
     else:
         raise AssertionError("a fix is never made unasked")
     assert C.load(config.path).notion.prop("role") == "Agent", "nothing written unasked"
-    health.fix(config, board, "notion_shared", confirmed=True)
+    health.fix(config, board, "notion_shared", confirmed=True)  # type: ignore[arg-type]  # a fake: a board in memory
     fixed = C.load(config.path)
     assert fixed.notion.prop("role") == "" and fixed.notion.prop("agent") == "Agent"
 
     config.notion.properties["role"] = ""
     again = health._schema(
-        config, board, workspace.Workspace(tickets="db", projects="projects", agents="agents")
+        config,
+        board,  # type: ignore[arg-type]  # a fake: a board in memory
+        workspace.Workspace(tickets="db", projects="projects", agents="agents"),
     )
     assert [check.code for check in again if check.state != health.OK] == [], again
 
@@ -366,7 +391,7 @@ def health_offers_to_take_the_role_off_a_text_column_the_agent_reads():
 
 
 @contextmanager
-def _patched(target, **values):
+def _patched(target: object, **values: Any) -> Iterator[None]:
     """Some attributes of a module replaced for the length of a block."""
     original = {name: getattr(target, name) for name in values}
     for name, value in values.items():
@@ -378,7 +403,7 @@ def _patched(target, **values):
             setattr(target, name, value)
 
 
-def _doctor_said(function, *args):
+def _doctor_said(function: Callable[..., int], *args: Any) -> tuple[int, str]:
     """What a `doctor` command returns, and what it printed, colours taken out."""
     out = io.StringIO()
     with contextlib.redirect_stdout(out):
@@ -386,11 +411,11 @@ def _doctor_said(function, *args):
     return returned, re.sub(r"\x1b\[[0-9;]*m", "", out.getvalue())
 
 
-def _verdicts(checks) -> list[tuple[str, str]]:
+def _verdicts(checks: Iterable[Check]) -> list[tuple[str, str]]:
     return [(check.code, check.state) for check in checks]
 
 
-def _lines(checks) -> str:
+def _lines(checks: Iterable[Check]) -> str:
     """Every check as `doctor` reads it, its evidence and notes too — for `in`."""
     return "\n".join(
         f"{check.state} {check.code} {check.text(check.title)}: {check.text(check.said)} "
@@ -399,7 +424,7 @@ def _lines(checks) -> str:
     )
 
 
-def _columns(settings: C.Notion, schema: dict[str, str]):
+def _columns(settings: C.Notion, schema: dict[str, str]) -> Check:
     """The check of the tickets properties, on a board with those columns."""
     from ponos import health
 
@@ -407,7 +432,9 @@ def _columns(settings: C.Notion, schema: dict[str, str]):
     config.notion = settings
     board = _HealthBoard({name: {"type": kind} for name, kind in schema.items()})
     found = health._schema(
-        config, board, workspace.Workspace(tickets="db", projects="projects", agents="agents")
+        config,
+        board,  # type: ignore[arg-type]  # a fake: a board in memory
+        workspace.Workspace(tickets="db", projects="projects", agents="agents"),
     )
     return next(check for check in found if check.code == "notion.columns")
 
@@ -435,10 +462,10 @@ class _DoctorBoard(_HealthBoard):
     def options(self, database_id: str, name: str) -> list[str]:
         return self.offered
 
-    def query(self, database_id: str, filter_=None) -> list:
+    def query(self, database_id: str, filter_: dict[str, Any] | None = None) -> list[Any]:
         return self.tickets
 
-    def comments(self, page_id: str) -> list:
+    def comments(self, page_id: str) -> list[store.Comment]:
         if self.unread:
             raise store.StoreError(self.unread)
         return []
@@ -459,7 +486,7 @@ SPACE = workspace.Workspace(tickets="db")
 
 
 @case
-def health_names_every_column_the_board_lacks_and_what_each_costs():
+def health_names_every_column_the_board_lacks_and_what_each_costs() -> None:
     settings = C.Notion(properties=dict(C._DEFAULT_PROPERTIES))
     complete = {
         settings.prop(key): kinds_accepted[0] for key, (kinds_accepted, _) in store.COLUMNS.items()
@@ -489,15 +516,17 @@ def health_names_every_column_the_board_lacks_and_what_each_costs():
 
 
 @case
-def health_counts_a_missing_status_and_says_what_cancelled_and_a_draft_are():
+def health_counts_a_missing_status_and_says_what_cancelled_and_a_draft_are() -> None:
     from ponos import health
 
     config = _config("")
 
-    def statuses(offered, settings=config):
+    def statuses(offered: list[str], settings: C.Config = config) -> list[Check]:
         board = _DoctorBoard(offered)
-        found = health._schema(settings, board, SPACE) + health._other_statuses(
-            settings, board, SPACE
+        found = health._schema(settings, board, SPACE) + health._other_statuses(  # type: ignore[arg-type]  # a fake: a board in memory
+            settings,
+            board,  # type: ignore[arg-type]  # a fake: a board in memory
+            SPACE,
         )
         return [check for check in found if check.code != "notion.columns"]
 
@@ -543,63 +572,63 @@ def health_counts_a_missing_status_and_says_what_cancelled_and_a_draft_are():
 
 
 @case
-def health_says_a_type_not_offered_yet_and_whether_an_empty_one_is_classified():
+def health_says_a_type_not_offered_yet_and_whether_an_empty_one_is_classified() -> None:
     from ponos import health
 
     settings, board = _health_board()
     config = _config("")
     config.notion = settings
     space = workspace.Workspace(tickets="db", projects="projects", agents="agents")
-    found = health._types(config, board, space)
+    found = health._types(config, board, space)  # type: ignore[arg-type]  # a fake: a board in memory
     assert ("notion.types", "ok") in _verdicts(found), found
     assert ("settings.classify", "ok") in _verdicts(found)
 
     board.properties[settings.prop("type")] = {"type": "select", "select": {"options": []}}
     config.runner.classify = False
-    found = health._types(config, board, space)
+    found = health._types(config, board, space)  # type: ignore[arg-type]  # a fake: a board in memory
     assert _verdicts(found) == [("notion.types", "warn"), ("settings.classify", "warn")], found
     assert "“Code”" in found[0].params["missing"]
-    assert health._types(config, _DoctorBoard([]), SPACE) == [], "no Type property, no line"
+    assert health._types(config, _DoctorBoard([]), SPACE) == [], "no Type property, no line"  # type: ignore[arg-type]  # a fake: a board in memory
 
 
 @case
-def health_counts_comments_it_is_refused_but_not_one_it_could_not_read_once():
+def health_counts_comments_it_is_refused_but_not_one_it_could_not_read_once() -> None:
     from ponos import health
 
     config = _config("")
-    found = health._comments(config, _DoctorBoard([], unread="403 restricted"), SPACE)
+    found = health._comments(config, _DoctorBoard([], unread="403 restricted"), SPACE)  # type: ignore[arg-type]  # a fake: a board in memory
     assert found[0].state == "error" and "Read comments" in found[0].steps[0]
-    found = health._comments(config, _DoctorBoard([], unread="502 bad gateway"), SPACE)
+    found = health._comments(config, _DoctorBoard([], unread="502 bad gateway"), SPACE)  # type: ignore[arg-type]  # a fake: a board in memory
     assert found[0].state == "warn" and found[0].evidence == "502 bad gateway"
-    found = health._comments(config, _DoctorBoard([]), SPACE)
+    found = health._comments(config, _DoctorBoard([]), SPACE)  # type: ignore[arg-type]  # a fake: a board in memory
     assert found[0].state == "ok"
     assert ("settings.reply", "ok") in _verdicts(found), "it answers by default"
     empty = _DoctorBoard([])
     empty.tickets = []
     quiet = _config("[runner]\nreply = false\nunblock = false\n")
-    found = health._comments(quiet, empty, SPACE)
+    found = health._comments(quiet, empty, SPACE)  # type: ignore[arg-type]  # a fake: a board in memory
     assert {check.state for check in found} == {"info"}, found
 
 
 @case
-def health_says_what_keeps_a_schedule_from_making_its_ticket():
+def health_says_what_keeps_a_schedule_from_making_its_ticket() -> None:
     from support import _schedule_page
 
     from ponos import health
 
     class Schedules(_DoctorBoard):
-        def __init__(self, pages, schema):
+        def __init__(self, pages: list[store.Page], schema: dict[str, str]) -> None:
             super().__init__(EVERY_STATUS)
             self.pages, self.properties_of = pages, schema
 
-        def schema(self, database_id):
+        def schema(self, database_id: str) -> dict[str, str]:
             return self.properties_of if database_id == "schedules" else {"Status": "status"}
 
-        def query(self, database_id, filter_=None):
+        def query(self, database_id: str, filter_: dict[str, Any] | None = None) -> list[Any]:
             return self.pages if database_id == "schedules" else self.tickets
 
     config = _config("")
-    assert _verdicts(health._schedules(config, Schedules([], {}), SPACE)) == [
+    assert _verdicts(health._schedules(config, Schedules([], {}), SPACE)) == [  # type: ignore[arg-type]  # a fake: a board in memory
         ("notion.schedules", "info")
     ], "no database, nothing repeats: not a fault"
 
@@ -615,7 +644,7 @@ def health_says_what_keeps_a_schedule_from_making_its_ticket():
         _schedule_page("s3", name="Paused", next=late, active=False),
         _schedule_page("s4", name="Nonsense", cadence="Fortnightly"),
     ]
-    found = health._schedules(config, Schedules(pages, shape), space)
+    found = health._schedules(config, Schedules(pages, shape), space)  # type: ignore[arg-type]  # a fake: a board in memory
     missing = next(check for check in found if check.state == "warn")
     assert missing.params["missing"] == "“Day”" and missing.notes[0]["said"], missing
     by_name = {check.params.get("schedule"): check for check in found if "schedule" in check.params}
@@ -626,21 +655,21 @@ def health_says_what_keeps_a_schedule_from_making_its_ticket():
     assert health.problems(found) == 2
 
     computed = {**shape, config.notion.prop("next_run"): "formula"}
-    found = health._schedules(config, Schedules(pages, computed), space)
+    found = health._schedules(config, Schedules(pages, computed), space)  # type: ignore[arg-type]  # a fake: a board in memory
     unwritable = [check for check in found if check.params.get("kind") == "formula"]
     assert unwritable and unwritable[0].state == "warn", "a Next nobody can write never moves"
     assert unwritable[0].params["name"] == config.notion.prop("next_run")
     linked = {**shape, config.notion.prop("last_ticket"): "rollup"}
-    found = health._schedules(config, Schedules(pages, linked), space)
+    found = health._schedules(config, Schedules(pages, linked), space)  # type: ignore[arg-type]  # a fake: a board in memory
     assert any(c.state == "warn" and c.params.get("kind") == "rollup" for c in found)
 
     unread = _config("[runner]\nschedule = false\n")
-    found = health._schedules(unread, Schedules([], shape), space)
+    found = health._schedules(unread, Schedules([], shape), space)  # type: ignore[arg-type]  # a fake: a board in memory
     assert ("notion.schedules", "warn") in _verdicts(found), "read by nobody"
 
 
 @case
-def health_reads_a_markdown_board_to_the_end_and_finds_nothing_wrong_with_a_new_one():
+def health_reads_a_markdown_board_to_the_end_and_finds_nothing_wrong_with_a_new_one() -> None:
     from ponos import health
 
     directory = Path(tempfile.mkdtemp())
@@ -657,29 +686,29 @@ def health_reads_a_markdown_board_to_the_end_and_finds_nothing_wrong_with_a_new_
 
 
 @case
-def health_stops_on_a_board_it_cannot_reach_and_says_why():
+def health_stops_on_a_board_it_cannot_reach_and_says_why() -> None:
     from ponos import health
 
     config = _config("")
-    found, space = health._board(config, _DoctorBoard([], refusal="401 unauthorized"))
+    found, space = health._board(config, _DoctorBoard([], refusal="401 unauthorized"))  # type: ignore[arg-type]  # a fake: a board in memory
     assert space is None and _verdicts(found) == [("notion.token", "error")]
     assert found[0].evidence == "401 unauthorized"
 
     class Unshared(_DoctorBoard):
-        def schema(self, database_id):
+        def schema(self, database_id: str) -> dict[str, str]:
             raise store.StoreError("404 object not found\nshare it with the integration")
 
     with _patched(workspace, resolve=lambda client, settings: workspace.Workspace(tickets="abc")):
-        found, space = health._board(config, Unshared(EVERY_STATUS))
+        found, space = health._board(config, Unshared(EVERY_STATUS))  # type: ignore[arg-type]  # a fake: a board in memory
         assert _verdicts(found)[-1] == ("notion.tickets", "error"), found
         assert "share it with the integration" in found[-1].evidence, "every line of it"
-        found, space = health._board(config, _DoctorBoard(EVERY_STATUS))
+        found, space = health._board(config, _DoctorBoard(EVERY_STATUS))  # type: ignore[arg-type]  # a fake: a board in memory
     assert ("notion.tickets", "ok") in _verdicts(found)
     assert "readable: 1 properties" in _lines(found)
 
 
 @case
-def health_says_which_provider_answers_and_counts_one_that_cannot():
+def health_says_which_provider_answers_and_counts_one_that_cannot() -> None:
     from support import _saved
 
     from ponos import health
@@ -698,7 +727,7 @@ def health_says_which_provider_answers_and_counts_one_that_cannot():
 
 
 @case
-def health_says_claude_is_missing_and_asks_the_cli_who_is_signed_in():
+def health_says_claude_is_missing_and_asks_the_cli_who_is_signed_in() -> None:
     from ponos import health
 
     config = _config("")
@@ -727,7 +756,7 @@ def health_says_claude_is_missing_and_asks_the_cli_who_is_signed_in():
 
 
 @case
-def health_says_which_model_runs_an_empty_ticket_and_whether_fable_is_allowed():
+def health_says_which_model_runs_an_empty_ticket_and_whether_fable_is_allowed() -> None:
     from ponos import health
 
     found = health._models(_config("[runner]\nuse_fable = false\n"))
@@ -746,7 +775,7 @@ def health_says_which_model_runs_an_empty_ticket_and_whether_fable_is_allowed():
 
 
 @case
-def health_merges_the_github_app_and_gh_into_one_way_to_reach_github():
+def health_merges_the_github_app_and_gh_into_one_way_to_reach_github() -> None:
     from ponos import health
 
     config = _config('[github]\nacme = "acme-bot"\n')
@@ -754,7 +783,14 @@ def health_merges_the_github_app_and_gh_into_one_way_to_reach_github():
     signed = subprocess.CompletedProcess([], 0, "", "")
     unsigned = subprocess.CompletedProcess([], 1, "", "You are not logged into any GitHub hosts")
 
-    def access(apps, gh, answered=signed, token="ghs_x", account="", code=True):
+    def access(
+        apps: list[dict[str, Any]],
+        gh: bool,
+        answered: subprocess.CompletedProcess[str] = signed,
+        token: str = "ghs_x",
+        account: str = "",
+        code: bool = True,
+    ) -> list[Check]:
         with (
             _patched(health.github_app, describe=lambda with_repositories=True: apps),
             _patched(health.github_app, token=lambda owner: token),
@@ -795,15 +831,15 @@ def health_merges_the_github_app_and_gh_into_one_way_to_reach_github():
 
 
 @case
-def doctor_counts_github_missing_only_once_a_project_has_a_repository():
+def doctor_counts_github_missing_only_once_a_project_has_a_repository() -> None:
     """gh is optional: a board of writing tickets does not need it, a code project does."""
     from ponos import health
 
     config = _config("")
-    nothing = lambda *_, **__: []  # noqa: E731
+    nothing: Callable[..., list[Check]] = lambda *_, **__: []  # noqa: E731
     project = {"id": "p1", "name": "Site", "repository": "acme/site", "path": ""}
 
-    def checked(rows):
+    def checked(rows: list[dict[str, str]]) -> list[Check]:
         with (
             _patched(health, _guard_notion=lambda config, client: ([], None)),
             _patched(health, _project_rows=lambda client, space: rows),
@@ -828,10 +864,10 @@ def doctor_counts_github_missing_only_once_a_project_has_a_repository():
 
 
 @case
-def health_says_who_the_github_token_is_and_what_it_lacks():
+def health_says_who_the_github_token_is_and_what_it_lacks() -> None:
     from ponos import health
 
-    def said(**answers):
+    def said(**answers: Callable[..., Any]) -> list[Check]:
         values = {
             "unavailable": lambda: "",
             "token": lambda: "github_pat_x",
@@ -844,7 +880,7 @@ def health_says_who_the_github_token_is_and_what_it_lacks():
     assert _verdicts(said(token=lambda: "")) == [("github.token", "info")]
     assert said(unavailable=lambda: "pass: no such item")[0].state == "error"
 
-    def refused(value):
+    def refused(value: str) -> dict[str, Any]:
         raise health.github_token.GithubTokenError("401 Bad credentials")
 
     assert said(check=refused)[0].evidence == "401 Bad credentials"
@@ -864,7 +900,7 @@ def health_says_who_the_github_token_is_and_what_it_lacks():
 
 
 @case
-def health_looks_through_every_repository_of_the_workspace_folder():
+def health_looks_through_every_repository_of_the_workspace_folder() -> None:
     from ponos import health
 
     missing = _config('[runner]\nworkspace_root = "/nonexistent/workspace"\n')
@@ -893,7 +929,7 @@ def health_looks_through_every_repository_of_the_workspace_folder():
 
 
 @case
-def health_says_the_tools_the_machine_lacks():
+def health_says_the_tools_the_machine_lacks() -> None:
     from ponos import health
 
     with _patched(health.shutil, which=lambda name: None):
@@ -906,7 +942,7 @@ def health_says_the_tools_the_machine_lacks():
 
 
 @case
-def health_warns_about_ffmpeg_only_once_a_video_was_sent(state_home):
+def health_warns_about_ffmpeg_only_once_a_video_was_sent(state_home: Path) -> None:
     from ponos import health
 
     with _patched(health.shutil, which=lambda name: None):
@@ -920,7 +956,7 @@ def health_warns_about_ffmpeg_only_once_a_video_was_sent(state_home):
 
 
 @case
-def health_calls_desktop_notifications_not_applicable_without_a_display():
+def health_calls_desktop_notifications_not_applicable_without_a_display() -> None:
     from ponos import health
 
     desktop = _config("[notify]\ndesktop = true\n")
@@ -929,7 +965,7 @@ def health_calls_desktop_notifications_not_applicable_without_a_display():
             _patched(health.channels, open=lambda settings: []),
             _patched(health.shutil, which=lambda name: None),
             _patched(health.installation, _has_display=lambda display=display: display),
-            _patched(health.config_module, in_container=lambda: False),
+            _patched(C, in_container=lambda: False),
         ):
             found = health._notifications(desktop)
         assert found[0].code == "machine.desktop" and found[0].state == state, found[0]
@@ -940,10 +976,10 @@ def health_calls_desktop_notifications_not_applicable_without_a_display():
 
 
 @case
-def health_says_the_disk_space_and_what_tidies_it(state_home):
+def health_says_the_disk_space_and_what_tidies_it(state_home: Path) -> None:
     from ponos import health
 
-    def disk(body, room):
+    def disk(body: str, room: tuple[int, int] | None) -> list[Check]:
         with _patched(health.resources, disk_mb=lambda path: room):
             return health._disk(_config(body))
 
@@ -964,7 +1000,7 @@ def health_says_the_disk_space_and_what_tidies_it(state_home):
 
 
 @case
-def health_reports_what_others_can_read_in_the_state_and_tightens_it(state_home):
+def health_reports_what_others_can_read_in_the_state_and_tightens_it(state_home: Path) -> None:
     from ponos import health
 
     config = _config("")
@@ -993,7 +1029,7 @@ def health_reports_what_others_can_read_in_the_state_and_tightens_it(state_home)
     state_home.chmod(0o755)
     assert _verdicts(health._private_state()) == [("machine.private", "error")]
 
-    done = health.fix(config, None, "state_private", confirmed=True)
+    done = health.fix(config, None, "state_private", confirmed=True)  # type: ignore[arg-type]  # a fake: a board in memory
     assert done == "3 entries tightened", done
     assert shot.stat().st_mode & 0o777 == 0o600
     assert state_home.stat().st_mode & 0o777 == 0o700
@@ -1006,7 +1042,7 @@ def health_reports_what_others_can_read_in_the_state_and_tightens_it(state_home)
 
 
 @case
-def health_says_when_memory_is_short_and_when_it_cannot_tell():
+def health_says_when_memory_is_short_and_when_it_cannot_tell() -> None:
     from ponos import health
 
     config = _config("[runner]\nmin_free_memory_mb = 2048\n")
@@ -1021,7 +1057,7 @@ def health_says_when_memory_is_short_and_when_it_cannot_tell():
 
 
 @case
-def health_says_when_the_load_is_too_high_and_when_it_cannot_tell():
+def health_says_when_the_load_is_too_high_and_when_it_cannot_tell() -> None:
     from ponos import health
 
     config = _config("[runner]\nmax_load_per_core = 1.5\n")
@@ -1039,7 +1075,7 @@ def health_says_when_the_load_is_too_high_and_when_it_cannot_tell():
 
 
 @case
-def health_says_how_many_workers_a_session_is_given():
+def health_says_how_many_workers_a_session_is_given() -> None:
     from ponos import health
 
     for written, words in (
@@ -1055,7 +1091,7 @@ def health_says_how_many_workers_a_session_is_given():
 
 
 @case
-def health_says_a_timer_that_will_never_fire_and_how_often_a_run_comes():
+def health_says_a_timer_that_will_never_fire_and_how_often_a_run_comes() -> None:
     from ponos import health
     from ponos.systemd import Timer
 
@@ -1087,7 +1123,7 @@ def health_says_a_timer_that_will_never_fire_and_how_often_a_run_comes():
 
 
 @case
-def health_does_not_tick_a_machine_without_systemd_and_without_a_loop():
+def health_does_not_tick_a_machine_without_systemd_and_without_a_loop() -> None:
     from ponos import health
 
     config = _config("[runner]\ninterval_seconds = 120\n")
@@ -1102,7 +1138,7 @@ def health_does_not_tick_a_machine_without_systemd_and_without_a_loop():
 
 
 @case
-def health_says_the_rank_the_sessions_run_at():
+def health_says_the_rank_the_sessions_run_at() -> None:
     from ponos import health
 
     shown = {
@@ -1131,13 +1167,13 @@ def health_says_the_rank_the_sessions_run_at():
 
 
 @case
-def health_says_who_may_answer_on_each_channel():
+def health_says_who_may_answer_on_each_channel() -> None:
     from support import _StubChannel
 
     from ponos import health
 
     open_group = _StubChannel([])
-    open_group.check = lambda: "@ponos_bot in Team"
+    open_group.check = lambda: "@ponos_bot in Team"  # type: ignore[method-assign]  # a double: who the bot is
     config = _config('[notify]\ndesktop = false\n[notify.telegram]\ntoken = "1:a"\nchat = "-100"\n')
     with _patched(health.channels, open=lambda settings: [open_group]):
         found = health._notifications(config)
@@ -1152,10 +1188,10 @@ def health_says_who_may_answer_on_each_channel():
     with _patched(health.channels, open=lambda settings: [open_group]):
         assert ("machine.answerers", "ok") in _verdicts(health._notifications(config))
 
-    def refusing():
+    def refusing() -> str:
         raise health.channels.ChannelError("not_in_channel — invite the bot")
 
-    open_group.check = refusing
+    open_group.check = refusing  # type: ignore[method-assign]  # a double: refused
     with _patched(health.channels, open=lambda settings: [open_group]):
         found = health._notifications(config)
     refused = next(check for check in found if check.state == "error")
@@ -1172,21 +1208,21 @@ def health_says_who_may_answer_on_each_channel():
 
 
 @case
-def health_says_the_version_and_asks_the_remote_only_for_doctor():
+def health_says_the_version_and_asks_the_remote_only_for_doctor() -> None:
     from ponos import health
 
     config = _config("")
     asked: list[str] = []
     current, newer = "a" * 40, "b" * 40
 
-    def check(**_):
+    def check(**_: Any) -> update.Status:
         asked.append("remote")
-        return health.update_module.Status(current=current, latest=newer, tag="v9.9.9")
+        return update.Status(current=current, latest=newer, tag="v9.9.9")
 
     with _patched(
-        health.update_module,
+        update,
         check=check,
-        remembered=lambda: health.update_module.Status(current=current, latest=current),
+        remembered=lambda: update.Status(current=current, latest=current),
     ):
         stale = health._version(config, remote=True)
         known = health._version(config, remote=False)
@@ -1195,8 +1231,8 @@ def health_says_the_version_and_asks_the_remote_only_for_doctor():
     assert "v9.9.9 (bbbbbbbb) available" in _lines(stale)
     assert ("machine.version", "ok") in _verdicts(known)
     with _patched(
-        health.update_module,
-        remembered=lambda: health.update_module.Status(reason="git fetch: no network"),
+        update,
+        remembered=lambda: update.Status(reason="git fetch: no network"),
     ):
         found = health._version(config, remote=False)
     assert found[1].state == "warn" and found[1].evidence == "git fetch: no network"
@@ -1206,14 +1242,14 @@ def health_says_the_version_and_asks_the_remote_only_for_doctor():
 
 
 @case
-def health_says_whether_the_environment_of_the_version_runs_it():
+def health_says_whether_the_environment_of_the_version_runs_it() -> None:
     from ponos import health
 
-    with _patched(health.update_module, installed_version=lambda: None):
+    with _patched(update, installed_version=lambda: None):
         assert _verdicts(health._environment()) == [("machine.environment", "info")]
     for state, expected in (("ok", "ok"), ("warn", "warn"), ("error", "error")):
         with (
-            _patched(health.update_module, installed_version=lambda: Path("/opt/app-1234")),
+            _patched(update, installed_version=lambda: Path("/opt/app-1234")),
             _patched(health.environment, diagnose=lambda app, state=state: (state, "it says")),
         ):
             found = health._environment()
@@ -1222,7 +1258,7 @@ def health_says_whether_the_environment_of_the_version_runs_it():
 
 
 @case
-def health_says_the_database_version_and_refuses_a_newer_one(state_home):
+def health_says_the_database_version_and_refuses_a_newer_one(state_home: Path) -> None:
     from ponos import health
 
     try:
@@ -1240,7 +1276,7 @@ def health_says_the_database_version_and_refuses_a_newer_one(state_home):
 
 
 @case
-def health_says_how_to_put_back_the_copy_taken_before_a_migration(state_home):
+def health_says_how_to_put_back_the_copy_taken_before_a_migration(state_home: Path) -> None:
     from ponos import health
 
     location = state_home / "ponos.db"
@@ -1266,7 +1302,7 @@ def health_says_how_to_put_back_the_copy_taken_before_a_migration(state_home):
 
 
 @case
-def health_says_when_the_migrations_are_not_in_the_codes_order(state_home):
+def health_says_when_the_migrations_are_not_in_the_codes_order(state_home: Path) -> None:
     from test_db import _migrated_by_a_branch
 
     from ponos import health
@@ -1282,7 +1318,7 @@ def health_says_when_the_migrations_are_not_in_the_codes_order(state_home):
 
 
 @case
-def health_says_what_a_session_left_running():
+def health_says_what_a_session_left_running() -> None:
     from ponos import health
 
     with _patched(
@@ -1302,7 +1338,7 @@ def health_says_what_a_session_left_running():
 
 
 @case
-def health_leaves_alone_what_a_session_still_going_runs(state_home):
+def health_leaves_alone_what_a_session_still_going_runs(state_home: Path) -> None:
     """A live session's `claude`, its MCP servers, its dev server are not left behind yet."""
     import os
 
@@ -1334,7 +1370,7 @@ def health_leaves_alone_what_a_session_still_going_runs(state_home):
 
 
 @case
-def health_leaves_alone_a_ticket_in_progress_between_two_sessions(state_home):
+def health_leaves_alone_a_ticket_in_progress_between_two_sessions(state_home: Path) -> None:
     """Its local CI, its rebase: no session is live, the ticket is still this host's."""
     from ponos import health, state
 
@@ -1352,7 +1388,9 @@ def health_leaves_alone_a_ticket_in_progress_between_two_sessions(state_home):
 
 
 @case
-def health_says_a_worktree_s_leftover_processes_in_one_line_and_stops_them(state_home):
+def health_says_a_worktree_s_leftover_processes_in_one_line_and_stops_them(
+    state_home: Path,
+) -> None:
     from ponos import health
 
     finished = health.leftovers.worktrees() / "opoil-f0ee7aa7"
@@ -1376,13 +1414,13 @@ def health_says_a_worktree_s_leftover_processes_in_one_line_and_stops_them(state
             ("../elsewhere", True, LookupError),
         ):
             try:
-                health.fix(None, None, "stray_processes", target, confirmed=confirmed)
+                health.fix(None, None, "stray_processes", target, confirmed=confirmed)  # type: ignore[arg-type]  # a process, not a board
             except refused:
                 pass
             else:
                 raise AssertionError(f"{target} stopped (confirmed: {confirmed})")
         assert all(child.poll() is None for child in children), "nothing stopped unasked"
-        done = health.fix(None, None, "stray_processes", "opoil-f0ee7aa7", confirmed=True)
+        done = health.fix(None, None, "stray_processes", "opoil-f0ee7aa7", confirmed=True)  # type: ignore[arg-type]  # a process, not a board
         assert done == "5 process(es) stopped"
         assert all(child.wait(timeout=10) is not None for child in children)
     finally:
@@ -1392,7 +1430,7 @@ def health_says_a_worktree_s_leftover_processes_in_one_line_and_stops_them(state
 
 
 @case
-def health_says_where_the_secrets_are_and_who_can_read_them():
+def health_says_where_the_secrets_are_and_who_can_read_them() -> None:
     from ponos import health
 
     config = _config("")
@@ -1401,13 +1439,13 @@ def health_says_where_the_secrets_are_and_who_can_read_them():
     secrets.chmod(0o644)
     found = health._secrets(config)
     assert found[0].state == "error" and found[0].params["mode"] == "644"
-    config.exposed = ["notion.token"]
+    config.exposed = ("notion.token",)
     secrets.chmod(0o600)
     assert _verdicts(health._secrets(config)) == [("settings.secrets", "error")]
 
 
 @case
-def health_says_a_language_nobody_speaks_here():
+def health_says_a_language_nobody_speaks_here() -> None:
     from ponos import health
 
     found = health._languages(C.Runner(language="de"))
@@ -1417,7 +1455,7 @@ def health_says_a_language_nobody_speaks_here():
 
 
 @case
-def health_says_what_leaves_the_machine_unread_and_what_cannot_be_merged():
+def health_says_what_leaves_the_machine_unread_and_what_cannot_be_merged() -> None:
     from ponos import health
 
     found = health._validation(
@@ -1433,7 +1471,7 @@ def health_says_what_leaves_the_machine_unread_and_what_cannot_be_merged():
 
 
 @case
-def health_says_which_key_each_project_is_given_by_the_vault():
+def health_says_which_key_each_project_is_given_by_the_vault() -> None:
     from ponos import health
 
     assert _verdicts(health._vault(_config(""))) == [("settings.vault", "info")]
@@ -1449,7 +1487,7 @@ def health_says_which_key_each_project_is_given_by_the_vault():
 
 
 @case
-def health_says_half_a_sign_in_and_a_connector_address_claude_ai_cannot_add():
+def health_says_half_a_sign_in_and_a_connector_address_claude_ai_cannot_add() -> None:
     from ponos import health
 
     found = health._console(_config('[web]\nemail = "me@example.com"\nurl = "http://box.lan"\n'))
@@ -1469,7 +1507,7 @@ def health_says_half_a_sign_in_and_a_connector_address_claude_ai_cannot_add():
 
 
 @case
-def health_says_whether_the_ideas_schedule_can_fire():
+def health_says_whether_the_ideas_schedule_can_fire() -> None:
     from ponos import health
 
     assert _verdicts(health._ideas(C.Runner())) == [("settings.ideas", "info")]
@@ -1486,14 +1524,14 @@ def health_says_whether_the_ideas_schedule_can_fire():
 
 
 @contextmanager
-def _machine(*, healthy: bool = True):
+def _machine(*, healthy: bool = True) -> Iterator[None]:
     """Every probe of the machine answered: a sound one, or one where three things are wrong."""
     from ponos import health
     from ponos.systemd import Timer
 
     version = subprocess.CompletedProcess([], 0, "2.1.0 (Claude Code)\n", "")
     signed_out = subprocess.CompletedProcess([], 1, "", "You are not logged into any GitHub hosts")
-    same = health.update_module.Status(current="a" * 40, latest="a" * 40, tag="v1.0.0")
+    same = update.Status(current="a" * 40, latest="a" * 40, tag="v1.0.0")
     with (
         _patched(health.session, available=(lambda: "/opt/claude") if healthy else lambda: None),
         _patched(
@@ -1512,7 +1550,7 @@ def _machine(*, healthy: bool = True):
         ),
         _patched(health.github_app, describe=lambda with_repositories=True: []),
         _patched(health.github_token, unavailable=lambda: "", token=lambda: ""),
-        _patched(health.update_module, check=lambda **_: same, installed_version=lambda: None),
+        _patched(update, check=lambda **_: same, installed_version=lambda: None),
         _patched(
             health.leftovers, compose_projects=lambda root: [], processes=lambda root, spared=(): []
         ),
@@ -1527,7 +1565,7 @@ def _machine(*, healthy: bool = True):
 
 
 @case
-def doctor_stops_with_2_on_a_configuration_it_cannot_read():
+def doctor_stops_with_2_on_a_configuration_it_cannot_read() -> None:
     from ponos import __main__ as cli
 
     with _environment(PONOS_CONFIG=str(Path(tempfile.mkdtemp()) / "config.toml")):
@@ -1538,7 +1576,7 @@ def doctor_stops_with_2_on_a_configuration_it_cannot_read():
 
 
 @case
-def doctor_finds_a_sound_installation_in_place_and_a_broken_one_wrong(state_home):
+def doctor_finds_a_sound_installation_in_place_and_a_broken_one_wrong(state_home: Path) -> None:
     from ponos import __main__ as cli
 
     C.private_state()  # as a launch leaves it, see `__main__`
@@ -1571,7 +1609,7 @@ def doctor_finds_a_sound_installation_in_place_and_a_broken_one_wrong(state_home
 
 
 @case
-def every_sentence_of_a_check_is_translated():
+def every_sentence_of_a_check_is_translated() -> None:
     """The console hands each template to its dictionary: one missing is English on a French page.
 
     Every sentence the band can draw, that is: a check that is only ever green,
@@ -1586,7 +1624,7 @@ def every_sentence_of_a_check_is_translated():
     trees = [ast.parse(path.read_text(encoding="utf-8")) for path in package.glob("*.py")]
     sentences: set[str] = set()
 
-    def strings(node):
+    def strings(node: ast.AST) -> Iterator[str]:
         if isinstance(node, ast.Constant) and isinstance(node.value, str):
             yield node.value
         elif isinstance(node, ast.IfExp):
@@ -1637,7 +1675,7 @@ def every_sentence_of_a_check_is_translated():
 
 
 @case
-def health_adds_the_type_and_subtype_a_schedules_database_lacks_and_then_says_ok():
+def health_adds_the_type_and_subtype_a_schedules_database_lacks_and_then_says_ok() -> None:
     """“Master Scheluder” had no Type nor Sous-type, and doctor only said so:
     its tickets were born untyped and classified, a code one as « Rédaction »."""
     from ponos import health
@@ -1653,7 +1691,9 @@ def health_adds_the_type_and_subtype_a_schedules_database_lacks_and_then_says_ok
     }
 
     class Schedules(_HealthBoard):
-        def query(self, database_id, filter_=None):
+        def query(
+            self, database_id: str, filter_: dict[str, Any] | None = None
+        ) -> list[store.Page]:
             return []
 
         def resolve_database(self, identifier: str) -> str:
@@ -1661,13 +1701,13 @@ def health_adds_the_type_and_subtype_a_schedules_database_lacks_and_then_says_ok
 
     board = Schedules(properties)
     space = workspace.Workspace(tickets="db", projects="projects", schedules="schedules")
-    found = health._schedules(config, board, space)
+    found = health._schedules(config, board, space)  # type: ignore[arg-type]  # a fake: a board in memory
     missing = next(check for check in found if check.state == health.WARN)
     assert missing.params["missing"] == "“Type”, “Sous-type”", missing
     assert missing.fix and missing.fix["action"] == "notion_schedule_columns", missing
 
-    with _patched(workspace, resolve=lambda backend, notion_settings: space):
-        done = health.fix(config, board, "notion_schedule_columns", confirmed=True)
+    with _patched(workspace, resolve=lambda backend, settings: space):
+        done = health.fix(config, board, "notion_schedule_columns", confirmed=True)  # type: ignore[arg-type]  # a fake: a board in memory
     assert set(board.added) == {"Type", "Sous-type"}, board.added
     assert board.added["Type"] == provision.type_select(settings), "the options of the tickets"
     assert board.added["Sous-type"] == provision.subtype_select()
@@ -1676,13 +1716,13 @@ def health_adds_the_type_and_subtype_a_schedules_database_lacks_and_then_says_ok
     board.properties.update(
         {name: {"type": next(iter(shape)), **shape} for name, shape in board.added.items()}
     )
-    found = health._schedules(config, board, space)
+    found = health._schedules(config, board, space)  # type: ignore[arg-type]  # a fake: a board in memory
     assert ("notion.schedules", "ok") in _verdicts(found), found
     assert health.problems(found) == 0
 
 
 @case
-def the_runner_loop_is_told_by_its_pid_file_and_its_command_line(state_home):
+def the_runner_loop_is_told_by_its_pid_file_and_its_command_line(state_home: Path) -> None:
     import subprocess
     import sys
 

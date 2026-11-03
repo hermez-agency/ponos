@@ -31,7 +31,7 @@ def _paris() -> Iterator[None]:
 
 
 @case
-def an_offset_is_taken_as_written():
+def an_offset_is_taken_as_written() -> None:
     paris = timezone(timedelta(hours=2))
     for naive in ("utc", "local"):
         assert timestamps.parse("2026-09-14T09:12:00+02:00", naive) == datetime(
@@ -43,7 +43,7 @@ def an_offset_is_taken_as_written():
 
 
 @case
-def an_hour_without_an_offset_is_read_as_the_caller_says():
+def an_hour_without_an_offset_is_read_as_the_caller_says() -> None:
     with _paris():
         assert timestamps.parse("2026-09-14T09:12") == datetime(2026, 9, 14, 9, 12, tzinfo=UTC)
         assert timestamps.parse("2026-09-14T09:12", naive="local") == datetime(
@@ -60,7 +60,7 @@ def an_hour_without_an_offset_is_read_as_the_caller_says():
 
 
 @case
-def a_broken_timestamp_is_none_or_the_oldest_there_is():
+def a_broken_timestamp_is_none_or_the_oldest_there_is() -> None:
     for broken in ("", None, "hier", "2026-13-01", 12):
         assert timestamps.parse(broken) is None
         assert timestamps.parse(broken, naive="local") is None
@@ -69,7 +69,7 @@ def a_broken_timestamp_is_none_or_the_oldest_there_is():
 
 
 @case
-def a_front_matter_hour_is_the_same_hour_for_the_sync_and_the_statistics():
+def a_front_matter_hour_is_the_same_hour_for_the_sync_and_the_statistics() -> None:
     """`edited: 2026-09-14T23:30`, typed by hand: local, for both readers.
 
     Read in UTC by one and locally by the other, the same line was two hours

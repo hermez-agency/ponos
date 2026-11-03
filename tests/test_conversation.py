@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import tempfile
 from pathlib import Path
+from typing import Any
 
 from support import (
     ME,
@@ -24,7 +25,7 @@ from ponos.runner import Runner
 
 
 @case
-def a_question_a_run_asked_comes_back_with_its_answer():
+def a_question_a_run_asked_comes_back_with_its_answer() -> None:
     _, lines = _runner_reading(
         [
             f"{legacy.OLD}@laptop — blocked.\nThe ticket does not say which header.\n\n"
@@ -40,7 +41,7 @@ def a_question_a_run_asked_comes_back_with_its_answer():
 
 
 @case
-def a_long_discussion_is_cut_from_the_oldest_end():
+def a_long_discussion_is_cut_from_the_oldest_end() -> None:
     _, lines = _runner_reading([f"comment number {index} " + "x" * 300 for index in range(20)])
     assert len(lines) <= 10, "at most the last ten"
     assert sum(len(line) for line in lines) <= 2000
@@ -49,7 +50,7 @@ def a_long_discussion_is_cut_from_the_oldest_end():
 
 
 @case
-def comments_the_integration_cannot_read_are_not_a_failure():
+def comments_the_integration_cannot_read_are_not_a_failure() -> None:
     _, lines = _runner_reading([], error="403 API token does not have access")
     assert lines == []
 
@@ -77,7 +78,7 @@ DONE = "✅ To review — PR #1 · 1 commit\nFait."
 
 
 @case
-def answering_a_ticket_the_runner_handled_puts_it_back_in_the_queue():
+def answering_a_ticket_the_runner_handled_puts_it_back_in_the_queue() -> None:
     """The reply is the whole gesture: nothing to move on the board."""
     assert _answered([REPORT, "Celui du dashboard, pas du site public."])
     # Several rounds, and the answer is still the last word.
@@ -85,7 +86,7 @@ def answering_a_ticket_the_runner_handled_puts_it_back_in_the_queue():
 
 
 @case
-def a_ticket_wakes_only_once_per_answer():
+def a_ticket_wakes_only_once_per_answer() -> None:
     assert not _answered([REPORT]), "the runner having the last word is not an answer"
     assert not _answered([REPORT, "réponse", DONE]), (
         "the report the next run posts is what closes the ticket again"
@@ -94,7 +95,7 @@ def a_ticket_wakes_only_once_per_answer():
 
 
 @case
-def a_ticket_no_run_of_ours_ever_touched_is_left_alone():
+def a_ticket_no_run_of_ours_ever_touched_is_left_alone() -> None:
     assert not _answered(["Une question posée avant qu'aucun run n'y touche."])
     # A report no longer says which machine wrote it — the board's own Runner
     # column does, and it is what a second machine reads to leave this alone.
@@ -111,16 +112,17 @@ def a_ticket_no_run_of_ours_ever_touched_is_left_alone():
 class _Backlog:
     """A board of pages, counting what reading their comments costs."""
 
-    def __init__(self, pages: list[notion.Page]):
-        self.pages, self.read = pages, []
+    def __init__(self, pages: list[notion.Page]) -> None:
+        self.pages: list[notion.Page] = pages
+        self.read: list[str] = []
 
-    def schema(self, database):
+    def schema(self, database: str) -> dict[str, str]:
         return {"Status": "status"}
 
-    def options(self, database, name):
+    def options(self, database: str, name: str) -> list[str]:
         return []
 
-    def query(self, database, filter):
+    def query(self, database: str, filter: dict[str, Any] | None) -> list[notion.Page]:
         return self.pages
 
     def comments(self, page_id: str) -> list[notion.Comment]:
@@ -129,7 +131,7 @@ class _Backlog:
 
 
 @case
-def a_backlog_no_run_ever_reported_on_costs_no_comment_request():
+def a_backlog_no_run_ever_reported_on_costs_no_comment_request() -> None:
     """A ticket never run has no report under it: no request can find one."""
 
     def page(index: int, agent: str = "") -> notion.Page:
@@ -151,7 +153,7 @@ def a_backlog_no_run_ever_reported_on_costs_no_comment_request():
 
 
 @case
-def waking_looks_everywhere_but_where_a_status_already_speaks():
+def waking_looks_everywhere_but_where_a_status_already_speaks() -> None:
     """Done stays done, in review waits on a merge, validated on the runner."""
     runner = Runner.__new__(Runner)
     runner._journals = {}
@@ -208,7 +210,7 @@ def _pending(comments: list[notion.Comment], mention: str = "") -> list[conversa
 
 
 @case
-def comments_are_grouped_into_the_threads_they_belong_to():
+def comments_are_grouped_into_the_threads_they_belong_to() -> None:
     grouped = conversation.threads(
         [
             _said("le rapport", by=ME, thread="d1"),
@@ -223,7 +225,7 @@ def comments_are_grouped_into_the_threads_they_belong_to():
 
 
 @case
-def a_comment_with_no_thread_of_its_own_is_not_lumped_with_the_others():
+def a_comment_with_no_thread_of_its_own_is_not_lumped_with_the_others() -> None:
     """Notion answered without a discussion: two remarks are still two remarks."""
     grouped = conversation.threads(
         [
@@ -235,7 +237,7 @@ def a_comment_with_no_thread_of_its_own_is_not_lumped_with_the_others():
 
 
 @case
-def replying_under_its_report_is_how_you_talk_to_it():
+def replying_under_its_report_is_how_you_talk_to_it() -> None:
     pending = _pending(
         [
             _said(f"{legacy.OLD}@laptop — done.\nFait.", by=ME),
@@ -246,7 +248,7 @@ def replying_under_its_report_is_how_you_talk_to_it():
 
 
 @case
-def naming_it_reaches_it_in_a_thread_it_never_spoke_in():
+def naming_it_reaches_it_in_a_thread_it_never_spoke_in() -> None:
     """A remark of yours is a remark of yours — until you name it."""
     remark = [_said("il faudra penser à prévenir Marie", thread="d9")]
     assert _pending(remark) == []
@@ -257,7 +259,7 @@ def naming_it_reaches_it_in_a_thread_it_never_spoke_in():
 
 
 @case
-def it_never_answers_itself():
+def it_never_answers_itself() -> None:
     """The one failure mode here that would never stop on its own."""
     conversed = [
         _said(f"{legacy.OLD}@laptop — done.\nFait.", by=ME),
@@ -271,7 +273,7 @@ def it_never_answers_itself():
 
 
 @case
-def a_question_it_has_already_answered_is_not_answered_twice():
+def a_question_it_has_already_answered_is_not_answered_twice() -> None:
     """Notion hands back a thread whose reply is still in flight."""
     ledger = conversation.Ledger(database=Path(tempfile.mkdtemp()) / "ponos.db")
     ledger.remember_thread("d1", session="s-1", comment="c-42")
@@ -282,7 +284,7 @@ def a_question_it_has_already_answered_is_not_answered_twice():
 
 
 @case
-def naming_it_asks_for_words_where_a_bare_answer_asks_for_work():
+def naming_it_asks_for_words_where_a_bare_answer_asks_for_work() -> None:
     """The `blocked` loop is untouched; the mention is what opts out of it."""
     report = f"{legacy.OLD}@laptop — blocked.\nQuel en-tête ?"
     assert _answered([report, "celui du dashboard."]), "a plain answer still runs the ticket"
@@ -291,7 +293,7 @@ def naming_it_asks_for_words_where_a_bare_answer_asks_for_work():
 
 
 @case
-def the_name_is_stripped_from_the_message_but_only_where_it_is_a_salutation():
+def the_name_is_stripped_from_the_message_but_only_where_it_is_a_salutation() -> None:
     spellings = conversation.names("", "Ponos")
     assert conversation.strip_mention("@claude pourquoi ?", spellings) == "pourquoi ?"
     assert conversation.strip_mention("@claude — pourquoi ?", spellings) == "pourquoi ?"
@@ -300,7 +302,7 @@ def the_name_is_stripped_from_the_message_but_only_where_it_is_a_salutation():
 
 
 @case
-def an_unblocking_needs_a_decision_and_a_reason():
+def an_unblocking_needs_a_decision_and_a_reason() -> None:
     from ponos import unblocking
 
     said = (
@@ -317,14 +319,17 @@ def an_unblocking_needs_a_decision_and_a_reason():
         assert unblocking.decision(unreadable) == ("", ""), unreadable
 
 
-def _unblocking(answer: str, already: list[str] | None = None):
+def _unblocking(
+    answer: str, already: list[str] | None = None
+) -> tuple[_Unblocking, dict[str, Any] | None, list[str]]:
     runner = _bare_runner(None)
     runner.__class__ = _Unblocking
+    assert isinstance(runner, _Unblocking)
     runner.moved, runner.comments_written = [], list(already or [])
     page = notion.Page(id="p-ticket", url="", title="Ticket A")
     sessions: list[str] = []
 
-    def fake_run(prompt_text, **kwargs):
+    def fake_run(prompt_text: str, **kwargs: Any) -> session.Outcome:
         sessions.append(prompt_text)
         return session.Outcome(
             ok=True,
@@ -335,7 +340,7 @@ def _unblocking(answer: str, already: list[str] | None = None):
             answer=answer,
         )
 
-    original, session.run = session.run, fake_run
+    original, session.run = session.run, fake_run  # type: ignore[assignment]  # a double: it reads the keywords it is given
     try:
         result = runner._examine(ticket_module.Ticket(page), "- [Done] Ticket B (b)")
     finally:
@@ -344,31 +349,34 @@ def _unblocking(answer: str, already: list[str] | None = None):
 
 
 @case
-def a_blocked_ticket_whose_cause_is_gone_goes_back_to_ready_with_the_reason():
+def a_blocked_ticket_whose_cause_is_gone_goes_back_to_ready_with_the_reason() -> None:
     runner, result, sessions = _unblocking("DECISION: unblock\nREASON: Le ticket B est en Done.")
     assert runner.moved == [{"Status": runner.config.notion.state("ready")}], runner.moved
     assert (
         len(runner.comments_written) == 1
         and "Le ticket B est en Done." in runner.comments_written[0]
     )
+    assert result is not None
     assert (result["status"], result["reason"]) == ("unblocked", "Le ticket B est en Done.")
     assert "[Done] Ticket B" in sessions[0], "the session reads the whole board"
 
 
 @case
-def a_blocked_ticket_that_is_still_blocked_stays_and_says_why_once():
+def a_blocked_ticket_that_is_still_blocked_stays_and_says_why_once() -> None:
     runner, result, _ = _unblocking("DECISION: keep\nREASON: B n'est pas fini.")
     assert runner.moved == [], "nothing moves"
     assert "B n'est pas fini." in runner.comments_written[0]
-    assert result["status"] == "kept-blocked"
+    assert result is not None and result["status"] == "kept-blocked"
     again, traced, _ = _unblocking(
         "DECISION: keep\nREASON: B n'est pas fini.", runner.comments_written
     )
     assert len(again.comments_written) == 1, "the same reason is not written twice"
-    assert traced["status"] == "kept-blocked", "but the decision is still traced"
+    assert traced is not None and traced["status"] == "kept-blocked", (
+        "but the decision is still traced"
+    )
 
 
 @case
-def a_session_that_does_not_conclude_never_unblocks_anything():
+def a_session_that_does_not_conclude_never_unblocks_anything() -> None:
     runner, result, _ = _unblocking("Je ne sais pas trop.")
     assert runner.moved == [] and runner.comments_written == [] and result is None

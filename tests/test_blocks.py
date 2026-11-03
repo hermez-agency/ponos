@@ -8,8 +8,9 @@ import re
 import tempfile
 from datetime import UTC, date
 from pathlib import Path
+from typing import Any
 
-from support import FRONTEND, ROOT, _board_runner, _reviewed, case
+from support import FRONTEND, ROOT, _board_runner, _BoardClient, _reviewed, case
 
 from ponos import config as C
 from ponos import db, files, journal, provision, session, state, store, voice
@@ -42,7 +43,7 @@ def _fail_calls() -> list[tuple[str, int, ast.Call]]:
 
 
 @case
-def every_fail_carries_a_code_the_catalogue_knows():
+def every_fail_carries_a_code_the_catalogue_knows() -> None:
     """The guarantee the catalogue is for: no stop said without its cause.
 
     A literal code is checked against the catalogue as it is written; the one
@@ -63,7 +64,7 @@ def every_fail_carries_a_code_the_catalogue_knows():
             )
         else:
             assert isinstance(code, ast.Name), f"{name}:{line} — code= is neither a code nor a name"
-    asked = []
+    asked: list[str] = []
     for path in sorted((ROOT / "src/ponos").glob("*.py")):
         for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
             if isinstance(node, ast.Call) and getattr(node.func, "attr", "") in (
@@ -77,21 +78,23 @@ def every_fail_carries_a_code_the_catalogue_knows():
                     if isinstance(constant, ast.Constant) and isinstance(constant.value, str)
                 ]
     assert len(asked) >= 4, asked
-    for code in asked:
-        assert code in blocks.CAUSES, f"{code!r} is not in blocks.py"
+    for cause in asked:
+        assert cause in blocks.CAUSES, f"{cause!r} is not in blocks.py"
     # And at run time: a code the catalogue does not hold is refused, not written.
     runner = _board_runner([_reviewed("p-1", "In progress", None)], {"blocked": "Blocked"})
+    client = runner.client
+    assert isinstance(client, _BoardClient)
     try:
-        runner._fail(ticket_module.Ticket(runner.client._pages[0]), "x", code="merge.nope")
+        runner._fail(ticket_module.Ticket(client._pages[0]), "x", code="merge.nope")
     except ValueError as error:
         assert "merge.nope" in str(error)
     else:
         raise AssertionError("an unknown code was accepted")
-    assert runner.client.written == []
+    assert client.written == []
 
 
 @case
-def every_cause_is_described_whole_in_both_languages():
+def every_cause_is_described_whole_in_both_languages() -> None:
     from ponos import blocks
 
     assert blocks.UNKNOWN in blocks.CAUSES
@@ -136,7 +139,7 @@ def every_cause_is_described_whole_in_both_languages():
 
 
 @case
-def every_sentence_said_for_a_cause_is_read_back_to_it():
+def every_sentence_said_for_a_cause_is_read_back_to_it() -> None:
     """What the migration counts on: today's sentences, and those the history holds."""
     from ponos import blocks
 
@@ -186,11 +189,13 @@ def every_sentence_said_for_a_cause_is_read_back_to_it():
 
 
 @case
-def a_stop_writes_its_cause_on_the_board_and_in_its_result_and_leaving_clears_it():
+def a_stop_writes_its_cause_on_the_board_and_in_its_result_and_leaving_clears_it() -> None:
     runner = _board_runner(
         [_reviewed("p-stop", "In progress", None)], {"blocked": "Blocked", "failed": "Failed"}
     )
-    ticket = ticket_module.Ticket(runner.client._pages[0])
+    client = runner.client
+    assert isinstance(client, _BoardClient)
+    ticket = ticket_module.Ticket(client._pages[0])
     blocked = runner._fail(
         ticket,
         runner.voice.say("merge-refused"),
@@ -199,33 +204,35 @@ def a_stop_writes_its_cause_on_the_board_and_in_its_result_and_leaving_clears_it
         question="?",
     )
     assert blocked["status"] == "blocked" and blocked["code"] == "merge.refused", blocked
-    assert runner.client.written == [("p-stop", {"Status": "Blocked", "Blocage": "merge.refused"})]
+    assert client.written == [("p-stop", {"Status": "Blocked", "Blocage": "merge.refused"})]
     failed = runner._fail(ticket, runner.voice.say("crashed"), "boom", code="runner.crashed")
     assert failed["code"] == "runner.crashed", failed
-    assert runner.client.written[-1] == (
+    assert client.written[-1] == (
         "p-stop",
         {"Status": "Failed", "Blocage": "runner.crashed"},
     )
 
     # The page now says why it stopped; the next status that is not a stop empties it.
-    page = runner.client._pages[0]
+    page = client._pages[0]
     page.properties["Blocage"] = {"type": "select", "select": {"name": "runner.crashed"}}
     page.properties["Status"] = {"type": "status", "status": {"name": "Failed"}}
-    runner.client.written.clear()
+    client.written.clear()
     runner._set(ticket, Status="In progress", Runner="ponos@laptop")
-    assert runner.client.written == [
+    assert client.written == [
         ("p-stop", {"Blocage": "", "Status": "In progress", "Runner": "ponos@laptop"})
-    ], runner.client.written
+    ], client.written
     # A card with nothing in the column is not written to for nothing.
     del page.properties["Blocage"]
-    runner.client.written.clear()
+    client.written.clear()
     runner._set(ticket, Status="Done")
-    assert runner.client.written == [("p-stop", {"Status": "Done"})], runner.client.written
+    assert client.written == [("p-stop", {"Status": "Done"})], client.written
 
 
 @case
-def a_session_that_did_not_finish_is_told_by_its_cause():
+def a_session_that_did_not_finish_is_told_by_its_cause() -> None:
     runner = _board_runner([_reviewed("p-1", "In progress", None)], {"blocked": "Blocked"})
+    client = runner.client
+    assert isinstance(client, _BoardClient)
     ended = session.Outcome(
         ok=False, blocked=True, session_id="s", summary="Which one?", log=Path("/tmp/x")
     )
@@ -238,7 +245,7 @@ def a_session_that_did_not_finish_is_told_by_its_cause():
 
 
 @case
-def the_board_offers_the_column_and_doctor_names_it_when_it_is_missing():
+def the_board_offers_the_column_and_doctor_names_it_when_it_is_missing() -> None:
     from ponos import blocks
 
     settings = C.Notion(properties=dict(C._DEFAULT_PROPERTIES))
@@ -254,7 +261,7 @@ def the_board_offers_the_column_and_doctor_names_it_when_it_is_missing():
 
 
 @case
-def the_history_written_before_the_codes_is_reclassed_by_its_sentence():
+def the_history_written_before_the_codes_is_reclassed_by_its_sentence() -> None:
     """Migration 17, on a file migrated as far as 16: every stop gets its code."""
     with tempfile.TemporaryDirectory() as directory:
         location = Path(directory) / "ponos.db"
@@ -303,7 +310,7 @@ def the_history_written_before_the_codes_is_reclassed_by_its_sentence():
 
 
 @case
-def a_stop_is_kept_with_its_code_in_the_history_and_the_run(state_home):
+def a_stop_is_kept_with_its_code_in_the_history_and_the_run(state_home: Path) -> None:
     state.record({"id": "t-1", "status": "blocked", "reason": "x", "code": "merge.refused"})
     state.record({"id": "t-2", "status": "done"})
     state.record({"id": "t-1", "status": "failed", "reason": "y", "code": "runner.crashed"})
@@ -316,12 +323,14 @@ def a_stop_is_kept_with_its_code_in_the_history_and_the_run(state_home):
 
 
 @case
-def a_stopped_card_carries_its_cause_from_the_board_or_else_from_the_history(state_home):
+def a_stopped_card_carries_its_cause_from_the_board_or_else_from_the_history(
+    state_home: Path,
+) -> None:
     from ponos import blocks
 
     state.record({"id": "c2", "status": "failed", "reason": "x", "code": "merge.refused"})
     state.record({"id": "c4", "status": "blocked", "reason": "x", "code": "merge.refused"})
-    cards = [
+    cards: list[dict[str, Any]] = [
         {"id": "c1", "column": "blocked", "block": blocks.describe("session.question")},
         {"id": "c2", "column": "failed", "block": None},
         {"id": "c3", "column": "blocked", "block": None},
@@ -341,7 +350,7 @@ def a_stopped_card_carries_its_cause_from_the_board_or_else_from_the_history(sta
 
 
 @case
-def the_statistics_count_the_stops_by_cause_and_by_week():
+def the_statistics_count_the_stops_by_cause_and_by_week() -> None:
 
     history = [
         {"at": "2026-10-05T09:00:00+00:00", "status": "blocked", "code": "session.question"},

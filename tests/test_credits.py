@@ -10,12 +10,15 @@ import sys
 import tempfile
 import threading
 import time
+from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Any, cast
 
 from support import (
     _board_runner,
+    _BoardClient,
     _config,
     _git_answering,
     _github,
@@ -35,7 +38,7 @@ from ponos.runner import Runner
 
 
 @case
-def an_exhausted_quota_is_told_apart_from_every_other_failure():
+def an_exhausted_quota_is_told_apart_from_every_other_failure() -> None:
     """The one refusal that is not the session's fault, read off what it said.
 
     A false positive here would put the runner to sleep for a quarter of an
@@ -59,7 +62,7 @@ def an_exhausted_quota_is_told_apart_from_every_other_failure():
 
 
 @case
-def an_expired_sign_in_is_read_apart_from_an_exhausted_quota():
+def an_expired_sign_in_is_read_apart_from_an_exhausted_quota() -> None:
     """Nothing comes back by waiting for it: it is not a reset, it is a login."""
     said = "Failed to authenticate: OAuth session expired and could not be refreshed"
     assert credits.signed_out(said)
@@ -70,7 +73,7 @@ def an_expired_sign_in_is_read_apart_from_an_exhausted_quota():
 
 
 @case
-def a_wait_held_once_is_written_by_the_first_only(state_home):
+def a_wait_held_once_is_written_by_the_first_only(state_home: Path) -> None:
     """Two sessions dying on the same sentence must not both tell your phone."""
     assert credits.hold_once(time.time() + 300, what="login")
     assert not credits.hold_once(time.time() + 300, what="login")
@@ -80,7 +83,7 @@ def a_wait_held_once_is_written_by_the_first_only(state_home):
 
 
 @case
-def a_wait_outlives_the_run_that_wrote_it(state_home):
+def a_wait_outlives_the_run_that_wrote_it(state_home: Path) -> None:
     """A run is a process the timer starts: what it learned only travels on disk."""
     assert credits.held() == 0.0, "nothing waited for until something says so"
     credits.hold(time.time() + 300)
@@ -90,6 +93,11 @@ def a_wait_outlives_the_run_that_wrote_it(state_home):
     credits.hold(time.time() - 1)
     assert credits.held() == 0.0
     assert credits.release() and not credits.release()
+
+
+def _board(runner: Runner) -> _BoardClient:
+    """The fake board `_board_runner` put under `runner`, with what it remembers."""
+    return cast(_BoardClient, runner.client)
 
 
 def _spent(seconds_away: float = 300) -> session.Outcome:
@@ -110,7 +118,7 @@ def _out_of_credit(page: notion.Page) -> Runner:
     """A board runner whose every session dies on the quota."""
     runner = _board_runner([page], {})
     runner.config.runner.auto_update = False
-    runner._run_session = lambda job, template: _spent()
+    runner._run_session = lambda job, template: _spent()  # type: ignore[assignment, method-assign, misc]  # a double: no session
     return runner
 
 
@@ -125,7 +133,7 @@ def _doc_job(page: notion.Page) -> ticket_module.Job:
 
 
 @case
-def a_ticket_the_credits_ran_out_on_waits_for_credit_rather_than_failing():
+def a_ticket_the_credits_ran_out_on_waits_for_credit_rather_than_failing() -> None:
     """Nothing was wrong with it: there was nothing left to work on it with.
 
     Failing it would cost the ticket twice — once for the quota, and once for
@@ -137,21 +145,22 @@ def a_ticket_the_credits_ran_out_on_waits_for_credit_rather_than_failing():
     """
     page = _reviewed("p-doc", "In progress", None)
     runner = _out_of_credit(page)
-    runner.client.waiting = True
+    _board(runner).waiting = True
     result = runner._execute_document(_doc_job(page))
-    assert runner.client.written[0][1]["Status"] == "Ready", "back where it came from"
-    assert runner.client.written[0][1]["Waiting for credit"] is True
+    assert result is not None
+    assert _board(runner).written[0][1]["Status"] == "Ready", "back where it came from"
+    assert _board(runner).written[0][1]["Waiting for credit"] is True
     # The session goes on the page with it: it is what the pass that has credit
     # again picks the ticket back up by, rather than starting it over.
-    assert runner.client.written[0][1]["Session"] == "s-1"
+    assert _board(runner).written[0][1]["Session"] == "s-1"
     assert result["status"] == "waiting", "neither done, nor failed, nor blocked"
-    said = runner.client.comments_written[0]
+    said = _board(runner).comments_written[0]
     assert said.startswith("⏸️ Waiting — out of credit, back in “Ready” until "), said
     assert "?" not in said, "a wait asks nothing of anybody"
 
 
 @case
-def a_board_without_the_attribute_puts_the_ticket_back_and_says_nothing():
+def a_board_without_the_attribute_puts_the_ticket_back_and_says_nothing() -> None:
     """The property is added by `init`, and an old board has never had one.
 
     Until it is there, an exhausted quota does exactly what it did before the
@@ -160,20 +169,20 @@ def a_board_without_the_attribute_puts_the_ticket_back_and_says_nothing():
     """
     page = _reviewed("p-doc", "In progress", None)
     runner = _out_of_credit(page)
-    assert runner.client.waiting is False, "premise"
+    assert _board(runner).waiting is False, "premise"
     runner._execute_document(_doc_job(page))
-    assert runner.client.written[0][1]["Status"] == "Ready"
-    assert "back in “Ready”" in runner.client.comments_written[0]
+    assert _board(runner).written[0][1]["Status"] == "Ready"
+    assert "back in “Ready”" in _board(runner).comments_written[0]
     assert runner.waiting_flag() == "", "nothing to tick, and nothing pretends there is"
 
 
-def _that_failed(page: notion.Page, *, folded: bool) -> tuple[Runner, list[str], dict]:
+def _that_failed(page: notion.Page, *, folded: bool) -> tuple[Runner, list[str], dict[str, Any]]:
     """A document ticket whose session stopped, run to its report."""
     runner = _board_runner([page], {})
     runner.config.runner.auto_update = False
     runner.config.runner.keep_worktree_on_failure = False
 
-    def stopped(job, template):
+    def stopped(job: ticket_module.Job, template: str) -> session.Outcome:
         # Half an answer written, and then the session died: a failure rather
         # than a question, which is the road a trace is actually read on.
         (job.workdir / "ANSWER.md").write_text("La moitié d'une réponse.")
@@ -188,7 +197,7 @@ def _that_failed(page: notion.Page, *, folded: bool) -> tuple[Runner, list[str],
             turns=4,
         )
 
-    runner._run_session = stopped
+    runner._run_session = stopped  # type: ignore[assignment, method-assign]  # a double: no session
     filed: list[str] = []
     job = ticket_module.Job(
         ticket_module.Ticket(page),
@@ -198,12 +207,20 @@ def _that_failed(page: notion.Page, *, folded: bool) -> tuple[Runner, list[str],
         workdir=Path(tempfile.mkdtemp()) / "doc",
     )
     if folded:
-        job.live = type("L", (), {"detail": lambda self, text: bool(filed.append(text)) or True})()
-    return runner, filed, runner._execute_document(job)
+
+        class Folded:
+            def detail(self, text: str) -> bool:
+                filed.append(text)
+                return True
+
+        job.live = Folded()  # type: ignore[assignment]  # a double: only the folded block
+    result = runner._execute_document(job)
+    assert result is not None
+    return runner, filed, result
 
 
 @case
-def a_run_that_failed_says_what_to_do_and_folds_the_rest_into_the_page():
+def a_run_that_failed_says_what_to_do_and_folds_the_rest_into_the_page() -> None:
     """A report used to end on the session id, the log path and the directory
     to resume from — three lines of machinery pushed to a phone every time.
 
@@ -212,7 +229,7 @@ def a_run_that_failed_says_what_to_do_and_folds_the_rest_into_the_page():
     """
     runner, filed, result = _that_failed(_reviewed("p-doc", "In progress", None), folded=True)
     assert result["status"] == "failed"
-    said = runner.client.comments_written[0]
+    said = _board(runner).comments_written[0]
     assert said.splitlines() == [
         "⚠️ Failed — The session did not make it to the end.",
         "npm test exited 1",
@@ -225,25 +242,25 @@ def a_run_that_failed_says_what_to_do_and_folds_the_rest_into_the_page():
 
 
 @case
-def a_ticket_whose_run_wrote_no_block_keeps_the_trace_under_its_verdict():
+def a_ticket_whose_run_wrote_no_block_keeps_the_trace_under_its_verdict() -> None:
     """`runner.progress = false`, or a Notion that refused: the trace has
     nowhere to be folded into, so it stays where it can be read."""
     runner, filed, _ = _that_failed(_reviewed("p-none", "In progress", None), folded=False)
-    said = runner.client.comments_written[0]
+    said = _board(runner).comments_written[0]
     assert filed == []
     assert said.endswith("Its log is `/logs/x.jsonl`.")
     assert said.startswith("⚠️ Failed — ")
 
 
-def _answered_on(comments: list[str], answer: str, write: str) -> tuple[Runner, dict]:
+def _answered_on(comments: list[str], answer: str, write: str) -> tuple[Runner, dict[str, Any]]:
     """A document ticket whose session said `answer` and left `write` in ANSWER.md."""
 
     page = _reviewed("p-doc", "In progress", None)
     runner = _board_runner([page], {"review": "In review", "done": "Done"})
-    runner.client.append_markdown = lambda _page, _text: 2
+    _board(runner).append_markdown = lambda _page, _text: 2  # type: ignore[assignment, method-assign]  # a fake: the body is not kept
     runner.config.runner.keep_worktree_on_failure = False
 
-    def answered(job, template):
+    def answered(job: ticket_module.Job, template: str) -> session.Outcome:
         if write:
             (job.workdir / "ANSWER.md").write_text(write)
         return session.Outcome(
@@ -256,10 +273,12 @@ def _answered_on(comments: list[str], answer: str, write: str) -> tuple[Runner, 
             question=question.parse(answer),
         )
 
-    runner._run_session = answered
+    runner._run_session = answered  # type: ignore[assignment, method-assign]  # a double: no session
     job = _doc_job(page)
     job.comments = comments
-    return runner, runner._execute_document(job)
+    result = runner._execute_document(job)
+    assert result is not None
+    return runner, result
 
 
 def _session_log(*steps: tuple[str, str]) -> Path:
@@ -297,20 +316,20 @@ def _session_log(*steps: tuple[str, str]) -> Path:
 
 
 @case
-def a_pull_request_a_writing_session_opened_is_attached_and_sent_to_review():
+def a_pull_request_a_writing_session_opened_is_attached_and_sent_to_review() -> None:
     """Four Whisper Desk tickets classified « Rédaction » opened their pull
     requests themselves: done, an empty Pull Request column, nothing to review,
     and two of them doing the same thing. Never again a pull request lost."""
     url = "https://github.com/SalvadorCardona/whisper-desk/pull/21"
     page = _reviewed("p-doc", "In progress", None)
     runner = _board_runner([page], {"review": "In review", "done": "Done"})
-    runner.client.append_markdown = lambda _page, _text: 2
+    _board(runner).append_markdown = lambda _page, _text: 2  # type: ignore[assignment, method-assign]  # a fake: the body is not kept
     log = _session_log(
         ("git log --oneline -3", "abc fix: something https://github.com/x/y/pull/3"),
         ("gh pr create --title 'feat: Wispr Flow' --body x", f"Creating pull request\n{url}\n"),
     )
 
-    def answered(job, template):
+    def answered(job: ticket_module.Job, template: str) -> session.Outcome:
         (job.workdir / "ANSWER.md").write_text("Fait : la PR est ouverte.")
         return session.Outcome(
             ok=True,
@@ -321,27 +340,27 @@ def a_pull_request_a_writing_session_opened_is_attached_and_sent_to_review():
             log=log,
         )
 
-    runner._run_session = answered
+    runner._run_session = answered  # type: ignore[assignment, method-assign]  # a double: no session
     job = _doc_job(page)
     job.kind = "writing"
     runner._execute_document(job)
-    values = runner.client.written[-1][1]
+    values = _board(runner).written[-1][1]
     assert values["Status"] == "In review", "in review, where a pull request waits"
     assert values["Pull Request"] == url, "the pull request is the ticket's"
-    said = runner.client.comments_written[-1]
+    said = _board(runner).comments_written[-1]
     assert url in said and "review" in said.lower(), said
 
     assert session.pull_requests(log) == [url], "only what `gh pr create` printed"
 
 
 @case
-def a_writing_session_that_opened_nothing_still_ends_in_done():
+def a_writing_session_that_opened_nothing_still_ends_in_done() -> None:
     page = _reviewed("p-doc", "In progress", None)
     runner = _board_runner([page], {"review": "In review", "done": "Done"})
-    runner.client.append_markdown = lambda _page, _text: 2
+    _board(runner).append_markdown = lambda _page, _text: 2  # type: ignore[assignment, method-assign]  # a fake: the body is not kept
     log = _session_log(("gh pr list", "https://github.com/x/y/pull/3\n"))
 
-    def answered(job, template):
+    def answered(job: ticket_module.Job, template: str) -> session.Outcome:
         (job.workdir / "ANSWER.md").write_text("Le texte.")
         return session.Outcome(
             ok=True,
@@ -352,16 +371,16 @@ def a_writing_session_that_opened_nothing_still_ends_in_done():
             log=log,
         )
 
-    runner._run_session = answered
+    runner._run_session = answered  # type: ignore[assignment, method-assign]  # a double: no session
     job = _doc_job(page)
     job.kind = "writing"
     runner._execute_document(job)
-    values = runner.client.written[-1][1]
+    values = _board(runner).written[-1][1]
     assert values["Status"] == "Done" and "Pull Request" not in values
 
 
 @case
-def a_log_event_whose_message_is_a_sentence_does_not_crash_the_ticket():
+def a_log_event_whose_message_is_a_sentence_does_not_crash_the_ticket() -> None:
     """Opoil and Leadz Ninja, both transferred, both « le runner lui-même a
     cassé » : Claude in Chrome refused a browser-internal tab, and the
     `permission_denied` event it logs carries its `message` as a sentence, not
@@ -397,7 +416,7 @@ def a_log_event_whose_message_is_a_sentence_does_not_crash_the_ticket():
 
 
 @case
-def a_question_answered_on_a_finished_ticket_goes_to_review_rather_than_blocked():
+def a_question_answered_on_a_finished_ticket_goes_to_review_rather_than_blocked() -> None:
     """« C'est quoi X ? » — answered, nothing left to do, and said as a stop.
 
     No QUESTION written, so nothing to wait for: the ticket is read, not
@@ -410,7 +429,7 @@ def a_question_answered_on_a_finished_ticket_goes_to_review_rather_than_blocked(
             "Un CNAME est un alias.",
         )
     assert result["status"] == "done", result
-    assert runner.client.written[-1][1]["Status"] == "In review", runner.client.written
+    assert _board(runner).written[-1][1]["Status"] == "In review", _board(runner).written
 
     # A real question still blocks, and so does a stop with nothing written.
     with _state_home():
@@ -427,35 +446,36 @@ def a_question_answered_on_a_finished_ticket_goes_to_review_rather_than_blocked(
 
 
 @case
-def a_publication_the_credits_ran_out_on_goes_back_to_validated(state_home):
+def a_publication_the_credits_ran_out_on_goes_back_to_validated(state_home: Path) -> None:
     """Not to ready: the decision to publish it has already been taken."""
     page = _reviewed("p-post", "Validated", None)
     runner = _out_of_credit(page)
     result = runner._publish(ticket_module.Ticket(page), projects.Project(name="", path=None))
-    assert runner.client.written[0][1]["Status"] == "In progress", "claimed first"
-    assert runner.client.written[-1][1]["Status"] == "Validated"
+    assert result is not None
+    assert _board(runner).written[0][1]["Status"] == "In progress", "claimed first"
+    assert _board(runner).written[-1][1]["Status"] == "Validated"
     assert result["status"] == "waiting"
     assert state.claims() == {}, "and the claim is let go of on the way out"
 
 
 @case
-def no_session_is_started_while_the_credits_are_out(state_home):
+def no_session_is_started_while_the_credits_are_out(state_home: Path) -> None:
     """Every session this pass could start would die on the same sentence."""
     runner = _out_of_credit(_ready("p-ready"))
-    runner.client.waiting = True
+    _board(runner).waiting = True
     started: list[str] = []
-    runner.prepare = lambda ticket: started.append(ticket.id)
+    runner.prepare = lambda ticket: started.append(ticket.id)  # type: ignore[method-assign]  # a double: no worktree
     said: list[str] = []
-    runner.quiet, runner.say, runner.announce_idle = False, said.append, True
+    runner.quiet, runner.say, runner.announce_idle = False, said.append, True  # type: ignore[assignment, method-assign]  # a double: what it says is kept
     credits.hold(time.time() + 300)
     results = runner.tick()
     assert started == [], "not one session begun"
     assert [result["status"] for result in results] == ["waiting"]
-    assert runner.client.written == [("p-ready", {"Waiting for credit": True, "Session": ""})]
+    assert _board(runner).written == [("p-ready", {"Waiting for credit": True, "Session": ""})]
     assert credits.held() > time.time(), "the wait stands"
 
     # Ticked once: the next pass, still out, starts nothing and says so.
-    runner.client._pages[0] = _ticked(runner.client._pages[0])
+    _board(runner)._pages[0] = _ticked(_board(runner)._pages[0])
     assert runner.tick() == []
     assert started == []
     assert any("Out of credit" in line for line in said)
@@ -467,22 +487,24 @@ def no_session_is_started_while_the_credits_are_out(state_home):
 
 
 @case
-def what_costs_no_credit_is_still_done_while_the_credits_are_out(state_home):
+def what_costs_no_credit_is_still_done_while_the_credits_are_out(state_home: Path) -> None:
     """The reserve's road, taken at the wall too: a merge, a merged pull request
     closed and a sweep start no session, and waiting four hours for the credit
     to come back would leave the validated column full for nothing."""
     merges: list[str] = []
     runner = _out_of_credit(_reviewed("p-validated", "Validated", "https://github.com/x/y/pull/1"))
-    runner.client._pages.append(_reviewed("p-merged", "In review", "https://github.com/x/y/pull/2"))
-    runner.client._pages.append(_ready("p-ready"))
+    _board(runner)._pages.append(
+        _reviewed("p-merged", "In review", "https://github.com/x/y/pull/2")
+    )
+    _board(runner)._pages.append(_ready("p-ready"))
     started: list[str] = []
-    runner.prepare = lambda ticket: started.append(ticket.id)
+    runner.prepare = lambda ticket: started.append(ticket.id)  # type: ignore[method-assign]  # a double: no worktree
     swept: list[bool] = []
-    runner.sweep = lambda: swept.append(True)
+    runner.sweep = lambda: swept.append(True)  # type: ignore[assignment, method-assign, return-value]  # a double: nothing to sweep
     runner.announce_idle = False
     credits.hold(time.time() + 300)
 
-    def merge(url: str, method: str = "squash", accounts=None) -> str:
+    def merge(url: str, method: str = "squash", accounts: object = None) -> str:
         merges.append(url)
         return "merged"
 
@@ -492,13 +514,13 @@ def what_costs_no_credit_is_still_done_while_the_credits_are_out(state_home):
 
     assert swept == [True], "the board is swept"
     assert merges == ["https://github.com/x/y/pull/1"], "the validated one is merged"
-    assert ("p-validated", {"Status": "Done"}) in runner.client.written
-    assert ("p-merged", {"Status": "Done"}) in runner.client.written, "the merged one is closed"
+    assert ("p-validated", {"Status": "Done"}) in _board(runner).written
+    assert ("p-merged", {"Status": "Done"}) in _board(runner).written, "the merged one is closed"
     assert started == [], "and not one session begun"
 
 
 @case
-def a_runner_told_not_to_wait_fails_on_the_quota_as_it_always_did(state_home):
+def a_runner_told_not_to_wait_fails_on_the_quota_as_it_always_did(state_home: Path) -> None:
     """`wait_for_credits = false` is the old behaviour, kept for an API key."""
     page = _reviewed("p-doc", "In progress", None)
     runner = _out_of_credit(page)
@@ -515,15 +537,16 @@ def a_runner_told_not_to_wait_fails_on_the_quota_as_it_always_did(state_home):
     )
     # Reported as the session failure it looks like — here a question, the
     # way a session that writes no answer always came back.
-    assert runner._execute_document(job)["status"] == "blocked"
-    assert "the credits are out" not in runner.client.comments_written[0]
+    result = runner._execute_document(job)
+    assert result is not None and result["status"] == "blocked"
+    assert "the credits are out" not in _board(runner).comments_written[0]
 
 
 # -- stopping short of the wall ------------------------------------------------
 
 
 @contextmanager
-def _usage(payload: object):
+def _usage(payload: object) -> Iterator[None]:
     """Claude Code's own store, replaced by what it would have cached.
 
     `payload` is what goes under `cachedUsageUtilization.utilization`; `None`
@@ -546,7 +569,7 @@ def _usage(payload: object):
             os.environ["CLAUDE_CONFIG_DIR"] = previous
 
 
-def _windows(session_percent: float, weekly: float = 0.0, hours: float = 4) -> dict:
+def _windows(session_percent: float, weekly: float = 0.0, hours: float = 4) -> dict[str, Any]:
     """The two windows `/usage` shows, as the cache holds them."""
     moment = datetime.now().astimezone() + timedelta(hours=hours)
     return {
@@ -556,13 +579,16 @@ def _windows(session_percent: float, weekly: float = 0.0, hours: float = 4) -> d
 
 
 @case
-def the_most_constraining_of_the_two_windows_is_the_one_that_counts():
+def the_most_constraining_of_the_two_windows_is_the_one_that_counts() -> None:
     """20 % of the week and 97 % of the session is 97 % spent, not 20 %."""
     with _usage(_windows(97, weekly=20)):
-        used, until = credits.used()
+        reading = credits.used()
+        assert reading is not None
+        used, until = reading
         assert used == 97 and until > time.time()
     with _usage(_windows(3, weekly=88)):
-        assert credits.used()[0] == 88
+        reading = credits.used()
+        assert reading is not None and reading[0] == 88
 
     # A window whose moment has passed rolled over after the cache was written,
     # so it is empty now whatever figure sits beside it — which is what makes a
@@ -588,7 +614,7 @@ def _reserving(pages: list[notion.Page], percent: int = 5) -> Runner:
 
 
 @case
-def the_reserve_stops_the_runner_before_the_subscription_is_spent(state_home):
+def the_reserve_stops_the_runner_before_the_subscription_is_spent(state_home: Path) -> None:
     """The whole point: a runner that spends the last of it is one you turn off.
 
     At 95 % nothing new is started — and the ticket that was ready says so on
@@ -599,25 +625,25 @@ def the_reserve_stops_the_runner_before_the_subscription_is_spent(state_home):
     started: list[str] = []
     with _usage(_windows(96)):
         runner = _reserving([_ready("p-1"), _ready("p-2")])
-        runner.prepare = lambda ticket: started.append(ticket.id)
+        runner.prepare = lambda ticket: started.append(ticket.id)  # type: ignore[method-assign]  # a double: no worktree
         results = runner.tick()
 
     assert started == [], "not one session begun"
-    assert {page: values["Waiting for credit"] for page, values in runner.client.written} == {
+    assert {page: values["Waiting for credit"] for page, values in _board(runner).written} == {
         "p-1": True,
         "p-2": True,
     }
-    assert all("Status" not in values for _, values in runner.client.written), "nothing moved"
+    assert all("Status" not in values for _, values in _board(runner).written), "nothing moved"
     # The Session cell is emptied: nothing was started for these, so there is no
     # conversation to carry on — and a ticket woken by a comment must not have
     # the run before it resumed, arguing with its own verdict.
-    assert all(values["Session"] == "" for _, values in runner.client.written)
+    assert all(values["Session"] == "" for _, values in _board(runner).written)
     assert [result["status"] for result in results] == ["waiting", "waiting"]
-    assert all("⏸️ Waiting" in said for said in runner.client.comments_written)
+    assert all("⏸️ Waiting" in said for said in _board(runner).comments_written)
 
 
 @case
-def the_budget_limits_are_empty_unless_the_file_names_an_amount():
+def the_budget_limits_are_empty_unless_the_file_names_an_amount() -> None:
     assert _config("").budget == C.Budget(0.0, 0.0), "no table, no limit"
     assert _config('[budget]\ndaily_usd = ""\nper_ticket_usd = ""\n').budget == C.Budget(0.0, 0.0)
     assert _config("[budget]\ndaily_usd = 25\nper_ticket_usd = 2.5\n").budget == C.Budget(25.0, 2.5)
@@ -627,7 +653,9 @@ def the_budget_limits_are_empty_unless_the_file_names_an_amount():
 
 
 @case
-def the_daily_limit_holds_from_what_was_spent_until_midnight_and_lifts_after(state_home):
+def the_daily_limit_holds_from_what_was_spent_until_midnight_and_lifts_after(
+    state_home: Path,
+) -> None:
     """Read off what the sessions were written down as costing today, and never before."""
     runner = _reserving([])
     assert runner.under_reserve() == 0.0, "no limit set"
@@ -645,7 +673,7 @@ def the_daily_limit_holds_from_what_was_spent_until_midnight_and_lifts_after(sta
 
 
 @case
-def a_reserve_of_ten_percent_stops_ten_percent_earlier():
+def a_reserve_of_ten_percent_stops_ten_percent_earlier() -> None:
     """The number is the setting's whole job, so it is the number that is read."""
     with _state_home(), _usage(_windows(92)):
         assert _reserving([], percent=5).under_reserve() == 0.0, "92 % is under 95 %"
@@ -658,7 +686,7 @@ def a_reserve_of_ten_percent_stops_ten_percent_earlier():
 
 
 @case
-def a_reserve_nobody_can_measure_changes_nothing_at_all(state_home):
+def a_reserve_nobody_can_measure_changes_nothing_at_all(state_home: Path) -> None:
     """A cache that is not there, or a shape that changed under us.
 
     Refusing to run on it would be the worse failure by some distance: the
@@ -669,8 +697,8 @@ def a_reserve_nobody_can_measure_changes_nothing_at_all(state_home):
     with _usage(None):
         runner = _reserving([_ready("p-1")])
         said: list[str] = []
-        runner.quiet, runner.say = False, said.append
-        runner.prepare = lambda ticket: started.append(ticket.id)
+        runner.quiet, runner.say = False, said.append  # type: ignore[assignment, method-assign]  # a double: what it says is kept
+        runner.prepare = lambda ticket: started.append(ticket.id)  # type: ignore[method-assign]  # a double: no worktree
         runner.tick()
 
     assert started == ["p1"], "the ticket ran, as it always did"
@@ -679,7 +707,7 @@ def a_reserve_nobody_can_measure_changes_nothing_at_all(state_home):
 
 
 @case
-def the_reserve_is_read_again_at_every_free_place_not_once_a_pass(state_home):
+def the_reserve_is_read_again_at_every_free_place_not_once_a_pass(state_home: Path) -> None:
     """A pass lasts as long as its longest session, and the sessions in flight
     are what fills the window: a pass that started under the line can cross it
     halfway through. What is running is left to finish — killing a session to
@@ -689,7 +717,7 @@ def the_reserve_is_read_again_at_every_free_place_not_once_a_pass(state_home):
     with _usage(_windows(10)) as _:
         runner = _reserving([_ready("p-1"), _ready("p-2")])
         runner.config.runner.max_concurrent = 1
-        runner.prepare = lambda ticket: ticket_module.Job(
+        runner.prepare = lambda ticket: ticket_module.Job(  # type: ignore[method-assign]  # a double: no worktree
             ticket,
             projects.Project(name="", path=None),
             branch="",
@@ -697,7 +725,7 @@ def the_reserve_is_read_again_at_every_free_place_not_once_a_pass(state_home):
             workdir=Path(tempfile.mkdtemp()) / "doc",
         )
 
-        def execute(job):
+        def execute(job: ticket_module.Job) -> dict[str, Any]:
             # The session itself is what spends the window, so the reading
             # changes underneath the pass rather than before it.
             store = Path(os.environ["CLAUDE_CONFIG_DIR"]) / ".claude.json"
@@ -708,7 +736,7 @@ def the_reserve_is_read_again_at_every_free_place_not_once_a_pass(state_home):
             finished.set()
             return {"id": job.ticket.page.id, "status": "done"}
 
-        runner.execute = execute
+        runner.execute = execute  # type: ignore[method-assign]  # a double: no session
         results = runner._work(runner.queue()[0], None, refill=True)
 
     assert finished.is_set()
@@ -717,13 +745,13 @@ def the_reserve_is_read_again_at_every_free_place_not_once_a_pass(state_home):
 
 
 @case
-def a_ticket_that_raises_fails_alone_and_the_pass_goes_on(state_home):
+def a_ticket_that_raises_fails_alone_and_the_pass_goes_on(state_home: Path) -> None:
     """An exception out of one ticket used to come back out of `future.result()`
     and end the pass: the other sessions ran on unreported, and the ticket that
     raised sat in progress until a later sweep put it back — to raise again."""
     with _usage(_windows(10)):
         runner = _reserving([_ready("p-1"), _ready("p-2")])
-        runner.prepare = lambda ticket: ticket_module.Job(
+        runner.prepare = lambda ticket: ticket_module.Job(  # type: ignore[method-assign]  # a double: no worktree
             ticket,
             projects.Project(name="", path=None),
             branch="",
@@ -731,29 +759,29 @@ def a_ticket_that_raises_fails_alone_and_the_pass_goes_on(state_home):
             workdir=Path(tempfile.mkdtemp()) / "doc",
         )
 
-        def execute(job):
+        def execute(job: ticket_module.Job) -> dict[str, Any]:
             if job.ticket.id == "p1":
                 raise subprocess.TimeoutExpired(["git", "push"], 300)
             return {"ticket": job.ticket.title, "id": job.ticket.id, "status": "done"}
 
-        runner.execute = execute
+        runner.execute = execute  # type: ignore[method-assign]  # a double: no session
         results = runner._work(runner.queue()[0], None, refill=False)
         history = state.history()
 
     by_id = {result["id"]: result for result in results}
     assert by_id["p2"]["status"] == "done", "the other ticket ran to its end"
     assert by_id["p1"]["status"] == "failed", results
-    assert any("TimeoutExpired" in text for text in runner.client.comments_written), (
-        runner.client.comments_written
-    )
-    assert [page for page, values in runner.client.written if values.get("Status") == "Failed"] == [
-        "p-1"
-    ], runner.client.written
+    assert any("TimeoutExpired" in text for text in _board(runner).comments_written), _board(
+        runner
+    ).comments_written
+    assert [
+        page for page, values in _board(runner).written if values.get("Status") == "Failed"
+    ] == ["p-1"], _board(runner).written
     assert {entry["id"] for entry in history} == {"p1", "p2"}, "both are in the history"
 
 
 @case
-def a_git_command_that_hangs_is_a_failure_git_callers_already_read():
+def a_git_command_that_hangs_is_a_failure_git_callers_already_read() -> None:
     """`subprocess.TimeoutExpired` was caught nowhere: a fetch on a remote that
     stopped answering raised through every caller up to the pass itself."""
 
@@ -765,7 +793,7 @@ def a_git_command_that_hangs_is_a_failure_git_callers_already_read():
 
 
 @case
-def an_account_gh_did_not_know_is_asked_again_once_it_might():
+def an_account_gh_did_not_know_is_asked_again_once_it_might() -> None:
     """A token found is kept; a refusal is kept for a minute and no more — the
     console lives for weeks, and a `gh auth login` typed after one failed lookup
     has to be heard without a restart."""
@@ -773,14 +801,14 @@ def an_account_gh_did_not_know_is_asked_again_once_it_might():
     answers = [git_module.Result(1, "", "not logged in"), git_module.Result(0, "gho-new", "")]
     asked: list[list[str]] = []
 
-    def run(args, *rest, **kept):
+    def run(args: list[str], *rest: Any, **kept: Any) -> git_module.Result:
         asked.append(args)
         return answers.pop(0)
 
     held = dict(git_module._TOKENS)
     git_module._TOKENS.clear()
     original_which = shutil.which
-    git_module.shutil.which = lambda name, *rest, **kept: f"/usr/bin/{name}"
+    shutil.which = lambda name, *rest, **kept: f"/usr/bin/{name}"  # type: ignore[assignment]  # a double: every binary is found
     try:
         with _git_answering(run=run):
             assert git_module.account_token("someone") == ""
@@ -791,13 +819,13 @@ def an_account_gh_did_not_know_is_asked_again_once_it_might():
             assert git_module.account_token("someone") == "gho-new"
             assert len(asked) == 2, "a token found is kept"
     finally:
-        git_module.shutil.which = original_which
+        shutil.which = original_which
         git_module._TOKENS.clear()
         git_module._TOKENS.update(held)
 
 
 @case
-def a_ticket_waiting_for_credit_goes_before_one_that_never_started(state_home):
+def a_ticket_waiting_for_credit_goes_before_one_that_never_started(state_home: Path) -> None:
     """It is the one already half done: a branch with commits on it and a
     session that can be picked back up. Starting a fresh ticket first is how a
     board spends the returning credit on beginning things rather than on
@@ -814,28 +842,31 @@ def a_ticket_waiting_for_credit_goes_before_one_that_never_started(state_home):
         # And it is picked up rather than started over: the session on the page
         # is the one the job carries, whatever shape the column wrote it in.
         job = runner.prepare(queued[0])
-        assert job.resume and job.session_id == session_id
-        assert not runner.prepare(queued[1]).resume, "a fresh ticket opens a fresh session"
+        assert job is not None and job.resume and job.session_id == session_id
+        fresh = runner.prepare(queued[1])
+        assert fresh is not None and not fresh.resume, "a fresh ticket opens a fresh session"
         # Claiming it unticks it: the wait is over the moment something starts,
         # and a tick left behind would resume a session that is running.
         claim = next(
-            values for _, values in runner.client.written if "Waiting for credit" in values
+            values for _, values in _board(runner).written if "Waiting for credit" in values
         )
         assert claim["Waiting for credit"] is False
 
 
 @case
-def nothing_waiting_for_credit_is_ticked_twice_while_the_credit_is_still_short(state_home):
+def nothing_waiting_for_credit_is_ticked_twice_while_the_credit_is_still_short(
+    state_home: Path,
+) -> None:
     """Re-ticking a ticket already ticked would be a Notion write per pass for
     as long as the window lasts — four hours at a ten-second cadence."""
     with _usage(_windows(99)):
         runner = _reserving([_ticked(_ready("p-parked"))])
         assert runner.tick() == [], "nothing is written on the way past"
-        assert runner.client.written == []
+        assert _board(runner).written == []
 
 
 @case
-def what_the_reserve_says_out_loud_is_said_once_and_once_on_the_way_back():
+def what_the_reserve_says_out_loud_is_said_once_and_once_on_the_way_back() -> None:
     """A run is a process the timer starts, so "already said" has to be on disk.
 
     Four hours at a ten-second cadence is fourteen hundred passes; a phone that
@@ -843,14 +874,14 @@ def what_the_reserve_says_out_loud_is_said_once_and_once_on_the_way_back():
     """
     with _state_home(), _usage(_windows(97)):
         runner, told = _reserving([]), []
-        runner._announce = lambda title, body: told.append(title)
+        runner._announce = lambda title, body: told.append(title)  # type: ignore[method-assign]  # a double: no notification
         for _ in range(3):
             assert runner.under_reserve() > 0.0
         assert len(told) == 1, told
 
     with _state_home(), _usage(_windows(97)):
         runner, told = _reserving([]), []
-        runner._announce = lambda title, body: told.append(title)
+        runner._announce = lambda title, body: told.append(title)  # type: ignore[method-assign]  # a double: no notification
         assert runner.under_reserve() > 0.0
         # The window rolls over, and the run that finds it says so — once.
         (Path(os.environ["CLAUDE_CONFIG_DIR"]) / ".claude.json").write_text(
@@ -863,7 +894,7 @@ def what_the_reserve_says_out_loud_is_said_once_and_once_on_the_way_back():
 
 
 @case
-def a_runner_with_no_window_to_reserve_a_slice_of_ignores_the_setting(state_home):
+def a_runner_with_no_window_to_reserve_a_slice_of_ignores_the_setting(state_home: Path) -> None:
     """`wait_for_credits = false` says this runner is not on a metered
     subscription — an API key, or sessions routed through OpenRouter. There is
     no window there, so there is no share of one to hold back."""
@@ -874,17 +905,17 @@ def a_runner_with_no_window_to_reserve_a_slice_of_ignores_the_setting(state_home
 
 
 @case
-def a_session_picked_back_up_is_told_what_changed_and_not_the_whole_ticket():
+def a_session_picked_back_up_is_told_what_changed_and_not_the_whole_ticket() -> None:
     """It has the ticket, the brief and the context already; resending them
     would cost on every resumption what they cost once. What it cannot know is
     that hours passed and that its own half-done work is still on disk."""
     sent: list[tuple[str, bool]] = []
     page = _ticked(_reviewed("p-doc", "Ready", None))
     runner = _board_runner([page], {}, waiting=True)
-    runner._live = lambda job: None
+    runner._live = lambda job: None  # type: ignore[method-assign]  # a double: no progress block
     runner.config.runner.attach_sessions = False
 
-    def fake_run(text, **rest):
+    def fake_run(text: str, **rest: Any) -> session.Outcome:
         sent.append((text, rest["resume"]))
         return session.Outcome(
             ok=True,
@@ -894,7 +925,7 @@ def a_session_picked_back_up_is_told_what_changed_and_not_the_whole_ticket():
             log=Path("/dev/null"),
         )
 
-    original, session.run = session.run, fake_run
+    original, session.run = session.run, fake_run  # type: ignore[assignment]  # a double: it reads the keywords it is given
     try:
         job = _doc_job(page)
         job.session_id, job.resume = "s-carried", True
@@ -909,7 +940,7 @@ def a_session_picked_back_up_is_told_what_changed_and_not_the_whole_ticket():
 
 
 @case
-def a_session_that_cannot_be_picked_back_up_starts_a_fresh_one():
+def a_session_that_cannot_be_picked_back_up_starts_a_fresh_one() -> None:
     """Pruned, filed on another machine, or a worktree it will not resume from.
 
     The ticket and its branch are still here, so the run goes on from
@@ -918,10 +949,10 @@ def a_session_that_cannot_be_picked_back_up_starts_a_fresh_one():
     drawn: list[str] = []
     page = _ticked(_reviewed("p-doc", "Ready", None))
     runner = _board_runner([page], {}, waiting=True)
-    runner._live = lambda job: None
+    runner._live = lambda job: None  # type: ignore[method-assign]  # a double: no progress block
     runner.config.runner.attach_sessions = False
 
-    def fake_run(text, **rest):
+    def fake_run(text: str, **rest: Any) -> session.Outcome:
         drawn.append(rest["session_id"])
         gone = rest["resume"]
         return session.Outcome(
@@ -933,7 +964,7 @@ def a_session_that_cannot_be_picked_back_up_starts_a_fresh_one():
             log=Path("/dev/null"),
         )
 
-    original, session.run = session.run, fake_run
+    original, session.run = session.run, fake_run  # type: ignore[assignment]  # a double: it reads the keywords it is given
     try:
         job = _doc_job(page)
         job.session_id, job.resume = "s-gone", True
@@ -946,7 +977,7 @@ def a_session_that_cannot_be_picked_back_up_starts_a_fresh_one():
 
 
 @case
-def a_spent_window_mid_pass_says_so_on_the_tickets_it_did_not_start(state_home):
+def a_spent_window_mid_pass_says_so_on_the_tickets_it_did_not_start(state_home: Path) -> None:
     """The other half of the reserve, and the older of the two roads: a session
     died on the quota while the pass was running. What it had queued behind it
     is not silently left in the ready column with nothing to explain it — it is
@@ -955,7 +986,7 @@ def a_spent_window_mid_pass_says_so_on_the_tickets_it_did_not_start(state_home):
     with _usage(_windows(10)):
         runner = _reserving([_ready("p-1"), _ready("p-2"), _ready("p-3")])
         runner.config.runner.max_concurrent = 1
-        runner.prepare = lambda ticket: ticket_module.Job(
+        runner.prepare = lambda ticket: ticket_module.Job(  # type: ignore[method-assign]  # a double: no worktree
             ticket,
             projects.Project(name="", path=None),
             branch="",
@@ -963,22 +994,22 @@ def a_spent_window_mid_pass_says_so_on_the_tickets_it_did_not_start(state_home):
             workdir=Path(tempfile.mkdtemp()) / "doc",
         )
 
-        def execute(job):
+        def execute(job: ticket_module.Job) -> dict[str, Any]:
             started.append(job.ticket.page.id)
             credits.hold(time.time() + 300)  # what a spent session leaves behind
             return {"id": job.ticket.page.id, "status": "waiting"}
 
-        runner.execute = execute
+        runner.execute = execute  # type: ignore[method-assign]  # a double: no session
         results = runner._work(runner.queue()[0], None, refill=True)
 
     assert started == ["p-1"], "the ticket in flight finished, and nothing else began"
     assert [result["status"] for result in results] == ["waiting", "waiting", "waiting"]
-    assert {page for page, _ in runner.client.written} == {"p-2", "p-3"}
-    assert all(values["Waiting for credit"] is True for _, values in runner.client.written)
+    assert {page for page, _ in _board(runner).written} == {"p-2", "p-3"}
+    assert all(values["Waiting for credit"] is True for _, values in _board(runner).written)
 
 
 @case
-def a_reserve_is_read_off_the_file_between_none_and_half():
+def a_reserve_is_read_off_the_file_between_none_and_half() -> None:
     """Both ends clamped rather than refused: 150 meant "keep plenty", not
     "never run again", and a negative reserve is a typo for none at all."""
     assert _config("[runner]\ncredit_reserve_percent = 10\n").runner.credit_reserve_percent == 10

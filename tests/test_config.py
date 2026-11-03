@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 import tempfile
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -21,7 +22,7 @@ from ponos.web import settings as web_settings
 
 
 @case
-def a_database_reference_is_normalised_but_a_name_is_not():
+def a_database_reference_is_normalised_but_a_name_is_not() -> None:
     assert (
         C._database_id(
             "https://www.notion.so/w/Master-Tickets-3c3451680af480f5b1aad0785c0322b4?v=1"
@@ -38,7 +39,7 @@ def a_database_reference_is_normalised_but_a_name_is_not():
 
 
 @case
-def blocked_falls_back_on_failed_but_only_when_unset():
+def blocked_falls_back_on_failed_but_only_when_unset() -> None:
     config = _config('[notion.status]\nfailed = "Blocked"\n')
     assert config.notion.state("blocked") == "Blocked"
     assert config.notion.state("ready") == "Ready", "defaults survive a partial block"
@@ -55,7 +56,7 @@ def blocked_falls_back_on_failed_but_only_when_unset():
 
 
 @case
-def review_falls_back_on_done_but_only_when_done_is_named():
+def review_falls_back_on_done_but_only_when_done_is_named() -> None:
     """A file that names `done` and not `review` has one column for both.
 
     Which is also what turns the merge watch off: there is no column for a
@@ -76,7 +77,7 @@ def review_falls_back_on_done_but_only_when_done_is_named():
 
 
 @case
-def a_merge_method_gh_would_refuse_never_reaches_it():
+def a_merge_method_gh_would_refuse_never_reaches_it() -> None:
     """The typo is caught here, not by GitHub refusing the merge you watched."""
     assert _config("").runner.merge_method == "squash"
     assert _config('[runner]\nmerge_method = "rebase"\n').runner.merge_method == "rebase"
@@ -87,7 +88,7 @@ def a_merge_method_gh_would_refuse_never_reaches_it():
 
 
 @case
-def force_validated_is_off_for_every_type_until_the_file_says_otherwise():
+def force_validated_is_off_for_every_type_until_the_file_says_otherwise() -> None:
     """Nothing is merged or published unread by a file that never mentioned it.
 
     One switch per type, each read on its own, and an empty type — a ticket the
@@ -117,7 +118,7 @@ def force_validated_is_off_for_every_type_until_the_file_says_otherwise():
 
 
 @case
-def a_project_with_its_own_validation_overrides_the_file_both_ways():
+def a_project_with_its_own_validation_overrides_the_file_both_ways() -> None:
     """The project's switches when it has them, the file's otherwise.
 
     A project without its own is the board as it was; one with its own is
@@ -181,7 +182,7 @@ def a_project_with_its_own_validation_overrides_the_file_both_ways():
 
 
 @case
-def the_validation_line_says_whose_decision_it_was():
+def the_validation_line_says_whose_decision_it_was() -> None:
     """A report that only said "validated" would not say which switch to turn off."""
     english, french = voice.Voice("en"), voice.Voice("fr")
     line = english.say("forced-validation", kind="Code", source=english.say("forced-by-project"))
@@ -191,7 +192,7 @@ def the_validation_line_says_whose_decision_it_was():
 
 
 @case
-def a_project_page_reads_and_saves_its_own_automatic_validation():
+def a_project_page_reads_and_saves_its_own_automatic_validation() -> None:
     """The tab's two calls: what applies, and the project's own switches saved.
 
     The switches are worded as the global card words them — the same fields —
@@ -251,14 +252,14 @@ def a_project_page_reads_and_saves_its_own_automatic_validation():
 
 
 @case
-def the_interval_never_reaches_systemd_as_zero():
+def the_interval_never_reaches_systemd_as_zero() -> None:
     assert _config("[runner]\ninterval_seconds = 0\n").runner.interval_seconds == 1
     assert _config("[runner]\ninterval_seconds = 10\n").runner.interval_seconds == 10
     assert _config("").runner.interval_seconds == 1800
 
 
 @case
-def the_update_check_never_runs_more_than_once_a_minute():
+def the_update_check_never_runs_more_than_once_a_minute() -> None:
     """At a ten-second cadence, an unbounded value would fetch six times a minute."""
     assert _config("").runner.update_interval_seconds == 3600
     assert _config("[runner]\nupdate_interval_seconds = 5\n").runner.update_interval_seconds == 60
@@ -267,7 +268,7 @@ def the_update_check_never_runs_more_than_once_a_minute():
 
 
 @case
-def optional_properties_have_names_even_when_absent():
+def optional_properties_have_names_even_when_absent() -> None:
     config = _config("")
     for key in (
         "status",
@@ -284,7 +285,7 @@ def optional_properties_have_names_even_when_absent():
 
 
 @case
-def an_old_agent_column_is_not_read_as_the_role_too():
+def an_old_agent_column_is_not_read_as_the_role_too() -> None:
     """A file written when `agent` defaulted to "Agent": its text column is the runner's.
 
     `role` came later, with that very name for a default, and read the same
@@ -301,7 +302,7 @@ def an_old_agent_column_is_not_read_as_the_role_too():
 
 
 @case
-def a_workspace_is_named_once_and_the_rest_is_found():
+def a_workspace_is_named_once_and_the_rest_is_found() -> None:
     config = _config("")
     assert config.notion.page("tickets") == "Tickets"
     assert config.notion.page("context") == "Context"
@@ -311,7 +312,7 @@ def a_workspace_is_named_once_and_the_rest_is_found():
 
 
 @case
-def a_workspace_alone_is_enough_to_run():
+def a_workspace_alone_is_enough_to_run() -> None:
     path = Path(tempfile.mkdtemp()) / "config.toml"
     path.write_text(
         '[notion]\ntoken = "ntn_real"\n'
@@ -325,7 +326,7 @@ def a_workspace_alone_is_enough_to_run():
 
 
 @case
-def neither_a_workspace_nor_a_database_is_refused():
+def neither_a_workspace_nor_a_database_is_refused() -> None:
     path = Path(tempfile.mkdtemp()) / "config.toml"
     path.write_text('[notion]\ntoken = "ntn_real"\n')
     try:
@@ -340,7 +341,7 @@ def neither_a_workspace_nor_a_database_is_refused():
 
 
 @case
-def in_a_container_a_new_version_is_a_new_image():
+def in_a_container_a_new_version_is_a_new_image() -> None:
     """No link to move and no unit to restart: the image is the version."""
     from ponos.web import upgrade as web_upgrade
 
@@ -364,7 +365,7 @@ def in_a_container_a_new_version_is_a_new_image():
 
 
 @case
-def a_loop_of_runs_takes_the_lock_like_the_timer_did():
+def a_loop_of_runs_takes_the_lock_like_the_timer_did() -> None:
     """`run --every` starts `ponos run` itself, and a run already going turns it away."""
     root = Path(tempfile.mkdtemp())
     config = root / "config.toml"
@@ -395,7 +396,7 @@ def a_loop_of_runs_takes_the_lock_like_the_timer_did():
 
 
 @case
-def the_consoles_sign_in_may_live_in_the_environment_rather_than_the_file():
+def the_consoles_sign_in_may_live_in_the_environment_rather_than_the_file() -> None:
     """A server has somewhere better to put a password than a file you read out.
 
     The environment wins, which is what makes it worth setting — and what comes
@@ -421,7 +422,7 @@ def the_consoles_sign_in_may_live_in_the_environment_rather_than_the_file():
 
 
 @case
-def the_consoles_trusted_proxies_come_from_the_file_or_else_the_environment():
+def the_consoles_trusted_proxies_come_from_the_file_or_else_the_environment() -> None:
     """Traefik's address is only known to the deployment: a container says it.
 
     The file wins once it carries the line — even empty, which trusts nobody.
@@ -437,7 +438,7 @@ def the_consoles_trusted_proxies_come_from_the_file_or_else_the_environment():
 
 
 @contextmanager
-def _environ(**values: str):
+def _environ(**values: str) -> Iterator[None]:
     """Variables set for the length of a block, and put back as they were."""
     previous = {name: os.environ.get(name) for name in values}
     os.environ.update(values)
@@ -452,7 +453,7 @@ def _environ(**values: str):
 
 
 @case
-def a_secret_left_in_config_toml_is_never_read():
+def a_secret_left_in_config_toml_is_never_read() -> None:
     """The file is copied into images and pasted into tickets: no secret in it.
 
     Every key `SECRETS` names is ignored there, and said to be — `exposed` is
@@ -486,7 +487,7 @@ def a_secret_left_in_config_toml_is_never_read():
 
 
 @case
-def a_launch_moves_the_secrets_out_of_config_toml_and_says_so():
+def a_launch_moves_the_secrets_out_of_config_toml_and_says_so() -> None:
     """An installation that updates itself must not wake up without its token.
 
     Moved, not copied: the file and its backup are left with no secret in them,
@@ -541,7 +542,7 @@ def a_launch_moves_the_secrets_out_of_config_toml_and_says_so():
 
 
 @case
-def the_console_writes_a_secret_beside_the_file_never_in_it():
+def the_console_writes_a_secret_beside_the_file_never_in_it() -> None:
     """The Settings tab and the first connection save through `config.edit`."""
     path, config = _saved('\n[claude]\nprovider = "api_key"\n')
     saved = web_settings.save(
@@ -569,7 +570,7 @@ def the_console_writes_a_secret_beside_the_file_never_in_it():
 
 
 @case
-def a_typed_key_wins_over_the_environment_and_the_environment_over_a_password():
+def a_typed_key_wins_over_the_environment_and_the_environment_over_a_password() -> None:
     """Who wrote it last: the console writes secrets.env, a compose file the
     environment — except for the sign-in, which the environment is there to claim."""
     path, _ = _saved()
@@ -588,7 +589,7 @@ def a_typed_key_wins_over_the_environment_and_the_environment_over_a_password():
 
 
 @case
-def every_secret_the_runner_reads_is_masked():
+def every_secret_the_runner_reads_is_masked() -> None:
     """From the environment or from secrets.env, a value read is a value masked.
 
     Even the one that loses to the other: a session that prints it leaks it all
@@ -610,7 +611,7 @@ def every_secret_the_runner_reads_is_masked():
 
 
 @case
-def secrets_env_reads_what_a_shell_and_compose_read():
+def secrets_env_reads_what_a_shell_and_compose_read() -> None:
     """One file for `source`, `env_file` and `EnvironmentFile` — and for us."""
     path = Path(tempfile.mkdtemp()) / "secrets.env"
     awkward = 'a "quoted" pass $HOME `x` \\ end'
@@ -634,7 +635,7 @@ def secrets_env_reads_what_a_shell_and_compose_read():
 
 
 @case
-def a_launch_closes_the_state_directory_and_the_folders_at_its_top(state_home):
+def a_launch_closes_the_state_directory_and_the_folders_at_its_top(state_home: Path) -> None:
     """What sits under them stays as it was: the walk is `ponos doctor`'s."""
     (state_home / "captures").mkdir(mode=0o775, parents=True)
     (state_home / "captures").chmod(0o775)

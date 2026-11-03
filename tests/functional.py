@@ -37,11 +37,12 @@ import tempfile
 import threading
 import time
 import uuid
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
 from urllib.parse import parse_qs, urlparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
@@ -72,6 +73,8 @@ from ponos.ticket import short_id  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 
+Case = TypeVar("Case", bound=Callable[..., None])
+
 # An update is checked by importing the new version's console, FastAPI with
 # it: a `python3` without it runs the suite again under the checkout's `.venv`,
 # which `uv sync` makes — as `tests/run.py` does.
@@ -97,12 +100,12 @@ def _now() -> str:
 # -- a Notion of our own -----------------------------------------------------
 
 
-def _rich(text: str) -> list[dict]:
+def _rich(text: str) -> list[dict[str, Any]]:
     """Rich text as Notion hands it back — content to write, plain_text to read."""
     return [{"type": "text", "text": {"content": text}, "plain_text": text}]
 
 
-def _stored(value: dict) -> dict:
+def _stored(value: dict[str, Any]) -> dict[str, Any]:
     """One written property, as a reader would then find it.
 
     `notion._encode` writes `{"status": {"name": "Done"}}`: the type is the only
@@ -131,13 +134,13 @@ class Board:
     """
 
     def __init__(self) -> None:
-        self.databases: dict[str, dict] = {}
-        self.pages: dict[str, dict] = {}
-        self.blocks: dict[str, list[dict]] = {}
-        self.comments: list[dict] = []
+        self.databases: dict[str, dict[str, Any]] = {}
+        self.pages: dict[str, dict[str, Any]] = {}
+        self.blocks: dict[str, list[dict[str, Any]]] = {}
+        self.comments: list[dict[str, Any]] = []
         # Files handed over through the File Upload API, and where they are
         # served from afterwards — this server, under a URL that "expires".
-        self.uploads: dict[str, dict] = {}
+        self.uploads: dict[str, dict[str, Any]] = {}
         self.files: dict[str, tuple[bytes, str]] = {}
         self.address = ""
         self.requests: list[str] = []
@@ -148,7 +151,7 @@ class Board:
 
     # -- building a board ----------------------------------------------------
 
-    def database(self, title: str, properties: dict) -> str:
+    def database(self, title: str, properties: dict[str, Any]) -> str:
         identifier = _ident()
         self.databases[identifier] = {
             "object": "database",
@@ -160,7 +163,7 @@ class Board:
 
     def page(
         self,
-        properties: dict[str, dict],
+        properties: dict[str, dict[str, Any]],
         *,
         database: str = "",
         body: str = "",
@@ -224,7 +227,15 @@ class Board:
 
     # -- serving it ----------------------------------------------------------
 
-    def handle(self, method: str, path: str, query: dict, body: dict, token: str, raw: bytes = b""):
+    def handle(
+        self,
+        method: str,
+        path: str,
+        query: dict[str, Any],
+        body: dict[str, Any],
+        token: str,
+        raw: bytes = b"",
+    ) -> tuple[int, Any]:
         """One request, routed. The endpoints `notion.py` calls, and those only.
 
         Anything else is refused *and remembered*: a client that grew a request
@@ -275,7 +286,7 @@ class Board:
         self.refused.append(f"{method} /{'/'.join(parts)}")
         return 404, {"message": f"the fake Notion does not serve {method} /{'/'.join(parts)}"}
 
-    def _query(self, database_id: str, body: dict) -> dict:
+    def _query(self, database_id: str, body: dict[str, Any]) -> dict[str, Any]:
         if database_id not in self.databases:
             return {"results": [], "has_more": False}
         filter_ = body.get("filter")
@@ -288,7 +299,7 @@ class Board:
         ]
         return {"results": results, "has_more": False, "next_cursor": None}
 
-    def _matches(self, page: dict, filter_: dict | None) -> bool:
+    def _matches(self, page: dict[str, Any], filter_: dict[str, Any] | None) -> bool:
         if not filter_:
             return True
         if "and" in filter_:
@@ -308,7 +319,7 @@ class Board:
                 return False
         return True
 
-    def _update(self, page_id: str, body: dict):
+    def _update(self, page_id: str, body: dict[str, Any]) -> tuple[int, Any]:
         page = self.pages.get(page_id)
         if not page:
             return 404, {"message": "page not found"}
@@ -340,14 +351,14 @@ class Board:
         page["last_edited_time"] = _now()
         return 200, self._signed(page)
 
-    def hosted(self, name: str, filename: str) -> dict:
+    def hosted(self, name: str, filename: str) -> dict[str, Any]:
         """A file this Notion keeps, as a page's cover or icon points at it."""
         return {
             "type": "file",
             "file": {"url": f"{self.address}/files/{name}/{filename}", "expiry_time": ""},
         }
 
-    def _signed(self, page: dict) -> dict:
+    def _signed(self, page: dict[str, Any]) -> dict[str, Any]:
         """The page as it is read: every hosted file under a fresh signature.
 
         Which is what Notion does, and what the console must not mistake for a
@@ -365,7 +376,7 @@ class Board:
                 }
         return signed
 
-    def _receive(self, upload: str, raw: bytes):
+    def _receive(self, upload: str, raw: bytes) -> tuple[int, Any]:
         """The second half of an upload: the file, as a multipart form."""
         if upload not in self.uploads:
             return 404, {"message": "no such file upload"}
@@ -377,7 +388,7 @@ class Board:
         self.uploads[upload].update(status="uploaded", data=data)
         return 200, {"object": "file_upload", "id": upload, "status": "uploaded"}
 
-    def _append(self, block_id: str, children: list[dict]) -> list[dict]:
+    def _append(self, block_id: str, children: list[dict[str, Any]]) -> list[dict[str, Any]]:
         created = []
         for child in children:
             block = {"object": "block", "id": _ident(), "has_children": False, **child}
@@ -398,7 +409,7 @@ class Board:
                     block["has_children"] = True
         return created
 
-    def _retitle(self, block_id: str, body: dict) -> dict:
+    def _retitle(self, block_id: str, body: dict[str, Any]) -> dict[str, Any]:
         """A block's text rewritten in place — the live report's title moving on."""
         for held in self.blocks.values():
             for block in held:
@@ -413,7 +424,7 @@ class Board:
                 return block
         return {"object": "block", "id": block_id}
 
-    def _comment(self, body: dict):
+    def _comment(self, body: dict[str, Any]) -> tuple[int, Any]:
         discussion = body.get("discussion_id", "")
         page = (body.get("parent") or {}).get("page_id", "").replace("-", "")
         if discussion and not page:
@@ -496,7 +507,7 @@ class _Handler(BaseHTTPRequestHandler):
 
 
 @contextmanager
-def _notion_server():
+def _notion_server() -> Iterator[tuple[str, Board]]:
     """A Notion answering on a loopback port nobody chose in advance."""
     board = Board()
     server = ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
@@ -1024,7 +1035,7 @@ def _git(args: list[str], cwd: Path) -> None:
         )
 
 
-def _lines(path: Path) -> list[dict]:
+def _lines(path: Path) -> list[dict[str, Any]]:
     if not path.exists():
         return []
     return [
@@ -1203,7 +1214,7 @@ class Bench:
 
     # -- running -------------------------------------------------------------
 
-    def run(self) -> list[dict]:
+    def run(self) -> list[dict[str, Any]]:
         """One pass of the runner, exactly the one the timer makes."""
         for path in self.logs.values():
             path.write_text("", encoding="utf-8")
@@ -1216,19 +1227,19 @@ class Bench:
     def status(self, ticket: str) -> str:
         return str(self.board.value(ticket, "Status") or "")
 
-    def git_calls(self) -> list[dict]:
+    def git_calls(self) -> list[dict[str, Any]]:
         return _lines(self.logs["FAKE_GIT_LOG"])
 
-    def pull_requests(self) -> list[dict]:
+    def pull_requests(self) -> list[dict[str, Any]]:
         return [one for one in _lines(self.logs["FAKE_GH_LOG"]) if one["command"] == "pr create"]
 
-    def pull_request_comments(self) -> list[dict]:
+    def pull_request_comments(self) -> list[dict[str, Any]]:
         return [one for one in _lines(self.logs["FAKE_GH_LOG"]) if one["command"] == "pr comment"]
 
-    def merges(self) -> list[dict]:
+    def merges(self) -> list[dict[str, Any]]:
         return [one for one in _lines(self.logs["FAKE_GH_LOG"]) if one["command"] == "pr merge"]
 
-    def sessions(self) -> list[dict]:
+    def sessions(self) -> list[dict[str, Any]]:
         return _lines(self.logs["FAKE_CLAUDE_LOG"])
 
     def worktrees(self, repository: Path) -> list[str]:
@@ -1293,7 +1304,7 @@ workspace_root = "{workspace}"
 
 
 @contextmanager
-def bench(**overrides: object):
+def bench(**overrides: object) -> Iterator[Bench]:
     """A machine with a Notion, a workspace and a PATH of its own.
 
     Everything it changes is put back on the way out, the temporary directory
@@ -1359,7 +1370,7 @@ def bench(**overrides: object):
 
 
 @contextmanager
-def _environ(changes: dict[str, str]):
+def _environ(changes: dict[str, str]) -> Iterator[None]:
     previous = {name: os.environ.get(name) for name in changes}
     os.environ.update(changes)
     try:
@@ -1372,18 +1383,18 @@ def _environ(changes: dict[str, str]):
                 os.environ[name] = value
 
 
-def runner_settings(**overrides: object):
+def runner_settings(**overrides: object) -> Callable[[Case], Case]:
     """What a case changes of `[runner]` on the `machine` it is given."""
 
-    def settle(function):
-        function.runner_settings = overrides
+    def settle(function: Case) -> Case:
+        function.runner_settings = overrides  # type: ignore[attr-defined]  # read back by `machine`
         return function
 
     return settle
 
 
 @fixture
-def machine(case):
+def machine(case: Callable[..., None]) -> Iterator[Bench]:
     """The `bench` a case runs on, with the `@runner_settings` it asked for."""
     with bench(**getattr(case, "runner_settings", {})) as machine:
         yield machine
@@ -1394,7 +1405,7 @@ def machine(case):
 
 @case
 @runner_settings(ideas_schedule="every_4h", ideas_scope="selected", ideas_per_batch=3)
-def a_scheduled_pass_finds_ideas_for_the_projects_ticked_and_for_those_only(machine):
+def a_scheduled_pass_finds_ideas_for_the_projects_ticked_and_for_those_only(machine: Bench) -> None:
     """Every four hours, two projects of three ticked: ideas for them at each pass.
 
     The whole road of the pass, on the doubles: the fake Notion's project index,
@@ -1435,7 +1446,8 @@ def a_scheduled_pass_finds_ideas_for_the_projects_ticked_and_for_those_only(mach
         second = api.planned.look(start + timedelta(hours=8, minutes=5))
         assert second is not None and second.found == 6
         assert [len(ideas.listed(project)) for project in (alpha, beta, gamma)] == [6, 0, 6]
-        assert idea_schedule.last().found == 6
+        last = idea_schedule.last()
+        assert last is not None and last.found == 6
         calls = [call for call in machine.sessions() if "You are proposing ideas" in call["prompt"]]
         assert len(calls) == 4, "one session per project and per pass"
 
@@ -1452,7 +1464,9 @@ def a_scheduled_pass_finds_ideas_for_the_projects_ticked_and_for_those_only(mach
 
 
 @case
-def a_code_ticket_comes_back_as_a_pull_request_with_nothing_but_an_access_token(machine):
+def a_code_ticket_comes_back_as_a_pull_request_with_nothing_but_an_access_token(
+    machine: Bench,
+) -> None:
     """`PONOS_GITHUB_TOKEN` is the whole of GitHub's setup: no App, no `gh` account.
 
     The pull request is opened with the token, and the token is written
@@ -1477,7 +1491,7 @@ def a_code_ticket_comes_back_as_a_pull_request_with_nothing_but_an_access_token(
 
 
 @case
-def a_code_ticket_comes_back_as_a_pull_request(machine):
+def a_code_ticket_comes_back_as_a_pull_request(machine: Bench) -> None:
     """Ready → worktree → session → branch → pull request → the ticket says so.
 
     The whole road in one pass, and the last step is the one that goes wrong
@@ -1536,7 +1550,9 @@ def a_code_ticket_comes_back_as_a_pull_request(machine):
 
 
 @case
-def a_server_the_bash_tool_started_in_its_own_session_does_not_outlive_the_session(machine):
+def a_server_the_bash_tool_started_in_its_own_session_does_not_outlive_the_session(
+    machine: Bench,
+) -> None:
     """`setsid sleep 600` from the worktree, then the session ends: the sleep goes too.
 
     Each command of Claude Code's Bash tool opens a session of its own, so the
@@ -1576,7 +1592,7 @@ def _running(pid: int) -> bool:
 
 @case
 @runner_settings(progress=True)
-def the_page_keeps_what_the_agent_said_and_the_journal_every_step(machine):
+def the_page_keeps_what_the_agent_said_and_the_journal_every_step(machine: Bench) -> None:
     """The ticket gets the gist; the console, reading the journal, gets the rest.
 
     A sentence and a command, from one session: the sentence goes onto the
@@ -1602,7 +1618,7 @@ def the_page_keeps_what_the_agent_said_and_the_journal_every_step(machine):
 
 
 @case
-def a_writing_ticket_is_answered_in_its_page_and_touches_no_repository(machine):
+def a_writing_ticket_is_answered_in_its_page_and_touches_no_repository(machine: Bench) -> None:
     """A project with no repository: the deliverable is the Notion page.
 
     And nothing else. A document ticket that quietly made a worktree, or ran one
@@ -1634,7 +1650,7 @@ def a_writing_ticket_is_answered_in_its_page_and_touches_no_repository(machine):
 
 @case
 @runner_settings(progress=True)
-def a_ticket_run_again_is_not_briefed_on_its_previous_run(machine):
+def a_ticket_run_again_is_not_briefed_on_its_previous_run(machine: Bench) -> None:
     """Ready a second time: the session reads the brief, not the last run's story.
 
     Each run leaves its live report on the page, folded in a toggle. A ticket
@@ -1669,7 +1685,7 @@ def a_ticket_run_again_is_not_briefed_on_its_previous_run(machine):
 
 
 @case
-def a_ticket_with_no_type_is_classified_then_published_only_once_validated(machine):
+def a_ticket_with_no_type_is_classified_then_published_only_once_validated(machine: Bench) -> None:
     """Ready with no type → classified → prepared → review → validated → done.
 
     On a project that *has* a repository, which is the case that matters: a
@@ -1742,7 +1758,7 @@ elif args[:1] == ["rm"]:
 
 
 @contextmanager
-def _docker(root: Path):
+def _docker(root: Path) -> Iterator[Callable[[], list[list[str]]]]:
     """A `docker` that answers, at the head of the bench's `PATH`; its calls, as it records them."""
     _script(root / "bin" / "docker", DOCKER)
     log = root / "logs" / "docker.jsonl"
@@ -1757,7 +1773,7 @@ def _docker(root: Path):
 
 @case
 @runner_settings(local_ci=True)
-def a_ticket_whose_local_ci_fails_is_fixed_before_its_pull_request_opens(machine):
+def a_ticket_whose_local_ci_fails_is_fixed_before_its_pull_request_opens(machine: Bench) -> None:
     """Red here, fixed by the same session, green here — and only then the pull request.
 
     The ticket keeps one line of it, and not a line of the CI's output; the
@@ -1797,7 +1813,9 @@ def a_ticket_whose_local_ci_fails_is_fixed_before_its_pull_request_opens(machine
 
 @case
 @runner_settings(local_ci=True, local_ci_attempts=2)
-def a_local_ci_still_red_after_its_attempts_blocks_the_ticket_and_opens_nothing(machine):
+def a_local_ci_still_red_after_its_attempts_blocks_the_ticket_and_opens_nothing(
+    machine: Bench,
+) -> None:
     with _docker(machine.root):
         repository = machine.repository("site")
         project = machine.project("Site", repository)
@@ -1819,7 +1837,7 @@ def a_local_ci_still_red_after_its_attempts_blocks_the_ticket_and_opens_nothing(
 
 @case
 @runner_settings(local_ci=True)
-def without_docker_the_local_ci_is_skipped_and_the_ticket_runs_as_before(machine):
+def without_docker_the_local_ci_is_skipped_and_the_ticket_runs_as_before(machine: Bench) -> None:
     local_ci._docker = (time.monotonic(), local_ci.Docker(False, False))
     try:
         repository = machine.repository("site")
@@ -1840,7 +1858,7 @@ def without_docker_the_local_ci_is_skipped_and_the_ticket_runs_as_before(machine
 
 @case
 @runner_settings(force_validated_code=True)
-def a_code_ticket_whose_validation_is_forced_is_merged_and_done_in_one_pass(machine):
+def a_code_ticket_whose_validation_is_forced_is_merged_and_done_in_one_pass(machine: Bench) -> None:
     """Force validated for Code: the pull request is opened, then merged, unread.
 
     What the remote holds afterwards is the proof: `main` carries what the
@@ -1867,7 +1885,7 @@ def a_code_ticket_whose_validation_is_forced_is_merged_and_done_in_one_pass(mach
 
 
 @case
-def a_project_with_its_own_validation_is_read_before_the_file_in_both_directions():
+def a_project_with_its_own_validation_is_read_before_the_file_in_both_directions() -> None:
     """Merged on the project that asked for it, kept for review on the one that did not.
 
     The file says the opposite of each project, and each project wins. The
@@ -1904,7 +1922,9 @@ def a_project_with_its_own_validation_is_read_before_the_file_in_both_directions
 
 @case
 @runner_settings(force_validated_code=True)
-def a_forced_merge_github_refuses_leaves_the_ticket_in_review_with_the_reason(machine):
+def a_forced_merge_github_refuses_leaves_the_ticket_in_review_with_the_reason(
+    machine: Bench,
+) -> None:
     """Checks red, rights missing: not done, and the refusal on the card."""
     machine.board.databases[machine.database]["properties"] = {
         **machine.board.databases[machine.database]["properties"],
@@ -1946,7 +1966,7 @@ def _check_runs(*verdicts: str) -> str:
 
 @case
 @runner_settings(force_validated_code=True, max_concurrent=1)
-def a_code_ticket_is_merged_once_its_ci_is_green_whatever_its_sub_type(machine):
+def a_code_ticket_is_merged_once_its_ci_is_green_whatever_its_sub_type(machine: Bench) -> None:
     """Force validated reads the type, never the sub-type: written, from a prefix or
     deduced, each code ticket waits for its green CI and lands on `main`, done."""
     # One at a time, one repository each: the fake `gh` numbers its pull
@@ -1987,7 +2007,7 @@ def a_code_ticket_is_merged_once_its_ci_is_green_whatever_its_sub_type(machine):
 
 @case
 @runner_settings(force_validated_code=True)
-def a_ticket_blocked_on_its_type_is_merged_once_somebody_gives_it(machine):
+def a_ticket_blocked_on_its_type_is_merged_once_somebody_gives_it(machine: Bench) -> None:
     """A type in doubt stops the ticket with the question; answered, it takes the
     whole road like any other, forced merge included."""
     machine.subtyped()
@@ -2019,7 +2039,7 @@ def a_ticket_blocked_on_its_type_is_merged_once_somebody_gives_it(machine):
 
 
 @case
-def a_forced_merge_stopped_by_its_ci_says_on_the_card_which_ci_and_why():
+def a_forced_merge_stopped_by_its_ci_says_on_the_card_which_ci_and_why() -> None:
     """Red by the code: the checks are named. Never started by GitHub for another
     reason than its billing: its reason, word for word. Neither merged."""
     not_started = "The job was not started because the workflow was disabled."
@@ -2052,7 +2072,9 @@ def a_forced_merge_stopped_by_its_ci_says_on_the_card_which_ci_and_why():
 
 @case
 @runner_settings(force_validated_code=True)
-def a_forced_merge_github_refuses_for_the_billing_waits_validated_until_it_is_paid(machine):
+def a_forced_merge_github_refuses_for_the_billing_waits_validated_until_it_is_paid(
+    machine: Bench,
+) -> None:
     """Every job refused by the account's billing: not a question, not a session.
 
     The ticket waits in validated with the cause on its card, the account is in
@@ -2109,7 +2131,9 @@ def a_forced_merge_github_refuses_for_the_billing_waits_validated_until_it_is_pa
 
 @case
 @runner_settings(force_validated_code=True)
-def a_forced_merge_refused_for_being_behind_waits_in_validated_and_lands_next_pass(machine):
+def a_forced_merge_refused_for_being_behind_waits_in_validated_and_lands_next_pass(
+    machine: Bench,
+) -> None:
     """Two tickets on one repository: the other one landed while this one's CI ran.
 
     GitHub refuses the merge for a branch that is out of date. That is not a
@@ -2148,7 +2172,9 @@ def a_forced_merge_refused_for_being_behind_waits_in_validated_and_lands_next_pa
 
 @case
 @runner_settings(force_validated_code=True)
-def a_forced_merge_in_conflict_waits_in_validated_and_its_conflict_is_resolved(machine):
+def a_forced_merge_in_conflict_waits_in_validated_and_its_conflict_is_resolved(
+    machine: Bench,
+) -> None:
     """Behind on the very file it writes: validated, then the usual resolution."""
     repository = machine.repository("site")
     project = machine.project("Site", repository)
@@ -2169,7 +2195,7 @@ def a_forced_merge_in_conflict_waits_in_validated_and_its_conflict_is_resolved(m
 
 @case
 @runner_settings(force_validated_code=True)
-def a_forced_merge_with_no_validated_column_still_waits_in_review(machine):
+def a_forced_merge_with_no_validated_column_still_waits_in_review(machine: Bench) -> None:
     """The column is opt-in: a board without it keeps the refusal in review."""
     # A copy, as `typed` makes one: the schema every scenario starts from is shared.
     database = machine.board.databases[machine.database]
@@ -2194,7 +2220,9 @@ def a_forced_merge_with_no_validated_column_still_waits_in_review(machine):
 
 @case
 @runner_settings(force_validated_code=True)
-def force_validated_never_touches_a_failed_session_nor_a_ticket_already_in_review(machine):
+def force_validated_never_touches_a_failed_session_nor_a_ticket_already_in_review(
+    machine: Bench,
+) -> None:
     """The two guards: only a success is validated, only a ticket run from now on."""
     repository = machine.repository("site")
     project = machine.project("Site", repository)
@@ -2214,7 +2242,7 @@ def force_validated_never_touches_a_failed_session_nor_a_ticket_already_in_revie
 
 @case
 @runner_settings(force_validated_publication=True)
-def a_publication_whose_validation_is_forced_goes_out_without_waiting(machine):
+def a_publication_whose_validation_is_forced_goes_out_without_waiting(machine: Bench) -> None:
     """Force validated for Publication: prepared, then published, in one pass."""
     machine.typed()
     project = machine.project("Lettre d'information", None)
@@ -2238,7 +2266,7 @@ def a_publication_whose_validation_is_forced_goes_out_without_waiting(machine):
 
 @case
 @runner_settings(force_validated_publication=True)
-def a_publication_whose_validation_is_forced_costs_its_two_sessions(machine):
+def a_publication_whose_validation_is_forced_costs_its_two_sessions(machine: Bench) -> None:
     """Prepared, then published: two sessions paid, in the column and in the history."""
     machine.typed()
     project = machine.project("Lettre d'information", None)
@@ -2255,7 +2283,9 @@ def a_publication_whose_validation_is_forced_costs_its_two_sessions(machine):
 
 
 @case
-def a_ticket_with_no_model_runs_on_the_one_chosen_for_it_and_a_model_written_as_written(machine):
+def a_ticket_with_no_model_runs_on_the_one_chosen_for_it_and_a_model_written_as_written(
+    machine: Bench,
+) -> None:
     project = machine.project("Notes", None)
     light = machine.ticket(
         "Retirer un paragraphe", "Le texte sous le titre ne sert à rien.", project
@@ -2288,7 +2318,9 @@ def a_ticket_with_no_model_runs_on_the_one_chosen_for_it_and_a_model_written_as_
 
 
 @case
-def a_ticket_on_an_openrouter_model_runs_on_openrouter_and_is_blocked_without_its_key(machine):
+def a_ticket_on_an_openrouter_model_runs_on_openrouter_and_is_blocked_without_its_key(
+    machine: Bench,
+) -> None:
     project = machine.project("Notes", None)
     routed = machine.ticket("Écrire l'annonce", "Trois lignes.", project)
     machine.board.pages[routed]["properties"]["Model"] = _stored(
@@ -2312,7 +2344,7 @@ def a_ticket_on_an_openrouter_model_runs_on_openrouter_and_is_blocked_without_it
 
 
 @case
-def a_ticket_the_runner_hesitates_over_is_blocked_and_nothing_runs(machine):
+def a_ticket_the_runner_hesitates_over_is_blocked_and_nothing_runs(machine: Bench) -> None:
     """A doubt with a publication is a question, not a session — and a type
     somebody chose is never classified again, let alone overwritten."""
     machine.typed()
@@ -2347,7 +2379,7 @@ def a_ticket_the_runner_hesitates_over_is_blocked_and_nothing_runs(machine):
 
 
 @case
-def a_deleted_project_and_its_tickets_cost_no_session(machine):
+def a_deleted_project_and_its_tickets_cost_no_session(machine: Bench) -> None:
     """In the Notion trash, a project is out of every query — and a ticket still
     pointing at it is put back, not worked on with whatever the page held.
 
@@ -2375,7 +2407,7 @@ def a_deleted_project_and_its_tickets_cost_no_session(machine):
 
 
 @case
-def a_session_that_fails_leaves_a_readable_ticket_and_no_worktree(machine):
+def a_session_that_fails_leaves_a_readable_ticket_and_no_worktree(machine: Bench) -> None:
     """The failure has to be readable on the board, and cost nothing on disk.
 
     A failed run used to be the one that left things behind: a ticket stuck in
@@ -2405,7 +2437,7 @@ def a_session_that_fails_leaves_a_readable_ticket_and_no_worktree(machine):
 
 
 @case
-def an_external_action_that_commits_nothing_is_done_with_its_report(machine):
+def an_external_action_that_commits_nothing_is_done_with_its_report(machine: Bench) -> None:
     """The deployment was the work: no commit was asked for, and none is waited on.
 
     Typed as an external action, it never sees the repository; left as code by
@@ -2450,7 +2482,7 @@ def an_external_action_that_commits_nothing_is_done_with_its_report(machine):
 
 
 @case
-def a_code_ticket_already_settled_on_main_is_sent_to_review_with_its_report(machine):
+def a_code_ticket_already_settled_on_main_is_sent_to_review_with_its_report(machine: Bench) -> None:
     """Nothing to commit, because a pull request the verdict names made the change."""
     repository = machine.repository("site")
     project = machine.project("Site", repository)
@@ -2471,7 +2503,7 @@ def a_code_ticket_already_settled_on_main_is_sent_to_review_with_its_report(mach
 
 
 @case
-def a_code_ticket_that_changes_code_without_committing_it_is_still_blocked(machine):
+def a_code_ticket_that_changes_code_without_committing_it_is_still_blocked(machine: Bench) -> None:
     """The one case the commit is the deliverable, and it is not there."""
     repository = machine.repository("site")
     project = machine.project("Site", repository)
@@ -2492,7 +2524,7 @@ def a_code_ticket_that_changes_code_without_committing_it_is_still_blocked(machi
 
 
 @case
-def a_session_that_stops_without_its_report_is_asked_for_it_once(machine):
+def a_session_that_stops_without_its_report_is_asked_for_it_once(machine: Bench) -> None:
     """Picked up in its own conversation, for the report and nothing else —
     blocked only when that fails too, and never asked twice for one ticket."""
     project = machine.project("Leadz", None)
@@ -2526,7 +2558,9 @@ def a_session_that_stops_without_its_report_is_asked_for_it_once(machine):
 
 
 @case
-def a_writing_ticket_blocked_on_a_question_is_not_said_to_have_written_nothing(machine):
+def a_writing_ticket_blocked_on_a_question_is_not_said_to_have_written_nothing(
+    machine: Bench,
+) -> None:
     """A Rédaction session that stops on its question is a question for you.
 
     `session.no-answer` is kept for the one that wrote neither ANSWER.md nor a
@@ -2564,7 +2598,7 @@ def _budget(machine: Bench, **limits: float) -> None:
 
 
 @case
-def a_blocked_or_failed_session_has_its_cost_written_on_the_ticket(machine):
+def a_blocked_or_failed_session_has_its_cost_written_on_the_ticket(machine: Bench) -> None:
     """Paid for is paid for: the Cost column used to know only the finished ones."""
     repository = machine.repository("site")
     project = machine.project("Site", repository)
@@ -2584,7 +2618,7 @@ def a_blocked_or_failed_session_has_its_cost_written_on_the_ticket(machine):
 
 
 @case
-def a_session_past_the_ticket_limit_stops_cleanly_and_blocks_the_ticket_with_the_reason():
+def a_session_past_the_ticket_limit_stops_cleanly_and_blocks_the_ticket_with_the_reason() -> None:
     with bench() as machine:
         repository = machine.repository("site")
         project = machine.project("Site", repository)
@@ -2609,7 +2643,7 @@ def a_session_past_the_ticket_limit_stops_cleanly_and_blocks_the_ticket_with_the
 
 
 @case
-def past_the_daily_limit_nothing_new_is_started_and_the_ready_tickets_wait(machine):
+def past_the_daily_limit_nothing_new_is_started_and_the_ready_tickets_wait(machine: Bench) -> None:
     repository = machine.repository("site")
     project = machine.project("Site", repository)
     _budget(machine, daily_usd=1.0)
@@ -2628,7 +2662,7 @@ def past_the_daily_limit_nothing_new_is_started_and_the_ready_tickets_wait(machi
 
 @case
 @runner_settings(max_concurrent=1)
-def a_claude_signed_out_puts_the_ticket_back_in_ready_and_waits_for_a_login(machine):
+def a_claude_signed_out_puts_the_ticket_back_in_ready_and_waits_for_a_login(machine: Bench) -> None:
     """An expired sign-in is a quota nobody will refill by waiting: it needs you.
 
     Read as a session with no answer, it blocked one ticket after the other,
@@ -2665,7 +2699,7 @@ def a_claude_signed_out_puts_the_ticket_back_in_ready_and_waits_for_a_login(mach
 
 
 @case
-def a_branch_is_replayed_on_a_base_that_moved_under_the_session():
+def a_branch_is_replayed_on_a_base_that_moved_under_the_session() -> None:
     """The pull request opens on top of what the repository holds now.
 
     A board that sends ten tickets at one repository is a base branch that
@@ -2700,7 +2734,7 @@ def a_branch_is_replayed_on_a_base_that_moved_under_the_session():
 
 
 @case
-def a_validated_merge_refused_for_being_behind_is_replayed_and_lands(machine):
+def a_validated_merge_refused_for_being_behind_is_replayed_and_lands(machine: Bench) -> None:
     """Validated on Monday, behind by Tuesday: the runner puts it back on top.
 
     The pull request was opened on a `main` that has moved since — another
@@ -2736,7 +2770,9 @@ def a_validated_merge_refused_for_being_behind_is_replayed_and_lands(machine):
 
 
 @case
-def a_validated_merge_that_conflicts_is_resolved_and_lands_with_both_changes(machine):
+def a_validated_merge_that_conflicts_is_resolved_and_lands_with_both_changes(
+    machine: Bench,
+) -> None:
     """Two tickets on the same file: the first is merged, the second still lands.
 
     The case the runner used to give up on — “Pull Request has merge conflicts”
@@ -2791,7 +2827,7 @@ def a_validated_merge_that_conflicts_is_resolved_and_lands_with_both_changes(mac
 
 
 @case
-def a_conflict_that_is_a_decision_blocks_the_ticket_with_the_question(machine):
+def a_conflict_that_is_a_decision_blocks_the_ticket_with_the_question(machine: Bench) -> None:
     """The session reads the conflict as two behaviours that cannot both hold.
 
     Nothing is pushed on the pull request's branch and nothing is merged: the
@@ -2824,7 +2860,7 @@ def a_conflict_that_is_a_decision_blocks_the_ticket_with_the_question(machine):
 
 @case
 @runner_settings(resolve_conflicts_except="Site")
-def a_project_left_out_of_resolution_blocks_on_its_conflict_as_before(machine):
+def a_project_left_out_of_resolution_blocks_on_its_conflict_as_before(machine: Bench) -> None:
     """`resolve_conflicts_except` names it: no session, the refusal as it came."""
     repository = machine.repository("site")
     project = machine.project("Site", repository)
@@ -2883,7 +2919,9 @@ def _adding(part: str) -> dict[str, str]:
 
 
 @case
-def branches_differing_only_in_generated_files_and_the_changelog_merge_without_a_session(machine):
+def branches_differing_only_in_generated_files_and_the_changelog_merge_without_a_session(
+    machine: Bench,
+) -> None:
     """The conflicts a busy repository makes every day, settled where git stops.
 
     Two branches add a part each: they disagree about the bundle the build
@@ -2915,7 +2953,9 @@ def branches_differing_only_in_generated_files_and_the_changelog_merge_without_a
 
 @case
 @runner_settings(max_concurrent=1)
-def three_validated_pull_requests_on_one_repository_merge_one_after_the_other(machine):
+def three_validated_pull_requests_on_one_repository_merge_one_after_the_other(
+    machine: Bench,
+) -> None:
     """The base moves under every one of them, and none is blocked for it.
 
     Each of the three adds a part, a line of the changelog and the bundle that
@@ -2948,7 +2988,9 @@ def three_validated_pull_requests_on_one_repository_merge_one_after_the_other(ma
 
 
 @case
-def a_conflict_in_code_is_resolved_by_a_session_that_is_not_told_about_generated_files(machine):
+def a_conflict_in_code_is_resolved_by_a_session_that_is_not_told_about_generated_files(
+    machine: Bench,
+) -> None:
     """Settled files are off the list, and the bundle is built again after the session.
 
     The branch and the base both rewrite `FAKE.md` — a decision a session keeps
@@ -2979,7 +3021,7 @@ def a_conflict_in_code_is_resolved_by_a_session_that_is_not_told_about_generated
 
 
 @case
-def a_replay_over_a_new_route_regenerates_the_api_types_with_the_bundle(machine):
+def a_replay_over_a_new_route_regenerates_the_api_types_with_the_bundle(machine: Bench) -> None:
     """The types follow the routes of both sides, in the one regeneration commit.
 
     As `npm run types` writes `api-types.d.ts` from `web/answers.py`, the build
@@ -3035,7 +3077,7 @@ def a_replay_over_a_new_route_regenerates_the_api_types_with_the_bundle(machine)
 
 
 @case
-def a_failing_build_stops_the_replay_and_nothing_is_pushed(machine):
+def a_failing_build_stops_the_replay_and_nothing_is_pushed(machine: Bench) -> None:
     """Bundles that do not match their sources are worse than a blocked ticket."""
     repository = _with_a_bundle(machine, "site")
     project = machine.project("Site", repository)
@@ -3059,7 +3101,7 @@ def a_failing_build_stops_the_replay_and_nothing_is_pushed(machine):
 
 
 @case
-def a_ticket_runs_in_the_repository_its_project_names(machine):
+def a_ticket_runs_in_the_repository_its_project_names(machine: Bench) -> None:
     """Two projects, one ticket: the relation decides which repository is touched.
 
     The expensive mistake here is silent — a ticket committed to the wrong clone
@@ -3094,7 +3136,7 @@ def a_ticket_runs_in_the_repository_its_project_names(machine):
 
 
 @case
-def a_picture_chosen_in_the_console_is_the_cover_in_notion_and_the_other_way_round():
+def a_picture_chosen_in_the_console_is_the_cover_in_notion_and_the_other_way_round() -> None:
     """Both directions, over HTTP, against a Notion that signs its URLs.
 
     The console's picture is uploaded and set as the page's cover; read back
@@ -3150,7 +3192,7 @@ def a_picture_chosen_in_the_console_is_the_cover_in_notion_and_the_other_way_rou
 
 
 @case
-def a_pass_started_during_an_update_runs_on_one_version_and_never_on_both(machine):
+def a_pass_started_during_an_update_runs_on_one_version_and_never_on_both(machine: Bench) -> None:
     """On 30 September 2026 a pass started while an update rewrote the app in
     place, imported a `files.py` already new with a `store.py` still old, and
     died on `ImportError: cannot import name 'SLOTS'`.
@@ -3220,7 +3262,7 @@ def a_pass_started_during_an_update_runs_on_one_version_and_never_on_both(machin
         "PONOS_CONTAINER": "",
     }
 
-    def started(*arguments: str) -> subprocess.Popen:
+    def started(*arguments: str) -> subprocess.Popen[str]:
         return subprocess.Popen(
             [str(launcher), *arguments],
             stdout=subprocess.PIPE,
@@ -3260,7 +3302,7 @@ def a_pass_started_during_an_update_runs_on_one_version_and_never_on_both(machin
             target=lambda: during.append(update.install(update.check(app, "main"), 600, app))
         )
         installing.start()
-        meanwhile: list[subprocess.Popen] = []
+        meanwhile: list[subprocess.Popen[str]] = []
         while installing.is_alive():
             # A few at a time: a pass every 50 ms, unbounded, slowed the
             # update past a minute in the image — and past the held pass.
@@ -3310,7 +3352,9 @@ def _worktree_of(machine: Bench) -> Path:
 
 @case
 @runner_settings(keep_worktree_on_failure=True)
-def a_worktree_left_in_the_middle_of_a_rebase_is_saved_and_the_ticket_starts_again(machine):
+def a_worktree_left_in_the_middle_of_a_rebase_is_saved_and_the_ticket_starts_again(
+    machine: Bench,
+) -> None:
     """A session killed while it resolved conflicts: 36 tickets could not get a worktree.
 
     The worktree is in a rebase with an untracked file next to it, and
@@ -3368,7 +3412,7 @@ def a_worktree_left_in_the_middle_of_a_rebase_is_saved_and_the_ticket_starts_aga
 
 @case
 @runner_settings(keep_worktree_on_failure=True)
-def a_ticket_renamed_between_two_attempts_carries_on_on_its_own_branch(machine):
+def a_ticket_renamed_between_two_attempts_carries_on_on_its_own_branch(machine: Bench) -> None:
     """Renamed after a failed attempt: the next one used to want a branch of the new title.
 
     The worktree, named after the ID, still held the first attempt's commit, and
@@ -3405,7 +3449,7 @@ def a_ticket_renamed_between_two_attempts_carries_on_on_its_own_branch(machine):
 
 
 @case
-def a_session_killed_is_resumed_once_and_blocked_as_killed_if_it_dies_again(machine):
+def a_session_killed_is_resumed_once_and_blocked_as_killed_if_it_dies_again(machine: Bench) -> None:
     repository = machine.repository("site")
     project = machine.project("Site", repository)
     machine.ticket("Une session tuée", "Fais-le.", project)
@@ -3432,7 +3476,9 @@ def a_session_killed_is_resumed_once_and_blocked_as_killed_if_it_dies_again(mach
 
 
 @case
-def a_board_that_cannot_be_reached_marks_no_ticket_failed_and_the_run_does_not_fail(machine):
+def a_board_that_cannot_be_reached_marks_no_ticket_failed_and_the_run_does_not_fail(
+    machine: Bench,
+) -> None:
     import argparse
 
     from ponos import __main__ as command
@@ -3474,7 +3520,9 @@ def _with_an_on_prompt(machine: Bench, ticket: str, prompt: str) -> None:
 
 
 @case
-def a_status_that_moves_runs_the_on_prompt_once_and_a_restart_does_not_run_it_again(machine):
+def a_status_that_moves_runs_the_on_prompt_once_and_a_restart_does_not_run_it_again(
+    machine: Bench,
+) -> None:
     """The prompt of a ticket, woken by a change and by nothing else.
 
     A fresh `Runner` for every pass is the restart: what keeps a change from
@@ -3516,7 +3564,9 @@ def a_status_that_moves_runs_the_on_prompt_once_and_a_restart_does_not_run_it_ag
 
 
 @case
-def an_on_prompt_that_fails_says_so_on_the_ticket_and_leaves_its_status_alone(machine):
+def an_on_prompt_that_fails_says_so_on_the_ticket_and_leaves_its_status_alone(
+    machine: Bench,
+) -> None:
     from ponos import transitions
 
     ticket = machine.ticket("Fragile", "Rien.", status="Failed")
@@ -3536,7 +3586,7 @@ def an_on_prompt_that_fails_says_so_on_the_ticket_and_leaves_its_status_alone(ma
 
 
 @case
-def an_on_prompt_is_not_run_when_the_feature_is_off_nor_for_an_empty_prompt():
+def an_on_prompt_is_not_run_when_the_feature_is_off_nor_for_an_empty_prompt() -> None:
     with bench(on=False) as machine:
         ticket = machine.ticket("Muet", "Rien.", status="Failed")
         _with_an_on_prompt(machine, ticket, "Fais quelque chose.")
