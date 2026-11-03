@@ -36,6 +36,8 @@ from .. import config as config_module
 from .. import local_ci, models, subtypes, voice
 from ..config import (
     CONFIDENCES,
+    DIGEST_DAYS,
+    DIGESTS,
     EVENTS,
     IDEAS_SCHEDULES,
     IDEAS_SCOPES,
@@ -1697,6 +1699,33 @@ SECTIONS: tuple[Section, ...] = (
                 "Read your replies",
                 "Your replies on Telegram or Slack become comments on the ticket. Off: "
                 "messages are sent, replies are ignored.",
+            ),
+            Field(
+                "notify",
+                "digest",
+                "choice",
+                "Send a digest",
+                "The period's delivered tickets, cost, merge rate, stops and tickets waiting "
+                "for you, in one message on Telegram or Slack. No Claude session, no cost.",
+                choices=DIGESTS,
+                options=(("off", "Never"), ("daily", "Every day"), ("weekly", "Every week")),
+            ),
+            Field(
+                "notify",
+                "digest_day",
+                "choice",
+                "Digest day",
+                "The day a weekly digest is sent.",
+                choices=DIGEST_DAYS,
+                options=tuple((day, day.capitalize()) for day in DIGEST_DAYS),
+            ),
+            Field(
+                "notify",
+                "digest_hour",
+                "int",
+                "Digest hour",
+                "0 to 23, this computer's clock. A computer asleep then sends it on waking.",
+                minimum=0,
             ),
         ),
     ),

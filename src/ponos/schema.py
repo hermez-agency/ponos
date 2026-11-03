@@ -46,6 +46,8 @@ from pydantic_core import ErrorDetails, PydanticUseDefault
 from . import models, subtypes
 from .config import (
     CONFIDENCES,
+    DIGEST_DAYS,
+    DIGESTS,
     EVENTS,
     GITHUB_MODES,
     IDEAS_SCHEDULES,
@@ -397,6 +399,10 @@ class NotifyTable(Table):
             )
         ),
     ] = EVENTS
+    # The summary of a period sent on its own — see digest.py. Off unless asked.
+    digest: Annotated[str, _one_of(DIGESTS)] = "off"
+    digest_day: Annotated[str, _one_of(DIGEST_DAYS)] = "monday"
+    digest_hour: AtLeast0 = 9
     telegram: TelegramTable = Field(default_factory=TelegramTable)
     slack: SlackTable = Field(default_factory=SlackTable)
 

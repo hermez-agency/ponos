@@ -1589,6 +1589,22 @@ export const FRENCH: Record<string, string> = {
   "Read your replies": "Lire vos réponses",
   "Your replies on Telegram or Slack become comments on the ticket. Off: messages are sent, replies are ignored.":
     "Vos réponses sur Telegram ou Slack deviennent des commentaires sur le ticket. Désactivé : les messages partent, les réponses sont ignorées.",
+  "Send a digest": "Envoyer un bilan",
+  "The period's delivered tickets, cost, merge rate, stops and tickets waiting for you, in one message on Telegram or Slack. No Claude session, no cost.":
+    "Les tickets livrés de la période, le coût, le taux de fusion, les blocages et les tickets qui vous attendent, en un message sur Telegram ou Slack. Aucune session Claude, aucun coût.",
+  Never: "Jamais",
+  "Digest day": "Jour du bilan",
+  "The day a weekly digest is sent.": "Le jour où part un bilan hebdomadaire.",
+  Monday: "Lundi",
+  Tuesday: "Mardi",
+  Wednesday: "Mercredi",
+  Thursday: "Jeudi",
+  Friday: "Vendredi",
+  Saturday: "Samedi",
+  Sunday: "Dimanche",
+  "Digest hour": "Heure du bilan",
+  "0 to 23, this computer's clock. A computer asleep then sends it on waking.":
+    "De 0 à 23, l'horloge de cet ordinateur. Un ordinateur endormi à cette heure l'envoie à son réveil.",
   "Telegram bot token": "Jeton du bot Telegram",
   "From @BotFather (/newbot). `ponos notify --pair` then finds the chat ID.":
     "Chez @BotFather (/newbot). `ponos notify --pair` trouve ensuite l'identifiant de la discussion.",

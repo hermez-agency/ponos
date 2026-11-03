@@ -823,6 +823,41 @@ def spent_by_project(since: datetime) -> list[tuple[str, int, float]]:
     return [(str(project or ""), int(count), float(total or 0.0)) for project, count, total in rows]
 
 
+def between(start: datetime, end: datetime) -> list[dict[str, Any]]:
+    """The history lines written from `start` up to, not including, `end`, oldest first."""
+    first = start.astimezone(UTC).isoformat(timespec="seconds")
+    last = end.astimezone(UTC).isoformat(timespec="seconds")
+    with db.transaction(immediate=False) as connection:
+        rows = connection.execute(
+            "SELECT entry FROM history WHERE at >= ? AND at < ? ORDER BY id", (first, last)
+        ).fetchall()
+    entries = []
+    for (raw,) in rows:
+        try:
+            entry = json.loads(raw)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(entry, dict):
+            entries.append(entry)
+    return entries
+
+
+def claim_digest(period: str) -> bool:
+    """Take the digest of a period: True for the one pass that did, False for the rest."""
+    with db.transaction() as connection:
+        taken = connection.execute(
+            "INSERT OR IGNORE INTO digests (period, at) VALUES (?, ?)",
+            (period, datetime.now(UTC).isoformat(timespec="seconds")),
+        )
+    return taken.rowcount > 0
+
+
+def release_digest(period: str) -> None:
+    """Give a period's digest back, because no channel took it: the next pass tries again."""
+    with db.transaction() as connection:
+        connection.execute("DELETE FROM digests WHERE period = ?", (period,))
+
+
 def causes(ticket: str = "") -> dict[str, str]:
     """{ticket id without dashes: the cause it last stopped on}, from the history.
 

@@ -1130,6 +1130,8 @@ def command_notify(args: argparse.Namespace) -> int:
         return _pair(configuration, settings)
 
     live = channels.open(settings)
+    if live and args.digest:
+        return _digest(configuration)
     if not live:
         warn("no channel configured")
         print(
@@ -1158,6 +1160,20 @@ def command_notify(args: argparse.Namespace) -> int:
     if problems:
         return 1
     print(f"\n{DIM}replies come back on the next run (ponos run){RESET}")
+    return 0
+
+
+def _digest(configuration: config_module.Config) -> int:
+    """Send the digest now, to see what it says before Monday does."""
+    try:
+        sent = Runner(configuration, quiet=True).digest(now=True)
+    except store.StoreError as error:
+        bad(f"the board did not answer — {error}")
+        return 1
+    if not sent:
+        bad("the digest was not sent")
+        return 1
+    ok("digest sent")
     return 0
 
 
@@ -1964,6 +1980,9 @@ def build_parser() -> argparse.ArgumentParser:
     notifying.add_argument("message", nargs="?", help="what to send (default: a test line)")
     notifying.add_argument(
         "--pair", action="store_true", help="find the Telegram chat id and save it"
+    )
+    notifying.add_argument(
+        "--digest", action="store_true", help="send the digest of the period under way now"
     )
     notifying.set_defaults(function=command_notify)
 

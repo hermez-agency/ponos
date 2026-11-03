@@ -47,6 +47,7 @@ from . import (
     cleanup,
     credits,
     delivery,
+    digest,
     execution,
     preparation,
     recurrence,
@@ -66,6 +67,7 @@ class Runner(
     ci.Checks,
     cleanup.Cleanup,
     delivery.Delivery,
+    digest.Digest,
     execution.Execution,
     preparation.Preparation,
     recurrence.Recurrence,
@@ -101,6 +103,9 @@ class Runner(
         # this morning is part of the board this pass is about to read.
         self.reconcile()
         self.answers()
+        # Once a period, and under the lock, so that it is the pass that sends it.
+        if not reference:
+            self.digest()
         # The softer of the two lines, and it stops less: the window is not
         # spent, it is down to the share you asked to keep. Nothing is *started*
         # past it — no ticket, no publication, no answer in a thread — while

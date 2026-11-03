@@ -47,6 +47,7 @@ ponos open <uri>   # what a ponos://session/<id>?cwd=<path> link runs on the des
 ponos tailscale [status|apply|enable|disable|watch]  # the console on your tailnet, MCP through Funnel (--interval: seconds, for watch)
 ponos notify [message]       # send yourself a test message on Telegram or Slack
 ponos notify --pair          # find your Telegram chat id and save it
+ponos notify --digest        # send the digest of the period under way, now
 ponos mcp token    # a key to the MCP server, for a client that cannot sign in (--read-only, --name)
 ponos mcp list     # the address to paste in Claude, the MCP clients and their last writes (-n, --number: how many)
 ponos mcp revoke <client>    # take back every key of one client

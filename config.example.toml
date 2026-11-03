@@ -996,6 +996,20 @@ replies = true
 # back from you; "done" is the pull request waiting; "failed" is a log to read.
 events = ["blocked", "failed", "done"]
 
+# A summary of the period, sent by itself to Telegram or Slack: what was
+# delivered (by project), what it cost, the merge rate, the stops by cause, and
+# the tickets waiting for a decision, with their links. Read off ponos.db and the
+# board — no session, no cost — and sent once per period however many passes run.
+#   "off"     never (the default)
+#   "weekly"  on `digest_day`, at `digest_hour`: the seven days that ended then
+#   "daily"   every day at `digest_hour`: the day that ended then
+# The hour is this machine's, 0–23. A machine asleep at that hour still sends it
+# on waking, up to a day late. `ponos notify --digest` sends the period under way
+# now, to try it.
+# digest = "weekly"
+# digest_day = "monday"
+# digest_hour = 9
+
 # Telegram — the two-minute channel, and the one to start with. No public URL,
 # no webhook, no domain: the runner polls, so it works from a laptop behind a
 # NAT.
