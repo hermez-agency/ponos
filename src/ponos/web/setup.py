@@ -155,11 +155,19 @@ def _notion(api: Api, report: provision.Report, page_id: str) -> str:
     try:
         built = provision.provision(notion.Client(token), api.config.notion, page_id)
     except store.StoreError as error:
-        return f"Notion: {str(error).splitlines()[0]}"
+        return notion_problem(error)
     report.steps.extend(built.steps)
     api.save_settings({"settings": {"notion.workspace": built.workspace}})
     report.note("created", f"the board is {built.workspace} — written to the configuration")
     return ""
+
+
+def notion_problem(error: Exception) -> str:
+    """What stopped the board, with the right cure: a wrong token or a page not shared."""
+    said = f"Notion: {str(error).splitlines()[0]}"
+    if isinstance(error, (notion.Refused, notion.Missing)):
+        said += f" — {notion.advice(error)}"
+    return said
 
 
 def _rules(api: Api, report: provision.Report, rules: str) -> str:
