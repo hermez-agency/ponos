@@ -112,16 +112,27 @@ def uninstalling_takes_back_everything_install_sh_put_down():
         console = subprocess.Popen(
             ["sh", str(home / ".local/bin/ponos"), "serve"], start_new_session=True
         )
+        loop: subprocess.Popen[bytes] | None = None
         try:
             web = home / ".local/state/ponos/web"
             web.mkdir(parents=True)
             (web / "serve.pid").write_text(f"{console.pid}\n", encoding="utf-8")
+            loop = subprocess.Popen(
+                ["sh", str(home / ".local/bin/ponos"), "run", "--every"], start_new_session=True
+            )
+            (web / "run.pid").write_text(f"{loop.pid}\n", encoding="utf-8")
 
             done = _uninstall(home, fakes)
             assert done.returncode == 0, done.stdout + done.stderr
 
             assert console.wait(timeout=10) is not None, "the background console still runs"
+            assert loop and loop.wait(timeout=10) is not None, (
+                "the background runner loop still runs"
+            )
         finally:
+            if loop and loop.poll() is None:
+                loop.kill()
+                loop.wait()
             if console.poll() is None:
                 console.kill()
                 console.wait()

@@ -516,7 +516,7 @@ export const FRENCH: Record<string, string> = {
   "timer not installed — ponos enable": "minuterie non installée — ponos enable",
   "timer masked in systemd": "minuterie masquée dans systemd",
   "timer on, with no next run": "minuterie active, sans prochaine passe",
-  "no systemd on this machine": "pas de systemd sur cette machine",
+  "no systemd and no runner loop — ponos run --every": "pas de systemd ni de boucle du runner — ponos run --every",
   "timer state unknown": "état de la minuterie inconnu",
 
   /* -- the search over the board and a project's tickets ------------------- */

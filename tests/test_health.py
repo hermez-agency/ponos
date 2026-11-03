@@ -1087,6 +1087,21 @@ def health_says_a_timer_that_will_never_fire_and_how_often_a_run_comes():
 
 
 @case
+def health_does_not_tick_a_machine_without_systemd_and_without_a_loop():
+    from ponos import health
+
+    config = _config("[runner]\ninterval_seconds = 120\n")
+    for looping, state in ((False, "warn"), (True, "ok")):
+        with (
+            _patched(health.shutil, which=lambda name: None),
+            _patched(health.systemd, looping=lambda looping=looping: looping),
+        ):
+            found = health._runner(config)
+        assert found[0].code == "machine.runner" and found[0].state == state, found[0]
+        assert "ponos run --every" in found[0].said
+
+
+@case
 def health_says_the_rank_the_sessions_run_at():
     from ponos import health
 
@@ -1663,3 +1678,28 @@ def health_adds_the_type_and_subtype_a_schedules_database_lacks_and_then_says_ok
     found = health._schedules(config, board, space)
     assert ("notion.schedules", "ok") in _verdicts(found), found
     assert health.problems(found) == 0
+
+
+@case
+def the_runner_loop_is_told_by_its_pid_file_and_its_command_line(state_home):
+    import subprocess
+    import sys
+
+    from ponos import systemd
+
+    web = state_home / "web"
+    web.mkdir(parents=True)
+    assert not systemd.looping(), "no pid file"
+    (web / "run.pid").write_text("not a number\n", encoding="utf-8")
+    assert not systemd.looping()
+    sleeper = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
+    loop = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)", "run", "--every"])
+    try:
+        (web / "run.pid").write_text(f"{sleeper.pid}\n", encoding="utf-8")
+        assert not systemd.looping(), "a live process that is not the loop"
+        (web / "run.pid").write_text(f"{loop.pid}\n", encoding="utf-8")
+        assert systemd.looping()
+    finally:
+        for process in (sleeper, loop):
+            process.kill()
+            process.wait()

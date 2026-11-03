@@ -468,8 +468,25 @@ PLIST
             || warn "could not load $AGENTS/app.ponos.web.plist — start it by hand: ponos serve"
     fi
 elif [ "$SERVICES" = background ]; then
-    say "Starting the console"
-    warn "no systemd session here: no timer — a ticket runs when you start it from the console, or with “ponos run”"
+    say "Starting the console and the runner"
+    # No timer here, so the loop the container runs does its job: one run every
+    # interval. Its PID is kept beside the console's, for uninstall.sh and for
+    # `ponos doctor`, which tells a loop that runs from one that does not.
+    mkdir -p "$STATE_DIR/web"
+    LOOP_PID=$(cat "$STATE_DIR/web/run.pid" 2>/dev/null || true)
+    case "$LOOP_PID" in
+        ''|*[!0-9]*) LOOP_PID= ;;
+    esac
+    if [ -n "$LOOP_PID" ] && ps -p "$LOOP_PID" -o args= 2>/dev/null | grep -q "run --every"; then
+        ok "a runner loop already runs (pid $LOOP_PID)"
+    else
+        (
+            umask 077
+            nohup "$BIN" run --every >>"$STATE_DIR/web/run.log" 2>&1 </dev/null &
+            echo $! > "$STATE_DIR/web/run.pid"
+        )
+        ok "runner started in the background: one run every ${INTERVAL}s (until this machine restarts: then “ponos run --every”)"
+    fi
     if [ "${TR_NO_WEB:-0}" != "1" ]; then
         if console_up; then
             CONSOLE_UP=1
@@ -489,7 +506,7 @@ elif [ "$SERVICES" = background ]; then
         fi
     fi
 else
-    warn "no unit installed — run passes with “ponos run”, the console with “ponos serve”"
+    warn "no unit installed — run passes with “ponos run --every”, the console with “ponos serve”"
 fi
 
 # Started is not answering: the address is printed — and opened — once it does.

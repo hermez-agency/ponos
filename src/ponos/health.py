@@ -2500,15 +2500,25 @@ def _runner(config: config_module.Config) -> list[Check]:
             )
         )
     elif not shutil.which("systemctl"):
-        # Not a fault: a machine without systemd runs the runner some other way, and nothing here can see it.
-        found.append(
-            _check(
-                "machine.runner",
-                OK,
-                "Runner",
-                "No systemd here: the runner is started with `ponos run --every`.",
+        if systemd.looping():
+            found.append(
+                _check(
+                    "machine.runner",
+                    OK,
+                    "Runner",
+                    "No systemd here: the loop `ponos run --every` runs in the background, one run every {{interval}}s.",
+                    params=every,
+                )
             )
-        )
+        else:
+            found.append(
+                _check(
+                    "machine.runner",
+                    WARN,
+                    "Runner",
+                    "No systemd here and no runner loop: no ticket is taken until `ponos run --every` is started (`ponos run` for a single pass).",
+                )
+            )
     else:
         found.append(
             _check(

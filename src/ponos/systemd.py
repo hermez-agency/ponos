@@ -10,11 +10,15 @@ own state is what tells "no next run" apart from "the run is happening now".
 
 from __future__ import annotations
 
+import os
 import re
 import shutil
 import subprocess
 import time
 from dataclasses import dataclass
+from pathlib import Path
+
+from . import config
 
 UNIT = "ponos.timer"
 SERVICE = "ponos.service"
@@ -54,6 +58,21 @@ class Timer:
     @property
     def label(self) -> str:
         return "stalled" if self.stalled else self.enabled
+
+
+def looping() -> bool:
+    """Whether the `ponos run --every` loop `install.sh` started is still there.
+
+    Where there is no systemd the installer starts that loop in the background
+    and keeps its PID in `web/run.pid`. A restart leaves the file behind and
+    may hand the number to somebody else, so the command line is read too.
+    """
+    try:
+        pid = int((config.state_dir() / "web" / "run.pid").read_text(encoding="utf-8").strip())
+        arguments = os.fsdecode(Path(f"/proc/{pid}/cmdline").read_bytes()).split("\0")
+    except (OSError, ValueError):
+        return False
+    return "run" in arguments and "--every" in arguments
 
 
 def read() -> Timer:

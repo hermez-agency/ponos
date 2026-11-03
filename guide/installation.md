@@ -18,9 +18,13 @@ you want a ticket picked up as soon as you move it:
 - **Linux with a systemd user session** — a systemd timer, and the console as a service;
 - **macOS** — two launchd agents in `~/Library/LaunchAgents`, `app.ponos.run` and
   `app.ponos.web`, logging under `~/.local/state/ponos/`;
-- **neither** — WSL, a container, an SSH session with no user bus: no timer, and the console
-  started in the background until the machine restarts. A ticket then runs when the console
-  starts it, or with `ponos run`.
+- **neither** — WSL, a container, an SSH session with no user bus: no timer, so the installer
+  starts two processes in the background — the console, and `ponos run --every`, the loop
+  that does what the timer would (one run every `runner.interval_seconds`). A ticket moved
+  to *Ready* is taken without another command. Both last until the machine restarts: start
+  them again with `ponos serve` and `ponos run --every`. `ponos doctor`, `ponos status` and
+  the console's runner strip say the same thing — and `doctor` warns, rather than ticking,
+  when no loop is running.
 
 It ends by opening the [web console](console.md#the-web-console) on `http://127.0.0.1:8787`, where the
 [first connection](console.md#the-first-connection) does the rest; `TR_NO_WEB=1` leaves the console
@@ -168,7 +172,7 @@ curl -LsSf https://raw.githubusercontent.com/hermez-agency/ponos/main/uninstall.
 It takes back everything `install.sh` put down, on Linux and on a Mac: the Tailscale doors
 first (`ponos tailscale disable`, while the binary is still there), then the systemd units
 and their drop-ins (`~/.config/systemd/user/ponos*`), the launchd agents
-(`~/Library/LaunchAgents/app.ponos.*.plist`, unloaded before they go), the console started
+(`~/Library/LaunchAgents/app.ponos.*.plist`, unloaded before they go), the console and the runner loop started
 in the background where there was neither, the `ponos://` handler and its `xdg-mime`
 association, the icons, the launcher and the installed versions.
 

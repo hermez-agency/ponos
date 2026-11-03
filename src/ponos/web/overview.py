@@ -45,7 +45,10 @@ class Overview(Base):
         return {
             # In a container the timer is the image's `ponos run --every`, which
             # starts with it and stops with it: on for as long as this answers.
-            "timer": "enabled" if config_module.in_container() else systemd.read().label,
+            # Without systemd, the installer's own loop is the timer.
+            "timer": "enabled"
+            if config_module.in_container() or systemd.looping()
+            else systemd.read().label,
             "running": bool(held),
             "lock": held,
             # The sessions in flight, read from their logs: what a page that has
