@@ -98,11 +98,13 @@ partagent que `scripts/workbench.py`, le harnais (faux `claude`, `gh`, `systemct
 ## CI
 
 `.github/workflows/ci.yml` tourne sur chaque pull request et sur chaque push
-vers `main` : le job cœur installe `requirements.txt` (et rien d'autre), puis
-relance `python3 tests/run.py` et `python3 tests/functional.py` sous Python 3.11
-et 3.13 ; le job qualité fait `uv sync --locked`, `ruff check`, `ruff format --check`, `mypy`, vérifie que
+vers `main` — chaque vérification une fois par variante, son en-tête dit ce que
+chaque job prouve seul : le job cœur installe `requirements.txt` (et rien d'autre), puis
+relance `python3 tests/run.py` et `python3 tests/functional.py` sous Python 3.11,
+et sous 3.13 seulement `tests/run.py` avec `TZ=Australia/Sydney` ; le job qualité fait `uv sync --locked`, `ruff check`, `ruff format --check`, `mypy`, vérifie que
 `requirements.txt` est l'export de `uv.lock`, puis `pytest --cov --cov-fail-under=80`
-(réparti par pytest-xdist, sous-processus Python compris dans la couverture) ; le job frontend ne se déclenche que si `frontend/**` ou
+sous 3.13 (réparti par pytest-xdist, sous-processus Python compris dans la couverture,
+sauf les doublures de `functional.py`, lancées en `python -S`) ; le job frontend ne se déclenche que si `frontend/**` ou
 `src/ponos/web/**` a changé, et y
 fait `npm ci`, échoue si `npm run types` change `src/lib/api-types.d.ts`, puis
 `npm run lint`, `npm test`, `npm run build` (sous Node 24),
