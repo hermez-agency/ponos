@@ -2,21 +2,37 @@
 # `main` — le runner ouvre lui-même ses PR, et les installations qui suivent
 # `update_channel = "main"` prennent chaque commit sans attendre un tag.
 #
+# Chaque vérification tourne une fois par variante qui peut la faire échouer,
+# et pas plus : un job ne relance pas ce qu'un autre a déjà prouvé dans les
+# mêmes conditions. Ce que chacun prouve, que les autres ne prouvent pas :
+#
+# - core (3.11) : les deux suites sur la plus ancienne version de Python que
+#   le runner promet, avec `requirements.txt` et rien d'autre ;
+# - core (3.13) : la partie pure sous `TZ=Australia/Sydney`, une heure d'été ;
+# - quality : ruff, mypy, l'export du lockfile, et les deux suites sous pytest
+#   sur 3.13 — la version la plus récente —, avec la couverture et son seuil ;
+# - frontend : la console — ses types, son build commité, un vrai navigateur ;
+# - image : le parcours complet dans l'image du `Dockerfile`.
+#
 # Le job cœur tourne toujours : les deux suites n'ont pas de raison d'être
 # sautées. Il installe ce que le cœur importe — `requirements.txt`, avec ses
 # sommes, comme une installation le met dans son `.venv` : httpx pour le runner,
-# FastAPI et uvicorn pour la console —, et rien d'autre. `tests/run.py` vérifie
-# que rien hors de `web/app.py`, `web/routes.py` et de httpx dans `http.py`
-# n'importe autre chose que la bibliothèque standard.
+# FastAPI et uvicorn pour la console —, et rien d'autre : l'outillage de quality
+# (pytest et ses greffons) ne peut pas y cacher une dépendance manquante.
+# `tests/run.py` vérifie que rien hors de `web/app.py`, `web/routes.py` et de
+# httpx dans `http.py` n'importe autre chose que la bibliothèque standard.
 # `tests/functional.py` a besoin de `git`, que le runner GitHub a déjà : son
-# Notion, son dépôt et son `claude` sont à lui. Il tourne sur la plus ancienne version de Python que le
-# runner promet (3.11) et sur la plus récente, parce qu'une installation prend
-# le `python3` de la machine, quel qu'il soit. Chaque suite répartit ses cas sur
-# un processus par cœur (`support.run`), comme `pytest -n auto` le fait ailleurs.
-# La partie pure tourne une seconde fois sous `TZ=Australia/Sydney` : le runner
-# GitHub est en UTC, qui n'a pas d'heure d'été, et un cas qui confond l'offset
-# d'une date avec celui d'aujourd'hui n'y échoue jamais. Sydney change d'heure
-# à l'inverse de Paris : à toute saison, l'un des deux est à l'heure d'été.
+# Notion, son dépôt et son `claude` sont à lui. Une installation prend le
+# `python3` de la machine, quel qu'il soit : les deux suites tournent sur la
+# plus ancienne version que le runner promet (3.11) ici, et sur la plus récente
+# (3.13) dans quality — les relancer ici sous 3.13 ne prouverait rien de plus.
+# Chaque suite répartit ses cas sur un processus par cœur (`support.run`),
+# comme `pytest -n auto` le fait ailleurs.
+# Sous 3.13, ce job ne lance que la partie pure sous `TZ=Australia/Sydney` : le
+# runner GitHub est en UTC, qui n'a pas d'heure d'été, et un cas qui confond
+# l'offset d'une date avec celui d'aujourd'hui n'y échoue jamais. Sydney change
+# d'heure à l'inverse de Paris : à toute saison, l'un des deux est à l'heure
+# d'été. Elle reste ici plutôt que dans quality, qui fait le chemin critique.
 #
 # Le job frontend ne tourne, sur une pull request, que si `frontend/**` (ses
 # tests e2e compris) ou `src/ponos/web/**` a changé, pour ne pas payer npm sur
@@ -46,10 +62,13 @@
 # lockfile ne correspond plus au pyproject). Il passe ruff — les règles du
 # pyproject, puis `ruff format --check` —, vérifie que `requirements.txt`, ce que les
 # installations mettent dans leur environnement, est bien l'export du lockfile,
-# puis lance les deux suites sous pytest, réparties sur les cœurs (pytest-xdist),
-# avec la couverture — qui doit rester à 80 % au moins — et les dix cas les plus
-# lents. Le job cœur reste à part : c'est lui qui prouve que le runner et
-# ses tests tournent avec ce que `requirements.txt` installe, et rien de plus.
+# puis lance les deux suites sous pytest, réparties sur les quatre cœurs du
+# runner GitHub (pytest-xdist, `-n auto`), avec la couverture — qui doit rester
+# à 80 % au moins — et les dix cas les plus lents. La couverture suit aussi le
+# Python qu'un cas démarre (`patch = ["subprocess"]`) ; les doublures de
+# `tests/functional.py` — `git`, `gh`, `claude` — démarrent sans `site`, donc
+# sans elle : elles ne portent rien de `src/ponos`, et la doublure de `git`, à
+# elle seule, triplait ce qu'un scénario coûte sous couverture.
 #
 # Le job image construit le `Dockerfile` et relance `tests/functional.py` dans
 # l'image qu'il vient de construire : c'est une autre façon d'installer le
@@ -87,6 +106,7 @@ jobs:
         run: python3 -m pip install --disable-pip-version-check --require-hashes -r requirements.txt
 
       - name: La suite du cœur
+        if: matrix.python-version == '3.11'
         run: python3 tests/run.py
 
       - name: La suite du cœur, sous une heure d'été
@@ -96,6 +116,7 @@ jobs:
           TZ: Australia/Sydney
 
       - name: Le parcours complet
+        if: matrix.python-version == '3.11'
         run: python3 tests/functional.py
 
   quality:

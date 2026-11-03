@@ -518,7 +518,10 @@ rebuild that has no source change, a new Node for instance.
 `tests/conftest.py` hands pytest the very cases the two scripts run, one test each under
 its own name, and the same fixtures: nothing is written twice. The coverage counts the
 Python a test starts in a subprocess — `python3 -m ponos`, an update trying its new
-code — as well (`[tool.coverage.run] patch = ["subprocess"]`). Ruff checks pyflakes, the pycodestyle errors,
+code — as well (`[tool.coverage.run] patch = ["subprocess"]`); the doubles of
+`tests/functional.py` (`git`, `gh`, `claude`) start with `python -S`, without the `.pth`
+that does it, since they hold none of `src/ponos` and `git` alone runs dozens of times a
+scenario. Ruff checks pyflakes, the pycodestyle errors,
 warnings, bugbear, the order of imports, the syntax of Python 3.11 and some
 simplifications, with no exception list: a deviation is fixed, or justified by a `# noqa`
 on its line. `ruff format` is enforced too; the commit that formatted the whole repository
@@ -577,9 +580,11 @@ The script also writes, into `docs/index.html` and its French twin `docs/fr/inde
 gestures begins, for the legend under the film to follow it.
 
 `.github/workflows/ci.yml` runs both suites on every pull request and on every push to
-`main`, on Python 3.11 — the oldest the runner promises — and 3.13, after installing
-`requirements.txt` as an installation does — the runner opens its
-own PRs, and none of them was checked before merge until this ran. A second job builds and
+`main`, on Python 3.11 — the oldest the runner promises — after installing
+`requirements.txt` as an installation does, and nothing else — the runner opens its
+own PRs, and none of them was checked before merge until this ran. On 3.13, that job only
+runs the pure part under `TZ=Australia/Sydney`, a zone with summer time: 3.13 itself is
+the quality job's, below, and each check runs once per variant that can fail it. A second job builds and
 lints `frontend/` the same way, but only when `frontend/**` or `src/ponos/web/**`
 changed — the browser tests open the console's server as much as its page — and then fails if
 `src/ponos/web/static` is not exactly what that build produces: the console is

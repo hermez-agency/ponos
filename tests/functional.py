@@ -1013,7 +1013,12 @@ raise SystemExit(1)
 
 
 def _script(path: Path, source: str) -> None:
-    path.write_text(f"#!{sys.executable}\n{source}", encoding="utf-8")
+    # `-S`: no `site`, so none of the `.pth` files of the environment — among
+    # them the one through which `pytest --cov` measures every Python it sees
+    # start. A double holds none of `src/ponos`, imports nothing but the
+    # standard library, and `git` runs dozens of times per scenario: measured,
+    # it tripled what a scenario costs under coverage, for nothing counted.
+    path.write_text(f"#!{sys.executable} -S\n{source}", encoding="utf-8")
     path.chmod(0o755)
 
 
