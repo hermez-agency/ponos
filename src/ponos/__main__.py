@@ -598,6 +598,22 @@ def command_status(args: argparse.Namespace) -> int:
         return 2
 
     title("Services")
+    _status_services(configuration)
+    _status_run()
+    _status_credits(configuration)
+    _status_budget(configuration)
+    rules = configuration.permissions
+    ok(f"permissions: {len(rules.allowed)} done alone, {len(rules.ask)} always asked")
+
+    title("Board")
+    _status_board(configuration)
+
+    title("Recent tickets")
+    return _status_recent()
+
+
+def _status_services(configuration: config_module.Config) -> None:
+    """`ponos status`: the timer and the console, or the loop where there is no systemd."""
     if shutil.which("systemctl"):
         _timer_line(systemd.read())
         # The console runs by default, so its absence is worth a line: nothing
@@ -622,12 +638,18 @@ def command_status(args: argparse.Namespace) -> int:
                 "no systemd and no runner loop — no ticket is taken until `ponos run --every` is started"
             )
 
+
+def _status_run() -> None:
+    """`ponos status`: the run under way, if one is."""
     held = state.running()
     if held:
         warn(_run_line(held))
     else:
         ok("no run in progress")
 
+
+def _status_credits(configuration: config_module.Config) -> None:
+    """`ponos status`: what is left of the subscription, and what waits for it."""
     # A runner that is on, has tickets and does nothing looks broken. It is not:
     # the subscription's window is spent — or down to the share you asked to
     # keep — and the wait is the point. Both are said, because they stop
@@ -651,6 +673,9 @@ def command_status(args: argparse.Namespace) -> int:
             f"{configuration.runner.credit_reserve_percent}% held in reserve"
         )
 
+
+def _status_budget(configuration: config_module.Config) -> None:
+    """`ponos status`: the spending limits, and today's against the daily one."""
     limit = configuration.budget.daily_usd
     if limit > 0:
         spent = state.spent_today()
@@ -667,10 +692,9 @@ def command_status(args: argparse.Namespace) -> int:
             f"{configuration.runner.on_max_depth} generation(s) of chained tickets"
         )
 
-    rules = configuration.permissions
-    ok(f"permissions: {len(rules.allowed)} done alone, {len(rules.ask)} always asked")
 
-    title("Board")
+def _status_board(configuration: config_module.Config) -> None:
+    """`ponos status`: how many tickets each column holds, the ready one in green."""
     try:
         configuration.require_usable()
         runner = Runner(configuration, quiet=True)
@@ -687,7 +711,9 @@ def command_status(args: argparse.Namespace) -> int:
     except (config_module.ConfigError, store.StoreError) as error:
         bad(f"Notion unreachable: {str(error).splitlines()[0]}")
 
-    title("Recent tickets")
+
+def _status_recent() -> int:
+    """`ponos status`: the last five tickets handled, and what was spent so far."""
     # A database the code cannot read — written by a newer Ponos — is one red
     # line in its own section: the rest of the status was read without it.
     try:
@@ -911,20 +937,7 @@ def command_init(args: argparse.Namespace) -> int:
             warn(what)
 
     title("Configuration")
-    if given:
-        # Beside the file rather than in it: config.toml holds no secret.
-        secrets = config_module.secrets_path(configuration.path)
-        config_module.write_secrets(secrets, {config_module.SECRETS[("notion", "token")]: token})
-        ok(f"token saved — in {secrets}")
-    if config_module.write_notion_value(configuration.path, "workspace", report.workspace):
-        ok(f"workspace = {report.workspace} — written to {configuration.path}")
-    else:
-        ok(f"workspace already pointed here ({report.workspace})")
-    if configuration.notion.tickets_database:
-        warn(
-            "notion.tickets_database is still set and wins over the workspace — "
-            "clear it unless you meant it"
-        )
+    _init_configuration(configuration, report.workspace, token if given else "")
 
     print(
         f"\n{BOLD}ready.{RESET}\n\n"
@@ -934,6 +947,24 @@ def command_init(args: argparse.Namespace) -> int:
         f"“{configuration.notion.state('ready')}”, and wait for the next pass\n"
     )
     return 0
+
+
+def _init_configuration(configuration: config_module.Config, workspace: str, token: str) -> None:
+    """`ponos init`: the workspace written to the configuration, and the token beside it if given."""
+    if token:
+        # Beside the file rather than in it: config.toml holds no secret.
+        secrets = config_module.secrets_path(configuration.path)
+        config_module.write_secrets(secrets, {config_module.SECRETS[("notion", "token")]: token})
+        ok(f"token saved — in {secrets}")
+    if config_module.write_notion_value(configuration.path, "workspace", workspace):
+        ok(f"workspace = {workspace} — written to {configuration.path}")
+    else:
+        ok(f"workspace already pointed here ({workspace})")
+    if configuration.notion.tickets_database:
+        warn(
+            "notion.tickets_database is still set and wins over the workspace — "
+            "clear it unless you meant it"
+        )
 
 
 def _init_token(option: str | None, configured: str) -> tuple[str, bool]:
@@ -1809,7 +1840,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--version", action=VersionAction)
     subparsers = parser.add_subparsers(dest="command", help="the command to run")
+    _add_ticket_commands(subparsers)
+    _add_reading_commands(subparsers)
+    _add_setup_commands(subparsers)
+    _add_console_commands(subparsers)
+    _add_upkeep_commands(subparsers)
+    return parser
 
+
+def _add_ticket_commands(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
+    """`run`, `list` and what reads or tidies the board: the tickets themselves."""
     run = subparsers.add_parser("run", help="handle the ready tickets (one run)")
     run.add_argument("--ticket", help="URL or ID of one ticket, whatever its status")
     run.add_argument("--limit", type=int, help="maximum number of tickets for this run")
@@ -1858,6 +1898,9 @@ def build_parser() -> argparse.ArgumentParser:
     syncing.add_argument("-n", "--number", type=int, default=30, help="with --journal: how many")
     syncing.set_defaults(function=command_sync)
 
+
+def _add_reading_commands(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
+    """What says how things went: status, history, logs, diagnostics."""
     status = subparsers.add_parser("status", help="timer, console, current run, recent tickets")
     status.set_defaults(function=command_status)
 
@@ -1895,6 +1938,9 @@ def build_parser() -> argparse.ArgumentParser:
     doctor = subparsers.add_parser("doctor", help="full diagnostics")
     doctor.set_defaults(function=command_doctor)
 
+
+def _add_setup_commands(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
+    """Setting the installation up, and keeping it current."""
     initialise = subparsers.add_parser(
         "init",
         help="create the Notion databases from one page link (Notion board only)",
@@ -1929,6 +1975,9 @@ def build_parser() -> argparse.ArgumentParser:
     opener.add_argument("uri", help="ponos://session/<id>?cwd=<path>")
     opener.set_defaults(function=command_open)
 
+
+def _add_console_commands(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
+    """The console, its MCP server, its tailnet, and the messages sent to your phone."""
     serving = subparsers.add_parser("serve", help="the web console: board, command line and chat")
     serving.add_argument("--host", help="what to bind (default: web.host, 127.0.0.1)")
     serving.add_argument("--port", type=int, help="what port to listen on (default: web.port)")
@@ -1986,6 +2035,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     notifying.set_defaults(function=command_notify)
 
+
+def _add_upkeep_commands(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
+    """What is left behind, and the timer that runs it all."""
     clean = subparsers.add_parser("clean", help="remove worktrees left by failures")
     clean.add_argument(
         "--force",
@@ -2004,8 +2056,6 @@ def build_parser() -> argparse.ArgumentParser:
     ):
         timer = subparsers.add_parser(name, help=help_text)
         timer.set_defaults(function=command_timer)
-
-    return parser
 
 
 def subcommands() -> tuple[str, ...]:
