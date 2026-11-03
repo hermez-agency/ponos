@@ -493,7 +493,7 @@ uv run pytest -n 0                   # in one process and in order, for a debugg
 uv run pytest --cov=src/ponos        # with the coverage, the CI's floor being 80 %
 uv run ruff check .                  # the lint the CI runs
 uv run ruff format .                 # the format the CI checks
-uv run mypy                          # the types of src/ponos and tests/: strict, but for the test files pyproject.toml still lists
+uv run mypy                          # the types of src/ponos, tests/ and scripts/: strict, but for the test files pyproject.toml still lists
 ```
 
 The same checks can run before each commit rather than minutes after the push, with

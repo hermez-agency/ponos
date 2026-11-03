@@ -92,13 +92,15 @@ extend-immutable-calls = ["fastapi.Body", "fastapi.Query"]
 # which nothing but the standard library stands behind.
 #
 # `tests/` came in after, under the same rule: its own list below, which only
-# ever shrinks.
+# ever shrinks. `scripts/` last, strict with no list: `workbench.py` is the
+# harness of the demo and of the e2e console, `release.py` and `openapi.py`
+# run in the CI and the release.
 python_version = "3.11"
 # `tests/` has no package: its files import one another as `support` or
 # `functional`, and `release` from `scripts/`, the way both runners put them
 # on `sys.path`.
 mypy_path = ["src", "tests", "scripts"]
-files = ["src/ponos", "tests"]
+files = ["src/ponos", "tests", "scripts"]
 strict = true
 warn_unused_configs = true
 
