@@ -59,7 +59,7 @@ uv run pytest                # les deux suites sous pytest, un worker par cœur 
 uv run pytest tests/test_update.py  # les cas d'un seul module
 uv run ruff check .          # le lint de la CI
 uv run ruff format .         # le format, que la CI vérifie aussi (--check)
-uv run mypy                  # les types du cœur et de tests/, comme la CI : strict partout sauf la liste d'exceptions
+uv run mypy                  # les types du cœur, de tests/ et de scripts/, comme la CI : strict partout sauf la liste d'exceptions
 uv run pre-commit install    # une fois par clone : ruff, format, uv.lock, requirements.txt et web/static avant chaque commit
 uv run --frozen pre-commit run --all-files  # les mêmes hooks sur tout l'arbre (--frozen : sinon uv met uv.lock à jour avant le hook)
 ```

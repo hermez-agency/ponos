@@ -934,7 +934,7 @@ def board(root: Path, rng: random.Random, tickets: list[Ticket]) -> None:
         write_page(folders["goals"], name, front, about)
         served.update({title: front["id"] for title in titles})
     for number, ticket in enumerate(tickets):
-        front: dict[str, Any] = {
+        front = {
             "id": ticket.id,
             "created": stamp(ticket.created),
             "edited": stamp(ticket.edited),
@@ -1257,7 +1257,7 @@ def ideas_of(rng: random.Random, tickets: list[Ticket]) -> None:
     # The tickets an idea became are tickets of the board: the ones not yet taken.
     open_ones = [t.id for t in tickets if t.status in ("Backlog", "Ready")]
 
-    def batch(project: str, rows: list[tuple], days: float, model: str) -> None:
+    def batch(project: str, rows: list[tuple[Any, ...]], days: float, model: str) -> None:
         proposals = [
             {
                 "kind": row[0] if project == "" else "ticket",

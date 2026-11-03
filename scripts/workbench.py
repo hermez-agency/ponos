@@ -23,6 +23,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
@@ -155,11 +156,11 @@ sys.exit(1)
 """
 
 
-def said(text: str) -> dict:
+def said(text: str) -> dict[str, Any]:
     return {"type": "assistant", "message": {"content": [{"type": "text", "text": text}]}}
 
 
-def tool(name: str, payload: dict) -> dict:
+def tool(name: str, payload: dict[str, Any]) -> dict[str, Any]:
     return {
         "type": "assistant",
         "message": {"content": [{"type": "tool_use", "name": name, "input": payload}]},
