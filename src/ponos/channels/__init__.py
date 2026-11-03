@@ -101,6 +101,9 @@ class Incoming:
     thread: str = ""
     text: str = ""
     who: str = ""
+    # A recording that came with the message, as the service names it: what
+    # `Channel.recording` turns into bytes. Only a ticket command reads it.
+    audio: str = ""
 
 
 @dataclass
@@ -116,6 +119,7 @@ class Reply:
     ref: str = ""
     thread: str = ""
     who: str = ""
+    audio: str = ""
 
 
 @dataclass
@@ -254,6 +258,8 @@ class Channel:
     # question asked? True where everything written is addressed to the runner
     # — a private Telegram chat — and false in a room shared with other people.
     fallback = True
+    # The project a `/ticket` that names none goes to; empty asks which.
+    default_project = ""
 
     # -- outbound ------------------------------------------------------------
 
@@ -330,6 +336,7 @@ class Channel:
                     ref=message.ref,
                     thread=message.thread,
                     who=message.who,
+                    audio=message.audio,
                 )
             )
         return replies
@@ -366,6 +373,14 @@ class Channel:
 
     def _fetch(self, cursor: str, asks: list[Ask]) -> tuple[list[Incoming], str]:
         raise NotImplementedError
+
+    def recording(self, reply: Reply) -> tuple[bytes, str]:
+        """The (bytes, content type) of the recording a message carried.
+
+        Only Telegram has one to give; a channel that never sets `Incoming.audio`
+        is never asked.
+        """
+        raise ChannelError("this channel carries no recordings")
 
     def check(self) -> str:
         """Who the runner speaks as, and where — or ChannelError saying why not.
@@ -404,6 +419,7 @@ def open(settings: Notify) -> list[Channel]:  # noqa: A001 — it opens channels
                 settings.telegram["token"],
                 str(settings.telegram["chat"]),
                 allowed_users(settings.telegram.get("allowed_users")),
+                settings.telegram.get("default_project", ""),
             )
         )
     if settings.slack.get("token") and settings.slack.get("channel"):
@@ -412,6 +428,7 @@ def open(settings: Notify) -> list[Channel]:  # noqa: A001 — it opens channels
                 settings.slack["token"],
                 str(settings.slack["channel"]),
                 allowed_users(settings.slack.get("allowed_users")),
+                settings.slack.get("default_project", ""),
             )
         )
     return live

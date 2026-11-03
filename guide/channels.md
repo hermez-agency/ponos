@@ -118,6 +118,36 @@ conversations in it, and a colleague's "ok" is not an approval of anything.
    (profile → `···` → *Copy member ID*). Empty, anybody in the channel can answer, and
    `ponos doctor` says so.
 
+### Writing a ticket from your phone
+
+The other way round works too: a message that opens with `/ticket` (Telegram) or `ticket:`
+(Telegram and Slack) is a ticket, not an answer.
+
+```text
+/ticket ponos the Stop button is not shown on mobile
+/ticket! leadz add a CSV export        ← straight into Ready
+ticket: ponos the Stop button is not shown on mobile
+```
+
+- **The project** is the first word, looked up among your projects without regard to case,
+  by name or by prefix (`pon`). A prefix that fits two projects counts as no project. With
+  none recognised, the ticket goes to `default_project` when the channel's table names one
+  (`[notify.telegram] default_project = "Ponos"`), and otherwise the bot asks which.
+- **The state** is a draft — the board's draft option when it has one, no status
+  otherwise — and `/ticket!` (or `ticket!:`) puts it in Ready. Type and sub-type are left to
+  the usual classification.
+- **The title** is the first line of the text; when there is more, the whole message
+  becomes the ticket's body.
+- **A voice message** sent with `/ticket <project>` as its caption is transcribed like
+  dictation in the console (`openrouter.key`), and what was said follows the caption.
+- **The answer** names the title, the project and the ticket's link.
+
+It works only where `allowed_users` is not empty: a ticket in Ready is a session running
+with `bypassPermissions`, which is not something "anybody who can write in this chat" should
+be able to start. Somebody not named writes nothing; with the list empty, the bot says so.
+Slack's own `/ticket` slash command needs a public URL for Slack to call, which the runner
+does not have — type `ticket:` instead.
+
 ### Telegram or Slack
 
 | | Telegram | Slack |

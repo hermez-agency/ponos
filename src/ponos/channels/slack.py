@@ -51,11 +51,18 @@ class Slack(Channel):
     # an answer here — or the ticket, named in the message.
     fallback = False
 
-    def __init__(self, token: str, channel: str, allowed: frozenset[str] = frozenset()) -> None:
+    def __init__(
+        self,
+        token: str,
+        channel: str,
+        allowed: frozenset[str] = frozenset(),
+        default_project: str = "",
+    ) -> None:
         self._token = token
         self._channel = str(channel).strip()
         self._id = ""
         self.allowed = frozenset(allowed)
+        self.default_project = default_project
 
     def _headers(self) -> dict[str, Any]:
         return {"Authorization": f"Bearer {self._token}"}

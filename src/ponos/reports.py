@@ -33,6 +33,8 @@ from . import (
     credits,
     log,
     notifications,
+    openrouter,
+    priority,
     provider,
     resources,
     session,
@@ -44,6 +46,7 @@ from . import config as config_module
 from . import question as question_module
 from . import voice as voice_module
 from .base import Base
+from .channels import capture
 from .ticket import Job, Ticket
 
 T = TypeVar("T")
@@ -477,6 +480,10 @@ class Reports(Base):
             if channels.news(channel.name, ""):
                 self.say(f"  ✓ {channel.name} readable again")
             for reply in replies:
+                command = capture.parse(reply.text)
+                if command:
+                    self.ticketed(channel, reply, command)
+                    continue
                 if not reply.ticket:
                     # Silence for ordinary talk in the room — a bot answering
                     # every message is why nobody keeps one in a channel. A
@@ -498,6 +505,104 @@ class Reports(Base):
                 self.say(f"  ↩ {label} — answered from {channel.name}, back in the queue")
                 channel.acknowledge(reply, self.voice.say("noted", title=label))
         return answered
+
+    def ticketed(
+        self, channel: channels.Channel, reply: channels.Reply, command: capture.Command
+    ) -> None:
+        """A ticket written from a phone, and told back with its link.
+
+        Only where `allowed_users` names who may write one: a ticket put in Ready
+        is a session with `bypassPermissions`, and « anybody who can write in
+        the chat » is the right reach for an answer to a question and the wrong
+        one for a command. A message from somebody not named never gets here —
+        the channel read past it.
+        """
+        said = self.voice
+        if not channel.allowed:
+            channel.acknowledge(reply, said.say("ticket-unnamed"))
+            return
+        text = command.text
+        if reply.audio:
+            asked = self.config.runner.language.strip()
+            try:
+                audio, kind = channel.recording(reply)
+                heard = openrouter.transcribe(
+                    self.config.openrouter,
+                    audio,
+                    kind,
+                    voice_module.understood(asked) if asked else "",
+                )
+            except (
+                channels.ChannelError,
+                openrouter.Unavailable,
+                openrouter.TranscriptionError,
+                ValueError,
+            ) as error:
+                channel.acknowledge(reply, said.say("ticket-unheard", error=error))
+                return
+            text = f"{text}\n{heard}".strip()
+        known: dict[str, str] = {}
+        if self.workspace.projects:
+            try:
+                for page in self.client.query(self.workspace.projects):
+                    if page.title:
+                        known[page.title] = page.id
+            except store.StoreError:
+                pass
+        chosen, text = capture.project(text, list(known))
+        if not chosen and channel.default_project:
+            chosen = capture.project(f"{channel.default_project} .", list(known))[0]
+        if not text.strip():
+            channel.acknowledge(reply, said.say("ticket-empty"))
+            return
+        if not chosen and known:
+            channel.acknowledge(reply, said.say("ticket-which", names=", ".join(sorted(known))))
+            return
+        title, body = capture.title_of(text)
+        try:
+            page_id, url = self._write_ticket(title, body, known.get(chosen, ""), command.ready)
+        except store.StoreError as error:
+            channel.acknowledge(reply, said.say("ticket-refused", error=error))
+            return
+        self.say(f"  + {title} — written from {channel.name}")
+        channel.acknowledge(
+            reply,
+            said.say(
+                "ticket-created",
+                state=said.say("ticket-ready" if command.ready else "ticket-draft"),
+                title=title,
+                project=chosen or "—",
+                url=url,
+            ),
+        )
+
+    def _write_ticket(self, title: str, body: str, project: str, ready: bool) -> tuple[str, str]:
+        """The row for a ticket written from a channel, and its address.
+
+        Type and sub-type are left empty: the classifier fills them in before
+        the ticket runs, as on a ticket written in Notion. A draft goes where the
+        board keeps its drafts when it names that option, and has no status
+        otherwise — the same rule as the console's « New ticket ».
+        """
+        settings = self.config.notion
+        values: dict[str, Any] = {}
+        draft = settings.state("draft")
+        moving = [
+            settings.state(key)
+            for key in ("ready", "running", "review", "validated", "done", "failed", "blocked")
+        ]
+        if ready:
+            values[settings.prop("status")] = settings.state("ready")
+        elif draft and draft not in moving:
+            values[settings.prop("status")] = draft
+        if project:
+            values[settings.prop("project")] = [project]
+        if settings.prop("priority") in self.client.schema(self.database):
+            values[settings.prop("priority")] = self.priority_cell(priority.DEFAULT)
+        page_id = self.client.create_row(self.database, title, values)
+        if body:
+            self.client.append_markdown(page_id, body)
+        return page_id, self.client.page(page_id).url
 
     def asked(self, page_id: str) -> question_module.Question | None:
         """The question a ticket is waiting on, read off its last report.

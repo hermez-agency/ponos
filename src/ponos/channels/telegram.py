@@ -26,7 +26,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from . import Ask, Channel, ChannelError, Incoming, request
+from .. import http
+from . import Ask, Channel, ChannelError, Incoming, Reply, request
 
 API = "https://api.telegram.org"
 
@@ -34,14 +35,25 @@ API = "https://api.telegram.org"
 # that — a long question would arrive as nothing at all.
 LIMIT = 3900
 
+# A bot may download twenty megabytes; a voice message that long is not a ticket.
+MAX_AUDIO = 20 * 1024 * 1024
+TIMEOUT = 30
+
 
 class Telegram(Channel):
     name = "telegram"
 
-    def __init__(self, token: str, chat: str, allowed: frozenset[str] = frozenset()) -> None:
+    def __init__(
+        self,
+        token: str,
+        chat: str,
+        allowed: frozenset[str] = frozenset(),
+        default_project: str = "",
+    ) -> None:
         self._token = token
         self._chat = str(chat).strip()
         self.allowed = frozenset(allowed)
+        self.default_project = default_project
 
     def _url(self, method: str) -> str:
         return f"{API}/bot{self._token}/{method}"
@@ -105,9 +117,32 @@ class Telegram(Channel):
                     thread=str(replied.get("message_id", "")) if replied else "",
                     text=message.get("text") or message.get("caption") or "",
                     who=author.get("first_name") or author.get("username") or "",
+                    audio=str(
+                        (message.get("voice") or message.get("audio") or {}).get("file_id", "")
+                    ),
                 )
             )
         return incoming, str(highest + 1) if highest >= 0 else cursor
+
+    def recording(self, reply: Reply) -> tuple[bytes, str]:
+        """A voice message, downloaded: `getFile` names the path, a second GET serves it."""
+        found = self._call("getFile", {"file_id": reply.audio})
+        path = str(found.get("file_path", ""))
+        if not path:
+            raise ChannelError("getFile named no file")
+        try:
+            sent = http.send(
+                "channels",
+                "GET",
+                f"{API}/file/bot{self._token}/{path}",
+                timeout=TIMEOUT,
+                limit=MAX_AUDIO,
+            )
+        except http.Unanswered as error:
+            raise ChannelError(str(error)) from error
+        if sent.status >= 400:
+            raise ChannelError(f"{sent.status} the recording could not be downloaded")
+        return sent.body, "audio/ogg" if path.endswith((".oga", ".ogg")) else ""
 
     # -- diagnostics ---------------------------------------------------------
 
