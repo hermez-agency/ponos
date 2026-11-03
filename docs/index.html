@@ -274,7 +274,7 @@
   .flow-props dt { margin: 0; }
   .flow-props dd { margin: 0; color: var(--foreground); }
   /* The ticket stays Ready: how far it went is read in the steps below. */
-  .status { display: inline-flex; align-items: center; gap: .375rem; padding: 0 .5rem; border-radius: 999px; font-weight: 500; color: var(--tr-green); background: color-mix(in srgb, currentColor 14%, transparent); }
+  .status { display: inline-flex; align-items: center; gap: .375rem; padding: 0 .5rem; border-radius: 999px; font-weight: 500; color: var(--tr-green); background: color-mix(in srgb, currentColor 10%, transparent); }
   .status::before { content: ""; width: .375rem; height: .375rem; border-radius: 999px; background: currentColor; }
   .flow-work { display: flex; align-items: center; gap: 1rem; }
   .flow-work ponos-robot { width: 4.5rem; flex: none; }
@@ -297,12 +297,16 @@
   /* Two buttons drawn, not pressed: Validate and Run again are the console's
      own two gestures on a ticket in review. */
   .flow-act { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: .5rem; margin-top: .75rem; min-height: 2rem; }
-  .flow-act .btn { cursor: default; transition: box-shadow .2s, scale .2s; }
+  .flow-act .btn { cursor: default; transition: box-shadow .2s, scale .2s, visibility 0s .5s; }
   .flow[data-step="4"] .flow-act .yes { scale: .95; box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 45%, transparent); }
   .flow-said { display: none; margin-right: auto; color: var(--tr-green); font-weight: 600; }
   .flow[data-step="5"] .flow-act .btn { display: none; }
   .flow[data-step="5"] .flow-said { display: inline; }
   .flow:is([data-step="0"], [data-step="1"], [data-step="2"]) .flow-yes { opacity: .35; border-style: dashed; box-shadow: none; }
+  /* Nothing has come back yet, so nothing to press: the buttons keep their
+     place but are not drawn, rather than drawn faded below a readable contrast —
+     and come back once the pane has finished lighting up. */
+  .flow:is([data-step="0"], [data-step="1"], [data-step="2"]) .flow-act .btn { visibility: hidden; }
   .flow:is([data-step="3"], [data-step="4"]) .flow-yes { border-color: color-mix(in srgb, var(--primary) 55%, var(--border)); }
   .flow[data-step="5"] .flow-yes { border-color: color-mix(in srgb, var(--tr-green) 55%, var(--border)); }
   /* Down the left, a thread from one number to the next, lit once the round
