@@ -733,7 +733,8 @@ def the_console_is_downloaded_once_and_compressed() -> None:
     # since the first connection's steps say the server's sentences in French:
     # main was 27 bytes over once they were in, the sentences 1.2 kB; and 508 kB
     # since the projects' order, whose nine French sentences are 0.6 kB the
-    # dictionary cannot do without).
+    # dictionary cannot do without; and 509 kB since a project's setup command,
+    # whose French sentences are 0.4 kB the dictionary cannot do without).
     # For a reader of French, that is with the dictionary the page then asks
     # for: the heavier of the two first loads is the one held to the budget.
     page = (STATIC / "index.html").read_text(encoding="utf-8")
@@ -744,7 +745,7 @@ def the_console_is_downloaded_once_and_compressed() -> None:
     assert len(french) == 1, f"one French dictionary expected, the build left {french}"
     assert french[0] not in first, "the French dictionary is fetched by readers of English too"
     weight = sum(len(gzip.compress(path.read_bytes(), compresslevel=9)) for path in first + french)
-    assert weight < 508_000, f"the first load in French is {weight // 1000} kB compressed"
+    assert weight < 509_000, f"the first load in French is {weight // 1000} kB compressed"
 
 
 @case
