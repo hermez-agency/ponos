@@ -19,7 +19,7 @@
 
 <p align="center">
   <a href="https://the-ponos.app/"><b>📖 The documentation, online</b></a> ·
-  <a href="https://the-ponos.app/#video"><b>▶ The one-minute video</b></a> ·
+  <a href="https://the-ponos.app/#loop"><b>▶ The loop, filmed</b></a> ·
   <a href="#install-it"><b>Install</b></a> ·
   <a href="guide/server.md#docker"><b>Docker</b></a> ·
   <a href="CHANGELOG.md"><b>CHANGELOG</b></a>
@@ -36,10 +36,6 @@ Write the ticket on **Ponos**'s own board — the console, or a folder of Markdo
 brings back a pull request, a text, an action carried out or a post ready to go. You answer
 in a word, even from your phone, and nothing ships until you say yes. Notion, GitHub,
 Telegram, Slack and OpenRouter plug in when you want them; none of them is required.
-
-[![Ponos — Write the ticket. It comes back done. Play the one-minute video on the site.](docs/media/ponos-promo-poster.jpg)](https://the-ponos.app/#video)
-
-<sub>▶ **[Ponos in a minute](https://the-ponos.app/#video)** — one ticket, from *Ready* to *Done*. The video plays on the site, sound on.</sub>
 
 The name is a robot's, after the Greek god of toil: he does the tedious part of a ticket in
 your place, and you keep the decisions. The repository, the `ponos` command, the Python

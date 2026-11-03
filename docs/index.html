@@ -22,11 +22,6 @@
 <meta property="og:image:alt" content="Ponos, the robot, jumping beside its name and the words: Write the ticket. It comes back done.">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:video" content="https://the-ponos.app/media/ponos-promo.mp4">
-<meta property="og:video:secure_url" content="https://the-ponos.app/media/ponos-promo.mp4">
-<meta property="og:video:type" content="video/mp4">
-<meta property="og:video:width" content="1920">
-<meta property="og:video:height" content="1080">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Ponos — Write the ticket. It comes back done.">
 <meta name="twitter:description" content="A harness around Claude Code that runs your tasks on your machine — code, writing, actions, posts. Notion and GitHub optional.">
@@ -345,52 +340,6 @@
   @media (prefers-reduced-motion: reduce) {
     .flow-pane, .flow-link::before, .flow-act .btn, .flow-loop .flow-step::after, .flow-loop .flow-step::before, .flow-link.to-you::after, .flow-link.to-you span { transition: none; }
   }
-  .film { margin-block: 3.5rem 0; }
-  .film video {
-    display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; background: var(--card);
-    border: 1px solid var(--border); border-radius: var(--radius-xl); box-shadow: 0 24px 60px -30px rgb(0 0 0 / .45);
-  }
-  .film figcaption { color: var(--muted-foreground); font-size: .875rem; margin-top: .875rem; }
-  /* The launch screen: the script lays it on the poster, so a page without
-     script keeps the browser's own player. It wears the dark tokens whatever
-     the page's theme — the poster is dark, and so is what reads on it. */
-  .screen { position: relative; container-type: inline-size; }
-  .launch {
-    position: absolute; inset: 1px; display: grid; place-content: center; justify-items: center; gap: clamp(.5rem, 2.5cqi, 1.5rem);
-    padding: 1rem; border: 0; border-radius: calc(var(--radius-xl) - 1px); background: transparent; cursor: pointer;
-    font-family: var(--sans); color: var(--foreground); text-align: center; transition: opacity .25s ease-out;
-  }
-  .launch[hidden] { display: none; }
-  .launch::before {
-    content: ""; position: absolute; inset: 0; border-radius: inherit; transition: opacity .25s;
-    background:
-      radial-gradient(closest-side, color-mix(in srgb, var(--background) 88%, transparent), color-mix(in srgb, var(--background) 62%, transparent));
-  }
-  .launch > * { position: relative; }
-  .launch:hover::before, .launch:focus-visible::before { opacity: .75; }
-  .launch:focus-visible { outline: 2px solid var(--ring); outline-offset: -6px; }
-  .launched .launch { opacity: 0; pointer-events: none; }
-  .launch-cast { display: flex; align-items: center; gap: clamp(.75rem, 3cqi, 2rem); }
-  .launch ponos-robot { width: clamp(3.5rem, 14cqi, 9rem); }
-  .launch-play {
-    position: relative; display: grid; place-items: center; width: clamp(3.5rem, 11cqi, 6.5rem); aspect-ratio: 1; border-radius: 999px;
-    background: var(--primary); color: var(--primary-foreground); transition: transform .2s ease-out;
-    box-shadow: 0 0 0 clamp(.375rem, 1.2cqi, .75rem) color-mix(in srgb, var(--primary) 18%, transparent), 0 0 48px color-mix(in srgb, var(--primary) 40%, transparent);
-  }
-  .launch-play::after { content: ""; position: absolute; inset: 0; border-radius: inherit; animation: launch-pulse 2.4s ease-out infinite; }
-  @keyframes launch-pulse {
-    from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 45%, transparent); }
-    to { box-shadow: 0 0 0 clamp(1rem, 3cqi, 1.75rem) transparent; }
-  }
-  .launch-play svg { width: 42%; height: 42%; margin-left: 8%; }
-  .launch:hover .launch-play, .launch:focus-visible .launch-play { transform: scale(1.08); }
-  .launch-title { display: block; font-weight: 700; letter-spacing: -.02em; line-height: 1.15; font-size: clamp(1rem, 3.2cqi, 1.875rem); }
-  .launch .label { display: block; margin-top: .25rem; color: var(--muted-foreground); }
-  @media (prefers-reduced-motion: reduce) {
-    .launch, .launch::before, .launch-play { transition: none; }
-    .launch-play::after { animation: none; }
-  }
-
   /* -- 2. the loop: the console filmed doing it, and the four gestures under
      it as its legend — the one the film is at lit, from the film's own clock
      (data-cues-*, written by scripts/film-console.mjs). On a phone the film is
@@ -657,11 +606,10 @@
         ready to go. You answer in a word, even from your phone, and nothing ships until you say yes.
       </p>
       <div class="cta">
-        <a class="btn btn-primary btn-lg" href="#video">
+        <a class="btn btn-primary btn-lg" href="#loop">
           <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.14v13.72a1 1 0 0 0 1.52.85l10.9-6.86a1 1 0 0 0 0-1.7L9.52 4.29A1 1 0 0 0 8 5.14Z"/></svg>
-          See it in 60 seconds
+          See it in action
         </a>
-        <a class="btn btn-outline btn-lg" href="#loop">How it works</a>
         <a class="link" href="https://github.com/hermez-agency/ponos">The source code →</a>
       </div>
       <div class="install">
@@ -733,16 +681,6 @@
       <figcaption>Ponos is named after the Greek god of toil: he does the tedious part, you keep the decisions.</figcaption>
     </figure>
   </div>
-  <figure class="wrap film" id="video">
-    <div class="screen">
-      <video controls playsinline preload="none" poster="media/ponos-promo-poster.jpg" width="1920" height="1080"
-             aria-label="Ponos, in a minute: a ticket written, done on your machine, and back for your yes. English voice-over and subtitles.">
-        <source src="media/ponos-promo.mp4" type="video/mp4">
-        <a href="media/ponos-promo.mp4">Download the video</a> (MP4, 8.6 MB).
-      </video>
-    </div>
-    <figcaption>One ticket, from <em>Ready</em> to <em>Done</em>, in a minute. Sound on: English voice-over, subtitles in the picture.</figcaption>
-  </figure>
 </section>
 
 <section id="loop">
@@ -1263,56 +1201,6 @@ url = "https://&lt;machine&gt;.&lt;tailnet&gt;.ts.net"</pre>
       looping = entries[0].isIntersecting; react();
     }, { threshold: 0.3 }).observe(document.getElementById('loop'));
   }
-
-  /* --- the film: a launch screen on the poster, the browser's player once it
-     is clicked. play() is called in the click itself — Safari forgets the
-     gesture across a timer, and would start the film muted or not at all —
-     and the controls come when the screen has faded. A refused play() leaves
-     the controls there at once: the visitor starts it by hand. --- */
-  var film = document.getElementById('video');
-  var promo = film.querySelector('video');
-  var launch = document.createElement('button');
-  launch.type = 'button';
-  launch.className = 'launch dark';
-  launch.innerHTML =
-    '<span class="launch-cast">' +
-      '<ponos-robot state="waiting" theme="dark" aria-hidden="true"' + (reduce ? ' still' : '') + '></ponos-robot>' +
-      '<span class="launch-play"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.14v13.72a1 1 0 0 0 1.52.85l10.9-6.86a1 1 0 0 0 0-1.7L9.52 4.29A1 1 0 0 0 8 5.14Z"/></svg></span>' +
-    '</span>' +
-    '<span><span class="launch-title"></span><span class="label">1:07 · sound on</span></span>';
-  var launchBot = launch.querySelector('ponos-robot');
-  var launchTitle = launch.querySelector('.launch-title');
-  function offer(title, label) {
-    launchTitle.textContent = title;
-    launch.setAttribute('aria-label', label);
-  }
-  offer('Ponos, in a minute', 'Play the video, 1 minute 7, with sound');
-  ['mouseenter', 'focus'].forEach(function (e) { launch.addEventListener(e, function () { launchBot.setAttribute('state', 'success'); }); });
-  ['mouseleave', 'blur'].forEach(function (e) { launch.addEventListener(e, function () { launchBot.setAttribute('state', 'waiting'); }); });
-  var launchTimer = 0;
-  function uncover() {
-    clearTimeout(launchTimer);
-    launch.hidden = true;
-    promo.controls = true;
-    promo.focus({ preventScroll: true });
-  }
-  launch.addEventListener('click', function () {
-    film.classList.add('launched');
-    promo.muted = false;
-    var playing = promo.play();
-    launchTimer = setTimeout(uncover, reduce ? 0 : 250);
-    if (playing) playing.catch(uncover);
-  });
-  promo.addEventListener('ended', function () {
-    promo.controls = false;
-    offer('Replay', 'Replay the video, 1 minute 7, with sound');
-    launch.hidden = false;
-    void launch.offsetWidth;
-    film.classList.remove('launched');
-    if (document.activeElement === promo) launch.focus({ preventScroll: true });
-  });
-  promo.controls = false;
-  film.querySelector('.screen').appendChild(launch);
 
   /* --- copy --- */
   function flash(btn, label) {
