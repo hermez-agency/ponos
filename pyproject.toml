@@ -90,11 +90,107 @@ extend-immutable-calls = ["fastapi.Body", "fastapi.Query"]
 # of them: a new module is strict from its first line, and none goes back.
 # Started on the pure ones (ticket, naming, markdown, db, kinds, priority),
 # which nothing but the standard library stands behind.
+#
+# `tests/` came in after, under the same rule: its own list below, which only
+# ever shrinks.
 python_version = "3.11"
-mypy_path = "src"
-packages = ["ponos"]
+# `tests/` has no package: its files import one another as `support` or
+# `functional`, and `release` from `scripts/`, the way both runners put them
+# on `sys.path`.
+mypy_path = ["src", "tests", "scripts"]
+files = ["src/ponos", "tests"]
 strict = true
 warn_unused_configs = true
+
+# The test files not typed yet, their errors ignored: a file typed leaves the
+# list, and none comes back. The harness (`support`, `run`,
+# `conftest`) left it first, since every other file calls into it.
+[[tool.mypy.overrides]]
+module = [
+    "functional",
+    "test_agents",
+    "test_blocks",
+    "test_board",
+    "test_cleanup",
+    "test_config",
+    "test_conversation",
+    "test_credits",
+    "test_db",
+    "test_decisions",
+    "test_delivery",
+    "test_demo",
+    "test_digest",
+    "test_estimates",
+    "test_execution",
+    "test_files",
+    "test_git",
+    "test_github_app",
+    "test_github_token",
+    "test_goals",
+    "test_health",
+    "test_http",
+    "test_idea_schedule",
+    "test_ideas",
+    "test_ids",
+    "test_images",
+    "test_journal",
+    "test_kinds",
+    "test_leftovers",
+    "test_legacy",
+    "test_local_ci",
+    "test_log",
+    "test_markdown",
+    "test_models",
+    "test_naming",
+    "test_notify",
+    "test_notion",
+    "test_openrouter",
+    "test_preparation",
+    "test_progress",
+    "test_projects",
+    "test_prompt",
+    "test_provider",
+    "test_provision",
+    "test_question",
+    "test_recurrence",
+    "test_release",
+    "test_replies",
+    "test_reports",
+    "test_runner",
+    "test_schedules",
+    "test_schema",
+    "test_session",
+    "test_spending",
+    "test_state",
+    "test_stopping",
+    "test_store",
+    "test_subtypes",
+    "test_sync",
+    "test_tailscale",
+    "test_ticket",
+    "test_timestamps",
+    "test_transitions",
+    "test_uninstall",
+    "test_update",
+    "test_vault",
+    "test_voice",
+    "test_web_agui",
+    "test_web_answers",
+    "test_web_board",
+    "test_web_console",
+    "test_web_goals",
+    "test_web_lineage",
+    "test_web_live",
+    "test_web_mcp",
+    "test_web_server",
+    "test_web_settings",
+    "test_web_setup",
+    "test_web_statistics",
+    "test_web_upkeep",
+    "test_workspace",
+    "test_worktime",
+]
+ignore_errors = true
 
 [tool.coverage.run]
 # What a test runs as `python3 -m ponos` — the commands of `__main__.py`, an
