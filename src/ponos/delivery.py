@@ -61,7 +61,19 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from . import agents, ci, generated, git, kinds, project_settings, session, state, store, subtypes
+from . import (
+    agents,
+    ci,
+    generated,
+    git,
+    github_checks,
+    kinds,
+    project_settings,
+    session,
+    state,
+    store,
+    subtypes,
+)
 from . import prompt as prompt_module
 from . import voice as voice_module
 from .base import Base
@@ -389,7 +401,7 @@ class Delivery(Base):
                 self.say(f"  · {ticket.title} — GitHub says {url} is {blocker.lower()}")
                 return self._catch_up(ticket, url, BLOCKERS[blocker], resolving)
             try:
-                git.merge_pull_request(url, method, self.config.github)
+                github_checks.merge_pull_request(url, method, self.config.github)
             except git.GitError as error:
                 if self.config.runner.rebase and git.is_behind(error):
                     return self._catch_up(ticket, url, error, resolving)
@@ -494,11 +506,13 @@ class Delivery(Base):
                     refusal, later = self.voice.say(f"forced-{blocker.lower()}"), True
                 else:
                     try:
-                        git.merge_pull_request(url, self.config.runner.merge_method, accounts)
+                        github_checks.merge_pull_request(
+                            url, self.config.runner.merge_method, accounts
+                        )
                     except git.GitError as error:
                         refusal = voice_module.line(error)
                         behind = rebase and git.is_behind(error)
-                        if isinstance(error, git.ChecksNotGreen):
+                        if isinstance(error, github_checks.ChecksNotGreen):
                             refusal = self.voice.say(
                                 "forced-checks-red" if error.state == "failed" else "checks-pending"
                             )
@@ -541,32 +555,32 @@ class Delivery(Base):
         accounts = self.config.github
         said = self.voice
         state.enter(ticket.id, "checks", url)
-        checks = git.wait_for_checks(
+        checks = github_checks.wait_for_checks(
             url, workdir, self.config.runner.checks_timeout_minutes, accounts
         )
         if checks != "failed":
             return checks, said.say(f"checks-{checks}")
-        failing = git.failing_checks(url, accounts)
-        if unstarted := git.unstarted_checks(url, accounts):
+        failing = github_checks.failing_checks(url, accounts)
+        if unstarted := github_checks.unstarted_checks(url, accounts):
             # Not red: never run. A second run is refused the same way, and the
             # base has nothing to say about an account.
             self.say(f"    · checks never started — {unstarted}")
             if ci.billing(unstarted):
                 return "billing", self._billing_held(ticket, url, unstarted)
             return "unstarted", said.say("checks-unstarted", reason=unstarted)
-        if git.rerun_failed_checks(url, accounts):
+        if github_checks.rerun_failed_checks(url, accounts):
             self.say(f"    · checks red ({', '.join(failing) or '?'}) — run again once")
-            checks = git.wait_for_checks(
+            checks = github_checks.wait_for_checks(
                 url, workdir, self.config.runner.checks_timeout_minutes, accounts
             )
             if checks == "passed":
                 return checks, said.say("checks-flaky", names=_named(failing) or "?")
             if checks != "failed":
                 return checks, said.say(f"checks-{checks}")
-            failing = git.failing_checks(url, accounts) or failing
+            failing = github_checks.failing_checks(url, accounts) or failing
         if not failing:
             return "failed", said.say("checks-failed")
-        if set(failing) <= set(git.failing_on(url, base, accounts)):
+        if set(failing) <= set(github_checks.failing_on(url, base, accounts)):
             self.say(f"    · {', '.join(failing)} red on {base} too — not this pull request's")
             return "base-red", said.say("checks-base-red", names=_named(failing), base=base)
         return "failed", said.say("checks-failed-on", names=_named(failing), base=base)
@@ -593,7 +607,7 @@ class Delivery(Base):
         if not head or state.mended(ticket.id, head):
             return "failed", checked, None
         accounts = self.config.github
-        failing = git.failing_checks(url, accounts)
+        failing = github_checks.failing_checks(url, accounts)
         names = _named(failing) or "?"
         state.mending(ticket.id, head)
         self.say(f"    ↻ checks red ({', '.join(failing) or '?'}) — sending a session after them")
@@ -650,7 +664,7 @@ class Delivery(Base):
     def _repair_brief(self, ticket: Ticket, url: str, failing: list[str]) -> str:
         """Everything the repairing session is told, under the ticket's own text."""
         accounts = self.config.github
-        log = git.failed_log(url, accounts)
+        log = github_checks.failed_log(url, accounts)
         return "\n\n".join(
             part
             for part in (
@@ -676,7 +690,7 @@ class Delivery(Base):
         repair of the base is opened once, however many pull requests wait for
         it. Returns the ticket that repairs it, to be named on the card.
         """
-        failures = git.base_failures(url, base, self.config.github)
+        failures = github_checks.base_failures(url, base, self.config.github)
         state.wait_for_base(ticket.id, base, url, [name for name, _ in failures])
         return self._repair(ticket, project, url, base, failures)
 
@@ -754,7 +768,7 @@ class Delivery(Base):
         if not waited:
             return False
         base, _, names = waited
-        if set(names) & set(git.failing_on(url, base, self.config.github)):
+        if set(names) & set(github_checks.failing_on(url, base, self.config.github)):
             self.say(f"  · {ticket.title} — {base} is still red, left aside")
             return True
         state.forget_base_wait(ticket.id)
@@ -810,8 +824,8 @@ class Delivery(Base):
         if hold:
             state.billing_probed(account, now)
         name = str(hold["name"]) if hold else account
-        git.rerun_failed_checks(url, accounts)
-        reason = git.unstarted_checks(url, accounts)
+        github_checks.rerun_failed_checks(url, accounts)
+        reason = github_checks.unstarted_checks(url, accounts)
         if reason and ci.billing(reason):
             self.say(f"  · {ticket.title} — GitHub Actions still refuses its jobs, waits")
             self._hold_billing(account, name, reason)
@@ -835,16 +849,16 @@ class Delivery(Base):
         """
         state.forget_rebases(ticket.id)
         said = self.voice
-        if isinstance(refusal, git.ChecksNotGreen) and refusal.state == "pending":
+        if isinstance(refusal, github_checks.ChecksNotGreen) and refusal.state == "pending":
             # Not a refusal about the work: the next pass asks again.
             names = _named(refusal.names)
             self.say(f"    · {ticket.title} — {said.say('merge-checks-running', names=names)}")
             return None
         if cleared := self._refusal_cleared(ticket):
             self._set(ticket, **cleared)
-        if isinstance(refusal, git.ChecksNotGreen):
+        if isinstance(refusal, github_checks.ChecksNotGreen):
             names = _named(refusal.names)
-            unstarted = git.unstarted_checks(url, self.config.github)
+            unstarted = github_checks.unstarted_checks(url, self.config.github)
             if unstarted and ci.billing(unstarted):
                 # Not about the work either: the account's, said once for all of it.
                 self._comment(ticket, self._billing_held(ticket, url, unstarted))
@@ -942,7 +956,7 @@ class Delivery(Base):
         replayed = self.voice.say("merge-rebased", branch=branch, base=base)
         method = self.config.runner.merge_method
         try:
-            git.merge_pull_request(url, method, self.config.github)
+            github_checks.merge_pull_request(url, method, self.config.github)
         except git.GitError as error:
             if git.is_behind(error):
                 if count < MOST_REBASES:
@@ -1213,7 +1227,7 @@ class Delivery(Base):
             return held
         method = self.config.runner.merge_method
         try:
-            git.merge_pull_request(url, method, self.config.github)
+            github_checks.merge_pull_request(url, method, self.config.github)
         except git.GitError as error:
             return self._resolved_refused(job, url, error, count, record, checked)
         spent = said.spent(outcome.seconds, outcome.cost_usd) if outcome else ()

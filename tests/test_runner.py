@@ -12,8 +12,7 @@ from pathlib import Path
 from support import ROOT, _board_runner, _github, _in_progress, _ready, _reviewed, case
 
 from ponos import config as C
-from ponos import credits, notion, projects, state, store, workspace
-from ponos import git as git_module
+from ponos import credits, github_checks, notion, projects, state, store, workspace
 from ponos import ticket as ticket_module
 from ponos.runner import Runner
 from ponos.web import board as web_board
@@ -822,7 +821,7 @@ def a_merge_refused_then_retried_mid_pass_is_asked_for_again(state_home):
                 # Red: the ticket is blocked, and somebody validates it again.
                 _moved(page, "Blocked")
                 threading.Timer(0.5, _moved, (page, "Validated")).start()
-                raise git_module.ChecksNotGreen("failed", ["frontend"])
+                raise github_checks.ChecksNotGreen("failed", ["frontend"])
             merged.set()
             return "merged"
 

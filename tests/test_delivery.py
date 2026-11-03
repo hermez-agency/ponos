@@ -20,7 +20,7 @@ from support import (
     case,
 )
 
-from ponos import channels, notion, projects, session, state, voice
+from ponos import channels, github_checks, notion, projects, session, state, voice
 from ponos import config as C
 from ponos import git as git_module
 from ponos import ticket as ticket_module
@@ -109,9 +109,11 @@ def a_ticket_in_review_carries_its_ci_on_the_board_and_stops_when_it_leaves(stat
         [_reviewed("p-open", "In review", url)], {"review": "In review", "done": "Done"}
     )
     asked = []
-    head, listed = git_module.pull_request_head, git_module.checks
+    head, listed = git_module.pull_request_head, github_checks.checks
     git_module.pull_request_head = lambda link, accounts=None: "aaa"
-    git_module.checks = lambda link, accounts=None: asked.append(link) or _checks("pass", "pending")
+    github_checks.checks = lambda link, accounts=None: (
+        asked.append(link) or _checks("pass", "pending")
+    )
     try:
         with _github({url: "OPEN"}):
             git_module.pull_request_head = lambda link, accounts=None: "aaa"
@@ -135,7 +137,7 @@ def a_ticket_in_review_carries_its_ci_on_the_board_and_stops_when_it_leaves(stat
         web_tickets._checks(cards)
         assert cards[0]["ci"] is None
     finally:
-        git_module.pull_request_head, git_module.checks = head, listed
+        git_module.pull_request_head, github_checks.checks = head, listed
 
 
 @case
@@ -882,9 +884,9 @@ def a_publication_whose_closing_write_found_notion_down_is_not_put_back_to_ready
 def _checks_of(listed: list[dict]):
     """`gh` present, its checks as listed, and every merge it is asked for noted."""
     asked: list[list[str]] = []
-    which, checks, run = git_module.shutil.which, git_module.checks, git_module.run
+    which, checks, run = git_module.shutil.which, github_checks.checks, git_module.run
     git_module.shutil.which = lambda name: "/usr/bin/gh"
-    git_module.checks = lambda url, accounts=None, timeout=60: listed
+    github_checks.checks = lambda url, accounts=None, timeout=60: listed
 
     def merged(command, **kwargs):
         asked.append(command)
@@ -894,7 +896,7 @@ def _checks_of(listed: list[dict]):
     try:
         yield asked
     finally:
-        git_module.shutil.which, git_module.checks, git_module.run = which, checks, run
+        git_module.shutil.which, github_checks.checks, git_module.run = which, checks, run
 
 
 @case
@@ -903,8 +905,8 @@ def a_pull_request_with_a_red_job_is_never_merged():
     listed = [{"name": "frontend", "bucket": "fail"}, {"name": "core", "bucket": "pass"}]
     with _checks_of(listed) as asked:
         try:
-            git_module.merge_pull_request(url)
-        except git_module.ChecksNotGreen as error:
+            github_checks.merge_pull_request(url)
+        except github_checks.ChecksNotGreen as error:
             assert (error.state, error.names) == ("failed", ["frontend"])
         else:
             raise AssertionError("merged with a red job")
@@ -916,8 +918,8 @@ def a_pull_request_with_a_job_still_running_is_not_merged_yet():
     listed = [{"name": "core", "bucket": "pass"}, {"name": "image", "bucket": "pending"}]
     with _checks_of(listed) as asked:
         try:
-            git_module.merge_pull_request("https://github.com/x/y/pull/1")
-        except git_module.ChecksNotGreen as error:
+            github_checks.merge_pull_request("https://github.com/x/y/pull/1")
+        except github_checks.ChecksNotGreen as error:
             assert (error.state, error.names) == ("pending", ["image"])
         else:
             raise AssertionError("merged with a job running")
@@ -928,7 +930,7 @@ def a_pull_request_with_a_job_still_running_is_not_merged_yet():
 def a_pull_request_whose_jobs_are_green_or_skipped_is_merged():
     listed = [{"name": "core", "bucket": "pass"}, {"name": "docs", "bucket": "skipping"}]
     with _checks_of(listed) as asked:
-        git_module.merge_pull_request("https://github.com/x/y/pull/1")
+        github_checks.merge_pull_request("https://github.com/x/y/pull/1")
     assert len(asked) == 1 and asked[0][:3] == ["gh", "pr", "merge"]
 
 
@@ -938,7 +940,7 @@ def a_validated_pull_request_with_a_red_job_blocks_its_ticket_as_checks_failed()
     runner = _board_runner([_reviewed("ppr", "Validated", url)], {})
 
     def merge(url, method="squash", accounts=None):
-        raise git_module.ChecksNotGreen("failed", ["frontend"])
+        raise github_checks.ChecksNotGreen("failed", ["frontend"])
 
     with _github({url: "OPEN"}, merge=merge):
         results = runner.deliver()
@@ -965,7 +967,7 @@ def a_pull_request_validated_while_its_ci_is_red_is_blocked_without_its_review_l
     runner = _board_runner([page], {})
 
     def merge(url, method="squash", accounts=None):
-        raise git_module.ChecksNotGreen("failed", ["frontend"])
+        raise github_checks.ChecksNotGreen("failed", ["frontend"])
 
     with _github({url: "OPEN"}, merge=merge):
         results = runner.deliver()
@@ -987,7 +989,7 @@ def a_validated_pull_request_whose_ci_still_runs_stays_validated_with_its_line()
     runner = _board_runner([page], {})
 
     def merge(url, method="squash", accounts=None):
-        raise git_module.ChecksNotGreen("pending", ["frontend"])
+        raise github_checks.ChecksNotGreen("pending", ["frontend"])
 
     with _github({url: "OPEN"}, merge=merge):
         assert runner.deliver() == []
@@ -1057,7 +1059,7 @@ def a_ci_github_refuses_for_the_accounts_billing_waits_validated_and_is_said_onc
 
     def merge(url, method="squash", accounts=None):
         if url.split("/")[4] not in green:
-            raise git_module.ChecksNotGreen("failed", ["Tests", "Lint"])
+            raise github_checks.ChecksNotGreen("failed", ["Tests", "Lint"])
         merged.append(url)
         return "merged"
 
@@ -1067,7 +1069,9 @@ def a_ci_github_refuses_for_the_accounts_billing_waits_validated_and_is_said_onc
         with (
             # The recorded answers go through the real reading, not around it.
             _github(
-                {first: "OPEN", second: "OPEN"}, merge=merge, unstarted=git_module.unstarted_checks
+                {first: "OPEN", second: "OPEN"},
+                merge=merge,
+                unstarted=github_checks.unstarted_checks,
             ),
             _git_answering(
                 run=run, token_for=lambda reference, accounts=None: "", RERUN_SETTLE_SECONDS=0

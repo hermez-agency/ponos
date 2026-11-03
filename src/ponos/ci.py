@@ -29,7 +29,7 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from . import git, state, store
+from . import git, github_checks, state, store
 from .base import Base
 from .ticket import Ticket
 
@@ -51,7 +51,7 @@ SETTLED_SECONDS = 300
 # After a push, GitHub registers the new checks a few seconds late; until then
 # the commit has none, and reading that as a repository without CI would erase
 # the very state a push is meant to set back to running.
-APPEAR_SECONDS = git.CHECKS_APPEAR_SECONDS
+APPEAR_SECONDS = github_checks.CHECKS_APPEAR_SECONDS
 
 # What GitHub writes on a job it never started for the account's billing: a
 # payment that failed, or a spending limit reached. Lower case, as `billing`
@@ -154,7 +154,7 @@ class Checks(Base):
             head = git.pull_request_head(url, self.config.github)
             if not head:
                 continue
-            row = settle(before, url, head, git.checks(url, self.config.github), now)
+            row = settle(before, url, head, github_checks.checks(url, self.config.github), now)
             state.keep_ci(ticket.id, row)
             label = LABELS.get(row["state"], "")
             if row["state"] != (before or {}).get("state", ""):

@@ -46,6 +46,7 @@ from ponos import (
     environment,
     files,
     github_app,
+    github_checks,
     github_token,
     images,
     log,
@@ -818,28 +819,28 @@ def _github(
     `blockers` is what GitHub says stands in a pull request's way before a merge
     is asked — see `git.merge_blocker`. Nothing, unless a test says otherwise.
     `unstarted` reads why the red jobs of a refused merge never started — see
-    `git.unstarted_checks`: they all ran, unless a test says otherwise.
+    `github_checks.unstarted_checks`: they all ran, unless a test says otherwise.
     """
 
-    asked, original = git_module.pull_request_state, git_module.merge_pull_request
+    asked, original = git_module.pull_request_state, github_checks.merge_pull_request
     blocker = git_module.merge_blocker
     git_module.pull_request_state = lambda url, accounts=None: states.get(url, "")
     git_module.merge_blocker = lambda url, accounts=None: (blockers or {}).get(url, "")
     # Nothing is asked of GitHub about the checks of the pull requests still open.
     head = git_module.pull_request_head
     git_module.pull_request_head = lambda url, accounts=None: ""
-    started = git_module.unstarted_checks
-    git_module.unstarted_checks = unstarted or (lambda url, accounts=None: "")
+    started = github_checks.unstarted_checks
+    github_checks.unstarted_checks = unstarted or (lambda url, accounts=None: "")
     if merge is not None:
-        git_module.merge_pull_request = merge
+        github_checks.merge_pull_request = merge
     try:
         yield
     finally:
         git_module.pull_request_state = asked
-        git_module.merge_pull_request = original
+        github_checks.merge_pull_request = original
         git_module.merge_blocker = blocker
         git_module.pull_request_head = head
-        git_module.unstarted_checks = started
+        github_checks.unstarted_checks = started
 
 
 def _closing(
@@ -1229,16 +1230,21 @@ def _answering(
 
 @contextmanager
 def _git_answering(**answers: Callable[..., Any]) -> Iterator[None]:
-    """git and gh, replaced by what they would have said."""
+    """git and gh, replaced by what they would have said.
 
-    original = {name: getattr(git_module, name) for name in answers}
+    Each name is replaced in the module that has it: git.py, or github_checks.py
+    for what GitHub says of a pull request's checks.
+    """
+
+    owners = {name: git_module if hasattr(git_module, name) else github_checks for name in answers}
+    original = {name: getattr(owners[name], name) for name in answers}
     for name, replacement in answers.items():
-        setattr(git_module, name, replacement)
+        setattr(owners[name], name, replacement)
     try:
         yield
     finally:
         for name, replacement in original.items():
-            setattr(git_module, name, replacement)
+            setattr(owners[name], name, replacement)
 
 
 def _plain(text: str) -> str:

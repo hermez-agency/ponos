@@ -13,8 +13,7 @@ from pathlib import Path
 from support import _board, _config, _environment, _markdown_api, _saved, _state, _state_home, case
 
 from ponos import config as C
-from ponos import db, project_settings, state, update, vault, voice
-from ponos import git as git_module
+from ponos import db, github_checks, project_settings, state, update, vault, voice
 from ponos.__main__ import build_parser
 from ponos.web import settings as web_settings
 
@@ -84,7 +83,7 @@ def a_merge_method_gh_would_refuse_never_reaches_it() -> None:
     assert _config('[runner]\nmerge_method = "MERGE"\n').runner.merge_method == "merge"
     assert _config('[runner]\nmerge_method = "fast-forward"\n').runner.merge_method == "squash"
 
-    assert set(git_module.MERGE_FLAGS) == set(C.MERGE_METHODS)
+    assert set(github_checks.MERGE_FLAGS) == set(C.MERGE_METHODS)
 
 
 @case
