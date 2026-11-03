@@ -204,9 +204,28 @@ class Execution(Base):
         says the ticket is going through meanwhile — see `state.enter`.
         """
         state.enter(job.ticket.id, phase, detail)
-        section = subtypes.section(job.subtype) if subtype else ""
         job.secrets = self._secrets(job)
-        text = prompt_module.build(
+        text = self._session_prompt(job, template, subtype)
+        log = job.log or state.log_file(short_id(job.ticket.id))
+        # The ticket first, then its agent, then the runner: the narrower the
+        # choice, the more deliberate it was.
+        # Whoever named it, Fable only when `use_fable` allows it.
+        chosen = self.config.runner.allowed(
+            job.model or job.agent.model or self.config.runner.model
+        )
+        live = job.live = self._live(job)
+        run = self._journal(job, log, chosen)
+        outcome = self._launch(job, text, log, chosen, live, run)
+        self._file_session(job, outcome)
+        if live:
+            self._close_live(live, outcome)
+        self._hold_credits(outcome)
+        return outcome
+
+    def _session_prompt(self, job: Job, template: str, subtype: bool) -> str:
+        """The prompt of a job's session: its template, filled with the ticket."""
+        section = subtypes.section(job.subtype) if subtype else ""
+        return prompt_module.build(
             template,
             project=job.project.name,
             title=job.ticket.title,
@@ -255,15 +274,17 @@ class Execution(Base):
             secrets=sorted(job.secrets),
             workers=self.workers,
         )
-        log = job.log or state.log_file(short_id(job.ticket.id))
-        # The ticket first, then its agent, then the runner: the narrower the
-        # choice, the more deliberate it was.
-        # Whoever named it, Fable only when `use_fable` allows it.
-        chosen = self.config.runner.allowed(
-            job.model or job.agent.model or self.config.runner.model
-        )
-        live = job.live = self._live(job)
-        run = self._journal(job, log, chosen)
+
+    def _launch(
+        self,
+        job: Job,
+        text: str,
+        log: Path,
+        chosen: str,
+        live: progress.Live | None,
+        run: journal.Run,
+    ) -> session.Outcome:
+        """The session itself, picked up again or relaunched when it has to be."""
         try:
             outcome = self._session(job, text, log, chosen, live, run)
             if job.resume and session.lost(outcome):
@@ -295,6 +316,10 @@ class Execution(Base):
             if live:
                 live.close(self.voice.say("live-interrupted"), ok=False)
             raise
+        return outcome
+
+    def _file_session(self, job: Job, outcome: session.Outcome) -> None:
+        """The session filed under its project, when the configuration asks for it."""
         if self.config.runner.attach_sessions:
             # The session ran in a directory that is about to be deleted. Filed
             # under the project instead, it shows up in `claude --resume` there,
@@ -303,23 +328,23 @@ class Execution(Base):
             if session.relocate(outcome.session_id, home):
                 job.session_home = home
                 self.say(f"    session filed under {home}")
-        if live:
-            # The block's last word: what the session achieved, or which of the
-            # ways of not achieving it this was. After the session has been
-            # filed, because a run that went wrong puts the way back into it in
-            # this very block — see `_filed` — and that sentence names where the
-            # session now lives.
-            said = self.voice
-            if self._out_of_credit(outcome):
-                closing, ended_well = said.say("live-waiting"), True
-            elif outcome.ok:
-                closing, ended_well = said.brief(outcome.summary, 120), True
-            else:
-                closing = said.say("live-blocked" if outcome.blocked else "live-stopped")
-                ended_well = False
-            live.close(closing, ok=ended_well)
-        self._hold_credits(outcome)
-        return outcome
+
+    def _close_live(self, live: progress.Live, outcome: session.Outcome) -> None:
+        """The block's last word: what the session achieved, or which of the
+        ways of not achieving it this was. After the session has been filed,
+        because a run that went wrong puts the way back into it in this very
+        block — see `_filed` — and that sentence names where the session now
+        lives.
+        """
+        said = self.voice
+        if self._out_of_credit(outcome):
+            closing, ended_well = said.say("live-waiting"), True
+        elif outcome.ok:
+            closing, ended_well = said.brief(outcome.summary, 120), True
+        else:
+            closing = said.say("live-blocked" if outcome.blocked else "live-stopped")
+            ended_well = False
+        live.close(closing, ok=ended_well)
 
     def _died(self, outcome: session.Outcome) -> str:
         """Why a session that did not end by itself was cut, or '' when it was not.
@@ -1027,24 +1052,64 @@ class Execution(Base):
         """A branch with commits: merged when forced, the board moved, and the ticket told."""
         ticket, project = job.ticket, job.project
         assert project.path is not None
-        said = self.voice
-        # Force validated: the merge that moving the ticket to validated would
-        # have asked for, asked now — before the worktree goes, since the CI it
-        # waits for is read from it. Only this far down: every road out of a
-        # session that did not succeed has already been taken above. A merge
-        # that is only *not yet* — a branch overtaken while its CI ran, a CI
-        # still running — is left in validated, for `_merge` to finish.
+        forced, refused, later = self._merge_forced(job, pull_request)
+        merged = bool(forced and not refused)
+        git.remove_worktree(project.path, job.workdir)
+        self._code_moved(job, outcome, pull_request, merged, refused, later)
+        self._code_told(job, outcome, commits, pull_request, forced, refused, later)
+        return {
+            "ticket": ticket.title,
+            "id": ticket.id,
+            "status": "done",
+            "project": project.name,
+            "branch": job.branch,
+            "pull_request": pull_request,
+            **({"merged": pull_request} if merged else {}),
+            **({"forced": "code", "refused": refused} if forced else {}),
+            **({"postponed": True} if later else {}),
+            "session": outcome.session_id,
+            "commits": commits,
+            "seconds": round(outcome.seconds, 1),
+            "cost_usd": outcome.cost_usd,
+        }
+
+    def _merge_forced(self, job: Job, pull_request: str) -> tuple[str, str, bool]:
+        """Force validated: the merge that moving the ticket to validated would
+        have asked for, asked now — before the worktree goes, since the CI it
+        waits for is read from it. Only this far down: every road out of a
+        session that did not succeed has already been taken above. A merge
+        that is only *not yet* — a branch overtaken while its CI ran, a CI
+        still running — is left in validated, for `_merge` to finish.
+
+        What forced it, why it was refused, and whether that is only for later.
+        """
         forced = refused = ""
         later = False
         if pull_request:
-            forced = self._forced("code", project)
+            forced = self._forced("code", job.project)
         if forced:
             self.say(f"    · {forced}")
             refused, later = self._force_merge(job, pull_request)
-        merged = bool(forced and not refused)
+        return forced, refused, later
 
-        git.remove_worktree(project.path, job.workdir)
+    def _refusal(self, refused: str, later: bool) -> str:
+        """What a forced merge that did not happen says, postponed or refused."""
+        said = self.voice
+        if later:
+            return said.say("forced-merge-postponed", reason=refused)
+        return said.say("forced-merge-refused", error=refused)
 
+    def _code_moved(
+        self,
+        job: Job,
+        outcome: session.Outcome,
+        pull_request: str,
+        merged: bool,
+        refused: str,
+        later: bool,
+    ) -> None:
+        """The ticket's column and properties, once its branch is delivered."""
+        said = self.voice
         # With a pull request the ticket is not finished, it is waiting for you:
         # it goes to "in review", and `close_merged` takes it to done once you
         # have merged. Without one there is nothing to wait for — and on a board
@@ -1059,22 +1124,35 @@ class Execution(Base):
         if pull_request:
             values[self.config.notion.prop("pull_request")] = pull_request
         if refused:
-            refusal = (
-                said.say("forced-merge-postponed", reason=refused)
-                if later
-                else said.say("forced-merge-refused", error=refused)
-            )
             # The card's line outlives the column it was written in: you
             # validate from review, and a line saying "left in review" would
             # then stand in validated. So it says what happened, not where.
-            card = refusal if later else said.say("forced-merge-refused-card", error=refused)
+            card = (
+                self._refusal(refused, later)
+                if later
+                else said.say("forced-merge-refused-card", error=refused)
+            )
             values[self.config.notion.prop("progress")] = said.brief(card)
         values[self.config.notion.prop("session")] = self._session_value(
-            outcome.session_id, job.session_home or project.path
+            outcome.session_id, job.session_home or job.project.path
         )
         values.update(self._measures(outcome))
-        self._set(ticket, **values)
+        self._set(job.ticket, **values)
 
+    def _code_told(
+        self,
+        job: Job,
+        outcome: session.Outcome,
+        commits: int,
+        pull_request: str,
+        forced: str,
+        refused: str,
+        later: bool,
+    ) -> None:
+        """The report of a delivered branch: on the ticket, in the log, on your phone."""
+        ticket = job.ticket
+        said = self.voice
+        merged = bool(forced and not refused)
         # Where the work is comes first, because it is what you act on: the
         # pull request when there is one, and the branch when there is not.
         placed: tuple[str, ...] = (
@@ -1092,7 +1170,7 @@ class Execution(Base):
         brief = said.brief(outcome.summary)
         # Said on the ticket whichever way it went: a pull request nobody read
         # was merged, or would have been, and that is not the board's usual day.
-        forced_lines = (forced, said.brief(refusal) if refused else "")
+        forced_lines = (forced, said.brief(self._refusal(refused, later)) if refused else "")
         self._comment(
             ticket,
             said.report(
@@ -1114,26 +1192,11 @@ class Execution(Base):
             ticket,
             verdict,
             said.report(said.facts(*facts), brief, pull_request, *forced_lines),
-            project=project.name,
+            project=job.project.name,
             facts=placed,
             summary=outcome.summary,
             pull_request=pull_request,
         )
-        return {
-            "ticket": ticket.title,
-            "id": ticket.id,
-            "status": "done",
-            "project": project.name,
-            "branch": job.branch,
-            "pull_request": pull_request,
-            **({"merged": pull_request} if merged else {}),
-            **({"forced": "code", "refused": refused} if forced else {}),
-            **({"postponed": True} if later else {}),
-            "session": outcome.session_id,
-            "commits": commits,
-            "seconds": round(outcome.seconds, 1),
-            "cost_usd": outcome.cost_usd,
-        }
 
     # -- a ticket that has none -------------------------------------------------
 
@@ -1156,7 +1219,6 @@ class Execution(Base):
         if stopped := self._halted(job, outcome):
             return stopped
 
-        said = self.voice
         if self._out_of_credit(outcome):
             # The working directory is left as it is: whatever the session had
             # written into ANSWER.md before the quota ran out is what the next
@@ -1179,48 +1241,9 @@ class Execution(Base):
             outcome = replace(outcome, ok=True, blocked=False)
 
         if not outcome.ok or not content:
-            # A session that stopped on its question asked something, like a
-            # code ticket's: "no answer" is for the one that wrote neither.
-            code, reason, detail = self._why_stopped(
-                outcome,
-                "session.question"
-                if outcome.blocked
-                else "session.no-answer"
-                if not content
-                else "session.killed",
-            )
-            if not content and outcome.ok:
-                detail = said.say("no-answer-detail", summary=outcome.summary)
-            kept = ""
-            if self.config.runner.keep_worktree_on_failure:
-                kept = said.say("workdir-kept", path=job.workdir)
-            else:
-                shutil.rmtree(job.workdir, ignore_errors=True)
-            return self._fail(
-                ticket,
-                reason,
-                detail,
-                code=code,
-                blocked=outcome.blocked or not content or bool(outcome.killed),
-                question=self._question(outcome, detail) or outcome.question or detail,
-                note=self._filed(job, outcome, kept),
-                outcome=outcome,
-            )
+            return self._document_failed(job, outcome, content)
 
-        # A session that was not on a code ticket's road opened a pull request
-        # anyway: attached to the ticket and sent to review, so it is merged
-        # through the validated column like any other — rather than left on
-        # GitHub, out of sight of the board, under a ticket that says done.
-        opened = session.pull_requests(outcome.log)
-        note = ""
-        if opened:
-            self.say(
-                f"    · the session opened {', '.join(opened)} itself — attached, sent to review"
-            )
-            note = said.paragraphs(
-                said.say("pull-request-adopted", url=opened[-1]),
-                said.say("pull-requests-also", urls=", ".join(opened[:-1])) if opened[1:] else "",
-            )
+        opened, note = self._adopted(outcome)
         return self._deliver_text(
             job,
             outcome,
@@ -1229,6 +1252,55 @@ class Execution(Base):
             kept=answer_file,
             note=note,
             pull_request=opened[-1] if opened else "",
+        )
+
+    def _document_failed(
+        self, job: Job, outcome: session.Outcome, content: str
+    ) -> dict[str, Any] | None:
+        """A ticket with no repository whose session stopped, or wrote no answer."""
+        said = self.voice
+        # A session that stopped on its question asked something, like a
+        # code ticket's: "no answer" is for the one that wrote neither.
+        code, reason, detail = self._why_stopped(
+            outcome,
+            "session.question"
+            if outcome.blocked
+            else "session.no-answer"
+            if not content
+            else "session.killed",
+        )
+        if not content and outcome.ok:
+            detail = said.say("no-answer-detail", summary=outcome.summary)
+        kept = ""
+        if self.config.runner.keep_worktree_on_failure:
+            kept = said.say("workdir-kept", path=job.workdir)
+        else:
+            shutil.rmtree(job.workdir, ignore_errors=True)
+        return self._fail(
+            job.ticket,
+            reason,
+            detail,
+            code=code,
+            blocked=outcome.blocked or not content or bool(outcome.killed),
+            question=self._question(outcome, detail) or outcome.question or detail,
+            note=self._filed(job, outcome, kept),
+            outcome=outcome,
+        )
+
+    def _adopted(self, outcome: session.Outcome) -> tuple[list[str], str]:
+        """The pull requests a session opened by itself, and the line saying so."""
+        said = self.voice
+        # A session that was not on a code ticket's road opened a pull request
+        # anyway: attached to the ticket and sent to review, so it is merged
+        # through the validated column like any other — rather than left on
+        # GitHub, out of sight of the board, under a ticket that says done.
+        opened = session.pull_requests(outcome.log)
+        if not opened:
+            return opened, ""
+        self.say(f"    · the session opened {', '.join(opened)} itself — attached, sent to review")
+        return opened, said.paragraphs(
+            said.say("pull-request-adopted", url=opened[-1]),
+            said.say("pull-requests-also", urls=", ".join(opened[:-1])) if opened[1:] else "",
         )
 
     def _deliver_text(
@@ -1275,33 +1347,11 @@ class Execution(Base):
         # validated. On a board whose review is its done there is no such
         # gesture, and it ends there as any text does — prepared, not published.
         prepared = job.kind == "publication"
-        # Force validated: nothing waits for you, and the publishing session is
-        # started as soon as this one is done — `Delivery._publish`, exactly as
-        # moving the ticket to validated would have started it. Under the
-        # credit reserve it is not started here: the ticket goes to validated,
-        # for the pass that has credit again to publish it, as it would one you
-        # had moved there yourself. A board with no such column has nowhere to
-        # hold it, and the ticket waits in review as it always did.
-        following = (
-            self._forced("publication", job.project) if prepared and not pull_request else ""
-        )
-        forced = bool(following)
-        postponed = forced and bool(self.under_reserve())
-        if postponed and not self.validated_column():
-            forced = postponed = False
-        values: dict[str, object] = {
-            self.config.notion.prop("agent"): self.agent_label,
-            self.config.notion.prop("session"): self._session_value(
-                outcome.session_id, job.session_home or job.project.path
-            ),
-            **self._measures(outcome),
-        }
-        if pull_request:
-            values[self.config.notion.prop("pull_request")] = pull_request
+        following, forced, postponed = self._publication_forced(job, prepared, pull_request)
+        column = ""
         if not forced or postponed:
             column = "validated" if postponed else "review" if prepared or review else "done"
-            values[self.config.notion.prop("status")] = self.config.notion.state(column)
-        self._set(ticket, **values)
+        self._text_moved(job, outcome, pull_request, column)
         if forced:
             self.say(f"    · {following}")
             if not postponed:
@@ -1314,14 +1364,81 @@ class Execution(Base):
             following = said.say("prepared-next", validated=self.config.notion.state("validated"))
         else:
             following = ""
+        verdict = (
+            "waiting" if forced else "prepared" if prepared else "review" if review else "read"
+        )
+        self._text_told(job, outcome, blocks, verdict, following, note)
+        return {
+            "ticket": ticket.title,
+            "id": ticket.id,
+            "status": "done",
+            "project": job.project.name,
+            "kind": "publication" if prepared else "document",
+            "blocks": blocks,
+            **({"pull_request": pull_request} if pull_request else {}),
+            "session": outcome.session_id,
+            "seconds": round(outcome.seconds, 1),
+            "cost_usd": outcome.cost_usd,
+        }
+
+    def _publication_forced(
+        self, job: Job, prepared: bool, pull_request: str
+    ) -> tuple[str, bool, bool]:
+        """Force validated on a publication: what forced it, whether it is, and
+        whether it waits for credit.
+
+        Nothing waits for you, and the publishing session is started as soon
+        as this one is done — `Delivery._publish`, exactly as moving the ticket
+        to validated would have started it. Under the credit reserve it is not
+        started here: the ticket goes to validated, for the pass that has
+        credit again to publish it, as it would one you had moved there
+        yourself. A board with no such column has nowhere to hold it, and the
+        ticket waits in review as it always did.
+        """
+        following = (
+            self._forced("publication", job.project) if prepared and not pull_request else ""
+        )
+        forced = bool(following)
+        postponed = forced and bool(self.under_reserve())
+        if postponed and not self.validated_column():
+            forced = postponed = False
+        return following, forced, postponed
+
+    def _text_moved(
+        self, job: Job, outcome: session.Outcome, pull_request: str, column: str
+    ) -> None:
+        """The ticket's properties once its text is written — and its column, unless ''."""
+        values: dict[str, object] = {
+            self.config.notion.prop("agent"): self.agent_label,
+            self.config.notion.prop("session"): self._session_value(
+                outcome.session_id, job.session_home or job.project.path
+            ),
+            **self._measures(outcome),
+        }
+        if pull_request:
+            values[self.config.notion.prop("pull_request")] = pull_request
+        if column:
+            values[self.config.notion.prop("status")] = self.config.notion.state(column)
+        self._set(job.ticket, **values)
+
+    def _text_told(
+        self,
+        job: Job,
+        outcome: session.Outcome,
+        blocks: int,
+        verdict: str,
+        following: str,
+        note: str,
+    ) -> None:
+        """The report of a text written into its page: on the ticket, in the log, on your phone."""
+        ticket = job.ticket
+        said = self.voice
+        prepared = job.kind == "publication"
         placed = (
             said.say("in-the-page"),
             said.say("nothing-published") if prepared else said.count(blocks, "block"),
         )
         facts = (*placed, *said.spent(outcome.seconds, outcome.cost_usd))
-        verdict = (
-            "waiting" if forced else "prepared" if prepared else "review" if review else "read"
-        )
         brief = said.brief(outcome.summary)
         self._comment(
             ticket,
@@ -1335,7 +1452,7 @@ class Execution(Base):
         )
         self.say(
             f"    ✓ {ticket.title} — {blocks} block(s) written to the ticket"
-            + (", nothing published: in review" if prepared and not forced else "")
+            + (", nothing published: in review" if prepared and verdict != "waiting" else "")
         )
         self._tell(
             "done",
@@ -1346,15 +1463,3 @@ class Execution(Base):
             facts=placed,
             summary=outcome.summary,
         )
-        return {
-            "ticket": ticket.title,
-            "id": ticket.id,
-            "status": "done",
-            "project": job.project.name,
-            "kind": "publication" if prepared else "document",
-            "blocks": blocks,
-            **({"pull_request": pull_request} if pull_request else {}),
-            "session": outcome.session_id,
-            "seconds": round(outcome.seconds, 1),
-            "cost_usd": outcome.cost_usd,
-        }
