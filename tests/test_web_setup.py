@@ -379,3 +379,55 @@ def the_summary_and_doctor_agree_on_a_workspace_folder_that_does_not_exist_yet()
     assert root.is_dir()
     (check,) = health._workspace_root(api.config)
     assert check.state == health.OK, check
+
+
+@case
+def a_demonstration_ticket_that_failed_names_why_the_session_would_not_start(state_home):
+    """Without `claude`, the failure says it is not installed — and what installs it."""
+    from ponos import prerequisites, provider, session
+    from ponos.web import setup as web_setup
+
+    path, _ = _saved()
+    real = _Fresh(path)
+    ticket = "0a1b2c3d" * 4
+
+    class Api:
+        config = real.config
+
+        def board(self):
+            return {
+                "tickets": [
+                    {
+                        "id": ticket,
+                        "title": "Dire bonjour",
+                        "url": "",
+                        "column": "failed",
+                        "status": "Failed",
+                        "progress": "",
+                    }
+                ]
+            }
+
+    log = C.state_dir() / "web" / f"demo-{ticket}.log"
+    log.parent.mkdir(parents=True, exist_ok=True)
+    log.write_text(
+        "  ! how much of the subscription is spent could not be read\n"
+        "  ! context.md is empty — nothing about you reaches the agent\n"
+        "    ✗ Dire bonjour — la session Claude n'a pas voulu démarrer\n",
+        encoding="utf-8",
+    )
+    original = session.available, provider.cli_login
+    try:
+        with _environment(ANTHROPIC_API_KEY=None, OPENROUTER_API_KEY=None):
+            session.available = lambda: ""
+            said = web_setup.demo_state(Api(), ticket)
+            assert said["cause"] == "Claude Code is not installed on this machine"
+            assert said["command"] == prerequisites.CLAUDE_INSTALL
+            assert "pas voulu démarrer" in said["said"] and "subscription" not in said["said"]
+            session.available = lambda: "/usr/bin/claude"
+            provider.cli_login = lambda: provider.Check(False, "not signed in")
+            said = web_setup.demo_state(Api(), ticket)
+            assert said["cause"] == "Claude Code is not signed in"
+            assert said["command"] == provider.LOGIN
+    finally:
+        session.available, provider.cli_login = original

@@ -2036,6 +2036,8 @@ export const FRENCH: Record<string, string> = {
   "gh is not installed": "gh n'est pas installé",
   "claude is not installed": "Claude Code n'est pas installé",
   "Claude Code is not installed": "Claude Code n'est pas installé",
+  "Claude Code is not installed on this machine": "Claude Code n'est pas installé sur cette machine",
+  "Claude Code is not signed in": "Claude Code n'est pas connecté",
   "no token yet": "pas encore de jeton",
   "not signed in": "pas connecté",
   "the sessions run on OpenRouter: name its slugs": "les sessions passent par OpenRouter : nommez ses modèles par leur slug",

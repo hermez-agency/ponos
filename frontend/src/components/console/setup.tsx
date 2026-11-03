@@ -1404,6 +1404,22 @@ function ProjectStep({ onNext }: { onNext: () => void }) {
 /** The demonstration ticket being played, so that a reload finds it again. */
 const DEMO_KEY = "ponos-setup-demo"
 
+/** The demonstration ticket's column, in the console's word for it: the board's own is spelt for the board. */
+function statusWord(demo: Pick<Demo, "column" | "status">, t: (key: string) => string): string {
+  const ours: Record<string, string> = {
+    draft: "Draft",
+    ready: "Ready",
+    running: "In progress",
+    blocked: "Blocked",
+    review: "In review",
+    validated: "Validated",
+    failed: "Failed",
+    done: "Done",
+    cancelled: "Cancelled",
+  }
+  return ours[demo.column] ? t(ours[demo.column]) : demo.status
+}
+
 function DemoStep({ onNext, onStep }: { onNext: () => void; onStep: (step: StepKey) => void }) {
   const t = useT()
   const language = useLanguage()
@@ -1487,7 +1503,7 @@ function DemoStep({ onNext, onStep }: { onNext: () => void; onStep: (step: StepK
             <span className="min-w-0 flex-1">
               <span className="font-medium">{demo.title}</span>
               <span className="text-muted-foreground block text-xs">
-                {demo.status ? t(demo.status) : t("no status")}
+                {demo.status ? statusWord(demo, t) : t("no status")}
                 {demo.progress ? ` — ${demo.progress}` : ""}
               </span>
             </span>
@@ -1510,6 +1526,14 @@ function DemoStep({ onNext, onStep }: { onNext: () => void; onStep: (step: StepK
                 ok={false}
                 text={t("The ticket did not run. What it said is below; the summary and its full diagnosis say which part is missing.")}
               />
+              {demo.cause ? (
+                <div className="flex flex-col gap-1" data-testid="demo-cause">
+                  <p className="text-sm font-medium">{t(demo.cause)}</p>
+                  {demo.command ? (
+                    <code className="bg-muted rounded-lg border p-2 font-mono text-xs">{demo.command}</code>
+                  ) : null}
+                </div>
+              ) : null}
               {demo.said ? (
                 <pre className="bg-muted max-h-64 overflow-auto rounded-lg border p-3 font-mono text-xs whitespace-pre-wrap">
                   {demo.said}

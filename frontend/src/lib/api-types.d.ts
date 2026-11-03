@@ -2247,6 +2247,10 @@ export interface components {
             /** @description The run's exit code, null while it runs or when it was not started here. */
             code: number | null;
             said: string;
+            /** @description The known reason the session cannot start, in English; empty when none is known. */
+            cause: string;
+            /** @description What mends `cause`, as it is typed in a terminal; empty when nothing does. */
+            command: string;
         };
         Detached: {
             /** @description The file taken off the message, by its identifier. */

@@ -2070,6 +2070,10 @@ class Demo(Shape):
     code: int | None
     """The run's exit code, null while it runs or when it was not started here."""
     said: str
+    cause: str
+    """The known reason the session cannot start, in English; empty when none is known."""
+    command: str
+    """What mends `cause`, as it is typed in a terminal; empty when nothing does."""
 
 
 class Doctor(Shape):
