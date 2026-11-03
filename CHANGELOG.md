@@ -89,6 +89,7 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Fixed
 
+- La bande de santé du tableau de bord accorde le nombre de tickets des options de sous-type que le runner n'écrit pas (« sur 1 ticket », « sur 6 tickets », plus « sur 6 ticket(s) »), et, en français, met les noms qu'elle cite entre « … » plutôt qu'entre “…” (« Propriétés manquantes : « Type », « Sous-type » »).
 - `ponos init` et l'étape Notion de l'assistant distinguent un jeton refusé (401) d'une page non partagée (404) : un jeton faux renvoie au « Secret d'intégration interne » de notion.so/profile/integrations, et seul le 404 conseille le menu « Connections ».
 - Une installation neuve a son dossier de travail : `install.sh` crée `runner.workspace_root` (`~/workspace` par défaut), et `ponos doctor` ne le compte plus en erreur juste après l'installation. Le récapitulatif de la première connexion le crée aussi s'il manque, au lieu de dire « OK » sur un dossier que `doctor` venait de dire absent.
 - L'assistant de première connexion, lu en français, ne laisse plus passer les phrases du serveur : « gh is not installed », « no Notion token yet… », « Claude Code is not installed », « notion.token … must be set », le statut « Failed » du premier ticket. Chacune est traduite, et ce qu'elle a de technique (réglage, commande, chemin) passe derrière un « Détails ».

@@ -388,15 +388,18 @@ def _subtypes(
         ]
     rewritable = [name for name, key, _ in strays if key]
     unknown = [name for name, key, _ in strays if not key]
+    tickets = sum(count for _, _, count in strays)
     return [
         _check(
             "notion.subtypes",
             WARN,
             "Sub-types",
-            "Sub-type options the runner does not write: {{options}}, on {{count}} ticket(s).",
+            "Sub-type options the runner does not write: {{options}}, on {{count}} ticket."
+            if tickets == 1
+            else "Sub-type options the runner does not write: {{options}}, on {{count}} tickets.",
             params={
                 "options": ", ".join(f"“{name}” ({count})" for name, _, count in strays),
-                "count": str(sum(count for _, _, count in strays)),
+                "count": str(tickets),
                 "unknown": ", ".join(f"“{name}”" for name in unknown),
             },
             cause="An older Ponos, or a hand, wrote another spelling: a Notion view filtered on one misses the others.",
