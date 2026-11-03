@@ -594,6 +594,26 @@ file, the guide and the site still answers (`python3 scripts/check-links.py` doe
 locally); it gates no pull request, since a site down for an hour is no reason to refuse a
 commit.
 
+`.github/workflows/install.yml` installs Ponos from nothing, the way a stranger does:
+`install.sh` piped into `sh` by a user who is not root, in an `ubuntu:24.04` with curl, git
+and python3 only — no systemd session, no python3-venv. Neither suite ever ran
+`install.sh`, and it took a throwaway container ten minutes to find a fresh installation
+offered to go back from `main` to v0.2.0, its `workspace_root` missing and `ponos doctor`
+red. `scripts/fresh-install.sh` is the whole scenario: the commit under test becomes
+`main` of a bare repository that git is told is github.com/hermez-agency/ponos, so the
+installation makes its real `git clone --depth 1` and its real fetch of the tags, without
+the network but for PyPI. Then four checks, each said even when another failed: the
+installation ends, the console answers `GET /api/setup` unclaimed, `ponos doctor` has no
+problem but Claude Code missing and the Notion token (both the first connection's), and
+`ponos update --check` answers and never offers a version older than the one installed.
+It runs on a pull request that touches `install.sh`, `update.py`, `environment.py`,
+`health.py` or the job itself, every night on `main`, and by hand; locally, from a clone
+with its tags:
+
+```sh
+docker run --rm -v "$PWD:/repo:ro" ubuntu:24.04 sh /repo/scripts/fresh-install.sh
+```
+
 ---
 
 ## Releases and versions
