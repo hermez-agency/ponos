@@ -3166,6 +3166,8 @@ export interface components {
             validation: components["schemas"]["Validation"];
             ideas: components["schemas"]["ProjectIdeas"];
             local_ci: components["schemas"]["ProjectLocalCi"];
+            /** @description The command run in each fresh worktree before its session; empty, the repository's `.ponos/setup.sh` if any. */
+            setup: string;
         };
         Projects: {
             projects: components["schemas"]["Project"][];

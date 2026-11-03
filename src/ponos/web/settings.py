@@ -1580,6 +1580,18 @@ SECTIONS: tuple[Section, ...] = (
                 unit="minutes",
                 advanced=True,
             ),
+            Field(
+                "runner",
+                "setup_timeout_minutes",
+                "int",
+                "Time allowed for a project's setup",
+                "The command a project declares in its Settings tab (or `.ponos/setup.sh`) runs "
+                "in the fresh worktree before the session; past this, it is stopped and the "
+                "ticket is blocked.",
+                unit="minutes",
+                minimum=1,
+                advanced=True,
+            ),
         ),
     ),
     Section(

@@ -2829,6 +2829,15 @@ export const FRENCH: Record<string, string> = {
   "This project's own choice, against the global setting.": "Le choix propre à ce projet, contre le réglage global.",
   "Follows the global setting, in Code and repositories.": "Suit le réglage global, dans Code et dépôts.",
   "CI command": "Commande de CI",
+  "Worktree setup": "Préparation du worktree",
+  "Run in each fresh worktree before the session starts, so that it finds its dependencies installed. A command that fails blocks the ticket, without starting a session.":
+    "Lancée dans chaque worktree neuf avant la session, pour qu'elle trouve ses dépendances installées. Une commande qui échoue bloque le ticket, sans lancer de session.",
+  "Setup command": "Commande de préparation",
+  "Run from the root of the worktree, e.g. `npm ci`. Empty: the repository's `.ponos/setup.sh`, if it has one.":
+    "Lancée depuis la racine du worktree, par exemple `npm ci`. Vide : le `.ponos/setup.sh` du dépôt, s'il en a un.",
+  "Time allowed for a project's setup": "Temps alloué à la préparation d'un projet",
+  "The command a project declares in its Settings tab (or `.ponos/setup.sh`) runs in the fresh worktree before the session; past this, it is stopped and the ticket is blocked.":
+    "La commande qu'un projet déclare dans son onglet Réglages (ou `.ponos/setup.sh`) tourne dans le worktree neuf avant la session ; au-delà, elle est arrêtée et le ticket bloqué.",
   "Run from the root of the repository, e.g. `make ci`. Empty: the GitHub workflows, through `act` when it is installed.":
     "Lancée depuis la racine du dépôt, par exemple `make ci`. Vide : les workflows GitHub, avec `act` s'il est installé.",
   "Ideas on a schedule":

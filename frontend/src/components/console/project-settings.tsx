@@ -90,6 +90,18 @@ export function ProjectSettingsTab({ project }: { project: string }) {
     }
   }
 
+  const saveSetup = async (command: string) => {
+    setSaving(true)
+    try {
+      setSettings(await api.saveProjectSettings(project, { setup: { command } }))
+      setProblem("")
+    } catch (error) {
+      setProblem(why(error))
+    } finally {
+      setSaving(false)
+    }
+  }
+
   if (!settings)
     return problem ? (
       <p className="text-destructive text-sm">{problem}</p>
@@ -182,8 +194,73 @@ export function ProjectSettingsTab({ project }: { project: string }) {
           />
         </CardContent>
       </Card>
+      <SetupCard key={settings.setup} setup={settings.setup} saving={saving} onSave={saveSetup} />
       <LocalCiCard key={localCi.command} localCi={localCi} saving={saving} onSave={saveLocalCi} />
     </div>
+  )
+}
+
+/* The project's setup: the command run in each fresh worktree before its
+ * session, typed and saved with its button. Empty, the repository's own
+ * `.ponos/setup.sh` runs if it has one. */
+function SetupCard({
+  setup,
+  saving,
+  onSave,
+}: {
+  setup: string
+  saving: boolean
+  onSave: (command: string) => Promise<void>
+}) {
+  const t = useT()
+  const [command, setCommand] = React.useState(setup)
+  const changed = command.trim() !== setup
+  return (
+    <Card data-card="project-setup" className="gap-0 py-0">
+      <CardHeader className="gap-1 px-5 pt-5 pb-2 sm:px-6">
+        <CardTitle className="text-base">{t("Worktree setup")}</CardTitle>
+        <CardDescription className="text-[13px] leading-relaxed">
+          {t(
+            "Run in each fresh worktree before the session starts, so that it finds its dependencies installed. A command that fails blocks the ticket, without starting a session."
+          )}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="px-5 pb-4 sm:px-6">
+        <form
+          className="py-2"
+          data-field="project-setup-command"
+          onSubmit={(event) => {
+            event.preventDefault()
+            if (changed) void onSave(command.trim())
+          }}
+        >
+          <Label htmlFor="project-setup-command" className="leading-snug font-semibold">
+            {t("Setup command")}
+          </Label>
+          <p className="text-muted-foreground mt-1 text-[13px] leading-snug">
+            <Rich
+              text={t(
+                "Run from the root of the worktree, e.g. `npm ci`. Empty: the repository's `.ponos/setup.sh`, if it has one."
+              )}
+            />
+          </p>
+          <div className="mt-2.5 flex gap-2">
+            <Input
+              id="project-setup-command"
+              className="font-mono text-[13px]"
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="npm ci"
+              value={command}
+              onChange={(event) => setCommand(event.target.value)}
+            />
+            <Button type="submit" variant="outline" disabled={!changed || saving}>
+              {t("Save")}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
   )
 }
 

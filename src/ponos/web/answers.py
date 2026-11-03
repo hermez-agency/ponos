@@ -545,6 +545,8 @@ class ProjectSettings(Shape):
     validation: Validation
     ideas: ProjectIdeas
     local_ci: ProjectLocalCi
+    setup: str
+    """The command run in each fresh worktree before its session; empty, the repository's `.ponos/setup.sh` if any."""
 
 
 class ProjectDeleted(Shape):

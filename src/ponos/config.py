@@ -385,6 +385,10 @@ class Runner:
     # How many local CIs this machine runs at once, whatever the number of
     # tickets in flight: each one is a set of containers.
     local_ci_concurrent: int = 1
+    # How long a project's setup command may run in a fresh worktree, before
+    # the session starts. Past it the command is killed and the ticket blocked.
+    # See worktree_setup.py.
+    setup_timeout_minutes: int = 10
     keep_worktree_on_failure: bool = True
     attach_sessions: bool = True
     session_host: str = ""
