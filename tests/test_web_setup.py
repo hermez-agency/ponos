@@ -281,6 +281,7 @@ def the_installer_gives_the_same_install_commands_as_doctor():
         for tool, package in prerequisites.PACKAGES[manager].items():
             if package != tool:
                 assert f"{manager}:{tool}) echo {package} ;;" in script, (manager, tool)
+    assert "All the tools at once" in script
     # A systemctl with no user bus behind it is a container's or WSL's: asked
     # before it is relied on, or `set -e` ends the script on its first call.
     assert "systemctl --user show-environment" in script

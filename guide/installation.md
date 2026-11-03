@@ -9,7 +9,7 @@ Installing, updating and uninstalling.
 [The install line](../README.md#install-it) runs `install.sh`. The script checks the machine
 first and says everything that is missing at once, each with
 the command that installs it here — `apt-get`, `dnf`, `pacman` or `brew`, whichever this
-machine has; it picks the newest Python that is recent enough, `python3.12` beside an older
+machine has — and ends on one line that installs them all (`sudo apt-get install -y python3 python3-venv git`); it picks the newest Python that is recent enough, `python3.12` beside an older
 `python3` included, and offers to install Claude Code when it is not there. Then it installs
 the `ponos` command into `~/.local/bin` and arms a timer that picks up ready tickets **every
 30 minutes** — `interval_seconds` in the configuration changes that, down to a few seconds if
