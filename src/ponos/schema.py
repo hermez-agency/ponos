@@ -375,11 +375,13 @@ Users = Annotated[str, BeforeValidator(_users)]
 class TelegramTable(Table):
     chat: Text = ""
     allowed_users: Users = ""
+    default_project: Text = ""
 
 
 class SlackTable(Table):
     channel: Text = ""
     allowed_users: Users = ""
+    default_project: Text = ""
 
 
 class NotifyTable(Table):

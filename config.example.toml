@@ -1013,6 +1013,11 @@ chat = ""
 # session runs with bypassPermissions. `ponos doctor` warns about a
 # group with nobody named here.
 # allowed_users = [123456789]
+# « /ticket <project> <what to do> » in this chat writes a ticket — a draft;
+# « /ticket! … » puts it straight in Ready. Only when allowed_users names who may
+# (a ticket in Ready is a session). The project is the first word, by name or by
+# prefix; this one is where a ticket naming none goes (empty: the bot asks).
+# default_project = "Ponos"
 
 # Slack — the same conversation, where the team already is. A question is posted
 # to the channel and answered in its thread, so two tickets can wait at once —
@@ -1034,6 +1039,9 @@ channel = ""
 # a ticket whose session runs with bypassPermissions. `ponos doctor`
 # warns while it is empty.
 # allowed_users = ["U0123ABCD"]
+# « ticket: <project> <what to do> » in the channel writes a ticket, as in Telegram
+# (« ticket!: … » for Ready); same condition on allowed_users.
+# default_project = "Ponos"
 
 # ---------------------------------------------------------------------------
 # The web console — ponos serve

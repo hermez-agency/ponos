@@ -1224,6 +1224,32 @@ _SAID: dict[str, dict[str, str]] = {
         "en": "✓ noted on “{title}” — it runs again in a moment.",
         "fr": "✓ noté sur « {title} » — il repart dans un instant.",
     },
+    "ticket-created": {
+        "en": "✓ {state} “{title}” on {project} — {url}",
+        "fr": "✓ {state} « {title} » sur {project} — {url}",
+    },
+    "ticket-draft": {"en": "Draft created:", "fr": "Brouillon créé :"},
+    "ticket-ready": {"en": "Ready ticket created:", "fr": "Ticket prêt créé :"},
+    "ticket-which": {
+        "en": "Which project? Start again with its name: /ticket <project> <what to do>. {names}",
+        "fr": "Quel projet ? Recommence avec son nom : /ticket <projet> <ce qu'il faut faire>. {names}",
+    },
+    "ticket-empty": {
+        "en": "Say what to do: /ticket <project> <what to do> (/ticket! puts it straight in Ready).",
+        "fr": "Dis ce qu'il faut faire : /ticket <projet> <ce qu'il faut faire> (/ticket! le met directement en Prêt).",
+    },
+    "ticket-unnamed": {
+        "en": "No ticket from here until allowed_users names who may write one.",
+        "fr": "Pas de ticket d'ici tant que allowed_users ne nomme pas qui peut en écrire.",
+    },
+    "ticket-refused": {
+        "en": "The ticket could not be written: {error}",
+        "fr": "Le ticket n'a pas pu être écrit : {error}",
+    },
+    "ticket-unheard": {
+        "en": "The voice message could not be transcribed: {error}",
+        "fr": "Le message vocal n'a pas pu être transcrit : {error}",
+    },
     "nothing-waiting": {
         "en": (
             "Nothing here is waiting on an answer — reply under the question itself, "

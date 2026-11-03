@@ -23,7 +23,7 @@ from support import (
     case,
 )
 
-from ponos import channels, db, notify, notion, voice
+from ponos import channels, db, notify, notion, voice, workspace
 from ponos import config as C
 from ponos.channels import slack as slack_channel
 from ponos.channels import telegram as telegram_channel
@@ -1203,3 +1203,156 @@ def a_question_a_review_and_a_failure_ring_the_bell_but_a_dry_run_does_not(state
     runner._tell("done", ticket, "review", "branch")
     assert [(i["kind"], i["read"]) for i in notifications.recent()["items"]] == [("review", False)]
     assert notifications.recent()["unread"] == 1, "one ticket waits"
+
+
+# -- a ticket written from a phone ---------------------------------------------
+
+
+class _Writing:
+    """A board that remembers the rows written to it, and the projects it knows."""
+
+    def __init__(self):
+        self.rows: list[tuple[str, dict]] = []
+        self.notes: list[str] = []
+
+    def query(self, database_id):
+        return [
+            notion.Page(id="p1", properties={}, title="Ponos", url=""),
+            notion.Page(id="p2", properties={}, title="Leadz", url=""),
+        ]
+
+    def schema(self, database_id):
+        return {}
+
+    def create_row(self, database_id, title, values=None):
+        self.rows.append((title, values or {}))
+        return "new"
+
+    def append_markdown(self, page_id, markdown):
+        self.notes.append(markdown)
+        return 1
+
+    def page(self, page_id):
+        return notion.Page(id=page_id, properties={}, title="", url="https://notion.so/new")
+
+
+class _Phone(channels.Channel):
+    name = "telegram"
+
+    def __init__(self, allowed=frozenset({"7"}), default=""):
+        self.allowed = frozenset(allowed)
+        self.default_project = default
+        self.said: list[str] = []
+
+    def acknowledge(self, reply, text):
+        self.said.append(text)
+        return True
+
+
+def _writing(text: str, **channel) -> tuple[_Writing, _Phone]:
+    runner = Runner.__new__(Runner)
+    runner.config = _config('[notify.telegram]\ntoken = "123:abc"\nchat = "42"\n')
+    runner.client = _Writing()
+    runner._workspace = workspace.Workspace(tickets="tickets-db", projects="projects-db")
+    runner.dry_run = False
+    runner.quiet = True
+    phone = _Phone(**channel)
+    runner.ticketed(
+        phone, channels.Reply(channel="telegram", text=text), channels.capture.parse(text)
+    )
+    return runner.client, phone
+
+
+@case
+def a_ticket_command_is_read_off_the_first_words():
+    parse = channels.capture.parse
+    assert parse("/ticket ponos fix it").text == "ponos fix it"
+    assert not parse("/ticket ponos fix it").ready
+    assert parse("/ticket! ponos fix it").ready
+    assert parse("/ticket@my_bot ponos").text == "ponos"
+    assert parse("Ticket: ponos fix it").text == "ponos fix it"
+    assert parse("ticket!: ponos fix it").ready
+    assert parse("oui") is None
+    assert parse("/tickets ponos") is None, "a longer word is another command"
+    assert parse("the ticket: is open") is None, "only at the start of the message"
+
+
+@case
+def the_first_word_is_a_project_by_name_or_by_prefix():
+    names = ["Ponos", "Leadz", "Portfolio"]
+    project = channels.capture.project
+    assert project("ponos fix the stop button", names) == ("Ponos", "fix the stop button")
+    assert project("LEA add export", names) == ("Leadz", "add export")
+    assert project("po fix it", names) == ("", "po fix it"), "two projects start with po"
+    assert project("fix the button", names) == ("", "fix the button")
+    assert project("p x", names) == ("", "p x"), "one letter is not an abbreviation"
+
+
+@case
+def a_ticket_command_writes_a_draft_and_tells_where(state_home):
+    board, phone = _writing("/ticket ponos le bouton Stop ne s'affiche pas sur mobile")
+    title, values = board.rows[0]
+    assert title == "le bouton Stop ne s'affiche pas sur mobile"
+    assert values["Project"] == ["p1"]
+    assert "Status" not in values, "a draft has no status unless the board names one"
+    assert "Ponos" in phone.said[0] and "https://notion.so/new" in phone.said[0]
+
+
+@case
+def a_bang_puts_the_ticket_straight_in_ready(state_home):
+    board, _ = _writing("/ticket! ponos fix it")
+    assert board.rows[0][1]["Status"] == "Ready"
+
+
+@case
+def a_ticket_without_a_project_goes_to_the_default_one_or_asks(state_home):
+    board, phone = _writing("/ticket fix the footer", default="leadz")
+    assert board.rows[0][1]["Project"] == ["p2"]
+    board, phone = _writing("/ticket fix the footer")
+    assert not board.rows and "Leadz" in phone.said[0], "the bot asks, naming the projects"
+
+
+@case
+def a_ticket_command_is_refused_where_nobody_is_named(state_home):
+    board, phone = _writing("/ticket ponos fix it", allowed=frozenset())
+    assert not board.rows and "allowed_users" in phone.said[0]
+
+
+@case
+def a_long_message_keeps_its_first_line_as_the_title_and_the_rest_as_the_body(state_home):
+    board, _ = _writing("/ticket ponos fix the stop button\nit hides on mobile\nunder 400px")
+    assert board.rows[0][0] == "fix the stop button"
+    assert board.notes == ["fix the stop button\nit hides on mobile\nunder 400px"]
+
+
+@case
+def a_voice_message_with_a_ticket_caption_is_transcribed():
+    channel = telegram_channel.Telegram("token", "42", frozenset({"7"}))
+    update = {
+        "ok": True,
+        "result": [
+            {
+                "update_id": 1,
+                "message": {
+                    "message_id": 5,
+                    "chat": {"id": 42},
+                    "from": {"id": 7},
+                    "voice": {"file_id": "abc"},
+                    "caption": "/ticket ponos",
+                },
+            },
+            {
+                "update_id": 2,
+                "message": {
+                    "message_id": 6,
+                    "chat": {"id": 42},
+                    "from": {"id": 8},
+                    "text": "/ticket ponos not you",
+                },
+            },
+        ],
+    }
+    with _api(telegram_channel, {"getUpdates": update}):
+        incoming, _ = channel._fetch("", [])
+    assert [message.audio for message in incoming] == ["abc"], "nobody outside allowed_users writes"
+    assert incoming[0].text == "/ticket ponos"
