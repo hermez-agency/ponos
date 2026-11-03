@@ -16,6 +16,8 @@ top: `-k` to run one case, `-x`, `--durations`, coverage, and `-n auto`.
 from __future__ import annotations
 
 import inspect
+from collections.abc import Callable, Generator, Iterator
+from typing import Any
 
 import functional  # noqa: F401 — for its fixture
 import pytest
@@ -27,7 +29,9 @@ import support
 support.isolate()
 
 
-def pytest_pycollect_makeitem(collector, name, obj):
+def pytest_pycollect_makeitem(
+    collector: pytest.Module | pytest.Class, name: str, obj: object
+) -> pytest.Function | None:
     if (
         inspect.isfunction(obj)
         and obj.__module__ == collector.obj.__name__
@@ -41,7 +45,7 @@ def pytest_pycollect_makeitem(collector, name, obj):
 
 
 @pytest.hookimpl(wrapper=True)
-def pytest_pyfunc_call(pyfuncitem):
+def pytest_pyfunc_call(pyfuncitem: pytest.Function) -> Generator[None, object, object]:
     """A case's `support.Skip` is a pytest skip, with its reason."""
     try:
         return (yield)
@@ -49,8 +53,10 @@ def pytest_pyfunc_call(pyfuncitem):
         pytest.skip(str(skipped))
 
 
-def _pytest_fixture(name: str, function):
-    def fixture(request):
+def _pytest_fixture(
+    name: str, function: Callable[[Callable[..., None]], Iterator[Any]]
+) -> Callable[..., Any]:
+    def fixture(request: pytest.FixtureRequest) -> Iterator[Any]:
         yield from function(request.function)
 
     return pytest.fixture(name=name)(fixture)
