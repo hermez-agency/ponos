@@ -505,16 +505,18 @@ for (const theme of themes) {
 // it, film by film — the board is read again a second or so after each move,
 // and no two films wait the same.
 if (!look) {
-  const page = join(root, 'docs', 'index.html');
-  let text = readFileSync(page, 'utf-8');
-  for (const theme of themes) {
-    const cues = said[theme].map((at) => at.toFixed(1)).join(' ');
-    const attribute = new RegExp(`data-cues-${theme}="[^"]*"`);
-    if (!attribute.test(text)) throw new Error(`docs/index.html has no data-cues-${theme} to write`);
-    text = text.replace(attribute, `data-cues-${theme}="${cues}"`);
+  for (const name of ['index.html', 'fr/index.html']) {
+    const page = join(root, 'docs', name);
+    let text = readFileSync(page, 'utf-8');
+    for (const theme of themes) {
+      const cues = said[theme].map((at) => at.toFixed(1)).join(' ');
+      const attribute = new RegExp(`data-cues-${theme}="[^"]*"`);
+      if (!attribute.test(text)) throw new Error(`docs/${name} has no data-cues-${theme} to write`);
+      text = text.replace(attribute, `data-cues-${theme}="${cues}"`);
+    }
+    writeFileSync(page, text);
+    console.log(`docs/${name}: the cues written`);
   }
-  writeFileSync(page, text);
-  console.log('docs/index.html: the cues written');
 }
 if (keep) console.log(`\nKept: ${scratch}`);
 
