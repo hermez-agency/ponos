@@ -13,7 +13,10 @@ export async function underTheCorner(page: Page): Promise<string[]> {
       window.scrollTo(0, y)
       await settled()
       // Measured at every step: the bar grows once its badge and its words are in.
-      const bottom = nav.getBoundingClientRect().top
+      // A whole pixel clear of its edge: `elementFromPoint` answers in whole
+      // pixels, and asked at 758.4 over a bar that starts at 759 it names the
+      // bar — a card scrolling under it, caught there by the order of the runs.
+      const bottom = Math.floor(nav.getBoundingClientRect().top) - 1
       const corner = { left: window.innerWidth - 96, right: window.innerWidth, top: bottom - 96, bottom }
       for (const element of Array.from(document.querySelectorAll<HTMLElement>("a, button, input, textarea, select, [role=tab]"))) {
         if (nav.contains(element) || !element.checkVisibility()) continue
