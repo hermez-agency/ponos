@@ -34,6 +34,7 @@ class Projects(Base):
         """
         if self._projects and time.time() - self._projects_at < PROJECT_TTL:
             return self._projects
+        began = self._projects_written
         index: dict[str, dict[str, Any]] = {}
         try:
             database = self.runner.workspace.projects
@@ -57,7 +58,9 @@ class Projects(Base):
             # project names, and nothing else. The tickets still show.
             return self._projects
         self._projects = index
-        self._projects_at = time.time()
+        # Read before a write that came since (`forget_projects`): held, but
+        # not for long — the board would name the tickets after the old name.
+        self._projects_at = time.time() if began == self._projects_written else 0.0
         return index
 
     def _pictures(self, page: store.Page) -> dict[str, dict[str, Any]]:
@@ -244,8 +247,7 @@ class Projects(Base):
             self.runner.client.replace_markdown(page_id, str(values["content"]))
         # The index is kept for ten minutes, and a rename that took that long to
         # show would be a rename somebody made twice.
-        self._projects = {}
-        self._projects_at = 0.0
+        self.forget_projects()
         self.hub.publish("projects", saved=page_id)
         return self.project(page_id)
 

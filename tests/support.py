@@ -1101,6 +1101,7 @@ def _bare_api(client: Any, me: str = "runner-id") -> web_api.Api:
     api._stamp = (0.0, 0.0)
     api._projects = {}
     api._projects_at = 0.0
+    api._projects_written = 0
     api._briefs = {}
     # The pictures kept in a directory of the test's own: the real one is under
     # the state directory of whoever runs the suite.

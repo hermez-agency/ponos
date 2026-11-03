@@ -592,13 +592,25 @@ function BoardTop() {
   )
 }
 
+/* A list reread whenever the stream moves the board — and once as it starts
+ * listening: the list may have been read before this was drawn, and a board
+ * that arrived in between would otherwise be missed until the next one. A
+ * project's page opened as its tickets were written stayed empty that way. */
+function useRereadWithTheBoard(fetchData: () => void, listing: boolean) {
+  const latest = React.useRef(fetchData)
+  latest.current = fetchData
+  React.useEffect(() => {
+    const unsubscribe = subscribeBoard(() => latest.current())
+    if (listing && currentBoard()) latest.current()
+    return unsubscribe
+  }, [listing])
+}
+
 /** The same list drawn inside another page: reread when the stream moves, and none of the dashboard's figures. */
 function EmbeddedTop() {
   const { fetchData } = useCurrentViewResourceContext()
   useRememberedLayout(TICKETS)
-  const latest = React.useRef(fetchData)
-  latest.current = fetchData
-  React.useEffect(() => subscribeBoard(() => latest.current()), [])
+  useRereadWithTheBoard(fetchData, true)
   return null
 }
 
@@ -612,9 +624,7 @@ function DashboardTop({
   listing: boolean
 }) {
   useLayoutInTheAddress(TICKETS)
-  const latest = React.useRef(fetchData)
-  latest.current = fetchData
-  React.useEffect(() => subscribeBoard(() => latest.current()), [])
+  useRereadWithTheBoard(fetchData, listing)
   // The figures are the board's: a ticket's page is drawn under the same
   // `top`, and has its own column to say what it is doing.
   if (!loading)

@@ -90,7 +90,14 @@ test("a project's page searches its own tickets, with no project to pick", async
   const stamp = Date.now()
   await make(page, `Newsletter issue ${stamp}`, NEWSLETTER)
   await make(page, `Newsletter archive ${stamp}`, NEWSLETTER)
-  await open(page, `/?view=console/projects/read/${NEWSLETTER}`)
+  await signIn(page)
+  await page.goto(`/?view=console/projects/read/${NEWSLETTER}`)
+  // The page draws the board the stream holds, and the two tickets are on it
+  // only once the console has read the board again after writing them — a
+  // turn of its watching thread, longer than five seconds on a loaded runner.
+  // Until then the project has no ticket, and no search bar to type in.
+  for (const title of [`Newsletter issue ${stamp}`, `Newsletter archive ${stamp}`])
+    await expect(card(page, title)).toBeVisible({ timeout: 15_000 })
   await expect(page.getByRole("button", { name: /^Project/ })).toHaveCount(0)
   await page.getByRole("searchbox", { name: "Search tickets" }).fill(`issue ${stamp}`)
   await expect(card(page, `Newsletter issue ${stamp}`)).toBeVisible()

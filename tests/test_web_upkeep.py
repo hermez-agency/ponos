@@ -39,6 +39,7 @@ def _bare_console() -> web_api.Api:
     console._stamp = web_base._stamp(console._config.path)
     console._runner = None
     console._projects = {}
+    console._projects_written = 0
     console.hub = live.Hub()
     return console
 

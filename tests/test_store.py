@@ -188,6 +188,29 @@ def the_console_opens_a_project_and_writes_it_back():
             raise AssertionError("an unknown project must not read as a blank one")
 
 
+@case
+def a_read_under_way_when_a_project_is_renamed_does_not_keep_its_old_name():
+    """The tickets are named after their project from this index: kept stale, a
+    renamed project's page lists none of them for ten minutes."""
+    with _board() as board:
+        page = board.create_row("projects", "Newsletter", {"github": "user/newsletter"})
+        api = _markdown_api(board)
+        client = api.runner.client
+        query = client.query
+
+        def renamed_meanwhile(*args, **kwargs):
+            pages = query(*args, **kwargs)
+            client.query = query
+            api.save_project(page, {"name": "Weekly letter"})
+            return pages
+
+        # The watcher's board, read while the rename is written.
+        client.query = renamed_meanwhile
+        api.projects()
+        names = [one["name"] for one in api.projects().values()]
+        assert names == ["Weekly letter"], names
+
+
 def _creatable(board: files.Board, language: str = "fr") -> web_api.Api:
     """A markdown Api that creates projects, speaking `language`."""
     api = _markdown_api(board)

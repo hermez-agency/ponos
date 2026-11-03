@@ -24,6 +24,12 @@ const LONG = "000000000000000000000000000abcde"
 
 async function open(page: Page, path = "/") {
   await page.context().addCookies([{ name: "ponos_token", value: "e2e", url: test.info().project.use.baseURL }])
+  // The board of these tests is red on purpose, and the band that says so
+  // arrives after the cards and pushes them down: a tap aimed at a button
+  // before it lands where the button was. Green here, the band is health.spec.ts's.
+  await page.route("**/api/health", (route) =>
+    route.fulfill({ json: { checks: [], problems: 0, checked_at: new Date().toISOString() } })
+  )
   await page.goto(path)
 }
 

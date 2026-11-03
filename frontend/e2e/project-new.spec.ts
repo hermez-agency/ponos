@@ -17,6 +17,14 @@ import { expect, test, type Page } from "@playwright/test"
 
 const LIST = "/?view=console/projects/list&variant=cards"
 
+/* The names of this attempt's projects. A retry runs the file again on the same
+ * board, where the first attempt's are already taken. */
+const RUN = Date.now().toString(36).slice(-5)
+const PRESS = `Press kit ${RUN}`
+const SPLIT = `Split made ${RUN}`
+const BRAND = `Brand assets ${RUN}`
+const JOURNAL = `Journal site ${RUN}`
+
 async function open(page: Page) {
   await page.context().addCookies([{ name: "ponos_token", value: "e2e", url: test.info().project.use.baseURL }])
   await page.goto(LIST)
@@ -51,7 +59,7 @@ test.describe("at 1440px", () => {
     await expect(window_(page).getByRole("link", { name: "Open it" })).toBeVisible()
     await expect(create(page)).toBeDisabled()
 
-    await page.getByPlaceholder("Project name").fill("Press kit")
+    await page.getByPlaceholder("Project name").fill(PRESS)
     await page.getByPlaceholder("What the project does, in one sentence").fill("What journalists download.")
     await window_(page).getByRole("button", { name: "Writing", exact: true }).click()
     // No repository to give a writing project.
@@ -64,13 +72,13 @@ test.describe("at 1440px", () => {
     await expect(window_(page)).toBeHidden()
     await expect(page.getByText("Project created")).toBeVisible()
     const first = page.locator("[data-project-card]").first()
-    await expect(first).toContainText("Press kit")
+    await expect(first).toContainText(PRESS)
     await expect(first).toHaveAttribute("data-fresh", "true")
     await expect(first.locator("xpath=..").locator("[data-project-new-ticket]")).toBeVisible()
     await expect(counted).toContainText(`of ${before + 1} projects`)
 
     const listed = await (await page.request.get("/api/projects")).json()
-    const made = listed.projects.find((project: { name: string }) => project.name === "Press kit")
+    const made = listed.projects.find((project: { name: string }) => project.name === PRESS)
     expect(made.kind).toBe("document")
   })
 
@@ -79,19 +87,19 @@ test.describe("at 1440px", () => {
     await page.goto("/?view=console/projects/list")
     await expect(page.locator("[data-project-item]", { hasText: "Website" })).toBeVisible()
     await newProject(page)
-    await page.getByPlaceholder("Project name").fill("Split made")
+    await page.getByPlaceholder("Project name").fill(SPLIT)
     await window_(page).getByRole("button", { name: "Writing", exact: true }).click()
     await page.getByPlaceholder("What the project does, in one sentence").press("Control+Enter")
     await expect(window_(page)).toBeHidden()
-    const item = page.locator("[data-project-item]", { hasText: "Split made" })
+    const item = page.locator("[data-project-item]", { hasText: SPLIT })
     await expect(item).toHaveAttribute("data-selected", "true")
-    await expect(page.locator("[data-project-panel]")).toContainText("Split made")
+    await expect(page.locator("[data-project-panel]")).toContainText(SPLIT)
   })
 
   test("a code project from GitHub says it will be cloned, and goes on to its first ticket", async ({ page }) => {
     await open(page)
     await newProject(page)
-    await page.getByPlaceholder("Project name").fill("Brand assets")
+    await page.getByPlaceholder("Project name").fill(BRAND)
     await expect(window_(page).getByRole("button", { name: "Code", exact: true })).toHaveAttribute("aria-pressed", "true")
     await page.getByPlaceholder("owner/repo").fill("gitlab.com/someone/assets")
     await expect(window_(page)).toContainText("is not a GitHub repository")
@@ -105,11 +113,11 @@ test.describe("at 1440px", () => {
     // The ticket's form, over the list, with the new project already in it.
     const dialog = page.getByRole("dialog")
     await expect(dialog.getByPlaceholder("Remove the banner from the dashboard")).toBeVisible()
-    await expect(dialog).toContainText("Brand assets")
+    await expect(dialog).toContainText(BRAND)
     await expect(window_(page)).toHaveCount(0)
 
     const listed = await (await page.request.get("/api/projects")).json()
-    const made = listed.projects.find((project: { name: string }) => project.name === "Brand assets")
+    const made = listed.projects.find((project: { name: string }) => project.name === BRAND)
     expect(made.repository).toBe("https://github.com/example/brand-assets")
   })
 
@@ -124,7 +132,7 @@ test.describe("at 1440px", () => {
     await page.getByRole("option", { name: "New project" }).click()
     await expect(window_(page)).toBeVisible()
 
-    await page.getByPlaceholder("Project name").fill("Journal site")
+    await page.getByPlaceholder("Project name").fill(JOURNAL)
     await window_(page).getByRole("button", { name: "Local folder" }).click()
     const path = window_(page).getByPlaceholder("~/workspace/that-repository")
     await path.fill(`${folder}-nowhere`)
@@ -137,7 +145,7 @@ test.describe("at 1440px", () => {
 
     await expect(window_(page)).toBeHidden()
     const listed = await (await page.request.get("/api/projects")).json()
-    const made = listed.projects.find((project: { name: string }) => project.name === "Journal site")
+    const made = listed.projects.find((project: { name: string }) => project.name === JOURNAL)
     expect(made.path).toBe(folder)
     expect(made.repository).toBe("https://github.com/example/journal-site")
   })

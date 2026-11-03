@@ -101,8 +101,12 @@ class Base(Chapters):
         self._runner: Runner | None = None
         self._projects: dict[str, dict[str, Any]] = {}
         self._projects_at = 0.0
+        # Every write that makes the index stale: a reading under way since
+        # then does not keep what it read (`Projects.projects`).
+        self._projects_written = 0
         self._goals: dict[str, dict[str, Any]] = {}
         self._goals_at = 0.0
+        self._goals_written = 0
         self._schema_at = 0.0
         self._images: images.Cache | None = None
         self.hub = live.Hub()
@@ -227,8 +231,7 @@ class Base(Chapters):
     def forget(self) -> None:
         """Drop the caches. What a failed Notion call earns, so the next retries."""
         self._runner = None
-        self._projects = {}
-        self._projects_at = 0.0
+        self.forget_projects()
         self._schema_at = 0.0
         self._health = None
 
@@ -236,6 +239,7 @@ class Base(Chapters):
         """Read the projects again next time: one was created or renamed meanwhile."""
         self._projects = {}
         self._projects_at = 0.0
+        self._projects_written += 1
 
     def resynchronise(self) -> None:
         """ "Resynchronise now": the whole board read again, the failed writes
