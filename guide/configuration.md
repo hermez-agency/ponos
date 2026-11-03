@@ -189,7 +189,7 @@ five minutes ago. Past that, the page still opens at once on the last answer, an
 checks run again behind it: what they find replaces the band as soon as it is in.
 **Recheck**, a **Configure** and a saved setting check again at once, and wait for it. It
 is not drawn while everything is green. `ponos doctor` prints the same
-checks (`src/ponos/health.py`) — every one of them, `doctor` asks nothing on its own —
+checks (`src/ponos/health/`) — every one of them, `doctor` asks nothing on its own —
 grouped as the band groups them (*Board*, *GitHub*, *Claude*, *Projects*, *Machine*,
 *Settings*), with the settings it only describes in grey, which the band leaves out. The one
 thing the two do differently: `doctor` asks the remote for the newest version, the dashboard

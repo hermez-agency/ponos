@@ -23,7 +23,7 @@ on:
       - install.sh
       - src/ponos/update.py
       - src/ponos/environment.py
-      - src/ponos/health.py
+      - src/ponos/health/**
       - scripts/fresh-install.sh
       - .github/workflows/install.yml
   schedule:
