@@ -24,7 +24,7 @@ from concurrent.futures import Future
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from . import conversation, git, kinds, priority, state, store, subtypes
+from . import conversation, git, journal, kinds, priority, state, stopping, store, subtypes
 from . import update as update_module
 from . import voice as voice_module
 from .base import Base
@@ -586,8 +586,13 @@ class Board(Base):
 
         Either way the card's line is emptied: only `Live.close` does it after
         a session, and a run that was killed never got there — a ticket back in
-        ready would go on showing its last step as though it still ran.
+        ready would go on showing its last step as though it still ran. And its
+        run in the journal is closed, first and whatever the board answers: it
+        is this machine's to close, the board has no say in it.
         """
+        closed = journal.interrupted(stopping.live())
+        if closed:
+            self.say(f"  ↺ {closed} run(s) left open by a dead runner, closed")
         status_property = self.config.notion.prop("status")
         agent = self.config.notion.prop("agent")
         try:

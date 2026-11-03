@@ -29,8 +29,10 @@ A run's `status` is what the ticket came to — done, blocked, failed, waiting �
 not only what its session did: a session that ended well and committed nothing
 is a blocked ticket, and that is what its run says. `reason` is the sentence
 beside it, or the pull request it opened; `code` is the cause of a run that
-stopped, from blocks.py. A run the runner never got to close
-— killed mid-session — keeps a NULL status, and reads as such.
+stopped, from blocks.py. A run the runner never got to close — killed
+mid-session, by a reboot as often as not — is closed by the next pass, under
+the run lock (see `interrupted`): left open, it was a run « in progress » for
+good, and every count, duration and rate of success read it as one.
 """
 
 from __future__ import annotations
@@ -194,6 +196,33 @@ class Run:
         except _FAILURES as error:
             self.say(f"    ! run journal off for this ticket: {error}")
             self.id = None
+
+
+def interrupted(live: set[str]) -> int:
+    """Close the runs a dead runner left open, on the moment of their last step.
+
+    Called under the run lock, where no other pass can be on a session; the
+    tickets in `live` — `stopping.live`, a session whose run is still there —
+    are kept open all the same, the one proof of a session going that does not
+    depend on the lock. Failed, on `worktree.interrupted`: what happened to the
+    run, which is not what happens to its ticket — `sweep` sees to that. How
+    many were closed; none when the journal cannot be written.
+    """
+    try:
+        with db.transaction() as connection:
+            open_runs = connection.execute(
+                "SELECT id, ticket FROM runs WHERE ended_at IS NULL"
+            ).fetchall()
+            dead = [(identifier,) for identifier, ticket in open_runs if ticket not in live]
+            connection.executemany(
+                "UPDATE runs SET status = 'failed', code = 'worktree.interrupted',"
+                " ended_at = coalesce((SELECT max(at) FROM steps WHERE steps.run = runs.id),"
+                " started_at) WHERE id = ? AND ended_at IS NULL",
+                dead,
+            )
+    except _FAILURES:
+        return 0
+    return len(dead)
 
 
 # -- reading ------------------------------------------------------------------
