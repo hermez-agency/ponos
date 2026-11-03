@@ -1895,7 +1895,7 @@ export const FRENCH: Record<string, string> = {
   Writing: "Rédaction",
   "External action": "Action externe",
   Publication: "Publication",
-  // The first connection, in steps — components/console/setup.tsx and lib/setup.ts.
+  // The first connection, in steps — components/console/setup.tsx, components/console/setup/ and lib/setup.ts.
   "First connection": "Première connexion",
   "Back to the console": "Retour à la console",
   "Language": "Langue",
