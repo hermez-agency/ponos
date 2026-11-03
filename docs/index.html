@@ -41,7 +41,7 @@
   "url": "https://the-ponos.app/",
   "codeRepository": "https://github.com/hermez-agency/ponos",
   "applicationCategory": "DeveloperApplication",
-  "operatingSystem": "Linux",
+  "operatingSystem": "Linux, macOS",
   "license": "https://github.com/hermez-agency/ponos/blob/main/LICENSE",
   "offers": {
     "@type": "Offer",
@@ -665,7 +665,7 @@
         <code id="install-cmd">curl -LsSf https://raw.githubusercontent.com/<wbr>hermez-agency/ponos/<wbr>main/install.sh | sh</code>
         <button class="btn btn-outline btn-sm" id="copy-install" type="button" aria-label="Copy the install command">Copy</button>
       </div>
-      <p class="byline">Free and open source, MIT · Linux · Python and git · Requires Claude Code — <a href="#integrations">Notion and GitHub are optional</a>.</p>
+      <p class="byline">Free and open source, MIT · Linux · macOS · Python and git · Requires Claude Code — <a href="#integrations">Notion and GitHub are optional</a>.</p>
     </div>
     <figure class="card flow" id="flow" data-step="3" data-kind="code">
       <div class="flow-body" role="img" aria-label="The loop in three steps. One, you write the ticket on your board: Console: limit the Done column, Ready. Two, Ponos does it on your machine with Claude Code: done, tests pass. Three, you decide: pull request #96 comes back with two buttons — Validate, and he merges it; or Run again, and he picks it up with your note. A post prepared for publication comes back the same way.">
@@ -1051,7 +1051,7 @@
       <div class="card">
         <div class="card-header"><h3 class="card-title">What it needs</h3></div>
         <ul>
-          <li>Linux or macOS — systemd or launchd keep it running, and without either the console still starts;</li>
+          <li>Linux or macOS — systemd or launchd keep it running, and without either the console still starts. On Windows, WSL works without a timer: a ticket runs when the console starts it, or with <code>ponos run</code>;</li>
           <li><code>python3</code> ≥ 3.11 — its four dependencies, httpx, pydantic, FastAPI and uvicorn, go into an environment of its own, made by the installer;</li>
           <li>network access to PyPI while it installs, to fetch them (and <code>uv</code>, from GitHub, when the machine cannot install a package);</li>
           <li><code>git</code> and <a href="https://claude.com/claude-code" target="_blank" rel="noopener">Claude Code</a>, which the installer offers to install;</li>
