@@ -37,6 +37,7 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Changed
 
+- `install.sh` termine, quand des outils manquent, par une seule commande qui les installe tous (`sudo apt-get install -y python3 python3-venv git`), en plus du détail par outil ; sur Debian et Ubuntu, `python3-venv` accompagne désormais `python3`. Quand il faut télécharger uv, l'installeur le dit.
 - Le site the-ponos.app a une version française, sur `/fr/` : la même page d'accueil, avec un sélecteur de langue EN/FR dans l'en-tête, des balises `hreflang` croisées, les deux pages dans le sitemap et la signature « Un produit Hermez » en pied de page.
 - Sur the-ponos.app, l'animation du héros ne dessine plus Validate et Run again à 35 % d'opacité tant que rien n'est revenu : les deux boutons gardent leur place sans s'afficher, puis apparaissent une fois le volet « You decide » allumé. La pastille *Ready* a un fond moins teinté (4,52:1 au lieu de 4,27:1). Lighthouse Accessibilité remonte de 97 à 100, sur mobile comme sur desktop.
 - Sans GitHub (ni App connectée, ni `gh`), `ponos doctor` ne compte plus d'erreur tant qu'aucun projet du board n'a de dépôt : la ligne *GitHub access* devient une information — « aucune pull request ne peut s'ouvrir tant que GitHub n'est pas connecté » — et `doctor` sort en 0 si rien d'autre ne manque. Le ✗ revient dès qu'un projet a un dépôt ou un chemin. Dans le récapitulatif de l'assistant, « Cette machine » ne nomme plus `gh` parmi ce qui manque : la ligne GitHub en parle.

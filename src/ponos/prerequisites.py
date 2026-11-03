@@ -26,7 +26,7 @@ CLAUDE_INSTALL = "curl -fsSL https://claude.ai/install.sh | bash"
 
 # The package each tool comes in, where the name differs from the tool's.
 PACKAGES = {
-    "apt-get": {"python3": "python3", "git": "git", "gh": "gh"},
+    "apt-get": {"python3": "python3 python3-venv", "git": "git", "gh": "gh"},
     "dnf": {"python3": "python3", "git": "git", "gh": "gh"},
     "pacman": {"python3": "python", "git": "git", "gh": "github-cli"},
     "brew": {"python3": "python@3.12", "git": "git", "gh": "gh"},

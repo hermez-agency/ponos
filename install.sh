@@ -45,35 +45,44 @@ have() { command -v "$1" >/dev/null 2>&1; }
 # this machine: somebody stopped at the first missing tool, who runs the script
 # again only to be stopped at the second, has been told half of it twice. The
 # commands are the ones prerequisites.py gives `doctor` and the console — a test
-# keeps the two in step.
+# keeps the two in step. At the end, one line installs all of them at once.
 say "Checking what this machine needs"
 OS=$(uname -s)
 MISSING=0
-lack() {  # what is missing, and the command that fixes it
+TOOLS=""
+lack() {  # what is missing, the command that fixes it, and the tool it is
     printf '    %s✗%s %s\n' "$RED" "$RESET" "$1"
     [ -n "${2:-}" ] && printf '        %s\n' "$2"
+    [ -n "${3:-}" ] && TOOLS="$TOOLS $3"
     MISSING=$((MISSING + 1))
 }
 package() {  # the tool, as the package manager names it
     case "$1:$2" in
+        # Debian and Ubuntu ship `venv` without pip: python3-venv completes it.
+        apt-get:python3) echo python3 python3-venv ;;
+        apt-get:python3.11) echo python3.11 python3.11-venv ;;
         pacman:python3) echo python ;;
         pacman:gh) echo github-cli ;;
         brew:python3) echo python@3.12 ;;
         *) echo "$2" ;;
     esac
 }
-install_hint() {  # the command that installs $1 here
+install_hint() {  # the command that installs the tools $@ here
     if [ "$1" = claude ]; then echo "curl -fsSL https://claude.ai/install.sh | bash"; return; fi
     if [ "$OS" = Darwin ]; then
-        if have brew; then echo "brew install $(package brew "$1")"
-        else echo "install Homebrew (https://brew.sh), then: brew install $(package brew "$1")"; fi
+        if have brew; then echo "brew install $(packages brew "$@")"
+        else echo "install Homebrew (https://brew.sh), then: brew install $(packages brew "$@")"; fi
         return
     fi
-    if have apt-get; then echo "sudo apt-get install -y $(package apt-get "$1")"
-    elif have dnf; then echo "sudo dnf install -y $(package dnf "$1")"
-    elif have pacman; then echo "sudo pacman -S --noconfirm $(package pacman "$1")"
-    elif have brew; then echo "brew install $(package brew "$1")"
-    else echo "install $1 with your package manager"; fi
+    if have apt-get; then echo "sudo apt-get install -y $(packages apt-get "$@")"
+    elif have dnf; then echo "sudo dnf install -y $(packages dnf "$@")"
+    elif have pacman; then echo "sudo pacman -S --noconfirm $(packages pacman "$@")"
+    elif have brew; then echo "brew install $(packages brew "$@")"
+    else echo "install $* with your package manager"; fi
+}
+packages() {  # the manager $1, the tools after it: their packages on one line
+    manager=$1; shift
+    for tool in "$@"; do package "$manager" "$tool"; done | tr '\n' ' ' | sed 's/ $//'
 }
 
 # The newest Python that is recent enough, whatever it is called: a Mac's own
@@ -90,13 +99,13 @@ if [ -n "$PYTHON" ]; then
     ok "python $("$PYTHON" -c 'import sys; print("%d.%d" % sys.version_info[:2])') — $PYTHON"
 elif have python3; then
     lack "python3 is $(python3 -c 'import sys; print("%d.%d" % sys.version_info[:2])'), and Ponos needs 3.11 or newer (tomllib is part of the standard library since then)" \
-        "$(install_hint python3 | sed 's/python3$/python3.11/')"
+        "$(install_hint python3.11)" python3.11
 else
-    lack "python3 is missing — Ponos needs 3.11 or newer" "$(install_hint python3)"
+    lack "python3 is missing — Ponos needs 3.11 or newer" "$(install_hint python3)" python3
 fi
 
-if have git; then ok "$(git --version)"; else lack "git is missing" "$(install_hint git)"; fi
-if [ -n "${TR_SRC:-}" ] && ! have tar; then lack "tar is missing" "$(install_hint tar)"; fi
+if have git; then ok "$(git --version)"; else lack "git is missing" "$(install_hint git)" git; fi
+if [ -n "${TR_SRC:-}" ] && ! have tar; then lack "tar is missing" "$(install_hint tar)" tar; fi
 
 # Room for the code is little; room for a ticket is a worktree and its build.
 FREE_MB=$(df -Pk "$HOME" 2>/dev/null | awk 'NR == 2 { print int($4 / 1024) }')
@@ -109,8 +118,10 @@ elif [ -n "$FREE_MB" ]; then
 fi
 
 if [ "$MISSING" -gt 0 ]; then
-    printf '\n%s%d thing(s) to install first%s — run the command(s) above, then this one again:\n\n' "$BOLD" "$MISSING" "$RESET"
+    printf '\n%s%d thing(s) to install first%s — then run this again:\n\n' "$BOLD" "$MISSING" "$RESET"
     printf '    curl -LsSf https://raw.githubusercontent.com/%s/%s/install.sh | sh\n\n' "$TR_REPO" "$TR_REF"
+    # shellcheck disable=SC2086  # the tools are words, split on purpose
+    [ -n "$TOOLS" ] && printf 'All the tools at once:\n\n    %s\n\n' "$(install_hint $TOOLS)"
     exit 1
 fi
 
@@ -192,6 +203,8 @@ mv "$STAGE" "$APP_ROOT/app-$LABEL"
 # version whose packages cannot be installed is removed, and the version in use
 # — when there is one — stays in use, untouched. It is made from the Python
 # chosen in step 1.
+UV_FETCHED="$HOME/.local/share/ponos/uv/uv"
+[ -x "$UV_FETCHED" ] && UV_BEFORE=1 || UV_BEFORE=0
 if ! ENV_PROBLEM=$(PYTHONPATH="$APP_ROOT/app-$LABEL/src" "$PYTHON" - "$APP_ROOT/app-$LABEL" <<'PY'
 import pathlib, sys
 from ponos import environment
@@ -202,6 +215,9 @@ PY
 ); then
     rm -rf "$APP_ROOT/app-$LABEL"
     die "the environment could not be made: $ENV_PROBLEM — nothing changed"
+fi
+if [ "$UV_BEFORE" = 0 ] && [ -x "$UV_FETCHED" ]; then
+    ok "uv downloaded into $APP_ROOT/uv — this machine has neither uv nor python3-venv"
 fi
 if [ -x "$APP_ROOT/app-$LABEL/.venv/bin/python" ]; then
     ok "environment in $APP_ROOT/app-$LABEL/.venv"
