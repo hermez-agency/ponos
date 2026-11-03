@@ -4,16 +4,21 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 import shutil
+import signal
+import subprocess
 import sys
 import tempfile
 import uuid
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from support import _bare_runner, case
 
-from ponos import config, session, vault
+from ponos import config, legacy, session, vault
 
 # -- session outcome ---------------------------------------------------------
 
@@ -309,3 +314,266 @@ def a_session_cut_short_keeps_what_its_last_event_said_it_cost() -> None:
     assert ended({}, timed_out=True).cost_usd == 0.0, "no last event, no price to keep"
     stopped = ended({}, interrupted=True)
     assert stopped.stopped and stopped.cost_usd == 0.0
+
+
+# -- resuming a session ------------------------------------------------------
+
+IDENTIFIER = "0486a9fd-44f6-4fff-9dee-9e58bc4062ba"
+
+
+@contextmanager
+def _installed(*names: str) -> Iterator[list[list[str]]]:
+    """Only `names` on the PATH, and every Popen recorded rather than started."""
+    started: list[list[str]] = []
+
+    class Popen:
+        def __init__(self, command: list[str], **kept: object) -> None:
+            assert kept == {"start_new_session": True}, kept
+            started.append(command)
+
+    which, popen = shutil.which, subprocess.Popen
+    shutil.which = lambda name, *rest, **kept: f"/usr/bin/{name}" if name in names else None  # type: ignore[assignment]  # a double: only these are installed
+    subprocess.Popen = Popen  # type: ignore[assignment,misc]  # a double: no terminal opens
+    try:
+        yield started
+    finally:
+        shutil.which, subprocess.Popen = which, popen  # type: ignore[misc]
+
+
+@contextmanager
+def _projects() -> Iterator[Path]:
+    """A throwaway ~/.claude/projects, where Claude Code files its transcripts."""
+    original = session.PROJECTS
+    with tempfile.TemporaryDirectory() as tmp:
+        session.PROJECTS = Path(tmp)
+        try:
+            yield session.PROJECTS
+        finally:
+            session.PROJECTS = original
+
+
+@case
+def a_transcript_is_moved_under_the_repository_it_belongs_to() -> None:
+    """The worktree goes, the session follows the repository's picker."""
+    repository = Path("/home/me/work/app")
+    with _projects() as projects:
+        assert session.relocate(IDENTIFIER, repository) is None, "nothing filed, nothing moved"
+
+        worktree = projects / session.project_key(Path("/state/worktrees/app-1"))
+        worktree.mkdir()
+        (worktree / f"{IDENTIFIER}.jsonl").write_text("{}\n")
+        moved = session.relocate(IDENTIFIER, repository)
+        target = projects / session.project_key(repository) / f"{IDENTIFIER}.jsonl"
+        assert moved == target and target.read_text() == "{}\n", moved
+        assert not worktree.exists(), "the worktree's folder, left empty, goes with it"
+
+        assert session.relocate(IDENTIFIER, repository) == target, "already in place: left there"
+        assert target.exists()
+
+
+@case
+def a_transcript_moved_leaves_what_else_its_folder_held() -> None:
+    other = "11111111-2222-3333-4444-555555555555"
+    with _projects() as projects:
+        worktree = projects / "-state-worktrees-app-1"
+        worktree.mkdir()
+        (worktree / f"{IDENTIFIER}.jsonl").write_text("{}\n")
+        (worktree / f"{other}.jsonl").write_text("{}\n")
+        moved = session.relocate(IDENTIFIER, Path("/home/me/work/app"))
+        assert moved is not None and moved.exists(), moved
+        assert (worktree / f"{other}.jsonl").exists() and not (worktree / moved.name).exists()
+
+
+@case
+def a_transcript_that_cannot_move_stays_resumable_where_it_is() -> None:
+    with _projects() as projects:
+        worktree = projects / "-state-worktrees-app-1"
+        worktree.mkdir()
+        (worktree / f"{IDENTIFIER}.jsonl").write_text("{}\n")
+        # Where the repository's folder should be, a file: mkdir fails.
+        (projects / session.project_key(Path("/home/me/work/app"))).write_text("")
+        assert session.relocate(IDENTIFIER, Path("/home/me/work/app")) is None
+        assert (worktree / f"{IDENTIFIER}.jsonl").exists()
+
+
+@case
+def a_link_that_is_not_a_session_link_is_refused() -> None:
+    for uri in (
+        f"https://session/{IDENTIFIER}",
+        f"ponos://open/{IDENTIFIER}",
+        "ponos://session/",
+    ):
+        try:
+            session.resume_command(uri)
+        except ValueError as error:
+            assert str(error), uri
+        else:
+            raise AssertionError(f"accepted: {uri}")
+
+
+@case
+def a_remote_session_is_resumed_over_ssh_with_its_words_quoted() -> None:
+    """The remote command is one string a shell reads: the directory is quoted."""
+    cwd = "/srv/my work/it's here"
+    with _installed("ssh"):
+        home, command = session.resume_command(session.deep_link(IDENTIFIER, cwd, "me@vps"))
+    assert home == str(Path.home()), "the local side has no directory to be in"
+    assert command[:4] == ["ssh", "-t", "--", "me@vps"], command
+    assert command[4] == (
+        f"cd {shlex.quote(cwd)} 2>/dev/null; claude --resume {shlex.quote(IDENTIFIER)}"
+    ), command
+    assert "'/srv/my work/it'\"'\"'s here'" in command[4], command
+
+    with _installed("claude"):
+        try:
+            session.resume_command(session.deep_link(IDENTIFIER, cwd, "me@vps"))
+        except FileNotFoundError as error:
+            assert "ssh" in str(error) and "me@vps" in str(error), error
+        else:
+            raise AssertionError("resumed over an ssh that is not there")
+
+
+@case
+def a_local_session_is_resumed_in_its_directory_or_at_home() -> None:
+    with tempfile.TemporaryDirectory() as tmp, _installed("claude"):
+        assert session.resume_command(session.deep_link(IDENTIFIER, tmp)) == (
+            tmp,
+            ["/usr/bin/claude", "--resume", IDENTIFIER],
+        )
+        gone = session.deep_link(IDENTIFIER, f"{tmp}/deleted-worktree")
+        assert session.resume_command(gone)[0] == str(Path.home()), "a vanished worktree: home"
+        assert session.resume_command(f"ponos://session/{IDENTIFIER}")[0] == str(Path.home())
+        # A link written before the rename still opens.
+        old = f"{legacy.OLD}://session/{IDENTIFIER}?cwd={tmp}"
+        assert session.resume_command(old) == (tmp, ["/usr/bin/claude", "--resume", IDENTIFIER])
+
+    with tempfile.TemporaryDirectory() as tmp, _installed("ssh"):
+        try:
+            session.resume_command(session.deep_link(IDENTIFIER, tmp))
+        except FileNotFoundError as error:
+            assert "claude" in str(error), error
+        else:
+            raise AssertionError("resumed with no claude installed")
+
+
+@case
+def a_link_opens_the_first_terminal_installed() -> None:
+    link = session.deep_link(IDENTIFIER, "/nowhere")
+    previous = os.environ.pop("PONOS_TERMINAL", None)
+    try:
+        with _installed("claude", "kitty", "foot") as started:
+            assert session.open_link(link) == 0
+        assert started == [
+            ["kitty", "--directory", str(Path.home()), "/usr/bin/claude", "--resume", IDENTIFIER]
+        ], started
+
+        os.environ["PONOS_TERMINAL"] = "wezterm"
+        with _installed("claude", "kitty", "wezterm") as started:
+            assert session.open_link(link) == 0
+        assert started == [["wezterm", "-e", "/usr/bin/claude", "--resume", IDENTIFIER]], started
+
+        # The one asked for is not installed: the list is tried as before.
+        with _installed("claude", "gnome-terminal") as started:
+            session.open_link(link)
+        assert started[0][:2] == ["gnome-terminal", f"--working-directory={Path.home()}"], started
+    finally:
+        os.environ.pop("PONOS_TERMINAL", None)
+        if previous is not None:
+            os.environ["PONOS_TERMINAL"] = previous
+
+
+@case
+def a_link_with_no_terminal_to_open_it_starts_nothing() -> None:
+    previous = os.environ.pop("PONOS_TERMINAL", None)
+    try:
+        with _installed("claude") as started:
+            try:
+                session.open_link(session.deep_link(IDENTIFIER))
+            except FileNotFoundError as error:
+                assert "PONOS_TERMINAL" in str(error), error
+            else:
+                raise AssertionError("opened a terminal that is not there")
+        assert started == [], started
+    finally:
+        if previous is not None:
+            os.environ["PONOS_TERMINAL"] = previous
+
+
+class _Process:
+    """What `halt` and `reap` read of a session's process: its pid, and its wait."""
+
+    pid = 4242
+
+    def __init__(self, lingers: bool = False) -> None:
+        self.lingers = lingers
+        self.waited: list[float] = []
+
+    def wait(self, timeout: float) -> int:
+        self.waited.append(timeout)
+        if self.lingers:
+            raise subprocess.TimeoutExpired("claude", timeout)
+        return 0
+
+
+@contextmanager
+def _group(*answers: type[OSError] | None) -> Iterator[list[int]]:
+    """`os.killpg` doubled: each call gets the next answer (None: delivered)."""
+    sent: list[int] = []
+    left = list(answers)
+
+    def killpg(pid: int, number: int) -> None:
+        assert pid == _Process.pid, pid
+        sent.append(number)
+        answer = left.pop(0) if left else None
+        if answer is not None:
+            raise answer()
+
+    original = os.killpg
+    os.killpg = killpg
+    try:
+        yield sent
+    finally:
+        os.killpg = original
+
+
+@case
+def halting_a_group_already_gone_sends_nothing_more() -> None:
+    for gone in (ProcessLookupError, PermissionError):
+        process = _Process()
+        with _group(gone) as sent:
+            session.halt(cast(subprocess.Popen[str], process))
+        assert sent == [signal.SIGTERM] and process.waited == [], (sent, process.waited)
+
+
+@case
+def halting_a_session_that_will_not_end_kills_its_group() -> None:
+    process = _Process(lingers=True)
+    # Asked, waited for in vain, killed — and gone by then, which is no error.
+    with _group(None, ProcessLookupError) as sent:
+        session.halt(cast(subprocess.Popen[str], process))
+    assert sent == [signal.SIGTERM, signal.SIGKILL], sent
+    assert process.waited == [session.GRACE_SECONDS], process.waited
+
+
+@case
+def reaping_an_empty_group_waits_for_nothing() -> None:
+    with _group(ProcessLookupError) as sent:
+        session.reap(cast(subprocess.Popen[str], _Process()))
+    assert sent == [signal.SIGTERM], sent
+    # Asked, then found gone at the first look.
+    with _group(None, ProcessLookupError) as sent:
+        session.reap(cast(subprocess.Popen[str], _Process()))
+    assert sent == [signal.SIGTERM, 0], sent
+
+
+@case
+def reaping_a_group_that_outlives_its_grace_kills_it() -> None:
+    grace = session.GRACE_SECONDS
+    session.GRACE_SECONDS = 0  # the deadline is already past: no look, straight to the kill
+    try:
+        for kill in (None, ProcessLookupError):
+            with _group(None, kill) as sent:
+                session.reap(cast(subprocess.Popen[str], _Process()))
+            assert sent == [signal.SIGTERM, signal.SIGKILL], sent
+    finally:
+        session.GRACE_SECONDS = grace
