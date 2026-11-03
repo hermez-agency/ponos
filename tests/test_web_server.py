@@ -12,8 +12,11 @@ import shutil
 import tempfile
 import threading
 import time
+from collections.abc import Iterator
 from contextlib import contextmanager
+from email.message import Message as HTTPMessage
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 from support import (
     _bare_api,
@@ -30,11 +33,16 @@ from ponos import config as C
 from ponos import git as git_module
 from ponos.__main__ import main as cli_main
 
+if TYPE_CHECKING:
+    from ponos.web import api as web_api
+    from ponos.web import app as web_app
+    from ponos.web import server as web_server
+
 # -- what a message to the workspace carries ----------------------------------
 
 
 @case
-def the_console_only_listens_beyond_localhost_when_told_to():
+def the_console_only_listens_beyond_localhost_when_told_to() -> None:
     """Behind the port sits bypassPermissions: a generated token is not consent."""
     from ponos.web import server as web_server
 
@@ -53,7 +61,7 @@ def the_console_only_listens_beyond_localhost_when_told_to():
     assert "web.email" in said, "and name both ways of saying it on purpose"
 
 
-def _web_config(**web) -> C.Config:
+def _web_config(**web: Any) -> C.Config:
     """A configuration that is nothing but its [web] table."""
     return C.Config(
         notion=C.Notion(token="ntn_x", tickets_database="a" * 32),
@@ -65,7 +73,7 @@ def _web_config(**web) -> C.Config:
 
 
 @case
-def serve_never_prints_the_token_it_is_opened_with(state_home):
+def serve_never_prints_the_token_it_is_opened_with(state_home: Path) -> None:
     """What `serve` prints goes to `journalctl` and `docker logs`, not to a person alone.
 
     So a console opened by its token says where to read it, at a start as when
@@ -113,7 +121,7 @@ def serve_never_prints_the_token_it_is_opened_with(state_home):
         with contextlib.redirect_stdout(started):
             assert web_server.serve(configuration) == 0
     finally:
-        web_api.Api, web_app.Console = original
+        web_api.Api, web_app.Console = original  # type: ignore[misc]
     assert "Ponos console on http://127.0.0.1:8787" in started.getvalue()
     assert secret not in started.getvalue(), started.getvalue()
     assert "ponos serve --print-token" in started.getvalue(), "and says where it is read"
@@ -131,7 +139,7 @@ def serve_never_prints_the_token_it_is_opened_with(state_home):
 
 
 @case
-def an_email_and_a_password_are_a_way_into_the_console():
+def an_email_and_a_password_are_a_way_into_the_console() -> None:
     """A token is right for a script and tiring for a person.
 
     What a session is signed from is derived from the two rather than drawn:
@@ -156,19 +164,23 @@ def an_email_and_a_password_are_a_way_into_the_console():
         "me@example.com", "hunter3"
     )
     again = web_server.sign_in(_web_config(email="me@example.com", password="hunter2"), "tok")
+    assert again is not None
     assert entry.proof == again.proof, "a restart, or a capital, must not sign anybody out"
     assert "hunter2" not in entry.proof and entry.proof != "tok"
     changed = web_server.sign_in(_web_config(email="me@example.com", password="hunter3"), "tok")
+    assert changed is not None
     assert changed.proof != entry.proof, "a new password signs every browser out"
     elsewhere = web_server.sign_in(_web_config(email="me@example.com", password="hunter2"), "other")
+    assert elsewhere is not None
     assert elsewhere.proof != entry.proof, "a session belongs to this console's token"
     kept = passwords.digest("hunter2")
     digested = web_server.sign_in(_web_config(email="me@example.com", password=kept), "tok")
+    assert digested is not None
     assert digested.digest == kept and digested.opens("me@example.com", "hunter2")
 
 
 @case
-def a_token_in_the_address_is_taken_out_and_the_destination_left_in():
+def a_token_in_the_address_is_taken_out_and_the_destination_left_in() -> None:
     """`?token=…&view=…` is one secret and one destination, and only one goes.
 
     The token is moved into a cookie and out of the address, because it would
@@ -195,7 +207,7 @@ def a_token_in_the_address_is_taken_out_and_the_destination_left_in():
 
 
 @case
-def the_sign_in_page_asks_the_way_the_console_does():
+def the_sign_in_page_asks_the_way_the_console_does() -> None:
     """It posts rather than navigates, and carries the header every write does.
 
     A form that navigated could not set `X-Ponos`, which is what tells a
@@ -212,7 +224,7 @@ def the_sign_in_page_asks_the_way_the_console_does():
 
 
 @case
-def the_first_connection_is_offered_until_somebody_says_how_to_get_in():
+def the_first_connection_is_offered_until_somebody_says_how_to_get_in() -> None:
     """A token protects an installation; a fresh one has nothing to protect yet.
 
     Two ways of deciding how the console is opened, and the page exists for the
@@ -232,7 +244,7 @@ def the_first_connection_is_offered_until_somebody_says_how_to_get_in():
 
 
 @case
-def the_first_connection_writes_the_whole_installation_at_once():
+def the_first_connection_writes_the_whole_installation_at_once() -> None:
     """One form, and the file it leaves is one somebody could have typed.
 
     Every value written is a key of `config.toml` — saved through the console's
@@ -247,7 +259,7 @@ def the_first_connection_writes_the_whole_installation_at_once():
     path, _ = _saved()
     api = _Fresh(path)
     report = web_setup.apply(
-        api,
+        api,  # type: ignore[arg-type]  # a double: what a first connection asks of an Api
         {
             "email": "me@example.com",
             "password": "one I remember",
@@ -278,7 +290,7 @@ def the_first_connection_writes_the_whole_installation_at_once():
 
 
 @case
-def a_first_connection_that_cannot_be_signed_into_later_is_refused():
+def a_first_connection_that_cannot_be_signed_into_later_is_refused() -> None:
     """What is refused here is refused before anything is written.
 
     A password is guessable in a way a token is not, and behind this port sits a
@@ -307,7 +319,7 @@ def a_first_connection_that_cannot_be_signed_into_later_is_refused():
     ):
         api = _Fresh(path)
         try:
-            web_setup.apply(api, payload)
+            web_setup.apply(api, payload)  # type: ignore[arg-type]  # a double, as above
         except ValueError as error:
             assert expected in str(error), error
             continue
@@ -315,7 +327,14 @@ def a_first_connection_that_cannot_be_signed_into_later_is_refused():
     assert path.read_text(encoding="utf-8") == before, "a refusal writes nothing"
 
 
-def _talk_to(console, method: str, path: str, body: dict | None = None, **headers: str):
+def _talk_to(
+    console: web_app.Console,
+    method: str,
+    path: str,
+    body: dict[str, Any] | None = None,
+    /,
+    **headers: str,
+) -> tuple[int, HTTPMessage, dict[str, Any]]:
     """One request to a console started for the test: status, headers, JSON."""
     connection = http.client.HTTPConnection("127.0.0.1", console.server_address[1], timeout=10)
     sent = {"Host": "127.0.0.1", "X-Ponos": "1", "Content-Type": "application/json", **headers}
@@ -326,17 +345,20 @@ def _talk_to(console, method: str, path: str, body: dict | None = None, **header
     raw = answer.read()
     connection.close()
     try:
-        parsed = json.loads(raw.decode("utf-8") or "{}")
+        parsed: dict[str, Any] = json.loads(raw.decode("utf-8") or "{}")
     except ValueError:
         parsed = {"_raw": raw.decode("utf-8", "replace")}
     return answer.status, answer.headers, parsed
 
 
 @contextmanager
-def _console(api, code: str = "", entry=None):
+def _console(
+    api: web_api.Api | _Fresh, code: str = "", entry: web_server.SignIn | None = None
+) -> Iterator[web_app.Console]:
     from ponos.web import app as web_app
 
-    console = web_app.Console(("127.0.0.1", 0), api, "tok", entry, code)
+    # `_Fresh` is an `Api` reduced to what a first connection asks of it.
+    console = web_app.Console(("127.0.0.1", 0), api, "tok", entry, code)  # type: ignore[arg-type]
     threading.Thread(target=console.serve_forever, daemon=True).start()
     try:
         yield console
@@ -346,7 +368,7 @@ def _console(api, code: str = "", entry=None):
 
 
 @case
-def from_outside_this_machine_nobody_claims_the_console_without_its_code():
+def from_outside_this_machine_nobody_claims_the_console_without_its_code() -> None:
     """A console behind a domain is a console the whole Internet reaches first.
 
     On loopback the first browser is somebody sitting at the machine. Anything
@@ -411,7 +433,7 @@ def from_outside_this_machine_nobody_claims_the_console_without_its_code():
 
 
 @case
-def a_containers_healthcheck_is_answered_without_a_key():
+def a_containers_healthcheck_is_answered_without_a_key() -> None:
     """`/healthz` says the console answers, to anybody — and says nothing else."""
     path, _ = _saved()
     api = _Fresh(path)
@@ -425,7 +447,7 @@ def a_containers_healthcheck_is_answered_without_a_key():
 
 
 @case
-def the_openapi_schema_is_behind_the_same_door_as_the_api():
+def the_openapi_schema_is_behind_the_same_door_as_the_api() -> None:
     """`/openapi.json` describes every route — so it opens with the token, like them.
 
     And a route answers as it did under `http.server`: with a slash at the
@@ -460,7 +482,7 @@ def the_openapi_schema_is_behind_the_same_door_as_the_api():
 
 
 @case
-def a_ticket_notion_does_not_have_is_a_404_not_the_boards_failure():
+def a_ticket_notion_does_not_have_is_a_404_not_the_boards_failure() -> None:
     """A link to a deleted ticket, or one of another workspace: Notion says 404.
 
     That is the board answering, and its answer is "no such page" — not a board
@@ -486,7 +508,7 @@ def a_ticket_notion_does_not_have_is_a_404_not_the_boards_failure():
 
 
 @case
-def an_address_the_console_does_not_have_is_a_page_for_a_browser():
+def an_address_the_console_does_not_have_is_a_page_for_a_browser() -> None:
     """`/objectifs` typed in the bar: the console's page, saying so — not raw JSON.
 
     A navigation — what asks for HTML — gets the page, marked `data-missing`
@@ -514,7 +536,7 @@ def an_address_the_console_does_not_have_is_a_page_for_a_browser():
 
 
 @case
-def behind_https_the_consoles_cookies_are_secure():
+def behind_https_the_consoles_cookies_are_secure() -> None:
     """The proxy says the browser came in over HTTPS: the cookie never goes back in clear.
 
     All three ways in — the token in the address, a sign-in, and the first
@@ -551,7 +573,7 @@ def behind_https_the_consoles_cookies_are_secure():
 
 
 @case
-def twenty_wrong_passwords_sent_at_once_are_held_back_not_all_checked(state_home):
+def twenty_wrong_passwords_sent_at_once_are_held_back_not_all_checked(state_home: Path) -> None:
     """A `time.sleep` per thread slowed nobody: twenty threads slept side by side.
 
     Counted before it is checked, an attempt leaves the address waiting while
@@ -635,8 +657,8 @@ def twenty_wrong_passwords_sent_at_once_are_held_back_not_all_checked(state_home
 
 @case
 def a_peer_nobody_declared_a_proxy_does_not_reset_its_count_by_changing_x_forwarded_for(
-    state_home,
-):
+    state_home: Path,
+) -> None:
     """A published Docker port, a neighbouring container, a LAN: private, not a proxy.
 
     Believed, any of them would announce a new address with every guess and
@@ -667,7 +689,7 @@ def a_peer_nobody_declared_a_proxy_does_not_reset_its_count_by_changing_x_forwar
 
 
 @case
-def a_token_guessed_in_a_header_is_counted_and_the_consoles_cookie_is_not(state_home):
+def a_token_guessed_in_a_header_is_counted_and_the_consoles_cookie_is_not(state_home: Path) -> None:
     """A wrong token in the address or a header is a guess; a stale cookie is not.
 
     The cookie is what a console gave — a neighbouring one, at the same address,
@@ -689,7 +711,9 @@ def a_token_guessed_in_a_header_is_counted_and_the_consoles_cookie_is_not(state_
 
 
 @case
-def a_sign_in_lasts_thirty_days_from_its_last_use_and_all_of_them_end_at_once(state_home):
+def a_sign_in_lasts_thirty_days_from_its_last_use_and_all_of_them_end_at_once(
+    state_home: Path,
+) -> None:
     """The cookie of a sign-in used to be good until the password changed: forever.
 
     It carries its date now, signed: refused past thirty days, renewed — a day
@@ -704,10 +728,11 @@ def a_sign_in_lasts_thirty_days_from_its_last_use_and_all_of_them_end_at_once(st
     entry = web_server.sign_in(
         _web_config(email="me@example.com", password="one I remember"), "tok"
     )
+    assert entry is not None
     now = time.time()
     with _console(api, entry=entry) as console:
 
-        def opened(cookie: str):
+        def opened(cookie: str) -> tuple[int, HTTPMessage, dict[str, Any]]:
             return _talk_to(console, "GET", "/setup", Cookie=f"{console.cookie}={cookie}")
 
         status, headers, _ = opened(web_sessions.issue(entry.proof, now - 31 * 24 * 3600))
@@ -717,7 +742,7 @@ def a_sign_in_lasts_thirty_days_from_its_last_use_and_all_of_them_end_at_once(st
         renewed = headers["Set-Cookie"]
         assert f"Max-Age={web_sessions.LIFETIME}" in renewed, renewed
         given = renewed.split("=", 1)[1].split(";", 1)[0]
-        assert web_sessions.issued(entry.proof, given) >= int(now), "renewed from today"
+        assert (web_sessions.issued(entry.proof, given) or 0) >= int(now), "renewed from today"
         status, headers, _ = opened(given)
         assert status == 200 and "Set-Cookie" not in headers, "and not again within the day"
         status, _, _ = opened(web_sessions.issue("another proof", now))
@@ -739,7 +764,7 @@ def a_sign_in_lasts_thirty_days_from_its_last_use_and_all_of_them_end_at_once(st
 
 
 @case
-def a_password_kept_in_clear_becomes_its_digest_on_the_first_launch():
+def a_password_kept_in_clear_becomes_its_digest_on_the_first_launch() -> None:
     """`secrets.env` held the password as it is typed; it keeps its digest now.
 
     The installation from before is not asked anything: the launch replaces the
@@ -778,7 +803,7 @@ def a_password_kept_in_clear_becomes_its_digest_on_the_first_launch():
 
 
 @case
-def every_page_runs_only_its_own_scripts_and_every_answer_says_so(state_home):
+def every_page_runs_only_its_own_scripts_and_every_answer_says_so(state_home: Path) -> None:
     """A Content-Security-Policy on the pages, and the headers that go with it.
 
     A page's inline lines are allowed by their hash and by nothing else, so the
@@ -802,7 +827,9 @@ def every_page_runs_only_its_own_scripts_and_every_answer_says_so(state_home):
         status, headers, said = _talk_to(console, "GET", "/")
         assert status == 401
         policy = headers["Content-Security-Policy"]
-        script = re.search(r"<script>(.*?)</script>", said["_raw"], re.S).group(1)
+        found = re.search(r"<script>(.*?)</script>", said["_raw"], re.S)
+        assert found is not None, said["_raw"]
+        script = found.group(1)
         digest = base64.b64encode(hashlib.sha256(script.encode()).digest()).decode()
         assert f"'sha256-{digest}'" in policy, policy
         assert "unsafe-inline" not in policy and "frame-ancestors 'none'" in policy
@@ -837,7 +864,7 @@ def every_page_runs_only_its_own_scripts_and_every_answer_says_so(state_home):
 
 
 @case
-def a_file_beside_the_static_folder_is_not_one_of_its_files():
+def a_file_beside_the_static_folder_is_not_one_of_its_files() -> None:
     """`static-old/` begins with `static`: a prefix let it through, `is_relative_to` does not."""
     from ponos.web import server as web_server
 
@@ -861,7 +888,7 @@ def a_file_beside_the_static_folder_is_not_one_of_its_files():
 
 
 @case
-def a_repository_named_on_a_notion_page_is_checked_before_a_command_sees_it():
+def a_repository_named_on_a_notion_page_is_checked_before_a_command_sees_it() -> None:
     """A project page is anybody's who edits the board, and its name reaches `gh`.
 
     `owner/name`, in GitHub's alphabet, or nothing is run at all; and `--`
@@ -883,8 +910,13 @@ def a_repository_named_on_a_notion_page_is_checked_before_a_command_sees_it():
 
     ran: list[list[str]] = []
     original_run, original_which = git_module.run, shutil.which
-    git_module.run = lambda command, **_: (ran.append(command), git_module.Result(0, "", ""))[1]
-    shutil.which = lambda name: "/usr/bin/" + name
+
+    def run(command: list[str], **_: Any) -> git_module.Result:
+        ran.append(command)
+        return git_module.Result(0, "", "")
+
+    git_module.run = run  # type: ignore[assignment]  # a double: what would run is kept
+    shutil.which = lambda name, *_, **__: "/usr/bin/" + name  # type: ignore[assignment]  # a double
     try:
         with tempfile.TemporaryDirectory() as directory:
             try:
@@ -904,7 +936,7 @@ def a_repository_named_on_a_notion_page_is_checked_before_a_command_sees_it():
 
 
 @case
-def two_consoles_on_two_ports_of_one_address_keep_their_cookies_apart(state_home):
+def two_consoles_on_two_ports_of_one_address_keep_their_cookies_apart(state_home: Path) -> None:
     """A browser keeps one cookie per name and per host, whatever the port.
 
     The demo on 8791 and the real console on 8787 both answer at 127.0.0.1: under
@@ -921,7 +953,7 @@ def two_consoles_on_two_ports_of_one_address_keep_their_cookies_apart(state_home
 
     apis = [_Fresh(_saved()[0]), _Fresh(_saved()[0])]
     consoles = [
-        web_app.Console(("127.0.0.1", 0), api, secret)
+        web_app.Console(("127.0.0.1", 0), api, secret)  # type: ignore[arg-type]  # a double
         for api, secret in zip(apis, ("one", "two"), strict=True)
     ]
     for console in consoles:

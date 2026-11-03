@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
+from typing import Any
 
 from support import case
 
@@ -11,7 +12,14 @@ from ponos.web import lineage
 SCHEDULE = {"id": "s1", "name": "Whisper Desk — rattraper Wispr Flow", "ticket": "t4"}
 
 
-def _ticket(id: str, title: str, created: str, column: str, cost=None, duration=None) -> dict:
+def _ticket(
+    id: str,
+    title: str,
+    created: str,
+    column: str,
+    cost: float | None = None,
+    duration: float | None = None,
+) -> dict[str, Any]:
     return {
         "id": id,
         "short": id,
@@ -27,7 +35,7 @@ def _ticket(id: str, title: str, created: str, column: str, cost=None, duration=
 
 
 @case
-def a_title_is_a_schedules_when_it_is_its_name_and_a_date():
+def a_title_is_a_schedules_when_it_is_its_name_and_a_date() -> None:
     name = SCHEDULE["name"]
     assert lineage.titled(name, f"{name} — 2026-10-12") == date(2026, 10, 12)
     assert lineage.titled(name, f"{name} — 2026-10-12 09:00") == date(2026, 10, 12)
@@ -37,7 +45,7 @@ def a_title_is_a_schedules_when_it_is_its_name_and_a_date():
 
 
 @case
-def the_tickets_are_found_by_their_line_their_history_their_row_and_their_title():
+def the_tickets_are_found_by_their_line_their_history_their_row_and_their_title() -> None:
     name = SCHEDULE["name"]
     tickets = [
         _ticket("t1", "Renamed by hand", "2026-10-05T07:00:00Z", "done", 1.5, 30),
@@ -101,7 +109,7 @@ def the_tickets_are_found_by_their_line_their_history_their_row_and_their_title(
 
 
 @case
-def the_weeks_run_from_the_first_ticket_to_the_last_with_none_left_out():
+def the_weeks_run_from_the_first_ticket_to_the_last_with_none_left_out() -> None:
     tickets = [
         _ticket("t1", "a", "2026-09-29T10:00:00Z", "done", 1.0),
         _ticket("t2", "b", "2026-10-01T10:00:00Z", "review", 2.0),
@@ -116,7 +124,7 @@ def the_weeks_run_from_the_first_ticket_to_the_last_with_none_left_out():
 
 
 @case
-def a_schedule_that_made_nothing_says_so_rather_than_dividing_by_zero():
+def a_schedule_that_made_nothing_says_so_rather_than_dividing_by_zero() -> None:
     found = lineage.of({"id": "s1", "name": "Rien", "ticket": ""}, [], [], [])
     assert found["tickets"] == [] and found["runs"] == [] and found["weeks"] == []
     assert found["totals"] == {

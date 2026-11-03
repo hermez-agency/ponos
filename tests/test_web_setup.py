@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import tempfile
 from pathlib import Path
+from typing import Any, cast
 
 from support import ROOT, _environment, _Fresh, _saved, case
 
@@ -17,18 +18,23 @@ from ponos.web import base as web_base
 # -- what a message to the workspace carries ----------------------------------
 
 
+def _api(path: Path) -> web_api.Api:
+    """`_Fresh`, taken for the `Api` whose three first-connection gestures it does."""
+    return cast(web_api.Api, _Fresh(path))
+
+
 @case
-def the_first_connection_writes_the_provider_only_once_it_answers():
+def the_first_connection_writes_the_provider_only_once_it_answers() -> None:
     """A key that does not work, saved, is a ticket that fails on it in the night."""
     from ponos import provider
     from ponos.web import setup as web_setup
 
     path, _ = _saved()
-    api = _Fresh(path)
+    api = _api(path)
     original = provider.api_key, provider.openrouter_key, provider.cli_login
     try:
         provider.api_key = lambda key: provider.Check(key == "sk-ant-good", "checked")
-        provider.openrouter_key = lambda key, base="": provider.Check(
+        provider.openrouter_key = lambda key, base_url="": provider.Check(
             key == "sk-or-good", "checked"
         )
         provider.cli_login = lambda: provider.Check(False, "not signed in — claude auth login")
@@ -58,26 +64,26 @@ def the_first_connection_writes_the_provider_only_once_it_answers():
 
 
 @case
-def the_cli_step_says_whether_claude_is_installed_then_signed_in():
+def the_cli_step_says_whether_claude_is_installed_then_signed_in() -> None:
     """Missing, the step gives both commands; installed, the sign-in; signed in, a green tick."""
     import json
     import subprocess
 
-    from ponos import prerequisites, provider
+    from ponos import prerequisites, session
     from ponos.web import setup as web_setup
 
     signed: dict[str, object] = {}
-    original = provider.session.available, provider.subprocess.run
+    original = session.available, subprocess.run
     try:
-        provider.subprocess.run = lambda *_, **__: subprocess.CompletedProcess(
+        subprocess.run = lambda *_, **__: subprocess.CompletedProcess(  # type: ignore[assignment]
             [], 0, json.dumps(signed), ""
         )
-        provider.session.available = lambda: ""
+        session.available = lambda: ""
         missing = web_setup.claude_login()
         assert missing["ok"] is False and missing["installed"] is False, missing
         assert missing["install"] == prerequisites.CLAUDE_INSTALL
         assert missing["command"] == "claude auth login"
-        provider.session.available = lambda: "/usr/bin/claude"
+        session.available = lambda: "/usr/bin/claude"
         unsigned = web_setup.claude_login()
         assert unsigned["ok"] is False and unsigned["installed"] is True, unsigned
         assert unsigned["said"] == "not signed in — claude auth login"
@@ -86,11 +92,11 @@ def the_cli_step_says_whether_claude_is_installed_then_signed_in():
         assert ready["ok"] and ready["installed"] and ready["said"] == "me@example.com (max)"
         answers.ClaudeLogin.model_validate(ready)
     finally:
-        provider.session.available, provider.subprocess.run = original
+        session.available, subprocess.run = original
 
 
 @case
-def the_test_button_tries_the_key_typed_or_the_one_saved_and_writes_nothing():
+def the_test_button_tries_the_key_typed_or_the_one_saved_and_writes_nothing() -> None:
     """Trying a key is not saving it: the settings keep their own Save for that."""
     from ponos import provider
     from ponos.web import setup as web_setup
@@ -99,11 +105,14 @@ def the_test_button_tries_the_key_typed_or_the_one_saved_and_writes_nothing():
     tried: list[str] = []
     original = provider.api_key
     try:
-        provider.api_key = lambda key: (
-            tried.append(key) or provider.Check(key == "sk-ant-good", "checked")
-        )
+
+        def tried_key(key: str) -> provider.Check:
+            tried.append(key)
+            return provider.Check(key == "sk-ant-good", "checked")
+
+        provider.api_key = tried_key
         with _environment(ANTHROPIC_API_KEY="sk-ant-good"):
-            api = _Fresh(path)
+            api = _api(path)
             before = path.read_text(encoding="utf-8")
             typed = {"provider": "api_key", "key": "sk-ant-other", "save": False}
             assert web_setup.save_provider(api, typed) == {"ok": False, "said": "checked"}
@@ -119,7 +128,7 @@ def the_test_button_tries_the_key_typed_or_the_one_saved_and_writes_nothing():
 
 
 @case
-def the_first_connection_finds_what_notion_shares_and_keeps_only_a_token_it_accepts():
+def the_first_connection_finds_what_notion_shares_and_keeps_only_a_token_it_accepts() -> None:
     """No page link to copy: what the integration can see is what is offered.
 
     A token Notion refuses is said in words a newcomer can act on and is not
@@ -130,22 +139,25 @@ def the_first_connection_finds_what_notion_shares_and_keeps_only_a_token_it_acce
     from ponos.web import setup as web_setup
 
     path, _ = _saved()
-    api = _Fresh(path)
+    api = _api(path)
     original = notion.Client.my_name, notion.Client.shared
-    shared = {"pages": []}
+    shared: dict[str, list[dict[str, Any]]] = {"pages": []}
 
-    def refused(self):
+    def refused(self: notion.Client) -> str:
         raise notion.NotionError("Notion 401: API token is invalid.")
 
     try:
-        notion.Client.my_name = refused
+        notion.Client.my_name = refused  # type: ignore[method-assign]  # a double: Notion says 401
         said = web_setup.notion_shared(api, {"token": "ntn_wrong"})
         assert said["ok"] is False and "notion.so/my-integrations" in said["said"], said
         answers.Shared.model_validate(said)
         assert C.read_secrets(C.secrets_path(path))["PONOS_NOTION_TOKEN"] == "ntn_real"
 
-        notion.Client.my_name = lambda self: "Ponos"
-        notion.Client.shared = lambda self, directory: (shared["pages"], [])
+        notion.Client.my_name = lambda self: "Ponos"  # type: ignore[method-assign]  # a double
+        notion.Client.shared = lambda self, directory: (  # type: ignore[method-assign]  # a double
+            shared["pages"],
+            [],
+        )
         said = web_setup.notion_shared(api, {"token": "ntn_right"})
         assert said["ok"] and said["name"] == "Ponos" and said["pages"] == []
         assert api.config.notion.token == "ntn_right", "accepted, so written"
@@ -155,17 +167,20 @@ def the_first_connection_finds_what_notion_shares_and_keeps_only_a_token_it_acce
             "the share is seen on the next ask"
         )
     finally:
-        notion.Client.my_name, notion.Client.shared = original
+        notion.Client.my_name, notion.Client.shared = original  # type: ignore[method-assign]
 
 
 @case
-def what_is_shared_with_the_integration_is_pages_to_build_under_and_boards_already_built():
+def what_is_shared_with_the_integration_is_pages_to_build_under_and_boards_already_built() -> None:
     """A row of somebody's table is not a place for a board; a `ponos` database is one."""
     client = notion.Client("ntn_x")
-    asked: list[dict] = []
+    asked: list[dict[str, Any]] = []
 
-    def answer(method, path, body=None, **_):
+    def answer(
+        method: str, path: str, body: dict[str, Any] | None = None, **_: Any
+    ) -> dict[str, Any]:
         asked.append(body or {})
+        assert body is not None
         if body["filter"]["value"] == "page":
             return {
                 "results": [
@@ -194,7 +209,7 @@ def what_is_shared_with_the_integration_is_pages_to_build_under_and_boards_alrea
             ]
         }
 
-    client._request = answer
+    client._request = answer  # type: ignore[method-assign]  # a double: Notion's search, answered
     pages, boards = client.shared("ponos")
     assert [page["title"] for page in pages] == ["Home"]
     assert [board["id"] for board in boards] == ["3" * 32]
@@ -202,12 +217,12 @@ def what_is_shared_with_the_integration_is_pages_to_build_under_and_boards_alrea
 
 
 @case
-def the_language_chosen_before_the_account_is_written_with_it():
+def the_language_chosen_before_the_account_is_written_with_it() -> None:
     """The first step needs nobody signed in, and is written once somebody is."""
     from ponos.web import setup as web_setup
 
     path, _ = _saved()
-    api = _Fresh(path)
+    api = _api(path)
     web_setup.apply(
         api,
         {
@@ -221,7 +236,7 @@ def the_language_chosen_before_the_account_is_written_with_it():
 
 
 @case
-def the_first_project_step_makes_the_workspace_folder_and_offers_its_repositories():
+def the_first_project_step_makes_the_workspace_folder_and_offers_its_repositories() -> None:
     """A fresh machine has no workspace folder: the step makes it, rather than `doctor` failing on it."""
     from ponos.web import setup as web_setup
 
@@ -229,12 +244,12 @@ def the_first_project_step_makes_the_workspace_folder_and_offers_its_repositorie
     path, _ = _saved(f'[runner]\nworkspace_root = "{root}"\n')
 
     class Projects(_Fresh):
-        def all_projects(self) -> dict:
+        def all_projects(self) -> dict[str, Any]:
             return {
                 "projects": [{"id": "p1", "name": "Site"}, {"id": "", "name": "only in the file"}]
             }
 
-    api = Projects(path)
+    api = cast(web_api.Api, Projects(path))  # what the step asks of an Api, and nothing else
     said = web_setup.project_choices(api)
     assert root.is_dir() and said["repositories"] == [] and said["said"] == ""
     (root / "app" / ".git").mkdir(parents=True)
@@ -245,7 +260,7 @@ def the_first_project_step_makes_the_workspace_folder_and_offers_its_repositorie
 
 
 @case
-def a_token_written_alone_is_read_by_the_console_without_a_restart():
+def a_token_written_alone_is_read_by_the_console_without_a_restart() -> None:
     """The first connection writes a Notion token to `secrets.env` and nothing else.
 
     A console that only watched `config.toml` kept the token it started with,
@@ -261,7 +276,7 @@ def a_token_written_alone_is_read_by_the_console_without_a_restart():
     class Chat:
         config = None
 
-    console.chat = Chat()
+    console.chat = Chat()  # type: ignore[assignment]  # a double: no conversation
     secrets = C.secrets_path(path)
     C.write_secrets(secrets, {"PONOS_NOTION_TOKEN": "ntn_pasted"})
     later = secrets.stat().st_mtime + 2
@@ -270,7 +285,7 @@ def a_token_written_alone_is_read_by_the_console_without_a_restart():
 
 
 @case
-def the_installer_gives_the_same_install_commands_as_doctor():
+def the_installer_gives_the_same_install_commands_as_doctor() -> None:
     """Said in two languages — sh before Python is there, Python after — and kept the same."""
     from ponos import prerequisites
 
@@ -288,7 +303,7 @@ def the_installer_gives_the_same_install_commands_as_doctor():
 
 
 @case
-def a_fresh_container_is_sent_to_the_steps_until_they_have_been_gone_through():
+def a_fresh_container_is_sent_to_the_steps_until_they_have_been_gone_through() -> None:
     """A Markdown board is usable at once: nothing but a mark says the steps are still owed."""
     from support import _state_home
 
@@ -303,7 +318,7 @@ def a_fresh_container_is_sent_to_the_steps_until_they_have_been_gone_through():
 
 
 @case
-def the_summary_names_a_notion_board_by_its_title_and_links_to_it():
+def the_summary_names_a_notion_board_by_its_title_and_links_to_it() -> None:
     """Thirty-two hexadecimal characters say nothing to whoever reads the summary."""
     from types import SimpleNamespace
 
@@ -312,14 +327,14 @@ def the_summary_names_a_notion_board_by_its_title_and_links_to_it():
     workspace = "3a8451680af480918afcf0eb9cf70e7b"
 
     class Answering(notion.Client):
-        def __init__(self, answer: dict | Exception) -> None:
+        def __init__(self, answer: dict[str, Any] | Exception) -> None:
             super().__init__("ntn_setup")
             self.answer = answer
 
         def resolve_database(self, identifier: str) -> str:
             return identifier
 
-        def database(self, database_id: str) -> dict:
+        def database(self, database_id: str) -> dict[str, Any]:
             if isinstance(self.answer, Exception):
                 raise self.answer
             return self.answer
@@ -341,12 +356,12 @@ def the_summary_names_a_notion_board_by_its_title_and_links_to_it():
 
 
 @case
-def the_summary_does_not_count_gh_among_what_this_machine_lacks():
+def the_summary_does_not_count_gh_among_what_this_machine_lacks() -> None:
     """gh is optional, and the GitHub line already says whether it answers."""
     from ponos import prerequisites
     from ponos.web import setup as web_setup
 
-    def lacking(*missing: str) -> dict:
+    def lacking(*missing: str) -> dict[str, Any]:
         needs = [
             prerequisites.Need(name, name not in missing, name != "gh", "")
             for name in ("git", "gh", "claude", "disk")
@@ -356,7 +371,7 @@ def the_summary_does_not_count_gh_among_what_this_machine_lacks():
         try:
             return web_setup._machine(0)
         finally:
-            prerequisites.check = original  # type: ignore[assignment]
+            prerequisites.check = original
 
     alone = lacking("gh")
     assert alone["state"] == "ok"
@@ -367,7 +382,7 @@ def the_summary_does_not_count_gh_among_what_this_machine_lacks():
 
 
 @case
-def the_summary_and_doctor_agree_on_a_workspace_folder_that_does_not_exist_yet():
+def the_summary_and_doctor_agree_on_a_workspace_folder_that_does_not_exist_yet() -> None:
     """The default folder is created, not reported: the summary's OK is what doctor sees next."""
     from ponos import health
     from ponos.web import setup as web_setup
@@ -383,7 +398,9 @@ def the_summary_and_doctor_agree_on_a_workspace_folder_that_does_not_exist_yet()
 
 
 @case
-def a_demonstration_ticket_that_failed_names_why_the_session_would_not_start(state_home):
+def a_demonstration_ticket_that_failed_names_why_the_session_would_not_start(
+    state_home: Path,
+) -> None:
     """Without `claude`, the failure says it is not installed — and what installs it."""
     from ponos import prerequisites, provider, session
     from ponos.web import setup as web_setup
@@ -395,7 +412,7 @@ def a_demonstration_ticket_that_failed_names_why_the_session_would_not_start(sta
     class Api:
         config = real.config
 
-        def board(self):
+        def board(self) -> dict[str, Any]:
             return {
                 "tickets": [
                     {
@@ -421,13 +438,13 @@ def a_demonstration_ticket_that_failed_names_why_the_session_would_not_start(sta
     try:
         with _environment(ANTHROPIC_API_KEY=None, OPENROUTER_API_KEY=None):
             session.available = lambda: ""
-            said = web_setup.demo_state(Api(), ticket)
+            said = web_setup.demo_state(Api(), ticket)  # type: ignore[arg-type]  # a double
             assert said["cause"] == "Claude Code is not installed on this machine"
             assert said["command"] == prerequisites.CLAUDE_INSTALL
             assert "pas voulu démarrer" in said["said"] and "subscription" not in said["said"]
             session.available = lambda: "/usr/bin/claude"
             provider.cli_login = lambda: provider.Check(False, "not signed in")
-            said = web_setup.demo_state(Api(), ticket)
+            said = web_setup.demo_state(Api(), ticket)  # type: ignore[arg-type]  # a double
             assert said["cause"] == "Claude Code is not signed in"
             assert said["command"] == provider.LOGIN
     finally:

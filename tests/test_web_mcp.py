@@ -8,6 +8,9 @@ import json
 import threading
 import time
 from email.message import Message
+from pathlib import Path
+from types import ModuleType
+from typing import TYPE_CHECKING, Any
 
 from support import _board, _ideas_api, _time_passes, case
 
@@ -16,10 +19,16 @@ from ponos import db, state, store, voice
 from ponos import http as http_module
 from ponos.__main__ import main as cli_main
 
+if TYPE_CHECKING:
+    from ponos.web import api as web_api
+    from ponos.web import oauth as web_oauth
+
 # -- the MCP server ----------------------------------------------------------
 
 
-def _mcp_call(api, grant, name: str, **arguments) -> dict:
+def _mcp_call(
+    api: web_api.Api, grant: web_oauth.Grant, name: str, **arguments: Any
+) -> dict[str, Any]:
     from ponos.web import mcp as web_mcp
 
     answer = web_mcp.handle(
@@ -32,11 +41,12 @@ def _mcp_call(api, grant, name: str, **arguments) -> dict:
             "params": {"name": name, "arguments": arguments},
         },
     )
-    return answer["result"]
+    result: dict[str, Any] = answer["result"]
+    return result
 
 
 @case
-def an_mcp_client_lists_what_waits_creates_a_task_and_answers_a_question(state_home):
+def an_mcp_client_lists_what_waits_creates_a_task_and_answers_a_question(state_home: Path) -> None:
     """The three gestures the connector exists for, on a board made of files.
 
     Nothing in what comes back names a page, a database or a property: a task,
@@ -129,7 +139,7 @@ def an_mcp_client_lists_what_waits_creates_a_task_and_answers_a_question(state_h
 
 
 @case
-def an_mcp_client_lists_the_goals_and_creates_a_task_for_one(state_home):
+def an_mcp_client_lists_the_goals_and_creates_a_task_for_one(state_home: Path) -> None:
     """A goal named as a person names it, in any case — and a task that serves it.
 
     How far a goal has gone is the console's count: done, out of every task but
@@ -186,7 +196,7 @@ def an_mcp_client_lists_the_goals_and_creates_a_task_for_one(state_home):
 
 
 @case
-def an_mcp_client_lists_the_solutions_of_a_blocked_task_and_applies_one(state_home):
+def an_mcp_client_lists_the_solutions_of_a_blocked_task_and_applies_one(state_home: Path) -> None:
     from ponos.web import oauth as web_oauth
 
     settings = C.Notion()
@@ -215,7 +225,7 @@ def an_mcp_client_lists_the_solutions_of_a_blocked_task_and_applies_one(state_ho
 
 
 @case
-def an_mcp_client_sorts_ideas_without_deleting_any(state_home):
+def an_mcp_client_sorts_ideas_without_deleting_any(state_home: Path) -> None:
     from ponos.web import oauth as web_oauth
 
     with _board() as board:
@@ -270,7 +280,7 @@ def an_mcp_client_sorts_ideas_without_deleting_any(state_home):
 
 
 @case
-def a_read_only_mcp_client_sees_and_can_call_no_tool_that_writes(state_home):
+def a_read_only_mcp_client_sees_and_can_call_no_tool_that_writes(state_home: Path) -> None:
     from ponos.web import mcp as web_mcp
     from ponos.web import oauth as web_oauth
 
@@ -314,7 +324,7 @@ def a_read_only_mcp_client_sees_and_can_call_no_tool_that_writes(state_home):
 
 
 @case
-def no_mcp_tool_starts_a_run_runs_a_command_or_deletes_anything():
+def no_mcp_tool_starts_a_run_runs_a_command_or_deletes_anything() -> None:
     """The whole list, written down: a tool added is a decision, not a drift."""
     from ponos.web import mcp as web_mcp
 
@@ -357,7 +367,7 @@ def no_mcp_tool_starts_a_run_runs_a_command_or_deletes_anything():
 
 
 @case
-def the_mcp_connector_says_its_name_and_who_holds_the_key(state_home):
+def the_mcp_connector_says_its_name_and_who_holds_the_key(state_home: Path) -> None:
     """What Claude shows once the address is pasted, and the first call to try.
 
     The icon is served from the site, never from the console: Claude fetches
@@ -418,7 +428,7 @@ def the_mcp_connector_says_its_name_and_who_holds_the_key(state_home):
 
 
 @case
-def the_mcp_server_is_reached_through_oauth_with_pkce_and_its_own_keys(state_home):
+def the_mcp_server_is_reached_through_oauth_with_pkce_and_its_own_keys(state_home: Path) -> None:
     """Discovery, registration, consent, code, token, tools — over HTTP.
 
     The console's own token is not a key to `/mcp`; consent asks for it when
@@ -435,7 +445,7 @@ def the_mcp_server_is_reached_through_oauth_with_pkce_and_its_own_keys(state_hom
     from ponos.web import oauth as web_oauth
 
     class Stay(urllib.request.HTTPRedirectHandler):
-        def redirect_request(self, *args, **kwargs):
+        def redirect_request(self, *args: Any, **kwargs: Any) -> None:
             return None
 
     opener = urllib.request.build_opener(Stay)
@@ -448,7 +458,12 @@ def the_mcp_server_is_reached_through_oauth_with_pkce_and_its_own_keys(state_hom
         threading.Thread(target=console.serve_forever, daemon=True).start()
         base = f"http://127.0.0.1:{console.server_address[1]}"
 
-        def ask(path, data=None, headers=None, method=None):
+        def ask(
+            path: str,
+            data: bytes | None = None,
+            headers: dict[str, str] | None = None,
+            method: str | None = None,
+        ) -> tuple[int, Message, bytes]:
             request = urllib.request.Request(
                 base + path, data=data, headers=headers or {}, method=method
             )
@@ -458,7 +473,9 @@ def the_mcp_server_is_reached_through_oauth_with_pkce_and_its_own_keys(state_hom
             except urllib.error.HTTPError as error:
                 return error.code, error.headers, error.read()
 
-        def rpc(token, method, params=None):
+        def rpc(
+            token: str, method: str, params: dict[str, Any] | None = None
+        ) -> tuple[int, Message, bytes]:
             body = json.dumps(
                 {"jsonrpc": "2.0", "id": 7, "method": method, "params": params or {}}
             ).encode()
@@ -562,7 +579,7 @@ def the_mcp_server_is_reached_through_oauth_with_pkce_and_its_own_keys(state_hom
             given = parse_qs(back.query)
             assert given["state"] == ["s-1"] and given["iss"] == [base]
 
-            def exchange(**form):
+            def exchange(**form: str) -> tuple[int, Message, bytes]:
                 return ask(
                     "/oauth/token",
                     urlencode(form).encode(),
@@ -714,7 +731,9 @@ def the_mcp_server_is_reached_through_oauth_with_pkce_and_its_own_keys(state_hom
 
 
 @case
-def the_consent_page_names_where_the_key_goes_whatever_the_client_calls_itself(state_home):
+def the_consent_page_names_where_the_key_goes_whatever_the_client_calls_itself(
+    state_home: Path,
+) -> None:
     """Registration is open: a client may call itself "Claude" and send the code anywhere.
 
     The page shows the host the code goes to, escaped, says a client is new
@@ -763,7 +782,9 @@ def the_consent_page_names_where_the_key_goes_whatever_the_client_calls_itself(s
 
 
 @case
-def the_mcp_metadata_names_the_public_address_behind_a_proxy_that_says_nothing(state_home):
+def the_mcp_metadata_names_the_public_address_behind_a_proxy_that_says_nothing(
+    state_home: Path,
+) -> None:
     """`web.url`, as Leadz's DEFAULT_URI: a tunnel adds no X-Forwarded-Proto.
 
     Without it the addresses claude.ai reads would all be `http://`, and it
@@ -783,13 +804,14 @@ def the_mcp_metadata_names_the_public_address_behind_a_proxy_that_says_nothing(s
         threading.Thread(target=console.serve_forever, daemon=True).start()
         port = console.server_address[1]
 
-        def metadata(host: str) -> dict:
+        def metadata(host: str) -> dict[str, Any]:
             request = urllib.request.Request(
                 f"http://127.0.0.1:{port}/.well-known/oauth-protected-resource/mcp",
                 headers={"Host": host},
             )
             with urllib.request.urlopen(request, timeout=5) as response:
-                return json.loads(response.read())
+                said: dict[str, Any] = json.loads(response.read())
+                return said
 
         try:
             outside = metadata("abc.lhr.life")
@@ -803,7 +825,7 @@ def the_mcp_metadata_names_the_public_address_behind_a_proxy_that_says_nothing(s
 
 
 @case
-def a_loopback_console_answers_the_name_web_url_gives_it_and_no_other(state_home):
+def a_loopback_console_answers_the_name_web_url_gives_it_and_no_other(state_home: Path) -> None:
     """`tailscale serve` relays to 127.0.0.1 and keeps the tailnet name as Host.
 
     That name is the one `web.url` says, exactly: not any `*.ts.net`, which
@@ -828,7 +850,8 @@ def a_loopback_console_answers_the_name_web_url_gives_it_and_no_other(state_home
             )
             try:
                 with urllib.request.urlopen(request, timeout=5) as response:
-                    return response.status
+                    answered: int = response.status
+                    return answered
             except urllib.error.HTTPError as error:
                 return error.code
 
@@ -847,7 +870,7 @@ def a_loopback_console_answers_the_name_web_url_gives_it_and_no_other(state_home
 
 
 @case
-def a_local_mcp_token_is_drawn_once_and_kept_as_a_digest(state_home):
+def a_local_mcp_token_is_drawn_once_and_kept_as_a_digest(state_home: Path) -> None:
     from ponos.web import oauth as web_oauth
 
     identifier, token = web_oauth.local("Claude Code", write=False)
@@ -864,7 +887,7 @@ def a_local_mcp_token_is_drawn_once_and_kept_as_a_digest(state_home):
     assert web_oauth.check("") is None
 
 
-def _connected(web_oauth, name: str = "claude.ai") -> tuple[str, dict]:
+def _connected(web_oauth: ModuleType, name: str = "claude.ai") -> tuple[str, dict[str, Any]]:
     """A connector registered and through the consent: its id, and its first pair."""
     import base64
     import hashlib
@@ -897,7 +920,9 @@ def _connected(web_oauth, name: str = "claude.ai") -> tuple[str, dict]:
 
 
 @case
-def a_refresh_token_that_comes_back_after_it_turned_over_takes_its_client_with_it(state_home):
+def a_refresh_token_that_comes_back_after_it_turned_over_takes_its_client_with_it(
+    state_home: Path,
+) -> None:
     """A refresh token turns over at each use: one presented twice was copied.
 
     Whoever got there first holds a live pair — the thief or the connector,
@@ -940,7 +965,9 @@ def a_refresh_token_that_comes_back_after_it_turned_over_takes_its_client_with_i
 
 
 @case
-def signing_out_everywhere_signs_the_oauth_connectors_out_and_names_the_drawn_tokens(state_home):
+def signing_out_everywhere_signs_the_oauth_connectors_out_and_names_the_drawn_tokens(
+    state_home: Path,
+) -> None:
     """`serve --sign-out-everywhere` used to draw a new key for the cookies alone.
 
     A connector kept its refresh token — ninety days, renewed at each use, so
@@ -975,7 +1002,9 @@ def signing_out_everywhere_signs_the_oauth_connectors_out_and_names_the_drawn_to
 
 
 @case
-def registering_is_counted_per_address_and_answered_429_past_the_hour_s_quota(state_home):
+def registering_is_counted_per_address_and_answered_429_past_the_hour_s_quota(
+    state_home: Path,
+) -> None:
     """`/oauth/register` is open to anybody and writes a row each time.
 
     Twenty an hour from one address, then `429` with `Retry-After` — and no
@@ -1020,7 +1049,7 @@ def registering_is_counted_per_address_and_answered_429_past_the_hour_s_quota(st
             for _ in range(web_oauth.REGISTRATIONS_PER_HOUR):
                 assert register("203.0.113.7")[0] == 201
             code, headers = register("203.0.113.7")
-            assert code == 429 and int(headers.get("Retry-After")) > 3500, (code, headers)
+            assert code == 429 and int(headers.get("Retry-After", "")) > 3500, (code, headers)
             assert len(web_oauth.clients()) == web_oauth.REGISTRATIONS_PER_HOUR
             assert register("198.51.100.9")[0] == 201, "another address is not held back"
         finally:
@@ -1029,7 +1058,7 @@ def registering_is_counted_per_address_and_answered_429_past_the_hour_s_quota(st
 
 
 @case
-def the_purge_forgets_expired_keys_and_the_clients_that_hold_none(state_home):
+def the_purge_forgets_expired_keys_and_the_clients_that_hold_none(state_home: Path) -> None:
     """Each registration is a row and each refresh a pair: neither is kept for ever.
 
     A day after it expired, a code or a token goes; a registered client with
@@ -1079,7 +1108,7 @@ def the_purge_forgets_expired_keys_and_the_clients_that_hold_none(state_home):
 
 
 @case
-def a_batch_of_mcp_messages_is_masked_as_one_message_is(state_home):
+def a_batch_of_mcp_messages_is_masked_as_one_message_is(state_home: Path) -> None:
     """A JSON-RPC batch leaves through the same mask as a single answer."""
     import urllib.request
 
@@ -1106,14 +1135,15 @@ def a_batch_of_mcp_messages_is_masked_as_one_message_is(state_home):
             "params": {"name": "list_tasks", "arguments": {"waiting_for_you": True}},
         }
 
-        def post(message) -> bytes:
+        def post(message: object) -> bytes:
             request = urllib.request.Request(
                 base + "/mcp",
                 json.dumps(message).encode(),
                 {"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
             )
             with urllib.request.urlopen(request, timeout=5) as response:
-                return response.read()
+                read: bytes = response.read()
+                return read
 
         try:
             one, batch = post(call), post([call])
@@ -1129,7 +1159,9 @@ def a_batch_of_mcp_messages_is_masked_as_one_message_is(state_home):
 
 
 @case
-def the_mcp_tab_reads_claude_mcp_list_without_its_keys_and_tests_the_401_a_live_server_gives():
+def the_mcp_tab_reads_claude_mcp_list_without_its_keys_and_tests_the_401_a_live_server_gives() -> (
+    None
+):
     """`claude mcp list` is the source of the servers, and what it prints may hold a key.
 
     A URL keeps its host and path, a command its program; a server that wants
@@ -1160,7 +1192,7 @@ def the_mcp_tab_reads_claude_mcp_list_without_its_keys_and_tests_the_401_a_live_
     announced = {"resource": ""}
 
     class Handler(BaseHTTPRequestHandler):
-        def do_POST(self):
+        def do_POST(self) -> None:
             status = answers.get(self.path, 404)
             self.send_response(status)
             if status == 401:
@@ -1170,7 +1202,7 @@ def the_mcp_tab_reads_claude_mcp_list_without_its_keys_and_tests_the_401_a_live_
                 )
             self.end_headers()
 
-        def do_GET(self):
+        def do_GET(self) -> None:
             body = json.dumps(
                 {"resource": announced["resource"] or f"http://{self.headers['Host']}/mcp"}
             ).encode()
@@ -1178,7 +1210,7 @@ def the_mcp_tab_reads_claude_mcp_list_without_its_keys_and_tests_the_401_a_live_
             self.end_headers()
             self.wfile.write(body)
 
-        def log_message(self, *args):
+        def log_message(self, format: str, *args: Any) -> None:
             pass
 
     server = HTTPServer(("127.0.0.1", 0), Handler)
