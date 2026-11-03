@@ -229,21 +229,10 @@ class Delivery(Base):
                 # Thursday goes out on Thursday. Merges wait with publications —
                 # validating asks one question, and the date answers *when*.
                 held.append((ticket, moment))
-                if not url.startswith("http"):
-                    # Its comments travel into the publication when the moment
-                    # comes, exactly as a scheduled ready ticket's do, so the
-                    # runner does not also answer them in the meantime. A ticket
-                    # with a pull request is left talkable-to: there, a comment
-                    # is a conversation about work already done.
-                    self._claimed.add(ticket.id)
+                self._hold_back(ticket, url)
                 continue
             if self.dry_run:
-                # A dry run says what it would do here as everywhere else. It
-                # matters more here than anywhere: this is the only column whose
-                # gesture cannot be taken back.
-                what = f"merge {url}" if url.startswith("http") else "publish what it holds"
-                self.say(f"  (dry run) {ticket.title} — validated: would {what}")
-                results.append({"ticket": ticket.title, "id": ticket.id, "status": "dry-run"})
+                results.append(self._rehearsed(ticket, url))
                 continue
             if url.startswith("http"):
                 # Guarded one by one: this runs in the pass's own thread, and a
@@ -264,20 +253,7 @@ class Delivery(Base):
             # request, and that page is what is published.
             project = kinds.worked_in(self._project_of(ticket), self.kind(ticket))
             if project.is_code:
-                # A ticket on a repository carries a pull request or it carries
-                # nothing: there is no text on the page to publish, and starting
-                # a session to look for one would be guessing.
-                said = self.voice
-                results.append(
-                    self._fail(
-                        ticket,
-                        said.say("no-pull-request"),
-                        said.say("no-pull-request-detail", project=project.name),
-                        code="merge.no-pr",
-                        blocked=True,
-                        question=said.say("no-pull-request-question"),
-                    )
-                )
+                results.append(self._no_pull_request(ticket, project))
                 continue
             publishing.append((ticket, project))
         self._deferred = sorted(held, key=lambda pair: pair[1])
@@ -286,6 +262,43 @@ class Delivery(Base):
                 {Ticket(page).id for page in pages}, time.time() - BILLING_SETTLING_SECONDS
             )
         return results, publishing
+
+    def _hold_back(self, ticket: Ticket, url: str) -> None:
+        """A validated ticket dated later, its comments left for when it goes out.
+
+        A publication's comments travel into it when the moment comes, exactly
+        as a scheduled ready ticket's do, so the runner does not also answer
+        them in the meantime. A ticket with a pull request is left talkable-to:
+        there, a comment is a conversation about work already done.
+        """
+        if not url.startswith("http"):
+            self._claimed.add(ticket.id)
+
+    def _rehearsed(self, ticket: Ticket, url: str) -> dict[str, Any]:
+        """A validated ticket in a dry run: what would be done to it, said.
+
+        As everywhere else, and more here than anywhere: this is the only column
+        whose gesture cannot be taken back.
+        """
+        what = f"merge {url}" if url.startswith("http") else "publish what it holds"
+        self.say(f"  (dry run) {ticket.title} — validated: would {what}")
+        return {"ticket": ticket.title, "id": ticket.id, "status": "dry-run"}
+
+    def _no_pull_request(self, ticket: Ticket, project: Project) -> dict[str, Any]:
+        """A validated ticket on a repository with no pull request: a question.
+
+        It carries a pull request or it carries nothing: there is no text on the
+        page to publish, and starting a session to look for one would be guessing.
+        """
+        said = self.voice
+        return self._fail(
+            ticket,
+            said.say("no-pull-request"),
+            said.say("no-pull-request-detail", project=project.name),
+            code="merge.no-pr",
+            blocked=True,
+            question=said.say("no-pull-request-question"),
+        )
 
     def validated(self) -> list[store.Page]:
         """The pages sitting in the validated column.
@@ -584,24 +597,10 @@ class Delivery(Base):
         names = _named(failing) or "?"
         state.mending(ticket.id, head)
         self.say(f"    ↻ checks red ({', '.join(failing) or '?'}) — sending a session after them")
-        log = git.failed_log(url, accounts)
-        brief = "\n\n".join(
-            part
-            for part in (
-                self._body(ticket).strip(),
-                f"# The pull request — {url}",
-                git.pull_request_body(url, accounts).strip() or "(no description)",
-                "# The checks that fail on it, and not on the base",
-                "\n".join(f"- `{name}`" for name in failing) or "(gh did not name them)",
-                "# The end of the failed jobs' log",
-                f"```\n{log}\n```" if log else "(gh could not read the log: open the runs)",
-            )
-            if part
-        )
         short = short_id(ticket.id)
         repairing = replace(
             job,
-            body=brief,
+            body=self._repair_brief(ticket, url, failing),
             session_id=session.new_id(),
             log=state.log_file(f"{short}-repair"),
             resume=False,
@@ -647,6 +646,24 @@ class Delivery(Base):
         if checks == "failed":
             again = said.paragraphs(said.say("repair-still-red"), again)
         return checks, said.paragraphs(pushed, told, again), outcome
+
+    def _repair_brief(self, ticket: Ticket, url: str, failing: list[str]) -> str:
+        """Everything the repairing session is told, under the ticket's own text."""
+        accounts = self.config.github
+        log = git.failed_log(url, accounts)
+        return "\n\n".join(
+            part
+            for part in (
+                self._body(ticket).strip(),
+                f"# The pull request — {url}",
+                git.pull_request_body(url, accounts).strip() or "(no description)",
+                "# The checks that fail on it, and not on the base",
+                "\n".join(f"- `{name}`" for name in failing) or "(gh did not name them)",
+                "# The end of the failed jobs' log",
+                f"```\n{log}\n```" if log else "(gh could not read the log: open the runs)",
+            )
+            if part
+        )
 
     def _set_aside(self, ticket: Ticket, project: Project, url: str, base: str) -> str:
         """A pull request stopped by a red base, set aside until the base is green.
@@ -916,6 +933,12 @@ class Delivery(Base):
             # a build, so the next pass merges what CI has seen.
             self.say(f"    · {branch} replayed — left validated for its checks")
             return None
+        return self._merge_replayed(ticket, url, branch, base, count)
+
+    def _merge_replayed(
+        self, ticket: Ticket, url: str, branch: str, base: str, count: int
+    ) -> dict[str, Any] | None:
+        """The merge asked again at once, on a replay no CI of its own will test."""
         replayed = self.voice.say("merge-rebased", branch=branch, base=base)
         method = self.config.runner.merge_method
         try:
@@ -1076,22 +1099,21 @@ class Delivery(Base):
         ticket, project = job.ticket, job.project
         assert project.path is not None
         said = self.voice
-        accounts = self.config.github
-        validated = self.config.notion.state("validated")
         state.enter(ticket.id, "rebase", job.base)
         replay = git.begin_replay(project.path, job.branch, job.base, job.workdir, generated.settle)
         if replay.error:
             return self._refused(ticket, url, replay.error)
-        conflicts = replay.conflicts or []
         facts = said.say(
             "conflict-facts",
             branch=job.branch,
             base=job.base,
             onto=replay.onto[:7],
-            files=", ".join(f"`{name}`" for name in conflicts) or said.say("conflict-none"),
+            files=", ".join(f"`{name}`" for name in replay.conflicts or [])
+            or said.say("conflict-none"),
         )
         outcome: session.Outcome | None = None
-        if conflicts:
+        told = ""
+        if replay.conflicts:
             job.body = self._conflict_brief(job, url, replay)
             try:
                 outcome = self._run_session(
@@ -1102,70 +1124,130 @@ class Delivery(Base):
                     ticket, said.say("no-session"), str(error), code="session.not-started"
                 )
             self._add_cost(ticket, outcome)
-            if self._out_of_credit(outcome):
-                return self._requeue(ticket, validated, outcome)
             told = _report_of(outcome.answer)
-            if not outcome.ok:
-                question = outcome.summary or said.say("conflict-open", base=job.base)
-                return self._fail(
-                    ticket,
-                    said.say("conflict-open", base=job.base),
-                    outcome.summary or outcome.error,
-                    code="merge.conflict-decision",
-                    blocked=True,
-                    question=outcome.question or question,
-                    note=said.paragraphs(
-                        facts, told, self._aside(job, replay), self._filed(job, outcome)
-                    ),
-                )
-            problem = self._unfinished(job, replay) or generated.rebuild(
-                job.workdir, f"origin/{job.base}"
-            )
-            if problem:
-                return self._fail(
-                    ticket,
-                    said.say("conflict-unfinished"),
-                    problem,
-                    code="merge.conflict-unfinished",
-                    blocked=True,
-                    question=said.say("conflict-unfinished-question", problem=problem),
-                    note=said.paragraphs(facts, told, self._aside(job, replay)),
-                )
-        else:
-            told = ""
-        failure = git.push_leased(job.workdir, job.branch, replay.was, accounts)
-        if failure:
-            aside = self._aside(job, replay)
-            if git.pushed_over(failure):
-                state.forget_rebases(ticket.id)
-                return self._fail(
-                    ticket,
-                    said.say("pushed-over", branch=job.branch),
-                    failure,
-                    code="merge.pushed-over",
-                    blocked=True,
-                    question=said.say("pushed-over-question", branch=job.branch),
-                    note=said.paragraphs(facts, aside),
-                )
+            stopped = self._resolution_stopped(job, replay, outcome, facts, told)
+            if stopped:
+                return stopped
+        refused = self._push_resolution(job, replay, facts)
+        if refused:
+            return refused
+        return self._merge_resolved(job, url, said.paragraphs(facts, told), outcome)
+
+    def _resolution_stopped(
+        self, job: Job, replay: git.Replay, outcome: session.Outcome, facts: str, told: str
+    ) -> dict[str, Any] | None:
+        """Where the resolving session leaves the ticket short of a push, or nothing.
+
+        Out of credit, back to validated; a conflict it says is a decision, or a
+        resolution it did not finish, a question — with what it reached set aside.
+        """
+        ticket, said = job.ticket, self.voice
+        if self._out_of_credit(outcome):
+            return self._requeue(ticket, self.config.notion.state("validated"), outcome)
+        if not outcome.ok:
+            question = outcome.summary or said.say("conflict-open", base=job.base)
             return self._fail(
-                ticket, said.say("push-refused"), failure, code="merge.push-refused", note=aside
+                ticket,
+                said.say("conflict-open", base=job.base),
+                outcome.summary or outcome.error,
+                code="merge.conflict-decision",
+                blocked=True,
+                question=outcome.question or question,
+                note=said.paragraphs(
+                    facts, told, self._aside(job, replay), self._filed(job, outcome)
+                ),
             )
+        problem = self._unfinished(job, replay) or generated.rebuild(
+            job.workdir, f"origin/{job.base}"
+        )
+        if problem:
+            return self._fail(
+                ticket,
+                said.say("conflict-unfinished"),
+                problem,
+                code="merge.conflict-unfinished",
+                blocked=True,
+                question=said.say("conflict-unfinished-question", problem=problem),
+                note=said.paragraphs(facts, told, self._aside(job, replay)),
+            )
+        return None
+
+    def _push_resolution(self, job: Job, replay: git.Replay, facts: str) -> dict[str, Any] | None:
+        """The resolved branch pushed on its lease: nothing, or the refusal said."""
+        ticket, said = job.ticket, self.voice
+        failure = git.push_leased(job.workdir, job.branch, replay.was, self.config.github)
+        if not failure:
+            return None
+        aside = self._aside(job, replay)
+        if git.pushed_over(failure):
+            state.forget_rebases(ticket.id)
+            return self._fail(
+                ticket,
+                said.say("pushed-over", branch=job.branch),
+                failure,
+                code="merge.pushed-over",
+                blocked=True,
+                question=said.say("pushed-over-question", branch=job.branch),
+                note=said.paragraphs(facts, aside),
+            )
+        return self._fail(
+            ticket, said.say("push-refused"), failure, code="merge.push-refused", note=aside
+        )
+
+    def _merge_resolved(
+        self, job: Job, url: str, record: str, outcome: session.Outcome | None
+    ) -> dict[str, Any] | None:
+        """A resolution pushed: its checks waited for, mended once, then the merge."""
+        ticket, said = job.ticket, self.voice
         self._forgiven(ticket, url)
         count = self._replayed(ticket, url)
-        record = said.paragraphs(facts, told)
-        git.comment_pull_request(url, f"Ponos — {record}", accounts)
+        git.comment_pull_request(url, f"Ponos — {record}", self.config.github)
         checks, checked = self._checked(ticket, url, job.workdir, job.base)
         repair: session.Outcome | None = None
         if checks == "failed":
             checks, checked, repair = self._mend(job, url, checked)
             if repair and self._out_of_credit(repair):
-                return self._requeue(ticket, validated, repair)
+                return self._requeue(ticket, self.config.notion.state("validated"), repair)
+        held = self._resolved_checks(job, url, checks, record, checked)
+        if held:
+            return held
+        method = self.config.runner.merge_method
+        try:
+            git.merge_pull_request(url, method, self.config.github)
+        except git.GitError as error:
+            return self._resolved_refused(job, url, error, count, record, checked)
+        spent = said.spent(outcome.seconds, outcome.cost_usd) if outcome else ()
+        done = self._merged(
+            ticket,
+            url,
+            said.say("merged-with", method=method),
+            said.say("conflicts-resolved") if outcome else "",
+            *spent,
+            notes=(said.brief(outcome.summary) if outcome else "", record, checked),
+        )
+        if outcome:
+            done.update(session=outcome.session_id, seconds=round(outcome.seconds, 1))
+        # The repair is on the ticket's Cost already (`_add_cost`): its line in
+        # the history says the same.
+        cost = sum(one.cost_usd for one in (outcome, repair) if one)
+        if cost:
+            done.update(cost_usd=cost)
+        return done
+
+    def _resolved_checks(
+        self, job: Job, url: str, checks: str, record: str, checked: str
+    ) -> dict[str, Any] | None:
+        """What the checks of a pushed resolution stop short of the merge, or nothing."""
+        ticket, said = job.ticket, self.voice
         if checks == "billing":
             # Resolved and pushed, and nothing ran: back to validated, to wait
             # there with the account's other merges.
             self._set(
                 ticket,
-                **{self.config.notion.prop("status"): validated, **self._blocked_by("ci.billing")},
+                **{
+                    self.config.notion.prop("status"): self.config.notion.state("validated"),
+                    **self._blocked_by("ci.billing"),
+                },
             )
             self._comment(ticket, said.report(record, checked))
             return {"ticket": ticket.title, "id": ticket.id, "status": "validated"}
@@ -1181,39 +1263,28 @@ class Delivery(Base):
                 note=said.paragraphs(record, checked),
             )
         if checks == "base-red":
-            return self._left_for_base(ticket, project, url, job.base, record, checked)
-        method = self.config.runner.merge_method
-        try:
-            git.merge_pull_request(url, method, accounts)
-        except git.GitError as error:
-            if git.is_behind(error) and count < MOST_REBASES:
-                # Resolved and pushed, and the base moved again meanwhile: back
-                # to the column it came from, for the next pass to replay what
-                # is — with a little luck — only a replay this time.
-                self.say(f"    · {job.base} moved again — left validated for the next pass")
-                self._set(ticket, **{self.config.notion.prop("status"): validated})
-                self._comment(ticket, said.report(record, checked, said.say("base-moved-again")))
-                return {"ticket": ticket.title, "id": ticket.id, "status": "validated"}
-            if git.is_behind(error):
-                return self._too_often(ticket, url, job.base)
-            return self._refused(ticket, url, error, record, checked)
-        spent = said.spent(outcome.seconds, outcome.cost_usd) if outcome else ()
-        done = self._merged(
-            ticket,
-            url,
-            said.say("merged-with", method=method),
-            said.say("conflicts-resolved") if conflicts else "",
-            *spent,
-            notes=(said.brief(outcome.summary) if outcome else "", record, checked),
-        )
-        if outcome:
-            done.update(session=outcome.session_id, seconds=round(outcome.seconds, 1))
-        # The repair is on the ticket's Cost already (`_add_cost`): its line in
-        # the history says the same.
-        cost = sum(one.cost_usd for one in (outcome, repair) if one)
-        if cost:
-            done.update(cost_usd=cost)
-        return done
+            return self._left_for_base(ticket, job.project, url, job.base, record, checked)
+        return None
+
+    def _resolved_refused(
+        self, job: Job, url: str, error: git.GitError, count: int, record: str, checked: str
+    ) -> dict[str, Any] | None:
+        """A resolution pushed and green, whose merge GitHub refused."""
+        ticket, said = job.ticket, self.voice
+        if git.is_behind(error) and count < MOST_REBASES:
+            # Resolved and pushed, and the base moved again meanwhile: back
+            # to the column it came from, for the next pass to replay what
+            # is — with a little luck — only a replay this time.
+            self.say(f"    · {job.base} moved again — left validated for the next pass")
+            self._set(
+                ticket,
+                **{self.config.notion.prop("status"): self.config.notion.state("validated")},
+            )
+            self._comment(ticket, said.report(record, checked, said.say("base-moved-again")))
+            return {"ticket": ticket.title, "id": ticket.id, "status": "validated"}
+        if git.is_behind(error):
+            return self._too_often(ticket, url, job.base)
+        return self._refused(ticket, url, error, record, checked)
 
     def _left_for_base(
         self, ticket: Ticket, project: Project, url: str, base: str, *notes: str
@@ -1360,11 +1431,48 @@ class Delivery(Base):
         is that session, whose price and time are added to this one's, in the
         columns as in the history, rather than written over by them.
         """
+        job = self._publication_job(ticket, project)
+        self.say(f"  ▸ {ticket.title}\n    validated · publishing what the ticket holds")
+        if self.dry_run:
+            return None
+        self._claim_publication(job)
+        job.workdir.mkdir(parents=True, exist_ok=True)
+        try:
+            outcome = self._publication_session(job, prepared)
+        except (OSError, FileNotFoundError) as error:
+            failed = self._fail(
+                ticket,
+                self.voice.say("no-session"),
+                str(error),
+                code="session.not-started",
+                outcome=prepared,
+            )
+            state.release(ticket.id)
+            return failed
+        # Every road from here writes a status that is not "in progress", and
+        # the note about where it came from is let go once that write is in —
+        # not before: a write Notion never received leaves the ticket in
+        # progress, and without the note `sweep` would put a post that is
+        # already out back to ready, to be published a second time.
+        if self._out_of_credit(outcome):
+            # Back to validated, not to ready: the decision to publish it has
+            # already been taken, and the wait does not take it back.
+            requeued = self._requeue(ticket, self.config.notion.state("validated"), outcome)
+            state.release(ticket.id)
+            return requeued
+        if not outcome.ok:
+            failed = self._publication_failed(job, outcome, forced)
+            state.release(ticket.id)
+            return failed
+        return self._published(job, outcome, forced)
+
+    def _publication_job(self, ticket: Ticket, project: Project) -> Job:
+        """The job a publication runs as, in a scratch directory of its own."""
         short = short_id(ticket.id)
         # The role, if the ticket names one: the account to post to and the
         # voice to post in are exactly the sort of thing an agent page carries.
         role = store.read(ticket.page, self.config.notion.prop("role")) or []
-        job = Job(
+        return Job(
             ticket,
             project,
             branch="",
@@ -1381,9 +1489,10 @@ class Delivery(Base):
             ),
             comments=self.discussion(ticket),
         )
-        self.say(f"  ▸ {ticket.title}\n    validated · publishing what the ticket holds")
-        if self.dry_run:
-            return None
+
+    def _claim_publication(self, job: Job) -> None:
+        """A publication claimed, here and on the board, before its session starts."""
+        ticket = job.ticket
         # A comment on a ticket being published is a conversation about the
         # work, not an instruction: the same rule as a ticket about to be run.
         self._claimed.add(ticket.id)
@@ -1398,67 +1507,50 @@ class Delivery(Base):
                 # have the next pass resume a session that is running.
                 self.config.notion.prop("waiting"): False,
                 self.config.notion.prop("session"): self._session_value(
-                    job.session_id, project.path
+                    job.session_id, job.project.path
                 ),
             },
         )
-        job.workdir.mkdir(parents=True, exist_ok=True)
-        try:
-            outcome = self._run_session(
-                job,
-                prompt_module.template(
-                    self.config.runner.delivery_prompt_file, prompt_module.DELIVERY
-                ),
-            )
-        except (OSError, FileNotFoundError) as error:
-            failed = self._fail(
-                ticket,
-                self.voice.say("no-session"),
-                str(error),
-                code="session.not-started",
-                outcome=prepared,
-            )
-            state.release(ticket.id)
-            return failed
-        if prepared:
-            outcome = replace(
-                outcome,
-                cost_usd=prepared.cost_usd + outcome.cost_usd,
-                seconds=prepared.seconds + outcome.seconds,
-                turns=prepared.turns + outcome.turns,
-            )
-        # Every road from here writes a status that is not "in progress", and
-        # the note about where it came from is let go once that write is in —
-        # not before: a write Notion never received leaves the ticket in
-        # progress, and without the note `sweep` would put a post that is
-        # already out back to ready, to be published a second time.
+
+    def _publication_session(self, job: Job, prepared: session.Outcome | None) -> session.Outcome:
+        """The publishing session, with the session that prepared it added to it."""
+        outcome = self._run_session(
+            job,
+            prompt_module.template(self.config.runner.delivery_prompt_file, prompt_module.DELIVERY),
+        )
+        if not prepared:
+            return outcome
+        return replace(
+            outcome,
+            cost_usd=prepared.cost_usd + outcome.cost_usd,
+            seconds=prepared.seconds + outcome.seconds,
+            turns=prepared.turns + outcome.turns,
+        )
+
+    def _publication_failed(
+        self, job: Job, outcome: session.Outcome, forced: str
+    ) -> dict[str, Any]:
+        """A publication that did not go out, said on the ticket with its workdir kept."""
         said = self.voice
-        if self._out_of_credit(outcome):
-            # Back to validated, not to ready: the decision to publish it has
-            # already been taken, and the wait does not take it back.
-            requeued = self._requeue(ticket, self.config.notion.state("validated"), outcome)
-            state.release(ticket.id)
-            return requeued
+        # Kept, always: a publication that half happened is exactly the log
+        # somebody is going to want to read before trying again.
+        return self._fail(
+            job.ticket,
+            said.say("not-published"),
+            outcome.summary or outcome.error,
+            code="publish.failed",
+            blocked=outcome.blocked,
+            question=outcome.question or outcome.summary,
+            note=said.paragraphs(
+                forced,
+                self._filed(job, outcome, said.say("workdir-kept", path=job.workdir)),
+            ),
+            outcome=outcome,
+        )
 
-        if not outcome.ok:
-            # Kept, always: a publication that half happened is exactly the log
-            # somebody is going to want to read before trying again.
-            failed = self._fail(
-                ticket,
-                said.say("not-published"),
-                outcome.summary or outcome.error,
-                code="publish.failed",
-                blocked=outcome.blocked,
-                question=outcome.question or outcome.summary,
-                note=said.paragraphs(
-                    forced,
-                    self._filed(job, outcome, said.say("workdir-kept", path=job.workdir)),
-                ),
-                outcome=outcome,
-            )
-            state.release(ticket.id)
-            return failed
-
+    def _published(self, job: Job, outcome: session.Outcome, forced: str) -> dict[str, Any]:
+        """A publication gone out: the ticket done, and said on it and to you."""
+        ticket, project, said = job.ticket, job.project, self.voice
         shutil.rmtree(job.workdir, ignore_errors=True)
         self._set(
             ticket,
