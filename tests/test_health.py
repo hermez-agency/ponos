@@ -273,6 +273,35 @@ def health_says_the_sub_type_options_nobody_writes_and_rewrites_their_tickets_on
 
 
 @case
+def health_counts_the_tickets_on_sub_type_options_in_the_singular_and_in_the_plural() -> None:
+    from ponos import health
+
+    space = workspace.Workspace(tickets="db", projects="projects", agents="agents")
+    french = _french()
+    for tickets, said, translated in (
+        (
+            {"a": "Improvement"},
+            "Sub-type options the runner does not write: {{options}}, on {{count}} ticket.",
+            "Options de sous-type que le runner n'écrit pas : {{options}}, sur {{count}} ticket.",
+        ),
+        (
+            {"a": "Improvement", **{f"s{n}": "Security" for n in range(5)}},
+            "Sub-type options the runner does not write: {{options}}, on {{count}} tickets.",
+            "Options de sous-type que le runner n'écrit pas : {{options}}, sur {{count}} tickets.",
+        ),
+    ):
+        board = _SubtypeBoard(("Amélioration", "Improvement", "Security"), tickets)
+        config = _config("")
+        config.notion = board.settings
+        (check,) = health._subtypes(config, board, space)  # type: ignore[arg-type]  # a fake: a board in memory
+        assert check.said == said, check.said
+        assert check.params["count"] == str(len(tickets)), check.params
+        assert f'"{said}": "{translated}"' in french, (
+            f"nothing translates “{said}” as “{translated}”"
+        )
+
+
+@case
 def health_names_a_property_once_and_says_what_each_costs_in_french_too() -> None:
     from ponos import health
 

@@ -5,7 +5,7 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
 
-import { blocking, byGroup, failing, fixParams, shown, silent } from "./health.ts"
+import { blocking, byGroup, failing, fixParams, quoted, shown, silent } from "./health.ts"
 import type { HealthCheck } from "./types.ts"
 
 const check = (code: string, state: HealthCheck["state"], extra: Partial<HealthCheck> = {}): HealthCheck => ({
@@ -69,4 +69,14 @@ test("only an error that stops the runner is said to stop tickets; a channel's i
   }
   assert.equal(blocking(check("notion.token", "warn")), false)
   assert.deepEqual(silent([check("machine.notify", "ok", { params: { channel: "Telegram" } })]), [])
+})
+
+test("in French, the names a sentence quotes are quoted the French way", () => {
+  const params = { options: "“Improvement” (1), “Security” (5)", count: "6", missing: "“Type”, “Sous-type”" }
+  assert.deepEqual(quoted(params, true), {
+    options: "« Improvement » (1), « Security » (5)",
+    count: "6",
+    missing: "« Type », « Sous-type »",
+  })
+  assert.deepEqual(quoted(params, false), params, "English keeps its own quotes")
 })

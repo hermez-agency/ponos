@@ -5,9 +5,9 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { api, why } from "@/lib/api"
-import { blocking, failing, fixParams, shown, silent } from "@/lib/health"
+import { blocking, failing, fixParams, quoted, shown, silent } from "@/lib/health"
 import type { HealthCheck, HealthReport } from "@/lib/types"
-import { counted, useFrench, useT } from "@/lib/i18n"
+import { counted, useFrench, useLanguage, useT } from "@/lib/i18n"
 import { count } from "@/lib/numbers"
 import { cn } from "@/lib/utils"
 
@@ -182,10 +182,12 @@ export function HealthBand() {
 
 function Problem({ check, onFix }: { check: HealthCheck; onFix: (check: HealthCheck) => Promise<boolean | void> }) {
   const t = useT()
+  const french = useLanguage() === "fr"
   const [more, setMore] = React.useState(false)
   const error = blocking(check)
   const Icon = error ? OctagonAlert : AlertTriangle
-  const params = fixParams(check)
+  const own = quoted(check.params, french)
+  const params = quoted(fixParams(check), french)
   const detailed = Boolean(check.cause || check.steps.length || check.notes.length || check.evidence)
   return (
     <Collapsible asChild open={more} onOpenChange={setMore}>
@@ -201,8 +203,8 @@ function Problem({ check, onFix }: { check: HealthCheck; onFix: (check: HealthCh
         <div className="flex items-center gap-2">
           <Icon className={cn("size-4 shrink-0", error ? "text-destructive" : "text-amber-600")} />
           <p className="min-w-0 flex-1">
-            <span className="font-medium">{t(check.title, check.params)}</span>
-            <span className="text-muted-foreground"> — {t(check.said, check.params)}</span>
+            <span className="font-medium">{t(check.title, own)}</span>
+            <span className="text-muted-foreground"> — {t(check.said, own)}</span>
           </p>
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
             {check.url ? (
@@ -241,7 +243,7 @@ function Problem({ check, onFix }: { check: HealthCheck; onFix: (check: HealthCh
           <CollapsibleContent className="text-muted-foreground flex flex-col gap-1 pl-6 text-xs" data-testid="health-detail">
             {check.cause ? (
               <p>
-                {t("Probable cause:")} {t(check.cause, check.params)}
+                {t("Probable cause:")} {t(check.cause, own)}
               </p>
             ) : null}
             {check.steps.length ? (
@@ -255,7 +257,7 @@ function Problem({ check, onFix }: { check: HealthCheck; onFix: (check: HealthCh
               <ul className="list-disc pl-4">
                 {check.notes.map((note) => (
                   <li key={note.name}>
-                    <span className="font-medium">“{note.name}”</span> : {note.said.map((said) => t(said)).join(" ; ")}
+                    <span className="font-medium">{french ? `« ${note.name} »` : `“${note.name}”`}</span> : {note.said.map((said) => t(said)).join(" ; ")}
                   </li>
                 ))}
               </ul>

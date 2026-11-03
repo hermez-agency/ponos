@@ -213,7 +213,7 @@ test("in French, the checks' own sentences arrive with the band, fetched apart",
   })
   await open(page, [RED])
   const columns = page.locator('[data-code="notion.columns"]')
-  await expect(columns).toContainText("Propriétés manquantes sur la base de tickets : “Runner”, “Progress”.")
+  await expect(columns).toContainText("Propriétés manquantes sur la base de tickets : « Runner », « Progress ».")
   // Three errors stop tickets; the warning is counted beside them, not among them.
   await expect(page.getByTestId("health-toggle")).toContainText(
     "3 points à corriger pour que les tickets partent · 1 avertissement"
