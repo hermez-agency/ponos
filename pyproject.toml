@@ -91,10 +91,10 @@ extend-immutable-calls = ["fastapi.Body", "fastapi.Query"]
 # Started on the pure ones (ticket, naming, markdown, db, kinds, priority),
 # which nothing but the standard library stands behind.
 #
-# `tests/` came in after, under the same rule: its own list below, which only
-# ever shrinks. `scripts/` last, strict with no list: `workbench.py` is the
-# harness of the demo and of the e2e console, `release.py` and `openapi.py`
-# run in the CI and the release.
+# `tests/` came in after, under the same rule: its own list, which only ever
+# shrank, harness first, until the tests of the run left it last. `scripts/`
+# last, strict with no list: `workbench.py` is the harness of the demo and of
+# the e2e console, `release.py` and `openapi.py` run in the CI and the release.
 python_version = "3.11"
 # `tests/` has no package: its files import one another as `support` or
 # `functional`, and `release` from `scripts/`, the way both runners put them
@@ -103,27 +103,6 @@ mypy_path = ["src", "tests", "scripts"]
 files = ["src/ponos", "tests", "scripts"]
 strict = true
 warn_unused_configs = true
-
-# The test files not typed yet, their errors ignored: a file typed leaves the
-# list, and none comes back. The harness (`support`, `run`,
-# `conftest`) left it first, since every other file calls into it.
-[[tool.mypy.overrides]]
-module = [
-    "test_board",
-    "test_cleanup",
-    "test_delivery",
-    "test_execution",
-    "test_git",
-    "test_preparation",
-    "test_prompt",
-    "test_recurrence",
-    "test_replies",
-    "test_reports",
-    "test_runner",
-    "test_store",
-    "test_transitions",
-]
-ignore_errors = true
 
 [tool.coverage.run]
 # What a test runs as `python3 -m ponos` — the commands of `__main__.py`, an

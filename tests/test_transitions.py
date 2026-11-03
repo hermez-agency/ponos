@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Any
 
 from support import _config, _Unblocking, case
 
@@ -13,7 +15,7 @@ from ponos import notion, session, voice
 
 
 def _page(identifier: str, status: str, prompt: str = "", title: str = "") -> notion.Page:
-    def text(kind: str, value: str) -> dict:
+    def text(kind: str, value: str) -> dict[str, Any]:
         return {"type": kind, kind: [{"plain_text": value}]}
 
     return notion.Page(
@@ -33,13 +35,13 @@ class _OnBoard:
     def __init__(self, *pages: notion.Page) -> None:
         self.pages = {page.id: page for page in pages}
 
-    def query(self, database, filter_=None):
+    def query(self, database: str, filter_: dict[str, Any] | None = None) -> list[notion.Page]:
         return list(self.pages.values())
 
-    def page(self, page_id):
+    def page(self, page_id: str) -> notion.Page:
         return self.pages[page_id]
 
-    def schema(self, database):
+    def schema(self, database: str) -> dict[str, str]:
         return {"Status": "status", "On": "rich_text"}
 
     def set(self, identifier: str, status: str) -> None:
@@ -53,27 +55,27 @@ class _OnBoard:
 class _OnRunner(_Unblocking):
     """A runner that has only what the « On » chapter asks of one."""
 
-    def say(self, message):
+    def say(self, message: str) -> None:
         pass
 
-    def under_reserve(self):
+    def under_reserve(self) -> float:
         return 0.0
 
-    def _out_of_credit(self, outcome):
+    def _out_of_credit(self, outcome: session.Outcome) -> bool:
         return outcome.exhausted
 
     @property
-    def voice(self):
+    def voice(self) -> voice.Voice:
         return voice.Voice("en")
 
     @property
-    def environment(self):
+    def environment(self) -> dict[str, str]:
         return {}
 
 
-def _on_runner(board: _OnBoard, **runner_settings) -> _OnRunner:
+def _on_runner(board: _OnBoard, **runner_settings: Any) -> _OnRunner:
     runner = _OnRunner.__new__(_OnRunner)
-    runner.client = board
+    runner.client = board  # type: ignore[assignment]  # a fake: a board in memory
     runner.config = _config("")
     # Read at every call: the throttle has a test of its own.
     runner.config.runner.on_interval_seconds = 0
@@ -86,11 +88,13 @@ def _on_runner(board: _OnBoard, **runner_settings) -> _OnRunner:
     return runner
 
 
-def _a_session_that(effect=None, **outcome):
+def _a_session_that(
+    effect: Callable[[], None] | None = None, **outcome: Any
+) -> tuple[list[dict[str, Any]], Callable[..., session.Outcome]]:
     """`session.run`, replaced by one that does `effect` while it runs."""
-    seen: list[dict] = []
+    seen: list[dict[str, Any]] = []
 
-    def fake(prompt_text, **kwargs):
+    def fake(prompt_text: str, **kwargs: Any) -> session.Outcome:
         seen.append({"prompt": prompt_text, **kwargs})
         if effect:
             effect()
@@ -112,7 +116,7 @@ def _a_session_that(effect=None, **outcome):
 
 
 @contextmanager
-def _replacing(module, name: str, value):
+def _replacing(module: object, name: str, value: object) -> Iterator[None]:
     original = getattr(module, name)
     setattr(module, name, value)
     try:
@@ -122,7 +126,9 @@ def _replacing(module, name: str, value):
 
 
 @case
-def a_status_is_a_change_only_from_the_second_time_it_is_seen_and_only_once(state_home):
+def a_status_is_a_change_only_from_the_second_time_it_is_seen_and_only_once(
+    state_home: Path,
+) -> None:
     from ponos import transitions
 
     assert transitions.observe("t1", "Ready", title="A", depth_limit=3) == (0, ""), "a first sight"
@@ -140,7 +146,9 @@ def a_status_is_a_change_only_from_the_second_time_it_is_seen_and_only_once(stat
 
 
 @case
-def the_on_prompt_of_a_ticket_runs_with_the_transition_and_is_closed_with_what_it_cost(state_home):
+def the_on_prompt_of_a_ticket_runs_with_the_transition_and_is_closed_with_what_it_cost(
+    state_home: Path,
+) -> None:
     from ponos import transitions
 
     board = _OnBoard(_page("t1", "Ready", "Si Done, crée le déploiement.", "Site"))
@@ -162,8 +170,8 @@ def the_on_prompt_of_a_ticket_runs_with_the_transition_and_is_closed_with_what_i
 
 @case
 def what_an_execution_moves_or_creates_never_wakes_a_prompt_and_its_children_are_one_generation_down(
-    state_home,
-):
+    state_home: Path,
+) -> None:
     from ponos import transitions
 
     board = _OnBoard(_page("t1", "Ready", "Crée un ticket de suivi puis passe-moi en Done."))
@@ -171,7 +179,7 @@ def what_an_execution_moves_or_creates_never_wakes_a_prompt_and_its_children_are
     runner.transitions()
     board.set("t1", "In progress")
 
-    def effect():
+    def effect() -> None:
         # What the prompt does: moves its own ticket, makes another, with a prompt too.
         board.set("t1", "Done")
         board.pages["t2"] = _page("t2", "Ready", "Moi aussi.")
@@ -193,7 +201,7 @@ def what_an_execution_moves_or_creates_never_wakes_a_prompt_and_its_children_are
 
 
 @case
-def a_chain_of_tickets_made_by_prompts_stops_at_the_depth_the_file_allows(state_home):
+def a_chain_of_tickets_made_by_prompts_stops_at_the_depth_the_file_allows(state_home: Path) -> None:
     from ponos import transitions
 
     board = _OnBoard(_page("t1", "Ready", "Fais un ticket."))
@@ -201,7 +209,7 @@ def a_chain_of_tickets_made_by_prompts_stops_at_the_depth_the_file_allows(state_
     runner.transitions()
     generation = {"n": 0}
 
-    def effect():
+    def effect() -> None:
         # Every execution makes the next ticket of the chain, with the same prompt.
         generation["n"] += 1
         name = f"c{generation['n']}"
@@ -224,7 +232,9 @@ def a_chain_of_tickets_made_by_prompts_stops_at_the_depth_the_file_allows(state_
 
 
 @case
-def an_execution_that_fails_or_overspends_is_commented_and_never_touches_a_status(state_home):
+def an_execution_that_fails_or_overspends_is_commented_and_never_touches_a_status(
+    state_home: Path,
+) -> None:
     from ponos import transitions
 
     board = _OnBoard(_page("t1", "Ready", "Fais-le."))
@@ -244,7 +254,7 @@ def an_execution_that_fails_or_overspends_is_commented_and_never_touches_a_statu
 
 
 @case
-def an_execution_that_never_started_for_want_of_credit_is_still_to_run(state_home):
+def an_execution_that_never_started_for_want_of_credit_is_still_to_run(state_home: Path) -> None:
     from ponos import transitions
 
     board = _OnBoard(_page("t1", "Ready", "Fais-le."))
@@ -262,12 +272,17 @@ def an_execution_that_never_started_for_want_of_credit_is_still_to_run(state_hom
 
 
 @case
-def the_board_is_read_for_moved_statuses_no_more_often_than_the_file_says(state_home):
+def the_board_is_read_for_moved_statuses_no_more_often_than_the_file_says(state_home: Path) -> None:
     board = _OnBoard(_page("t1", "Ready", "Fais-le."))
     runner = _on_runner(board, on_interval_seconds=30)
-    reads = []
+    reads: list[int] = []
     original = board.query
-    board.query = lambda *a, **k: (reads.append(1), original(*a, **k))[1]
+
+    def query(*a: Any, **k: Any) -> list[notion.Page]:
+        reads.append(1)
+        return original(*a, **k)
+
+    board.query = query  # type: ignore[method-assign]  # a double: the readings are counted
     runner.transitions()
     runner.transitions()
     runner.transitions()
@@ -279,7 +294,7 @@ def the_board_is_read_for_moved_statuses_no_more_often_than_the_file_says(state_
 
 
 @case
-def an_execution_a_dead_run_left_open_is_closed_and_never_run_again(state_home):
+def an_execution_a_dead_run_left_open_is_closed_and_never_run_again(state_home: Path) -> None:
     from ponos import transitions
 
     transitions.observe("t1", "Ready", title="A", depth_limit=3)

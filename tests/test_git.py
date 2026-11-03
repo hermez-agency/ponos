@@ -8,14 +8,17 @@ import shutil
 import subprocess
 import tempfile
 import time
-from contextlib import contextmanager
+from collections.abc import Callable, Iterator
+from contextlib import AbstractContextManager, contextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any, cast
 
 from support import (
     ROOT,
     _bare_runner,
     _board_runner,
+    _BoardClient,
     _config,
     _git_answering,
     _github,
@@ -34,17 +37,22 @@ from ponos.web import base as web_base
 # -- worktrees ---------------------------------------------------------------
 
 
+def _client(runner: Runner) -> _BoardClient:
+    """The fake board `_board_runner` gave the runner, to read and move what it holds."""
+    return cast(_BoardClient, runner.client)
+
+
 def _worktree_for(
-    branch="ticket/le-header-9d2cb790",
+    branch: str = "ticket/le-header-9d2cb790",
     *,
-    refs=("main", "origin/main"),
-    held="",
-    held_here=False,
-    commits=0,
-    dirty=False,
-    rebase="",
-    path_exists=False,
-):
+    refs: tuple[str, ...] = ("main", "origin/main"),
+    held: str = "",
+    held_here: bool = False,
+    commits: int = 0,
+    dirty: bool = False,
+    rebase: str = "",
+    path_exists: bool = False,
+) -> tuple[git_module.Worktree | git_module.GitError, list[list[str]]]:
     """Make the ticket's worktree against an invented repository.
 
     `refs` is what git can resolve, `held` the worktree that already has the
@@ -56,7 +64,7 @@ def _worktree_for(
 
     commands: list[list[str]] = []
 
-    def fake(args, cwd, timeout=300, **_):
+    def fake(args: list[str], cwd: Path | str, timeout: int = 300, **_: Any) -> git_module.Result:
         commands.append(list(args))
         head = args[:1]
         if args[:3] == ["rev-parse", "--verify", "--quiet"]:
@@ -86,6 +94,7 @@ def _worktree_for(
             # back at the one it belongs to.
             (path / ".git").write_text(f"gitdir: {repo}/.git/worktrees/site-9d2cb790\n")
         with _git_answering(git=fake):
+            made: git_module.Worktree | git_module.GitError
             try:
                 made = git_module.add_worktree(repo, path, branch, "main")
             except git_module.GitError as error:
@@ -118,7 +127,7 @@ class _BoardOf:
         self._pages = pages
         self._error = error
 
-    def query(self, database_id: str, filter_=None) -> list[notion.Page]:
+    def query(self, database_id: str, filter_: dict[str, Any] | None = None) -> list[notion.Page]:
         if self._error:
             raise notion.NotionError(self._error)
         return self._pages
@@ -144,7 +153,7 @@ def _aged(path: Path, days: float, *, directory: bool = True) -> Path:
 
 
 @case
-def a_pass_tidies_what_done_tickets_left_and_nothing_else(state_home):
+def a_pass_tidies_what_done_tickets_left_and_nothing_else(state_home: Path) -> None:
     """The ticket: 44 worktrees, 25 GB, because `clean` only ran when somebody
     typed it. A pass now applies the retention once a day — and the board says
     what may go: done for long enough, or a scratch directory nobody can reach."""
@@ -197,7 +206,7 @@ def a_pass_tidies_what_done_tickets_left_and_nothing_else(state_home):
 
 
 @case
-def a_done_tickets_worktree_with_uncommitted_work_is_kept(state_home):
+def a_done_tickets_worktree_with_uncommitted_work_is_kept(state_home: Path) -> None:
     worktree = _aged(state_home / "worktrees" / "app-1a2b3c4d", 30)
     removed: list[Path] = []
     with _git_answering(
@@ -210,14 +219,14 @@ def a_done_tickets_worktree_with_uncommitted_work_is_kept(state_home):
     with _git_answering(
         repository_of=lambda _path: state_home,
         is_dirty=lambda _path: False,
-        remove_worktree=lambda _repo, path: (removed.append(path), shutil.rmtree(path)),
+        remove_worktree=lambda _repo, path: [removed.append(path), shutil.rmtree(path)],  # type: ignore[func-returns-value]  # both done, nothing to return
     ):
         _tidying([_aged_page("page-1a2b3c4d", "Done", 30)]).tidy(now=True)
     assert removed == [worktree] and not worktree.exists()
 
 
 @case
-def a_board_that_cannot_be_read_tidies_the_logs_and_nothing_else(state_home):
+def a_board_that_cannot_be_read_tidies_the_logs_and_nothing_else(state_home: Path) -> None:
     """No board, no verdict: an unreadable one — or an empty one, which is more
     likely a board not read than a board whose every ticket was deleted —
     removes no directory at all."""
@@ -230,7 +239,7 @@ def a_board_that_cannot_be_read_tidies_the_logs_and_nothing_else(state_home):
 
 
 @case
-def the_daily_tidy_forgets_the_mcp_clients_nobody_authorised(state_home):
+def the_daily_tidy_forgets_the_mcp_clients_nobody_authorised(state_home: Path) -> None:
     """`/oauth/register` is open on the Internet: the tidy is what bounds it —
     whatever the retention says, since the rows were never anybody's."""
     from ponos.web import oauth
@@ -247,7 +256,7 @@ def the_daily_tidy_forgets_the_mcp_clients_nobody_authorised(state_home):
 
 
 @case
-def the_retention_can_be_turned_off(state_home):
+def the_retention_can_be_turned_off(state_home: Path) -> None:
     scratch = _aged(state_home / "scratch" / "notes-1a2b3c4d", 30)
     page = _aged_page("page-1a2b3c4d", "Done", 30)
     _tidying([page], "[runner]\nclean_done_worktrees = false\n").tidy()
@@ -259,13 +268,14 @@ def the_retention_can_be_turned_off(state_home):
 
 
 @case
-def the_retention_empties_the_database_of_what_the_logs_no_longer_hold(state_home):
+def the_retention_empties_the_database_of_what_the_logs_no_longer_hold(state_home: Path) -> None:
     """The ticket: `steps` kept for ever what the logs drop after two weeks, and
     the sync journal, the MCP calls and the transitions grew with every pass.
     The same retention now takes the steps of an old run — the run stays — and
     the old rows of the three trails, and the file gives the room back."""
     old_run = journal.Run.start(ticket="a" * 32)
     new_run = journal.Run.start(ticket="b" * 32)
+    assert old_run.id is not None and new_run.id is not None, "both started"
     for run in (old_run, new_run):
         for index in range(200):
             run.event(
@@ -316,7 +326,9 @@ def the_retention_empties_the_database_of_what_the_logs_no_longer_hold(state_hom
 
 
 @case
-def a_cancelled_ticket_loses_its_worktree_like_a_done_one_and_a_validated_one_keeps_it(state_home):
+def a_cancelled_ticket_loses_its_worktree_like_a_done_one_and_a_validated_one_keeps_it(
+    state_home: Path,
+) -> None:
     cancelled = _aged(state_home / "worktrees" / "app-1a2b3c41", 30)
     validated = _aged(state_home / "worktrees" / "app-1a2b3c42", 20)
     pages = [
@@ -335,7 +347,9 @@ def a_cancelled_ticket_loses_its_worktree_like_a_done_one_and_a_validated_one_ke
 
 
 @case
-def a_forgotten_worktree_goes_unless_its_ticket_runs_or_it_holds_work_nobody_else_has(state_home):
+def a_forgotten_worktree_goes_unless_its_ticket_runs_or_it_holds_work_nobody_else_has(
+    state_home: Path,
+) -> None:
     tail = ["1a2b3c51", "1a2b3c52", "1a2b3c53", "1a2b3c54", "1a2b3c55", "1a2b3c56", "1a2b3c57"]
     pages = [
         _aged_page(f"page-{tail[0]}", "Failed", 40),
@@ -353,13 +367,13 @@ def a_forgotten_worktree_goes_unless_its_ticket_runs_or_it_holds_work_nobody_els
     (places["stray"] / "notes.txt").write_text("x")
     branches: list[str] = []
 
-    def dirty(path):
+    def dirty(path: Path) -> bool:
         return path.name.endswith(tail[2])
 
-    def unpushed(path):
+    def unpushed(path: Path) -> int:
         return 2 if path.name.endswith(tail[3]) else 0
 
-    def repository_of(path):
+    def repository_of(path: Path) -> Path | None:
         return None if path.name.endswith(tail[6]) else state_home
 
     with _git_answering(
@@ -384,7 +398,7 @@ def a_forgotten_worktree_goes_unless_its_ticket_runs_or_it_holds_work_nobody_els
 
 
 @case
-def a_low_disk_tidies_first_then_starts_nothing_and_leaves_the_ticket_in_ready():
+def a_low_disk_tidies_first_then_starts_nothing_and_leaves_the_ticket_in_ready() -> None:
     from ponos import resources
 
     runner = _tidying([])
@@ -394,9 +408,13 @@ def a_low_disk_tidies_first_then_starts_nothing_and_leaves_the_ticket_in_ready()
     runner.config.runner.min_free_disk_mb = 5000
     said: list[str] = []
     tidied: list[bool] = []
-    runner.say = said.append
-    runner.tidy = lambda now=False: tidied.append(now)
-    runner._notify = lambda *args, **kwargs: said.append("notified")
+    runner.say = said.append  # type: ignore[method-assign, assignment]  # a double: what it says is kept
+
+    def tidy(*, now: bool = False) -> None:
+        tidied.append(now)
+
+    runner.tidy = tidy  # type: ignore[method-assign]  # a double: the tidies are counted
+    runner._notify = lambda *args, **kwargs: said.append("notified")  # type: ignore[method-assign]  # the same, for a notification
     original = resources.disk_mb
     try:
         resources.disk_mb = lambda path: (1000, 100000)
@@ -419,7 +437,7 @@ def a_low_disk_tidies_first_then_starts_nothing_and_leaves_the_ticket_in_ready()
 
 
 @case
-def a_worktree_is_made_without_the_excluded_folders_and_the_main_checkout_keeps_them():
+def a_worktree_is_made_without_the_excluded_folders_and_the_main_checkout_keeps_them() -> None:
 
     assert git_module.exclusions(" docs/media/, ,assets ") == ["docs/media", "assets"]
     with tempfile.TemporaryDirectory() as home:
@@ -430,7 +448,7 @@ def a_worktree_is_made_without_the_excluded_folders_and_the_main_checkout_keeps_
             ["config", "user.name", "t"],
         ):
             assert (
-                git_module.git(step, repo.mkdir() or repo).ok
+                git_module.git(step, repo.mkdir() or repo).ok  # type: ignore[func-returns-value]  # made, then named
                 if step[0] == "init"
                 else git_module.git(step, repo).ok
             )
@@ -453,7 +471,7 @@ def a_worktree_is_made_without_the_excluded_folders_and_the_main_checkout_keeps_
 
 
 @case
-def the_console_measures_the_disk_and_cleans_only_between_runs(state_home):
+def the_console_measures_the_disk_and_cleans_only_between_runs(state_home: Path) -> None:
 
     _aged(state_home / "scratch" / "notes-1a2b3c4d", 30)
     console = web_api.Api.__new__(web_api.Api)
@@ -474,16 +492,16 @@ def the_console_measures_the_disk_and_cleans_only_between_runs(state_home):
 
 
 @case
-def a_ticket_that_never_ran_gets_its_branch_drawn_fresh():
+def a_ticket_that_never_ran_gets_its_branch_drawn_fresh() -> None:
     made, commands = _worktree_for()
     assert voice.Voice().branch_note(made) == "", "nothing happened worth telling anyone about"
-    assert not made.reused
+    assert isinstance(made, git_module.Worktree) and not made.reused
     assert commands[-1][:4] == ["worktree", "add", "-b", "ticket/le-header-9d2cb790"]
     assert not any(command[:1] == ["rebase"] for command in commands)
 
 
 @case
-def a_branch_left_by_an_earlier_attempt_is_picked_up_and_replayed():
+def a_branch_left_by_an_earlier_attempt_is_picked_up_and_replayed() -> None:
     """The failure this whole thing exists to stop.
 
     A branch is named after the ticket's ID, so every attempt asks for the same
@@ -495,7 +513,9 @@ def a_branch_left_by_an_earlier_attempt_is_picked_up_and_replayed():
     made, commands = _worktree_for(
         refs=("main", "origin/main", "refs/heads/ticket/le-header-9d2cb790"), commits=2
     )
-    assert made.reused, "the push that follows is not a fast-forward any more"
+    assert isinstance(made, git_module.Worktree) and made.reused, (
+        "the push that follows is not a fast-forward any more"
+    )
     note = voice.Voice().branch_note(made)
     assert "2 commit(s)" in note and "rebased onto `origin/main`" in note
     said = voice.Voice("fr").branch_note(made)
@@ -508,7 +528,7 @@ def a_branch_left_by_an_earlier_attempt_is_picked_up_and_replayed():
 
 
 @case
-def a_branch_that_only_exists_on_origin_comes_back_with_its_commits():
+def a_branch_that_only_exists_on_origin_comes_back_with_its_commits() -> None:
     """A push that landed and a run that died after it: the work is on origin.
 
     Checking out a fresh branch of the same name would silently drop it — and
@@ -518,7 +538,7 @@ def a_branch_that_only_exists_on_origin_comes_back_with_its_commits():
     made, commands = _worktree_for(
         refs=("main", "origin/main", "refs/remotes/origin/ticket/le-header-9d2cb790"), commits=1
     )
-    assert made.reused
+    assert isinstance(made, git_module.Worktree) and made.reused
     note = voice.Voice().branch_note(made)
     assert "it was pushed but never merged" in note
     added = _one(commands, ["worktree", "add"])
@@ -527,7 +547,7 @@ def a_branch_that_only_exists_on_origin_comes_back_with_its_commits():
 
 
 @case
-def a_worktree_kept_for_a_post_mortem_is_worked_in_again():
+def a_worktree_kept_for_a_post_mortem_is_worked_in_again() -> None:
     """`keep_worktree_on_failure` leaves the directory *and* the branch in it.
 
     Nothing needs creating there — the branch is already checked out where the
@@ -547,7 +567,7 @@ def a_worktree_kept_for_a_post_mortem_is_worked_in_again():
 
 
 @case
-def a_branch_held_by_another_worktree_is_never_taken_from_it():
+def a_branch_held_by_another_worktree_is_never_taken_from_it() -> None:
     """The one case that still stops the ticket, and it should.
 
     Two runs of the same ticket at once, or a worktree kept somewhere else: what
@@ -564,7 +584,7 @@ def a_branch_held_by_another_worktree_is_never_taken_from_it():
 
 
 @case
-def a_rebase_that_conflicts_is_undone_and_the_session_runs_anyway():
+def a_rebase_that_conflicts_is_undone_and_the_session_runs_anyway() -> None:
     """A conflict is not a reason to refuse the ticket a second time.
 
     The branch goes back to exactly what it was — an agent that opened on a
@@ -576,14 +596,14 @@ def a_rebase_that_conflicts_is_undone_and_the_session_runs_anyway():
         commits=1,
         rebase="src/app.py",
     )
-    assert made.reused
+    assert isinstance(made, git_module.Worktree) and made.reused
     note = voice.Voice().branch_note(made)
     assert "reused as it stands" in note and "src/app.py" in note
     assert commands[-1] == ["rebase", "--abort"], "nothing is left half-applied"
 
 
 @case
-def a_replay_still_happens_where_git_has_no_identity_of_its_own():
+def a_replay_still_happens_where_git_has_no_identity_of_its_own() -> None:
     """The CI runner, the container, the server nobody configured.
 
     A rebase writes commits, and git refuses to write one where it cannot tell
@@ -611,7 +631,7 @@ def a_replay_still_happens_where_git_has_no_identity_of_its_own():
 
 
 @contextmanager
-def _patched_environ(values):
+def _patched_environ(values: dict[str, str]) -> Iterator[None]:
     previous = dict(os.environ)
     os.environ.clear()
     os.environ.update(values)
@@ -623,7 +643,7 @@ def _patched_environ(values):
 
 
 @case
-def a_repository_is_worked_under_the_account_its_owner_names():
+def a_repository_is_worked_under_the_account_its_owner_names() -> None:
     """Two GitHubs on one machine, and the command that goes out as the right one.
 
     Everything the runner asks `gh` about a repository — its name, its pull
@@ -665,7 +685,7 @@ def a_repository_is_worked_under_the_account_its_owner_names():
 
 
 @case
-def a_gh_call_about_a_repository_carries_that_account_and_nothing_else():
+def a_gh_call_about_a_repository_carries_that_account_and_nothing_else() -> None:
     """The token reaches the command, and only through the environment.
 
     `GH_TOKEN` is what `gh` reads before anything on disk — and what the
@@ -673,20 +693,27 @@ def a_gh_call_about_a_repository_carries_that_account_and_nothing_else():
     request that follows it go out as the same account.
     """
 
-    seen: list[dict] = []
+    seen: list[dict[str, Any]] = []
 
     class _Done:
         returncode, stdout, stderr = 0, "OPEN", ""
 
-    def fake(args, cwd=None, capture_output=True, text=True, timeout=300, env=None):
+    def fake(
+        args: list[str],
+        cwd: Any = None,
+        capture_output: bool = True,
+        text: bool = True,
+        timeout: int = 300,
+        env: dict[str, str] | None = None,
+    ) -> _Done:
         seen.append({"args": list(args), "env": env})
         return _Done()
 
     # `gh` is looked for before it is asked anything: a machine without it —
     # a CI runner, most of all — would otherwise skip the very call under test.
-    original, original_which = git_module.subprocess.run, git_module.shutil.which
-    git_module.subprocess.run = fake
-    git_module.shutil.which = lambda name, *rest, **kept: f"/usr/bin/{name}"
+    original, original_which = subprocess.run, shutil.which
+    subprocess.run = fake  # type: ignore[assignment]  # a double: what `gh` was given is kept
+    shutil.which = lambda name, *rest, **kept: f"/usr/bin/{name}"  # type: ignore[assignment]  # a double: `gh` is there
     try:
         with _git_answering(account_token=lambda account: "gho-secret"):
             git_module.pull_request_state(
@@ -694,8 +721,8 @@ def a_gh_call_about_a_repository_carries_that_account_and_nothing_else():
             )
             git_module.pull_request_state("https://github.com/x/y/pull/3", {})
     finally:
-        git_module.subprocess.run = original
-        git_module.shutil.which = original_which
+        subprocess.run = original
+        shutil.which = original_which
 
     assert seen[0]["env"]["GH_TOKEN"] == "gho-secret"
     assert seen[0]["env"]["GITHUB_TOKEN"] == "gho-secret"
@@ -704,7 +731,7 @@ def a_gh_call_about_a_repository_carries_that_account_and_nothing_else():
 
 
 @case
-def only_a_merge_a_rebase_could_answer_is_retried():
+def only_a_merge_a_rebase_could_answer_is_retried() -> None:
     """A refusal about the branch, told apart from a refusal about the work.
 
     A base branch that moved is what replaying answers. A check still red, a
@@ -727,7 +754,7 @@ def only_a_merge_a_rebase_could_answer_is_retried():
 
 
 @case
-def a_merge_refused_for_being_behind_is_replayed_and_asked_again():
+def a_merge_refused_for_being_behind_is_replayed_and_asked_again() -> None:
     """The gesture you would make by hand, and nobody should make ten times a day.
 
     A pull request opened this morning is behind by noon on a repository that
@@ -739,17 +766,24 @@ def a_merge_refused_for_being_behind_is_replayed_and_asked_again():
 
     runner = _board_runner([_reviewed("pbehind", "Validated", "https://github.com/x/y/pull/1")], {})
     runner.config.runner.rebase = True
-    runner._project_of = lambda ticket: projects.Project("Site", Path("/repo"))
+    runner._project_of = lambda ticket: projects.Project("Site", Path("/repo"))  # type: ignore[method-assign]  # a double: the ticket\'s project
     attempts: list[str] = []
-    replayed: list[tuple] = []
+    replayed: list[tuple[Any, ...]] = []
 
-    def merge(url: str, method: str = "squash", accounts=None) -> str:
+    def merge(url: str, method: str = "squash", accounts: Any = None) -> str:
         attempts.append(url)
         if len(attempts) == 1:
             raise git_module.GitError("gh pr merge: Pull request is not mergeable")
         return "merged"
 
-    def replay(repo, branch, onto, workdir, accounts=None, settle=None) -> str:
+    def replay(
+        repo: Path,
+        branch: str,
+        onto: str,
+        workdir: Path,
+        accounts: Any = None,
+        settle: Any = None,
+    ) -> str:
         replayed.append((repo, branch, onto))
         return ""
 
@@ -766,12 +800,14 @@ def a_merge_refused_for_being_behind_is_replayed_and_asked_again():
     assert len(attempts) == 2, "the merge was not asked again"
     assert replayed == [(Path("/repo"), "ticket/le-header-9d2cb790", "main")], replayed
     assert results[0]["status"] == "done", results
-    said = runner.client.comments_written[-1]
+    said = _client(runner).comments_written[-1]
     assert "replayed onto" in said, said
 
 
 @case
-def a_replay_pushed_on_a_repository_with_ci_is_not_merged_before_its_checks(state_home):
+def a_replay_pushed_on_a_repository_with_ci_is_not_merged_before_its_checks(
+    state_home: Path,
+) -> None:
     """The commit just pushed has no check yet: an empty list is not a green one.
 
     GitHub takes a few seconds to declare the checks of a new head, and
@@ -784,11 +820,11 @@ def a_replay_pushed_on_a_repository_with_ci_is_not_merged_before_its_checks(stat
     (repo / ".github" / "workflows").mkdir(parents=True)
     runner = _board_runner([_reviewed("pfresh", "Validated", url)], {})
     runner.config.runner.rebase = True
-    runner._project_of = lambda ticket: projects.Project("Site", repo)
+    runner._project_of = lambda ticket: projects.Project("Site", repo)  # type: ignore[method-assign]  # a double: the ticket\'s project
     attempts: list[str] = []
-    replayed: list[tuple] = []
+    replayed: list[tuple[Any, ...]] = []
 
-    def merge(url: str, method: str = "squash", accounts=None) -> str:
+    def merge(url: str, method: str = "squash", accounts: Any = None) -> str:
         attempts.append(url)
         if len(attempts) == 1:
             raise git_module.GitError("gh pr merge: Pull request is not mergeable")
@@ -798,7 +834,7 @@ def a_replay_pushed_on_a_repository_with_ci_is_not_merged_before_its_checks(stat
         _github({url: "OPEN"}, merge=merge),
         _git_answering(
             pull_request_branches=lambda url, accounts=None: ("ticket/x-9d2cb790", "main"),
-            replay_pushed=lambda *args, **kwargs: replayed.append(args) or "",
+            replay_pushed=lambda *args, **kwargs: replayed.append(args) or "",  # type: ignore[func-returns-value]  # kept, and nothing to say
         ),
     ):
         first = runner.deliver()
@@ -811,20 +847,20 @@ def a_replay_pushed_on_a_repository_with_ci_is_not_merged_before_its_checks(stat
 
 
 @case
-def a_merge_refused_for_anything_else_is_still_a_question():
+def a_merge_refused_for_anything_else_is_still_a_question() -> None:
     """Nothing is pushed again to answer a review that has not happened."""
 
     runner = _board_runner([_reviewed("preview", "Validated", "https://github.com/x/y/pull/1")], {})
-    runner._project_of = lambda ticket: projects.Project("Site", Path("/repo"))
-    replayed: list[tuple] = []
+    runner._project_of = lambda ticket: projects.Project("Site", Path("/repo"))  # type: ignore[method-assign]  # a double: the ticket\'s project
+    replayed: list[tuple[Any, ...]] = []
 
-    def merge(url: str, method: str = "squash", accounts=None) -> str:
+    def merge(url: str, method: str = "squash", accounts: Any = None) -> str:
         raise git_module.GitError("gh pr merge: 1 approving review is required")
 
     with (
         _github({"https://github.com/x/y/pull/1": "OPEN"}, merge=merge),
         _git_answering(
-            replay_pushed=lambda *args, **kwargs: replayed.append(args) or "",
+            replay_pushed=lambda *args, **kwargs: replayed.append(args) or "",  # type: ignore[func-returns-value]  # kept, and nothing to say
         ),
     ):
         results = runner.deliver()
@@ -834,7 +870,7 @@ def a_merge_refused_for_anything_else_is_still_a_question():
 
 
 @case
-def a_replay_that_conflicts_leaves_the_merge_refused():
+def a_replay_that_conflicts_leaves_the_merge_refused() -> None:
     """The branch goes back as it was, and the ticket asks rather than guesses."""
 
     runner = _board_runner(
@@ -843,10 +879,10 @@ def a_replay_that_conflicts_leaves_the_merge_refused():
     # Resolution off: what is under test is the replay giving up, as it did
     # before conflicts were handed to a session — and as it still does then.
     runner.config.runner.resolve_conflicts = False
-    runner._project_of = lambda ticket: projects.Project("Site", Path("/repo"))
+    runner._project_of = lambda ticket: projects.Project("Site", Path("/repo"))  # type: ignore[method-assign]  # a double: the ticket\'s project
     attempts: list[str] = []
 
-    def merge(url: str, method: str = "squash", accounts=None) -> str:
+    def merge(url: str, method: str = "squash", accounts: Any = None) -> str:
         attempts.append(url)
         raise git_module.GitError("gh pr merge: Pull request is not mergeable")
 
@@ -865,7 +901,7 @@ def a_replay_that_conflicts_leaves_the_merge_refused():
 
 
 @case
-def github_calling_a_pull_request_conflicting_is_heard_before_any_merge():
+def github_calling_a_pull_request_conflicting_is_heard_before_any_merge() -> None:
     """Asked first, rather than read in a refusal.
 
     A pull request GitHub already calls conflicting — or behind, on a
@@ -875,11 +911,11 @@ def github_calling_a_pull_request_conflicting_is_heard_before_any_merge():
 
     url = "https://github.com/x/y/pull/1"
     runner = _board_runner([_reviewed("pdirty", "Validated", url)], {})
-    runner._project_of = lambda ticket: projects.Project("Site", Path("/repo"))
+    runner._project_of = lambda ticket: projects.Project("Site", Path("/repo"))  # type: ignore[method-assign]  # a double: the ticket\'s project
     attempts: list[str] = []
-    replayed: list[tuple] = []
+    replayed: list[tuple[Any, ...]] = []
 
-    def merge(url: str, method: str = "squash", accounts=None) -> str:
+    def merge(url: str, method: str = "squash", accounts: Any = None) -> str:
         attempts.append(url)
         return "merged"
 
@@ -888,7 +924,7 @@ def github_calling_a_pull_request_conflicting_is_heard_before_any_merge():
         _github({url: "OPEN"}, merge=merge, blockers={url: "BEHIND"}),
         _git_answering(
             pull_request_branches=lambda url, accounts=None: ("ticket/le-header-9d2cb790", "main"),
-            replay_pushed=lambda *args, **kwargs: replayed.append(args) or "",
+            replay_pushed=lambda *args, **kwargs: replayed.append(args) or "",  # type: ignore[func-returns-value]  # kept, and nothing to say
         ),
     ):
         results = runner.deliver()
@@ -904,7 +940,7 @@ def github_calling_a_pull_request_conflicting_is_heard_before_any_merge():
 
 
 @case
-def a_replay_that_conflicts_is_handed_to_a_session_rather_than_to_you():
+def a_replay_that_conflicts_is_handed_to_a_session_rather_than_to_you() -> None:
     """The conflict takes a place, like a publication; a project left out asks.
 
     Nothing is merged and nothing is blocked while the column is read: the
@@ -916,10 +952,10 @@ def a_replay_that_conflicts_is_handed_to_a_session_rather_than_to_you():
     for left_out, expected in (("", "session"), ("Autre, site ", "blocked")):
         runner = _board_runner([_reviewed("pconflict", "Validated", url)], {})
         runner.config.runner.resolve_conflicts_except = left_out
-        runner.under_reserve = lambda: 0.0
-        runner._project_of = lambda ticket: projects.Project("Site", Path("/repo"))
+        runner.under_reserve = lambda: 0.0  # type: ignore[method-assign]  # a double: credit to spare
+        runner._project_of = lambda ticket: projects.Project("Site", Path("/repo"))  # type: ignore[method-assign]  # a double: the ticket\'s project
 
-        def merge(url: str, method: str = "squash", accounts=None) -> str:
+        def merge(url: str, method: str = "squash", accounts: Any = None) -> str:
             raise AssertionError("a pull request GitHub calls conflicting is not merged as is")
 
         with (
@@ -941,11 +977,11 @@ def a_replay_that_conflicts_is_handed_to_a_session_rather_than_to_you():
         else:
             assert not sessions, sessions
             assert settled[0]["status"] == "blocked", settled
-            assert "src/app.py" in runner.client.comments_written[-1]
+            assert "src/app.py" in _client(runner).comments_written[-1]
 
 
 @case
-def a_base_that_keeps_moving_is_replayed_twice_then_asked_about(state_home):
+def a_base_that_keeps_moving_is_replayed_twice_then_asked_about(state_home: Path) -> None:
     """Two replays, and then a question rather than a third.
 
     A repository merging every ten minutes can move its base between the push
@@ -957,21 +993,21 @@ def a_base_that_keeps_moving_is_replayed_twice_then_asked_about(state_home):
 
     url = "https://github.com/x/y/pull/1"
     page = _reviewed("pmoving", "Validated", url)
-    replayed: list[tuple] = []
+    replayed: list[tuple[Any, ...]] = []
 
-    def merge(url: str, method: str = "squash", accounts=None) -> str:
+    def merge(url: str, method: str = "squash", accounts: Any = None) -> str:
 
         raise git_module.GitError("gh pr merge: Pull Request is not mergeable")
 
-    passes = []
+    passes: list[list[dict[str, Any]]] = []
     for _ in range(3):
         runner = _board_runner([page], {"blocked": "Blocked"})
-        runner._project_of = lambda ticket: projects.Project("Site", Path("/repo"))
+        runner._project_of = lambda ticket: projects.Project("Site", Path("/repo"))  # type: ignore[method-assign]  # a double: the ticket\'s project
         with (
             _github({url: "OPEN"}, merge=merge),
             _git_answering(
                 pull_request_branches=lambda url, accounts=None: ("ticket/x-9d2cb790", "main"),
-                replay_pushed=lambda *args, **kwargs: replayed.append(args) or "",
+                replay_pushed=lambda *args, **kwargs: replayed.append(args) or "",  # type: ignore[func-returns-value]  # kept, and nothing to say
             ),
         ):
             passes.append(runner.deliver())
@@ -981,12 +1017,12 @@ def a_base_that_keeps_moving_is_replayed_twice_then_asked_about(state_home):
     assert len(replayed) == delivery.MOST_REBASES == 2, replayed
     assert passes[0] == [], "the first refusal leaves it validated for the next pass"
     assert passes[-1][0]["status"] == "blocked", passes
-    said = runner.client.comments_written[-1]
+    said = _client(runner).comments_written[-1]
     assert "2 times" in said and "`main`" in said, said
 
 
 @case
-def a_base_moved_by_the_runners_own_merges_is_not_held_against_the_ticket(state_home):
+def a_base_moved_by_the_runners_own_merges_is_not_held_against_the_ticket(state_home: Path) -> None:
     """Ten pull requests validated on one repository: the queue is not "a base that keeps moving".
 
     Each merge the runner makes leaves the others behind. Between two replays
@@ -997,24 +1033,24 @@ def a_base_moved_by_the_runners_own_merges_is_not_held_against_the_ticket(state_
     """
     url = "https://github.com/x/y/pull/1"
     page = _reviewed("pqueued", "Validated", url)
-    replayed: list[tuple] = []
+    replayed: list[tuple[Any, ...]] = []
     refusals = ["not mergeable"] * 5
 
-    def merge(url: str, method: str = "squash", accounts=None) -> str:
+    def merge(url: str, method: str = "squash", accounts: Any = None) -> str:
 
         if refusals:
             raise git_module.GitError(f"gh pr merge: Pull Request is {refusals.pop()}")
         return "merged"
 
     runner = _board_runner([page], {"blocked": "Blocked"})
-    runner._project_of = lambda ticket: projects.Project("Site", Path("/repo"))
-    passes = []
+    runner._project_of = lambda ticket: projects.Project("Site", Path("/repo"))  # type: ignore[method-assign]  # a double: the ticket\'s project
+    passes: list[list[dict[str, Any]]] = []
     for sibling in (2, 3, 4):
         with (
             _github({url: "OPEN"}, merge=merge),
             _git_answering(
                 pull_request_branches=lambda url, accounts=None: ("ticket/x-9d2cb790", "main"),
-                replay_pushed=lambda *args, **kwargs: replayed.append(args) or "",
+                replay_pushed=lambda *args, **kwargs: replayed.append(args) or "",  # type: ignore[func-returns-value]  # kept, and nothing to say
             ),
         ):
             passes.append(runner.deliver())
@@ -1033,18 +1069,18 @@ def _reading_checks(
     on_base: list[str],
     rerun: bool = True,
     unstarted: str = "",
-):
+) -> tuple[str, str, list[str]]:
     """`_checked` against a CI that answers `verdicts` in turn, and what it was asked."""
     url = "https://github.com/x/y/pull/1"
     runner = _board_runner([], {})
     asked: list[str] = []
     verdicts, failing = list(verdicts), list(failing)
 
-    def wait(url, worktree, minutes, accounts=None):
+    def wait(url: str, worktree: Path, minutes: int, accounts: Any = None) -> str:
         asked.append("wait")
         return verdicts.pop(0)
 
-    def again(url, accounts=None):
+    def again(url: str, accounts: Any = None) -> bool:
         asked.append("rerun")
         return rerun
 
@@ -1053,7 +1089,7 @@ def _reading_checks(
         failing_checks=lambda url, accounts=None: failing.pop(0) if failing else [],
         unstarted_checks=lambda url, accounts=None: unstarted,
         rerun_failed_checks=again,
-        failing_on=lambda url, base, accounts=None: asked.append(f"base {base}") or on_base,
+        failing_on=lambda url, base, accounts=None: asked.append(f"base {base}") or on_base,  # type: ignore[func-returns-value]  # asked, then answered
     ):
         checks, said = runner._checked(
             ticket_module.Ticket(_reviewed("t-1", "In progress", "")), url, Path("/work"), "main"
@@ -1062,7 +1098,7 @@ def _reading_checks(
 
 
 @case
-def a_check_that_goes_green_once_run_again_is_a_flake_not_a_question():
+def a_check_that_goes_green_once_run_again_is_a_flake_not_a_question() -> None:
     """The failed jobs are run again once, and the second verdict is the one kept."""
     checks, said, asked = _reading_checks(["failed", "passed"], [["frontend"]], [])
     assert checks == "passed", checks
@@ -1074,7 +1110,7 @@ def a_check_that_goes_green_once_run_again_is_a_flake_not_a_question():
 
 
 @case
-def a_check_main_fails_too_is_the_bases_red_and_not_the_pull_requests():
+def a_check_main_fails_too_is_the_bases_red_and_not_the_pull_requests() -> None:
     """Red twice, but red on the base as well: not the pull request's doing."""
     checks, said, asked = _reading_checks(
         ["failed", "failed"], [["frontend"], ["frontend"]], ["frontend", "core (3.11)"]
@@ -1085,7 +1121,7 @@ def a_check_main_fails_too_is_the_bases_red_and_not_the_pull_requests():
 
 
 @case
-def a_check_red_only_here_still_stops_the_merge_and_is_named():
+def a_check_red_only_here_still_stops_the_merge_and_is_named() -> None:
     """The one red that is a question — and it says which checks, not “CI: red”."""
     checks, said, _ = _reading_checks(
         ["failed", "failed"], [["frontend"], ["core (3.11)", "frontend"]], ["frontend"]
@@ -1107,7 +1143,7 @@ _NOT_STARTED = (
 
 
 @case
-def a_ci_github_never_started_is_said_as_such_and_not_run_again():
+def a_ci_github_never_started_is_said_as_such_and_not_run_again() -> None:
     """Red in two seconds, every job refused by GitHub's billing: nothing ran.
 
     It used to read “its checks fail” on every pull request of a private
@@ -1135,7 +1171,7 @@ def a_ci_github_never_started_is_said_as_such_and_not_run_again():
 
 
 @case
-def only_the_accounts_billing_is_read_as_a_billing_refusal():
+def only_the_accounts_billing_is_read_as_a_billing_refusal() -> None:
     from ponos import ci
 
     assert ci.billing(_NOT_STARTED)
@@ -1145,7 +1181,7 @@ def only_the_accounts_billing_is_read_as_a_billing_refusal():
 
 
 @case
-def a_forced_merge_says_on_the_ticket_why_the_ci_stopped_it():
+def a_forced_merge_says_on_the_ticket_why_the_ci_stopped_it() -> None:
     """The sentence `_checked` wrote, not a generic “its checks fail”."""
     from types import SimpleNamespace
 
@@ -1156,7 +1192,7 @@ def a_forced_merge_says_on_the_ticket_why_the_ci_stopped_it():
         ("billing", "CI: not started — GitHub Actions is blocked by the billing of the x account."),
     ):
         runner = _board_runner([], {})
-        runner._checked = lambda ticket, url, workdir, base, said=(checks, sentence): said
+        runner._checked = lambda ticket, url, workdir, base, said=(checks, sentence): said  # type: ignore[method-assign, misc]  # a double: what the CI said
         job = SimpleNamespace(
             ticket=SimpleNamespace(id="p-forced"), workdir=Path("/work"), base="main"
         )
@@ -1165,14 +1201,14 @@ def a_forced_merge_says_on_the_ticket_why_the_ci_stopped_it():
             _state_home(),
             _github({}, merge=lambda *args, merges=merges, **kept: merges.append(args) or "merged"),
         ):
-            why, later = runner._force_merge(job, url)
+            why, later = runner._force_merge(job, url)  # type: ignore[arg-type]  # the three fields it reads of a job
         # Refused by the billing, it waits in validated with the account's other merges.
-        expected = (sentence, checks == "billing", [])
+        expected: tuple[str, bool, list[str]] = (sentence, checks == "billing", [])
         assert (why, later, merges) == expected, (checks, why, later, merges)
 
 
 @case
-def an_older_gh_reads_the_checks_from_the_pull_request_itself():
+def an_older_gh_reads_the_checks_from_the_pull_request_itself() -> None:
     """`gh pr checks --json` is gh 2.48 and later; Ubuntu ships 2.46.
 
     Without the fallback every check read as unknown on such a machine — no
@@ -1214,7 +1250,7 @@ def an_older_gh_reads_the_checks_from_the_pull_request_itself():
     annotations = {"116": _NOT_STARTED, "117": ""}
     asked: list[list[str]] = []
 
-    def run(args, *rest, **kept):
+    def run(args: list[str], *rest: Any, **kept: Any) -> git_module.Result:
         asked.append(args)
         if args[:3] == ["gh", "pr", "checks"]:
             return git_module.Result(1, "", "unknown flag: --json\n\nUsage:  gh pr checks")
@@ -1226,7 +1262,7 @@ def an_older_gh_reads_the_checks_from_the_pull_request_itself():
         return git_module.Result(1, "", "")
 
     original_which = shutil.which
-    git_module.shutil.which = lambda name, *rest, **kept: f"/usr/bin/{name}"
+    shutil.which = lambda name, *rest, **kept: f"/usr/bin/{name}"  # type: ignore[assignment]  # a double: every tool is there
     try:
         with _git_answering(run=run, token_for=lambda reference, accounts=None: ""):
             url = "https://github.com/x/y/pull/1"
@@ -1248,31 +1284,33 @@ def an_older_gh_reads_the_checks_from_the_pull_request_itself():
             rollup["statusCheckRollup"][1]["conclusion"] = "FAILURE"
             assert github_checks.unstarted_checks(url) == ""
     finally:
-        git_module.shutil.which = original_which
+        shutil.which = original_which
 
 
-def _forcing(checks: str, refuses: str = "", blocker: str = "", options=None):
+def _forcing(
+    checks: str, refuses: str = "", blocker: str = "", options: list[str] | None = None
+) -> tuple[tuple[str, bool], list[str]]:
     """`_force_merge` after a CI that said `checks`: what it answered, and the merges asked."""
     from types import SimpleNamespace
 
     url = "https://github.com/x/y/pull/1"
     runner = _board_runner([], {}, options)
-    runner._checked = lambda ticket, url, workdir, base: (checks, "")
+    runner._checked = lambda ticket, url, workdir, base: (checks, "")  # type: ignore[method-assign]  # a double: what the CI said
     job = SimpleNamespace(ticket=SimpleNamespace(id="p-forced"), workdir=Path("/work"), base="main")
     merges: list[str] = []
 
-    def merge(url: str, method: str = "squash", accounts=None) -> str:
+    def merge(url: str, method: str = "squash", accounts: Any = None) -> str:
         merges.append(url)
         if refuses:
             raise git_module.GitError(f"gh pr merge: {refuses}")
         return "merged"
 
     with _state_home(), _github({}, merge=merge, blockers={url: blocker} if blocker else {}):
-        return runner._force_merge(job, url), merges
+        return runner._force_merge(job, url), merges  # type: ignore[arg-type]  # the fields it reads of a job
 
 
 @case
-def a_forced_merge_that_is_only_not_yet_is_left_to_the_validated_column():
+def a_forced_merge_that_is_only_not_yet_is_left_to_the_validated_column() -> None:
     """Behind, conflicting, CI still running: postponed, never a question in review."""
     (why, later), merges = _forcing("passed", refuses="Head branch is out of date")
     assert later and "out of date" in why and len(merges) == 1, (why, later, merges)
@@ -1289,7 +1327,7 @@ def a_forced_merge_that_is_only_not_yet_is_left_to_the_validated_column():
 
 
 @case
-def a_forced_merge_that_is_a_question_still_waits_in_review():
+def a_forced_merge_that_is_a_question_still_waits_in_review() -> None:
     """Red here and only here, a rule of the branch, or no validated column to wait in."""
     (why, later), merges = _forcing("failed", blocker="BEHIND")
     assert not later and merges == [] and why == "its checks fail", (why, later, merges)
@@ -1307,7 +1345,7 @@ def a_forced_merge_that_is_a_question_still_waits_in_review():
 
 
 @case
-def the_checks_gh_lists_are_read_into_names_and_runs_to_start_again():
+def the_checks_gh_lists_are_read_into_names_and_runs_to_start_again() -> None:
     """`gh pr checks --json` and `gh run rerun`, as the runner asks them."""
 
     listed = [
@@ -1325,7 +1363,7 @@ def the_checks_gh_lists_are_read_into_names_and_runs_to_start_again():
     ]
     asked: list[list[str]] = []
 
-    def run(args, *rest, **kept):
+    def run(args: list[str], *rest: Any, **kept: Any) -> git_module.Result:
         asked.append(args)
         if args[:3] == ["gh", "pr", "checks"]:
             # Exit 1, as gh answers with a check red — and the list printed all the same.
@@ -1334,9 +1372,9 @@ def the_checks_gh_lists_are_read_into_names_and_runs_to_start_again():
             return git_module.Result(0, "frontend\nfrontend\n", "")
         return git_module.Result(0, "", "")
 
-    original_which, original_sleep = shutil.which, git_module.time.sleep
-    git_module.shutil.which = lambda name, *rest, **kept: f"/usr/bin/{name}"
-    git_module.time.sleep = lambda seconds: None
+    original_which, original_sleep = shutil.which, time.sleep
+    shutil.which = lambda name, *rest, **kept: f"/usr/bin/{name}"  # type: ignore[assignment]  # a double: every tool is there
+    time.sleep = lambda seconds: None
     try:
         with _git_answering(run=run, token_for=lambda reference, accounts=None: ""):
             url = "https://github.com/x/y/pull/1"
@@ -1359,14 +1397,14 @@ def the_checks_gh_lists_are_read_into_names_and_runs_to_start_again():
         ):
             assert github_checks.failing_checks("https://github.com/x/y/pull/1") == []
     finally:
-        git_module.shutil.which = original_which
-        git_module.time.sleep = original_sleep
+        shutil.which = original_which
+        time.sleep = original_sleep
 
 
 _REPAIR_RUN = "https://github.com/x/y/actions/runs/7"
 
 
-def _red_base(*, names=("frontend",)):
+def _red_base(*, names: tuple[str, ...] = ("frontend",)) -> AbstractContextManager[None]:
     """`gh`, answering that the newest commit of the base fails these checks."""
     return _git_answering(
         base_failures=lambda url, base, accounts=None: [(name, _REPAIR_RUN) for name in names],
@@ -1374,10 +1412,12 @@ def _red_base(*, names=("frontend",)):
     )
 
 
-def _forced_on_red_base(runner, page, url):
+def _forced_on_red_base(
+    runner: Runner, page: notion.Page, url: str
+) -> tuple[tuple[str, bool], list[str]]:
     from types import SimpleNamespace
 
-    runner._checked = lambda ticket, url, workdir, base: ("base-red", "")
+    runner._checked = lambda ticket, url, workdir, base: ("base-red", "")  # type: ignore[method-assign]  # a double: the base is red
     job = SimpleNamespace(
         ticket=ticket_module.Ticket(page),
         project=projects.Project("Site", Path("/repo")),
@@ -1385,12 +1425,19 @@ def _forced_on_red_base(runner, page, url):
         base="main",
     )
     merges: list[str] = []
-    with _github({}, merge=lambda url, method="squash", accounts=None: merges.append(url)):
-        return runner._force_merge(job, url), merges
+
+    def merge(url: str, method: str = "squash", accounts: Any = None) -> str:
+        merges.append(url)
+        return ""
+
+    with _github({}, merge=merge):
+        return runner._force_merge(job, url), merges  # type: ignore[arg-type]  # the fields it reads of a job
 
 
 @case
-def a_red_base_sets_the_pull_request_aside_and_opens_one_repair_for_all_of_them(state_home):
+def a_red_base_sets_the_pull_request_aside_and_opens_one_repair_for_all_of_them(
+    state_home: Path,
+) -> None:
     """Base red: no merge, no question, the card says so — and one ticket to repair it."""
     first, second = "https://github.com/x/y/pull/1", "https://github.com/x/y/pull/2"
     pages = [_reviewed("p1", "In progress", first), _reviewed("p2", "In progress", second)]
@@ -1404,27 +1451,29 @@ def a_red_base_sets_the_pull_request_aside_and_opens_one_repair_for_all_of_them(
         assert later and merges == [], (later, merges)
         assert state.waiting_for_base("p2")
 
-    assert len(runner.client.created) == 1, runner.client.created
-    title, values = runner.client.created[0]
+    assert len(_client(runner).created) == 1, _client(runner).created
+    title, values = _client(runner).created[0]
     assert title == "Repair main of Site", title
     assert values["Status"] == "Ready" and values["Priority"] == 75, values
-    assert "`frontend`" in runner.client.bodies[0] and _REPAIR_RUN in runner.client.bodies[0]
+    assert "`frontend`" in _client(runner).bodies[0] and _REPAIR_RUN in _client(runner).bodies[0]
 
 
 @case
-def the_repair_of_a_base_is_a_high_priority_code_bug(state_home):
+def the_repair_of_a_base_is_a_high_priority_code_bug(state_home: Path) -> None:
     url = "https://github.com/x/y/pull/1"
     page = _reviewed("p1", "In progress", url)
     with _red_base():
         runner = _board_runner([page], {})
         _forced_on_red_base(runner, page, url)
-    _, values = runner.client.created[0]
+    _, values = _client(runner).created[0]
     assert values["Type"] == "Code" and values["Sous-type"] == "Bug", values
     assert values["Priority"] == 75, values
 
 
 @case
-def the_pull_request_of_a_repair_is_validated_without_waiting_for_a_review(state_home):
+def the_pull_request_of_a_repair_is_validated_without_waiting_for_a_review(
+    state_home: Path,
+) -> None:
     """A repair opened by the runner is merged once green; any other code ticket still waits."""
     project = projects.Project("Site", Path("/repo"))
     runner = _board_runner([], {})
@@ -1437,28 +1486,32 @@ def the_pull_request_of_a_repair_is_validated_without_waiting_for_a_review(state
 
 
 @case
-def a_repair_that_is_done_is_followed_by_a_new_one_if_the_base_is_red_again(state_home):
+def a_repair_that_is_done_is_followed_by_a_new_one_if_the_base_is_red_again(
+    state_home: Path,
+) -> None:
     url = "https://github.com/x/y/pull/1"
     page = _reviewed("p1", "In progress", url)
     with _red_base():
         runner = _board_runner([page], {})
         _forced_on_red_base(runner, page, url)
-        runner.client._pages[-1].properties["Status"] = {
+        _client(runner)._pages[-1].properties["Status"] = {
             "type": "status",
             "status": {"name": "Done"},
         }
         _forced_on_red_base(runner, page, url)
-    assert len(runner.client.created) == 2, runner.client.created
+    assert len(_client(runner).created) == 2, _client(runner).created
 
 
 @case
-def a_green_base_with_a_red_pull_request_keeps_the_pull_request_blocked():
+def a_green_base_with_a_red_pull_request_keeps_the_pull_request_blocked() -> None:
     """Base green, the red is the pull request's: today's behaviour, nothing set aside."""
     checks, said, _ = _reading_checks(["failed", "failed"], [["frontend"], ["frontend"]], [])
     assert checks == "failed", "red here and not on the base is still the pull request's"
 
 
-def _repairing(heads: list[str], ok: bool = True, then: str = "passed", pushed: list | None = None):
+def _repairing(
+    heads: list[str], ok: bool = True, then: str = "passed", pushed: list[Any] | None = None
+) -> tuple[tuple[str, str, Any], tuple[str, str, Any] | None, list[tuple[Any, ...]], list[Any]]:
     """`_mend` of a pull request red by its own fault: what it answered, and the sessions sent.
 
     `heads` is what the branch is on in turn — before the session, after it —
@@ -1471,12 +1524,18 @@ def _repairing(heads: list[str], ok: bool = True, then: str = "passed", pushed: 
     url = "https://github.com/x/y/pull/1"
     page = _reviewed("p1", "In progress", url)
     runner = _board_runner([page], {})
-    runner._body = lambda ticket: "Le titre est faux."
-    runner._add_cost = lambda *args: None
-    sessions: list[tuple] = []
+    runner._body = lambda ticket: "Le titre est faux."  # type: ignore[method-assign]  # a double: the ticket's body
+    runner._add_cost = lambda *args: None  # type: ignore[method-assign]  # a double: nothing paid
+    sessions: list[tuple[Any, ...]] = []
     heads = list(heads)
 
-    def work(job, template, phase="session", detail=""):
+    def work(
+        job: ticket_module.Job,
+        template: str,
+        subtype: bool = False,
+        phase: str = "session",
+        detail: str = "",
+    ) -> session_module.Outcome:
         sessions.append((job.body, template))
         return session_module.Outcome(
             ok=ok,
@@ -1487,8 +1546,8 @@ def _repairing(heads: list[str], ok: bool = True, then: str = "passed", pushed: 
             answer="- `settings.spec.ts` : locator exact\n\nRESULT: ok — x",
         )
 
-    runner._run_session = work
-    runner._checked = lambda ticket, url, workdir, base: (then, "CI: " + then)
+    runner._run_session = work  # type: ignore[method-assign]  # a double: the repair's session
+    runner._checked = lambda ticket, url, workdir, base: (then, "CI: " + then)  # type: ignore[method-assign]  # a double: the CI once pushed
     job = SimpleNamespace(
         ticket=ticket_module.Ticket(page),
         workdir=Path("/work"),
@@ -1502,6 +1561,7 @@ def _repairing(heads: list[str], ok: bool = True, then: str = "passed", pushed: 
         base="main",
         workdir=Path("/work"),
     )
+    pushed = [] if pushed is None else pushed
     with (
         _state_home(),
         _git_answering(
@@ -1514,12 +1574,11 @@ def _repairing(heads: list[str], ok: bool = True, then: str = "passed", pushed: 
             rebasing=lambda workdir: False,
             is_dirty=lambda workdir: False,
             push_leased=lambda workdir, branch, was, accounts=None: (
-                pushed.append((branch, was)) or ""
+                pushed.append((branch, was)) or ""  # type: ignore[func-returns-value]  # kept, then pushed
             ),
             comment_pull_request=lambda *args, **kwargs: None,
         ),
     ):
-        pushed = [] if pushed is None else pushed
         first = runner._mend(job_copy, url, "CI: red.")
         second = runner._mend(job_copy, url, "CI: red.") if len(heads) else None
     del job
@@ -1527,7 +1586,7 @@ def _repairing(heads: list[str], ok: bool = True, then: str = "passed", pushed: 
 
 
 @case
-def a_pull_request_red_by_its_own_fault_is_repaired_by_a_session_and_goes_on():
+def a_pull_request_red_by_its_own_fault_is_repaired_by_a_session_and_goes_on() -> None:
     """The log reaches the session; its fix is pushed on the branch; a green CI lets the merge go on."""
     from ponos import prompt as prompt_module
 
@@ -1543,9 +1602,9 @@ def a_pull_request_red_by_its_own_fault_is_repaired_by_a_session_and_goes_on():
 
 
 @case
-def a_pull_request_still_red_after_its_repair_is_blocked_once_without_a_second_session():
+def a_pull_request_still_red_after_its_repair_is_blocked_once_without_a_second_session() -> None:
     """Red again after the fix: `failed` is returned, and the same red never costs two sessions."""
-    pushed: list = []
+    pushed: list[Any] = []
     (checks, said, _), _, sessions, _ = _repairing(["aaa", "bbb"], then="failed", pushed=pushed)
     assert checks == "failed" and "still red" in said, (checks, said)
     assert len(sessions) == 1
@@ -1559,7 +1618,7 @@ def a_pull_request_still_red_after_its_repair_is_blocked_once_without_a_second_s
 
 
 @case
-def a_repair_that_answers_blocked_or_commits_nothing_pushes_nothing():
+def a_repair_that_answers_blocked_or_commits_nothing_pushes_nothing() -> None:
     (checks, said, outcome), _, sessions, pushed = _repairing(["aaa"], ok=False, pushed=[])
     assert checks == "failed" and outcome is not None and not pushed, (checks, pushed)
     assert "unsure" in said and "locator exact" in said, said
@@ -1569,7 +1628,7 @@ def a_repair_that_answers_blocked_or_commits_nothing_pushes_nothing():
 
 
 @case
-def a_merge_that_took_a_repair_carries_its_cost_into_the_history(state_home):
+def a_merge_that_took_a_repair_carries_its_cost_into_the_history(state_home: Path) -> None:
     """The repair is paid on top of the merge: the line written for it says so."""
     from ponos import session as session_module
 
@@ -1585,8 +1644,8 @@ def a_merge_that_took_a_repair_carries_its_cost_into_the_history(state_home):
         seconds=30.0,
         cost_usd=0.4,
     )
-    runner._checked = lambda ticket, url, workdir, base: ("failed", "CI: red.")
-    runner._mend = lambda job, url, checked: ("passed", "CI: passed.", repair)
+    runner._checked = lambda ticket, url, workdir, base: ("failed", "CI: red.")  # type: ignore[method-assign]  # a double: red
+    runner._mend = lambda job, url, checked: ("passed", "CI: passed.", repair)  # type: ignore[method-assign]  # a double: mended
     job = ticket_module.Job(
         ticket_module.Ticket(page),
         projects.Project("Site", Path("/repo")),
@@ -1608,7 +1667,7 @@ def a_merge_that_took_a_repair_carries_its_cost_into_the_history(state_home):
 
 
 @case
-def the_repair_attempts_of_a_ticket_are_kept_by_head_commit(state_home):
+def the_repair_attempts_of_a_ticket_are_kept_by_head_commit(state_home: Path) -> None:
     assert not state.mended("p1", "aaa")
     state.mending("p1", "aaa")
     assert state.mended("p1", "aaa") and not state.mended("p1", "bbb")
@@ -1618,13 +1677,13 @@ def the_repair_attempts_of_a_ticket_are_kept_by_head_commit(state_home):
 
 
 @case
-def a_pull_request_set_aside_waits_for_a_green_base_then_goes_on_its_own(state_home):
+def a_pull_request_set_aside_waits_for_a_green_base_then_goes_on_its_own(state_home: Path) -> None:
     """Still red: left alone, no merge asked. Green again: merged, and the card says so."""
     url = "https://github.com/x/y/pull/1"
     page = _reviewed("p1", "Validated", url)
     merges: list[str] = []
 
-    def merge(url, method="squash", accounts=None):
+    def merge(url: str, method: str = "squash", accounts: Any = None) -> str:
         merges.append(url)
         return "merged"
 
@@ -1635,7 +1694,7 @@ def a_pull_request_set_aside_waits_for_a_green_base_then_goes_on_its_own(state_h
         _git_answering(failing_on=lambda url, base, accounts=None: ["frontend", "lint"]),
     ):
         assert runner.deliver() == [] and merges == []
-        assert runner.client.comments_written == [], "waiting is not said again at every pass"
+        assert _client(runner).comments_written == [], "waiting is not said again at every pass"
     with (
         _github({url: "OPEN"}, merge=merge),
         _git_answering(failing_on=lambda url, base, accounts=None: []),
@@ -1643,11 +1702,13 @@ def a_pull_request_set_aside_waits_for_a_green_base_then_goes_on_its_own(state_h
         done = runner.deliver()
     assert merges == [url] and done[0]["status"] == "done", (merges, done)
     assert state.waiting_for_base("p1") is None
-    assert any("green again" in text for text in runner.client.comments_written)
+    assert any("green again" in text for text in _client(runner).comments_written)
 
 
 @case
-def a_resolved_pull_request_on_a_red_base_goes_back_to_validated_without_a_question(state_home):
+def a_resolved_pull_request_on_a_red_base_goes_back_to_validated_without_a_question(
+    state_home: Path,
+) -> None:
     url = "https://github.com/x/y/pull/1"
     page = _reviewed("p1", "In progress", url)
     with _red_base():
@@ -1661,20 +1722,20 @@ def a_resolved_pull_request_on_a_red_base_goes_back_to_validated_without_a_quest
         )
         assert state.waiting_for_base("p1")
     assert done["status"] == "waiting" and done["reason"] == "merge.base-red", done
-    status = [values["Status"] for _, values in runner.client.written if "Status" in values]
+    status = [values["Status"] for _, values in _client(runner).written if "Status" in values]
     assert status == ["Validated"], status
-    assert "the base is red, it is not this pull request" in runner.client.comments_written[-1]
-    assert "Repair main of Site" in runner.client.comments_written[-1]
+    assert "the base is red, it is not this pull request" in _client(runner).comments_written[-1]
+    assert "Repair main of Site" in _client(runner).comments_written[-1]
 
 
 @case
-def the_failures_of_a_base_and_its_ci_at_push_are_read_from_gh():
+def the_failures_of_a_base_and_its_ci_at_push_are_read_from_gh() -> None:
 
-    def answering(out, ok=True):
+    def answering(out: str, ok: bool = True) -> Callable[..., git_module.Result]:
         return lambda args, *rest, **kept: git_module.Result(0 if ok else 1, out, "")
 
     original_which = shutil.which
-    git_module.shutil.which = lambda name, *rest, **kept: f"/usr/bin/{name}"
+    shutil.which = lambda name, *rest, **kept: f"/usr/bin/{name}"  # type: ignore[assignment]  # a double: every tool is there
     try:
         url = "https://github.com/x/y/pull/1"
         with _git_answering(
@@ -1705,11 +1766,11 @@ def the_failures_of_a_base_and_its_ci_at_push_are_read_from_gh():
         ):
             assert github_checks.ci_at_push(repo, "main") == "", "a question GitHub did not answer"
     finally:
-        git_module.shutil.which = original_which
+        shutil.which = original_which
 
 
 @case
-def doctor_says_when_a_base_has_no_ci_at_push():
+def doctor_says_when_a_base_has_no_ci_at_push() -> None:
     from ponos import health
 
     with _git_answering(
@@ -1729,7 +1790,7 @@ def doctor_says_when_a_base_has_no_ci_at_push():
 
 
 @case
-def a_resolution_report_is_what_the_session_wrote_above_its_verdict():
+def a_resolution_report_is_what_the_session_wrote_above_its_verdict() -> None:
     from ponos import delivery
 
     answer = "- `a.py` : les deux gardés\nTests : verts.\n\n**RESULT: ok — résolu**"
@@ -1738,7 +1799,7 @@ def a_resolution_report_is_what_the_session_wrote_above_its_verdict():
 
 
 @case
-def conflicts_are_resolved_everywhere_but_where_the_file_says_not():
+def conflicts_are_resolved_everywhere_but_where_the_file_says_not() -> None:
     config = _config('[runner]\nresolve_conflicts_except = ["Northwind", "Site vitrine"]\n')
     assert config.runner.resolve_conflicts_except == "Northwind, Site vitrine"
     assert not config.runner.resolves_conflicts("site vitrine")
@@ -1753,7 +1814,7 @@ def conflicts_are_resolved_everywhere_but_where_the_file_says_not():
 
 
 @case
-def a_directory_holding_work_is_not_cleared_to_make_room():
+def a_directory_holding_work_is_not_cleared_to_make_room() -> None:
     """Uncommitted changes under the ticket's path outrank the ticket."""
 
     made, _commands = _worktree_for(commits=0, dirty=True, path_exists=True)
@@ -1762,10 +1823,12 @@ def a_directory_holding_work_is_not_cleared_to_make_room():
 
 
 @case
-def a_residue_that_cannot_be_deleted_is_moved_aside_and_the_worktree_is_made(state_home):
+def a_residue_that_cannot_be_deleted_is_moved_aside_and_the_worktree_is_made(
+    state_home: Path,
+) -> None:
     """Files a container made as root: no right to delete them, still a ticket to run."""
 
-    original = (git_module.shutil.rmtree, git_module.shutil.which)
+    original = (shutil.rmtree, shutil.which)
     with tempfile.TemporaryDirectory() as home:
         root = Path(home)
         path = root / "worktrees" / "leadz-9d2cb790"
@@ -1774,8 +1837,8 @@ def a_residue_that_cannot_be_deleted_is_moved_aside_and_the_worktree_is_made(sta
         (path / "vendor").chmod(0o500)  # nothing in it can be unlinked, as non-root
         try:
             # The deletion refused whatever the user is, and no Docker to ask.
-            git_module.shutil.rmtree = lambda *_args, **_kept: None
-            git_module.shutil.which = lambda _name: None
+            shutil.rmtree = lambda *_args, **_kept: None  # type: ignore[assignment]  # a double: refused
+            shutil.which = lambda _name: None  # type: ignore[assignment]  # a double: no Docker
             aside = git_module.discard(path)
             assert not path.exists() and Path(aside).is_dir()
             assert Path(aside).parent == state_home / "leftovers"
@@ -1784,41 +1847,41 @@ def a_residue_that_cannot_be_deleted_is_moved_aside_and_the_worktree_is_made(sta
             made, _commands = _worktree_for(commits=0, path_exists=True)
             assert not isinstance(made, git_module.GitError)
         finally:
-            git_module.shutil.rmtree, git_module.shutil.which = original
+            shutil.rmtree, shutil.which = original
             for top in (root, state_home):
                 for directory, _names, _files in os.walk(top):
                     os.chmod(directory, 0o700)
 
 
 @case
-def a_residue_is_emptied_by_a_container_when_docker_is_there():
+def a_residue_is_emptied_by_a_container_when_docker_is_there() -> None:
 
     sent: list[list[str]] = []
-    original = (git_module.shutil.rmtree, git_module.shutil.which, git_module.run)
+    original = (shutil.rmtree, shutil.which, git_module.run)
     with tempfile.TemporaryDirectory() as home:
         path = Path(home) / "leadz-9d2cb790"
         path.mkdir()
         (path / "var").mkdir()
 
-        def docker(args, *_rest, **_kept):
+        def docker(args: list[str], *_rest: Any, **_kept: Any) -> git_module.Result:
             sent.append(list(args))
             original[0](path / "var")
             return git_module.Result(0, "", "")
 
         try:
-            git_module.shutil.rmtree = lambda *_args, **_kept: None
-            git_module.shutil.which = lambda _name: "/usr/bin/docker"
+            shutil.rmtree = lambda *_args, **_kept: None  # type: ignore[assignment]  # a double: refused
+            shutil.which = lambda _name: "/usr/bin/docker"  # type: ignore[assignment]  # a double: Docker is there
             git_module.run = docker
             assert git_module.discard(path) == ""
         finally:
-            git_module.shutil.rmtree, git_module.shutil.which, git_module.run = original
+            shutil.rmtree, shutil.which, git_module.run = original
         assert not path.exists()
     assert sent and sent[0][:2] == ["docker", "run"] and "sh" not in sent[0] and "-c" not in sent[0]
     assert sent[0][-5:] == ["find", "/w", "-mindepth", "1", "-delete"]
 
 
 @case
-def a_directory_with_a_git_is_never_a_residue():
+def a_directory_with_a_git_is_never_a_residue() -> None:
 
     with tempfile.TemporaryDirectory() as home:
         worktrees = Path(home) / "worktrees"
@@ -1831,7 +1894,7 @@ def a_directory_with_a_git_is_never_a_residue():
 
 
 @case
-def clean_removes_a_residue_and_leaves_a_real_worktree():
+def clean_removes_a_residue_and_leaves_a_real_worktree() -> None:
     from ponos import __main__ as cli
 
     with tempfile.TemporaryDirectory() as home:
@@ -1857,7 +1920,7 @@ def clean_removes_a_residue_and_leaves_a_real_worktree():
 
 
 @case
-def a_ticket_branch_is_found_by_its_short_id_whatever_its_title():
+def a_ticket_branch_is_found_by_its_short_id_whatever_its_title() -> None:
     with tempfile.TemporaryDirectory() as home:
         repo = Path(home)
         for args in (["init", "-q", "-b", "main"], ["commit", "-q", "--allow-empty", "-m", "x"]):
@@ -1886,7 +1949,7 @@ def a_ticket_branch_is_found_by_its_short_id_whatever_its_title():
 
 
 @case
-def only_a_replayed_branch_is_ever_force_pushed():
+def only_a_replayed_branch_is_ever_force_pushed() -> None:
     """A rebase rewrites what origin already has, so the push stops being a
 
     fast-forward — and a ticket that came back with “the push was refused” for
@@ -1897,7 +1960,9 @@ def only_a_replayed_branch_is_ever_force_pushed():
 
     sent: list[list[str]] = []
 
-    def fake(args, cwd, timeout=300, token=""):
+    def fake(
+        args: list[str], cwd: Path | str, timeout: int = 300, token: str = ""
+    ) -> git_module.Result:
         sent.append(list(args))
         return git_module.Result(0, "", "")
 
@@ -1912,7 +1977,7 @@ def only_a_replayed_branch_is_ever_force_pushed():
 
 
 @case
-def two_tickets_of_one_repository_never_write_its_git_directory_at_once():
+def two_tickets_of_one_repository_never_write_its_git_directory_at_once() -> None:
     """The pool runs two sessions of one project side by side, by default.
 
     Each one fetches, prunes and adds its worktree in the shared `.git`, and
@@ -1928,7 +1993,7 @@ def two_tickets_of_one_repository_never_write_its_git_directory_at_once():
     most: list[int] = []
     counting = threading.Lock()
 
-    def fake(args, cwd, timeout=300, **_):
+    def fake(args: list[str], cwd: Path | str, timeout: int = 300, **_: Any) -> git_module.Result:
         where = str(cwd)
         with counting:
             busy[where] = busy.get(where, 0) + 1
@@ -1959,7 +2024,7 @@ def two_tickets_of_one_repository_never_write_its_git_directory_at_once():
 
 
 @case
-def four_worktrees_made_at_once_on_one_repository_all_come_out():
+def four_worktrees_made_at_once_on_one_repository_all_come_out() -> None:
     """The load the pool puts on one repository, with a real git.
 
     Four tickets whose branches only exist on origin: each one fetches, then

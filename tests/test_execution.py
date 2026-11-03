@@ -3,21 +3,27 @@
 from __future__ import annotations
 
 import os
+import subprocess
 import tempfile
+import time
+from collections.abc import Callable
 from pathlib import Path
+from types import TracebackType
+from typing import Any, cast
 
-from support import _board_runner, _git_answering, _reviewed, case
+from support import _board_runner, _BoardClient, _git_answering, _reviewed, case
 
 from ponos import execution, notion, projects, resources, session, state, stopping, store
 from ponos import git as git_module
 from ponos import github_token as github_token_module
 from ponos import ticket as ticket_module
 from ponos.question import Question
+from ponos.runner import Runner
 
 # -- doubles -------------------------------------------------------------------
 
 
-def _outcome(**values) -> session.Outcome:
+def _outcome(**values: Any) -> session.Outcome:
     """A session's ending: a plain success unless `values` say otherwise."""
     fields = {
         "ok": True,
@@ -47,24 +53,29 @@ def _job(*, code: bool = False, page: notion.Page | None = None) -> ticket_modul
     )
 
 
-def _runner(status: dict[str, str] | None = None):
+def _runner(status: dict[str, str] | None = None) -> tuple[Runner, notion.Page, list[str]]:
     """A runner on a fake board that keeps what it says, instead of logging it."""
     page = _reviewed("p-ticket", "In progress", None)
     runner = _board_runner([page], status or {"review": "In review", "done": "Done"})
     runner.config.runner.auto_update = False
     runner.config.runner.keep_worktree_on_failure = False
     said: list[str] = []
-    runner.say = said.append
+    runner.say = said.append  # type: ignore[method-assign, assignment]  # a double: what it says is kept
     return runner, page, said
+
+
+def _client(runner: Runner) -> _BoardClient:
+    """The fake board `_board_runner` gave the runner, to read what was written on it."""
+    return cast(_BoardClient, runner.client)
 
 
 class _Network:
     """`resources`, answering as told — and saying whether it was asked."""
 
-    def __init__(self, reachable: bool = True, oom: str = ""):
+    def __init__(self, reachable: bool = True, oom: str = "") -> None:
         self.reachable, self.oom, self.asked = reachable, oom, 0
 
-    def __enter__(self):
+    def __enter__(self) -> _Network:
         self.saved = resources.reachable, resources.oom_killed
         resources.reachable = self._reach
         resources.oom_killed = lambda seconds=900.0: self.oom
@@ -74,7 +85,12 @@ class _Network:
         self.asked += 1
         return self.reachable
 
-    def __exit__(self, *exc):
+    def __exit__(
+        self,
+        kind: type[BaseException] | None,
+        error: BaseException | None,
+        trace: TracebackType | None,
+    ) -> None:
         resources.reachable, resources.oom_killed = self.saved
 
 
@@ -82,11 +98,11 @@ class _Network:
 
 
 @case
-def a_listener_that_raises_is_dropped_and_the_other_keeps_hearing():
-    heard: list[dict] = []
-    broken: list[dict] = []
+def a_listener_that_raises_is_dropped_and_the_other_keeps_hearing() -> None:
+    heard: list[dict[str, Any]] = []
+    broken: list[dict[str, Any]] = []
 
-    def refusing(event):
+    def refusing(event: dict[str, Any]) -> None:
         broken.append(event)
         raise RuntimeError("Notion said 500")
 
@@ -96,13 +112,13 @@ def a_listener_that_raises_is_dropped_and_the_other_keeps_hearing():
     assert heard == [{"n": 1}, {"n": 2}], "the journal hears every event"
     assert broken == [{"n": 1}], "the page is dropped after its first refusal"
 
-    alone: list[dict] = []
+    alone: list[dict[str, Any]] = []
     execution._both(alone.append, None)({"n": 3})
     assert alone == [{"n": 3}], "no live block: the journal alone"
 
 
 @case
-def a_second_try_carries_what_the_first_one_cost():
+def a_second_try_carries_what_the_first_one_cost() -> None:
     first = _outcome(ok=False, error="lost", cost_usd=0.25, seconds=30.0, turns=3)
     then = _outcome(summary="Le second.", cost_usd=0.5, seconds=60.0, turns=7)
     added = execution._added(first, then)
@@ -112,7 +128,7 @@ def a_second_try_carries_what_the_first_one_cost():
 
 
 @case
-def a_report_loses_its_trailing_result_lines_whatever_their_markup():
+def a_report_loses_its_trailing_result_lines_whatever_their_markup() -> None:
     answer = "Le bandeau est réparé.\n\nRESULT: dans le texte reste.\n\n**RESULT:** ok — fait\n# result: ok"
     assert execution._report(answer) == "Le bandeau est réparé.\n\nRESULT: dans le texte reste."
     assert execution._report("RESULT: ok — rien d'autre") == ""
@@ -120,7 +136,7 @@ def a_report_loses_its_trailing_result_lines_whatever_their_markup():
 
 
 @case
-def an_answer_file_is_read_stripped_and_a_missing_one_is_empty():
+def an_answer_file_is_read_stripped_and_a_missing_one_is_empty() -> None:
     workdir = Path(tempfile.mkdtemp())
     assert execution._answer(workdir) == "", "no ANSWER.md, no answer"
     (workdir / "ANSWER.md").write_bytes(b"\n  La r\xe9ponse.  \n\n")
@@ -128,7 +144,7 @@ def an_answer_file_is_read_stripped_and_a_missing_one_is_empty():
 
 
 @case
-def only_a_blocked_session_that_asks_nothing_on_a_ticket_spoken_on_has_answered_anyway():
+def only_a_blocked_session_that_asks_nothing_on_a_ticket_spoken_on_has_answered_anyway() -> None:
     job = _job()
     blocked = _outcome(ok=False, blocked=True)
     assert not execution._answered_anyway(job, blocked), "nobody spoke on the ticket"
@@ -142,7 +158,7 @@ def only_a_blocked_session_that_asks_nothing_on_a_ticket_spoken_on_has_answered_
 
 
 @case
-def a_report_of_work_done_on_a_dashboard_is_told_from_one_about_the_code():
+def a_report_of_work_done_on_a_dashboard_is_told_from_one_about_the_code() -> None:
     assert execution._done_elsewhere("Variable ajoutée sur Dokploy, service redéployé.")
     assert not execution._done_elsewhere("Redéployé, après avoir corrigé le fichier app.py.")
     assert not execution._done_elsewhere("J'ai lu le ticket et je n'ai rien trouvé.")
@@ -150,7 +166,7 @@ def a_report_of_work_done_on_a_dashboard_is_told_from_one_about_the_code():
 
 
 @case
-def the_work_of_tickets_that_ended_without_a_commit_is_told_from_their_verdict():
+def the_work_of_tickets_that_ended_without_a_commit_is_told_from_their_verdict() -> None:
     """The verdicts of the sessions blocked in session.no-commit over a month."""
     settled = (
         "Rien à changer : #142 a déjà réparé dev (FrankenPHP figé en 1.12) et sa CI est verte.",
@@ -188,7 +204,7 @@ def the_work_of_tickets_that_ended_without_a_commit_is_told_from_their_verdict()
 
 
 @case
-def a_session_killed_by_a_signal_says_which_and_what_the_kernel_wrote():
+def a_session_killed_by_a_signal_says_which_and_what_the_kernel_wrote() -> None:
     runner, _, _ = _runner()
     killed = _outcome(ok=False, code=-9, resulted=False)
     with _Network(oom="Out of memory: Killed process 4242 (claude)"):
@@ -202,7 +218,7 @@ def a_session_killed_by_a_signal_says_which_and_what_the_kernel_wrote():
 
 
 @case
-def a_stream_cut_while_the_network_was_down_is_a_death_and_otherwise_is_not():
+def a_stream_cut_while_the_network_was_down_is_a_death_and_otherwise_is_not() -> None:
     runner, _, _ = _runner()
     cut = _outcome(ok=False, resulted=False, error="stream ended")
     with _Network(reachable=False):
@@ -212,7 +228,7 @@ def a_stream_cut_while_the_network_was_down_is_a_death_and_otherwise_is_not():
 
 
 @case
-def a_session_that_ended_by_itself_is_never_asked_about_the_network():
+def a_session_that_ended_by_itself_is_never_asked_about_the_network() -> None:
     runner, _, _ = _runner()
     endings = (
         _outcome(),
@@ -228,7 +244,7 @@ def a_session_that_ended_by_itself_is_never_asked_about_the_network():
 
 
 @case
-def a_killed_session_asks_to_be_run_again_and_a_blocked_one_asks_its_own_question():
+def a_killed_session_asks_to_be_run_again_and_a_blocked_one_asks_its_own_question() -> None:
     runner, _, _ = _runner()
     killed = _outcome(ok=False, blocked=True, killed="signal SIGKILL")
     assert runner._question(killed, "détail") == runner.voice.say("session-killed-question")
@@ -244,7 +260,7 @@ def a_killed_session_asks_to_be_run_again_and_a_blocked_one_asks_its_own_questio
 
 
 @case
-def a_project_is_handed_the_secrets_it_is_granted_and_told_which_could_not_be_read():
+def a_project_is_handed_the_secrets_it_is_granted_and_told_which_could_not_be_read() -> None:
     runner, _, said = _runner()
     job = _job(code=True)
     assert runner._secrets(job) == {}, "a project the vault does not name gets nothing"
@@ -268,15 +284,20 @@ def a_project_is_handed_the_secrets_it_is_granted_and_told_which_could_not_be_re
 
 
 @case
-def only_a_code_ticket_whose_remote_has_an_owner_is_handed_a_github_token():
+def only_a_code_ticket_whose_remote_has_an_owner_is_handed_a_github_token() -> None:
     runner, _, _ = _runner()
 
-    def no_git(*args, **kwargs):
+    def no_git(*args: Any, **kwargs: Any) -> str:
         raise AssertionError("git asked about a ticket that has no repository")
 
     asked: list[str] = []
     saved = github_token_module.session_environment
-    github_token_module.session_environment = lambda owner: asked.append(owner) or {"GH_TOKEN": "t"}
+
+    def environment(owner: str) -> dict[str, str]:
+        asked.append(owner)
+        return {"GH_TOKEN": "t"}
+
+    github_token_module.session_environment = environment
     try:
         with _git_answering(remote_url=no_git):
             assert runner._github(_job()) == {}
@@ -297,7 +318,7 @@ def only_a_code_ticket_whose_remote_has_an_owner_is_handed_a_github_token():
 
 
 @case
-def a_document_session_is_asked_for_its_report_once_and_never_twice(state_home):
+def a_document_session_is_asked_for_its_report_once_and_never_twice(state_home: Path) -> None:
     runner, _, said = _runner()
     job = _job()
     job.workdir.mkdir(parents=True)
@@ -315,7 +336,7 @@ def a_document_session_is_asked_for_its_report_once_and_never_twice(state_home):
 
 
 @case
-def a_code_session_with_a_verdict_a_commit_or_a_change_has_its_report(state_home):
+def a_code_session_with_a_verdict_a_commit_or_a_change_has_its_report(state_home: Path) -> None:
     runner, _, _ = _runner()
     job = _job(code=True)
     with _git_answering(commits_ahead=lambda *args: 0, is_dirty=lambda *args: False):
@@ -331,7 +352,7 @@ def a_code_session_with_a_verdict_a_commit_or_a_change_has_its_report(state_home
 
 
 @case
-def a_session_is_halted_only_when_it_stopped_and_somebody_asked(state_home):
+def a_session_is_halted_only_when_it_stopped_and_somebody_asked(state_home: Path) -> None:
     runner, page, said = _runner()
     job = _job(page=page)
     assert runner._halted(job, _outcome(ok=False, stopped=True)) is None, "nobody asked"
@@ -346,24 +367,31 @@ def a_session_is_halted_only_when_it_stopped_and_somebody_asked(state_home):
         "reason": "pause",
     }
     assert stopping._file(job.ticket.id, "done").exists(), "the console is told it is gone"
-    assert runner.client.written == [] and runner.client.comments_written == [], (
+    assert _client(runner).written == [] and _client(runner).comments_written == [], (
         "nothing on the board: the ticket is the console's"
     )
     assert said == ["    ■ p-ticket — ended on request (pause)"]
 
 
-def _killed_then(runner, during) -> tuple[session.Outcome, list[Path]]:
-    """A session killed by a signal, and `during` done in the pause before its relaunch."""
+def _killed_then(
+    runner: Runner, job: ticket_module.Job, during: Callable[[], object]
+) -> tuple[session.Outcome, list[Path]]:
+    """`job`'s session killed by a signal, and `during` done in the pause before its relaunch."""
     from ponos import journal
 
     started: list[Path] = []
-    runner._session = lambda job, text, log, *rest: started.append(log) or _outcome()
-    paused = execution.time.sleep
-    execution.time.sleep = lambda seconds: during()
+
+    def relaunched(job: ticket_module.Job, text: str, log: Path, *rest: Any) -> session.Outcome:
+        started.append(log)
+        return _outcome()
+
+    runner._session = relaunched  # type: ignore[method-assign, assignment]  # a double: the relaunches are kept
+    paused = time.sleep
+    time.sleep = lambda seconds: during()  # type: ignore[assignment]  # a double: the pause does `during`
     try:
         with _Network():
             outcome = runner._relaunch(
-                runner.job,
+                job,
                 "text",
                 Path("/logs/x.jsonl"),
                 "",
@@ -373,42 +401,43 @@ def _killed_then(runner, during) -> tuple[session.Outcome, list[Path]]:
                 "signal SIGKILL",
             )
     finally:
-        execution.time.sleep = paused
+        time.sleep = paused
     return outcome, started
 
 
 @case
-def a_killed_session_whose_ticket_is_cancelled_in_the_pause_is_not_tried_again(state_home):
+def a_killed_session_whose_ticket_is_cancelled_in_the_pause_is_not_tried_again(
+    state_home: Path,
+) -> None:
     runner, page, _ = _runner({"cancelled": "Cancelled"})
-    runner.job = job = _job(code=True, page=page)
+    job = _job(code=True, page=page)
 
     def cancel() -> None:
         # Moved on the board, under the page this run holds: Notion's copy, not ours.
-        runner.client._pages = [_reviewed("p-ticket", "Cancelled", None)]
+        _client(runner)._pages = [_reviewed("p-ticket", "Cancelled", None)]
 
-    outcome, started = _killed_then(runner, cancel)
+    outcome, started = _killed_then(runner, job, cancel)
     assert started == [], "no session -again for a ticket somebody gave up on"
     assert outcome.killed == "signal SIGKILL" and not outcome.ok
     with _git_answering(remove_worktree=lambda repo, path: None):
         runner._code_stopped(job, outcome)
-    assert [values for _, values in runner.client.written if "Status" in values] == [], (
+    assert [values for _, values in _client(runner).written if "Status" in values] == [], (
         "the ticket stays cancelled"
     )
 
 
 @case
-def a_killed_session_asked_to_stop_in_the_pause_is_not_tried_again(state_home):
+def a_killed_session_asked_to_stop_in_the_pause_is_not_tried_again(state_home: Path) -> None:
     runner, page, said = _runner()
-    runner.job = job = _job(page=page)
-    outcome, started = _killed_then(runner, lambda: stopping.request(job.ticket.id, "abandon"))
+    job = _job(page=page)
+    outcome, started = _killed_then(runner, job, lambda: stopping.request(job.ticket.id, "abandon"))
     assert started == [], "the Stop came before the relaunch: there is none"
     assert runner._halted(job, outcome) is not None, "ended as the console's Stop ends it"
     assert stopping._file(job.ticket.id, "done").exists()
     stopping.clear(job.ticket.id)  # the console's, once it has the ticket
 
     runner, page, _ = _runner()
-    runner.job = _job(page=page)
-    outcome, started = _killed_then(runner, lambda: None)
+    outcome, started = _killed_then(runner, _job(page=page), lambda: None)
     assert len(started) == 1 and started[0].name == "x-again.jsonl", "nobody let go: tried again"
 
 
@@ -416,7 +445,7 @@ def a_killed_session_asked_to_stop_in_the_pause_is_not_tried_again(state_home):
 
 
 @case
-def a_blocked_code_session_drops_its_worktree_unless_asked_to_keep_it(state_home):
+def a_blocked_code_session_drops_its_worktree_unless_asked_to_keep_it(state_home: Path) -> None:
     removed: list[Path] = []
     blocked = _outcome(ok=False, blocked=True, summary="Quelle base viser ?")
     with _git_answering(remove_worktree=lambda repo, path: removed.append(path)):
@@ -431,27 +460,34 @@ def a_blocked_code_session_drops_its_worktree_unless_asked_to_keep_it(state_home
         kept = _job(code=True, page=page)
         runner._code_stopped(kept, blocked)
     assert removed == [job.workdir], "the second one is kept"
-    said = runner.client.comments_written[-1]
+    said = _client(runner).comments_written[-1]
     assert str(kept.workdir) in said and "ticket/x" in said, said
 
 
 @case
-def a_code_session_killed_twice_is_blocked_on_its_cause(state_home):
+def a_code_session_killed_twice_is_blocked_on_its_cause(state_home: Path) -> None:
     runner, page, _ = _runner()
     job = _job(code=True, page=page)
     killed = _outcome(ok=False, killed="signal SIGKILL ; le réseau était injoignable")
     with _git_answering(remove_worktree=lambda repo, path: None):
         result = runner._code_stopped(job, killed)
     assert result["status"] == "blocked", "a kill is somebody's to look at, not a failure"
-    said = runner.client.comments_written[-1]
+    said = _client(runner).comments_written[-1]
     assert "SIGKILL" in said and runner.voice.say("session-killed-question") in said, said
 
 
 @case
-def work_done_on_a_dashboard_with_nothing_committed_is_delivered_into_the_page(state_home):
+def work_done_on_a_dashboard_with_nothing_committed_is_delivered_into_the_page(
+    state_home: Path,
+) -> None:
     runner, page, _ = _runner()
     bodies: list[str] = []
-    runner.client.append_markdown = lambda page_id, text: bodies.append(text) or 1
+
+    def append(page_id: str, markdown: str) -> int:
+        bodies.append(markdown)
+        return 1
+
+    runner.client.append_markdown = append  # type: ignore[method-assign]  # a double: the body is kept
     job = _job(code=True, page=page)
     removed: list[Path] = []
     answer = "Variable ajoutée sur Dokploy, service redéployé.\n\nRESULT: ok — redéployé"
@@ -462,12 +498,12 @@ def work_done_on_a_dashboard_with_nothing_committed_is_delivered_into_the_page(s
     assert result is not None and result["status"] == "done"
     assert removed == [job.workdir]
     assert "Variable ajoutée sur Dokploy" in bodies[0] and "RESULT" not in bodies[0], bodies
-    assert runner.client.written[-1][1]["Status"] == "Done"
-    assert runner.voice.say("done-elsewhere") in runner.client.comments_written[-1]
+    assert _client(runner).written[-1][1]["Status"] == "Done"
+    assert runner.voice.say("done-elsewhere") in _client(runner).comments_written[-1]
 
 
 @case
-def files_left_uncommitted_block_the_ticket_and_keep_the_worktree(state_home):
+def files_left_uncommitted_block_the_ticket_and_keep_the_worktree(state_home: Path) -> None:
     runner, page, _ = _runner()
     job = _job(code=True, page=page)
     removed: list[Path] = []
@@ -476,13 +512,13 @@ def files_left_uncommitted_block_the_ticket_and_keep_the_worktree(state_home):
         is_dirty=lambda workdir: True, remove_worktree=lambda repo, path: removed.append(path)
     ):
         result = runner._nothing_committed(job, _outcome(answer=answer))
-    assert result["status"] == "blocked"
+    assert result is not None and result["status"] == "blocked"
     assert removed == [], "the changes are there for somebody to commit"
-    assert runner.client.bodies == [], "nothing delivered"
+    assert _client(runner).bodies == [], "nothing delivered"
 
 
 @case
-def a_report_that_claims_code_it_did_not_commit_is_blocked(state_home):
+def a_report_that_claims_code_it_did_not_commit_is_blocked(state_home: Path) -> None:
     runner, page, _ = _runner()
     job = _job(code=True, page=page)
     removed: list[Path] = []
@@ -491,9 +527,9 @@ def a_report_that_claims_code_it_did_not_commit_is_blocked(state_home):
         is_dirty=lambda workdir: False, remove_worktree=lambda repo, path: removed.append(path)
     ):
         result = runner._nothing_committed(job, _outcome(answer=answer, summary="Corrigé."))
-    assert result["status"] == "blocked"
+    assert result is not None and result["status"] == "blocked"
     assert removed == [job.workdir], "a clean worktree holds nothing worth keeping"
-    said = runner.client.comments_written[-1]
+    said = _client(runner).comments_written[-1]
     assert said.startswith("🙋") and "Corrigé." in said, "asked what became of the change"
 
 
@@ -501,7 +537,7 @@ def a_report_that_claims_code_it_did_not_commit_is_blocked(state_home):
 
 
 @case
-def a_refused_rebase_is_said_and_a_moved_head_counts_as_replayed(state_home):
+def a_refused_rebase_is_said_and_a_moved_head_counts_as_replayed(state_home: Path) -> None:
     runner, page, said = _runner()
     runner.config.runner.fetch = False
     heads = iter(["aaa", "aaa"])
@@ -529,7 +565,7 @@ def a_refused_rebase_is_said_and_a_moved_head_counts_as_replayed(state_home):
 
 
 @case
-def a_push_github_refuses_fails_the_ticket_and_keeps_the_branch(state_home):
+def a_push_github_refuses_fails_the_ticket_and_keeps_the_branch(state_home: Path) -> None:
     runner, page, _ = _runner()
     job = _job(code=True, page=page)
     refused = git_module.Result(
@@ -538,7 +574,7 @@ def a_push_github_refuses_fails_the_ticket_and_keeps_the_branch(state_home):
     with _git_answering(push=lambda *args, **kwargs: refused), _Network():
         result = runner._push_branch(job, _outcome(), force=False)
     assert result is not None and result["status"] == "failed"
-    said = runner.client.comments_written[-1]
+    said = _client(runner).comments_written[-1]
     assert "protected branch hook declined" in said and "ticket/x" in said, said
 
     with _git_answering(push=lambda *args, **kwargs: git_module.Result(0, "", "")):
@@ -546,7 +582,7 @@ def a_push_github_refuses_fails_the_ticket_and_keeps_the_branch(state_home):
 
 
 @case
-def a_push_that_never_reached_github_is_not_a_refusal(state_home):
+def a_push_that_never_reached_github_is_not_a_refusal(state_home: Path) -> None:
     runner, page, _ = _runner()
     job = _job(code=True, page=page)
     offline = git_module.Result(
@@ -562,19 +598,21 @@ def a_push_that_never_reached_github_is_not_a_refusal(state_home):
             assert "git push" in str(error)
         else:
             raise AssertionError("an unreachable GitHub fails no ticket")
-    assert runner.client.written == [] and runner.client.comments_written == []
+    assert _client(runner).written == [] and _client(runner).comments_written == []
 
     with _git_answering(push=lambda *args, **kwargs: offline), _Network(reachable=True):
         result = runner._push_branch(job, _outcome(), force=False)
-    assert result["status"] == "failed", "the network answers: GitHub's own refusal"
+    assert result is not None and result["status"] == "failed", (
+        "the network answers: GitHub's own refusal"
+    )
 
 
 @case
-def a_pull_request_that_cannot_be_opened_is_said_on_the_ticket(state_home):
+def a_pull_request_that_cannot_be_opened_is_said_on_the_ticket(state_home: Path) -> None:
     runner, page, said = _runner()
     job = _job(code=True, page=page)
 
-    def refused(*args, **kwargs):
+    def refused(*args: Any, **kwargs: Any) -> str:
         raise git_module.GitError("gh: no default remote")
 
     with _git_answering(open_pull_request=refused):
@@ -584,7 +622,7 @@ def a_pull_request_that_cannot_be_opened_is_said_on_the_ticket(state_home):
 
     titles: list[str] = []
 
-    def opened(workdir, title, body, base, accounts=None):
+    def opened(workdir: Path, title: str, body: str, base: str, accounts: Any = None) -> str:
         titles.append(title)
         return "https://github.com/x/y/pull/7"
 
@@ -598,61 +636,63 @@ def a_pull_request_that_cannot_be_opened_is_said_on_the_ticket(state_home):
 
 
 @case
-def a_document_session_that_wrote_no_answer_is_blocked_and_its_directory_removed(state_home):
+def a_document_session_that_wrote_no_answer_is_blocked_and_its_directory_removed(
+    state_home: Path,
+) -> None:
     runner, page, _ = _runner()
     job = _job(page=page)
-    runner._run_session = lambda job, template: _outcome(summary="J'ai lu le ticket.")
+    runner._run_session = lambda job, template: _outcome(summary="J'ai lu le ticket.")  # type: ignore[method-assign, misc, assignment]  # a double: no answer written
     result = runner._execute_document(job)
-    assert result["status"] == "blocked"
+    assert result is not None and result["status"] == "blocked"
     assert not job.workdir.exists(), "nothing worth keeping"
-    said = runner.client.comments_written[-1]
+    said = _client(runner).comments_written[-1]
     assert "ANSWER.md" in said and "J'ai lu le ticket." in said, said
 
 
 @case
-def an_answer_notion_refuses_fails_the_ticket_and_says_where_it_still_is(state_home):
+def an_answer_notion_refuses_fails_the_ticket_and_says_where_it_still_is(state_home: Path) -> None:
     runner, page, _ = _runner()
     job = _job(page=page)
 
-    def refusing(page_id, text):
+    def refusing(page_id: str, text: str) -> None:
         raise notion.NotionError("PATCH /blocks: 502 bad gateway")
 
-    runner.client.append_markdown = refusing
+    runner.client.append_markdown = refusing  # type: ignore[method-assign, assignment]  # a double: Notion refuses
 
-    def answered(job, template):
+    def answered(job: ticket_module.Job, template: str) -> session.Outcome:
         (job.workdir / "ANSWER.md").write_text("La réponse, entière.")
         return _outcome()
 
-    runner._run_session = answered
+    runner._run_session = answered  # type: ignore[method-assign, assignment]  # a double: the answer is written
     result = runner._execute_document(job)
-    assert result["status"] == "failed"
+    assert result is not None and result["status"] == "failed"
     assert (job.workdir / "ANSWER.md").exists(), "the answer stays on disk"
-    said = runner.client.comments_written[-1]
+    said = _client(runner).comments_written[-1]
     assert str(job.workdir / "ANSWER.md") in said and "502" in said, said
 
 
 @case
-def a_session_that_cannot_start_fails_the_document_ticket(state_home):
+def a_session_that_cannot_start_fails_the_document_ticket(state_home: Path) -> None:
     runner, page, _ = _runner()
 
-    def missing(job, template):
+    def missing(job: ticket_module.Job, template: str) -> session.Outcome:
         raise FileNotFoundError("claude: command not found")
 
-    runner._run_session = missing
+    runner._run_session = missing  # type: ignore[method-assign, assignment]  # a double: no `claude`
     result = runner._execute_document(_job(page=page))
-    assert result["status"] == "failed"
-    assert "claude: command not found" in runner.client.comments_written[-1]
+    assert result is not None and result["status"] == "failed"
+    assert "claude: command not found" in _client(runner).comments_written[-1]
 
 
 @case
-def a_dry_run_starts_no_session():
+def a_dry_run_starts_no_session() -> None:
     runner, page, said = _runner()
     runner.dry_run = True
 
-    def no_session(*args, **kwargs):
+    def no_session(*args: Any, **kwargs: Any) -> session.Outcome:
         raise AssertionError("a dry run starts nothing")
 
-    runner._run_session = no_session
+    runner._run_session = no_session  # type: ignore[method-assign]  # a double: never to be called
     job = _job(page=page)
     assert runner.execute(job) == {
         "ticket": "p-ticket",
@@ -666,22 +706,24 @@ def a_dry_run_starts_no_session():
 # -- the session itself -----------------------------------------------------------
 
 
-def _sessions(runner, *outcomes: session.Outcome) -> list[dict]:
+def _sessions(runner: Runner, *outcomes: session.Outcome) -> list[dict[str, Any]]:
     """`_paid`, answering with `outcomes` in turn; records how each was asked."""
-    asked: list[dict] = []
+    asked: list[dict[str, Any]] = []
     queue = list(outcomes)
 
-    def paid(ticket, prompt_text, **options):
+    def paid(ticket: str, prompt_text: str, **options: Any) -> session.Outcome:
         asked.append({"prompt": prompt_text, **options})
         return queue.pop(0)
 
-    runner._paid = paid
+    runner._paid = paid  # type: ignore[method-assign, assignment]  # a double: the outcomes above, in turn
     runner.config.runner.progress = False
     return asked
 
 
 @case
-def a_resumed_session_claude_no_longer_has_starts_afresh_on_a_log_of_its_own(state_home):
+def a_resumed_session_claude_no_longer_has_starts_afresh_on_a_log_of_its_own(
+    state_home: Path,
+) -> None:
     runner, page, said = _runner()
     job = _job(page=page)
     job.workdir.mkdir(parents=True)
@@ -701,7 +743,7 @@ def a_resumed_session_claude_no_longer_has_starts_afresh_on_a_log_of_its_own(sta
 
 
 @case
-def a_session_that_forgot_its_answer_is_picked_up_once_to_write_it(state_home):
+def a_session_that_forgot_its_answer_is_picked_up_once_to_write_it(state_home: Path) -> None:
     runner, page, _ = _runner()
     job = _job(page=page)
     job.workdir.mkdir(parents=True)
@@ -727,22 +769,28 @@ def a_session_that_forgot_its_answer_is_picked_up_once_to_write_it(state_home):
 # -- the project's setup, before the session ---------------------------------------
 
 
-def _prepared(runner, job):
+def _prepared(
+    runner: Runner, job: ticket_module.Job
+) -> tuple[dict[str, Any] | None, list[dict[str, Any]]]:
     """`_prepare_worktree` with `_fail` recorded rather than written: what it was told."""
-    failed: list[dict] = []
+    failed: list[dict[str, Any]] = []
 
-    def fail(ticket, reason, detail="", **rest):
+    def fail(
+        ticket: ticket_module.Ticket, reason: str, detail: str = "", **rest: Any
+    ) -> dict[str, Any]:
         failed.append({"reason": reason, "detail": detail, **rest})
         return {"failed": True}
 
-    runner._fail = fail
+    runner._fail = fail  # type: ignore[method-assign]  # a double: what it was told is kept
     job.workdir.mkdir(parents=True, exist_ok=True)
     job.log = job.workdir.parent / "run.jsonl"
     return runner._prepare_worktree(job), failed
 
 
 @case
-def a_project_setup_runs_in_the_worktree_before_the_session_and_the_session_is_told(state_home):
+def a_project_setup_runs_in_the_worktree_before_the_session_and_the_session_is_told(
+    state_home: Path,
+) -> None:
     from ponos import project_settings
 
     runner, _, said = _runner()
@@ -759,7 +807,7 @@ def a_project_setup_runs_in_the_worktree_before_the_session_and_the_session_is_t
 
 
 @case
-def a_project_without_a_setup_starts_its_session_as_before(state_home):
+def a_project_without_a_setup_starts_its_session_as_before(state_home: Path) -> None:
     runner, _, _ = _runner()
     job = _job(code=True)
     job.project.notion_id = "proj-1"
@@ -769,7 +817,9 @@ def a_project_without_a_setup_starts_its_session_as_before(state_home):
 
 
 @case
-def the_repository_setup_script_runs_when_the_project_has_no_command_and_loses_to_it(state_home):
+def the_repository_setup_script_runs_when_the_project_has_no_command_and_loses_to_it(
+    state_home: Path,
+) -> None:
     from ponos import project_settings
 
     runner, _, _ = _runner()
@@ -789,7 +839,9 @@ def the_repository_setup_script_runs_when_the_project_has_no_command_and_loses_t
 
 
 @case
-def a_setup_that_fails_blocks_the_ticket_with_the_end_of_its_output_and_no_session(state_home):
+def a_setup_that_fails_blocks_the_ticket_with_the_end_of_its_output_and_no_session(
+    state_home: Path,
+) -> None:
     from ponos import project_settings
 
     runner, _, _ = _runner()
@@ -810,7 +862,9 @@ def a_setup_that_fails_blocks_the_ticket_with_the_end_of_its_output_and_no_sessi
 
 
 @case
-def a_setup_secret_is_given_to_the_command_and_masked_in_what_the_ticket_shows(state_home):
+def a_setup_secret_is_given_to_the_command_and_masked_in_what_the_ticket_shows(
+    state_home: Path,
+) -> None:
     from ponos import project_settings
 
     runner, _, _ = _runner()
@@ -828,23 +882,23 @@ def a_setup_secret_is_given_to_the_command_and_masked_in_what_the_ticket_shows(s
 
 
 @case
-def a_setup_that_outlasts_its_time_is_killed_and_said_so(state_home):
+def a_setup_that_outlasts_its_time_is_killed_and_said_so(state_home: Path) -> None:
     from ponos import worktree_setup
 
     root = Path(tempfile.mkdtemp())
-    saved = worktree_setup.subprocess.Popen.wait
+    saved = subprocess.Popen.wait
 
-    def impatient(self, timeout=None):
+    def impatient(self: subprocess.Popen[bytes], timeout: float | None = None) -> int:
         if timeout:
-            raise worktree_setup.subprocess.TimeoutExpired("sleep", timeout)
+            raise subprocess.TimeoutExpired("sleep", timeout)
         return saved(self)
 
-    worktree_setup.subprocess.Popen.wait = impatient
+    subprocess.Popen.wait = impatient  # type: ignore[method-assign, assignment]  # a double: a wait that times out
     try:
         ran = worktree_setup.run(
             worktree_setup.plan("sleep 30", root), root, root / "s.log", timeout_minutes=1
         )
     finally:
-        worktree_setup.subprocess.Popen.wait = saved
+        subprocess.Popen.wait = saved  # type: ignore[method-assign]  # the double taken off
     assert not ran.ok and ran.timed_out
     assert "stopped after 1 minutes" in (root / "s.log").read_text()

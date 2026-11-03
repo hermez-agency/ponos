@@ -2,36 +2,51 @@
 
 from __future__ import annotations
 
+import os
 import time
+from collections.abc import Iterable
 from pathlib import Path
+from typing import Any, cast
 
 from support import _board_runner, _BoardClient, _reviewed, case
 
 from ponos import credits, notion, resources, session, state, store, sync
 from ponos import question as question_module
+from ponos.runner import Runner
 from ponos.ticket import Ticket
 
 
-def _runner(pages=None, client=None, waiting: bool = False):
+def _runner(
+    pages: Iterable[notion.Page] | None = None,
+    client: _BoardClient | None = None,
+    waiting: bool = False,
+) -> tuple[Runner, list[str]]:
     """A runner on a fake board, and the lines it says."""
     runner = _board_runner(list(pages or []), {}, waiting=waiting)
     if client is not None:
-        runner.client = client
+        runner.client = client  # type: ignore[assignment]  # a fake: the board the case wants
     runner._memory_warned, runner._disk_warned, runner._disk_tidied = False, False, 0.0
     said: list[str] = []
-    runner.say = said.append
-    runner._notify = lambda *args, **kwargs: said.append(f"notified: {args[0]}")
+    runner.say = said.append  # type: ignore[method-assign, assignment]  # a double: what it says is kept
+    runner._notify = lambda *args, **kwargs: said.append(f"notified: {args[0]}")  # type: ignore[method-assign]  # the same, for a notification
     return runner, said
 
 
-def _ticket(page_id: str = "p-1", status: str = "In progress", **properties) -> Ticket:
+def _client(runner: Runner) -> _BoardClient:
+    """The fake board `_runner` gave the runner, to read what was written on it."""
+    return cast(_BoardClient, runner.client)
+
+
+def _ticket(page_id: str = "p-1", status: str = "In progress", **properties: Any) -> Ticket:
     page = _reviewed(page_id, status, None)
     page.properties.update(properties)
     return Ticket(page=page)
 
 
-def _outcome(**values) -> session.Outcome:
-    fields = dict(ok=False, blocked=False, session_id="s-1", summary="", log=Path("/tmp/none"))
+def _outcome(**values: Any) -> session.Outcome:
+    fields: dict[str, Any] = dict(
+        ok=False, blocked=False, session_id="s-1", summary="", log=Path("/tmp/none")
+    )
     fields.update(values)
     return session.Outcome(**fields)
 
@@ -42,7 +57,7 @@ SESSION = "0b6f1c2e-4a5d-4e6f-8a9b-0c1d2e3f4a5b"
 class _Refusing(_BoardClient):
     """A board that refuses any write of more than one column — a Cost typed as text."""
 
-    def update(self, database_id: str, page_id: str, values: dict) -> None:
+    def update(self, database_id: str, page_id: str, values: dict[str, Any]) -> None:
         if len(values) > 1:
             raise notion.NotionError("400 Cost is expected to be number")
         super().update(database_id, page_id, values)
@@ -51,7 +66,7 @@ class _Refusing(_BoardClient):
 class _Down(_BoardClient):
     """A board where nothing can be written, nor read back."""
 
-    def update(self, database_id: str, page_id: str, values: dict) -> None:
+    def update(self, database_id: str, page_id: str, values: dict[str, Any]) -> None:
         raise RuntimeError("Notion is down")
 
     def page(self, page_id: str) -> notion.Page:
@@ -62,17 +77,17 @@ class _Down(_BoardClient):
 
 
 @case
-def a_column_notion_refuses_is_dropped_and_the_status_written_alone(state_home):
+def a_column_notion_refuses_is_dropped_and_the_status_written_alone(state_home: Path) -> None:
     ticket = _ticket()
     runner, said = _runner([ticket.page], _Refusing([ticket.page]))
     runner._set(ticket, Status="In review", Cost="a lot")
-    assert runner.client.written == [("p-1", {"Status": "In review"})]
+    assert _client(runner).written == [("p-1", {"Status": "In review"})]
     assert any("writing the status alone" in line for line in said), said
     assert store.read(ticket.page, "Status") == "In review", "the run remembers what it wrote"
 
 
 @case
-def a_refused_write_without_a_status_is_not_swallowed(state_home):
+def a_refused_write_without_a_status_is_not_swallowed(state_home: Path) -> None:
     ticket = _ticket()
     runner, _ = _runner([ticket.page], _Refusing([ticket.page]))
     try:
@@ -84,12 +99,14 @@ def a_refused_write_without_a_status_is_not_swallowed(state_home):
 
 
 @case
-def a_status_moved_during_the_run_is_left_alone_but_the_work_is_still_written(state_home):
+def a_status_moved_during_the_run_is_left_alone_but_the_work_is_still_written(
+    state_home: Path,
+) -> None:
     """You moved the ticket to Done yourself: the run does not put it back in review."""
     ticket = _ticket()
     runner, said = _runner([_reviewed("p-1", "Done", None)])
     runner._set(ticket, Status="In review", Cost=0.42)
-    assert runner.client.written == [("p-1", {"Cost": 0.42})]
+    assert _client(runner).written == [("p-1", {"Cost": 0.42})]
     assert store.read(ticket.page, "Status") == "Done", "the run now holds what the page says"
     assert any("moved to Done" in line for line in said), said
     conflicts = [entry for entry in sync.journal() if entry["what"] == "conflict"]
@@ -97,61 +114,63 @@ def a_status_moved_during_the_run_is_left_alone_but_the_work_is_still_written(st
 
 
 @case
-def a_write_that_was_only_a_moved_status_writes_nothing(state_home):
+def a_write_that_was_only_a_moved_status_writes_nothing(state_home: Path) -> None:
     ticket = _ticket()
     runner, _ = _runner([_reviewed("p-1", "Ready", None)])
     runner._set(ticket, Status="Failed")
-    assert runner.client.written == []
+    assert _client(runner).written == []
 
 
 @case
-def a_claim_on_a_ticket_moved_meanwhile_refuses_the_whole_write(state_home):
+def a_claim_on_a_ticket_moved_meanwhile_refuses_the_whole_write(state_home: Path) -> None:
     ticket = _ticket(status="Ready")
     runner, _ = _runner([_reviewed("p-1", "Cancelled", None)])
     assert not runner._claim(ticket, Status="In progress", Runner="ponos@laptop")
-    assert runner.client.written == [], "no runner signature on a ticket it never took"
+    assert _client(runner).written == [], "no runner signature on a ticket it never took"
 
 
 @case
-def a_claim_on_a_page_that_cannot_be_read_back_goes_ahead(state_home):
+def a_claim_on_a_page_that_cannot_be_read_back_goes_ahead(state_home: Path) -> None:
     """The write that follows meets the same Notion; refusing here would gain nothing."""
     ticket = _ticket(status="Ready")
     runner, _ = _runner([])  # the board does not find the page again: a 404
     assert runner._claim(ticket, Status="In progress")
-    assert runner.client.written == [("p-1", {"Status": "In progress"})]
+    assert _client(runner).written == [("p-1", {"Status": "In progress"})]
     assert state.phases()[ticket.id][0] == "starting", "taken: its phase starts"
 
 
 @case
-def a_dry_run_writes_nothing_and_takes_every_claim(state_home):
+def a_dry_run_writes_nothing_and_takes_every_claim(state_home: Path) -> None:
     ticket = _ticket()
     runner, _ = _runner([ticket.page])
     runner.dry_run = True
     runner._set(ticket, Status="Done")
     runner._comment(ticket, "Fait.")
     assert runner._claim(ticket, Status="In progress")
-    assert runner.client.written == [] and runner.client.comments_written == []
+    assert _client(runner).written == [] and _client(runner).comments_written == []
 
 
 @case
-def leaving_blocked_empties_the_block_cell_and_failing_does_not(state_home):
+def leaving_blocked_empties_the_block_cell_and_failing_does_not(state_home: Path) -> None:
     blocked = {"type": "select", "select": {"name": "session.question"}}
     ticket = _ticket(status="Blocked", Blocage=blocked)
     runner, _ = _runner([ticket.page])
     runner._set(ticket, Status="Failed")
-    assert runner.client.written[-1] == ("p-1", {"Status": "Failed"}), "still a stop: kept"
+    assert _client(runner).written[-1] == ("p-1", {"Status": "Failed"}), "still a stop: kept"
     ticket = _ticket(status="Blocked", Blocage=blocked)
     runner, _ = _runner([ticket.page])
     runner._set(ticket, Status="Ready")
-    assert runner.client.written[-1] == ("p-1", {"Blocage": "", "Status": "Ready"})
+    assert _client(runner).written[-1] == ("p-1", {"Blocage": "", "Status": "Ready"})
     clean = _ticket(status="Blocked")
     runner, _ = _runner([clean.page])
     runner._set(clean, Status="Ready")
-    assert runner.client.written[-1] == ("p-1", {"Status": "Ready"}), "a blank cell is not written"
+    assert _client(runner).written[-1] == ("p-1", {"Status": "Ready"}), (
+        "a blank cell is not written"
+    )
 
 
 @case
-def a_status_held_as_a_select_is_remembered_as_a_select(state_home):
+def a_status_held_as_a_select_is_remembered_as_a_select(state_home: Path) -> None:
     """A board whose Status column is a select: the page the run holds says it so too."""
     ticket = Ticket(page=notion.Page(id="p-1", url="", title="t", properties={}))
     client = _BoardClient([])
@@ -162,7 +181,9 @@ def a_status_held_as_a_select_is_remembered_as_a_select(state_home):
 
 
 @case
-def what_a_run_cost_is_written_in_minutes_and_dollars_only_when_there_were_any(state_home):
+def what_a_run_cost_is_written_in_minutes_and_dollars_only_when_there_were_any(
+    state_home: Path,
+) -> None:
     runner, _ = _runner()
     assert runner._measures(_outcome(seconds=95)) == {"Duration": 1.6}, "a subscription: no cost"
     assert runner._measures(_outcome(seconds=600, cost_usd=0.12345)) == {
@@ -172,19 +193,21 @@ def what_a_run_cost_is_written_in_minutes_and_dollars_only_when_there_were_any(s
 
 
 @case
-def the_session_cell_is_a_link_on_a_url_column_and_the_bare_id_otherwise(state_home):
+def the_session_cell_is_a_link_on_a_url_column_and_the_bare_id_otherwise(state_home: Path) -> None:
     runner, _ = _runner()
     assert runner._session_value(SESSION, None) == SESSION
-    runner.client.columns["Session"] = "url"
+    _client(runner).columns["Session"] = "url"
     runner.config.runner.session_host = "salva@vps"
     link = runner._session_value(SESSION, Path("/srv/work"))
     assert link == f"ponos://session/{SESSION}?cwd=/srv/work&host=salva@vps"
 
 
 @case
-def only_a_ticket_waiting_for_credit_carries_its_session_on(state_home):
-    def carried(cell: dict | None, ticked: bool = True, waiting: bool = True) -> str:
-        properties = {"Waiting for credit": {"type": "checkbox", "checkbox": ticked}}
+def only_a_ticket_waiting_for_credit_carries_its_session_on(state_home: Path) -> None:
+    def carried(cell: dict[str, Any] | None, ticked: bool = True, waiting: bool = True) -> str:
+        properties: dict[str, Any] = {
+            "Waiting for credit": {"type": "checkbox", "checkbox": ticked}
+        }
         if cell is not None:
             properties["Session"] = cell
         runner, _ = _runner(waiting=waiting)
@@ -215,7 +238,9 @@ class _Mute(_BoardClient):
 
 
 @case
-def a_comment_notion_refuses_says_which_capability_is_missing_and_is_not_remembered(state_home):
+def a_comment_notion_refuses_says_which_capability_is_missing_and_is_not_remembered(
+    state_home: Path,
+) -> None:
     ticket = _ticket()
     runner, said = _runner(client=_Mute([]))
     runner._comment(ticket, "Fait.")
@@ -224,7 +249,7 @@ def a_comment_notion_refuses_says_which_capability_is_missing_and_is_not_remembe
 
 
 @case
-def a_comment_written_forgets_the_cached_thread_and_remembers_the_page(state_home):
+def a_comment_written_forgets_the_cached_thread_and_remembers_the_page(state_home: Path) -> None:
     ticket = _ticket("p-1-2")
     runner, _ = _runner()
     assert runner.comments("p12") == []
@@ -235,7 +260,7 @@ def a_comment_written_forgets_the_cached_thread_and_remembers_the_page(state_hom
 
 
 @case
-def unreadable_comments_are_an_empty_discussion_with_the_capability_named(state_home):
+def unreadable_comments_are_an_empty_discussion_with_the_capability_named(state_home: Path) -> None:
     runner, said = _runner(client=_Mute([]))
     assert runner.discussion(_ticket()) == []
     assert any("Read comments" in line for line in said), said
@@ -265,7 +290,7 @@ CHOICE = (
 
 
 @case
-def the_discussion_says_who_spoke_and_reads_an_option_as_what_it_names(state_home):
+def the_discussion_says_who_spoke_and_reads_an_option_as_what_it_names(state_home: Path) -> None:
     runner, _ = _runner(
         client=_Thread(
             [
@@ -289,7 +314,7 @@ def the_discussion_says_who_spoke_and_reads_an_option_as_what_it_names(state_hom
 
 
 @case
-def the_discussion_keeps_the_newest_comments_within_its_budget(state_home):
+def the_discussion_keeps_the_newest_comments_within_its_budget(state_home: Path) -> None:
     many = [notion.Comment(f"remarque {index}", created_by="u-salva") for index in range(15)]
     runner, _ = _runner(client=_Thread(many))
     lines = runner.discussion(_ticket())
@@ -301,7 +326,7 @@ def the_discussion_keeps_the_newest_comments_within_its_budget(state_home):
 
 
 @case
-def a_report_without_a_question_is_carried_as_its_first_two_lines():
+def a_report_without_a_question_is_carried_as_its_first_two_lines() -> None:
     from ponos.reports import Reports
 
     report = "✅ To review — 3 commits\nLe header est retiré.\n\nhttps://github.com/x/y/pull/4"
@@ -312,7 +337,7 @@ def a_report_without_a_question_is_carried_as_its_first_two_lines():
 
 
 @case
-def a_session_that_stopped_is_named_by_what_cut_it_short(state_home):
+def a_session_that_stopped_is_named_by_what_cut_it_short(state_home: Path) -> None:
     runner, _ = _runner()
     killed = runner._why_stopped(_outcome(killed="SIGKILL"), "session.question")
     assert killed[0] == "session.killed" and "SIGKILL" in killed[2]
@@ -328,7 +353,7 @@ def a_session_that_stopped_is_named_by_what_cut_it_short(state_home):
 
 
 @case
-def a_failure_needs_a_code_the_catalogue_knows(state_home):
+def a_failure_needs_a_code_the_catalogue_knows(state_home: Path) -> None:
     ticket = _ticket()
     runner, _ = _runner([ticket.page])
     try:
@@ -337,11 +362,11 @@ def a_failure_needs_a_code_the_catalogue_knows(state_home):
         pass
     else:
         raise AssertionError("an unknown cause is refused")
-    assert runner.client.written == [], "and nothing is written for it"
+    assert _client(runner).written == [], "and nothing is written for it"
 
 
 @case
-def a_blocked_session_naming_its_own_cause_is_filed_under_it(state_home):
+def a_blocked_session_naming_its_own_cause_is_filed_under_it(state_home: Path) -> None:
     ticket = _ticket()
     runner, _ = _runner([ticket.page])
     asked = question_module.Question(ask="Lancer la commande ?", code="access.sudo")
@@ -349,17 +374,17 @@ def a_blocked_session_naming_its_own_cause_is_filed_under_it(state_home):
         ticket, "Il faut root", code="session.question", blocked=True, question=asked
     )
     assert result["code"] == "access.sudo" and result["status"] == "blocked"
-    assert runner.client.written[-1][1]["Blocage"] == "access.sudo"
-    assert "Lancer la commande ?" in runner.client.comments_written[-1]
+    assert _client(runner).written[-1][1]["Blocage"] == "access.sudo"
+    assert "Lancer la commande ?" in _client(runner).comments_written[-1]
 
 
 @case
-def a_crash_whose_failure_cannot_be_written_is_still_a_result(state_home):
+def a_crash_whose_failure_cannot_be_written_is_still_a_result(state_home: Path) -> None:
     """Notion is the thing that is down: the pass gets its result all the same."""
     ticket = _ticket()
     runner, said = _runner(client=_Down([]))
 
-    def work():
+    def work() -> dict[str, Any]:
         raise KeyError("Status")
 
     result = runner._guarded(ticket, work)
@@ -374,15 +399,15 @@ def a_crash_whose_failure_cannot_be_written_is_still_a_result(state_home):
 
 
 @case
-def a_ticket_the_network_went_away_under_is_marked_nothing(state_home):
+def a_ticket_the_network_went_away_under_is_marked_nothing(state_home: Path) -> None:
     ticket = _ticket()
     runner, said = _runner([ticket.page])
 
-    def work():
+    def work() -> dict[str, Any]:
         raise store.Unreachable("Name or service not known")
 
     assert runner._guarded(ticket, work) is None
-    assert runner.client.written == [] and runner.client.comments_written == []
+    assert _client(runner).written == [] and _client(runner).comments_written == []
     assert any("unreachable" in line for line in said), said
     assert runner._guarded(ticket, lambda: "a job") == "a job", "anything else comes back as is"
 
@@ -391,7 +416,7 @@ def a_ticket_the_network_went_away_under_is_marked_nothing(state_home):
 
 
 @case
-def only_the_subscription_waits_for_its_credits(state_home):
+def only_the_subscription_waits_for_its_credits(state_home: Path) -> None:
     runner, _ = _runner()
     spent = _outcome(exhausted=True)
     assert runner._out_of_credit(spent)
@@ -406,21 +431,21 @@ def only_the_subscription_waits_for_its_credits(state_home):
 
 
 @case
-def a_ticket_out_of_credit_goes_back_ticked_with_its_session(state_home):
+def a_ticket_out_of_credit_goes_back_ticked_with_its_session(state_home: Path) -> None:
     ticket = _ticket()
     runner, _ = _runner([ticket.page], waiting=True)
     until = time.time() + 3600
     result = runner._requeue(ticket, "Ready", _outcome(session_id=SESSION, resets_at=until))
-    assert runner.client.written[-1] == (
+    assert _client(runner).written[-1] == (
         "p-1",
         {"Status": "Ready", "Waiting for credit": True, "Session": SESSION},
     )
     assert result["status"] == "waiting" and credits.when(until) in result["reason"]
-    assert runner.client.comments_written[-1].startswith("⏸"), runner.client.comments_written
+    assert _client(runner).comments_written[-1].startswith("⏸"), _client(runner).comments_written
 
 
 @case
-def parking_ticks_each_ticket_once_and_empties_its_session(state_home):
+def parking_ticks_each_ticket_once_and_empties_its_session(state_home: Path) -> None:
     runner, _ = _runner(waiting=True)
     fresh = _ticket("p-fresh", status="Ready", Session={"type": "url", "url": "ponos://x"})
     ticked = _ticket(
@@ -428,39 +453,41 @@ def parking_ticks_each_ticket_once_and_empties_its_session(state_home):
     )
     parked = runner.park([fresh, ticked], until=time.time() + 600)
     assert [entry["id"] for entry in parked] == ["pfresh"], "a ticked ticket is left alone"
-    assert runner.client.written == [("p-fresh", {"Waiting for credit": True, "Session": ""})]
-    assert len(runner.client.comments_written) == 1
+    assert _client(runner).written == [("p-fresh", {"Waiting for credit": True, "Session": ""})]
+    assert len(_client(runner).comments_written) == 1
 
 
 @case
-def parking_on_a_board_without_the_checkbox_writes_nothing(state_home):
+def parking_on_a_board_without_the_checkbox_writes_nothing(state_home: Path) -> None:
     runner, _ = _runner()
     assert runner.park([_ticket(status="Ready")], until=time.time() + 600) == []
-    assert runner.client.written == []
+    assert _client(runner).written == []
 
 
 @case
-def parking_under_the_days_limit_says_so_rather_than_blaming_the_credit(state_home):
+def parking_under_the_days_limit_says_so_rather_than_blaming_the_credit(state_home: Path) -> None:
     runner, _ = _runner(waiting=True)
-    runner._announce = lambda title, body: None
+    runner._announce = lambda title, body: None  # type: ignore[method-assign]  # a double: nothing announced
     runner.config.budget.daily_usd = 1.0
     state.spend(2.5, "p-earlier")
     runner.park([_ticket(status="Ready")])
     budget = runner.voice.say("budget-parked", when="")
-    assert budget.split()[0] in runner.client.comments_written[-1], runner.client.comments_written
+    assert budget.split()[0] in _client(runner).comments_written[-1], _client(
+        runner
+    ).comments_written
     assert credits.held(what="budget") > time.time(), "held until midnight"
 
 
 @case
-def a_tidy_that_raises_does_not_stop_the_pass(state_home):
+def a_tidy_that_raises_does_not_stop_the_pass(state_home: Path) -> None:
     runner, said = _runner()
     runner.dry_run = False
     runner.config.runner.min_free_disk_mb = 5000
 
-    def broken(now=False):
+    def broken(*, now: bool = False) -> None:
         raise OSError("permission denied")
 
-    runner.tidy = broken
+    runner.tidy = broken  # type: ignore[method-assign]  # a double: the tidy breaks
     original = resources.disk_mb
     resources.disk_mb = lambda path: (1000, 100000)
     try:
@@ -472,7 +499,7 @@ def a_tidy_that_raises_does_not_stop_the_pass(state_home):
 
 
 @case
-def a_usage_nobody_could_read_is_said_once_and_stops_nothing(state_home):
+def a_usage_nobody_could_read_is_said_once_and_stops_nothing(state_home: Path) -> None:
     runner, said = _runner()
     runner.config.runner.credit_reserve_percent = 5
     original = credits.used
@@ -485,33 +512,33 @@ def a_usage_nobody_could_read_is_said_once_and_stops_nothing(state_home):
 
 
 @case
-def a_runner_on_overloaded_cores_starts_nothing_and_says_so_once():
+def a_runner_on_overloaded_cores_starts_nothing_and_says_so_once() -> None:
     """The load guard reads `os.getloadavg`, against the cores `nproc` counts."""
     runner, said = _runner()
     runner.config.runner.min_free_memory_mb = 0
     runner.config.runner.min_free_disk_mb = 0
     runner.config.runner.max_load_per_core = 1.5
     runner._load_warned = False
-    original = resources.os.getloadavg, resources.os.sched_getaffinity
-    resources.os.sched_getaffinity = lambda pid: set(range(20))
+    original = os.getloadavg, os.sched_getaffinity
+    os.sched_getaffinity = lambda pid: set(range(20))
     try:
-        resources.os.getloadavg = lambda: (74.0, 40.0, 20.0)
+        os.getloadavg = lambda: (74.0, 40.0, 20.0)
         assert not runner.room_for_a_session() and not runner.room_for_a_session()
         assert len(said) == 1 and "74.0" in said[0] and "30" in said[0], said
         # At the ceiling is still room: only above it is the machine saturated.
-        resources.os.getloadavg = lambda: (30.0, 40.0, 20.0)
+        os.getloadavg = lambda: (30.0, 40.0, 20.0)
         assert runner.room_for_a_session()
-        resources.os.getloadavg = lambda: (31.0, 40.0, 20.0)
+        os.getloadavg = lambda: (31.0, 40.0, 20.0)
         assert not runner.room_for_a_session() and len(said) == 2, "said again after a calm"
         runner.config.runner.max_load_per_core = 0
         assert runner.room_for_a_session(), "zero switches the guard off"
 
         # A machine that cannot say is not a saturated one.
-        def unknown():
+        def unknown() -> tuple[float, float, float]:
             raise OSError("no load average here")
 
-        resources.os.getloadavg = unknown
+        os.getloadavg = unknown
         runner.config.runner.max_load_per_core = 1.5
         assert resources.load() is None and runner.room_for_a_session()
     finally:
-        resources.os.getloadavg, resources.os.sched_getaffinity = original
+        os.getloadavg, os.sched_getaffinity = original

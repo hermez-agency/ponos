@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path
+from typing import Any
 
 from support import _git_answering, _plain, _state_home, case
 
@@ -19,7 +20,7 @@ from ponos.__main__ import main as cli_main
 # -- clean, and the branch a failure leaves behind ----------------------------
 
 
-def _cleaning(worktrees: dict[str, dict]) -> tuple[str, list[str]]:
+def _cleaning(worktrees: dict[str, dict[str, Any]]) -> tuple[str, list[str]]:
     """Run `clean --force` over invented worktrees, and see which branches went.
 
     Each entry is a directory under `worktrees/`, and what git and gh would say
@@ -40,10 +41,10 @@ def _cleaning(worktrees: dict[str, dict]) -> tuple[str, list[str]]:
             # before it lets any repository answer for a directory.
             (root / name / ".git").write_text(f"gitdir: {repo}/.git/worktrees/{name}\n")
 
-        def facts(worktree) -> dict:
+        def facts(worktree: str | Path) -> dict[str, Any]:
             return worktrees[Path(worktree).name]
 
-        def raw(args, cwd, timeout=300, **kept):
+        def raw(args: list[str], cwd: Path, timeout: int = 300, **kept: Any) -> git_module.Result:
             if args[1:2] == ["--path-format=absolute"]:
                 return git_module.Result(0, str(repo / ".git"), "")
             if args == ["worktree", "list", "--porcelain"]:
@@ -53,7 +54,7 @@ def _cleaning(worktrees: dict[str, dict]) -> tuple[str, list[str]]:
                 return git_module.Result(0, facts(cwd)["branch"], "")
             raise AssertionError(f"clean asked git something unexpected: {args}")
 
-        def delete(_repo, branch):
+        def delete(_repo: Path, branch: str) -> git_module.Result:
             deleted.append(branch)
             return git_module.Result(0, f"Deleted branch {branch}", "")
 
@@ -86,7 +87,7 @@ def _cleaning(worktrees: dict[str, dict]) -> tuple[str, list[str]]:
 
 
 @case
-def clean_leaves_the_worktrees_of_a_run_in_progress_alone(state_home):
+def clean_leaves_the_worktrees_of_a_run_in_progress_alone(state_home: Path) -> None:
     """`clean --force` beside a running pass would remove the worktree a
     session is writing in: kept by a failure or in use, nothing on disk tells
     the two apart. It takes the run lock, or it does nothing."""
@@ -103,7 +104,7 @@ def clean_leaves_the_worktrees_of_a_run_in_progress_alone(state_home):
 
 
 @case
-def a_scratch_directory_never_speaks_for_the_repository_around_it():
+def a_scratch_directory_never_speaks_for_the_repository_around_it() -> None:
     """`git rev-parse` in a directory that is no repository climbs to its
     parents — and the state directory may well sit inside one. `clean` would
     then prune that repository's worktrees and delete its branches."""
@@ -111,7 +112,7 @@ def a_scratch_directory_never_speaks_for_the_repository_around_it():
     with tempfile.TemporaryDirectory() as directory:
         outer = Path(directory) / "home"
         outer.mkdir()
-        quiet = {"capture_output": True, "check": True}
+        quiet: dict[str, Any] = {"capture_output": True, "check": True}
         subprocess.run(["git", "init", "--quiet", "-b", "main", str(outer)], **quiet)
         identity = [
             "-c",
@@ -157,7 +158,7 @@ def a_scratch_directory_never_speaks_for_the_repository_around_it():
 
 
 @case
-def clean_removes_the_branch_that_would_block_the_ticket_for_ever():
+def clean_removes_the_branch_that_would_block_the_ticket_for_ever() -> None:
     """A branch name comes from the ticket's ID, so it is the same one every time.
 
     A session that failed without committing leaves the worktree and the branch;
@@ -172,7 +173,7 @@ def clean_removes_the_branch_that_would_block_the_ticket_for_ever():
 
 
 @case
-def clean_never_removes_a_branch_that_carries_something_of_its_own():
+def clean_never_removes_a_branch_that_carries_something_of_its_own() -> None:
     """The refusal `clean` lifts is also what protects the previous session's work.
 
     A commit that was never pushed — the push failed, and the branch is all

@@ -3,11 +3,22 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Any, cast
 
-from support import _Board, _FakeClient, _recurring, _schedule_page, _settings, case
+from support import (
+    _Board,
+    _FakeClient,
+    _recurring,
+    _schedule_page,
+    _ScheduleClient,
+    _settings,
+    case,
+)
 
 from ponos import notion, projects, provision, schedules, state, workspace
 from ponos import ticket as ticket_module
+from ponos.runner import Runner
 
 # -- what comes back on its own ----------------------------------------------
 
@@ -18,7 +29,7 @@ def _after(text: str) -> datetime:
 
 
 @case
-def each_cadence_lands_on_the_first_moment_after_now():
+def each_cadence_lands_on_the_first_moment_after_now() -> None:
     """The four cadences, read against a Wednesday afternoon."""
     now = _after("2026-09-09T14:20:00")  # a Wednesday
 
@@ -42,7 +53,7 @@ def each_cadence_lands_on_the_first_moment_after_now():
 
 
 @case
-def a_monthly_schedule_on_the_31st_lands_on_the_last_day_february_has():
+def a_monthly_schedule_on_the_31st_lands_on_the_last_day_february_has() -> None:
     """Seven months have a 31st. A schedule set on it does not skip the others."""
     from_january = schedules.next_occurrence(
         "Monthly", "07:00", "31", after=_after("2026-01-31T09:00:00")
@@ -53,7 +64,7 @@ def a_monthly_schedule_on_the_31st_lands_on_the_last_day_february_has():
 
 
 @case
-def an_occurrence_is_always_strictly_after_the_moment_it_is_computed_from():
+def an_occurrence_is_always_strictly_after_the_moment_it_is_computed_from() -> None:
     """Landing *on* `after` would have a pass fire the same occurrence twice."""
     exactly = _after("2026-09-09T09:00:00")
     assert schedules.next_occurrence("Daily", "09:00", after=exactly) == _after(
@@ -63,7 +74,7 @@ def an_occurrence_is_always_strictly_after_the_moment_it_is_computed_from():
 
 
 @case
-def a_schedule_nobody_can_read_is_none_rather_than_an_exception():
+def a_schedule_nobody_can_read_is_none_rather_than_an_exception() -> None:
     now = _after("2026-09-09T14:20:00")
     assert schedules.next_occurrence("Fortnightly", "09:00", after=now) is None
     assert schedules.next_occurrence("", "09:00", after=now) is None
@@ -86,16 +97,21 @@ def _ticket_page(page_id: str, status: str) -> notion.Page:
     )
 
 
-def _written(client, name: str) -> object:
+def _schedules(runner: Runner) -> _ScheduleClient:
+    """The fake `_recurring` gave the runner, to read what was written on it."""
+    return cast(_ScheduleClient, runner.client)
+
+
+def _written(runner: Runner, name: str) -> object:
     """The last value written into one column of the schedule, or None."""
-    for _, values in reversed(client.written):
+    for _, values in reversed(_schedules(runner).written):
         if name in values:
             return values[name]
     return None
 
 
 @case
-def a_machine_that_was_off_for_three_days_produces_one_ticket_and_not_twelve():
+def a_machine_that_was_off_for_three_days_produces_one_ticket_and_not_twelve() -> None:
     """Anacron, not cron: waking up must not set off an avalanche of sessions."""
     stale = (datetime.now().astimezone() - timedelta(days=3)).isoformat()
     runner = _recurring([_schedule_page("s-1", next=stale)])
@@ -103,14 +119,14 @@ def a_machine_that_was_off_for_three_days_produces_one_ticket_and_not_twelve():
 
     assert len(born) == 1 and born[0]["status"] == "scheduled"
     assert born[0]["from"] == "Revue des dépendances"
-    assert len(runner.client.created) == 1, "one ticket, not one per day missed"
-    title_, values = runner.client.created[0]
+    assert len(_schedules(runner).created) == 1, "one ticket, not one per day missed"
+    title_, values = _schedules(runner).created[0]
     assert title_.startswith("Revue des dépendances — ")
     assert values["Status"] == "Ready"
     assert values["Project"] == "p-northwind" and values["Priority"] == 40
 
     # The next moment is computed from now, never by stacking up what was lost.
-    ahead = schedules.scheduled_for(_written(runner.client, "Next"))
+    ahead = schedules.scheduled_for(_written(runner, "Next"))
     assert ahead is not None and ahead > datetime.now().astimezone()
     # A daily schedule is a wall-clock hour: across a change of clocks, tomorrow's
     # 09:00 is 23 or 25 hours away, so the day is measured on the wall, not in UTC.
@@ -121,7 +137,7 @@ def a_machine_that_was_off_for_three_days_produces_one_ticket_and_not_twelve():
 
 
 @case
-def a_code_schedule_makes_a_code_ticket_that_nobody_classifies():
+def a_code_schedule_makes_a_code_ticket_that_nobody_classifies() -> None:
     """A long, well-written brief read as « Rédaction » by the classifier sent
     four Whisper Desk tickets to done with their pull requests lost: the
     schedule says what its tickets are, and the ticket is born with it."""
@@ -130,7 +146,7 @@ def a_code_schedule_makes_a_code_ticket_that_nobody_classifies():
         [_schedule_page("s-1", next=stale, type="Code", subtype="Feature", model="opus")]
     )
     assert len(runner.recur()) == 1
-    _, values = runner.client.created[0]
+    _, values = _schedules(runner).created[0]
     assert values["Type"] == "Code" and values["Sous-type"] == "Feature"
     assert values["Model"] == "opus" and values["Priority"] == 40
 
@@ -144,17 +160,17 @@ def a_code_schedule_makes_a_code_ticket_that_nobody_classifies():
             "Sous-type": {"type": "select", "select": {"name": values["Sous-type"]}},
         },
     )
-    runner.client.schema = lambda database_id: {
+    runner.client.schema = lambda database_id: {  # type: ignore[method-assign]  # a double: a typed board
         "Status": "status",
         "Type": "select",
         "Sous-type": "select",
     }
 
-    def classified(*_):
+    def classified(*_: Any) -> Any:
         raise AssertionError("a typed ticket is not classified")
 
-    runner._classify = classified
-    runner._ask_subtype = classified
+    runner._classify = classified  # type: ignore[method-assign, assignment]  # a double: never to be called
+    runner._ask_subtype = classified  # type: ignore[method-assign, assignment]  # the same
     assert runner._kind(ticket_module.Ticket(born), "", projects.Project(name="", path=None)) == (
         "code",
         "",
@@ -163,16 +179,16 @@ def a_code_schedule_makes_a_code_ticket_that_nobody_classifies():
 
 
 @case
-def a_schedule_without_a_type_leaves_its_ticket_to_be_classified():
+def a_schedule_without_a_type_leaves_its_ticket_to_be_classified() -> None:
     stale = (datetime.now().astimezone() - timedelta(hours=1)).isoformat()
     runner = _recurring([_schedule_page("s-1", next=stale)])
     runner.recur()
-    _, values = runner.client.created[0]
+    _, values = _schedules(runner).created[0]
     assert "Type" not in values and "Sous-type" not in values
 
 
 @case
-def a_schedules_database_without_a_type_column_makes_its_repository_tickets_code():
+def a_schedules_database_without_a_type_column_makes_its_repository_tickets_code() -> None:
     """“Whisper Desk — rattraper Wispr Flow” was born « Rédaction » twice: its
     schedules database had no Type to say Code, and the classifier read its brief.
     Until the column is there, a project with a repository is enough to say it."""
@@ -190,7 +206,7 @@ def a_schedules_database_without_a_type_column_makes_its_repository_tickets_code
     )
     runner = _recurring([_schedule_page("s-1", next=stale)], tickets={"p-northwind": project})
     runner.recur()
-    _, values = runner.client.created[0]
+    _, values = _schedules(runner).created[0]
     assert values["Type"] == "Code", values
     assert "Sous-type" not in values, "the sub-type is still the ticket's own to find"
 
@@ -198,7 +214,7 @@ def a_schedules_database_without_a_type_column_makes_its_repository_tickets_code
     paper = notion.Page(id="p-northwind", url="", title="Northwind", properties={})
     runner = _recurring([_schedule_page("s-1", next=stale)], tickets={"p-northwind": paper})
     runner.recur()
-    assert "Type" not in runner.client.created[0][1]
+    assert "Type" not in _schedules(runner).created[0][1]
 
     # And a database that has the column says what it says, even nothing.
     runner = _recurring(
@@ -207,32 +223,32 @@ def a_schedules_database_without_a_type_column_makes_its_repository_tickets_code
         columns={"Type": "select", "Sous-type": "select"},
     )
     runner.recur()
-    assert "Type" not in runner.client.created[0][1], "an empty Type is a choice: guessed"
+    assert "Type" not in _schedules(runner).created[0][1], "an empty Type is a choice: guessed"
 
 
 @case
-def launching_a_schedule_by_hand_makes_the_ticket_and_leaves_its_next_moment_alone():
+def launching_a_schedule_by_hand_makes_the_ticket_and_leaves_its_next_moment_alone() -> None:
     """Even paused: that is how one is tried. `Last` moves, `Next` does not."""
     later = (datetime.now().astimezone() + timedelta(days=2)).isoformat()
     runner = _recurring([_schedule_page("s-1", next=later, active=False)])
-    recorded: list[dict] = []
+    recorded: list[dict[str, Any]] = []
     original = state.record
-    state.record = recorded.append
+    state.record = recorded.append  # type: ignore[assignment]  # a double: what was recorded is kept
     try:
         entry = runner.launch("s-1")
     finally:
         state.record = original
 
-    assert len(runner.client.created) == 1 and entry["id"] == "t1"
-    assert runner.client.created[0][1]["Status"] == "Ready"
-    assert _written(runner.client, "Last") is not None
-    assert _written(runner.client, "Next") is None, "the planned occurrence is untouched"
-    assert _written(runner.client, "Active") is None, "a paused schedule stays paused"
+    assert len(_schedules(runner).created) == 1 and entry["id"] == "t1"
+    assert _schedules(runner).created[0][1]["Status"] == "Ready"
+    assert _written(runner, "Last") is not None
+    assert _written(runner, "Next") is None, "the planned occurrence is untouched"
+    assert _written(runner, "Active") is None, "a paused schedule stays paused"
     assert recorded and recorded[0]["status"] == "scheduled"
 
 
 @case
-def a_launch_that_fails_is_raised_and_leaves_last_alone():
+def a_launch_that_fails_is_raised_and_leaves_last_alone() -> None:
     runner = _recurring([_schedule_page("s-1")], refuses="400 body failed validation")
     try:
         runner.launch("s-1")
@@ -240,27 +256,27 @@ def a_launch_that_fails_is_raised_and_leaves_last_alone():
         pass
     else:
         raise AssertionError("the failure has to reach whoever asked")
-    assert _written(runner.client, "Last") is None
+    assert _written(runner, "Last") is None
 
 
 @case
-def the_body_of_the_schedule_is_copied_into_the_ticket_it_makes():
+def the_body_of_the_schedule_is_copied_into_the_ticket_it_makes() -> None:
     """The ticket has to read on its own, and say where it came from."""
     stale = (datetime.now().astimezone() - timedelta(hours=2)).isoformat()
     runner = _recurring([_schedule_page("s-1", next=stale)])
     runner.recur()
 
-    page_id, body = runner.client.appended[0]
+    page_id, body = _schedules(runner).appended[0]
     assert page_id == "t-1"
     assert "Revue des dépendances" in body and "https://notion.so/s-1" in body
     assert "Lister les dépendances en retard" in body
     # And the schedule is told what it produced, which is how the next pass
     # knows whether this occurrence is over.
-    assert _written(runner.client, "Last ticket") == "t-1"
+    assert _written(runner, "Last ticket") == "t-1"
 
 
 @case
-def an_occurrence_still_open_never_produces_a_second_one():
+def an_occurrence_still_open_never_produces_a_second_one() -> None:
     """A schedule stuck on a question must not fill the board with copies."""
     stale = (datetime.now().astimezone() - timedelta(hours=2)).isoformat()
     for status in ("Ready", "In progress", "In review", "Blocked"):
@@ -269,9 +285,9 @@ def an_occurrence_still_open_never_produces_a_second_one():
             tickets={"t-old": _ticket_page("t-old", status)},
         )
         assert runner.recur() == [], status
-        assert runner.client.created == [], status
+        assert _schedules(runner).created == [], status
         # Next moves on regardless, or the schedule would keep re-firing.
-        ahead = schedules.scheduled_for(_written(runner.client, "Next"))
+        ahead = schedules.scheduled_for(_written(runner, "Next"))
         assert ahead is not None and ahead > datetime.now().astimezone(), status
 
     for status in ("Done", "Failed"):
@@ -283,7 +299,7 @@ def an_occurrence_still_open_never_produces_a_second_one():
 
 
 @case
-def a_last_ticket_that_no_longer_exists_never_wedges_its_schedule():
+def a_last_ticket_that_no_longer_exists_never_wedges_its_schedule() -> None:
     """A page somebody deleted would otherwise stop it being born for good."""
     stale = (datetime.now().astimezone() - timedelta(hours=2)).isoformat()
     runner = _recurring([_schedule_page("s-1", next=stale, last_ticket="t-gone")])
@@ -291,31 +307,31 @@ def a_last_ticket_that_no_longer_exists_never_wedges_its_schedule():
 
 
 @case
-def a_schedule_written_this_minute_does_not_fire_this_minute():
+def a_schedule_written_this_minute_does_not_fire_this_minute() -> None:
     """“Weekly / Monday” written on a Tuesday must not produce a ticket now."""
     runner = _recurring([_schedule_page("s-1", cadence="Weekly", day="Monday", next="")])
     assert runner.recur() == []
-    assert runner.client.created == []
-    ahead = schedules.scheduled_for(_written(runner.client, "Next"))
+    assert _schedules(runner).created == []
+    ahead = schedules.scheduled_for(_written(runner, "Next"))
     assert ahead is not None and ahead > datetime.now().astimezone()
-    assert _written(runner.client, "Last") is None, "nothing happened, so nothing was the last"
+    assert _written(runner, "Last") is None, "nothing happened, so nothing was the last"
 
 
 @case
-def a_schedule_in_the_future_and_one_that_is_off_both_cost_nothing():
+def a_schedule_in_the_future_and_one_that_is_off_both_cost_nothing() -> None:
     later = (datetime.now().astimezone() + timedelta(days=1)).isoformat()
     stale = (datetime.now().astimezone() - timedelta(hours=2)).isoformat()
 
     ahead = _recurring([_schedule_page("s-1", next=later)])
-    assert ahead.recur() == [] and ahead.client.written == []
+    assert ahead.recur() == [] and _schedules(ahead).written == []
 
     unticked = _recurring([_schedule_page("s-1", next=stale, active=False)])
-    assert unticked.recur() == [] and unticked.client.written == []
+    assert unticked.recur() == [] and _schedules(unticked).written == []
 
     # One line turns every schedule off, without unticking a single row — and
     # without the database being read at all.
     off = _recurring([_schedule_page("s-1", next=stale)], schedule=False)
-    assert off.recur() == [] and off.client.written == []
+    assert off.recur() == [] and _schedules(off).written == []
 
     # A schedule nobody can read holds nobody up.
     broken = _recurring(
@@ -325,20 +341,20 @@ def a_schedule_in_the_future_and_one_that_is_off_both_cost_nothing():
         ]
     )
     assert len(broken.recur()) == 1
-    assert broken.client.created[0][0].startswith("Revue")
+    assert _schedules(broken).created[0][0].startswith("Revue")
 
 
 @case
-def a_dry_run_says_what_would_be_born_and_writes_nowhere():
+def a_dry_run_says_what_would_be_born_and_writes_nowhere() -> None:
     stale = (datetime.now().astimezone() - timedelta(hours=2)).isoformat()
     runner = _recurring([_schedule_page("s-1", next=stale)], dry_run=True)
     born = runner.recur()
     assert len(born) == 1 and born[0]["status"] == "dry-run"
-    assert runner.client.created == [] and runner.client.written == []
+    assert _schedules(runner).created == [] and _schedules(runner).written == []
 
 
 @case
-def the_occurrence_is_taken_before_it_is_made():
+def the_occurrence_is_taken_before_it_is_made() -> None:
     """A crash between the two loses one occurrence; the other order makes two.
 
     So a ticket Notion refuses still leaves `Next` moved on: one lost report
@@ -347,13 +363,13 @@ def the_occurrence_is_taken_before_it_is_made():
     stale = (datetime.now().astimezone() - timedelta(hours=2)).isoformat()
     runner = _recurring([_schedule_page("s-1", next=stale)], refuses="400 body failed validation")
     assert runner.recur() == []
-    ahead = schedules.scheduled_for(_written(runner.client, "Next"))
+    ahead = schedules.scheduled_for(_written(runner, "Next"))
     assert ahead is not None and ahead > datetime.now().astimezone()
-    assert _written(runner.client, "Last ticket") is None, "nothing was made to point at"
+    assert _written(runner, "Last ticket") is None, "nothing was made to point at"
 
 
 @case
-def an_occurrence_that_could_not_be_taken_makes_no_ticket():
+def an_occurrence_that_could_not_be_taken_makes_no_ticket() -> None:
     """`Next` left in the past by a refused write would fire on every pass.
 
     Notion answering 500 to the write on the schedule's row, the ticket would
@@ -363,32 +379,32 @@ def an_occurrence_that_could_not_be_taken_makes_no_ticket():
     stale = (datetime.now().astimezone() - timedelta(hours=2)).isoformat()
     runner = _recurring([_schedule_page("s-1", next=stale)], marks="500 internal server error")
     assert runner.recur() == [] and runner.recur() == []
-    assert runner.client.created == [], "not taken, not made"
+    assert _schedules(runner).created == [], "not taken, not made"
 
 
 @case
-def a_next_column_nobody_can_write_takes_no_occurrence():
+def a_next_column_nobody_can_write_takes_no_occurrence() -> None:
     """A formula is read, never written: Notion would drop the value silently."""
     stale = (datetime.now().astimezone() - timedelta(hours=2)).isoformat()
     runner = _recurring([_schedule_page("s-1", next=stale)], columns={"Next": "formula"})
     assert runner.recur() == [] and runner.recur() == []
-    assert runner.client.created == [] and runner.client.written == []
+    assert _schedules(runner).created == [] and _schedules(runner).written == []
 
 
 @case
-def a_workspace_with_nothing_that_repeats_is_a_workspace_that_runs():
+def a_workspace_with_nothing_that_repeats_is_a_workspace_that_runs() -> None:
     """The whole feature is optional: no row, no warning, no difference."""
     client = _FakeClient(
         {"Tickets": "p-tickets", "Context": "p-context", "Objectifs": "p-goals"}, text="x"
     )
-    space = workspace.from_notion(client, _settings())
+    space = workspace.from_notion(client, _settings())  # type: ignore[arg-type]  # a fake: a workspace in memory
     assert space.schedules == ""
     assert not space.warnings
 
     present = _FakeClient(
         {"Tickets": "p-tickets", "Context": "p-context", "Schedules": "p-schedules"}, text="x"
     )
-    assert workspace.from_notion(present, _settings()).schedules == "db-of-p-schedules"
+    assert workspace.from_notion(present, _settings()).schedules  # type: ignore[arg-type]  # the same == "db-of-p-schedules"
 
     # And a Runner reading a workspace without one asks Notion nothing at all.
     runner = _recurring([])
@@ -397,10 +413,10 @@ def a_workspace_with_nothing_that_repeats_is_a_workspace_that_runs():
 
 
 @case
-def the_schedules_database_is_built_after_the_tickets_it_points_at():
+def the_schedules_database_is_built_after_the_tickets_it_points_at() -> None:
     """A relation cannot name a database that does not exist yet."""
     board = _Board()
-    provision.provision(board, _settings(), "root")
+    provision.provision(board, _settings(), "root")  # type: ignore[arg-type]  # a fake: a board in memory
 
     schema = board._schemas["db-schedules"]
     for expected in (
@@ -434,13 +450,13 @@ def the_schedules_database_is_built_after_the_tickets_it_points_at():
 
 
 @case
-def init_run_again_on_a_board_that_already_schedules_touches_nothing():
+def init_run_again_on_a_board_that_already_schedules_touches_nothing() -> None:
     board = _Board()
-    provision.provision(board, _settings(), "root")
+    provision.provision(board, _settings(), "root")  # type: ignore[arg-type]  # a fake: a board in memory
     before = dict(board._schemas["db-schedules"])
     board.created.clear()
 
-    second = provision.provision(board, _settings(), "root")
+    second = provision.provision(board, _settings(), "root")  # type: ignore[arg-type]  # a fake: a board in memory
     assert board.created == [], "no second schedules database, no second example"
     assert board._schemas["db-schedules"] == before
     assert any("Schedules" in what for verb, what in second.steps if verb == "kept")
@@ -448,7 +464,7 @@ def init_run_again_on_a_board_that_already_schedules_touches_nothing():
 
 
 @case
-def every_occurrence_is_kept_with_the_ticket_it_made_or_why_it_made_none(state_home):
+def every_occurrence_is_kept_with_the_ticket_it_made_or_why_it_made_none(state_home: Path) -> None:
     """The schedule's row keeps only its last ticket: `ponos.db` keeps them all,
     and the passes that made none, for the schedule's page in the console."""
     stale = (datetime.now().astimezone() - timedelta(hours=2)).isoformat()
@@ -475,7 +491,7 @@ def every_occurrence_is_kept_with_the_ticket_it_made_or_why_it_made_none(state_h
 
 
 @case
-def a_dry_run_keeps_no_occurrence(state_home):
+def a_dry_run_keeps_no_occurrence(state_home: Path) -> None:
     stale = (datetime.now().astimezone() - timedelta(hours=2)).isoformat()
     runner = _recurring([_schedule_page("s-1", next=stale)], dry_run=True)
     runner.recur()
