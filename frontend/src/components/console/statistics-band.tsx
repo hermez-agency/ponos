@@ -1,6 +1,6 @@
 import * as React from "react"
 import { format, subDays } from "date-fns"
-import { ArrowDown, ArrowRight, ArrowUp, ChevronDown, ChevronRight, ChevronUp } from "lucide-react"
+import { ArrowDown, ArrowRight, ArrowUp, ChevronDown, ChevronRight, ChevronUp, Download } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
@@ -104,6 +104,14 @@ const kept = new Map<string, { range: Range; from: string; to: string }>()
  * rather than asking the same question twice. */
 const FRESH = 60_000
 const answered = new Map<string, { at: number; figures: Statistics }>()
+/* The period's sessions as a CSV, to re-bill a project: the server builds it from the same
+ * lines the cards sum, so the file adds up to the cost on the card. */
+function spendingLink(from: string, to: string, project?: string): string {
+  const query = new URLSearchParams({ from, to })
+  if (project !== undefined) query.set("project", project)
+  return `/api/spending.csv?${query}`
+}
+
 const question = (scope: string, from: string, to: string) => `${scope}|${from}|${to}`
 
 /* Whether the band is folded, as the last person at this browser left it. Open
@@ -299,6 +307,14 @@ export function StatisticsBand({ project }: { project?: string }) {
               ))}
             </TabsList>
           </Tabs>
+          {valid ? (
+            <Button variant="outline" size="sm" asChild>
+              <a href={spendingLink(period.from, period.to, project)} download>
+                <Download aria-hidden />
+                {t("Export (CSV)")}
+              </a>
+            </Button>
+          ) : null}
         </div>
       </div>
 

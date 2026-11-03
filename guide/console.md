@@ -468,6 +468,17 @@ cause of the period with its count — see [Why a ticket stopped](tickets.md#why
 see [The sub-type of a code ticket](board.md#the-sub-type-of-a-code-ticket). Both are folded behind a *Show more* button, on the dashboard and on a project's page alike, and stays as you left it in this browser. The page they used to have is gone, and its old address,
 `/?view=console/statistics/list`, leads to the dashboard.
 
+**Exporting the cost, to re-bill a project.** *Export (CSV)*, beside the period, downloads one row per
+session ended in that period — on the dashboard, every project's; on a project's page, that project's. The
+columns are `date`, `ticket`, `lien`, `type`, `sous-type`, `modèle`, `statut final`, `durée (s)`,
+`coût (USD)` and `PR`, and the `coût (USD)` column adds up to the cost the card shows for the same
+period. The same file is `GET /api/spending.csv?project=<id or name>&month=2026-10` (`from=` and `to=`
+instead of `month` for any other period; no `project` for the whole board). It is UTF-8 with a
+byte-order mark, so a spreadsheet reads the accents; commas and quotes in a title are quoted.
+From a terminal, `ponos history --csv --project <name> --month 2026-10` prints the same rows
+(`--since`/`--to` for another period). It has no board to read, so it selects by the project each
+session carried when it ran, and leaves `type` and `sous-type` empty.
+
 **Settings** is `config.toml` drawn as a page — the same file, the same keys, and every one
 of them, from the Notion token down to what your board calls its *Blocked* column. On a
 board kept in Markdown the Notion section comes last, since nothing reads it, and the

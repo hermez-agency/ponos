@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import Any
 
 from .. import config as config_module
-from .. import credits, session, state, systemd
+from .. import credits, journal, session, spending, state, systemd
 from .. import update as update_module
 from . import live, statistics
 from .base import Base
@@ -102,6 +102,49 @@ class Overview(Base):
             last,
             project=project,
             kind_of=self.config.notion.kind_of,
+        )
+
+    def spending_csv(
+        self, start: str = "", end: str = "", month: str = "", project: str | None = None
+    ) -> str:
+        """Every session of a period, one CSV row each — see `spending`.
+
+        `month` (`2026-10`) is a period of its own; otherwise `start` and `end`
+        are the statistics' and default to the same thirty days. `project` is a
+        project's id or its name, "" for the tickets of none, None for the whole
+        history; an unknown one is refused rather than exported empty, which
+        would read as a project that cost nothing.
+        """
+        if month:
+            first, last = spending.month_span(month)
+        else:
+            first, last = statistics.period(start, end, datetime.now().date())
+        name = project
+        if project:
+            known = self.all_projects()["projects"]
+            found = next(
+                (
+                    item
+                    for item in known
+                    if project.replace("-", "") == item["id"]
+                    or project.casefold() == item["name"].casefold()
+                ),
+                None,
+            )
+            if found is None:
+                raise LookupError(f"no project {project!r}")
+            name = found["name"]
+        tickets = self.watch.recent(2 * self.watch.interval)["tickets"]
+        after, before = spending.window(first, last)
+        return spending.write(
+            spending.rows(
+                state.lines(after, before),
+                first,
+                last,
+                tickets=tickets,
+                project=name,
+                models=journal.models(),
+            )
         )
 
 

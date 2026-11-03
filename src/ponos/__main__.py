@@ -16,7 +16,7 @@ import subprocess
 import sys
 import time
 from collections.abc import Callable
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -36,6 +36,7 @@ from . import (
     priority,
     provision,
     session,
+    spending,
     state,
     store,
     subtypes,
@@ -539,7 +540,35 @@ def command_sync(args: argparse.Namespace) -> int:
     return 1 if report.problems else 0
 
 
+def command_history_csv(args: argparse.Namespace) -> int:
+    """Every session of a period as CSV on the standard output: see `spending.py`."""
+    try:
+        if args.month:
+            first, last = spending.month_span(args.month)
+        else:
+            last = date.fromisoformat(args.to) if args.to else datetime.now().date()
+            first = date.fromisoformat(args.since) if args.since else last - timedelta(days=29)
+    except ValueError as error:
+        bad(str(error))
+        return 2
+    if first > last:
+        bad("the period ends before it starts")
+        return 2
+    after, before = spending.window(first, last)
+    lines = spending.rows(
+        state.lines(after, before),
+        first,
+        last,
+        project=args.project,
+        models=journal.models(),
+    )
+    sys.stdout.write(spending.write(lines))
+    return 0
+
+
 def command_history(args: argparse.Namespace) -> int:
+    if args.csv:
+        return command_history_csv(args)
     entries = state.history(args.number)
     if not entries:
         print("No ticket handled yet.")
@@ -1820,6 +1849,15 @@ def build_parser() -> argparse.ArgumentParser:
     history.add_argument(
         "-n", "--number", type=int, default=20, help="how many tickets to show (default: 20)"
     )
+    history.add_argument(
+        "--csv",
+        action="store_true",
+        help="every session of a period as CSV, to re-bill a project (see --project, --month)",
+    )
+    history.add_argument("--project", help="with --csv: only this project's sessions")
+    history.add_argument("--month", help="with --csv: a month, 2026-10")
+    history.add_argument("--since", help="with --csv: first day, 2026-10-01 (default: 30 days ago)")
+    history.add_argument("--to", help="with --csv: last day (default: today)")
     history.set_defaults(function=command_history)
 
     logs = subparsers.add_parser("logs", help="show a session's log (-f to follow)")

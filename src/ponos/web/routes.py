@@ -465,6 +465,28 @@ def statistics(
     return answer(figures)
 
 
+@router.get("/api/spending.csv", response_class=Response)
+def spending(
+    request: Request,
+    start: str = Query("", alias="from"),
+    to: str = "",
+    month: str = "",
+    project: str = "",
+) -> Response:
+    """Every session of a project over a period, for the invoice: see `spending.py`."""
+    try:
+        text = _api(request).spending_csv(start, to, month, project or None)
+    except ValueError as error:
+        return fail(400, str(error))
+    # The byte-order mark is what makes a spreadsheet read the accents as UTF-8.
+    name = f"spending-{month or 'period'}.csv"
+    return Response(
+        ("\ufeff" + vault.masked(text)).encode(),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{name}"'},
+    )
+
+
 @router.get("/api/chat", response_model=answers.Chat)
 def chat(request: Request) -> Response:
     talk = _api(request).chat

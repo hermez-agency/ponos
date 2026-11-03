@@ -357,3 +357,20 @@ def steps(identifier: int, *, before: int = 0, after: int = 0, limit: int = PAGE
         "steps": found,
         "more": bool(found) and first is not None and found[0]["position"] > first,
     }
+
+
+def models() -> dict[str, str]:
+    """{session id: the model it ran on}, what the CLI reported first and what was asked after.
+
+    Empty when the database cannot be read: a column left blank in an export is
+    better than no export.
+    """
+    try:
+        with db.transaction(immediate=False) as connection:
+            rows = connection.execute(
+                "SELECT session, COALESCE(NULLIF(reported, ''), model, '') FROM runs"
+                " WHERE session IS NOT NULL AND session != '' ORDER BY id"
+            ).fetchall()
+    except db.ERRORS:
+        return {}
+    return {str(session): str(model) for session, model in rows if model}

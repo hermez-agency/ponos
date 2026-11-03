@@ -898,6 +898,39 @@ def outcomes() -> list[dict[str, Any]]:
     return [dict(zip(keys, row, strict=True)) for row in rows]
 
 
+def lines(after: str, before: str) -> list[dict[str, Any]]:
+    """The history lines written from `after` (included) to `before` (excluded), oldest first.
+
+    Both are ISO timestamps in UTC, the form `at` is written in, so the window
+    is asked of the column's index rather than read off the whole history. A
+    line that does not parse still counts by its columns, with `at`, `id`,
+    `status`, `project`, `seconds` and `cost_usd` — the spending export lists
+    every session, whatever became of its detail.
+    """
+    with db.transaction(immediate=False) as connection:
+        rows = connection.execute(
+            "SELECT at, ticket, status, project, seconds, cost_usd, entry FROM history"
+            " WHERE at >= ? AND at < ? ORDER BY id",
+            (after, before),
+        ).fetchall()
+    found = []
+    for at, ticket, status, project, seconds, cost, raw in rows:
+        entry: dict[str, Any] = {
+            "at": at,
+            "id": ticket,
+            "status": status,
+            "project": project,
+            "seconds": seconds,
+            "cost_usd": cost,
+        }
+        try:
+            decoded = json.loads(raw)
+        except json.JSONDecodeError:
+            decoded = {}
+        found.append({**entry, **decoded} if isinstance(decoded, dict) else entry)
+    return found
+
+
 def prune_logs(days: int) -> int:
     """Drop session logs older than `days`. Zero keeps everything.
 
