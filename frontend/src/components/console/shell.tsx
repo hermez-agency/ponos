@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Moon, RefreshCw, Search, Sun } from "lucide-react"
+import { MessageCircle, Moon, RefreshCw, Search, Sun } from "lucide-react"
 import { ActionList } from "react-data-form"
 import { Link, getPorts, useAdminPageTitle, useCurrentViewResourceContext } from "react-resource-view"
 
@@ -11,6 +11,7 @@ import { useRunnerMood } from "@/hooks/use-mood"
 import { useTheme } from "@/hooks/use-theme"
 import { counted, useT } from "@/lib/i18n"
 import { openPalette } from "@/lib/palette"
+import { openTalk } from "@/lib/talk"
 import { cn } from "@/lib/utils"
 
 import { NotificationBell } from "./notification-bell"
@@ -245,6 +246,26 @@ export function SidebarFooter() {
 
   return (
     <div className="flex flex-col gap-1">
+      {/* The discussion's way in on a phone, where the bubble is not drawn
+          (`talk-drawer.tsx`): drawn like the pages over it, and only there —
+          the sidebar of a wider screen has the bubble beside it. The drawer
+          of More is the package's, with no handle to close it from here but
+          its own cross; left open, it would sit under the discussion and hold
+          the focus the discussion's field asks for. */}
+      <Button
+        variant="outline"
+        className="mb-2 md:hidden"
+        onClick={(event) => {
+          event.currentTarget
+            .closest('[data-slot="drawer-content"]')
+            ?.querySelector<HTMLElement>('[data-slot="drawer-close"]')
+            ?.click()
+          openTalk()
+        }}
+      >
+        <MessageCircle className="size-5 shrink-0" />
+        <span className="fc font-medium">{t("Open {{pane}}", { pane: t("the console") })}</span>
+      </Button>
       <div className="flex flex-wrap items-center gap-1">
         <VersionBadge />
         <SyncLine />

@@ -1,5 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test"
 
+import { underTheCorner } from "./corner"
+
 /* The Ideas page: every idea in one place, with the project it is for.
  *
  * The ideas come from the same fake `claude` as the swipe's spec (see
@@ -417,6 +419,14 @@ test.describe("at the width of a phone", () => {
     expect(box.x).toBeGreaterThanOrEqual(0)
     expect(box.x + box.width).toBeLessThanOrEqual(360)
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360)
+  })
+
+  test("at 375px a card's Turn into a ticket is under nothing: the discussion opens from More", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    await open(page)
+    await expect(cards(page).getByRole("button", { name: "Turn into a ticket" }).first()).toBeVisible()
+    await expect(page.getByRole("button", { name: "Open the console" })).toBeHidden()
+    expect(await underTheCorner(page)).toEqual([])
   })
 
   test("New idea is a sheet up from the bottom, its button the whole width and every target a thumb wide", async ({ page }) => {

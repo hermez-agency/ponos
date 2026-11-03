@@ -132,14 +132,16 @@ export function TalkDrawer() {
           <SheetTrigger asChild>
             {/* Hidden while the drawer is over it: the sheet's own close is
                 where a reader looks for it, and a bubble under the overlay is
-                a button that answers nothing. Standing on the admin layout's
-                navigation on a phone, where it runs along the bottom edge —
-                and the page leaves room under its end for both (`index.css`). */}
+                a button that answers nothing. Not drawn on a phone at all:
+                there it stood over whatever scrolled under its corner — a
+                ticket's « Expand all », a card's link, an idea's button — with
+                nowhere to scroll them out of its way. A phone opens the
+                drawer from More, with the pages (`SidebarFooter`). */}
             <Button
               size="icon-lg"
               aria-label={t("Open {{pane}}", { pane: label })}
               aria-keyshortcuts={shortcut.aria}
-              className="fixed right-4 bottom-[calc(var(--bottom-nav)+1rem)] z-40 size-12 rounded-full shadow-lg data-[state=open]:hidden"
+              className="fixed right-4 bottom-4 z-40 size-12 rounded-full shadow-lg data-[state=open]:hidden max-md:hidden"
             >
               <MessageCircle className="size-5" />
             </Button>

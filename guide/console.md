@@ -40,8 +40,8 @@ Open `http://127.0.0.1:8787` and you get one page, four things:
 where something is waiting there — how many tickets are on the board. On a phone the menu runs
 along the bottom edge instead: the board, the projects and the schedules, and **More**, which
 opens the settings from the bottom of the screen — the bar
-fits a 360px screen and never scrolls sideways. The bubble stands on that bar, and every page
-ends far enough above it that nothing is left under it. The frame is react-resource-view's admin layout (see
+fits a 360px screen and never scrolls sideways. No bubble floats over it: on a phone the
+console opens from **More**, so nothing a page draws is ever under a button. The frame is react-resource-view's admin layout (see
 [The console's own code](../CONTRIBUTING.md#the-consoles-own-code)), and the end of its bar holds the things
 about the console itself: whether the event stream is up — a stream the server refuses
 because the session expired sends the page back to the sign-in rather than saying
@@ -235,7 +235,7 @@ the console has — and it opens the same way an answer relayed from Telegram do
 next run reads it as yours rather than as its own voice.
 
 **The console** is behind the bubble in the bottom corner, on every page, a ticket's
-included — one press opens it as a drawer over the page, another closes it, and no page is given up for it. It is one message bar and
+included — on a phone, behind **More** instead — one press opens it as a drawer over the page, another closes it, and no page is given up for it. It is one message bar and
 two gestures, and they are not made to look alike.
 
 Two keys reach it without the mouse. **Ctrl+J** (⌘J on a Mac) opens and closes the
