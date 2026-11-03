@@ -130,14 +130,14 @@ export function NotionStep({ storage, onNext }: { storage: string; onNext: () =>
     {
       key: "markdown",
       title: "A board of Markdown files",
-      lines: ["Nothing to connect, no account, no network.", "A folder you can keep under git."],
+      lines: ["Nothing to connect, no account, no network.", "A folder to keep under git."],
     },
   ] as const
 
   return (
     <StepCard
       title={t("The board")}
-      blurb={t("Where your tickets live. Both roads run the same tickets; you can change your mind later in the settings.")}
+      blurb={t("Where your tickets live. You can change your mind later in the settings.")}
       footer={footer}
     >
       <div className="grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label={t("Where the board lives")}>

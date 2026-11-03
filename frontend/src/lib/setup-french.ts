@@ -140,15 +140,15 @@ export const SETUP_FRENCH: Record<string, string> = {
   "The board": "Le tableau",
   "This console keeps its board in Markdown files: there is nothing to connect.":
     "Cette console garde son tableau en fichiers Markdown : il n'y a rien à connecter.",
-  "Where your tickets live. Both roads run the same tickets; you can change your mind later in the settings.":
-    "Où vivent vos tickets. Les deux chemins font tourner les mêmes tickets ; vous pourrez changer d'avis plus tard dans les réglages.",
+  "Where your tickets live. You can change your mind later in the settings.":
+    "Où vivent vos tickets. Vous pourrez changer d'avis dans les réglages.",
   "My board in Notion": "Mon tableau dans Notion",
   "A board of Markdown files": "Un tableau en fichiers Markdown",
   "Needs an integration token, and one page shared with it.":
     "Demande le jeton d'une intégration, et une page partagée avec elle.",
   "Ponos builds the databases itself.": "Ponos construit lui-même les bases.",
   "Nothing to connect, no account, no network.": "Rien à connecter, aucun compte, aucun réseau.",
-  "A folder you can keep under git.": "Un dossier que vous pouvez garder sous git.",
+  "A folder to keep under git.": "Un dossier à garder sous git.",
   "The board, in Notion": "Le tableau, dans Notion",
   "Building the board…": "Construction du tableau…",
   "GitHub, for the pull requests": "GitHub, pour les pull requests",
