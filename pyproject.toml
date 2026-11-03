@@ -122,19 +122,6 @@ module = [
     "test_runner",
     "test_store",
     "test_transitions",
-    "test_web_agui",
-    "test_web_answers",
-    "test_web_board",
-    "test_web_console",
-    "test_web_goals",
-    "test_web_lineage",
-    "test_web_live",
-    "test_web_mcp",
-    "test_web_server",
-    "test_web_settings",
-    "test_web_setup",
-    "test_web_statistics",
-    "test_web_upkeep",
 ]
 ignore_errors = true
 

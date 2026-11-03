@@ -6,6 +6,7 @@ import json
 import os
 import threading
 from pathlib import Path
+from typing import Any
 
 from support import _saved, case
 
@@ -17,7 +18,7 @@ from ponos.web import settings as web_settings
 
 
 @case
-def a_value_is_written_as_toml_spells_it():
+def a_value_is_written_as_toml_spells_it() -> None:
     """Four shapes, and a string that would otherwise end the line early."""
     assert C._literal(True) == "true" and C._literal(False) == "false"
     assert C._literal(1800) == "1800"
@@ -40,7 +41,7 @@ def a_value_is_written_as_toml_spells_it():
 
 
 @case
-def clearing_a_field_removes_the_line_rather_than_emptying_it():
+def clearing_a_field_removes_the_line_rather_than_emptying_it() -> None:
     """A key the file does not carry is a key the loader answers itself.
 
     Which is the whole grammar of the settings tab: blank means "say nothing",
@@ -56,7 +57,7 @@ def clearing_a_field_removes_the_line_rather_than_emptying_it():
 
 
 @case
-def a_save_is_all_of_it_or_none_of_it():
+def a_save_is_all_of_it_or_none_of_it() -> None:
     """Half a configuration is a runner that claims tickets it cannot finish."""
     path, config = _saved("\n[runner]\ninterval_seconds = 900\n")
     before = path.read_text()
@@ -79,7 +80,7 @@ def a_save_is_all_of_it_or_none_of_it():
 
 
 @case
-def two_saves_at_once_both_land():
+def two_saves_at_once_both_land() -> None:
     """Two tabs, or a tab and the CLI: the second used to replace the first's work.
 
     Each read the file, then put its copy in its place — and the copy of the
@@ -92,7 +93,7 @@ def two_saves_at_once_both_land():
     barrier = threading.Barrier(2, timeout=1)
     load = C.load
 
-    def held(loaded, *args, **kwargs):
+    def held(loaded: Path | None = None, *args: Any, **kwargs: Any) -> C.Config:
         if loaded == path:
             try:
                 barrier.wait()
@@ -102,13 +103,13 @@ def two_saves_at_once_both_land():
 
     failures: list[Exception] = []
 
-    def save(key, value):
+    def save(key: str, value: object) -> None:
         try:
             C.edit(path, [("runner", key, value)])
         except Exception as error:  # noqa: BLE001 — reported by the assertion below
             failures.append(error)
 
-    C.load = held
+    C.load = held  # type: ignore[assignment]  # a double: two saves meet at the barrier
     try:
         threads = [
             threading.Thread(target=save, args=("interval_seconds", 900)),
@@ -127,7 +128,7 @@ def two_saves_at_once_both_land():
 
 
 @case
-def a_value_written_by_the_cli_goes_through_the_same_save():
+def a_value_written_by_the_cli_goes_through_the_same_save() -> None:
     """`ponos init` and `ponos notify pair` wrote the real file in place.
 
     Killed between the truncation and the write, that left a configuration that
@@ -139,11 +140,11 @@ def a_value_written_by_the_cli_goes_through_the_same_save():
     replaced = os.replace
     names: list[str] = []
 
-    def watched(source, target):
+    def watched(source: str | os.PathLike[str], target: str | os.PathLike[str]) -> None:
         names.append(Path(target).name)
         return replaced(source, target)
 
-    os.replace = watched
+    os.replace = watched  # type: ignore[assignment]  # a double: the name it replaces is kept
     try:
         assert C.write_notion_value(path, "workspace", "abc123")
     finally:
@@ -154,7 +155,7 @@ def a_value_written_by_the_cli_goes_through_the_same_save():
 
 
 @case
-def a_floor_the_loader_would_repair_quietly_is_refused_here():
+def a_floor_the_loader_would_repair_quietly_is_refused_here() -> None:
     """The loader raises a zero interval to one. A form that did so would lie."""
     path, config = _saved()
     for name, value in (
@@ -172,7 +173,7 @@ def a_floor_the_loader_would_repair_quietly_is_refused_here():
 
 
 @case
-def a_save_that_would_leave_it_unusable_is_refused():
+def a_save_that_would_leave_it_unusable_is_refused() -> None:
     """The copy is loaded before it is allowed to take the file's place."""
     path, config = _saved()
     before = path.read_text()
@@ -187,7 +188,7 @@ def a_save_that_would_leave_it_unusable_is_refused():
 
 
 @case
-def a_token_is_never_sent_to_the_browser():
+def a_token_is_never_sent_to_the_browser() -> None:
     """A secret goes out as "set, ending in …abcd", and comes back only typed."""
     path, config = _saved('\n[notify.slack]\ntoken = "xoxb-1234567890wxyz"\nchannel = "C1"\n')
     drawn = json.dumps(web_settings.describe(config), ensure_ascii=False)
@@ -211,7 +212,7 @@ def a_token_is_never_sent_to_the_browser():
 
 
 @case
-def what_the_file_says_is_told_apart_from_what_it_falls_back_on():
+def what_the_file_says_is_told_apart_from_what_it_falls_back_on() -> None:
     """Otherwise a save would write every default into the file it read."""
     path, config = _saved("\n[runner]\ninterval_seconds = 900\n")
     fields = {
@@ -230,7 +231,7 @@ def what_the_file_says_is_told_apart_from_what_it_falls_back_on():
 
 
 @case
-def every_setting_the_file_holds_is_one_the_console_can_reach():
+def every_setting_the_file_holds_is_one_the_console_can_reach() -> None:
     """A key added to config.py and not described is a key nobody can set.
 
     The console draws itself from `settings.SECTIONS`; this is what keeps that
@@ -291,7 +292,7 @@ def every_setting_the_file_holds_is_one_the_console_can_reach():
 
 
 @case
-def a_choice_is_shown_in_words_and_saved_as_the_file_spells_it():
+def a_choice_is_shown_in_words_and_saved_as_the_file_spells_it() -> None:
     """The page says "One commit (squash)"; the file keeps saying `squash`.
 
     Every value a choice offers has its words, and no words name a value the
@@ -318,7 +319,7 @@ def a_choice_is_shown_in_words_and_saved_as_the_file_spells_it():
 
 
 @case
-def the_tables_that_are_mappings_gain_and_lose_rows():
+def the_tables_that_are_mappings_gain_and_lose_rows() -> None:
     """The two sections that are a mapping rather than a list of known keys.
 
     `[projects]` and `[github]` are saved by what the browser sends in full, so
@@ -349,7 +350,7 @@ def the_tables_that_are_mappings_gain_and_lose_rows():
 
 
 @case
-def a_setting_that_needs_more_than_saving_says_so_and_only_when_it_moved():
+def a_setting_that_needs_more_than_saving_says_so_and_only_when_it_moved() -> None:
     """A notice about a restart you do not need is a notice you stop reading."""
     path, config = _saved()
     result = web_settings.save(config, {"settings": {"runner.interval_seconds": 600}})

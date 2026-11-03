@@ -12,8 +12,11 @@ import sys
 import tempfile
 import threading
 import time
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
+from email.message import Message
 from pathlib import Path
+from typing import Any
 
 import httpx
 from support import (
@@ -35,7 +38,7 @@ from ponos.web import console as web_console
 
 
 @case
-def a_typed_command_is_split_without_a_shell():
+def a_typed_command_is_split_without_a_shell() -> None:
     """No shell means no metacharacter: the words go to execve as they are."""
     commands = web_console.Commands(lambda *a, **k: None, subcommands())
     assert commands.parse(">status") == ["status"]
@@ -45,7 +48,7 @@ def a_typed_command_is_split_without_a_shell():
 
 
 @case
-def a_command_the_cli_does_not_have_is_refused():
+def a_command_the_cli_does_not_have_is_refused() -> None:
     commands = web_console.Commands(lambda *a, **k: None, subcommands())
     for line in ("rm -rf /", "run; rm -rf /", "sh -c whoami", "../../bin/sh"):
         try:
@@ -56,7 +59,7 @@ def a_command_the_cli_does_not_have_is_refused():
 
 
 @case
-def the_commands_that_would_hang_a_browser_are_not_offered():
+def the_commands_that_would_hang_a_browser_are_not_offered() -> None:
     """`config` opens an editor and `serve` is the console itself.
 
     Both are refused *and* left out of the list the error message offers: naming
@@ -75,7 +78,7 @@ def the_commands_that_would_hang_a_browser_are_not_offered():
 
 
 @case
-def the_console_runs_what_it_lists_and_nothing_the_cli_grows_later():
+def the_console_runs_what_it_lists_and_nothing_the_cli_grows_later() -> None:
     """A list written down, not the parser read back.
 
     Deriving the verbs from the parser made every new command something a
@@ -99,14 +102,14 @@ def the_console_runs_what_it_lists_and_nothing_the_cli_grows_later():
 
 
 @case
-def a_command_that_runs_too_long_takes_what_it_started_with_it():
+def a_command_that_runs_too_long_takes_what_it_started_with_it() -> None:
     """The timeout ends the command's process group, not only its leader.
 
     `process.kill` used to stop the Python the console started and leave its
     children — a Claude session, from `run` — running unowned. The shell below
     starts a child of its own and waits on it; both have to be gone.
     """
-    events: list[tuple[str, dict]] = []
+    events: list[tuple[str, dict[str, Any]]] = []
     commands = web_console.Commands(lambda kind, **said: events.append((kind, said)), ())
     commands.timeout = 1
     with tempfile.TemporaryDirectory() as directory:
@@ -137,7 +140,7 @@ def a_command_that_runs_too_long_takes_what_it_started_with_it():
 
 
 @case
-def following_a_log_is_dropped_rather_than_left_to_hang():
+def following_a_log_is_dropped_rather_than_left_to_hang() -> None:
     """`logs -f` never returns, and the live panel already is that feed."""
     commands = web_console.Commands(lambda *a, **k: None, subcommands())
     assert commands.parse("logs -f") == ["logs"]
@@ -147,30 +150,37 @@ def following_a_log_is_dropped_rather_than_left_to_hang():
 # -- what a message to the workspace carries ----------------------------------
 
 
+class _Chat(web_console.Chat):
+    """A Chat that keeps the prompts its session was given and the events it sent."""
+
+    prompts: list[str]
+    events: list[tuple[str, dict[str, Any]]]
+
+
 @contextmanager
-def _chat(body: str = ""):
+def _chat(body: str = "") -> Iterator[_Chat]:
     """A Chat whose Claude session is a function, in a throwaway state directory."""
     with _state_home():
         prompts: list[str] = []
-        events: list[tuple[str, dict]] = []
+        events: list[tuple[str, dict[str, Any]]] = []
         original_run, original_available = session.run, session.available
 
-        def run(prompt, **_):
+        def run(prompt: str, **_: Any) -> session.Outcome:
             prompts.append(prompt)
             return session.Outcome(True, False, "sid", "", Path("/dev/null"), answer="seen")
 
         session.run = run
         session.available = lambda: "/usr/bin/claude"
         try:
-            chat = web_console.Chat(_config(body), lambda kind, **said: events.append((kind, said)))
-            chat.prompts = prompts  # type: ignore[attr-defined]
-            chat.events = events  # type: ignore[attr-defined]
+            chat = _Chat(_config(body), lambda kind, **said: events.append((kind, said)))
+            chat.prompts = prompts
+            chat.events = events
             yield chat
         finally:
             session.run, session.available = original_run, original_available
 
 
-def _said_to(chat) -> str:
+def _said_to(chat: _Chat) -> str:
     """The prompt of the last turn, once its thread has answered."""
     for _ in range(200):
         if not chat.busy:
@@ -180,7 +190,7 @@ def _said_to(chat) -> str:
 
 
 @case
-def a_message_of_words_alone_reaches_the_session_as_it_was_typed():
+def a_message_of_words_alone_reaches_the_session_as_it_was_typed() -> None:
     with _chat() as chat:
         chat.send("what is on the board?")
         prompt = _said_to(chat)
@@ -195,7 +205,7 @@ def a_message_of_words_alone_reaches_the_session_as_it_was_typed():
 
 
 @case
-def an_image_travels_as_a_path_the_session_reads():
+def an_image_travels_as_a_path_the_session_reads() -> None:
     """Claude Code takes no file in a request: it reads one from the disk."""
     with _chat() as chat:
         png = b"\x89PNG\r\n\x1a\n" + b"x" * 100
@@ -216,7 +226,7 @@ def an_image_travels_as_a_path_the_session_reads():
 
 
 @case
-def a_document_goes_with_or_without_words():
+def a_document_goes_with_or_without_words() -> None:
     with _chat() as chat:
         pdf = b"%PDF-1.7\n" + b"0" * 50
         said = chat.attach("spec.pdf", io.BytesIO(pdf), len(pdf))
@@ -229,7 +239,7 @@ def a_document_goes_with_or_without_words():
 
 
 @case
-def a_video_is_looked_at_through_frames_or_said_to_be_unseen():
+def a_video_is_looked_at_through_frames_or_said_to_be_unseen() -> None:
     with _chat() as chat:
         said = chat.attach("clip.mp4", io.BytesIO(b"\x00" * 64), 64)
         video = chat.attachment(said["id"])
@@ -243,7 +253,7 @@ def a_video_is_looked_at_through_frames_or_said_to_be_unseen():
 
 
 @case
-def a_file_past_the_limit_or_of_the_wrong_kind_is_refused_with_a_reason():
+def a_file_past_the_limit_or_of_the_wrong_kind_is_refused_with_a_reason() -> None:
     with _chat("[web]\nattachment_max_mb = 1\n") as chat:
         heavy = 2 * 1024 * 1024
         try:
@@ -269,7 +279,7 @@ def a_file_past_the_limit_or_of_the_wrong_kind_is_refused_with_a_reason():
 
 
 @case
-def a_new_conversation_leaves_the_old_one_its_files_until_it_is_deleted():
+def a_new_conversation_leaves_the_old_one_its_files_until_it_is_deleted() -> None:
     with _chat() as chat:
         chat.send("look at this")
         _said_to(chat)
@@ -295,7 +305,7 @@ def a_new_conversation_leaves_the_old_one_its_files_until_it_is_deleted():
 
 
 @case
-def conversations_are_listed_reopened_renamed_and_searched():
+def conversations_are_listed_reopened_renamed_and_searched() -> None:
     with _chat() as chat:
         chat.send("How do I rotate the Notion token?\nSecond line")
         _said_to(chat)
@@ -335,7 +345,7 @@ def conversations_are_listed_reopened_renamed_and_searched():
 
 
 @case
-def a_conversation_keeps_its_model_and_the_settings_name_the_default():
+def a_conversation_keeps_its_model_and_the_settings_name_the_default() -> None:
     with _chat('[web]\nchat_model = "haiku"\n') as chat:
         assert chat.effective_model() == "haiku", "the setting is the default of a new session"
         chat.choose("opus")
@@ -362,13 +372,13 @@ def a_conversation_keeps_its_model_and_the_settings_name_the_default():
 
 
 @case
-def an_openrouter_model_goes_through_openrouter_whatever_the_provider():
+def an_openrouter_model_goes_through_openrouter_whatever_the_provider() -> None:
     body = '[openrouter]\nkey = "sk-or-test"\n'
     with _chat(body) as chat:
-        seen: list[dict] = []
+        seen: list[dict[str, Any]] = []
         original = session.run
 
-        def run(prompt, **rest):
+        def run(prompt: str, **rest: Any) -> session.Outcome:
             seen.append(rest)
             return original(prompt, **rest)
 
@@ -390,7 +400,7 @@ def an_openrouter_model_goes_through_openrouter_whatever_the_provider():
 
 
 @case
-def the_catalogue_of_openrouter_is_read_once_and_a_failure_is_said():
+def the_catalogue_of_openrouter_is_read_once_and_a_failure_is_said() -> None:
     from ponos import openrouter as router
 
     listed = {
@@ -430,7 +440,7 @@ def the_catalogue_of_openrouter_is_read_once_and_a_failure_is_said():
 
 
 @case
-def a_recording_is_transcribed_and_a_refusal_says_its_sentence():
+def a_recording_is_transcribed_and_a_refusal_says_its_sentence() -> None:
     from ponos import openrouter as router
     from ponos import provider
 
@@ -455,7 +465,7 @@ def a_recording_is_transcribed_and_a_refusal_says_its_sentence():
 
 
 @case
-def the_single_conversation_of_chat_json_becomes_the_first_of_the_list(state_home):
+def the_single_conversation_of_chat_json_becomes_the_first_of_the_list(state_home: Path) -> None:
     web_console.web_dir().joinpath("chat.json").write_text(
         json.dumps(
             {
@@ -485,7 +495,7 @@ def the_single_conversation_of_chat_json_becomes_the_first_of_the_list(state_hom
 
 
 @case
-def a_stopped_session_takes_what_it_had_started_with_it():
+def a_stopped_session_takes_what_it_had_started_with_it() -> None:
     """Stop ends the CLI *and* the command it was running: nothing runs after it."""
     with tempfile.TemporaryDirectory() as directory:
         home = Path(directory)
@@ -525,11 +535,11 @@ def a_stopped_session_takes_what_it_had_started_with_it():
         assert ticks.stat().st_size == size, "the command it had started still runs"
 
 
-def _halting(chat, exists: bool = True):
+def _halting(chat: _Chat, exists: bool = True) -> list[dict[str, Any]]:
     """The `_chat` session, made to wait for Stop and say what it had done."""
-    calls: list[dict] = []
+    calls: list[dict[str, Any]] = []
 
-    def run(prompt, **rest):
+    def run(prompt: str, **rest: Any) -> session.Outcome:
         calls.append(rest)
         chat.prompts.append(prompt)
         # Long past any load: a turn of these cases ends on the Stop they press.
@@ -549,11 +559,11 @@ def _halting(chat, exists: bool = True):
         )
 
     session.run = run
-    session.exists = lambda identifier: exists
+    session.exists = lambda session_id: exists
     return calls
 
 
-def _until(condition, what: str, seconds: float = 60) -> None:
+def _until(condition: Callable[[], object], what: str, seconds: float = 60) -> None:
     """Wait for a state the case can see, not for a length of time.
 
     A turn ends on a thread of its own, after a commit to `ponos.db`: on a busy
@@ -567,12 +577,12 @@ def _until(condition, what: str, seconds: float = 60) -> None:
         time.sleep(0.01)
 
 
-def _settled(chat) -> None:
+def _settled(chat: _Chat) -> None:
     _until(lambda: not chat.busy, "the turn never ended")
 
 
 @case
-def a_stopped_turn_is_kept_and_the_conversation_carries_on():
+def a_stopped_turn_is_kept_and_the_conversation_carries_on() -> None:
     original = session.exists
     try:
         with _chat() as chat:
@@ -606,7 +616,7 @@ def a_stopped_turn_is_kept_and_the_conversation_carries_on():
 
 
 @case
-def a_first_turn_stopped_before_it_was_filed_starts_afresh():
+def a_first_turn_stopped_before_it_was_filed_starts_afresh() -> None:
     original = session.exists
     try:
         with _chat() as chat:
@@ -625,7 +635,7 @@ def a_first_turn_stopped_before_it_was_filed_starts_afresh():
 
 
 @case
-def files_nobody_closed_the_conversation_on_go_after_their_days(state_home):
+def files_nobody_closed_the_conversation_on_go_after_their_days(state_home: Path) -> None:
     root = web_console.attachments_dir()
     folder = web_attachments.Folder(root, "old")
     kept = folder.save("x.png", io.BytesIO(b"png"), 3, 100)
@@ -640,7 +650,7 @@ def files_nobody_closed_the_conversation_on_go_after_their_days(state_home):
 
 
 @case
-def an_attachment_is_written_0600_in_a_folder_only_its_owner_enters(state_home):
+def an_attachment_is_written_0600_in_a_folder_only_its_owner_enters(state_home: Path) -> None:
     """A pasted screenshot shows whatever was on the screen: nobody else's to read,
     whatever the umask, and a folder made before with the umask is tightened."""
     root = web_console.attachments_dir()
@@ -658,7 +668,7 @@ def an_attachment_is_written_0600_in_a_folder_only_its_owner_enters(state_home):
 
 
 @case
-def dictation_without_a_key_says_what_is_missing():
+def dictation_without_a_key_says_what_is_missing() -> None:
     with _chat() as chat:
         state = chat.state()["dictation"]
         assert state["ready"] is False and "OpenRouter key" in state["why"]
@@ -671,16 +681,16 @@ def dictation_without_a_key_says_what_is_missing():
 
 
 @case
-def dictation_is_sent_to_openrouter_in_the_language_asked_for():
+def dictation_is_sent_to_openrouter_in_the_language_asked_for() -> None:
     from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-    received: list[dict] = []
+    received: list[dict[str, Any]] = []
 
     class Whisper(BaseHTTPRequestHandler):
-        def log_message(self, *_):
+        def log_message(self, format: str, *args: Any) -> None:
             pass
 
-        def do_POST(self):  # noqa: N802
+        def do_POST(self) -> None:  # noqa: N802
             received.append(
                 {
                     "path": self.path,
@@ -716,7 +726,7 @@ def dictation_is_sent_to_openrouter_in_the_language_asked_for():
 
 
 @case
-def the_console_takes_a_file_as_a_raw_body_and_serves_it_back_sandboxed():
+def the_console_takes_a_file_as_a_raw_body_and_serves_it_back_sandboxed() -> None:
     """Over HTTP, with the guard header and the size limit the page cannot skip."""
     import urllib.error
     import urllib.request
@@ -730,7 +740,9 @@ def the_console_takes_a_file_as_a_raw_body_and_serves_it_back_sandboxed():
         threading.Thread(target=console.serve_forever, daemon=True).start()
         base = f"http://127.0.0.1:{console.server_address[1]}"
 
-        def post(path: str, body: bytes, guard: bool = True, kind: str = "image/png"):
+        def post(
+            path: str, body: bytes, guard: bool = True, kind: str = "image/png"
+        ) -> tuple[int, dict[str, Any], Message]:
             headers = {"Authorization": "Bearer tok", "Content-Type": kind}
             if guard:
                 headers["X-Ponos"] = "1"
@@ -774,7 +786,7 @@ def the_console_takes_a_file_as_a_raw_body_and_serves_it_back_sandboxed():
 
 
 @case
-def the_message_bar_is_one_block_with_its_gestures_inside():
+def the_message_bar_is_one_block_with_its_gestures_inside() -> None:
     """The bar is a component a ticket's thread can take, and the old form is gone.
 
     Read from the React source: what is checked is a decision about the page,
@@ -809,7 +821,7 @@ def the_message_bar_is_one_block_with_its_gestures_inside():
     )
 
 
-def _drained(chat, turns: int) -> None:
+def _drained(chat: _Chat, turns: int) -> None:
     for _ in range(500):
         if len(chat.prompts) >= turns and not chat.busy and not chat.queue:
             return
@@ -818,12 +830,12 @@ def _drained(chat, turns: int) -> None:
 
 
 @case
-def messages_sent_during_a_turn_wait_and_are_sent_in_order_after_it():
+def messages_sent_during_a_turn_wait_and_are_sent_in_order_after_it() -> None:
     with _chat() as chat:
         gate = threading.Event()
         original = session.run
 
-        def run(prompt, **rest):
+        def run(prompt: str, **rest: Any) -> session.Outcome:
             chat.prompts.append(prompt)
             if len(chat.prompts) == 1:
                 gate.wait(5)
@@ -857,7 +869,7 @@ def messages_sent_during_a_turn_wait_and_are_sent_in_order_after_it():
 
 
 @case
-def a_stop_holds_the_queue_until_it_is_sent_or_thrown_away():
+def a_stop_holds_the_queue_until_it_is_sent_or_thrown_away() -> None:
     original = session.exists
     try:
         with _chat() as chat:
@@ -895,10 +907,10 @@ def a_stop_holds_the_queue_until_it_is_sent_or_thrown_away():
 # -- in AG-UI ------------------------------------------------------------------
 
 
-def _speaking(chat) -> None:
+def _speaking(chat: _Chat) -> None:
     """The `_chat` session, made to say a sentence, call a tool, and answer."""
 
-    def run(prompt, **rest):
+    def run(prompt: str, **rest: Any) -> session.Outcome:
         chat.prompts.append(prompt)
         said = {"type": "text", "text": "I read the board."}
         call = {"type": "tool_use", "id": "toolu_1", "name": "Bash", "input": {"command": "ls"}}
@@ -915,12 +927,12 @@ def _speaking(chat) -> None:
     session.run = run
 
 
-def _agui(chat) -> list[dict]:
+def _agui(chat: _Chat) -> list[dict[str, Any]]:
     return [said["event"] for kind, said in chat.events if kind == "agui"]
 
 
 @case
-def a_turn_is_streamed_in_agui_and_kept_with_what_it_streamed():
+def a_turn_is_streamed_in_agui_and_kept_with_what_it_streamed() -> None:
     """The page's `useChat` reads the turn as it happens, and finds it again on reopening.
 
     The run is the page's: its message keeps the id `useChat` gave it, and the
@@ -972,7 +984,7 @@ def a_turn_is_streamed_in_agui_and_kept_with_what_it_streamed():
 
 
 @case
-def a_run_for_another_conversation_or_without_words_is_refused():
+def a_run_for_another_conversation_or_without_words_is_refused() -> None:
     with _chat() as chat:
         message = {"id": "m", "role": "user", "content": "hello"}
         try:
@@ -991,7 +1003,7 @@ def a_run_for_another_conversation_or_without_words_is_refused():
 
 
 @case
-def a_conversation_from_before_parts_is_drawn_from_its_words():
+def a_conversation_from_before_parts_is_drawn_from_its_words() -> None:
     """Older transcripts have text alone: each message is one part, under a stable id."""
     with _chat() as chat:
         chat.messages = [
@@ -1009,7 +1021,7 @@ def a_conversation_from_before_parts_is_drawn_from_its_words():
 
 
 @case
-def another_agui_client_is_answered_the_run_itself_as_server_sent_events():
+def another_agui_client_is_answered_the_run_itself_as_server_sent_events() -> None:
     """`Accept: text/event-stream`: the run, from `RUN_STARTED` to `RUN_FINISHED`."""
     from ponos.web import app as web_app
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import tempfile
 from pathlib import Path
+from typing import Any
 
 from support import _bare_api, _TalkClient, case
 
@@ -15,7 +16,7 @@ from ponos.web import live as web_live
 
 
 @case
-def a_browser_that_reconnects_is_given_only_what_it_missed():
+def a_browser_that_reconnects_is_given_only_what_it_missed() -> None:
     """The backlog is replayed by event id, or a suspend would double the chat."""
     hub = web_live.Hub()
     hub.publish("chat", stage="sent", text="one")
@@ -33,7 +34,7 @@ def a_browser_that_reconnects_is_given_only_what_it_missed():
 
 
 @case
-def an_event_carries_its_id_so_the_browser_can_ask_again():
+def an_event_carries_its_id_so_the_browser_can_ask_again() -> None:
     hub = web_live.Hub()
     hub.publish("step", label="Read", detail="src/x.py")
     channel = hub.subscribe(after=0)
@@ -44,7 +45,7 @@ def an_event_carries_its_id_so_the_browser_can_ask_again():
 
 
 @case
-def a_log_line_becomes_the_step_the_board_would_have_shown():
+def a_log_line_becomes_the_step_the_board_would_have_shown() -> None:
     """The live panel and the Notion toggle read the same events, one way."""
     line = json.dumps(
         {
@@ -60,7 +61,9 @@ def a_log_line_becomes_the_step_the_board_would_have_shown():
 
 
 @case
-def a_ticket_finds_its_own_session_and_tells_what_the_agent_said_from_what_it_did(state_home):
+def a_ticket_finds_its_own_session_and_tells_what_the_agent_said_from_what_it_did(
+    state_home: Path,
+) -> None:
     """The ticket page reads its journal by the ticket, not by a session id.
 
     What the agent said and what it ran are drawn differently there — the one
@@ -103,7 +106,7 @@ def a_ticket_finds_its_own_session_and_tells_what_the_agent_said_from_what_it_di
 
 
 @case
-def a_session_log_is_tailed_forward_and_never_twice():
+def a_session_log_is_tailed_forward_and_never_twice() -> None:
     hub = web_live.Hub()
     with tempfile.TemporaryDirectory() as directory:
         folder = Path(directory)
@@ -126,7 +129,7 @@ def a_session_log_is_tailed_forward_and_never_twice():
 
 
 @case
-def the_board_is_published_only_when_it_has_moved():
+def the_board_is_published_only_when_it_has_moved() -> None:
     """A poll that redrew an unchanged board would lose your scroll for nothing."""
     hub = web_live.Hub()
     boards = [
@@ -149,10 +152,12 @@ def the_board_is_published_only_when_it_has_moved():
     }, published[1].payload
 
 
-def _tickets(*cards: tuple[str, str, str]) -> dict:
+def _tickets(*cards: tuple[str, str, str]) -> dict[str, Any]:
     """A board as `Api.board` sorts it: by column, then by title."""
     order = ["ready", "running", "review"]
-    tickets = [{"id": i, "column": c, "title": t, "steps": 0} for i, c, t in cards]
+    tickets: list[dict[str, Any]] = [
+        {"id": i, "column": c, "title": t, "steps": 0} for i, c, t in cards
+    ]
     tickets.sort(key=lambda item: (order.index(item["column"]), item["title"]))
     return {
         "tickets": tickets,
@@ -161,7 +166,7 @@ def _tickets(*cards: tuple[str, str, str]) -> dict:
     }
 
 
-def _apply(board: dict, changes: dict) -> list[dict]:
+def _apply(board: dict[str, Any], changes: dict[str, Any]) -> list[dict[str, Any]]:
     """What `applyChanges` in `board-store.ts` does with them, line for line."""
     gone = set(changes["removed"]) | {entry["ticket"]["id"] for entry in changes["changed"]}
     tickets = [ticket for ticket in board["tickets"] if ticket["id"] not in gone]
@@ -176,7 +181,7 @@ def _apply(board: dict, changes: dict) -> list[dict]:
 
 
 @case
-def a_board_that_moved_is_sent_as_what_moved_and_gives_back_the_same_board():
+def a_board_that_moved_is_sent_as_what_moved_and_gives_back_the_same_board() -> None:
     """A card moved, one added, one gone: the page rebuilds exactly the board, in its order."""
     before = _tickets(
         ("a", "ready", "Alpha"),
@@ -204,14 +209,18 @@ def a_board_that_moved_is_sent_as_what_moved_and_gives_back_the_same_board():
 
 
 @case
-def a_ticket_in_flight_costs_the_stream_its_own_card_not_the_board():
+def a_ticket_in_flight_costs_the_stream_its_own_card_not_the_board() -> None:
     """475 tickets, one step further on one of them: under 10 KB, where the board is ~360."""
     filler = "x" * 600
     cards = [
         {"id": f"{n:032x}", "column": "backlog", "title": f"Ticket {n:03d}", "brief": filler}
         for n in range(475)
     ]
-    board = {"tickets": cards, "validate": True, "columns": [{"key": "backlog", "name": "Backlog"}]}
+    board: dict[str, Any] = {
+        "tickets": cards,
+        "validate": True,
+        "columns": [{"key": "backlog", "name": "Backlog"}],
+    }
     moved = {**board, "tickets": [dict(card) for card in cards]}
     moved["tickets"][200]["steps"] = 42
     hub = web_live.Hub()
@@ -226,7 +235,7 @@ def a_ticket_in_flight_costs_the_stream_its_own_card_not_the_board():
 
 
 @case
-def a_browser_is_given_the_whole_board_again_only_when_it_missed_a_version():
+def a_browser_is_given_the_whole_board_again_only_when_it_missed_a_version() -> None:
     hub = web_live.Hub()
     watch = web_live.Watch(
         hub,
@@ -260,11 +269,11 @@ def a_browser_is_given_the_whole_board_again_only_when_it_missed_a_version():
 
 
 @case
-def the_board_just_read_is_handed_out_again_without_asking_notion():
+def the_board_just_read_is_handed_out_again_without_asking_notion() -> None:
     """The statistics take the watching thread's board, and read one only when it is old."""
     reads = []
 
-    def board():
+    def board() -> dict[str, Any]:
         reads.append(1)
         return _tickets(("a", "ready", "Alpha"))
 
@@ -279,7 +288,7 @@ def the_board_just_read_is_handed_out_again_without_asking_notion():
 
 
 @case
-def a_write_from_the_console_that_changed_nothing_sends_the_board_whole():
+def a_write_from_the_console_that_changed_nothing_sends_the_board_whole() -> None:
     """The page drew the card ahead; a board that did not move puts it back."""
     board = _tickets(("a", "ready", "Alpha"))
     hub = web_live.Hub()
@@ -292,7 +301,7 @@ def a_write_from_the_console_that_changed_nothing_sends_the_board_whole():
 
 
 @case
-def a_board_read_lets_the_bell_go_of_a_ticket_that_moved_on(state_home):
+def a_board_read_lets_the_bell_go_of_a_ticket_that_moved_on(state_home: Path) -> None:
     """The console holds the board: it is the one that settles the bell against it."""
     from datetime import UTC, datetime, timedelta
 
@@ -318,13 +327,13 @@ def a_board_read_lets_the_bell_go_of_a_ticket_that_moved_on(state_home):
 
 
 @case
-def a_notion_that_will_not_answer_reaches_the_console_as_a_notice():
+def a_notion_that_will_not_answer_reaches_the_console_as_a_notice() -> None:
     """Named `notice`: EventSource already fires an `error` of its own."""
     hub = web_live.Hub()
     said = []
     hub.publish = lambda kind, **payload: said.append((kind, payload))  # type: ignore[method-assign]
 
-    def broken() -> dict:
+    def broken() -> dict[str, Any]:
         raise notion.NotionError("object not found\nsecond line nobody needs")
 
     web_live.Watch(hub, broken).refresh()
@@ -332,7 +341,7 @@ def a_notion_that_will_not_answer_reaches_the_console_as_a_notice():
 
 
 @case
-def a_session_identifier_is_read_from_either_shape_of_the_column():
+def a_session_identifier_is_read_from_either_shape_of_the_column() -> None:
     """A URL column holds a link, a text column holds the bare ID. Same session."""
     from ponos.web.tickets import _session_id
 

@@ -5,15 +5,18 @@ from __future__ import annotations
 import http.client
 import json
 import threading
+from pathlib import Path
+from typing import Any
 
 from support import _bare_api, case
 
 from ponos import notion, workspace
 from ponos.web import answers
+from ponos.web import api as web_api
 
 
 @case
-def the_schema_says_what_each_route_answers_and_what_the_stream_carries():
+def the_schema_says_what_each_route_answers_and_what_the_stream_carries() -> None:
     """A route names its answer, and a key that may be missing is not a key with a default.
 
     `openapi-typescript` reads a default as "always there": a key the answer
@@ -42,7 +45,7 @@ def the_schema_says_what_each_route_answers_and_what_the_stream_carries():
 
 
 @case
-def every_route_that_answers_json_names_its_shape():
+def every_route_that_answers_json_names_its_shape() -> None:
     """No route left for the page to type by hand — but the four that answer bytes.
 
     A picture, a file of the board (a redirect to it), a file of the
@@ -68,13 +71,13 @@ def every_route_that_answers_json_names_its_shape():
 # -- the goals -----------------------------------------------------------------
 
 
-def _row(page_id: str, title: str, **columns: dict) -> notion.Page:
+def _row(page_id: str, title: str, **columns: dict[str, Any]) -> notion.Page:
     return notion.Page(
         id=page_id, url=f"https://notion.so/{page_id}", title=title, properties=columns
     )
 
 
-def _text(value: str) -> dict:
+def _text(value: str) -> dict[str, Any]:
     return {"type": "rich_text", "rich_text": [{"plain_text": value}]}
 
 
@@ -87,7 +90,7 @@ class _GoalsClient:
     def options(self, database: str, name: str) -> list[str]:
         return ["À faire", "En cours", "Fait"] if (database, name) == ("goals-db", "Statut") else []
 
-    def query(self, database: str, *args, **kwargs) -> list[notion.Page]:
+    def query(self, database: str, *args: Any, **kwargs: Any) -> list[notion.Page]:
         if database == "goals-db":
             return [
                 _row(
@@ -108,8 +111,9 @@ class _GoalsClient:
         return []
 
 
-def _goals_api():
+def _goals_api() -> web_api.Api:
     api = _bare_api(_GoalsClient())
+    assert api._runner is not None
     api._runner._workspace = workspace.Workspace(
         tickets="tickets-db", projects="projects-db", goals="goals-db"
     )
@@ -119,7 +123,7 @@ def _goals_api():
 
 
 @case
-def a_goal_counts_the_tickets_the_board_lists_column_by_column():
+def a_goal_counts_the_tickets_the_board_lists_column_by_column() -> None:
     """The progress is the board's, counted: no rollup read, a Markdown board has none."""
     api = _goals_api()
     tickets = [
@@ -129,7 +133,7 @@ def a_goal_counts_the_tickets_the_board_lists_column_by_column():
         {"id": "t4", "goal_id": "", "column": "done"},
         {"column": "ready"},
     ]
-    api._goal_tickets = lambda: tickets
+    api._goal_tickets = lambda: tickets  # type: ignore[method-assign]  # a double: no board read
     said = api.goals()
     assert said["configured"] is True
     # Which board, for the page that would say "Notion" on a board of files.
@@ -148,7 +152,7 @@ def a_goal_counts_the_tickets_the_board_lists_column_by_column():
 
 
 @case
-def a_card_names_the_goal_it_serves_and_a_card_without_one_says_nothing():
+def a_card_names_the_goal_it_serves_and_a_card_without_one_says_nothing() -> None:
     api = _goals_api()
     goals = api._goal_index()
     pointing = _row("t-1", "un", Objectif={"type": "relation", "relation": [{"id": "aaaa-goal"}]})
@@ -163,7 +167,7 @@ def a_card_names_the_goal_it_serves_and_a_card_without_one_says_nothing():
 class _ClosedGoalsClient(_GoalsClient):
     """The same goals, a met one beside them, on a board that can point at a goal."""
 
-    def query(self, database: str, *args, **kwargs) -> list[notion.Page]:
+    def query(self, database: str, *args: Any, **kwargs: Any) -> list[notion.Page]:
         found = super().query(database, *args, **kwargs)
         if database == "goals-db":
             met = {"type": "status", "status": {"name": "Atteint"}}
@@ -175,10 +179,11 @@ class _ClosedGoalsClient(_GoalsClient):
 
 
 @case
-def a_new_ticket_is_offered_the_goals_still_worked_toward_with_their_projects():
+def a_new_ticket_is_offered_the_goals_still_worked_toward_with_their_projects() -> None:
     """A met goal waits on no ticket; one without a status is not one that is over."""
     api = _goals_api()
-    api._runner.client = _ClosedGoalsClient()
+    assert api._runner is not None
+    api._runner.client = _ClosedGoalsClient()  # type: ignore[assignment]  # a fake: goals in memory
     index = api._goal_index()
     assert index["dddd-goal"]["status"] == "Atteint" and not index["dddd-goal"]["active"]
     assert index["aaaa-goal"]["project_ids"] == ["ppppsite"], index
@@ -189,13 +194,13 @@ def a_new_ticket_is_offered_the_goals_still_worked_toward_with_their_projects():
     ], offered
     answers.TicketChoices.model_validate({"goal": offered})
     # The goals page still lists it, and says it is over.
-    api._goal_tickets = lambda: []
+    api._goal_tickets = lambda: []  # type: ignore[method-assign]  # a double: no board read
     rows = {goal["name"]: goal["active"] for goal in api.goals()["goals"]}
     assert rows == {"Lancer la v1": True, "Ranger": True, "Livrer la bêta": False}, rows
 
 
 @case
-def the_goals_route_answers_the_goals_with_their_counts(state_home):
+def the_goals_route_answers_the_goals_with_their_counts(state_home: Path) -> None:
     """`GET /api/goals`, through the console: the shape it names is the one it sends."""
     from ponos.web import app
 
@@ -209,7 +214,9 @@ def the_goals_route_answers_the_goals_with_their_counts(state_home):
 
     api = _goals_api()
     api.config.web.token = "tok"
-    api._goal_tickets = lambda: [{"id": "t1", "goal_id": "bbbbgoal", "column": "done"}]
+    api._goal_tickets = lambda: [  # type: ignore[method-assign]  # a double: no board read
+        {"id": "t1", "goal_id": "bbbbgoal", "column": "done"}
+    ]
     console = app.Console(("127.0.0.1", 0), api, "tok", None, "")
     threading.Thread(target=console.serve_forever, daemon=True).start()
     try:

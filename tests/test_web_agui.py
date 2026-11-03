@@ -2,21 +2,23 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from support import case
 
 from ponos.web import agui
 
 
-def _said(text: str) -> dict:
+def _said(text: str) -> dict[str, Any]:
     return {"type": "assistant", "message": {"content": [{"type": "text", "text": text}]}}
 
 
-def _called(identifier: str, name: str, given: dict) -> dict:
+def _called(identifier: str, name: str, given: dict[str, Any]) -> dict[str, Any]:
     block = {"type": "tool_use", "id": identifier, "name": name, "input": given}
     return {"type": "assistant", "message": {"content": [block]}}
 
 
-def _answered(identifier: str, content: object, failed: bool = False) -> dict:
+def _answered(identifier: str, content: object, failed: bool = False) -> dict[str, Any]:
     block = {"type": "tool_result", "tool_use_id": identifier, "content": content}
     if failed:
         block["is_error"] = True
@@ -24,7 +26,7 @@ def _answered(identifier: str, content: object, failed: bool = False) -> dict:
 
 
 @case
-def a_turn_is_one_answer_made_of_its_parts_in_the_order_they_came():
+def a_turn_is_one_answer_made_of_its_parts_in_the_order_they_came() -> None:
     """One message for the whole turn, opened before anything is said in it.
 
     The session says a turn in several messages; the page draws one answer —
@@ -72,7 +74,7 @@ def a_turn_is_one_answer_made_of_its_parts_in_the_order_they_came():
 
 
 @case
-def a_failed_tool_is_said_failed_and_a_long_answer_is_kept_short():
+def a_failed_tool_is_said_failed_and_a_long_answer_is_kept_short() -> None:
     turn = agui.Turn("thread-1")
     turn.read(_called("toolu_1", "Bash", {"command": "false"}))
     failed = turn.read(_answered("toolu_1", "exit 1", failed=True))
@@ -89,7 +91,7 @@ def a_failed_tool_is_said_failed_and_a_long_answer_is_kept_short():
 
 
 @case
-def a_stopped_or_failed_turn_still_closes_what_it_opened():
+def a_stopped_or_failed_turn_still_closes_what_it_opened() -> None:
     turn = agui.Turn("thread-1", "run-9")
     turn.read(_called("toolu_1", "Bash", {"command": "sleep 600"}))
     stopped = turn.finished(stopped=True)
@@ -105,7 +107,7 @@ def a_stopped_or_failed_turn_still_closes_what_it_opened():
 
 
 @case
-def the_message_a_run_answers_is_read_whichever_way_it_is_written():
+def the_message_a_run_answers_is_read_whichever_way_it_is_written() -> None:
     """TanStack AI sends parts; another AG-UI client, a string or blocks."""
     tanstack = {
         "id": "msg-1",
@@ -129,7 +131,7 @@ def the_message_a_run_answers_is_read_whichever_way_it_is_written():
 
 
 @case
-def an_answer_said_only_in_the_result_is_kept_as_the_last_words():
+def an_answer_said_only_in_the_result_is_kept_as_the_last_words() -> None:
     """Claude Code repeats its last sentence in `result`: said once, never twice."""
     turn = agui.Turn("thread-1")
     turn.read(_said("Let me look."))

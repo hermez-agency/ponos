@@ -44,7 +44,7 @@ def _bare_console() -> web_api.Api:
 
 
 @case
-def the_health_is_checked_once_for_two_pages_and_again_when_asked_afresh(state_home):
+def the_health_is_checked_once_for_two_pages_and_again_when_asked_afresh(state_home: Path) -> None:
     """`gh auth status` asks GitHub, and the band asks on every tickets page.
 
     Ten seconds of checks on a busy day: two pages in a row are one check, and
@@ -71,7 +71,7 @@ def the_health_is_checked_once_for_two_pages_and_again_when_asked_afresh(state_h
 
 
 @case
-def an_answer_past_its_time_is_given_at_once_and_checked_again_behind_it(state_home):
+def an_answer_past_its_time_is_given_at_once_and_checked_again_behind_it(state_home: Path) -> None:
     """Eighteen seconds for whoever opened the dashboard after five minutes.
 
     The answer held is the one given, however old; one check starts behind it,

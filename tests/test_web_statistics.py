@@ -13,6 +13,7 @@ import threading
 import time
 from datetime import UTC, date, datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any, cast
 
 from support import (
     FRONTEND,
@@ -27,6 +28,7 @@ from support import (
     _recurring,
     _saved,
     _schedule_page,
+    _ScheduleClient,
     _TalkClient,
     case,
 )
@@ -57,12 +59,14 @@ from ponos.web import tickets as web_tickets
 # -- statistics --------------------------------------------------------------
 
 
-def _card(key: str, column: str, created: str, edited: str = "", project: str = "") -> dict:
+def _card(
+    key: str, column: str, created: str, edited: str = "", project: str = ""
+) -> dict[str, Any]:
     return {"id": key, "column": column, "created": created, "edited": edited, "project": project}
 
 
 @case
-def a_closing_is_dated_by_the_runner_before_the_last_edit():
+def a_closing_is_dated_by_the_runner_before_the_last_edit() -> None:
     """The history says the minute the runner closed a ticket; an edit since does not move it.
 
     And a session that opened a pull request reports "done" without closing
@@ -88,7 +92,7 @@ def a_closing_is_dated_by_the_runner_before_the_last_edit():
 
 
 @case
-def the_open_curve_starts_from_the_board_as_it_stood_and_ends_on_it():
+def the_open_curve_starts_from_the_board_as_it_stood_and_ends_on_it() -> None:
     """What is open on the last day is what the board shows as not done.
 
     A ticket from before the period counts from the first point, not from its
@@ -128,7 +132,7 @@ def the_open_curve_starts_from_the_board_as_it_stood_and_ends_on_it():
 
 
 @case
-def a_cancelled_ticket_is_neither_closed_nor_open_and_keeps_its_cost():
+def a_cancelled_ticket_is_neither_closed_nor_open_and_keeps_its_cost() -> None:
     """Given up on is not done, and not somebody's to deal with any more.
 
     It leaves the open curve on its last edit without being counted closed,
@@ -157,7 +161,7 @@ def a_cancelled_ticket_is_neither_closed_nor_open_and_keeps_its_cost():
 
 
 @case
-def the_open_tickets_of_the_last_day_are_the_boards_not_closed_ones():
+def the_open_tickets_of_the_last_day_are_the_boards_not_closed_ones() -> None:
     """Open on the evening of today is every card but done, validated and cancelled.
 
     Validated is approved and left to the runner to merge: nothing is left for
@@ -180,7 +184,7 @@ def the_open_tickets_of_the_last_day_are_the_boards_not_closed_ones():
 
 
 @case
-def the_tickets_created_are_handed_by_type_sub_type_and_project():
+def the_tickets_created_are_handed_by_type_sub_type_and_project() -> None:
     """Cells the console filters on the spot, day by day up to a month, and the period before.
 
     A code ticket with no sub-type, or one the table does not know, is a cell
@@ -188,7 +192,9 @@ def the_tickets_created_are_handed_by_type_sub_type_and_project():
     one of the same length that ends the day before.
     """
 
-    def card(key: str, created: str, kind: str, subtype: str = "", project: str = "") -> dict:
+    def card(
+        key: str, created: str, kind: str, subtype: str = "", project: str = ""
+    ) -> dict[str, Any]:
         return {**_card(key, "ready", created, project=project), "type": kind, "subtype": subtype}
 
     tickets = [
@@ -246,7 +252,7 @@ def the_tickets_created_are_handed_by_type_sub_type_and_project():
 
 
 @case
-def the_projects_figures_add_up_to_the_boards():
+def the_projects_figures_add_up_to_the_boards() -> None:
     """Created and spent, project by project, are the board's — less the tickets with no project.
 
     A project's figures are the board's over its tickets alone, and its
@@ -299,7 +305,7 @@ def the_projects_figures_add_up_to_the_boards():
 
 
 @case
-def a_day_is_this_machines_day():
+def a_day_is_this_machines_day() -> None:
     """23:30 in Paris is that evening, not the next UTC morning's."""
 
     paris = timezone(timedelta(hours=2))
@@ -311,7 +317,7 @@ def a_day_is_this_machines_day():
 
 
 @case
-def a_period_is_thirty_days_unless_it_says_otherwise():
+def a_period_is_thirty_days_unless_it_says_otherwise() -> None:
 
     today = date(2026, 9, 29)
     assert web_statistics.period("", "", today) == (date(2026, 8, 31), today)
@@ -328,14 +334,14 @@ def a_period_is_thirty_days_unless_it_says_otherwise():
 
 
 @case
-def changing_the_period_does_not_read_the_board_again(state_home):
+def changing_the_period_does_not_read_the_board_again(state_home: Path) -> None:
     """Two periods asked one after the other: one board read, the watcher's."""
     from ponos.web import live as web_live
 
     api = _bare_api(_TalkClient([]))
     reads = []
 
-    def board() -> dict:
+    def board() -> dict[str, Any]:
         reads.append(1)
         return {"tickets": [_card("a", "done", "2026-09-01T09:00:00+00:00")]}
 
@@ -350,7 +356,7 @@ def changing_the_period_does_not_read_the_board_again(state_home):
 
 
 @case
-def a_message_typed_at_a_ticket_is_a_comment_in_your_own_voice():
+def a_message_typed_at_a_ticket_is_a_comment_in_your_own_voice() -> None:
     """The console writes with the runner's token; the words are still yours.
 
     Without the relayed opening, the next run would read its own voice under its
@@ -383,7 +389,7 @@ def a_message_typed_at_a_ticket_is_a_comment_in_your_own_voice():
 
 
 @case
-def a_ticket_the_runner_has_never_spoken_on_gets_a_thread_of_its_own():
+def a_ticket_the_runner_has_never_spoken_on_gets_a_thread_of_its_own() -> None:
     """No question to answer, and none invented: the message opens a discussion."""
     client = _TalkClient(
         [notion.Comment("une remarque", discussion_id="d-mine", created_by="salva")]
@@ -400,7 +406,7 @@ def a_ticket_the_runner_has_never_spoken_on_gets_a_thread_of_its_own():
 
 
 @case
-def the_discussion_of_a_ticket_reads_as_a_conversation():
+def the_discussion_of_a_ticket_reads_as_a_conversation() -> None:
     """The ticket's terminal is the page's comments, said by who said them."""
     client = _TalkClient(
         [
@@ -433,7 +439,7 @@ def the_discussion_of_a_ticket_reads_as_a_conversation():
 
 
 @case
-def a_question_left_unanswered_is_a_ticket_waiting_on_you():
+def a_question_left_unanswered_is_a_ticket_waiting_on_you() -> None:
     """The page opens on the discussion when the last word is a run's question."""
     question = notion.Comment(
         f"{voice.MARKS['blocked']} Question\nWhich header?",
@@ -458,7 +464,7 @@ def a_question_left_unanswered_is_a_ticket_waiting_on_you():
 
 
 @case
-def a_message_written_to_a_ticket_reaches_every_open_console():
+def a_message_written_to_a_ticket_reaches_every_open_console() -> None:
     """A click posts and says nothing: what appears is what came back on the stream."""
     api = _bare_api(_TalkClient([]))
     channel = api.hub.subscribe(after=0)
@@ -471,7 +477,7 @@ def a_message_written_to_a_ticket_reaches_every_open_console():
 
 
 @case
-def a_password_is_masked_and_what_only_talks_of_one_is_left_alone():
+def a_password_is_masked_and_what_only_talks_of_one_is_left_alone() -> None:
     """The sentences `frontend/src/lib/secrets.test.ts` reads, read here too.
 
     Masked, the label stays and the value goes: the next session still knows
@@ -513,7 +519,7 @@ def a_password_is_masked_and_what_only_talks_of_one_is_left_alone():
 
 
 @case
-def the_page_and_the_runner_know_the_same_tokens():
+def the_page_and_the_runner_know_the_same_tokens() -> None:
     """`secrets.ts` warns about what `redaction` masks: the same list, twice."""
     source = (Path(__file__).resolve().parents[1] / "frontend/src/lib/secrets.ts").read_text()
     listed = re.search(r"export const TOKENS[^\[]*\[(.*?)\n\]", source, re.S)
@@ -523,7 +529,7 @@ def the_page_and_the_runner_know_the_same_tokens():
 
 
 @case
-def a_password_typed_at_a_ticket_never_reaches_the_page():
+def a_password_typed_at_a_ticket_never_reaches_the_page() -> None:
     """Masked before the comment, the stream and the answer all see it."""
     client = _TalkClient([])
     api = _bare_api(client)
@@ -543,7 +549,7 @@ def a_password_typed_at_a_ticket_never_reaches_the_page():
 
 
 @case
-def a_password_given_with_a_decision_never_reaches_the_page(state_home):
+def a_password_given_with_a_decision_never_reaches_the_page(state_home: Path) -> None:
     """The instruction typed under a blocked ticket is an answer like any other."""
     settings = C.Notion()
     with _board() as board:
@@ -559,7 +565,7 @@ def a_password_given_with_a_decision_never_reaches_the_page(state_home):
 
 
 @case
-def the_console_draws_what_comes_back_on_its_own():
+def the_console_draws_what_comes_back_on_its_own() -> None:
     """A schedule the runner reads is one the console shows, problem included.
 
     And the switch travels with the rows, because a browser is the one place
@@ -607,13 +613,13 @@ def the_console_draws_what_comes_back_on_its_own():
     # A projects cache gone cold is not a query the rows wait for: the name is
     # left to the console, which has the page to find it by.
     api._projects = {}
-    api.projects = lambda: (_ for _ in ()).throw(AssertionError("the projects were read"))
+    api.projects = lambda: (_ for _ in ()).throw(AssertionError("the projects were read"))  # type: ignore[method-assign]  # a double: never asked
     first = api.schedules()["schedules"][0]
     assert first["project"] == "" and first["project_id"] == "pnorthwind"
 
 
 @case
-def a_second_launch_of_the_same_schedule_is_refused_while_the_first_runs():
+def a_second_launch_of_the_same_schedule_is_refused_while_the_first_runs() -> None:
     """The double click: one ticket, and the second request told why."""
     api = _bare_api(_TalkClient([]))
     api._runner = _recurring([_schedule_page("s-1")])
@@ -621,7 +627,7 @@ def a_second_launch_of_the_same_schedule_is_refused_while_the_first_runs():
     api._launching, api._launch_guard = set(), __import__("threading").Lock()
     seen: list[str] = []
 
-    def slow(page_id):
+    def slow(page_id: str) -> dict[str, Any]:
         # The double click lands while the first launch is still writing.
         try:
             api.launch_schedule("s-1")
@@ -629,7 +635,7 @@ def a_second_launch_of_the_same_schedule_is_refused_while_the_first_runs():
             seen.append(str(error))
         return {"id": "t1", "ticket": "Revue"}
 
-    api._runner.launch = slow
+    api._runner.launch = slow  # type: ignore[method-assign]  # a double: a launch still writing
     assert api.launch_schedule("s-1") == {"ticket": "t1", "title": "Revue"}
     assert seen and "already being launched" in seen[0]
     # And the guard is let go of, so that the next launch is not refused for ever.
@@ -637,7 +643,7 @@ def a_second_launch_of_the_same_schedule_is_refused_while_the_first_runs():
 
 
 @case
-def a_schedule_deleted_from_the_console_goes_to_the_trash_and_is_no_longer_read():
+def a_schedule_deleted_from_the_console_goes_to_the_trash_and_is_no_longer_read() -> None:
     """Deleting is the board's trash, not a tick: the row leaves every query.
 
     Its tickets are not touched — only the schedule goes — and the page is not
@@ -647,8 +653,8 @@ def a_schedule_deleted_from_the_console_goes_to_the_trash_and_is_no_longer_read(
     api._runner = _recurring([_schedule_page("s-1", name="Test email"), _schedule_page("s-2")])
     api._config = api._runner.config
     api._projects = {}
-    api.projects = lambda: {"projects": []}
-    client = api._runner.client
+    api.projects = lambda: {"projects": []}  # type: ignore[method-assign, dict-item]  # a double: no project
+    client = cast(_ScheduleClient, api._runner.client)
 
     answer = api.delete_schedule("s-1")
     assert answer == {"id": "s1", "name": "Test email"}
@@ -667,7 +673,7 @@ def a_schedule_deleted_from_the_console_goes_to_the_trash_and_is_no_longer_read(
 
 
 @case
-def the_schedules_are_answered_from_what_the_console_holds_and_read_again_behind():
+def the_schedules_are_answered_from_what_the_console_holds_and_read_again_behind() -> None:
     """Nineteen seconds at the first opening, 350 ms at every other, for two rows.
 
     The rows held are answered without asking Notion; older than the watcher's
@@ -677,16 +683,16 @@ def the_schedules_are_answered_from_what_the_console_holds_and_read_again_behind
     api = _bare_api(_TalkClient([]))
     api._runner = _recurring([_schedule_page("s-1")])
     api._config = api._runner.config
-    api.projects = lambda: {"projects": []}
-    client = api._runner.client
+    api.projects = lambda: {"projects": []}  # type: ignore[method-assign, dict-item]  # a double: no project
+    client = cast(_ScheduleClient, api._runner.client)
     asked: list[str] = []
     query = client.query
 
-    def counted(database_id, filter_=None):
+    def counted(database_id: str, filter_: dict[str, Any] | None = None) -> list[notion.Page]:
         asked.append(database_id)
         return query(database_id, filter_)
 
-    client.query = counted
+    client.query = counted  # type: ignore[method-assign]  # a double: the queries are counted
     assert [row["id"] for row in api.schedules()["schedules"]] == ["s1"]
     assert [row["id"] for row in api.schedules()["schedules"]] == ["s1"]
     assert asked == ["db-schedules"], "the second answer is the rows held"
@@ -695,6 +701,7 @@ def the_schedules_are_answered_from_what_the_console_holds_and_read_again_behind
     # Written in Notion meanwhile, and the watcher's period gone by.
     channel = api.hub.subscribe()
     client._pages = [*client._pages, _schedule_page("s-2", name="Le rapport")]
+    assert api._schedules_held is not None
     read_at, *rest = api._schedules_held
     api._schedules_held = (read_at - api.config.web.poll_seconds, *rest)
     assert [row["id"] for row in api.schedules()["schedules"]] == ["s1"], "not waited for"
@@ -714,7 +721,7 @@ def the_schedules_are_answered_from_what_the_console_holds_and_read_again_behind
 
 
 @case
-def the_console_never_shows_a_next_occurrence_already_behind_us():
+def the_console_never_shows_a_next_occurrence_already_behind_us() -> None:
     """`Next` is the pass's bookmark; the list says when a ticket is born.
 
     Turned off three weeks ago, a schedule keeps the date it had then — and
@@ -731,15 +738,14 @@ def the_console_never_shows_a_next_occurrence_already_behind_us():
     )
     api._config = api._runner.config
     api._projects = {}
-    api.projects = lambda: {"projects": []}
+    api.projects = lambda: {"projects": []}  # type: ignore[method-assign, dict-item]  # a double: no project
 
     before = datetime.now().astimezone().replace(second=0, microsecond=0)
     paused, due = api.schedules()["schedules"]
     assert paused["active"] is False and paused["next"] == "", "a paused schedule has no next"
     assert paused["cadence"] == "Hourly", "the word the board holds, translated by the page"
-    assert schedules.scheduled_for(due["next"]) >= before, (
-        f"an occurrence in the past: {due['next']}"
-    )
+    next_at = schedules.scheduled_for(due["next"])
+    assert next_at is not None and next_at >= before, f"an occurrence in the past: {due['next']}"
 
 
 class _PageClient(_TalkClient):
@@ -764,7 +770,7 @@ class _PageClient(_TalkClient):
 
 
 @case
-def a_ticket_read_on_its_own_is_the_card_and_the_page_under_it():
+def a_ticket_read_on_its_own_is_the_card_and_the_page_under_it() -> None:
     """The board hands out rows; the ticket's page hands out what was written on it.
 
     Same shape as the card — the console draws one component for both — plus
@@ -772,6 +778,7 @@ def a_ticket_read_on_its_own_is_the_card_and_the_page_under_it():
     brief you wrote, and the report a run appended under it.
     """
     api = _bare_api(_PageClient("# Brief\nRetirer le bandeau du dashboard.\n\n- [x] fait"))
+    assert api._runner is not None
     api._runner._workspace = type("W", (), {"goals": "", "projects": ""})()
     payload = api.ticket("1a2b3c4d000000000000000000000000")
     assert payload["id"] == "1a2b3c4d000000000000000000000000", "the id is the one the board uses"
@@ -782,6 +789,7 @@ def a_ticket_read_on_its_own_is_the_card_and_the_page_under_it():
     assert "- [x] fait" in payload["content"]
 
     elsewhere = _bare_api(_PageClient("", status="Parked"))
+    assert elsewhere._runner is not None
     elsewhere._runner._workspace = type("W", (), {"goals": "", "projects": ""})()
     assert elsewhere.ticket("1a2b3c4d000000000000000000000000")["column"] == "draft"
 
@@ -801,7 +809,9 @@ class _NotedPageClient(_PageClient):
 
 
 @case
-def a_card_put_back_in_ready_drops_the_last_pass_line_and_its_page_keeps_it_dated(state_home):
+def a_card_put_back_in_ready_drops_the_last_pass_line_and_its_page_keeps_it_dated(
+    state_home: Path,
+) -> None:
     """Validated, then ready again: the refusal is history, not what the card says.
 
     Nothing empties the cell when the ticket is moved back — by hand, in Notion
@@ -826,12 +836,14 @@ def a_card_put_back_in_ready_drops_the_last_pass_line_and_its_page_keeps_it_date
     ], cards
 
     validated = _bare_api(_NotedPageClient("", status="Validated"))
+    assert validated._runner is not None
     validated._runner._workspace = type("W", (), {"goals": "", "projects": ""})()
     payload = validated.ticket(ticket)
     assert payload["progress"] == _NotedPageClient.NOTE, "in validated the line is the card's"
     assert "earlier" not in payload, "nor is it said twice on its page"
 
     ready = _bare_api(_NotedPageClient("", status="Ready"))
+    assert ready._runner is not None
     ready._runner._workspace = type("W", (), {"goals": "", "projects": ""})()
     payload = ready.ticket(ticket)
     assert payload["progress"] == "", "back in ready, the card no longer draws the refusal"
@@ -860,7 +872,7 @@ class _EditedPageClient(_PageClient):
 
 
 @case
-def a_ticket_page_is_read_again_only_when_notion_says_it_changed():
+def a_ticket_page_is_read_again_only_when_notion_says_it_changed() -> None:
     """Opening a ticket read every block of its page, one to three seconds a time.
 
     The row is still read each time — it is what says the page moved — and the
@@ -870,6 +882,7 @@ def a_ticket_page_is_read_again_only_when_notion_says_it_changed():
     """
     client = _EditedPageClient("first brief", "2026-09-01T09:00:00.000Z")
     api = _bare_api(client)
+    assert api._runner is not None
     api._runner._workspace = type("W", (), {"goals": "", "projects": ""})()
     ticket = "1a2b3c4d000000000000000000000000"
     assert api.ticket(ticket)["content"] == "first brief"
@@ -891,6 +904,7 @@ def a_ticket_page_is_read_again_only_when_notion_says_it_changed():
 
     files = _EditedPageClient("on disk", "2026-09-01T09:00:00.000Z")
     board = _bare_api(files)
+    assert board._runner is not None
     board._runner._workspace = type("W", (), {"goals": "", "projects": ""})()
     board._config.storage = C.Storage(mode="markdown")
     board.ticket(ticket)
@@ -899,7 +913,7 @@ def a_ticket_page_is_read_again_only_when_notion_says_it_changed():
 
 
 @case
-def a_relation_is_written_as_notion_spells_it():
+def a_relation_is_written_as_notion_spells_it() -> None:
     """A ticket created from the console names its project, or it is not one."""
     page = "3ca451680af480ae9443de0b65d9abf8"
     assert notion._encode("relation", page) == {"relation": [{"id": page}]}
@@ -908,7 +922,7 @@ def a_relation_is_written_as_notion_spells_it():
 
 
 @case
-def a_ticket_under_no_known_status_is_a_draft_and_no_column_is_added_for_it():
+def a_ticket_under_no_known_status_is_a_draft_and_no_column_is_added_for_it() -> None:
     """The board used to draw a "No status" column of its own, after Done.
 
     A ticket written without a status is a draft, and so is one under a status
@@ -917,6 +931,7 @@ def a_ticket_under_no_known_status_is_a_draft_and_no_column_is_added_for_it():
     the drafts have, on the left — no column is added for them.
     """
     api = _bare_api(_ColumnsClient(["Ready", "", "Parked"]))
+    assert api._runner is not None
     api._runner._workspace = type("W", (), {"goals": "", "projects": "", "tickets": "db"})()
     api._schema_at = time.time()
     board = api.board()
@@ -940,7 +955,7 @@ class _CancelClient(_ColumnsClient):
 
 
 @case
-def a_cancelled_ticket_has_its_column_where_the_board_offers_one():
+def a_cancelled_ticket_has_its_column_where_the_board_offers_one() -> None:
     """Cancelled closes the row, beside Done — on a board that can say it.
 
     A Notion board without the option is told rather than written into: no
@@ -950,6 +965,7 @@ def a_cancelled_ticket_has_its_column_where_the_board_offers_one():
     quiet = type("W", (), {"nudge": lambda self: None})()
 
     api = _bare_api(_CancelClient(["Ready", "Cancelled", "Done"], offered=True))
+    assert api._runner is not None
     api._runner._workspace = type("W", (), {"goals": "", "projects": "", "tickets": "db"})()
     api._schema_at = time.time()
     api.watch = quiet
@@ -961,6 +977,7 @@ def a_cancelled_ticket_has_its_column_where_the_board_offers_one():
     assert api.set_status("1" * 32, "cancelled")["status"] == "Cancelled"
 
     bare = _bare_api(_CancelClient(["Ready", "Done"], offered=False))
+    assert bare._runner is not None
     bare._runner._workspace = type("W", (), {"goals": "", "projects": "", "tickets": "db"})()
     bare._schema_at = time.time()
     bare.watch = quiet
@@ -974,12 +991,13 @@ def a_cancelled_ticket_has_its_column_where_the_board_offers_one():
 
     # A board that points cancelled at a status the runner moves tickets
     # through has no cancelled column of its own: a cancelled `ready` is run.
+    assert api._runner is not None
     api._config.notion.status = api._runner.config.notion.status = {"cancelled": "Done"}
     assert api.board()["cancel"] is False
 
 
 @case
-def a_markdown_board_reads_and_writes_the_cancelled_status():
+def a_markdown_board_reads_and_writes_the_cancelled_status() -> None:
     """A board of files declares every default column, cancelled with them."""
     with _board() as board:
         assert "Cancelled" in board.options("tickets", "Status")
@@ -997,7 +1015,7 @@ def a_markdown_board_reads_and_writes_the_cancelled_status():
 
 
 @case
-def the_runner_never_runs_a_cancelled_ticket_even_when_named():
+def the_runner_never_runs_a_cancelled_ticket_even_when_named() -> None:
     """Not from the ready column, not woken by a comment, not by `run --ticket`."""
     with _board() as board:
         page = board.create_row("tickets", "Abandonné", {"Status": "Cancelled"})
@@ -1014,7 +1032,7 @@ def the_runner_never_runs_a_cancelled_ticket_even_when_named():
         runner.client = board
         runner._workspace = board.workspace(runner.config.notion)
         said: list[str] = []
-        runner.say = said.append
+        runner.say = said.append  # type: ignore[method-assign, assignment]  # a double: what it says is kept
         assert runner.cancelled_column()
         assert runner.requested(page) == []
         assert said == ["Requested ticket is cancelled — not run: Abandonné"]
@@ -1035,18 +1053,18 @@ class _DraftClient(_ColumnsClient):
 
     def __init__(self, statuses: list[str]) -> None:
         super().__init__(statuses)
-        self.created: list[tuple[str, dict]] = []
+        self.created: list[tuple[str, dict[str, Any]]] = []
 
     def options(self, database: str, prop: str) -> list[str]:
         return ["draft", *super().options(database, prop)]
 
-    def create_row(self, database_id, title, values=None):
+    def create_row(self, database_id: str, title: str, values: dict[str, Any] | None = None) -> str:
         self.created.append((title, dict(values or {})))
         return "f" * 32
 
 
 @case
-def a_ticket_with_no_status_is_a_draft_whether_or_not_the_board_names_them():
+def a_ticket_with_no_status_is_a_draft_whether_or_not_the_board_names_them() -> None:
     """Master Tickets has a `draft` option; the console put those under "No status".
 
     The drafts are always the first column, and a ticket with no status is one.
@@ -1059,6 +1077,7 @@ def a_ticket_with_no_status_is_a_draft_whether_or_not_the_board_names_them():
 
     api = _bare_api(_DraftClient(["draft", "Ready", ""]))
     api._config.notion.status = {"draft": "draft"}
+    assert api._runner is not None
     api._runner._workspace = type("W", (), {"goals": "", "projects": "", "tickets": "db"})()
     api._schema_at = time.time()
     api.watch = quiet
@@ -1069,10 +1088,14 @@ def a_ticket_with_no_status_is_a_draft_whether_or_not_the_board_names_them():
     assert [item["column"] for item in board["tickets"]] == ["draft", "draft", "ready"]
     api.create_ticket("Écrire l'audit", ready=False)
     api.create_ticket("Lancer l'audit", ready=True)
-    assert [values.get("Status") for _, values in api._runner.client.created] == ["draft", "Ready"]
+    assert api._runner is not None
+    assert [
+        values.get("Status") for _, values in cast(_DraftClient, api._runner.client).created
+    ] == ["draft", "Ready"]
     assert api.set_status("1" * 32, "draft")["status"] == "draft"
 
     plain = _bare_api(_DraftClient(["draft", "Ready", ""]))
+    assert plain._runner is not None
     plain._runner._workspace = type("W", (), {"goals": "", "projects": "", "tickets": "db"})()
     plain._schema_at = time.time()
     plain.watch = quiet
@@ -1080,7 +1103,10 @@ def a_ticket_with_no_status_is_a_draft_whether_or_not_the_board_names_them():
     assert board["columns"][0] == {"key": "draft", "name": ""}
     assert [item["column"] for item in board["tickets"]] == ["draft", "draft", "ready"]
     plain.create_ticket("Écrire l'audit", ready=False)
-    assert plain._runner.client.created == [("Écrire l'audit", {})], "no key, no status, as before"
+    assert plain._runner is not None
+    assert cast(_DraftClient, plain._runner.client).created == [("Écrire l'audit", {})], (
+        "no key, no status, as before"
+    )
     assert plain.set_status("1" * 32, "draft")["status"] == "", (
         "a move to the drafts clears the status"
     )
@@ -1095,7 +1121,7 @@ def a_ticket_with_no_status_is_a_draft_whether_or_not_the_board_names_them():
 class _UntitledClient(_ColumnsClient):
     """The same database, where nobody wrote a title on any row."""
 
-    def query(self, database: str, *args, **kwargs) -> list[notion.Page]:
+    def query(self, database: str, *args: Any, **kwargs: Any) -> list[notion.Page]:
         return [
             notion.Page(
                 id=page.id, url=page.url, title="", properties=page.properties, raw=page.raw
@@ -1105,13 +1131,14 @@ class _UntitledClient(_ColumnsClient):
 
 
 @case
-def a_ticket_without_a_title_is_named_by_the_console_in_its_language():
+def a_ticket_without_a_title_is_named_by_the_console_in_its_language() -> None:
     """ "(untitled ticket)" used to come from the server, in English on a French console.
 
     The server sends the title Notion has — none — and the console says what
     to call it, through the dictionary like every other word it says.
     """
     api = _bare_api(_UntitledClient(["Ready"]))
+    assert api._runner is not None
     api._runner._workspace = type("W", (), {"goals": "", "projects": "", "tickets": "db"})()
     api._schema_at = time.time()
     assert [item["title"] for item in api.board()["tickets"]] == [""]
@@ -1124,7 +1151,7 @@ def a_ticket_without_a_title_is_named_by_the_console_in_its_language():
 
 
 @case
-def the_pages_of_a_list_are_said_in_the_console_s_language():
+def the_pages_of_a_list_are_said_in_the_console_s_language() -> None:
     """react-resource-view writes "Showing 1 to 30 sur 475 results" whatever the language.
 
     Every list brings the console's own pagination, whose words go through the
@@ -1157,7 +1184,7 @@ def _session_line(kind: str = "assistant") -> str:
 
 
 @case
-def a_session_is_running_until_its_log_says_its_last_word():
+def a_session_is_running_until_its_log_says_its_last_word() -> None:
     """A step says a session is alive; only the `result` line says it is over.
 
     Counted from the logs rather than from the steps a browser happened to see:
@@ -1189,7 +1216,7 @@ def a_session_is_running_until_its_log_says_its_last_word():
 
 
 @case
-def how_long_a_session_took_is_read_from_its_log_where_the_board_has_no_column():
+def how_long_a_session_took_is_read_from_its_log_where_the_board_has_no_column() -> None:
     """The `result` line carries the duration; a run still writing does not count."""
     finished = json.dumps({"type": "result", "result": "done", "duration_ms": 540_000}) + "\n"
     with tempfile.TemporaryDirectory() as directory:
@@ -1210,7 +1237,7 @@ def how_long_a_session_took_is_read_from_its_log_where_the_board_has_no_column()
 
 
 @case
-def the_sessions_running_are_announced_when_they_change_and_kept_for_the_next_tab():
+def the_sessions_running_are_announced_when_they_change_and_kept_for_the_next_tab() -> None:
     hub = web_live.Hub()
     with tempfile.TemporaryDirectory() as directory:
         folder = Path(directory)
@@ -1245,7 +1272,7 @@ def the_sessions_running_are_announced_when_they_change_and_kept_for_the_next_ta
 
 
 @case
-def the_pages_before_the_console_speak_the_browsers_language():
+def the_pages_before_the_console_speak_the_browsers_language() -> None:
     """The sign-in and the gate, as the console would say them.
 
     Same rule as the console: the browser's own list decides. And every field
@@ -1272,7 +1299,7 @@ def the_pages_before_the_console_speak_the_browsers_language():
 
 
 @case
-def the_gate_says_where_this_machines_token_actually_is():
+def the_gate_says_where_this_machines_token_actually_is() -> None:
     """`~/.local/state/…` printed as a constant was wrong wherever XDG_STATE_HOME is set."""
     from ponos.web import server as web_server
 
@@ -1290,7 +1317,7 @@ def the_gate_says_where_this_machines_token_actually_is():
 
 
 @case
-def the_gate_says_a_chosen_token_lives_in_secrets_env_and_why_a_cookie_was_refused():
+def the_gate_says_a_chosen_token_lives_in_secrets_env_and_why_a_cookie_was_refused() -> None:
     """The token left `config.toml` for `secrets.env`; the gate said otherwise.
 
     And a cookie is scoped by host, not by port: a test console beside 8787
@@ -1342,7 +1369,7 @@ def the_gate_says_a_chosen_token_lives_in_secrets_env_and_why_a_cookie_was_refus
 
 
 @case
-def the_door_is_drawn_in_the_consoles_palette_in_both_themes():
+def the_door_is_drawn_in_the_consoles_palette_in_both_themes() -> None:
     """Hermez's stone and orange, dark unless the console was switched to light."""
     from ponos.web import server as web_server
 
@@ -1357,7 +1384,7 @@ def the_door_is_drawn_in_the_consoles_palette_in_both_themes():
 
 
 @case
-def a_write_refused_before_its_body_is_read_closes_the_connection():
+def a_write_refused_before_its_body_is_read_closes_the_connection() -> None:
     """A POST turned away unread must not leave its body on a reused connection.
 
     The browser reuses a keep-alive connection: the `{}` of a refused
@@ -1394,7 +1421,7 @@ def a_write_refused_before_its_body_is_read_closes_the_connection():
 
 
 @case
-def a_client_that_hangs_up_mid_answer_leaves_no_trace(state_home):
+def a_client_that_hangs_up_mid_answer_leaves_no_trace(state_home: Path) -> None:
     """A tab closed while its board was on the way is not an error.
 
     The journal of `ponos-web.service` held 38 tracebacks by 1 October
@@ -1424,12 +1451,12 @@ def a_client_that_hangs_up_mid_answer_leaves_no_trace(state_home):
     logging.getLogger("uvicorn.error").addHandler(kept)
     try:
 
-        def large(max_age: float = 0.0):
+        def large(max_age: float = 0.0) -> dict[str, Any]:
             asked.set()
             # Far more than the socket buffers hold, so the write meets the hang-up.
             return {"tickets": ["x" * 1024] * 8192}
 
-        api.board = large
+        api.board = large  # type: ignore[method-assign]  # a double: a board too large to write
         with sockets.create_connection(("127.0.0.1", port), timeout=5) as connection:
             connection.sendall(request)
             connection.recv(100)
@@ -1437,10 +1464,10 @@ def a_client_that_hangs_up_mid_answer_leaves_no_trace(state_home):
         time.sleep(0.5)
         journal.append(sys.stderr.getvalue())
 
-        def broken(max_age: float = 0.0):
+        def broken(max_age: float = 0.0) -> dict[str, Any]:
             raise RuntimeError("the board is upside down\nand more")
 
-        api.board = broken
+        api.board = broken  # type: ignore[method-assign]  # a double: a route that raises
         with sockets.create_connection(("127.0.0.1", port), timeout=5) as connection:
             connection.sendall(request.replace(b"\r\n\r\n", b"\r\nConnection: close\r\n\r\n"))
             answer = b""
@@ -1458,7 +1485,7 @@ def a_client_that_hangs_up_mid_answer_leaves_no_trace(state_home):
 
 
 @case
-def a_500_leaves_its_trace_in_the_journal_masked(state_home):
+def a_500_leaves_its_trace_in_the_journal_masked(state_home: Path) -> None:
     """A route that raised answered a 500 and kept the reason to itself.
 
     The request log was switched off and the `except Exception` turned the error
@@ -1477,10 +1504,10 @@ def a_500_leaves_its_trace_in_the_journal_masked(state_home):
     vault.remember(secret)
     api = _bare_api(_TalkClient([]))
 
-    def broken(max_age: float = 0.0):
+    def broken(max_age: float = 0.0) -> dict[str, Any]:
         raise RuntimeError(f"the board refused {secret} and {token}")
 
-    api.board = broken
+    api.board = broken  # type: ignore[method-assign]  # a double: a route that raises
     console = web_app.Console(("127.0.0.1", 0), api, "tok")
     threading.Thread(target=console.serve_forever, daemon=True).start()
     try:
@@ -1510,7 +1537,7 @@ def a_500_leaves_its_trace_in_the_journal_masked(state_home):
 
 
 @case
-def say_writes_what_it_always_printed_and_the_journal_keeps_it_dated(state_home):
+def say_writes_what_it_always_printed_and_the_journal_keeps_it_dated(state_home: Path) -> None:
     """`say` went through `print`: the standard output reads the same line, and
     ponos.log has it too, with a date, a level and the module — and the trace of
     an error already said goes to the file alone."""
@@ -1536,7 +1563,7 @@ def say_writes_what_it_always_printed_and_the_journal_keeps_it_dated(state_home)
 
 
 @case
-def the_journal_tail_is_its_last_lines_and_nothing_when_it_was_never_written():
+def the_journal_tail_is_its_last_lines_and_nothing_when_it_was_never_written() -> None:
     with tempfile.TemporaryDirectory() as folder:
         target = Path(folder) / "ponos.log"
         assert log.tail(10, target) == []
@@ -1547,7 +1574,7 @@ def the_journal_tail_is_its_last_lines_and_nothing_when_it_was_never_written():
 
 
 @case
-def a_path_field_picks_from_the_folder_it_points_at():
+def a_path_field_picks_from_the_folder_it_points_at() -> None:
     """Names, folders first; a file typed half-way lists its folder."""
     root = Path(tempfile.mkdtemp())
     (root / "prompts").mkdir()
@@ -1566,7 +1593,7 @@ def a_path_field_picks_from_the_folder_it_points_at():
 
 
 @case
-def an_example_token_is_not_a_token_the_settings_call_set():
+def an_example_token_is_not_a_token_the_settings_call_set() -> None:
     """The `ntn_xxxx…` the example file ships with is where a token goes, not one."""
     assert web_settings._preview(C.PLACEHOLDER) == ""
     assert web_settings._preview("ntn_xxxxxxxx") == ""
@@ -1574,7 +1601,7 @@ def an_example_token_is_not_a_token_the_settings_call_set():
 
 
 @case
-def the_settings_are_six_pages_and_every_key_is_on_one_of_them_once():
+def the_settings_are_six_pages_and_every_key_is_on_one_of_them_once() -> None:
     """Grouped by the question somebody asks, not by the table the loader reads.
 
     Twenty-two sections at one rank put the Notion token beside the twenty-one
@@ -1621,7 +1648,7 @@ def the_settings_are_six_pages_and_every_key_is_on_one_of_them_once():
 
 
 @case
-def the_old_desktop_switch_is_one_field_and_moves_when_touched():
+def the_old_desktop_switch_is_one_field_and_moves_when_touched() -> None:
     """`runner.notify` and `notify.desktop` said the same thing in two places.
 
     The page draws the second only, which already falls back on the first; a
@@ -1644,7 +1671,7 @@ def the_old_desktop_switch_is_one_field_and_moves_when_touched():
 
 
 @case
-def a_value_the_environment_gives_is_said_to_come_from_it():
+def a_value_the_environment_gives_is_said_to_come_from_it() -> None:
     """Retyping a token the environment overrides changes nothing — the page says so."""
     path, config = _saved()
     with _environment(
@@ -1661,7 +1688,7 @@ def a_value_the_environment_gives_is_said_to_come_from_it():
 
 
 @case
-def a_container_is_given_its_language_by_the_environment():
+def a_container_is_given_its_language_by_the_environment() -> None:
     """`PONOS_LANGUAGE` when the file names none; the file when it does."""
     path, _ = _saved()
     with _environment(PONOS_LANGUAGE="fr"):

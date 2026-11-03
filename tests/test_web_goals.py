@@ -5,12 +5,14 @@ from __future__ import annotations
 import json
 import threading
 import time
+from typing import Any
 
 import httpx
 from support import _bare_api, _board, _http_answering, _markdown_api, case
 
-from ponos import notion, store, workspace
+from ponos import files, notion, store, workspace
 from ponos.ticket import short_id
+from ponos.web import api as web_api
 
 
 class _Watch:
@@ -20,25 +22,25 @@ class _Watch:
         pass
 
 
-def _api(board):
+def _api(board: files.Board) -> web_api.Api:
     """An Api over a board of files, which counts a goal's tickets without `board`."""
     api = _markdown_api(board)
-    api.watch = _Watch()
+    api.watch = _Watch()  # type: ignore[assignment]  # a double: nothing watches
     api._goals, api._goals_at = {}, 0.0
 
-    def whole() -> dict:
+    def whole(max_age: float = 0.0) -> dict[str, Any]:
         raise AssertionError("a goal is counted from the pages held, not from the whole board")
 
-    api.board = whole
+    api.board = whole  # type: ignore[method-assign]  # a double: the whole board is never read
     return api
 
 
-def _ticket(board, title: str) -> str:
+def _ticket(board: files.Board, title: str) -> str:
     return board.create_row("tickets", title)
 
 
 @case
-def the_console_creates_and_edits_a_goal_in_its_database():
+def the_console_creates_and_edits_a_goal_in_its_database() -> None:
     with _board() as board:
         api = _api(board)
         site = board.create_row("projects", "Website")
@@ -80,7 +82,7 @@ def the_console_creates_and_edits_a_goal_in_its_database():
 
 
 @case
-def tickets_are_tied_to_a_goal_from_the_goal_and_from_the_ticket():
+def tickets_are_tied_to_a_goal_from_the_goal_and_from_the_ticket() -> None:
     with _board() as board:
         api = _api(board)
         goal = api.create_goal("Lancer la v1", {})["id"]
@@ -119,7 +121,7 @@ def tickets_are_tied_to_a_goal_from_the_goal_and_from_the_ticket():
 
 
 @case
-def tying_tickets_to_a_goal_writes_each_once_and_says_which_failed():
+def tying_tickets_to_a_goal_writes_each_once_and_says_which_failed() -> None:
     """One write per ticket, no page read back, and a refusal halfway does not end the lot."""
     with _board() as board:
         api = _api(board)
@@ -130,17 +132,17 @@ def tying_tickets_to_a_goal_writes_each_once_and_says_which_failed():
         asked: list[str] = []
         update, page = board.update, board.page
 
-        def written(database, page_id, values):
+        def written(database: str, page_id: str, values: dict[str, Any]) -> None:
             asked.append(f"update {page_id}")
             if database == "tickets" and page_id == refused:
                 raise store.StoreError("PATCH /pages: 429 rate limited")
             return update(database, page_id, values)
 
-        def read_back(page_id):
+        def read_back(page_id: str) -> notion.Page:
             asked.append(f"page {page_id}")
             return page(page_id)
 
-        board.update, board.page = written, read_back
+        board.update, board.page = written, read_back  # type: ignore[method-assign]  # doubles
         said = api.save_goal(goal, {"tickets": tickets})
         assert said["written"] == sorted(set(tickets) - {refused}), said
         assert said["failed"] == [{"id": refused, "error": "PATCH /pages: 429 rate limited"}]
@@ -156,7 +158,7 @@ def tying_tickets_to_a_goal_writes_each_once_and_says_which_failed():
 
 
 @case
-def a_goal_is_archived_and_leaves_the_list():
+def a_goal_is_archived_and_leaves_the_list() -> None:
     with _board() as board:
         api = _api(board)
         goal = api.create_goal("Lancer la v1", {})["id"]
@@ -171,7 +173,7 @@ def a_goal_is_archived_and_leaves_the_list():
 
 
 @case
-def renaming_a_goal_with_no_priority_gives_it_none():
+def renaming_a_goal_with_no_priority_gives_it_none() -> None:
     with _board() as board:
         api = _api(board)
         goal = api.create_goal("Lancer la v1", {"priority": ""})["id"]
@@ -186,7 +188,7 @@ def renaming_a_goal_with_no_priority_gives_it_none():
 
 
 @case
-def a_goal_s_priority_is_read_as_a_score_whatever_its_column_holds():
+def a_goal_s_priority_is_read_as_a_score_whatever_its_column_holds() -> None:
     with _board() as board:
         api = _api(board)
         goal = api.create_goal("Lancer la v1", {})["id"]
@@ -227,8 +229,8 @@ class _Notion:
     def __init__(self, schema: dict[str, str], options: list[str] | None = None) -> None:
         self.schemas = {"goals": schema, "projects": {"Name": "title"}}
         self.options = options
-        self.pages: dict[str, dict] = {}
-        self.patches: list[tuple[str, dict]] = []
+        self.pages: dict[str, dict[str, Any]] = {}
+        self.patches: list[tuple[str, dict[str, Any]]] = []
         self.refuse = False
 
     def row(self, database: str, title: str) -> str:
@@ -253,7 +255,7 @@ class _Notion:
                     }
         return page_id
 
-    def _write(self, page: dict, properties: dict) -> None:
+    def _write(self, page: dict[str, Any], properties: dict[str, Any]) -> None:
         for name, value in properties.items():
             kind = self.schemas[page["parent"]][name]
             if kind in ("title", "rich_text"):
@@ -313,15 +315,16 @@ class _Notion:
         raise AssertionError(f"{request.method} {path} is not something the goals ask")
 
 
-def _notion_api(fake: _Notion):
+def _notion_api(fake: _Notion) -> web_api.Api:
     """An Api whose Notion is `fake`, read through the real client."""
     api = _bare_api(notion.Client("ntn_x"))
+    assert api._runner is not None
     api._runner._workspace = workspace.Workspace(
         tickets="tickets", projects="projects", goals="goals"
     )
-    api.watch = _Watch()
+    api.watch = _Watch()  # type: ignore[assignment]  # a double: nothing watches
     api._goals, api._goals_at = {}, 0.0
-    api.board = lambda max_age=0.0: {"tickets": []}
+    api.board = lambda max_age=0.0: {"tickets": []}  # type: ignore[method-assign]  # a double
     # The board read once, as the watcher would have: nothing is read behind
     # an answer, on a Notion that is gone once the case is over.
     api.reader.read(api.runner.client, api.runner.database, api.config.notion.prop("status"))
@@ -329,7 +332,7 @@ def _notion_api(fake: _Notion):
 
 
 @case
-def a_goal_is_created_edited_and_archived_on_a_notion_database():
+def a_goal_is_created_edited_and_archived_on_a_notion_database() -> None:
     fake = _Notion(_GOALS_SCHEMA)
     with _http_answering(fake):
         api = _notion_api(fake)
@@ -401,7 +404,7 @@ def a_goal_is_created_edited_and_archived_on_a_notion_database():
 
 
 @case
-def a_column_the_goals_database_lacks_is_left_out_of_the_patch():
+def a_column_the_goals_database_lacks_is_left_out_of_the_patch() -> None:
     fake = _Notion({name: kind for name, kind in _GOALS_SCHEMA.items() if name != "Critère"})
     with _http_answering(fake):
         api = _notion_api(fake)
@@ -413,7 +416,7 @@ def a_column_the_goals_database_lacks_is_left_out_of_the_patch():
 
 
 @case
-def a_goal_whose_columns_cannot_be_written_is_not_left_behind():
+def a_goal_whose_columns_cannot_be_written_is_not_left_behind() -> None:
     fake = _Notion(_GOALS_SCHEMA)
     with _http_answering(fake):
         api = _notion_api(fake)
@@ -432,7 +435,7 @@ def a_goal_whose_columns_cannot_be_written_is_not_left_behind():
 
 
 @case
-def a_goal_created_without_a_status_takes_the_one_its_notion_status_column_defaults_to():
+def a_goal_created_without_a_status_takes_the_one_its_notion_status_column_defaults_to() -> None:
     fake = _Notion(_GOALS_SCHEMA, options=["Actif", "En pause", "Atteint"])
     with _http_answering(fake):
         api = _notion_api(fake)
@@ -461,7 +464,7 @@ def _serving(fake: _Notion, goal: str) -> str:
 
 
 @case
-def the_goals_are_answered_from_what_the_console_holds_without_asking_notion():
+def the_goals_are_answered_from_what_the_console_holds_without_asking_notion() -> None:
     """Sixteen seconds measured for the goals page opened after a few idle minutes.
 
     The board held and the goals read once, the next answer asks Notion
@@ -489,6 +492,7 @@ def the_goals_are_answered_from_what_the_console_holds_without_asking_notion():
 
         channel = api.hub.subscribe()
         fake.row("goals", "Ranger")  # written in Notion meanwhile
+        assert api._goal_pages_held is not None
         read_at, pages = api._goal_pages_held
         api._goal_pages_held = (read_at - api.config.web.poll_seconds, pages)
         assert [row["name"] for row in api.goals()["goals"]] == ["Lancer la v1"]
@@ -499,7 +503,7 @@ def the_goals_are_answered_from_what_the_console_holds_without_asking_notion():
 
 
 @case
-def a_console_that_holds_no_ticket_answers_its_goals_and_counts_them_behind():
+def a_console_that_holds_no_ticket_answers_its_goals_and_counts_them_behind() -> None:
     """1 800 tickets are sixteen seconds of Notion: the page is not kept waiting for them."""
     fake = _Notion(_GOALS_SCHEMA)
     gate = threading.Event()
@@ -513,7 +517,7 @@ def a_console_that_holds_no_ticket_answers_its_goals_and_counts_them_behind():
         gate.set()
         api = _notion_api(fake)
         gate.clear()
-        api._reader = None  # a console that has not read its board yet
+        api._reader = None  # type: ignore[assignment]  # a console that has not read its board yet
         goal = api.create_goal("Lancer la v1", {})["id"]
         _serving(fake, goal)
         channel = api.hub.subscribe()
