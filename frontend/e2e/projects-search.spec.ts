@@ -32,7 +32,7 @@ test.describe("at 1440px", () => {
 
   test("the type keeps the projects of that type", async ({ page }) => {
     await open(page)
-    await page.getByRole("combobox").click()
+    await page.locator("[data-slot=projects-type-filter]").click()
     await page.getByRole("option", { name: "document work" }).click()
     await expect(card(page, "Journal")).toBeVisible()
     await expect(card(page, "Website")).toHaveCount(0)
@@ -41,7 +41,7 @@ test.describe("at 1440px", () => {
   test("the words and the type are combined", async ({ page }) => {
     await open(page)
     await search(page).fill("e")
-    await page.getByRole("combobox").click()
+    await page.locator("[data-slot=projects-type-filter]").click()
     await page.getByRole("option", { name: "code work" }).click()
     await expect(card(page, "Website")).toBeVisible()
     await expect(card(page, "Newsletter")).toBeVisible()
