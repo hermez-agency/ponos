@@ -42,7 +42,7 @@
   "url": "https://the-ponos.app/fr/",
   "codeRepository": "https://github.com/hermez-agency/ponos",
   "applicationCategory": "DeveloperApplication",
-  "operatingSystem": "Linux",
+  "operatingSystem": "Linux, macOS",
   "license": "https://github.com/hermez-agency/ponos/blob/main/LICENSE",
   "offers": {
     "@type": "Offer",
@@ -666,7 +666,7 @@
         <code id="install-cmd">curl -LsSf https://raw.githubusercontent.com/<wbr>hermez-agency/ponos/<wbr>main/install.sh | sh</code>
         <button class="btn btn-outline btn-sm" id="copy-install" type="button" aria-label="Copier la commande d’installation">Copier</button>
       </div>
-      <p class="byline">Libre et gratuit, MIT · Linux · Python et git · Demande Claude Code — <a href="#integrations">Notion et GitHub sont facultatifs</a>.</p>
+      <p class="byline">Libre et gratuit, MIT · Linux · macOS · Python et git · Demande Claude Code — <a href="#integrations">Notion et GitHub sont facultatifs</a>.</p>
     </div>
     <figure class="card flow" id="flow" data-step="3" data-kind="code">
       <div class="flow-body" role="img" aria-label="La boucle en trois temps. Un, tu écris le ticket sur ton tableau : Console : limiter la colonne Done, Ready. Deux, Ponos le fait sur ta machine avec Claude Code : fait, les tests passent. Trois, tu décides : la pull request #96 revient avec deux boutons — Validate, et il la fusionne ; ou Run again, et il la reprend avec ta remarque. Une publication préparée revient de la même façon.">
@@ -1052,7 +1052,7 @@
       <div class="card">
         <div class="card-header"><h3 class="card-title">Ce qu’il lui faut</h3></div>
         <ul>
-          <li>Linux ou macOS — systemd ou launchd le maintiennent en marche, et sans l’un ni l’autre la console démarre quand même ;</li>
+          <li>Linux ou macOS — systemd ou launchd le maintiennent en marche, et sans l’un ni l’autre la console démarre quand même. Sous Windows, WSL convient sans minuteur : un ticket part quand la console le lance, ou avec <code>ponos run</code> ;</li>
           <li><code>python3</code> ≥ 3.11 — ses quatre dépendances, httpx, pydantic, FastAPI et uvicorn, vont dans un environnement à lui, créé par l’installeur ;</li>
           <li>l’accès réseau à PyPI pendant l’installation, pour les récupérer (et à <code>uv</code>, depuis GitHub, quand la machine ne peut pas installer un paquet) ;</li>
           <li><code>git</code> et <a href="https://claude.com/claude-code" target="_blank" rel="noopener">Claude Code</a>, que l’installeur propose d’installer ;</li>

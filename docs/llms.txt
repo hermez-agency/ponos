@@ -27,7 +27,7 @@ week or month in the console.
 
 The board is the console and its folder of Markdown files (`storage.mode = "markdown"`), or
 Notion (`ponos init <page-url>`), or both kept in step. The installer checks the machine,
-starts the console and opens it: the rest — Notion, GitHub, a first project, a demonstration
+starts the console and opens it (Linux or macOS; WSL works without a timer): the rest — Notion, GitHub, a first project, a demonstration
 ticket played on the spot — is the console's first connection, step by step. Python
 3.11+; the installer puts its four dependencies (httpx, pydantic, FastAPI, uvicorn) into an
 environment of its own, fetched from PyPI, so it needs the network while it installs — no build
