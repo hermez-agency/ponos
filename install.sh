@@ -5,8 +5,10 @@
 #
 # Environment variables:
 #   TR_REPO       source repository        (default: hermez-agency/ponos)
-#   TR_REF        branch or tag            (default: main; a tag pins the version,
-#                                          a branch is followed by the auto-update)
+#   TR_REF        branch or tag            (default: the newest vX.Y.Z release,
+#                                          followed release after release; a tag pins
+#                                          the version; a branch, `main` say, is
+#                                          followed commit after commit)
 #   TR_SRC        local folder to copy     (install from a clone, no network,
 #                                          and no auto-update: there is no remote)
 #   TR_INTERVAL   seconds between runs     (default: 1800, i.e. 30 min)
@@ -16,7 +18,7 @@
 set -eu
 
 TR_REPO="${TR_REPO:-hermez-agency/ponos}"
-TR_REF="${TR_REF:-main}"
+TR_REF="${TR_REF:-}"
 TR_INTERVAL="${TR_INTERVAL:-1800}"
 
 APP_ROOT="$HOME/.local/share/ponos"
@@ -119,7 +121,7 @@ fi
 
 if [ "$MISSING" -gt 0 ]; then
     printf '\n%s%d thing(s) to install first%s — then run this again:\n\n' "$BOLD" "$MISSING" "$RESET"
-    printf '    curl -LsSf https://raw.githubusercontent.com/%s/%s/install.sh | sh\n\n' "$TR_REPO" "$TR_REF"
+    printf '    curl -LsSf https://raw.githubusercontent.com/%s/%s/install.sh | sh\n\n' "$TR_REPO" "${TR_REF:-main}"
     # shellcheck disable=SC2086  # the tools are words, split on purpose
     [ -n "$TOOLS" ] && printf 'All the tools at once:\n\n    %s\n\n' "$(install_hint $TOOLS)"
     exit 1
@@ -169,6 +171,8 @@ fi
 mkdir -p "$APP_ROOT" "$BIN_DIR"
 STAGE="$APP_ROOT/app.partial"
 rm -rf "$STAGE"
+# What the auto-update follows: "release", "main", or nothing (a tag, a copy).
+FOLLOW=""
 if [ -n "${TR_SRC:-}" ]; then
     say "Copying sources from $TR_SRC"
     have tar || die "tar is required"
@@ -187,12 +191,36 @@ else
     # still on the latest version" with one git fetch, once an hour, and update
     # itself when the answer is no. Shallow, to install fast: the first check on
     # the release channel fetches the rest (update._release says why).
-    say "Cloning $TR_REPO ($TR_REF)"
-    GIT_TERMINAL_PROMPT=0 git clone --quiet --depth 1 --branch "$TR_REF" \
-        "https://github.com/$TR_REPO.git" "$STAGE" \
-        || die "clone failed (private repository, or no such branch?)"
+    #
+    # Without TR_REF, the newest release: the version the auto-update follows
+    # (runner.update_channel = "release"), rather than the commit of the day,
+    # which no release has named yet and which the first check would offer to
+    # replace. It is put on a branch, not left on the tag: a detached HEAD reads
+    # as "pinned" to update._look, and would never move again.
+    REF="$TR_REF"
+    RELEASE=""
+    if [ -z "$REF" ]; then
+        RELEASE=$(GIT_TERMINAL_PROMPT=0 git ls-remote --tags --refs "https://github.com/$TR_REPO.git" 'v*' 2>/dev/null \
+            | sed -n 's|.*refs/tags/\(v[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)$|\1|p' \
+            | sort -t. -k1.2,1n -k2,2n -k3,3n | tail -1)
+        REF="${RELEASE:-main}"
+        [ -n "$RELEASE" ] || warn "no release tagged on $TR_REPO yet — installing main, which follows every commit"
+    fi
+    say "Cloning $TR_REPO ($REF)"
+    # Quiet on success: a clone of an annotated tag warns that it "is not a commit".
+    CLONED=$(GIT_TERMINAL_PROMPT=0 git clone --quiet --depth 1 --branch "$REF" \
+        "https://github.com/$TR_REPO.git" "$STAGE" 2>&1) \
+        || die "clone failed (private repository, or no such branch?): $CLONED"
+    if [ -n "$RELEASE" ]; then
+        git -C "$STAGE" checkout --quiet -B main
+        FOLLOW=release
+    elif git -C "$STAGE" symbolic-ref --quiet HEAD >/dev/null; then
+        # A branch: following releases would keep it where it is, behind the
+        # branch it was installed from, so it follows that branch instead.
+        FOLLOW=main
+    fi
     LABEL="$(git -C "$STAGE" rev-parse --short=12 HEAD)"
-    WHAT="$(git -C "$STAGE" rev-parse --short HEAD)"
+    WHAT="${RELEASE:-$REF} $(git -C "$STAGE" rev-parse --short HEAD)"
 fi
 # The same commit installed again gets a name of its own: the directory in use
 # is never written over.
@@ -293,6 +321,26 @@ else
     # Nothing more is asked here: the Notion token, the board, GitHub and the
     # first project are the console's first connection, opened at the end —
     # a form with a check behind each field says more than a terminal prompt.
+fi
+
+# Installed from a branch, the configuration follows it: runner.update_channel
+# = "main" fetches the branch the clone is on, whatever its name. Set again on
+# an existing configuration — reinstalling with TR_REF=main says so.
+if [ "$FOLLOW" = main ]; then
+    "$PYTHON" - "$CONFIG" <<'PY'
+import pathlib, re, sys
+path = pathlib.Path(sys.argv[1])
+text = path.read_text()
+line = 'update_channel = "main"'
+if re.search(r"^update_channel\s*=", text, flags=re.M):
+    text = re.sub(r"^update_channel\s*=.*$", line, text, count=1, flags=re.M)
+elif re.search(r"^\[runner\]\n", text, flags=re.M):
+    text = re.sub(r"^(\[runner\]\n)", rf"\g<1>{line}\n", text, count=1, flags=re.M)
+else:
+    text = text.rstrip("\n") + f"\n\n[runner]\n{line}\n"
+path.write_text(text)
+PY
+    ok "updates follow $REF, commit after commit (runner.update_channel = \"main\")"
 fi
 
 # The folder the repositories are found or cloned in: a fresh machine has none,
@@ -564,7 +612,15 @@ else
 fi
 printf '  %sstuck?%s         ponos doctor   %s(the same diagnosis as the console, to paste when asking for help)%s\n' "$DIM" "$RESET" "$DIM" "$RESET"
 printf '  %sconfiguration%s  %s\n' "$DIM" "$RESET" "$CONFIG"
-printf '  %sversion%s        kept up to date on its own — ponos update\n\n' "$DIM" "$RESET"
+case "$FOLLOW" in
+    release) printf '  %sversion%s        %s, updated on its own at each release — ponos update\n\n' "$DIM" "$RESET" "$RELEASE" ;;
+    main)    printf '  %sversion%s        %s, updated on its own at each commit — ponos update\n\n' "$DIM" "$RESET" "$REF" ;;
+    *)       if [ -n "${TR_SRC:-}" ]; then
+                 printf '  %sversion%s        %s\n\n' "$DIM" "$RESET" "$WHAT"
+             else
+                 printf '  %sversion%s        pinned to %s — not updated on its own\n\n' "$DIM" "$RESET" "$REF"
+             fi ;;
+esac
 case ":$PATH:" in
     *":$BIN_DIR:"*) ;;
     *) RC="$HOME/.bashrc"; [ "$OS" = Darwin ] && RC="$HOME/.zshrc"

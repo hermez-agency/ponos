@@ -14,7 +14,10 @@
 #
 # /repo is a clone of this repository, with its history and its tags (the
 # CI's checkout has `fetch-depth: 0`). Its commit becomes `main` of a bare
-# repository, and git is told that github.com/hermez-agency/ponos is that
+# repository, and the release it names — `v` and `__version__` — is tagged on
+# it there, moved if a release of that number already exists: install.sh,
+# with no TR_REF, installs the newest release, and the commit under test is
+# made that release. git is told that github.com/hermez-agency/ponos is that
 # repository: install.sh then makes its real `git clone --depth 1`, and
 # `ponos update --check` its real fetch of the tags — of the commit under
 # test, and without the network. The network is still asked for one thing:
@@ -22,7 +25,8 @@
 #
 # Run as root, it prepares the machine and runs itself again as `ponos`, an
 # ordinary user; that second half is the installation and its four checks:
-#   1. install.sh, with no answer to give and no browser to open;
+#   1. install.sh, with no answer to give and no browser to open, installs
+#      the newest release, and `ponos --version` says its number;
 #   2. the console answers GET /api/setup, and nobody has claimed it yet;
 #   3. `ponos doctor` says no problem but those a fresh installation has by
 #      construction: Claude Code is not installed here, and the board's
@@ -59,12 +63,15 @@ if [ "$(id -u)" = 0 ]; then
     git clone --quiet --bare --no-local /repo "$SOURCE"
     git -C "$SOURCE" update-ref refs/heads/main "$commit"
     git -C "$SOURCE" symbolic-ref HEAD refs/heads/main
+    version=$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' /repo/src/ponos/__init__.py)
+    [ -n "$version" ] || fail "no __version__ in src/ponos/__init__.py"
+    git -C "$SOURCE" tag --force "v$version" "$commit" >/dev/null
     chmod -R a+rX "$SOURCE"
     git config --system url."file://$SOURCE".insteadOf "$REPOSITORY"
     echo "main = $commit, tags: $(git -C "$SOURCE" tag --list 'v*' | tr '\n' ' ')"
 
     useradd --create-home --shell /bin/bash ponos
-    exec su - ponos -c "PONOS_COMMIT=$commit sh /repo/scripts/fresh-install.sh"
+    exec su - ponos -c "PONOS_COMMIT=$commit PONOS_VERSION=$version sh /repo/scripts/fresh-install.sh"
 fi
 
 export PATH="$HOME/.local/bin:$PATH"
@@ -75,6 +82,9 @@ say "1. install.sh, piped into sh"
 TR_NO_OPEN=1 sh </repo/install.sh
 installed=$(git -C "$HOME/.local/share/ponos/app" rev-parse HEAD)
 [ "$installed" = "$PONOS_COMMIT" ] || fail "installed $installed rather than $PONOS_COMMIT"
+said=$(ponos --version)
+echo "$said"
+[ "$said" = "ponos $PONOS_VERSION" ] || wrong "ponos --version says “$said”, not the release ponos $PONOS_VERSION"
 
 say "2. The console answers on /api/setup"
 answer=""

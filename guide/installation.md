@@ -44,6 +44,13 @@ is connected — and `doctor` still exits 0.
 Running the same command again **updates** the installation: the code is replaced, your
 configuration is kept.
 
+What it installs is **the newest release** — the highest `vX.Y.Z` tag of the repository,
+the one the updates below follow — and not the tip of `main`: `ponos --version` prints that
+number, and `ponos doctor` finds nothing newer. `TR_REF=main` installs the tip of `main`
+instead, and sets `runner.update_channel = "main"`, so that the updates follow every commit
+rather than wait for the next release; a repository with no release yet is installed from
+`main` the same way.
+
 You will rarely need to. The installer clones the repository into
 `~/.local/share/ponos/app`, which is what lets the runner answer *"am I still on
 the latest version"* with one `git fetch`. A run looks at the clock before it looks at the
@@ -159,7 +166,8 @@ compare itself against: it says so once per check and carries on.
 | `TR_NO_WEB=1` | the console's unit is installed, but left stopped |
 | `TR_NO_OPEN=1` | the console is started, but not opened in the browser |
 | `TR_SRC=.` | install from a local clone, without the network — and without self-updating |
-| `TR_REF=v1.2` | install a tag instead of `main`, and stay on it |
+| `TR_REF=main` | install the tip of `main` rather than the newest release, and follow every commit (`runner.update_channel = "main"`) |
+| `TR_REF=v1.2` | install that tag rather than the newest release, and stay on it |
 
 ---
 

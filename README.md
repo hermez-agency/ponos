@@ -139,6 +139,10 @@ on the disk —, names whatever is missing with the command that installs it, st
 curl -LsSf https://raw.githubusercontent.com/hermez-agency/ponos/main/install.sh | sh
 ```
 
+It installs the newest release (`vX.Y.Z`), and keeps it on the newest one as they come out —
+`TR_REF=main` installs the tip of `main` and follows every commit instead
+([Installation](guide/installation.md#installation)).
+
 Everything after that happens in the console, on `http://127.0.0.1:8787` — never on the
 Internet: a [first connection](guide/console.md#the-first-connection) in steps, each one checked against the
 real thing before the next. The language; the password that opens the console; who answers

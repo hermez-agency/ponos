@@ -600,10 +600,12 @@ and python3 only — no systemd session, no python3-venv. Neither suite ever ran
 `install.sh`, and it took a throwaway container ten minutes to find a fresh installation
 offered to go back from `main` to v0.2.0, its `workspace_root` missing and `ponos doctor`
 red. `scripts/fresh-install.sh` is the whole scenario: the commit under test becomes
-`main` of a bare repository that git is told is github.com/hermez-agency/ponos, so the
-installation makes its real `git clone --depth 1` and its real fetch of the tags, without
-the network but for PyPI. Then four checks, each said even when another failed: the
-installation ends, the console answers `GET /api/setup` unclaimed, `ponos doctor` has no
+`main` of a bare repository that git is told is github.com/hermez-agency/ponos, and the
+release its `__version__` names is tagged on it there — moved if that number is already
+released —, so the installation, which takes the newest release, makes its real
+`git clone --depth 1` of that commit and its real fetch of the tags, without the network
+but for PyPI. Then four checks, each said even when another failed: the installation ends
+and `ponos --version` says the release's number, the console answers `GET /api/setup` unclaimed, `ponos doctor` has no
 problem but Claude Code missing and the Notion token (both the first connection's), and
 `ponos update --check` answers and never offers a version older than the one installed.
 It runs on a pull request that touches `install.sh`, `update.py`, `environment.py`,
