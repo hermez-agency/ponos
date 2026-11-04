@@ -20,7 +20,7 @@
     "test:e2e:ci": "playwright test --workers=2",
     "test": "node --test src/lib/*.test.ts",
     "test:components": "vitest run",
-    "types": "python3 ../scripts/openapi.py | openapi-typescript -o src/lib/api-types.d.ts"
+    "types": "python3 ../scripts/openapi.py | node --import ./scripts/typescript-5.mjs node_modules/openapi-typescript/bin/cli.js -o src/lib/api-types.d.ts"
   },
   "dependencies": {
     "@fontsource-variable/bricolage-grotesque": "^5.3.0",
@@ -72,7 +72,8 @@
     "oxlint": "^1.91.0",
     "rollup-plugin-visualizer": "^7.1.1",
     "tailwindcss": "^4.3.3",
-    "typescript": "~5.9",
+    "typescript": "~7.0.2",
+    "typescript-5": "npm:typescript@~5.9.3",
     "vite": "^8.3.4",
     "vitest": "^5.0.5"
   },
@@ -82,6 +83,9 @@
     },
     "@redocly/openapi-core": {
       "minimatch": "^11.0.1"
+    },
+    "openapi-typescript": {
+      "typescript": "$typescript"
     }
   }
 }
