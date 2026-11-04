@@ -73,5 +73,13 @@
     "typescript": "~5.9",
     "vite": "^8.3.4",
     "vitest": "^5.0.5"
+  },
+  "overrides": {
+    "micromark-extension-math": {
+      "katex": "^0.19.1"
+    },
+    "@redocly/openapi-core": {
+      "minimatch": "^11.0.1"
+    }
   }
 }
