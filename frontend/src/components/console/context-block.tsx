@@ -9,6 +9,7 @@ import { api, why } from "@/lib/api"
 import { useT } from "@/lib/i18n"
 import type { Context } from "@/lib/types"
 import { cn } from "@/lib/utils"
+import { CONTEXT_ANCHOR } from "@/resources/projects"
 
 import { EmptyState } from "./empty-state"
 import { Eyebrow } from "./frame"
@@ -44,8 +45,6 @@ import { Robot } from "./robot"
  * offers instead of a second one the same size.
  */
 
-/** The address a project's brief links back to. */
-export const CONTEXT_ANCHOR = "global-context"
 
 /* The text half-typed, outside the block.
  *

@@ -274,11 +274,14 @@ translated is drawn as it was written rather than as a name nobody meant to read
 machinery is `frontend/src/lib/i18n.ts`: which language, how it was guessed, and `useT()`,
 which is `t` plus the redraw. The checks of the dashboard's health band (`health/`) keep
 their French apart, in `frontend/src/lib/health-french.ts`, which the band fetches when it is
-drawn (`useFrench`): the first load of a French page is held to 500 kB, and most pages never
-say one of those sentences. Two of the sentences the console shows are not written in it —
-what a setting is called and the line of help under it come from `web/settings.py` — and they
-are looked up by those very words, so a sentence reworded on the Python side has to be
-reworded here too. A test says so by name.
+drawn (`useFrench`, or `<Worded>` around a part): the first load of a French page is held to
+470 kB, and most pages never say one of those sentences. So do the settings pages, in
+`settings-french.ts`, and the first connection's steps, in `setup-french.ts` — a sentence the
+board, or a page that does not fetch them, also says stays in `french.ts`. Two of the
+sentences the console shows are not written in it — what a setting is called and the line of
+help under it come from `web/settings.py` — and they are looked up by those very words, in
+`settings-french.ts` (the six pages' titles, which the tabs draw first, in `french.ts`), so a
+sentence reworded on the Python side has to be reworded here too. A test says so by name.
 
 Two rules the console keeps, and they predate React:
 

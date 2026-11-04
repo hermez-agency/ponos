@@ -149,7 +149,10 @@ def a_sub_type_is_the_developers_word_in_every_language() -> None:
     The French words it used to be shown as are still understood, in a title or
     an answer — only what the console shows changed, not what is read.
     """
-    dictionary = (FRONTEND / "src/lib/french.ts").read_text(encoding="utf-8")
+    dictionary = "".join(
+        (FRONTEND / "src/lib" / name).read_text(encoding="utf-8")
+        for name in ("french.ts", "settings-french.ts", "setup-french.ts")
+    )
     assert [subtype.label for subtype in subtypes.SUBTYPES] == [
         "Bug",
         "Feature",
@@ -171,7 +174,7 @@ def a_sub_type_is_the_developers_word_in_every_language() -> None:
         ("Sécurité", "security"),
     ):
         assert subtypes.of(word) == key, word
-    ideas = (FRONTEND / "src/components/console/idea-cards.tsx").read_text(encoding="utf-8")
+    ideas = (FRONTEND / "src/components/console/idea-words.ts").read_text(encoding="utf-8")
     assert 'technical: "Tech"' in ideas and 't("Technical")' not in ideas
 
 

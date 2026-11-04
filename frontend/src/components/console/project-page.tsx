@@ -13,6 +13,7 @@ import { counted, useT } from "@/lib/i18n"
 import { useRoute } from "@/lib/router"
 import { cn } from "@/lib/utils"
 import {
+  CONTEXT_ANCHOR,
   Repository,
   Where,
   isAPage,
@@ -24,7 +25,6 @@ import {
 } from "@/resources/projects"
 import { settingsHref } from "@/resources/settings"
 
-import { CONTEXT_ANCHOR } from "./context-block"
 import { Eyebrow, Fact, Facts } from "./frame"
 import { IdeasButton } from "./ideas-deck"
 import { ProjectBrief } from "./project-brief"

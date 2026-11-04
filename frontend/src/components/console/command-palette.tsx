@@ -38,6 +38,7 @@ import { says, ticketsFor } from "@/lib/palette-search"
 import { useRoute } from "@/lib/router"
 import { terms } from "@/lib/ticket-search"
 import {
+  CONTEXT_ANCHOR,
   PROJECTS,
   idOf,
   newProjectHref,
@@ -53,7 +54,6 @@ import { sessionsHref } from "@/resources/sessions"
 import { settingsHref } from "@/resources/settings"
 import { boardHref, ticketHref, tickets } from "@/resources/tickets"
 
-import { CONTEXT_ANCHOR } from "./context-block"
 import { useOpenSeries } from "./ticket-decision"
 import { openTalk, toggleTalk } from "@/lib/talk"
 

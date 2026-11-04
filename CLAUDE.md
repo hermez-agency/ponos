@@ -214,7 +214,9 @@ le lundi — CONTRIBUTING.md, « Dependencies ».
   `t("...")` de `react-mini-i18n` — la phrase anglaise est la clé, la
   traduction française vit dans `frontend/src/lib/french.ts` — sauf celles des
   vérifications de `health/`, dans `frontend/src/lib/health-french.ts`, que la
-  bande de santé charge quand elle s'affiche (budget du premier chargement).
+  bande de santé charge quand elle s'affiche (budget du premier chargement), et
+  celles que seules les pages des réglages ou la première connexion disent,
+  dans `settings-french.ts` et `setup-french.ts`, chargées de même.
 
 ## Pièges connus
 

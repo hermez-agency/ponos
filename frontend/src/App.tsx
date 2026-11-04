@@ -11,7 +11,6 @@ import {
   type ViewResourceContextParams,
 } from "react-resource-view"
 
-import { CONTEXT_ANCHOR } from "@/components/console/context-block"
 import { UpdateNotice } from "@/components/console/install-app"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -22,7 +21,7 @@ import { useLanguage } from "@/lib/i18n"
 import { SCOPE } from "@/lib/resource-view"
 import { consoleRouter, useRoute } from "@/lib/router"
 import { scopes } from "@/resources/scope"
-import { projectsHref } from "@/resources/projects"
+import { CONTEXT_ANCHOR, projectsHref } from "@/resources/projects"
 import { SESSIONS, sessionsHref } from "@/resources/sessions"
 import { SETTINGS, settingsHref } from "@/resources/settings"
 import { TICKETS, boardHref } from "@/resources/tickets"

@@ -5,8 +5,12 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
 
-import { FRENCH } from "./french.ts"
+import { FRENCH as CONSOLE } from "./french.ts"
+import { SETUP_FRENCH } from "./setup-french.ts"
 import { explain, explainNeed, PLAIN } from "./said.ts"
+
+// The steps are drawn once their own words are in, beside the console's.
+const FRENCH: Record<string, string> = { ...CONSOLE, ...SETUP_FRENCH }
 
 const NOTION = "no Notion token yet — the console's first connection, or `ponos init`, sets it"
 const CONFIG =

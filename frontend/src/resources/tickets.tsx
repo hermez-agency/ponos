@@ -51,14 +51,13 @@ import {
 } from "@/components/console/new-ticket-lazy"
 import { EmptyState } from "@/components/console/empty-state"
 import { ProjectThumb } from "@/components/console/project-picture"
-import { ModelInputController } from "@/components/console/model-input"
+import { ModelInputController } from "@/components/console/model-input-lazy"
 import { PriorityBadge, PriorityInputController } from "@/components/console/priority"
 import { Robot, TicketRobot } from "@/components/console/robot"
 import { RunnerStrip } from "@/components/console/runner-strip"
 import { HealthBand } from "@/components/console/health-band"
 import { StatisticsBand } from "@/components/console/statistics"
 import { CardLive } from "@/components/console/session-log"
-import { TicketHead, TicketPage } from "@/components/console/ticket-page"
 import { useOpensOverTheList } from "@/components/console/record-window"
 import { SeriesButton } from "@/components/console/ticket-decision"
 import { ticketWindow } from "@/components/console/ticket-window"
@@ -1127,6 +1126,27 @@ function matches(ticket: Ticket, filter: Record<string, unknown> = {}): boolean 
 
 /* What the board's list is, apart from which tickets it holds and how its
  * table reads: said once, for the board and for a project's tickets. */
+
+/* A ticket's page and its head: drawn once a ticket is opened, and fetched
+ * then — the board is the first page, and its first load has a budget. */
+const LazyTicketPage = React.lazy(() =>
+  import("@/components/console/ticket-page").then((module) => ({ default: module.TicketPage }))
+)
+const LazyTicketHead = React.lazy(() =>
+  import("@/components/console/ticket-page").then((module) => ({ default: module.TicketHead }))
+)
+
+const TicketPage = () => (
+  <React.Suspense fallback={null}>
+    <LazyTicketPage />
+  </React.Suspense>
+)
+
+const TicketHead = () => (
+  <React.Suspense fallback={null}>
+    <LazyTicketHead />
+  </React.Suspense>
+)
 const viewsOf = (form: FormInterface, empty: React.FC): ResourceDefinition<TicketItem, TicketWrite>["views"] => ({
   list: {
     // The page is the Dashboard everywhere else — the menu, the bar — so the

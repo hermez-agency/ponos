@@ -29,6 +29,11 @@ import type { SettingGroup, SettingSection, Settings, SettingValue } from "./typ
  * leads to is mounted after the click, and unfolds and scrolls to it then.
  */
 
+/* The French of every field, fetched by the pages that draw one, when they are
+ * drawn in French: see `settings-french.ts`. One function for all of them, so
+ * that the dictionary is fetched and merged once (`useFrench`). */
+export const settingsFrench = () => import("./settings-french").then((module) => module.SETTINGS_FRENCH)
+
 let drawn: Settings | null = null
 let revision = 0
 

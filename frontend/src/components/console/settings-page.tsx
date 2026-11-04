@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useConsole } from "@/hooks/use-console"
 import { api, why } from "@/lib/api"
-import { counted, useT } from "@/lib/i18n"
+import { counted, useFrench, useT } from "@/lib/i18n"
 import { bytes } from "@/lib/numbers"
 import { SCOPE } from "@/lib/resource-view"
 import {
@@ -20,6 +20,7 @@ import {
   currentSettings,
   inputName,
   sectionsIn,
+  settingsFrench,
   takeAsked,
   useAsked,
   useSettingsRevision,
@@ -327,6 +328,8 @@ export function GroupPage({ group }: { group: string }) {
   const revision = useSettingsRevision()
   const target = useAsked()
   const [note, setNote] = React.useState<SaveNote | null>(null)
+  // The form reads its labels as it is built, so the page waits for their French.
+  const worded = useFrench(settingsFrench)
 
   React.useEffect(() => {
     // A problem stays until it is read; a confirmation has been read by then.
@@ -355,6 +358,7 @@ export function GroupPage({ group }: { group: string }) {
     return () => window.clearTimeout(timer)
   }, [group, target])
 
+  if (!worded) return null
   return (
     <div className="flex min-w-0 flex-col gap-5">
       {group === "general" ? <StateCard /> : null}

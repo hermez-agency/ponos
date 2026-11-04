@@ -189,6 +189,9 @@ export async function setLanguage(next: Language) {
   wanted = next
   if (next === language) return
   const words = await dictionary(next)
+  // And the French the parts already drawn asked for, so that none of them is
+  // drawn in English again — or taken off the page — while it arrives.
+  if (next === "fr") await Promise.all([...asked].map(merged))
   if (wanted !== next) return
   language = next
   apply(next, words)
@@ -228,36 +231,53 @@ export function counted(value: number, one: string, other: string): string {
 /* French a part of the page fetches for itself, when it is drawn: words most
  * pages never say stay out of the first load — see `health-french.ts`. Merged
  * into the dictionary once, and false until they are there, so that the part
- * can wait for them rather than draw itself in English first. */
-const fetched = new Set<() => Promise<Record<string, string>>>()
+ * can wait for them rather than draw itself in English first.
+ *
+ * Asked for in English too, and fetched then by `setLanguage`, before the page
+ * is drawn again in French: a part already on the page is not taken off it
+ * while its words arrive — the first connection's steps, whose first step is
+ * where French is picked. */
+type Words = () => Promise<Record<string, string>>
 
-export function useFrench(load: () => Promise<Record<string, string>>): boolean {
+const fetched = new Set<Words>()
+const asked = new Set<Words>()
+
+/** Merged into the French dictionary, once. Not fetched: left in English. */
+async function merged(load: Words): Promise<void> {
+  if (fetched.has(load)) return
+  try {
+    const words = await load()
+    fetched.add(load)
+    const dictionary = Object.assign(DICTIONARIES.fr ?? {}, words)
+    DICTIONARIES.fr = dictionary
+    if (language === "fr") setTranslation(dictionary)
+  } catch {
+    // Drawn in English rather than not at all.
+  }
+}
+
+export function useFrench(load: Words): boolean {
   const french = useLanguage() === "fr"
   const [ready, setReady] = React.useState(() => !french || fetched.has(load))
   React.useEffect(() => {
+    asked.add(load)
     if (!french || fetched.has(load)) {
       setReady(true)
       return
     }
     let live = true
     setReady(false)
-    load().then(
-      (words) => {
-        fetched.add(load)
-        // The language is French, so its dictionary is the one in use.
-        const dictionary = Object.assign(DICTIONARIES.fr ?? {}, words)
-        DICTIONARIES.fr = dictionary
-        if (language === "fr") setTranslation(dictionary)
-        if (live) setReady(true)
-      },
-      // Not fetched: drawn in English rather than not at all.
-      () => live && setReady(true)
-    )
+    void merged(load).then(() => live && setReady(true))
     return () => {
       live = false
     }
   }, [french, load])
   return ready
+}
+
+/** Its children, once `words` are in: not drawn in English first. */
+export function Worded({ words, children }: { words: Words; children: React.ReactNode }) {
+  return useFrench(words) ? children : null
 }
 
 /* Inside one. The function is the same; what the hook adds is the redraw, so a

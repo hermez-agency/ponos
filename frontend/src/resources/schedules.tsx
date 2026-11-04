@@ -36,7 +36,7 @@ import {
 import { ConfirmDialog } from "@/components/console/confirm-dialog"
 import { EmptyState } from "@/components/console/empty-state"
 import { listFilters } from "@/components/console/filter-bar"
-import { ModelInputController } from "@/components/console/model-input"
+import { ModelInputController } from "@/components/console/model-input-lazy"
 import { MarkdownInputController } from "@/components/console/markdown-editor"
 import { choiceWord } from "@/components/console/ticket-bits"
 import {

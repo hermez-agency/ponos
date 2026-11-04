@@ -20,28 +20,25 @@ import {
 } from "react-resource-view"
 import { toast } from "sonner"
 
-import {
-  IdeaCards,
-  IdeaPage,
-  IdeaRows,
-  NoIdea,
-  CATEGORY_WORDS,
-  useStatusWords,
-  useToneWords,
-} from "@/components/console/idea-cards"
 import { ConfirmDialog } from "@/components/console/confirm-dialog"
 import { FilterSelect, listFilters } from "@/components/console/filter-bar"
+import { IdeasButton } from "@/components/console/ideas-deck"
 import {
   ChipsInputController,
+  IdeaCards,
   IdeaFields,
   IdeaFoot,
   IdeaForm,
+  IdeaPage,
+  IdeaRows,
   IdeaTextInputController,
   IdeaTitleInputController,
   IdeaWindow,
-} from "@/components/console/idea-form"
-import { IdeasButton } from "@/components/console/ideas-deck"
-import { IdeasPlanLine, IdeasSettingsButton } from "@/components/console/ideas-plan"
+  IdeasPlanLine,
+  IdeasSettingsButton,
+  NoIdea,
+} from "@/components/console/ideas-lazy"
+import { CATEGORY_WORDS, useStatusWords, useToneWords } from "@/components/console/idea-words"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { api, why } from "@/lib/api"

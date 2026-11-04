@@ -91,13 +91,16 @@ vi.mock("./ticket-decision", async () => {
     WINDOW_TAB: "ticket-tab",
     TicketTabContext: createContext(null),
     DecideButton: () => null,
-    TicketDecision: ({ onDone }: { onDone: () => void }) => (
-      <button type="button" onClick={onDone}>
-        the decision, sent
-      </button>
-    ),
   }
 })
+
+vi.mock("./ticket-decision-panel", () => ({
+  TicketDecision: ({ onDone }: { onDone: () => void }) => (
+    <button type="button" onClick={onDone}>
+      the decision, sent
+    </button>
+  ),
+}))
 
 const ID = "000000000000000000000000000abcde"
 

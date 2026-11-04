@@ -6,7 +6,7 @@ import { PageHead } from "@/components/console/frame"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
-import { useT } from "@/lib/i18n"
+import { useFrench, useT } from "@/lib/i18n"
 import { search } from "@/lib/settings-search"
 import {
   ask,
@@ -14,6 +14,7 @@ import {
   currentSettings,
   groupOf,
   sectionOf,
+  settingsFrench,
   showKeys,
   somethingIsEdited,
   useKeysShown,
@@ -38,6 +39,8 @@ interface Found {
  * or its key — in the console's language and in the file's. A click opens the
  * page it is on, unfolds what hides it, and brings it into view. */
 function SettingsSearch() {
+  // Redrawn once the fields' French is in, so that it searches the words shown.
+  useFrench(settingsFrench)
   const t = useT()
   useSettingsRevision()
   const navigate = useNavigate()

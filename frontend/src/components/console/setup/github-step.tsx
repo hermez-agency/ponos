@@ -7,7 +7,8 @@ import { useKnown } from "@/components/console/setup/known"
 import { Rich } from "@/components/console/text"
 import { Button } from "@/components/ui/button"
 import { api, why } from "@/lib/api"
-import { useT } from "@/lib/i18n"
+import { useFrench, useT } from "@/lib/i18n"
+import { settingsFrench } from "@/lib/settings-store"
 import type { Summary } from "@/lib/types"
 
 /* -- 4. github -------------------------------------------------------------- */
@@ -17,6 +18,8 @@ export function GithubStep({ container, onNext }: { container: boolean; onNext: 
   const [github, setGithub] = React.useState<Summary["github"] | null>(null)
   const [busy, setBusy] = React.useState(false)
   const { reread } = useKnown()
+  // The button and the token's form are the GitHub tab's, and say its words.
+  const worded = useFrench(settingsFrench)
 
   const check = React.useCallback(async () => {
     setBusy(true)
@@ -60,8 +63,8 @@ export function GithubStep({ container, onNext }: { container: boolean; onNext: 
         </>
       }
     >
-      {github?.via !== "app" && github?.via !== "token" ? <ConnectGithub /> : null}
-      {github?.via !== "app" && github?.via !== "token" ? (
+      {worded && github?.via !== "app" && github?.via !== "token" ? <ConnectGithub /> : null}
+      {worded && github?.via !== "app" && github?.via !== "token" ? (
         <details data-testid="github-token-choice">
           <summary className="cursor-pointer text-sm font-medium">{t("Or use an access token instead")}</summary>
           <div className="pt-3">

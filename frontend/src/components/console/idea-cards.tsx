@@ -26,6 +26,7 @@ import { projectHref } from "@/resources/projects"
 import { ticketHref } from "@/resources/tickets"
 
 import { EmptyState } from "./empty-state"
+import { CATEGORY_WORDS, useStatusWords } from "./idea-words"
 import { IdeaOrigin } from "./idea-origin"
 import { Robot } from "./robot"
 import { ago } from "./ticket-bits"
@@ -49,25 +50,6 @@ import { ago } from "./ticket-bits"
  * told the way a form tells it — see `ideasChanged`.
  */
 
-/** What a status is called on a card, and on its filter. */
-export function useStatusWords() {
-  const t = useT()
-  return {
-    one: {
-      proposed: t("New"),
-      kept: t("Kept"),
-      discarded: t("Thrown"),
-      ticket: t("Turned into a ticket"),
-    } satisfies Record<IdeaStatus, string>,
-    many: {
-      proposed: t("New ideas"),
-      kept: t("Kept ideas"),
-      discarded: t("Thrown ideas"),
-      ticket: t("Became tickets"),
-    } satisfies Record<IdeaStatus, string>,
-  }
-}
-
 /** The colour a status is said in: a dot and a word, the same in both themes. */
 const TONE: Record<IdeaStatus, string> = {
   proposed: "bg-primary",
@@ -84,17 +66,6 @@ function StatusBadge({ status }: { status: IdeaStatus }) {
       <span data-slot="ideas-status">{words.one[status]}</span>
     </Badge>
   )
-}
-
-/* What each category is called, on a card, on its filter and in the form: the
- * developers' words, the same in every language — like a ticket's sub-type
- * (subtypes.py), they are the words of the tickets and the commits, and read
- * wrong translated. Not to be put through `t()`, nor into french.ts. */
-export const CATEGORY_WORDS: Record<Exclude<IdeaCategory, "">, string> = {
-  ux: "UX/UI",
-  feature: "Feature",
-  security: "Security",
-  technical: "Tech",
 }
 
 /* A tint each, so a list is sorted at a glance — security the loudest, since
@@ -128,17 +99,6 @@ const SCORE_TONE: Record<Tone, string> = {
   orange: "border-amber-500/45 bg-amber-500/15 text-amber-700 dark:text-amber-300",
   red: "border-rose-500/40 bg-rose-500/15 text-rose-700 dark:text-rose-300",
   unscored: "border-border bg-muted text-muted-foreground",
-}
-
-/** What a colour is called, on the pill's label and on its filter. */
-export function useToneWords(): Record<Tone, string> {
-  const t = useT()
-  return {
-    green: t("Green (70 and up)"),
-    orange: t("Orange (40 to 69)"),
-    red: t("Red (under 40)"),
-    unscored: t("Not scored"),
-  }
 }
 
 /** The score: its number in a circle of its colour, why in the tooltip — "…" while it is being given. */
