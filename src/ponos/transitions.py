@@ -43,7 +43,7 @@ import time
 from datetime import UTC, datetime
 from typing import Any
 
-from . import agents, conversation, db, session, state, store
+from . import conversation, db, session, state, store
 from . import prompt as prompt_module
 from . import voice as voice_module
 from .base import Base
@@ -348,10 +348,7 @@ class Transitions(Base):
         else:
             workdir = conversation.talk_dir(short)
             where = f"Working directory: {workdir} — this ticket has no repository."
-        role = store.read(ticket.page, settings.prop("role")) or []
-        agent = (
-            agents.resolve(self.client, role[0], settings.prop("model")) if role else agents.Agent()
-        )
+        agent = self._agent(ticket)
         before = self._statuses()
         self.say(f"  ⇄ {ticket.title} — « On » : {row['old']} → {row['new']}")
         text = prompt_module.conversation(

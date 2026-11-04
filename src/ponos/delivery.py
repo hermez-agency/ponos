@@ -62,7 +62,6 @@ from pathlib import Path
 from typing import Any
 
 from . import (
-    agents,
     ci,
     generated,
     git,
@@ -1067,7 +1066,6 @@ class Delivery(Base):
             self.say(f"  · {ticket.title} — GitHub did not answer about {url}, left validated")
             return None
         short = short_id(ticket.id)
-        role = store.read(ticket.page, settings.prop("role")) or []
         job = Job(
             ticket,
             project,
@@ -1080,11 +1078,7 @@ class Delivery(Base):
             # names one for resolving: the session reads the same code again.
             model=self.config.runner.resolve_model
             or str(store.read(ticket.page, settings.prop("model")) or ""),
-            agent=(
-                agents.resolve(self.client, role[0], settings.prop("model"))
-                if role
-                else agents.Agent()
-            ),
+            agent=self._agent(ticket),
             comments=self.discussion(ticket),
         )
         self.say(f"  ▸ {ticket.title}\n    validated · resolving the conflicts of {url}")
@@ -1485,7 +1479,6 @@ class Delivery(Base):
         short = short_id(ticket.id)
         # The role, if the ticket names one: the account to post to and the
         # voice to post in are exactly the sort of thing an agent page carries.
-        role = store.read(ticket.page, self.config.notion.prop("role")) or []
         return Job(
             ticket,
             project,
@@ -1496,11 +1489,7 @@ class Delivery(Base):
             session_id=session.new_id(),
             log=state.log_file(short),
             model=str(store.read(ticket.page, self.config.notion.prop("model")) or ""),
-            agent=(
-                agents.resolve(self.client, role[0], self.config.notion.prop("model"))
-                if role
-                else agents.Agent()
-            ),
+            agent=self._agent(ticket),
             comments=self.discussion(ticket),
         )
 

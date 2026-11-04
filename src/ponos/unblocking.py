@@ -32,7 +32,7 @@ import time
 from datetime import UTC, datetime
 from typing import Any
 
-from . import agents, conversation, credits, session, state, store
+from . import conversation, credits, session, state, store
 from . import prompt as prompt_module
 from . import voice as voice_module
 from .base import Base
@@ -162,12 +162,7 @@ class Unblocking(Base):
         else:
             workdir = conversation.talk_dir(short)
             where = f"Working directory: {workdir} — this ticket has no repository."
-        role = store.read(ticket.page, self.config.notion.prop("role")) or []
-        agent = (
-            agents.resolve(self.client, role[0], self.config.notion.prop("model"))
-            if role
-            else agents.Agent()
-        )
+        agent = self._agent(ticket)
         self.say(f"  🔓 {ticket.title} — is it still blocked?")
         text = prompt_module.conversation(
             prompt_module.UNBLOCK,

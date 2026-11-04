@@ -28,6 +28,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar
 
 from . import (
+    agents,
     channels,
     conversation,
     journal,
@@ -295,6 +296,19 @@ class Base(Chapters):
         is heard on the next run without the service being restarted.
         """
         return voice_module.Voice(self.config.runner.language)
+
+    def _agent(self, ticket: Ticket) -> agents.Agent:
+        """The agent a ticket points at, read the same way by every chapter.
+
+        Optional all the way down: a database with no Agent column, an empty
+        relation and an unreadable page all read as no agent at all — the
+        reason it never belonged to one caller more than another.
+        """
+        settings = self.config.notion
+        role = store.read(ticket.page, settings.prop("role")) or []
+        return (
+            agents.resolve(self.client, role[0], settings.prop("model")) if role else agents.Agent()
+        )
 
     @property
     def environment(self) -> dict[str, str]:
