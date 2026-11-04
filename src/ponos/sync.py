@@ -212,6 +212,9 @@ class Stamps:
             rows = connection.execute(
                 "SELECT page, notion, markdown, printed, content FROM sync_stamps"
             ).fetchall()
+        # A page is never dropped from the stamps, deliberately: dropping one
+        # would turn the next pass's "deleted on one side" back into "created
+        # on the other", and re-create what somebody removed.
         self._known: dict[str, list[str]] = {
             str(page): [notion, markdown, printed, content]
             for page, notion, markdown, printed, content in rows
@@ -247,13 +250,6 @@ class Stamps:
         if self._known.get(page_id) != stamp:
             self._known[page_id] = stamp
             self._dirty.add(page_id)
-
-    def forget_nothing(self) -> None:
-        """Deliberately not a method: a page is never dropped from the stamps.
-
-        Dropping one would turn the next pass's "deleted on one side" back into
-        "created on the other", and re-create what somebody removed.
-        """
 
     def save(self) -> None:
         if not self._dirty:
