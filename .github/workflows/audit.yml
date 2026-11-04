@@ -1,0 +1,61 @@
+# Les vulnérabilités publiées sur ce que le runner et sa console exécutent :
+# `npm audit` sur les dépendances d'exécution du frontend (celles qui finissent
+# dans `web/static`, servi par la console — KaTeX, en novembre 2026), et
+# `pip-audit` sur `requirements.txt`, ce qu'une installation met dans son
+# `.venv`. L'outillage (`--omit=dev`, le groupe `dev` de uv) n'est pas audité :
+# il ne tourne que chez qui développe Ponos, jamais sur une installation.
+#
+# Un workflow à part plutôt qu'une étape de ci.yml : une alerte se publie sans
+# que le dépôt change, et le runner ne fusionne une PR que derrière une CI
+# verte — dans ci.yml, l'avis publié un dimanche rougirait toutes les PR du
+# lundi, ticket « Réparer main » compris, pour une dépendance qu'aucune d'elles
+# n'a touchée. Ici, il tourne chaque nuit sur main (une alerte met ce job en
+# rouge, dans l'onglet Actions, et Dependabot ouvre la PR qui la corrige), et
+# sur une pull request seulement quand elle change une dépendance : celle qui
+# fait entrer une version vulnérable est refusée, les autres ne l'attendent pas.
+# `--audit-level=moderate` : une alerte « low » ne refuse rien.
+
+name: audit
+
+on:
+  pull_request:
+    paths:
+      - requirements.txt
+      - uv.lock
+      - pyproject.toml
+      - frontend/package.json
+      - frontend/package-lock.json
+      - .github/workflows/audit.yml
+  schedule:
+    - cron: "29 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  npm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      # `npm audit` ne lit que `package-lock.json` : rien à installer.
+      - name: Les dépendances d'exécution de la console
+        run: npm audit --omit=dev --audit-level=moderate
+        working-directory: frontend
+
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.13"
+
+      - name: Ce que le runner importe
+        run: uvx pip-audit -r requirements.txt

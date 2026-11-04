@@ -113,7 +113,10 @@ fait `npm ci`, échoue si `npm run types` change `src/lib/api-types.d.ts`, puis
 d'écrire, puis lance `npm run test:e2e` sur ce `requirements.txt` installé.
 Un job `image` construit le `Dockerfile` et relance `tests/functional.py`
 dedans. `release.yml` reste séparé, ne se déclenche que sur un tag, relance les
-deux suites, puis publie l'image sur `ghcr.io`.
+deux suites, puis publie l'image sur `ghcr.io`. `audit.yml` (`npm audit
+--omit=dev`, `pip-audit`) tourne chaque nuit et sur les PR qui changent une
+dépendance, pas dans `ci.yml` ; `.github/dependabot.yml` ouvre les mises à jour
+le lundi — CONTRIBUTING.md, « Dependencies ».
 
 ## Arborescence utile
 

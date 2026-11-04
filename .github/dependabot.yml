@@ -1,0 +1,46 @@
+# Les dépendances qui vieillissent, une fois par semaine : le frontend (npm),
+# le cœur (uv : `pyproject.toml` et `uv.lock`) et les actions des workflows.
+# Les mineures et les correctifs d'un écosystème arrivent dans une seule PR,
+# pour que le runner, qui fusionne derrière une CI verte, n'en ait qu'une à
+# suivre par semaine ; une majeure garde sa PR à elle, parce qu'elle peut
+# demander du code. Les mises à jour de sécurité ne suivent pas ce calendrier :
+# Dependabot les ouvre dès l'alerte, si elles sont activées sur le dépôt.
+# Ce qu'aucune PR de Dependabot ne fait seule : réécrire `requirements.txt`
+# (l'export de `uv.lock`, que la CI vérifie) et `src/ponos/web/static` (le
+# build commité) — voir CONTRIBUTING.md, « Dependencies ».
+
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      frontend:
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      python:
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      actions:
+        update-types:
+          - minor
+          - patch
