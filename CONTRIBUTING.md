@@ -624,6 +624,35 @@ docker run --rm -v "$PWD:/repo:ro" ubuntu:24.04 sh /repo/scripts/fresh-install.s
 
 ---
 
+## Dependencies
+
+Two things watch them, and neither is a check every pull request waits on.
+
+**Dependabot** (`.github/dependabot.yml`) opens its pull requests on Mondays, for three
+ecosystems: npm in `frontend/`, uv at the root (`pyproject.toml` and `uv.lock`) and the
+GitHub actions of the workflows. The minor and patch updates of an ecosystem come together,
+in one pull request per week; a major one comes alone, because it may want code. Look for
+them in the repository's *Pull requests* tab, by `dependabot[bot]`; its security alerts are
+in *Security → Dependabot*. Two files no Dependabot pull request rewrites by itself, and the
+CI refuses it until they are: `requirements.txt`, the export of `uv.lock`, and
+`src/ponos/web/static`, the console's committed build. On its branch:
+
+```sh
+uv export --no-dev --no-emit-project --format requirements-txt -o requirements.txt
+cd frontend && npm ci && npm run build
+```
+
+**The audit** (`.github/workflows/audit.yml`) asks whether a published vulnerability touches
+what an installation runs: `npm audit --omit=dev --audit-level=moderate` in `frontend/` — the
+packages that end up in the console's build — and `uvx pip-audit -r requirements.txt`. The
+tooling is left out: it never runs on an installation. It runs every night on `main`, by
+hand, and on a pull request only when that pull request changes a dependency file — one
+that brings in a vulnerable version is refused. It is not a step of `ci.yml`: an advisory is
+published without the repository changing, and the runner merges only behind a green CI, so
+an advisory published on a Sunday would turn every Monday pull request red for a package
+none of them touched. A red night shows in the *Actions* tab, under *audit*; the same two
+commands say the same thing locally.
+
 ## Releases and versions
 
 `ponos` typed alone presents the product and the version it is running — as do

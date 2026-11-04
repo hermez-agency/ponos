@@ -75,6 +75,13 @@
 # runner, et ce qu'elle apporte — le Python 3.13 de l'image, son git, son
 # utilisateur qui n'est pas root — doit faire passer le même parcours. Le dépôt
 # est monté en lecture seule : la suite n'écrit que dans ses dossiers jetables.
+#
+# Aucun job ne lance `npm audit` ni `pip-audit` : une alerte se publie sans que
+# le dépôt change, et le runner ne fusionne que derrière une CI verte — un avis
+# publié un dimanche rougirait ici toutes les PR du lundi pour une dépendance
+# qu'aucune n'a touchée. L'audit vit dans `audit.yml`, chaque nuit sur main et
+# sur les seules PR qui changent une dépendance ; Dependabot
+# (`.github/dependabot.yml`) ouvre les mises à jour, groupées, chaque lundi.
 
 name: CI
 
