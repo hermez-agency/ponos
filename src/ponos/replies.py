@@ -180,12 +180,7 @@ class Replies(Base):
             workdir = conversation.talk_dir(short)
             where = f"Working directory: {workdir} — this ticket has no repository."
 
-        role = store.read(ticket.page, self.config.notion.prop("role")) or []
-        agent = (
-            agents.resolve(self.client, role[0], self.config.notion.prop("model"))
-            if role
-            else agents.Agent()
-        )
+        agent = self._agent(ticket)
         text = prompt_module.conversation(
             prompt_module.CONVERSATION,
             project=project.name,

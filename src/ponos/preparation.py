@@ -25,7 +25,6 @@ import shutil
 from pathlib import Path
 
 from . import (
-    agents,
     blocks,
     conversation,
     git,
@@ -174,12 +173,7 @@ class Preparation(Base):
 
         # Both are optional and neither can fail a ticket: a database with no
         # Agent column reads as no agent, and unreadable comments as none.
-        role = store.read(ticket.page, self.config.notion.prop("role")) or []
-        agent = (
-            agents.resolve(self.client, role[0], self.config.notion.prop("model"))
-            if role
-            else agents.Agent()
-        )
+        agent = self._agent(ticket)
         # The same for the goal it serves, a relation too: no Objectif column,
         # an empty one or an unreadable page all read as no goal.
         pointed = goals.pointed(ticket.page, self.config.notion.prop("goal"))
