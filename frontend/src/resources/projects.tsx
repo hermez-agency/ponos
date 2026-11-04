@@ -22,13 +22,11 @@ import {
   type ListComponentPropsInterface,
 } from "react-resource-view"
 
-import { ContextBlock } from "@/components/console/context-block"
 import { EmptyState } from "@/components/console/empty-state"
 import { FilterSelect, listFilters } from "@/components/console/filter-bar"
 import { MarkdownInputController } from "@/components/console/markdown-editor"
 import { ProjectThumb } from "@/components/console/project-picture"
 import { ProjectMenu } from "@/components/console/project-delete"
-import { ProjectHead, ProjectPage } from "@/components/console/project-page"
 import {
   BoxInputController,
   KindInputController,
@@ -1044,6 +1042,12 @@ function ProjectsTop() {
 
 /** Under the list: how many are worked on in git and where their repositories are
  * looked for — then, in the two layouts with no panel, the standing context. */
+/* The standing context: drawn under the list, and fetched with it rather than
+ * with the board — the first load has a budget. */
+const LazyContextBlock = React.lazy(() =>
+  import("@/components/console/context-block").then((module) => ({ default: module.ContextBlock }))
+)
+
 function ProjectsBottom() {
   const { viewVariant } = useCurrentViewResourceContext()
   return (
@@ -1051,7 +1055,9 @@ function ProjectsBottom() {
       <ProjectsFoot />
       {viewVariant === SPLIT ? null : (
         <div className="mt-8">
-          <ContextBlock />
+          <React.Suspense fallback={null}>
+            <LazyContextBlock />
+          </React.Suspense>
         </div>
       )}
     </>
@@ -1211,6 +1217,27 @@ const formFilter: FormInterface = {
   },
 }
 
+
+/* A project's page and its head: drawn once a project is opened, and fetched
+ * then — the board is the first page, and its first load has a budget. */
+const LazyProjectPage = React.lazy(() =>
+  import("@/components/console/project-page").then((module) => ({ default: module.ProjectPage }))
+)
+const LazyProjectHead = React.lazy(() =>
+  import("@/components/console/project-page").then((module) => ({ default: module.ProjectHead }))
+)
+
+const ProjectPage = () => (
+  <React.Suspense fallback={null}>
+    <LazyProjectPage />
+  </React.Suspense>
+)
+
+const ProjectHead = () => (
+  <React.Suspense fallback={null}>
+    <LazyProjectHead />
+  </React.Suspense>
+)
 export const projects = createViewResource<ProjectItem, ProjectWrite>(PROJECTS, {
   name: "Projects",
   path: "/api/projects",
@@ -1349,6 +1376,9 @@ export const projects = createViewResource<ProjectItem, ProjectWrite>(PROJECTS, 
     },
   },
 })
+
+/** The address a project's brief links back to: the standing context, under the projects. */
+export const CONTEXT_ANCHOR = "global-context"
 
 /** Where the projects are, in the layout they were last worked in. */
 export const projectsHref = () =>

@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { Robot } from "@/components/console/robot"
 import { ProjectThumb } from "@/components/console/project-picture"
 import { FAMILY_ICON, blockSaid, familyColor } from "@/components/console/ticket-bits"
-import { TicketDecision } from "@/components/console/ticket-decision"
+import { TicketDecision } from "@/components/console/ticket-decision-panel"
 import { api, why } from "@/lib/api"
 import { patchTicket, titleOf, useBoard } from "@/lib/board-store"
 import { isTyping } from "@/lib/hotkeys"

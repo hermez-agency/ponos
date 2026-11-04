@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { api } from "@/lib/api"
 import { copy } from "@/lib/copy"
-import { useT } from "@/lib/i18n"
+import { Worded, useT } from "@/lib/i18n"
+import { settingsFrench } from "@/lib/settings-store"
 import type { McpOverview, McpServers, McpTest } from "@/lib/types"
 
 /* The settings' MCP page: what an MCP is, how to plug Ponos's into a client,
@@ -416,7 +417,13 @@ function Servers() {
   )
 }
 
-export function McpPage() {
+export const McpPage = () => (
+  <Worded words={settingsFrench}>
+    <McpTab />
+  </Worded>
+)
+
+function McpTab() {
   const t = useT()
   const [overview, setOverview] = React.useState<McpOverview | null>(null)
   const [failed, setFailed] = React.useState("")

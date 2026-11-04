@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react"
 import { AccessStep } from "@/components/console/setup/access-step"
 import { ChannelsStep } from "@/components/console/setup/channels-step"
 import { DemoStep } from "@/components/console/setup/demo-step"
+import { Diagnosis as DiagnosisCard, ServiceLog as ServiceLogCard } from "@/components/console/setup/diagnosis"
 import { GithubStep } from "@/components/console/setup/github-step"
 import { KnownContext, type Known } from "@/components/console/setup/known"
 import { LanguageStep } from "@/components/console/setup/language-step"
@@ -11,17 +12,38 @@ import { NotionStep } from "@/components/console/setup/notion-step"
 import { ProjectStep } from "@/components/console/setup/project-step"
 import { ProviderStep } from "@/components/console/setup/provider-step"
 import { Stepper } from "@/components/console/setup/stepper"
+import { SetupSummary as SummaryCard } from "@/components/console/setup/summary"
 import { SummaryStep } from "@/components/console/setup/summary-step"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { api, why } from "@/lib/api"
-import { useT } from "@/lib/i18n"
+import { Worded as WordedIn, useT } from "@/lib/i18n"
 import { nextStep, stepFrom, stepStates, stepsFor, type StepKey } from "@/lib/setup"
 import type { SetupState, Summary } from "@/lib/types"
 
+/* The steps' French, in `setup-french.ts`: fetched when they are drawn in
+ * French — the language step can turn it on halfway through — and waited for,
+ * so that a step is not drawn in English first. */
+const words = () => import("@/lib/setup-french").then((module) => module.SETUP_FRENCH)
+
+const Worded = ({ children }: { children: React.ReactNode }) => <WordedIn words={words}>{children}</WordedIn>
+
 // The Settings page draws these too, and loads them through this module.
-export { Diagnosis, ServiceLog } from "@/components/console/setup/diagnosis"
-export { SetupSummary } from "@/components/console/setup/summary"
+export const Diagnosis = () => (
+  <Worded>
+    <DiagnosisCard />
+  </Worded>
+)
+export const ServiceLog = () => (
+  <Worded>
+    <ServiceLogCard />
+  </Worded>
+)
+export const SetupSummary = (props: React.ComponentProps<typeof SummaryCard>) => (
+  <Worded>
+    <SummaryCard {...props} />
+  </Worded>
+)
 
 /* The first connection, in steps.
  *
@@ -51,6 +73,14 @@ function remember(step: StepKey) {
 }
 
 export function SetupApp() {
+  return (
+    <Worded>
+      <Steps />
+    </Worded>
+  )
+}
+
+function Steps() {
   const t = useT()
   const [state, setState] = React.useState<SetupState | null>(null)
   const [failed, setFailed] = React.useState("")

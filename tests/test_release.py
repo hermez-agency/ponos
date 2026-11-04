@@ -716,25 +716,17 @@ def the_console_is_downloaded_once_and_compressed() -> None:
         console.server_close()
 
     # What the first load fetches — the page, the bundle and what it preloads,
-    # the stylesheet and the icon — under the 500 kB the ticket set, gzipped
-    # (501 kB since pausing a ticket: the first load was 35 bytes under; 502 kB
-    # since the billing cause, whose French renamed the lazy chunks the bundle
-    # names — main was 1 byte under, and the new names were 1 byte heavier;
-    # 503 kB since the plan's bar on a running card, and api.ts naming each
-    # route by its path in the schema, for openapi-fetch to hold the call to it
-    # — 0.4 kB the first load could not do without; and 504 kB since a ticket's
-    # page keeps, dated, the line its card in ready no longer draws: main was
-    # 57 bytes under, the line and its two French sentences 135 bytes — a
-    # budget the band's title, telling its warnings from what stops the
-    # tickets, in French too, then fits under; and 506 kB since a refusal to
-    # overwrite is said in French, and toasted once rather than on every load:
-    # main was 87 bytes under, `conflicts.ts` and its sentences 1.6 kB — most of
-    # it the bundle's short names shuffled, which gzip pays for; and 507 kB
-    # since the first connection's steps say the server's sentences in French:
-    # main was 27 bytes over once they were in, the sentences 1.2 kB; and 508 kB
-    # since the projects' order, whose nine French sentences are 0.6 kB the
-    # dictionary cannot do without; and 509 kB since a project's setup command,
-    # whose French sentences are 0.4 kB the dictionary cannot do without).
+    # the stylesheet and the icon — gzipped, under 470 kB. It was 500 kB, then
+    # raised nine times, a few dozen bytes each, up to 509 kB: every sentence
+    # the console gained went into the one load every page pays for. On 4
+    # November 2026 it came down from 508 kB to 455 kB: the settings' words and
+    # the first connection's left `french.ts` for dictionaries their pages fetch
+    # (`settings-french.ts`, `setup-french.ts`), and a ticket's page, a
+    # project's, the ideas, the standing context, the Decide panel and the
+    # model's field are fetched once they are drawn. The 15 kB between is room
+    # for what the console says next — not a figure to raise again: what the
+    # board does not draw goes behind a `lazy()`, and what only those pages say
+    # goes with them.
     # For a reader of French, that is with the dictionary the page then asks
     # for: the heavier of the two first loads is the one held to the budget.
     page = (STATIC / "index.html").read_text(encoding="utf-8")
@@ -745,7 +737,7 @@ def the_console_is_downloaded_once_and_compressed() -> None:
     assert len(french) == 1, f"one French dictionary expected, the build left {french}"
     assert french[0] not in first, "the French dictionary is fetched by readers of English too"
     weight = sum(len(gzip.compress(path.read_bytes(), compresslevel=9)) for path in first + french)
-    assert weight < 509_000, f"the first load in French is {weight // 1000} kB compressed"
+    assert weight < 470_000, f"the first load in French is {weight // 1000} kB compressed"
 
 
 @case
@@ -1765,7 +1757,8 @@ def the_console_says_the_configuration_in_french_too() -> None:
     The settings page is the one place where what the console shows comes from
     Python: a label, the line of help under it, the section it sits in. They
     reach the browser in the words written here and are looked up in
-    `frontend/src/lib/french.ts` by those very words — so a sentence reworded
+    `frontend/src/lib/settings-french.ts` (or `french.ts`, for the pages' titles
+    and the words the console says elsewhere too) by those very words — so a sentence reworded
     on this side and not on that one would quietly go back to English on a
     console somebody set to French.
 
@@ -1773,7 +1766,17 @@ def the_console_says_the_configuration_in_french_too() -> None:
     Feature », is the sub-type's own word, and a sub-type is never translated
     (see `SUBTYPES` in subtypes.py) — so it must have no entry at all.
     """
-    dictionary = (FRONTEND / "src/lib/french.ts").read_text(encoding="utf-8")
+    # The settings pages fetch theirs (`settings-french.ts`); the pages' titles,
+    # which the tabs draw first, and the words said elsewhere too stay in `french.ts`.
+    dictionary = "".join(
+        (FRONTEND / "src/lib" / name).read_text(encoding="utf-8")
+        for name in ("french.ts", "settings-french.ts")
+    )
+    titles = (FRONTEND / "src/lib/french.ts").read_text(encoding="utf-8")
+    for group in web_settings.GROUPS:
+        assert f'"{group.title}":' in titles or re.search(
+            rf"^\s*{re.escape(group.title)}:", titles, re.MULTILINE
+        ), f"the tab “{group.title}” is drawn before settings-french.ts is fetched"
     said = [words for group in web_settings.GROUPS for words in (group.title, group.blurb)]
     said += [words for fold in web_settings.FOLDS.values() for words in fold]
     for section in web_settings.SECTIONS:
@@ -1791,7 +1794,9 @@ def the_console_says_the_configuration_in_french_too() -> None:
         keyed = f'"{sentence}":' in dictionary or re.search(
             rf"^\s*{re.escape(sentence)}:", dictionary, re.MULTILINE
         )
-        assert not sentence or keyed, f"nothing translates “{sentence}” — add it to french.ts"
+        assert not sentence or keyed, (
+            f"nothing translates “{sentence}” — add it to settings-french.ts"
+        )
 
 
 @case
@@ -1817,11 +1822,15 @@ def the_first_connection_says_what_the_machine_answers_in_french_too() -> None:
         assert f'"{sentence}"' in sources or f'"{sentence[0].upper()}{sentence[1:]}"' in sources, (
             f"the Python no longer says “{sentence}” — update said.ts"
         )
-    dictionary = (FRONTEND / "src/lib/french.ts").read_text(encoding="utf-8")
+    # The steps fetch their own (`setup-french.ts`), with `french.ts` already there.
+    dictionary = "".join(
+        (FRONTEND / "src/lib" / name).read_text(encoding="utf-8")
+        for name in ("french.ts", "setup-french.ts")
+    )
     keys = sentences + re.findall(r'key: "([^"]+)"', said)
     for key in keys:
         assert f"{json.dumps(key, ensure_ascii=False)}:" in dictionary, (
-            f"nothing translates “{key}” — add it to french.ts"
+            f"nothing translates “{key}” — add it to setup-french.ts"
         )
 
 

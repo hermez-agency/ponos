@@ -9,8 +9,9 @@ import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import { api, why } from "@/lib/api"
-import { useT } from "@/lib/i18n"
+import { useFrench, useT } from "@/lib/i18n"
 import { splitHelp } from "@/lib/settings-search"
+import { settingsFrench } from "@/lib/settings-store"
 import type { ProjectSettings, TicketKind, ValidationField } from "@/lib/types"
 import { settingsHref } from "@/resources/settings"
 
@@ -36,6 +37,8 @@ export function ProjectSettingsTab({ project }: { project: string }) {
   const [settings, setSettings] = React.useState<ProjectSettings | null>(null)
   const [problem, setProblem] = React.useState("")
   const [saving, setSaving] = React.useState(false)
+  // The switches are worded as the settings word them, in `settings-french.ts`.
+  const worded = useFrench(settingsFrench)
 
   const read = React.useCallback(() => {
     api.projectSettings(project).then(
@@ -102,7 +105,7 @@ export function ProjectSettingsTab({ project }: { project: string }) {
     }
   }
 
-  if (!settings)
+  if (!settings || !worded)
     return problem ? (
       <p className="text-destructive text-sm">{problem}</p>
     ) : (

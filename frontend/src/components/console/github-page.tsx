@@ -10,7 +10,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { api } from "@/lib/api"
-import { useT } from "@/lib/i18n"
+import { Worded, useT } from "@/lib/i18n"
+import { settingsFrench } from "@/lib/settings-store"
 import { count, number } from "@/lib/numbers"
 import type { GithubApp, GithubManifest, GithubToken, GithubTokenCheck } from "@/lib/types"
 
@@ -367,7 +368,13 @@ function Connected({ app, onGone }: { app: GithubApp; onGone: () => void }) {
   )
 }
 
-export function GithubPage() {
+export const GithubPage = () => (
+  <Worded words={settingsFrench}>
+    <GithubTab />
+  </Worded>
+)
+
+function GithubTab() {
   const t = useT()
   const [apps, setApps] = React.useState<GithubApp[] | null>(null)
   const [token, setToken] = React.useState<GithubToken | null>(null)

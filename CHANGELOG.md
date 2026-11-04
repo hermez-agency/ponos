@@ -42,6 +42,7 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Changed
 
+- La console s'ouvre plus vite : son premier chargement, en français, passe de 508 à 455 Ko compressés. Les mots des réglages et de la première connexion arrivent avec ces pages, et la page d'un ticket, celle d'un projet, les idées, le contexte permanent, le panneau Décider et le choix du modèle sont chargés quand ils s'affichent.
 - Le site the-ponos.app et le README montrent la console actuelle (Hermez, Dashboard) : le film de la boucle est refilmé en clair et en sombre, et la vidéo promo, restée à l'ancienne console, est retirée au profit de ce film.
 - `install.sh` termine, quand des outils manquent, par une seule commande qui les installe tous (`sudo apt-get install -y python3 python3-venv git`), en plus du détail par outil ; sur Debian et Ubuntu, `python3-venv` accompagne désormais `python3`. Quand il faut télécharger uv, l'installeur le dit.
 - La ligne d'installation installe la dernière release (le plus haut tag `vX.Y.Z`), celle que suivent les mises à jour automatiques, et non plus la pointe de `main` : `ponos --version` affiche son numéro et `ponos doctor` n'annonce aucune mise à jour dès la première minute. `TR_REF=main` installe toujours la pointe de `main`, et règle alors `runner.update_channel = "main"` pour suivre chaque commit sans être ramené à la release. Un dépôt sans release est installé depuis `main` de la même façon.
