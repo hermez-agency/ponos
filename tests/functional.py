@@ -57,6 +57,7 @@ from ponos import (  # noqa: E402
     base,
     credits,
     db,
+    github_checks,
     images,
     journal,
     local_ci,
@@ -1338,6 +1339,11 @@ def bench(**overrides: object) -> Iterator[Bench]:
     Everything it changes is put back on the way out, the temporary directory
     included — so two scenarios never share a board, a state directory or a
     branch, and a scenario that fails leaves the machine as it found it.
+
+    The pause GitHub is given after a rerun is asked (`RERUN_SETTLE_SECONDS`)
+    is none here: the fake `gh` answers at once, and every case that runs a
+    red job again would otherwise sleep it for real, making the tail of the
+    suite.
     """
     with tempfile.TemporaryDirectory(prefix="ponos-functional-") as directory:
         root = Path(directory)
@@ -1395,7 +1401,12 @@ def bench(**overrides: object) -> Iterator[Bench]:
                     "PONOS_NOTION_TOKEN=ntn_functional_tests\n", encoding="utf-8"
                 )
                 (root / "secrets.env").chmod(0o600)
-                yield Bench(root, board, database, logs)
+                settle = github_checks.RERUN_SETTLE_SECONDS
+                github_checks.RERUN_SETTLE_SECONDS = 0
+                try:
+                    yield Bench(root, board, database, logs)
+                finally:
+                    github_checks.RERUN_SETTLE_SECONDS = settle
 
 
 @contextmanager
@@ -2067,36 +2078,46 @@ def a_ticket_blocked_on_its_type_is_merged_once_somebody_gives_it(machine: Bench
     assert len(machine.merges()) == 1, machine.merges()
 
 
+def _stopped_by_its_ci(
+    machine: Bench, verdicts: tuple[str, str], annotation: str, expected: str
+) -> None:
+    """A forced merge whose checks are red: left in review, the cause on its card."""
+    machine.board.databases[machine.database]["properties"] = {
+        **machine.board.databases[machine.database]["properties"],
+        "Progress": {"type": "rich_text", "rich_text": {}},
+    }
+    repository = machine.repository("site")
+    machine.with_ci(repository)
+    project = machine.project("Site", repository)
+    ticket = machine.ticket("Corriger l'entête", "Le titre est faux.", project)
+    os.environ["FAKE_GH_CHECKS"] = _check_runs(*verdicts)
+    os.environ["FAKE_GH_ANNOTATION"] = annotation
+
+    machine.run()
+
+    assert machine.status(ticket) == "In review", machine.status(ticket)
+    assert not machine.merges(), machine.merges()
+    assert "FAKE.md" not in machine.files_on(repository, "main")
+    said = machine.board.said(ticket)[-1]
+    assert "Not merged, left in review" in said and expected in said, said
+    card = str(machine.board.value(ticket, "Progress") or "")
+    assert expected in card, card
+
+
 @case
-def a_forced_merge_stopped_by_its_ci_says_on_the_card_which_ci_and_why() -> None:
-    """Red by the code: the checks are named. Never started by GitHub for another
-    reason than its billing: its reason, word for word. Neither merged."""
+@runner_settings(force_validated_code=True)
+def a_forced_merge_red_by_its_code_names_the_red_checks_on_the_card(machine: Bench) -> None:
+    """Red by the code: the checks are named, and it is not merged."""
+    _stopped_by_its_ci(machine, ("SUCCESS", "FAILURE"), "", "red on `job 2`")
+
+
+@case
+@runner_settings(force_validated_code=True)
+def a_forced_merge_never_started_by_github_says_its_reason_on_the_card(machine: Bench) -> None:
+    """Never started by GitHub for another reason than its billing: its reason,
+    word for word, and it is not merged."""
     not_started = "The job was not started because the workflow was disabled."
-    for verdicts, annotation, expected in (
-        (("SUCCESS", "FAILURE"), "", "red on `job 2`"),
-        (("FAILURE", "FAILURE"), not_started, "workflow was disabled"),
-    ):
-        with bench(force_validated_code=True) as machine:
-            machine.board.databases[machine.database]["properties"] = {
-                **machine.board.databases[machine.database]["properties"],
-                "Progress": {"type": "rich_text", "rich_text": {}},
-            }
-            repository = machine.repository("site")
-            machine.with_ci(repository)
-            project = machine.project("Site", repository)
-            ticket = machine.ticket("Corriger l'entête", "Le titre est faux.", project)
-            os.environ["FAKE_GH_CHECKS"] = _check_runs(*verdicts)
-            os.environ["FAKE_GH_ANNOTATION"] = annotation
-
-            machine.run()
-
-            assert machine.status(ticket) == "In review", machine.status(ticket)
-            assert not machine.merges(), machine.merges()
-            assert "FAKE.md" not in machine.files_on(repository, "main")
-            said = machine.board.said(ticket)[-1]
-            assert "Not merged, left in review" in said and expected in said, said
-            card = str(machine.board.value(ticket, "Progress") or "")
-            assert expected in card, card
+    _stopped_by_its_ci(machine, ("FAILURE", "FAILURE"), not_started, "workflow was disabled")
 
 
 @case
@@ -2110,7 +2131,7 @@ def a_forced_merge_github_refuses_for_the_billing_waits_validated_until_it_is_pa
     the health of the installation, and the passes after ask nothing of a
     session. Paid, the refused jobs are run again and the pull request lands.
     """
-    from ponos import github_checks, health
+    from ponos import health
 
     machine.board.databases[machine.database]["properties"] = {
         **machine.board.databases[machine.database]["properties"],
@@ -2145,11 +2166,7 @@ def a_forced_merge_github_refuses_for_the_billing_waits_validated_until_it_is_pa
     os.environ["FAKE_GH_ANNOTATION"] = ""
     for hold in state.billing_holds():
         state.billing_probed(hold["account"], 0.0)
-    settle, github_checks.RERUN_SETTLE_SECONDS = github_checks.RERUN_SETTLE_SECONDS, 0
-    try:
-        machine.run()
-    finally:
-        github_checks.RERUN_SETTLE_SECONDS = settle
+    machine.run()
 
     assert machine.status(ticket) == "Done", machine.status(ticket)
     assert len(machine.merges()) == 1, machine.merges()
