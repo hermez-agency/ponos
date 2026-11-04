@@ -645,6 +645,13 @@ uv export --no-dev --no-emit-project --format requirements-txt -o requirements.t
 cd frontend && npm ci && npm run build
 ```
 
+**Two TypeScripts in `frontend/`.** `typescript` is TypeScript 7, the native compiler that
+`npm run lint` and `npm run build` run. `typescript-5` (an alias of `typescript@~5.9`) is
+there for openapi-typescript alone: it writes `api-types.d.ts` with the compiler API that
+TypeScript 7 no longer ships, and `scripts/typescript-5.mjs` hands it that one during
+`npm run types`. It stays on 5 for as long as openapi-typescript asks for `typescript ^5.x`
+— a pull request that moves it along with `typescript` breaks `npm run types`.
+
 **The audit** (`.github/workflows/audit.yml`) asks whether a published vulnerability touches
 what an installation runs: `npm audit --omit=dev --audit-level=moderate` in `frontend/` — the
 packages that end up in the console's build — and `uvx pip-audit -r requirements.txt`. The
