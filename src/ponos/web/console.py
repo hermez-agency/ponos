@@ -36,7 +36,6 @@ import queue
 import re
 import secrets
 import shlex
-import signal
 import subprocess
 import sys
 import threading
@@ -106,9 +105,6 @@ MODEL_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/\-]*(\[[0-9a-z]+\])?$")
 
 # A command is not a session: nothing in the CLI legitimately takes minutes.
 COMMAND_TIMEOUT = 180
-
-# How long a command is given to stop on SIGTERM before its group is killed.
-GRACE_SECONDS = 5
 
 
 def web_dir() -> Path:
@@ -1067,22 +1063,10 @@ class Commands:
 
 
 def _end(process: subprocess.Popen[str], expired: threading.Event) -> None:
-    """Stop a command's whole process group: asked first, then made to.
+    """Stop a command's whole process group, as `session.halt` stops a session's.
 
-    The group, and not the process: with `start_new_session` its id is the
-    leader's pid, and it outlives the leader for as long as anything it started
-    is still alive — which is exactly what has to go.
+    One sequence for both, so that what changes in how a group is ended
+    changes for a command typed here too.
     """
     expired.set()
-    try:
-        os.killpg(process.pid, signal.SIGTERM)
-    except (ProcessLookupError, PermissionError):
-        return
-    try:
-        process.wait(timeout=GRACE_SECONDS)
-    except subprocess.TimeoutExpired:
-        pass
-    try:
-        os.killpg(process.pid, signal.SIGKILL)
-    except (ProcessLookupError, PermissionError):
-        pass
+    session.halt(process)
