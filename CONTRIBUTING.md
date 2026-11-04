@@ -143,6 +143,7 @@ npm run build      # writes ../src/ponos/web/static — commit what it writes
 npm run dev        # hot reload, proxying /api to a console you started yourself
 npm run dev:demo   # the same, on the made-up console of scripts/demo.py (below)
 npm run lint       # tsc, in the strict configuration the build uses
+npm run lint:hooks # oxlint: rules-of-hooks and exhaustive-deps, nothing else
 npm run types      # src/lib/api-types.d.ts, from the schema — commit what it writes
 npm run test:e2e   # the built console in your Chrome, on a board of files of its own
 npm test           # node --test on the message bar's decisions — nothing to install

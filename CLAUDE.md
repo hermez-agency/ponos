@@ -79,6 +79,7 @@ Frontend, depuis `frontend/` :
 npm install
 npm run build   # tsc -b && vite build — écrit dans ../src/ponos/web/static
 npm run lint    # tsc -b --noEmit
+npm run lint:hooks  # oxlint, rules-of-hooks et exhaustive-deps seulement (.oxlintrc.json)
 npm run types   # src/lib/api-types.d.ts, depuis le schéma OpenAPI de la console (scripts/openapi.py)
 npm run test:e2e  # Playwright dans le Chrome installé, sur un vrai `serve` et un board jetable
 npm run test:e2e:ci  # le même, avec les deux workers de la CI : c’est lui qui montre une dépendance à l’ordre
@@ -107,7 +108,7 @@ sous 3.13 (réparti par pytest-xdist, sous-processus Python compris dans la couv
 sauf les doublures de `functional.py`, lancées en `python -S`) ; le job frontend ne se déclenche que si `frontend/**` ou
 `src/ponos/web/**` a changé, et y
 fait `npm ci`, échoue si `npm run types` change `src/lib/api-types.d.ts`, puis
-`npm run lint`, `npm test`, `npm run build` (sous Node 24),
+`npm run lint`, `npm run lint:hooks`, `npm test`, `npm run build` (sous Node 24),
 échoue si `src/ponos/web/static` diffère de ce que le build vient
 d'écrire, puis lance `npm run test:e2e` sur ce `requirements.txt` installé.
 Un job `image` construit le `Dockerfile` et relance `tests/functional.py`
@@ -203,7 +204,10 @@ deux suites, puis publie l'image sur `ghcr.io`.
   Le dépôt mélange anglais et français selon qui a écrit le commit — reste
   cohérent avec le ticket que tu traites plutôt que de forcer une langue.
 - Le frontend suit la configuration TypeScript stricte du dépôt
-  (`tsc -b --noEmit` est le seul lint) et les sentences affichées passent par
+  (`tsc -b --noEmit`), les deux règles des hooks React en erreur
+  (`npm run lint:hooks`, oxlint : une dépendance laissée hors d'un tableau se
+  justifie par un `// eslint-disable-next-line react-hooks/exhaustive-deps`
+  sous le commentaire qui dit pourquoi) et les sentences affichées passent par
   `t("...")` de `react-mini-i18n` — la phrase anglaise est la clé, la
   traduction française vit dans `frontend/src/lib/french.ts` — sauf celles des
   vérifications de `health/`, dans `frontend/src/lib/health-french.ts`, que la

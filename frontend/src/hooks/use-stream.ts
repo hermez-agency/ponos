@@ -92,7 +92,6 @@ export function useStream(handlers: Handlers): { connection: Connection; askBoar
     }
     // Opened once. The names are fixed at mount, which is true of every event
     // this console knows how to receive.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const askBoard = React.useCallback(() => reopen.current(), [])

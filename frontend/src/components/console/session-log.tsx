@@ -347,13 +347,14 @@ function useRunSteps(run: Run | undefined, signal: number) {
   const [read, setRead] = React.useState<Read>({ steps: [], count: 0, more: false, loading: true })
   const held = React.useRef<{ run?: number; last: number; loaded: boolean }>({ last: 0, loaded: false })
 
+  const id = run?.id
   React.useEffect(() => {
-    if (!run) return
+    if (id === undefined) return
     let alive = true
-    held.current = { run: run.id, last: 0, loaded: false }
+    held.current = { run: id, last: 0, loaded: false }
     setRead({ steps: [], count: 0, more: false, loading: true })
     api
-      .runSteps(run.id)
+      .runSteps(id)
       .then((page) => {
         if (!alive) return
         held.current.last = page.steps[page.steps.length - 1]?.position ?? 0
@@ -364,7 +365,7 @@ function useRunSteps(run: Run | undefined, signal: number) {
     return () => {
       alive = false
     }
-  }, [run?.id])
+  }, [id])
 
   const ended = run?.ended_at
   React.useEffect(() => {

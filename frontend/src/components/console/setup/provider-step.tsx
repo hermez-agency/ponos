@@ -32,6 +32,9 @@ export function ProviderStep({ container, onNext }: { container: boolean; onNext
     if (summary.provider.stated) setChosen(summary.provider.provider)
     if (summary.provider.stated && summary.provider.provider === "cli") void checkLogin(false)
     setRouted(summary.provider.provider !== "openrouter" || summary.provider.route_sessions)
+    // `checkLogin` is called once, behind `seeded`: a new one each render is no
+    // reason to look again.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [summary])
 
   const save = async (provider: Provider) => {
