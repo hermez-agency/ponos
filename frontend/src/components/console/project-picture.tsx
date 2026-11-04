@@ -286,6 +286,7 @@ function PictureDialog({
     setTyped(slot === "icon" && pictures.icon.kind === "emoji" ? (pictures.icon.emoji ?? "") : "")
     // Only on opening and on changing tabs: `pictures` changes under the
     // dialog when a change lands, and what is being typed must survive that.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slot, open])
 
   React.useEffect(() => () => {

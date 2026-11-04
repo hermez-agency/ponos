@@ -128,9 +128,10 @@ export function IdeasDialog({
   }, [project, find])
 
   // The arrows work as soon as the pile is there, with no card to click first.
+  const empty = pile.length === 0
   React.useEffect(() => {
     if (phase === "ready" && tab === "ideas") focus.current?.focus({ preventScroll: true })
-  }, [phase, tab, pile.length === 0])
+  }, [phase, tab, empty])
 
   /** Tells the server, after whatever was decided before this. */
   const tell = (run: () => Promise<unknown>, fail: () => void) => {

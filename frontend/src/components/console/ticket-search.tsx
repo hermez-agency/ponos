@@ -435,6 +435,9 @@ export function TicketSearch({
         (value, ticket) => (ticket?.block ? blockSaid(ticket.block.label) : value)
       ).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label)),
     }
+    // `t` is not read here, but changes with the language that `blockSaid` and
+    // `choiceWord` read: switching it says the labels again.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tickets, board, projects, t])
   const names: Record<Facet, string> = {
     type: t("Type"),

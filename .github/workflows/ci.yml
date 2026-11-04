@@ -201,6 +201,11 @@ jobs:
         run: npm run lint
         working-directory: frontend
 
+      - name: Les règles des hooks React
+        if: github.event_name == 'push' || steps.changes.outputs.frontend == 'true'
+        run: npm run lint:hooks
+        working-directory: frontend
+
       - name: Tests
         if: github.event_name == 'push' || steps.changes.outputs.frontend == 'true'
         run: npm test
