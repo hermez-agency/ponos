@@ -733,18 +733,6 @@ class Client:
         )
         return str(payload.get("id", "")).replace("-", "")
 
-    def create_child_page(self, parent_page_id: str, title: str) -> str:
-        """Create a plain page inside a page, and return its ID."""
-        payload = self._request(
-            "POST",
-            "/pages",
-            {
-                "parent": {"type": "page_id", "page_id": parent_page_id},
-                "properties": {"title": {"title": _rich_text(title)}},
-            },
-        )
-        return str(payload.get("id", "")).replace("-", "")
-
     def shared(self, directory: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
         """What has been shared with the integration: pages, and boards already built.
 

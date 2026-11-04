@@ -49,13 +49,6 @@ CREATE_URL = (
     "?name=Ponos&description=Ponos+runner&contents=write&pull_requests=write&metadata=read"
     "&workflows=write&actions=read&checks=read&statuses=read&issues=read"
 )
-# The permissions a code ticket cannot do without, as GitHub names them.
-REQUIRED = (
-    ("Contents", "Read and write"),
-    ("Pull requests", "Read and write"),
-    ("Metadata", "Read-only"),
-)
-
 # A value read from a vault is kept this long: a keyring or a `pass` is a
 # subprocess, and a pass asks for a token for every git command.
 KEPT_SECONDS = 60

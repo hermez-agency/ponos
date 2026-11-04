@@ -79,7 +79,6 @@ from . import db, goals, ids
 SCOPES = ("global", "project")
 KINDS = ("ticket", "project")
 STATUSES = ("proposed", "kept", "discarded", "ticket")
-ORIGINS = ("ponos", "manual")
 # "" is an idea nobody sorted yet: one from before categories, or one the
 # model left out.
 CATEGORIES = ("ux", "feature", "security", "technical")
@@ -88,7 +87,6 @@ CATEGORIES = ("ux", "feature", "security", "technical")
 # numbers as `frontend/src/lib/idea-search.ts`.
 GREEN = 70
 ORANGE = 40
-TONES = ("green", "orange", "red")
 
 # Scoring ideas already there: this many to a call, on the light model, and no
 # call allowed to cost more than this — what the console says before it starts
