@@ -371,6 +371,18 @@ export const SETTINGS_FRENCH: Record<string, string> = {
   "Project names, separated by commas. A conflict there blocks the ticket instead of being resolved.":
     "Noms de projets, séparés par des virgules. Un conflit y bloque le ticket au lieu d'être résolu.",
   "Model that resolves conflicts": "Modèle qui résout les conflits",
+  "Model that reviews": "Modèle qui relit",
+  "Reads each branch against its ticket before the push. Empty: the model the ticket was worked with.":
+    "Relit chaque branche contre son ticket avant le push. Vide : le modèle avec lequel le ticket a été traité.",
+  "Self-review before pull request": "Relecture automatique avant pull request",
+  "A short session reads the branch's diff against the ticket before the push, and the ticket's session is picked up once on what it finds blocking.":
+    "Une courte session relit le diff de la branche contre le ticket avant le push, et la session du ticket est reprise une fois sur ce qu'elle trouve bloquant.",
+  "Once the session has committed, a session in plan mode reads the diff against the ticket's done criterion and the project's CLAUDE.md. What it finds blocking goes back to the ticket's session once; then the pull request opens and says what was fixed and what was left. Its cost is added to the ticket's. A project can turn it on or off for itself.":
+    "Une fois que la session a commité, une session en mode plan relit le diff contre le critère de fin du ticket et le CLAUDE.md du projet. Ce qu'elle trouve bloquant repart une fois vers la session du ticket ; puis la pull request s'ouvre et dit ce qui a été corrigé et ce qui reste. Son coût s'ajoute à celui du ticket. Un projet peut l'activer ou la désactiver pour lui-même.",
+  "Before the push, a short session reads the diff against the ticket's done criterion; the ticket's session is picked up once on what it finds blocking, and the pull request says what was fixed.":
+    "Avant le push, une courte session relit le diff contre le critère de fin du ticket ; la session du ticket est reprise une fois sur ce qu'elle trouve bloquant, et la pull request dit ce qui a été corrigé.",
+  "Review this project's branches before their pull request":
+    "Relire les branches de ce projet avant leur pull request",
   "Empty: the model the ticket was worked with.":
     "Vide : le modèle avec lequel le ticket a été traité.",
   "After a resolved conflict, or with automatic validation. 0 does not wait — GitHub still refuses a merge a required check has not passed.":

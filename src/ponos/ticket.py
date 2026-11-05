@@ -88,6 +88,9 @@ class Job:
     planning: str = ""
     plan: str = ""
     answer: str = ""
+    # What the self-review raised and what became of it, as the pull request
+    # says it under the session's summary — see review.py. "" for nothing to say.
+    review: str = ""
 
 
 def short_id(page_id: str) -> str:

@@ -152,10 +152,12 @@ class Phase(Shape):
     """What a ticket in progress is going through, as the runner last wrote it — see
     `state.enter`."""
 
-    key: Literal["starting", "session", "rebase", "local-ci", "checks", "repair", "resolve"]
+    key: Literal[
+        "starting", "session", "rebase", "review", "local-ci", "checks", "repair", "resolve"
+    ]
     detail: str
-    """The base for a rebase or a resolution, the command for the local CI, the pull request for
-    its checks or their repair."""
+    """The base for a rebase or a resolution, the model of a self-review, the command for the
+    local CI, the pull request for its checks or their repair."""
     since: str
     """When it began, ISO 8601 in UTC."""
 
@@ -585,6 +587,17 @@ class ProjectPlan(Shape):
     """Whether the board has the checkbox to tick."""
 
 
+class ProjectSelfReview(Shape):
+    """Whether a project's branches are reviewed before their pull request — see review.py."""
+
+    enabled: bool
+    """What applies to it: its own word, or the file's."""
+    own: bool
+    """Whether the project says so itself, against `runner.self_review` saying for it."""
+    global_: bool = Field(alias="global")
+    """`runner.self_review`, whatever the project says."""
+
+
 class ProjectSettings(Shape):
     """What a project decides for itself — see project_settings.py."""
 
@@ -592,6 +605,7 @@ class ProjectSettings(Shape):
     validation: Validation
     ideas: ProjectIdeas
     local_ci: ProjectLocalCi
+    self_review: ProjectSelfReview
     setup: str
     """The command run in each fresh worktree before its session; empty, the repository's `.ponos/setup.sh` if any."""
     preview: ProjectPreview

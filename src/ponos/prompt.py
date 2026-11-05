@@ -559,6 +559,82 @@ are done.
 Then end on the RESULT line the first message asked for.
 {language}"""
 
+# An eighth, and the only one sent to a stranger: the self-review, a short
+# session of its own in plan mode, that reads what the ticket's session
+# committed against what the ticket asked — see review.py. It is told what
+# counts as blocking, because a reviewer told only "review this" finds style.
+REVIEW = """\
+You are reviewing a branch before its pull request is opened. Another session \
+wrote it, for the ticket below, in the worktree you are in; you only read. \
+Change nothing, commit nothing, run nothing that writes.
+
+# The ticket
+
+{title}
+
+{body}
+
+# The project's instructions
+
+{instructions}
+
+# The branch's diff, against `{base}`
+
+```diff
+{diff}
+```
+{cut}
+# What to look for
+
+Only what would make the person reviewing this pull request send it back:
+
+- the done criterion of the ticket (its « Critère de fin », « Done when », \
+« Definition of done »…) not met, or met only in words;
+- something the ticket asks for that the diff does not do;
+- tests the ticket or the project's instructions ask for, missing;
+- a generated file, a translation, a lockfile or a second copy the project's \
+instructions say goes with this change, not updated;
+- a mistake that will plainly break: a wrong name, a missing import, a case \
+that cannot work.
+
+Not style, not naming, not what you would have done otherwise, not what is \
+out of the ticket's scope. Read the files of the worktree when the diff alone \
+does not tell you. When in doubt, it is not blocking.
+
+# Your answer
+
+When nothing is blocking, end with this line alone:
+
+REVIEW: ok
+
+Otherwise end with this line, then one line per blocking point — at most \
+{most}, the most serious first — each naming the file and the reason:
+
+REVIEW: blocking
+- path/to/file.ext: what is wrong, in one sentence
+"""
+
+# And what the ticket's own session is told, picked up once on what the review
+# found — see `Review._self_review`. It says, point by point, what it did, so
+# that the pull request can tell what was fixed from what was left.
+REVIEW_FIX = """\
+Before your branch is pushed, a review read your diff against the ticket and \
+found what follows blocking:
+
+{points}
+
+Deal with each point in this same worktree, and commit. A point you think is \
+wrong, or outside the ticket, you may leave — say why. You will not be asked \
+again: the pull request opens once you are done.
+
+Before your RESULT line, write one line per point, in the order above:
+
+FIXED: path/to/file.ext — what you changed
+LEFT: path/to/file.ext — why you left it
+
+Then end on the RESULT line the first message asked for.
+{language}"""
+
 # What an external action is told, on top of the document frame.
 EXTERNAL = """\
 # This ticket is an external action
@@ -904,6 +980,38 @@ def local_ci(command: str, output: str, attempt: int, attempts: int, language: s
         output=output.strip() or "(no output)",
         attempt=attempt,
         attempts=attempts,
+        language=_language(language),
+    )
+
+
+def review(
+    title: str,
+    body: str,
+    base: str,
+    diff: str,
+    instructions: str,
+    *,
+    cut: bool = False,
+    most: int = 8,
+) -> str:
+    """The self-review's prompt: the ticket, the project's instructions, and the diff."""
+    return REVIEW.format(
+        title=title.strip(),
+        body=body.strip() or "(no description)",
+        instructions=instructions.strip() or "(none: the repository has no CLAUDE.md or AGENTS.md)",
+        base=base,
+        diff=diff.strip(),
+        cut="\nThe diff was cut there, being too long: read the rest in the worktree.\n"
+        if cut
+        else "",
+        most=most,
+    )
+
+
+def review_fix(points: list[str], language: str = "") -> str:
+    """The message that hands the review's blocking points back to the ticket's session."""
+    return REVIEW_FIX.format(
+        points="\n".join(f"{index}. {point}" for index, point in enumerate(points, 1)),
         language=_language(language),
     )
 

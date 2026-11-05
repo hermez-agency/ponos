@@ -843,6 +843,19 @@ def commits_ahead(worktree: Path, base: str) -> int:
     return 0
 
 
+def branch_diff(worktree: Path, base: str) -> str:
+    """What the branch changes against its base, from where the two parted — "" when git cannot say.
+
+    Three dots, so that what landed on the base meanwhile is not read as the
+    branch taking it away: the diff a pull request shows.
+    """
+    for reference in (f"origin/{base}", base):
+        result = git(["diff", "--no-color", "--stat", "--patch", f"{reference}...HEAD"], worktree)
+        if result.ok:
+            return result.out
+    return ""
+
+
 def unpushed(worktree: Path) -> int:
     """Commits of this worktree that no remote-tracking branch holds.
 

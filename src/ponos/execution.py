@@ -729,6 +729,11 @@ class Execution(Base):
         if commits == 0:
             return self._nothing_committed(job, outcome)
 
+        # Read against the ticket before anything else is done with it, so
+        # that what it has fixed is replayed and run by the local CI too.
+        outcome = self._self_review(job, outcome)
+        if stopped := self._halted(job, outcome):
+            return stopped
         pull_request = ""
         replayed = False
         if self.config.runner.push and self.config.runner.rebase:
@@ -1249,7 +1254,10 @@ class Execution(Base):
         ticket = job.ticket
         said = self.voice
         pull_request = ""
-        body = said.pull_request_body(outcome.summary, ticket.url, outcome.session_id, commits)
+        # The self-review's section under the summary, above the footer: what
+        # the person reviewing reads before the diff — see review.py.
+        summary = f"{outcome.summary}\n\n{job.review}" if job.review else outcome.summary
+        body = said.pull_request_body(summary, ticket.url, outcome.session_id, commits)
         # A ticket that is a GitHub issue is closed by the pull request that
         # answers it, rather than by somebody remembering to.
         if closes := github_issues.closing(ticket.page):

@@ -340,6 +340,13 @@ class Runner:
     # How many local CIs this machine runs at once, whatever the number of
     # tickets in flight: each one is a set of containers.
     local_ci_concurrent: int = 1
+    # Before the push, a short session reads the branch's diff against the
+    # ticket — its done criterion first — in plan mode, and the ticket's own
+    # session is picked up once on what it finds blocking. The pull request
+    # opens whatever it says. A project may say otherwise for itself. See review.py.
+    self_review: bool = True
+    # The model that reads. Empty: the ticket's own.
+    review_model: str = "sonnet"
     # How long a project's setup command may run in a fresh worktree, before
     # the session starts. Past it the command is killed and the ticket blocked.
     # See worktree_setup.py.

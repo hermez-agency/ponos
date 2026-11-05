@@ -47,6 +47,9 @@ IDEAS = "ideas"
 # when the project says its own word against `runner.local_ci`, and `command`,
 # what runs it. Either may be absent.
 LOCAL_CI = "local_ci"
+# Whether its branches are read by a self-review before their pull request —
+# see review.py. A boolean: absent, `runner.self_review` decides.
+SELF_REVIEW = "self_review"
 # The shell command run in each fresh worktree before its session — see
 # worktree_setup.py. A string: absent, the repository's `.ponos/setup.sh` if it
 # has one.
@@ -176,6 +179,33 @@ def set_local_ci(project: str, name: str, enabled: bool | None, command: str) ->
             settings[LOCAL_CI] = held
         else:
             settings.pop(LOCAL_CI, None)
+
+    _write(project, name, change)
+
+
+def self_review(project: str) -> bool | None:
+    """Whether the project's branches are reviewed before their pull request — None, the file's.
+
+    Nothing readable is a project that said nothing: the file's switch, the
+    side that changes nothing from what the runner does for every project.
+    """
+    if not key(project):
+        return None
+    try:
+        own = _read(project).get(SELF_REVIEW)
+    except db.ERRORS:
+        return None
+    return own if isinstance(own, bool) else None
+
+
+def set_self_review(project: str, name: str, value: bool | None) -> None:
+    """Say yes or no for the project, or hand the question back to the file (None)."""
+
+    def change(settings: dict[str, Any]) -> None:
+        if value is None:
+            settings.pop(SELF_REVIEW, None)
+        else:
+            settings[SELF_REVIEW] = value
 
     _write(project, name, change)
 

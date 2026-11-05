@@ -589,6 +589,7 @@ if log:
     with open(log, "a", encoding="utf-8") as handle:
         handle.write(json.dumps(
             {"cwd": os.getcwd(), "session": session, "model": model, "prompt": prompt,
+             "mode": args[args.index("--permission-mode") + 1] if "--permission-mode" in args else "",
              "budget": args[args.index("--max-budget-usd") + 1]
              if "--max-budget-usd" in args else "",
              "permission_mode": args[args.index("--permission-mode") + 1]
@@ -651,6 +652,39 @@ if "say what kind of change it is" in prompt:
     emit({"type": "assistant", "message": {"content": [{"type": "text", "text": said}]}})
     emit({"type": "result", "subtype": "success", "is_error": False, "result": said,
           "session_id": session, "num_turns": 1, "total_cost_usd": 0.001})
+    raise SystemExit(0)
+
+# The self-review before the push reads and writes nothing: it answers what
+# `FAKE_CLAUDE_REVIEW` says — `REVIEW: ok` when nothing does — for free, so
+# that what every other scenario counts is what it counted before.
+if "You are reviewing a branch before its pull request is opened" in prompt:
+    said = os.environ.get("FAKE_CLAUDE_REVIEW", "") or "REVIEW: ok"
+    emit({"type": "assistant", "message": {"content": [{"type": "text", "text": said}]}})
+    emit({"type": "result", "subtype": "success", "is_error": False, "result": said,
+          "session_id": session, "num_turns": 1,
+          "total_cost_usd": float(os.environ.get("FAKE_CLAUDE_REVIEW_COST", "0") or 0)})
+    raise SystemExit(0)
+
+# The ticket's session, picked up on what the review found: it fixes the first
+# point — `REVIEWED.md` committed — and leaves the others, saying so.
+if "a review read your diff against the ticket" in prompt:
+    here = Path.cwd()
+    (here / "REVIEWED.md").write_text("fixed after review\\n", encoding="utf-8")
+    subprocess.run(["git", "add", "REVIEWED.md"], cwd=here, check=True, capture_output=True)
+    subprocess.run(["git", "-c", "user.name=Fake Claude", "-c", "user.email=fake@example.invalid",
+                    "-c", "commit.gpgsign=false", "commit", "-m", "Corrige la relecture"],
+                   cwd=here, check=True, capture_output=True)
+    import re
+
+    points = re.findall(r"^\\d+\\. (.+)$", prompt, re.MULTILINE)
+    said = "\\n".join(
+        ["FIXED: REVIEWED.md — le critère de fin est tenu"]
+        + ["LEFT: " + point + " — hors du ticket" for point in points[1:]]
+        + ["RESULT: ok — la relecture est traitée"]
+    )
+    emit({"type": "assistant", "message": {"content": [{"type": "text", "text": said}]}})
+    emit({"type": "result", "subtype": "success", "is_error": False, "result": said,
+          "session_id": session, "num_turns": 2, "total_cost_usd": 0.03})
     raise SystemExit(0)
 
 # The short session that proposes ideas answers a JSON array and nothing more:
@@ -1282,6 +1316,7 @@ SETTINGS = {
     "notify": False,  # no desktop notification from a test
     "progress": False,  # the live report is its own machinery
     "reply": False,  # so is answering comments
+    "self_review": False,  # and so is the self-review, which adds a session to every code ticket
     "schedule": False,
     "auto_update": False,
     "log_retention_days": 0,
@@ -1627,6 +1662,8 @@ def bench(**overrides: object) -> Iterator[Bench]:
                 "FAKE_CLAUDE_DIRTY": "",
                 "FAKE_CLAUDE_SUBTYPE": "",
                 "FAKE_CLAUDE_DETACH": "",
+                "FAKE_CLAUDE_REVIEW": "",
+                "FAKE_CLAUDE_REVIEW_COST": "",
                 "FAKE_GH_REFUSE": "",
                 "FAKE_GH_CHECKS": "",
                 "FAKE_GH_ANNOTATION": "",
@@ -2325,6 +2362,88 @@ def a_ticket_whose_local_ci_fails_is_fixed_before_its_pull_request_opens(machine
         assert any(f"label=com.docker.compose.project={name}" in call for call in calls())
         assert results[0]["cost_usd"] == 0.03, results[0]
         db.close()
+
+
+@case
+@runner_settings(self_review=True)
+def a_branch_short_of_its_done_criterion_is_reviewed_fixed_once_and_its_pull_request_says_so(
+    machine: Bench,
+) -> None:
+    """The review reads the ticket and the diff, the session is picked up once, the PR tells.
+
+    Three sessions and no more: the ticket's, the review's — in plan mode, on
+    `runner.review_model` — and the ticket's again, carried on. What all three
+    cost is the ticket's.
+    """
+    os.environ["FAKE_CLAUDE_REVIEW"] = (
+        "Le critère de fin demande un REVIEWED.md.\n"
+        "REVIEW: blocking\n"
+        "- REVIEWED.md: le critère de fin n'est pas tenu\n"
+        "- docs/guide.md: le comportement n'est pas documenté"
+    )
+    os.environ["FAKE_CLAUDE_REVIEW_COST"] = "0.01"
+    repository = machine.repository("site")
+    project = machine.project("Site", repository)
+    ticket = machine.ticket(
+        "Corriger l'entête",
+        "Le titre est faux.\n\n## Critère de fin\n- REVIEWED.md existe",
+        project,
+    )
+
+    results = machine.run()
+
+    assert results[0]["status"] == "done", results
+    sessions = machine.sessions()
+    assert len(sessions) == 3, [one["prompt"][:60] for one in sessions]
+    review, fix = sessions[1], sessions[2]
+    assert "You are reviewing a branch" in review["prompt"], review["prompt"][:200]
+    assert "REVIEWED.md existe" in review["prompt"], "the reviewer was not given the done criterion"
+    assert "+the session was here" in review["prompt"], "the reviewer was not given the diff"
+    assert (review["mode"], review["model"]) == ("plan", "sonnet"), review
+    assert review["session"] != sessions[0]["session"], "the review is a session of its own"
+    assert fix["session"] == sessions[0]["session"], "the ticket's session is not the one picked up"
+    assert "`REVIEWED.md`: le critère de fin n'est pas tenu" in fix["prompt"], fix["prompt"]
+    branch = results[0]["branch"]
+    assert "REVIEWED.md" in machine.files_on(repository, branch), "the fix was not pushed"
+    body = machine.pull_requests()[0]["body"]
+    assert "### Review" in body and "Fixed:" in body and "Left:" in body, body
+    assert "le critère de fin est tenu" in body, body
+    assert body.index("### Review") < body.index("---"), "the review sits above the footer"
+    said = machine.board.said(ticket)[-1]
+    assert "Review: 2 blocking points, the session picked up once — fixed: 1, left: 1." in said, (
+        said
+    )
+    assert results[0]["cost_usd"] == 0.06, results[0]
+
+
+@case
+@runner_settings(self_review=True)
+def a_review_with_nothing_blocking_adds_nothing_to_the_pull_request(machine: Bench) -> None:
+    repository = machine.repository("site")
+    project = machine.project("Site", repository)
+    ticket = machine.ticket("Corriger l'entête", "Le titre est faux.", project)
+
+    results = machine.run()
+
+    assert results[0]["status"] == "done", results
+    assert len(machine.sessions()) == 2, "picked up although nothing was blocking"
+    assert "Review" not in machine.pull_requests()[0]["body"], machine.pull_requests()[0]["body"]
+    assert "Review: nothing blocking." in machine.board.said(ticket)[-1]
+
+
+@case
+@runner_settings(self_review=True)
+def a_project_that_turned_the_review_off_is_pushed_unread(machine: Bench) -> None:
+    repository = machine.repository("site")
+    project = machine.project("Site", repository)
+    project_settings.set_self_review(project, "Site", False)
+    machine.ticket("Corriger l'entête", "Le titre est faux.", project)
+
+    results = machine.run()
+
+    assert results[0]["status"] == "done", results
+    assert len(machine.sessions()) == 1, "reviewed although the project said no"
+    db.close()
 
 
 @case

@@ -345,6 +345,7 @@ export const api = {
       validation?: { own: boolean; values?: Partial<ProjectSettings["validation"]["values"]> }
       ideas?: { enabled: boolean }
       local_ci?: { enabled: boolean; command: string }
+      self_review?: { enabled: boolean }
       setup?: { command: string }
       preview?: { command: string; url: string; pages: string[] }
       plan?: { priority: number | null; subtypes: string[] }
