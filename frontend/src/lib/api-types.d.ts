@@ -1096,6 +1096,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tickets/{ticket_id}/priority": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set Ticket Priority */
+        post: operations["set_ticket_priority_api_tickets__ticket_id__priority_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tickets/{ticket_id}/goal": {
         parameters: {
             query?: never;
@@ -4084,6 +4101,11 @@ export interface components {
             /** @description The prompt now run at every change of status, empty once removed. */
             on: string;
         };
+        TicketPriority: {
+            id: string;
+            /** @description The score it now has, from 0 to 100. */
+            priority: number;
+        };
         Title: {
             /** @default  */
             title: string;
@@ -6537,6 +6559,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TicketOn"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_ticket_priority_api_tickets__ticket_id__priority_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ticket_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketPriority"];
                 };
             };
             /** @description Validation Error */

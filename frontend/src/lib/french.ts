@@ -490,6 +490,50 @@ export const FRENCH: Record<string, string> = {
   "Its validation is withdrawn: the runner will not merge or publish it.":
     "Sa validation est annulée : le runner ne le fusionnera ni ne le publiera.",
   "Make it ready": "Lancer le ticket",
+  // The board's selection, and the bar that acts on it (`bulk-bar.tsx`).
+  "Select “{{title}}”": "Sélectionner « {{title}} »",
+  "Select the column “{{column}}”": "Sélectionner la colonne « {{column}} »",
+  "Selected tickets": "Tickets sélectionnés",
+  "{{count}} ticket selected": "{{count}} ticket sélectionné",
+  "{{count}} tickets selected": "{{count}} tickets sélectionnés",
+  "Clear the selection": "Vider la sélection",
+  "The runner no longer touches them, until they are made ready again.":
+    "Le runner n'y touche plus, jusqu'à ce qu'ils soient remis prêts.",
+  "{{count}} ticket set aside": "{{count}} ticket mis de côté",
+  "{{count}} tickets set aside": "{{count}} tickets mis de côté",
+  "{{count}} ticket launched": "{{count}} ticket lancé",
+  "{{count}} tickets launched": "{{count}} tickets lancés",
+  "{{count}} ticket given up": "{{count}} ticket abandonné",
+  "{{count}} tickets given up": "{{count}} tickets abandonnés",
+  "Priority, from 0 to 100": "Priorité, de 0 à 100",
+  Apply: "Appliquer",
+  "The priority could not be changed": "La priorité n'a pas pu être changée",
+  "{{count}} ticket ranked": "Priorité changée sur {{count}} ticket",
+  "{{count}} tickets ranked": "Priorité changée sur {{count}} tickets",
+  "{{count}} ticket pointed at the goal": "{{count}} ticket rattaché à l'objectif",
+  "{{count}} tickets pointed at the goal": "{{count}} tickets rattachés à l'objectif",
+  "{{count}} ticket serves no goal": "{{count}} ticket ne sert plus aucun objectif",
+  "{{count}} tickets serve no goal": "{{count}} tickets ne servent plus aucun objectif",
+  "Give up": "Abandonner",
+  "Launch {{count}} ticket?": "Lancer {{count}} ticket ?",
+  "Launch {{count}} tickets?": "Lancer {{count}} tickets ?",
+  "Launch {{count}} ticket": "Lancer {{count}} ticket",
+  "Launch {{count}} tickets": "Lancer {{count}} tickets",
+  "They go to {{column}} and the next passes start a session on each — sessions that are paid for.":
+    "Ils passent dans {{column}} et les prochaines passes lancent une session sur chacun — des sessions payantes.",
+  "Estimated cost: ≈ {{cost}}, up to {{high}}": "Coût estimé : ≈ {{cost}}, jusqu'à {{high}}",
+  "No estimate yet: too few tickets like these have run.":
+    "Pas encore d'estimation : trop peu de tickets semblables ont tourné.",
+  "{{count}} of them has no estimate and is not counted.":
+    "{{count}} d'entre eux n'a pas d'estimation et n'est pas compté.",
+  "{{count}} of them have no estimate and are not counted.":
+    "{{count}} d'entre eux n'ont pas d'estimation et ne sont pas comptés.",
+  "Give up {{count}} ticket?": "Abandonner {{count}} ticket ?",
+  "Give up {{count}} tickets?": "Abandonner {{count}} tickets ?",
+  "Give up {{count}} ticket": "Abandonner {{count}} ticket",
+  "Give up {{count}} tickets": "Abandonner {{count}} tickets",
+  "They go to {{column}}: the runner no longer touches them. Each one can be reopened from its card.":
+    "Ils passent dans {{column}} : le runner n'y touche plus. Chacun se rouvre depuis sa carte.",
   "Validate “{{title}}”?": "Valider « {{title}} » ?",
   "The runner merges its pull request on its next pass. A merge is not taken back from here.":
     "Le runner fusionne sa pull request à sa prochaine passe. Une fusion ne se défait pas d'ici.",

@@ -780,6 +780,13 @@ def set_ticket_on(
     return answer(_api(request).set_on(ticket_id, payload.on))
 
 
+@router.post("/api/tickets/{ticket_id:page}/priority", response_model=answers.TicketPriority)
+def set_ticket_priority(
+    request: Request, ticket_id: str, payload: Fields = Body(default_factory=dict)
+) -> Response:
+    return answer(_api(request).set_priority(ticket_id, payload.get("priority", "")))
+
+
 @router.post("/api/tickets/{ticket_id:page}/goal", response_model=answers.TicketGoal)
 def set_ticket_goal(
     request: Request, ticket_id: str, payload: Fields = Body(default_factory=dict)

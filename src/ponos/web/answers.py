@@ -408,6 +408,12 @@ class TicketOn(Shape):
     """The prompt now run at every change of status, empty once removed."""
 
 
+class TicketPriority(Shape):
+    id: str
+    priority: int
+    """The score it now has, from 0 to 100."""
+
+
 class Moved(Shape):
     """A move queued for the board: the status it goes to."""
 

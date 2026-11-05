@@ -135,6 +135,14 @@ export const api = {
     answer(client.POST("/api/goals/{goal_id}/delete", { params: { path: { goal_id: id } } })),
   setTicketGoal: (ticket: string, goal: string) =>
     answer(client.POST("/api/tickets/{ticket_id}/goal", { params: { path: { ticket_id: ticket } }, body: { goal } })),
+  /** A score from 0 to 100; empty is the middle one, 50. */
+  setPriority: (ticket: string, priority: number | "") =>
+    answer(
+      client.POST("/api/tickets/{ticket_id}/priority", {
+        params: { path: { ticket_id: ticket } },
+        body: { priority },
+      })
+    ),
   schedules: () => answer(client.GET("/api/schedules")),
   schedule: (id: string) =>
     answer(client.GET("/api/schedules/{schedule_id}", { params: { path: { schedule_id: id } } })),

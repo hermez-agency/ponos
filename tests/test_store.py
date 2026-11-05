@@ -804,6 +804,48 @@ def a_ticket_created_from_the_console_carries_its_priority_type_and_model() -> N
         else:
             raise AssertionError("a type that is none of the four must be refused")
 
+
+@case
+def a_ticket_is_given_another_priority_from_the_board() -> None:
+    """The bulk bar of the board writes a score on each ticket it holds.
+
+    The same bounds as at creation, and nothing written on a board without the
+    column — where the bar does not offer it.
+    """
+    with _board() as board:
+        api = _markdown_api(board)
+        api._schema_at = time.time()
+        api._reader = web_board.Reader(journal=lambda report: None)
+        api._outbox = web_board.Outbox(journal=lambda report: None)
+        nudged = _Nudged()
+        api.watch = nudged  # type: ignore[assignment]  # a fake: only counts its nudges
+        made = api.create_ticket("Trier les brouillons", ready=False)["id"]
+        settings = api.config.notion
+
+        assert api.set_priority(made, "85") == {"id": made, "priority": 85}
+        assert store.read(board.page(made), settings.prop("priority")) == 85
+        assert api.reader.get(made) is not None, "the page written is held for the next board"
+        assert nudged.count, "the watcher is asked to look again"
+        assert api.set_priority(made, "")["priority"] == 50, "empty is the middle"
+        for wrong in (101, -1, "vite"):
+            try:
+                api.set_priority(made, wrong)
+            except ValueError:
+                pass
+            else:
+                raise AssertionError(f"a priority of {wrong!r} must be refused")
+        assert store.read(board.page(made), settings.prop("priority")) == 50
+
+    bare = _bare_api(_ColumnsClient(["Ready"]))
+    bare.runner._workspace = type("W", (), {"goals": "", "projects": "", "tickets": "db"})()
+    bare._schema_at = time.time()
+    try:
+        bare.set_priority("a" * 32, 60)
+    except ValueError as error:
+        assert "priority" in str(error).lower()
+    else:
+        raise AssertionError("a board without the column is told so, not written")
+
     # A board without those columns is offered none of them.
     api = _bare_api(_ColumnsClient(["Ready"]))
     api.runner._workspace = type("W", (), {"goals": "", "projects": "", "tickets": "db"})()
