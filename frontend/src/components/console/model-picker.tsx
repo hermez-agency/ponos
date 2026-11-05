@@ -195,7 +195,7 @@ export function ModelPicker({
           size="sm"
           role="combobox"
           aria-expanded={open}
-          aria-label={t("Model of this session")}
+          aria-label={t("Model of this conversation")}
           data-model-picker
           className={cn("text-muted-foreground max-w-48 gap-1 px-2 font-mono text-xs", className)}
         >

@@ -177,7 +177,7 @@ export const SETTINGS_FRENCH: Record<string, string> = {
   "Clean up after done tickets": "Faire le ménage après les tickets terminés",
   "Once a day, delete the working copies of tickets done for as many days as the logs are kept. A blocked or in-review ticket keeps its own.":
     "Une fois par jour, supprimer les copies de travail des tickets terminés depuis autant de jours que les journaux sont gardés. Un ticket bloqué ou en relecture garde la sienne.",
-  "Model of a new session": "Modèle d'une nouvelle session",
+  "Model of a new conversation": "Modèle d'une nouvelle conversation",
   "`opus`, `sonnet`, `haiku`, `fable`, or an OpenRouter model such as `openai/gpt-5`. Empty: the model above.":
     "`opus`, `sonnet`, `haiku`, `fable`, ou un modèle OpenRouter comme `openai/gpt-5`. Vide : le modèle ci-dessus.",
   "The model above": "Le modèle ci-dessus",

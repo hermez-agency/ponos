@@ -66,7 +66,7 @@ test("each label of the bottom bar is read whole, at 360 and at 390", async ({ p
     await page.setViewportSize({ width, height: PHONE.height })
     await open(page)
     const labels = await bar(page).getByRole("button").locator("span").allTextContents()
-    expect(labels, `the bar's labels at ${width}px`).toEqual(["Board", "Projects", "Ideas", "Sessions", "More"])
+    expect(labels, `the bar's labels at ${width}px`).toEqual(["Board", "Projects", "Ideas", "Chat", "More"])
     for (const label of await bar(page).getByRole("button").locator("span").all()) {
       const [scroll, client] = await label.evaluate((element) => [element.scrollWidth, element.clientWidth])
       expect(scroll, `${await label.textContent()} is cut at ${width}px`).toBeLessThanOrEqual(client)

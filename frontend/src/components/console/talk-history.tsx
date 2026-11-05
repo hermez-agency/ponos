@@ -53,7 +53,7 @@ export function TalkHistory({ disabled }: { disabled: boolean }) {
     try {
       await api.openSession(session.id)
     } catch (error) {
-      toast.error(t("The session could not be opened"), { description: why(error) })
+      toast.error(t("The conversation could not be opened"), { description: why(error) })
     }
   }
 
@@ -66,7 +66,7 @@ export function TalkHistory({ disabled }: { disabled: boolean }) {
               variant="ghost"
               size="icon-sm"
               className="opacity-70 hover:opacity-100"
-              aria-label={t("Sessions")}
+              aria-label={t("Conversations")}
               disabled={disabled}
               data-talk-history
             >
@@ -74,18 +74,18 @@ export function TalkHistory({ disabled }: { disabled: boolean }) {
             </Button>
           </DropdownMenuTrigger>
         </TooltipTrigger>
-        <TooltipContent side="bottom">{t("Sessions")}</TooltipContent>
+        <TooltipContent side="bottom">{t("Conversations")}</TooltipContent>
       </Tooltip>
       <DropdownMenuContent align="end" className="w-80 max-w-[calc(100vw-2rem)]">
-        <p className="text-muted-foreground px-2 py-1.5 text-xs font-medium">{t("Sessions")}</p>
+        <p className="text-muted-foreground px-2 py-1.5 text-xs font-medium">{t("Conversations")}</p>
         {problem ? (
           <p role="alert" className="text-destructive px-2 py-1.5 text-sm">
             {problem}
           </p>
         ) : sessions === null ? (
-          <p className="text-muted-foreground px-2 py-1.5 text-sm">{t("Reading the sessions…")}</p>
+          <p className="text-muted-foreground px-2 py-1.5 text-sm">{t("Reading the conversations…")}</p>
         ) : sessions.length === 0 ? (
-          <p className="text-muted-foreground px-2 py-1.5 text-sm">{t("No session yet.")}</p>
+          <p className="text-muted-foreground px-2 py-1.5 text-sm">{t("No conversation yet.")}</p>
         ) : (
           <div className="scroll-thin max-h-72 overflow-y-auto">
             {sessions.slice(0, LATEST).map((session) => (
@@ -97,7 +97,7 @@ export function TalkHistory({ disabled }: { disabled: boolean }) {
                 data-session={session.id}
               >
                 <span className="w-full truncate font-medium">
-                  {session.title || t("Untitled session")}
+                  {session.title || t("Untitled conversation")}
                 </span>
                 <span className="text-muted-foreground text-xs">
                   {when(session.updated)}
@@ -110,7 +110,7 @@ export function TalkHistory({ disabled }: { disabled: boolean }) {
         <div role="separator" className="bg-border -mx-1 my-1 h-px" />
         <DropdownMenuItem asChild>
           <Link to={sessionsHref()} onClick={closeTalk}>
-            {t("Sessions")}
+            {t("Conversations")}
           </Link>
         </DropdownMenuItem>
       </DropdownMenuContent>

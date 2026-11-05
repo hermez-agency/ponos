@@ -38,7 +38,8 @@ Open `http://127.0.0.1:8787` and you get one page, four things:
 
 **The menu** down the left is where the pages live: a name each, and a count beside it
 where something is waiting there — how many tickets are on the board. On a phone the menu runs
-along the bottom edge instead: the board, the projects and the schedules, and **More**, which
+along the bottom edge instead: the board, the projects, the ideas, the conversations — *Chat*
+there, where the whole word is cut — and **More**, which
 opens the settings from the bottom of the screen — the bar
 fits a 360px screen and never scrolls sideways. No bubble floats over it: on a phone the
 console opens from **More**, so nothing a page draws is ever under a button. The frame is react-resource-view's admin layout (see
@@ -54,23 +55,24 @@ the last read and the version are one pill — a dot and *live* — that a tap o
 three. Every page has an address — `/?view=console/tickets/list`,
 `/?view=console/tickets/read/<id>` — so a reload, a bookmark or a link pasted into a chat
 lands where you were. A typed name leads to its page — `/projets` or `/projects`,
-`/objectifs`, `/reglages`, `/sessions` and the like — and an address the console does not have
+`/objectifs`, `/reglages`, `/conversations` and the like — and an address the console does not have
 says *Page not found* and lists its pages. The page of *running* sessions the console used to have is gone, and its old
 address leads to the board: a ticket's session is followed on its ticket.
 
-**Sessions** is the entry for the other kind — your conversations with the workspace, the ones
-the bubble opens. Each is kept in `ponos.db`, so they survive a restart: the page lists them
+**Conversations** is the entry for your exchanges with the workspace, the ones the bubble
+opens — a *session*, everywhere else in the console, is Claude at work on a ticket, and only
+that. Each is kept in `ponos.db`, so they survive a restart: the page lists them
 from the latest to the oldest, with a title made of the first message (renamable, as is the
 project it is about), the date of the last message and the model it ran on. A row reopens the
 conversation with its whole transcript and carries on where it stopped — it is the same Claude
 Code session, resumed. The search looks in the titles and, failing that, in what was said;
-*New session* starts another; deleting asks for a box to be ticked, as deleting a project does,
+*New conversation* starts another; deleting asks for a box to be ticked, as deleting a project does,
 and takes the transcript and the files sent in it. The model is chosen from the conversation
-itself, in the bar over it, and kept per session: the Claude models (`opus`, `sonnet`, `haiku`,
+itself, in the bar over it, and kept per conversation: the Claude models (`opus`, `sonnet`, `haiku`,
 `fable`) and, once `OPENROUTER_API_KEY` is set, any model OpenRouter lists — searched by name, the
-ones you used last first. A session on an OpenRouter model talks to OpenRouter whatever
+ones you used last first. A conversation on an OpenRouter model talks to OpenRouter whatever
 `claude.provider` says; without a key the picker offers Claude's models and leads to the
-setting. `web.chat_model` is the model a new session starts on.
+setting. `web.chat_model` is the model a new conversation starts on.
 
 **The dashboard** opens on the period's [statistics](#statistics-on-the-dashboard), then
 the board. **The board** is the Notion board, read from Notion and written back to it, drawn as
@@ -246,8 +248,8 @@ two gestures, and they are not made to look alike.
 Two keys reach it without the mouse. **Ctrl+J** (⌘J on a Mac) opens and closes the
 drawer, the cursor already in its message bar — type straight away — and gives the focus
 back to wherever it was when it closes; Escape closes it too. **Ctrl+K** (⌘K) opens a
-palette: the pages (Sessions among them), the projects, the tickets on the board, and a
-few actions — every creation (a new ticket, project, idea, goal, schedule or session), the
+palette: the pages (Conversations among them), the projects, the tickets on the board, and a
+few actions — every creation (a new ticket, project, idea, goal, schedule or conversation), the
 console, a resynchronisation —, found by typing a few letters and opened with Enter. An
 entry is found when every word typed is in its name, in any order; tickets are found by
 their title, their project or the start of their short id, twenty at most, the open ones

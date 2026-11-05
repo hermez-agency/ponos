@@ -1078,7 +1078,7 @@ SECTIONS: tuple[Section, ...] = (
                 "web",
                 "chat_model",
                 "text",
-                "Model of a new session",
+                "Model of a new conversation",
                 "`opus`, `sonnet`, `haiku`, `fable`, or an OpenRouter model such as "
                 "`openai/gpt-5`. Empty: the model above.",
                 placeholder="The model above",

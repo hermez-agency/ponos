@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test"
 
-/* The sessions: every conversation kept, found again and carried on.
+/* The conversations: every one kept, found again and carried on.
  *
  * The conversation is `e2e/console.py`'s own `claude`. One console holds one
  * open session, so these tests take their turns one after another, on the
@@ -24,19 +24,19 @@ async function ask(page: Page, text: string) {
   await field.press("Enter")
 }
 
-test("a conversation is listed under Sessions, titled by its first message, and reopened", async ({ page }) => {
+test("a conversation is listed under Conversations, titled by its first message, and reopened", async ({ page }) => {
   await openConsole(page)
   await ask(page, "what is on the board?")
   await expect(page.getByText("Done. The board has 13 tickets.")).toBeVisible()
   await page.keyboard.press("Escape")
 
-  await page.getByRole("link", { name: "Sessions" }).first().click()
+  await page.getByRole("link", { name: "Conversations" }).first().click()
   const row = page.locator("[data-session]").filter({ hasText: "what is on the board?" })
   await expect(row).toBeVisible()
   await expect(row).toContainText("Default model")
 
   // Another conversation, so the first is no longer the open one.
-  await page.getByRole("button", { name: "New session" }).click()
+  await page.getByRole("button", { name: "New conversation" }).click()
   await expect(page.getByRole("textbox", { name: FIELD })).toBeVisible()
   await expect(page.getByText("Done. The board has 13 tickets.")).toHaveCount(0)
   await page.keyboard.press("Escape")
@@ -48,7 +48,7 @@ test("a conversation is listed under Sessions, titled by its first message, and 
   await expect(page.getByText("Resumed, and done. The board has 13 tickets.")).toBeVisible()
 })
 
-test("the model is chosen from the session, and only Claude's are offered without OpenRouter", async ({ page }) => {
+test("the model is chosen from the conversation, and only Claude's are offered without OpenRouter", async ({ page }) => {
   await openConsole(page)
   await page.locator("[data-model-picker]").click()
   const list = page.locator("[data-model-list]")
@@ -63,11 +63,11 @@ test("the model is chosen from the session, and only Claude's are offered withou
 test("search looks in the titles and in what was said; delete asks for the box", async ({ page }) => {
   await openConsole(page)
   await page.keyboard.press("Escape")
-  await page.getByRole("link", { name: "Sessions" }).first().click()
+  await page.getByRole("link", { name: "Conversations" }).first().click()
 
   const search = page.getByRole("searchbox")
   await search.fill("zzz-nothing")
-  await expect(page.getByText("No session matches.")).toBeVisible()
+  await expect(page.getByText("No conversation matches.")).toBeVisible()
   await search.fill("13 tickets")
   const row = page.locator("[data-session]").filter({ hasText: "what is on the board?" })
   await expect(row).toContainText("found in the conversation")
@@ -82,7 +82,7 @@ test("search looks in the titles and in what was said; delete asks for the box",
 
   await renamed.getByRole("button", { name: /^More actions/ }).click()
   await page.getByRole("menuitem", { name: "Delete" }).click()
-  const confirm = page.getByRole("button", { name: "Delete the session" })
+  const confirm = page.getByRole("button", { name: "Delete the conversation" })
   await expect(confirm).toBeDisabled()
   await page.locator("[data-confirm-delete]").click()
   await confirm.click()

@@ -75,7 +75,7 @@ export function SessionsPage() {
       await api.openSession(session.id)
       openTalk()
     } catch (error) {
-      toast.error(t("The session could not be opened"), { description: why(error) })
+      toast.error(t("The conversation could not be opened"), { description: why(error) })
     }
   }
 
@@ -84,14 +84,14 @@ export function SessionsPage() {
       await api.resetChat()
       openTalk()
     } catch (error) {
-      toast.error(t("The session could not be opened"), { description: why(error) })
+      toast.error(t("The conversation could not be opened"), { description: why(error) })
     }
   }
 
   const newSession = (
     <Button variant="secondary" size="lg" className="w-full min-w-0 shrink md:w-auto" onClick={() => void start()} data-new-session>
       <Plus />
-      {t("New session")}
+      {t("New conversation")}
     </Button>
   )
 
@@ -99,7 +99,7 @@ export function SessionsPage() {
     <div data-sessions className="flex flex-col gap-2">
       <PageHead
         icon={Icon}
-        title={t("Sessions")}
+        title={t("Conversations")}
         blurb={t("Every conversation with your workspace. Open one to carry on where it stopped.")}
         action={newSession}
         className="mb-0"
@@ -121,12 +121,12 @@ export function SessionsPage() {
           {problem}
         </p>
       ) : sessions === null ? (
-        <p className="text-muted-foreground text-sm">{t("Reading the sessions…")}</p>
+        <p className="text-muted-foreground text-sm">{t("Reading the conversations…")}</p>
       ) : sessions.length === 0 ? (
         query ? (
           <EmptyState
             icon={SearchX}
-            title={t("No session matches.")}
+            title={t("No conversation matches.")}
             action={
               <Button variant="outline" size="sm" onClick={() => setQuery("")}>
                 <X />
@@ -139,11 +139,11 @@ export function SessionsPage() {
         ) : (
           <EmptyState
             robot="sleep"
-            title={t("No session yet.")}
+            title={t("No conversation yet.")}
             action={
               <Button variant="outline" size="sm" onClick={() => void start()}>
                 <Plus />
-                {t("New session")}
+                {t("New conversation")}
               </Button>
             }
           >
@@ -166,7 +166,7 @@ export function SessionsPage() {
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-2">
                     <span className="truncate text-sm font-medium">
-                      {session.title || t("Untitled session")}
+                      {session.title || t("Untitled conversation")}
                     </span>
                     {session.current ? <Badge variant="secondary">{t("open")}</Badge> : null}
                   </span>
@@ -189,7 +189,7 @@ export function SessionsPage() {
                     variant="ghost"
                     size="icon-sm"
                     className="text-muted-foreground"
-                    aria-label={t("More actions on “{{name}}”", { name: session.title || t("Untitled session") })}
+                    aria-label={t("More actions on “{{name}}”", { name: session.title || t("Untitled conversation") })}
                     data-session-menu
                   >
                     <MoreHorizontal />
@@ -336,7 +336,7 @@ function DeleteDialog({
     if (!session || !sure) return false
     try {
       await api.deleteSession(session.id)
-      toast.success(t("Session “{{name}}” deleted", { name: session.title || t("Untitled session") }))
+      toast.success(t("Conversation “{{name}}” deleted", { name: session.title || t("Untitled conversation") }))
       onDone()
     } catch (error) {
       setRefused(why(error))
@@ -349,14 +349,14 @@ function DeleteDialog({
       open={session !== null}
       onOpenChange={(next) => (next ? undefined : onClose())}
       contentProps={{ "data-delete-session": true } as React.ComponentProps<"div">}
-      title={t("Delete “{{name}}”?", { name: session?.title || t("Untitled session") })}
+      title={t("Delete “{{name}}”?", { name: session?.title || t("Untitled conversation") })}
       description={t("Its conversation and the files sent in it are deleted for good.")}
       destructive
       disabled={!sure}
       confirm={
         <>
           <Trash2 />
-          {t("Delete the session")}
+          {t("Delete the conversation")}
         </>
       }
       onConfirm={confirm}
@@ -368,7 +368,7 @@ function DeleteDialog({
           className="mt-0.5"
           data-confirm-delete
         />
-        <span>{t("Yes, I am sure I want to delete this session")}</span>
+        <span>{t("Yes, I am sure I want to delete this conversation")}</span>
       </Label>
       {refused ? (
         <p role="alert" className="text-destructive text-sm">

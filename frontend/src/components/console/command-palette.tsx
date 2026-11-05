@@ -82,7 +82,7 @@ const PAGES = [
   { name: "Schedules", icon: CalendarClock, href: schedulesHref },
   { name: "Ideas", icon: Lightbulb, href: ideasHref },
   { name: "Goals", icon: Target, href: goalsHref },
-  { name: "Sessions", icon: MessagesSquare, href: sessionsHref },
+  { name: "Conversations", icon: MessagesSquare, href: sessionsHref },
   { name: "Global context", icon: BookOpen, href: () => `${projectsHref()}#${CONTEXT_ANCHOR}` },
   { name: "Settings", icon: Settings2, href: () => settingsHref() },
 ]
@@ -202,10 +202,10 @@ export function CommandPalette() {
       icon: CalendarClock,
       onSelect: () => go(newScheduleHref()),
     },
-    // As the Sessions page starts one: a fresh conversation, in the drawer.
+    // As the Conversations page starts one: a fresh conversation, in the drawer.
     {
-      value: t("New session"),
-      keywords: ["create", "session", "conversation", "chat"],
+      value: t("New conversation"),
+      keywords: ["create", "conversation", "session", "chat"],
       icon: MessageSquarePlus,
       onSelect: () =>
         run(() => {

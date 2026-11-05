@@ -122,19 +122,19 @@ for (const [entry, resource, title] of [
   })
 }
 
-test("the palette's New session opens a new conversation in the drawer", async ({ page }) => {
+test("the palette's New conversation opens a new conversation in the drawer", async ({ page }) => {
   await open(page)
   await press(page, "Control+k", palette(page))
-  await page.keyboard.type("New session")
+  await page.keyboard.type("New conversation")
   await page.keyboard.press("Enter")
   await expect(drawer(page)).toBeVisible()
 })
 
-test("the palette goes to the Sessions page", async ({ page }) => {
+test("the palette goes to the Conversations page", async ({ page }) => {
   await open(page)
   await press(page, "Control+k", palette(page))
-  await page.keyboard.type("Sessions")
-  await palette(page).getByRole("option", { name: "Sessions", exact: true }).click()
+  await page.keyboard.type("Conversations")
+  await palette(page).getByRole("option", { name: "Conversations", exact: true }).click()
   await expect.poll(() => view(page)).toContain("sessions/list")
 })
 
