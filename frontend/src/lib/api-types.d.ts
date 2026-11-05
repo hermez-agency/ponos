@@ -1939,6 +1939,12 @@ export interface components {
             after: string;
             ticket: components["schemas"]["Ticket"];
         };
+        /** @description A file a pull request touches, and by how many lines. */
+        ChangedFile: {
+            path: string;
+            additions: number;
+            deletions: number;
+        };
         ChannelCheck: {
             name: string;
             ok: boolean;
@@ -2280,6 +2286,8 @@ export interface components {
             facts?: string;
             pull_request?: string;
             checks?: components["schemas"]["Checks"];
+            /** @description What the pull request touches, as GitHub says it when the panel opens. */
+            files?: components["schemas"]["ChangedFile"][];
             caveats?: string[];
         };
         /** @description Where the demonstration ticket stands, and — once its run ended badly — why. */

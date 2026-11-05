@@ -17,6 +17,7 @@ from .. import (
     channels,
     conversation,
     decisions,
+    git,
     github_checks,
     question,
     redaction,
@@ -156,6 +157,9 @@ class Discussion(Base):
                         for check in listed
                     ],
                 },
+                "files": (
+                    git.pull_request_files(url, self.config.github, timeout=20) if url else []
+                ),
                 "caveats": found.caveats,
                 "solutions": self._offered(solutions),
             }

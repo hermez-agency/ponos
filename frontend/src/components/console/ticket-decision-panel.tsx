@@ -1,5 +1,13 @@
 import * as React from "react"
-import { CircleCheck, CircleDashed, CircleX, ExternalLink, GitPullRequest } from "lucide-react"
+import {
+  CircleCheck,
+  CircleDashed,
+  CircleMinus,
+  CircleX,
+  ExternalLink,
+  GitPullRequest,
+  LoaderCircle,
+} from "lucide-react"
 import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
@@ -11,12 +19,16 @@ import { api, why } from "@/lib/api"
 import { titleOf, useBoard } from "@/lib/board-store"
 import {
   CHECKS,
+  FILES_SHOWN,
+  JOBS,
   PROMPTS,
   arranged,
   away,
   immediate,
+  jobState,
   keyOf,
   labelOf,
+  linesOf,
   prefilled,
   promptOf,
   sendable,
@@ -140,6 +152,8 @@ function Delivered({ decision }: { decision: Decision }) {
           </Badge>
         </div>
       </section>
+      <Jobs decision={decision} />
+      <Files decision={decision} />
       <section data-slot="decision-caveats">
         <Heading>{t("Points to check")}</Heading>
         {caveats.length ? (
@@ -153,6 +167,87 @@ function Delivered({ decision }: { decision: Decision }) {
         )}
       </section>
     </>
+  )
+}
+
+const JOB = {
+  passed: { icon: CircleCheck, color: "text-tr-green" },
+  failed: { icon: CircleX, color: "text-destructive" },
+  skipped: { icon: CircleMinus, color: "text-muted-foreground" },
+  pending: { icon: LoaderCircle, color: "text-tr-amber animate-spin" },
+} as const
+
+/* Each job of the pull request's CI, as GitHub said it when the panel opened:
+ * which one is red, without the trip to GitHub on a phone. */
+function Jobs({ decision }: { decision: Decision }) {
+  const t = useT()
+  const jobs = decision.checks?.listed ?? []
+  if (!jobs.length) return null
+  return (
+    <section data-slot="decision-checks">
+      <Heading>{t("Checks")}</Heading>
+      <ul className="space-y-1 text-sm">
+        {jobs.map((job, index) => {
+          const state = jobState(job.bucket)
+          const { icon: Icon, color } = JOB[state]
+          const name = <span className="min-w-0 break-words">{job.name || "?"}</span>
+          return (
+            <li key={`${job.name}-${index}`} data-state={state} className="flex items-center gap-2">
+              <Icon className={cn("size-4 shrink-0", color)} aria-label={t(JOBS[state])} />
+              {job.link ? (
+                <a href={job.link} target="_blank" rel="noreferrer" className="min-w-0 hover:underline">
+                  {name}
+                </a>
+              ) : (
+                name
+              )}
+            </li>
+          )
+        })}
+      </ul>
+    </section>
+  )
+}
+
+/* What the pull request touches, file by file with its lines, in place of the
+ * diff, which is GitHub's to show and unreadable on a phone: enough to tell a
+ * two-line fix from a rewrite. The first ones only, and how many more. */
+function Files({ decision }: { decision: Decision }) {
+  const t = useT()
+  const files = decision.files ?? []
+  if (!files.length) return null
+  const { additions, deletions } = linesOf(files)
+  const more = files.length - FILES_SHOWN
+  return (
+    <section data-slot="decision-files">
+      <Heading>
+        {t("Files changed")}{" "}
+        <span className="text-muted-foreground font-mono text-sm font-normal tabular-nums">
+          {files.length} · <span className="text-tr-green">+{additions}</span>{" "}
+          <span className="text-destructive">−{deletions}</span>
+        </span>
+      </Heading>
+      <ul className="space-y-1 font-mono text-xs">
+        {files.slice(0, FILES_SHOWN).map((file) => (
+          <li key={file.path} className="flex items-baseline gap-2">
+            <span className="min-w-0 flex-1 break-all">{file.path}</span>
+            <span className="text-tr-green shrink-0 tabular-nums">+{file.additions}</span>
+            <span className="text-destructive shrink-0 tabular-nums">−{file.deletions}</span>
+          </li>
+        ))}
+      </ul>
+      {more > 0 ? (
+        <p className="text-muted-foreground mt-1 text-xs">
+          {decision.pull_request ? (
+            <a href={`${decision.pull_request}/files`} target="_blank" rel="noreferrer" className="hover:underline">
+              {t("and {{count}} more", { count: String(more) })}
+            </a>
+          ) : (
+            t("and {{count}} more", { count: String(more) })
+          )}
+        </p>
+      ) : null}
+    </section>
   )
 }
 

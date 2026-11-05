@@ -1208,6 +1208,39 @@ def a_forced_merge_says_on_the_ticket_why_the_ci_stopped_it() -> None:
 
 
 @case
+def the_files_of_a_pull_request_are_read_with_their_lines_and_nothing_when_gh_cannot_say() -> None:
+    """What the Decide tab lists in place of the diff: each path, its lines added and removed."""
+    said = {
+        "files": [
+            {"path": "src/a.py", "additions": 12, "deletions": 3},
+            {"path": "docs/b.md", "additions": 0, "deletions": 7},
+            {"path": "", "additions": 1, "deletions": 1},
+        ]
+    }
+    answer = git_module.Result(0, json.dumps(said), "")
+
+    def run(args: list[str], *rest: Any, **kept: Any) -> git_module.Result:
+        assert args[:3] == ["gh", "pr", "view"] and args[-2:] == ["--json", "files"], args
+        return answer
+
+    original_which = shutil.which
+    shutil.which = lambda name, *rest, **kept: f"/usr/bin/{name}"  # type: ignore[assignment]  # a double: every tool is there
+    try:
+        with _git_answering(run=run, token_for=lambda reference, accounts=None: ""):
+            url = "https://github.com/x/y/pull/1"
+            assert git_module.pull_request_files(url) == [
+                {"path": "src/a.py", "additions": 12, "deletions": 3},
+                {"path": "docs/b.md", "additions": 0, "deletions": 7},
+            ]
+            answer = git_module.Result(1, "", "no network")
+            assert git_module.pull_request_files(url) == []
+            answer = git_module.Result(0, "not json", "")
+            assert git_module.pull_request_files(url) == []
+    finally:
+        shutil.which = original_which
+
+
+@case
 def an_older_gh_reads_the_checks_from_the_pull_request_itself() -> None:
     """`gh pr checks --json` is gh 2.48 and later; Ubuntu ships 2.46.
 

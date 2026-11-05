@@ -347,3 +347,44 @@ def each_choice_moves_the_ticket_and_leaves_the_instruction_for_the_next_session
             pass
         else:
             raise AssertionError("a ready ticket waits on nobody")
+
+
+@case
+def a_reviewed_ticket_shows_each_job_and_each_file_of_its_pull_request() -> None:
+    """Decided on a phone, without GitHub: the jobs one by one, the files with their lines.
+
+    Both asked of GitHub when the panel opens; a pull request GitHub says
+    nothing of has neither, which the page reads as not knowing.
+    """
+    from ponos import git as git_module
+    from ponos import github_checks
+
+    settings = C.Notion()
+    url = "https://github.com/a/b/pull/7"
+    jobs = [
+        {"name": "core", "bucket": "pass", "link": f"{url}/checks?1"},
+        {"name": "frontend", "bucket": "pending", "link": ""},
+    ]
+    files = [{"path": "src/a.py", "additions": 12, "deletions": 3}]
+    checks, touched = github_checks.checks, git_module.pull_request_files
+    github_checks.checks = lambda url, accounts=None, timeout=60: jobs
+    git_module.pull_request_files = lambda url, accounts=None, timeout=60: files
+    try:
+        with _board() as board:
+            api = _ideas_api(board)
+            said = api.runner.voice
+            reviewed = board.create_row("tickets", "A list", {"Status": settings.state("review")})
+            board.comment(
+                reviewed,
+                said.report(said.verdict("review", "PR #7"), "Sorts the list.", url),
+            )
+            panel = api.decision(reviewed)
+            assert panel["checks"]["state"] == "pending"
+            assert [job["name"] for job in panel["checks"]["listed"]] == ["core", "frontend"]
+            assert panel["files"] == files
+
+            silent = board.create_row("tickets", "No PR", {"Status": settings.state("review")})
+            board.comment(silent, said.report(said.verdict("review"), "Wrote a page."))
+            assert api.decision(silent)["files"] == [], "no pull request, nothing asked"
+    finally:
+        github_checks.checks, git_module.pull_request_files = checks, touched

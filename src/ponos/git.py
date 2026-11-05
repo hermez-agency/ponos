@@ -34,6 +34,7 @@ wait instead.
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import shutil
@@ -45,6 +46,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from . import github_app, github_token
 from .config import state_dir
@@ -1308,3 +1310,35 @@ def pull_request_head(url: str, accounts: Accounts | None = None) -> str:
         token=token_for(url, accounts),
     )
     return result.out.strip() if result.ok else ""
+
+
+def pull_request_files(
+    url: str, accounts: Accounts | None = None, timeout: int = 60
+) -> list[dict[str, Any]]:
+    """The files the pull request touches, each with its lines added and removed.
+
+    What a decision taken on a phone reads in place of the diff: the diff itself
+    is GitHub's to show, and unreadable at that width; the list of what moved,
+    and by how much, is what tells a two-line fix from a rewrite. Nothing when
+    GitHub cannot say, which the console reads as not knowing.
+    """
+    if not shutil.which("gh"):
+        return []
+    result = run(
+        ["gh", "pr", "view", url, "--json", "files"],
+        timeout=timeout,
+        token=token_for(url, accounts),
+    )
+    try:
+        files = json.loads(result.out or "{}").get("files") if result.ok else None
+    except (ValueError, AttributeError):
+        return []
+    return [
+        {
+            "path": str(one.get("path") or ""),
+            "additions": int(one.get("additions") or 0),
+            "deletions": int(one.get("deletions") or 0),
+        }
+        for one in (files if isinstance(files, list) else [])
+        if isinstance(one, dict) and one.get("path")
+    ]
