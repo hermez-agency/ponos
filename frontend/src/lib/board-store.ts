@@ -2,6 +2,7 @@ import * as React from "react"
 
 import { api } from "./api"
 import { t } from "./i18n"
+import { optimistic } from "./optimistic"
 import type { Board, BoardChanges, ColumnKey, Ticket } from "./types"
 
 /* The board, as the stream last said it.
@@ -83,27 +84,50 @@ export const titleOf = (ticket: Pick<Ticket, "title">): string =>
  * dropped on the board both come through here, so neither can leave a card
  * standing in a column Notion never heard about.
  *
- * The console queues the write rather than making it while this waits: Notion
- * may be slow, or say 429. So "accepted" is not "in Notion" — the card says
- * "waiting" until the board the stream sends next says otherwise, and that
- * board says it failed, too, when it did. Says whether it moved anything. */
-export async function moveTicket(id: string, column: ColumnKey): Promise<boolean> {
+ * Nothing waits for the write (see `optimistic.ts`): it goes out behind the
+ * card, which says "waiting" until the board the stream sends next says
+ * otherwise — and that board says it failed, too, when it did. A refusal puts
+ * the card back, unless the stream has already moved it somewhere else: the
+ * stream is the truth. Says whether it moved anything. */
+export function moveTicket(id: string, column: ColumnKey, failure = ""): boolean {
   const before = board?.tickets.find((ticket) => ticket.id === id)
   if (before && before.column === column) return false
-  if (before) patchTicket(id, { column, sync: "pending", sync_error: "" })
-  try {
-    await api.setStatus(id, column, before?.status)
-  } catch (error) {
-    if (before)
-      patchTicket(id, {
-        column: before.column,
-        status: before.status,
-        sync: before.sync,
-        sync_error: before.sync_error,
-      })
-    throw error
-  }
+  void optimistic({
+    apply: () => {
+      if (before) patchTicket(id, { column, sync: "pending", sync_error: "" })
+    },
+    request: () => api.setStatus(id, column, before?.status),
+    rollback: () => {
+      const now = board?.tickets.find((ticket) => ticket.id === id)
+      if (before && now?.column === column && now.sync === "pending")
+        patchTicket(id, {
+          column: before.column,
+          status: before.status,
+          sync: before.sync,
+          sync_error: before.sync_error,
+        })
+    },
+    failure: failure || t("could not move the ticket"),
+  })
   return true
+}
+
+/** A card drawn in place of another — the provisional one of a ticket being created, by its real one. */
+export function replaceTicket(provisional: string, ticket: Ticket) {
+  if (!board) return
+  // The stream may have brought the real card before the answer did: it is the truth.
+  const tickets = board.tickets.some((item) => item.id === ticket.id)
+    ? board.tickets.filter((item) => item.id !== provisional)
+    : board.tickets.map((item) => (item.id === provisional ? ticket : item))
+  board = { ...board, tickets }
+  tell()
+}
+
+/** A ticket taken off the board as drawn: a provisional card whose write was refused. */
+export function dropTicket(id: string) {
+  if (!board) return
+  board = { ...board, tickets: board.tickets.filter((ticket) => ticket.id !== id) }
+  tell()
 }
 
 /** The board, as soon as there is one. */

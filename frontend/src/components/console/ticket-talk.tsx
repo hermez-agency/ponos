@@ -1,6 +1,5 @@
 import * as React from "react"
 import { MoreHorizontal, RotateCw } from "lucide-react"
-import { toast } from "sonner"
 import { useNavigate } from "react-resource-view"
 
 import { Bubble, BubbleContent } from "@/components/ui/bubble"
@@ -14,8 +13,8 @@ import {
 import { Message, MessageContent, MessageHeader } from "@/components/ui/message"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useConsole } from "@/hooks/use-console"
-import { api, why } from "@/lib/api"
-import { currentBoard, titleOf, useBoard } from "@/lib/board-store"
+import { api } from "@/lib/api"
+import { currentBoard, patchTicket, titleOf, useBoard } from "@/lib/board-store"
 import {
   type Reply,
   answersIn,
@@ -28,8 +27,9 @@ import {
   typedOf,
 } from "@/lib/decision"
 import { currentLanguage, t as translate, useT } from "@/lib/i18n"
+import { optimistic } from "@/lib/optimistic"
 import { secretsIn } from "@/lib/secrets"
-import type { Decision, Solution, Ticket } from "@/lib/types"
+import type { ColumnKey, Decision, Solution, Ticket } from "@/lib/types"
 
 import { boardHref } from "@/resources/tickets"
 
@@ -98,7 +98,6 @@ export function TicketTalk({ ticket, onSession }: { ticket: Ticket; onSession: (
   const [problem, setProblem] = React.useState("")
   // The message held back once for a secret in it: sent, masked, if pressed again as it is.
   const [warned, setWarned] = React.useState("")
-  const [busy, setBusy] = React.useState(false)
   const [model, setModel] = React.useState("")
   const [abandoning, setAbandoning] = React.useState(false)
   // Answered: the replies are done with, though the stream has yet to say the ticket moved.
@@ -146,48 +145,50 @@ export function TicketTalk({ ticket, onSession }: { ticket: Ticket; onSession: (
     if (working) end.current?.scrollIntoView({ block: "nearest", behavior: "smooth" })
   }, [working])
 
-  /** One of the offers sent; the ticket at work again when it goes back to Ready. */
-  async function decide(offer: Solution, text: string, picked = "") {
-    setBusy(true)
+  /** One of the offers sent; the ticket at work again when it goes back to Ready.
+   * Said and drawn now, written behind it: a refusal reopens the question. */
+  function decide(offer: Solution, text: string, picked = "") {
     setProblem("")
-    try {
-      await api.decide(ticket.id, { key: offer.key, number: offer.number, text, model: picked })
-      toast.success(
-        t("“{{title}}” moved to {{column}}", {
+    const before = { column: ticket.column, status: ticket.status, sync: ticket.sync, sync_error: ticket.sync_error }
+    const earlier = sent
+    void optimistic({
+      apply: () => {
+        setAnswered(true)
+        patchTicket(ticket.id, { column: offer.column as ColumnKey, sync: "pending", sync_error: "" })
+        if (offer.column === "ready") {
+          setSent(answers)
+          backToBoard()
+        }
+      },
+      request: () => api.decide(ticket.id, { key: offer.key, number: offer.number, text, model: picked }),
+      rollback: () => {
+        setAnswered(false)
+        setSent(earlier)
+        if (currentBoard()?.tickets.find((item) => item.id === ticket.id)?.column === offer.column)
+          patchTicket(ticket.id, before)
+      },
+      failure: t("The decision was not sent"),
+      success: {
+        title: t("“{{title}}” moved to {{column}}", {
           title: titleOf(ticket),
           column: board.columns.find((item) => item.key === offer.column)?.name || offer.column,
-        })
-      )
-      setAnswered(true)
-      if (offer.column === "ready") {
-        setSent(answers)
-        backToBoard()
-      }
-      return true
-    } catch (error) {
-      toast.error(t("The decision was not sent"), { description: why(error) })
-      return false
-    } finally {
-      setBusy(false)
-    }
+        }),
+      },
+    })
+    return true
   }
 
-  async function reply(chosen: Reply<Solution>) {
+  function reply(chosen: Reply<Solution>) {
     if (chosen.offer) {
-      await decide(chosen.offer, chosen.text ? translate(chosen.text) : "")
+      decide(chosen.offer, chosen.text ? translate(chosen.text) : "")
       return
     }
     // Nothing on offer runs it again as it is: the move back to Ready does.
-    setBusy(true)
-    try {
-      await move(ticket, "ready")
-      setAnswered(true)
-      setSent(answers)
-      // A move that failed was put back by the board, and said so: the window stays.
-      if (currentBoard()?.tickets.find((item) => item.id === ticket.id)?.column === "ready") backToBoard()
-    } finally {
-      setBusy(false)
-    }
+    // The card is in Ready now, and a refusal puts it back, and says so.
+    setAnswered(true)
+    setSent(answers)
+    void move(ticket, "ready")
+    backToBoard()
   }
 
   const send = async (text: string) => {
@@ -209,19 +210,15 @@ export function TicketTalk({ ticket, onSession }: { ticket: Ticket; onSession: (
         : typedOf(solutions)
       : null
     if (offer) {
-      const done = await decide(offer, text.trim(), model)
+      const done = decide(offer, text.trim(), model)
       if (done) setModel("")
       return done
     }
-    try {
-      await tell(text)
-      // An answer to its question, or its name: Ponos is going to say something.
-      if (talkWaiting || text.toLowerCase().includes(mention.toLowerCase())) setSent(answers)
-      return true
-    } catch (error) {
-      setProblem(translate("not written: {{why}}", { why: why(error) }))
-      return false
-    }
+    // Drawn under the discussion now; a refusal is a toast and takes it off again.
+    await tell(text)
+    // An answer to its question, or its name: Ponos is going to say something.
+    if (talkWaiting || text.toLowerCase().includes(mention.toLowerCase())) setSent(answers)
+    return true
   }
 
   const replies = decision ? repliesOf(ticket.column, solutions) : []
@@ -254,7 +251,7 @@ export function TicketTalk({ ticket, onSession }: { ticket: Ticket; onSession: (
               variant="outline"
               size="sm"
               data-reply={chosen.offer?.key ?? "plain"}
-              disabled={busy || working || answered}
+              disabled={working || answered}
               className="h-auto min-h-8 max-w-full justify-start rounded-2xl py-1.5 text-left whitespace-normal"
               onClick={() => void reply(chosen)}
             >
@@ -323,13 +320,13 @@ export function TicketTalk({ ticket, onSession }: { ticket: Ticket; onSession: (
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             {blocked && retry ? (
-              <DropdownMenuItem disabled={busy || working || answered} onSelect={() => void reply(retry)}>
+              <DropdownMenuItem disabled={working || answered} onSelect={() => void reply(retry)}>
                 {t("Run it again as it is")}
               </DropdownMenuItem>
             ) : null}
             {blocked && abandon ? (
               <DropdownMenuItem
-                disabled={busy}
+                disabled={answered}
                 className="text-destructive focus:text-destructive"
                 onSelect={() => setAbandoning(true)}
               >

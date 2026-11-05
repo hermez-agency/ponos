@@ -236,13 +236,8 @@ export function SidebarFooter() {
   const { refresh } = useConsole()
   const { theme, toggle } = useTheme()
   const t = useT()
-  const [rereading, setRereading] = React.useState(false)
 
-  const reread = () => {
-    if (rereading) return
-    setRereading(true)
-    void refresh().finally(() => setRereading(false))
-  }
+  const reread = () => void refresh()
 
   return (
     <div className="flex flex-col gap-1">
@@ -277,11 +272,9 @@ export function SidebarFooter() {
               variant="ghost"
               size="icon-sm"
               onClick={reread}
-              disabled={rereading}
-              aria-busy={rereading || undefined}
               aria-label={t("Resynchronise now")}
             >
-              <RefreshCw className={cn(rereading && "animate-spin")} />
+              <RefreshCw />
             </Button>
           </TooltipTrigger>
           <TooltipContent>

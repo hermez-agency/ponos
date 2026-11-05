@@ -199,7 +199,8 @@ test("the version, the last read and the two buttons are behind More", async ({ 
   await expect(drawer.getByText(/^v\d+\.\d+\.\d+/)).toBeVisible()
   await expect(drawer.getByText(/^synced /)).toBeVisible()
   await expect(drawer.getByRole("button", { name: /^Switch to the (light|dark) theme$/ })).toBeVisible()
-  // A reread says it is on its way, then that it is done.
+  // A reread says so at the click and never freezes the button; a second click
+  // while the first one is out joins it, so there is still a single read.
   let reads = 0
   await page.route("**/api/refresh", async (route) => {
     reads += 1
@@ -208,8 +209,8 @@ test("the version, the last read and the two buttons are behind More", async ({ 
   })
   const reread = drawer.getByRole("button", { name: "Resynchronise now" })
   await reread.click()
-  await expect(reread).toBeDisabled()
   await expect(page.getByText("Board read again")).toBeVisible()
   await expect(reread).toBeEnabled()
-  expect(reads).toBe(1)
+  await reread.click()
+  await expect.poll(() => reads).toBe(1)
 })

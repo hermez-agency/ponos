@@ -2,6 +2,8 @@ import * as React from "react"
 import { toast } from "sonner"
 
 import { api, why } from "@/lib/api"
+import { t } from "@/lib/i18n"
+import { optimistic } from "@/lib/optimistic"
 import type { Attached, ChatEvent, CommandEvent, NoticeEvent, Queued, Role } from "@/lib/types"
 
 /* Where the workspace's conversation stands: a turn running or being stopped,
@@ -78,34 +80,42 @@ export function useTranscript(reloadState: () => Promise<void>) {
     }
   }, [say])
 
-  /** Says whether the line was taken, so the field is emptied only then. */
+  /** Says whether the line was taken, so the field is emptied only then: an
+   * empty line is not, a refusal is not waited for. It is said by `say` and by
+   * a toast, and the line is not put back. */
   const submit = React.useCallback(
     async (text: string, attachments: Attached[] = []) => {
       const line = text.trim()
       if (!line && !attachments.length) return false
-      try {
-        if (line.startsWith(">")) await api.command(line.replace(/^\s*>/, ""))
-        else
-          await api.send(
-            line,
-            attachments.map((attachment) => attachment.id)
-          )
-        return true
-      } catch (error) {
-        say("error", why(error))
-        return false
-      }
+      const command = line.startsWith(">")
+      void optimistic({
+        // A command is drawn by the stream as it starts, a message by `useChat`
+        // or, when it waits for the turn to end, by the queue the stream sends.
+        apply: () => {},
+        request: async () => {
+          if (command) await api.command(line.replace(/^\s*>/, ""))
+          else
+            await api.send(
+              line,
+              attachments.map((attachment) => attachment.id)
+            )
+        },
+        rollback: (error) => say("error", why(error)),
+        failure: command ? t("The command was not run") : t("The message was not sent"),
+      })
+      return true
     },
     [say]
   )
 
   const runCommand = React.useCallback(
     async (line: string) => {
-      try {
-        await api.command(line)
-      } catch (error) {
-        say("error", why(error))
-      }
+      void optimistic({
+        apply: () => {},
+        request: () => api.command(line),
+        rollback: (error) => say("error", why(error)),
+        failure: t("The command was not run"),
+      })
     },
     [say]
   )
@@ -120,12 +130,14 @@ export function useTranscript(reloadState: () => Promise<void>) {
     }
   }, [say])
 
+  // The conversation is empty now; the stream's "reset" says the same.
   const resetChat = React.useCallback(async () => {
-    try {
-      await api.resetChat()
-    } catch (error) {
-      say("error", why(error))
-    }
+    void optimistic({
+      apply: () => setTranscript([]),
+      request: () => api.resetChat(),
+      rollback: (error) => say("error", why(error)),
+      failure: t("The conversation was not reset"),
+    })
   }, [say])
 
   const on = {

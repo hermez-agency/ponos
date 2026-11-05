@@ -1,9 +1,10 @@
 import * as React from "react"
 import { toast } from "sonner"
 
-import { api, why } from "@/lib/api"
+import { api } from "@/lib/api"
 import { currentBoard, moveTicket, titleOf } from "@/lib/board-store"
 import { t } from "@/lib/i18n"
+import { optimistic } from "@/lib/optimistic"
 import { ideasScored } from "@/lib/ideas-store"
 import { goalsMoved } from "@/lib/goals-store"
 import { publishBell } from "@/lib/notifications-store"
@@ -86,14 +87,10 @@ export async function moveWithToast(target: Ticket, column: ColumnKey) {
     (column === "draft" ? t("Draft") : "") ||
     currentBoard()?.columns.find((item) => item.key === column)?.name ||
     column
-  try {
-    if (await moveTicket(target.id, column))
-      toast.success(t("“{{title}}” moved to {{column}}", { title: titleOf(target), column: name }))
-  } catch (error) {
-    toast.error(t("could not move “{{title}}”", { title: titleOf(target) }), {
-      description: why(error),
-    })
-  }
+  // The card is already in its column and the toast already says so: the
+  // write goes out behind them, and a refusal puts the card back (see `moveTicket`).
+  if (moveTicket(target.id, column, t("could not move “{{title}}”", { title: titleOf(target) })))
+    toast.success(t("“{{title}}” moved to {{column}}", { title: titleOf(target), column: name }))
 }
 
 export function useConsole(): ConsoleValue {
@@ -149,16 +146,32 @@ const relayed = {
   health: (event: HealthReport) => window.dispatchEvent(new CustomEvent("ponos:health", { detail: event })),
 }
 
+/* Said at the click; the write goes out behind it, and a refusal is a toast. */
 async function createTicket(fresh: { title: string; body: string; project: string; ready: boolean }) {
-  await api.createTicket(fresh)
-  toast.success(t("Ticket created"), { description: fresh.title })
+  void optimistic({
+    apply: () => {},
+    request: () => api.createTicket(fresh),
+    rollback: () => {},
+    failure: t("The ticket could not be created"),
+    success: { title: t("Ticket created"), description: fresh.title },
+  })
 }
 
-function refresh() {
-  return api.refresh().then(
-    () => void toast.success(t("Board read again")),
-    (error) => void toast.error(t("The board could not be read again"), { description: why(error) })
-  )
+/* Two readings at once would be one too many, so the second click joins the
+ * first rather than freezing the button until it ends. */
+let rereading: Promise<boolean> | null = null
+
+async function refresh() {
+  rereading ??= optimistic({
+    apply: () => {},
+    request: () => api.refresh(),
+    rollback: () => {},
+    failure: t("The board could not be read again"),
+    success: { title: t("Board read again") },
+  }).finally(() => {
+    rereading = null
+  })
+  void rereading
 }
 
 /* A gesture on a card. The card moves now, goes back if the write fails, and
