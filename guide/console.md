@@ -222,6 +222,8 @@ priority, then the oldest. A ticket that moves elsewhere meanwhile — its sessi
 another tab — leaves the series as it happens. At the end, what was done — *4 tickets
 unblocked, 1 ticket skipped* — and *Review the skipped tickets*.
 
+**The drafts, too.** The *Draft* column's heading offers **Sort (N)** (Ctrl+K: *Sort the drafts*, address `/?series=draft`): the same window, with each draft's title, project and page read as Markdown, and two choices — **Ready** (the ticket joins the queue) or **Abandon** — plus *Skip*. Keys: Enter or R makes it ready, A abandons it, → or J skips, ← or K goes back; the last choice can be undone. A draft is not edited there: *Open the ticket* leads to its page.
+
 All of it is read off the report the runner already writes. A session that stops names the
 kind of thing it stopped on (a `CATEGORY:` line beside `WHY:` and `QUESTION:`), which the
 report writes in front of why — `Missing access: I have no SSH key for the server`; a session

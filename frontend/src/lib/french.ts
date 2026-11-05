@@ -1474,6 +1474,15 @@ export const FRENCH: Record<string, string> = {
   Decided: "Décidé",
   "→ or J: skip · ← or K: previous · 1–9: a choice · Esc: close":
     "→ ou J : passer · ← ou K : précédent · 1–9 : un choix · Échap : fermer",
+  "↵ or R: ready · A: abandon · → or J: skip · ← or K: previous · Esc: close":
+    "↵ ou R : prêt · A : abandonner · → ou J : passer · ← ou K : précédent · Échap : fermer",
+  "Sort the drafts": "Trier les brouillons",
+  "Sort ({{count}})": "Trier ({{count}})",
+  "The drafts, one after another": "Les brouillons, l'un après l'autre",
+  "Draft sorted": "Brouillon trié",
+  "No draft left to sort.": "Plus aucun brouillon à trier.",
+  "{{count}} draft sorted": "{{count}} brouillon trié",
+  "{{count}} drafts sorted": "{{count}} brouillons triés",
   "{{count}} ticket unblocked": "{{count}} débloqué",
   "{{count}} tickets unblocked": "{{count}} débloqués",
   "{{count}} ticket decided": "{{count}} décidé",

@@ -1,5 +1,5 @@
 import * as React from "react"
-import { ListChecks, MessageCircleQuestion, Scale, type LucideIcon } from "lucide-react"
+import { FilePen, ListChecks, MessageCircleQuestion, Scale, type LucideIcon } from "lucide-react"
 import { useLocation } from "@tanstack/react-router"
 import { useNavigate } from "react-resource-view"
 
@@ -116,20 +116,32 @@ export function SeriesButton({ column }: { column: SeriesColumn }) {
   const count = board.tickets.filter((ticket) => ticket.column === column).length
   if (count < SERIES_FROM) return null
   const blocked = column === "blocked"
-  const Icon = blocked ? ListChecks : Scale
+  const draft = column === "draft"
+  const Icon = draft ? FilePen : blocked ? ListChecks : Scale
   return (
     <Button
       size="xs"
       variant="outline"
       data-series={column}
-      className={cn("shrink-0", blocked ? "text-tr-amber hover:text-tr-amber" : "text-tr-pink hover:text-tr-pink")}
+      className={cn(
+        "shrink-0",
+        draft
+          ? "text-muted-foreground"
+          : blocked
+            ? "text-tr-amber hover:text-tr-amber"
+            : "text-tr-pink hover:text-tr-pink"
+      )}
       onClick={(event) => {
         event.stopPropagation()
         open(column)
       }}
     >
       <Icon />
-      {blocked ? t("Unblock ({{count}})", { count: String(count) }) : t("Decide ({{count}})", { count: String(count) })}
+      {draft
+        ? t("Sort ({{count}})", { count: String(count) })
+        : blocked
+          ? t("Unblock ({{count}})", { count: String(count) })
+          : t("Decide ({{count}})", { count: String(count) })}
     </Button>
   )
 }

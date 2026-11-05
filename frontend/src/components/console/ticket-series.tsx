@@ -1,6 +1,6 @@
 import * as React from "react"
 import { useLocation } from "@tanstack/react-router"
-import { ArrowLeft, ArrowRight, CircleCheck, ExternalLink, ServerCrash, XIcon } from "lucide-react"
+import { ArrowLeft, ArrowRight, CircleCheck, CircleX, ExternalLink, ServerCrash, XIcon } from "lucide-react"
 import { useNavigate } from "react-resource-view"
 import { toast } from "sonner"
 
@@ -10,6 +10,8 @@ import { Robot } from "@/components/console/robot"
 import { ProjectThumb } from "@/components/console/project-picture"
 import { FAMILY_ICON, blockSaid, familyColor } from "@/components/console/ticket-bits"
 import { TicketDecision } from "@/components/console/ticket-decision-panel"
+import { Markdown } from "@/components/console/markdown"
+import { Skeleton } from "@/components/ui/skeleton"
 import { api, why } from "@/lib/api"
 import { patchTicket, titleOf, useBoard } from "@/lib/board-store"
 import { isTyping } from "@/lib/hotkeys"
@@ -17,6 +19,7 @@ import { counted, useT } from "@/lib/i18n"
 import {
   type Outcome,
   type SeriesColumn,
+  draftMove,
   nextOf,
   ordered,
   previousOf,
@@ -24,7 +27,7 @@ import {
   tally,
   withSeries,
 } from "@/lib/series"
-import type { Solution, Ticket } from "@/lib/types"
+import type { Ticket } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { ticketHref } from "@/resources/tickets"
 
@@ -62,6 +65,12 @@ const WORDS: Record<SeriesColumn, { title: string; description: string; settled:
     description: "The tickets in review, one after another",
     settled: "Ticket decided",
     empty: "Nothing left to decide.",
+  },
+  draft: {
+    title: "Sort the drafts",
+    description: "The drafts, one after another",
+    settled: "Draft sorted",
+    empty: "No draft left to sort.",
   },
 }
 
@@ -151,7 +160,7 @@ function Series({ column, onClose }: { column: SeriesColumn; onClose: () => void
   // Told by the panel once its decision is sent — maybe after the stream said the ticket moved, and the series went on.
   const shown = React.useRef(current)
   shown.current = current
-  const decided = (id: string, solution: Solution) => {
+  const decided = (id: string, solution: { column: string }) => {
     setOutcomes((was) => ({ ...was, [id]: "done" }))
     setUndoable({ id, to: solution.column })
     if (shown.current === id) setLeaving({ id, why: "done" })
@@ -209,7 +218,12 @@ function Series({ column, onClose }: { column: SeriesColumn; onClose: () => void
   const onKeyDown = (event: React.KeyboardEvent) => {
     if (event.ctrlKey || event.metaKey || event.altKey || isTyping(event.target as HTMLElement)) return
     const key = event.key.toLowerCase()
-    if (key === "arrowright" || key === "j") skip()
+    const move = column === "draft" ? draftMove(key) : null
+    // Enter is the ticket's own only when it holds the focus: on a button it is that button's.
+    if (move && (key !== "enter" || event.target === panel.current)) {
+      panel.current?.querySelector<HTMLButtonElement>(`[data-move="${move}"]:not(:disabled)`)?.click()
+    } else if (move) return
+    else if (key === "arrowright" || key === "j") skip()
     else if (key === "arrowleft" || key === "k") back()
     else if (/^[1-9]$/.test(key)) {
       const choice = panel.current?.querySelector<HTMLButtonElement>(`[data-key="${key}"]:not(:disabled)`)
@@ -362,6 +376,8 @@ function Series({ column, onClose }: { column: SeriesColumn; onClose: () => void
                 <p role="status" className="text-muted-foreground text-sm">
                   {t("This ticket left the series: it moved elsewhere.")}
                 </p>
+              ) : column === "draft" ? (
+                <DraftChoices ticket={ticket} onDone={(solution) => decided(ticket.id, solution)} />
               ) : (
                 <TicketDecision ticket={ticket} onDone={(solution) => decided(ticket.id, solution)} />
               )}
@@ -386,12 +402,89 @@ function Series({ column, onClose }: { column: SeriesColumn; onClose: () => void
               </a>
             </Button>
             <p className="text-muted-foreground ms-auto hidden font-mono text-xs lg:block">
-              {t("→ or J: skip · ← or K: previous · 1–9: a choice · Esc: close")}
+              {column === "draft"
+                ? t("↵ or R: ready · A: abandon · → or J: skip · ← or K: previous · Esc: close")
+                : t("→ or J: skip · ← or K: previous · 1–9: a choice · Esc: close")}
             </p>
           </footer>
         )}
       </DialogContent>
     </Dialog>
+  )
+}
+
+/* What a draft is, and the two things to do with it: its page read as the
+ * ticket's own page reads it, then Ready (the ticket goes to the queue) or
+ * Abandon. Passing is the footer's. Nothing is edited here: « Open the ticket »
+ * is the way to the page. */
+function DraftChoices({ ticket, onDone }: { ticket: Ticket; onDone: (solution: { column: string }) => void }) {
+  const t = useT()
+  const [content, setContent] = React.useState<string | null>(null)
+  const [problem, setProblem] = React.useState("")
+  const [busy, setBusy] = React.useState(false)
+
+  React.useEffect(() => {
+    let current = true
+    api
+      .ticket(ticket.id)
+      .then((found) => current && setContent(found.content ?? ""))
+      .catch((error) => current && setProblem(why(error)))
+    return () => {
+      current = false
+    }
+  }, [ticket.id])
+
+  const move = async (column: "ready" | "cancelled") => {
+    if (busy) return
+    setBusy(true)
+    try {
+      // Straight to the server, then the board and the series told together: moving the card first
+      // would have it leave the column before the series knows it was decided here.
+      await api.setStatus(ticket.id, column, ticket.status)
+      patchTicket(ticket.id, { column, sync: "pending", sync_error: "" })
+      onDone({ column })
+    } catch (error) {
+      toast.error(t("The decision was not sent"), { description: why(error) })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div data-slot="draft-choices" className="flex flex-col gap-6">
+      {problem ? (
+        <p className="text-destructive text-sm" role="alert">
+          {t("This ticket could not be read: {{why}}", { why: problem })}
+        </p>
+      ) : content === null ? (
+        <div className="space-y-2" aria-busy="true">
+          <Skeleton className="h-3 w-full" />
+          <Skeleton className="h-3 w-5/6" />
+          <Skeleton className="h-3 w-2/3" />
+        </div>
+      ) : content ? (
+        <Markdown text={content} />
+      ) : (
+        <p className="text-muted-foreground text-sm">{t("The page is empty: the title is the whole brief.")}</p>
+      )}
+      <div className="flex flex-wrap gap-2">
+        <Button data-move="ready" aria-keyshortcuts="R Enter" disabled={busy} onClick={() => void move("ready")}>
+          <CircleCheck />
+          {t("Ready")} <kbd className="font-mono text-xs opacity-60">R</kbd>
+        </Button>
+        <Button
+          data-move="cancelled"
+          variant="outline"
+          aria-keyshortcuts="A"
+          disabled={busy}
+          className="text-destructive hover:text-destructive"
+          onClick={() => void move("cancelled")}
+        >
+          <CircleX />
+          {t("Abandon")} <kbd className="font-mono text-xs opacity-60">A</kbd>
+        </Button>
+      </div>
+    </div>
   )
 }
 
@@ -481,7 +574,9 @@ function Recap({
   const said =
     column === "blocked"
       ? counted(done, "{{count}} ticket unblocked", "{{count}} tickets unblocked")
-      : counted(done, "{{count}} ticket decided", "{{count}} tickets decided")
+      : column === "draft"
+        ? counted(done, "{{count}} draft sorted", "{{count}} drafts sorted")
+        : counted(done, "{{count}} ticket decided", "{{count}} tickets decided")
   return (
     <section
       data-slot="series-recap"

@@ -15,8 +15,15 @@
  * priority first, then the oldest.
  */
 
-/** The two columns a series walks through: the blocked tickets, and the ones in review. */
-export type SeriesColumn = "blocked" | "review"
+/** The columns a series walks through: the blocked tickets, the ones in review, and the drafts. */
+export type SeriesColumn = "blocked" | "review" | "draft"
+
+/** Where a draft goes, by the key that says it: Enter or R makes it ready, A abandons it. */
+export function draftMove(key: string): "ready" | "cancelled" | null {
+  const one = key.toLowerCase()
+  if (one === "enter" || one === "r") return "ready"
+  return one === "a" ? "cancelled" : null
+}
 
 /** As much of a ticket as the order reads. */
 export interface Queued {
@@ -94,7 +101,7 @@ export function tally(ids: string[], outcomes: Record<string, Outcome>): { done:
 /** The series an address names, if it names one. */
 export function seriesIn(search: string): SeriesColumn | null {
   const named = new URLSearchParams(search).get(SERIES)
-  return named === "blocked" || named === "review" ? named : null
+  return named === "blocked" || named === "review" || named === "draft" ? named : null
 }
 
 /** The same address, with the series on screen — or without one. Everything else in it is kept as it was written. */
