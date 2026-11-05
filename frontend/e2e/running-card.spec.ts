@@ -15,7 +15,7 @@ async function check(page: Page) {
   const card = page.locator(`[data-ticket-card="${STARTING}"]`)
   await expect(card).toBeVisible()
   const live = card.locator('[data-slot="card-live"]')
-  const dot = live.locator("span.animate-ping").locator("..")
+  const dot = live.locator('span[class*="animate-pulse"]').locator("..")
   const text = live.locator("p span.truncate")
   const [d, x] = await Promise.all([dot.boundingBox(), text.boundingBox()])
   expect(d && x && Math.abs(d.y + d.height / 2 - (x.y + x.height / 2)) < 6).toBe(true)

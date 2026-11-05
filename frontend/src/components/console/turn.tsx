@@ -81,7 +81,7 @@ export const Turn = React.memo(function Turn({
       <MessageContent>
         <MessageHeader
           className={cn(
-            "font-mono text-[0.65rem] font-semibold tracking-[0.14em] uppercase",
+            "font-mono text-[0.65rem] font-semibold",
             role === "error" && "text-destructive"
           )}
         >

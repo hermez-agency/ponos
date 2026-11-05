@@ -313,7 +313,7 @@ const Said = React.memo(function Said({
 
   return (
     <div data-slot="said" data-role={ponos.role ?? "workspace"} className="flex flex-col gap-2">
-      <div className="text-muted-foreground flex items-center gap-1.5 font-mono text-[0.65rem] font-semibold tracking-[0.14em] uppercase">
+      <div className="text-muted-foreground flex items-center gap-1.5 font-mono text-[0.65rem] font-semibold">
         <span className="bg-muted flex size-6 shrink-0 items-center justify-center rounded-full">
           <Robot state="idle" size={18} still />
         </span>

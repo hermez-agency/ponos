@@ -101,7 +101,7 @@ function Pending({ item }: { item: Queued }) {
 
   return (
     <div data-slot="queued" className="flex flex-col items-end gap-1">
-      <div className="text-muted-foreground font-mono text-[0.65rem] font-semibold tracking-[0.14em] uppercase">
+      <div className="text-muted-foreground font-mono text-[0.65rem] font-semibold">
         {t("waiting")}
       </div>
       {item.attachments?.length ? <AttachedGallery items={item.attachments} align="end" /> : null}

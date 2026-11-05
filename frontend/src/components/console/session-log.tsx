@@ -633,8 +633,7 @@ export function PlanList({ tasks }: { tasks: Task[] }) {
 export function Pulse({ className }: { className?: string }) {
   return (
     <span className={cn("relative inline-flex size-2 shrink-0", className)} aria-hidden>
-      <span className="bg-tr-green absolute inset-0 animate-ping rounded-full opacity-60" />
-      <span className="bg-tr-green relative inline-flex size-2 rounded-full" />
+      <span className="bg-tr-green relative inline-flex size-2 rounded-full motion-safe:animate-pulse" />
     </span>
   )
 }

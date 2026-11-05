@@ -14,7 +14,7 @@ export function Field({
   return (
     <div className="flex items-start gap-2 px-4 pt-3">
       {command ? (
-        <span className="bg-tr-amber/10 text-tr-amber mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[0.65rem] font-semibold tracking-wider uppercase">
+        <span className="bg-tr-amber/10 text-tr-amber mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[0.65rem] font-semibold">
           <TerminalIcon className="size-3" />
           {t("command")}
         </span>

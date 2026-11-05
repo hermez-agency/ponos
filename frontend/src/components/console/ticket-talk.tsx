@@ -466,7 +466,7 @@ function Ponos({
   return (
     <Message align="start" data-talk={slot}>
       <MessageContent>
-        <MessageHeader className="font-mono text-[0.65rem] font-semibold tracking-[0.14em] uppercase">
+        <MessageHeader className="font-mono text-[0.65rem] font-semibold">
           <span data-slot="turn-avatar" className="bg-muted mr-1.5 flex size-6 shrink-0 items-center justify-center rounded-full">
             <Robot state="idle" size={18} still />
           </span>
