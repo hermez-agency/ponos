@@ -316,6 +316,15 @@ init` adds the column to an existing board, and `ponos doctor` says which of the
 four options it offers. A board spelled in French — *Rédaction*, *Action externe* — is read
 as such without a word of configuration; `[notion.types]` renames them otherwise.
 
+**A ticket run as the wrong type corrects itself, once.** A *Writing*, *External action* or
+*Publication* ticket on a project that has a repository is told where that repository is,
+and that it may not change it. When what the ticket asks for is precisely a change there, the
+session writes no answer and ends on a `KIND: code` line instead of asking to be run again:
+the runner writes *Code* in the column, says so in a comment (*↩️ Back in the queue*), and
+puts the ticket back in *Ready* — the next pass runs it in a worktree, with a fresh session,
+and nothing is asked of you. Only once a ticket: a second `KIND: code` on the same ticket is
+not believed, and it stops as its session did, for you to look at.
+
 **A publication goes out only once you have said yes.** It is the two-step road, built on
 the columns the board already has:
 

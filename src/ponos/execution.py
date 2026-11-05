@@ -46,6 +46,7 @@ from . import (
     git,
     github_token,
     journal,
+    kinds,
     local_ci,
     progress,
     project_settings,
@@ -1279,6 +1280,9 @@ class Execution(Base):
                 home=job.session_home,
             )
 
+        if switched := self._switch_to_code(job, outcome):
+            return switched
+
         answer_file = job.workdir / "ANSWER.md"
         content = _answer(job.workdir)
 
@@ -1302,6 +1306,62 @@ class Execution(Base):
             note=note,
             pull_request=opened[-1] if opened else "",
         )
+
+    def _switch_to_code(self, job: Job, outcome: session.Outcome) -> dict[str, Any] | None:
+        """A session that says the ticket was code, believed once: None otherwise.
+
+        Its `KIND: code` line — see `kinds.claimed` — on a ticket that was given
+        no repository although its project has one, and that the runner has
+        never switched before: the type column says Code, a comment says why,
+        and the ticket goes back to ready for the next pass to run it in a
+        worktree, with a session of its own. Not asked, and nobody's phone
+        rings: the session already said what a person would have answered.
+        A second claim is not believed — the ticket ends as its session did.
+        """
+        if job.kind == "code" or not job.reference or kinds.claimed(outcome.answer) != "code":
+            return None
+        ticket = job.ticket
+        column = self.type_column()
+        if not column:
+            return None
+        if state.switched_kind(ticket.id):
+            self.say("    · it says it is code again — already switched once, not again")
+            return None
+        name = self.kind_name("code")
+        said = self.voice
+        try:
+            self.client.update(self.database, ticket.page.id, {column: name})
+        except store.StoreError as error:
+            self.say(f"  ! the type could not be written: {voice_module.line(error)}")
+            return None
+        state.switch_kind(ticket.id)
+        shutil.rmtree(job.workdir, ignore_errors=True)
+        self.say(f"    ↩ {ticket.title} — the session says it is code: made {name}, back in ready")
+        self._set(
+            ticket,
+            **{
+                self.config.notion.prop("status"): self.config.notion.state("ready"),
+                **self._measures(outcome),
+            },
+        )
+        self._comment(
+            ticket,
+            said.report(
+                said.verdict("requeued", *said.spent(outcome.seconds, outcome.cost_usd)),
+                said.brief(outcome.summary),
+                said.say("kind-switched", property=column, kind=name),
+            ),
+        )
+        return {
+            "ticket": ticket.title,
+            "id": ticket.id,
+            "status": "requeued",
+            "project": job.project.name,
+            "kind": "code",
+            "session": outcome.session_id,
+            "seconds": round(outcome.seconds, 1),
+            "cost_usd": outcome.cost_usd,
+        }
 
     def _document_failed(
         self, job: Job, outcome: session.Outcome, content: str

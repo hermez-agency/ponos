@@ -497,6 +497,35 @@ def wrote_up(ticket_id: str) -> None:
         pass
 
 
+def switched_kind(ticket_id: str) -> bool:
+    """Has this ticket already been made code by the runner, on a session's word?
+
+    Once a ticket — see `Execution._switch_to_code`. A table that cannot be read
+    answers yes, as `written_up` does: a switch refused is a ticket blocked on
+    its own sentence, a switch repeated is a ticket that can go round forever.
+    """
+    try:
+        with db.transaction(immediate=False) as connection:
+            row = connection.execute(
+                "SELECT 1 FROM kind_switches WHERE ticket = ?", (ticket_id,)
+            ).fetchone()
+    except db.ERRORS:
+        return True
+    return row is not None
+
+
+def switch_kind(ticket_id: str) -> None:
+    """That ticket has been made code: a session's `KIND: code` is not read again."""
+    try:
+        with db.transaction() as connection:
+            connection.execute(
+                "INSERT OR IGNORE INTO kind_switches (ticket, at) VALUES (?, ?)",
+                (ticket_id, datetime.now(UTC).isoformat(timespec="seconds")),
+            )
+    except db.ERRORS:
+        pass
+
+
 def mended(ticket_id: str, head: str) -> bool:
     """Has a session already been sent after the red checks of the ticket's branch at `head`?
 

@@ -817,6 +817,14 @@ def _reworks(connection: sqlite3.Connection) -> None:
     )
 
 
+def _kind_switches(connection: sqlite3.Connection) -> None:
+    # The tickets a session ran as a text or an action said were code, and the
+    # runner made code and put back in ready (execution.py): once a ticket.
+    connection.execute(
+        "CREATE TABLE kind_switches (ticket TEXT PRIMARY KEY, at TEXT NOT NULL DEFAULT '')"
+    )
+
+
 def _chats(connection: sqlite3.Connection) -> None:
     connection.execute(
         """
@@ -1039,6 +1047,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     _digests,
     _runs_say_their_subtype,
     _reworks,
+    _kind_switches,
 )
 
 # Any way a read or a write of the database can fail. A note the runner keeps

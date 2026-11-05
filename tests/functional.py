@@ -721,6 +721,13 @@ if silent and "You stopped without writing your report" in prompt:
 if silent:
     finish("Je branche le domaine.")
 
+# A ticket run without its repository that asks for one: the session says so on
+# its `KIND: code` line — `FAKE_CLAUDE_WRONG_KIND` is why — and does nothing.
+# Given its worktree, it commits like any other.
+wrong = os.environ.get("FAKE_CLAUDE_WRONG_KIND", "")
+if wrong and not (here / ".git").exists():
+    finish("Il me faut le dépôt.\\nKIND: code\\nRESULT: blocked — " + wrong)
+
 # A code ticket whose work happened outside the repository: nothing committed,
 # and the report says where it went — `FAKE_CLAUDE_ELSEWHERE` is that report.
 elsewhere = os.environ.get("FAKE_CLAUDE_ELSEWHERE", "")
@@ -2632,6 +2639,50 @@ def a_writing_ticket_blocked_on_a_question_is_not_said_to_have_written_nothing(
         results = machine.run()
     assert results[0]["status"] == "blocked", results
     assert machine.board.value(silent, "Blocage") == "session.no-answer"
+
+
+@case
+def a_writing_ticket_its_session_says_is_code_is_made_code_and_run_again_once(
+    machine: Bench,
+) -> None:
+    """`KIND: code` from a Rédaction session: Code in the column, one run as code.
+
+    No question asked — the session said what somebody would have answered —
+    and only once: a second claim on the same ticket ends as its session did.
+    """
+    machine.typed()
+    repository = machine.repository("site")
+    project = machine.project("Site", repository)
+    ticket = machine.ticket("Rattraper le concurrent", "Une PR qui ajoute l'export.", project)
+    machine.board.pages[ticket]["properties"]["Type"] = _stored({"select": {"name": "Rédaction"}})
+    wrong = {"FAKE_CLAUDE_WRONG_KIND": "c'est un ticket de code"}
+
+    with _environ(wrong):
+        results = machine.run()
+    assert [result["status"] for result in results] == ["requeued"], results
+    assert machine.board.value(ticket, "Type") == "Code"
+    assert machine.status(ticket) == "Ready", machine.status(ticket)
+    said = machine.board.said(ticket)[-1]
+    assert "Code" in said and "?" not in said, said
+    assert not machine.pull_requests(), "the first session changed nothing"
+
+    with _environ(wrong):
+        results = machine.run()
+    assert [result["status"] for result in results] == ["done"], results
+    # The sub-type is asked on the way, in a scratch directory: not a run.
+    sessions = [one for one in machine.sessions() if "/scratch/subtype-" not in one["cwd"]]
+    assert len(sessions) == 1, [one["cwd"] for one in sessions]
+    assert "/worktrees/" in sessions[0]["cwd"], "run as code, in a worktree of its own"
+    assert len(machine.pull_requests()) == 1, machine.pull_requests()
+
+    # Typed back as a text and run again: the claim is not believed twice.
+    machine.board.pages[ticket]["properties"]["Type"] = _stored({"select": {"name": "Rédaction"}})
+    machine.move(ticket, "Ready")
+    with _environ(wrong):
+        results = machine.run()
+    assert [result["status"] for result in results] == ["blocked"], results
+    assert machine.board.value(ticket, "Type") == "Rédaction", "no second switch"
+    assert machine.status(ticket) == "Blocked", machine.status(ticket)
 
 
 def _budget(machine: Bench, **limits: float) -> None:
