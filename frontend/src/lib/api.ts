@@ -311,6 +311,7 @@ export const api = {
       ideas?: { enabled: boolean }
       local_ci?: { enabled: boolean; command: string }
       setup?: { command: string }
+      preview?: { command: string; url: string; pages: string[] }
     }
   ) =>
     answer(

@@ -46,9 +46,9 @@ def the_schema_says_what_each_route_answers_and_what_the_stream_carries() -> Non
 
 @case
 def every_route_that_answers_json_names_its_shape() -> None:
-    """No route left for the page to type by hand — but the four that answer bytes.
+    """No route left for the page to type by hand — but the five that answer bytes.
 
-    A picture, a file of the board (a redirect to it), a file of the
+    A picture, a capture of a ticket, a file of the board (a redirect to it), a file of the
     conversation and the spending export are not JSON, and their schema does not say so.
     """
     from ponos.web import app
@@ -65,6 +65,7 @@ def every_route_that_answers_json_names_its_shape() -> None:
         "get /api/files/{file_id}",
         "get /api/projects/{project_id}/image/{slot}",
         "get /api/spending.csv",
+        "get /api/tickets/{ticket_id}/previews/{name}",
     ], unnamed
 
 

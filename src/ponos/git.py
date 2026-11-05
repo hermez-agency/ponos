@@ -39,6 +39,7 @@ import os
 import re
 import shutil
 import subprocess
+import tempfile
 import threading
 import time
 from collections.abc import Callable, Iterator
@@ -695,6 +696,24 @@ def remove_worktree(repo: Path, path: Path) -> None:
         git(["worktree", "prune"], repo)
 
 
+def add_base_worktree(repo: Path, path: Path, base: str) -> str:
+    """A detached checkout of the latest `base`, for looking at the project as it was.
+
+    Nothing is created in the repository but the registration, removed with
+    `remove_worktree`. The error, or empty.
+    """
+    with _writing(repo):
+        start = (
+            f"origin/{base}"
+            if git(["rev-parse", "--verify", "--quiet", f"origin/{base}"], repo).ok
+            else base
+        )
+        git(["worktree", "prune"], repo)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        result = git(["worktree", "add", "--detach", str(path), start], repo)
+    return "" if result.ok else (result.err or result.out or "git worktree add failed")
+
+
 # Where a directory nobody could empty is put aside. Not `tidied`: that name is
 # the file `cleanup` stamps the day of its last pass with.
 LEFTOVERS = "leftovers"
@@ -1201,6 +1220,55 @@ def comment_pull_request(url: str, body: str, accounts: Accounts | None = None) 
         token=token_for(url, accounts),
     )
     return result.ok
+
+
+def push_pictures(
+    worktree: Path, name: str, files: list[Path], accounts: Accounts | None = None
+) -> str:
+    """Put those files on origin, alone in a commit of their own, under `refs/ponos/<name>`.
+
+    GitHub's API takes no picture for a comment, but it shows any file of the
+    repository by commit: a commit with no parent and nothing but the pictures,
+    built from a throwaway index so that neither the branch, its worktree nor
+    its index is touched. Outside `refs/heads/`, so it is no branch — nothing
+    lists it, no CI starts on it — and the same name pushed again replaces it.
+    The commit, or nothing when it could not.
+    """
+    with tempfile.TemporaryDirectory(prefix="ponos-pictures-") as scratch:
+        index = {"GIT_INDEX_FILE": str(Path(scratch) / "index")}
+        for path in files:
+            blob = git(["hash-object", "-w", "--", str(path)], worktree)
+            if not blob.ok:
+                return ""
+            added = git(
+                ["update-index", "--add", "--cacheinfo", f"100644,{blob.out},{path.name}"],
+                worktree,
+                environment=index,
+            )
+            if not added.ok:
+                return ""
+        tree = git(["write-tree"], worktree, environment=index)
+    if not tree.ok:
+        return ""
+    commit = git(
+        ["commit-tree", tree.out, "-m", f"ponos: pictures for {name}"],
+        worktree,
+        environment={
+            "GIT_AUTHOR_NAME": "ponos",
+            "GIT_AUTHOR_EMAIL": "ponos@localhost",
+            "GIT_COMMITTER_NAME": "ponos",
+            "GIT_COMMITTER_EMAIL": "ponos@localhost",
+        },
+    )
+    if not commit.ok:
+        return ""
+    pushed = git(
+        ["push", "--force", "origin", f"{commit.out}:refs/ponos/{name}"],
+        worktree,
+        timeout=300,
+        token=token_for(remote_url(worktree), accounts),
+    )
+    return commit.out if pushed.ok else ""
 
 
 def pull_request_body(url: str, accounts: Accounts | None = None) -> str:

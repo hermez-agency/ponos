@@ -93,6 +93,18 @@ export function ProjectSettingsTab({ project }: { project: string }) {
     }
   }
 
+  const savePreview = async (preview: { command: string; url: string; pages: string[] }) => {
+    setSaving(true)
+    try {
+      setSettings(await api.saveProjectSettings(project, { preview }))
+      setProblem("")
+    } catch (error) {
+      setProblem(why(error))
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const saveSetup = async (command: string) => {
     setSaving(true)
     try {
@@ -198,6 +210,12 @@ export function ProjectSettingsTab({ project }: { project: string }) {
         </CardContent>
       </Card>
       <SetupCard key={settings.setup} setup={settings.setup} saving={saving} onSave={saveSetup} />
+      <PreviewCard
+        key={JSON.stringify(settings.preview)}
+        preview={settings.preview}
+        saving={saving}
+        onSave={savePreview}
+      />
       <LocalCiCard key={localCi.command} localCi={localCi} saving={saving} onSave={saveLocalCi} />
     </div>
   )
@@ -260,6 +278,106 @@ function SetupCard({
             <Button type="submit" variant="outline" disabled={!changed || saving}>
               {t("Save")}
             </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  )
+}
+
+/* The project's preview: what starts it, where it answers and which pages are photographed,
+ * before and after each code ticket. Emptying the command turns it off. */
+function PreviewCard({
+  preview,
+  saving,
+  onSave,
+}: {
+  preview: ProjectSettings["preview"]
+  saving: boolean
+  onSave: (preview: { command: string; url: string; pages: string[] }) => Promise<void>
+}) {
+  const t = useT()
+  const [command, setCommand] = React.useState(preview.command)
+  const [url, setUrl] = React.useState(preview.url)
+  const [pages, setPages] = React.useState(preview.pages.join(", "))
+  const listed = pages
+    .split(",")
+    .map((page) => page.trim())
+    .filter(Boolean)
+  const changed =
+    command.trim() !== preview.command || url.trim() !== preview.url || listed.join(",") !== preview.pages.join(",")
+  const on = Boolean(preview.command && preview.url)
+  return (
+    <Card data-card="project-preview" className="gap-0 py-0">
+      <CardHeader className="gap-1 px-5 pt-5 pb-2 sm:px-6">
+        <CardTitle className="text-base">{t("Before and after captures")}</CardTitle>
+        <CardDescription className="text-[13px] leading-relaxed">
+          {t(
+            "After the commits of a code ticket, the project is started on the base and on the branch and each page is photographed; the pictures join the pull request and the ticket. Nothing starts while the command is empty."
+          )}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="px-5 pb-4 sm:px-6">
+        {preview.chrome ? null : (
+          <p className="text-destructive pb-2 text-[13px]">{t("No Chrome is installed here: nothing can be photographed.")}</p>
+        )}
+        <form
+          className="space-y-3 py-2"
+          data-field="project-preview"
+          onSubmit={(event) => {
+            event.preventDefault()
+            if (changed) void onSave({ command: command.trim(), url: url.trim(), pages: listed })
+          }}
+        >
+          <div>
+            <Label htmlFor="project-preview-command" className="leading-snug font-semibold">
+              {t("Preview command")}
+            </Label>
+            <Input
+              id="project-preview-command"
+              className="mt-1.5 font-mono text-[13px]"
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="npm run dev"
+              value={command}
+              onChange={(event) => setCommand(event.target.value)}
+            />
+          </div>
+          <div>
+            <Label htmlFor="project-preview-url" className="leading-snug font-semibold">
+              {t("Preview address")}
+            </Label>
+            <Input
+              id="project-preview-url"
+              className="mt-1.5 font-mono text-[13px]"
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="http://127.0.0.1:5173"
+              value={url}
+              onChange={(event) => setUrl(event.target.value)}
+            />
+          </div>
+          <div>
+            <Label htmlFor="project-preview-pages" className="leading-snug font-semibold">
+              {t("Pages")}
+            </Label>
+            <div className="mt-1.5 flex gap-2">
+              <Input
+                id="project-preview-pages"
+                className="font-mono text-[13px]"
+                autoComplete="off"
+                spellCheck={false}
+                placeholder="/, /settings"
+                value={pages}
+                onChange={(event) => setPages(event.target.value)}
+              />
+              <Button type="submit" variant="outline" disabled={!changed || saving}>
+                {t("Save")}
+              </Button>
+            </div>
+            <p className="text-muted-foreground mt-1 text-[13px]">
+              {on ? t("Active.") : t("Off: set a command and an address.")}
+            </p>
           </div>
         </form>
       </CardContent>

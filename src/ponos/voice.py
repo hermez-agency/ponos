@@ -1095,6 +1095,23 @@ _SAID: dict[str, dict[str, str]] = {
             "Ouverte par ponos ({commits})."
         ),
     },
+    # -- the before/after captures --------------------------------------------
+    "previews-skipped": {
+        "en": "No before/after captures were taken: {reason}.",
+        "fr": "Aucune capture avant/après n'a été prise : {reason}.",
+    },
+    "previews-not-posted": {
+        "en": "The before/after captures could not be posted on the pull request; they are on the ticket page in the console.",
+        "fr": "Les captures avant/après n'ont pas pu être postées sur la pull request ; elles sont sur la page du ticket dans la console.",
+    },
+    "previews-title": {
+        "en": "Before / after captures",
+        "fr": "Captures avant / après",
+    },
+    "previews-where": {
+        "en": "The pictures are kept by Ponos and shown side by side on the ticket page of the console.",
+        "fr": "Les images sont gardées par Ponos et montrées côte à côte sur la page du ticket dans la console.",
+    },
     # -- a ticket born of a schedule ------------------------------------------
     "born-of-schedule": {
         "en": "*Born of the “{name}” schedule, {stamp}* — {url}",
@@ -1734,6 +1751,30 @@ class Voice:
             url=url,
             session=session,
             commits=self.count(commits, "commit"),
+        )
+
+    def previews_comment(self, shots: list[dict[str, str]], link: Callable[[str], str]) -> str:
+        """The comment that joins the captures to a pull request: a table, page by page.
+
+        `link` says where a capture is shown from — the commit the pictures
+        were pushed in, or the console — and nothing when neither can: the
+        file is named instead.
+        """
+        pages = list(dict.fromkeys(shot["page"] for shot in shots))
+
+        def cell(side: str, page: str) -> str:
+            found = next((s for s in shots if s["side"] == side and s["page"] == page), None)
+            if not found:
+                return "—"
+            where = link(found["file"])
+            return f"![{side}]({where})" if where else found["file"]
+
+        rows = "\n".join(
+            f"| `{page}` | {cell('before', page)} | {cell('after', page)} |" for page in pages
+        )
+        return (
+            f"### {self.say('previews-title')}\n\n| | before | after |\n|---|---|---|\n{rows}\n\n"
+            f"{self.say('previews-where')}"
         )
 
     # -- what the session is told --------------------------------------------

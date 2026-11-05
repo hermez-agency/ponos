@@ -20,6 +20,7 @@ import { useConsole, useSteps } from "@/hooks/use-console"
 import { ApiError, why } from "@/lib/api"
 import { copy } from "@/lib/copy"
 import { type DecisionTab, actionOf } from "@/lib/decision"
+import { PreviewPairs } from "@/components/console/preview-pairs"
 import { useT } from "@/lib/i18n"
 import { money } from "@/lib/numbers"
 import type { TicketDetail } from "@/lib/types"
@@ -234,6 +235,7 @@ function useBrief(page: TicketDetail | undefined) {
     id: string
     content?: string
     model?: TicketDetail["model_in_use"]
+    previews?: TicketDetail["previews"]
     problem?: string
   }>()
   const [attempt, setAttempt] = React.useState(0)
@@ -249,7 +251,7 @@ function useBrief(page: TicketDetail | undefined) {
     if (!id) return
     let live = true
     readTicket(id, edited).then(
-      (detail) => live && setBrief({ id, content: detail.content, model: detail.model_in_use }),
+      (detail) => live && setBrief({ id, content: detail.content, model: detail.model_in_use, previews: detail.previews }),
       (error) => live && setBrief({ id, problem: why(error) })
     )
     return () => {
@@ -261,6 +263,7 @@ function useBrief(page: TicketDetail | undefined) {
   return {
     content: mine?.content,
     model: mine?.model,
+    previews: mine?.previews,
     problem: mine?.problem,
     again: () => {
       setBrief(undefined)
@@ -673,6 +676,7 @@ function TicketTabs({
               </p>
             )}
           </div>
+          <PreviewPairs ticket={ticket.id} shots={brief.previews} />
           <TicketOn ticket={ticket} />
         </section>
       </TabsContent>

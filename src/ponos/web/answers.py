@@ -285,6 +285,8 @@ class TicketDetail(Ticket):
     """The model it runs on: the last session's own word, then the column, then the defaults."""
     on: str = omitted()
     """The prompt run at every change of the ticket's status, empty for none."""
+    previews: list[PreviewShot] = omitted()
+    """The before/after captures of its pages, empty when none were taken."""
     earlier: Earlier = omitted()
     """On a ready or draft ticket only: the line its card no longer draws — see `_notes`."""
 
@@ -548,6 +550,25 @@ class ProjectLocalCi(Shape):
     """Why it cannot be turned on here, or empty when it can."""
 
 
+class PreviewShot(Shape):
+    """One capture kept for a ticket: which side of the change, which page, which file."""
+
+    side: Literal["before", "after"]
+    page: str
+    file: str
+    """Its name, served by `GET /api/tickets/<id>/previews/<file>`."""
+
+
+class ProjectPreview(Shape):
+    """What is started to photograph a project's pages — see preview.py; empty, nothing is."""
+
+    command: str
+    url: str
+    pages: list[str]
+    chrome: bool
+    """Whether a Chrome is installed here to take them."""
+
+
 class ProjectSettings(Shape):
     """What a project decides for itself — see project_settings.py."""
 
@@ -557,6 +578,7 @@ class ProjectSettings(Shape):
     local_ci: ProjectLocalCi
     setup: str
     """The command run in each fresh worktree before its session; empty, the repository's `.ponos/setup.sh` if any."""
+    preview: ProjectPreview
 
 
 class ProjectDeleted(Shape):
@@ -1871,6 +1893,8 @@ class Decision(Shape):
     checks: Checks = omitted()
     files: list[ChangedFile] = omitted()
     """What the pull request touches, as GitHub says it when the panel opens."""
+    previews: list[PreviewShot] = omitted()
+    """The before/after captures of the ticket's pages, when it has any."""
     caveats: list[str] = omitted()
 
 

@@ -34,6 +34,7 @@ from collections.abc import Callable
 from typing import Any
 
 from . import db
+from . import preview as preview_module
 from .config import Config
 from .kinds import KINDS
 
@@ -50,6 +51,9 @@ LOCAL_CI = "local_ci"
 # worktree_setup.py. A string: absent, the repository's `.ponos/setup.sh` if it
 # has one.
 SETUP = "setup"
+# What is started to photograph the project's pages before and after a ticket —
+# see preview.py: `command`, `url` and `pages`. Absent, nothing is ever started.
+PREVIEW = "preview"
 
 
 def key(project: str) -> str:
@@ -197,6 +201,28 @@ def set_setup(project: str, name: str, command: str) -> None:
             settings[SETUP] = command.strip()
         else:
             settings.pop(SETUP, None)
+
+    _write(project, name, change)
+
+
+def preview(project: str) -> preview_module.Setting:
+    """The project's preview, or an empty one — and an empty one starts nothing."""
+    if not key(project):
+        return preview_module.Setting()
+    try:
+        return preview_module.parse(_read(project).get(PREVIEW))
+    except db.ERRORS:
+        return preview_module.Setting()
+
+
+def set_preview(project: str, name: str, setting: preview_module.Setting) -> None:
+    """Give the project a preview, or none (an empty setting)."""
+
+    def change(settings: dict[str, Any]) -> None:
+        if setting:
+            settings[PREVIEW] = setting.as_dict()
+        else:
+            settings.pop(PREVIEW, None)
 
     _write(project, name, change)
 

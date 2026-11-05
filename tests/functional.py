@@ -31,6 +31,7 @@ import json
 import os
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import tempfile
@@ -62,6 +63,7 @@ from ponos import (  # noqa: E402
     journal,
     local_ci,
     notion,
+    preview,
     project_settings,
     provider,
     state,
@@ -1818,6 +1820,73 @@ def a_server_the_bash_tool_started_in_its_own_session_does_not_outlive_the_sessi
             os.kill(pid, signal.SIGKILL)
         except OSError:
             pass
+
+
+# A Chrome that "photographs" a page by writing what the address answers.
+PICTURING_CHROME = """import sys, urllib.error, urllib.request
+target = next(a.split("=", 1)[1] for a in sys.argv if a.startswith("--screenshot="))
+try:
+    said = urllib.request.urlopen(sys.argv[-1], timeout=10).read()
+except urllib.error.HTTPError as error:
+    said = b"HTTP %d" % error.code
+open(target, "wb").write(said)
+"""
+
+
+@case
+def an_interface_ticket_comes_back_with_its_pages_before_and_after_on_the_pull_request(
+    machine: Bench,
+) -> None:
+    """`preview` set: the branch and the base served, each page taken, nothing left running.
+
+    The page photographed is the file the session writes: absent on the base,
+    there on the branch — so each side is the one it says. The pictures go to
+    origin outside any branch, and the comment on the pull request shows them
+    from that commit.
+    """
+    _script(machine.root / "bin" / "google-chrome", PICTURING_CHROME)
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    repository = machine.repository("site")
+    project = machine.project("Site", repository)
+    command = f"{sys.executable} -m http.server {port} --bind 127.0.0.1 & wait"
+    url = f"http://127.0.0.1:{port}"
+    project_settings.set_preview(
+        project, "Site", preview.parse({"command": command, "url": url, "pages": ["/FAKE.md"]})
+    )
+    ticket = machine.ticket("Changer la couleur", "Le bouton passe en vert.", project)
+
+    results = machine.run()
+
+    assert results[0]["status"] == "done", results
+    shots = preview.listing(ticket)
+    assert [(s["side"], s["page"]) for s in shots] == [
+        ("before", "/FAKE.md"),
+        ("after", "/FAKE.md"),
+    ], shots
+    folder = preview.folder(ticket)
+    assert (folder / "before-0.png").read_bytes() == b"HTTP 404", "the base was not the base"
+    assert (folder / "after-0.png").read_bytes() != b"HTTP 404", "the branch was not the branch"
+    assert not preview._answers(url), "the project's server outlived the pass"
+    assert not machine.worktrees(repository), "the base's checkout was left behind"
+
+    remote = machine.root / "remotes" / "site.git"
+    pushed = subprocess.run(
+        ["git", "rev-parse", f"refs/ponos/previews/{short_id(ticket)}"],
+        cwd=remote,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    assert pushed, "the pictures were not pushed"
+    comments = [
+        entry for entry in _lines(machine.logs["FAKE_GH_LOG"]) if entry["command"] == "pr comment"
+    ]
+    assert len(comments) == 1, comments
+    body = comments[0]["body"]
+    picture = f"https://github.com/fake/repo/blob/{pushed}/after-0.png?raw=true"
+    assert f"![after]({picture})" in body, body
+    assert "![before](" in body, body
 
 
 def _running(pid: int) -> bool:
