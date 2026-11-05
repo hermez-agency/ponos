@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Heart, Sparkles, Undo2, X } from "lucide-react"
+import { Heart, Undo2, X } from "lucide-react"
 import { useNavigate } from "react-resource-view"
 import { toast } from "sonner"
 
@@ -234,7 +234,6 @@ export function IdeasDialog({
         }}
       >
         <DialogTitle className="flex items-center gap-2 pr-6">
-          <Sparkles className="size-4" />
           {project && name ? t("Ideas for {{name}}", { name }) : t("Ideas")}
         </DialogTitle>
         <DialogDescription className="sr-only">
@@ -506,7 +505,7 @@ function Stamp({ side, shown }: { side: Side; shown: number }) {
       data-slot={keep ? "ideas-stamp-keep" : "ideas-stamp-discard"}
       aria-hidden="true"
       className={cn(
-        "pointer-events-none absolute top-14 rounded-md border-4 px-2 py-0.5 text-lg font-extrabold tracking-wider uppercase",
+        "pointer-events-none absolute top-14 rounded-md border-4 px-2 py-0.5 text-lg font-bold",
         keep
           ? "left-4 -rotate-12 border-green-500 text-green-500"
           : "right-4 rotate-12 border-red-500 text-red-500"

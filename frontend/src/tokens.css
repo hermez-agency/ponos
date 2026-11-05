@@ -21,7 +21,7 @@
  * it opens in — it sits beside a terminal and a Notion board and the thing it
  * shows most of the time is a log — and its dark is the same stone, taken one
  * ladder down: the page, the card on it, the popover above that, and the fill
- * behind a control. The orange lightens to `#ff8b44` there, under a stone text
+ * behind a control. The orange lightens to `#f2803f` there, under a stone text
  * (7.5:1).
  *
  * `--tr-*` are the console's own colours: the ones a column heading, a status
@@ -124,39 +124,37 @@
 }
 
 .dark {
-  --background: #0c0a09;
+  --background: #141414;
   --foreground: #fafaf9;
   --card: #1c1917;
   --card-foreground: #fafaf9;
-  --popover: #292524;
+  --popover: #1c1917;
   --popover-foreground: #fafaf9;
-  --primary: #ff8b44;
-  --primary-foreground: #1c1917;
+  --primary: #f2803f;
+  --primary-foreground: #141414;
   --secondary: #292524;
-  --secondary-foreground: #fafaf9;
+  --secondary-foreground: #e7e5e4;
   --muted: #292524;
   --muted-foreground: #a8a29e;
-  /* A step above the popover, warmed toward the orange as the light
-     highlight is, so a hovered row in a menu still shows. */
-  --accent: #2f2723;
+  --accent: #2b1c12;
   --accent-foreground: #fafaf9;
   --destructive: #f87171;
-  --destructive-foreground: #1c1917;
-  --border: #fafaf91c;
-  --input: #fafaf926;
-  --ring: #e46212;
+  --destructive-foreground: #141414;
+  --border: #292524;
+  --input: #44403c;
+  --ring: #f2803f;
   --field: #221f1d;
 
   /* A shade below the page, not above it: the sidebar is the frame, and a
      frame that glows brighter than what it holds is a frame you keep reading. */
-  --sidebar: #090807;
+  --sidebar: #0c0b0a;
   --sidebar-foreground: #fafaf9;
-  --sidebar-primary: #ff8b44;
-  --sidebar-primary-foreground: #1c1917;
+  --sidebar-primary: #f2803f;
+  --sidebar-primary-foreground: #141414;
   --sidebar-accent: #292524;
   --sidebar-accent-foreground: #fafaf9;
-  --sidebar-border: #fafaf91c;
-  --sidebar-ring: #e46212;
+  --sidebar-border: #292524;
+  --sidebar-ring: #f2803f;
 
   --tr-green: #4ade80;
   --tr-amber: #e5a94e;
@@ -188,7 +186,7 @@
   --subtype-none: #6b7280;
 }
 
-/* The faces, the design system's: Bricolage Grotesque, very bold, for the
+/* The faces, the design system's: Bricolage Grotesque, semi-bold, for the
    headings, and the machine's own faces for everything else — the prose, and
    the monospace every fact is written in (an id, a path, a cost, a
    timestamp). The console is served by a Python process on a loopback port and
@@ -198,8 +196,8 @@
 :root {
   --heading: "Bricolage Grotesque Variable", "Bricolage Grotesque", ui-sans-serif, system-ui,
     sans-serif;
-  --heading-weight: 800;
-  --heading-tracking: -0.025em;
+  --heading-weight: 600;
+  --heading-tracking: -0.02em;
   --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
     sans-serif;
   --mono: ui-monospace, Menlo, Consolas, monospace;

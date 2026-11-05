@@ -328,16 +328,16 @@ _STYLE = """<style>
  :root{--background:#fafaf9;--foreground:#1c1917;--card:#fff;--field:#f5f5f4;--border:#e7e5e4;
        --muted-foreground:#57534e;--primary:#bf4a02;--primary-foreground:#fff;--ring:#e46212;
        --destructive:#cc2020;--shadow:0 1px 2px 0 rgb(28 25 23/.064);color-scheme:light}
- .dark{--background:#0c0a09;--foreground:#fafaf9;--card:#1c1917;--field:#221f1d;--border:#fafaf91c;
-       --muted-foreground:#a8a29e;--primary:#ff8b44;--primary-foreground:#1c1917;--ring:#e46212;
+ .dark{--background:#141414;--foreground:#fafaf9;--card:#1c1917;--field:#221f1d;--border:#292524;
+       --muted-foreground:#a8a29e;--primary:#f2803f;--primary-foreground:#141414;--ring:#f2803f;
        --destructive:#f87171;--shadow:0 1px 2px 0 rgb(0 0 0/.32);color-scheme:dark}
  body{background:var(--background);color:var(--foreground);margin:0;display:grid;place-items:center;min-height:100vh;
       font:14px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
       -webkit-font-smoothing:antialiased}
  form{box-sizing:border-box;width:min(26rem,92vw);background:var(--card);border:1px solid var(--border);
       border-radius:1.05rem;padding:1.5rem;box-shadow:var(--shadow)}
- h1{font:800 1.25rem/1.2 "Bricolage Grotesque Variable","Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
-    letter-spacing:-.025em;margin:0 0 .375rem}
+ h1{font:600 1.25rem/1.2 "Bricolage Grotesque Variable","Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+    letter-spacing:-.02em;margin:0 0 .375rem}
  p{color:var(--muted-foreground);margin:0 0 1.25rem;font-size:.875rem}
  label{display:block;font-size:.875rem;font-weight:500;margin:1rem 0 .375rem}
  input{width:100%;box-sizing:border-box;height:2.25rem;background:var(--field);border:1px solid var(--border);

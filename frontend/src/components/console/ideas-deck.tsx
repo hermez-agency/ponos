@@ -1,5 +1,4 @@
 import * as React from "react"
-import { Sparkles } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -55,10 +54,6 @@ export function IdeasButton({
   const mascot = (
     <span className="relative inline-flex shrink-0">
       <Robot state={eager ? "thinking" : "idle"} size={inline ? 20 : 24} />
-      <Sparkles
-        aria-hidden="true"
-        className="absolute -top-0.5 -right-1 size-3 opacity-0 group-hover/ideas:opacity-100 group-focus-visible/ideas:opacity-100 motion-safe:group-hover/ideas:animate-pulse motion-safe:group-focus-visible/ideas:animate-pulse"
-      />
     </span>
   )
   const shared = {

@@ -224,7 +224,7 @@ function Shell({ back = false, children }: { back?: boolean; children: React.Rea
           </Button>
         ) : null}
         <header className="mb-6">
-          <p className="text-muted-foreground font-mono text-xs tracking-wide uppercase">Ponos</p>
+          <p className="text-muted-foreground font-mono text-xs">Ponos</p>
           <h1 className="text-2xl leading-tight font-bold tracking-[-0.03em] sm:text-[1.75rem]">
             {t("First connection")}
           </h1>
