@@ -185,13 +185,15 @@ const ORDINARY = ["pass", "next", "places", "project"]
 
 /* Why a ready card is still in its column, in the server's words (`held` in
  * `web/board.py`) — only when the wait is out of the ordinary or something
- * can be done about it: credit, the day's limit, a timer that is off, a date. */
+ * can be done about it: credit, the day's limit, a timer that is off, a date,
+ * the tickets it comes after (« Après », see `dependencies.py`). */
 export function TicketHeld({ ticket }: { ticket: Ticket }) {
   const t = useT()
   const held = ticket.column === "ready" ? ticket.held : undefined
   if (!held || ORDINARY.includes(held.reason)) return null
   const said: Record<string, string> = {
     date: t("waiting: scheduled for {{at}}", { at: when(held.detail) }),
+    after: t("waiting for: {{tickets}}", { tickets: held.detail }),
     credits: t("waiting: out of credit until {{at}}", { at: held.detail }),
     reserve: t("waiting: credit reserve reached until {{at}}", { at: held.detail }),
     budget: t("waiting: today's spending limit reached until {{at}}", { at: held.detail }),

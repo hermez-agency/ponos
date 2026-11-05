@@ -63,7 +63,7 @@ def fix(
         settings = config.notion
         board = _shaped(client)
         if action == "notion_columns":
-            wanted = provision.tickets_schema(settings, space.projects, space.agents)
+            wanted = provision.tickets_schema(settings, space.projects, space.agents, space.tickets)
             absent = provision.missing_properties(client.schema(space.tickets), wanted)
             board.add_properties(space.tickets, absent)
             return "added " + ", ".join(sorted(absent)) if absent else "nothing to add"

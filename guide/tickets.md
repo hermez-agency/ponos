@@ -341,6 +341,31 @@ Nothing is ever merged behind your back. The decision is yours; only its consequ
 not — and if you would rather not make the merge itself either, the next column takes it
 off your hands.
 
+## A ticket that comes after another
+
+A series made ready at once — the eight steps of a migration, the tickets that all need one
+pull request merged first — used to run side by side, and every ticket but the first paid a
+session to answer « what I need is not done yet ». So a ticket can name what it comes after:
+an **`Après`** relation, pointing at other tickets of the same board.
+
+- **It is not started while one of them is not *Done*.** It stays in *Ready* — nothing
+  happened to it, it is not blocked — and its card says **« waiting for: <ticket> »**
+  (*« attend : <ticket> »* in French), naming every one still to be done. The journal says
+  it once, when it changes.
+- **It starts on its own.** The first pass after the last of them reaches *Done* takes it,
+  as if it had just been made ready: nothing to tick again, no comment to write. A ticket
+  whose pull request it waits for reaches *Done* when that pull request is merged — see
+  [Merging is the only gesture](#merging-is-the-only-gesture).
+- **A ticket that cannot be found holds nothing back** — deleted, or never shared with the
+  integration: it would never become *Done*. Nor does a ticket that names itself.
+- **`ponos run --ticket` still runs it**: naming a ticket is asking for it.
+
+`ponos init` adds the column — a relation from the tickets database to itself, which can
+only be declared once the database exists — and running it again adds it to a board built
+before it; `ponos doctor` says so when the column is there under another type. Rename it under `[notion.properties]` (`after = "Après"`), or empty the
+setting to turn the whole thing off; a board without the column runs every ready ticket, as
+before. A Markdown board has it too, as a list of ticket ids.
+
 ## Ten tickets on one repository
 
 The base branch does not wait for a session. Ten tickets aimed at one repository means ten

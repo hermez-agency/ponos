@@ -24,9 +24,11 @@ from .. import (
     blocks,
     ci,
     credits,
+    dependencies,
     disk,
     estimates,
     git,
+    ids,
     journal,
     models,
     provision,
@@ -304,7 +306,7 @@ class Tickets(Base):
         _times(tickets)
         _estimates(tickets, settings)
         self._synced = board_module.describe(self.reader, tickets)
-        self._hold(tickets)
+        self._hold(tickets, pages)
 
         # Whether this board has a validated column at all. The console offers
         # the gesture only where the runner would honour it: a button that
@@ -449,15 +451,32 @@ class Tickets(Base):
             )
         }
 
-    def _hold(self, tickets: list[dict[str, Any]]) -> None:
+    def _hold(self, tickets: list[dict[str, Any]], pages: list[store.Page]) -> None:
         """Put on every ready card why it is still there — see `board.held`.
 
         The timer is asked of systemd only when a card needs it: three
         `systemctl` calls at every reading of the board would be most of it.
+        What a ticket comes after is read off the board just read, as the
+        runner reads it (see dependencies.py): no page asked of Notion.
         """
         ready = [ticket for ticket in tickets if ticket.get("column") == "ready"]
         if not ready:
             return
+        settings = self.config.notion
+        known = {ids.bare(page.id): page for page in pages}
+        after = {
+            key: dependencies.said(
+                dependencies.unmet(
+                    known[key],
+                    settings.prop("after"),
+                    settings.prop("status"),
+                    settings.state("done"),
+                    known.get,
+                )
+            )
+            for key in (ids.bare(ticket.get("id", "")) for ticket in ready)
+            if key in known
+        }
         configuration = self.config
         waits = {
             "credits": credits.held() if configuration.runner.wait_for_credits else 0.0,
@@ -477,7 +496,12 @@ class Tickets(Base):
         noted = state.held() if passing else {}
         for ticket in ready:
             ticket["held"] = board_module.held(
-                ticket, noted, passing=passing, timer=timer, waits=clocks
+                ticket,
+                noted,
+                passing=passing,
+                timer=timer,
+                waits=clocks,
+                after=after.get(ids.bare(ticket.get("id", "")), ""),
             )
 
     def _ticket(

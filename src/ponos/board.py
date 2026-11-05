@@ -24,7 +24,18 @@ from concurrent.futures import Future
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from . import conversation, git, journal, kinds, priority, state, stopping, store, subtypes
+from . import (
+    conversation,
+    dependencies,
+    git,
+    journal,
+    kinds,
+    priority,
+    state,
+    stopping,
+    store,
+    subtypes,
+)
 from . import update as update_module
 from . import voice as voice_module
 from .base import Base
@@ -144,6 +155,7 @@ class Board(Base):
         """
         tickets = [Ticket(page) for page in self.client.query(self.database, self._ready_filter())]
         tickets += self.woken()
+        tickets = self._after(tickets)
         interrupted = self.parked(tickets)
         now = datetime.now().astimezone()
 
@@ -168,6 +180,55 @@ class Board(Base):
             )
 
         return sorted(eligible, key=rank), sorted(waiting, key=lambda pair: pair[1])
+
+    def _after(self, tickets: list[Ticket]) -> list[Ticket]:
+        """The tickets whose « Après » are all done; the others held in ready.
+
+        Those held are kept on `self._waiting_on`, with what they wait for, so
+        that a pass leaves their comments alone — they are work about to happen
+        — and the journal says it once, when it changes rather than at every
+        reading. The card says it by itself (see `web/board.held`).
+
+        Each ticket named is asked of the board once per reading, and only
+        for a ready ticket that names one: a board that uses no « Après »
+        costs not a request more. A ticket named that the board cannot give
+        back right now holds the one waiting on it, for this reading only —
+        a ticket started a pass late costs nothing, one started too early
+        costs a session.
+        """
+        settings = self.config.notion
+        column = settings.prop("after")
+        if not column:
+            self._waiting_on = {}
+            return tickets
+        status, done = settings.prop("status"), settings.state("done")
+        pages: dict[str, store.Page | None] = {}
+
+        def lookup(key: str) -> store.Page | None:
+            if key not in pages:
+                try:
+                    page = self.client.page(key)
+                    gone = page.raw.get("in_trash") or page.raw.get("archived")
+                    pages[key] = None if gone else page
+                except store.Missing:
+                    pages[key] = None
+                except store.StoreError:
+                    pages[key] = store.Page(key, "", "")
+            return pages[key]
+
+        free: list[Ticket] = []
+        waiting: dict[str, tuple[Ticket, str]] = {}
+        for ticket in tickets:
+            unmet = dependencies.unmet(ticket.page, column, status, done, lookup)
+            if unmet:
+                waiting[ticket.id] = (ticket, dependencies.said(unmet))
+            else:
+                free.append(ticket)
+        for key, (ticket, said) in waiting.items():
+            if self._waiting_on.get(key, (None, ""))[1] != said:
+                self.say(f"  … {ticket.title} — waiting for: {said}")
+        self._waiting_on = waiting
+        return free
 
     def ready(self) -> list[Ticket]:
         return self.queue()[0]
@@ -802,7 +863,11 @@ class Board(Base):
         self._holding = {ticket.id: (ticket, "running") for ticket in tickets if ticket.id in hand}
         # Queued or held for later, both are work about to happen: `converse`
         # leaves them alone, because their comments are going into a prompt.
-        self._claimed |= {ticket.id for ticket in fresh} | {ticket.id for ticket, _ in waiting}
+        self._claimed |= (
+            {ticket.id for ticket in fresh}
+            | {ticket.id for ticket, _ in waiting}
+            | set(self._waiting_on)
+        )
         if fresh:
             self.say(f"  ↺ {len(fresh)} ticket(s) ready since — filling the free place(s).")
         return fresh

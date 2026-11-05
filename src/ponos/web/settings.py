@@ -682,6 +682,10 @@ SECTIONS: tuple[Section, ...] = (
                 ),
                 "role": ("Agent", "Relation to the Agents database: who handles the ticket."),
                 "goal": ("Goal", "Relation to the Goals database: what the ticket is for."),
+                "after": (
+                    "After",
+                    "Relation to other tickets: not started before they are done.",
+                ),
                 "type": (
                     "Type",
                     "Code, Writing, External action or Publication; empty, it is guessed.",

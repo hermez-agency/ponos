@@ -170,6 +170,10 @@ role = "Agent"           # relation → your agents database: who handles the ti
                          # ("" reads none; left out, it steps aside when another
                          # setting above already names a column "Agent")
 goal = "Objectif"        # relation → your goals database: what the ticket is for
+after = "Après"          # relation → the tickets database itself: the tickets this one
+                         # comes after. It is not started while one of them is not done,
+                         # its card says what it waits for, and it starts on its own at
+                         # the first pass after the last one is. `init` adds the column
 
 # text: what the session is doing right now, rewritten every ten seconds while
 # it runs and cleared when it ends — see runner.progress below.

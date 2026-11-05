@@ -1597,6 +1597,41 @@ def a_code_ticket_comes_back_as_a_pull_request(machine: Bench) -> None:
 
 
 @case
+def a_ticket_after_another_is_not_claimed_until_that_one_is_done(machine: Bench) -> None:
+    """A « Après » B, B in progress: A stays ready; B done: A starts at the next pass.
+
+    The cause of block number one in October: a series made ready at once, and
+    every ticket but the first paying a session to say « the one I need is not
+    done yet ». The ticket waited for is in progress on another machine — the
+    sweep leaves it where it is — so the only thing holding A back is « Après ».
+    """
+    repository = machine.repository("site")
+    project = machine.project("Site", repository)
+    database = machine.board.databases[machine.database]
+    database["properties"] = {
+        **database["properties"],
+        "Après": {"type": "relation", "relation": {}},
+    }
+    first = machine.ticket("Migration 1", "Déplace le dépôt.", project, status="In progress")
+    machine.board.pages[first]["properties"]["Runner"] = _stored(
+        {"rich_text": _rich("ponos@elsewhere")}
+    )
+    second = machine.ticket("Migration 2", "Suis le dépôt déplacé.", project)
+    machine.board.pages[second]["properties"]["Après"] = _stored({"relation": [{"id": first}]})
+
+    assert machine.run() == []
+    assert machine.status(second) == "Ready", machine.status(second)
+    assert not machine.sessions(), "a session was paid for a ticket whose prerequisite is not done"
+
+    machine.move(first, "Done")
+    results = machine.run()
+
+    assert [result["id"] for result in results] == [second.replace("-", "")], results
+    assert machine.status(second) == "In review", machine.status(second)
+    db.close()
+
+
+@case
 def a_server_the_bash_tool_started_in_its_own_session_does_not_outlive_the_session(
     machine: Bench,
 ) -> None:
