@@ -14,6 +14,7 @@ import { t } from "@/lib/i18n"
 import "@/lib/resource-view"
 import { currentSettings, publishSettings } from "@/lib/settings-store"
 import type { Pair } from "@/lib/types"
+import { adminOnly } from "@/lib/role"
 
 /* The `name = value` tables of `config.toml`, each as a resource of its own.
  *
@@ -188,7 +189,7 @@ function pairResource(table: PairTable, words: Words) {
     path: `/api/settings/${table}`,
     icon: words.icon,
     // There is nothing to read that the row does not already show.
-    permissions: { read: false, export: false },
+    permissions: { read: false, export: false, ...adminOnly() },
 
     repository: {
       getCollection: async () =>

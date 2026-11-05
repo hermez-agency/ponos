@@ -1952,6 +1952,73 @@ class Ok(Shape):
     ok: bool
 
 
+# -- the people a console is shared with -----------------------------------------
+
+Role = Literal["reader", "member", "admin"]
+
+
+class Me(Shape):
+    """Who this browser is signed in as, and what it may do — see `web/accounts.py`."""
+
+    email: str
+    """Empty for the token, which is the machine rather than somebody."""
+    name: str
+    role: Role
+    owner: bool
+    """The console's own sign-in, or the token: the first admin, never deleted."""
+    shared: bool
+    """Somebody besides the console's own sign-in has an account."""
+
+
+class Account(Shape):
+    id: int
+    """0 for the console's own sign-in, which is no row of the table."""
+    email: str
+    name: str
+    role: Role
+    created: str
+    owner: bool
+
+
+class Invitation(Shape):
+    """An invitation nobody has taken yet — never its link, which is seen once."""
+
+    id: int
+    role: Role
+    by: str
+    """The name of who drew it."""
+    created: str
+    expires: str
+
+
+class Accounts(Shape):
+    accounts: list[Account]
+    invitations: list[Invitation]
+
+
+class Invited(Shape):
+    """An invitation drawn: the link to copy, the only time it is given."""
+
+    link: str
+    invitation: Invitation
+
+
+class AuditEntry(Shape):
+    at: str
+    who: str
+    """The name, as it was then; empty for the token."""
+    email: str
+    action: Literal["created", "moved", "told", "decided", "priority", "on", "goal"]
+    detail: str
+    """The column moved to, the choice made, the priority set."""
+
+
+class Audit(Shape):
+    """What was done to one ticket from the console, by whom, newest first."""
+
+    entries: list[AuditEntry]
+
+
 class SetupState(Shape):
     """What the first connection's page needs before it draws a step."""
 

@@ -158,6 +158,14 @@ A file changed in an editor keeps the `edited` it had, and the timestamp alone
 never saw it; what the file said when the two boards last agreed does. Empty
 for the stamps written before it, filled in by the next pass that finds both
 sides still agreeing.
+
+Migration 39 is the people a console is shared with — see web/accounts.py. An
+account is an email, a name, a scrypt digest and a role; an invitation is kept
+as the SHA-256 of its link, as an MCP token is, and deleted once taken; the
+audit is one row per thing somebody did to a ticket from the console, the name
+copied as it was then, as `ideas` copies who wrote one. The console's own
+sign-in of `[web]` is not a row: it is the first administrator, whatever the
+file says, and needs nothing migrated to stay one.
 """
 
 from __future__ import annotations
@@ -1002,6 +1010,49 @@ def _runs_say_their_subtype(connection: sqlite3.Connection) -> None:
     connection.execute("ALTER TABLE runs ADD COLUMN subtype TEXT NOT NULL DEFAULT ''")
 
 
+def _accounts(connection: sqlite3.Connection) -> None:
+    # The people a console is shared with, the invitations not yet taken, and
+    # what each of them did to a ticket from it — see web/accounts.py.
+    connection.execute(
+        """
+        CREATE TABLE accounts (
+            id       INTEGER PRIMARY KEY AUTOINCREMENT,
+            email    TEXT NOT NULL UNIQUE,
+            name     TEXT NOT NULL,
+            digest   TEXT NOT NULL,
+            role     TEXT NOT NULL,
+            created  TEXT NOT NULL
+        )
+        """
+    )
+    connection.execute(
+        """
+        CREATE TABLE invitations (
+            id       INTEGER PRIMARY KEY AUTOINCREMENT,
+            digest   TEXT NOT NULL UNIQUE,
+            role     TEXT NOT NULL,
+            made_by  TEXT NOT NULL DEFAULT '',
+            created  TEXT NOT NULL,
+            expires  TEXT NOT NULL
+        )
+        """
+    )
+    connection.execute(
+        """
+        CREATE TABLE audit (
+            id      INTEGER PRIMARY KEY AUTOINCREMENT,
+            ticket  TEXT NOT NULL,
+            at      TEXT NOT NULL,
+            who     TEXT NOT NULL DEFAULT '',
+            email   TEXT NOT NULL DEFAULT '',
+            action  TEXT NOT NULL,
+            detail  TEXT NOT NULL DEFAULT ''
+        )
+        """
+    )
+    connection.execute("CREATE INDEX audit_by_ticket ON audit (ticket, id)")
+
+
 # Appended to, never edited or renamed: a file remembers each of these by name,
 # and the version of a file is how many of them it has been through. Statements go through `execute` one at a time — `executescript`
 # commits whatever transaction is open before it starts, which would apply half
@@ -1048,6 +1099,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     _runs_say_their_subtype,
     _reworks,
     _kind_switches,
+    _accounts,
 )
 
 # Any way a read or a write of the database can fail. A note the runner keeps

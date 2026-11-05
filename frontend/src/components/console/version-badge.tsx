@@ -28,6 +28,7 @@ import { useT } from "@/lib/i18n"
 import type { RunnerState, Upgrade } from "@/lib/types"
 import { badgeMode, STEPS, stepState } from "@/lib/upgrade"
 import { cn } from "@/lib/utils"
+import { isAdmin } from "@/lib/role"
 import { when } from "./ticket-bits"
 
 /* The number this console is running, and — the one day it matters — the
@@ -78,7 +79,8 @@ export function VersionBadge({ offerOnly = false }: { offerOnly?: boolean }) {
           </TooltipContent>
         </Tooltip>
       )}
-      {mode === "version" ? null : (
+      {/* The update replaces the code the console runs: an admin's to start. */}
+      {mode === "version" || !isAdmin() ? null : (
         <Tooltip>
           <TooltipTrigger asChild>
             <button

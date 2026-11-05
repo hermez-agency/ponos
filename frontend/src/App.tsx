@@ -20,6 +20,7 @@ import { useBoard } from "@/lib/board-store"
 import { useLanguage } from "@/lib/i18n"
 import { SCOPE } from "@/lib/resource-view"
 import { consoleRouter, useRoute } from "@/lib/router"
+import { canAct } from "@/lib/role"
 import { scopes } from "@/resources/scope"
 import { CONTEXT_ANCHOR, projectsHref } from "@/resources/projects"
 import { SESSIONS, sessionsHref } from "@/resources/sessions"
@@ -146,7 +147,8 @@ function Console() {
       {/* Over everything, at every width: the conversation is never a page you
           navigate to and lose your place for. */}
       <React.Suspense fallback={null}>
-        <TalkDrawer />
+        {/* The conversation runs Claude on this machine: a reader is not offered it. */}
+        {canAct() ? <TalkDrawer /> : null}
         {/* Ctrl+K, from every page: inside the router, which its links go through. */}
         <CommandPalette />
       </React.Suspense>

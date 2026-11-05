@@ -45,7 +45,7 @@ from starlette.convertors import Convertor, register_url_convertor
 
 from .. import config as config_module
 from .. import journal, notifications, preview, store, vault
-from . import agui, answers, creation, github, mcp_setup, setup
+from . import accounts, agui, answers, creation, github, mcp_setup, setup
 from .api import Api
 
 logger = logging.getLogger(__name__)
@@ -192,6 +192,27 @@ def _api(request: Request) -> Api:
     return api
 
 
+def _who(request: Request) -> accounts.Account | None:
+    """The account a request comes from — None for the token. See `app.Asking`."""
+    asking = getattr(request.state, "asking", None)
+    return getattr(asking, "account", None)
+
+
+def _signed(request: Request) -> str:
+    """The name a comment written for this request is signed with, or "".
+
+    Only once the console is shared: alone, the console's own sign-in is the
+    only person it could be, and its comments read as they always have.
+    """
+    who = _who(request)
+    return who.name if who and accounts.shared() else ""
+
+
+def _done(request: Request, ticket: str, action: str, detail: str = "") -> None:
+    """Write down, in the ticket's audit, what this request just did to it."""
+    accounts.record(ticket, _who(request), action, detail)
+
+
 # -- what a write carries ------------------------------------------------------
 
 
@@ -305,6 +326,38 @@ Fields = dict[str, Any]
 
 
 # -- the API's reads -----------------------------------------------------------
+
+
+@router.get("/api/me", response_model=answers.Me)
+def me(request: Request) -> Response:
+    who = _who(request)
+    return answer(
+        {
+            "email": who.email if who else "",
+            "name": who.name if who else "",
+            "role": who.role if who else accounts.ADMIN,
+            "owner": who.owner if who else True,
+            "shared": accounts.shared(),
+        }
+    )
+
+
+@router.get("/api/accounts", response_model=answers.Accounts)
+def account_list(request: Request) -> Response:
+    """The console's own sign-in first, then every account, and the links not yet taken."""
+    entry = request.app.state.console.entry
+    first = [accounts.owner(entry.email)] if entry else []
+    return answer(
+        {
+            "accounts": [account.as_dict() for account in [*first, *accounts.listed()]],
+            "invitations": accounts.invitations(),
+        }
+    )
+
+
+@router.get("/api/tickets/{ticket_id:page}/audit", response_model=answers.Audit)
+def ticket_audit(ticket_id: str) -> Response:
+    return answer({"entries": accounts.journal(ticket_id)})
 
 
 @router.get("/api/state", response_model=answers.RunnerState)
@@ -769,76 +822,127 @@ def github_disconnect(payload: Slug = Body(default_factory=Slug)) -> Response:
     return answer(github.disconnect(payload.slug))
 
 
+# -- the accounts ----------------------------------------------------------------
+
+
+class Invite(Payload):
+    role: str = accounts.MEMBER
+
+
+class Role(Payload):
+    role: str = ""
+
+
+@router.post("/api/invitations", response_model=answers.Invited)
+def invite(request: Request, payload: Invite = Body(default_factory=Invite)) -> Response:
+    """Draw a link for one account of `role`: given here once, kept only as its digest."""
+    who = _who(request)
+    code, drawn = accounts.invite(payload.role, by=who.name if who else "")
+    base = request.state.asking.base()
+    return answer({"link": f"{base}/invite?code={code}", "invitation": drawn})
+
+
+@router.post("/api/invitations/{number:int}/delete", response_model=answers.Ok)
+def withdraw_invitation(number: int) -> Response:
+    accounts.withdraw(number)
+    return answer({"ok": True})
+
+
+@router.post("/api/accounts/{number:int}/role", response_model=answers.Account)
+def change_role(number: int, payload: Role = Body(default_factory=Role)) -> Response:
+    return answer(accounts.set_role(number, payload.role).as_dict())
+
+
+@router.post("/api/accounts/{number:int}/delete", response_model=answers.Account)
+def delete_account(number: int) -> Response:
+    """An account gone, and every browser signed into it with it — see `sessions.holder`."""
+    return answer(accounts.remove(number).as_dict())
+
+
+# -- the tickets -----------------------------------------------------------------
+
+
 @router.post("/api/tickets", response_model=answers.TicketCreated)
 def create_ticket(
     request: Request, payload: NewTicket = Body(default_factory=NewTicket)
 ) -> Response:
-    return answer(
-        _api(request).create_ticket(
-            payload.title,
-            payload.body,
-            payload.project,
-            payload.ready,
-            payload.priority,
-            payload.type,
-            payload.model,
-            payload.subtype,
-            payload.on,
-            payload.goal,
-            payload.plan,
-        )
+    created = _api(request).create_ticket(
+        payload.title,
+        payload.body,
+        payload.project,
+        payload.ready,
+        payload.priority,
+        payload.type,
+        payload.model,
+        payload.subtype,
+        payload.on,
+        payload.goal,
+        payload.plan,
     )
+    _done(request, str(created.get("id", "")), "created", "ready" if payload.ready else "draft")
+    return answer(created)
 
 
 @router.post("/api/tickets/{ticket_id:page}/on", response_model=answers.TicketOn)
 def set_ticket_on(
     request: Request, ticket_id: str, payload: On = Body(default_factory=On)
 ) -> Response:
-    return answer(_api(request).set_on(ticket_id, payload.on))
+    done = _api(request).set_on(ticket_id, payload.on)
+    _done(request, ticket_id, "on", payload.on)
+    return answer(done)
 
 
 @router.post("/api/tickets/{ticket_id:page}/priority", response_model=answers.TicketPriority)
 def set_ticket_priority(
     request: Request, ticket_id: str, payload: Fields = Body(default_factory=dict)
 ) -> Response:
-    return answer(_api(request).set_priority(ticket_id, payload.get("priority", "")))
+    done = _api(request).set_priority(ticket_id, payload.get("priority", ""))
+    _done(request, ticket_id, "priority", str(payload.get("priority", "")))
+    return answer(done)
 
 
 @router.post("/api/tickets/{ticket_id:page}/goal", response_model=answers.TicketGoal)
 def set_ticket_goal(
     request: Request, ticket_id: str, payload: Fields = Body(default_factory=dict)
 ) -> Response:
-    return answer(_api(request).set_ticket_goal(ticket_id, str(payload.get("goal", ""))))
+    done = _api(request).set_ticket_goal(ticket_id, str(payload.get("goal", "")))
+    _done(request, ticket_id, "goal", str(payload.get("goal", "")))
+    return answer(done)
 
 
 @router.post("/api/tickets/{ticket_id:page}/status", response_model=answers.Moved)
 def set_ticket_status(
     request: Request, ticket_id: str, payload: Move = Body(default_factory=Move)
 ) -> Response:
-    return answer(_api(request).set_status(ticket_id, payload.column, payload.seen))
+    moved = _api(request).set_status(ticket_id, payload.column, payload.seen)
+    _done(request, ticket_id, "moved", payload.column)
+    return answer(moved)
 
 
 @router.post("/api/tickets/{ticket_id:page}/talk", response_model=answers.Message)
 def tell_ticket(
     request: Request, ticket_id: str, payload: Text = Body(default_factory=Text)
 ) -> Response:
-    return answer(_api(request).tell(ticket_id, payload.text))
+    told = _api(request).tell(ticket_id, payload.text, who=_signed(request))
+    _done(request, ticket_id, "told")
+    return answer(told)
 
 
 @router.post("/api/tickets/{ticket_id:page}/decision", response_model=answers.Decided)
 def decide_ticket(
     request: Request, ticket_id: str, payload: Chosen = Body(default_factory=Chosen)
 ) -> Response:
-    return answer(
-        _api(request).decide(
-            ticket_id,
-            payload.key,
-            number=payload.number or 0,
-            text=payload.text,
-            model=payload.model,
-            titles=payload.titles or [],
-        )
+    decided = _api(request).decide(
+        ticket_id,
+        payload.key,
+        number=payload.number or 0,
+        text=payload.text,
+        model=payload.model,
+        titles=payload.titles or [],
+        who=_signed(request),
     )
+    _done(request, ticket_id, "decided", payload.key)
+    return answer(decided)
 
 
 @router.post("/api/command", response_model=answers.CommandAccepted)

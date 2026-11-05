@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { ApiError, api, why } from "@/lib/api"
 import { useT } from "@/lib/i18n"
 import type { ProjectBrief } from "@/lib/types"
+import { canAct } from "@/lib/role"
 import { CONTEXT_ANCHOR, forgetProject, projectsHref, type ProjectItem } from "@/resources/projects"
 
 import { Eyebrow } from "./frame"
@@ -60,7 +61,7 @@ export function ProjectBrief({ project }: { project: ProjectItem }) {
             {t("Inherits the global context ↑")}
           </Link>
         </span>
-        {opened ? null : (
+        {opened || !canAct() ? null : (
           <Button variant="outline" size="sm" onClick={() => void edit()} disabled={loading}>
             <Pencil />
             {t("Edit")}

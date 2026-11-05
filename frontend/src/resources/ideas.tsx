@@ -64,6 +64,7 @@ import { cn } from "@/lib/utils"
 import { money, number } from "@/lib/numbers"
 import { layoutOf, useLayoutInTheAddress } from "@/lib/resource-view"
 import type { Idea, Unscored } from "@/lib/types"
+import { canAct, readOnly } from "@/lib/role"
 import { projectsOnce, useProjects } from "@/resources/projects"
 
 /* The ideas, declared once for react-resource-view.
@@ -480,7 +481,7 @@ function ScoreUnscored() {
       alive = false
     }
   }, [known])
-  if (!told || (!told.count && !told.running)) return null
+  if (!told || (!told.count && !told.running) || !canAct()) return null
   const start = async () => {
     try {
       setTold(await api.scoreIdeas(null))
@@ -610,7 +611,7 @@ const options: ResourceDefinition<IdeaItem, IdeaWrite> = {
   // Nothing is ever deleted: an idea thrown away last month may be the right
   // one today, and the next batch is told about it so it is never proposed
   // twice. Throwing it away is the gesture, in the menu of its card.
-  permissions: { delete: false, export: false },
+  permissions: { delete: false, export: false, ...readOnly() },
 
   repository: {
     getCollection: async (filter) => {

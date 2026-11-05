@@ -24,9 +24,10 @@ import { defineConfig } from "@playwright/test"
 delete projects get one of their own, with two projects to spare: the others count them —
  * and so do the tests that create some. And the series, which goes through a whole column
  * and so counts every card of it, gets one with a board of its own, its tests one after another.
+ * So do the accounts, whose people are kept by the server they were invited on.
  *
  * The ports are free ones unless `PONOS_E2E_PORT` names the first (the
- * chat takes the next, the first connection the one after, deleting the one after that, then the ideas, the sessions, and the series last): two worktrees running these tests at once must not both
+ * chat takes the next, the first connection the one after, deleting the one after that, then the ideas, the sessions, and the series, the first connection on Notion, the accounts last): two worktrees running these tests at once must not both
  * ask for 8790. They are kept in the environment because Playwright reads this
  * file again in every worker, and a worker that drew its own would knock on a
  * port nobody serves.
@@ -52,6 +53,7 @@ if (!process.env.PONOS_E2E_CHAT_PORT) {
   process.env.PONOS_E2E_SESSIONS_PORT = String(given ? given + 5 : await free())
   process.env.PONOS_E2E_SERIES_PORT = String(given ? given + 6 : await free())
   process.env.PONOS_E2E_FRESH_PORT = String(given ? given + 7 : await free())
+  process.env.PONOS_E2E_ACCOUNTS_PORT = String(given ? given + 8 : await free())
 }
 const PORT = Number(process.env.PONOS_E2E_PORT)
 const CHAT_PORT = Number(process.env.PONOS_E2E_CHAT_PORT)
@@ -61,6 +63,7 @@ const IDEAS_PORT = Number(process.env.PONOS_E2E_IDEAS_PORT)
 const SESSIONS_PORT = Number(process.env.PONOS_E2E_SESSIONS_PORT)
 const SERIES_PORT = Number(process.env.PONOS_E2E_SERIES_PORT)
 const FRESH_PORT = Number(process.env.PONOS_E2E_FRESH_PORT)
+const ACCOUNTS_PORT = Number(process.env.PONOS_E2E_ACCOUNTS_PORT)
 
 const PYTHON = existsSync("../.venv/bin/python") ? "../.venv/bin/python" : "python3"
 
@@ -92,7 +95,7 @@ export default defineConfig({
   projects: [
     {
       name: "console",
-      testIgnore: ["chat.spec.ts", "ideas.spec.ts", "ideas-page.spec.ts", "ideas-schedule.spec.ts", "sessions.spec.ts", "setup.spec.ts", "setup-without-notion.spec.ts", "project-delete.spec.ts", "project-new.spec.ts", "goals.spec.ts", "series.spec.ts"],
+      testIgnore: ["chat.spec.ts", "ideas.spec.ts", "ideas-page.spec.ts", "ideas-schedule.spec.ts", "sessions.spec.ts", "setup.spec.ts", "setup-without-notion.spec.ts", "project-delete.spec.ts", "project-new.spec.ts", "goals.spec.ts", "series.spec.ts", "accounts.spec.ts"],
       use: { baseURL: `http://127.0.0.1:${PORT}` },
     },
     {
@@ -134,6 +137,11 @@ export default defineConfig({
       testMatch: "setup-without-notion.spec.ts",
       use: { baseURL: `http://127.0.0.1:${FRESH_PORT}` },
     },
+    {
+      name: "accounts",
+      testMatch: "accounts.spec.ts",
+      use: { baseURL: `http://127.0.0.1:${ACCOUNTS_PORT}` },
+    },
   ],
-  webServer: [serve(PORT), serve(CHAT_PORT), serve(SETUP_PORT, "unclaimed"), serve(DELETE_PORT, "doomed"), serve(IDEAS_PORT), serve(SESSIONS_PORT), serve(SERIES_PORT, "series"), serve(FRESH_PORT, "fresh")],
+  webServer: [serve(PORT), serve(CHAT_PORT), serve(SETUP_PORT, "unclaimed"), serve(DELETE_PORT, "doomed"), serve(IDEAS_PORT), serve(SESSIONS_PORT), serve(SERIES_PORT, "series"), serve(FRESH_PORT, "fresh"), serve(ACCOUNTS_PORT, "accounts")],
 })

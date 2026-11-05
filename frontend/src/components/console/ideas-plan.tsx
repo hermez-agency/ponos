@@ -24,6 +24,7 @@ import { counted, useT } from "@/lib/i18n"
 import { money } from "@/lib/numbers"
 import { clockOf, dayName, locale, WEEKDAYS } from "@/lib/recurrence"
 import type { IdeasPlan } from "@/lib/types"
+import { isAdmin } from "@/lib/role"
 
 /* When Ponos looks for ideas on its own, and the window that sets it.
  *
@@ -150,6 +151,8 @@ function draftOf(plan: IdeasPlan): Draft {
 export function IdeasSettingsButton() {
   const t = useT()
   const [open, setOpen] = React.useState(false)
+  // When ideas are looked for, and at what cost: a setting of the console's, an admin's.
+  if (!isAdmin()) return null
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>

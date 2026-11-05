@@ -64,6 +64,7 @@ import { setRunnerZone } from "@/lib/runner-zone"
 import { ask } from "@/lib/settings-store"
 import { STATES, filtering, keeps } from "@/lib/schedule-search"
 import type { Schedule, Schedules } from "@/lib/types"
+import { canAct, readOnly } from "@/lib/role"
 import type { Launch } from "@/components/console/schedule-lists"
 import { PROJECTS, projectHref, projectsOnce, projectsRead, useProjects } from "@/resources/projects"
 import { settingsHref } from "@/resources/settings"
@@ -236,6 +237,7 @@ export function LaunchButton({ id, className, labelled = false }: { id: string; 
       setLaunching(id, false)
     }
   }
+  if (!canAct()) return null
   return (
     <Button
       type="button"
@@ -966,6 +968,7 @@ const options: ResourceDefinition<ScheduleItem, ScheduleWrite> = {
     // adds is the selection, and its bar to delete several at once.
     delete: true,
     export: false,
+    ...readOnly(),
   },
   repository: {
     getCollection: async (filter) => {

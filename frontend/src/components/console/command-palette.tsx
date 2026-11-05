@@ -57,6 +57,7 @@ import { boardHref, ticketHref, tickets } from "@/resources/tickets"
 
 import { useOpenSeries } from "./ticket-decision"
 import { openTalk, toggleTalk } from "@/lib/talk"
+import { canAct } from "@/lib/role"
 
 /* Ctrl+K: everywhere the console can take you, typed rather than clicked.
  *
@@ -150,7 +151,7 @@ export function CommandPalette() {
     // Under a window — a form half written, a picker typed into — the key is
     // the window's. The palette is one: there it is a letter in its field.
     newTicket: () => {
-      if (document.querySelector('[role="dialog"]')) return false
+      if (document.querySelector('[role="dialog"]') || !canAct()) return false
       void navigate({ to: newTicketHref() })
     },
   })
@@ -173,7 +174,7 @@ export function CommandPalette() {
 
   // What is typed filters here, not in cmdk — see `palette-search.ts`.
   const words = terms(search)
-  const actions: Action[] = [
+  const offered: Action[] = [
     {
       value: t("Open or close the console"),
       keywords: ["console", "chat", "discussion"],
@@ -253,7 +254,11 @@ export function CommandPalette() {
           },
         ]
       : []),
-  ].filter(({ value, keywords }) => says([value, ...keywords], words))
+  ]
+  // A reader is offered what changes nothing: reading the board again.
+  const actions = (canAct() ? offered : offered.filter((action) => action.icon === RefreshCw)).filter(
+    ({ value, keywords }) => says([value, ...keywords], words)
+  )
   const pages = PAGES.filter(({ name }) => says([t(name), name, "page"], words))
   const projects = (listed?.projects ?? []).filter((project) =>
     says([project.name, idOf(project), "project"], words)

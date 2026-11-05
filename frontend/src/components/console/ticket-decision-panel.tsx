@@ -39,6 +39,7 @@ import {
 import { useT } from "@/lib/i18n"
 import type { Decision, Solution, Ticket } from "@/lib/types"
 import { cn } from "@/lib/utils"
+import { canAct } from "@/lib/role"
 
 /* The Decide tab of a ticket, and the panel the series draws for each of its
  * tickets: why it waits, and the choices — see `ticket-decision.tsx`, whose
@@ -97,7 +98,8 @@ function Panel({ id, ticket, onDone }: { id: string; ticket?: Ticket; onDone: (s
           <Asked decision={decision} when="" />
         </React.Suspense>
       )}
-      <Choices decision={decision} ticket={ticket} onDone={onDone} />
+      {/* What was brought back is for everybody to read; the choice, for whoever may make it. */}
+      {canAct() ? <Choices decision={decision} ticket={ticket} onDone={onDone} /> : null}
     </div>
   )
 }

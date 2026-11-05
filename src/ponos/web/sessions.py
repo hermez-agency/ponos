@@ -14,6 +14,13 @@ signed with the old one is a stranger — read again from the file whenever it
 changes, so `ponos serve --sign-out-everywhere` reaches a console already
 running. A restart still signs nobody out, and a new password still signs
 everybody out, because what is signed includes it (`SignIn.proof`).
+
+A console shared with others (`web/accounts.py`) gives each account's browser
+a cookie that says whose it is — `a<id>.` before the date — signed from that
+account's own proof. The console's own sign-in keeps the cookie it had, with no
+prefix, so nobody signed in before accounts existed is signed out by them. An
+account deleted is a holder `holder` finds nobody for: every one of its
+sessions is refused from its next request on, and nobody else's is touched.
 """
 
 from __future__ import annotations
@@ -23,6 +30,7 @@ import hmac
 import secrets
 import threading
 import time
+from collections.abc import Callable
 from pathlib import Path
 
 from ..config import state_dir
@@ -83,14 +91,47 @@ def _signature(proof: str, issued: int) -> str:
     return hmac.new(key().encode(), f"{proof}\n{issued}".encode(), hashlib.sha256).hexdigest()
 
 
-def issue(proof: str, now: float | None = None) -> str:
-    """A session for the sign-in `proof` stands for, given now."""
+def issue(proof: str, now: float | None = None, holder: int = 0) -> str:
+    """A session for the sign-in `proof` stands for, given now — of account `holder`, if any."""
     issued = int(time.time() if now is None else now)
-    return f"{issued}.{_signature(proof, issued)}"
+    signed = f"{issued}.{_signature(proof, issued)}"
+    return f"a{holder}.{signed}" if holder else signed
 
 
-def issued(proof: str, cookie: str, now: float | None = None) -> int | None:
+def _held(cookie: str) -> tuple[int, str]:
+    """The account a cookie names — 0 for the console's own sign-in — and the rest of it."""
+    if cookie.startswith("a"):
+        number, _, rest = cookie[1:].partition(".")
+        if number.isdigit() and int(number) > 0:
+            return int(number), rest
+        return -1, ""
+    return 0, cookie
+
+
+def holder(
+    cookie: str, proof_of: Callable[[int], str | None], now: float | None = None
+) -> tuple[int, int] | None:
+    """Whose session `cookie` is, and when it was given — None for nobody's.
+
+    `proof_of` says what an account's sessions are signed from, or None when
+    there is no such account any more: which is how a deleted account's
+    browsers are signed out, all of them, and only them.
+    """
+    account, _ = _held(cookie)
+    if account <= 0:
+        return None
+    proof = proof_of(account)
+    if proof is None:
+        return None
+    given = issued(proof, cookie, now, account)
+    return None if given is None else (account, given)
+
+
+def issued(proof: str, cookie: str, now: float | None = None, holder: int = 0) -> int | None:
     """When `cookie` was given, if it is a session of `proof` still alive — else None."""
+    account, cookie = _held(cookie)
+    if account != holder:
+        return None
     stamp, _, signature = cookie.partition(".")
     if not stamp.isdigit() or not signature:
         return None

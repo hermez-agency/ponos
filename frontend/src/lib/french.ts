@@ -1951,4 +1951,22 @@ export const FRENCH: Record<string, string> = {
   "Page not found": "Page introuvable",
   "This console has no page at {{path}}. Its pages are these:":
     "Cette console n'a pas de page à l'adresse {{path}}. Ses pages sont celles-ci :",
+  // The accounts of a shared console — see web/accounts.py.
+  "Who the console is shared with, and what each of them may do.": "Avec qui la console est partagée, et ce que chacun peut y faire.",
+  "validated it": "l'a validé",
+  "rejected it": "l'a refusé",
+  "ran it again": "l'a relancé",
+  "abandoned it": "l'a abandonné",
+  "answered it": "a répondu",
+  "created it as a draft": "l'a créé en brouillon",
+  "created it": "l'a créé",
+  "moved it to {{column}}": "l'a passé en {{column}}",
+  "wrote in its discussion": "a écrit dans sa discussion",
+  "set its priority to {{priority}}": "a mis sa priorité à {{priority}}",
+  "changed its « On » prompt": "a changé son prompt « On »",
+  "removed its « On » prompt": "a retiré son prompt « On »",
+  "tied it to a goal": "l'a rattaché à un objectif",
+  "untied it from its goal": "l'a détaché de son objectif",
+  "From the console": "Depuis la console",
+  "The token": "Le jeton",
 }

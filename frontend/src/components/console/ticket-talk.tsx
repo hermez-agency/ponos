@@ -30,6 +30,7 @@ import { currentLanguage, t as translate, useT } from "@/lib/i18n"
 import { optimistic } from "@/lib/optimistic"
 import { secretsIn } from "@/lib/secrets"
 import type { ColumnKey, Decision, Solution, Ticket } from "@/lib/types"
+import { canAct } from "@/lib/role"
 
 import { boardHref } from "@/resources/tickets"
 
@@ -89,6 +90,7 @@ const REREAD = 20_000
  * The steps of a running session are not here either — they are the next tab.
  */
 export function TicketTalk({ ticket, onSession }: { ticket: Ticket; onSession: () => void }) {
+  const acting = canAct()
   const { talk, mention, tell, rereadTalk, talkLoading, talkWaiting, runner, move } = useConsole()
   const board = useBoard()
   const navigate = useNavigate()
@@ -237,7 +239,7 @@ export function TicketTalk({ ticket, onSession }: { ticket: Ticket; onSession: (
   const question = (
     <React.Fragment key="question">
       {decision ? <Asked decision={decision} when={asked >= 0 ? moment(talk[asked].at) : ""} /> : null}
-      {replies.length ? (
+      {replies.length && acting ? (
         <div
           role="group"
           aria-label={t("Quick replies")}
@@ -319,12 +321,12 @@ export function TicketTalk({ ticket, onSession }: { ticket: Ticket; onSession: (
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            {blocked && retry ? (
+            {blocked && retry && acting ? (
               <DropdownMenuItem disabled={working || answered} onSelect={() => void reply(retry)}>
                 {t("Run it again as it is")}
               </DropdownMenuItem>
             ) : null}
-            {blocked && abandon ? (
+            {blocked && abandon && acting ? (
               <DropdownMenuItem
                 disabled={answered}
                 className="text-destructive focus:text-destructive"
@@ -362,7 +364,8 @@ export function TicketTalk({ ticket, onSession }: { ticket: Ticket; onSession: (
       </div>
 
       {problem ? <p className="text-destructive text-xs">{problem}</p> : null}
-      <Composer
+      {/* A reader reads the discussion, and has nothing to type into it. */}
+      {acting ? <Composer
         className="mx-0 max-w-none"
         busy={false}
         onSend={send}
@@ -383,7 +386,7 @@ export function TicketTalk({ ticket, onSession }: { ticket: Ticket; onSession: (
             />
           ) : null
         }
-      />
+      /> : null}
       {abandon ? (
         <ConfirmDialog
           open={abandoning}

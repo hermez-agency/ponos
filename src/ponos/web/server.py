@@ -395,6 +395,15 @@ _FRENCH = {
     "wrong token": "jeton incorrect",
     "too many attempts — try again in {seconds} s": "trop de tentatives — réessayez dans {seconds} s",
     "This console has not been set up yet.": "Cette console n'est pas encore configurée.",
+    "invitation": "invitation",
+    "You are invited to this console as {role}. Say who you are, and choose a password.": "Cette invitation vous ouvre la console en tant que {role}. Dites qui vous êtes, et choisissez un mot de passe.",
+    "Name": "Nom",
+    "It signs what you write on tickets.": "Il signe ce que vous écrivez sur les tickets.",
+    "Create my account": "Créer mon compte",
+    "This invitation is not valid any more: it was used, withdrawn, or it is more than a week old. Ask for another link.": "Cette invitation n'est plus valable : elle a servi, a été retirée, ou date de plus d'une semaine. Demandez un autre lien.",
+    "reader": "lecteur",
+    "member": "membre",
+    "admin": "administrateur",
 }
 
 
@@ -522,6 +531,81 @@ async function enter(form){{
     said.textContent = answer.status === 401 ? WRONG
       : answer.status === 429 ? TOO_MANY.replace('{{seconds}}', answer.headers.get('Retry-After') || '1')
       : (body.error || WRONG);
+  }} catch (error) {{
+    said.textContent = String(error);
+  }}
+}}
+document.getElementById('door').addEventListener('submit', function (event) {{
+  event.preventDefault();
+  enter(this);
+}});
+</script>
+""",
+        language=language,
+    )
+
+
+def invite_page(language: str = "en", role: str = "") -> str:
+    """The door an invitation opens: a name, an email and a password, once.
+
+    `role` is what the link is for, or "" for a link that opens nothing any
+    more — said as such, without a form to fill in for nothing. The code stays
+    in the address and is read from there by the script, not written into the
+    page: what the page holds is the same for every invitation.
+    """
+    say = _words(language)
+    if not role:
+        return _page(
+            say("invitation"),
+            f"""<form>
+  <h1>Ponos</h1>
+  <p>{
+                say(
+                    "This invitation is not valid any more: it was used, withdrawn, or it is "
+                    "more than a week old. Ask for another link."
+                )
+            }</p>
+</form>
+""",
+            language=language,
+        )
+    asked = say(
+        "You are invited to this console as {role}. Say who you are, and choose a password."
+    )
+    return _page(
+        say("invitation"),
+        f"""<form id="door">
+  <h1>Ponos</h1>
+  <p>{html.escape(asked.format(role=say(role)), quote=False)}</p>
+  <label for="name">{say("Name")}</label>
+  <input id="name" name="name" autofocus autocomplete="name" maxlength="60" required>
+  <p style="margin:.375rem 0 0">{say("It signs what you write on tickets.")}</p>
+  <label for="email">{say("Email")}</label>
+  <input id="email" name="email" type="email" autocomplete="username" spellcheck="false" required>
+  <label for="password">{say("Password")}</label>
+  <input id="password" name="password" type="password" autocomplete="new-password" minlength="8" required>
+  <button type="submit">{say("Create my account")}</button>
+  <p class="said" id="said" role="alert"></p>
+</form>
+<script>
+const TOO_MANY = {json.dumps(say("too many attempts — try again in {seconds} s"), ensure_ascii=False)};
+async function enter(form){{
+  const said = document.getElementById('said');
+  said.textContent = '';
+  try {{
+    const answer = await fetch('/api/invite', {{
+      method: 'POST',
+      headers: {{'Content-Type': 'application/json', '{GUARD_HEADER}': '1'}},
+      body: JSON.stringify({{
+        code: new URLSearchParams(location.search).get('code') || '',
+        name: form.name.value, email: form.email.value, password: form.password.value,
+      }}),
+    }});
+    if (answer.ok) {{ location = '/'; return; }}
+    const body = await answer.json().catch(() => ({{}}));
+    said.textContent = answer.status === 429
+      ? TOO_MANY.replace('{{seconds}}', answer.headers.get('Retry-After') || '1')
+      : (body.error || String(answer.status));
   }} catch (error) {{
     said.textContent = String(error);
   }}

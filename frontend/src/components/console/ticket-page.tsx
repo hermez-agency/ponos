@@ -26,6 +26,7 @@ import { money } from "@/lib/numbers"
 import type { TicketDetail } from "@/lib/types"
 import { useRoute } from "@/lib/router"
 import { cn } from "@/lib/utils"
+import { canAct } from "@/lib/role"
 import {
   boardHref,
   holdTicket,
@@ -41,6 +42,7 @@ import { Robot } from "./robot"
 import { Pulse, TicketLive } from "./session-log"
 import { TicketTabContext, WINDOW_TAB } from "./ticket-decision"
 import { TicketDecision } from "./ticket-decision-panel"
+import { TicketAudit } from "./ticket-audit"
 import { TicketOn } from "./ticket-on"
 import { TicketEstimate } from "./ticket-estimate"
 import { TicketTime } from "./ticket-time"
@@ -120,7 +122,7 @@ export function TicketPage() {
           {/* On a phone, the Decide tab is under the checks and the summary,
               below the first screen: the page's first line points at it, in
               other words than the tab's. Not on the tab already. */}
-          {ticket.column === "review" && shown !== "decide" ? (
+          {ticket.column === "review" && shown !== "decide" && canAct() ? (
             <Button
               variant="outline"
               data-slot="ticket-decide-cue"
@@ -530,7 +532,8 @@ function TicketTabs({
   // Sent: the tab goes at once, before the stream has said the ticket moved.
   const [settled, setSettled] = React.useState(false)
   React.useEffect(() => setSettled(false), [ticket.column])
-  const deciding = settled || ticket.column !== "review" ? null : "decide"
+  // A reader decides nothing: no tab offers it.
+  const deciding = settled || ticket.column !== "review" || !canAct() ? null : "decide"
   const action = actionOf(ticket.column)
   const [addressed, address] = useAddressedTab(ticket.id)
   const [tab, setTab] = React.useState<Tab>(
@@ -677,7 +680,8 @@ function TicketTabs({
             )}
           </div>
           <PreviewPairs ticket={ticket.id} shots={brief.previews} />
-          <TicketOn ticket={ticket} />
+          {canAct() ? <TicketOn ticket={ticket} /> : null}
+          <TicketAudit ticket={ticket} />
         </section>
       </TabsContent>
       <TabsContent value="discussion">

@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Bell, Cpu, FolderGit2, GitPullRequest, Inbox, Play, Plug, Settings2, SlidersHorizontal } from "lucide-react"
+import { Bell, Cpu, FolderGit2, GitPullRequest, Inbox, Play, Plug, Settings2, SlidersHorizontal, Users } from "lucide-react"
 import { ActionList } from "react-data-form"
 import {
   createViewResource,
@@ -12,6 +12,7 @@ import { api } from "@/lib/api"
 import { SCOPE } from "@/lib/resource-view"
 import { currentSettings, publishSettings } from "@/lib/settings-store"
 import type { SettingGroup, Settings } from "@/lib/types"
+import { isAdmin } from "@/lib/role"
 
 /* The configuration, declared once for react-resource-view.
  *
@@ -55,6 +56,7 @@ const ICONS: Record<string, IconType> = {
   communication: Bell,
   mcp: Plug,
   "github-app": GitPullRequest,
+  accounts: Users,
 }
 
 /* The one page the file does not describe: the MCP tab is about the console
@@ -84,6 +86,19 @@ const LazyMcpPage = React.lazy(() =>
 const McpPage = () => (
   <React.Suspense fallback={null}>
     <LazyMcpPage />
+  </React.Suspense>
+)
+
+/* The Accounts tab: who the console is shared with — see `accounts-page.tsx`. */
+const ACCOUNTS_TAB = "accounts"
+
+const LazyAccountsPage = React.lazy(() =>
+  import("@/components/console/accounts-page").then((module) => ({ default: module.AccountsPage }))
+)
+
+const AccountsPage = () => (
+  <React.Suspense fallback={null}>
+    <LazyAccountsPage />
   </React.Suspense>
 )
 
@@ -142,6 +157,14 @@ function tellTheTabs() {
       description: "What an MCP is, how to plug Ponos into Claude, and the ones the sessions use.",
       icon: ICONS[MCP_TAB],
       component: McpPage,
+    })
+  if (pages.length && isAdmin())
+    pages.push({
+      id: ACCOUNTS_TAB,
+      label: "Accounts",
+      description: "Who the console is shared with, and what each of them may do.",
+      icon: ICONS[ACCOUNTS_TAB],
+      component: AccountsPage,
     })
   TABS.splice(0, TABS.length, ...pages)
 }

@@ -9,6 +9,7 @@ import { api, why } from "@/lib/api"
 import { useT } from "@/lib/i18n"
 import type { Context } from "@/lib/types"
 import { cn } from "@/lib/utils"
+import { canAct } from "@/lib/role"
 import { CONTEXT_ANCHOR } from "@/resources/projects"
 
 import { EmptyState } from "./empty-state"
@@ -152,7 +153,7 @@ export function ContextBlock() {
             {t("Sent to Ponos in every ticket, for all the projects")}
           </p>
         </div>
-        {drawn?.editable && !editing && shown ? (
+        {drawn?.editable && !editing && shown && canAct() ? (
           <Button
             variant="outline"
             size="sm"
@@ -251,10 +252,12 @@ export function ContextBlock() {
             <BookOpen className="size-4 shrink-0" />
             {t("Nothing is written yet, so the tickets are told nothing about who the work is for.")}
           </p>
-          <Button size="sm" onClick={() => setEditing(true)}>
-            <Pencil />
-            {t("Write the context")}
-          </Button>
+          {canAct() ? (
+            <Button size="sm" onClick={() => setEditing(true)}>
+              <Pencil />
+              {t("Write the context")}
+            </Button>
+          ) : null}
         </div>
       )}
 

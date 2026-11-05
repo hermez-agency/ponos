@@ -31,7 +31,9 @@ Given `doomed`, the same console with two more projects, for the tests that
 delete them. Given `series`, a board of its own: three blocked tickets, each on
 another kind of stop, and two in review — the columns the series of
 `series.spec.ts` goes through whole, which no other test may move a card of. Given `unclaimed`, the same console with no token and no sign-in: what a
-fresh installation serves, its first connection.
+fresh installation serves, its first connection. Given `accounts`, a board of
+its own for `accounts.spec.ts` — two tickets in review and a draft — in a
+directory named after the port, so the test can read the comment a member left.
 
 The harness around the board — the stand-in `claude`, `gh` and `systemctl`, the state in a temporary
 directory — is `scripts/workbench.py`, shared with `scripts/demo.py`, whose data are its own.
@@ -47,6 +49,7 @@ written by hand is signed with.
 
 from __future__ import annotations
 
+import shutil
 import sys
 import tempfile
 from datetime import datetime, timedelta, timezone
@@ -331,6 +334,32 @@ def series_board(root: Path) -> None:
         (comments / f"{id}.md").write_text(files.render(said, report), encoding="utf-8")
 
 
+# The board of `accounts.spec.ts`: what a reader looks at, and what a member validates.
+ACCOUNTS = {
+    "000000000000000000000000acc0de01": ("A ticket a member validates", "In review"),
+    "000000000000000000000000acc0de02": ("A ticket a reader looks at", "In review"),
+    "000000000000000000000000acc0de03": ("A draft nobody may launch", "Backlog"),
+}
+# No pull request in it: the panel asks GitHub nothing.
+SHARED = "✅ To review — 2 commits · 4 minutes\nAdds a share button under each article."
+
+
+def accounts_board(root: Path) -> None:
+    """The board of `accounts.spec.ts`: nothing but the cards its two people look at."""
+    tickets, comments = root / "tickets", root / "comments"
+    tickets.mkdir(parents=True)
+    comments.mkdir()
+    for id, (title, status) in ACCOUNTS.items():
+        page = {"id": id, "title": title, "Status": status}
+        (tickets / f"{title.lower().replace(' ', '-')}-{id[-8:]}.md").write_text(
+            files.render(page, "A short brief."), encoding="utf-8"
+        )
+        if status == "In review":
+            said = {"id": f"r{id[-4:]}", "at": "2026-10-01T10:00:00+00:00", "by": "ponos",
+                    "discussion": f"r{id[-4:]}"}
+            (comments / f"{id}.md").write_text(files.render(said, SHARED), encoding="utf-8")
+
+
 def journal_of(ticket: str) -> None:
     """Two runs of the blocked ticket in the local journal, the second long.
 
@@ -403,7 +432,13 @@ def main() -> None:
     fresh = mode == "fresh"
     unclaimed = mode == "unclaimed" or fresh
     here = Path(tempfile.mkdtemp(prefix="ponos-e2e-"))
-    if mode == "series":
+    if mode == "accounts":
+        # Where the test finds it again: `accounts.spec.ts` reads its comments.
+        here = Path(tempfile.gettempdir()) / f"ponos-e2e-accounts-{port}"
+        shutil.rmtree(here, ignore_errors=True)
+        here.mkdir()
+        accounts_board(here / "board")
+    elif mode == "series":
         series_board(here / "board")
     elif not fresh:
         board(here / "board", doomed=mode == "doomed")
