@@ -130,3 +130,54 @@ def the_captures_of_a_ticket_are_listed_in_page_order_and_read_by_name(state_hom
     assert preview.read("12345678", "../after-1.png") is None
     assert preview.read("12345678", "pages.txt") is None
     assert preview.listing("nothing") == []
+
+
+@case
+def the_pictures_go_to_origin_alone_and_leave_the_branch_untouched() -> None:
+    from ponos import git
+
+    with tempfile.TemporaryDirectory() as home:
+        origin, repo = Path(home) / "origin.git", Path(home) / "repo"
+        assert git.git(["init", "-q", "--bare", "-b", "main", str(origin)], home).ok
+        assert git.git(["clone", "-q", str(origin), str(repo)], home).ok
+        for step in (
+            ["config", "user.email", "t@t"],
+            ["config", "user.name", "t"],
+            ["commit", "-q", "--allow-empty", "-m", "first"],
+        ):
+            assert git.git(step, repo).ok, step
+        head = git.head(repo)
+        shots = Path(home) / "shots"
+        shots.mkdir()
+        (shots / "before-0.png").write_bytes(b"one")
+        (shots / "after-0.png").write_bytes(b"two")
+        files = [shots / "before-0.png", shots / "after-0.png"]
+        pushed = git.push_pictures(repo, "previews/abcd1234", files)
+        assert pushed, "the commit is said"
+        assert git.git(["rev-parse", "refs/ponos/previews/abcd1234"], origin).out == pushed
+        listed = git.git(["ls-tree", "--name-only", pushed], origin).out.split()
+        assert sorted(listed) == ["after-0.png", "before-0.png"], listed
+        assert git.git(["show", f"{pushed}:after-0.png"], origin).out == "two"
+        assert git.head(repo) == head and not git.is_dirty(repo), "the branch is as it was"
+        assert not git.git(["rev-parse", "--verify", "--quiet", f"{pushed}^"], origin).ok
+        (shots / "after-0.png").write_bytes(b"three")
+        again = git.push_pictures(repo, "previews/abcd1234", files)
+        assert again and again != pushed, "the same name pushed again replaces it"
+        assert git.git(["rev-parse", "refs/ponos/previews/abcd1234"], origin).out == again
+
+
+@case
+def the_comment_shows_each_page_before_and_after_or_names_the_file() -> None:
+    from ponos.voice import Voice
+
+    shots = [
+        {"side": "before", "page": "/", "file": "before-0.png"},
+        {"side": "before", "page": "/settings", "file": "before-1.png"},
+        {"side": "after", "page": "/", "file": "after-0.png"},
+    ]
+    body = Voice("en").previews_comment(shots, lambda name: f"https://x/{name}")
+    lines = body.splitlines()
+    assert "| `/` | ![before](https://x/before-0.png) | ![after](https://x/after-0.png) |" in lines
+    assert "| `/settings` | ![before](https://x/before-1.png) | — |" in lines, body
+    named = Voice("en").previews_comment(shots, lambda name: "")
+    assert "| `/` | before-0.png | after-0.png |" in named.splitlines(), named

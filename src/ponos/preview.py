@@ -146,21 +146,35 @@ def _answers(url: str) -> bool:
 
 
 def _stop(process: subprocess.Popen[bytes]) -> None:
-    """The whole group, politely then by force: nothing of the server may survive."""
+    """The whole group, politely then by force: nothing of the server may survive.
+
+    The group, not its leader: the shell can be gone while the server it
+    started ignores SIGTERM and keeps the port — only an empty group is done.
+    """
     for sig in (signal.SIGTERM, signal.SIGKILL):
         try:
             os.killpg(process.pid, sig)
         except OSError:
             break
-        try:
-            process.wait(timeout=5)
+        deadline = time.monotonic() + 5
+        while _group_alive(process) and time.monotonic() < deadline:
+            time.sleep(0.1)
+        if not _group_alive(process):
             break
-        except subprocess.TimeoutExpired:
-            continue
     try:
         process.wait(timeout=5)
     except subprocess.TimeoutExpired:
         pass
+
+
+def _group_alive(process: subprocess.Popen[bytes]) -> bool:
+    """Is anything of that group still running? Its leader is reaped on the way."""
+    process.poll()
+    try:
+        os.killpg(process.pid, 0)
+    except OSError:
+        return False
+    return True
 
 
 def shoot(

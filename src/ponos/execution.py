@@ -819,10 +819,30 @@ class Execution(Base):
         return False
 
     def _attach_previews(self, job: Job, pull_request: str) -> None:
-        """The captures on the pull request, as a comment — and a line for the report."""
+        """The captures on the pull request, as a comment — and a line for the report.
+
+        The pictures are pushed beside the branch (`git.push_pictures`) and
+        shown from that commit, which any reader of the repository can see;
+        when the push is refused, from the console, which only its owner can.
+        """
         shots = preview.listing(job.ticket.id)
-        base = self.config.web.url.rstrip("/") if self.config.web.url else ""
-        body = self.voice.previews_comment(shots, base, job.ticket.id)
+        bare = job.ticket.id.replace("-", "")
+        destination = preview.folder(job.ticket.id)
+        pushed = git.push_pictures(
+            job.workdir,
+            f"previews/{short_id(job.ticket.id)}",
+            [destination / shot["file"] for shot in shots],
+            self.config.github,
+        )
+        repository = pull_request.split("/pull/")[0]
+        console = self.config.web.url.rstrip("/") if self.config.web.url else ""
+
+        def link(name: str) -> str:
+            if pushed and repository.startswith("https://github.com/"):
+                return f"{repository}/blob/{pushed}/{name}?raw=true"
+            return f"{console}/api/tickets/{bare}/previews/{name}" if console else ""
+
+        body = self.voice.previews_comment(shots, link)
         if not git.comment_pull_request(pull_request, body, self.config.github):
             job.notes.append(self.voice.say("previews-not-posted"))
 

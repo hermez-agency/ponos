@@ -1753,25 +1753,21 @@ class Voice:
             commits=self.count(commits, "commit"),
         )
 
-    def previews_comment(self, shots: list[dict[str, str]], console: str, ticket_id: str) -> str:
+    def previews_comment(self, shots: list[dict[str, str]], link: Callable[[str], str]) -> str:
         """The comment that joins the captures to a pull request: a table, page by page.
 
-        GitHub takes no upload through its API, so the pictures are linked from
-        the console when it has an address, and named otherwise.
+        `link` says where a capture is shown from — the commit the pictures
+        were pushed in, or the console — and nothing when neither can: the
+        file is named instead.
         """
-        pages = sorted(
-            {shot["page"] for shot in shots},
-            key=lambda page: [s["page"] for s in shots].index(page),
-        )
-        bare = ticket_id.replace("-", "")
+        pages = list(dict.fromkeys(shot["page"] for shot in shots))
 
         def cell(side: str, page: str) -> str:
             found = next((s for s in shots if s["side"] == side and s["page"] == page), None)
             if not found:
                 return "—"
-            if not console:
-                return found["file"]
-            return f"![{side}]({console}/api/tickets/{bare}/previews/{found['file']})"
+            where = link(found["file"])
+            return f"![{side}]({where})" if where else found["file"]
 
         rows = "\n".join(
             f"| `{page}` | {cell('before', page)} | {cell('after', page)} |" for page in pages
