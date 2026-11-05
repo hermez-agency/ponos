@@ -465,6 +465,15 @@ def an_answer_that_names_no_type_or_two_is_classified_as_before(state_home: Path
 
 
 @case
+def a_session_says_its_ticket_is_code_on_a_line_of_its_own() -> None:
+    said = "Il faut une PR.\n**KIND: Code.**\nRESULT: blocked — c'est du code"
+    assert kinds.claimed(said) == "code"
+    assert kinds.claimed("KIND: code\nKIND: writing\nRESULT: ok — fait") == "", "the last one"
+    assert kinds.claimed("Il faudrait le mode code.\nRESULT: blocked — relance-moi") == ""
+    assert kinds.claimed("") == ""
+
+
+@case
 def a_board_without_the_column_or_the_setting_runs_tickets_as_before() -> None:
     runner, ticket = _nameless("Retirer le shader", "Il coûte 12 % de CPU pour rien.")
     with _state_home(), _naming_session('{"type": "writing", "confidence": "high"}') as asked:

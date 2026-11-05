@@ -43,6 +43,7 @@ somebody cuts a release; see `.claude/skills/release/SKILL.md`.
 
 ### Changed
 
+- Un ticket Rédaction, Action externe ou Publication qui demandait en fait une PR ne boucle plus sur « relance-moi en mode Code » : sa session conclut par une ligne `KIND: code`, Ponos passe le Type à Code, le dit en commentaire et le remet en Prêt, et le passage suivant le lance en Code, sans question. Une fois par ticket : une seconde ligne `KIND: code` sur le même ticket n'est plus suivie, il s'arrête comme sa session.
 - La console s'ouvre plus vite : son premier chargement, en français, passe de 508 à 455 Ko compressés. Les mots des réglages et de la première connexion arrivent avec ces pages, et la page d'un ticket, celle d'un projet, les idées, le contexte permanent, le panneau Décider et le choix du modèle sont chargés quand ils s'affichent.
 - Le site the-ponos.app et le README montrent la console actuelle (Hermez, Dashboard) : le film de la boucle est refilmé en clair et en sombre, et la vidéo promo, restée à l'ancienne console, est retirée au profit de ce film.
 - `install.sh` termine, quand des outils manquent, par une seule commande qui les installe tous (`sudo apt-get install -y python3 python3-venv git`), en plus du détail par outil ; sur Debian et Ubuntu, `python3-venv` accompagne désormais `python3`. Quand il faut télécharger uv, l'installeur le dit.

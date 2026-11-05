@@ -308,6 +308,16 @@ _SAID: dict[str, dict[str, str]] = {
         "fr": "Ça aurait pu être {other} : j'ai pris {kind}, qui n'exige pas de commit — "
         "son compte rendu est son livrable.",
     },
+    # A session run as a text or an action that said the ticket was code: made
+    # code and put back in ready, once — see `Execution._switch_to_code`.
+    "kind-switched": {
+        "en": "The session says this ticket is a change in the repository: its {property} "
+        "is now {kind}, and it starts again as code. Only once — a second time, the "
+        "ticket stops instead.",
+        "fr": "La session dit que ce ticket est un changement dans le dépôt : son {property} "
+        "passe à {kind}, et il repart en code. Une seule fois — la prochaine, le ticket "
+        "s'arrête.",
+    },
     "classified-fix": {
         "en": "Wrong? Change the {property} column — a type somebody chose is never overwritten.",
         "fr": "C'est faux ? Change la colonne {property} — un type choisi à la main "

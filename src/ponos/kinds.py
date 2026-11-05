@@ -43,6 +43,15 @@ somebody. The other type has a deliverable that is the report itself, so it is
 taken, and the comment that says which type the ticket was run as says that it
 was a choice between two; see `settle`.
 
+A type can still be wrong, and the session that runs the ticket is the first
+to see it: a ticket run as a text that asks for a pull request has nothing it
+can do but ask to be run again as code — and it used to ask it on every run,
+since only a person changes the column. So a session that was given no
+repository, on a project that has one, may end on a `KIND: code` line (see
+`claimed`): the runner writes Code in the column, says so, and puts the ticket
+back in ready — once a ticket, and never again, so that two sessions that
+disagree cannot hand it back and forth. See `Execution._switch_to_code`.
+
 The same answer carries a code ticket's sub-type — a bug, a feature, upkeep —
 so that a ticket with neither costs one session and not two: see subtypes.py.
 """
@@ -134,6 +143,11 @@ A code ticket also has a sub-type, which says what kind of change it is:
 """
 
 
+# The line a session that was not given a repository ends on when the ticket
+# asks for one. Uppercase like the RESULT line, since a model reads them alike.
+_CLAIM = re.compile(r"^KIND\s*:\s*(.*)$", re.IGNORECASE)
+
+
 @dataclass
 class Guess:
     """What the classifying session answered, read into four fields."""
@@ -207,6 +221,21 @@ def parse(answer: str) -> Guess:
             alternative=alternative if alternative in KINDS and alternative != kind else "",
         )
     return Guess()
+
+
+def claimed(answer: str) -> str:
+    """The type a session's answer says the ticket really is — "code", or "".
+
+    Read from the end, like the fields of a question: a session explaining
+    itself may well quote the line earlier on. Only code, the one type a
+    session cannot do the work of from where it is: a text run as an external
+    action can still be written, and the other way round.
+    """
+    for line in reversed(str(answer or "").splitlines()):
+        matched = _CLAIM.match(line.strip().strip("*_`").lstrip("-#> ").strip("*_` "))
+        if matched:
+            return "code" if _word(matched.group(1).strip("*_`. ")) == "code" else ""
+    return ""
 
 
 def doubt(guess: Guess, least: str = "medium") -> str:

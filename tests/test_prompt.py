@@ -174,6 +174,8 @@ def a_text_about_a_codebase_may_read_it_and_change_nothing() -> None:
     assert "change nothing in it" in said
     both = prompt.kind("external", "/home/x/northwind")
     assert both.index("change nothing") < both.index("# This ticket is an external action")
+    assert "`KIND: code`" in said, "and may say it was code, rather than ask to be"
+    assert "KIND" not in prompt.kind("writing"), "not without a repository to be run in"
 
 
 @case

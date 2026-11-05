@@ -683,7 +683,13 @@ def kind(kind: str, repository: object = "") -> str:
     if repository:
         section = (
             f"- The project's repository is at {repository}: read it if the ticket "
-            "needs it, and change nothing in it.\n" + ("\n" + section if section else "")
+            "needs it, and change nothing in it.\n"
+            "- If what the ticket asks for is a change in that repository — a branch "
+            "and a pull request — it was given the wrong type. Do not do it, and do "
+            "not ask to be run again: write no `ANSWER.md`, write the line `KIND: code` "
+            "just before your RESULT line, and end `RESULT: blocked` with one sentence "
+            "saying why. The runner makes it a code ticket and starts it again, once.\n"
+            + ("\n" + section if section else "")
         )
     return section
 
