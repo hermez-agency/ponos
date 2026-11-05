@@ -3,6 +3,7 @@ import createClient from "openapi-fetch"
 import type { components, paths } from "./api-types"
 import { t } from "./i18n"
 import { SILENT, refusalOf } from "./refusals"
+import type { Role } from "./role"
 import type { Idea, IdeasSettings, Pair, ProjectSettings, SettingValue } from "./types"
 
 /* Talking to the server.
@@ -179,6 +180,19 @@ export const api = {
   /** The executions of a ticket's « On » prompt, newest first. */
   transitions: (id: string) =>
     answer(client.GET("/api/tickets/{ticket_id}/transitions", { params: { path: { ticket_id: id } } })),
+  /** What was done to a ticket from the console, by whom, newest first. */
+  audit: (id: string) => answer(client.GET("/api/tickets/{ticket_id}/audit", { params: { path: { ticket_id: id } } })),
+  /** The accounts of the console, and the invitations not yet taken: an admin's. */
+  accounts: () => answer(client.GET("/api/accounts")),
+  /** A link for one more account, given once: it is kept only as its digest. */
+  invite: (role: Role) => answer(client.POST("/api/invitations", { body: { role } })),
+  withdrawInvitation: (id: number) =>
+    answer(client.POST("/api/invitations/{number}/delete", { params: { path: { number: id } } })),
+  setRole: (id: number, role: Role) =>
+    answer(client.POST("/api/accounts/{number}/role", { params: { path: { number: id } }, body: { role } })),
+  /** The account gone, and every browser signed into it with it. */
+  deleteAccount: (id: number) =>
+    answer(client.POST("/api/accounts/{number}/delete", { params: { path: { number: id } } })),
   /** Write the prompt run at every change of the ticket's status; empty removes it. */
   setOn: (id: string, on: string) =>
     answer(client.POST("/api/tickets/{ticket_id}/on", { params: { path: { ticket_id: id } }, body: { on } })),

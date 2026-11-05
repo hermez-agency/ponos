@@ -68,7 +68,7 @@ class Discussion(Base):
             ),
         }
 
-    def tell(self, page_id: str, text: str) -> dict[str, Any]:
+    def tell(self, page_id: str, text: str, who: str = "") -> dict[str, Any]:
         """Say something to a ticket, as a comment on it.
 
         Which is already how a ticket is answered: a run that ends `blocked`
@@ -84,7 +84,8 @@ class Discussion(Base):
 
         A password or a token in it never reaches the page: it is masked here,
         before the comment, the stream or anything else sees it — see
-        `redaction`.
+        `redaction`. `who` is the name of the account that typed it, said on
+        that line when the console is shared — see `web/accounts.py`.
         """
         text = redaction.masked(text.strip())
         if not text:
@@ -92,7 +93,7 @@ class Discussion(Base):
         me = self.runner.myself()
         comments = self.runner.client.comments(page_id)
         said = self.runner.voice
-        relayed = said.say("relayed", channel=said.say("relayed-console"))
+        relayed = _relayed(said, said.say("relayed-console"), who)
         # Read against the question the ticket is waiting on, like an answer
         # from a phone: “2” lands as the option it names.
         # The message itself keeps its lines, which a phone's never had.
@@ -194,6 +195,7 @@ class Discussion(Base):
         model: str = "",
         titles: list[str] | None = None,
         channel: str = "",
+        who: str = "",
     ) -> dict[str, Any]:
         """Do one of the things `decision` offered, and say so on the ticket.
 
@@ -202,7 +204,8 @@ class Discussion(Base):
         ticket is filed away, and that move is made at once rather than queued,
         because a comment under a blocked ticket is an answer — the runner would
         wake it up before the queued move reached the board. `channel` is where
-        the choice came from, said on the comment: the console, unless named.
+        the choice came from, said on the comment: the console, unless named;
+        `who`, the account that chose, when the console is shared.
         """
         page, column, comments = self._waiting(page_id)
         settings = self.config.notion
@@ -259,7 +262,7 @@ class Discussion(Base):
                 )
                 for title in named
             ]
-        relayed = said.say("relayed", channel=channel or said.say("relayed-console"))
+        relayed = _relayed(said, channel or said.say("relayed-console"), who)
         lines = [
             f"{relayed}.",
             *decisions.told(said, solution, text, model=model.strip(), titles=named),
@@ -369,6 +372,13 @@ class Discussion(Base):
         if context:
             lines += ["", "# Who you are working for", "", context[:6000]]
         return "\n".join(lines)
+
+
+def _relayed(said: voice.Voice, channel: str, who: str) -> str:
+    """“Answered from the console by Léa”: where it came from, and who, when somebody is named."""
+    return said.say("relayed", channel=channel) + (
+        said.say("relayed-by", who=" ".join(who.split())) if who.strip() else ""
+    )
 
 
 def _voice(comment: store.Comment, me: str) -> str:

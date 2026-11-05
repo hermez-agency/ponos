@@ -44,6 +44,7 @@ import { EMPTY, writeQuery } from "@/lib/ticket-search"
 import { carrying } from "@/lib/resource-view"
 import type { Goal } from "@/lib/types"
 import { cn } from "@/lib/utils"
+import { canAct } from "@/lib/role"
 import { ON_TICKETS, goalHref, goals, goalsHref, goalsOnce, useGoals, type GoalItem } from "@/resources/goals"
 import { boardHref, ticketHref, tickets } from "@/resources/tickets"
 
@@ -175,6 +176,9 @@ function Untied({ goal }: { goal: Goal }) {
   const create = useViewLink({ resource: tickets, action: ActionList.create })
   // Not drawn in English while its French is on the way.
   if (!ready) return null
+  // Tying tickets is writing the goal: a reader is told only that none is tied.
+  if (!canAct())
+    return <span className="text-muted-foreground text-xs">{t("No ticket tied yet")}</span>
   return (
     <div className="flex flex-col gap-2" data-slot="goal-untied">
       <span className="text-muted-foreground text-xs">{t("No ticket tied yet")}</span>
@@ -404,15 +408,17 @@ function GoalTickets({ goal }: { goal: Goal }) {
     <section className="flex flex-col gap-3" data-slot="goal-tickets">
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-medium">{t("Tickets")}</h3>
-        <Link
-          to={carrying(create.to, { goal: goal.id })}
-          onClick={create.onOpen}
-          data-slot="goal-new-ticket"
-          className={cn(buttonVariants({ variant: "outline", size: "sm" }), "whitespace-nowrap")}
-        >
-          <Plus />
-          {t("Ticket")}
-        </Link>
+        {canAct() ? (
+          <Link
+            to={carrying(create.to, { goal: goal.id })}
+            onClick={create.onOpen}
+            data-slot="goal-new-ticket"
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "whitespace-nowrap")}
+          >
+            <Plus />
+            {t("Ticket")}
+          </Link>
+        ) : null}
       </div>
       {groups.length ? (
         <div className="flex flex-col gap-3" data-slot="goal-columns">
@@ -473,6 +479,7 @@ function CloseGoal({
   const t = useT()
   const [busy, setBusy] = React.useState(false)
   const Icon = closing.icon
+  if (!canAct()) return null
   const close = async () => {
     setBusy(true)
     try {
@@ -506,6 +513,7 @@ function DeleteGoal({ goal }: { goal: Goal }) {
   // Its words on a Markdown board are in `goal-french.ts`: fetched before the dialog opens.
   useFrench(words)
   const navigate = useNavigate()
+  if (!canAct()) return null
   const confirm = async () => {
     try {
       await api.deleteGoal(goal.id)

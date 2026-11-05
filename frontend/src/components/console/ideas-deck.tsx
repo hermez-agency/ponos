@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useT } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
+import { canAct } from "@/lib/role"
 
 import { Robot } from "./robot"
 
@@ -94,6 +95,8 @@ export function IdeasButton({
       <span>{label}</span>
     </Button>
   )
+  // Finding ideas starts a paid session: not a reader's to start.
+  if (!canAct()) return null
   return (
     <>
       {button}

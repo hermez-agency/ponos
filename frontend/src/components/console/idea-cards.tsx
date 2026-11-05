@@ -21,6 +21,7 @@ import { useT } from "@/lib/i18n"
 import { EVERY_STATUS, keeps, statusOf, toneOf, type Tone } from "@/lib/idea-search"
 import type { Idea, IdeaAuthor, IdeaCategory, IdeaStatus } from "@/lib/types"
 import { cn } from "@/lib/utils"
+import { canAct } from "@/lib/role"
 import { SCOPED_IDEAS, ideaOf, ideasChanged, useIdeas, type IdeaItem } from "@/resources/ideas"
 import { projectHref } from "@/resources/projects"
 import { ticketHref } from "@/resources/tickets"
@@ -219,7 +220,8 @@ function useGestures(idea: Idea) {
     { gesture: "keep", label: t("Keep"), shown: idea.status === "proposed" || idea.status === "discarded" },
     { gesture: "reopen", label: t("Back to new"), shown: idea.status !== "proposed" },
   ]
-  const secondary = offered.filter((one) => one.shown)
+  // A reader is shown the idea, and offered nothing to do with it.
+  const secondary = canAct() ? offered.filter((one) => one.shown) : []
   return { busy, run, secondary }
 }
 
@@ -237,6 +239,7 @@ function MainAction({ idea, busy, onTicket, className }: { idea: Idea; busy: boo
         {idea.kind === "project" ? t("Open the project") : t("Open the ticket")}
       </Link>
     ) : null
+  if (!canAct()) return null
   return (
     <Button size="sm" data-slot="ideas-ticket" disabled={busy} className={className} onClick={onTicket}>
       <Plus />
@@ -248,7 +251,7 @@ function MainAction({ idea, busy, onTicket, className }: { idea: Idea; busy: boo
 /** The pencil: the package's form, over the list. None for an idea that is already a ticket. */
 function EditButton({ idea }: { idea: Idea }) {
   const t = useT()
-  if (idea.status === "ticket") return null
+  if (idea.status === "ticket" || !canAct()) return null
   return (
     <ResourceViewButton action={ActionList.update} id={String(idea.id)}>
       <span
@@ -558,6 +561,7 @@ function IdeaWhole({ idea }: { idea: Idea }) {
 /** The way to write one: the package's create form, as a button that says so. */
 export function NewIdeaButton({ className }: { className?: string }) {
   const t = useT()
+  if (!canAct()) return null
   return (
     <ResourceViewButton action={ActionList.create}>
       <span data-slot="ideas-new" className={cn(buttonVariants({ size: "sm" }), className)}>

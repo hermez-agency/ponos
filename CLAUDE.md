@@ -151,7 +151,9 @@ le lundi — CONTRIBUTING.md, « Dependencies ».
   la garde en middleware, le flux SSE, MCP et OAuth —, `routes.py` l'API,
   `answers.py` les formes de ce qu'elle répond, d'où viennent les types de la page ;
   `web/attempts.py` compte les tentatives ratées par adresse, `web/sessions.py` date et
-  révoque les connexions ;
+  révoque les connexions, `web/accounts.py` tient les comptes, leurs rôles (la garde de
+  `web/app.py` les applique, `frontend/src/lib/role.ts` cache ce qu'un rôle ne peut pas faire)
+  et le journal de qui a fait quoi sur un ticket ;
   `web/console.py` tient la conversation avec l'espace de travail,
   `web/agui.py` la traduit en AG-UI pour le `useChat` de la page, et
   `web/attachments.py` les fichiers qu'un message y emporte).

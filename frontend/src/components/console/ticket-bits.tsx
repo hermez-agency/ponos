@@ -40,6 +40,7 @@ import { currentLanguage, t, useT } from "@/lib/i18n"
 import { money } from "@/lib/numbers"
 import type { Block, BlockFamily, Ci, CiState, Earlier, Subtype, Ticket } from "@/lib/types"
 import { cn } from "@/lib/utils"
+import { canAct } from "@/lib/role"
 
 /* What a ticket wears wherever it is drawn — on its card, at the top of its
  * page: the column it is in, the tags, the links out, and the gestures it
@@ -785,6 +786,8 @@ export function TicketActions({
   const t = useT()
   const [asked, setAsked] = React.useState(false)
   const [validating, setValidating] = React.useState(false)
+  // A reader is shown where the ticket stands, and offered nothing to change it.
+  if (!canAct()) return null
   // A ticket the runner has in hand is not one you move: it is one you stop.
   // Pausing keeps what was done and is one click; abandoning loses it, and asks.
   // Where the board has neither column, nothing is drawn — an empty row would

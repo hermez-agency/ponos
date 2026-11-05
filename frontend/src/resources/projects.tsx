@@ -53,6 +53,7 @@ import { carrying, layoutOf, useLayoutInTheAddress } from "@/lib/resource-view"
 import { useRoute } from "@/lib/router"
 import type { Project, Projects } from "@/lib/types"
 import { cn } from "@/lib/utils"
+import { isAdmin, readOnly } from "@/lib/role"
 import { settingsHref } from "@/resources/settings"
 import { tickets } from "@/resources/tickets"
 
@@ -1121,9 +1122,12 @@ function NoProject() {
     <EmptyState
       robot="sleep"
       action={
-        <Link to={settingsHref("projects")} className={buttonVariants({ variant: "outline", size: "sm" })}>
-          {t("Map a project to a folder")}
-        </Link>
+        // The folders are mapped in the settings: an admin's.
+        isAdmin() ? (
+          <Link to={settingsHref("projects")} className={buttonVariants({ variant: "outline", size: "sm" })}>
+            {t("Map a project to a folder")}
+          </Link>
+        ) : undefined
       }
     >
       {t("No project yet — a ticket without one comes back as a document.")}
@@ -1244,7 +1248,7 @@ export const projects = createViewResource<ProjectItem, ProjectWrite>(PROJECTS, 
   icon: FolderGit2,
   // A project page is made here, in Notion, or by a line in `config.toml`.
   // Deleting one has a dialog of its own (see `project-delete.tsx`).
-  permissions: { delete: false, export: false },
+  permissions: { delete: false, export: false, ...readOnly() },
 
   repository: {
     getCollection: async (filter) => {

@@ -12,6 +12,7 @@ import { copy } from "@/lib/copy"
 import { counted, useT } from "@/lib/i18n"
 import { useRoute } from "@/lib/router"
 import { cn } from "@/lib/utils"
+import { canAct, isAdmin } from "@/lib/role"
 import {
   CONTEXT_ANCHOR,
   Repository,
@@ -230,7 +231,8 @@ function ProjectTabs({ project, children }: { project: ProjectItem; children: Re
         <TabsTrigger value="brief" data-slot="project-brief-tab">
           {t("Brief")}
         </TabsTrigger>
-        {ideas ? (
+        {/* A project's own settings — its forced validation among them — are an admin's. */}
+        {ideas && isAdmin() ? (
           <TabsTrigger value="settings" data-slot="project-settings-tab">
             {t("Settings")}
           </TabsTrigger>
@@ -239,7 +241,7 @@ function ProjectTabs({ project, children }: { project: ProjectItem; children: Re
       <TabsContent value="tickets" className="flex flex-col gap-4">
         {/* A project with a page has its pictures; one the configuration
             alone names has neither page nor pictures to show. */}
-        {ideas ? <ProjectCover project={project} editable compact={Boolean(panel)} /> : null}
+        {ideas ? <ProjectCover project={project} editable={canAct()} compact={Boolean(panel)} /> : null}
         {project.source === "config" || project.configured ? (
           <div className="flex flex-wrap items-center gap-1.5">
             {project.source === "config" ? <Chip>{t("from the configuration")}</Chip> : null}
@@ -276,7 +278,7 @@ function ProjectTabs({ project, children }: { project: ProjectItem; children: Re
         </TabsContent>
       ) : null}
       <TabsContent value="brief">{children}</TabsContent>
-      {ideas ? (
+      {ideas && isAdmin() ? (
         <TabsContent value="settings">
           <React.Suspense fallback={null}>
             <ProjectSettingsTab project={project.id} />
@@ -417,8 +419,8 @@ export function ProjectActions() {
       ) : null}
       {away ? <Away label="Notion" href={away} /> : null}
       {/* Then the actions, one height so the row reads as one group. */}
-      {isAPage(project.id) ? <IdeasButton project={project.id} name={project.name} inline /> : null}
-      {isAPage(project.id) ? (
+      {isAPage(project.id) && canAct() ? <IdeasButton project={project.id} name={project.name} inline /> : null}
+      {isAPage(project.id) && canAct() ? (
         // One piece, so that on a phone the "…" wraps with the edit button
         // rather than alone on a line under it.
         <span className="flex items-center gap-2">
@@ -428,12 +430,15 @@ export function ProjectActions() {
               {t("Edit")}
             </span>
           </ResourceViewButton>
-          <ProjectMenu
-            project={project}
-            tickets={count}
-            // Beside the list, the list is already there: the panel empties.
-            onDeleted={() => (context.panel ? pick("") : void navigate({ to: projectsHref() }))}
-          />
+          {/* Deleting a project is an admin's. */}
+          {isAdmin() ? (
+            <ProjectMenu
+              project={project}
+              tickets={count}
+              // Beside the list, the list is already there: the panel empties.
+              onDeleted={() => (context.panel ? pick("") : void navigate({ to: projectsHref() }))}
+            />
+          ) : null}
         </span>
       ) : null}
     </>

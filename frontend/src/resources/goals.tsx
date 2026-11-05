@@ -26,6 +26,7 @@ import { onGoalsMoved } from "@/lib/goals-store"
 import { t } from "@/lib/i18n"
 import { readScore } from "@/lib/priority"
 import type { Goal, GoalSaved } from "@/lib/types"
+import { readOnly } from "@/lib/role"
 import { projectsOnce } from "@/resources/projects"
 
 /* The goals, declared for react-resource-view as the ideas are.
@@ -337,6 +338,7 @@ export const goals = createViewResource<GoalItem, GoalWrite>(GOALS, {
     export: false,
     // Nothing to write a goal in without a Goals database: no "New goal" then.
     create: () => Boolean(read.goals) && read.configured,
+    ...readOnly(),
   },
   repository: {
     getCollection: async (filter) => {

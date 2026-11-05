@@ -1031,6 +1031,47 @@ The token does not go away. It stays what a script carries in `Authorization: Be
 what `serve --print-token` prints, and what the dev server's proxy borrows — it just
 stops being what *you* carry.
 
+### Several people on one console
+
+One password is one person: shared, everybody is the same somebody, nobody knows who
+validated a merge, and an intern can force one. So a console can be **shared with
+accounts**, each an email, a name, a password (kept as a scrypt digest, as yours is) and
+one of three roles:
+
+| Role | May |
+|---|---|
+| **Reader** | see the board, the tickets, the projects, the ideas, the goals and the schedules — and change nothing |
+| **Member** | also write tickets, launch them, answer them, validate them, edit projects, ideas, goals and schedules, talk to the workspace |
+| **Admin** | also change the settings and the vault in them, a project's own settings (its forced validation among them), the GitHub App, the ideas' schedule, the update, and the accounts |
+
+**The sign-in of `[web]` is the first admin**, with nothing to migrate: it stays where it is,
+heads the list, and cannot be demoted or deleted from the console by anybody it invited. The
+token is the machine itself, and may do everything an admin may.
+
+**An invitation is a link, not an email.** Ponos sends no mail: *Settings → Accounts* draws a
+link for a role, you copy it and give it however you like. It opens a page asking for a name,
+an email and a password, makes **one** account, and is good for **a week** — the console
+keeps only its SHA-256, so it is shown once. A link not taken yet can be withdrawn from the
+same page; a wrong code is counted as a wrong password is.
+
+What the page offers follows the role: a reader is shown no button that would change
+something — no *New ticket*, no Decide tab, no message bar, no chat, no drag — and the API
+refuses the same writes with a **403** whatever a page sends. A member does not see the
+Settings. A new role is the API's at once, and the page's at its next load; **deleting an account signs
+out every browser signed into it**, from its next request (its live stream ends within
+fifteen seconds), and nobody else.
+
+**Who did what.** Once the console is shared, an answer or a decision written on a ticket
+from the console says who: *Answered from the console by Léa. Decision: validated.* A move
+leaves no comment — one on a blocked ticket would be read as an answer — so the console keeps
+its own journal: every ticket created, moved, answered, decided, re-prioritised or tied to a
+goal from the console is a line with the name, shown under the brief of the ticket's page
+(*From the console*) and given by `GET /api/tickets/<id>/audit`. A console used alone writes
+its comments as before.
+
+A key for the MCP server (*Connect Ponos to Claude* below) is an admin's to give: signed in as
+a member or a reader, the consent page asks for the console's own credentials.
+
 ---
 
 <a id="driving-it-from-claude-the-mcp-server"></a>

@@ -15,6 +15,10 @@ is behind it by being a route — the schema with the rest — and nothing has t
 remember to ask. What it checks is what `server.py` describes. The API's routes
 are in `routes.py`; the doors around them — the pages, the stream, the first
 connection, the MCP server and its keys — are here.
+
+The guard is also where a role is enforced (`web/accounts.py`): who a request
+comes from is known there, and so is the route, so a route needs nothing of its
+own to be refused to a reader — `needed` says which role each one asks for.
 """
 
 from __future__ import annotations
@@ -51,7 +55,19 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from .. import __version__, db, openrouter, tailscale, vault, voice
 from .. import config as config_module
 from ..config import state_dir
-from . import answers, attachments, attempts, github, mcp, oauth, routes, server, sessions, setup
+from . import (
+    accounts,
+    answers,
+    attachments,
+    attempts,
+    github,
+    mcp,
+    oauth,
+    routes,
+    server,
+    sessions,
+    setup,
+)
 from .api import Api
 from .routes import MAX_BODY, answer, fail
 from .server import (
@@ -77,6 +93,7 @@ from .server import (
     consent_refused,
     cookie_name,
     gate_page,
+    invite_page,
     landing,
     language_of,
     page_policy,
@@ -207,6 +224,9 @@ class Asking:
         self.signed_in = False
         # The cookie came under a name of before: given again under this console's.
         self.moved = False
+        # Who signed in, when it was a person rather than the token: the
+        # console's own sign-in (id 0) or one of its accounts.
+        self.account: accounts.Account | None = None
 
     def host_is_ours(self) -> bool:
         """The `Host` header names the address this console is served on.
@@ -336,6 +356,7 @@ class Asking:
         # browser — a cookie somebody pasted an accent into would be a 500
         # rather than the "no" it is.
         moved = self.moved and not typed and not self.explicit()
+        self.account = None
         if hmac.compare_digest(offered.encode(), self.console.secret.encode()):
             if moved:
                 self.carried = offered
@@ -347,10 +368,34 @@ class Asking:
             # and at once when it came under the name of before.
             if moved or time.time() - given > sessions.RENEW_AFTER:
                 self.renewed = entry.session()
+            self.account = accounts.owner(entry.email)
+            return True
+        found: dict[int, accounts.Account] = {}
+
+        def proof_of(identifier: int) -> str | None:
+            account = accounts.find(identifier)
+            if account is None:
+                return None
+            found[identifier] = account
+            return account.proof(self.console.secret)
+
+        if (held := sessions.holder(offered, proof_of)) is not None:
+            identifier, given = held
+            self.account = found[identifier]
+            if moved or time.time() - given > sessions.RENEW_AFTER:
+                self.renewed = sessions.issue(proof_of(identifier) or "", holder=identifier)
             return True
         if attempt:
             self.console.attempts.failed(knocker)
         return False
+
+    @property
+    def role(self) -> str:
+        """What this request may do: its account's role — the token is the machine's own."""
+        return self.account.role if self.account else accounts.ADMIN
+
+    def may(self, needed: str) -> bool:
+        return accounts.may(self.role, needed)
 
     def explicit(self) -> bool:
         """The request carries a token of its own, rather than the console's cookie."""
@@ -445,8 +490,51 @@ OPEN_READS = (
     "/sw.js",
     "/static/manifest.webmanifest",
     "/static/offline.html",
+    "/invite",
 )
 OPEN_WRITES = ("/mcp", "/oauth/register", "/oauth/token", "/oauth/authorize")
+
+# The writes that produce a way in, and so cannot ask for one first: signing
+# in, an invitation taken, and — on a console nobody has claimed — the first
+# connection that gives it a password to sign in with.
+OPENINGS = ("/api/login", "/api/invite", "/api/setup")
+
+# What changes how the console runs, rather than the work it does: an admin's.
+# The settings and the vault in them, a project's own (its forced validation
+# among them), the GitHub App, the steps of the first connection, the update,
+# the accounts, when ideas are looked for — and the reads that are the same
+# pages, or a look at the disk.
+ADMIN_WRITES = (
+    "/api/settings",
+    "/api/setup/",
+    "/api/github/",
+    "/api/accounts",
+    "/api/invitations",
+    "/api/update",
+    "/api/health/fix",
+    "/api/mcp/",
+    "/api/disk/clean",
+    "/api/ideas/schedule",
+)
+ADMIN_READS = ("/api/accounts", "/api/invitations", "/api/settings/folder", "/api/setup/")
+_PROJECT_OWN = re.compile(r"/api/projects/[0-9a-fA-F-]{32,36}/(settings|delete)")
+
+# The writes a reader makes all the same: they change nothing but what this
+# browser has seen.
+READER_WRITES = ("/api/notifications/read", "/api/refresh")
+
+
+def needed(method: str, route: str) -> str:
+    """The role a request to `route` asks for — see `web/accounts.py`."""
+    if method == "GET":
+        admin = route.startswith(ADMIN_READS)
+        return accounts.ADMIN if admin else accounts.READER
+    if route in READER_WRITES:
+        return accounts.READER
+    if route.startswith(ADMIN_WRITES) or _PROJECT_OWN.fullmatch(route):
+        return accounts.ADMIN
+    return accounts.MEMBER
+
 
 # What every answer carries, unless it says otherwise. Nothing here is meant to
 # be cached, framed, sniffed or embedded — but a picture, whose address changes
@@ -521,12 +609,10 @@ class Guard:
             return None
         if not reading and route in OPEN_WRITES:
             return None
-        # Two writes cannot be authorised beforehand, because they are what
-        # produces the authorisation: signing in, and — on a console nobody has
-        # claimed — the first connection that gives it a password to sign in
-        # with. Everything else about them holds: the name they are reached
-        # under, and the header below.
-        opening = not reading and route in ("/api/login", "/api/setup")
+        # Three writes cannot be authorised beforehand, because they are what
+        # produces the authorisation (`OPENINGS`). Everything else about them
+        # holds: the name they are reached under, and the header below.
+        opening = not reading and route in OPENINGS
         typed = asking.request.query_params.get("token", "")
         if not opening:
             asking.signed_in = asking.authorised(typed)
@@ -536,6 +622,8 @@ class Guard:
                 if not reading:
                     return fail(401, "token missing or wrong")
                 return self._unauthorised(route, asking)
+            if not asking.may(needed(scope["method"], route)):
+                return fail(403, f"a {asking.role} of this console may not do that")
         if not reading:
             # A cookie alone is not consent: a page you have open elsewhere can
             # post a form to this port with your cookie attached, but it cannot
@@ -574,7 +662,7 @@ class Guard:
         language = asking.language()
         if claim:
             return _static(asking, "index.html", setup="claim")
-        if self.console.entry:
+        if self.console.entry or accounts.shared():
             page = sign_in_page(language)
         else:
             page = gate_page(language, _token_whereabouts(asking), _refused(asking, language))
@@ -659,6 +747,10 @@ def _static(asking: Asking, name: str, setup: str = "", status: int = 200) -> Re
     if name == "index.html":
         marked = asking.configured()
         body = configured(body, marked)
+        # What the page may offer, known before it draws a button: see
+        # `frontend/src/lib/role.ts`. The API refuses all the same.
+        body = re.sub(rb"<html\b", f'<html data-role="{asking.role}"'.encode(), body, count=1)
+        marked = f"{marked}:{asking.role}"
         if setup:
             # What the page draws instead of the console: see `main.tsx`.
             body = re.sub(rb"<html\b", f'<html data-setup="{setup}"'.encode(), body, count=1)
@@ -864,7 +956,7 @@ def login(request: Request, payload: routes.Fields = Body(default_factory=dict))
     """An email and a password against the configured ones. Nothing else."""
     console, asking = _console(request), _asking(request)
     entry = console.entry
-    if entry is None:
+    if entry is None and not accounts.shared():
         return fail(404, "this console is opened with its token")
     # Behind this port sits `bypassPermissions`, and a password is guessable
     # in a way a 32-character token is not: counted before it is checked,
@@ -872,14 +964,63 @@ def login(request: Request, payload: routes.Fields = Body(default_factory=dict))
     knocker = asking.knocker()
     if wait := console.attempts.admit(knocker):
         return _too_many(wait)
-    if not entry.opens(str(payload.get("email", "")), str(payload.get("password", ""))):
+    email, password = str(payload.get("email", "")), str(payload.get("password", ""))
+    if entry is not None and entry.opens(email, password):
+        session = entry.session()
+    elif (account := accounts.signing_in(email, password)) is not None:
+        session = sessions.issue(account.proof(console.secret), holder=account.id)
+    else:
         return fail(401, "wrong email or password")
     console.attempts.forgive(knocker)
     return _send(
         200,
         b'{"ok": true}',
         "application/json",
-        {"Set-Cookie": asking.cookie(entry.session(), sessions.LIFETIME)},
+        {"Set-Cookie": asking.cookie(session, sessions.LIFETIME)},
+    )
+
+
+@doors.get("/invite", include_in_schema=False)
+def invitation(request: Request, code: str = "") -> Response:
+    """What an invitation's link opens: the form that makes its account, or why not."""
+    asking = _asking(request)
+    page = invite_page(asking.language(), accounts.invited(code))
+    return _send(200, page.encode(), "text/html; charset=utf-8")
+
+
+@doors.post("/api/invite", response_model=answers.Ok)
+def accept_invitation(
+    request: Request, payload: routes.Fields = Body(default_factory=dict)
+) -> Response:
+    """An invitation taken: its account made, and this browser signed into it.
+
+    Counted as a password is — a code is guessed the same way — and refused
+    unseen while the address waits.
+    """
+    console, asking = _console(request), _asking(request)
+    knocker = asking.knocker()
+    if wait := console.attempts.admit(knocker):
+        return _too_many(wait)
+    try:
+        account = accounts.accept(
+            str(payload.get("code", "")),
+            str(payload.get("email", "")),
+            str(payload.get("name", "")),
+            str(payload.get("password", "")),
+            reserved=console.entry.email if console.entry else "",
+        )
+    except PermissionError as error:
+        return fail(403, str(error))
+    except ValueError as error:
+        console.attempts.forgive(knocker)
+        return fail(400, str(error))
+    console.attempts.forgive(knocker)
+    session = sessions.issue(account.proof(console.secret), holder=account.id)
+    return _send(
+        200,
+        b'{"ok": true}',
+        "application/json",
+        {"Set-Cookie": asking.cookie(session, sessions.LIFETIME)},
     )
 
 
@@ -1004,6 +1145,10 @@ async def events(request: Request, after: str = "", board: str = "") -> Response
         since = 0
     channel = await run_in_threadpool(api.hub.subscribe, since, bool(board))
     await run_in_threadpool(api.watch.ensure_running)
+    account = _asking(request).account
+    # An account deleted while its tab is open: the stream ends at the next
+    # beat, and the page, asking again, finds itself signed out.
+    member = account.id if account and not account.owner else 0
 
     async def stream() -> AsyncIterator[bytes]:
         try:
@@ -1016,6 +1161,8 @@ async def events(request: Request, after: str = "", board: str = "") -> Response
                         channel.get, True, 15, abandon_on_cancel=True, limiter=console.streams
                     )
                 except queue.Empty:
+                    if member and await run_in_threadpool(accounts.find, member) is None:
+                        return
                     # A comment, not an event: it keeps the connection from
                     # being reaped by anything in between, and tells the
                     # browser nothing happened.
@@ -1301,7 +1448,9 @@ def _authorize(
             consent_refused(language, error.description).encode(),
             "text/html; charset=utf-8",
         )
-    needs = "" if asking.authorised() else ("password" if console.entry else "token")
+    # A key for the MCP server is the console's to give, not a member's.
+    signed = asking.authorised() and asking.may(accounts.ADMIN)
+    needs = "" if signed else ("password" if console.entry else "token")
     page = consent_page(language, asked, params, needs, said).encode()
     # The client that opened this page waits for its answer — in the
     # window it opened, as often as not: that one is not severed from it.
@@ -1343,7 +1492,7 @@ def consent(request: Request) -> Response:
             asked.redirect_uri, error="access_denied", state=asked.state, iss=base
         )
         return _send(302, b"", "text/plain", {"Location": location})
-    if not asking.authorised():
+    if not (asking.authorised() and asking.may(accounts.ADMIN)):
         # As signing in does: counted before it is checked — see `attempts`.
         knocker = asking.knocker()
         if wait := console.attempts.admit(knocker):

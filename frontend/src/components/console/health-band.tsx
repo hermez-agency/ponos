@@ -10,6 +10,7 @@ import type { HealthCheck, HealthReport } from "@/lib/types"
 import { counted, useFrench, useLanguage, useT } from "@/lib/i18n"
 import { count } from "@/lib/numbers"
 import { cn } from "@/lib/utils"
+import { isAdmin } from "@/lib/role"
 
 import { ConfirmDialog } from "./confirm-dialog"
 
@@ -215,7 +216,8 @@ function Problem({ check, onFix }: { check: HealthCheck; onFix: (check: HealthCh
                 </a>
               </Button>
             ) : null}
-            {check.fix ? (
+            {/* A fix writes the configuration: an admin's. */}
+            {check.fix && isAdmin() ? (
               <ConfirmDialog
                 title={t("Configure automatically?")}
                 description={t(check.fix.confirm, params)}

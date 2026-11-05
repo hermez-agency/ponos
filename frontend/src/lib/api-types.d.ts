@@ -4,6 +4,60 @@
  */
 
 export interface paths {
+    "/api/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Me */
+        get: operations["me_api_me_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Account List
+         * @description The console's own sign-in first, then every account, and the links not yet taken.
+         */
+        get: operations["account_list_api_accounts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tickets/{ticket_id}/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ticket Audit */
+        get: operations["ticket_audit_api_tickets__ticket_id__audit_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/state": {
         parameters: {
             query?: never;
@@ -1079,6 +1133,80 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Invite
+         * @description Draw a link for one account of `role`: given here once, kept only as its digest.
+         */
+        post: operations["invite_api_invitations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/invitations/{number}/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Withdraw Invitation */
+        post: operations["withdraw_invitation_api_invitations__number__delete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/accounts/{number}/role": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Change Role */
+        post: operations["change_role_api_accounts__number__role_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/accounts/{number}/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete Account
+         * @description An account gone, and every browser signed into it with it — see `sessions.holder`.
+         */
+        post: operations["delete_account_api_accounts__number__delete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tickets": {
         parameters: {
             query?: never;
@@ -1677,6 +1805,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/invite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept Invitation
+         * @description An invitation taken: its account made, and this browser signed into it.
+         *
+         *     Counted as a password is — a code is guessed the same way — and refused
+         *     unseen while the address waits.
+         */
+        post: operations["accept_invitation_api_invite_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/setup": {
         parameters: {
             query?: never;
@@ -1845,6 +1996,20 @@ export interface components {
             accepted: string[];
             ffmpeg: boolean;
         };
+        Account: {
+            /** @description 0 for the console's own sign-in, which is no row of the table. */
+            id: number;
+            email: string;
+            name: string;
+            /** @enum {string} */
+            role: "reader" | "member" | "admin";
+            created: string;
+            owner: boolean;
+        };
+        Accounts: {
+            accounts: components["schemas"]["Account"][];
+            invitations: components["schemas"]["Invitation"][];
+        };
         /** @description One AG-UI event of a turn of the workspace, for the page's `useChat`. */
         AguiEvent: {
             event: {
@@ -1859,6 +2024,20 @@ export interface components {
             kind: "image" | "video" | "document";
             type: string;
             size: number;
+        };
+        /** @description What was done to one ticket from the console, by whom, newest first. */
+        Audit: {
+            entries: components["schemas"]["AuditEntry"][];
+        };
+        AuditEntry: {
+            at: string;
+            /** @description The name, as it was then; empty for the token. */
+            who: string;
+            email: string;
+            /** @enum {string} */
+            action: "created" | "moved" | "told" | "decided" | "priority" | "on" | "goal";
+            /** @description The column moved to, the choice made, the priority set. */
+            detail: string;
         };
         /** @description The bell as the stream says it — a state, replayed to every tab that connects. */
         Bell: {
@@ -2789,6 +2968,27 @@ export interface components {
             name: string;
             reason: string;
         };
+        /** @description An invitation nobody has taken yet — never its link, which is seen once. */
+        Invitation: {
+            id: number;
+            /** @enum {string} */
+            role: "reader" | "member" | "admin";
+            /** @description The name of who drew it. */
+            by: string;
+            created: string;
+            expires: string;
+        };
+        Invite: {
+            /** @default member */
+            role: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /** @description An invitation drawn: the link to copy, the only time it is given. */
+        Invited: {
+            link: string;
+            invitation: components["schemas"]["Invitation"];
+        };
         Line: {
             /** @default  */
             line: string;
@@ -2866,6 +3066,18 @@ export interface components {
             code: string;
             status: number;
             seen?: string;
+        };
+        /** @description Who this browser is signed in as, and what it may do — see `web/accounts.py`. */
+        Me: {
+            /** @description Empty for the token, which is the machine rather than somebody. */
+            email: string;
+            name: string;
+            /** @enum {string} */
+            role: "reader" | "member" | "admin";
+            /** @description The console's own sign-in, or the token: the first admin, never deleted. */
+            owner: boolean;
+            /** @description Somebody besides the console's own sign-in has an account. */
+            shared: boolean;
         };
         Message: {
             /**
@@ -3286,6 +3498,12 @@ export interface components {
             name: string;
             path: string;
             remote: string;
+        };
+        Role: {
+            /** @default  */
+            role: string;
+        } & {
+            [key: string]: unknown;
         };
         /** @description One run of a ticket, as the local journal keeps it — see `journal.py`. */
         Run: {
@@ -4321,6 +4539,77 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    me_api_me_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+        };
+    };
+    account_list_api_accounts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Accounts"];
+                };
+            };
+        };
+    };
+    ticket_audit_api_tickets__ticket_id__audit_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ticket_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Audit"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     state_api_state_get: {
         parameters: {
             query?: never;
@@ -6586,6 +6875,136 @@ export interface operations {
             };
         };
     };
+    invite_api_invitations_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["Invite"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Invited"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    withdraw_invitation_api_invitations__number__delete_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ok"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_role_api_accounts__number__role_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["Role"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Account"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_account_api_accounts__number__delete_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Account"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     create_ticket_api_tickets_post: {
         parameters: {
             query?: never;
@@ -7639,6 +8058,41 @@ export interface operations {
         };
     };
     login_api_login_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ok"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    accept_invitation_api_invite_post: {
         parameters: {
             query?: never;
             header?: never;

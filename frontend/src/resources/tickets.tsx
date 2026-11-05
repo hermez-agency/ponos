@@ -100,6 +100,7 @@ import {
 } from "@/lib/selection-store"
 import type { ColumnKey, Ticket, TicketDetail } from "@/lib/types"
 import { cn } from "@/lib/utils"
+import { canAct, readOnly } from "@/lib/role"
 
 /* The tickets, declared once for react-resource-view.
  *
@@ -578,16 +579,19 @@ const TicketCardBody = React.memo(function TicketCardBody({
         selected && "bg-primary/5 ring-primary ring-2 ring-inset"
       )}
     >
-      <Checkbox
-        data-slot="card-select"
-        checked={selected}
-        aria-label={t("Select “{{title}}”", { title: ticket.title })}
-        tabIndex={selecting ? 0 : -1}
-        className={cn(
-          "bg-background absolute top-3 right-3 z-10",
-          !selecting && "opacity-0 group-hover/card:opacity-100 focus-visible:opacity-100 pointer-coarse:hidden"
-        )}
-      />
+      {/* Picking cards is for acting on them: a reader has nothing to act with. */}
+      {canAct() ? (
+        <Checkbox
+          data-slot="card-select"
+          checked={selected}
+          aria-label={t("Select “{{title}}”", { title: ticket.title })}
+          tabIndex={selecting ? 0 : -1}
+          className={cn(
+            "bg-background absolute top-3 right-3 z-10",
+            !selecting && "opacity-0 group-hover/card:opacity-100 focus-visible:opacity-100 pointer-coarse:hidden"
+          )}
+        />
+      ) : null}
       {/* Given up on: still read, struck through, the way a list crosses out
           what it no longer means to do. */}
       <Link
@@ -891,7 +895,7 @@ function BoardColumn({
   // The column's box picks every card it draws — those a search kept, and no
   // more than the page shown. Next to its name while cards are being picked,
   // on hover otherwise.
-  const select = ids.length ? (
+  const select = ids.length && canAct() ? (
     <Checkbox
       data-slot="column-select"
       checked={state}
@@ -1167,7 +1171,7 @@ function BoardColumns({ rows: all = [] }: ListComponentPropsInterface) {
           </div>
         ) : null}
       </div>
-      {selecting ? (
+      {selecting && canAct() ? (
         <React.Suspense fallback={null}>
           <LazyBulkBar />
         </React.Suspense>
@@ -1395,7 +1399,7 @@ const options: ResourceDefinition<TicketItem, TicketWrite> = {
   // makes a card draggable, and writes its drop, only where a ticket may be
   // updated. There is no form to edit one with (no `update` view): moving a
   // card is the only update the board makes (see `updateItem`).
-  permissions: { delete: false, export: false },
+  permissions: { delete: false, export: false, ...readOnly() },
 
   repository: {
     // The rows are the stream's; asking Notion again here would be asking it
