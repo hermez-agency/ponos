@@ -31,6 +31,8 @@ export const HEALTH_FRENCH: Record<string, string> = {
     "aucun ticket ne peut être retenu jusqu'à une date",
   "a ticket held back by the credit does not say so":
     "un ticket retenu par le crédit ne le dit pas",
+  "no ticket can ask for a plan before its code is written":
+    "aucun ticket ne peut demander un plan avant que son code soit écrit",
   "no agent, and so no role, per ticket":
     "pas d'agent, donc pas de rôle, par ticket",
   "the kind a ticket was classified as is not kept on the board":

@@ -709,6 +709,10 @@ SECTIONS: tuple[Section, ...] = (
                     "Waiting for credit",
                     "Ticked while the subscription limit is reached.",
                 ),
+                "plan": (
+                    "Plan first",
+                    "Ticked, the first session proposes a plan and waits for a yes.",
+                ),
                 "role": ("Agent", "Relation to the Agents database: who handles the ticket."),
                 "goal": ("Goal", "Relation to the Goals database: what the ticket is for."),
                 "after": (

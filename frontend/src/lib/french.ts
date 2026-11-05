@@ -1317,6 +1317,9 @@ export const FRENCH: Record<string, string> = {
   "Claude Code": "Claude Code",
   "Client": "Client",
   "Worktree setup": "Préparation du worktree",
+  "Plan first": "Plan d'abord",
+  "The first session proposes a plan and waits for your yes before writing any code.":
+    "La première session propose un plan et attend votre oui avant d'écrire du code.",
   "Before and after": "Avant et après",
   Before: "Avant",
   After: "Après",

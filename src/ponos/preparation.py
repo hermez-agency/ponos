@@ -33,7 +33,9 @@ from . import (
     kinds,
     models,
     naming,
+    planning,
     priority,
+    project_settings,
     provider,
     session,
     state,
@@ -69,6 +71,7 @@ class Preparation(Base):
         job = self._job(ticket, project, body, short, kind, reference, subtype)
         if note:
             job.notes.append(note)
+        self._planning(ticket, job)
         if not self._settle_model(ticket, job):
             return None
         self._say_job(ticket, job)
@@ -204,6 +207,44 @@ class Preparation(Base):
             subtype=subtype,
         )
 
+    def _planning(self, ticket: Ticket, job: Job) -> None:
+        """Whether the job only plans, carries out a plan approved, or neither.
+
+        A plan proposed on the ticket comes first: a yes carries it out — so
+        does a box unticked by hand since, which is how somebody says “never
+        mind the plan, go” — and any other answer has the next session plan
+        again, amended. Then the box itself. Then the project's rule, on a
+        ticket's first run only: one that already reported has been planned or
+        has run, and a yes is not to be taken back by the next claim. Only a
+        code ticket plans first: what is held back is code being written.
+        """
+        if not job.project.is_code:
+            return
+        column = self.plan_flag()
+        try:
+            comments = self.comments(ticket.page.id)
+        except store.StoreError:
+            comments = []
+        pending = planning.pending(comments, self.myself())
+        if pending:
+            unticked = bool(column) and not planning.ticked(ticket.page, column)
+            if pending.approved or unticked:
+                job.planning, job.plan, job.answer = "carry", pending.plan, pending.answer
+                job.notes.append(self.voice.say("plan-approved"))
+            else:
+                job.planning, job.plan = "propose", pending.plan
+            return
+        if planning.ticked(ticket.page, column):
+            job.planning = "propose"
+            return
+        if planning.reported(comments):
+            return
+        rule = project_settings.plan(job.project.notion_id)
+        score = priority.score(store.read(ticket.page, self.config.notion.prop("priority")))
+        if rule and rule.applies(score, job.subtype):
+            job.planning = "propose"
+            job.notes.append(self.voice.say("plan-ticked"))
+
     def _settle_model(self, ticket: Ticket, job: Job) -> bool:
         """The model the job runs on, chosen when nobody wrote one — False, failed, when unusable."""
         agent = job.agent
@@ -270,6 +311,7 @@ class Preparation(Base):
                 self.config.notion.prop("session"): self._session_value(
                     job.session_id, job.project.path
                 ),
+                **self._plan_box(ticket, job),
             },
         )
         if not claimed:
@@ -277,6 +319,18 @@ class Preparation(Base):
             # the answer, so no failure is written over it — only the log.
             self.say(f"    · {ticket.title} — not started: it left ready before its claim")
         return claimed
+
+    def _plan_box(self, ticket: Ticket, job: Job) -> dict[str, object]:
+        """« Plan d'abord » as the claim leaves it: unticked once a plan is
+        approved, ticked when the project's rule asked for one — and left
+        alone, unwritten, when it already says so."""
+        column = self.plan_flag()
+        if not column:
+            return {}
+        wanted = job.planning == "propose"
+        if job.planning == "carry" or (wanted and not planning.ticked(ticket.page, column)):
+            return {column: wanted}
+        return {}
 
     def _written_model(self, ticket: Ticket) -> str:
         """The model somebody wrote on the ticket — not the one this runner did.

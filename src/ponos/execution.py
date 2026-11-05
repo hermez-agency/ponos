@@ -40,8 +40,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from . import config as config_module
 from . import (
+    blocks,
     generated,
     git,
     github_issues,
@@ -49,6 +49,7 @@ from . import (
     journal,
     kinds,
     local_ci,
+    planning,
     preview,
     progress,
     project_settings,
@@ -61,6 +62,7 @@ from . import (
     vault,
     worktree_setup,
 )
+from . import config as config_module
 from . import prompt as prompt_module
 from . import voice as voice_module
 from .base import Base
@@ -278,7 +280,16 @@ class Execution(Base):
             + (f"- {job.prepared}\n" if job.prepared else ""),
             secrets=sorted(job.secrets),
             workers=self.workers,
-        )
+        ) + (self._planned(job) if subtype else "")
+
+    @staticmethod
+    def _planned(job: Job) -> str:
+        """What a ticket ticked « Plan d'abord » adds to its prompt, last — see planning.py."""
+        if job.planning == "propose":
+            return "\n\n" + planning.propose_prompt(amending=job.plan)
+        if job.planning == "carry" and job.plan:
+            return "\n\n" + planning.approved_prompt(job.plan, job.answer)
+        return ""
 
     def _launch(
         self,
@@ -463,7 +474,10 @@ class Execution(Base):
             cwd=job.workdir,
             log=log,
             model=model,
-            permission_mode=self.config.runner.permission_mode,
+            # A session that only plans cannot write, whatever the runner's mode.
+            permission_mode=planning.PERMISSION_MODE
+            if job.planning == "propose"
+            else self.config.runner.permission_mode,
             timeout_minutes=self.config.runner.timeout_minutes,
             session_id=job.session_id,
             resume=job.resume,
@@ -683,6 +697,9 @@ class Execution(Base):
                 home=job.session_home or job.project.path,
             )
 
+        if job.planning == "propose" and (proposed := self._plan_proposed(job, outcome)):
+            return proposed
+
         if _answered_anyway(job, outcome) and git.commits_ahead(job.workdir, job.base):
             # The work is committed and nothing was asked: it goes to review
             # with its pull request, the answer in its report — see
@@ -716,6 +733,40 @@ class Execution(Base):
                     self._attach_previews(job, pull_request)
 
         return self._code_delivered(job, outcome, commits, pull_request)
+
+    def _plan_proposed(self, job: Job, outcome: session.Outcome) -> dict[str, Any] | None:
+        """A planning session's plan, asked about — None when it wrote none.
+
+        The question is the runner's, not the session's: always the same
+        yes-no, so that a yes is read as the plan approved (see planning.py),
+        and the plan goes last in the report, under its heading, where it is
+        read back from. A session that wrote no plan — it asked something
+        instead, or was cut short — goes the ordinary way. Nothing is kept of
+        its worktree: plan mode wrote nothing in it.
+        """
+        plan = planning.written(outcome.answer)
+        if not plan or outcome.killed or outcome.over_budget:
+            return None
+        assert job.project.path is not None
+        said = self.voice
+        git.remove_worktree(job.project.path, job.workdir)
+        self.say("    · plan proposed — waiting for a yes before any code")
+        asked = Question(
+            ask=said.say("plan-ask"),
+            mode="yes-no",
+            done=said.say("plan-done"),
+            why=said.say("plan-why"),
+            category="question",
+        )
+        return self._fail(
+            job.ticket,
+            said.say(blocks.cause("session.question").said[0]),
+            code="session.question",
+            blocked=True,
+            question=asked,
+            note=f"{said.say('plan-heading')}\n\n{planning.clipped(plan)}",
+            outcome=outcome,
+        )
 
     def _prepare_worktree(self, job: Job) -> dict[str, Any] | None:
         """The project's setup command, run in the fresh worktree before any session.

@@ -14,6 +14,7 @@ import { Kbd } from "@/components/console/confirm-dialog"
 import { every } from "@/components/console/runner-strip"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { useConsole } from "@/hooks/use-console"
 import { api } from "@/lib/api"
 import { useBoard } from "@/lib/board-store"
@@ -185,6 +186,28 @@ export const GoalInputController: InputControllerComponentInterface = (props) =>
   return <ComboboxInputController {...props} formInput={{ ...props.formInput, valueOptions }} />
 }
 
+/* « Plan d'abord »: a box and what ticking it does, said beside it — the
+ * first session only plans, and the code waits for a yes. */
+export const PlanInputController: InputControllerComponentInterface = ({ formInput, onChange }) => {
+  const id = formInput.id ?? "field-plan"
+  return (
+    <div className="flex items-start gap-2.5" data-slot="plan-input">
+      <Checkbox
+        id={id}
+        className="mt-0.5"
+        checked={formInput.value === true}
+        onCheckedChange={(checked) => onChange({ ...formInput, value: checked === true })}
+      />
+      <label htmlFor={id} className="flex flex-col gap-0.5 text-sm leading-snug">
+        <span className="font-medium">{t("Plan first")}</span>
+        <span className="text-muted-foreground text-xs">
+          {t("The first session proposes a plan and waits for your yes before writing any code.")}
+        </span>
+      </label>
+    </div>
+  )
+}
+
 /* -- the dialog's two columns ------------------------------------------------ */
 
 /* What the buttons under the brief add to it: the two things a brief most
@@ -284,6 +307,8 @@ export function NewTicketFields() {
           {field("type")}
           {code ? field("subtype") : null}
           {field("priority")}
+          {/* A code ticket's, like the sub-type: an empty type may turn out to be code. */}
+          {code || !type ? field("plan") : null}
           {field("model")}
           {estimate ? (
             <p className="text-xs">

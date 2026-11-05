@@ -243,6 +243,9 @@ def tickets_schema(
         # where an option on a real `status` cannot. So the whole wait lands on
         # an old board by running `init` again, rather than by being typed in.
         settings.prop("waiting"): {"checkbox": {}},
+        # Ticked, the first session proposes a plan and waits for a yes before
+        # writing any code: see planning.py.
+        settings.prop("plan"): {"checkbox": {}},
         # The road a ticket takes. Optional, and empty until somebody — or the
         # runner, before the ticket runs — says which: see kinds.py.
         settings.prop("type"): type_select(settings),

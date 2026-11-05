@@ -88,6 +88,7 @@ COLUMNS: dict[str, tuple[tuple[str, ...], str]] = {
     "progress": (("rich_text",), "nothing says what a session is doing while it runs"),
     "due": (("date",), "no ticket can be held until a date"),
     "waiting": (("checkbox",), "a ticket held back by the credit does not say so"),
+    "plan": (("checkbox",), "no ticket can ask for a plan before its code is written"),
     "role": (("relation",), "no agent, and so no role, per ticket"),
     "type": (("select",), "the kind a ticket was classified as is not kept on the board"),
     "block": (

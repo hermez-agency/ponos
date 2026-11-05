@@ -1063,6 +1063,29 @@ class _DraftClient(_ColumnsClient):
         return "f" * 32
 
 
+class _PlanClient(_DraftClient):
+    """The same database, with its « Plan d'abord » box."""
+
+    def schema(self, database: str) -> dict[str, str]:
+        return {**super().schema(database), "Plan d'abord": "checkbox"}
+
+
+@case
+def a_new_ticket_planned_first_is_ticked_only_where_it_may_be_code() -> None:
+    """« Plan d'abord » from New ticket: written on a code ticket, or one not typed yet."""
+    api = _bare_api(_PlanClient(["Ready"]))
+    assert api._runner is not None
+    api._runner._workspace = type("W", (), {"goals": "", "projects": "", "tickets": "db"})()
+    api.watch = type("W", (), {"nudge": lambda self: None})()
+    api.create_ticket("Refondre l'entête", plan=True)
+    api.create_ticket("Refondre le cache", kind="code", plan=True)
+    api.create_ticket("Écrire l'édito", kind="writing", plan=True)
+    api.create_ticket("Corriger une coquille")
+    created = cast(_PlanClient, api._runner.client).created
+    assert [values.get("Plan d'abord") for _, values in created] == [True, True, None, None]
+    assert api._runner.plan_flag() == "Plan d'abord"
+
+
 @case
 def a_ticket_with_no_status_is_a_draft_whether_or_not_the_board_names_them() -> None:
     """Master Tickets has a `draft` option; the console put those under "No status".

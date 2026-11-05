@@ -1932,6 +1932,8 @@ export interface components {
             choices?: components["schemas"]["TicketChoices"];
             /** @description Whether this board has a priority column to write a score in. */
             priority?: boolean;
+            /** @description Whether this board has a « Plan d'abord » checkbox to tick on a new ticket. */
+            plan?: boolean;
             /** @description The sub-types of a code ticket, in the order they are offered. */
             subtypes?: components["schemas"]["Subtype"][];
             /**
@@ -2951,6 +2953,8 @@ export interface components {
             on: string;
             /** @default  */
             goal: string;
+            /** @default false */
+            plan: boolean;
         } & {
             [key: string]: unknown;
         };
@@ -3216,6 +3220,15 @@ export interface components {
             /** @description Why it cannot be turned on here, or empty when it can. */
             unavailable: string;
         };
+        /** @description When the project's tickets are ticked « Plan d'abord » by themselves — see planning.py. */
+        ProjectPlan: {
+            /** @description The lowest priority score planned first; none for no threshold. */
+            priority: number | null;
+            /** @description The sub-types always planned first, by key. */
+            subtypes: string[];
+            /** @description Whether the board has the checkbox to tick. */
+            column: boolean;
+        };
         /** @description What is started to photograph a project's pages — see preview.py; empty, nothing is. */
         ProjectPreview: {
             command: string;
@@ -3233,6 +3246,7 @@ export interface components {
             /** @description The command run in each fresh worktree before its session; empty, the repository's `.ponos/setup.sh` if any. */
             setup: string;
             preview: components["schemas"]["ProjectPreview"];
+            plan: components["schemas"]["ProjectPlan"];
         };
         Projects: {
             projects: components["schemas"]["Project"][];

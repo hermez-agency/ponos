@@ -341,6 +341,33 @@ Nothing is ever merged behind your back. The decision is yours; only its consequ
 not — and if you would rather not make the merge itself either, the next column takes it
 off your hands.
 
+## Plan first: a plan and a yes before any code
+
+A big ticket misread is found out late, and paid for in full. So a code ticket can ask to be
+**planned first**: tick **`Plan d'abord`** on it — the box of the board, the
+`Plan d'abord: true` of a Markdown ticket, or the box of the console's *New ticket*.
+
+- **Its first session only plans.** It runs in Claude Code's plan mode
+  (`--permission-mode plan`): it reads the repository, it cannot write — no file changed,
+  no commit, no pull request. It writes its plan — the steps, the files it will touch, the
+  risks, its estimate of the cost — and the ticket goes to *Blocked* (`session.question`)
+  on one yes-no question, « Je lance ce plan ? », the plan in the report under it.
+- **A yes runs it.** Answered where any question is — the Yes button of the console,
+  Telegram, Slack, or a comment that opens on « oui », « ok », “yes” — the ticket runs
+  again the ordinary way, the approved plan in its prompt, and the box is unticked. What
+  you wrote after the yes (« oui, mais sans la migration ») travels with the plan.
+- **Anything else amends it.** A sentence, or a no, and the next session plans again with
+  your answer — and asks again. Unticking the box by hand before answering is a way of
+  saying « go »: the plan proposed is carried out.
+- **A session that cannot plan** — the ticket is too unclear — asks its own question
+  instead, the usual way, and plans once it is answered.
+
+A project can tick it for its own tickets, in its **Settings** tab in the console:
+**from a priority** (every ticket at or above that score) and **for some sub-types**
+(every Refactor, say). Only on a ticket's first run — a ticket that already reported has
+been planned, or has run, and a yes is not taken back by the next claim. Without the
+column on the board the rule still plans those tickets; there is only no box to show it.
+
 ## A ticket that comes after another
 
 A series made ready at once — the eight steps of a migration, the tickets that all need one

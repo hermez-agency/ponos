@@ -28,4 +28,5 @@ export const SegmentedInputController = lazily("SegmentedInputController") as In
 export const PillsInputController = lazily("PillsInputController") as InputControllerComponentInterface
 export const ProjectInputController = lazily("ProjectInputController") as InputControllerComponentInterface
 export const GoalInputController = lazily("GoalInputController") as InputControllerComponentInterface
+export const PlanInputController = lazily("PlanInputController") as InputControllerComponentInterface
 export const WithProjects = lazily("WithProjects")

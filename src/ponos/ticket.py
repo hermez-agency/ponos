@@ -85,6 +85,13 @@ class Job:
     # The project's secrets, read from `[vault]` once per session and handed to
     # it as environment variables — see vault.py. Never written anywhere.
     secrets: dict[str, str] = field(default_factory=dict)
+    # « Plan d'abord » — see planning.py. "propose" for a session that only
+    # plans (and `plan` holds the one it amends, if any), "carry" for one that
+    # carries out the plan approved in `plan`, with the `answer` that approved
+    # it; "" for an ordinary session.
+    planning: str = ""
+    plan: str = ""
+    answer: str = ""
 
 
 def short_id(page_id: str) -> str:

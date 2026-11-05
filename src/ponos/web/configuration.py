@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .. import idea_schedule, local_ci, preview, project_settings, store
+from .. import idea_schedule, local_ci, planning, preview, project_settings, store, subtypes
 from .. import kinds as kinds_module
 from . import settings as settings_module
 from .base import Base
@@ -90,6 +90,16 @@ class Configuration(Base):
                 **project_settings.preview(bare).as_dict(),
                 "chrome": bool(preview.chrome()),
             },
+            "plan": self._project_plan(bare),
+        }
+
+    def _project_plan(self, bare: str) -> dict[str, Any]:
+        """The project's rule for « Plan d'abord », and whether the board can tick the box."""
+        rule = project_settings.plan(bare)
+        return {
+            "priority": rule.priority,
+            "subtypes": list(rule.subtypes),
+            "column": bool(self.runner.plan_flag()),
         }
 
     def _project_local_ci(self, bare: str) -> dict[str, Any]:
@@ -137,7 +147,19 @@ class Configuration(Base):
         checking = payload.get("local_ci")
         preparing = payload.get("setup")
         photographing = payload.get("preview")
-        if validation is None and isinstance(photographing, dict):
+        planned = payload.get("plan")
+        if validation is None and isinstance(planned, dict):
+            threshold = planned.get("priority")
+            if threshold is not None and (
+                isinstance(threshold, bool)
+                or not isinstance(threshold, int)
+                or not 0 <= threshold <= 100
+            ):
+                raise ValueError("a priority is a number from 0 to 100, or none")
+            chosen = planned.get("subtypes", [])
+            if not isinstance(chosen, list) or any(key not in subtypes.KEYS for key in chosen):
+                raise ValueError("say which sub-types are planned first")
+        elif validation is None and isinstance(photographing, dict):
             if not all(
                 isinstance(photographing.get(name), str) for name in ("command", "url")
             ) or not isinstance(photographing.get("pages"), list):
@@ -198,6 +220,8 @@ class Configuration(Base):
             project_settings.set_setup(bare, name, preparing["command"])
         if isinstance(photographing, dict):
             project_settings.set_preview(bare, name, preview.parse(photographing))
+        if isinstance(planned, dict):
+            project_settings.set_plan(bare, name, planning.rule(planned))
         self.hub.publish("settings", project=bare)
         return self.project_settings(bare)
 

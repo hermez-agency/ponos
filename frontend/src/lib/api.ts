@@ -212,10 +212,12 @@ export const api = {
     subtype?: string
     /** The page of the goal it serves; empty for none. */
     goal?: string
+    /** « Plan d'abord »: its first session proposes a plan and waits for a yes. */
+    plan?: boolean
   }) =>
     answer(
       client.POST("/api/tickets", {
-        body: { priority: "", type: "", model: "", subtype: "", on: "", goal: "", ...ticket },
+        body: { priority: "", type: "", model: "", subtype: "", on: "", goal: "", plan: false, ...ticket },
       })
     ),
   /** `from` is the status the card showed: Notion saying anything else by the
@@ -312,6 +314,7 @@ export const api = {
       local_ci?: { enabled: boolean; command: string }
       setup?: { command: string }
       preview?: { command: string; url: string; pages: string[] }
+      plan?: { priority: number | null; subtypes: string[] }
     }
   ) =>
     answer(
