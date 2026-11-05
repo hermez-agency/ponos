@@ -754,6 +754,28 @@ class Tickets(Base):
         self.runner.client.update(self.runner.database, page_id, {name: prompt.strip()})
         return {"id": page_id.replace("-", ""), "on": prompt.strip()}
 
+    def set_priority(self, page_id: str, priority: int | str) -> dict[str, Any]:
+        """Give a ticket another score: the board's bulk gesture, one ticket at a time.
+
+        Straight to the board, as `set_on`: the outbox orders the moves of a
+        status, and a score is a value nobody else is writing at the same time.
+        The page read back is held, so the board the stream sends next already
+        says the new score rather than the old one for a pass.
+        """
+        score = priority_module.given(priority)
+        if not self._scored():
+            name = self.config.notion.prop("priority")
+            raise ValueError(f"this board has no “{name}” column to write a priority in")
+        client = self.runner.client
+        client.update(
+            self.runner.database,
+            page_id,
+            {self.config.notion.prop("priority"): self.runner.priority_cell(score)},
+        )
+        self.reader.hold(client.page(page_id))
+        self.watch.nudge()
+        return {"id": page_id.replace("-", ""), "priority": score}
+
     def transitions(self, page_id: str) -> dict[str, Any]:
         """The executions of one ticket's « On » prompt, newest first."""
         return {"transitions": transitions_module.history(page_id)}

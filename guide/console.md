@@ -107,6 +107,23 @@ there stays in sight, wherever the queue ranks it. Seven columns do not fit a la
 edge with more beyond it shows a fade and an arrow. The *table* tab shows the same tickets
 as rows, one column per property.
 
+**Several cards at once.** An audit writes thirty drafts in one go, and launching them one
+card at a time was thirty clicks and thirty confirmations. Hover a card and tick the box in
+its corner — on a phone, press and hold the card — and the board is picking: a click (a tap)
+on any card picks it instead of opening it, **Shift**+click picks every card between it and
+the last one picked, and the box beside a column's name picks every card the column draws
+(those the search kept, as far as *Show more* went). A bar along the bottom acts on them all:
+**Make ready** — drafts, failed runs, and tickets set aside by hand; a ticket blocked on a
+question waits for its answer —, **Set aside** for the *Ready* ones, **Priority** (a score
+from 0 to 100, where the board has the column), **Goal** (or none), and **Give up**, into
+*Cancelled*, for anything the runner does not have in hand. Each gesture takes only the
+cards it applies to and says how many when that is not all of them. Launching asks once, for
+the lot: how many sessions start, what they are likely to cost — the sum of the
+[estimates](credits.md#before-a-ticket-starts-the-estimate) there are, those without one counted apart — and their titles. Giving
+up asks once too; the other three are done at once, as on a card. Ten drafts are launched in
+four gestures: a box, a Shift+click, *Make ready*, Enter. Escape or the **×** lets the
+selection go. The priority is written by `POST /api/tickets/<id>/priority` (`{"priority": 80}`).
+
 **A search bar sits over the columns**, the same on a project's *Tickets* tab. Its field
 looks for every word typed, in any order, case and accents set aside, in the title, the
 runner's line on the card (the RESULT a run ended with), the pull request's address — so

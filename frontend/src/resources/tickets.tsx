@@ -69,6 +69,7 @@ import {
   useTicketFilter,
 } from "@/components/console/ticket-search"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { ApiError, api } from "@/lib/api"
 import { optimistic } from "@/lib/optimistic"
@@ -83,10 +84,19 @@ import {
   titleOf,
   useBoard,
 } from "@/lib/board-store"
-import { counted, t } from "@/lib/i18n"
+import { counted, t, useT } from "@/lib/i18n"
 import { money } from "@/lib/numbers"
 import { DEFAULT_SCORE, readScore } from "@/lib/priority"
 import { layoutOf, useLayoutInTheAddress, useRememberedLayout } from "@/lib/resource-view"
+import { columnState } from "@/lib/bulk"
+import {
+  clearSelection,
+  pick,
+  pickAll,
+  useSelected,
+  useSelecting,
+  useSelection,
+} from "@/lib/selection-store"
 import type { ColumnKey, Ticket, TicketDetail } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
@@ -498,6 +508,12 @@ const rowForm: FormInterface = {
  * and 1 800 cards drawn again held the click for a second and a half before
  * the window showed (`scripts/measure-board.mjs`). The words and the way in
  * stay the same objects for as long as they say the same thing.
+ *
+ * A card is also picked, for the bar that acts on several at once (see
+ * `bulk-bar.tsx`): by its box, in its top corner on hover — or, on a touch
+ * screen with no hover, by a long press. Once one card is picked, a click
+ * anywhere on any card picks it rather than opening it or pressing its
+ * buttons, and Shift picks the run of cards from the one picked last.
  */
 function TicketCard({ row }: RowComponentPropsInterface) {
   const ticket = row?.data as TicketItem | undefined
@@ -519,12 +535,47 @@ const TicketCardBody = React.memo(function TicketCardBody({
   open: (event: React.MouseEvent<HTMLElement>) => void
 }) {
   const href = ticketHref(ticket.id)
+  const t = useT()
+  const selected = useSelected(ticket.id)
+  const selecting = useSelecting()
+  const press = useLongPress(ticket.id)
+
+  // While cards are being picked, a click is a pick, wherever it lands on the
+  // card: caught on the way down, before the title's link or a button hears it.
+  const onClickCapture = (event: React.MouseEvent<HTMLDivElement>) => {
+    const onBox = (event.target as Element).closest("[data-slot=card-select]")
+    if (press.swallow()) {
+      event.preventDefault()
+      event.stopPropagation()
+      return
+    }
+    if (!onBox && !selecting) return
+    event.preventDefault()
+    event.stopPropagation()
+    pick(ticket.id, orderAround(event.currentTarget), event.shiftKey)
+  }
 
   return (
     <div
       data-ticket-card={ticket.id}
-      className="-m-4 flex min-w-0 flex-col gap-2 rounded-2xl p-3 [contain-intrinsic-size:auto_9rem] [content-visibility:auto]"
+      data-selected={selected || undefined}
+      onClickCapture={onClickCapture}
+      {...press.handlers}
+      className={cn(
+        "group/card relative -m-4 flex min-w-0 flex-col gap-2 rounded-2xl p-3 [contain-intrinsic-size:auto_9rem] [content-visibility:auto] [-webkit-touch-callout:none] pointer-coarse:select-none",
+        selected && "bg-primary/5 ring-primary ring-2 ring-inset"
+      )}
     >
+      <Checkbox
+        data-slot="card-select"
+        checked={selected}
+        aria-label={t("Select “{{title}}”", { title: ticket.title })}
+        tabIndex={selecting ? 0 : -1}
+        className={cn(
+          "bg-background absolute top-3 right-3 z-10",
+          !selecting && "opacity-0 group-hover/card:opacity-100 focus-visible:opacity-100 pointer-coarse:hidden"
+        )}
+      />
       {/* Given up on: still read, struck through, the way a list crosses out
           what it no longer means to do. */}
       <Link
@@ -534,6 +585,7 @@ const TicketCardBody = React.memo(function TicketCardBody({
         draggable={false}
         className={cn(
           "text-[0.93rem] leading-snug font-semibold break-words hover:underline",
+          selecting && "pe-6",
           ticket.column === "cancelled" && "text-muted-foreground line-through"
         )}
       >
@@ -561,6 +613,62 @@ const TicketCardBody = React.memo(function TicketCardBody({
     </div>
   )
 })
+
+/** The ids of the cards drawn in the column this card is in, in their order: where a Shift-click runs. */
+function orderAround(card: Element): string[] {
+  const column = card.closest("[data-board-column]")
+  if (!column) return []
+  return Array.from(column.querySelectorAll("[data-ticket-card]"), (one) => one.getAttribute("data-ticket-card") ?? "")
+}
+
+/* A long press picks a card, on a touch screen — the one gesture a phone has
+ * for « this one, not open it ». A finger that moves is scrolling, and lets go
+ * of it. The click the browser may send when the finger lifts is swallowed:
+ * the card was just picked, not opened. */
+const LONG_PRESS = 450
+
+function useLongPress(id: string) {
+  const timer = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const start = React.useRef<{ x: number; y: number } | null>(null)
+  const fired = React.useRef(false)
+  const stop = () => {
+    clearTimeout(timer.current)
+    start.current = null
+  }
+  React.useEffect(() => () => clearTimeout(timer.current), [])
+  return {
+    swallow: () => {
+      const was = fired.current
+      fired.current = false
+      return was
+    },
+    handlers: {
+      onPointerDown: (event: React.PointerEvent<HTMLDivElement>) => {
+        fired.current = false
+        if (event.pointerType === "mouse") return
+        const card = event.currentTarget
+        start.current = { x: event.clientX, y: event.clientY }
+        clearTimeout(timer.current)
+        timer.current = setTimeout(() => {
+          fired.current = true
+          start.current = null
+          pick(id, orderAround(card))
+          navigator.vibrate?.(10)
+        }, LONG_PRESS)
+      },
+      onPointerMove: (event: React.PointerEvent<HTMLDivElement>) => {
+        const from = start.current
+        if (from && Math.hypot(event.clientX - from.x, event.clientY - from.y) > 10) stop()
+      },
+      onPointerUp: stop,
+      onPointerCancel: stop,
+      // The menu a long press opens on a link would cover the card just picked.
+      onContextMenu: (event: React.MouseEvent<HTMLDivElement>) => {
+        if (fired.current) event.preventDefault()
+      },
+    },
+  }
+}
 
 /* -- the board ------------------------------------------------------------ */
 
@@ -669,11 +777,20 @@ function NoProjectTicket() {
  * In progress is read against the places the runner has — `places`, its
  * `max_concurrent` — as "5/5", and goes amber when the queue is full. A search
  * does not change how full the runner is, so that figure is never the kept one. */
-function heading(key: string, name: string, count?: number, total?: number, series = false, places?: number) {
+function heading(
+  key: string,
+  name: string,
+  count?: number,
+  total?: number,
+  series = false,
+  places?: number,
+  select?: React.ReactNode
+) {
   const filled = total ?? count
   const full = filled !== undefined && places !== undefined && key === "running"
   return (
     <span className="flex items-center gap-2">
+      {select}
       <span className={cn("size-1.5 shrink-0 rounded-full", SEED[key] ?? "bg-muted-foreground")} />
       <span className="truncate">{capital(name)}</span>
       {count === undefined && !full ? null : (
@@ -756,6 +873,24 @@ function BoardColumn({
   }, [rows, column])
   const drawn = mine.filter((row, index) => index < shown || dropped.has(String(row.data?.id)))
   const left = mine.length - drawn.length
+  const ids = drawn.map((row) => String(row.data?.id))
+  const selection = useSelection()
+  const state = columnState(ids, selection)
+  // The column's box picks every card it draws — those a search kept, and no
+  // more than the page shown. Next to its name while cards are being picked,
+  // on hover otherwise.
+  const select = ids.length ? (
+    <Checkbox
+      data-slot="column-select"
+      checked={state}
+      onCheckedChange={() => pickAll(ids)}
+      aria-label={t("Select the column “{{column}}”", { column: capital(label) })}
+      className={cn(
+        "bg-background",
+        !selection.size && "opacity-0 group-hover/column:opacity-100 focus-visible:opacity-100 pointer-coarse:hidden"
+      )}
+    />
+  ) : null
   // The package's column finds the card dropped on it among the rows it is
   // handed, and draws only those of its own column: handed the others too, a
   // card carried from another column is one it knows.
@@ -780,14 +915,18 @@ function BoardColumn({
   return (
     <div
       onDrop={keepDropped}
+      data-board-column={column}
       className={cn(
-        "flex flex-1 basis-0 snap-start flex-col gap-2 *:w-auto *:min-w-0 [&_header>p]:flex-1 [&_header>span]:hidden",
+        "group/column flex flex-1 basis-0 snap-start flex-col gap-2 *:w-auto *:min-w-0 [&_header>p]:flex-1 [&_header>span]:hidden",
         COLUMN_MIN
       )}
     >
       <RowWrapperColumnComponent
         identifierKey="column"
-        valueIdentifier={{ value: column, label: heading(column, label, mine.length, total, series, places) }}
+        valueIdentifier={{
+          value: column,
+          label: heading(column, label, mine.length, total, series, places, select),
+        }}
         isDragging={dragging}
         handleDragging={onDragging}
         rows={carried}
@@ -896,6 +1035,9 @@ function BoardColumns({ rows: all = [] }: ListComponentPropsInterface) {
   const [emptyShown, setEmptyShown] = useEmptyColumnsShown()
   const strip = React.useRef<HTMLDivElement>(null)
   const [more, setMore] = React.useState({ left: false, right: false })
+  const selecting = useSelecting()
+  // What was picked is the board's: left, the board forgets it.
+  React.useEffect(() => clearSelection, [])
 
   const measure = React.useCallback(() => {
     const element = strip.current
@@ -1013,9 +1155,19 @@ function BoardColumns({ rows: all = [] }: ListComponentPropsInterface) {
           </div>
         ) : null}
       </div>
+      {selecting ? (
+        <React.Suspense fallback={null}>
+          <LazyBulkBar />
+        </React.Suspense>
+      ) : null}
     </div>
   )
 }
+
+/* The bar that acts on the cards picked, fetched with the first one (see `bulk-bar.tsx`). */
+const LazyBulkBar = React.lazy(() =>
+  import("@/components/console/bulk-bar").then((module) => ({ default: module.BulkBar }))
+)
 
 /* The table, under the same search bar as the board: the package's own table,
  * handed the rows the search keeps. */
