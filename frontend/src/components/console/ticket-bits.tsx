@@ -333,10 +333,17 @@ export function TicketCi({ ci, detailed = false }: { ci?: Ci | null; detailed?: 
       <span>{CI_WORDS()[ci.state]}</span>
     </Chip>
   )
+  // How many times Ponos handed the CI back to a session, out of what it may.
+  const retried = ci.retries > 0 ? (
+    <span className="text-muted-foreground font-mono text-xs tabular-nums" data-slot="ticket-ci-retries">
+      {t("CI retry {{n}}/{{limit}}", { n: String(ci.retries), limit: String(ci.limit) })}
+    </span>
+  ) : null
   if (!detailed) {
     return (
-      <div className="flex" data-slot="ticket-ci" data-state={ci.state}>
+      <div className="flex flex-wrap items-center gap-1.5" data-slot="ticket-ci" data-state={ci.state}>
         {badge}
+        {retried}
       </div>
     )
   }
@@ -363,6 +370,7 @@ export function TicketCi({ ci, detailed = false }: { ci?: Ci | null; detailed?: 
               {passing}/{ci.checks.length}
             </span>
           ) : null}
+          {retried}
           {!open && failing.length ? (
             <span className="text-tr-red min-w-0 truncate text-xs" data-slot="ticket-ci-failing">
               {failing.map((check) => check.name).join(", ")}

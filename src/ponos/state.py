@@ -598,6 +598,35 @@ def drop_ci(ticket_ids: Iterable[str]) -> None:
         pass
 
 
+def reworks() -> dict[str, tuple[int, bool]]:
+    """{ticket id: (how many times its CI was handed back to a session, base red said)}.
+
+    Empty when the database cannot be read: a counter lost is a ticket sent back
+    once more, which the limit of the config then stops.
+    """
+    try:
+        with db.transaction(immediate=False) as connection:
+            rows = connection.execute("SELECT ticket, count, base_said FROM reworks").fetchall()
+    except db.ERRORS:
+        return {}
+    return {str(ticket).replace("-", ""): (int(count), bool(said)) for ticket, count, said in rows}
+
+
+def keep_rework(ticket_id: str, count: int, base_said: bool) -> None:
+    """Write the counter of that ticket; zero and nothing said is no row at all."""
+    try:
+        with db.transaction() as connection:
+            if count <= 0 and not base_said:
+                connection.execute("DELETE FROM reworks WHERE ticket = ?", (ticket_id,))
+            else:
+                connection.execute(
+                    "INSERT OR REPLACE INTO reworks (ticket, count, base_said) VALUES (?, ?, ?)",
+                    (ticket_id, count, int(base_said)),
+                )
+    except db.ERRORS:
+        pass
+
+
 def _number(value: object) -> float | None:
     try:
         return None if value is None or value == "" else float(value)  # type: ignore[arg-type]

@@ -238,6 +238,28 @@ until the new commit's checks are in. The state is also written to the `CI` sele
 board, so a Notion view can filter on it. A ticket that leaves *In review* is no longer
 followed.
 
+<a id="ci-retries"></a>**A red CI, or a conflict, in review: Ponos takes it back.** On a
+reading that has settled, a ticket in *In review* whose pull request is open and whose checks
+have all stopped with one red — or whose pull request GitHub says no longer merges
+(`CONFLICTING`, `DIRTY`, or `BEHIND` on a branch protection that wants it up to date) — is put
+back in *Ready* by the runner, with a comment that tells the next session to rebase on the
+up-to-date base, resolve the conflicts, read `gh pr checks` and `gh run view --log-failed`,
+fix the real cause (no test disabled, no threshold lowered), push until the CI is green, and
+leave the scope alone. The comment names the failed jobs; the branch is taken up again where it
+is, as for any ticket that returns. It happens at most `review.ci_retries` times (5 by default;
+`0` never retries), counted in `ponos.db` and drawn on the card as « CI retry n/5 ». The counter
+goes back to zero when the CI turns green on a mergeable pull request, and when the ticket is
+validated or merged. The next red after the last retry blocks the ticket on
+`ci.rework-exhausted`, notifies it as a CI one, and offers the usual choices of a failing CI
+(try again, instruct, change the model, abandon) — and the counter starts again for whoever
+answers.
+
+Nothing is retried when the red is not the code's: jobs GitHub never started (the account's
+billing above all), or checks that are red on the base branch too — then the card says so once
+and the ticket waits for the base to be green. Nor for a closed pull request, while a session of
+that run is on the ticket, or while the checks of the last push are still running: a retry is
+only sent on a verdict, never on a pending.
+
 Four of those names are deliberate. *In review* rather than *Done*, because nothing is
 done when the runner lets go of a ticket: a pull request is waiting for a human, and a
 board that calls that *Done* stops being believed by the second week. *Done* is then kept

@@ -737,6 +737,53 @@ _SAID: dict[str, dict[str, str]] = {
         "en": "The resolution is pushed, and the pull request's checks fail on it: {url}",
         "fr": "La résolution est poussée, et les vérifications de la pull request échouent : {url}",
     },
+    "ci-rework": {
+        "en": (
+            "Ponos puts this ticket back in ready — CI retry {n}/{limit}: {why}\n"
+            "Pull request: {url}\n"
+            "Failed jobs: {names}\n"
+            "Rebase the branch on the up-to-date base and resolve the conflicts. Read the "
+            "checks (`gh pr checks`) and the log of what failed (`gh run view --log-failed`), "
+            "fix the real cause — do not disable a test or lower a threshold — and push until "
+            "the CI is green. Do not change the scope of the ticket."
+        ),
+        "fr": (
+            "Ponos remet ce ticket en Ready — reprise CI {n}/{limit} : {why}\n"
+            "Pull request : {url}\n"
+            "Jobs en échec : {names}\n"
+            "Rebase la branche sur la base à jour et résous les conflits. Lis les checks "
+            "(`gh pr checks`) et le log de ce qui a échoué (`gh run view --log-failed`), "
+            "corrige la cause réelle — sans désactiver de test ni abaisser de seuil — et "
+            "pousse jusqu'à une CI verte. Ne change pas le périmètre du ticket."
+        ),
+    },
+    "ci-rework-red": {
+        "en": "the CI of the pull request is red",
+        "fr": "la CI de la pull request est rouge",
+    },
+    "ci-rework-conflict": {
+        "en": "the pull request no longer merges (conflict or branch behind its base)",
+        "fr": "la pull request ne fusionne plus (conflit ou branche en retard sur sa base)",
+    },
+    "ci-rework-none": {"en": "none named", "fr": "aucun nommé"},
+    "ci-base-red": {
+        "en": (
+            "The CI is red here, but it is red on {base} too ({names}): no retry until the base "
+            "is green again."
+        ),
+        "fr": (
+            "La CI est rouge ici, mais elle l'est aussi sur {base} ({names}) : pas de reprise "
+            "tant que la base n'est pas repassée au vert."
+        ),
+    },
+    "ci-rework-exhausted": {
+        "en": "its CI is still red after {limit} automatic retries",
+        "fr": "sa CI est encore rouge après {limit} reprises automatiques",
+    },
+    "ci-rework-exhausted-question": {
+        "en": "Ponos put it back to work {limit} times without getting the pull request green: {url}",
+        "fr": "Ponos l'a remis au travail {limit} fois sans réussir à rendre la pull request verte : {url}",
+    },
     "repair-fixed": {
         "en": "A session repaired the red checks ({names}) and pushed the fix.",
         "fr": "Une session a réparé les vérifications rouges ({names}) et poussé le correctif.",

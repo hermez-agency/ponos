@@ -731,6 +731,18 @@ class Claude:
 
 
 @dataclass
+class Review:
+    """`[review]`: what Ponos does by itself with a pull request left in review.
+
+    `ci_retries` is how many times a ticket whose CI is red, or whose pull
+    request conflicts, is put back in ready with the instruction to repair it
+    (see ci.py). Past it the ticket is blocked and asks. Zero is never retried.
+    """
+
+    ci_retries: int = 5
+
+
+@dataclass
 class Budget:
     """What the runner agrees to spend, in dollars. Zero is no limit.
 
@@ -861,6 +873,7 @@ class Config:
     openrouter: OpenRouter = field(default_factory=OpenRouter)
     claude: Claude = field(default_factory=Claude)
     budget: Budget = field(default_factory=Budget)
+    review: Review = field(default_factory=Review)
     permissions: Permissions = field(default_factory=Permissions)
     storage: Storage = field(default_factory=Storage)
     vault: Vault = field(default_factory=Vault)
@@ -1590,6 +1603,7 @@ def load(path: Path | None = None, *, secrets: Path | None = None) -> Config:
         ),
         claude=Claude(provider=file.claude.provider, api_key=secret(stored, "claude", "api_key")),
         budget=Budget(**file.budget.model_dump()),
+        review=Review(**file.review.model_dump()),
         permissions=Permissions(**file.permissions.model_dump()),
         storage=_storage(file.storage),
         vault=_vault(file.vault),

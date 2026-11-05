@@ -79,7 +79,7 @@ def kind_of(verdict: str, code: str = "") -> str:
         return "failed"
     if verdict != "blocked":
         return ""
-    if code == "merge.checks-failed":
+    if code in ("merge.checks-failed", "ci.rework-exhausted"):
         return "ci"
     try:
         found = blocks.cause(code) if code else None
