@@ -62,6 +62,7 @@ from .config import (
     ConfigError,
     OpenRouter,
     Permissions,
+    Review,
     Runner,
     Storage,
     Web,
@@ -440,6 +441,10 @@ class ClaudeTable(Table):
     provider: Annotated[str, _one_of(PROVIDERS)] = ""
 
 
+class ReviewTable(Table):
+    ci_retries: AtLeast0 = Review.ci_retries
+
+
 class BudgetTable(Table):
     daily_usd: Dollars = Budget.daily_usd
     per_ticket_usd: Dollars = Budget.per_ticket_usd
@@ -497,6 +502,7 @@ class File(Table):
     openrouter: OpenRouterTable = Field(default_factory=OpenRouterTable)
     claude: ClaudeTable = Field(default_factory=ClaudeTable)
     budget: BudgetTable = Field(default_factory=BudgetTable)
+    review: ReviewTable = Field(default_factory=ReviewTable)
     permissions: PermissionsTable = Field(default_factory=PermissionsTable)
     storage: StorageTable = Field(default_factory=StorageTable)
     vault: VaultTable = Field(default_factory=VaultTable)

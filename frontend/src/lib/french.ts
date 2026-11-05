@@ -555,6 +555,7 @@ export const FRENCH: Record<string, string> = {
   "CI passed": "CI réussie",
   "CI failed": "CI en erreur",
   "Checks on GitHub": "Checks sur GitHub",
+  "CI retry {{n}}/{{limit}}": "Reprise CI {{n}}/{{limit}}",
   "At the last pass, on {{at}}: {{said}}": "Au dernier passage, le {{at}} : {{said}}",
   "At the last pass: {{said}}": "Au dernier passage : {{said}}",
   "Nothing has been said on this ticket yet.": "Rien n'a encore été dit sur ce ticket.",

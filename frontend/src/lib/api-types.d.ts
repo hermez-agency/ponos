@@ -2152,6 +2152,10 @@ export interface components {
             checks: components["schemas"]["Check"][];
             /** @description GitHub's page listing the checks. */
             link: string;
+            /** @description How many times Ponos put the ticket back in ready for this CI or a conflict. */
+            retries: number;
+            /** @description `review.ci_retries`: how many it may. */
+            limit: number;
         };
         /** @description The first connection made: the browser that made it is signed in as `email`. */
         Claimed: {

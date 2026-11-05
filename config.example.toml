@@ -907,6 +907,22 @@ per_ticket_usd = ""
 on_usd = 1.0
 
 # ---------------------------------------------------------------------------
+# A pull request left in review
+# ---------------------------------------------------------------------------
+# A ticket in review whose CI has settled red, or whose pull request no longer
+# merges (a conflict, a branch behind a protected base), is put back in ready by
+# Ponos with the instruction to rebase, resolve, read the failed jobs and push
+# until it is green. Not when the red is not the code's (the account's GitHub
+# billing, a base branch that is red itself), and not while a session is on it.
+#
+# ci_retries  how many times per ticket. The counter ("CI retry n/5" on the
+#             card) goes back to zero when the CI turns green or the ticket is
+#             validated; one more red and the ticket is blocked
+#             (ci.rework-exhausted) and asks. 0 never retries.
+[review]
+ci_retries = 5
+
+# ---------------------------------------------------------------------------
 # What a session may do alone
 # ---------------------------------------------------------------------------
 # Written once, read by every session — put in its prompt — so that it stops

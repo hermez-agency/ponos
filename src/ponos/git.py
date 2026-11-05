@@ -1262,6 +1262,38 @@ def pull_request_state(url: str, accounts: Accounts | None = None) -> str:
     return result.out if result.ok else ""
 
 
+def pull_request_unmergeable(url: str, accounts: Accounts | None = None) -> bool:
+    """Does GitHub say that pull request can no longer be merged as it stands?
+
+    A conflict (`CONFLICTING`, `DIRTY`), or a branch behind a base whose
+    protection asks it to be up to date (`BEHIND`, which GitHub only reports
+    then). `UNKNOWN` — GitHub has not computed it yet — and anything that could
+    not be asked are not a conflict: the next reading asks again.
+    """
+    if not shutil.which("gh"):
+        return False
+    result = run(
+        [
+            "gh",
+            "pr",
+            "view",
+            url,
+            "--json",
+            "mergeable,mergeStateStatus",
+            "-q",
+            '.mergeable + " " + .mergeStateStatus',
+        ],
+        timeout=60,
+        token=token_for(url, accounts),
+    )
+    if not result.ok:
+        return False
+    said = result.out.split()
+    return bool(said) and (
+        said[0] == "CONFLICTING" or (len(said) > 1 and said[1] in ("DIRTY", "BEHIND"))
+    )
+
+
 def pull_request_head(url: str, accounts: Accounts | None = None) -> str:
     """The commit the pull request's branch is at, or nothing when GitHub cannot say.
 

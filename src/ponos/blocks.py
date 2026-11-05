@@ -144,6 +144,21 @@ _CAUSES = (
         "checks-billing",
     ),
     _cause(
+        "ci.rework-exhausted",
+        "merge",
+        "user",
+        "open-pr",
+        "ask",
+        ("CI retries spent", "Reprises CI épuisées"),
+        (
+            "Ponos put the ticket back to work on its red CI or its conflict as many times as "
+            "`review.ci_retries` allows, and the pull request is still not green: decide what next.",
+            "Ponos a remis le ticket au travail sur sa CI rouge ou son conflit autant de fois que "
+            "`review.ci_retries` le permet, et la pull request n'est toujours pas verte : "
+            "décidez de la suite.",
+        ),
+    ),
+    _cause(
         "merge.local-ci-failed",
         "merge",
         "user",

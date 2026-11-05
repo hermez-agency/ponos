@@ -802,6 +802,21 @@ def _ci(connection: sqlite3.Connection) -> None:
     )
 
 
+def _reworks(connection: sqlite3.Connection) -> None:
+    # How many times a ticket in review was put back in ready for its red CI or
+    # its conflict (ci.py), and whether its card has already said that the base
+    # branch is red. One row a ticket, gone when the counter goes back to zero.
+    connection.execute(
+        """
+        CREATE TABLE reworks (
+            ticket    TEXT PRIMARY KEY,
+            count     INTEGER NOT NULL DEFAULT 0,
+            base_said INTEGER NOT NULL DEFAULT 0
+        )
+        """
+    )
+
+
 def _chats(connection: sqlite3.Connection) -> None:
     connection.execute(
         """
@@ -1023,6 +1038,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     _billing_holds,
     _digests,
     _runs_say_their_subtype,
+    _reworks,
 )
 
 # Any way a read or a write of the database can fail. A note the runner keeps

@@ -138,6 +138,10 @@ class Ci(Shape):
     """`gh pr checks` buckets: pass, fail, pending, skipping, cancel."""
     link: str
     """GitHub's page listing the checks."""
+    retries: int
+    """How many times Ponos put the ticket back in ready for this CI or a conflict."""
+    limit: int
+    """`review.ci_retries`: how many it may."""
 
 
 class Held(Shape):

@@ -22,6 +22,16 @@ GitHub leaves on such a job, and it is a fact about an account, not about a
 pull request — every repository of it says the same sentence, and saying it
 ticket by ticket, in GitHub's English, was six tickets going round in circles
 on one unpaid invoice.
+
+Reading the CI is also acting on it, within limits (`Checks.rework`). A ticket
+in review whose checks have settled red, or whose pull request no longer
+merges, is put back in ready with a comment that says what to do — the very
+gesture that was made by hand on 3 November 2026 for 17 tickets out of 18. It
+is done `review.ci_retries` times at most, and a counter in `ponos.db` keeps the
+score; the next red blocks the ticket and asks. What is not the code's red is
+left alone (billing, a base branch that is red itself), and so is a verdict not
+yet in: a rework is only sent on checks that have stopped running, so a push
+cannot be answered by a second rework before its own CI has spoken.
 """
 
 from __future__ import annotations
@@ -29,7 +39,7 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from . import git, github_checks, state, store
+from . import git, github_checks, question, state, store
 from .base import Base
 from .ticket import Ticket
 
@@ -77,13 +87,24 @@ def billing(reason: str) -> bool:
     return any(fragment in said for fragment in BILLING)
 
 
+def stable(checks: list[dict[str, Any]]) -> bool:
+    """Has every check of that list stopped running?"""
+    return not any(str(one.get("bucket") or "") in RUNNING + ("",) for one in checks)
+
+
 def link(url: str) -> str:
     """Where GitHub lists the pull request's checks."""
     return f"{url.rstrip('/')}/checks"
 
 
-def read(row: dict[str, Any] | None, url: str) -> dict[str, Any] | None:
-    """What a card shows of a stored row: nothing when there is none worth drawing."""
+def read(
+    row: dict[str, Any] | None, url: str, retries: int = 0, limit: int = 0
+) -> dict[str, Any] | None:
+    """What a card shows of a stored row: nothing when there is none worth drawing.
+
+    `retries` is how many times the CI was handed back to a session, out of
+    `limit`; the card says « CI retry n/5 » once it is not zero.
+    """
     if not row or not row.get("state") or row.get("url") != url:
         return None
     return {
@@ -91,6 +112,8 @@ def read(row: dict[str, Any] | None, url: str) -> dict[str, Any] | None:
         "label": LABELS[row["state"]],
         "checks": row["checks"],
         "link": link(url),
+        "retries": retries,
+        "limit": limit,
     }
 
 
@@ -156,6 +179,8 @@ class Checks(Base):
                 continue
             row = settle(before, url, head, github_checks.checks(url, self.config.github), now)
             state.keep_ci(ticket.id, row)
+            if not self.dry_run:
+                self.rework(ticket, url, row)
             label = LABELS.get(row["state"], "")
             if row["state"] != (before or {}).get("state", ""):
                 changed += 1
@@ -167,3 +192,94 @@ class Checks(Base):
                 self.say(f"    ! the CI of {ticket.title} was not written — {error}")
         state.drop_ci(set(rows) - following)
         return changed
+
+    def rework(self, ticket: Ticket, url: str, row: dict[str, Any]) -> bool:
+        """Put the ticket back in ready when its pull request is for a session to repair.
+
+        `row` is what has just been read. Two things call for it, and only on a
+        verdict that is in: checks that have all stopped and one is red, or a
+        pull request GitHub says no longer merges (a green CI does not excuse
+        that one). The counter goes back to zero on a green, mergeable one.
+
+        Not for a red that is not the code's — jobs GitHub never started (the
+        account's billing above all), or the same checks red on the base too,
+        said once on the card — nor for a closed pull request, nor while a
+        session of this run is on the ticket. Past `review.ci_retries` the
+        ticket is blocked (`ci.rework-exhausted`) with the choices of a failing
+        CI, and the counter starts again for whoever answers. Returns whether
+        the ticket was handed back.
+        """
+        accounts = self.config.github
+        limit = self.config.review.ci_retries
+        count, said_base = state.reworks().get(ticket.id, (0, False))
+        red = row["state"] == FAILED and stable(row["checks"])
+        if row["state"] == PENDING or (row["state"] == FAILED and not red):
+            return False
+        unmergeable = git.pull_request_unmergeable(url, accounts)
+        if not red and not unmergeable:
+            if row["state"] == PASSED and (count or said_base):
+                state.keep_rework(ticket.id, 0, False)
+            return False
+        if ticket.id in self._claimed:
+            return False
+        failing = github_checks.failing_checks(url, accounts) if red else []
+        if red and not unmergeable:
+            if github_checks.unstarted_checks(url, accounts):
+                return False
+            _, base = git.pull_request_branches(url, accounts)
+            held = set(failing) & set(github_checks.failing_on(url, base, accounts))
+            if failing and held == set(failing):
+                if not said_base:
+                    voice = self.voice
+                    self.say(f"  · {ticket.title} — CI red on {base} too, no retry")
+                    state.keep_rework(ticket.id, count, True)
+                    self._comment(
+                        ticket,
+                        voice.say("ci-base-red", base=base, names=", ".join(sorted(held))),
+                    )
+                return False
+        if git.pull_request_state(url, accounts) != "OPEN":
+            return False
+        said = self.voice
+        try:
+            if count >= limit:
+                self.say(f"  ✗ {ticket.title} — CI retries spent ({count}/{limit})")
+                state.keep_rework(ticket.id, 0, False)
+                self._fail(
+                    ticket,
+                    said.say("ci-rework-exhausted", limit=limit),
+                    url,
+                    code="ci.rework-exhausted",
+                    blocked=True,
+                    question=question.Question(
+                        ask=said.say("ci-rework-exhausted-question", limit=limit, url=url),
+                        why=said.say("ci-rework-exhausted", limit=limit),
+                        category="ci",
+                    ),
+                )
+                return False
+            why = [said.say("ci-rework-red")] if red else []
+            if unmergeable:
+                why.append(said.say("ci-rework-conflict"))
+            self._comment(
+                ticket,
+                said.say(
+                    "ci-rework",
+                    n=count + 1,
+                    limit=limit,
+                    why="; ".join(why),
+                    url=url,
+                    names=", ".join(failing) or said.say("ci-rework-none"),
+                ),
+            )
+            self._set(
+                ticket, **{self.config.notion.prop("status"): self.config.notion.state("ready")}
+            )
+        except store.Unreachable:
+            raise
+        except store.StoreError as error:
+            self.say(f"    ! {ticket.title} was not handed back for its CI — {error}")
+            return False
+        state.keep_rework(ticket.id, count + 1, False)
+        self.say(f"  ↻ {ticket.title} — back in ready for its CI ({count + 1}/{limit})")
+        return True

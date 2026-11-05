@@ -299,7 +299,7 @@ class Tickets(Base):
         ]
         _causes(tickets)
         _notes(tickets)
-        _checks(tickets)
+        _checks(tickets, self.config.review.ci_retries)
         _phases(tickets)
         _times(tickets)
         _estimates(tickets, settings)
@@ -583,7 +583,7 @@ class Tickets(Base):
         _causes([card])
         note = card["progress"]
         _notes([card])
-        _checks([card])
+        _checks([card], self.config.review.ci_retries)
         _phases([card])
         _times([card])
         _estimates([card], settings)
@@ -1022,16 +1022,20 @@ def _subtype(page: store.Page, settings: Notion) -> str:
     return written or (subtypes.from_prefix(page.title) if kind == "code" else "")
 
 
-def _checks(tickets: list[dict[str, Any]]) -> None:
+def _checks(tickets: list[dict[str, Any]], limit: int = 0) -> None:
     """The state of the checks on every card whose pull request is being followed.
 
     Read from `ponos.db` in one go, never from GitHub: see `ci.py`. A card that
     is not in review, or whose pull request has no check, carries none.
     """
     rows = state.ci_rows()
+    retries = state.reworks()
     for ticket in tickets:
-        row = rows.get(str(ticket.get("id", ""))) if ticket.get("column") == "review" else None
-        ticket["ci"] = ci.read(row, str(ticket.get("pull_request") or ""))
+        key = str(ticket.get("id", ""))
+        row = rows.get(key) if ticket.get("column") == "review" else None
+        ticket["ci"] = ci.read(
+            row, str(ticket.get("pull_request") or ""), retries.get(key, (0, False))[0], limit
+        )
 
 
 def _phases(tickets: list[dict[str, Any]]) -> None:

@@ -365,6 +365,8 @@ class Delivery(Base):
         `resolving` is where a pull request whose conflicts need a session is
         put, for the caller to run it as it runs a publication — see `_carry_out`.
         """
+        # Validated: the CI retries of its review are over, whatever comes next.
+        state.keep_rework(ticket.id, 0, False)
         state_of = git.pull_request_state(url, self.config.github)
         if not state_of:
             # The same rule as `close_merged`: a ticket is never moved on an

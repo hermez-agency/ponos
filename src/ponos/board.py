@@ -735,6 +735,7 @@ class Board(Base):
                 self._comment(
                     ticket, said.report(said.verdict("merged", said.pull_request(url)), url)
                 )
+                state.keep_rework(ticket.id, 0, False)
                 closed += 1
             except store.Unreachable:
                 raise
