@@ -5,7 +5,7 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
 
-import { groupOf, nextOf, ordered, previousOf, seriesIn, tally, withSeries, type Queued } from "./series.ts"
+import { draftMove, groupOf, nextOf, ordered, previousOf, seriesIn, tally, withSeries, type Queued } from "./series.ts"
 
 const ticket = (id: string, code: string, policy = "ask", priority: number | null = 50, created = "2026-10-01T10:00:00Z"): Queued => ({
   id,
@@ -83,4 +83,13 @@ test("the address names the series, and keeps everything else as it was written"
   assert.equal(withSeries("?view=console/tickets/list&series=blocked", null), "?view=console/tickets/list")
   assert.equal(withSeries("", "blocked"), "?series=blocked")
   assert.equal(withSeries("?series=blocked", null), "")
+})
+
+test("the address names the draft series, and the draft keys name a column", () => {
+  assert.equal(seriesIn("?series=draft"), "draft")
+  assert.equal(withSeries("?a=1", "draft"), "?a=1&series=draft")
+  assert.equal(draftMove("Enter"), "ready")
+  assert.equal(draftMove("r"), "ready")
+  assert.equal(draftMove("A"), "cancelled")
+  assert.equal(draftMove("x"), null)
 })

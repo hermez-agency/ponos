@@ -682,7 +682,7 @@ function heading(key: string, name: string, count?: number, total?: number, seri
           {full ? `${filled}/${places}` : total === undefined ? count : `${count} / ${total}`}
         </span>
       )}
-      {series && (key === "blocked" || key === "review") ? <SeriesButton column={key} /> : null}
+      {series && (key === "blocked" || key === "review" || key === "draft") ? <SeriesButton column={key} /> : null}
     </span>
   )
 }

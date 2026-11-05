@@ -4,6 +4,7 @@ import {
   CalendarClock,
   FolderGit2,
   FolderPlus,
+  FilePen,
   ListChecks,
   LayoutGrid,
   Lightbulb,
@@ -112,6 +113,7 @@ export function CommandPalette() {
   const openSeries = useOpenSeries()
   const blocked = board.tickets.filter((ticket) => ticket.column === "blocked").length
   const review = board.tickets.filter((ticket) => ticket.column === "review").length
+  const drafts = board.tickets.filter((ticket) => ticket.column === "draft").length
   const [open, setOpen] = React.useState(false)
   const [search, setSearch] = React.useState("")
   // What had the focus before the palette opened, and gets it back: the
@@ -237,6 +239,17 @@ export function CommandPalette() {
             icon: Scale,
             onSelect: () => run(() => openSeries("review")),
             count: review,
+          },
+        ]
+      : []),
+    ...(drafts
+      ? [
+          {
+            value: t("Sort the drafts"),
+            keywords: ["draft", "ready", "abandon", "series"],
+            icon: FilePen,
+            onSelect: () => run(() => openSeries("draft")),
+            count: drafts,
           },
         ]
       : []),
