@@ -168,20 +168,31 @@ def tool(name: str, payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def stage(
-    here: Path, board: Path, *, token: str | None, signed: bool = True, newer: str = ""
+    here: Path,
+    board: Path,
+    *,
+    token: str | None,
+    signed: bool = True,
+    newer: str = "",
+    notion: bool = False,
 ) -> None:
     """Everything a console needs around its board, in `here`, and the environment that points at it.
 
     `token` None is a console nobody has claimed. `newer` is a commit the
     update check found, for the version at the top right to offer; empty, the
     checkout is the newest there is. Either way the console's own checks are
-    off, so that nothing asks a remote.
+    off, so that nothing asks a remote. `notion` is the file `install.sh` used to
+    leave: `mode = "notion"` and no token, the board nobody can read yet.
     """
     config = here / "config.toml"
+    storage = (
+        '[storage]\nmode = "notion"\n'
+        if notion
+        else f'[storage]\nmode = "markdown"\npath = "{board}"\n'
+    )
     config.write_text(
         # No load guard: a busy machine must not hold the board's tickets back.
-        f'[storage]\nmode = "markdown"\npath = "{board}"\n\n[runner]\nauto_update = false\n'
-        "max_load_per_core = 0\n",
+        f"{storage}\n[runner]\nauto_update = false\nmax_load_per_core = 0\n",
         encoding="utf-8",
     )
     if token is not None:

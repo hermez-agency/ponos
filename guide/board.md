@@ -9,7 +9,10 @@ The board as Markdown files, and the Notion side: its databases, and what a tick
 Notion is not required. The runner talks to a board through one interface
 (`src/ponos/store.py`), and which board answers is one line. A fresh configuration
 still says `notion`, because that is what every installation before this one ran on — a
-default kept for them, not a requirement.
+default kept for them, not a requirement. `install.sh` and the Docker image write `markdown`
+into a new configuration unless a `PONOS_NOTION_TOKEN` came with it, and the console's first
+connection offers both roads on its Notion step: a board in Notion, or a board of Markdown
+files — the second is written without restarting anything.
 
 ```toml
 [storage]
