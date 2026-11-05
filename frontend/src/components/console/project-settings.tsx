@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import { api, why } from "@/lib/api"
+import { useBoard } from "@/lib/board-store"
 import { useFrench, useT } from "@/lib/i18n"
 import { splitHelp } from "@/lib/settings-search"
 import { settingsFrench } from "@/lib/settings-store"
@@ -97,6 +98,18 @@ export function ProjectSettingsTab({ project }: { project: string }) {
     setSaving(true)
     try {
       setSettings(await api.saveProjectSettings(project, { preview }))
+      setProblem("")
+    } catch (error) {
+      setProblem(why(error))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const savePlan = async (plan: { priority: number | null; subtypes: string[] }) => {
+    setSaving(true)
+    try {
+      setSettings(await api.saveProjectSettings(project, { plan }))
       setProblem("")
     } catch (error) {
       setProblem(why(error))
@@ -209,6 +222,7 @@ export function ProjectSettingsTab({ project }: { project: string }) {
           />
         </CardContent>
       </Card>
+      <PlanCard key={JSON.stringify(settings.plan)} plan={settings.plan} saving={saving} onSave={savePlan} />
       <SetupCard key={settings.setup} setup={settings.setup} saving={saving} onSave={saveSetup} />
       <PreviewCard
         key={JSON.stringify(settings.preview)}
@@ -218,6 +232,104 @@ export function ProjectSettingsTab({ project }: { project: string }) {
       />
       <LocalCiCard key={localCi.command} localCi={localCi} saving={saving} onSave={saveLocalCi} />
     </div>
+  )
+}
+
+/* « Plan d'abord » by itself: the tickets of this project that start with a
+ * plan and a yes — those at or above a priority, those of some sub-types —
+ * without anybody ticking the box. Typed and saved with its button, as the
+ * setup below; an empty priority and no sub-type tick nothing. */
+function PlanCard({
+  plan,
+  saving,
+  onSave,
+}: {
+  plan: ProjectSettings["plan"]
+  saving: boolean
+  onSave: (plan: { priority: number | null; subtypes: string[] }) => Promise<void>
+}) {
+  const t = useT()
+  const offered = useBoard().subtypes ?? []
+  const [priority, setPriority] = React.useState(plan.priority === null ? "" : String(plan.priority))
+  const [chosen, setChosen] = React.useState<string[]>(plan.subtypes)
+  const typed = priority.trim()
+  const score = typed === "" ? null : Number(typed)
+  const valid = score === null || (Number.isInteger(score) && score >= 0 && score <= 100)
+  const changed =
+    score !== plan.priority || chosen.length !== plan.subtypes.length || chosen.some((key) => !plan.subtypes.includes(key))
+  const toggle = (key: string) =>
+    setChosen((now) => (now.includes(key) ? now.filter((one) => one !== key) : [...now, key]))
+  return (
+    <Card data-card="project-plan" className="gap-0 py-0">
+      <CardHeader className="gap-1 px-5 pt-5 pb-2 sm:px-6">
+        <CardTitle className="text-base">{t("Plan first")}</CardTitle>
+        <CardDescription className="text-[13px] leading-relaxed">
+          {t(
+            "The tickets ticked « Plan d'abord » start with a session that only plans, and their code waits for your yes. Tick it here for this project's tickets on their first run, from a priority or for some sub-types."
+          )}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="px-5 pb-4 sm:px-6">
+        <form
+          className="flex flex-col gap-3 py-2"
+          data-field="project-plan"
+          onSubmit={(event) => {
+            event.preventDefault()
+            if (changed && valid) void onSave({ priority: score, subtypes: chosen })
+          }}
+        >
+          <div>
+            <Label htmlFor="project-plan-priority" className="leading-snug font-semibold">
+              {t("From a priority of")}
+            </Label>
+            <p className="text-muted-foreground mt-1 text-[13px] leading-snug">
+              {t("A score from 0 to 100. Empty: no priority plans first.")}
+            </p>
+            <Input
+              id="project-plan-priority"
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={100}
+              step={1}
+              className="mt-2.5 w-28"
+              placeholder="75"
+              aria-invalid={!valid || undefined}
+              value={priority}
+              onChange={(event) => setPriority(event.target.value)}
+            />
+          </div>
+          <div>
+            <p className="text-sm leading-snug font-semibold">{t("Or of these sub-types")}</p>
+            <div className="mt-2 flex flex-wrap gap-1.5" role="group" aria-label={t("Or of these sub-types")}>
+              {offered.map((subtype) => (
+                <Button
+                  key={subtype.key}
+                  type="button"
+                  size="xs"
+                  variant={chosen.includes(subtype.key) ? "default" : "outline"}
+                  className="rounded-full"
+                  aria-pressed={chosen.includes(subtype.key)}
+                  onClick={() => toggle(subtype.key)}
+                >
+                  {subtype.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+          {!plan.column ? (
+            <p className="text-muted-foreground text-[13px]" data-slot="project-plan-column">
+              <Rich text={t("This board has no « Plan d'abord » box to tick by hand: `ponos init` adds it.")} />
+            </p>
+          ) : null}
+          <div>
+            <Button type="submit" variant="outline" disabled={!changed || !valid || saving}>
+              {t("Save")}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
   )
 }
 

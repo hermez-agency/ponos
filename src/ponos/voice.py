@@ -277,6 +277,24 @@ _SAID: dict[str, dict[str, str]] = {
     # What follows a yes-no question, on its own line: the two words that
     # answer it. Recognised too, in every language — see `question.found`.
     "yes-or-no": {"en": "yes / no", "fr": "oui / non"},
+    # A ticket ticked « Plan d'abord », at the end of its planning session — see
+    # planning.py. The heading is read back, in every language: everything under
+    # it is the plan, and a yes carries it into the next session.
+    "plan-heading": {"en": "📋 The plan", "fr": "📋 Le plan"},
+    "plan-done": {"en": "plan written, no code yet", "fr": "plan écrit, aucun code encore"},
+    "plan-why": {
+        "en": "« Plan d'abord » is ticked: nothing is written before you say yes",
+        "fr": "« Plan d'abord » est cochée : rien n'est écrit avant votre accord",
+    },
+    "plan-ask": {"en": "Shall I carry out this plan?", "fr": "Je lance ce plan ?"},
+    "plan-approved": {
+        "en": "plan approved: carried out with the plan in the prompt",
+        "fr": "plan approuvé : exécuté avec le plan dans le prompt",
+    },
+    "plan-ticked": {
+        "en": "« Plan d'abord » ticked by the project's rule",
+        "fr": "« Plan d'abord » cochée par la règle du projet",
+    },
     # What a ticket stopped on, in front of why — see question.CATEGORIES. Read
     # back by the console, in every language, to offer what fits: decisions.py.
     "category-question": {"en": "A decision to make", "fr": "Une décision à prendre"},

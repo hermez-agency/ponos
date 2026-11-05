@@ -246,6 +246,7 @@ tickets are made up:
 | `Progress` | text | *optional* — **what the session is doing right now**, rewritten every ten seconds |
 | `Scheduled` | date | *optional* — **hold the ticket until that moment**, then run it — or, on a validated ticket, publish it |
 | `Waiting for credit` | checkbox | *optional* — ticked by the runner while the subscription's window is spent under the ticket. It does not move: it is still ready, and the tick is the note saying why nobody has got to it yet |
+| `Plan d'abord` | checkbox | *optional* — on a **Code** ticket, **a plan before any code**: the first session only plans, and the work waits for your yes. Unticked by the runner once the plan is approved — see [Plan first](tickets.md#plan-first-a-plan-and-a-yes-before-any-code) |
 | `Type` | select | *optional* — `Code`, `Writing`, `External action`, `Publication`: **the road the ticket takes**. Empty, the runner works it out before running it — see [The type of a ticket](#the-type-of-a-ticket) |
 | `Blocage` | select | *optional* — filled by the runner when a ticket stops: **why**, as a code (`merge.checks-failed`, `session.question`, `worktree.residue`…), emptied when it leaves *Blocked* or *Failed* — see [Why a ticket stopped](tickets.md#why-a-ticket-stopped) |
 | `CI` | select | *optional* — written by the runner while the ticket is in *In review*: the state of its pull request's checks (`en cours`, `réussi`, `erreur`), empty for a repository without CI — see [CI on the card](tickets.md#ci-on-the-card) |
@@ -260,6 +261,12 @@ the reason this reaches a board you built last month: a property can be added to
 existing database through Notion's API, where an option on a real `status` cannot. Run
 `ponos init` again and it appears; skip it and the runner waits out the credit
 exactly as it did before, only silently. See [Stopping before the wall](credits.md#stopping-before-the-wall).
+
+`Plan d'abord` is an attribute for the same reason: a ticket planned first runs, asks and
+is answered like any other, and only what its first session may do changes. `ponos init`
+adds it to a board built before it, and the console's *New ticket* draws the box wherever
+the board has it. A Markdown board has it too, as `Plan d'abord: true` in a ticket's front
+matter.
 
 `Scheduled` is what turns the board into a calendar. A ticket without one starts within
 seconds of reaching the ready column, so a date on it can only mean *not yet*: the runner

@@ -359,6 +359,8 @@ class Tickets(Base):
             # Whether a ticket can be given a score: only where the board has
             # the column, as for the choices above.
             "priority": self._scored(),
+            # Whether a ticket can be ticked « Plan d'abord »: the same, for its checkbox.
+            "plan": bool(self.runner.plan_flag()),
             # The sub-types, whole: the card's icon and colour, and its word —
             # one, untranslated — read off subtypes.py, never written twice.
             "subtypes": [subtype.as_dict() for subtype in subtypes.SUBTYPES],
@@ -695,6 +697,7 @@ class Tickets(Base):
         subtype: str = "",
         on: str = "",
         goal: str = "",
+        plan: bool = False,
     ) -> dict[str, Any]:
         title = title.strip()
         if not title:
@@ -740,6 +743,9 @@ class Tickets(Base):
             values[settings.prop("model")] = model.strip()
         if on.strip():
             values[settings.prop("on")] = on.strip()
+        # « Plan d'abord »: a code ticket's, like the sub-type — see planning.py.
+        if plan and kind in ("", "code"):
+            values[settings.prop("plan")] = True
         page_id = self.runner.client.create_row(self.runner.database, title, values)
         if body.strip():
             self.runner.client.append_markdown(page_id, body)

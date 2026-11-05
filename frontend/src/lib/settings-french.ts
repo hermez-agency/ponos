@@ -531,9 +531,12 @@ export const SETTINGS_FRENCH: Record<string, string> = {
   "Written by the runner: what the session is doing.":
     "Écrit par le runner : ce que fait la session.",
   "Scheduled for": "Prévu pour",
+  "Plan first": "Plan d'abord",
   "A date here holds the ticket until then.": "Une date ici retient le ticket jusque-là.",
   "Ticked while the subscription limit is reached.":
     "Cochée tant que la limite de l'abonnement est atteinte.",
+  "Ticked, the first session proposes a plan and waits for a yes.":
+    "Cochée, la première session propose un plan et attend un oui.",
   "A prompt run at every change of the ticket's status; empty, nothing runs.":
     "Un prompt exécuté à chaque changement de statut du ticket ; vide, rien ne s'exécute.",
   "Code, Writing, External action or Publication; empty, it is guessed.":
@@ -880,6 +883,14 @@ export const SETTINGS_FRENCH: Record<string, string> = {
   "Run in each fresh worktree before the session starts, so that it finds its dependencies installed. A command that fails blocks the ticket, without starting a session.":
     "Lancée dans chaque worktree neuf avant la session, pour qu'elle trouve ses dépendances installées. Une commande qui échoue bloque le ticket, sans lancer de session.",
   "Setup command": "Commande de préparation",
+  "The tickets ticked « Plan d'abord » start with a session that only plans, and their code waits for your yes. Tick it here for this project's tickets on their first run, from a priority or for some sub-types.":
+    "Les tickets cochés « Plan d'abord » commencent par une session qui ne fait que planifier, et leur code attend votre oui. Cochez-la ici pour les tickets de ce projet à leur premier passage, à partir d'une priorité ou pour certains sous-types.",
+  "From a priority of": "À partir d'une priorité de",
+  "A score from 0 to 100. Empty: no priority plans first.":
+    "Un score de 0 à 100. Vide : aucune priorité ne planifie d'abord.",
+  "Or of these sub-types": "Ou de ces sous-types",
+  "This board has no « Plan d'abord » box to tick by hand: `ponos init` adds it.":
+    "Ce board n'a pas de case « Plan d'abord » à cocher à la main : `ponos init` l'ajoute.",
   "Run from the root of the worktree, e.g. `npm ci`. Empty: the repository's `.ponos/setup.sh`, if it has one.":
     "Lancée depuis la racine du worktree, par exemple `npm ci`. Vide : le `.ponos/setup.sh` du dépôt, s'il en a un.",
   "Run from the root of the repository, e.g. `make ci`. Empty: the GitHub workflows, through `act` when it is installed.":

@@ -291,6 +291,20 @@ class Board(Base):
         except store.StoreError:
             return ""
 
+    def plan_flag(self) -> str:
+        """The « Plan d'abord » checkbox, or "" on a board without one.
+
+        Asked of the schema, type included, as `waiting_flag`: a board built
+        before it has none. Its tickets run as they always did, unless their
+        project's rule plans them first: nothing is ticked then, the plan
+        proposed in the comments is what carries it on — see planning.py.
+        """
+        name = self.config.notion.prop("plan")
+        try:
+            return name if self.client.schema(self.database).get(name) == "checkbox" else ""
+        except store.StoreError:
+            return ""
+
     def type_column(self) -> str:
         """The column a ticket's type is read from, or "" on a board without one.
 

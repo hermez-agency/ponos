@@ -63,9 +63,11 @@ from ponos import (  # noqa: E402
     journal,
     local_ci,
     notion,
+    planning,
     preview,
     project_settings,
     provider,
+    question,
     state,
     store,
 )
@@ -581,6 +583,8 @@ if log:
             {"cwd": os.getcwd(), "session": session, "model": model, "prompt": prompt,
              "budget": args[args.index("--max-budget-usd") + 1]
              if "--max-budget-usd" in args else "",
+             "permission_mode": args[args.index("--permission-mode") + 1]
+             if "--permission-mode" in args else "",
              "base_url": os.environ.get("ANTHROPIC_BASE_URL", "")}
         ) + "\\n")
 
@@ -710,6 +714,12 @@ def finish(said, turns=3, cost=0.02):
           "session_id": session, "num_turns": turns, "total_cost_usd": cost})
     raise SystemExit(0)
 
+
+# A session in plan mode — a ticket ticked « Plan d'abord »: it cannot write,
+# so it says its plan between the tags and stops blocked, committing nothing.
+if "--permission-mode" in args and args[args.index("--permission-mode") + 1] == "plan":
+    finish("Je lis le dépôt.\\n<plan>\\n1. Écrire FAKE.md\\n\\n- Fichiers : FAKE.md\\n- Risques : aucun\\n"
+           "- Coût : S\\n</plan>\\nRESULT: blocked — écrire FAKE.md")
 
 # A session that does its work and stops without saying so: no ANSWER.md, no
 # RESULT line. Picked up again to write its report, `once` writes it and
@@ -1751,6 +1761,121 @@ def a_code_ticket_comes_back_as_a_pull_request(machine: Bench) -> None:
         ("said", "CAVEAT: pas essayé sur mobile\nRESULT: ok — un fichier écrit et commité"),
     ], steps
     assert "git commit" in steps[1]["detail"], steps[1]
+    db.close()
+
+
+@case
+def a_ticket_planned_first_commits_nothing_until_its_plan_is_approved(machine: Bench) -> None:
+    """« Plan d'abord » ticked: a plan and a yes-no question, no commit; a yes: the pull request.
+
+    The first session runs in plan mode and its plan lands in the report, under
+    the question the console draws Yes and No buttons for. The yes is answered
+    the way a phone answers it — a comment — and the second session carries
+    the plan in its prompt, in the ordinary mode, with the box unticked.
+    """
+    repository = machine.repository("site")
+    project = machine.project("Site", repository)
+    database = machine.board.databases[machine.database]
+    database["properties"] = {
+        **database["properties"],
+        "Plan d'abord": {"type": "checkbox", "checkbox": {}},
+    }
+    ticket = machine.ticket("Refondre l'entête", "Tout l'entête est à revoir.", project)
+    machine.board.pages[ticket]["properties"]["Plan d'abord"] = _stored({"checkbox": True})
+
+    results = machine.run()
+
+    assert results[0]["status"] == "blocked", results
+    assert results[0]["code"] == "session.question", results
+    assert machine.status(ticket) == "Blocked", machine.status(ticket)
+    assert machine.sessions()[-1]["permission_mode"] == "plan", machine.sessions()[-1]
+    assert not machine.pull_requests(), "a ticket planned first opened a pull request"
+    assert not any(
+        branch.startswith("ticket/") and "FAKE.md" in machine.files_on(repository, branch)
+        for branch in machine.branches(repository)
+    ), "a ticket planned first committed before its plan was approved"
+    report = machine.board.said(ticket)[-1]
+    assert "Shall I carry out this plan? → yes / no" in report, report
+    assert "📋 The plan\n\n1. Écrire FAKE.md" in report, report
+    asked = question.waiting(machine.board.said(ticket))
+    assert asked is not None and asked.mode == "yes-no", asked
+
+    def answer(text: str) -> None:
+        machine.board.comments.append(
+            {
+                "object": "comment",
+                "id": _ident(),
+                "page": ticket,
+                "discussion_id": _ident(),
+                "created_time": _now(),
+                "created_by": {"object": "user", "id": _ident()},
+                "rich_text": [{"type": "text", "text": {"content": text}, "plain_text": text}],
+            }
+        )
+
+    # A sentence amends the plan: planned again, the plan answered in the prompt.
+    answer("Ajoute une étape de test.")
+    results = machine.run()
+    assert results[0]["status"] == "blocked", results
+    again = machine.sessions()[-1]
+    assert again["permission_mode"] == "plan", again
+    assert "Propose the plan again" in again["prompt"], again["prompt"]
+    assert "1. Écrire FAKE.md" in again["prompt"], again["prompt"]
+    assert not machine.pull_requests()
+
+    answer("oui")
+    results = machine.run()
+
+    assert results[0]["status"] == "done", results
+    assert machine.status(ticket) == "In review", machine.status(ticket)
+    last = machine.sessions()[-1]
+    assert last["permission_mode"] != "plan", last
+    assert "# The plan you carry out" in last["prompt"], last["prompt"]
+    assert "1. Écrire FAKE.md" in last["prompt"], last["prompt"]
+    assert machine.board.value(ticket, "Plan d'abord") is False
+    assert len(machine.pull_requests()) == 1, machine.pull_requests()
+    db.close()
+
+
+@case
+def a_project_rule_plans_its_high_tickets_first_once_even_on_a_board_without_the_box(
+    machine: Bench,
+) -> None:
+    """Priority 80 over a rule at 70: planned first, though no column says so.
+
+    The plan proposed in the comments is what carries it on: a yes runs it the
+    ordinary way, and the rule — read on a first run only — does not plan it again.
+    """
+    repository = machine.repository("site")
+    project = machine.project("Site", repository)
+    project_settings.set_plan(project, "Site", planning.Rule(priority=70))
+    ticket = machine.ticket("Revoir le cache", "Le cache est lent.", project)
+    low = machine.ticket("Corriger une coquille", "Une lettre de trop.", project)
+    machine.board.pages[ticket]["properties"]["Priority"] = _stored({"number": 80})
+    machine.board.pages[low]["properties"]["Priority"] = _stored({"number": 20})
+
+    results = {result["id"]: result for result in machine.run()}
+
+    assert results[ticket.replace("-", "")]["status"] == "blocked", results
+    assert results[low.replace("-", "")]["status"] == "done", results
+    planned = [one for one in machine.sessions() if one["permission_mode"] == "plan"]
+    assert len(planned) == 1 and "Le cache est lent." in planned[0]["prompt"], planned
+
+    machine.board.comments.append(
+        {
+            "object": "comment",
+            "id": _ident(),
+            "page": ticket,
+            "discussion_id": _ident(),
+            "created_time": _now(),
+            "created_by": {"object": "user", "id": _ident()},
+            "rich_text": [{"type": "text", "text": {"content": "ok"}, "plain_text": "ok"}],
+        }
+    )
+    results = {result["id"]: result for result in machine.run()}
+
+    assert results[ticket.replace("-", "")]["status"] == "done", results
+    assert machine.sessions()[-1]["permission_mode"] != "plan", machine.sessions()[-1]
     db.close()
 
 

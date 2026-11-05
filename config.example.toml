@@ -210,6 +210,15 @@ due = "Scheduled"
 # Optional: a board without the column waits exactly as it did before, silently.
 waiting = "Waiting for credit"
 
+# checkbox: « Plan d'abord ». Ticked on a code ticket, its first session runs in
+# plan mode — it reads, it cannot write — and ends on its plan (steps, files,
+# risks, cost) and the question « Je lance ce plan ? », blocked like any other
+# question. A yes runs it again the ordinary way, with the plan in its prompt,
+# and unticks the box; any other answer amends the plan. A project may tick it
+# for its tickets above a priority or of some sub-types (its settings, in the
+# console). ponos init adds it. Optional: without it, no ticket plans first.
+plan = "Plan d'abord"
+
 # select: the road a ticket takes — Code, Writing, External action or
 # Publication, see [notion.types] below. Optional, and empty is a request: the
 # runner works it out before running the ticket (runner.classify). A board

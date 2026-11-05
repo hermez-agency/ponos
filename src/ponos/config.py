@@ -963,6 +963,10 @@ _DEFAULT_PROPERTIES = {
     # would have said it left the board, and would have had to be typed into
     # Notion by hand on top of that, since the API cannot widen a `status`.
     "waiting": "Waiting for credit",  # checkbox: ticked while the credit is out
+    # Ticked, the ticket's first session only plans, and the work waits for a
+    # yes — see planning.py. An attribute too, for the same reason: the ticket
+    # runs and asks like any other, and only what its session may do changes.
+    "plan": "Plan d'abord",  # checkbox: plan first, then wait for a yes
     # What kind of work the ticket is — Code, Writing, External action or
     # Publication — which decides the road it takes. Optional, and empty is an
     # answer too: the runner works it out before running the ticket.

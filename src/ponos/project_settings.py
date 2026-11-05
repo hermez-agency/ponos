@@ -33,7 +33,7 @@ import json
 from collections.abc import Callable
 from typing import Any
 
-from . import db
+from . import db, planning
 from . import preview as preview_module
 from .config import Config
 from .kinds import KINDS
@@ -54,6 +54,9 @@ SETUP = "setup"
 # What is started to photograph the project's pages before and after a ticket —
 # see preview.py: `command`, `url` and `pages`. Absent, nothing is ever started.
 PREVIEW = "preview"
+# When its tickets are ticked « Plan d'abord » by themselves — see planning.py:
+# `priority`, the lowest score planned first, and `subtypes`. Absent, none is.
+PLAN = "plan"
 
 
 def key(project: str) -> str:
@@ -223,6 +226,28 @@ def set_preview(project: str, name: str, setting: preview_module.Setting) -> Non
             settings[PREVIEW] = setting.as_dict()
         else:
             settings.pop(PREVIEW, None)
+
+    _write(project, name, change)
+
+
+def plan(project: str) -> planning.Rule:
+    """The project's rule for « Plan d'abord », or an empty one — which ticks nothing."""
+    if not key(project):
+        return planning.Rule()
+    try:
+        return planning.rule(_read(project).get(PLAN))
+    except db.ERRORS:
+        return planning.Rule()
+
+
+def set_plan(project: str, name: str, rule: planning.Rule) -> None:
+    """Give the project a rule for « Plan d'abord », or none (an empty rule)."""
+
+    def change(settings: dict[str, Any]) -> None:
+        if rule:
+            settings[PLAN] = rule.as_dict()
+        else:
+            settings.pop(PLAN, None)
 
     _write(project, name, change)
 

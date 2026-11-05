@@ -342,6 +342,8 @@ class Board(Shape):
     board has: a column it lacks is not a key here."""
     priority: bool = omitted()
     """Whether this board has a priority column to write a score in."""
+    plan: bool = omitted()
+    """Whether this board has a « Plan d'abord » checkbox to tick on a new ticket."""
     subtypes: list[Subtype] = omitted()
     """The sub-types of a code ticket, in the order they are offered."""
     model: str = omitted()
@@ -569,6 +571,17 @@ class ProjectPreview(Shape):
     """Whether a Chrome is installed here to take them."""
 
 
+class ProjectPlan(Shape):
+    """When the project's tickets are ticked « Plan d'abord » by themselves — see planning.py."""
+
+    priority: int | None
+    """The lowest priority score planned first; none for no threshold."""
+    subtypes: list[str]
+    """The sub-types always planned first, by key."""
+    column: bool
+    """Whether the board has the checkbox to tick."""
+
+
 class ProjectSettings(Shape):
     """What a project decides for itself — see project_settings.py."""
 
@@ -579,6 +592,7 @@ class ProjectSettings(Shape):
     setup: str
     """The command run in each fresh worktree before its session; empty, the repository's `.ponos/setup.sh` if any."""
     preview: ProjectPreview
+    plan: ProjectPlan
 
 
 class ProjectDeleted(Shape):

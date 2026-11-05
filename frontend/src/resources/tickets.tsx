@@ -46,6 +46,7 @@ import {
   NewTicketFields,
   NewTicketFoot,
   PillsInputController,
+  PlanInputController,
   ProjectInputController,
   SegmentedInputController,
 } from "@/components/console/new-ticket-lazy"
@@ -187,6 +188,8 @@ export interface TicketWrite {
   subtype?: string
   /** The page of the goal it serves; empty for none. */
   goal?: string
+  /** « Plan d'abord »: a plan, and a yes, before any code. */
+  plan?: boolean
 }
 
 const item = (ticket: Ticket | TicketDetail): TicketItem => ({
@@ -410,6 +413,15 @@ const createForm: FormInterface = {
       get placeholder() {
         return t("The runner's model")
       },
+    },
+    // « Plan d'abord », drawn only where the board has the box to tick.
+    plan: {
+      label: "Plan first",
+      defaultValue: false,
+      controller: PlanInputController,
+      // The box says its own name beside it: the field's label is for the screen reader.
+      className: "[&_[data-slot=field-label]]:sr-only",
+      hidden: () => !currentBoard()?.plan,
     },
     // Said by the button that sends the form: "Save as draft" or "Launch the ticket".
     ready: { defaultValue: true, hidden: () => true },
@@ -1247,6 +1259,7 @@ export async function createTicket(fresh: TicketWrite): Promise<TicketItem> {
         model: String(fresh.model ?? ""),
         subtype: String(fresh.subtype ?? ""),
         goal: String(fresh.goal ?? ""),
+        plan: fresh.plan === true,
       }),
     rollback: () => dropTicket(card.id),
     failure: t("The ticket could not be created"),

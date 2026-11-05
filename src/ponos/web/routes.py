@@ -212,6 +212,7 @@ class NewTicket(Payload):
     subtype: str = ""
     on: str = ""
     goal: str = ""
+    plan: bool = False
 
 
 class On(Payload):
@@ -784,6 +785,7 @@ def create_ticket(
             payload.subtype,
             payload.on,
             payload.goal,
+            payload.plan,
         )
     )
 
