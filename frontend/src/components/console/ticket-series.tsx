@@ -14,6 +14,7 @@ import { Markdown } from "@/components/console/markdown"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api, why } from "@/lib/api"
 import { patchTicket, titleOf, useBoard } from "@/lib/board-store"
+import { optimistic } from "@/lib/optimistic"
 import { isTyping } from "@/lib/hotkeys"
 import { counted, useT } from "@/lib/i18n"
 import {
@@ -187,23 +188,28 @@ function Series({ column, onClose }: { column: SeriesColumn; onClose: () => void
     setCurrent(id)
   }
 
-  const undo = async () => {
+  const undo = () => {
     if (!undoable) return
     const { id, to } = undoable
+    const was = board.tickets.find((ticket) => ticket.id === id)
     setUndoable(null)
-    try {
+    void optimistic({
+      apply: () => {
+        patchTicket(id, { column, sync: "pending", sync_error: "" })
+        setOutcomes(({ [id]: _, ...rest }) => rest)
+        setLeaving(null)
+        setFinished(false)
+        setCurrent(id)
+      },
       // Straight to the server, from where the decision sent it: the move may
       // still be queued, and the board not have heard of it yet.
-      await api.setStatus(id, column, board.columns.find((one) => one.key === to)?.name)
-      patchTicket(id, { column, sync: "pending", sync_error: "" })
-    } catch (error) {
-      toast.error(t("The ticket was not put back"), { description: why(error) })
-      return
-    }
-    setOutcomes(({ [id]: _, ...rest }) => rest)
-    setLeaving(null)
-    setFinished(false)
-    setCurrent(id)
+      request: () => api.setStatus(id, column, board.columns.find((one) => one.key === to)?.name),
+      rollback: () => {
+        if (was) patchTicket(id, { column: was.column, status: was.status, sync: was.sync, sync_error: was.sync_error })
+        setUndoable({ id, to })
+      },
+      failure: t("The ticket was not put back"),
+    })
   }
 
   const again = () => {

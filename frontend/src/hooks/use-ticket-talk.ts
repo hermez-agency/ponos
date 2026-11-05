@@ -2,6 +2,7 @@ import * as React from "react"
 
 import { api, why } from "@/lib/api"
 import { t } from "@/lib/i18n"
+import { optimistic } from "@/lib/optimistic"
 import type { Message, TalkEvent, Ticket } from "@/lib/types"
 
 /* The ticket open in its terminal, and what was said under it.
@@ -62,6 +63,7 @@ export function useTicketTalk() {
       openColumn.current = open.column
       setTicket(open)
       if (another) {
+        drawn.current = []
         setTalk([])
         setTalkWaiting(false)
         void loadTalk(open)
@@ -73,6 +75,7 @@ export function useTicketTalk() {
   const closeTicket = React.useCallback(() => {
     openId.current = null
     openColumn.current = ""
+    drawn.current = []
     setTicket(null)
     setTalk([])
     setTalkWaiting(false)
@@ -82,12 +85,31 @@ export function useTicketTalk() {
     if (ticket) void loadTalk(ticket)
   }, [ticket, loadTalk])
 
+  /* What this page drew before the stream said it, oldest first, by identity.
+   * The stream's version of the message replaces the first of them (it is the
+   * truth: the server may have masked a password in it), so the message is
+   * neither drawn twice nor lost; the phone that did not send it shows only
+   * what came back on the stream. */
+  const drawn = React.useRef<Message[]>([])
+
   const tell = React.useCallback(async (text: string) => {
     const id = openId.current
-    if (!id || !text.trim()) return
-    // Nothing is drawn here: what appears is what came back on the stream, so
-    // the phone that sent it and the laptop that did not show the same thing.
-    await api.tell(id, text.trim())
+    const words = text.trim()
+    if (!id || !words) return
+    const local: Message = { role: "you", text: words, at: new Date().toISOString() }
+    void optimistic({
+      apply: () => {
+        drawn.current.push(local)
+        setTalk((messages) => [...messages, local])
+        setTalkWaiting(false)
+      },
+      request: () => api.tell(id, words),
+      rollback: () => {
+        drawn.current = drawn.current.filter((message) => message !== local)
+        setTalk((messages) => messages.filter((message) => message !== local))
+      },
+      failure: t("not written"),
+    })
   }, [])
 
   /* The board moved: keep the open ticket's terminal describing the right
@@ -114,7 +136,13 @@ export function useTicketTalk() {
     talk: (event: TalkEvent) => {
       // Somebody wrote to a ticket — here, or in the other tab, or on a phone.
       if (event.ticket !== openId.current) return
-      setTalk((messages) => [...messages, { role: event.role, text: event.text, at: event.at }])
+      const said: Message = { role: event.role, text: event.text, at: event.at }
+      const mine = event.role === "you" ? drawn.current.shift() : undefined
+      setTalk((messages) =>
+        mine && messages.includes(mine)
+          ? messages.map((message) => (message === mine ? said : message))
+          : [...messages, said]
+      )
       // An answer, from wherever it was typed, is the question answered.
       if (event.role === "you") setTalkWaiting(false)
     },

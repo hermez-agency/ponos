@@ -38,6 +38,7 @@ import { cn } from "@/lib/utils"
 import { useConsole } from "@/hooks/use-console"
 import { api, why } from "@/lib/api"
 import { t as translate, useT } from "@/lib/i18n"
+import { optimistic } from "@/lib/optimistic"
 import { splitHelp } from "@/lib/settings-search"
 import {
   cardId,
@@ -1145,37 +1146,45 @@ export function GroupForm({
         onSaved({ bad: false, text: translate("Nothing to save — the file already said that.") })
         return
       }
-      try {
-        const result = await api.saveSettings({ settings: changes })
-        forgetDraft(group)
-        // The description is read again rather than patched: a token that has
-        // just been set comes back as a preview, and a line that has just been
-        // removed comes back as the default it fell through to.
-        publishSettings(await api.settings())
-        await reloadState()
-        // A 200 is the server saying it wrote; what it wrote is a courtesy, and
-        // a save is not going to be reported as a failure over a missing list.
-        const saved = result.saved ?? []
-        // The server says what has to happen in the same words the fields do,
-        // so the sentence is translated the same way they are.
-        const after = (result.after ?? []).map((one) => translate(one))
+      const saidOf = (saved: string[], after: string[] = []) => {
         const how =
           saved.length === 1
             ? translate("one setting")
             : translate("{{count}} settings", { count: String(saved.length) })
-        onSaved({
-          bad: false,
-          text:
-            translate("Saved {{how}}: {{names}}.", { how, names: saved.join(", ") }) +
-            (after.length
-              ? " " + translate("Takes effect once {{after}}.", { after: after.join("; ") })
-              : ""),
-        })
-      } catch (error) {
-        // On the page itself, not in the transcript: on a phone the console is
-        // a tab away, and a save you have to go looking for is one you doubt.
-        onSaved({ bad: true, text: translate("Not saved: {{why}}", { why: why(error) }) })
+        return (
+          translate("Saved {{how}}: {{names}}.", { how, names: saved.join(", ") }) +
+          (after.length ? " " + translate("Takes effect once {{after}}.", { after: after.join("; ") }) : "")
+        )
       }
+      // Saved as far as the page is concerned the moment Save is pressed: the
+      // button is free again at once, and a refusal brings the draft back.
+      void optimistic({
+        apply: () => {
+          forgetDraft(group)
+          onSaved({ bad: false, text: saidOf(Object.keys(changes)) })
+        },
+        request: () => api.saveSettings({ settings: changes }),
+        rollback: (error) => {
+          // On the page itself, not in the transcript: on a phone the console is
+          // a tab away, and a save you have to go looking for is one you doubt.
+          rememberDraft(group, typed as Record<string, SettingValue>, true)
+          onSaved({ bad: true, text: translate("Not saved: {{why}}", { why: why(error) }) })
+        },
+        failure: translate("Not saved"),
+        settled: (result) => {
+          // The description is read again rather than patched: a token that has
+          // just been set comes back as a preview, and a line that has just been
+          // removed comes back as the default it fell through to.
+          void api.settings().then(publishSettings)
+          void reloadState()
+          // The server says what has to happen in the same words the fields do,
+          // so the sentence is translated the same way they are.
+          onSaved({
+            bad: false,
+            text: saidOf(result.saved ?? Object.keys(changes), (result.after ?? []).map((one) => translate(one))),
+          })
+        },
+      })
     },
   })
 

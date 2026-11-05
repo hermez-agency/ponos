@@ -71,11 +71,14 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ApiError, api } from "@/lib/api"
+import { optimistic } from "@/lib/optimistic"
 import {
   addTicket,
   boardOnce,
   currentBoard,
+  dropTicket,
   moveTicket,
+  replaceTicket,
   subscribeBoard,
   titleOf,
   useBoard,
@@ -309,6 +312,7 @@ class FieldProblem extends Error {
 /** The projects a ticket can point at — those with a page — and none, which makes it a document. */
 export async function projectChoices() {
   const { projects } = await api.projects().catch(() => ({ projects: [] }))
+  for (const project of projects) knownProjects.set(project.id, { name: project.name, kind: project.kind })
   return [
     { value: "", label: "no project — a document" },
     // The kind said the way the rest of the console says it: the list of
@@ -1031,34 +1035,29 @@ function TicketTable({ rows: all = [] }: ListComponentPropsInterface) {
   )
 }
 
-/** A new ticket, written to the board and put on the one the console holds, so it is drawn at once. */
+/* The projects the form offered last, by id: the provisional card of a ticket
+ * being created names its project from here, not from a read it would wait for. */
+const knownProjects = new Map<string, { name: string; kind: string }>()
+
+let provisionals = 0
+
+/** A new ticket, drawn on the board at once under a provisional id, and written behind it: the real card replaces it when the server answers, and it is taken off when the server refuses. */
 export async function createTicket(fresh: TicketWrite): Promise<TicketItem> {
   const title = String(fresh.title ?? "").trim()
   // Said under the field it is about, not only in a toast in the corner.
   if (!title) throw new FieldProblem("title", t("A ticket needs a title."))
   const score = readScore(fresh.priority)
   if (score === undefined) throw new FieldProblem("priority", t("A priority is a number from 0 to 100."))
-  const made = await api.createTicket({
-    title,
-    body: String(fresh.body ?? ""),
-    project: String(fresh.project ?? ""),
-    ready: fresh.ready !== false,
-    priority: score ?? "",
-    type: String(fresh.type ?? ""),
-    model: String(fresh.model ?? ""),
-    subtype: String(fresh.subtype ?? ""),
-    goal: String(fresh.goal ?? ""),
-  })
-  const projects = await api.projects().catch(() => ({ projects: [] }))
-  const project = projects.projects.find((candidate) => candidate.id === fresh.project)
+  const project = knownProjects.get(String(fresh.project ?? ""))
   // A draft lands among the drafts, with the status the board keeps them
   // under, or none on a board that names no such option.
   const drafts = currentBoard()?.columns.find((candidate) => candidate.key === "draft")
   const column = fresh.ready === false ? "draft" : "ready"
+  const now = new Date().toISOString()
   const card: Ticket = {
-    id: made.id.replace(/-/g, ""),
-    short: made.id.replace(/-/g, "").slice(-8),
-    title: made.title,
+    id: `pending${++provisionals}`,
+    short: "",
+    title,
     url: "",
     status: column === "draft" ? drafts?.name ?? "" : "",
     column,
@@ -1069,7 +1068,7 @@ export async function createTicket(fresh: TicketWrite): Promise<TicketItem> {
     subtype: String(fresh.subtype ?? ""),
     goal: currentBoard()?.choices?.goal?.find((choice) => choice.value === fresh.goal)?.label ?? "",
     goal_id: String(fresh.goal ?? ""),
-    // What the server wrote: the score given, or the middle one.
+    // What the server will write: the score given, or the middle one.
     priority: currentBoard()?.priority ? (score ?? DEFAULT_SCORE) : null,
     model: String(fresh.model ?? ""),
     progress: "",
@@ -1080,10 +1079,31 @@ export async function createTicket(fresh: TicketWrite): Promise<TicketItem> {
     cost: null,
     duration: null,
     scheduled: "",
-    created: new Date().toISOString(),
-    edited: new Date().toISOString(),
+    created: now,
+    edited: now,
   }
-  addTicket(card)
+  void optimistic({
+    apply: () => addTicket(card),
+    request: () =>
+      api.createTicket({
+        title,
+        body: String(fresh.body ?? ""),
+        project: String(fresh.project ?? ""),
+        ready: fresh.ready !== false,
+        priority: score ?? "",
+        type: String(fresh.type ?? ""),
+        model: String(fresh.model ?? ""),
+        subtype: String(fresh.subtype ?? ""),
+        goal: String(fresh.goal ?? ""),
+      }),
+    rollback: () => dropTicket(card.id),
+    failure: t("The ticket could not be created"),
+    // The stream may have brought the real card already: it is then the only one left.
+    settled: (made) => {
+      const id = made.id.replace(/-/g, "")
+      replaceTicket(card.id, { ...card, id, short: id.slice(-8), title: made.title })
+    },
+  })
   return item(card)
 }
 
@@ -1243,7 +1263,7 @@ const options: ResourceDefinition<TicketItem, TicketWrite> = {
       const id = String(patch.id)
       const column = patch.column as ColumnKey | undefined
       const before = currentBoard()?.tickets.find((ticket) => ticket.id === id)
-      if (column) await moveTicket(id, column)
+      if (column) moveTicket(id, column)
       const after = currentBoard()?.tickets.find((ticket) => ticket.id === id) ?? before
       return { data: after ? item(after) : (patch as unknown as TicketItem) }
     },
