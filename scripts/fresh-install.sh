@@ -105,8 +105,14 @@ fi
 # a shallow clone deepens it: a second fetch meanwhile — doctor's, or update's
 # — finds shallow.lock and cannot tell. That collision is a defect of its own;
 # what is checked here is what each of them answers, so they come after it.
+# Two things look: the console, whose stamp carries no time (`clock=False`),
+# and the runner's first pass — which a markdown board lets run, where a
+# notion board with no token stopped before it. Only the runner's stamp is
+# dated, so it is the one waited for: the console's alone leaves a fetch
+# under way, and it is that one that holds shallow.lock.
 for _ in $(seq 120); do
-    [ -s "$STATE/update.json" ] && break
+    python3 -c 'import json, sys; sys.exit(0 if json.load(open(sys.argv[1])).get("checked_at") else 1)' \
+        "$STATE/update.json" 2>/dev/null && break
     sleep 1
 done
 

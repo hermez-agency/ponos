@@ -182,7 +182,7 @@ def the_board_step_can_choose_files_over_notion_without_a_token_or_a_restart() -
 
     path = Path(tempfile.mkdtemp()) / "config.toml"
     path.write_text('[storage]\nmode = "notion"\n', encoding="utf-8")
-    api = _Fresh(path)
+    api = _api(path)
     with _environment(PONOS_NOTION_TOKEN=None):
         assert web_setup._board(api)["state"] == "missing"
         said = web_setup.save_notion(api, {"storage": "markdown"})
@@ -426,7 +426,7 @@ def the_summary_and_doctor_agree_on_a_workspace_folder_that_does_not_exist_yet()
 
     root = Path(tempfile.mkdtemp()) / "workspace"
     path, _ = _saved(f'[runner]\nworkspace_root = "{root}"\n')
-    api = _Fresh(path)
+    api = _api(path)
     said = web_setup._projects(api.config)
     assert said == {"state": "ok", "root": str(root), "repositories": 0, "configured": 0}
     assert root.is_dir()
