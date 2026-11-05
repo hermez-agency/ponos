@@ -21,7 +21,12 @@
  * - un ticket — a card on it; lancer, relancer — what sends it to the runner;
  * - une récurrence — a ticket that comes back by itself (a schedule);
  * - un objectif — a goal, which tickets are written towards;
- * - un fournisseur — who answers the sessions (a provider).
+ * - un fournisseur — who answers the sessions (a provider);
+ * - une session — Claude at work on a ticket, and only that: the strip's count,
+ *   a ticket's Execution block, the bell's « Une session attend… »;
+ * - une conversation — an exchange with the workspace in the console's drawer;
+ *   the page that keeps them is « Conversations », never « Sessions » —
+ *   « Chat » in a phone's bottom bar, where « Conversations » is cut.
  */
 export const FRENCH: Record<string, string> = {
   /* -- what the packages say ---------------------------------------------- */
@@ -1565,30 +1570,32 @@ export const FRENCH: Record<string, string> = {
   "This machine": "Cette machine",
   "What an MCP is, how to plug Ponos into Claude, and the ones the sessions use.": "Ce qu'est un MCP, comment brancher Ponos à Claude, et ceux qu'utilisent les sessions.",
   "MCP": "MCP",
-  // Sessions — the conversations kept by the console, and the model they run on.
+  // Conversations — the ones kept by the console, and the model they run on.
+  Conversations: "Conversations",
+  Chat: "Chat",
   "Every conversation with your workspace. Open one to carry on where it stopped.":
     "Toutes les conversations avec votre espace de travail. Ouvrez-en une pour reprendre là où elle s'était arrêtée.",
-  "New session": "Nouvelle session",
+  "New conversation": "Nouvelle conversation",
   "Search the titles and what was said": "Chercher dans les titres et dans ce qui s'est dit",
-  "Reading the sessions…": "Lecture des sessions…",
-  "No session matches.": "Aucune session ne correspond.",
+  "Reading the conversations…": "Lecture des conversations…",
+  "No conversation matches.": "Aucune conversation ne correspond.",
   "Other words, and they will be back.": "D'autres mots, et elles reviendront.",
-  "No session yet.": "Aucune session pour l'instant.",
+  "No conversation yet.": "Aucune conversation pour l'instant.",
   "Every conversation with your workspace is kept here, to be carried on later.":
     "Chaque conversation avec votre espace de travail est gardée ici, pour être reprise plus tard.",
-  "Untitled session": "Session sans titre",
+  "Untitled conversation": "Conversation sans titre",
   open: "ouverte",
   "{{count}} exchange": "{{count}} échange",
   "{{count}} exchanges": "{{count}} échanges",
   "found in the conversation": "trouvé dans la conversation",
   Rename: "Renommer",
-  "The session could not be opened": "La session n'a pas pu être ouverte",
-  "Session “{{name}}” deleted": "Session « {{name}} » supprimée",
+  "The conversation could not be opened": "La conversation n'a pas pu être ouverte",
+  "Conversation “{{name}}” deleted": "Conversation « {{name}} » supprimée",
   "Its conversation and the files sent in it are deleted for good.":
     "Sa conversation et les fichiers qui y ont été envoyés sont supprimés pour de bon.",
-  "Delete the session": "Supprimer la session",
-  "Yes, I am sure I want to delete this session": "Oui, je suis sûr de supprimer cette session",
-  "Model of this session": "Modèle de cette session",
+  "Delete the conversation": "Supprimer la conversation",
+  "Yes, I am sure I want to delete this conversation": "Oui, je suis sûr de supprimer cette conversation",
+  "Model of this conversation": "Modèle de cette conversation",
   "Search a model…": "Chercher un modèle…",
   "Reading the models…": "Lecture des modèles…",
   "No such model": "Aucun modèle de ce nom",

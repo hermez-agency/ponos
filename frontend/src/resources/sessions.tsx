@@ -8,7 +8,7 @@ import { SCOPE } from "@/lib/resource-view"
 /* The conversations, as a page of the menu.
  *
  * Declared as a list, as the projects and the ideas are, so the bar names it
- * as it names them — "Ponos › Sessions", not the resource and then the one
+ * as it names them — "Ponos › Conversations", not the resource and then the one
  * record it used to be read as. But the package lists nothing: the list of
  * sessions is drawn by the page itself, from its own endpoint, with its search,
  * and the header with it (see `SessionsPage`). */
@@ -38,7 +38,7 @@ const refused = async (): Promise<never> => {
 }
 
 export const sessions = createViewResource<SessionsItem>(SESSIONS, {
-  name: "Sessions",
+  name: "Conversations",
   path: "/api/chat/sessions",
   icon: MessagesSquare,
   // The page, and nothing to read, write or delete through the package.

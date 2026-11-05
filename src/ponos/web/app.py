@@ -779,7 +779,7 @@ READABLE = {
     **dict.fromkeys(
         ("/recurrences", "/récurrences", "/schedules"), "/?view=console/schedules/list"
     ),
-    "/sessions": "/?view=console/sessions/list",
+    **dict.fromkeys(("/conversations", "/sessions"), "/?view=console/sessions/list"),
     **dict.fromkeys(("/reglages", "/réglages", "/settings"), "/?view=console/settings/read/config"),
 }
 

@@ -65,7 +65,8 @@ const entry = (
 /* The pages you go to every day, down the left — and along the bottom of a
  * phone, where four of them and More are what fits a 360px screen. There the
  * Dashboard is named after what it draws, the board: « Tableau de bord » is cut
- * at 375px, « Tableau » is not. */
+ * at 375px, « Tableau » is not. The Conversations are « Chat » there, for the
+ * same reason. */
 const MENU: MenuItemInterface[] = [
   entry(tickets.icon, "Dashboard", boardHref, BoardCount, undefined, "Board"),
   entry(projects.icon, "Projects", projectsHref),
@@ -74,7 +75,7 @@ const MENU: MenuItemInterface[] = [
   entry(schedules.icon, "Schedules", schedulesHref, undefined, phone),
   entry(ideas.icon, "Ideas", ideasHref),
   entry(goals.icon, "Goals", goalsHref, undefined, phone),
-  entry(sessions.icon, "Sessions", sessionsHref),
+  entry(sessions.icon, "Conversations", sessionsHref, undefined, undefined, "Chat"),
 ]
 
 /* The rest, pinned at the foot of the sidebar, over its version and its

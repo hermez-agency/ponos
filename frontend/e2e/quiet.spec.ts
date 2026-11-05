@@ -17,7 +17,7 @@ const PAGES: [string, string][] = [
   ["Schedules", "/?view=console/schedules/list"],
   ["Ideas", "/?view=console/ideas/list"],
   ["Goals", "/?view=console/goals/list"],
-  ["Sessions", "/?view=console/sessions/list"],
+  ["Conversations", "/?view=console/sessions/list"],
   ["Settings", "/?view=console/settings/read/config"],
 ]
 

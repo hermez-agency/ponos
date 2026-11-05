@@ -19,7 +19,7 @@ const VIEWS: [string, string][] = [
   ["Goals", "/?view=console/goals/list"],
   ["Ideas", "/?view=console/ideas/list"],
   ["Schedules", "/?view=console/schedules/list"],
-  ["Sessions", "/?view=console/sessions/list"],
+  ["Conversations", "/?view=console/sessions/list"],
   ["Settings", "/?view=console/settings/read/config"],
 ]
 
