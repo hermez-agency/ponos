@@ -14,6 +14,27 @@
    back to English. Same rule as there: the English sentence is the key. */
 
 export const SETTINGS_FRENCH: Record<string, string> = {
+  // The card of the bell pushed to a phone (components/console/push-card.tsx).
+  "Notifications on this device": "Notifications sur cet appareil",
+  "The bell, pushed to this phone even when the console is closed: a question, a pull request to review, a red CI, a failure or a block — once per ticket. Touching it opens the ticket's decision.":
+    "La cloche, poussée sur ce téléphone même console fermée : une question, une pull request à relire, une CI rouge, un échec ou un blocage — une fois par ticket. La toucher ouvre la décision du ticket.",
+  "Notify this device": "Prévenir cet appareil",
+  "Send a test": "Envoyer un essai",
+  "Sent: it should arrive within a few seconds.": "Envoyé : elle devrait arriver d'ici quelques secondes.",
+  "The push service refused it ({status}).": "Le service de push l'a refusée ({status}).",
+  "Devices notified": "Appareils prévenus",
+  "A browser": "Un navigateur",
+  "this one": "celui-ci",
+  "Stop notifying this device": "Ne plus prévenir cet appareil",
+  "This installation cannot send push notifications: the `cryptography` package is missing. Update Ponos.":
+    "Cette installation ne peut pas envoyer de notifications push : le paquet `cryptography` manque. Mettez Ponos à jour.",
+  "Push notifications need the console over HTTPS: Tailscale gives it a certificate (`tailscale serve`), as does a reverse proxy.":
+    "Les notifications push demandent la console en HTTPS : Tailscale lui donne un certificat (`tailscale serve`), un reverse proxy aussi.",
+  "On an iPhone, add the console to the home screen first (Share, then Add to Home Screen), and open it from there.":
+    "Sur un iPhone, ajoutez d'abord la console à l'écran d'accueil (Partager, puis Sur l'écran d'accueil), et ouvrez-la de là.",
+  "This browser cannot receive push notifications.": "Ce navigateur ne peut pas recevoir de notifications push.",
+  "Notifications are refused for this site: allow them in the browser's settings, then come back here.":
+    "Les notifications sont refusées pour ce site : autorisez-les dans les réglages du navigateur, puis revenez ici.",
   "Advanced mapping": "Correspondance avancée",
   "Only for a board whose names differ from the ones `ponos init` creates: its columns, its properties, its databases and its types.":
     "Seulement pour un tableau dont les noms diffèrent de ceux que crée `ponos init` : ses colonnes, ses propriétés, ses bases et ses types.",

@@ -521,7 +521,13 @@ _PROJECT_OWN = re.compile(r"/api/projects/[0-9a-fA-F-]{32,36}/(settings|delete)"
 
 # The writes a reader makes all the same: they change nothing but what this
 # browser has seen.
-READER_WRITES = ("/api/notifications/read", "/api/refresh")
+READER_WRITES = (
+    "/api/notifications/read",
+    "/api/refresh",
+    "/api/push/subscribe",
+    "/api/push/unsubscribe",
+    "/api/push/test",
+)
 
 
 def needed(method: str, route: str) -> str:

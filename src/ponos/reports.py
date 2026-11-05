@@ -36,6 +36,7 @@ from . import (
     openrouter,
     priority,
     provider,
+    push,
     resources,
     session,
     state,
@@ -427,13 +428,15 @@ class Reports(Base):
         """
         said = self.voice
         headline = said.headline(verdict, ticket.title)
+        title, text = said.desktop(verdict, ticket.title, project=project, summary=summary or body)
         if not self.dry_run:
             # The bell in the console, which keeps what the screen and the phone
-            # only say once. `code` is the cause of a stop, when it is one.
+            # only say once. `code` is the cause of a stop, when it is one. A
+            # bell rung anew is pushed to the phones subscribed to it, in the
+            # desktop's words: plain text, for a lock screen.
             bell = notifications.kind_of(verdict, code)
-            if bell:
-                notifications.add(bell, ticket.id, ticket.title)
-        title, text = said.desktop(verdict, ticket.title, project=project, summary=summary or body)
+            if bell and notifications.add(bell, ticket.id, ticket.title):
+                push.ring(bell, ticket.id, title, text, contact=self.config.web.email)
         self._notify(
             title,
             text,

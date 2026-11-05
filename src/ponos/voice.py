@@ -1154,6 +1154,12 @@ _SAID: dict[str, dict[str, str]] = {
     # be named — Notion puts the page's own name above the comment, and these
     # two have nothing but what they are handed. The words are the verdicts'.
     "headline": {"en": "{verdict} · {title}", "fr": "{verdict} · {title}"},
+    # The push a phone is sent from Settings › Communication, to see that it arrives.
+    "push-test-title": {"en": "Ponos · test", "fr": "Ponos · essai"},
+    "push-test-body": {
+        "en": "This phone will be told when a ticket waits for you.",
+        "fr": "Ce téléphone sera prévenu quand un ticket t’attend.",
+    },
     "publication-interrupted": {
         "en": "its publication was interrupted — did it go out? If not, back to “{origin}”",
         "fr": "sa publication a été interrompue — est-elle partie ? Sinon, retour "

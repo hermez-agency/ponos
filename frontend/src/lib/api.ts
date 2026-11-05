@@ -425,6 +425,22 @@ export const api = {
   /** One fix a check offered — the page has asked first, and says so. */
   fixHealth: (action: string, target: string) =>
     answer(client.POST("/api/health/fix", { body: { action, target, confirmed: true } })),
+  /** The console's key for Web Push, and the browsers the bell is pushed to. */
+  push: () => answer(client.GET("/api/push")),
+  /** This browser's subscription kept: the bell is pushed to it from now on. */
+  subscribePush: (subscription: PushSubscriptionJSON, label: string) =>
+    answer(
+      client.POST("/api/push/subscribe", {
+        body: {
+          endpoint: subscription.endpoint ?? "",
+          keys: { p256dh: subscription.keys?.p256dh ?? "", auth: subscription.keys?.auth ?? "" },
+          label,
+        },
+      })
+    ),
+  unsubscribePush: (endpoint: string) => answer(client.POST("/api/push/unsubscribe", { body: { endpoint } })),
+  /** One push to this browser, to see it arrive. */
+  testPush: (endpoint: string) => answer(client.POST("/api/push/test", { body: { endpoint } })),
   disk: () => answer(client.GET("/api/disk")),
   clean: () => answer(client.POST("/api/disk/clean")),
   mcp: () => answer(client.GET("/api/mcp")),

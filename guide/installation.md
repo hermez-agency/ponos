@@ -115,7 +115,7 @@ installing, restarting — and the page reloads by itself from the new version:
   (see [Troubleshooting](troubleshooting.md#when-it-does-not-work));
 - **each version has its own Python environment.** `app-<commit>/.venv` is made from the
   machine's `python3` before `app` points at the version, and holds what
-  `requirements.txt` lists — httpx and pydantic for the runner, the console's FastAPI and uvicorn, and
+  `requirements.txt` lists — httpx and pydantic for the runner, cryptography for the pushes to a phone, the console's FastAPI and uvicorn, and
   the few packages they pull in, at the versions of `uv.lock`, hashes checked;
   [uv](https://docs.astral.sh/uv/) installs them when the machine has it, pip otherwise (on
   Debian and Ubuntu, pip in an environment comes with `python3-venv`). A version whose
@@ -154,7 +154,7 @@ changes the hour; `runner.update_channel` chooses between releases and `main` �
 compare itself against: it says so once per check and carries on.
 
 > **Requirements** — Linux or macOS, `python3` >= 3.11 (and `uv`, or `python3-venv` on
-> Debian and Ubuntu: each version installs httpx and pydantic, which the runner imports, and the
+> Debian and Ubuntu: each version installs httpx, pydantic and cryptography, which the runner imports, and the
 > console's FastAPI and uvicorn in a `.venv` of its own — see above), `git`,
 > [Claude Code](https://claude.com/claude-code),
 > and for pull requests either the GitHub App the console connects or `gh` authenticated.

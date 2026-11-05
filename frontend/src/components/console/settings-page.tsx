@@ -5,6 +5,7 @@ import { ViewResourceContextProvider, generateLink } from "react-resource-view"
 
 import { ConfirmDialog } from "@/components/console/confirm-dialog"
 import { LanguagePicker } from "@/components/console/language-picker"
+import { PushCard } from "@/components/console/push-card"
 import type { SaveNote } from "@/components/console/settings-bits"
 import { Rich } from "@/components/console/text"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -362,6 +363,7 @@ export function GroupPage({ group }: { group: string }) {
   return (
     <div className="flex min-w-0 flex-col gap-5">
       {group === "general" ? <StateCard /> : null}
+      {group === "communication" ? <PushCard /> : null}
       {note ? (
         <Alert variant={note.bad ? "destructive" : "success"}>
           <AlertDescription>

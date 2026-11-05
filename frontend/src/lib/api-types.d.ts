@@ -1751,6 +1751,77 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/push": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Push State */
+        get: operations["push_state_api_push_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/push/subscribe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Push Subscribe */
+        post: operations["push_subscribe_api_push_subscribe_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/push/unsubscribe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Push Unsubscribe */
+        post: operations["push_unsubscribe_api_push_unsubscribe_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/push/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Push Test
+         * @description One push to the browser that asked, in the words of a real one.
+         */
+        post: operations["push_test_api_push_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/notifications/read": {
         parameters: {
             query?: never;
@@ -2569,6 +2640,12 @@ export interface components {
             name: string;
             avatar: string;
             at: string;
+        };
+        Endpoint: {
+            /** @default  */
+            endpoint: string;
+        } & {
+            [key: string]: unknown;
         };
         Entry: {
             name: string;
@@ -3476,6 +3553,35 @@ export interface components {
             /** @description For the CLI only: what to run in a terminal to install it. */
             install?: string;
         };
+        /** @description What a browser needs to subscribe to the bell, and who already did. */
+        Push: {
+            /** @description Whether this installation can send a push at all: `cryptography` is installed. */
+            available: boolean;
+            /** @description The console's public key, the browser's `applicationServerKey` — "" when not available. */
+            key: string;
+            devices: components["schemas"]["PushDevice"][];
+        };
+        /** @description A browser the bell is pushed to — see `push.py`. */
+        PushDevice: {
+            endpoint: string;
+            /** @description What the browser said it was when it subscribed: "Android", "iPhone"… */
+            label: string;
+            /** @description The account that subscribed it, "" for the console's own sign-in. */
+            who: string;
+            created: string;
+        };
+        PushKeys: {
+            /** @default  */
+            p256dh: string;
+            /** @default  */
+            auth: string;
+        } & {
+            [key: string]: unknown;
+        };
+        PushSent: {
+            /** @description What the push service answered: 201 when it took the message, 0 when it did not answer. */
+            status: number;
+        };
         Question: {
             ask: string;
             /** @enum {string} */
@@ -4103,6 +4209,15 @@ export interface components {
             /** @description Checked again behind an answer past its time — see `Upkeep.health`. */
             health: components["schemas"]["HealthReport"];
             notice: components["schemas"]["NoticeEvent"];
+        };
+        Subscribed: {
+            /** @default  */
+            endpoint: string;
+            keys?: components["schemas"]["PushKeys"];
+            /** @default  */
+            label: string;
+        } & {
+            [key: string]: unknown;
         };
         /** @description One sub-type of a code ticket, whole, as the board sends the table of them. */
         Subtype: {
@@ -7991,6 +8106,125 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["McpTest"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    push_state_api_push_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Push"];
+                };
+            };
+        };
+    };
+    push_subscribe_api_push_subscribe_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Subscribed"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Push"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    push_unsubscribe_api_push_unsubscribe_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Endpoint"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Push"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    push_test_api_push_test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Endpoint"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushSent"];
                 };
             };
             /** @description Validation Error */
