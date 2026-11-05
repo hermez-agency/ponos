@@ -4,12 +4,16 @@ from __future__ import annotations
 
 import contextlib
 import io
+import shutil
 import tempfile
+from collections.abc import Callable, Iterator
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Any, cast
 
 from support import (
     _board_runner,
+    _BoardClient,
     _closing,
     _config,
     _git_answering,
@@ -24,13 +28,19 @@ from ponos import channels, github_checks, notion, projects, session, state, voi
 from ponos import config as C
 from ponos import git as git_module
 from ponos import ticket as ticket_module
+from ponos.runner import Runner
 from ponos.web import tickets as web_tickets
 
 # -- a merged pull request closes its ticket ---------------------------------
 
 
+def _client(runner: Runner) -> _BoardClient:
+    """The fake board `_board_runner` gave the runner, to read and move what it holds."""
+    return cast(_BoardClient, runner.client)
+
+
 @case
-def a_merged_pull_request_moves_its_ticket_to_done():
+def a_merged_pull_request_moves_its_ticket_to_done() -> None:
     client, closed = _closing(
         [
             _reviewed("p-merged", "In review", "https://github.com/x/y/pull/1"),
@@ -45,7 +55,7 @@ def a_merged_pull_request_moves_its_ticket_to_done():
     assert client.comments_written[0] == ("✅ Merged — PR #1\nhttps://github.com/x/y/pull/1")
 
 
-def _checks(*buckets: str) -> list[dict]:
+def _checks(*buckets: str) -> list[dict[str, Any]]:
     return [
         {"name": f"job-{number}", "bucket": bucket, "link": f"https://ci/{number}"}
         for number, bucket in enumerate(buckets)
@@ -53,7 +63,7 @@ def _checks(*buckets: str) -> list[dict]:
 
 
 @case
-def the_three_states_of_the_ci_are_deduced_from_the_checks():
+def the_three_states_of_the_ci_are_deduced_from_the_checks() -> None:
     from ponos import ci
 
     assert ci.deduce(_checks("pass", "pass")) == "passed"
@@ -69,7 +79,7 @@ def the_three_states_of_the_ci_are_deduced_from_the_checks():
 
 
 @case
-def a_push_puts_the_ci_back_to_running_until_the_new_checks_are_in():
+def a_push_puts_the_ci_back_to_running_until_the_new_checks_are_in() -> None:
     from ponos import ci
 
     url = "https://github.com/x/y/pull/1"
@@ -88,7 +98,7 @@ def a_push_puts_the_ci_back_to_running_until_the_new_checks_are_in():
 
 
 @case
-def the_ci_is_asked_again_often_while_it_runs_and_rarely_once_it_has_settled():
+def the_ci_is_asked_again_often_while_it_runs_and_rarely_once_it_has_settled() -> None:
     from ponos import ci
 
     url = "u"
@@ -102,35 +112,42 @@ def the_ci_is_asked_again_often_while_it_runs_and_rarely_once_it_has_settled():
 
 
 @case
-def a_ticket_in_review_carries_its_ci_on_the_board_and_stops_when_it_leaves(state_home):
+def a_ticket_in_review_carries_its_ci_on_the_board_and_stops_when_it_leaves(
+    state_home: Path,
+) -> None:
 
     url = "https://github.com/x/y/pull/2"
     runner = _board_runner(
         [_reviewed("p-open", "In review", url)], {"review": "In review", "done": "Done"}
     )
-    asked = []
+    asked: list[str] = []
     head, listed = git_module.pull_request_head, github_checks.checks
-    git_module.pull_request_head = lambda link, accounts=None: "aaa"
-    github_checks.checks = lambda link, accounts=None: (
-        asked.append(link) or _checks("pass", "pending")
-    )
+    git_module.pull_request_head = lambda url, accounts=None: "aaa"
+
+    def checks(
+        url: str, accounts: dict[str, str] | None = None, timeout: int = 60
+    ) -> list[dict[str, Any]]:
+        asked.append(url)
+        return _checks("pass", "pending")
+
+    github_checks.checks = checks
     try:
         with _github({url: "OPEN"}):
-            git_module.pull_request_head = lambda link, accounts=None: "aaa"
+            git_module.pull_request_head = lambda url, accounts=None: "aaa"
             runner.close_merged()
         # Written to the board, and kept for the list to read without GitHub.
-        assert runner.client.written == [("p-open", {"CI": "en cours"})], runner.client.written
-        cards = [{"id": "popen", "column": "review", "pull_request": url}]
+        assert _client(runner).written == [("p-open", {"CI": "en cours"})], _client(runner).written
+        cards: list[dict[str, Any]] = [{"id": "popen", "column": "review", "pull_request": url}]
         web_tickets._checks(cards)
         assert cards[0]["ci"]["state"] == "pending" and len(cards[0]["ci"]["checks"]) == 2
         assert cards[0]["ci"]["link"] == url + "/checks"
         # Asked again at once: not due, so GitHub is not.
         with _github({url: "OPEN"}):
-            git_module.pull_request_head = lambda link, accounts=None: "aaa"
+            git_module.pull_request_head = lambda url, accounts=None: "aaa"
             runner.close_merged()
         assert asked == [url]
         # Out of review: no longer followed, no longer drawn.
-        runner.client.written.clear()
+        _client(runner).written.clear()
         runner.follow_ci([])
         assert state.ci_rows() == {}
         cards = [{"id": "popen", "column": "validated", "pull_request": url}]
@@ -141,7 +158,9 @@ def a_ticket_in_review_carries_its_ci_on_the_board_and_stops_when_it_leaves(stat
 
 
 @case
-def a_ticket_in_progress_carries_the_phase_it_is_in_and_drops_it_when_it_leaves(state_home):
+def a_ticket_in_progress_carries_the_phase_it_is_in_and_drops_it_when_it_leaves(
+    state_home: Path,
+) -> None:
     """A ticket waiting for its CI says so on its card, not « starting… » for an hour."""
     url = "https://github.com/x/y/pull/371"
     runner = _board_runner([], {"review": "In review", "done": "Done"})
@@ -152,7 +171,7 @@ def a_ticket_in_progress_carries_the_phase_it_is_in_and_drops_it_when_it_leaves(
 
     with _git_answering(wait_for_checks=lambda *args, **kwargs: "passed"):
         assert runner._checked(ticket, url, Path("/work"), "main")[0] == "passed"
-    cards = [
+    cards: list[dict[str, Any]] = [
         {"id": "pwait", "column": "running"},
         {"id": "pwait", "column": "review"},
     ]
@@ -167,7 +186,7 @@ def a_ticket_in_progress_carries_the_phase_it_is_in_and_drops_it_when_it_leaves(
 
 
 @case
-def a_board_told_to_answer_in_french_is_answered_in_french():
+def a_board_told_to_answer_in_french_is_answered_in_french() -> None:
     """The whole point of the setting, checked where it is actually read.
 
     `runner.language` is a line of a file; what it has to change is the sentence
@@ -180,13 +199,13 @@ def a_board_told_to_answer_in_french_is_answered_in_french():
     runner.config.runner.language = "FR"
     with _github({"https://github.com/x/y/pull/1": "MERGED"}):
         assert runner.close_merged() == 1
-    said = runner.client.comments_written[0]
+    said = _client(runner).comments_written[0]
     assert said.startswith("✅ Fusionnée — PR #1"), said
     assert "https://github.com/x/y/pull/1" in said
 
 
 @case
-def a_stuck_ticket_in_french_is_stuck_in_french_from_the_first_line_to_the_phone():
+def a_stuck_ticket_in_french_is_stuck_in_french_from_the_first_line_to_the_phone() -> None:
     """The comment that asked for the setting: a French question wrapped in
     three English sentences. Every line of it comes out of `voice`, and so does
     the message that reaches the phone."""
@@ -196,10 +215,10 @@ def a_stuck_ticket_in_french_is_stuck_in_french_from_the_first_line_to_the_phone
         '[notify]\ndesktop = false\n\n[notify.telegram]\ntoken = "123:abc"\nchat = "42"\n'
     ).notify
     said = runner.voice
-    ticket = ticket_module.Ticket(runner.client._pages[0])
+    ticket = ticket_module.Ticket(_client(runner)._pages[0])
     sent: list[str] = []
     original = channels.announce
-    channels.announce = lambda settings, text, **rest: sent.append(text)
+    channels.announce = lambda settings, text, **rest: sent.append(text)  # type: ignore[assignment]  # a double: what reaches the phone is kept
     try:
         runner._fail(
             ticket,
@@ -211,7 +230,7 @@ def a_stuck_ticket_in_french_is_stuck_in_french_from_the_first_line_to_the_phone
         )
     finally:
         channels.announce = original
-    comment = runner.client.comments_written[0]
+    comment = _client(runner).comments_written[0]
     assert comment == "🙋 Bloqué\nAudit déjà livré et validé : on le refait ?", comment
     assert sent and sent[0].startswith("🙋 Bloqué · p-stuck"), sent
     english = voice.Voice("en")
@@ -231,16 +250,16 @@ def _validating(
     states: dict[str, str],
     status: dict[str, str],
     *,
-    options=None,
+    options: list[str] | None = None,
     refuses: str = "",
-):
+) -> tuple[_BoardClient, list[tuple[str, str]], list[str], list[dict[str, Any]]]:
     """Run `deliver` against a fake board, a fake GitHub, and no session."""
 
     runner = _board_runner(pages, status, options)
     merges: list[tuple[str, str]] = []
     published: list[str] = []
 
-    def merge(url: str, method: str = "squash", accounts=None) -> str:
+    def merge(url: str, method: str = "squash", accounts: Any = None) -> str:
         merges.append((url, method))
         if refuses:
             raise git_module.GitError(refuses)
@@ -249,13 +268,13 @@ def _validating(
     # Publishing runs a Claude session, which is the one thing these tests do
     # not do: what is checked here is that a ticket with no pull request goes
     # down that road at all.
-    runner._publish = lambda ticket, project: published.append(ticket.id)
+    runner._publish = lambda ticket, project: published.append(ticket.id)  # type: ignore[method-assign, misc, assignment]  # a double: no session
     with _github(states, merge=merge):
-        return runner.client, merges, published, runner.deliver()
+        return _client(runner), merges, published, runner.deliver()
 
 
 @case
-def validating_a_ticket_is_what_merges_its_pull_request():
+def validating_a_ticket_is_what_merges_its_pull_request() -> None:
     client, merges, _, results = _validating(
         [_reviewed("p-validated", "Validated", "https://github.com/x/y/pull/1")],
         {"https://github.com/x/y/pull/1": "OPEN"},
@@ -268,7 +287,7 @@ def validating_a_ticket_is_what_merges_its_pull_request():
 
 
 @case
-def a_pull_request_already_merged_only_moves_its_ticket():
+def a_pull_request_already_merged_only_moves_its_ticket() -> None:
     """Merged by hand between two runs: nothing to merge, still done."""
     client, merges, _, results = _validating(
         [_reviewed("p-validated", "Validated", "https://github.com/x/y/pull/1")],
@@ -281,7 +300,7 @@ def a_pull_request_already_merged_only_moves_its_ticket():
 
 
 @case
-def a_merge_github_refuses_leaves_the_ticket_blocked_and_says_why():
+def a_merge_github_refuses_leaves_the_ticket_blocked_and_says_why() -> None:
     client, merges, _, results = _validating(
         [_reviewed("p-validated", "Validated", "https://github.com/x/y/pull/1")],
         {"https://github.com/x/y/pull/1": "OPEN"},
@@ -295,7 +314,7 @@ def a_merge_github_refuses_leaves_the_ticket_blocked_and_says_why():
 
 
 @case
-def a_pull_request_closed_rather_than_merged_is_a_question_not_a_merge():
+def a_pull_request_closed_rather_than_merged_is_a_question_not_a_merge() -> None:
     client, merges, _, _ = _validating(
         [_reviewed("p-validated", "Validated", "https://github.com/x/y/pull/1")],
         {"https://github.com/x/y/pull/1": "CLOSED"},
@@ -306,7 +325,7 @@ def a_pull_request_closed_rather_than_merged_is_a_question_not_a_merge():
 
 
 @case
-def nothing_is_merged_on_an_answer_github_did_not_give():
+def nothing_is_merged_on_an_answer_github_did_not_give() -> None:
     """`gh` missing or unauthenticated: the ticket waits for the next pass."""
     client, merges, _, results = _validating(
         [_reviewed("p-validated", "Validated", "https://github.com/x/y/pull/1")],
@@ -317,7 +336,7 @@ def nothing_is_merged_on_an_answer_github_did_not_give():
 
 
 @case
-def a_validated_ticket_with_no_pull_request_is_published_rather_than_merged():
+def a_validated_ticket_with_no_pull_request_is_published_rather_than_merged() -> None:
     """The Instagram post, the email, the announcement: work with no branch."""
     client, merges, published, _ = _validating(
         [
@@ -332,7 +351,7 @@ def a_validated_ticket_with_no_pull_request_is_published_rather_than_merged():
 
 
 @case
-def a_board_without_a_validated_column_is_never_even_queried():
+def a_board_without_a_validated_column_is_never_even_queried() -> None:
     """No such option on the board, no such gesture: not even a query."""
     client, merges, published, results = _validating(
         [_reviewed("p-validated", "Validated", "https://github.com/x/y/pull/1")],
@@ -345,7 +364,7 @@ def a_board_without_a_validated_column_is_never_even_queried():
 
 
 @case
-def a_file_that_names_its_columns_without_validated_asked_for_no_gesture():
+def a_file_that_names_its_columns_without_validated_asked_for_no_gesture() -> None:
     """Most often a file written before the column existed. It stays as it was."""
     settings = C.Notion(status={"review": "In review", "done": "Done"})
     assert settings.state("validated") == settings.state("review") == "In review"
@@ -369,21 +388,23 @@ def a_file_that_names_its_columns_without_validated_asked_for_no_gesture():
 
 
 @case
-def a_validated_ticket_on_a_repository_with_no_pull_request_asks_rather_than_publishes():
+def a_validated_ticket_on_a_repository_with_no_pull_request_asks_rather_than_publishes() -> None:
     """Nothing to merge, and nothing on the page to publish: a question."""
     runner = _board_runner([_reviewed("p-code", "Validated", None)], {})
-    runner.resolver = None
-    runner._project_of = lambda ticket: projects.Project(name="Site", path=Path("/repo"))
+    runner.resolver = None  # type: ignore[assignment]  # never asked: the project is said below
+    runner._project_of = lambda ticket: projects.Project(name="Site", path=Path("/repo"))  # type: ignore[method-assign]  # a double: the ticket's project
     results = runner.deliver()
-    assert runner.client.written == [("p-code", {"Status": "Blocked", "Blocage": "merge.no-pr"})]
-    assert runner.client.comments_written[0].startswith(
-        "🙋 Stuck\nThis ticket was validated but carries no pull request."
+    assert _client(runner).written == [("p-code", {"Status": "Blocked", "Blocage": "merge.no-pr"})]
+    assert (
+        _client(runner)
+        .comments_written[0]
+        .startswith("🙋 Stuck\nThis ticket was validated but carries no pull request.")
     )
     assert results and results[0]["status"] == "blocked"
 
 
 @case
-def a_dry_run_says_what_it_would_merge_and_merges_nothing():
+def a_dry_run_says_what_it_would_merge_and_merges_nothing() -> None:
     runner = _board_runner(
         [
             _reviewed("p-pr", "Validated", "https://github.com/x/y/pull/1"),
@@ -394,10 +415,10 @@ def a_dry_run_says_what_it_would_merge_and_merges_nothing():
     runner.dry_run = True
     said: list[str] = []
     runner.quiet = False
-    runner.say = said.append
+    runner.say = said.append  # type: ignore[method-assign, assignment]  # a double: what it says is kept
     with _github({"https://github.com/x/y/pull/1": "OPEN"}, merge=_never_merged):
         results = runner.deliver()
-    assert runner.client.written == [], "a dry run writes nothing"
+    assert _client(runner).written == [], "a dry run writes nothing"
     assert [done["status"] for done in results] == ["dry-run", "dry-run"]
     assert any("would merge https://github.com/x/y/pull/1" in line for line in said)
     assert any("would publish what it holds" in line for line in said)
@@ -413,29 +434,29 @@ def _dated(page: notion.Page, when: str) -> notion.Page:
     return page
 
 
-def _in(**delta) -> str:
+def _in(**delta: float) -> str:
     """A Notion date this far from now, as the board would store it."""
 
     return (datetime.now().astimezone() + timedelta(**delta)).isoformat(timespec="minutes")
 
 
 @case
-def a_validated_publication_waits_for_its_date():
+def a_validated_publication_waits_for_its_date() -> None:
     """The post is written and accepted; the hour it goes out is still the one
     the ticket names."""
     runner = _board_runner([_dated(_reviewed("ppost", "Validated", None), _in(days=2))], {})
-    runner._publish = lambda ticket, project: (_ for _ in ()).throw(
+    runner._publish = lambda ticket, project: (_ for _ in ()).throw(  # type: ignore[method-assign, misc, assignment]  # a double: never to be called
         AssertionError("published before its date")
     )
     assert runner.deliver() == []
-    assert runner.client.written == [], "nothing is claimed, nothing moves"
+    assert _client(runner).written == [], "nothing is claimed, nothing moves"
     held = runner._deferred
     assert [ticket.id for ticket, _ in held] == ["ppost"]
     assert "ppost" in runner._claimed, "its comments go into the publication, not an answer"
 
 
 @case
-def a_validated_pull_request_waits_for_its_date_too():
+def a_validated_pull_request_waits_for_its_date_too() -> None:
     """One column, one rule: a merge is held back like a publication."""
     runner = _board_runner(
         [_dated(_reviewed("ppr", "Validated", "https://github.com/x/y/pull/1"), _in(hours=3))],
@@ -443,13 +464,13 @@ def a_validated_pull_request_waits_for_its_date_too():
     )
     with _github({"https://github.com/x/y/pull/1": "OPEN"}, merge=_never_merged):
         assert runner.deliver() == []
-    assert runner.client.written == []
+    assert _client(runner).written == []
     assert [ticket.id for ticket, _ in runner._deferred] == ["ppr"]
     assert "ppr" not in runner._claimed, "a ticket with a pull request stays talkable-to"
 
 
 @case
-def a_validated_ticket_whose_date_has_passed_is_carried_out_at_once():
+def a_validated_ticket_whose_date_has_passed_is_carried_out_at_once() -> None:
     """The date says "not before", never "not until somebody looks again"."""
     runner = _board_runner(
         [_dated(_reviewed("ppr", "Validated", "https://github.com/x/y/pull/1"), _in(hours=-1))],
@@ -458,7 +479,7 @@ def a_validated_ticket_whose_date_has_passed_is_carried_out_at_once():
     merges: list[tuple[str, str]] = []
     with _github(
         {"https://github.com/x/y/pull/1": "OPEN"},
-        merge=lambda url, method="squash", accounts=None: merges.append((url, method)) or "merged",
+        merge=lambda url, method="squash", accounts=None: merges.append((url, method)) or "merged",  # type: ignore[func-returns-value]  # appended, then merged
     ):
         results = runner.deliver()
     assert merges == [("https://github.com/x/y/pull/1", "squash")]
@@ -467,18 +488,18 @@ def a_validated_ticket_whose_date_has_passed_is_carried_out_at_once():
 
 
 @case
-def a_validated_date_that_cannot_be_read_never_holds_a_publication_back():
+def a_validated_date_that_cannot_be_read_never_holds_a_publication_back() -> None:
     """The same rule as the queue: an unreadable date freezes nothing."""
     runner = _board_runner([_dated(_reviewed("ppost", "Validated", None), "bientôt")], {})
     published: list[str] = []
-    runner._publish = lambda ticket, project: published.append(ticket.id)
-    runner._project_of = lambda ticket: projects.Project(name="Blog", path=None)
+    runner._publish = lambda ticket, project: published.append(ticket.id)  # type: ignore[method-assign, misc, assignment]  # a double: no session
+    runner._project_of = lambda ticket: projects.Project(name="Blog", path=None)  # type: ignore[method-assign]  # a double: the ticket's project
     runner.deliver()
     assert published == ["ppost"] and runner._deferred == []
 
 
 @case
-def what_the_validated_column_is_holding_back_is_listed():
+def what_the_validated_column_is_holding_back_is_listed() -> None:
     """`ponos list` shows the whole calendar, both columns of it."""
     runner = _board_runner(
         [
@@ -493,7 +514,7 @@ def what_the_validated_column_is_holding_back_is_listed():
 
 
 @case
-def a_publication_a_crash_interrupted_comes_back_as_a_question(state_home):
+def a_publication_a_crash_interrupted_comes_back_as_a_question(state_home: Path) -> None:
     """Put back in ready it would be redone; the post may already be out."""
     claimed = notion.Page(
         id="ppost",  # `Ticket.id` drops the dashes, and a claim is filed under it
@@ -510,16 +531,16 @@ def a_publication_a_crash_interrupted_comes_back_as_a_question(state_home):
     recovered = runner.sweep()
     assert state.claims() == {}, "the note is dropped once it has been read"
     assert recovered == 1
-    assert runner.client.written == [
+    assert _client(runner).written == [
         ("ppost", {"Status": "Blocked", "Blocage": "worktree.interrupted"})
     ]
-    said = runner.client.comments_written[0]
+    said = _client(runner).comments_written[0]
     assert said.startswith("🙋 Stuck\nIts publication was interrupted")
     assert "“Validated”" in said and "An answer here" not in said
 
 
 @case
-def a_ticket_claimed_from_ready_is_still_put_back_in_the_queue(state_home):
+def a_ticket_claimed_from_ready_is_still_put_back_in_the_queue(state_home: Path) -> None:
     claimed = notion.Page(
         id="p-work",
         url="",
@@ -532,12 +553,12 @@ def a_ticket_claimed_from_ready_is_still_put_back_in_the_queue(state_home):
     )
     runner = _board_runner([claimed], {})
     assert runner.sweep() == 1
-    assert runner.client.written == [("p-work", {"Status": "Ready"})]
-    assert "picking it up again" in runner.client.comments_written[0]
+    assert _client(runner).written == [("p-work", {"Status": "Ready"})]
+    assert "picking it up again" in _client(runner).comments_written[0]
 
 
 @case
-def a_ticket_put_back_after_a_crash_leaves_its_last_step_behind(state_home):
+def a_ticket_put_back_after_a_crash_leaves_its_last_step_behind(state_home: Path) -> None:
     """Only `Live.close` empties the card's line, and a killed run never got there.
 
     Left as it was, a ticket back in ready would go on showing « Bash · npm
@@ -550,14 +571,14 @@ def a_ticket_put_back_after_a_crash_leaves_its_last_step_behind(state_home):
     }
     runner = _board_runner([lost, _in_progress("p-quiet", None)], {})
     assert runner.sweep() == 2
-    assert runner.client.written == [
+    assert _client(runner).written == [
         ("p-lost", {"Progress": "", "Status": "Ready"}),
         ("p-quiet", {"Status": "Ready"}),
     ]
 
 
 @case
-def a_publication_interrupted_by_a_crash_leaves_its_last_step_behind_too(state_home):
+def a_publication_interrupted_by_a_crash_leaves_its_last_step_behind_too(state_home: Path) -> None:
     interrupted = _in_progress("ppost", None)
     interrupted.properties["Progress"] = {
         "type": "rich_text",
@@ -566,13 +587,13 @@ def a_publication_interrupted_by_a_crash_leaves_its_last_step_behind_too(state_h
     runner = _board_runner([interrupted], {})
     state.claim("ppost", "Validated")
     assert runner.sweep() == 1
-    assert runner.client.written == [
+    assert _client(runner).written == [
         ("ppost", {"Progress": "", "Status": "Blocked", "Blocage": "worktree.interrupted"})
     ]
 
 
 @case
-def a_board_without_a_runner_column_still_gets_its_abandoned_tickets_back(state_home):
+def a_board_without_a_runner_column_still_gets_its_abandoned_tickets_back(state_home: Path) -> None:
     """The 1st of October: fourteen tickets in progress, nobody behind them.
 
     The claims were never signed — the board had no such column — and the
@@ -580,14 +601,14 @@ def a_board_without_a_runner_column_still_gets_its_abandoned_tickets_back(state_
     """
     runner = _board_runner([_in_progress("p-lost", None), _in_progress("p-other", None)], {})
     assert runner.sweep() == 2
-    assert runner.client.written == [
+    assert _client(runner).written == [
         ("p-lost", {"Status": "Ready"}),
         ("p-other", {"Status": "Ready"}),
     ]
 
 
 @case
-def the_machines_free_memory_is_read_from_meminfo_and_a_guard_under_the_threshold_says_so():
+def the_machines_free_memory_is_read_from_meminfo_and_a_guard_under_the_threshold_says_so() -> None:
     from ponos import resources
 
     with tempfile.TemporaryDirectory() as directory:
@@ -610,10 +631,10 @@ def the_machines_free_memory_is_read_from_meminfo_and_a_guard_under_the_threshol
 
 
 @case
-def a_death_by_signal_is_told_from_a_failure_and_named():
+def a_death_by_signal_is_told_from_a_failure_and_named() -> None:
     from ponos import resources
 
-    def ended(code: int, **fields) -> session.Outcome:
+    def ended(code: int, **fields: Any) -> session.Outcome:
         return session.Outcome(
             ok=False, blocked=False, session_id="s", summary="", log=Path("x"), code=code, **fields
         )
@@ -637,7 +658,7 @@ def a_death_by_signal_is_told_from_a_failure_and_named():
 
 
 @case
-def a_relaunched_session_adds_up_what_both_tries_cost(state_home):
+def a_relaunched_session_adds_up_what_both_tries_cost(state_home: Path) -> None:
     """The killed try was paid for too: its price is not overwritten by the second's."""
     from types import SimpleNamespace
 
@@ -645,8 +666,8 @@ def a_relaunched_session_adds_up_what_both_tries_cost(state_home):
 
     runner = _board_runner([], {})
     runner.config.runner.relaunch_delay_seconds = 0
-    runner.say = lambda message: None
-    runner._died = lambda outcome: ""
+    runner.say = lambda message: None  # type: ignore[method-assign]  # a double: silent
+    runner._died = lambda outcome: ""  # type: ignore[method-assign]  # a double: no cause found
     killed = session.Outcome(
         ok=False,
         blocked=False,
@@ -669,7 +690,7 @@ def a_relaunched_session_adds_up_what_both_tries_cost(state_home):
         turns=3,
         seconds=60.0,
     )
-    runner._session = lambda *arguments: again
+    runner._session = lambda *arguments: again  # type: ignore[method-assign]  # a double: the second try
     job = SimpleNamespace(
         session_id="s",
         resume=False,
@@ -677,10 +698,17 @@ def a_relaunched_session_adds_up_what_both_tries_cost(state_home):
     )
     original = resources.reachable, session.exists
     try:
-        resources.reachable = lambda: True
-        session.exists = lambda identifier: True
+        resources.reachable = lambda timeout=3.0: True
+        session.exists = lambda session_id: True
         outcome = runner._relaunch(
-            job, "text", Path("x.log"), "", None, journal.Run(None), killed, "SIGKILL"
+            job,  # type: ignore[arg-type]  # the three fields `_relaunch` reads of a job
+            "text",
+            Path("x.log"),
+            "",
+            None,
+            journal.Run(None),
+            killed,
+            "SIGKILL",
         )
     finally:
         resources.reachable, session.exists = original
@@ -689,12 +717,12 @@ def a_relaunched_session_adds_up_what_both_tries_cost(state_home):
 
 
 @case
-def a_runner_short_of_memory_starts_nothing_and_says_so_once():
+def a_runner_short_of_memory_starts_nothing_and_says_so_once() -> None:
     runner = _board_runner([], {})
     runner.config.runner.min_free_memory_mb = 2048
     runner._memory_warned = False
     said: list[str] = []
-    runner.say = said.append
+    runner.say = said.append  # type: ignore[method-assign, assignment]  # a double: what it says is kept
     from ponos import resources
 
     original = resources.available_mb
@@ -712,18 +740,18 @@ def a_runner_short_of_memory_starts_nothing_and_says_so_once():
 
 
 @case
-def a_ticket_this_run_holds_is_never_put_back(state_home):
+def a_ticket_this_run_holds_is_never_put_back(state_home: Path) -> None:
     runner = _board_runner(
         [_in_progress("p-held", None), _in_progress("p-signed", "ponos@laptop")], {}
     )
-    runner.client.columns = {"Runner": "rich_text"}
+    _client(runner).columns = {"Runner": "rich_text"}
     runner._claimed = {"pheld", "psigned"}  # `Ticket.id`, dashes dropped
     assert runner.sweep() == 0
-    assert runner.client.written == []
+    assert _client(runner).written == []
 
 
 @case
-def with_a_runner_column_only_this_hosts_tickets_come_back(state_home):
+def with_a_runner_column_only_this_hosts_tickets_come_back(state_home: Path) -> None:
     """Unchanged where the board can say who took a ticket."""
     runner = _board_runner(
         [
@@ -733,17 +761,19 @@ def with_a_runner_column_only_this_hosts_tickets_come_back(state_home):
         ],
         {},
     )
-    runner.client.columns = {"Runner": "rich_text"}
+    _client(runner).columns = {"Runner": "rich_text"}
     assert runner.sweep() == 1
-    assert runner.client.written == [("p-mine", {"Status": "Ready"})]
+    assert _client(runner).written == [("p-mine", {"Status": "Ready"})]
 
 
 @case
-def a_publication_interrupted_on_a_board_without_a_runner_column_still_asks(state_home):
+def a_publication_interrupted_on_a_board_without_a_runner_column_still_asks(
+    state_home: Path,
+) -> None:
     runner = _board_runner([_in_progress("ppost", None)], {})
     state.claim("ppost", "Validated")
     assert runner.sweep() == 1
-    assert runner.client.written == [
+    assert _client(runner).written == [
         ("ppost", {"Status": "Blocked", "Blocage": "worktree.interrupted"})
     ]
 
@@ -751,30 +781,35 @@ def a_publication_interrupted_on_a_board_without_a_runner_column_still_asks(stat
 class _SchemaOnly(notion.Client):
     """A Notion client whose database has these columns, and whose PATCHes stay here."""
 
-    def __init__(self, columns: dict[str, str], dropped=None):
+    def __init__(
+        self, columns: dict[str, str], dropped: Callable[[str, str], None] | None = None
+    ) -> None:
         super().__init__("secret", dropped=dropped)
         self._columns = columns
-        self.patched: list[dict] = []
+        self.patched: list[dict[str, Any]] = []
 
     def schema(self, database_id: str) -> dict[str, str]:
         return dict(self._columns)
 
-    def _request(self, method, path, body=None, **kwargs):
+    def _request(
+        self, method: str, path: str, body: dict[str, Any] | None = None, **kwargs: Any
+    ) -> dict[str, Any]:
         self.patched.append(body or {})
         return {}
 
 
 @case
-def a_write_to_a_column_the_board_lacks_is_said_once_a_run():
+def a_write_to_a_column_the_board_lacks_is_said_once_a_run() -> None:
     runner = _board_runner([], {})
     runner.quiet = False
     runner._unwritten = set()
-    runner.client = _SchemaOnly({"Status": "status"}, dropped=runner._dropped)
+    client = _SchemaOnly({"Status": "status"}, dropped=runner._dropped)
+    runner.client = client
     out = io.StringIO()
     with contextlib.redirect_stdout(out):
         for page in ("p1", "p2", "p3"):
-            runner.client.update("db", page, {"Status": "In progress", "Runner": "ponos@laptop"})
-            runner.client.update("db", page, {"Progress": "reading the code"})
+            client.update("db", page, {"Status": "In progress", "Runner": "ponos@laptop"})
+            client.update("db", page, {"Progress": "reading the code"})
     said = out.getvalue().splitlines()
     assert len(said) == 2, said
     assert "“Runner” is not a column of the board" in said[0]
@@ -782,25 +817,25 @@ def a_write_to_a_column_the_board_lacks_is_said_once_a_run():
     assert "“Progress”" in said[1] and "while it runs" in said[1]
     assert all(
         body == {"properties": {"Status": {"status": {"name": "In progress"}}}}
-        for body in runner.client.patched[::2]
+        for body in client.patched[::2]
     ), "the status still goes through"
     runner._unwritten = set()  # what `tick` does: the next run says it again
     with contextlib.redirect_stdout(out):
-        runner.client.update("db", "p4", {"Runner": "ponos@laptop"})
+        client.update("db", "p4", {"Runner": "ponos@laptop"})
     assert out.getvalue().count("“Runner”") == 2
 
 
 @case
-def publishing_hands_the_page_as_it_stands_to_a_session_and_then_closes_it():
+def publishing_hands_the_page_as_it_stands_to_a_session_and_then_closes_it() -> None:
     """The whole road for a ticket with no branch: claim, publish, done."""
     runner = _board_runner([_reviewed("p-post", "Validated", None)], {})
     runner.config.runner.progress = False
     runner.config.runner.attach_sessions = False
-    runner.resolver = None  # a ticket with no project never reaches it
+    runner.resolver = None  # type: ignore[assignment]  # a ticket with no project never reaches it
 
     asked: list[str] = []
 
-    def fake_run(prompt_text, **kwargs):
+    def fake_run(prompt_text: str, **kwargs: Any) -> session.Outcome:
         asked.append(prompt_text)
         return session.Outcome(
             ok=True,
@@ -813,7 +848,7 @@ def publishing_hands_the_page_as_it_stands_to_a_session_and_then_closes_it():
         )
 
     original = session.run
-    session.run = fake_run
+    session.run = fake_run  # type: ignore[assignment]  # a double: it reads the keywords it is given
     try:
         with _state_home():
             results = runner.deliver()
@@ -822,7 +857,7 @@ def publishing_hands_the_page_as_it_stands_to_a_session_and_then_closes_it():
 
     # Claimed first, exactly as a run claims a ticket, and only then closed:
     # a second machine watching the board must not post the same thing twice.
-    assert [values["Status"] for _, values in runner.client.written] == [
+    assert [values["Status"] for _, values in _client(runner).written] == [
         "In progress",
         "Done",
     ]
@@ -831,11 +866,13 @@ def publishing_hands_the_page_as_it_stands_to_a_session_and_then_closes_it():
     prompt_text = asked[0]
     assert "Le post d'annonce" in prompt_text, "the page as it stands is what goes out"
     assert "publishing, not producing" in prompt_text
-    assert "publié sur le compte Instagram" in runner.client.comments_written[0]
+    assert "publié sur le compte Instagram" in _client(runner).comments_written[0]
 
 
 @case
-def a_publication_whose_session_does_not_start_fails_and_lets_its_claim_go(state_home):
+def a_publication_whose_session_does_not_start_fails_and_lets_its_claim_go(
+    state_home: Path,
+) -> None:
     """No `claude` to start: the ticket fails on that, and is not left claimed.
 
     Nothing went out, so the note that would turn a crash into a question — the
@@ -844,13 +881,13 @@ def a_publication_whose_session_does_not_start_fails_and_lets_its_claim_go(state
     runner = _board_runner([_reviewed("p-post", "Validated", None)], {})
     runner.config.runner.progress = False
     runner.config.runner.attach_sessions = False
-    runner.resolver = None
+    runner.resolver = None  # type: ignore[assignment]  # never asked: the project is said below
 
-    def fake_run(prompt_text, **kwargs):
+    def fake_run(prompt_text: str, **kwargs: Any) -> session.Outcome:
         raise FileNotFoundError("[Errno 2] No such file or directory: 'claude'")
 
     original = session.run
-    session.run = fake_run
+    session.run = fake_run  # type: ignore[assignment]  # a double: it reads the keywords it is given
     try:
         results = runner.deliver()
     finally:
@@ -858,33 +895,35 @@ def a_publication_whose_session_does_not_start_fails_and_lets_its_claim_go(state
 
     assert results and results[0]["status"] == "failed", results
     assert results[0]["code"] == "session.not-started", results
-    assert [values["Status"] for _, values in runner.client.written] == [
+    assert [values["Status"] for _, values in _client(runner).written] == [
         "In progress",
         "Failed",
     ]
-    assert runner.client.written[-1][1]["Blocage"] == "session.not-started"
-    said = runner.client.comments_written[-1]
+    assert _client(runner).written[-1][1]["Blocage"] == "session.not-started"
+    said = _client(runner).comments_written[-1]
     assert "Failed — The Claude session would not start" in said, said
     assert "No such file or directory" in said, said
     assert state.claims() == {}, "a publication that never started is not a question"
 
 
 @case
-def a_publication_whose_closing_write_found_notion_down_is_not_put_back_to_ready(state_home):
+def a_publication_whose_closing_write_found_notion_down_is_not_put_back_to_ready(
+    state_home: Path,
+) -> None:
     """The post is out; only "done" could not be written. Ready would post it twice."""
     page = _reviewed("ppost", "Validated", None)
     runner = _board_runner([page], {})
     runner.config.runner.progress = False
     runner.config.runner.attach_sessions = False
-    runner.resolver = None
+    runner.resolver = None  # type: ignore[assignment]  # never asked: the project is said below
     written = runner.client.update
 
-    def update(database_id, page_id, values):
+    def update(database_id: str, page_id: str, values: dict[str, Any]) -> None:
         if values.get("Status") == "Done":
             raise notion.Offline("PATCH /pages: connection refused")
         written(database_id, page_id, values)
 
-    runner.client.update = update
+    runner.client.update = update  # type: ignore[method-assign]  # a double: the closing write fails
     original = session.run
     session.run = lambda prompt_text, **kwargs: session.Outcome(
         ok=True,
@@ -905,9 +944,9 @@ def a_publication_whose_closing_write_found_notion_down_is_not_put_back_to_ready
     page.properties["Status"] = {"type": "status", "status": {"name": "In progress"}}
     page.raw = {"last_edited_time": "2020-01-01T00:00:00.000+00:00"}
     runner._claimed = set()
-    runner.client.written.clear()
+    _client(runner).written.clear()
     assert runner.sweep() == 1
-    assert runner.client.written == [
+    assert _client(runner).written == [
         ("ppost", {"Status": "Blocked", "Blocage": "worktree.interrupted"})
     ]
 
@@ -916,26 +955,26 @@ def a_publication_whose_closing_write_found_notion_down_is_not_put_back_to_ready
 
 
 @contextlib.contextmanager
-def _checks_of(listed: list[dict]):
+def _checks_of(listed: list[dict[str, Any]]) -> Iterator[list[list[str]]]:
     """`gh` present, its checks as listed, and every merge it is asked for noted."""
     asked: list[list[str]] = []
-    which, checks, run = git_module.shutil.which, github_checks.checks, git_module.run
-    git_module.shutil.which = lambda name: "/usr/bin/gh"
+    which, checks, run = shutil.which, github_checks.checks, git_module.run
+    shutil.which = lambda name: "/usr/bin/gh"  # type: ignore[assignment]  # a double: `gh` is there
     github_checks.checks = lambda url, accounts=None, timeout=60: listed
 
-    def merged(command, **kwargs):
+    def merged(command: list[str], **kwargs: Any) -> git_module.Result:
         asked.append(command)
         return git_module.Result(0, "merged", "")
 
-    git_module.run = merged
+    git_module.run = merged  # type: ignore[assignment]  # a double: every merge is noted
     try:
         yield asked
     finally:
-        git_module.shutil.which, github_checks.checks, git_module.run = which, checks, run
+        shutil.which, github_checks.checks, git_module.run = which, checks, run
 
 
 @case
-def a_pull_request_with_a_red_job_is_never_merged():
+def a_pull_request_with_a_red_job_is_never_merged() -> None:
     url = "https://github.com/x/y/pull/1"
     listed = [{"name": "frontend", "bucket": "fail"}, {"name": "core", "bucket": "pass"}]
     with _checks_of(listed) as asked:
@@ -949,7 +988,7 @@ def a_pull_request_with_a_red_job_is_never_merged():
 
 
 @case
-def a_pull_request_with_a_job_still_running_is_not_merged_yet():
+def a_pull_request_with_a_job_still_running_is_not_merged_yet() -> None:
     listed = [{"name": "core", "bucket": "pass"}, {"name": "image", "bucket": "pending"}]
     with _checks_of(listed) as asked:
         try:
@@ -962,7 +1001,7 @@ def a_pull_request_with_a_job_still_running_is_not_merged_yet():
 
 
 @case
-def a_pull_request_whose_jobs_are_green_or_skipped_is_merged():
+def a_pull_request_whose_jobs_are_green_or_skipped_is_merged() -> None:
     listed = [{"name": "core", "bucket": "pass"}, {"name": "docs", "bucket": "skipping"}]
     with _checks_of(listed) as asked:
         github_checks.merge_pull_request("https://github.com/x/y/pull/1")
@@ -970,23 +1009,23 @@ def a_pull_request_whose_jobs_are_green_or_skipped_is_merged():
 
 
 @case
-def a_validated_pull_request_with_a_red_job_blocks_its_ticket_as_checks_failed():
+def a_validated_pull_request_with_a_red_job_blocks_its_ticket_as_checks_failed() -> None:
     url = "https://github.com/x/y/pull/1"
     runner = _board_runner([_reviewed("ppr", "Validated", url)], {})
 
-    def merge(url, method="squash", accounts=None):
+    def merge(url: str, method: str = "squash", accounts: Any = None) -> str:
         raise github_checks.ChecksNotGreen("failed", ["frontend"])
 
     with _github({url: "OPEN"}, merge=merge):
         results = runner.deliver()
     assert results and results[0]["status"] == "blocked"
-    assert runner.client.written == [
+    assert _client(runner).written == [
         ("ppr", {"Status": "Blocked", "Blocage": "merge.checks-failed"})
     ]
 
 
 @case
-def a_pull_request_validated_while_its_ci_is_red_is_blocked_without_its_review_line():
+def a_pull_request_validated_while_its_ci_is_red_is_blocked_without_its_review_line() -> None:
     """Refused in review, validated all the same: the card says what its column does.
 
     The forced merge left "not merged" on the card; validated with the CI
@@ -1001,20 +1040,20 @@ def a_pull_request_validated_while_its_ci_is_red_is_blocked_without_its_review_l
     }
     runner = _board_runner([page], {})
 
-    def merge(url, method="squash", accounts=None):
+    def merge(url: str, method: str = "squash", accounts: Any = None) -> str:
         raise github_checks.ChecksNotGreen("failed", ["frontend"])
 
     with _github({url: "OPEN"}, merge=merge):
         results = runner.deliver()
     assert [result["status"] for result in results] == ["blocked"]
-    assert runner.client.written == [
+    assert _client(runner).written == [
         ("ppr", {"Progress": ""}),
         ("ppr", {"Status": "Blocked", "Blocage": "merge.checks-failed"}),
     ]
 
 
 @case
-def a_validated_pull_request_whose_ci_still_runs_stays_validated_with_its_line():
+def a_validated_pull_request_whose_ci_still_runs_stays_validated_with_its_line() -> None:
     url = "https://github.com/x/y/pull/1"
     page = _reviewed("ppr", "Validated", url)
     page.properties["Progress"] = {
@@ -1023,12 +1062,12 @@ def a_validated_pull_request_whose_ci_still_runs_stays_validated_with_its_line()
     }
     runner = _board_runner([page], {})
 
-    def merge(url, method="squash", accounts=None):
+    def merge(url: str, method: str = "squash", accounts: Any = None) -> str:
         raise github_checks.ChecksNotGreen("pending", ["frontend"])
 
     with _github({url: "OPEN"}, merge=merge):
         assert runner.deliver() == []
-    assert runner.client.written == []
+    assert _client(runner).written == []
 
 
 # What GitHub answered for a pull request of an account whose Actions billing
@@ -1051,7 +1090,9 @@ _BILLING_ANNOTATION = (
 
 
 @case
-def a_ci_github_refuses_for_the_accounts_billing_waits_validated_and_is_said_once(state_home):
+def a_ci_github_refuses_for_the_accounts_billing_waits_validated_and_is_said_once(
+    state_home: Path,
+) -> None:
     """The audit's six tickets: one unpaid invoice, said ticket by ticket in GitHub's English.
 
     Two validated pull requests of one account, every job refused by its
@@ -1070,11 +1111,14 @@ def a_ci_github_refuses_for_the_accounts_billing_waits_validated_and_is_said_onc
         [_reviewed("p-site", "Validated", first), _reviewed("p-shop", "Validated", second)], {}
     )
     told: list[tuple[str, str]] = []
-    runner._announce = lambda title, body: told.append((title, body))
+    runner._announce = lambda title, body: told.append((title, body))  # type: ignore[method-assign]  # a double: what is announced is kept
     # Paying is not enough: a job GitHub refused stays red until it is run again.
-    paid, asked, merged, green = [False], [], [], set()
+    paid: list[bool] = [False]
+    asked: list[list[str]] = []
+    merged: list[str] = []
+    green: set[str] = set()
 
-    def run(args, *rest, **kept):
+    def run(args: list[str], *rest: Any, **kept: Any) -> git_module.Result:
         asked.append(args)
         if args[:3] == ["gh", "pr", "checks"]:
             return git_module.Result(1, "", "unknown flag: --json")
@@ -1092,14 +1136,14 @@ def a_ci_github_refuses_for_the_accounts_billing_waits_validated_and_is_said_onc
             return git_module.Result(0, "", "")
         return git_module.Result(1, "", "")
 
-    def merge(url, method="squash", accounts=None):
+    def merge(url: str, method: str = "squash", accounts: Any = None) -> str:
         if url.split("/")[4] not in green:
             raise github_checks.ChecksNotGreen("failed", ["Tests", "Lint"])
         merged.append(url)
         return "merged"
 
-    which = git_module.shutil.which
-    git_module.shutil.which = lambda name, *rest, **kept: f"/usr/bin/{name}"
+    which = shutil.which
+    shutil.which = lambda name, *rest, **kept: f"/usr/bin/{name}"  # type: ignore[assignment]  # a double: every tool is there
     try:
         with (
             # The recorded answers go through the real reading, not around it.
@@ -1109,7 +1153,9 @@ def a_ci_github_refuses_for_the_accounts_billing_waits_validated_and_is_said_onc
                 unstarted=github_checks.unstarted_checks,
             ),
             _git_answering(
-                run=run, token_for=lambda reference, accounts=None: "", RERUN_SETTLE_SECONDS=0
+                run=run,
+                token_for=lambda reference, accounts=None: "",
+                RERUN_SETTLE_SECONDS=0,  # type: ignore[arg-type]  # a constant, set the same way
             ),
         ):
             assert runner.deliver() == [], "nothing blocked, nothing failed"
@@ -1119,13 +1165,13 @@ def a_ci_github_refuses_for_the_accounts_billing_waits_validated_and_is_said_onc
                     runner.voice.say("billing-held-detail"),
                 )
             ], told
-            assert runner.client.written == [
+            assert _client(runner).written == [
                 ("p-site", {"Blocage": "ci.billing"}),
                 ("p-shop", {"Blocage": "ci.billing"}),
-            ], runner.client.written
+            ], _client(runner).written
             assert [
-                "billing of the Acme account" in text for text in runner.client.comments_written
-            ] == [True, True], runner.client.comments_written
+                "billing of the Acme account" in text for text in _client(runner).comments_written
+            ] == [True, True], _client(runner).comments_written
             assert not [one for one in asked if one[:3] == ["gh", "run", "rerun"]], asked
 
             warned = health._github_billing()
@@ -1151,7 +1197,7 @@ def a_ci_github_refuses_for_the_accounts_billing_waits_validated_and_is_said_onc
             state.billing_probed("acme", 0.0)
             results = runner.deliver()
     finally:
-        git_module.shutil.which = which
+        shutil.which = which
 
     assert [one["status"] for one in results] == ["done", "done"], results
     assert merged == [first, second], merged

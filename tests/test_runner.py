@@ -5,11 +5,22 @@ from __future__ import annotations
 import tempfile
 import threading
 import time
+from collections.abc import Callable, Iterable, Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any, cast
 
-from support import ROOT, _board_runner, _github, _in_progress, _ready, _reviewed, case
+from support import (
+    ROOT,
+    _board_runner,
+    _BoardClient,
+    _github,
+    _in_progress,
+    _ready,
+    _reviewed,
+    case,
+)
 
 from ponos import config as C
 from ponos import credits, github_checks, notion, projects, state, store, workspace
@@ -20,8 +31,13 @@ from ponos.web import board as web_board
 # -- runner ------------------------------------------------------------------
 
 
+def _client(runner: Runner) -> _BoardClient:
+    """The fake board `_board_runner` gave the runner, to read and move what it holds."""
+    return cast(_BoardClient, runner.client)
+
+
 @case
-def a_template_only_body_counts_as_blank():
+def a_template_only_body_counts_as_blank() -> None:
     """A Notion template fills a new page with empty headings.
 
     They are not blank text, so without this they would travel into the prompt
@@ -40,7 +56,7 @@ def a_template_only_body_counts_as_blank():
 
 
 @case
-def a_place_freed_mid_pass_is_filled_without_waiting_for_the_long_session(state_home):
+def a_place_freed_mid_pass_is_filled_without_waiting_for_the_long_session(state_home: Path) -> None:
     """The whole point of `max_concurrent`, and what a batch used to lose.
 
     A pass used to prepare the tickets that were ready at its first second and
@@ -62,7 +78,7 @@ def a_place_freed_mid_pass_is_filled_without_waiting_for_the_long_session(state_
     runner = _board_runner([_ready("p-long"), _ready("p-short")], {})
     runner.config.runner.max_concurrent = 2
 
-    def prepare(ticket):
+    def prepare(ticket: ticket_module.Ticket) -> ticket_module.Job | None:
         return ticket_module.Job(
             ticket,
             projects.Project(name="", path=None),
@@ -71,7 +87,7 @@ def a_place_freed_mid_pass_is_filled_without_waiting_for_the_long_session(state_
             workdir=Path(tempfile.mkdtemp()) / "doc",
         )
 
-    def execute(job):
+    def execute(job: ticket_module.Job) -> dict[str, Any]:
         nonlocal flight, peak
         name = job.ticket.page.id  # `Ticket.id` drops the dashes
         with guard:
@@ -86,14 +102,14 @@ def a_place_freed_mid_pass_is_filled_without_waiting_for_the_long_session(state_
                 witnessed.extend(started)
         elif name == "p-short":
             # The board moves on while the long one is still in flight.
-            runner.client._pages.append(_ready("p-third"))
+            _client(runner)._pages.append(_ready("p-third"))
         else:
             third_started.set()
         with guard:
             flight -= 1
         return {"ticket": name, "id": name, "status": "done"}
 
-    runner.prepare, runner.execute = prepare, execute
+    runner.prepare, runner.execute = prepare, execute  # type: ignore[method-assign]  # doubles: no session
     results = runner._work(runner.queue()[0], None, refill=True)
 
     assert "p-third" in witnessed, "the freed place was filled while the long one ran"
@@ -105,7 +121,7 @@ def a_place_freed_mid_pass_is_filled_without_waiting_for_the_long_session(state_
 
 
 @case
-def a_project_never_holds_more_places_than_max_concurrent_per_project(state_home):
+def a_project_never_holds_more_places_than_max_concurrent_per_project(state_home: Path) -> None:
     """Four tickets, three places: two of one project, then another's goes first.
 
     The third ticket of project A waits for a place of its own project although
@@ -121,9 +137,9 @@ def a_project_never_holds_more_places_than_max_concurrent_per_project(state_home
     runner = _board_runner([_ready(name) for name in projects_of], {})
     runner.config.runner.max_concurrent = 3
     runner.config.runner.max_concurrent_per_project = 2
-    runner.in_repository = lambda ticket: projects_of[ticket.page.id]
+    runner.in_repository = lambda ticket: projects_of[ticket.page.id]  # type: ignore[method-assign]  # a double: the projects above
 
-    def prepare(ticket):
+    def prepare(ticket: ticket_module.Ticket) -> ticket_module.Job | None:
         return ticket_module.Job(
             ticket,
             projects.Project(name="", path=None),
@@ -132,7 +148,7 @@ def a_project_never_holds_more_places_than_max_concurrent_per_project(state_home
             workdir=Path(tempfile.mkdtemp()) / "doc",
         )
 
-    def execute(job):
+    def execute(job: ticket_module.Job) -> dict[str, Any]:
         name = job.ticket.page.id
         project = projects_of[name]
         with guard:
@@ -144,7 +160,7 @@ def a_project_never_holds_more_places_than_max_concurrent_per_project(state_home
             inside[project] -= 1
         return {"ticket": name, "id": name, "status": "done"}
 
-    runner.prepare, runner.execute = prepare, execute
+    runner.prepare, runner.execute = prepare, execute  # type: ignore[method-assign]  # doubles: no session
     results = runner._work(runner.queue()[0], None, refill=True)
 
     assert peak == {"A": 2, "B": 1}, peak
@@ -153,7 +169,7 @@ def a_project_never_holds_more_places_than_max_concurrent_per_project(state_home
 
 
 @case
-def generated_files_are_declared_in_a_toml_file_and_read_as_globs():
+def generated_files_are_declared_in_a_toml_file_and_read_as_globs() -> None:
     """`**` crosses folders, `*` does not, and a file that says nothing usable says nothing."""
     from ponos import generated
 
@@ -172,7 +188,7 @@ def generated_files_are_declared_in_a_toml_file_and_read_as_globs():
 
 
 @case
-def this_repository_regenerates_its_api_types_with_its_bundle_on_a_replay():
+def this_repository_regenerates_its_api_types_with_its_bundle_on_a_replay() -> None:
     """`api-types.d.ts` follows `web/answers.py` as the bundle follows `frontend/`.
 
     A route merged on `main` under a pull request that is replayed on top left
@@ -190,7 +206,7 @@ def this_repository_regenerates_its_api_types_with_its_bundle_on_a_replay():
 
 
 @case
-def max_concurrent_per_project_defaults_to_two_and_is_never_below_one():
+def max_concurrent_per_project_defaults_to_two_and_is_never_below_one() -> None:
     with tempfile.TemporaryDirectory() as folder:
         path = Path(folder) / "config.toml"
         assert C.Runner().max_concurrent_per_project == 2
@@ -201,7 +217,7 @@ def max_concurrent_per_project_defaults_to_two_and_is_never_below_one():
 
 
 @case
-def a_place_that_was_never_filled_is_looked_at_before_a_session_ends(state_home):
+def a_place_that_was_never_filled_is_looked_at_before_a_session_ends(state_home: Path) -> None:
     """The other half of the same fault, and the one that shows on a board.
 
     Tickets arrive one at a time: the first is started, the second place stays
@@ -223,7 +239,7 @@ def a_place_that_was_never_filled_is_looked_at_before_a_session_ends(state_home)
     runner.config.runner.max_concurrent = 2
     # The cadence the pass looks at the board on, made a test's length.
     runner.config.runner.interval_seconds = 1
-    runner.prepare = lambda ticket: ticket_module.Job(
+    runner.prepare = lambda ticket: ticket_module.Job(  # type: ignore[method-assign]  # a double: prepared for free
         ticket,
         projects.Project(name="", path=None),
         branch="",
@@ -231,12 +247,12 @@ def a_place_that_was_never_filled_is_looked_at_before_a_session_ends(state_home)
         workdir=Path(tempfile.mkdtemp()) / "doc",
     )
 
-    def execute(job):
+    def execute(job: ticket_module.Job) -> dict[str, Any]:
         name = job.ticket.page.id
         with guard:
             started.append(name)
         if name == "p-long":
-            runner.client._pages.append(_ready("p-second"))
+            _client(runner)._pages.append(_ready("p-second"))
             second_started.wait(10)
             with guard:
                 witnessed.extend(started)
@@ -244,14 +260,14 @@ def a_place_that_was_never_filled_is_looked_at_before_a_session_ends(state_home)
             second_started.set()
         return {"ticket": name, "id": name, "status": "done"}
 
-    runner.execute = execute
+    runner.execute = execute  # type: ignore[method-assign]  # a double: no session
     results = runner._work(runner.queue()[0], None, refill=True)
 
     assert "p-second" in witnessed, "the empty place was filled with nothing ended"
     assert sorted(result["id"] for result in results) == ["p-long", "p-second"]
 
 
-def _closing_runner(state_home, announce):
+def _closing_runner(state_home: Path, announce: Callable[[], object]) -> tuple[Runner, list[str]]:
     """One long ticket, a free place, and a second ticket made ready while it runs.
 
     `announce` is what happens once the long session is under way — an update
@@ -262,7 +278,7 @@ def _closing_runner(state_home, announce):
     runner = _board_runner([_ready("p-long")], {})
     runner.config.runner.max_concurrent = 2
     runner.config.runner.interval_seconds = 1
-    runner.prepare = lambda ticket: ticket_module.Job(
+    runner.prepare = lambda ticket: ticket_module.Job(  # type: ignore[method-assign]  # a double: prepared for free
         ticket,
         projects.Project(name="", path=None),
         branch="",
@@ -270,24 +286,24 @@ def _closing_runner(state_home, announce):
         workdir=Path(tempfile.mkdtemp()) / "doc",
     )
 
-    def execute(job):
+    def execute(job: ticket_module.Job) -> dict[str, Any]:
         name = job.ticket.page.id
         started.append(name)
         if name == "p-long":
             announce()
-            runner.client._pages.append(_ready("p-second"))
+            _client(runner)._pages.append(_ready("p-second"))
             # Long enough for the pass to look at the board twice.
             second_started.wait(2)
         else:
             second_started.set()
         return {"ticket": name, "id": name, "status": "done"}
 
-    runner.execute = execute
+    runner.execute = execute  # type: ignore[method-assign]  # a double: no session
     return runner, started
 
 
 @case
-def an_update_announced_mid_pass_claims_nothing_more_and_ends_the_pass(state_home):
+def an_update_announced_mid_pass_claims_nothing_more_and_ends_the_pass(state_home: Path) -> None:
     """The 23 October pass: a day and fifty minutes on the code it started with.
 
     A pass that refills itself never reaches the top of the next one, which is
@@ -301,7 +317,9 @@ def an_update_announced_mid_pass_claims_nothing_more_and_ends_the_pass(state_hom
     announced = threading.Event()
     real = update_module.check
 
-    def check(app=None, channel="release", *, clock=True):
+    def check(
+        app: Path | None = None, channel: str = "release", *, clock: bool = True
+    ) -> update_module.Status:
         if not announced.is_set():
             return update_module.Status(current="a", latest="a")
         return update_module.Status(current="a", latest="b")
@@ -325,7 +343,7 @@ def an_update_announced_mid_pass_claims_nothing_more_and_ends_the_pass(state_hom
 
 
 @case
-def a_pass_takes_no_new_ticket_past_its_span(state_home):
+def a_pass_takes_no_new_ticket_past_its_span(state_home: Path) -> None:
     """A pass with a board that never empties still ends.
 
     Past `PASS_SPAN` nothing more is begun: what is in flight finishes and the
@@ -347,11 +365,13 @@ def a_pass_takes_no_new_ticket_past_its_span(state_home):
     assert [result["id"] for result in results] == ["p-long"]
 
 
-def _talking_runner(tickets, places):
+def _talking_runner(
+    tickets: Iterable[str], places: int
+) -> tuple[Runner, list[str], Callable[[], int]]:
     """A board with ready tickets and comments waiting, the sessions recorded."""
     runner = _board_runner([_ready(name) for name in tickets], {})
     runner.config.runner.max_concurrent = places
-    runner.prepare = lambda ticket: ticket_module.Job(
+    runner.prepare = lambda ticket: ticket_module.Job(  # type: ignore[method-assign]  # a double: prepared for free
         ticket,
         projects.Project(name="", path=None),
         branch="",
@@ -362,7 +382,7 @@ def _talking_runner(tickets, places):
     guard = threading.Lock()
     flight = peak = 0
 
-    def session(name):
+    def session(name: str) -> None:
         nonlocal flight, peak
         with guard:
             events.append(f"start {name}")
@@ -373,21 +393,21 @@ def _talking_runner(tickets, places):
             flight -= 1
             events.append(f"end {name}")
 
-    def execute(job):
+    def execute(job: ticket_module.Job) -> dict[str, Any]:
         session(job.ticket.page.id)
         return {"ticket": job.ticket.page.id, "id": job.ticket.page.id, "status": "done"}
 
-    def converse(*, places=None):
+    def converse(*, places: int | None = None) -> list[dict[str, Any]]:
         assert places == 1, "one answer at a time while tickets run"
         session("reply")
         return [{"id": "thread", "status": "replied"}]
 
-    runner.execute, runner.converse, runner.unblock = execute, converse, list
+    runner.execute, runner.converse, runner.unblock = execute, converse, list  # type: ignore[method-assign]  # doubles: sessions recorded, nothing to unblock
     return runner, events, lambda: peak
 
 
 @case
-def a_ready_ticket_does_not_wait_for_the_answers(state_home):
+def a_ready_ticket_does_not_wait_for_the_answers(state_home: Path) -> None:
     """The answers used to come first, and `converse` waits for its sessions:
     a ticket made ready alongside a comment waited for the conversation, with
     every place free. Now it starts first, and the answer takes the place left."""
@@ -401,7 +421,7 @@ def a_ready_ticket_does_not_wait_for_the_answers(state_home):
 
 
 @case
-def the_answers_never_add_a_session_beyond_max_concurrent(state_home):
+def the_answers_never_add_a_session_beyond_max_concurrent(state_home: Path) -> None:
     runner, events, peak = _talking_runner(["p-one", "p-two"], 1)
     results = runner._work(runner.queue()[0], None, refill=False, talk=True)
 
@@ -411,33 +431,33 @@ def the_answers_never_add_a_session_beyond_max_concurrent(state_home):
 
 
 @case
-def a_limit_caps_the_tickets_a_pass_takes_rather_than_the_column(state_home):
+def a_limit_caps_the_tickets_a_pass_takes_rather_than_the_column(state_home: Path) -> None:
     """`--limit` names a number of tickets, and a queue that refills itself
     would otherwise run the whole board on a `--limit 1`."""
     runner = _board_runner([_ready("p-1"), _ready("p-2"), _ready("p-3")], {})
     runner.config.runner.max_concurrent = 4
-    runner.prepare = lambda ticket: ticket_module.Job(
+    runner.prepare = lambda ticket: ticket_module.Job(  # type: ignore[method-assign]  # a double: prepared for free
         ticket,
         projects.Project(name="", path=None),
         branch="",
         base="",
         workdir=Path(tempfile.mkdtemp()) / "doc",
     )
-    runner.execute = lambda job: {"id": job.ticket.page.id, "status": "done"}
+    runner.execute = lambda job: {"id": job.ticket.page.id, "status": "done"}  # type: ignore[method-assign]  # a double: done at once
     results = runner._work(runner.queue()[0], 2, refill=True)
 
     assert sorted(result["id"] for result in results) == ["p-1", "p-2"]
 
 
 @case
-def a_pass_stops_filling_places_once_the_credits_run_out(state_home):
+def a_pass_stops_filling_places_once_the_credits_run_out(state_home: Path) -> None:
     """A queue that refills itself would otherwise walk the whole column into
     the same wall — one spent session, then every ticket on the board failed."""
     started: list[str] = []
 
     runner = _board_runner([_ready("p-1"), _ready("p-2"), _ready("p-3")], {})
     runner.config.runner.max_concurrent = 1
-    runner.prepare = lambda ticket: ticket_module.Job(
+    runner.prepare = lambda ticket: ticket_module.Job(  # type: ignore[method-assign]  # a double: prepared for free
         ticket,
         projects.Project(name="", path=None),
         branch="",
@@ -445,12 +465,12 @@ def a_pass_stops_filling_places_once_the_credits_run_out(state_home):
         workdir=Path(tempfile.mkdtemp()) / "doc",
     )
 
-    def execute(job):
+    def execute(job: ticket_module.Job) -> dict[str, Any]:
         started.append(job.ticket.page.id)
         credits.hold(time.time() + 300)  # what a spent session leaves behind
         return {"id": job.ticket.page.id, "status": "waiting"}
 
-    runner.execute = execute
+    runner.execute = execute  # type: ignore[method-assign]  # a double: no session
     results = runner._work(runner.queue()[0], None, refill=True)
 
     assert started == ["p-1"], "the ticket in flight finished, and nothing else began"
@@ -463,7 +483,7 @@ def _moved(page: notion.Page, status: str) -> None:
 
 
 @contextmanager
-def _settling(seconds: float):
+def _settling(seconds: float) -> Iterator[None]:
     """`board.SETTLE`, made a test's length."""
     from ponos import board as board_module
 
@@ -475,7 +495,7 @@ def _settling(seconds: float):
 
 
 @case
-def a_new_ticket_is_taken_and_left_alone_once_its_run_has_moved_it(state_home):
+def a_new_ticket_is_taken_and_left_alone_once_its_run_has_moved_it(state_home: Path) -> None:
     """The plain case, kept honest now that a finished ticket is no longer
     held out for the whole pass: once its status has moved, a reading of the
     board does not bring it back."""
@@ -485,7 +505,7 @@ def a_new_ticket_is_taken_and_left_alone_once_its_run_has_moved_it(state_home):
         runner = _long_runner([page, _ready("p-long")])
         runner.config.runner.max_concurrent = 2
 
-        def execute(job):
+        def execute(job: ticket_module.Job) -> dict[str, Any]:
             name = job.ticket.page.id
             runs.append(name)
             if name == "p-new":
@@ -494,14 +514,14 @@ def a_new_ticket_is_taken_and_left_alone_once_its_run_has_moved_it(state_home):
                 time.sleep(2.5)  # two looks at the board while it runs
             return {"id": name, "status": "done"}
 
-        runner.execute = execute
+        runner.execute = execute  # type: ignore[method-assign]  # a double: no session
         runner._work(runner.queue()[0], None, refill=True)
 
     assert sorted(runs) == ["p-long", "p-new"], runs
 
 
 @case
-def a_ticket_played_by_this_pass_then_made_ready_again_is_played_again(state_home):
+def a_ticket_played_by_this_pass_then_made_ready_again_is_played_again(state_home: Path) -> None:
     """The fault of the 9th of October, on the real board: two Lead Finder
     tickets run at 22:53 by a pass that was still going at 23:50, blocked on
     their merge, moved back to ready by hand — and skipped by every reading of
@@ -514,7 +534,7 @@ def a_ticket_played_by_this_pass_then_made_ready_again_is_played_again(state_hom
         runner = _long_runner([page, _ready("p-long")])
         runner.config.runner.max_concurrent = 2
 
-        def execute(job):
+        def execute(job: ticket_module.Job) -> dict[str, Any]:
             name = job.ticket.page.id
             runs.append(name)
             if name == "p-again":
@@ -529,7 +549,7 @@ def a_ticket_played_by_this_pass_then_made_ready_again_is_played_again(state_hom
                 again.wait(10)
             return {"id": name, "status": "done"}
 
-        runner.execute = execute
+        runner.execute = execute  # type: ignore[method-assign]  # a double: no session
         results = runner._work(runner.queue()[0], None, refill=True)
 
     assert again.is_set(), "taken again by the pass that had already run it"
@@ -538,20 +558,20 @@ def a_ticket_played_by_this_pass_then_made_ready_again_is_played_again(state_hom
 
 
 @case
-def a_ticket_still_in_a_session_of_this_pass_is_not_run_beside_it(state_home):
+def a_ticket_still_in_a_session_of_this_pass_is_not_run_beside_it(state_home: Path) -> None:
     """A live claim. Moved back to ready while its session runs — or served as
     ready by a Notion that has not caught up — the ticket waits for that
     session, says why on its card, and is played again once it is over."""
     runs: list[str] = []
     flying = peak = 0
-    noted: list[dict] = []
+    noted: list[dict[str, tuple[str, str]]] = []
     guard = threading.Lock()
     with _settling(0.1):
         page = _ready("p-one")
         runner = _long_runner([page])
         runner.config.runner.max_concurrent = 2
 
-        def execute(job):
+        def execute(job: ticket_module.Job) -> dict[str, Any]:
             nonlocal flying, peak
             with guard:
                 runs.append(job.ticket.page.id)
@@ -566,7 +586,7 @@ def a_ticket_still_in_a_session_of_this_pass_is_not_run_beside_it(state_home):
                 flying -= 1
             return {"id": job.ticket.page.id, "status": "done"}
 
-        runner.execute = execute
+        runner.execute = execute  # type: ignore[method-assign]  # a double: no session
         runner._work(runner.queue()[0], None, refill=True)
         left = state.held()
         assert runs == ["p-one"], "not beside itself, and not straight after either"
@@ -580,10 +600,10 @@ def a_ticket_still_in_a_session_of_this_pass_is_not_run_beside_it(state_home):
 
 
 @case
-def a_ready_ticket_with_every_place_taken_says_so_once(state_home):
+def a_ready_ticket_with_every_place_taken_says_so_once(state_home: Path) -> None:
     said: list[str] = []
     runner = _board_runner([_ready("p-1"), _ready("p-2")], {})
-    runner.say = said.append
+    runner.say = said.append  # type: ignore[method-assign, assignment]  # a double: what it says is kept
     queued = runner.queue()[0][1:]
     runner.explain(queued, 1)
     runner.explain(queued, 1)
@@ -594,7 +614,7 @@ def a_ready_ticket_with_every_place_taken_says_so_once(state_home):
 
 
 @case
-def an_orphan_claim_is_let_go_of_by_the_sweep(state_home):
+def an_orphan_claim_is_let_go_of_by_the_sweep(state_home: Path) -> None:
     """A note of a claim whose ticket is no longer in progress — moved by hand,
     or its run gone without a word — is dropped; one still in progress is not."""
     live = _in_progress("p-live", None)
@@ -607,7 +627,7 @@ def an_orphan_claim_is_let_go_of_by_the_sweep(state_home):
 
 
 @case
-def a_schedules_database_that_answers_404_does_not_hold_the_queue_up(state_home):
+def a_schedules_database_that_answers_404_does_not_hold_the_queue_up(state_home: Path) -> None:
     """A side feature down costs a line of the journal, not the whole board.
 
     The Schedules database was taken out of the integration: every reading of
@@ -622,25 +642,25 @@ def a_schedules_database_that_answers_404_does_not_hold_the_queue_up(state_home)
     )
     read = runner.client.query
 
-    def query(database_id, filter_=None):
+    def query(database_id: str, filter_: dict[str, Any] | None = None) -> list[notion.Page]:
         if database_id == "db-schedules":
             raise notion.NotionError("POST /databases/db-schedules/query: 404 object_not_found")
         return read(database_id, filter_)
 
-    runner.client.query = query
+    runner.client.query = query  # type: ignore[method-assign]  # a double: the schedules answer 404
     said: list[str] = []
-    runner.say = said.append
+    runner.say = said.append  # type: ignore[method-assign, assignment]  # a double: what it says is kept
     started: list[str] = []
-    runner.prepare = lambda ticket: started.append(ticket.id)
+    runner.prepare = lambda ticket: started.append(ticket.id)  # type: ignore[method-assign]  # a double: nothing claimed
     runner.tick()
     assert started == ["p1"], (started, said)
     assert any("404" in line for line in said), said
 
     # A network that is down is still the pass's own business: it stops.
-    def unreachable(database_id, filter_=None):
+    def unreachable(database_id: str, filter_: dict[str, Any] | None = None) -> list[notion.Page]:
         raise store.Unreachable("POST /databases/db-schedules/query: no DNS answer")
 
-    runner.client.query = unreachable
+    runner.client.query = unreachable  # type: ignore[method-assign]  # a double: no network
     try:
         runner.born()
     except store.Unreachable:
@@ -650,7 +670,7 @@ def a_schedules_database_that_answers_404_does_not_hold_the_queue_up(state_home)
 
 
 @case
-def a_pass_on_overloaded_cores_claims_no_ticket_and_says_so_once(state_home):
+def a_pass_on_overloaded_cores_claims_no_ticket_and_says_so_once(state_home: Path) -> None:
     """Above `max_load_per_core` times the cores, the ready ticket stays where it is."""
     import os
 
@@ -662,9 +682,9 @@ def a_pass_on_overloaded_cores_claims_no_ticket_and_says_so_once(state_home):
     runner.announce_idle = False
     runner._memory_warned, runner._load_warned = False, False
     said: list[str] = []
-    runner.say = said.append
+    runner.say = said.append  # type: ignore[method-assign, assignment]  # a double: what it says is kept
     started: list[str] = []
-    runner.prepare = lambda ticket: started.append(ticket.id)
+    runner.prepare = lambda ticket: started.append(ticket.id)  # type: ignore[method-assign]  # a double: nothing claimed
     original = os.getloadavg, os.sched_getaffinity
     os.sched_getaffinity = lambda pid: set(range(20))
     os.getloadavg = lambda: (74.0, 60.0, 40.0)
@@ -681,7 +701,7 @@ def a_pass_on_overloaded_cores_claims_no_ticket_and_says_so_once(state_home):
 
 
 @case
-def a_ticket_that_refuses_a_write_does_not_stop_the_sweep_or_the_closing(state_home):
+def a_ticket_that_refuses_a_write_does_not_stop_the_sweep_or_the_closing(state_home: Path) -> None:
     """One page Notion will not write leaves the others to be put right."""
     stale = "2020-01-01T00:00:00+00:00"
     first, second = _in_progress("p-a", None), _in_progress("p-b", None)
@@ -689,16 +709,16 @@ def a_ticket_that_refuses_a_write_does_not_stop_the_sweep_or_the_closing(state_h
     runner = _board_runner([first, second], {})
     written = runner.client.update
 
-    def update(database_id, page_id, values):
+    def update(database_id: str, page_id: str, values: dict[str, Any]) -> None:
         if page_id == "p-a":
             raise notion.NotionError(f"PATCH /pages/{page_id}: 403 restricted_resource")
         written(database_id, page_id, values)
 
-    runner.client.update = update
+    runner.client.update = update  # type: ignore[method-assign]  # a double: one page refused
     said: list[str] = []
-    runner.say = said.append
+    runner.say = said.append  # type: ignore[method-assign, assignment]  # a double: what it says is kept
     assert runner.sweep() == 1
-    assert [page for page, _ in runner.client.written] == ["p-b"]
+    assert [page for page, _ in _client(runner).written] == ["p-b"]
     assert any("403" in line for line in said), said
 
     url = "https://github.com/x/y/pull/"
@@ -707,20 +727,26 @@ def a_ticket_that_refuses_a_write_does_not_stop_the_sweep_or_the_closing(state_h
         {"review": "In review", "done": "Done"},
     )
     written = runner.client.update
-    runner.client.update = update
-    runner.say = said.append
+    runner.client.update = update  # type: ignore[method-assign]  # a double: one page refused
+    runner.say = said.append  # type: ignore[method-assign, assignment]  # a double: what it says is kept
     with _github({url + "1": "MERGED", url + "2": "MERGED"}):
         assert runner.close_merged() == 1
-    assert [page for page, _ in runner.client.written] == ["p-b"]
+    assert [page for page, _ in _client(runner).written] == ["p-b"]
 
 
 @case
-def a_ready_card_always_says_what_it_is_waiting_for():
+def a_ready_card_always_says_what_it_is_waiting_for() -> None:
 
     now = datetime(2026, 10, 9, 23, 50, tzinfo=UTC)
-    card = {"id": "p1", "column": "ready", "scheduled": ""}
+    card: dict[str, Any] = {"id": "p1", "column": "ready", "scheduled": ""}
 
-    def held(ticket=card, noted=None, passing=True, timer=True, waits=None):
+    def held(
+        ticket: dict[str, Any] = card,
+        noted: dict[str, tuple[str, str]] | None = None,
+        passing: bool = True,
+        timer: bool = True,
+        waits: dict[str, str] | None = None,
+    ) -> tuple[Any, Any]:
         found = web_board.held(
             ticket, noted or {}, passing=passing, timer=timer, waits=waits, now=now
         )
@@ -745,7 +771,7 @@ def _long_runner(pages: list[notion.Page]) -> Runner:
     runner = _board_runner(pages, {})
     # The cadence the pass looks at the board on, made a test's length.
     runner.config.runner.interval_seconds = 1
-    runner.prepare = lambda ticket: ticket_module.Job(
+    runner.prepare = lambda ticket: ticket_module.Job(  # type: ignore[method-assign]  # a double: prepared for free
         ticket,
         projects.Project(name="", path=None),
         branch="",
@@ -756,7 +782,9 @@ def _long_runner(pages: list[notion.Page]) -> Runner:
 
 
 @case
-def a_pull_request_validated_mid_pass_is_merged_without_waiting_for_the_session(state_home):
+def a_pull_request_validated_mid_pass_is_merged_without_waiting_for_the_session(
+    state_home: Path,
+) -> None:
     """The fault on a real board: a column full of work you have accepted, and
     a two-hour session it has nothing to do with standing in front of it.
 
@@ -771,9 +799,9 @@ def a_pull_request_validated_mid_pass_is_merged_without_waiting_for_the_session(
     runner = _long_runner([_ready("p-long")])
     runner.config.runner.max_concurrent = 1  # every place taken, throughout
 
-    def execute(job):
+    def execute(job: ticket_module.Job) -> dict[str, Any]:
         # Validated by you while the session runs, as it happens on a board.
-        runner.client._pages.append(
+        _client(runner)._pages.append(
             _reviewed("p-validated", "Validated", "https://github.com/x/y/pull/1")
         )
         merged.wait(10)
@@ -782,23 +810,23 @@ def a_pull_request_validated_mid_pass_is_merged_without_waiting_for_the_session(
         time.sleep(2.2)
         return {"id": job.ticket.page.id, "status": "done"}
 
-    def merge(url: str, method: str = "squash", accounts=None) -> str:
+    def merge(url: str, method: str = "squash", accounts: Any = None) -> str:
         merges.append(url)
         merged.set()
         return "merged"
 
-    runner.execute = execute
+    runner.execute = execute  # type: ignore[method-assign]  # a double: no session
     with _github({"https://github.com/x/y/pull/1": "OPEN"}, merge=merge):
         results = runner._work(runner.queue()[0], None, refill=True)
 
     assert merged.is_set(), "merged while the session was still running"
     assert merges == ["https://github.com/x/y/pull/1"], "and merged once, not at every look"
     assert sorted(result["id"] for result in results) == ["p-long", "pvalidated"]
-    assert ("p-validated", {"Status": "Done"}) in runner.client.written
+    assert ("p-validated", {"Status": "Done"}) in _client(runner).written
 
 
 @case
-def a_merge_refused_then_retried_mid_pass_is_asked_for_again(state_home):
+def a_merge_refused_then_retried_mid_pass_is_asked_for_again(state_home: Path) -> None:
     """The cards of the 23rd of October: red at 15:00, blocked, validated
     again by "Retry the merge" — and never looked at by a pass that went on
     until night, which had settled them once and held them out ever after."""
@@ -810,12 +838,12 @@ def a_merge_refused_then_retried_mid_pass_is_asked_for_again(state_home):
         runner.config.runner.max_concurrent = 1
         page = _reviewed("p-validated", "Validated", url)
 
-        def execute(job):
-            runner.client._pages.append(page)
+        def execute(job: ticket_module.Job) -> dict[str, Any]:
+            _client(runner)._pages.append(page)
             merged.wait(10)
             return {"id": job.ticket.page.id, "status": "done"}
 
-        def merge(url: str, method: str = "squash", accounts=None) -> str:
+        def merge(url: str, method: str = "squash", accounts: Any = None) -> str:
             asked.append(url)
             if len(asked) == 1:
                 # Red: the ticket is blocked, and somebody validates it again.
@@ -825,7 +853,7 @@ def a_merge_refused_then_retried_mid_pass_is_asked_for_again(state_home):
             merged.set()
             return "merged"
 
-        runner.execute = execute
+        runner.execute = execute  # type: ignore[method-assign]  # a double: no session
         with _github({url: "OPEN"}, merge=merge):
             results = runner._work(runner.queue()[0], None, refill=True)
 
@@ -838,7 +866,7 @@ def a_merge_refused_then_retried_mid_pass_is_asked_for_again(state_home):
 
 
 @case
-def a_publication_validated_mid_pass_takes_the_next_free_place(state_home):
+def a_publication_validated_mid_pass_takes_the_next_free_place(state_home: Path) -> None:
     """A publication is a session, so it waits for a place — that one, not the
     end of the pass. And it takes it before a ticket nobody has read yet."""
     published: list[str] = []
@@ -846,19 +874,24 @@ def a_publication_validated_mid_pass_takes_the_next_free_place(state_home):
 
     runner = _long_runner([_ready("p-long")])
     runner.config.runner.max_concurrent = 2  # one place taken, one free
-    runner._project_of = lambda ticket: projects.Project(name="Blog", path=None)
+    runner._project_of = lambda ticket: projects.Project(name="Blog", path=None)  # type: ignore[method-assign]  # a double: a blog
 
-    def publish(ticket, project):
+    def publish(
+        ticket: ticket_module.Ticket,
+        project: projects.Project,
+        forced: str = "",
+        prepared: Any = None,
+    ) -> dict[str, Any] | None:
         published.append(ticket.id)
         out.set()
         return {"ticket": ticket.title, "id": ticket.id, "status": "done"}
 
-    def execute(job):
-        runner.client._pages.append(_reviewed("p-post", "Validated", None))
+    def execute(job: ticket_module.Job) -> dict[str, Any]:
+        _client(runner)._pages.append(_reviewed("p-post", "Validated", None))
         out.wait(10)
         return {"id": job.ticket.page.id, "status": "done"}
 
-    runner._publish, runner.execute = publish, execute
+    runner._publish, runner.execute = publish, execute  # type: ignore[method-assign]  # doubles: no session
     results = runner._work(runner.queue()[0], None, refill=True)
 
     assert published == ["ppost"], "published while the long session ran"
@@ -866,21 +899,21 @@ def a_publication_validated_mid_pass_takes_the_next_free_place(state_home):
 
 
 @case
-def a_pass_that_refills_nothing_leaves_the_validated_column_alone(state_home):
+def a_pass_that_refills_nothing_leaves_the_validated_column_alone(state_home: Path) -> None:
     """A named ticket and a dry run take nothing off the board — that column
     included, which `tick` has already read for them."""
     runner = _long_runner([_ready("p-one")])
-    runner.client._pages.append(_reviewed("p-post", "Validated", None))
-    runner._publish = lambda ticket, project: (_ for _ in ()).throw(
+    _client(runner)._pages.append(_reviewed("p-post", "Validated", None))
+    runner._publish = lambda ticket, project: (_ for _ in ()).throw(  # type: ignore[method-assign, misc, assignment]  # a double: never to be called
         AssertionError("published by a pass that refills nothing")
     )
-    runner.execute = lambda job: {"id": job.ticket.page.id, "status": "done"}
+    runner.execute = lambda job: {"id": job.ticket.page.id, "status": "done"}  # type: ignore[method-assign]  # a double: done at once
     results = runner._work(runner.queue()[0], None, refill=False)
 
     assert [result["id"] for result in results] == ["p-one"]
 
 
-def _paid_then_cut(failure: Exception) -> list[dict]:
+def _paid_then_cut(failure: Exception) -> list[dict[str, Any]]:
     """A document ticket whose session was paid, on a board that refuses its closing write.
 
     A board in Markdown files rather than a fake: the whole pass runs, the
@@ -903,18 +936,20 @@ def _paid_then_cut(failure: Exception) -> list[dict]:
         run = Runner(C.load(path), quiet=True)
         written = run.client.update
 
-        def update(database_id, page_id, values):
+        def update(database_id: str, page_id: str, values: dict[str, Any]) -> None:
             if values.get("Status", "In progress") != "In progress":
                 raise failure
             written(database_id, page_id, values)
 
-        run.client.update = update
+        run.client.update = update  # type: ignore[method-assign]  # a double: the closing write fails
         with _no_session(answer="C'est écrit.", writes={"ANSWER.md": "# Annonce\n\nVoilà."}):
             return run.tick()
 
 
 @case
-def a_session_whose_ticket_lost_the_network_still_counts_against_the_daily_limit(state_home):
+def a_session_whose_ticket_lost_the_network_still_counts_against_the_daily_limit(
+    state_home: Path,
+) -> None:
     """Nothing is written for the ticket — it is the next pass's — but the session was paid."""
     results = _paid_then_cut(store.Unreachable("PATCH /pages: no DNS answer"))
     assert results == [], results
@@ -922,14 +957,16 @@ def a_session_whose_ticket_lost_the_network_still_counts_against_the_daily_limit
 
 
 @case
-def a_session_whose_ticket_crashed_after_it_still_counts_against_the_daily_limit(state_home):
+def a_session_whose_ticket_crashed_after_it_still_counts_against_the_daily_limit(
+    state_home: Path,
+) -> None:
     results = _paid_then_cut(RuntimeError("the board said something unexpected"))
     assert [result["status"] for result in results] == ["failed"], results
     assert state.spent_today() == 0.01, state.spent_today()
 
 
 @case
-def every_session_of_a_run_is_started_through_the_door_that_counts_its_cost():
+def every_session_of_a_run_is_started_through_the_door_that_counts_its_cost() -> None:
     """`Base._paid`, and nothing else: a `session.run` called beside it is a
     session the day's limit never hears of."""
     import ponos
@@ -946,7 +983,7 @@ def every_session_of_a_run_is_started_through_the_door_that_counts_its_cost():
 
 
 @case
-def a_claim_the_board_refuses_fails_that_ticket_and_not_the_pass(state_home):
+def a_claim_the_board_refuses_fails_that_ticket_and_not_the_pass(state_home: Path) -> None:
     """The audit of the 23rd of October: `prepare` ran in the pass's own thread
     with nothing around it, so a 400 on the claim of one ticket left the pass,
     waited for every session still in flight — hours, sometimes — and never
@@ -963,12 +1000,12 @@ def a_claim_the_board_refuses_fails_that_ticket_and_not_the_pass(state_home):
     runner.config.runner.max_concurrent = 2
     prepared = runner.prepare
 
-    def prepare(ticket):
+    def prepare(ticket: ticket_module.Ticket) -> ticket_module.Job | None:
         if ticket.page.id == "p-b":
             raise store.StoreError("400 Bad Request: the claim was refused")
         return prepared(ticket)
 
-    def execute(job):
+    def execute(job: ticket_module.Job) -> dict[str, Any]:
         name = job.ticket.page.id
         started.append(name)
         if name == "p-a":
@@ -977,7 +1014,7 @@ def a_claim_the_board_refuses_fails_that_ticket_and_not_the_pass(state_home):
             c_started.set()
         return {"ticket": name, "id": name, "status": "done", "cost_usd": 1.5}
 
-    runner.prepare, runner.execute = prepare, execute
+    runner.prepare, runner.execute = prepare, execute  # type: ignore[method-assign]  # doubles: no session
     results = runner._work(runner.queue()[0], None, refill=False)
 
     assert c_started.is_set(), "C started while A was still running"
@@ -989,7 +1026,7 @@ def a_claim_the_board_refuses_fails_that_ticket_and_not_the_pass(state_home):
 
 
 @case
-def a_merge_that_raises_fails_its_ticket_and_the_next_one_is_merged(state_home):
+def a_merge_that_raises_fails_its_ticket_and_the_next_one_is_merged(state_home: Path) -> None:
     """The merges of the validated column happen in the pass's own thread too:
     one that raised used to end the pass, and leave the rest of the column."""
     first, second = "https://github.com/x/y/pull/1", "https://github.com/x/y/pull/2"
@@ -998,7 +1035,7 @@ def a_merge_that_raises_fails_its_ticket_and_the_next_one_is_merged(state_home):
     )
     merges: list[str] = []
 
-    def merge(url: str, method: str = "squash", accounts=None) -> str:
+    def merge(url: str, method: str = "squash", accounts: Any = None) -> str:
         if url == first:
             raise store.StoreError("400 Bad Request")
         merges.append(url)

@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import tempfile
 import threading
+from collections.abc import Iterable
 from pathlib import Path
+from typing import Any, cast
 
 from support import ME, _bare_runner, _config, _no_session, _said, case
 
@@ -38,7 +40,7 @@ def _knowing(comments: list[notion.Comment]) -> Runner:
     return runner
 
 
-def _ticket():
+def _ticket() -> Any:
     """A ticket this machine claimed, so one whose comments are worth reading."""
     runner = {"type": "rich_text", "rich_text": [{"plain_text": "ponos@laptop"}]}
     page = notion.Page(id="p", url="", title="t", properties={"Runner": runner})
@@ -49,7 +51,7 @@ REPORT_BY_US = _said(f"{legacy.OLD}@laptop — blocked.\nQuel en-tête ?", by=ME
 
 
 @case
-def talking_on_a_ticket_does_not_put_it_back_in_the_queue():
+def talking_on_a_ticket_does_not_put_it_back_in_the_queue() -> None:
     """Its own answer is not an instruction it was given — or every conversation
     would end in a run nobody asked for."""
     talked = [
@@ -63,7 +65,7 @@ def talking_on_a_ticket_does_not_put_it_back_in_the_queue():
 
 
 @case
-def an_answer_given_on_your_phone_is_still_your_answer():
+def an_answer_given_on_your_phone_is_still_your_answer() -> None:
     """It carries the runner's token — the runner is what posts it — and it is
     the ticket's author speaking. So it wakes the ticket exactly as the same
     word typed into Notion would, rather than reading as the runner's own last
@@ -81,7 +83,7 @@ def an_answer_given_on_your_phone_is_still_your_answer():
 
 
 @case
-def its_own_answers_are_not_read_back_as_yours():
+def its_own_answers_are_not_read_back_as_yours() -> None:
     runner = _knowing(
         [
             REPORT_BY_US,
@@ -100,7 +102,7 @@ def its_own_answers_are_not_read_back_as_yours():
 
 
 @case
-def a_thread_transcript_tells_its_two_voices_apart():
+def a_thread_transcript_tells_its_two_voices_apart() -> None:
     thread = conversation.threads(
         [
             _said(f"{legacy.OLD}@laptop — done.", by=ME),
@@ -121,7 +123,7 @@ def a_thread_transcript_tells_its_two_voices_apart():
 
 
 @case
-def the_scan_moves_across_the_board_a_window_at_a_time():
+def the_scan_moves_across_the_board_a_window_at_a_time() -> None:
     """One request per page, and a run that can come round every ten seconds."""
     ledger = conversation.Ledger(database=Path(tempfile.mkdtemp()) / "ponos.db")
     pages = [f"p{index}" for index in range(5)]
@@ -133,7 +135,7 @@ def the_scan_moves_across_the_board_a_window_at_a_time():
 
 
 @case
-def the_pass_holds_off_until_its_own_interval_has_passed():
+def the_pass_holds_off_until_its_own_interval_has_passed() -> None:
     ledger = conversation.Ledger(database=Path(tempfile.mkdtemp()) / "ponos.db")
     assert ledger.due(60), "a runner that has never looked is due at once"
     ledger.stamp()
@@ -142,7 +144,7 @@ def the_pass_holds_off_until_its_own_interval_has_passed():
 
 
 @case
-def what_the_runner_remembers_survives_a_restart():
+def what_the_runner_remembers_survives_a_restart() -> None:
     path = Path(tempfile.mkdtemp()) / "ponos.db"
     ledger = conversation.Ledger(database=path)
     ledger.remember_page("3ca45168-0af4-80ae-9443-de0b65d9abf8")
@@ -174,7 +176,9 @@ class _ThreadClient:
         return "Ponos"
 
 
-def _talking(pages: dict[str, list[notion.Comment]], *, claimed: set[str] = frozenset(), scan=20):
+def _talking(
+    pages: dict[str, list[notion.Comment]], *, claimed: Iterable[str] = frozenset(), scan: int = 20
+) -> Runner:
     runner = _bare_runner(_ThreadClient(pages))
     runner.config = _config("")
     runner.config.runner.reply_scan = scan
@@ -188,6 +192,12 @@ def _talking(pages: dict[str, list[notion.Comment]], *, claimed: set[str] = froz
     return runner
 
 
+def _ledger(runner: Runner) -> conversation.Ledger:
+    """The ledger `_talking` gave the runner, which a run may not have."""
+    assert runner._ledger is not None
+    return runner._ledger
+
+
 REPLIED_TO = [
     _said(f"{legacy.OLD}@laptop — done.\nFait.", by=ME),
     _said("pourquoi ce nom de branche ?"),
@@ -195,7 +205,7 @@ REPLIED_TO = [
 
 
 @case
-def a_ticket_about_to_run_is_left_to_the_run_that_will_read_it():
+def a_ticket_about_to_run_is_left_to_the_run_that_will_read_it() -> None:
     """The comment is already going into its prompt; two answers would be one
     too many, and one of them would be the runner talking over itself."""
     runner = _talking({"pone": REPLIED_TO, "ptwo": REPLIED_TO}, claimed={"ptwo"})
@@ -203,7 +213,7 @@ def a_ticket_about_to_run_is_left_to_the_run_that_will_read_it():
 
 
 @case
-def a_pass_answers_one_thread_per_page_and_stops_at_five():
+def a_pass_answers_one_thread_per_page_and_stops_at_five() -> None:
     two = [
         _said(f"{legacy.OLD}@laptop — done.", by=ME, thread="d1"),
         _said("pourquoi ?", thread="d1"),
@@ -218,24 +228,24 @@ def a_pass_answers_one_thread_per_page_and_stops_at_five():
 
 
 @case
-def a_page_that_cannot_be_read_costs_that_page_and_nothing_else():
+def a_page_that_cannot_be_read_costs_that_page_and_nothing_else() -> None:
     runner = _talking({"ptwo": REPLIED_TO})
-    runner._ledger.remember_page("pgone")
+    _ledger(runner).remember_page("pgone")
     assert [page for page, _ in runner._pending(ME)] == ["ptwo"]
 
 
 @case
-def the_pages_this_run_has_already_read_cost_no_second_request():
+def the_pages_this_run_has_already_read_cost_no_second_request() -> None:
     runner = _talking({"pone": REPLIED_TO})
     runner._comments["pone"] = REPLIED_TO  # as `woken` leaves it
     assert len(runner._pending(ME)) == 1
-    assert runner.client.asked == [], "nothing was asked of Notion twice"
+    assert cast(_ThreadClient, runner.client).asked == [], "nothing was asked of Notion twice"
 
 
 class _TalkingClient(_ThreadClient):
     """A page, its discussion, and what got written back into it."""
 
-    def __init__(self, pages, body: str = "Supprimer l'entête."):
+    def __init__(self, pages: dict[str, list[notion.Comment]], body: str = "Supprimer l'entête."):
         super().__init__(pages)
         self._body = body
         self.posted: list[tuple[str, str, str]] = []
@@ -252,21 +262,22 @@ class _TalkingClient(_ThreadClient):
     def comment(self, page_id: str, text: str, discussion_id: str = "") -> None:
         self.posted.append((page_id, text, discussion_id))
 
-    def update(self, database_id: str, page_id: str, values: dict) -> None:
+    def update(self, database_id: str, page_id: str, values: dict[str, Any]) -> None:
         raise AssertionError("a conversation moves nothing on the board")
 
 
 @case
-def answering_a_comment_writes_in_its_thread_and_nowhere_else(state_home):
+def answering_a_comment_writes_in_its_thread_and_nowhere_else(state_home: Path) -> None:
     with _no_session() as calls:
         runner = _talking({"pone": REPLIED_TO})
-        runner.client = _TalkingClient({"pone": REPLIED_TO})
+        client = _TalkingClient({"pone": REPLIED_TO})
+        runner.client = client  # type: ignore[assignment]  # a fake: a page and its thread
         runner.dry_run = False
         runner._workspace = workspace.Workspace(tickets="db", context="Je suis Salvador.")
         answered = runner.converse()
 
     assert len(answered) == 1 and answered[0]["status"] == "answered"
-    page, text, discussion = runner.client.posted[0]
+    page, text, discussion = client.posted[0]
     assert (page, discussion) == ("pone", "d1"), "under the question, not at the bottom"
     assert text == "Parce que la branche d'hier était déjà en revue."
 
@@ -279,18 +290,19 @@ def answering_a_comment_writes_in_its_thread_and_nowhere_else(state_home):
 
 
 @case
-def a_second_question_lands_in_the_same_conversation(state_home):
+def a_second_question_lands_in_the_same_conversation(state_home: Path) -> None:
     with _no_session() as calls:
         runner = _talking({"pone": REPLIED_TO})
-        runner.client = _TalkingClient({"pone": REPLIED_TO})
+        client = _TalkingClient({"pone": REPLIED_TO})
+        runner.client = client  # type: ignore[assignment]  # a fake: a page and its thread
         runner.dry_run = False
         runner._workspace = workspace.Workspace(tickets="db", projects="projects", agents="agents")
         runner.converse()
 
         again = [*REPLIED_TO, _said("et le footer ?", ident="c-later")]
-        runner.client.pages["pone"] = again
+        client.pages["pone"] = again
         runner._comments.clear()
-        runner._ledger.at = 0.0  # the interval, not the point of this test
+        _ledger(runner).at = 0.0  # the interval, not the point of this test
         runner.converse()
 
     assert len(calls) == 2
@@ -300,59 +312,62 @@ def a_second_question_lands_in_the_same_conversation(state_home):
 
 
 @case
-def a_session_that_says_nothing_is_still_answered_for(state_home):
+def a_session_that_says_nothing_is_still_answered_for(state_home: Path) -> None:
     """Silence in a thread reads as being ignored, which is worse than a failure."""
     with _no_session(ok=False) as calls:
         runner = _talking({"pone": REPLIED_TO})
-        runner.client = _TalkingClient({"pone": REPLIED_TO})
+        client = _TalkingClient({"pone": REPLIED_TO})
+        runner.client = client  # type: ignore[assignment]  # a fake: a page and its thread
         runner.dry_run = False
         runner._workspace = workspace.Workspace(tickets="db", projects="projects", agents="agents")
         runner.converse()
 
     assert len(calls) == 1, "nothing to resume, so nothing to retry"
-    assert "could not answer" in runner.client.posted[0][1]
-    assert "log is" in runner.client.posted[0][1], "and where to go and look"
+    assert "could not answer" in client.posted[0][1]
+    assert "log is" in client.posted[0][1], "and where to go and look"
 
 
 @case
-def a_conversation_whose_session_is_gone_starts_a_new_one(state_home):
+def a_conversation_whose_session_is_gone_starts_a_new_one(state_home: Path) -> None:
     """The transcript was pruned, or the machine changed. Notion still has the
     thread, which is enough to carry on from."""
     with _no_session(ok=[True, False, True]) as calls:
         runner = _talking({"pone": REPLIED_TO})
-        runner.client = _TalkingClient({"pone": REPLIED_TO})
+        client = _TalkingClient({"pone": REPLIED_TO})
+        runner.client = client  # type: ignore[assignment]  # a fake: a page and its thread
         runner.dry_run = False
         runner._workspace = workspace.Workspace(tickets="db", projects="projects", agents="agents")
         runner.converse()
 
-        runner.client.pages["pone"] = [*REPLIED_TO, _said("et le footer ?", ident="c-later")]
+        client.pages["pone"] = [*REPLIED_TO, _said("et le footer ?", ident="c-later")]
         runner._comments.clear()
-        runner._ledger.at = 0.0
+        _ledger(runner).at = 0.0
         runner.converse()
 
     assert [call["resume"] for call in calls] == [False, True, False]
     assert calls[2]["session_id"] != calls[1]["session_id"]
     assert "Supprimer l" in calls[2]["prompt"], "a fresh session is told everything again"
-    assert len(runner.client.posted) == 2 and "could not answer" not in runner.client.posted[1][1]
+    assert len(client.posted) == 2 and "could not answer" not in client.posted[1][1]
 
 
 @case
-def a_pass_that_is_turned_off_or_too_soon_asks_notion_nothing(state_home):
+def a_pass_that_is_turned_off_or_too_soon_asks_notion_nothing(state_home: Path) -> None:
     with _no_session() as calls:
         runner = _talking({"pone": REPLIED_TO})
-        runner.client = _TalkingClient({"pone": REPLIED_TO})
+        client = _TalkingClient({"pone": REPLIED_TO})
+        runner.client = client  # type: ignore[assignment]  # a fake: a page and its thread
         runner.dry_run = False
         runner.config.runner.reply = False
         assert runner.converse() == []
 
         runner.config.runner.reply = True
-        runner._ledger.stamp()
+        _ledger(runner).stamp()
         assert runner.converse() == [], "the interval has not passed"
-        assert runner.client.asked == [] and calls == []
+        assert client.asked == [] and calls == []
 
 
 @case
-def a_conversation_prompt_says_what_it_is_not_allowed_to_do():
+def a_conversation_prompt_says_what_it_is_not_allowed_to_do() -> None:
     text = prompt.conversation(
         prompt.CONVERSATION,
         project="Northwind",
@@ -388,7 +403,7 @@ def a_conversation_prompt_says_what_it_is_not_allowed_to_do():
 
 
 @case
-def a_ticket_without_a_project_still_reads_as_a_sentence():
+def a_ticket_without_a_project_still_reads_as_a_sentence() -> None:
     text = prompt.conversation(
         prompt.CONVERSATION,
         project="",
@@ -404,7 +419,7 @@ def a_ticket_without_a_project_still_reads_as_a_sentence():
 
 
 @case
-def an_answer_too_long_for_a_comment_is_cut_where_it_breathes():
+def an_answer_too_long_for_a_comment_is_cut_where_it_breathes() -> None:
     assert conversation.trim("court") == "court"
     long = ("Une phrase. " * 200).strip()
     cut = conversation.trim(long, limit=200)
@@ -413,7 +428,7 @@ def an_answer_too_long_for_a_comment_is_cut_where_it_breathes():
 
 
 @case
-def the_role_sits_between_the_project_and_the_mechanics():
+def the_role_sits_between_the_project_and_the_mechanics() -> None:
     text = prompt.build(
         prompt.DEFAULT,
         project="Northwind",
@@ -445,8 +460,8 @@ def the_role_sits_between_the_project_and_the_mechanics():
 
 
 @case
-def a_ticket_with_no_agent_and_no_comments_reads_as_before():
-    common = dict(
+def a_ticket_with_no_agent_and_no_comments_reads_as_before() -> None:
+    common: dict[str, Any] = dict(
         project="Northwind", title="t", body="b", repo="/r", branch="br", base="main", url="u"
     )
     bare = prompt.build(prompt.DEFAULT, **common)

@@ -8,7 +8,9 @@ import subprocess
 import tempfile
 import threading
 import time
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 from support import (
     _bare_api,
@@ -33,7 +35,7 @@ from ponos.web import live as web_live
 
 
 @case
-def the_storage_mode_decides_which_store_is_opened():
+def the_storage_mode_decides_which_store_is_opened() -> None:
     configuration = _config("")
     assert configuration.storage.mode == "notion"
     assert isinstance(store.open(configuration), notion.Client)
@@ -51,7 +53,7 @@ def the_storage_mode_decides_which_store_is_opened():
 
 
 @case
-def a_markdown_installation_needs_neither_token_nor_workspace():
+def a_markdown_installation_needs_neither_token_nor_workspace() -> None:
     path = Path(tempfile.mkdtemp()) / "config.toml"
     path.write_text('[storage]\nmode = "markdown"\n', encoding="utf-8")
     C.load(path).require_usable()  # must not raise
@@ -72,7 +74,7 @@ def a_markdown_installation_needs_neither_token_nor_workspace():
 
 
 @case
-def the_console_lists_every_project_it_knows_of():
+def the_console_lists_every_project_it_knows_of() -> None:
     """The board's own, and the ones only the configuration names.
 
     A name the file maps to a path and the board has never heard of is still a
@@ -89,9 +91,12 @@ def the_console_lists_every_project_it_knows_of():
         api._config.projects["Jeu d'usine"] = "/home/salva/workspace/usine"
         asked: list[str] = []
         query = api.runner.client.query
-        api.runner.client.query = lambda database, *rest, **named: (
-            asked.append(database) or query(database, *rest, **named)
-        )
+
+        def counted(database: str, filter_: dict[str, Any] | None = None) -> list[store.Page]:
+            asked.append(database)
+            return query(database, filter_)
+
+        api.runner.client.query = counted  # type: ignore[method-assign, assignment]  # a double: the databases read are counted
         drawn = api.all_projects()
         assert api.runner.database not in asked, "the tickets are the console's to count"
 
@@ -110,7 +115,7 @@ def the_console_lists_every_project_it_knows_of():
 
 
 @case
-def the_console_opens_a_project_and_writes_it_back():
+def the_console_opens_a_project_and_writes_it_back() -> None:
     """A project is a page you can change, and the brief is why it is worth opening.
 
     What is written goes to the column the page already carries — a project
@@ -192,12 +197,12 @@ def _creatable(board: files.Board, language: str = "fr") -> web_api.Api:
     """A markdown Api that creates projects, speaking `language`."""
     api = _markdown_api(board)
     api._config.runner = C.Runner(language=language)
-    api._runner.config = api._config
+    api.runner.config = api._config
     api.watch = type("Watch", (), {"nudge": lambda self: None})()
     return api
 
 
-def _refused(create, field: str) -> str:
+def _refused(create: Callable[[], object], field: str) -> str:
     """The sentence a creation is refused with, which must be about `field`."""
     try:
         create()
@@ -208,7 +213,7 @@ def _refused(create, field: str) -> str:
 
 
 @case
-def a_github_repository_is_written_as_its_whole_address():
+def a_github_repository_is_written_as_its_whole_address() -> None:
     for given in (
         "hermez-agency/ponos",
         "https://github.com/hermez-agency/ponos",
@@ -230,7 +235,7 @@ def a_github_repository_is_written_as_its_whole_address():
 
 
 @case
-def a_project_is_created_from_the_console_with_what_its_page_says():
+def a_project_is_created_from_the_console_with_what_its_page_says() -> None:
     """A writing project, then a code one from GitHub: the page carries the
     columns the database already has, the brief is its body, and the answer is
     a row of the list — the one the list then holds."""
@@ -299,7 +304,7 @@ def a_project_is_created_from_the_console_with_what_its_page_says():
 
 
 @case
-def a_project_is_created_from_a_folder_and_names_its_remote():
+def a_project_is_created_from_a_folder_and_names_its_remote() -> None:
     with _board() as board, tempfile.TemporaryDirectory() as directory:
         clone = Path(directory) / "jeu"
         subprocess.run(["git", "init", "-q", str(clone)], check=True)
@@ -330,7 +335,7 @@ def a_project_is_created_from_a_folder_and_names_its_remote():
 
 
 @case
-def a_project_the_console_cannot_create_is_refused_before_anything_is_written():
+def a_project_the_console_cannot_create_is_refused_before_anything_is_written() -> None:
     """A name taken, a repository that is not GitHub's, a folder that is not
     there — each said under its field, in the runner's language, and the board
     left as it was."""
@@ -372,7 +377,7 @@ def a_project_the_console_cannot_create_is_refused_before_anything_is_written():
 
 
 @case
-def a_project_the_configuration_alone_names_gets_its_page_under_its_own_name():
+def a_project_the_configuration_alone_names_gets_its_page_under_its_own_name() -> None:
     """A line of `[projects]` the board has no page for does not take its name:
     the page made under it is that project's, and the line becomes its path."""
     with _board() as board:
@@ -388,7 +393,7 @@ def a_project_the_configuration_alone_names_gets_its_page_under_its_own_name():
 
 
 @case
-def the_console_server_creates_a_project_and_says_which_field_it_refuses():
+def the_console_server_creates_a_project_and_says_which_field_it_refuses() -> None:
     """The route, end to end: a project created is a row of the list; a refusal
     is a 400 whose violation names the field, which is what the form draws."""
     import urllib.error
@@ -408,7 +413,7 @@ def the_console_server_creates_a_project_and_says_which_field_it_refuses():
             "X-Ponos": "1",
         }
 
-        def ask(path: str, body: dict | None = None) -> tuple[int, dict]:
+        def ask(path: str, body: dict[str, Any] | None = None) -> tuple[int, dict[str, Any]]:
             data = None if body is None else json.dumps(body).encode()
             request = urllib.request.Request(base + path, data=data, headers=headers)
             try:
@@ -432,7 +437,7 @@ def the_console_server_creates_a_project_and_says_which_field_it_refuses():
             console.server_close()
 
 
-def _deletable(board: files.Board):
+def _deletable(board: files.Board) -> tuple[web_api.Api, str, dict[str, str]]:
     """A markdown Api with a project of three tickets, and one elsewhere."""
     settings = board.settings()
     code = board.create_row("projects", "ponos", {"Repository": "user/repo"})
@@ -449,14 +454,14 @@ def _deletable(board: files.Board):
         tickets[title] = ticket
     api = _markdown_api(board)
     api._config.notion = settings
-    api._runner.config = api._config
+    api.runner.config = api._config
     api._reader = web_board.Reader(journal=lambda report: None)
     api.watch = type("Watch", (), {"nudge": lambda self: None})()
     return api, code, tickets
 
 
 @case
-def deleting_a_project_needs_its_name_and_changes_nothing_without_it():
+def deleting_a_project_needs_its_name_and_changes_nothing_without_it() -> None:
     with _board() as board, _state_home():
         api, code, tickets = _deletable(board)
         for confirm in ("", "Ponos", "ponosx"):
@@ -478,7 +483,7 @@ def deleting_a_project_needs_its_name_and_changes_nothing_without_it():
 
 
 @case
-def a_deleted_project_leaves_the_console_and_its_tickets_are_stopped_not_lost():
+def a_deleted_project_leaves_the_console_and_its_tickets_are_stopped_not_lost() -> None:
     """Gone from the list at once; tickets the runner could take are blocked and
     say why; the others, and the other project's, are left alone; nothing is
     removed for good — and what was spent on it stays in the history."""
@@ -520,7 +525,7 @@ def a_deleted_project_leaves_the_console_and_its_tickets_are_stopped_not_lost():
 
 
 @case
-def deleting_a_project_may_trash_its_tickets_too():
+def deleting_a_project_may_trash_its_tickets_too() -> None:
     with _board() as board, _state_home():
         api, code, tickets = _deletable(board)
         done = api.delete_project(code, {"confirm": "ponos", "trash_tickets": True})
@@ -532,7 +537,7 @@ def deleting_a_project_may_trash_its_tickets_too():
 
 
 @case
-def a_project_with_a_session_running_is_not_deleted():
+def a_project_with_a_session_running_is_not_deleted() -> None:
     with _board() as board, _state_home():
         api, code, tickets = _deletable(board)
         running = web_live.active
@@ -553,15 +558,15 @@ def a_project_with_a_session_running_is_not_deleted():
 
 
 @case
-def a_project_in_the_notion_trash_does_not_resolve():
+def a_project_in_the_notion_trash_does_not_resolve() -> None:
     """The trash keeps a page readable by its ID; that is what must not be worked on."""
 
     class Backend:
-        def page(self, page_id):
+        def page(self, page_id: str) -> store.Page:
             return store.Page(id=page_id, url="", title="Site", raw={"archived": True})
 
     try:
-        projects.Resolver(Path(tempfile.mkdtemp()), {}).resolve(Backend(), "p" * 32)
+        projects.Resolver(Path(tempfile.mkdtemp()), {}).resolve(Backend(), "p" * 32)  # type: ignore[arg-type]  # a fake: one page, archived
     except LookupError as error:
         assert "deleted" in str(error) and "Site" in str(error)
     else:
@@ -569,7 +574,7 @@ def a_project_in_the_notion_trash_does_not_resolve():
 
 
 @case
-def a_brief_is_saved_only_from_the_version_it_was_opened_at():
+def a_brief_is_saved_only_from_the_version_it_was_opened_at() -> None:
     """Edited in the console, the brief is never written over a newer one.
 
     The editor opens at a `version` and saves against it: a brief somebody
@@ -615,7 +620,7 @@ def a_brief_is_saved_only_from_the_version_it_was_opened_at():
 
 
 @case
-def a_brief_that_markdown_cannot_hold_is_not_rewritten_unannounced():
+def a_brief_that_markdown_cannot_hold_is_not_rewritten_unannounced() -> None:
     """Notion holds more than a line of text does; the console says what that costs.
 
     `markdown.lost` names, block by block, what `plain` would flatten and
@@ -623,7 +628,7 @@ def a_brief_that_markdown_cannot_hold_is_not_rewritten_unannounced():
     until the caller says it has been told.
     """
 
-    def text(content, **notes):
+    def text(content: str, **notes: Any) -> dict[str, Any]:
         part = {
             "type": "text",
             "plain_text": content,
@@ -680,10 +685,11 @@ def a_brief_that_markdown_cannot_hold_is_not_rewritten_unannounced():
         "g": [{"id": "h", "type": "image", "image": {}}],
     }
     client = notion.Client("ntn_x")
-    client._request = lambda method, path, body=None: {  # type: ignore[method-assign]
-        "results": blocks.get(path.split("/")[2], []),
-        "has_more": False,
-    }
+
+    def request(method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
+        return {"results": blocks.get(path.split("/")[2], []), "has_more": False}
+
+    client._request = request  # type: ignore[method-assign, assignment]  # a double: the blocks above
     found = client.losses("page")
     assert found == {
         "toggle": 2,
@@ -713,7 +719,7 @@ def a_brief_that_markdown_cannot_hold_is_not_rewritten_unannounced():
 
 
 @case
-def the_console_reads_and_rewrites_the_standing_context():
+def the_console_reads_and_rewrites_the_standing_context() -> None:
     """Rewrites, never appends: the context is a value, not a history.
 
     Saving it twice has to leave one text. Everything else this console writes
@@ -735,7 +741,7 @@ def the_console_reads_and_rewrites_the_standing_context():
         # A workspace with nowhere to write says so rather than offering a save
         # that could only fail.
         blind = _markdown_api(board)
-        blind._runner._workspace.context_page = ""
+        blind.runner._workspace.context_page = ""  # type: ignore[union-attr]  # `_markdown_api` gave it one
         assert not blind.context()["editable"]
         try:
             blind.save_context("x")
@@ -746,7 +752,7 @@ def the_console_reads_and_rewrites_the_standing_context():
 
 
 @case
-def a_ticket_created_from_the_console_carries_its_priority_type_and_model():
+def a_ticket_created_from_the_console_carries_its_priority_type_and_model() -> None:
     """A score and two selects in the form, written as the board takes them.
 
     They used to be set in Notion afterwards, by hand. Offered only for the
@@ -760,7 +766,7 @@ def a_ticket_created_from_the_console_carries_its_priority_type_and_model():
         api._schema_at = time.time()
         api._reader = web_board.Reader(journal=lambda report: None)
         api._outbox = web_board.Outbox(journal=lambda report: None)
-        api.watch = _Nudged()
+        api.watch = _Nudged()  # type: ignore[assignment]  # a fake: only counts its nudges
         read = api.board()
         choices = read["choices"]
         assert read["priority"] is True and "priority" not in choices
@@ -800,6 +806,6 @@ def a_ticket_created_from_the_console_carries_its_priority_type_and_model():
 
     # A board without those columns is offered none of them.
     api = _bare_api(_ColumnsClient(["Ready"]))
-    api._runner._workspace = type("W", (), {"goals": "", "projects": "", "tickets": "db"})()
+    api.runner._workspace = type("W", (), {"goals": "", "projects": "", "tickets": "db"})()
     api._schema_at = time.time()
     assert api.board()["choices"] == {}

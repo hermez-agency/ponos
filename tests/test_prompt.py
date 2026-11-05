@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
+from typing import Any
 
 from support import case
 
@@ -12,7 +14,7 @@ from ponos import prompt
 
 
 @case
-def the_prompt_reads_from_the_widest_frame_to_the_narrowest():
+def the_prompt_reads_from_the_widest_frame_to_the_narrowest() -> None:
     text = prompt.build(
         prompt.DEFAULT,
         project="Northwind",
@@ -33,8 +35,8 @@ def the_prompt_reads_from_the_widest_frame_to_the_narrowest():
 
 
 @case
-def a_workspace_without_a_context_page_changes_nothing():
-    common = dict(
+def a_workspace_without_a_context_page_changes_nothing() -> None:
+    common: dict[str, Any] = dict(
         project="Northwind", title="t", body="b", repo="/r", branch="br", base="main", url="u"
     )
     bare = prompt.build(prompt.DEFAULT, **common)
@@ -45,8 +47,8 @@ def a_workspace_without_a_context_page_changes_nothing():
 
 
 @case
-def a_goal_frames_the_task_between_the_project_and_the_role():
-    common = dict(
+def a_goal_frames_the_task_between_the_project_and_the_role() -> None:
+    common: dict[str, Any] = dict(
         project="Animalink",
         title="t",
         body="b",
@@ -85,7 +87,7 @@ def a_goal_frames_the_task_between_the_project_and_the_role():
     assert "# L'objectif — Lancer la v1" in older
 
 
-_COMMON = dict(
+_COMMON: dict[str, Any] = dict(
     project="Northwind", title="t", body="b", repo="/r", branch="br", base="main", url="u"
 )
 
@@ -94,7 +96,7 @@ _COMMON = dict(
 
 
 @case
-def the_permissions_are_said_even_when_nobody_allowed_anything():
+def the_permissions_are_said_even_when_nobody_allowed_anything() -> None:
     bare = prompt.permissions()
     assert "You do these without asking:" not in bare, "no empty list under a heading"
     assert "You always ask the user" not in bare
@@ -103,7 +105,7 @@ def the_permissions_are_said_even_when_nobody_allowed_anything():
 
 
 @case
-def blank_rules_and_owners_are_left_out_and_owners_are_sorted_once():
+def blank_rules_and_owners_are_left_out_and_owners_are_sorted_once() -> None:
     text = prompt.permissions(
         allowed=["relancer une CI", "  ", ""],
         ask=["toute dépense"],
@@ -117,7 +119,7 @@ def blank_rules_and_owners_are_left_out_and_owners_are_sorted_once():
 
 
 @case
-def a_prompt_file_without_permissions_still_hands_them_over_at_its_end():
+def a_prompt_file_without_permissions_still_hands_them_over_at_its_end() -> None:
     text = prompt.build("Fais {title}.", **_COMMON, allowed=["relancer une CI"])
     assert text.startswith("Fais t.")
     assert text.rstrip().endswith(prompt.permissions(["relancer une CI"]).rstrip())
@@ -127,7 +129,7 @@ def a_prompt_file_without_permissions_still_hands_them_over_at_its_end():
 
 
 @case
-def the_secrets_are_named_and_never_valued():
+def the_secrets_are_named_and_never_valued() -> None:
     assert prompt.held_secrets([]) == "", "no key, no section"
     said = prompt.held_secrets(["STRIPE_KEY", "DOKPLOY_TOKEN"])
     assert said.startswith("# Secrets")
@@ -135,14 +137,14 @@ def the_secrets_are_named_and_never_valued():
 
 
 @case
-def the_secrets_come_last_whatever_the_template():
+def the_secrets_come_last_whatever_the_template() -> None:
     for template in (prompt.DEFAULT, prompt.DOCUMENT, prompt.RESOLVE, "{title}"):
         text = prompt.build(template, **_COMMON, secrets=["STRIPE_KEY"])
         assert text.rstrip().endswith(prompt.held_secrets(["STRIPE_KEY"]).rstrip()), template[:40]
 
 
 @case
-def every_frame_says_how_many_workers_its_tests_may_take():
+def every_frame_says_how_many_workers_its_tests_may_take() -> None:
     assert prompt.held_workers(0) == "", "nothing said, nothing added"
     said = prompt.held_workers(2)
     assert said.startswith("# Your share of the machine")
@@ -159,14 +161,14 @@ def every_frame_says_how_many_workers_its_tests_may_take():
 
 
 @case
-def only_an_external_action_and_a_publication_add_a_section():
+def only_an_external_action_and_a_publication_add_a_section() -> None:
     assert prompt.kind("external") == prompt.EXTERNAL
     assert prompt.kind("publication") == prompt.PREPARE
     assert prompt.kind("writing") == "" and prompt.kind("code") == "" and prompt.kind("") == ""
 
 
 @case
-def a_text_about_a_codebase_may_read_it_and_change_nothing():
+def a_text_about_a_codebase_may_read_it_and_change_nothing() -> None:
     said = prompt.kind("writing", "/home/x/northwind")
     assert said.startswith("- The project's repository is at /home/x/northwind")
     assert "change nothing in it" in said
@@ -175,7 +177,7 @@ def a_text_about_a_codebase_may_read_it_and_change_nothing():
 
 
 @case
-def a_prompt_file_older_than_the_types_gets_the_section_at_its_end():
+def a_prompt_file_older_than_the_types_gets_the_section_at_its_end() -> None:
     section = prompt.kind("external")
     text = prompt.build("Fais {title}.", **_COMMON, kind=section)
     assert text.rstrip().endswith(section.rstrip()), "the rule that stops at a doubt is not lost"
@@ -187,27 +189,27 @@ def a_prompt_file_older_than_the_types_gets_the_section_at_its_end():
 
 
 @case
-def a_ticket_without_a_description_says_everything_is_in_its_title():
+def a_ticket_without_a_description_says_everything_is_in_its_title() -> None:
     text = prompt.build(prompt.DEFAULT, **{**_COMMON, "body": "  \n "})
     assert "(the ticket has no description: everything is in the title)" in text
 
 
 @case
-def braces_in_a_ticket_are_handed_over_as_written():
+def braces_in_a_ticket_are_handed_over_as_written() -> None:
     body = 'Le gabarit `{title}` et un objet JSON {"a": 1} doivent rester tels quels.'
     text = prompt.build(prompt.DEFAULT, **{**_COMMON, "title": "Les {accolades}", "body": body})
     assert body in text and "Les {accolades}" in text
 
 
 @case
-def a_ticket_with_no_project_reads_as_one():
+def a_ticket_with_no_project_reads_as_one() -> None:
     text = prompt.build(prompt.DOCUMENT, **{**_COMMON, "project": ""})
     assert "a Notion ticket that belongs to no project" in text
     assert "# About" not in text, "no brief heading without a project brief"
 
 
 @case
-def the_language_is_a_paragraph_of_its_own_or_exactly_nothing():
+def the_language_is_a_paragraph_of_its_own_or_exactly_nothing() -> None:
     assert prompt._language("") == "" and prompt._language("  \n") == ""
     assert prompt._language("  Write in French.  ") == "\nWrite in French.\n"
     said = prompt.build(prompt.DEFAULT, **_COMMON, language="Write in French.")
@@ -218,7 +220,7 @@ def the_language_is_a_paragraph_of_its_own_or_exactly_nothing():
 
 
 @case
-def what_was_said_on_the_ticket_sits_with_the_ticket_oldest_first():
+def what_was_said_on_the_ticket_sits_with_the_ticket_oldest_first() -> None:
     text = prompt.build(
         prompt.DEFAULT, **_COMMON, comments=["Salva: c'est pour quand ?", "you: demain"]
     )
@@ -230,7 +232,7 @@ def what_was_said_on_the_ticket_sits_with_the_ticket_oldest_first():
 
 
 @case
-def a_goal_with_only_a_name_has_no_empty_lines_under_it():
+def a_goal_with_only_a_name_has_no_empty_lines_under_it() -> None:
     aim = prompt.build("{goal}", **_COMMON, goal_name="  Lancer la v1  ")
     assert aim.startswith("# L'objectif — Lancer la v1\n\n")
     assert "Critère" not in aim and "Échéance" not in aim
@@ -240,7 +242,7 @@ def a_goal_with_only_a_name_has_no_empty_lines_under_it():
 
 
 @case
-def a_conversation_puts_the_thread_nearest_the_message():
+def a_conversation_puts_the_thread_nearest_the_message() -> None:
     text = prompt.conversation(
         prompt.CONVERSATION,
         project="Northwind",
@@ -261,7 +263,7 @@ def a_conversation_puts_the_thread_nearest_the_message():
 
 
 @case
-def a_conversation_without_a_thread_has_no_thread_heading():
+def a_conversation_without_a_thread_has_no_thread_heading() -> None:
     text = prompt.conversation(
         prompt.CONVERSATION, project="", title="t", body="b", where="w", url="u", message="m"
     )
@@ -270,7 +272,7 @@ def a_conversation_without_a_thread_has_no_thread_heading():
 
 
 @case
-def the_message_of_a_built_conversation_is_what_a_resumed_session_is_sent():
+def the_message_of_a_built_conversation_is_what_a_resumed_session_is_sent() -> None:
     text = prompt.conversation(
         prompt.CONVERSATION,
         project="Northwind",
@@ -287,7 +289,7 @@ def the_message_of_a_built_conversation_is_what_a_resumed_session_is_sent():
 
 
 @case
-def a_follow_up_keeps_the_language_of_the_thread():
+def a_follow_up_keeps_the_language_of_the_thread() -> None:
     said = prompt.follow_up("Et sur Safari ?", "Write in French.")
     assert "Et sur Safari ?" in said and "\nWrite in French.\n" in said
     assert "Write in" not in prompt.follow_up("Et sur Safari ?")
@@ -297,14 +299,14 @@ def a_follow_up_keeps_the_language_of_the_thread():
 
 
 @case
-def carrying_on_after_the_credit_says_to_look_before_writing():
+def carrying_on_after_the_credit_says_to_look_before_writing() -> None:
     said = prompt.carry_on()
     assert "carry on from where you stopped" in said and "`git status`" in said
     assert prompt.carry_on("Write in French.").rstrip().endswith("Write in French.")
 
 
 @case
-def a_write_up_asks_for_answer_md_on_a_document_and_an_answer_on_code():
+def a_write_up_asks_for_answer_md_on_a_document_and_an_answer_on_code() -> None:
     document = prompt.write_up("/tmp/scratch/x")
     assert "write `ANSWER.md` in /tmp/scratch/x" in document
     code = prompt.write_up()
@@ -313,7 +315,7 @@ def a_write_up_asks_for_answer_md_on_a_document_and_an_answer_on_code():
 
 
 @case
-def a_red_local_ci_hands_back_its_command_attempt_and_output():
+def a_red_local_ci_hands_back_its_command_attempt_and_output() -> None:
     said = prompt.local_ci("make ci", "\n  FAILED tests/test_x.py::a  \n", 2, 3, "Write in French.")
     assert "`make ci`" in said and "(attempt 2 of 3)" in said
     assert "```\nFAILED tests/test_x.py::a\n```" in said, "the output, stripped, fenced"
@@ -325,13 +327,13 @@ def a_red_local_ci_hands_back_its_command_attempt_and_output():
 
 
 @case
-def no_prompt_file_is_the_fallback(state_home):
+def no_prompt_file_is_the_fallback(state_home: Path) -> None:
     assert prompt.template("") == prompt.DEFAULT
     assert prompt.template("", prompt.DOCUMENT) == prompt.DOCUMENT
 
 
 @case
-def a_prompt_file_that_is_not_there_is_said_rather_than_replaced(state_home):
+def a_prompt_file_that_is_not_there_is_said_rather_than_replaced(state_home: Path) -> None:
     missing = state_home / "nowhere" / "prompt.md"
     try:
         prompt.template(str(missing))
@@ -342,7 +344,7 @@ def a_prompt_file_that_is_not_there_is_said_rather_than_replaced(state_home):
 
 
 @case
-def a_prompt_file_is_read_as_written_and_its_home_expanded(state_home):
+def a_prompt_file_is_read_as_written_and_its_home_expanded(state_home: Path) -> None:
     written = state_home / "prompt.md"
     written.parent.mkdir(parents=True, exist_ok=True)
     written.write_text("Fais {title}, en français.\n", encoding="utf-8")
