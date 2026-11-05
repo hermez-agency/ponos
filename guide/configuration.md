@@ -342,6 +342,14 @@ Neither, and nothing runs: a ticket goes on as it always did. The command runs w
 
 The session is told the preparation has already run and not to install again. If the command fails, or outlasts `runner.setup_timeout_minutes`, the ticket is **blocked** with the code `worktree.setup-failed` and the last lines of the output, and no session is started or paid for; fix the command, answer on the ticket, and it runs again. `ponos doctor` lists the projects that have a setup command.
 
+### Before and after captures of an interface ticket
+
+Judging an interface ticket means starting the project and looking at it, which a phone cannot do. Give the project a **preview** — in its **Settings** tab (*Before and after captures*): the command that starts it (`npm run dev`), the address it answers on (`http://127.0.0.1:5173`) and the pages to photograph (`/`, `/settings`) — and every code ticket of that project comes back with pictures.
+
+After the commits, the runner starts the command on the branch and photographs each page with the installed Chrome (headless), then does the same on a detached checkout of the base — prepared with the project's [setup command](#preparing-a-worktree-before-the-session) — and kills the processes it started, the whole group, whatever happened. The pairs are kept in the state directory (`previews/<ticket>/`), shown side by side on the ticket's page and in its **Decide** tab, and posted as a comment on the pull request (GitHub takes no upload through its API: the images are linked from the console, so set `[web].url`).
+
+Nothing starts when the preview is empty. An address that already answers before the launch is never photographed — it would not be the branch's page — and a missing Chrome, a server that stops or never answers (90 s), or a failed capture is a line in the ticket's report: the ticket goes to review without pictures, as before. The server's output is in `<session log>.preview.log`.
+
 ### Who answers the sessions
 
 Every session the runner starts is Claude Code, and Claude Code has to be paid for by

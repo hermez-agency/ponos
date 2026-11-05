@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
 import { ModelChoice } from "@/components/console/model-input"
+import { PreviewPairs } from "@/components/console/preview-pairs"
 import { api, why } from "@/lib/api"
 import { titleOf, useBoard } from "@/lib/board-store"
 import {
@@ -154,6 +155,7 @@ function Delivered({ decision }: { decision: Decision }) {
       </section>
       <Jobs decision={decision} />
       <Files decision={decision} />
+      <PreviewPairs ticket={decision.id} shots={decision.previews} />
       <section data-slot="decision-caveats">
         <Heading>{t("Points to check")}</Heading>
         {caveats.length ? (

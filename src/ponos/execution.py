@@ -49,6 +49,7 @@ from . import (
     journal,
     kinds,
     local_ci,
+    preview,
     progress,
     project_settings,
     resources,
@@ -705,11 +706,14 @@ class Execution(Base):
         if refused:
             return refused
         commits = git.commits_ahead(job.workdir, job.base)
+        shots = self._previews(job)
         if self.config.runner.push:
             if failure := self._push_branch(job, outcome, force=worktree.reused or replayed):
                 return failure
             if self.config.runner.open_pull_request:
                 pull_request = self._open_pull_request(job, outcome, commits)
+                if pull_request and shots:
+                    self._attach_previews(job, pull_request)
 
         return self._code_delivered(job, outcome, commits, pull_request)
 
@@ -757,6 +761,70 @@ class Execution(Base):
             question=said.say("setup-question"),
             note=kept,
         )
+
+    # -- the captures, before the push ------------------------------------------
+
+    def _previews(self, job: Job) -> bool:
+        """Photograph the project's pages on the base and on the branch, when it asks to be.
+
+        True when pairs of captures were kept for the ticket. Never a failure:
+        a pass that cannot be taken is a line on the ticket and the work goes
+        to review without pictures. See preview.py.
+        """
+        ticket, project = job.ticket, job.project
+        setting = project_settings.preview(project.notion_id)
+        if not setting or self.dry_run or project.path is None:
+            return False
+        destination = preview.folder(ticket.id)
+        preview.clear(destination)
+        preview.write_pages(destination, setting)
+        log = (job.log or state.log_file(short_id(ticket.id))).with_suffix(".preview.log")
+        secrets = self._secrets(job)
+        taken = preview.Taken()
+        base_dir = job.workdir.with_name(job.workdir.name + "-base")
+        self.say(f"    · captures: {setting.command} ({len(setting.pages)} page(s))")
+        try:
+            taken.files["after"], taken.skipped = preview.shoot(
+                setting, job.workdir, destination, "after", log=log, env=secrets
+            )
+            if not taken.skipped:
+                taken.skipped = git.add_base_worktree(project.path, base_dir, job.base)
+            if not taken.skipped:
+                chosen = worktree_setup.plan(project_settings.setup(project.notion_id), base_dir)
+                if chosen:
+                    ran = worktree_setup.run(
+                        chosen,
+                        base_dir,
+                        log.with_suffix(".base-setup.log"),
+                        timeout_minutes=self.config.runner.setup_timeout_minutes,
+                        secrets=secrets,
+                    )
+                    taken.skipped = "" if ran.ok else "the setup command failed on the base"
+            if not taken.skipped:
+                taken.files["before"], taken.skipped = preview.shoot(
+                    setting, base_dir, destination, "before", log=log, env=secrets
+                )
+        except Exception as error:  # a capture is never a reason to lose the work
+            logger.exception("captures failed")
+            taken.skipped = str(error)
+        finally:
+            if base_dir.exists():
+                git.remove_worktree(project.path, base_dir)
+        if taken.pairs:
+            self.say(f"    · captures: {taken.pairs} before/after pair(s) — {destination}")
+            return True
+        preview.clear(destination)
+        self.say(f"    ! captures not taken: {taken.skipped}")
+        job.notes.append(self.voice.say("previews-skipped", reason=taken.skipped))
+        return False
+
+    def _attach_previews(self, job: Job, pull_request: str) -> None:
+        """The captures on the pull request, as a comment — and a line for the report."""
+        shots = preview.listing(job.ticket.id)
+        base = self.config.web.url.rstrip("/") if self.config.web.url else ""
+        body = self.voice.previews_comment(shots, base, job.ticket.id)
+        if not git.comment_pull_request(pull_request, body, self.config.github):
+            job.notes.append(self.voice.say("previews-not-posted"))
 
     # -- the local CI, before the push ------------------------------------------
 

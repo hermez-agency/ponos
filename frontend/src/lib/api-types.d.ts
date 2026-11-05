@@ -788,6 +788,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tickets/{ticket_id}/previews/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ticket Preview */
+        get: operations["ticket_preview_api_tickets__ticket_id__previews__name__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tickets/{ticket_id}/talk": {
         parameters: {
             query?: never;
@@ -2305,6 +2322,8 @@ export interface components {
             checks?: components["schemas"]["Checks"];
             /** @description What the pull request touches, as GitHub says it when the panel opens. */
             files?: components["schemas"]["ChangedFile"][];
+            /** @description The before/after captures of the ticket's pages, when it has any. */
+            previews?: components["schemas"]["PreviewShot"][];
             caveats?: string[];
         };
         /** @description Where the demonstration ticket stands, and — once its run ended badly — why. */
@@ -3045,6 +3064,14 @@ export interface components {
             cover: components["schemas"]["Picture"];
             icon: components["schemas"]["Picture"];
         };
+        /** @description One capture kept for a ticket: which side of the change, which page, which file. */
+        PreviewShot: {
+            /** @enum {string} */
+            side: "before" | "after";
+            page: string;
+            /** @description Its name, served by `GET /api/tickets/<id>/previews/<file>`. */
+            file: string;
+        };
         Probe: {
             /** @default  */
             target: string;
@@ -3189,6 +3216,14 @@ export interface components {
             /** @description Why it cannot be turned on here, or empty when it can. */
             unavailable: string;
         };
+        /** @description What is started to photograph a project's pages — see preview.py; empty, nothing is. */
+        ProjectPreview: {
+            command: string;
+            url: string;
+            pages: string[];
+            /** @description Whether a Chrome is installed here to take them. */
+            chrome: boolean;
+        };
         /** @description What a project decides for itself — see project_settings.py. */
         ProjectSettings: {
             id: string;
@@ -3197,6 +3232,7 @@ export interface components {
             local_ci: components["schemas"]["ProjectLocalCi"];
             /** @description The command run in each fresh worktree before its session; empty, the repository's `.ponos/setup.sh` if any. */
             setup: string;
+            preview: components["schemas"]["ProjectPreview"];
         };
         Projects: {
             projects: components["schemas"]["Project"][];
@@ -4088,6 +4124,8 @@ export interface components {
             model_in_use?: components["schemas"]["ModelInUse"];
             /** @description The prompt run at every change of the ticket's status, empty for none. */
             on?: string;
+            /** @description The before/after captures of its pages, empty when none were taken. */
+            previews?: components["schemas"]["PreviewShot"][];
             /** @description On a ready or draft ticket only: the line its card no longer draws — see `_notes`. */
             earlier?: components["schemas"]["Earlier"];
         };
@@ -5924,6 +5962,36 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["TicketDetail"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ticket_preview_api_tickets__ticket_id__previews__name__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ticket_id: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

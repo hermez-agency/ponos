@@ -31,6 +31,7 @@ from .. import (
     ids,
     journal,
     models,
+    preview,
     provision,
     session,
     state,
@@ -632,7 +633,12 @@ class Tickets(Base):
             self.config.runner.model,
         )
         # Only on the page, not on every card of the board: a prompt can be long.
-        return {**card, "content": content, "on": str(store.read(page, settings.prop("on")) or "")}
+        return {
+            **card,
+            "content": content,
+            "on": str(store.read(page, settings.prop("on")) or ""),
+            "previews": preview.listing(page_id),
+        }
 
     def attachment(self, block_id: str) -> str:
         """Where a picture or a file on a page is, asked when it is opened.

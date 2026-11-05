@@ -44,7 +44,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.convertors import Convertor, register_url_convertor
 
 from .. import config as config_module
-from .. import journal, notifications, store, vault
+from .. import journal, notifications, preview, store, vault
 from . import agui, answers, creation, github, mcp_setup, setup
 from .api import Api
 
@@ -584,6 +584,21 @@ def estimate(
 @router.get("/api/tickets/{ticket_id:page}", response_model=answers.TicketDetail)
 def ticket(request: Request, ticket_id: str) -> Response:
     return answer(_api(request).ticket(ticket_id))
+
+
+@router.get("/api/tickets/{ticket_id:page}/previews/{name:log}", response_class=Response)
+def ticket_preview(ticket_id: str, name: str) -> Response:
+    data = preview.read(ticket_id, name)
+    if data is None:
+        return fail(404, "no such capture")
+    return Response(
+        data,
+        media_type="image/png",
+        headers={
+            "Content-Security-Policy": PICTURE_POLICY,
+            "Cache-Control": "private, max-age=3600",
+        },
+    )
 
 
 @router.get("/api/tickets/{ticket_id:page}/talk", response_model=answers.Talk)

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .. import idea_schedule, local_ci, project_settings, store
+from .. import idea_schedule, local_ci, preview, project_settings, store
 from .. import kinds as kinds_module
 from . import settings as settings_module
 from .base import Base
@@ -86,6 +86,10 @@ class Configuration(Base):
             "ideas": self._project_ideas(bare),
             "local_ci": self._project_local_ci(bare),
             "setup": project_settings.setup(bare),
+            "preview": {
+                **project_settings.preview(bare).as_dict(),
+                "chrome": bool(preview.chrome()),
+            },
         }
 
     def _project_local_ci(self, bare: str) -> dict[str, Any]:
@@ -132,7 +136,15 @@ class Configuration(Base):
         finding = payload.get("ideas")
         checking = payload.get("local_ci")
         preparing = payload.get("setup")
-        if validation is None and isinstance(preparing, dict):
+        photographing = payload.get("preview")
+        if validation is None and isinstance(photographing, dict):
+            if not all(
+                isinstance(photographing.get(name), str) for name in ("command", "url")
+            ) or not isinstance(photographing.get("pages"), list):
+                raise ValueError(
+                    "say what starts the project, its address and the pages to photograph"
+                )
+        elif validation is None and isinstance(preparing, dict):
             if not isinstance(preparing.get("command"), str):
                 raise ValueError("say what runs in the project's worktrees before a session")
         elif validation is None and isinstance(checking, dict):
@@ -184,6 +196,8 @@ class Configuration(Base):
             )
         if isinstance(preparing, dict):
             project_settings.set_setup(bare, name, preparing["command"])
+        if isinstance(photographing, dict):
+            project_settings.set_preview(bare, name, preview.parse(photographing))
         self.hub.publish("settings", project=bare)
         return self.project_settings(bare)
 

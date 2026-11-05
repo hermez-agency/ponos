@@ -19,6 +19,7 @@ from .. import (
     decisions,
     git,
     github_checks,
+    preview,
     question,
     redaction,
     store,
@@ -160,6 +161,7 @@ class Discussion(Base):
                 "files": (
                     git.pull_request_files(url, self.config.github, timeout=20) if url else []
                 ),
+                "previews": preview.listing(page.id),
                 "caveats": found.caveats,
                 "solutions": self._offered(solutions),
             }

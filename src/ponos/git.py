@@ -695,6 +695,24 @@ def remove_worktree(repo: Path, path: Path) -> None:
         git(["worktree", "prune"], repo)
 
 
+def add_base_worktree(repo: Path, path: Path, base: str) -> str:
+    """A detached checkout of the latest `base`, for looking at the project as it was.
+
+    Nothing is created in the repository but the registration, removed with
+    `remove_worktree`. The error, or empty.
+    """
+    with _writing(repo):
+        start = (
+            f"origin/{base}"
+            if git(["rev-parse", "--verify", "--quiet", f"origin/{base}"], repo).ok
+            else base
+        )
+        git(["worktree", "prune"], repo)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        result = git(["worktree", "add", "--detach", str(path), start], repo)
+    return "" if result.ok else (result.err or result.out or "git worktree add failed")
+
+
 # Where a directory nobody could empty is put aside. Not `tidied`: that name is
 # the file `cleanup` stamps the day of its last pass with.
 LEFTOVERS = "leftovers"
