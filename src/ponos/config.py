@@ -965,6 +965,10 @@ _DEFAULT_PROPERTIES = {
     # Relation to the Objectifs database: what the ticket is for. Named in the
     # singular for the same reason, and only its first page is read.
     "goal": "Objectif",
+    # Relation to the tickets database itself: the tickets this one comes after.
+    # It is not started while one of them is anything but done — see
+    # dependencies.py. Optional, like the goal: a board without it runs as before.
+    "after": "Après",
     # The Schedules database, for what comes back on its own. The first four are
     # what you fill in; the last three are what a pass writes back. A workspace
     # without that database never reads any of them.
@@ -1679,7 +1683,7 @@ def _notion(table: schema.NotionTable, stored: dict[str, str]) -> Notion:
 
 # The settings that read a column as a relation. Any other one reads text, a
 # select, a URL — a column none of these can share with it.
-_RELATIONS = ("project", "role", "goal", "last_ticket")
+_RELATIONS = ("project", "role", "goal", "after", "last_ticket")
 
 
 def _properties(written: dict[str, str]) -> dict[str, str]:

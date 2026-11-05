@@ -255,6 +255,9 @@ class Base(Chapters):
         # until the first look, so that a record left by a pass that died is
         # replaced even when this one holds nothing back.
         self._holding: dict[str, tuple[Ticket, str]] = {}
+        # The ready tickets the last reading held back for a ticket they come
+        # after, and what they wait for — see `Board._after`.
+        self._waiting_on: dict[str, tuple[Ticket, str]] = {}
         self._explained: dict[str, str] | None = None
         # When a pass in flight last asked whether a newer version is out —
         # not written in the stamp, see `update.pending` and `Board.closing`.

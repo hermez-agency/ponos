@@ -253,7 +253,7 @@ def schemas(settings: Notion) -> dict[str, dict[str, str]]:
         # The goal a ticket serves is a column Notion boards add by hand, so
         # `tickets_schema` does not declare it; a board of files has it too.
         "tickets": {
-            **kinds(provision.tickets_schema(settings, "projects", "agents")),
+            **kinds(provision.tickets_schema(settings, "projects", "agents", "tickets")),
             settings.prop("goal"): "relation",
         },
         "projects": kinds(provision.projects_schema()),

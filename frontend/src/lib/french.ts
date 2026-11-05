@@ -195,6 +195,7 @@ export const FRENCH: Record<string, string> = {
   "changed in Notion meanwhile — not overwritten": "modifié dans Notion entre-temps — non écrasé",
   // On a ready card: why it has not been taken yet, when it is not the ordinary wait — see TicketHeld.
   "waiting: scheduled for {{at}}": "en attente : prévu pour le {{at}}",
+  "waiting for: {{tickets}}": "attend : {{tickets}}",
   "waiting: out of credit until {{at}}": "en attente : plus de crédit jusqu’à {{at}}",
   "waiting: credit reserve reached until {{at}}": "en attente : réserve de crédit atteinte jusqu’à {{at}}",
   "waiting: today's spending limit reached until {{at}}": "en attente : plafond de dépense du jour atteint jusqu’à {{at}}",

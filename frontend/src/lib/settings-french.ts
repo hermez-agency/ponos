@@ -539,6 +539,9 @@ export const SETTINGS_FRENCH: Record<string, string> = {
     "Relation vers la base Agents : qui traite le ticket.",
   "Relation to the Goals database: what the ticket is for.":
     "Relation vers la base Objectifs : ce à quoi sert le ticket.",
+  After: "Après",
+  "Relation to other tickets: not started before they are done.":
+    "Relation vers d'autres tickets : pas démarré avant qu'ils soient faits.",
   "Schedule: cadence": "Récurrence : cadence",
   "Hourly, Daily, Weekly or Monthly.": "Hourly, Daily, Weekly ou Monthly.",
   "Schedule: time": "Récurrence : heure",

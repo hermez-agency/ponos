@@ -133,9 +133,11 @@ class Runner(
             # Thursday — is still work, and the comment that queued it is going
             # into its prompt. Talking to it as well would be the runner
             # answering a question it is also about to act on.
-            self._claimed |= {ticket.id for ticket in tickets} | {
-                ticket.id for ticket, _ in waiting
-            }
+            self._claimed |= (
+                {ticket.id for ticket in tickets}
+                | {ticket.id for ticket, _ in waiting}
+                | set(self._waiting_on)
+            )
             # A ticket held in ready and one held in validated are both work
             # with an hour on it: counted together, so a pass says how much of
             # the board is waiting for a date rather than half of it.

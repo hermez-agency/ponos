@@ -213,7 +213,16 @@ def agents_schema(settings: Notion) -> dict[str, Any]:
     }
 
 
-def tickets_schema(settings: Notion, projects: str = "", agents: str = "") -> dict[str, Any]:
+def tickets_schema(
+    settings: Notion, projects: str = "", agents: str = "", tickets: str = ""
+) -> dict[str, Any]:
+    """The tickets database's columns. `tickets` is its own ID, once it has one.
+
+    The one relation that points back at the database it is in — « Après », the
+    tickets one comes after (see dependencies.py) — can only be declared once
+    that database exists, so the first creation goes without it and `provision`
+    adds it straight after.
+    """
     schema: dict[str, Any] = {
         "Name": {"title": {}},
         settings.prop("status"): {"select": {"options": status_options(settings)}},
@@ -256,6 +265,8 @@ def tickets_schema(settings: Notion, projects: str = "", agents: str = "") -> di
         schema[settings.prop("project")] = _relation(projects)
     if agents and settings.prop("role"):
         schema[settings.prop("role")] = _relation(agents)
+    if tickets and settings.prop("after"):
+        schema[settings.prop("after")] = _relation(tickets)
     return schema
 
 
@@ -467,6 +478,12 @@ def provision(
         report,
     )
     report.tickets = tickets
+    after = missing_properties(
+        client.schema(tickets), tickets_schema(settings, projects, agents, tickets)
+    )
+    if after:
+        client.add_properties(tickets, after)
+        report.note("completed", f"“{settings.page('tickets')}” — added {', '.join(sorted(after))}")
 
     # A board that predates a status gets it added rather than being told to go
     # and type it in — the one place where an existing column is widened.

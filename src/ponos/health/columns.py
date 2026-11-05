@@ -61,7 +61,13 @@ def _schema(
             # In Notion's words alone, the one language both pages speak.
             wrong.append(f"“{name}” ({kind} ≠ {' / '.join(accepted)})")
             costs.setdefault(name, []).append(cost)
-    wanted_columns = provision.tickets_schema(settings, space.projects, space.agents)
+    # « Après » is optional — a board without it runs every ready ticket, as it
+    # always did — but one under another type is read as nothing at all.
+    after = settings.prop("after")
+    if after and schema.get(after, "relation") != "relation":
+        wrong.append(f"“{after}” ({schema[after]} ≠ relation)")
+        costs.setdefault(after, []).append("no ticket waits for the tickets it comes after")
+    wanted_columns = provision.tickets_schema(settings, space.projects, space.agents, space.tickets)
     addable = sorted(provision.missing_properties(schema, wanted_columns))
     found: list[Check] = []
     if not missing and not wrong:
@@ -632,7 +638,7 @@ def _shared_names(settings: config_module.Notion, schema: dict[str, str]) -> lis
     it off (`role = ""`) leaves the column to the setting that reads it right.
     """
     keys: dict[str, list[str]] = {}
-    for key in (*store.COLUMNS, "goal"):
+    for key in (*store.COLUMNS, "goal", "after"):
         if settings.prop(key):
             keys.setdefault(settings.prop(key), []).append(key)
     shared = {name: names for name, names in keys.items() if len(names) > 1}

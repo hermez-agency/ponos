@@ -38,6 +38,8 @@ def a_bare_page_becomes_the_whole_board() -> None:
     # The relations point at databases that existed before the tickets did.
     assert schema["Project"]["relation"]["database_id"] == "db-projects"
     assert schema["Agent"]["relation"]["database_id"] == "db-agents"
+    # « Après » points at the tickets themselves, so it comes once they exist.
+    assert schema["Après"]["relation"]["database_id"] == "db-tickets"
     # …and are spelled the way the API accepts: the kind is named *and* given
     # its empty object, or the request is rejected as `undefined`.
     for name in ("Project", "Agent"):

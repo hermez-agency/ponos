@@ -64,7 +64,7 @@ def _health_board(
     skip: tuple[str, ...] = (), statuses: tuple[str, ...] = ()
 ) -> tuple[C.Notion, _HealthBoard]:
     settings = C.Notion(properties=dict(C._DEFAULT_PROPERTIES))
-    schema = provision.tickets_schema(settings, "projects", "agents")
+    schema = provision.tickets_schema(settings, "projects", "agents", "db")
     properties = {
         name: {"type": next(iter(shape)), **shape}
         for name, shape in schema.items()
@@ -91,6 +91,23 @@ def health_says_nothing_of_a_board_that_is_complete() -> None:
         workspace.Workspace(tickets="db", projects="projects", agents="agents"),
     )
     assert [check.state for check in found] == [health.OK, health.OK], found
+
+
+@case
+def health_says_an_apres_column_that_is_no_relation_and_nothing_of_one_left_out() -> None:
+    from ponos import health
+
+    space = workspace.Workspace(tickets="db", projects="projects", agents="agents")
+    config = _config("")
+    settings, board = _health_board(skip=("Après",))
+    config.notion = settings
+    found = health._schema(config, board, space)  # type: ignore[arg-type]  # a fake: a board in memory
+    assert [check.state for check in found] == [health.OK, health.OK], "an optional column"
+    board.properties["Après"] = {"type": "rich_text", "rich_text": {}}
+    found = health._schema(config, board, space)  # type: ignore[arg-type]  # a fake: a board in memory
+    columns = next(check for check in found if check.code == "notion.columns")
+    assert columns.state == health.ERROR, columns
+    assert "“Après” (rich_text ≠ relation)" in columns.params["wrong"], columns.params
 
 
 @case

@@ -538,23 +538,27 @@ def held(
     timer: bool,
     waits: dict[str, str] | None = None,
     now: datetime | None = None,
+    after: str = "",
 ) -> dict[str, str]:
     """Why a ready card is still in its column — or nothing, for any other card.
 
     A ready column that stays full with nothing to say why reads as a broken
     runner, and for half an hour it was one. So every ready card says what it is
-    waiting for, from the first of these that holds: its date, the credit, the
-    reserve or the day's limit (`waits`: what each has written down, as a
-    clock reads it), what the pass under way wrote down about it (`noted`, see
-    `Board.explain` — read only while a pass holds the lock, since a pass that
-    died leaves its record behind), and otherwise the next reading of the board:
-    the pass's own if one is under way, the timer's if it is on.
+    waiting for, from the first of these that holds: its date, the tickets it
+    comes after (`after`, see dependencies.py), the credit, the reserve or the
+    day's limit (`waits`: what each has written down, as a clock reads it),
+    what the pass under way wrote down about it (`noted`, see `Board.explain` —
+    read only while a pass holds the lock, since a pass that died leaves its
+    record behind), and otherwise the next reading of the board: the pass's own
+    if one is under way, the timer's if it is on.
     """
     if ticket.get("column") != "ready":
         return {}
     moment = timestamps.parse(ticket.get("scheduled"))
     if moment is not None and moment > (now or datetime.now(UTC)):
         return {"reason": "date", "detail": str(ticket["scheduled"])}
+    if after:
+        return {"reason": "after", "detail": after}
     for what, until in (waits or {}).items():
         if until:
             return {"reason": what, "detail": until}
