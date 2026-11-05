@@ -666,6 +666,63 @@ is a project's to lift: its own switches only decide what the global ones would 
 
 ---
 
+## A ticket that comes from a tool: incoming triggers
+
+A ticket is born of a person, of a schedule, of an idea or of *Repair main*. An error in
+production, a CI that breaks on a followed repository, an alert: nobody turns it into a ticket
+until somebody reads it. An **incoming trigger** is an address a tool calls — Sentry, GitHub
+Actions, PagerDuty, anything that posts JSON — and a ticket is born.
+
+Make one in **Settings → Triggers**: a name, the tool (a preset, or *any webhook*), the project
+the tickets are born in, the status they arrive in (**Draft** by default, **Ready** if you
+choose), a priority, a ceiling of tickets an hour, and a title and a brief template. The page
+then shows the address, **once**:
+
+```
+POST https://<your console>/api/hooks/<key>
+```
+
+Paste it in the tool. The key is the whole lock — Sentry and GitHub send nothing else — so it is
+kept as a SHA-256 digest only, never written in the journal (`/api/hooks/…`), and revoked from the
+same page: from then on the address answers `404`, like a route that does not exist.
+
+```sh
+curl -X POST "$CONSOLE/api/hooks/$KEY" -H 'Content-Type: application/json' -d @issue-created.json
+# 201 {"ticket": "…", "status": "draft"}   → a draft on the right project, with the error's link
+# 200 {"duplicate": true, "ticket": "…"}   → the same event again: no second ticket
+# 200 {"ignored": true}                    → an event the preset does not turn into a ticket
+# 429 + Retry-After                        → the ceiling of tickets an hour is reached
+# 404                                      → unknown or revoked key
+```
+
+**Templates.** `{{event.data.issue.title}}` is the value at that path of the JSON received
+(`event.` is the body; a number indexes a list: `event.items.0.name`). `{{a | b}}` takes the first
+path that is filled in. A missing value is empty, and a bullet line (`- Link : …`) left empty is
+dropped. Nothing else is evaluated, and what the JSON holds is never read as a template.
+
+**Presets.**
+
+| Preset | Turns into a ticket | Event id |
+| --- | --- | --- |
+| Sentry | an issue **created** (`action: created`, Internal Integration webhook); resolved, assigned… are ignored | `data.issue.id` |
+| GitHub | a `workflow_run` **completed with `failure` on the repository's default branch**; `ping`, successes and other branches are ignored | `workflow_run.id` and its `run_attempt` |
+| Any webhook | every call; title from `title`/`message`/`name`, link from `url`/`link`/`html_url` | `id` or `event_id` |
+
+**No duplicates, no flood.** An event's identifier — the preset's, or the SHA-256 of the body when
+the JSON has none — creates one ticket per key: sending it twice, or a tool re-delivering, answers
+`200 duplicate`. Each key makes at most the ceiling of tickets an hour (10 by default); an event
+refused for that is not remembered, and is accepted by the next delivery with room.
+
+**Draft or Ready.** What a tool sends is text anybody may have caused — the title of an error, the
+message of a commit. A Draft waits for you to read it; a trigger that arrives in *Ready* starts a
+session at once on that text. Choose it for a source you trust.
+
+**Behind Tailscale Funnel.** `/api/hooks` is the fourth public path `ponos tailscale` publishes,
+beside `/mcp`, `/oauth` and `/.well-known`: a tool on the Internet can call it, and still reaches
+nothing else of the console. A wrong key is waited for by address, apart from the sign-in's count.
+
+---
+
 ## What comes back on its own
 
 A ticket leaves once: you write it, you move it to *Ready*, it runs, it ends in *Done*.

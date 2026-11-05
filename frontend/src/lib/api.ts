@@ -452,6 +452,10 @@ export const api = {
   disk: () => answer(client.GET("/api/disk")),
   clean: () => answer(client.POST("/api/disk/clean")),
   mcp: () => answer(client.GET("/api/mcp")),
+  triggers: () => answer(client.GET("/api/triggers")),
+  /* The answer holds the key: the only time it is said. */
+  createTrigger: (values: Record<string, unknown>) => answer(client.POST("/api/triggers", { body: values })),
+  revokeTrigger: (id: string) => answer(client.POST("/api/triggers/{hook_id}/revoke", { params: { path: { hook_id: id } } })),
   githubApps: () => answer(client.GET("/api/github")),
   saveGithubToken: (token: string) => answer(client.POST("/api/github/token", { body: { token } })),
   forgetGithubToken: () => answer(client.POST("/api/github/token/forget")),

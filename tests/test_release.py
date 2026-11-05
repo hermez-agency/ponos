@@ -1619,6 +1619,7 @@ def no_two_routes_of_the_console_answer_one_path() -> None:
         r"\w+": "icon",
         r"[\w.\-]+": "20260828-112441-3eaf7e7b.jsonl",
         ".*": "assets/index.js",
+        "[^/]+": "a-webhook-key",
     }
     filed = [*routes.router.routes, *app.doors.routes]
     table = [route for route in filed if isinstance(route, Route)]

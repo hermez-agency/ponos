@@ -9,8 +9,8 @@ connector is called by Anthropic's servers, which are not on the tailnet, so
 **Why two ports.** Funnel is a property of a host *and port*, not of a path:
 `tailscale serve` on 443 for the console and `tailscale funnel` for `/mcp` on the
 same 443 would publish both. So the console is served on 8443, tailnet only,
-and 443 is the funnel, with a handler for `/mcp`, `/oauth` and `/.well-known`
-and for nothing else — Tailscale answers 404 to any other path. The console
+and 443 is the funnel, with a handler for `/mcp`, `/oauth`, `/.well-known` and
+`/api/hooks` and for nothing else — Tailscale answers 404 to any other path. The console
 refuses those other paths as well when a request carries the header Funnel adds
 (`Tailscale-Funnel-Request`, see `web/app.py`): the second lock, for the day a
 handler is added to the first by hand.
@@ -41,8 +41,10 @@ PRIVATE_PORT = 8443
 PUBLIC_PORT = 443
 
 # What the funnel hands to the console: the MCP endpoint, the authorisation
-# server it points to, and the metadata that says where that is. Nothing else.
-PUBLIC_PATHS = ("/mcp", "/oauth", "/.well-known")
+# server it points to, the metadata that says where that is — and the incoming
+# triggers' webhooks, which Sentry or GitHub call and whose key is in the
+# address (`triggers.py`). Nothing else.
+PUBLIC_PATHS = ("/mcp", "/oauth", "/.well-known", "/api/hooks")
 
 # The header Funnel puts on every request that came through it.
 FUNNEL_HEADER = "Tailscale-Funnel-Request"
