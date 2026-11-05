@@ -357,3 +357,61 @@ def a_prompt_file_is_read_as_written_and_its_home_expanded(state_home: Path) -> 
         assert prompt.template("~/prompt.md") == "Fais {title}, en français.\n"
     finally:
         os.environ["HOME"] = home
+
+
+# -- the notes of a project ----------------------------------------------------
+
+
+@case
+def a_kept_note_reaches_the_next_prompt_and_a_dropped_one_never_returns(state_home: Path) -> None:
+    from ponos import notes, question
+
+    common: dict[str, Any] = dict(
+        project="Northwind", title="t", body="b", repo="/r", branch="br", base="main", url="u"
+    )
+    answer = (
+        "Done.\nCAVEAT: not run on Windows\n"
+        "LESSON: Run the tests with TMPDIR on the disk, /tmp is a tmpfs.\n"
+        "RESULT: ok — done"
+    )
+    assert question.lesson(answer) == "Run the tests with TMPDIR on the disk, /tmp is a tmpfs."
+    assert question.caveats(answer) == ["not run on Windows"], "a lesson does not hide a caveat"
+    asked = prompt.build(prompt.DEFAULT, comments=["answer: yes"], **common)
+    assert "LESSON:" in asked, "a ticket that was answered is asked for its lesson"
+    assert "LESSON:" not in prompt.build(prompt.DEFAULT, **common)
+
+    assert notes.propose("proj-1", "Northwind", question.lesson(answer))
+    assert not prompt.build(prompt.DEFAULT, notes=notes.kept("proj-1"), **common).count("TMPDIR")
+    notes.keep("proj-1", "Northwind", notes.read("proj-1")["proposed"][0])
+    text = prompt.build(prompt.DEFAULT, brief="Le brief.", notes=notes.kept("proj-1"), **common)
+    assert "TMPDIR" in text and text.index("Le brief.") < text.index("TMPDIR") < text.index(
+        "# Context"
+    )
+
+    other = "Never migrate the real ponos.db from branch code."
+    assert notes.propose("proj-1", "Northwind", other)
+    notes.drop("proj-1", "Northwind", other)
+    assert not notes.propose(
+        "proj-1", "Northwind", "never migrate the real ponos.db from branch code"
+    )
+    assert notes.read("proj-1")["proposed"] == []
+    assert not notes.propose("proj-1", "Northwind", notes.kept("proj-1")[0]), (
+        "a kept note is not proposed again"
+    )
+
+
+@case
+def the_notes_of_a_project_stay_short(state_home: Path) -> None:
+    from ponos import notes
+
+    notes.add("proj-2", "Northwind", "x" * 1000)
+    notes.add("proj-2", "Northwind", "y" * 1000)
+    assert len(notes.kept("proj-2")[0]) == notes.NOTE_LIMIT, "one note is cut"
+    refused = False
+    for number in range(20):
+        try:
+            notes.add("proj-2", "Northwind", f"{number} " + "z" * 250)
+        except ValueError:
+            refused = True
+    assert refused, "past the ceiling, a note is refused by name"
+    assert sum(map(len, notes.kept("proj-2"))) <= notes.KEPT_LIMIT

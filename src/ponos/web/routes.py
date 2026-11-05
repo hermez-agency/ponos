@@ -419,6 +419,11 @@ def project_settings(request: Request, project_id: str) -> Response:
     return answer(_api(request).project_settings(project_id))
 
 
+@router.get("/api/projects/{project_id:page}/notes", response_model=answers.ProjectNotes)
+def project_notes(request: Request, project_id: str) -> Response:
+    return answer(_api(request).project_notes(project_id))
+
+
 @router.get("/api/projects/{project_id:page}/image/{slot:slot}", response_class=Response)
 def project_image(request: Request, project_id: str, slot: str) -> Response:
     data, kind = _api(request).picture(project_id, slot)
@@ -1115,6 +1120,13 @@ def save_project_settings(
     request: Request, project_id: str, payload: Fields = Body(default_factory=dict)
 ) -> Response:
     return answer(_api(request).save_project_settings(project_id, payload))
+
+
+@router.post("/api/projects/{project_id:page}/notes", response_model=answers.ProjectNotes)
+def save_project_notes(
+    request: Request, project_id: str, payload: Fields = Body(default_factory=dict)
+) -> Response:
+    return answer(_api(request).save_project_notes(project_id, payload))
 
 
 @router.post("/api/projects/{project_id:page}", response_model=answers.ProjectDetail)

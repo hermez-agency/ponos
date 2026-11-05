@@ -595,6 +595,20 @@ class ProjectSettings(Shape):
     plan: ProjectPlan
 
 
+class ProjectNotes(Shape):
+    """What a project's sessions learned — see notes.py."""
+
+    id: str
+    kept: list[str]
+    """The notes every ticket of the project is told."""
+    proposed: list[str]
+    """What sessions proposed and nobody has kept or thrown away yet."""
+    limit: int
+    """Characters in one note."""
+    capacity: int
+    """Characters in the kept ones together."""
+
+
 class ProjectDeleted(Shape):
     """What deleting a project did, as the server counts it."""
 
