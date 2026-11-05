@@ -8,9 +8,10 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+from urllib.parse import quote
 
 from .. import config as config_module
-from .. import git, github_app, github_token, state
+from .. import git, github_app, github_token, state, store
 from .check import ERROR, INFO, OK, PROBE_TIMEOUT, WARN, Check, _check, _first_line, _installing
 
 _WRITING = {"WRITE", "MAINTAIN", "ADMIN"}
@@ -406,3 +407,125 @@ def _github_rights(config: config_module.Config, name: str, owner: str) -> Check
         steps=["Ask for write access on this repository, or connect an account that has it."],
         url=f"https://github.com/{name}",
     )
+
+
+def _issues(config: config_module.Config, client: store.Store) -> list[Check]:
+    """The repositories a `github` board is made of: reachable, labelled, and writable.
+
+    Three things a ticket needs of them and that fail without a word: the issues
+    are on, the account may label and comment (triage or above — reading is not
+    enough), and the label that makes an issue a ticket exists, since an issue
+    nobody can find the label for is a ticket nobody will ever create.
+    """
+    from ..github_issues import Issues
+
+    found: list[Check] = []
+    if not isinstance(client, Issues):
+        return found
+    label = config.issues.label
+    for repository in config.issues.repositories:
+        params = {"repository": repository, "label": label}
+        if not git.is_repository(repository):
+            found.append(
+                _check(
+                    "github.issues",
+                    ERROR,
+                    "GitHub issues",
+                    "{{repository}} is not a repository name, owner/name.",
+                    params=params,
+                    steps=["Fix `issues.repositories` in the settings."],
+                )
+            )
+            continue
+        try:
+            about = client.call(repository, "GET", "")
+        except store.StoreError as error:
+            found.append(
+                _check(
+                    "github.issues",
+                    ERROR,
+                    "GitHub issues",
+                    "The repository {{repository}} cannot be read.",
+                    params=params,
+                    cause="It does not exist, or no account Ponos works under can see it.",
+                    steps=[
+                        "Connect the GitHub App on it, or sign `gh` in with an account that can."
+                    ],
+                    evidence=_first_line(error),
+                )
+            )
+            continue
+        rights = (about or {}).get("permissions") or {}
+        if not (about or {}).get("has_issues", True):
+            found.append(
+                _check(
+                    "github.issues",
+                    ERROR,
+                    "GitHub issues",
+                    "The issues of {{repository}} are turned off.",
+                    params=params,
+                    steps=["Turn them on: the repository's Settings › Features › Issues."],
+                    url=f"https://github.com/{repository}/settings",
+                )
+            )
+        elif rights and not (rights.get("push") or rights.get("triage") or rights.get("admin")):
+            found.append(
+                _check(
+                    "github.issues",
+                    ERROR,
+                    "GitHub issues",
+                    "The account cannot label or comment issues of {{repository}}.",
+                    params=params,
+                    cause="Moving a ticket is a label, and a question is a comment: both need triage rights.",
+                    steps=[
+                        "Ask for triage or write access on this repository, or connect an account that has it."
+                    ],
+                    url=f"https://github.com/{repository}",
+                )
+            )
+        else:
+            found.append(
+                _check(
+                    "github.issues",
+                    OK,
+                    "GitHub issues",
+                    "Issues of {{repository}} readable and writable.",
+                    params=params,
+                )
+            )
+        try:
+            client.call(repository, "GET", f"labels/{quote(label, safe='')}")
+        except store.Missing:
+            found.append(
+                _check(
+                    "github.label",
+                    WARN,
+                    "GitHub issues",
+                    "{{repository}} has no label “{{label}}”: no issue can be a ticket yet.",
+                    params=params,
+                    steps=["Create it: `gh label create {{label}} --repo {{repository}}`."],
+                    url=f"https://github.com/{repository}/labels",
+                )
+            )
+        except store.StoreError as error:
+            found.append(
+                _check(
+                    "github.label",
+                    WARN,
+                    "GitHub issues",
+                    "The label “{{label}}” of {{repository}} could not be checked.",
+                    params=params,
+                    evidence=_first_line(error),
+                )
+            )
+        else:
+            found.append(
+                _check(
+                    "github.label",
+                    OK,
+                    "GitHub issues",
+                    "The label “{{label}}” exists on {{repository}}.",
+                    params=params,
+                )
+            )
+    return found

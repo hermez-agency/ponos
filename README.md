@@ -202,7 +202,7 @@ The guide, one page per subject — [its contents](guide/README.md):
 | --- | --- |
 | [Installation](guide/installation.md) | what the installer arms, updating, the install variables, uninstalling |
 | [Configuration](guide/configuration.md) | Notion, `config.toml`, who answers the sessions, OpenRouter, GitHub, the vault |
-| [The board](guide/board.md) | the board as Markdown files, the Notion databases, the type, sub-type and model of a ticket |
+| [The board](guide/board.md) | the board as Markdown files or GitHub issues, the Notion databases, the type, sub-type and model of a ticket |
 | [A ticket's life](guide/tickets.md) | the comments, the statuses, ten tickets on one repository, *Validated*, the tickets that come back |
 | [Telegram and Slack](guide/channels.md) | being told, and answering with one word |
 | [The web console](guide/console.md) | the console, its first connection, signing in, connecting Ponos to Claude |

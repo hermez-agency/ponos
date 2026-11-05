@@ -2,7 +2,7 @@
 
 [The guide](README.md) · [Ponos](../README.md)
 
-The board as Markdown files, and the Notion side: its databases, and what a ticket carries.
+The board as Markdown files or as GitHub issues, and the Notion side: its databases, and what a ticket carries.
 
 ## Without Notion: the board as Markdown files
 
@@ -144,6 +144,70 @@ run that finds its ticket moved by hand during the session:
 ponos sync             # reconcile now, and say what moved
 ponos sync --journal   # what past reconciliations did
 ```
+
+---
+
+## The issues of a GitHub repository
+
+A team that follows its work in GitHub Issues has nothing to copy into Notion: the issues
+*are* the board.
+
+```toml
+[storage]
+mode = "github"
+path = ""                      # where the projects and the rest live, as for "markdown"
+
+[issues]
+repositories = ["acme/website"]    # owner/name — one or several
+label = "ponos"                    # the label that makes an issue a ticket
+```
+
+An **open issue carrying the label** is a ticket that is *Ready*; the next pass takes it. The
+session works in a worktree of its own as for any ticket, and what comes back is a pull
+request whose body says `Closes acme/website#12` — GitHub closes the issue when it is merged.
+
+**The statuses are labels**, built on the one that makes a ticket. Ready is having none of them:
+
+| Status | Label |
+|---|---|
+| In progress | `ponos:progress` |
+| In review | `ponos:review` |
+| Validated | `ponos:validated` |
+| Blocked | `ponos:blocked` |
+| Failed | `ponos:failed` |
+| Paused | `ponos:paused` |
+| Cancelled | `ponos:cancelled` (and the issue is closed as *not planned*) |
+| Done | `ponos:done`; an issue closed by anybody is Done |
+
+Moving a ticket takes one status label off and puts another on, and touches no label of
+yours. Move it by hand the same way — put `ponos:validated` on an issue in review and its pull
+request is merged, as moving the card does on Notion.
+
+**The kind of work is read from labels too**, and the defaults apply without them:
+`type:code` (or `type:writing`, `type:external`, `type:publication`), `subtype:bug` (or any
+sub-type of [the list](#the-sub-type-of-a-code-ticket)) and `priority:80`, from 0 to 100.
+What the runner decides about a ticket — its type once classified, its sub-type — is written
+back as the same labels.
+
+**What a run says is a comment of the issue**, opening on a hidden `<!-- ponos -->` so that
+its words are told from yours even when it writes under your own account: the report, the
+question of a blocked ticket. GitHub has no threads, so the whole issue is one discussion, and
+**the answer is a comment**: write « oui » under the question and the ticket is picked up
+again with it, as an answer under a report is on Notion. Name the runner (`@claude`) to ask it
+a question instead of giving it work.
+
+Ponos reaches GitHub the way it opens pull requests — the GitHub App, the personal access
+token or `gh`, as `[github_access]` orders them. The account needs *triage* rights on the
+repository (a label is a write) and the label must exist: `ponos doctor` checks the repository,
+the issues being on, the rights and the label, and says the `gh label create ponos` that
+creates it.
+
+What GitHub has no column for — the runner that took the ticket, the cost, the session, the
+progress — is kept in the Markdown board at `path`, beside the projects: each repository
+is a project there, named after it, and is run in the clone the `[projects]` table or the
+`origin` remotes find. A ticket made from the console is a file of that board, not an issue.
+The choice is per installation, not per project: a board is Notion, files or issues, and
+Linear, Jira and GitHub Projects are other stores behind the same seam.
 
 ---
 

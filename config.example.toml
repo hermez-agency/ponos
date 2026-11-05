@@ -46,6 +46,11 @@
 #               network. `ponos doctor` stops asking too
 #   "both"      the two, kept in step. A pass reconciles them before it reads
 #               the queue, and every write lands on both — see `conflict` below
+#   "github"    the tickets are the issues of the repositories [issues] names:
+#               an open issue with the label is a ticket, its status is a
+#               label, what a run says is a comment, and its pull request says
+#               `Closes #n`. Projects and the rest stay in the Markdown board at
+#               `path`. Notion is never asked anything
 #
 # Reading a ticket, running it and reporting on it are the same in all three:
 # the runner talks to a board through one interface, and which one it got is
@@ -75,6 +80,19 @@ conflict = "newest"
 # Whether a pass reconciles before doing anything else. Off, and the two boards
 # only meet when you run `ponos sync` yourself.
 on_every_pass = true
+
+[issues]
+# Only read when storage.mode = "github": the repositories whose issues are the
+# board, as `owner/name`. GitHub is reached the way the pull requests are — the
+# GitHub App, the personal access token or `gh`, as [github_access] orders them.
+repositories = []
+
+# The label that makes an open issue a ticket. The statuses are labels built on
+# it — `ponos:progress`, `ponos:review`, `ponos:validated`, `ponos:blocked`,
+# `ponos:failed`, `ponos:paused`, `ponos:cancelled`, `ponos:done` — and Ready is
+# having none of them. `type:code` (or `writing`, `external`, `publication`),
+# `subtype:bug` and `priority:80` say the rest; without them the defaults apply.
+label = "ponos"
 
 [notion]
 # The token of an internal Notion integration (https://www.notion.so/my-integrations)

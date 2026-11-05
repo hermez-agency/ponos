@@ -859,7 +859,22 @@ class Storage:
 
     @property
     def markdown(self) -> bool:
-        return self.mode in ("markdown", "both")
+        """Is there a directory of files under this board? `github` has one too:
+        the projects, the agents and what a run keeps of an issue live there."""
+        return self.mode in ("markdown", "both", "github")
+
+
+@dataclass
+class Issues:
+    """`[issues]`: which GitHub repositories are the board, for `storage.mode = "github"`.
+
+    An open issue carrying `label` is a ticket that is ready; the statuses, the
+    type and the priority are labels spelled `<label>:<status>`, `type:<kind>`
+    and `priority:<score>` — see `github_issues.py`.
+    """
+
+    repositories: tuple[str, ...] = ()
+    label: str = "ponos"
 
 
 @dataclass
@@ -876,6 +891,7 @@ class Config:
     review: Review = field(default_factory=Review)
     permissions: Permissions = field(default_factory=Permissions)
     storage: Storage = field(default_factory=Storage)
+    issues: Issues = field(default_factory=Issues)
     vault: Vault = field(default_factory=Vault)
     # `[github]`: which of your GitHub accounts each owner is worked under, as
     # `owner = "the gh account"`. Empty is a machine with one account, which is
@@ -891,6 +907,11 @@ class Config:
 
     def require_usable(self) -> None:
         """Raise ConfigError if the file is not complete enough to run."""
+        if self.storage.mode == "github" and not self.issues.repositories:
+            raise ConfigError(
+                f"issues.repositories must name at least one owner/name in {self.path}\n"
+                "  ponos config            opens the file in your editor"
+            )
         if not self.storage.notion:
             # A Markdown board needs nothing named and nothing shared: the
             # directory is made the first time something is written into it.
@@ -1610,6 +1631,7 @@ def load(path: Path | None = None, *, secrets: Path | None = None) -> Config:
         review=Review(**file.review.model_dump()),
         permissions=Permissions(**file.permissions.model_dump()),
         storage=_storage(file.storage),
+        issues=Issues(repositories=tuple(file.issues.repositories), label=file.issues.label),
         vault=_vault(file.vault),
         github=dict(file.github),
         github_access=_github_access(file.github_access, stored),

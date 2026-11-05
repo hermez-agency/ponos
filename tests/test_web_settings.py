@@ -245,6 +245,7 @@ def every_setting_the_file_holds_is_one_the_console_can_reach() -> None:
         ("openrouter", C.OpenRouter()),
         ("claude", C.Claude()),
         ("storage", C.Storage()),
+        ("issues", C.Issues()),
         ("permissions", C.Permissions()),
         ("github_access", C.GithubAccess()),
     ):

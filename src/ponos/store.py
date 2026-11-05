@@ -18,8 +18,9 @@ So this module is the seam. Three things live here and nothing else:
   board. It is a `Protocol` rather than a base class, because the fakes the test
   suite is made of are duck-typed and were never going to inherit from anything;
 - **the choice.** `open()` reads `[storage]` and hands back the one the
-  configuration asked for: Notion as before, Markdown files on disk, or the two
-  kept in step. Nothing above this module knows which it got.
+  configuration asked for: Notion as before, Markdown files on disk, the two
+  kept in step, or the issues of a GitHub repository. Nothing above this module
+  knows which it got.
 
 What is *not* here is provisioning: creating a database, widening a select,
 adding a property. That is Notion's own shape being built, it only ever happens
@@ -37,8 +38,8 @@ if TYPE_CHECKING:
     from .config import Config, Notion
     from .workspace import Workspace
 
-# The three modes of `storage.mode`, and the whole of them.
-MODES = ("notion", "markdown", "both")
+# The modes of `storage.mode`, and the whole of them.
+MODES = ("notion", "markdown", "both", "github")
 
 # How a page edited on both sides at once is settled. One rule, named, because
 # the day there is a second one the configuration has to be able to say which.
@@ -372,6 +373,10 @@ def open(config: Config, *, dropped: Callable[[str, str], None] | None = None) -
     never loads a module whose only job is to talk to an API it will not use.
     """
     mode = config.storage.mode
+    if mode == "github":
+        from .github_issues import Issues
+
+        return Issues(config.storage.path, config.notion, config.issues, config.github)
     # `config.notion` is handed over whichever mode this is, and that is not a
     # contradiction: the `[notion]` table is two things at once — the token and
     # the workspace, which only Notion uses, and the *names* of the columns and
