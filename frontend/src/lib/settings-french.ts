@@ -916,6 +916,15 @@ export const SETTINGS_FRENCH: Record<string, string> = {
     "Lancée depuis la racine du worktree, par exemple `npm ci`. Vide : le `.ponos/setup.sh` du dépôt, s'il en a un.",
   "Run from the root of the repository, e.g. `make ci`. Empty: the GitHub workflows, through `act` when it is installed.":
     "Lancée depuis la racine du dépôt, par exemple `make ci`. Vide : les workflows GitHub, avec `act` s'il est installé.",
+  "Project notes": "Notes du projet",
+  "What sessions learned about this project. A kept note is told to every ticket of the project, after its brief; a proposal comes from a blocked ticket that was answered, then delivered.":
+    "Ce que les sessions ont appris sur ce projet. Une note gardée est dite à chaque ticket du projet, après son brief ; une proposition vient d'un ticket bloqué, répondu puis livré.",
+  "Proposed by a session": "Proposées par une session",
+  "Kept notes": "Notes gardées",
+  "No note kept yet.": "Aucune note gardée pour l'instant.",
+  "Add a note": "Ajouter une note",
+  "A durable fact about the project": "Un fait durable sur le projet",
+  "Add": "Ajouter",
   "Ideas on a schedule":
     "Idées planifiées",
   "Ponos can look for ideas for this project on its own, at the times set in the Ideas page's Settings. The button on this page works whatever is set here.":
