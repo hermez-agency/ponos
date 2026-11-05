@@ -1,44 +1,20 @@
 import * as React from "react"
-import {
-  ArrowUpIcon,
-  Loader2Icon,
-  MicIcon,
-  MicOffIcon,
-  PlusIcon,
-  SquareIcon,
-  TerminalIcon,
-  XIcon,
-} from "lucide-react"
-import { toast } from "sonner"
 
-import { AttachmentGroup } from "@/components/ui/attachment"
-import { Button } from "@/components/ui/button"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { useRecorder } from "@/hooks/use-recorder"
-import { why } from "@/lib/api"
-import {
-  ACCEPT_ATTRIBUTE,
-  canSend,
-  clock,
-  completed,
-  completions,
-  inserted,
-  isCommand,
-  kindOf,
-  nameFor,
-  pastedFiles,
-  screen,
-  settled,
-  stopsOnEscape,
-  withAdded,
-  without,
-  type Pending,
-} from "@/lib/composer"
+import { canSend, completed, inserted, isCommand, pastedFiles } from "@/lib/composer"
 import { useT } from "@/lib/i18n"
 import type { Attached } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
-import { PendingTile } from "./attachments"
+import { AttachButton, AttachmentStrip } from "./composer/attachment-strip"
+import { MicButton, RecordingButtons, SendButton, StopButton } from "./composer/buttons"
+import { CommandMenu, useCommands } from "./composer/command-menu"
+import { Field } from "./composer/field"
+import { RecordingMeter } from "./composer/recording-meter"
+import { useAttachments } from "./composer/use-attachments"
+import { useDictation, type Dictation } from "./composer/use-dictation"
+import { useStopOnEscape } from "./composer/use-stop-on-escape"
+
+export type { Dictation }
 
 /* The bar a message is written in — one block, everything it can carry inside.
  *
@@ -52,14 +28,11 @@ import { PendingTile } from "./attachments"
  * no `upload`, no +; no `transcribe`, no microphone; no `commands`, no `>` mode.
  * A ticket's thread can take it as it is and offer only the words.
  *
- * Files are uploaded the moment they are added, not when the message goes: a
- * video takes a while, and the time to take it is the time spent writing the
- * sentence that comes with it.
+ * Each of these is its own part, under `composer/`: the files
+ * (`use-attachments`, `attachment-strip`), the voice (`use-dictation`,
+ * `recording-meter`), the `>` mode (`command-menu`) and the buttons. What is
+ * left here is the field, and what binds them to it.
  */
-
-/** Alt+Shift+M: the microphone, the way Alt+Shift+F is the full screen. */
-const isTalkKey = (event: KeyboardEvent) =>
-  event.altKey && event.shiftKey && !event.ctrlKey && !event.metaKey && event.code === "KeyM"
 
 /** About eight lines of the field, past which it scrolls instead of growing. */
 const TALLEST = 200
@@ -71,31 +44,7 @@ export interface ComposerHandle {
   focus: () => void
 }
 
-export interface Dictation {
-  ready: boolean
-  why: string
-  /** Send as soon as the transcription is back, rather than leave it to be read. */
-  send: boolean
-}
-
-let counter = 0
-
-export function Composer({
-  ref,
-  onSend,
-  onStop,
-  stopping = false,
-  busy,
-  placeholder,
-  commands,
-  upload,
-  discard,
-  limitMb = 25,
-  transcribe,
-  dictation,
-  tools,
-  className,
-}: {
+export interface ComposerProps {
   ref?: React.Ref<ComposerHandle>
   /** Says whether the message was taken, so the bar is emptied only then. */
   onSend: (text: string, attachments: Attached[]) => Promise<boolean>
@@ -114,125 +63,41 @@ export function Composer({
   /** What else the bar holds, beside the + : a ticket's model, chosen for the session its answer starts. */
   tools?: React.ReactNode
   className?: string
-}) {
+}
+
+export function Composer({
+  ref,
+  onSend,
+  onStop,
+  stopping = false,
+  busy,
+  placeholder,
+  commands,
+  upload,
+  discard,
+  limitMb = 25,
+  transcribe,
+  dictation,
+  tools,
+  className,
+}: ComposerProps) {
   const t = useT()
   const [text, setText] = React.useState("")
-  const [pending, setPending] = React.useState<Pending[]>([])
   const [sending, setSending] = React.useState(false)
-  const [transcribing, setTranscribing] = React.useState(false)
-  const [choice, setChoice] = React.useState(0)
-  const [menuClosed, setMenuClosed] = React.useState(false)
   const field = React.useRef<HTMLTextAreaElement>(null)
-  const picker = React.useRef<HTMLInputElement>(null)
-  const kept = React.useRef(new Map<string, Attached>())
-  // The list as it stands, for the callbacks that outlive the render they were
-  // made in: an upload that ends, the page that closes.
-  const current = React.useRef(pending)
-  current.current = pending
-  const recorder = useRecorder()
-
-  const command = commands !== undefined && isCommand(text)
-  const offered = commands && !menuClosed ? completions(text, commands) : []
+  const files = useAttachments({ upload, discard, limitMb })
+  const { pending } = files
+  const menu = useCommands(text, setText, commands)
   const ready = canSend({ text, attachments: pending, busy, sending })
-  const recording = recorder.state !== "idle"
-
-  /* -- the field grows with what is written, up to a point ----------------- */
-
-  React.useLayoutEffect(() => {
-    const element = field.current
-    if (!element) return
-    element.style.height = "auto"
-    element.style.height = `${Math.min(element.scrollHeight, TALLEST)}px`
-  }, [text, recording])
-
-  React.useEffect(() => setChoice(0), [text])
-
-  /* -- files ---------------------------------------------------------------- */
-
-  const add = React.useCallback(
-    (files: File[], pasted = false) => {
-      if (!upload || !files.length) return
-      const { taken, refused } = screen(files, limitMb)
-      for (const refusal of refused)
-        toast.error(
-          refusal.why === "size"
-            ? t("“{{name}}” is over {{limit}} MB", { name: refusal.name, limit: String(limitMb) })
-            : t("“{{name}}” is not a file the workspace can take", { name: refusal.name }),
-          {
-            description:
-              refusal.why === "size"
-                ? t("The limit is web.attachment_max_mb, in the settings.")
-                : t("Images (png, jpg, webp, gif), videos (mp4, webm, mov) and documents (pdf, txt, md, csv, json, docx, xlsx)."),
-          }
-        )
-      const added: Pending[] = taken.map((file) => {
-        const kind = kindOf(file) ?? "document"
-        return {
-          key: `file-${++counter}`,
-          name: nameFor(file, pasted),
-          kind,
-          size: file.size,
-          state: "uploading",
-          preview: kind === "document" ? undefined : URL.createObjectURL(file),
-        }
-      })
-      setPending((list) => withAdded(list, added))
-      added.forEach((item, index) => {
-        upload(taken[index], item.name)
-          .then((attached) => {
-            // Removed while it was on its way: the server's copy goes too.
-            if (!current.current.some((entry) => entry.key === item.key)) {
-              discard?.(attached.id)
-              return
-            }
-            kept.current.set(item.key, attached)
-            setPending((list) => settled(list, item.key, { state: "done", id: attached.id }))
-          })
-          .catch((error) => {
-            setPending((list) => settled(list, item.key, { state: "error", error: why(error) }))
-            toast.error(t("“{{name}}” could not be attached", { name: item.name }), {
-              description: why(error),
-            })
-          })
-      })
-    },
-    [upload, discard, limitMb, t]
-  )
-
-  React.useImperativeHandle(ref, () => ({ add, focus: () => field.current?.focus() }), [add])
-
-  const remove = (item: Pending) => {
-    if (item.preview) URL.revokeObjectURL(item.preview)
-    if (item.id) discard?.(item.id)
-    kept.current.delete(item.key)
-    setPending((list) => without(list, item.key))
-  }
-
-  // The previews are object URLs, which the page keeps until told otherwise.
-  React.useEffect(
-    () => () => current.current.forEach((item) => item.preview && URL.revokeObjectURL(item.preview)),
-    []
-  )
-
-  /* -- sending -------------------------------------------------------------- */
 
   const send = async (words = text) => {
     if (!canSend({ text: words, attachments: pending, busy, sending })) return
-    const carried = isCommand(words)
-      ? []
-      : pending.flatMap((item) => {
-          const attached = item.state === "done" ? kept.current.get(item.key) : undefined
-          return attached ? [attached] : []
-        })
+    const carried = files.carriedWith(words)
     setSending(true)
     try {
       if (await onSend(words, carried)) {
         setText((current) => (current === words ? "" : current))
-        if (!isCommand(words)) {
-          pending.forEach((item) => item.preview && URL.revokeObjectURL(item.preview))
-          kept.current.clear()
-          setPending([])
-        }
+        if (!isCommand(words)) files.clear(pending)
       }
     } finally {
       setSending(false)
@@ -240,122 +105,42 @@ export function Composer({
     }
   }
 
-  /* -- the voice ------------------------------------------------------------ */
-
-  const micBlocked =
-    !dictation?.ready
-      ? t(dictation?.why || "Dictation is not available")
-      : recorder.access === "unsupported"
-        ? t("This browser gives the page no microphone")
-        : recorder.access === "denied"
-          ? t("The microphone is blocked for this page — allow it in the browser's site settings")
-          : ""
-
-  const listen = async () => {
-    if (micBlocked || !transcribe) return
-    try {
-      await recorder.start()
-    } catch (error) {
-      toast.error(t("The microphone could not be opened"), { description: why(error) })
-    }
-  }
-
-  const finish = async () => {
-    const audio = await recorder.stop()
-    if (!audio || !transcribe) return
-    setTranscribing(true)
-    try {
-      const said = await transcribe(audio)
-      if (!said.trim()) {
-        toast.message(t("Nothing was heard"))
-        return
-      }
+  const voice = useDictation({
+    transcribe,
+    dictation,
+    onHeard: async (said) => {
       const next = inserted(text, said)
       setText(next)
       if (dictation?.send) await send(next)
       else field.current?.focus()
-    } catch (error) {
-      toast.error(t("The recording could not be transcribed"), { description: why(error) })
-    } finally {
-      setTranscribing(false)
-    }
-  }
+    },
+  })
+  const { recorder, recording, transcribing } = voice
 
-  // The keyboard way to talk, and Escape to throw a recording away — caught
-  // before the drawer hears it, which would close itself instead.
-  const latest = React.useRef({ listen, finish, cancel: recorder.cancel, recording })
-  latest.current = { listen, finish, cancel: recorder.cancel, recording }
-  React.useEffect(() => {
-    if (!transcribe) return
-    const listener = (event: KeyboardEvent) => {
-      if (isTalkKey(event)) {
-        event.preventDefault()
-        if (latest.current.recording) void latest.current.finish()
-        else void latest.current.listen()
-      } else if (event.key === "Escape" && latest.current.recording) {
-        event.preventDefault()
-        event.stopPropagation()
-        latest.current.cancel()
-      }
-    }
-    window.addEventListener("keydown", listener, true)
-    return () => window.removeEventListener("keydown", listener, true)
-  }, [transcribe])
+  useStopOnEscape(field, { onStop, text, pending, busy })
 
-  /* Escape from an empty field stops the turn. Caught on the window before
-   * anything else, like the recording's Escape: the drawer listens for it on
-   * the document, and would close itself on a key that meant "stop". */
-  const stopper = React.useRef({ onStop, text, pending, busy })
-  stopper.current = { onStop, text, pending, busy }
-  React.useEffect(() => {
-    const listener = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || event.target !== field.current) return
-      const now = stopper.current
-      const stop = now.onStop
-      if (!stop || !stopsOnEscape({ ...now, attachments: now.pending, stoppable: true })) return
-      event.preventDefault()
-      event.stopPropagation()
-      stop()
-    }
-    window.addEventListener("keydown", listener, true)
-    return () => window.removeEventListener("keydown", listener, true)
-  }, [])
+  React.useImperativeHandle(ref, () => ({ add: files.add, focus: () => field.current?.focus() }), [files.add])
 
-  /* -- drawing -------------------------------------------------------------- */
+  // The field grows with what is written, up to a point.
+  React.useLayoutEffect(() => {
+    const element = field.current
+    if (!element) return
+    element.style.height = "auto"
+    element.style.height = `${Math.min(element.scrollHeight, TALLEST)}px`
+  }, [text, recording])
 
-  const micLabel = `${t("Dictate")} (Alt+Shift+M)`
+  const { command } = menu
 
   return (
     <div className={cn("relative mx-auto w-full max-w-3xl", className)}>
-      {offered.length ? (
-        <div
-          role="listbox"
-          aria-label={t("Commands")}
-          className="bg-popover text-popover-foreground absolute inset-x-0 bottom-full z-20 mb-2 max-h-64 overflow-auto rounded-xl border p-1 shadow-md"
-        >
-          {offered.map((verb, index) => (
-            <button
-              key={verb}
-              type="button"
-              role="option"
-              aria-selected={index === choice}
-              className={cn(
-                "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left font-mono text-sm",
-                index === choice ? "bg-accent text-accent-foreground" : "hover:bg-muted"
-              )}
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => {
-                setText(completed(verb))
-                field.current?.focus()
-              }}
-            >
-              <TerminalIcon className="text-muted-foreground size-3.5" />
-              <span className="text-tr-amber">&gt;</span>
-              {verb}
-            </button>
-          ))}
-        </div>
-      ) : null}
+      <CommandMenu
+        offered={menu.offered}
+        choice={menu.choice}
+        onPick={(verb) => {
+          setText(completed(verb))
+          field.current?.focus()
+        }}
+      />
 
       <div
         data-slot="composer"
@@ -366,230 +151,58 @@ export function Composer({
           recording && "border-destructive/40"
         )}
       >
-        {/* Room above and to the right for the crosses, which sit on the
-            corners and a scrolling row would otherwise cut. */}
-        {pending.length ? (
-          <AttachmentGroup className="px-3 pt-4 pr-4 pb-0.5">
-            {pending.map((item) => (
-              <PendingTile key={item.key} item={item} onRemove={() => remove(item)} />
-            ))}
-          </AttachmentGroup>
-        ) : null}
+        <AttachmentStrip pending={pending} onRemove={files.remove} />
 
         {recording ? (
-          <div className="flex h-12 items-center gap-3 px-4 pt-2" aria-live="polite">
-            <span className="bg-destructive size-2.5 shrink-0 animate-pulse rounded-full" />
-            <span className="font-mono text-sm tabular-nums">{clock(recorder.seconds)}</span>
-            <span className="flex h-7 flex-1 items-center justify-between gap-[2px] overflow-hidden" aria-hidden>
-              {recorder.levels.map((level, index) => (
-                <span
-                  key={index}
-                  className="bg-primary/80 w-[3px] max-w-[3px] min-w-px flex-1 rounded-full transition-[height] duration-75"
-                  style={{ height: `${Math.max(12, level * 100)}%` }}
-                />
-              ))}
-            </span>
-            <span className="sr-only">{t("Recording")}</span>
-          </div>
+          <RecordingMeter seconds={recorder.seconds} levels={recorder.levels} />
         ) : (
-          <div className="flex items-start gap-2 px-4 pt-3">
-            {command ? (
-              <span className="bg-tr-amber/10 text-tr-amber mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[0.65rem] font-semibold tracking-wider uppercase">
-                <TerminalIcon className="size-3" />
-                {t("command")}
-              </span>
-            ) : null}
-            <textarea
-              ref={field}
-              value={text}
-              rows={1}
-              spellCheck={!command}
-              autoComplete="off"
-              aria-label={placeholder}
-              placeholder={transcribing ? t("Transcribing…") : placeholder}
-              disabled={transcribing}
-              onChange={(event) => {
-                setText(event.target.value)
-                setMenuClosed(false)
-              }}
-              onPaste={(event) => {
-                const files = pastedFiles(event.clipboardData)
-                if (!files.length || !upload) return
-                // A capture carries no text worth pasting; a copied file may
-                // carry its name, which is not what was meant either.
+          <Field
+            ref={field}
+            value={text}
+            command={command}
+            aria-label={placeholder}
+            placeholder={transcribing ? t("Transcribing…") : placeholder}
+            disabled={transcribing}
+            onChange={(event) => {
+              setText(event.target.value)
+              menu.reopen()
+            }}
+            onPaste={(event) => {
+              const pasted = pastedFiles(event.clipboardData)
+              if (!pasted.length || !upload) return
+              // A capture carries no text worth pasting; a copied file may
+              // carry its name, which is not what was meant either.
+              event.preventDefault()
+              files.add(pasted, true)
+            }}
+            onKeyDown={(event) => {
+              if (menu.onKey(event)) return
+              if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
                 event.preventDefault()
-                add(files, true)
-              }}
-              onKeyDown={(event) => {
-                if (offered.length) {
-                  if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-                    event.preventDefault()
-                    const step = event.key === "ArrowDown" ? 1 : -1
-                    setChoice((current) => (current + step + offered.length) % offered.length)
-                    return
-                  }
-                  if (event.key === "Tab" || (event.key === "Enter" && !event.shiftKey)) {
-                    event.preventDefault()
-                    setText(completed(offered[choice] ?? offered[0]))
-                    return
-                  }
-                  if (event.key === "Escape") {
-                    event.preventDefault()
-                    event.stopPropagation()
-                    setMenuClosed(true)
-                    return
-                  }
-                }
-                if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
-                  event.preventDefault()
-                  void send()
-                }
-              }}
-              className={cn(
-                "placeholder:text-muted-foreground max-h-[200px] min-h-6 w-full flex-1 resize-none bg-transparent text-[0.9375rem] leading-6 outline-none disabled:opacity-60",
-                "scroll-thin",
-                command && "text-tr-amber font-mono text-sm"
-              )}
-            />
-          </div>
+                void send()
+              }
+            }}
+          />
         )}
 
         <div className="flex items-center gap-1 px-2 pt-1 pb-2">
-          {upload ? (
-            <>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    className="text-muted-foreground rounded-full"
-                    aria-label={t("Attach a file")}
-                    disabled={recording}
-                    onClick={() => picker.current?.click()}
-                  >
-                    <PlusIcon className="size-5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="top">
-                  {t("Attach a photo, a video or a document — or drop it, or paste it")}
-                </TooltipContent>
-              </Tooltip>
-              <input
-                ref={picker}
-                type="file"
-                multiple
-                hidden
-                accept={ACCEPT_ATTRIBUTE}
-                onChange={(event) => {
-                  add(Array.from(event.target.files ?? []))
-                  event.target.value = ""
-                }}
-              />
-            </>
-          ) : null}
+          {upload ? <AttachButton disabled={recording} onFiles={files.add} /> : null}
           {tools}
           <span className="flex-1" />
 
           {recording ? (
-            <>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="rounded-full"
-                onClick={recorder.cancel}
-              >
-                <XIcon />
-                {t("Cancel")}
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                className="rounded-full"
-                disabled={recorder.state !== "recording"}
-                onClick={() => void finish()}
-              >
-                <SquareIcon className="fill-current" />
-                {t("Stop")}
-              </Button>
-            </>
+            <RecordingButtons
+              canStop={recorder.state === "recording"}
+              onCancel={recorder.cancel}
+              onFinish={() => void voice.finish()}
+            />
           ) : (
             <>
               {transcribe ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    {/* A span around it, because a disabled button says nothing
-                        on hover — and the reason is the point of greying it. */}
-                    <span tabIndex={micBlocked ? 0 : -1} className="inline-flex rounded-full">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        className="text-muted-foreground rounded-full"
-                        aria-label={micBlocked || micLabel}
-                        disabled={Boolean(micBlocked) || transcribing}
-                        onClick={() => void listen()}
-                      >
-                        {transcribing ? (
-                          <Loader2Icon className="animate-spin" />
-                        ) : micBlocked ? (
-                          <MicOffIcon />
-                        ) : (
-                          <MicIcon />
-                        )}
-                      </Button>
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-64">
-                    {micBlocked || `${t("Dictate")} · Alt+Shift+M`}
-                  </TooltipContent>
-                </Tooltip>
+                <MicButton blocked={voice.blocked} transcribing={transcribing} onListen={() => void voice.listen()} />
               ) : null}
-              {busy && onStop ? (
-                /* Beside the arrow and not in its place: Ponos can be told
-                   something more while it works, and Stop stays where it was
-                   pressed. Pressed twice, it was pressed once: the second click
-                   lands on a button already saying it is stopping. */
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      size="icon-sm"
-                      variant="outline"
-                      data-slot="composer-stop"
-                      data-stopping={stopping || undefined}
-                      className="rounded-full"
-                      aria-label={stopping ? t("Stopping…") : t("Stop")}
-                      aria-keyshortcuts="Escape"
-                      disabled={stopping}
-                      onClick={onStop}
-                    >
-                      {stopping ? (
-                        <Loader2Icon className="animate-spin" />
-                      ) : (
-                        <SquareIcon className="size-3.5 fill-current" />
-                      )}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">
-                    {stopping ? t("Stopping…") : `${t("Stop")} · Esc`}
-                  </TooltipContent>
-                </Tooltip>
-              ) : null}
-              <Button
-                type="button"
-                size="icon-sm"
-                data-slot="composer-send"
-                data-busy={busy || undefined}
-                className="rounded-full"
-                aria-label={t("Send")}
-                title={busy && !command ? t("Send — it waits for Ponos to finish") : t("Send")}
-                disabled={!ready}
-                onClick={() => void send()}
-              >
-                {sending ? <Loader2Icon className="animate-spin" /> : <ArrowUpIcon className="size-4.5" />}
-              </Button>
+              {busy && onStop ? <StopButton stopping={stopping} onStop={onStop} /> : null}
+              <SendButton busy={busy} command={command} ready={ready} sending={sending} onSend={() => void send()} />
             </>
           )}
         </div>

@@ -792,7 +792,13 @@ def the_message_bar_is_one_block_with_its_gestures_inside() -> None:
     Read from the React source: what is checked is a decision about the page,
     which the bundle has minified away.
     """
-    bar = (FRONTEND / "src/components/console/composer.tsx").read_text(encoding="utf-8")
+    bar = "".join(
+        path.read_text(encoding="utf-8")
+        for path in [
+            FRONTEND / "src/components/console/composer.tsx",
+            *sorted((FRONTEND / "src/components/console/composer").glob("*.ts*")),
+        ]
+    )
     pane = (FRONTEND / "src/components/console/console-pane.tsx").read_text(encoding="utf-8")
     assert "export function Composer" in bar
     for gesture in ("PlusIcon", "MicIcon", "ArrowUpIcon", "onPaste", "rounded-full", "max-w-3xl"):
