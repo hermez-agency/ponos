@@ -194,8 +194,11 @@ of the *Live* tab, *Ponos is working…* — until it says something back, or th
 which is said in its place; the quick replies wait meanwhile. The run's lines in passing —
 *Model chosen automatically*, a session that committed nothing — are one small grey line
 across the discussion, not a bubble nor a red badge. Decide shows the session's sentence,
-the pull request, its checks as GitHub says them now, and the points the session said it
-could not check; then *validate*, *send back with an instruction* — ready-made for red checks,
+the pull request, its checks as GitHub says them now — each job by name, green, red, skipped
+or still running, a link to its page — the files the pull request touches, each with its lines
+added and removed (the first twelve, then *and N more* towards GitHub; the diff itself stays
+GitHub's), and the points the session said it could not check: enough to merge a green pull
+request from a phone without opening GitHub. Then *validate*, *send back with an instruction* — ready-made for red checks,
 missing tests, screenshots, a rebase, or any of those points — or *reject*. Each choice writes
 one comment — *Answered from the console. Decision: run it again on opus.* and the words you
 typed — which the next session reads as yours, then moves the ticket: to *Ready* to work

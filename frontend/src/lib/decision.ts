@@ -231,3 +231,30 @@ export const itemsOf = (text?: string): string[] =>
     .split(/\n|;\s/)
     .map((line) => line.replace(/^\s*(?:[-*•]\s+)?/, "").trim())
     .filter(Boolean)
+
+/** Where one job of a pull request stands, from the bucket `gh pr checks` sorts it in: anything unnamed still runs. */
+export const jobState = (bucket: string): "passed" | "failed" | "pending" | "skipped" =>
+  bucket === "pass"
+    ? "passed"
+    : bucket === "fail" || bucket === "cancel"
+      ? "failed"
+      : bucket === "skipping"
+        ? "skipped"
+        : "pending"
+
+/** What one job is said to be, beside its mark. */
+export const JOBS: Record<ReturnType<typeof jobState>, string> = {
+  passed: "Passed",
+  failed: "Failed",
+  skipped: "Skipped",
+  pending: "Running",
+}
+
+/** How many files the Decide tab lists before it says how many more there are: the choices come after them. */
+export const FILES_SHOWN = 12
+
+/** The lines a pull request adds and removes, its files together. */
+export const linesOf = (files: { additions: number; deletions: number }[]) => ({
+  additions: files.reduce((sum, file) => sum + file.additions, 0),
+  deletions: files.reduce((sum, file) => sum + file.deletions, 0),
+})

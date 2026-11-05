@@ -1831,6 +1831,14 @@ class Checks(Shape):
     listed: list[Check]
 
 
+class ChangedFile(Shape):
+    """A file a pull request touches, and by how many lines."""
+
+    path: str
+    additions: int
+    deletions: int
+
+
 class Decision(Shape):
     """Why a blocked ticket waits, or what a ticket in review brought back.
 
@@ -1855,6 +1863,8 @@ class Decision(Shape):
     facts: str = omitted()
     pull_request: str = omitted()
     checks: Checks = omitted()
+    files: list[ChangedFile] = omitted()
+    """What the pull request touches, as GitHub says it when the panel opens."""
     caveats: list[str] = omitted()
 
 

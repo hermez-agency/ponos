@@ -12,6 +12,8 @@ import {
   answersIn,
   arranged,
   askedAt,
+  jobState,
+  linesOf,
   away,
   decisionTabOf,
   categoryOf,
@@ -180,4 +182,24 @@ test("a report of more than two lines is read, not passed over, and its points t
   assert.equal(answersIn([{ role: "runner", text: report }]), 1)
   assert.match(listed(report), /\n- To check: the wording$/)
   assert.equal(listed("Rien à vérifier"), "Rien à vérifier")
+})
+
+test("each job of a pull request reads as passed, failed, skipped or still running", () => {
+  assert.equal(jobState("pass"), "passed")
+  assert.equal(jobState("fail"), "failed")
+  assert.equal(jobState("cancel"), "failed")
+  assert.equal(jobState("skipping"), "skipped")
+  assert.equal(jobState("pending"), "pending")
+  assert.equal(jobState(""), "pending", "a bucket nobody named is not a green")
+})
+
+test("the lines of a pull request add up over its files", () => {
+  assert.deepEqual(linesOf([]), { additions: 0, deletions: 0 })
+  assert.deepEqual(
+    linesOf([
+      { additions: 12, deletions: 3 },
+      { additions: 0, deletions: 7 },
+    ]),
+    { additions: 12, deletions: 10 }
+  )
 })

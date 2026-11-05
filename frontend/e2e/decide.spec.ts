@@ -229,6 +229,47 @@ test.describe("on a phone", () => {
     await expect(cue).toHaveCount(0)
   })
 
+  test("a pull request in review is decided on 375 px with its jobs and its files, without GitHub", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 })
+    // The board of the e2e has no GitHub behind it: what `gh` would have said, added to the server's answer.
+    await page.route(`**/api/tickets/${REVIEW}/decision`, async (route) => {
+      if (route.request().method() !== "GET") return route.continue()
+      const answer = await (await route.fetch()).json()
+      const url = "https://github.com/example/website/pull/12"
+      await route.fulfill({
+        json: {
+          ...answer,
+          checks: {
+            state: "passed",
+            link: `${url}/checks`,
+            listed: [
+              { name: "core (3.11)", bucket: "pass", link: `${url}/checks?1` },
+              { name: "frontend", bucket: "pass", link: `${url}/checks?2` },
+              { name: "image", bucket: "skipping", link: "" },
+            ],
+          },
+          files: [
+            { path: "src/components/share/share-button-under-each-article.tsx", additions: 84, deletions: 0 },
+            { path: "src/lib/french.ts", additions: 3, deletions: 1 },
+            { path: "CHANGELOG.md", additions: 2, deletions: 0 },
+          ],
+        },
+      })
+    })
+    await open(page, `/?view=console/tickets/read/${REVIEW}`)
+    await page.locator('[data-slot="ticket-decide-cue"]').tap()
+    const jobs = panel(page).locator('[data-slot="decision-checks"] li')
+    await expect(jobs).toHaveCount(3)
+    await expect(jobs.first()).toHaveAttribute("data-state", "passed")
+    const files = panel(page).locator('[data-slot="decision-files"]')
+    await expect(files.locator("li")).toHaveCount(3)
+    await expect(files).toContainText("+89")
+    // Nothing wider than the phone: a long path breaks, the line counts stay beside it.
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375)
+    await panel(page).screenshot({ path: "test-results/decide-phone.png" })
+    await expect(panel(page).getByRole("button", { name: "Validate", exact: true })).toBeVisible()
+  })
+
   test("Unblock opens the ticket's window on its discussion, the replies read in full", async ({ page }) => {
     await open(page)
     // Brought to the middle of the screen first: left at its edge, the button
