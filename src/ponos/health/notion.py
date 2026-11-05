@@ -56,6 +56,15 @@ def _board(
         found.extend(reached)
         if any(check.state == ERROR for check in reached):
             return found, None
+    elif storage.mode == "github":
+        found.append(
+            _check(
+                "notion.storage",
+                INFO,
+                "Board",
+                "storage.mode = “github”: the tickets are issues, and Notion is never asked anything.",
+            )
+        )
     else:
         found.append(
             _check(

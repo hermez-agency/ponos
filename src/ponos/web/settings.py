@@ -526,7 +526,7 @@ SECTIONS: tuple[Section, ...] = (
         title="Where the board lives",
         blurb=(
             "Where your tickets live: in Notion (the default), as Markdown files on this "
-            "machine, or in both, kept in sync."
+            "machine, in both kept in sync, or as the issues of GitHub repositories."
         ),
         fields=(
             Field(
@@ -541,6 +541,7 @@ SECTIONS: tuple[Section, ...] = (
                     ("notion", "Notion"),
                     ("markdown", "Markdown files"),
                     ("both", "Both, kept in sync"),
+                    ("github", "GitHub issues"),
                 ),
                 after="the console has to be restarted",
             ),
@@ -571,6 +572,34 @@ SECTIONS: tuple[Section, ...] = (
                 "Sync before every check of the board",
                 "Only for Both. Off: the two only sync when you run `ponos sync`.",
                 advanced=True,
+            ),
+        ),
+    ),
+    Section(
+        key="issues",
+        group="source",
+        title="GitHub issues",
+        blurb=(
+            "For a board kept in GitHub issues: an open issue with the label becomes a "
+            "ticket, its status is a `ponos:…` label, and its pull request closes it."
+        ),
+        fields=(
+            Field(
+                "issues",
+                "repositories",
+                "lines",
+                "Repositories",
+                "One `owner/name` per line. Their issues are the board.",
+                placeholder="acme/website",
+                after="the console has to be restarted",
+            ),
+            Field(
+                "issues",
+                "label",
+                "text",
+                "Label that makes a ticket",
+                "An open issue carrying it is ready to be worked on. Empty: ponos.",
+                placeholder="ponos",
             ),
         ),
     ),

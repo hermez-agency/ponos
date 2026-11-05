@@ -259,10 +259,12 @@ for reading rather than for filling in.
 | `runner.auto_model_escalate` | `true` | a ticket whose chosen model failed runs one level up next time, once |
 | `runner.use_fable` | `false` | allow Claude Fable at all; off, every session the runner starts — chosen, escalated, written on a ticket or its agent, the console's chat — runs on `opus` instead |
 | `runner.classify_confidence` | `"medium"` | `low`, `medium` or `high` — the least confidence a guess is acted on with; below it, the ticket is blocked with the question |
-| `storage.mode` | `"notion"` | which board answers — `notion`, `markdown`, or `both` kept in step. See [Without Notion: the board as Markdown files](board.md#without-notion-the-board-as-markdown-files) |
+| `storage.mode` | `"notion"` | which board answers — `notion`, `markdown`, `both` kept in step, or `github`, the issues of a repository. See [Without Notion: the board as Markdown files](board.md#without-notion-the-board-as-markdown-files) and [The issues of a GitHub repository](board.md#the-issues-of-a-github-repository) |
 | `storage.path` | `~/.local/state/ponos/board` | the directory the Markdown board lives in |
 | `storage.conflict` | `"newest"` | in `both`, who wins when the same page moved on each side |
 | `storage.on_every_pass` | `true` | in `both`, reconcile before each pass — `false` leaves it to `ponos sync` |
+| `issues.repositories` | `[]` | in `github`, the `owner/name` repositories whose issues are the board |
+| `issues.label` | `"ponos"` | in `github`, the label that makes an open issue a ticket; the statuses are `<label>:progress`, `:review`… |
 | `notion.workspace` | `""` | the database whose rows are your master pages |
 | `notion.tickets_database` | `""` | one database instead of a workspace; wins when both are set |
 | `[notion.pages]` | | which row of the workspace is the tickets database, the projects database, the agents database, the context page |

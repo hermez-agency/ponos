@@ -109,6 +109,7 @@ from .github import _github_access as _github_access
 from .github import _github_billing as _github_billing
 from .github import _github_rights as _github_rights
 from .github import _github_token as _github_token
+from .github import _issues as _issues
 from .github import _repository as _repository
 from .installation import NOTIFY_SAID as NOTIFY_SAID
 from .installation import STRAY_SHOWN as STRAY_SHOWN
@@ -177,6 +178,7 @@ def run(
         ("claude", lambda: _models(config)),
         ("github", _github_token),
         ("github", _github_billing),
+        ("github", lambda: _issues(config, client)),
         ("projects", lambda: _workspace_root(config)),
         ("machine", lambda: _machine(config)),
         ("machine", lambda: _notifications(config)),

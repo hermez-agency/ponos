@@ -980,6 +980,77 @@ if args[:2] == ["pr", "checks"]:
         raise SystemExit(1)
     raise SystemExit(0 if all(one["conclusion"] == "SUCCESS" for one in checks) else 1)
 
+# The issues of a repository, as `FAKE_GH_ISSUES` holds them: `{"issues": [...],
+# "comments": {"<number>": [...]}}` — GitHub's own shapes, and only the fields
+# the runner reads. What `gh api` is asked of them is answered here and written
+# back, so that a scenario reads what the runner did the way GitHub would show it.
+issues_file = os.environ.get("FAKE_GH_ISSUES", "")
+if args[:1] == ["api"] and issues_file and "/issues" in " ".join(args):
+    method = args[args.index("-X") + 1] if "-X" in args else "GET"
+    target = next(part for part in args[1:] if part.startswith("repos/"))
+    path, _, query = target.partition("?")
+    parts = path.split("/")  # repos, owner, name, issues, [number, [comments | labels, [name]]]
+    with open(issues_file, encoding="utf-8") as handle:
+        held = json.load(handle)
+    fields = {}
+    for index, part in enumerate(args):
+        if part == "-f":
+            key, _, value = args[index + 1].partition("=")
+            key = key.removesuffix("[]")
+            fields.setdefault(key, []).append(value)
+
+    def save():
+        with open(issues_file, "w", encoding="utf-8") as handle:
+            json.dump(held, handle)
+
+    def issue(number):
+        return next(one for one in held["issues"] if one["number"] == int(number))
+
+    def names(one):
+        return [label["name"] for label in one["labels"]]
+
+    write({"command": "api", "method": method, "path": path, "fields": fields})
+    if len(parts) == 4 and method == "GET":
+        wanted = dict(pair.split("=", 1) for pair in query.split("&") if "=" in pair)
+        shown = [one for one in held["issues"]
+                 if one["state"] == wanted.get("state", "open")
+                 and wanted.get("labels", "") in names(one)]
+        print(json.dumps(shown if wanted.get("page", "1") == "1" else []))
+    elif len(parts) == 5 and method == "GET":
+        print(json.dumps(issue(parts[4])))
+    elif len(parts) == 5 and method == "PATCH":
+        one = issue(parts[4])
+        for key, value in fields.items():
+            one[key] = value[0]
+        save()
+        print(json.dumps(one))
+    elif parts[5:6] == ["comments"] and method == "GET":
+        print(json.dumps(held["comments"].get(parts[4], []) if "page=1" in query else []))
+    elif parts[5:6] == ["comments"] and method == "POST":
+        listed = held["comments"].setdefault(parts[4], [])
+        listed.append({"id": 100 + len(listed), "body": fields["body"][0],
+                       "created_at": "2026-11-05T10:00:0%dZ" % len(listed),
+                       "user": {"login": "salva"}})
+        save()
+        print(json.dumps(listed[-1]))
+    elif parts[5:6] == ["labels"] and method == "POST":
+        one = issue(parts[4])
+        for label in fields["labels"]:
+            if label not in names(one):
+                one["labels"].append({"name": label})
+        save()
+        print(json.dumps(one["labels"]))
+    elif parts[5:6] == ["labels"] and method == "DELETE":
+        one = issue(parts[4])
+        gone = parts[6].replace("%3A", ":")
+        one["labels"] = [label for label in one["labels"] if label["name"] != gone]
+        save()
+        print(json.dumps(one["labels"]))
+    else:
+        print("unknown request", file=sys.stderr)
+        raise SystemExit(1)
+    raise SystemExit(0)
+
 # What GitHub writes on a job it refused to start, read as `.[].message`.
 if args[:1] == ["api"] and any(part.endswith("/annotations") for part in args):
     print(os.environ.get("FAKE_GH_ANNOTATION", ""))
@@ -1271,6 +1342,65 @@ class Bench:
         _git(["commit", "-m", f"Un autre ticket — {filename}"], repository)
         _git(["push", "origin", "main"], repository)
 
+    # -- the board as GitHub issues ------------------------------------------
+
+    def github_board(self, name: str = "repo") -> Path:
+        """This installation's board made the issues of `fake/<name>`, and its clone."""
+        repository = self.repository(name)
+        with open(self.config, "a", encoding="utf-8") as handle:
+            handle.write(
+                f'\n[storage]\nmode = "github"\npath = "{self.root / "board"}"\n'
+                f'\n[issues]\nrepositories = ["fake/{name}"]\n'
+                f'\n[projects]\n{name} = "{repository}"\n'
+            )
+        (self.root / "logs" / "issues.json").write_text(
+            json.dumps({"issues": [], "comments": {}}), encoding="utf-8"
+        )
+        return repository
+
+    def _held(self) -> dict[str, Any]:
+        held: dict[str, Any] = json.loads(
+            (self.root / "logs" / "issues.json").read_text(encoding="utf-8")
+        )
+        return held
+
+    def issue(self, number: int, title: str, body: str, *labels: str) -> None:
+        """An issue somebody opened on the fake GitHub, `ponos`-labelled unless said otherwise."""
+        held = self._held()
+        held["issues"].append(
+            {
+                "number": number,
+                "title": title,
+                "body": body,
+                "state": "open",
+                "html_url": f"https://github.com/fake/repo/issues/{number}",
+                "labels": [{"name": name} for name in (labels or ("ponos",))],
+            }
+        )
+        (self.root / "logs" / "issues.json").write_text(json.dumps(held), encoding="utf-8")
+
+    def labels(self, number: int) -> list[str]:
+        held = self._held()
+        one = next(issue for issue in held["issues"] if issue["number"] == number)
+        return sorted(label["name"] for label in one["labels"])
+
+    def issue_comments(self, number: int) -> list[str]:
+        return [one["body"] for one in self._held()["comments"].get(str(number), [])]
+
+    def reply(self, number: int, text: str) -> None:
+        """Somebody answering under the issue, with an account that is not the runner's."""
+        held = self._held()
+        listed = held["comments"].setdefault(str(number), [])
+        listed.append(
+            {
+                "id": 500 + len(listed),
+                "body": text,
+                "created_at": "2026-11-05T11:00:00Z",
+                "user": {"login": "salva"},
+            }
+        )
+        (self.root / "logs" / "issues.json").write_text(json.dumps(held), encoding="utf-8")
+
     # -- running -------------------------------------------------------------
 
     def run(self) -> list[dict[str, Any]]:
@@ -1391,6 +1521,8 @@ def bench(**overrides: object) -> Iterator[Bench]:
                 # What GitHub would still know next week, unlike the logs, which
                 # are emptied before each pass — see the fake `gh`.
                 "FAKE_GH_STATE": str(root / "logs" / "github.jsonl"),
+                # The issues of the repository `github` boards are made of.
+                "FAKE_GH_ISSUES": str(root / "logs" / "issues.json"),
                 "XDG_STATE_HOME": str(root / "state"),
                 "XDG_CONFIG_HOME": str(root / "config"),
                 "PATH": f"{root / 'bin'}{os.pathsep}{os.environ.get('PATH', '')}",
@@ -2750,6 +2882,59 @@ def _budget(machine: Bench, **limits: float) -> None:
         handle.write(
             "\n[budget]\n" + "".join(f"{key} = {value}\n" for key, value in limits.items())
         )
+
+
+@case
+def an_issue_labelled_ponos_comes_back_as_a_pull_request_that_closes_it(machine: Bench) -> None:
+    """`storage.mode = "github"`: the issue is the ticket, its labels are its statuses.
+
+    The whole road on the fake GitHub: the issue is read as ready, its status
+    moves through the labels while a session works it, and the pull request
+    carries `Closes #7`. A second issue, never labelled, is not touched.
+    """
+    machine.github_board()
+    machine.issue(
+        7,
+        "Ajouter un fichier",
+        "Crée HELLO.md à la racine.",
+        "ponos",
+        "type:code",
+        "subtype:feature",
+        "priority:80",
+    )
+    machine.issue(8, "Pas pour Ponos", "Une issue comme une autre.", "bug")
+
+    results = machine.run()
+    assert [result["status"] for result in results] == ["done"], results
+    [opened] = machine.pull_requests()
+    assert "Closes fake/repo#7" in opened["body"], opened["body"]
+    assert machine.labels(7) == [
+        "ponos", "ponos:review", "priority:80", "subtype:feature", "type:code",
+    ], machine.labels(7)  # fmt: skip
+    assert machine.labels(8) == ["bug"], "an issue without the label is not a ticket"
+    prompt = machine.sessions()[0]["prompt"]
+    assert "Crée HELLO.md à la racine." in prompt, "the body of the issue is the brief"
+    assert machine.issue_comments(7), "the report of the run is a comment of the issue"
+    assert all(text.startswith("<!-- ponos -->") for text in machine.issue_comments(7))
+
+
+@case
+def a_question_asked_on_an_issue_is_answered_by_a_comment(machine: Bench) -> None:
+    """The session asks, the issue is `ponos:blocked`, and « oui » under it is the answer."""
+    machine.github_board()
+    machine.issue(3, "Choisir", "A ou B ?", "ponos", "type:code", "subtype:feature")
+    with _environ({"FAKE_CLAUDE_BLOCK": "On y va ?\nCATEGORY: question\nMODE: yes-no"}):
+        results = machine.run()
+    assert results[0]["status"] == "blocked", results
+    assert "ponos:blocked" in machine.labels(3), machine.labels(3)
+    assert machine.issue_comments(3), "the question is a comment of the issue"
+
+    assert machine.run() == [], "nobody answered: nothing runs"
+    machine.reply(3, "oui")
+    results = machine.run()
+    assert [result["status"] for result in results] == ["done"], results
+    assert "ponos:review" in machine.labels(3) and "ponos:blocked" not in machine.labels(3)
+    assert "oui" in machine.sessions()[-1]["prompt"], "the answer reaches the session"
 
 
 @case
