@@ -123,10 +123,13 @@ _CAUSES = (
         "retry:1",
         ("Checks failed", "Vérifications rouges"),
         (
-            "The pull request's checks fail once its conflicts were resolved: look at what broke.",
-            "Les vérifications de la pull request échouent après la résolution des conflits : regardez ce qui a cassé.",
+            "The pull request's checks still fail after its conflicts were resolved or a session "
+            "tried to repair them: look at what broke.",
+            "Les vérifications de la pull request échouent encore après la résolution des conflits "
+            "ou une session de réparation : regardez ce qui a cassé.",
         ),
         "checks-red",
+        "checks-red-mended",
     ),
     _cause(
         "ci.billing",

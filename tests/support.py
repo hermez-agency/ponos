@@ -792,6 +792,7 @@ def _board_runner(
     runner.quiet = True
     runner.dry_run = False
     runner._claimed = set()
+    runner._red = set()
     runner._holding, runner._explained = {}, None
     runner._update_looked = 0.0
     runner._comments = {}

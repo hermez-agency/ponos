@@ -811,6 +811,16 @@ if "You are resolving that conflict" in prompt:
           "session_id": session, "num_turns": 4, "total_cost_usd": 0.05})
     raise SystemExit(0)
 
+# A validated pull request red by its own fault: the repair session fixes it
+# the way the CI of the scenarios checks — `FIXED.md` committed, nothing pushed.
+if "You are repairing that" in prompt:
+    (here / "FIXED.md").write_text("fixed\\n", encoding="utf-8")
+    subprocess.run(["git", "add", "FIXED.md"], cwd=here, check=True, capture_output=True)
+    subprocess.run(["git", "-c", "user.name=Fake Claude", "-c", "user.email=fake@example.invalid",
+                    "-c", "commit.gpgsign=false", "commit", "-m", "Répare la CI"],
+                   cwd=here, check=True, capture_output=True)
+    finish("Le test cherchait FIXED.md.\\nRESULT: ok — FIXED.md ajouté", turns=2, cost=0.04)
+
 # The project's CI, run on this machine before the push, went red: the fake
 # fixes it the way the CI of the scenarios checks — `FIXED.md` committed.
 if "the project's CI was run on this machine" in prompt:
@@ -953,6 +963,14 @@ if args[:2] == ["pr", "comment"]:
 # runs, as `statusCheckRollup` lists them. Like the gh Ubuntu ships (2.46), this
 # one knows no `pr checks --json` — the runner falls back on the rollup.
 checks = json.loads(os.environ.get("FAKE_GH_CHECKS") or "[]")
+# A CI that reads the branch: green once the pull request's branch holds the
+# file `FAKE_GH_GREEN_WITH` names — the fix a repair session commits.
+green_with = os.environ.get("FAKE_GH_GREEN_WITH", "")
+if green_with and args[:2] in (["pr", "checks"], ["pr", "view"]) and len(args) > 2:
+    opened = pull_request(args[2])
+    if opened and git("cat-file", "-e", opened["branch"] + ":" + green_with,
+                      cwd=opened["remote"]).returncode == 0:
+        checks = [dict(one, conclusion="SUCCESS") for one in checks]
 if args[:2] == ["pr", "checks"]:
     if "--json" in args:
         print("unknown flag: --json", file=sys.stderr)
@@ -972,6 +990,11 @@ if args[:2] == ["pr", "view"]:
     opened = pull_request(url)
     if "statusCheckRollup" in args:
         print(json.dumps({"statusCheckRollup": checks}))
+        raise SystemExit(0)
+    if "headRefOid" in args:
+        if not opened:
+            raise SystemExit(1)
+        print(git("rev-parse", opened["branch"], cwd=opened["remote"]).stdout.strip())
         raise SystemExit(0)
     if "headRefName,baseRefName" in args:
         if not opened:
@@ -1388,6 +1411,7 @@ def bench(**overrides: object) -> Iterator[Bench]:
                 "FAKE_GH_REFUSE": "",
                 "FAKE_GH_CHECKS": "",
                 "FAKE_GH_ANNOTATION": "",
+                "FAKE_GH_GREEN_WITH": "",
                 **{name: str(path) for name, path in logs.items()},
             }
             with _environ(environment):
@@ -2987,6 +3011,86 @@ def a_conflict_that_is_a_decision_blocks_the_ticket_with_the_question(machine: B
     assert machine.content(repository, branch, "FAKE.md") == pushed, "the branch was rewritten"
     assert machine.content(repository, "main", "FAKE.md") == "ce que l'autre ticket a écrit\n"
     assert not machine.worktrees(repository), machine.worktrees(repository)
+
+
+def _validated_red(machine: Bench) -> tuple[Path, str, str]:
+    """A pull request validated with a job red by its own fault, on a green base.
+
+    The repository has a CI, so the runner reads the checks; `job 2` is red
+    on the pull request and nothing is red on `main`. The board has its
+    « Blocage » column. The repository, the ticket, and its branch.
+    """
+    machine.board.databases[machine.database]["properties"] = {
+        **machine.board.databases[machine.database]["properties"],
+        "Blocage": {"type": "select", "select": {"options": []}},
+    }
+    repository = machine.repository("site")
+    machine.with_ci(repository)
+    project = machine.project("Site", repository)
+    ticket = machine.ticket("Corriger l'entête", "Le titre est faux.", project)
+    branch = str(machine.run()[0]["branch"])
+    os.environ["FAKE_GH_CHECKS"] = _check_runs("SUCCESS", "FAILURE")
+    machine.move(ticket, "Validated")
+    return repository, ticket, branch
+
+
+def _repairs(machine: Bench) -> list[dict[str, Any]]:
+    return [one for one in machine.sessions() if "You are repairing that" in one["prompt"]]
+
+
+@case
+def a_validated_pull_request_red_without_conflict_is_repaired_by_a_session_and_merged(
+    machine: Bench,
+) -> None:
+    """Red after its rerun, green base, no conflict: a session repairs it, then the merge.
+
+    What blocked #362 until a person pushed `npm run types` by hand: the merge
+    was refused for a red job and nothing was sent after it, since `_mend` was
+    only reached after a conflict.
+    """
+    repository, ticket, branch = _validated_red(machine)
+    os.environ["FAKE_GH_GREEN_WITH"] = "FIXED.md"
+
+    results = machine.run()
+
+    assert results and results[0]["status"] == "done", results
+    assert machine.status(ticket) == "Done", machine.status(ticket)
+    repairs = _repairs(machine)
+    assert len(repairs) == 1, machine.sessions()
+    assert "`job 2`" in repairs[0]["prompt"], repairs[0]["prompt"]
+    assert "FIXED.md" in machine.files_on(repository, branch), "the repair was not pushed"
+    assert "FIXED.md" in machine.files_on(repository, "main"), "the repair was not merged"
+    said = machine.board.said(ticket)[-1]
+    assert "for its red checks" in said and "in conflict" not in said, said
+    assert not machine.worktrees(repository), machine.worktrees(repository)
+
+
+@case
+def a_validated_pull_request_still_red_after_its_repair_is_blocked_and_never_repaired_twice(
+    machine: Bench,
+) -> None:
+    """One repair, its commit pushed; still red, blocked — and validated again, no second one."""
+    repository, ticket, branch = _validated_red(machine)
+
+    results = machine.run()
+
+    assert results and results[0]["status"] == "blocked", results
+    assert machine.status(ticket) == "Blocked", machine.status(ticket)
+    assert machine.board.value(ticket, "Blocage") == "merge.checks-failed"
+    assert len(_repairs(machine)) == 1, machine.sessions()
+    assert "FIXED.md" in machine.files_on(repository, branch), "the repair was not pushed"
+    assert not machine.merges(), "a red pull request was merged"
+    said = machine.board.said(ticket)[-1]
+    assert "still red after a repair session" in said, said
+
+    # Validated again on the same commit: blocked at once, no session.
+    machine.move(ticket, "Validated")
+    results = machine.run()
+
+    assert machine.status(ticket) == "Blocked", machine.status(ticket)
+    assert machine.board.value(ticket, "Blocage") == "merge.checks-failed"
+    assert not _repairs(machine), machine.sessions()
+    assert not machine.merges(), "a red pull request was merged"
 
 
 def _in_conflict(machine: Bench) -> tuple[Path, str, str]:

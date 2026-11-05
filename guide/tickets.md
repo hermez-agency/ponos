@@ -386,9 +386,13 @@ work: the branch is replayed onto its base, pushed with a lease on the very comm
 was replayed, and the merge is asked once more. The ticket says so and goes to *Done*. The
 runner does not even wait to be refused: it asks GitHub first (`gh pr view --json
 mergeable,mergeStateStatus`), and a pull request already called *conflicting* or *behind*
-is replayed before any merge is asked. A refusal a rebase does not answer — a check still
-red, a review still missing, a branch whose policy forbids the merge — is left as it came:
-the ticket goes to *Blocked* with GitHub's own wording, and nothing is pushed a second time.
+is replayed before any merge is asked. A check still red is not left as it came either:
+the pull request takes the road of a conflict below — its branch replayed onto its base,
+its failed jobs run again once, compared with the base — and a check red here and only
+here gets a repair session (step 4), once per head commit. A commit already repaired is
+blocked at once, as before. A refusal neither answers — a review still missing, a branch
+whose policy forbids the merge — is left as it came: the ticket goes to *Blocked* with
+GitHub's own wording, and nothing is pushed a second time.
 
 **When the replay conflicts.** Two tickets touched the same lines, the first was merged,
 and the second no longer replays cleanly — “Pull Request has merge conflicts”. With

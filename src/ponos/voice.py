@@ -692,6 +692,10 @@ _SAID: dict[str, dict[str, str]] = {
         "fr": "`{branch}` rejouée sur `{base}` à `{onto}` — en conflit : {files}.",
     },
     "conflict-none": {"en": "nothing, in the end", "fr": "rien, finalement"},
+    "red-facts": {
+        "en": "`{branch}` replayed onto `{base}` at `{onto}`, for its red checks.",
+        "fr": "`{branch}` rejouée sur `{base}` à `{onto}`, pour ses vérifications rouges.",
+    },
     "conflicts-resolved": {"en": "conflicts resolved", "fr": "conflits résolus"},
     "conflict-open": {
         "en": "its pull request conflicts with `{base}`, and the conflict needs a decision",
@@ -746,6 +750,14 @@ _SAID: dict[str, dict[str, str]] = {
     "checks-red-question": {
         "en": "The resolution is pushed, and the pull request's checks fail on it: {url}",
         "fr": "La résolution est poussée, et les vérifications de la pull request échouent : {url}",
+    },
+    "checks-red-mended": {
+        "en": "its checks fail, and the session sent after them did not make them green",
+        "fr": "ses vérifications échouent, et la session envoyée après elles ne les a pas remises au vert",
+    },
+    "checks-red-mended-question": {
+        "en": "The pull request's checks are still red after a repair session: {url}",
+        "fr": "Les vérifications de la pull request sont encore rouges après une session de réparation : {url}",
     },
     "ci-rework": {
         "en": (

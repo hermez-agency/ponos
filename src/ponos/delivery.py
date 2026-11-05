@@ -406,8 +406,46 @@ class Delivery(Base):
             except git.GitError as error:
                 if self.config.runner.rebase and git.is_behind(error):
                     return self._catch_up(ticket, url, error, resolving)
+                if self._to_mend(ticket, url, error, resolving):
+                    return None
                 return self._refused(ticket, url, error)
         return self._merged(ticket, url, said.say("merged-with", method=method))
+
+    def _to_mend(
+        self, ticket: Ticket, url: str, refusal: object, resolving: list[tuple[Ticket, Project]]
+    ) -> bool:
+        """A validated pull request refused for a red check: handed to a session, once per commit.
+
+        `_mend` used to be reached only after a conflict was resolved, so a pull
+        request red and *not* in conflict was blocked on the spot — 50 of 112
+        reruns stayed red, and #362 waited for a person to run `npm run types`,
+        the one line a repair session would have written. It now goes the
+        conflict's way, through `_resolve`: replayed onto its base, its failed
+        jobs run again once, compared with the base, and only what is red here
+        and only here gets the session — then the merge, or the block it always
+        had (`merge.checks-failed`).
+
+        Not when the head commit GitHub names was already mended: the same red
+        never costs two sessions, and the ticket is blocked at once, as before.
+        Nor without `rebase`, since `_resolve` replays the branch; nor for a job
+        still running, which is no verdict. Under the reserve it waits in
+        validated, as a resolution does. Returns whether it was handed over.
+        """
+        if not isinstance(refusal, github_checks.ChecksNotGreen) or refusal.state != "failed":
+            return False
+        project = self._project_of(ticket)
+        if not self.config.runner.rebase or project.path is None:
+            return False
+        head = git.pull_request_head(url, self.config.github)
+        if head and state.mended(ticket.id, head):
+            return False
+        if self.under_reserve():
+            self._claimed.add(ticket.id)
+            return True
+        self.say(f"  · {ticket.title} — checks red, a session is sent after them")
+        self._red.add(ticket.id)
+        resolving.append((ticket, project))
+        return True
 
     def _merged(
         self, ticket: Ticket, url: str, *facts: str, notes: tuple[str, ...] = ()
@@ -1037,7 +1075,8 @@ class Delivery(Base):
 
         The two things of the validated column that cost a place, told apart by
         what the ticket carries: a pull request here can only be one whose merge
-        stopped on a conflict — every other one was settled by `_merge`.
+        stopped on a conflict or on its own red checks (`_to_mend`) — every
+        other one was settled by `_merge`.
         """
         url = str(store.read(ticket.page, self.config.notion.prop("pull_request")) or "")
         if url.startswith("http"):
@@ -1065,6 +1104,7 @@ class Delivery(Base):
         settings = self.config.notion
         branch, base = git.pull_request_branches(url, self.config.github)
         if not branch:
+            self._red.discard(ticket.id)
             self.say(f"  · {ticket.title} — GitHub did not answer about {url}, left validated")
             return None
         short = short_id(ticket.id)
@@ -1083,8 +1123,10 @@ class Delivery(Base):
             agent=self._agent(ticket),
             comments=self.discussion(ticket),
         )
-        self.say(f"  ▸ {ticket.title}\n    validated · resolving the conflicts of {url}")
+        doing = "repairing the red checks" if ticket.id in self._red else "resolving the conflicts"
+        self.say(f"  ▸ {ticket.title}\n    validated · {doing} of {url}")
         if self.dry_run:
+            self._red.discard(ticket.id)
             return None
         self._claimed.add(ticket.id)
         state.claim(ticket.id, settings.state("validated"))
@@ -1100,6 +1142,7 @@ class Delivery(Base):
         try:
             return self._resolved(job, url)
         finally:
+            self._red.discard(ticket.id)
             state.release(ticket.id)
             if project.path:
                 git.remove_worktree(project.path, job.workdir)
@@ -1121,6 +1164,9 @@ class Delivery(Base):
             files=", ".join(f"`{name}`" for name in replay.conflicts or [])
             or said.say("conflict-none"),
         )
+        if ticket.id in self._red and not replay.conflicts:
+            # Sent for its red checks, and nothing conflicted on the way.
+            facts = said.say("red-facts", branch=job.branch, base=job.base, onto=replay.onto[:7])
         outcome: session.Outcome | None = None
         told = ""
         if replay.conflicts:
@@ -1263,13 +1309,14 @@ class Delivery(Base):
             return {"ticket": ticket.title, "id": ticket.id, "status": "validated"}
         if checks in ("failed", "unstarted"):
             state.forget_rebases(ticket.id)
+            red = "checks-red-mended" if ticket.id in self._red else "checks-red"
             return self._fail(
                 ticket,
-                said.say("checks-red"),
+                said.say(red),
                 url,
                 code="merge.checks-failed",
                 blocked=True,
-                question=said.say("checks-red-question", url=url),
+                question=said.say(f"{red}-question", url=url),
                 note=said.paragraphs(record, checked),
             )
         if checks == "base-red":

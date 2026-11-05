@@ -221,6 +221,10 @@ class Base(Chapters):
         # already going into its prompt: answering it as well would be the
         # runner talking over itself.
         self._claimed: set[str] = set()
+        # The validated pull requests handed to `_resolve` for their red checks
+        # rather than a conflict: what it says changes, not what it does. See
+        # `Delivery._to_mend`.
+        self._red: set[str] = set()
         # What the last `deliver` left for later, so a pass can say so.
         self._deferred: list[tuple[Ticket, datetime]] = []
         # How many pull requests this runner has merged into each repository,
