@@ -250,7 +250,7 @@ export const api = {
   }) =>
     answer(
       client.POST("/api/tickets", {
-        body: { priority: "", type: "", model: "", subtype: "", on: "", goal: "", plan: false, ...ticket },
+        body: { priority: "", type: "", model: "", subtype: "", on: "", goal: "", plan: false, attempts: 1, ...ticket },
       })
     ),
   /** `from` is the status the card showed: Notion saying anything else by the
