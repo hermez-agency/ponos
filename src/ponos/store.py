@@ -369,8 +369,14 @@ class Store(Protocol):
         ...
 
 
-def open(config: Config, *, dropped: Callable[[str, str], None] | None = None) -> Store:  # noqa: A001
+def open(  # noqa: A001
+    config: Config, *, dropped: Callable[[str, str], None] | None = None, notion_only: bool = False
+) -> Store:
     """The store the configuration asks for.
+
+    `notion` is served by `ponos.db` (see ledger.py) except for `notion_only`,
+    which asks for the Notion client itself: the import and the checks of the
+    board are about Notion, not about the tickets.
 
     `dropped` hears of every property a write leaves out because the database
     has no such column — `(database, name)` — which only Notion ever does: a
@@ -408,4 +414,9 @@ def open(config: Config, *, dropped: Callable[[str, str], None] | None = None) -
         )
     from .notion import Client
 
-    return Client(config.notion.token, dropped=dropped)
+    client = Client(config.notion.token, dropped=dropped)
+    if notion_only:
+        return client
+    from .ledger import Ledger
+
+    return Ledger(client, config.notion, config.runner.language)

@@ -24,7 +24,7 @@ from support import (
 )
 
 from ponos import config as C
-from ponos import files, ideas, markdown, notion, projects, state, store, sync
+from ponos import files, ideas, ledger, markdown, notion, projects, state, store, sync
 from ponos import ticket as ticket_module
 from ponos.web import api as web_api
 from ponos.web import board as web_board
@@ -38,7 +38,11 @@ from ponos.web import live as web_live
 def the_storage_mode_decides_which_store_is_opened() -> None:
     configuration = _config("")
     assert configuration.storage.mode == "notion"
-    assert isinstance(store.open(configuration), notion.Client)
+    # Notion's tickets are served from `ponos.db` (ledger.py); Notion itself is
+    # what the ledger holds, and what the import and the checks ask for.
+    served = store.open(configuration)
+    assert isinstance(served, ledger.Ledger) and isinstance(served.notion, notion.Client)
+    assert isinstance(store.open(configuration, notion_only=True), notion.Client)
 
     with tempfile.TemporaryDirectory() as directory:
         markdown_only = _config(f'[storage]\nmode = "markdown"\npath = "{directory}/board"\n')

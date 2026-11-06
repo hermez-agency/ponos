@@ -68,6 +68,8 @@ def _values(
         "status": ("status", record.status),
         "project": ("project", [record.project] if record.project else []),
         "kind": ("type", kind),
+        "role": ("role", [record.role] if record.role else []),
+        "goal": ("goal", [record.goal] if record.goal else []),
         "subtype": ("subtype", record.subtype),
         "pull_request": ("pull_request", record.pull_request),
         "session": ("session", record.session),

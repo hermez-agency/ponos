@@ -171,7 +171,7 @@ def run(
     `remote`: ask the remote for the newest version, as `doctor` does, rather
     than read what the last check found.
     """
-    client = client or store.open(config)
+    client = client or store.open(config, notion_only=True)
     jobs: list[tuple[str, Callable[[], list[Check]]]] = [
         ("claude", lambda: _claude(config)),
         ("claude", lambda: _models(config)),
