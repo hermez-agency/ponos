@@ -31,6 +31,7 @@ from .. import (
 )
 from .. import config as config_module
 from .. import kinds as kinds_module
+from .. import vault as vault_module
 from . import settings as settings_module
 from .base import Base
 
@@ -112,6 +113,25 @@ class Configuration(Base):
             "plan": self._project_plan(bare),
             "browser": self._project_browser(bare),
             "diagnostic": self._project_diagnostic(bare),
+            "path": self._project_path(bare),
+            "vault": self._project_vault(bare),
+        }
+
+    def _project_path(self, bare: str) -> dict[str, Any]:
+        """The path the project says its repository is at, and the file's, if it still says one."""
+        name = self._project_name(bare)
+        return {
+            "value": project_settings.path(bare),
+            "file": self.config.projects.get(name, "") if name else "",
+        }
+
+    def _project_vault(self, bare: str) -> dict[str, Any]:
+        """The keys the project's sessions are given, its own and those an older file still names."""
+        name = self._project_name(bare)
+        return {
+            "entries": project_settings.vault(bare),
+            "file": self.config.vault.granted(name) if name else {},
+            "provider": self.config.vault.provider,
         }
 
     @staticmethod
@@ -256,12 +276,30 @@ class Configuration(Base):
         planned = payload.get("plan")
         reviewing = payload.get("self_review")
         browsing = payload.get("browser")
+        located = payload.get("path")
+        granting = payload.get("vault")
         investigating = payload.get("diagnostic")
         access = None
         if validation is None and isinstance(investigating, dict):
             if "ready" in investigating and not isinstance(investigating["ready"], bool):
                 raise ValueError("say whether fix tickets go straight to Ready")
             access = diagnostic.checked(investigating)
+        elif validation is None and isinstance(located, dict):
+            if not isinstance(located.get("value"), str):
+                raise ValueError("say where the project's repository is, or leave it empty")
+        elif validation is None and isinstance(granting, dict):
+            entries = granting.get("entries")
+            if not isinstance(entries, dict) or not all(
+                isinstance(variable, str) and isinstance(item, str)
+                for variable, item in entries.items()
+            ):
+                raise ValueError("say each variable and the item it is read from")
+            reserved = config_module.reserved_variables()
+            for variable, item in entries.items():
+                if variable.strip() or item.strip():
+                    why = vault_module.problems(variable.strip(), item.strip(), reserved)
+                    if why:
+                        raise ValueError(why)
         elif validation is None and isinstance(browsing, dict):
             if browsing.get("value") not in config_module.BROWSERS:
                 raise ValueError("say which browser the project's external tickets use")
@@ -350,6 +388,10 @@ class Configuration(Base):
             project_settings.set_self_review(bare, name, None if agrees else reviewing["enabled"])
         if access is not None:
             project_settings.set_diagnostic(bare, name, access)
+        if isinstance(located, dict):
+            project_settings.set_path(bare, name, located["value"])
+        if isinstance(granting, dict):
+            project_settings.set_vault(bare, name, granting["entries"])
         if isinstance(browsing, dict):
             # The file's own answer is not a decision of the project's, as for ideas.
             agrees = browsing["value"] == self.config.browser.default

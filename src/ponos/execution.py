@@ -624,7 +624,11 @@ class Execution(Base):
         except (sqlite3.Error, OSError) as error:
             self.say(f"    ! the vault of Ponos cannot be read: {error}")
             kept = {}
-        granted = {**kept, **self.config.vault.granted(project)}
+        granted = {
+            **kept,
+            **self.config.vault.granted(project),
+            **project_settings.vault(job.project.notion_id),
+        }
         if getattr(job, "kind", "") == "diagnostic":
             # The entries the project's SSH hosts name, declared on its settings
             # page for this road alone: a deliberate grant, read like the others.

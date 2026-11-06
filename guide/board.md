@@ -692,7 +692,8 @@ One row per project, and **the project decides what kind of work its tickets are
 A project that names a repository is a **code project**. Its tickets get a git worktree, a
 branch, commits and a pull request. Three ways to name it, most explicit first:
 
-1. a `[projects]` entry in your configuration — `"Trader Ia" = "~/workspace/labo/trader-ia"`;
+1. the **Repository path** set in the project's Settings tab (kept in `ponos.db`), or a
+   `[projects]` entry an older configuration still has — `"Trader Ia" = "~/workspace/labo/trader-ia"`;
 2. a **`Path` property on the project page**, which keeps the mapping on the board rather
    than in a file on one machine;
 3. a **`Repository` property** — a GitHub URL or `owner/name` — matched against the

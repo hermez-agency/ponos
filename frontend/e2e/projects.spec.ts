@@ -525,4 +525,28 @@ test.describe("the settings of a project", () => {
     await card().getByRole("button", { name: "Save" }).click()
     await expect(page.getByText("is not an http or https address", { exact: false })).toBeVisible()
   })
+
+  test("set its repository path and its vault keys without touching the TOML", async ({ page }) => {
+    await go(page, `${WEBSITE}&tab=settings`)
+    await onThePageOf(page, "Website")
+    const path = page.locator('[data-card="project-path"]')
+    await path.locator("input").fill("~/workspace/website")
+    await path.getByRole("button", { name: "Save" }).click()
+    await page.reload()
+    await expect(page.locator('[data-card="project-path"] input')).toHaveValue("~/workspace/website")
+
+    const vault = page.locator('[data-card="project-vault"]')
+    await vault.locator("textarea").fill("NPM_TOKEN = hermez/npm")
+    await vault.getByRole("button", { name: "Save" }).click()
+    await page.reload()
+    await expect(page.locator('[data-card="project-vault"] textarea')).toHaveValue("NPM_TOKEN = hermez/npm")
+
+    // Both back to nothing: the project holds no word of its own any more.
+    await page.locator('[data-card="project-vault"] textarea').fill("")
+    await page.locator('[data-card="project-vault"]').getByRole("button", { name: "Save" }).click()
+    await page.locator('[data-card="project-path"] input').fill("")
+    await page.locator('[data-card="project-path"]').getByRole("button", { name: "Save" }).click()
+    await page.reload()
+    await expect(page.locator('[data-card="project-path"] input')).toHaveValue("")
+  })
 })
