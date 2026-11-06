@@ -194,6 +194,7 @@ export const SETTINGS_FRENCH: Record<string, string> = {
   "Markdown files": "Fichiers Markdown",
   "Both, kept in sync": "Les deux, synchronisés",
   "GitHub issues": "Issues GitHub",
+  "ponos.db, Notion as its mirror": "ponos.db, Notion en miroir",
   "For a board kept in GitHub issues: an open issue with the label becomes a ticket, its status is a `ponos:…` label, and its pull request closes it.":
     "Pour un tableau tenu en issues GitHub : une issue ouverte avec l'étiquette devient un ticket, son statut est une étiquette `ponos:…`, et sa pull request la ferme.",
   "One `owner/name` per line. Their issues are the board.":

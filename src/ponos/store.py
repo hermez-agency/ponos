@@ -19,7 +19,8 @@ So this module is the seam. Three things live here and nothing else:
   suite is made of are duck-typed and were never going to inherit from anything;
 - **the choice.** `open()` reads `[storage]` and hands back the one the
   configuration asked for: Notion as before, Markdown files on disk, the two
-  kept in step, or the issues of a GitHub repository. Nothing above this module
+  kept in step, the issues of a GitHub repository, or `ponos.db` with Notion
+  as its mirror (`ledger.py`). Nothing above this module
   knows which it got.
 
 What is *not* here is provisioning: creating a database, widening a select,
@@ -39,7 +40,7 @@ if TYPE_CHECKING:
     from .workspace import Workspace
 
 # The modes of `storage.mode`, and the whole of them.
-MODES = ("notion", "markdown", "both", "github")
+MODES = ("notion", "markdown", "both", "github", "db")
 
 # How a page edited on both sides at once is settled. One rule, named, because
 # the day there is a second one the configuration has to be able to say which.
@@ -259,6 +260,33 @@ def written(kind: str | None, value: Any) -> dict[str, Any] | None:
     return None
 
 
+def matches(page: Page, filter_: dict[str, Any] | None) -> bool:
+    """Does this page satisfy one of the filters the runner builds?
+
+    Three shapes and no more, because three is all there are: an `and` of
+    clauses, an `equals`, and a `does_not_equal`. Anything else matches
+    everything — a filter this cannot read must not silently empty the board.
+    """
+    if not filter_:
+        return True
+    if "and" in filter_:
+        return all(matches(page, clause) for clause in filter_["and"])
+    if "or" in filter_:
+        return any(matches(page, clause) for clause in filter_["or"])
+    name = filter_.get("property")
+    if not name:
+        return True
+    for kind, test in filter_.items():
+        if kind == "property" or not isinstance(test, dict):
+            continue
+        value = read(page, name)
+        if "equals" in test:
+            return bool(value == test["equals"])
+        if "does_not_equal" in test:
+            return bool(value != test["does_not_equal"])
+    return True
+
+
 @runtime_checkable
 class Store(Protocol):
     """Everything the runner and the console ask of a board.
@@ -392,6 +420,11 @@ def open(config: Config, *, dropped: Callable[[str, str], None] | None = None) -
     # contradiction: the `[notion]` table is two things at once — the token and
     # the workspace, which only Notion uses, and the *names* of the columns and
     # the columns' values, which are the board's whoever holds it.
+    if mode == "db":
+        from .ledger import Ledger
+        from .notion import Client
+
+        return Ledger(Client(config.notion.token, dropped=dropped), config.notion)
     if mode == "markdown":
         from .files import Board
 

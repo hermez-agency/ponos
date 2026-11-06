@@ -169,6 +169,11 @@ source of — see tickets.py. A row a ticket with the properties of the board
 and the two parts of its page, the tickets it comes after, its comments, and
 the queue of changes the Notion mirror has still to push. Only the tables are
 here: nothing reads or writes them yet.
+
+Migration 45 gives each ticket the moment Notion last edited its page, as the
+mirror last saw it: a page whose stamp has not moved since is not read again
+(see mirror.py), and the answer to "did somebody change this in Notion?" costs
+one query for the whole board instead of one page read per ticket.
 """
 
 from __future__ import annotations
@@ -730,6 +735,10 @@ def _tickets(connection: sqlite3.Connection) -> None:
     connection.execute("CREATE INDEX mirror_queue_by_ticket ON mirror_queue (ticket, id)")
 
 
+def _tickets_remember_notion(connection: sqlite3.Connection) -> None:
+    connection.execute("ALTER TABLE tickets ADD COLUMN notion_edited TEXT NOT NULL DEFAULT ''")
+
+
 def _kind_switches(connection: sqlite3.Connection) -> None:
     # The tickets a session ran as a text or an action said were code, and the
     # runner made code and put back in ready (execution.py): once a ticket.
@@ -1067,6 +1076,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     _pr_reviews,
     _pages_in_two_parts,
     _tickets,
+    _tickets_remember_notion,
 )
 
 # Any way a read or a write of the database can fail. A note the runner keeps

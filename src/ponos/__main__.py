@@ -481,6 +481,35 @@ def command_projects(args: argparse.Namespace) -> int:
     return 1 if failed else 0
 
 
+def command_import(args: argparse.Namespace) -> int:
+    """Fill `ponos.db` from the Notion tickets board — once, and on request.
+
+    The only way tickets enter the database from Notion in bulk: nothing in a
+    pass does it, so that choosing `storage.mode = "db"` is a decision made
+    with the numbers in front of you. A page already imported is left alone, so
+    running it twice is harmless — and it is how a board caught up after a
+    long time away is brought in.
+    """
+    from . import mirror
+    from .ledger import Ledger
+    from .notion import Client
+
+    configuration = load_config()
+    configuration.require_usable()
+    ledger = Ledger(Client(configuration.notion.token), configuration.notion)
+    title("Importing the tickets of Notion")
+    try:
+        ledger.workspace(configuration.notion)
+        new, known = mirror.imported(ledger)
+    except store.StoreError as error:
+        bad(str(error))
+        return 1
+    ok(f"{new} ticket(s) imported, {known} already in ponos.db")
+    if configuration.storage.mode != "db":
+        print(f'  {DIM}set storage.mode = "db" to run from them{RESET}')
+    return 0
+
+
 def command_sync(args: argparse.Namespace) -> int:
     """Reconcile the Notion board and the Markdown one, and say what moved.
 
@@ -2055,6 +2084,12 @@ def _add_ticket_commands(subparsers: argparse._SubParsersAction[argparse.Argumen
 
     projects = subparsers.add_parser("projects", help="check the project → repository mapping")
     projects.set_defaults(function=command_projects)
+
+    importing = subparsers.add_parser(
+        "import", help="fill ponos.db with the tickets of another board, once"
+    )
+    importing.add_argument("source", choices=["notion"], help="where the tickets come from")
+    importing.set_defaults(function=command_import)
 
     syncing = subparsers.add_parser("sync", help="reconcile the Notion board and the Markdown one")
     syncing.add_argument(

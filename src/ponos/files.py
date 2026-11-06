@@ -62,7 +62,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from . import disk, ids, vault
-from .store import SLOTS, Comment, Missing, Page, Picture, StoreError, read, written
+from .store import SLOTS, Comment, Missing, Page, Picture, StoreError, matches, read, written
 
 if TYPE_CHECKING:
     from .config import Notion
@@ -274,33 +274,6 @@ def _exclusive(method: Callable[..., T]) -> Callable[..., T]:
     return locked
 
 
-def _matches(page: Page, filter_: dict[str, Any] | None) -> bool:
-    """Does this page satisfy one of the filters the runner builds?
-
-    Three shapes and no more, because three is all there are: an `and` of
-    clauses, an `equals`, and a `does_not_equal`. Anything else matches
-    everything — a filter this cannot read must not silently empty the board.
-    """
-    if not filter_:
-        return True
-    if "and" in filter_:
-        return all(_matches(page, clause) for clause in filter_["and"])
-    if "or" in filter_:
-        return any(_matches(page, clause) for clause in filter_["or"])
-    name = filter_.get("property")
-    if not name:
-        return True
-    for kind, test in filter_.items():
-        if kind == "property" or not isinstance(test, dict):
-            continue
-        value = read(page, name)
-        if "equals" in test:
-            return bool(value == test["equals"])
-        if "does_not_equal" in test:
-            return bool(value != test["does_not_equal"])
-    return True
-
-
 class Board:
     """A board kept in files. One implementation of `store.Store`.
 
@@ -442,7 +415,7 @@ class Board:
     def query(self, database_id: str, filter_: dict[str, Any] | None = None) -> list[Page]:
         collection = self.resolve_database(database_id)
         pages = [self._page_of(collection, path) for path in self._files(collection)]
-        return [page for page in pages if _matches(page, filter_)]
+        return [page for page in pages if matches(page, filter_)]
 
     def page(self, page_id: str) -> Page:
         collection, path = self._find(page_id)
