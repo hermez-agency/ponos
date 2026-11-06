@@ -274,7 +274,8 @@ test.describe("on a phone", () => {
     await open(page)
     // Brought to the middle of the screen first: left at its edge, the button
     // sits under the bottom bar, or on a card not yet drawn (content-visibility).
-    const unblock = page.locator(`[data-decide="${READ}"]`)
+    // The first of two: a phone's dashboard opens on what waits (`to-handle.tsx`), over the board's Blocked column.
+    const unblock = page.locator(`[data-decide="${READ}"]`).first()
     await unblock.evaluate((button) => button.scrollIntoView({ block: "center" }))
     await unblock.tap()
     await expect(page.getByRole("dialog")).toHaveCount(1)

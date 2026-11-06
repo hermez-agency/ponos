@@ -146,6 +146,39 @@ test("at 375 × 812 the first idea and the first schedule are in sight without a
   await expect(page.locator('[data-slot="ideas-settings"]')).toBeVisible()
 })
 
+/* The audit of November 2026 found the board 1 725 px down a phone's dashboard,
+ * Blocked its fourth column across: what waited on an answer was three swipes
+ * and two screens of figures away. The dashboard opens on it now. */
+test("at 375 × 812 the dashboard opens on what waits, a blocked ticket first, and the board one column at a time", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 375, height: 812 })
+  await open(page)
+  const block = page.locator('[data-slot="to-handle"]')
+  await expect(block).toBeVisible()
+  const first = block.locator("[data-handle-card]").first()
+  await expect(first).toHaveAttribute("data-handle-column", "blocked")
+  expect(await page.evaluate(() => window.scrollY), "the dashboard opens scrolled").toBe(0)
+  const card = (await first.boundingBox())!
+  const bottom = (await bar(page).boundingBox())!.y
+  expect(card.y + card.height, "the first blocked ticket is under the fold").toBeLessThanOrEqual(bottom)
+
+  // The figures are folded until somebody opens them.
+  await expect(page.locator('[data-slot="statistics-band"]')).toHaveAttribute("data-state", "closed")
+
+  // The board under it: tabs with their counts, Blocked chosen, and that column alone.
+  const tabs = page.locator('[data-slot="board-tabs"]')
+  await expect(tabs.locator('[data-board-tab="blocked"]')).toHaveAttribute("aria-selected", "true")
+  await expect(page.locator("[data-board-column]")).toHaveCount(1)
+  await expect(page.locator("[data-board-column]")).toHaveAttribute("data-board-column", "blocked")
+  await tabs.locator('[data-board-tab="review"]').click()
+  await expect(page.locator("[data-board-column]")).toHaveAttribute("data-board-column", "review")
+
+  // One tap on Unblock, and the ticket's window is open on its discussion.
+  await first.locator("[data-decide]").click()
+  await expect(page.getByRole("dialog")).toBeVisible()
+})
+
 test("every page is a tap or two away", async ({ page }) => {
   await open(page)
   for (const [name, address] of PAGES) {

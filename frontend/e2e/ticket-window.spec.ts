@@ -104,7 +104,11 @@ test.describe("on a phone", () => {
   test.use({ viewport: { width: 390, height: 844 } })
 
   test("the window takes the whole screen", async ({ page }) => {
-    await open(page)
+    await page.context().addCookies([{ name: "ponos_token", value: "e2e", url: test.info().project.use.baseURL }])
+    await page.goto(BOARD)
+    // A phone's board draws one column at a time, and opens on Blocked: the ticket is in Ready.
+    await page.locator('[data-board-tab="ready"]').click()
+    await expect(page.getByRole("link", { name: "A long ticket" })).toBeVisible()
     await openLong(page)
     await expect
       .poll(async () => {

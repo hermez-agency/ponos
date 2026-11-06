@@ -47,5 +47,7 @@ test("the project on a card has its icon and leads to its page, not to the ticke
 test("the same on a narrow screen", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 700 })
   await open(page)
+  // A phone's board draws one column at a time, and opens on Blocked: the card is in Ready.
+  await page.locator('[data-board-tab="ready"]').click()
   await check(page)
 })

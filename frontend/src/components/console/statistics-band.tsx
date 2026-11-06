@@ -12,6 +12,7 @@ import { currentBoard } from "@/lib/board-store"
 import { currentLanguage, useT } from "@/lib/i18n"
 import { byProject, bySubtype, regression, stacks, trend } from "@/lib/made"
 import { money, number } from "@/lib/numbers"
+import { isPhone } from "@/lib/phone"
 import type { BlockFamily, Made, Statistics, StatisticsDay } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
@@ -115,16 +116,21 @@ function spendingLink(from: string, to: string, project?: string): string {
 const question = (scope: string, from: string, to: string) => `${scope}|${from}|${to}`
 
 /* Whether the band is folded, as the last person at this browser left it. Open
- * by default: the figures are why the dashboard is more than the board. */
+ * by default: the figures are why the dashboard is more than the board — but
+ * folded on a phone, until somebody opens it: there the dashboard opens on what
+ * waits for you (`to-handle.tsx`), and two screens of figures stood between it
+ * and the board. A project's page keeps them open: it has no such block. */
 const FOLDED_KEY = "ponos-dashboard-statistics"
 const PROJECT_FOLDED_KEY = "ponos-project-statistics"
 
 function useFolded(key: string) {
   const [folded, setFolded] = React.useState(() => {
+    const byDefault = key === FOLDED_KEY && isPhone()
     try {
-      return localStorage.getItem(key) === "folded"
+      const kept = localStorage.getItem(key)
+      return kept === null ? byDefault : kept === "folded"
     } catch {
-      return false
+      return byDefault
     }
   })
   const change = React.useCallback(

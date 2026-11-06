@@ -79,6 +79,8 @@ for (const viewport of [
     const content = page.locator('[data-slot="admin-content"]')
     const widthOf = async (variant: string) => {
       await page.goto(`/?view=console/tickets/list&variant=${variant}`)
+      // A phone's board draws one column at a time, and opens on Blocked: the ticket is in Ready.
+      if (variant === "board" && viewport.width < 768) await page.locator('[data-board-tab="ready"]').click()
       await expect(page.getByText("A long ticket").filter({ visible: true }).first()).toBeVisible()
       await expect(content).toHaveAttribute("data-full-width", "true")
       return Math.round((await content.boundingBox())!.width)
