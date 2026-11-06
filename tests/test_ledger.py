@@ -175,3 +175,20 @@ def a_ticket_trashed_through_the_ledger_is_trashed_in_notion_by_the_mirror(
     assert tickets.get(page) is None and ledger.query(space.tickets) == []
     mirror.flush(board, config, space)
     assert board.trashed == [page]
+
+
+@case
+def a_ticket_is_addressed_by_the_console_and_its_old_page_id_still_names_it(
+    state_home: Path,
+) -> None:
+    board: Any = Notion()
+    page = _page(board, "Ancien", "## Mission\n\nV1.", statut="ready")
+    config = _config("")
+    ledger = Ledger(board, config.notion, "en", "https://ponos.example/")
+    space = ledger.workspace(config.notion)
+    notion_import.run(board, config, space)
+    found = ledger.page(page)
+    assert found.url == f"https://ponos.example/tickets/{page}"
+    assert "notion" not in found.url
+    dashed = f"{page[:8]}-{page[8:12]}-{page[12:16]}-{page[16:20]}-{page[20:]}"
+    assert ledger.page(dashed).id == page, "the old page identifier is still the ticket's"

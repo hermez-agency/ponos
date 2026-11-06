@@ -89,7 +89,7 @@ nobody to talk to: no one can answer a question while the session runs.
 - Repository: {repo}
 - You are in a dedicated git worktree, on branch `{branch}`, created from \
 `{base}`. Your working copy is shared with no one.
-{resumed}- Notion ticket: {url}
+{resumed}- Ticket: {url}
 {kind}
 # What is expected
 
@@ -138,7 +138,7 @@ your answer will be written back into the Notion ticket itself.
 {comments}{context}{brief}{goal}{agent}{permissions}# Context
 
 - Working directory: {repo} — empty and disposable, it is yours to use.
-- Notion ticket: {url}
+- Ticket: {url}
 {kind}
 # What is expected
 
@@ -187,7 +187,7 @@ slightly differently. What was validated is what goes out, word for word.
 {comments}{context}{brief}{goal}{agent}{permissions}# Context
 
 - Working directory: {repo} — empty and disposable, it is yours to use.
-- Notion ticket: {url}
+- Ticket: {url}
 
 # What is expected
 
@@ -230,7 +230,7 @@ click away from making one.
 {comments}{context}{brief}{agent}# Context
 
 - {where}
-- Notion ticket: {url}
+- Ticket: {url}
 
 {thread}# The message to answer
 
@@ -266,7 +266,7 @@ that modifies, no commit. Your whole job is to read and to decide.
 {comments}{context}{brief}{agent}# Context
 
 - {where}
-- Notion ticket: {url}
+- Ticket: {url}
 
 # The board, a line per ticket — [status] title (id)
 
@@ -309,7 +309,7 @@ nobody to talk to: no one can answer a question while the session runs.
 {comments}{context}{brief}{agent}# Context
 
 - {where}
-- Notion ticket: {url}
+- Ticket: {url}
 
 # The change that woke you
 
@@ -359,7 +359,7 @@ nobody to talk to: no one can answer a question while the session runs.
 - You are in a disposable worktree of {repo}, in the middle of \
 `git rebase origin/{base}` of the branch `{branch}`: git stopped on the \
 conflicts listed above. `git status` shows where it stands.
-- Notion ticket: {url}
+- Ticket: {url}
 
 # What is expected
 
@@ -414,7 +414,7 @@ nobody to talk to: no one can answer a question while the session runs.
 
 - You are in a disposable worktree of {repo}, on the branch `{branch}`, at the \
 commit the red checks ran on.
-- Notion ticket: {url}
+- Ticket: {url}
 
 # What is expected
 

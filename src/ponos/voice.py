@@ -1181,11 +1181,11 @@ _SAID: dict[str, dict[str, str]] = {
     # -- what a pull request is opened with -----------------------------------
     "pull-request-body": {
         "en": (
-            "{summary}\n\n---\nNotion ticket: {url}\nClaude Code session: `{session}`\n"
+            "{summary}\n\n---\nTicket: {url}\nClaude Code session: `{session}`\n"
             "Opened by ponos ({commits})."
         ),
         "fr": (
-            "{summary}\n\n---\nTicket Notion : {url}\nSession Claude Code : `{session}`\n"
+            "{summary}\n\n---\nTicket : {url}\nSession Claude Code : `{session}`\n"
             "Ouverte par ponos ({commits})."
         ),
     },

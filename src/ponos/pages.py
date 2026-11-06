@@ -46,6 +46,9 @@ COLLECTIONS = ("tickets", "projects", "agents", "schedules", "goals")
 # it as a page — `blocks_text`, `append_markdown`, `replace_markdown`.
 CONTEXT_PAGE = "context"
 
+# The kinds of Notion property the import keeps: the ones `store.written` can give back.
+_KEPT = ("rich_text", "select", "status", "url", "checkbox", "number", "date", "relation")
+
 # What a page carries about itself, as opposed to what the board carries about it.
 RESERVED = ("id", "title", "created", "edited", "cover", "icon")
 
@@ -268,6 +271,45 @@ class Pages:
                 "UPDATE board_pages SET title = ?, properties = ?, edited = ? WHERE id = ?",
                 (title, json.dumps(properties), now(), row[0]),
             )
+
+    def adopt(self, collection: str, page: Page, body: str) -> bool:
+        """A page of Notion, brought home under its own identifier; False when it is here already.
+
+        What the import does for projects, agents, goals and schedules. The
+        identifier is kept, so that every relation a ticket holds still lands;
+        a page already here is the database's now and is left as it is.
+        """
+        collection = self.resolve_database(collection)
+        identifier = ids.bare(page.id)
+        properties: dict[str, Any] = {}
+        for name, prop in page.properties.items():
+            kind = prop.get("type") if isinstance(prop, dict) else ""
+            if kind not in _KEPT:
+                continue
+            value = read(page, name)
+            if kind == "relation":
+                value = [ids.bare(one) for one in value or []]
+            if value is None or value == "" or value == []:
+                continue
+            properties[name] = value
+        created = str(page.raw.get("created_time") or "") or now()
+        edited = str(page.raw.get("last_edited_time") or "") or created
+        with db.transaction() as connection:
+            found = connection.execute(
+                "INSERT OR IGNORE INTO board_pages"
+                " (id, collection, title, properties, body, created, edited)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (
+                    identifier,
+                    collection,
+                    page.title.strip(),
+                    json.dumps(properties),
+                    vault.mask(body.strip()),
+                    created,
+                    edited,
+                ),
+            ).rowcount
+        return bool(found)
 
     def set_picture(self, page_id: str, slot: str, picture: Picture) -> Page:
         """A page's cover or icon, written beside the database. See `store.Store.set_picture`."""

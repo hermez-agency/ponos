@@ -185,11 +185,11 @@ def what_a_person_does_in_notion_rises_and_nothing_else_does(state_home: Path) -
     board.talk[page] = [store.Comment("Salut", "2026-11-01T09:00:00Z", "c1", "", "someone")]
     fresh = _page(board, "Nouveau", "## Mission\n\nNeuve.", statut="ready")
     report = notion_import.rise(board, config, SPACE, seen)
-    assert report.created == 1 and report.changed == 1 and report.comments == 1
+    assert report.created == 1 and report.changed == 1 and report.comments == 0
     ticket = tickets.get(page)
     assert ticket is not None and ticket.status == "ready" and ticket.mission == "V2."
     assert ticket.priority == 10, "the priority is Ponos's: the mirror writes over it"
-    assert [c.text for c in tickets.comments(page)] == ["Salut"]
+    assert tickets.comments(page) == [], "a comment written in Notion is no longer read"
     created = tickets.get(fresh)
     assert created is not None and created.mission == "Neuve."
     assert tickets.pending() == [], "what rises is never sent back"
@@ -212,15 +212,136 @@ def a_ticket_with_changes_in_the_queue_is_not_read_upward(state_home: Path) -> N
 
 
 @case
-def a_comment_the_mirror_sent_does_not_come_back_as_a_second_one(state_home: Path) -> None:
+def a_comment_in_notion_is_not_read_after_the_import(state_home: Path) -> None:
     board: Any = Notion()
     config = _config("")
     page = _page(board, "T", "## Mission\n\nM.", statut="blocked")
     notion_import.run(board, config, SPACE)
-    tickets.comment(page, "Je bloque.", author="notion-user")
-    mirror.flush(board, config, SPACE)
-    board.talk[page] = [
-        store.Comment("Je bloque.", "2026-11-02T10:00:00Z", "c9", "", "notion-user")
-    ]
+    board.talk[page] = [store.Comment("Oui.", "2026-11-02T10:00:00Z", "c9", "", "notion-user")]
     notion_import.rise(board, config, SPACE, {})
-    assert [c.text for c in tickets.comments(page)] == ["Je bloque."]
+    assert tickets.comments(page) == []
+
+
+PNG = b"\x89PNG\r\n\x1a\n" + b"0" * 32
+BLOCK = "a1" * 16
+FILE_LINE = f"[image attached to the ticket: schéma (Notion block {BLOCK})]"
+
+
+class Archive(Notion):
+    """A Notion with every kind of page, and a file behind a block."""
+
+    def attachment(self, block_id: str) -> str:
+        if block_id != BLOCK:
+            raise LookupError(f"block {block_id} holds no file")
+        return "https://files.example/schema.png"
+
+
+def _archive() -> tuple[Any, Workspace]:
+    board: Any = Archive()
+    board.context = "Je suis Salva."
+    space = Workspace(
+        tickets="tickets",
+        projects="projects",
+        agents="agents",
+        schedules="schedules",
+        goals="goals",
+        context_page="ctx",
+    )
+    project = board.create_row("projects", "Ponos", {"Repository": "~/ponos"})
+    board.bodies[project] = "Notes du projet."
+    board.create_row("agents", "Relecteur")
+    board.create_row("goals", "Livrer")
+    board.create_row("schedules", "Chaque lundi")
+    return board, space
+
+
+def _serve_files() -> None:
+    import httpx
+
+    from ponos import http
+
+    http.forget()
+    http.transport = httpx.MockTransport(
+        lambda request: httpx.Response(200, content=PNG, headers={"content-type": "image/png"})
+    )
+
+
+@case
+def the_import_brings_home_the_pages_the_context_the_files_and_the_links(state_home: Path) -> None:
+    from ponos import page_files, pages
+
+    board, space = _archive()
+    config = _config("")
+    first = _page(
+        board, "Compte rendu", f"## Mission\n\nFais X.\n\n## Ce qui a été fait\n\n{FILE_LINE}"
+    )
+    _page(board, "Suite", "## Mission\n\nS.", statut="done", Après=[first])
+    board.talk[first] = [store.Comment("Quoi ?", "2026-10-01T10:00:00Z", "c1", "d1", "someone")]
+    _serve_files()
+    try:
+        report = notion_import.run(board, config, space)
+    finally:
+        from ponos import http
+
+        http.transport = None
+        http.forget()
+    assert report.problems == []
+    assert report.brought == {"projects": 1, "agents": 1, "goals": 1, "schedules": 1}
+    assert report.context and report.files == 1 and report.links == 1
+    target = pages.Pages(config.notion)
+    assert [p.title for p in target.query("projects")] == ["Ponos"]
+    assert target.context() == "Je suis Salva."
+    assert target.blocks_text(target.query("projects")[0].id) == "Notes du projet."
+    kept = page_files.find(BLOCK)
+    assert kept is not None and kept.read_bytes() == PNG
+    done = tickets.get(next(t.id for t in tickets.listing() if t.title == "Suite"))
+    assert done is not None and done.status == "done" and done.after == [first]
+    # Replayed: nothing doubles, nothing new.
+    again = notion_import.run(board, config, space)
+    assert (again.created, again.brought, again.files, again.links) == (0, {}, 0, 0)
+    assert len(target.query("projects")) == 1
+    parity = notion_import.check(board, config, space)
+    assert parity.ok, parity.losses
+    assert ("comments", 1, 1) in parity.rows and ("files", 1, 1) in parity.rows
+
+
+@case
+def the_parity_report_lists_what_the_database_lacks(state_home: Path) -> None:
+    board, space = _archive()
+    config = _config("")
+    _page(board, "Un", "## Mission\n\nM.", statut="done")
+    notion_import.run(board, config, space)
+    assert notion_import.check(board, config, space).ok
+    late = _page(board, "Écrit après", "## Mission\n\nN.", statut="ready")
+    board.talk[late] = [store.Comment("Salut", "2026-11-01T09:00:00Z", "c1", "", "someone")]
+    parity = notion_import.check(board, config, space)
+    assert not parity.ok
+    assert "ticket missing: Écrit après" in parity.losses
+    assert ("tickets", 2, 1) in parity.rows
+    assert tickets.get(late) is None, "checking writes nothing"
+
+
+@case
+def a_file_already_dead_in_notion_is_noted_and_is_not_a_loss(state_home: Path) -> None:
+    import httpx
+
+    from ponos import http, page_files
+
+    board, space = _archive()
+    config = _config("")
+    dead = "b2" * 16
+    _page(board, "Vieux", f"## Mission\n\n[image attached to the ticket (Notion block {dead})]")
+    board.attachment = lambda block: "https://raw.example/gone.png"
+    http.forget()
+    http.transport = httpx.MockTransport(lambda request: httpx.Response(404))
+    try:
+        report = notion_import.run(board, config, space)
+        assert (report.gone, report.problems) == (1, [])
+        assert page_files.gone(dead) and page_files.find(dead) is None
+        again = notion_import.run(board, config, space)
+        assert again.gone == 0, "a file known to be gone is not asked for again"
+        parity = notion_import.check(board, config, space)
+    finally:
+        http.transport = None
+        http.forget()
+    assert parity.ok and len(parity.notes) == 1

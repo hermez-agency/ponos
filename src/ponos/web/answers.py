@@ -417,6 +417,12 @@ class TicketOn(Shape):
     """The prompt now run at every change of status, empty once removed."""
 
 
+class TicketDocument(Shape):
+    id: str
+    done: str
+    """The document as it now stands: the ticket's part « What was done »."""
+
+
 class TicketPriority(Shape):
     id: str
     priority: int

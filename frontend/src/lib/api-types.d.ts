@@ -1438,6 +1438,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tickets/{ticket_id}/document": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set Ticket Document */
+        post: operations["set_ticket_document_api_tickets__ticket_id__document_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tickets/{ticket_id}/priority": {
         parameters: {
             query?: never;
@@ -4991,6 +5008,11 @@ export interface components {
             /** @description On a ready or draft ticket only: the line its card no longer draws — see `_notes`. */
             earlier?: components["schemas"]["Earlier"];
         };
+        TicketDocument: {
+            id: string;
+            /** @description The document as it now stands: the ticket's part « What was done ». */
+            done: string;
+        };
         TicketGoal: {
             id: string;
             /** @description Empty when the ticket now serves none. */
@@ -8313,6 +8335,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TicketOn"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_ticket_document_api_tickets__ticket_id__document_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ticket_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketDocument"];
                 };
             };
             /** @description Validation Error */

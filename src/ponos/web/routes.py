@@ -48,6 +48,7 @@ from .. import (
     browser,
     journal,
     notifications,
+    page_files,
     preview,
     push,
     speech,
@@ -474,6 +475,19 @@ def project_image(request: Request, project_id: str, slot: str) -> Response:
 
 @router.get("/api/files/{file_id:page}", response_class=Response)
 def file(request: Request, file_id: str) -> Response:
+    # A file the import brought home is served from here; one that is still on
+    # Notion's side is sent on to a fresh address.
+    if (kept := page_files.find(file_id)) is not None:
+        media, inline = page_files.served_as(kept)
+        return Response(
+            kept.read_bytes(),
+            media_type=media,
+            headers={
+                "Content-Disposition": f'{"inline" if inline else "attachment"}; filename="{kept.name}"',
+                "X-Content-Type-Options": "nosniff",
+                "Content-Security-Policy": "default-src 'none'; sandbox",
+            },
+        )
     return Response(
         b"",
         status_code=302,
@@ -1279,6 +1293,15 @@ def set_ticket_on(
 ) -> Response:
     done = _api(request).set_on(ticket_id, payload.on)
     _done(request, ticket_id, "on", payload.on)
+    return answer(done)
+
+
+@router.post("/api/tickets/{ticket_id:page}/document", response_model=answers.TicketDocument)
+def set_ticket_document(
+    request: Request, ticket_id: str, payload: Fields = Body(default_factory=dict)
+) -> Response:
+    done = _api(request).set_document(ticket_id, str(payload.get("content", "")))
+    _done(request, ticket_id, "document")
     return answer(done)
 
 

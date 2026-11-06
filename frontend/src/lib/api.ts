@@ -141,6 +141,14 @@ export const api = {
     answer(
       client.POST("/api/tickets/{ticket_id}/launch", { params: { path: { ticket_id: ticket } }, body: { force } })
     ),
+  /** The ticket's document: its part « What was done », written by hand. */
+  setDocument: (ticket: string, content: string) =>
+    answer(
+      client.POST("/api/tickets/{ticket_id}/document", {
+        params: { path: { ticket_id: ticket } },
+        body: { content },
+      })
+    ),
   /** A score from 0 to 100; empty is the middle one, 50. */
   setPriority: (ticket: string, priority: number | "") =>
     answer(

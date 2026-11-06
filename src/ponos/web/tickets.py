@@ -787,6 +787,23 @@ class Tickets(Base):
         self.watch.nudge()
         return {"id": page_id.replace("-", ""), "priority": score}
 
+    def set_document(self, page_id: str, text: str) -> dict[str, Any]:
+        """Write the ticket's document: the part « What was done », which a document ticket delivers.
+
+        A document or external ticket ends with its result there (see
+        `execution._execute_document`); this is the hand that corrects it.
+        The next session of the ticket writes the part again, from its own report.
+        """
+        client = self.runner.client
+        heading = self.runner.voice.say("page-done")
+        client.replace_section(page_id, ticket_page.DONE, f"## {heading}\n\n{text.strip()}")
+        self.reader.hold(client.page(page_id))
+        self.watch.nudge()
+        return {
+            "id": page_id.replace("-", ""),
+            "done": ticket_page.split(client.blocks_text(page_id)).done,
+        }
+
     def transitions(self, page_id: str) -> dict[str, Any]:
         """The executions of one ticket's « On » prompt, newest first."""
         return {"transitions": transitions_module.history(page_id)}

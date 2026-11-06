@@ -872,6 +872,14 @@ class Config:
     retired: tuple[tuple[int, str], ...] = ()
 
     @property
+    def console_url(self) -> str:
+        """Where the console is reached, for the links Ponos writes: `web.url`, else this machine's."""
+        if self.web.url:
+            return self.web.url.rstrip("/")
+        host = "127.0.0.1" if self.web.host in ("", "0.0.0.0", "::") else self.web.host  # noqa: S104
+        return f"http://{host}:{self.web.port}"
+
+    @property
     def standalone(self) -> bool:
         """Is there no Notion behind this installation?
 

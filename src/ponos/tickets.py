@@ -381,6 +381,22 @@ def received(ticket: str, **values: Any) -> Record | None:
     return get(ticket) if found else None
 
 
+def link(ticket: str, after: list[str]) -> int:
+    """Add the « after » links a ticket does not have yet, queueing nothing; how many were new.
+
+    The import's: the links Notion holds, put back on a ticket it created
+    before it read them. See `received` for why nothing is queued.
+    """
+    ticket, added = _key(ticket), 0
+    with db.transaction() as connection:
+        for earlier in after:
+            added += connection.execute(
+                "INSERT OR IGNORE INTO ticket_after (ticket, after) VALUES (?, ?)",
+                (ticket, _key(earlier)),
+            ).rowcount
+    return added
+
+
 def heard(
     ticket: str, text: str, *, at: str, author: str = "", discussion: str = "", echo: bool = False
 ) -> bool:

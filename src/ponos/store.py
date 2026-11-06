@@ -438,10 +438,12 @@ def open(  # noqa: A001
     if config.standalone:
         from .pages import Pages
 
-        return Ledger(Pages(config.notion), config.notion, config.runner.language)
+        return Ledger(
+            Pages(config.notion), config.notion, config.runner.language, config.console_url
+        )
     from .notion import Client
 
     client = Client(config.notion.token, dropped=dropped)
     if notion_only:
         return client
-    return Ledger(client, config.notion, config.runner.language)
+    return Ledger(client, config.notion, config.runner.language, config.console_url)
