@@ -58,7 +58,7 @@ from pathlib import Path
 from urllib.parse import parse_qsl, urlencode, urlparse
 
 from .. import config as config_module
-from .. import github_app, legacy, passwords, voice
+from .. import github_app, passwords, voice
 from ..config import Config, state_dir
 from . import oauth, sessions
 
@@ -77,10 +77,6 @@ def cookie_name(port: int) -> str:
     """
     return f"{COOKIE}_{port}"
 
-
-# Migration filet: the cookie a browser was given before the rename, still good
-# for the year it was given for — a rename is not a reason to sign in again.
-LEGACY_COOKIE = legacy.OLD.replace("-", "_") + "_token"
 
 # The build names every file under `assets/` after a hash of what it holds, so
 # a file there never changes under its name: a browser keeps it for a year and

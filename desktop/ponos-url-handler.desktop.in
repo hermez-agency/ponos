@@ -6,6 +6,4 @@ Type=Application
 Icon=ponos
 NoDisplay=true
 Terminal=false
-# The second scheme is a migration filet: session links written before the
-# rename to Ponos, still in their Notion cells.
-MimeType=x-scheme-handler/ponos;x-scheme-handler/ticket-runner;
+MimeType=x-scheme-handler/ponos;

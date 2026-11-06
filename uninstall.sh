@@ -73,7 +73,9 @@ if [ -f "$DATA/applications/ponos-url-handler.desktop" ]; then
     have update-desktop-database && { update-desktop-database "$DATA/applications" >/dev/null 2>&1 || true; }
 fi
 # xdg-mime can set a default, not remove one: the line is taken out of the
-# file it wrote it to.
+# file it wrote it to. The `ticket-runner` scheme is no longer registered, but
+# an installation from before the rename still carries its line, pointing at
+# the handler this removes.
 MIMEAPPS="${XDG_CONFIG_HOME:-$HOME/.config}/mimeapps.list"
 if [ -f "$MIMEAPPS" ] && grep -q 'ponos-url-handler\.desktop' "$MIMEAPPS"; then
     sed -e '/^x-scheme-handler\/ponos=/d' -e '/^x-scheme-handler\/ticket-runner=/d' \
@@ -94,8 +96,6 @@ fi
 
 say "Removing files"
 rm -f "$BIN"
-# Migration filet: the alias install.sh left for the name before the rename.
-rm -f "$HOME/.local/bin/ticket-runner"
 rm -rf "$HOME/.local/share/ponos"
 
 if [ "${TR_PURGE:-0}" = "1" ]; then

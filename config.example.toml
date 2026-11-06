@@ -150,8 +150,8 @@ mention = "@claude"
 #             goal's name, its page, its `Critère` and its `Échéance` before its
 #             role. Absent, the runner says so once per run and carries on
 #
-# Rows created under the older names — "Master Tickets", "Soul" — are still
-# found, as long as this table does not name them otherwise. Nothing to rename.
+# A row is found under the title named here, or under the default below, and
+# under no other: a board whose rows carry older titles names them here.
 [notion.pages]
 tickets = "Tickets"
 projects = "Projects"

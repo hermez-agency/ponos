@@ -46,8 +46,6 @@ from __future__ import annotations
 import re
 from collections.abc import Callable, Iterable
 
-from . import legacy
-
 # The two the runner speaks. English is less a default than the language the
 # tool was written in: everything it says was written there first.
 LANGUAGES = ("en", "fr")
@@ -88,13 +86,6 @@ MARKS = {
     "requeued": "↩️",
 }
 
-# How every report opened until the marks arrived: `<old name>@<host> — `.
-# Still recognised, and only recognised — nothing writes it any more. A board
-# does not start over when the runner is updated, and the comments already on it
-# have to keep being read as ours. A migration filet too: those reports were
-# signed with the name Ponos had before the rename.
-SIGNATURE = f"{legacy.OLD}@"
-
 
 def is_report(text: str) -> bool:
     """Was this comment written by a run, rather than by a person?
@@ -105,20 +96,7 @@ def is_report(text: str) -> bool:
     report has that an answer does not: the mark it opens with.
     """
     said = str(text or "").lstrip()
-    return said.startswith(tuple(MARKS.values())) or said.startswith(SIGNATURE)
-
-
-def plain(text: str) -> str:
-    """A report without the host an older run signed it with.
-
-    Reports made before the marks open with `<old name>@laptop — done.`, and
-    the host is exactly the part nobody needs — least of all the session about
-    to read the thread back as context.
-    """
-    first, newline, rest = str(text or "").partition("\n")
-    if first.lstrip().startswith(SIGNATURE):
-        first = first.split("—", 1)[-1].strip()
-    return first + newline + rest
+    return said.startswith(tuple(MARKS.values()))
 
 
 def line(error: object) -> str:

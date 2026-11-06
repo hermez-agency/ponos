@@ -29,7 +29,6 @@ sent, like anything typed.
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 import queue
@@ -246,7 +245,6 @@ class Chat:
         self.config = config
         self.publish = publish
         self.brief = brief or (lambda: "")
-        self.path = web_dir() / "chat.json"
         self._lock = threading.Lock()
         self._busy = False
         # Set by Stop, read by the session of the turn in flight: one per turn,
@@ -289,43 +287,10 @@ class Chat:
     # -- persistence ---------------------------------------------------------
 
     def _load(self) -> None:
-        """Reopen the conversation spoken in last — or the single one of `chat.json`.
-
-        The file is what the console kept before there were many. It is read
-        once, into the table, and set aside: the table is the truth from then on.
-        """
+        """Reopen the conversation spoken in last."""
         row = chats.latest()
-        if row is None and chats.empty():
-            row = self._imported()
         if row is not None:
             self._adopt(row)
-
-    def _imported(self) -> dict[str, Any] | None:
-        try:
-            raw = json.loads(self.path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            return None
-        if not isinstance(raw, dict) or not raw.get("messages"):
-            return None
-        row: dict[str, Any] = {
-            "id": secrets.token_hex(6),
-            "claude": str(raw.get("session_id") or ""),
-            "turns": int(raw.get("turns") or 0),
-            "folder": str(raw.get("files") or ""),
-            "messages": [item for item in raw.get("messages", []) if isinstance(item, dict)],
-        }
-        first: dict[str, Any] = next(
-            (item for item in row["messages"] if item.get("role") == "you"), {}
-        )
-        row["title"] = chats.titled(str(first.get("text", "")))
-        stamp = next((str(item["at"]) for item in reversed(row["messages"]) if item.get("at")), "")
-        row["created"] = row["updated"] = stamp or chats.now()
-        chats.save(row)
-        try:
-            self.path.rename(self.path.with_suffix(".json.imported"))
-        except OSError:
-            pass
-        return chats.load(row["id"])
 
     def _adopt(self, row: dict[str, Any]) -> None:
         self.id = str(row["id"])

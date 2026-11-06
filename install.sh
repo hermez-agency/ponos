@@ -278,37 +278,6 @@ sed -e "s|@APP_DIR@|$APP_DIR|g" -e "s|@PYTHON@|$PYTHON|g" \
 chmod +x "$BIN"
 ok "command installed: $BIN"
 
-# --- migration filet: an installation from before the rename ---------------
-# Ponos was installed as ticket-runner. Its timer and console are stopped and
-# their units removed, the variables of their drop-ins renamed, its
-# configuration and state moved under the new name (legacy.py says how, and
-# that nothing is lost), its old sources removed, and the old command kept as
-# a hidden alias that says so and runs ponos. Removed with the filet.
-OLD_NAME=ticket-runner
-OLD_UNITS="$OLD_NAME.timer $OLD_NAME.service $OLD_NAME-web.service"
-if have systemctl && [ -e "$UNIT_DIR/$OLD_NAME.timer" ]; then
-    say "Moving the $OLD_NAME installation over to ponos"
-    systemctl --user disable --now $OLD_UNITS >/dev/null 2>&1 || true
-    for unit in $OLD_UNITS; do
-        rm -f "$UNIT_DIR/$unit"
-        new_unit=$(printf '%s' "$unit" | sed "s/^$OLD_NAME/ponos/")
-        if [ -d "$UNIT_DIR/$unit.d" ] && [ ! -e "$UNIT_DIR/$new_unit.d" ]; then
-            mv "$UNIT_DIR/$unit.d" "$UNIT_DIR/$new_unit.d"
-            sed -i 's/TICKET_RUNNER_/PONOS_/g' "$UNIT_DIR/$new_unit.d"/*.conf 2>/dev/null || true
-        fi
-    done
-    systemctl --user daemon-reload || true
-    ok "$OLD_NAME units removed"
-fi
-PYTHONPATH="$APP_DIR/src" "$PYTHON" -c 'from ponos import legacy; legacy.directories(print)' \
-    | sed 's/^ponos: /    /'
-if [ -d "$HOME/.local/share/$OLD_NAME" ]; then
-    rm -rf "$HOME/.local/share/$OLD_NAME"
-    rm -f "${XDG_DATA_HOME:-$HOME/.local/share}/applications/$OLD_NAME-url-handler.desktop"
-    sed -e "s|@BIN@|$BIN|g" "$APP_DIR/bin/former-name.in" > "$BIN_DIR/$OLD_NAME"
-    chmod +x "$BIN_DIR/$OLD_NAME"
-    ok "old sources removed, $OLD_NAME kept as an alias of ponos"
-fi
 mkdir -p "$CONFIG_DIR"
 
 # --- 4. configuration -------------------------------------------------------
@@ -397,9 +366,7 @@ if [ -d "$APP_DIR/desktop" ]; then
         > "$DESKTOP_DIR/ponos-url-handler.desktop"
     have update-desktop-database && update-desktop-database "$DESKTOP_DIR" >/dev/null 2>&1
     if have xdg-mime; then
-        # The second scheme is a migration filet: links written before the
-        # rename are still in their Notion cells.
-        xdg-mime default ponos-url-handler.desktop x-scheme-handler/ponos x-scheme-handler/ticket-runner \
+        xdg-mime default ponos-url-handler.desktop x-scheme-handler/ponos \
             >/dev/null 2>&1 && ok "ponos:// links open a terminal on the session" \
             || warn "could not register ponos:// with the desktop"
     fi

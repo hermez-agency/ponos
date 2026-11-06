@@ -37,7 +37,6 @@ from ponos import (
     channels,
     conversation,
     journal,
-    legacy,
     log,
     notion,
     redaction,
@@ -364,7 +363,7 @@ def a_message_typed_at_a_ticket_is_a_comment_in_your_own_voice() -> None:
     that never ends on its own.
     """
     report = notion.Comment(
-        f"{legacy.OLD}@laptop — blocked.\nWhich header?",
+        "🙋 Blocked.\nWhich header?",
         discussion_id="d-report",
         created_by="runner-id",
     )
@@ -411,7 +410,7 @@ def the_discussion_of_a_ticket_reads_as_a_conversation() -> None:
     client = _TalkClient(
         [
             notion.Comment(
-                f"{legacy.OLD}@laptop — blocked.\nWhich header?",
+                "🙋 Blocked.\nWhich header?",
                 created_time="2026-08-30T10:00:00.000Z",
                 discussion_id="d-report",
                 created_by="runner-id",

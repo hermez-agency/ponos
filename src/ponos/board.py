@@ -477,7 +477,7 @@ class Board(Base):
         Notion would cost a request per ticket and per pass for nothing.
         """
         agent = str(store.read(ticket.page, self.config.notion.prop("agent")) or "")
-        if agent and agent not in self.agent_labels:
+        if agent and agent != self.agent_label:
             return False
         if not agent and not self.ledger.knows(ticket.page.id):
             return False
@@ -694,7 +694,7 @@ class Board(Base):
             try:
                 if ticket.id in self._claimed:
                     continue
-                if signed and store.read(page, agent) not in self.agent_labels:
+                if signed and store.read(page, agent) != self.agent_label:
                     continue
                 edited = page.raw.get("last_edited_time", "")
                 try:

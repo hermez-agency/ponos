@@ -202,9 +202,8 @@ class Notion:
     properties: dict[str, str] = field(default_factory=dict)
     status: dict[str, str] = field(default_factory=dict)
     # How the board spells the four types of ticket — see kinds.py. Not merged
-    # with the defaults, for the same reason as `pages`: `kind_names()` needs to
-    # know which ones the file names, to try the other spellings only when it
-    # names none.
+    # with the defaults: `kind_names()` needs to know which ones the file names,
+    # to try the other spellings only when it names none.
     types: dict[str, str] = field(default_factory=dict)
 
     def prop(self, key: str) -> str:
@@ -217,8 +216,8 @@ class Notion:
     def kind_names(self, key: str) -> tuple[str, ...]:
         """Every spelling that option may carry: the configured one, then the others.
 
-        The same rule as `page_aliases`: a name written in the file is the name
-        meant, and nothing else is tried past it. A file that says nothing gets
+        A name written in the file is the name meant, and nothing else is tried
+        past it. A file that says nothing gets
         the English default and the French one — a board built by hand in French
         says “Rédaction”, and reading it as no type at all would have the runner
         classify, again and again, a ticket somebody already typed.
@@ -240,17 +239,6 @@ class Notion:
     def page(self, key: str) -> str:
         """The title of the workspace row holding that database or page."""
         return self.pages.get(key, _DEFAULT_PAGES[key])
-
-    def page_aliases(self, key: str) -> tuple[str, ...]:
-        """Every title that row may carry: the configured one, then the old ones.
-
-        Only when the configuration does not name it: someone who wrote the
-        title down meant that title, and guessing past it would find the wrong
-        row on a board that has both.
-        """
-        if key in self.pages:
-            return (self.pages[key],)
-        return (_DEFAULT_PAGES[key], *_LEGACY_PAGES.get(key, ()))
 
     def state(self, key: str) -> str:
         # "blocked" is optional, and only *against a named `failed`*: a file that
@@ -1038,18 +1026,6 @@ _DEFAULT_PAGES = {
     "goals": "Objectifs",
 }
 
-# What those rows used to be called, or are called on a board built by hand. A
-# row is looked up under its current name first, then under these — as long as
-# the configuration itself names none, since a title someone typed is a title
-# they meant. Nothing to rename, nothing to re-provision.
-_LEGACY_PAGES = {
-    "tickets": ("Master Tickets",),
-    "projects": ("Master project", "Master Projects"),
-    "agents": ("Master Agents",),
-    "context": ("Soul",),
-    "schedules": ("Master Scheduler", "Master Scheluder"),
-}
-
 # The four types of ticket, told apart by the road they take rather than by what
 # they are about — see kinds.py. The keys are what the code says; the values are
 # the options of the board's Type column.
@@ -1714,9 +1690,6 @@ def _notion(table: schema.NotionTable, stored: dict[str, str]) -> Notion:
         workspace=table.workspace,
         mention=table.mention,
         tickets_database=table.tickets_database,
-        # Not merged with the defaults, for the same reason as `status` below:
-        # `page_aliases()` needs to know which titles the file actually names, to
-        # tell "the user calls it this" from "nobody said, so try the old names".
         pages=dict(table.pages),
         properties=_properties(table.properties),
         # Not merged with the defaults: `state()` needs to know which keys the

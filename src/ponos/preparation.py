@@ -525,7 +525,7 @@ class Preparation(Base):
         )
         if last < 0:
             return ""
-        report = voice_module.plain(comments[last].text).strip()
+        report = comments[last].text.strip()
         if blocks.classify(report.split("\n\n", 1)[0]) != "ticket.kind-unsure":
             return ""
         asked = question_module.found(report)

@@ -186,11 +186,3 @@ def recent_models(limit: int = 8) -> list[str]:
     except db.ERRORS:
         return []
     return [row[0] for row in rows]
-
-
-def empty() -> bool:
-    try:
-        with db.transaction(immediate=False) as connection:
-            return connection.execute("SELECT 1 FROM chats LIMIT 1").fetchone() is None
-    except db.ERRORS:
-        return True

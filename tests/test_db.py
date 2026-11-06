@@ -10,17 +10,13 @@ import sqlite3
 import subprocess
 import sys
 import tempfile
-import time
 from collections.abc import Callable
-from datetime import date
 from pathlib import Path
-from typing import Any
 
 from support import ROOT, case
 
 from ponos import config as C
-from ponos import conversation, credits, db, ideas, images, journal, notifications, state, sync
-from ponos.web import statistics as web_statistics
+from ponos import conversation, credits, db, ideas, journal, notifications, state, sync
 
 # -- the local database ------------------------------------------------------
 
@@ -183,190 +179,26 @@ def two_processes_opening_a_new_database_together_both_get_it() -> None:
         connection.close()
 
 
-def _json_installation(state_home: Path) -> dict[str, Any]:
-    """The state directory of an installation from before the database, filled in.
+@case
+def json_files_left_beside_the_database_are_read_by_nobody(state_home: Path) -> None:
+    """`ponos.db` is the only memory: the JSON files that came before it are not read in.
 
-    What each file holds is handed back, to be found again once it is a table.
+    Every installation went through the migrations that imported them; a file
+    still lying there is left as it is, neither read nor renamed.
     """
     state_home.mkdir(parents=True, exist_ok=True)
-    history = [
-        {
-            "at": "2026-09-28T09:00:00+00:00",
-            "ticket": "Fix the footer",
-            "id": "a" * 32,
-            "status": "done",
-            "project": "app",
-            "seconds": 312.4,
-            "cost_usd": 1.25,
-            "pull_request": "https://github.com/o/r/pull/7",
-            "merged": "https://github.com/o/r/pull/7",
-        },
-        {
-            "at": "2026-09-29T14:30:00+00:00",
-            "ticket": "Write the guide",
-            "id": "b" * 32,
-            "status": "done",
-            "kind": "document",
-            "project": "docs",
-            "cost_usd": 0.5,
-        },
-        {
-            "at": "2026-09-30T08:00:00+00:00",
-            "ticket": "Flaky",
-            "id": "c" * 32,
-            "status": "failed",
-            "reason": "tests red",
-        },
-    ]
-    (state_home / "history.jsonl").write_text(
-        "".join(json.dumps(entry, ensure_ascii=False) + "\n" for entry in history[:2])
-        + "half a line of jso\n"
-        + json.dumps(history[2])
-        + "\n"
-    )
-    claims = {"a" * 32: "Validated", "d" * 32: "Ready"}
-    (state_home / "claims.json").write_text(json.dumps(claims))
-    (state_home / "rebases.json").write_text(json.dumps({"a" * 32: 2}))
-    (state_home / "conversations.json").write_text(
-        json.dumps(
-            {
-                "pages": {
-                    "e" * 32: "2026-09-30T10:00:00+00:00",
-                    "f" * 32: "2026-09-29T10:00:00+00:00",
-                },
-                "threads": {
-                    "d1": {"session": "s-1", "answered": "c-42", "at": "2026-09-30T10:00:00+00:00"}
-                },
-                "cursor": 3,
-                "at": 1790000000.5,
-            }
-        )
-    )
-    later = time.time() + 3600
-    (state_home / "credits.json").write_text(json.dumps({"until": later, "since": time.time()}))
-    (state_home / "reserve.json").write_text(
-        json.dumps({"until": later + 60, "since": time.time()})
-    )
-    (state_home / "sync.json").write_text(
-        json.dumps(
-            {
-                "p1": ["2026-09-30T10:00:00.000Z", "2026-09-30T10:00:01+00:00", "f1ngerpr1nt"],
-                "p2": ["2026-09-29T10:00:00.000Z", "2026-09-29T10:00:01+00:00"],
-            }
-        )
-    )
-    journal = [
-        {
-            "at": "2026-09-30T10:00:00+00:00",
-            "what": "conflict",
-            "collection": "tickets",
-            "page": "p1",
-            "title": "Le ticket",
-            "detail": "both moved",
-        },
-        {
-            "at": "2026-09-30T10:05:00+00:00",
-            "what": "seen",
-            "collection": "tickets",
-            "page": "p2",
-            "title": "L'autre",
-            "detail": "",
-        },
-    ]
-    (state_home / "sync.jsonl").write_text("".join(json.dumps(entry) + "\n" for entry in journal))
-    (state_home / "images").mkdir()
-    pictures = {f"{'e' * 32}:cover": {"agreed": "emoji:🐾", "kind": "emoji", "url": ""}}
-    (state_home / "images" / "index.json").write_text(json.dumps(pictures, ensure_ascii=False))
-    return {
-        "history": history,
-        "claims": claims,
-        "journal": journal,
-        "pictures": pictures,
-        "files": sorted(path.relative_to(state_home) for path in state_home.rglob("*.json*")),
+    left = {
+        "history.jsonl": json.dumps({"at": "2026-09-28T09:00:00+00:00", "status": "done"}) + "\n",
+        "claims.json": json.dumps({"a" * 32: "Ready"}),
+        "conversations.json": json.dumps({"pages": {"e" * 32: "2026-09-30"}, "cursor": 3}),
     }
-
-
-@case
-def an_installation_of_json_files_starts_on_the_database_with_everything_it_had(
-    state_home: Path,
-) -> None:
-    """Same statistics, same conversations, same claims — and the files set aside, not deleted.
-
-    Four processes open it at once, as the timer and the console do after an
-    update: the files are read in once, not four times.
-    """
-    try:
-        had = _json_installation(state_home)
-        originals = {name: (state_home / name).read_bytes() for name in had["files"]}
-        script = (
-            "import sys; sys.path.insert(0, sys.argv[1]);"
-            "from ponos import db; print(db.version(db.connect()))"
-        )
-        processes = [
-            subprocess.Popen(
-                [sys.executable, "-c", script, str(ROOT / "src")],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            )
-            for _ in range(4)
-        ]
-        for process in processes:
-            out, err = process.communicate(timeout=60)
-            assert process.returncode == 0, err
-            assert out.strip() == str(len(db.MIGRATIONS)), out
-
-        # Migration 17 gives every stop its cause, read back from its sentence.
-        coded = [
-            {**entry, "code": "unknown"} if entry.get("status") == "failed" else entry
-            for entry in had["history"]
-        ]
-        assert state.history(1_000_000) == coded, "every whole line, in order, once"
-        assert state.history(1) == coded[-1:]
-        first, last = date(2026, 9, 1), date(2026, 9, 30)
-        assert web_statistics.figures([], state.history(1_000_000), first, last) == (
-            web_statistics.figures([], had["history"], first, last)
-        ), "the same statistics"
-        assert web_statistics.figures([], state.outcomes(), first, last) == (
-            web_statistics.figures([], had["history"], first, last)
-        ), "the same statistics, read off the columns"
-        with db.transaction(immediate=False) as connection:
-            spent = connection.execute(
-                "SELECT project, sum(cost_usd) FROM history GROUP BY project ORDER BY project"
-            ).fetchall()
-        assert spent == [("", None), ("app", 1.25), ("docs", 0.5)], spent
-
-        assert state.claims() == had["claims"], "the same claims"
-        assert state.rebases("a" * 32) == 2 and state.rebased("a" * 32) == 3
-
-        ledger = conversation.Ledger.load()
-        assert ledger.known_pages() == ["e" * 32, "f" * 32], "the same conversations"
-        assert ledger.session_of("d1") == "s-1" and ledger.answered("d1") == "c-42"
-        assert ledger.cursor == 3 and ledger.at == 1790000000.5
-
-        assert credits.held() > time.time() and credits.held(what="reserve") > credits.held()
-
-        stamps = sync.Stamps()
-        assert stamps.seen("p1") and stamps.printed("p1") == "f1ngerpr1nt"
-        assert stamps.notion("p2") == "2026-09-29T10:00:00.000Z" and stamps.printed("p2") == ""
-        assert sync.journal() == had["journal"]
-
-        pictures = images.Cache(state_home / "images")
-        assert pictures.entry("e" * 32, "cover") == had["pictures"][f"{'e' * 32}:cover"]
-
-        for name, content in originals.items():
-            assert not (state_home / name).exists(), f"{name} is no longer where it was read"
-            kept = state_home / name.with_name(name.name + ".imported")
-            assert kept.read_bytes() == content, f"{name} is set aside whole, never deleted"
-    finally:
-        db.close()
-
-
-@case
-def a_new_installation_has_nothing_to_import_and_nothing_to_set_aside(state_home: Path) -> None:
+    for name, content in left.items():
+        (state_home / name).write_text(content, encoding="utf-8")
     try:
         assert state.history() == [] and state.claims() == {} and sync.journal() == []
         assert conversation.Ledger.load().known_pages() == [] and credits.held() == 0.0
+        for name, content in left.items():
+            assert (state_home / name).read_text(encoding="utf-8") == content, name
         assert sorted(path.name for path in state_home.iterdir() if ".imported" in path.name) == []
     finally:
         db.close()

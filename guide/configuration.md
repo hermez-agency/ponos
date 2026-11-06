@@ -138,9 +138,9 @@ agents = "Agents"       # optional — see below
 context = "Context"     # optional — see below
 ```
 
-Rows created under the names this shipped with before — `Master Tickets`, `Soul` — are
-still found as long as this table does not name them otherwise. There is nothing to
-rename on an existing board.
+A row is found under the title this table gives it, or under the default above, and
+under no other: a board whose rows still carry older titles (`Master Tickets`, `Soul`)
+names them here.
 
 If you would rather point at one database than share a whole workspace, `tickets_database`
 still works exactly as before, and wins over the workspace when both are set. The URL of

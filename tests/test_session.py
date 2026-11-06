@@ -18,7 +18,7 @@ from typing import Any, cast
 
 from support import _bare_runner, case
 
-from ponos import config, legacy, session, vault
+from ponos import config, session, vault
 
 # -- session outcome ---------------------------------------------------------
 
@@ -147,7 +147,6 @@ def a_session_is_not_given_the_runners_own_secrets() -> None:
         "PONOS_NOTION_TOKEN": "ntn_token-of-notion",
         "PONOS_TELEGRAM_TOKEN": "token-of-telegram",
         "PONOS_SLACK_TOKEN": "xoxb-token-of-slack",
-        "TICKET_RUNNER_NOTION_TOKEN": "ntn_token-of-old-notion",
     }
     with tempfile.TemporaryDirectory() as directory:
         home = Path(directory)
@@ -443,9 +442,13 @@ def a_local_session_is_resumed_in_its_directory_or_at_home() -> None:
         gone = session.deep_link(IDENTIFIER, f"{tmp}/deleted-worktree")
         assert session.resume_command(gone)[0] == str(Path.home()), "a vanished worktree: home"
         assert session.resume_command(f"ponos://session/{IDENTIFIER}")[0] == str(Path.home())
-        # A link written before the rename still opens.
-        old = f"{legacy.OLD}://session/{IDENTIFIER}?cwd={tmp}"
-        assert session.resume_command(old) == (tmp, ["/usr/bin/claude", "--resume", IDENTIFIER])
+        # A link written before the rename is no longer one.
+        try:
+            session.resume_command(f"ticket-runner://session/{IDENTIFIER}?cwd={tmp}")
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("an old ticket-runner:// link was opened")
 
     with tempfile.TemporaryDirectory() as tmp, _installed("ssh"):
         try:

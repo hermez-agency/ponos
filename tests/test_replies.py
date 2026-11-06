@@ -10,7 +10,7 @@ from typing import Any, cast
 
 from support import ME, _bare_runner, _config, _no_session, _said, case
 
-from ponos import channels, conversation, legacy, notion, prompt, workspace
+from ponos import channels, conversation, notion, prompt, workspace
 from ponos.runner import Runner
 
 # -- the « On » prompt -------------------------------------------------------
@@ -47,7 +47,7 @@ def _ticket() -> Any:
     return type("T", (), {"page": page})()
 
 
-REPORT_BY_US = _said(f"{legacy.OLD}@laptop — blocked.\nQuel en-tête ?", by=ME)
+REPORT_BY_US = _said("🙋 Blocked.\nQuel en-tête ?", by=ME)
 
 
 @case
@@ -94,7 +94,7 @@ def its_own_answers_are_not_read_back_as_yours() -> None:
     )
     lines = runner.discussion(_ticket())
     assert lines == [
-        "a previous run: blocked. Quel en-tête ?",
+        "a previous run: 🙋 Blocked. — asked: Quel en-tête ?",
         "the ticket's author: pourquoi ?",
         "answered in the comments, by us: parce que la page en a deux.",
         "the ticket's author: celui du dashboard.",
@@ -105,7 +105,7 @@ def its_own_answers_are_not_read_back_as_yours() -> None:
 def a_thread_transcript_tells_its_two_voices_apart() -> None:
     thread = conversation.threads(
         [
-            _said(f"{legacy.OLD}@laptop — done.", by=ME),
+            _said("✅ Done.", by=ME),
             _said("pourquoi ?"),
             _said("parce que.", by=ME),
             _said("et sinon ?"),
@@ -113,7 +113,7 @@ def a_thread_transcript_tells_its_two_voices_apart() -> None:
     )[0]
     lines = conversation.transcript(thread, ME)
     assert lines == [
-        f"you: {legacy.OLD}@laptop — done.",
+        "you: ✅ Done.",
         "them: pourquoi ?",
         "you: parce que.",
     ], lines
@@ -199,7 +199,7 @@ def _ledger(runner: Runner) -> conversation.Ledger:
 
 
 REPLIED_TO = [
-    _said(f"{legacy.OLD}@laptop — done.\nFait.", by=ME),
+    _said("✅ Done.\nFait.", by=ME),
     _said("pourquoi ce nom de branche ?"),
 ]
 
@@ -215,7 +215,7 @@ def a_ticket_about_to_run_is_left_to_the_run_that_will_read_it() -> None:
 @case
 def a_pass_answers_one_thread_per_page_and_stops_at_five() -> None:
     two = [
-        _said(f"{legacy.OLD}@laptop — done.", by=ME, thread="d1"),
+        _said("✅ Done.", by=ME, thread="d1"),
         _said("pourquoi ?", thread="d1"),
         _said("@claude et ici ?", thread="d2"),
     ]

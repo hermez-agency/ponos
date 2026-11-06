@@ -360,7 +360,7 @@ class Reports(Base):
                 # sentence under it; anything after is a link and, on the
                 # reports older runs wrote, the machinery they ended on. A
                 # question is the exception: it is said whole, with its options.
-                text = self._reported(voice_module.plain(text))
+                text = self._reported(text)
                 who = "a previous run"
             else:
                 text = " ".join(text.split())

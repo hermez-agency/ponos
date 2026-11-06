@@ -465,36 +465,6 @@ def a_recording_is_transcribed_and_a_refusal_says_its_sentence() -> None:
 
 
 @case
-def the_single_conversation_of_chat_json_becomes_the_first_of_the_list(state_home: Path) -> None:
-    web_console.web_dir().joinpath("chat.json").write_text(
-        json.dumps(
-            {
-                "session_id": "abc",
-                "turns": 1,
-                "messages": [
-                    {
-                        "role": "you",
-                        "text": "an old question",
-                        "at": "2026-01-01T10:00:00+00:00",
-                    },
-                    {
-                        "role": "workspace",
-                        "text": "an old answer",
-                        "at": "2026-01-01T10:01:00+00:00",
-                    },
-                ],
-            }
-        ),
-        encoding="utf-8",
-    )
-    chat = web_console.Chat(_config(""), lambda *a, **k: None)
-    assert chat.title == "an old question" and chat.session_id == "abc"
-    assert len(chat.history()) == 2
-    assert not (web_console.web_dir() / "chat.json").exists(), "read once, then set aside"
-    assert len(web_console.Chat(_config(""), lambda *a, **k: None).sessions()) == 1
-
-
-@case
 def a_stopped_session_takes_what_it_had_started_with_it() -> None:
     """Stop ends the CLI *and* the command it was running: nothing runs after it."""
     with tempfile.TemporaryDirectory() as directory:
