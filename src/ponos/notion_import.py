@@ -35,6 +35,7 @@ condition for letting go of the token. Notion itself is only ever read.
 from __future__ import annotations
 
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -52,6 +53,9 @@ log = logging.getLogger(__name__)
 # again: its Mission is not asked for on every pass.
 # The collections of the workspace the import brings home beside the tickets.
 COLLECTIONS = ("projects", "agents", "goals", "schedules")
+
+# How many pages `check` reads from Notion at once: under its rate limit, past its latency.
+_READERS = 3
 
 _LIVELY = ("draft", "ready", "blocked", "review", "validated", "paused")
 
@@ -366,15 +370,40 @@ def check(client: store.Store, config: Config, space: Workspace) -> Parity:
     notion = {"tickets": 0, "comments": 0, "links": 0, "files": 0, "bodies": 0}
     held = {key: 0 for key in notion}
     blocks: set[str] = set()
-    for page in client.query(space.tickets):
+    found = client.query(space.tickets)
+    records = {page.id: tickets.of_page(page.id) for page in found}
+    # The database is read here, Notion in a few threads: a board of two
+    # thousand tickets is two thousand round trips, and a serial check outlived
+    # the hour on the real one. A ticket whose two parts are both written here
+    # cannot lose a text, so its body is not asked for again.
+    whole = {
+        page_id
+        for page_id, mine in records.items()
+        if mine is not None and mine.mission.strip() and mine.report.strip()
+    }
+
+    def reread(page: store.Page) -> tuple[tuple[str, str] | None, list[store.Comment]]:
+        return (None if page.id in whole else body(client, page.id)), client.comments(page.id)
+
+    wanted_pages = [page for page in found if records[page.id] is not None]
+    with ThreadPoolExecutor(max_workers=_READERS) as pool:
+        read = dict(
+            zip((page.id for page in wanted_pages), pool.map(reread, wanted_pages), strict=True)
+        )
+    if whole:
+        parity.notes.append(
+            f"{len(whole)} ticket(s) not read again: both parts are written in ponos.db"
+        )
+    for page in found:
         notion["tickets"] += 1
-        mine = tickets.of_page(page.id)
+        mine = records[page.id]
         if mine is None:
             parity.losses.append(f"ticket missing: {page.title or page.id}")
             continue
         held["tickets"] += 1
         name = page.title or page.id
-        mission, done = body(client, page.id)
+        texts, remarks = read[page.id]
+        mission, done = texts if texts is not None else (mine.mission, mine.report)
         for part, there, ours_text in (
             ("mission", mission, mine.mission),
             ("report", done, mine.report),
@@ -394,7 +423,7 @@ def check(client: store.Store, config: Config, space: Workspace) -> Parity:
             else:
                 parity.losses.append(f"link missing: {name} after {earlier}")
         said = {remark.text for remark in tickets.comments(mine.id)}
-        for remark in client.comments(page.id):
+        for remark in remarks:
             notion["comments"] += 1
             if remark.text in said:
                 held["comments"] += 1

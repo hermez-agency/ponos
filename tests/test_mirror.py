@@ -345,3 +345,26 @@ def a_file_already_dead_in_notion_is_noted_and_is_not_a_loss(state_home: Path) -
         http.transport = None
         http.forget()
     assert parity.ok and len(parity.notes) == 1
+
+
+@case
+def the_parity_report_does_not_read_again_a_ticket_whose_two_parts_are_here(
+    state_home: Path,
+) -> None:
+    board, space = _archive()
+    config = _config("")
+    whole = _page(board, "Plein", "## Mission\n\nM.\n\n## Ce qui a été fait\n\nFait.")
+    half = _page(board, "Moitié", "## Mission\n\nM.")
+    notion_import.run(board, config, space)
+    read: list[str] = []
+    reading = board.blocks_text
+
+    def counted(page: str, *args: Any, **kwargs: Any) -> str:
+        read.append(page)
+        return str(reading(page, *args, **kwargs))
+
+    board.blocks_text = counted
+    parity = notion_import.check(board, config, space)
+    assert parity.ok, parity.losses
+    assert half in read and whole not in read
+    assert "1 ticket(s) not read again: both parts are written in ponos.db" in parity.notes

@@ -99,6 +99,8 @@ are the database's. Notion itself is only ever read — never changed, never emp
 both sides type by type (tickets, ticket texts, comments, « after » links, files,
 and each kind of page), and lists whatever Notion has that `ponos.db` lacks. No
 line in the list means nothing would be lost by letting go of the Notion token.
+A ticket whose two parts are both written in `ponos.db` cannot lose a text, so its
+page is not read again — only its comments are; the report says how many were spared.
 
 **Letting go of Notion.** Once the report is clean, remove `PONOS_NOTION_TOKEN`
 from `secrets.env` (keep a copy beside it) and restart the runner and the console.
