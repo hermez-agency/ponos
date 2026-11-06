@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Globe, History, KeyRound, Plus, RefreshCw, Trash2, Users } from "lucide-react"
+import { ExternalLink, Globe, History, KeyRound, Plus, RefreshCw, Trash2, Users } from "lucide-react"
 import { toast } from "sonner"
 
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -46,6 +46,7 @@ const ACTIONS: Record<VaultMoment["action"], string> = {
   replaced: "value replaced",
   projects: "projects changed",
   described: "description changed",
+  url: "site changed",
   revoked: "entry revoked",
   read: "given to a session",
   rotated: "sealed under a new key",
@@ -160,6 +161,48 @@ function ValueFields({
   )
 }
 
+/* What `vault_store._checked_url` keeps, said before the request: a bare host
+ * is https, any other scheme than http(s) is refused — the address is drawn as
+ * a link. The server checks it again. */
+const SCHEME = /^[A-Za-z][A-Za-z0-9+.-]*:(?!\d)/
+
+/** The address an entry's site is kept as, or null for one that is no site; "" for none. */
+function siteAddress(typed: string): URL | null | "" {
+  const url = typed.trim()
+  if (!url) return ""
+  const whole = SCHEME.test(url) ? url : `https://${url}`
+  if (whole.length > 500 || /\s/.test(whole)) return null
+  try {
+    const parsed = new URL(whole)
+    return (parsed.protocol === "https:" || parsed.protocol === "http:") && parsed.hostname ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+const NO_SITE = "This is not the address of a site: it starts with https:// (or http://), like https://dokploy.example.com."
+
+/** A site as the list draws it: its domain alone, opening the whole address in a new tab. */
+function SiteLink({ url }: { url: string }) {
+  const t = useT()
+  const site = siteAddress(url)
+  if (!site) return null
+  return (
+    <a
+      href={site.href}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={url}
+      className="text-foreground inline-flex items-center gap-1 underline-offset-2 hover:underline"
+      data-slot="vault-site-link"
+      aria-label={t("Open {{site}} in a new tab", { site: site.hostname })}
+    >
+      {site.hostname.replace(/^www\./, "")}
+      <ExternalLink className="size-3" aria-hidden />
+    </a>
+  )
+}
+
 function values(
   kind: string,
   value: React.RefObject<HTMLInputElement | HTMLTextAreaElement | null>,
@@ -186,6 +229,10 @@ function New({ vault, onMade, onAsked }: { vault: Vault; onMade: () => void; onA
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault()
+    if (siteAddress(url) === null) {
+      setProblem(t(NO_SITE))
+      return
+    }
     setBusy(true)
     setProblem("")
     const given = values(kind, value, user, password)
@@ -196,11 +243,12 @@ function New({ vault, onMade, onAsked }: { vault: Vault; onMade: () => void; onA
         projects,
         description,
         expires,
-        url: kind === "login" ? url : "",
+        url,
         confirm: taken(confirm),
         ...given,
       })
-      toast.success(t("{{name}} is kept: its sessions see {{variables}}", { name: made.name, variables: made.variables.join(", ") }))
+      const seen = made.url_variable ? [...made.variables, made.url_variable] : made.variables
+      toast.success(t("{{name}} is kept: its sessions see {{variables}}", { name: made.name, variables: seen.join(", ") }))
       setName("")
       setProjects([])
       setDescription("")
@@ -252,7 +300,7 @@ function New({ vault, onMade, onAsked }: { vault: Vault; onMade: () => void; onA
             </label>
           </div>
           <ValueFields kind={kind} value={value} user={user} password={password} />
-          {kind === "login" ? <SiteField url={url} onChange={setUrl} /> : null}
+          <SiteField kind={kind} name={name} url={url} onChange={setUrl} />
           <div className="flex flex-col gap-1.5 text-sm">
             <span className="font-medium">{t("Projects allowed")}</span>
             <Projects known={vault.projects} chosen={projects} onChange={setProjects} />
@@ -285,22 +333,33 @@ function New({ vault, onMade, onAsked }: { vault: Vault; onMade: () => void; onA
   )
 }
 
-/** A login's site: where Ponos's browser signs in with it, and the only place it ever types it. */
-function SiteField({ url, onChange }: { url: string; onChange: (url: string) => void }) {
+/** What an entry's site is for, by kind: a login's is the only place Ponos's browser types it. */
+function siteHelp(kind: string) {
+  return kind === "login"
+    ? "Ponos's browser signs in here with it, and types it on no other site."
+    : "Where it is managed or renewed — a dashboard, a settings page."
+}
+
+/** An entry's site: where a login signs in, where a key is managed. Given to sessions as <NAME>_URL. */
+function SiteField({ kind, name, url, onChange }: { kind: string; name: string; url: string; onChange: (url: string) => void }) {
   const t = useT()
+  const wrong = siteAddress(url) === null
+  const variable = `${name.trim() || "<NAME>"}_URL`
   return (
     <label className="flex flex-col gap-1.5 text-sm">
-      <span className="font-medium">{t("Site (sign-in page)")}</span>
+      <span className="font-medium">{t(kind === "login" ? "Site (sign-in page)" : "Site (optional)")}</span>
       <Input
         value={url}
         onChange={(event) => onChange(event.target.value)}
-        placeholder="https://dokploy.example.com/login"
+        placeholder={kind === "login" ? "https://dokploy.example.com/login" : "https://openrouter.ai/settings/keys"}
         autoComplete="off"
         spellCheck={false}
+        inputMode="url"
+        aria-invalid={wrong || undefined}
         data-slot="vault-url"
       />
-      <span className="text-muted-foreground text-xs">
-        {t("Ponos's browser signs in here with it, and types it on no other site.")}
+      <span className={wrong ? "text-destructive text-xs" : "text-muted-foreground text-xs"} data-slot="vault-url-help">
+        {wrong ? t(NO_SITE) : `${t(siteHelp(kind))} ${t("Its sessions see it as {{variable}}.", { variable })}`}
       </span>
     </label>
   )
@@ -321,6 +380,7 @@ function Moments({ entry }: { entry: VaultEntry }) {
       {moments.map((moment, index) => (
         <li key={index}>
           {when(moment.at)} — {t(ACTIONS[moment.action])}
+          {moment.action === "url" ? ` · ${moment.detail || t("removed")}` : ""}
           {moment.ticket ? ` · ${t("ticket")} ${moment.ticket}` : ""}
           {moment.project ? ` · ${moment.project}` : ""}
           {moment.by ? ` · ${moment.by}` : ""}
@@ -365,6 +425,10 @@ function Row({ entry, vault, onChanged, onAsked }: { entry: VaultEntry; vault: V
     onChanged()
   }
   const resite = async () => {
+    if (siteAddress(url) === null) {
+      toast.error(t("The site could not be changed"), { description: t(NO_SITE) })
+      return false
+    }
     try {
       await api.changeVaultEntry(entry.id, { url, confirm: taken(confirm) })
     } catch (error) {
@@ -395,7 +459,12 @@ function Row({ entry, vault, onChanged, onAsked }: { entry: VaultEntry; vault: V
           <p className="text-muted-foreground text-xs">
             {entry.projects.length ? entry.projects.join(", ") : <span className="text-destructive">{t("no project: given to no session")}</span>}
             {entry.kind === "login" ? ` · ${entry.variables.join(", ")}` : ""}
-            {entry.url ? ` · ${entry.url}` : ""}
+            {entry.url ? (
+              <>
+                {" · "}
+                <SiteLink url={entry.url} />
+              </>
+            ) : null}
             {entry.description ? ` · ${entry.description}` : ""}
           </p>
           <p className="text-muted-foreground text-xs">
@@ -441,26 +510,24 @@ function Row({ entry, vault, onChanged, onAsked }: { entry: VaultEntry; vault: V
             <Confirm field={confirm} needed={!vault.proven} />
           </div>
         </ConfirmDialog>
-        {entry.kind === "login" ? (
-          <ConfirmDialog
-            title={t("Site of {{name}}", { name: entry.name })}
-            description={t("Ponos's browser signs in here with it, and types it on no other site.")}
-            confirm={t("Save")}
-            onConfirm={resite}
-            onOpenChange={(open) => open && setUrl(entry.url)}
-            trigger={
-              <Button variant="ghost" size="sm" data-slot="vault-site">
-                <Globe />
-                {t("Site")}
-              </Button>
-            }
-          >
-            <div className="flex flex-col gap-3">
-              <SiteField url={url} onChange={setUrl} />
-              <Confirm field={confirm} needed={!vault.proven} />
-            </div>
-          </ConfirmDialog>
-        ) : null}
+        <ConfirmDialog
+          title={t("Site of {{name}}", { name: entry.name })}
+          description={t(siteHelp(entry.kind))}
+          confirm={t("Save")}
+          onConfirm={resite}
+          onOpenChange={(open) => open && setUrl(entry.url)}
+          trigger={
+            <Button variant="ghost" size="sm" data-slot="vault-site">
+              <Globe />
+              {t("Site")}
+            </Button>
+          }
+        >
+          <div className="flex flex-col gap-3">
+            <SiteField kind={entry.kind} name={entry.name} url={url} onChange={setUrl} />
+            <Confirm field={confirm} needed={!vault.proven} />
+          </div>
+        </ConfirmDialog>
         <Button variant="ghost" size="icon-sm" onClick={() => setHistory((was) => !was)} aria-label={t("History of {{name}}", { name: entry.name })} aria-pressed={history}>
           <History />
         </Button>

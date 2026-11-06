@@ -101,6 +101,135 @@ def the_vault_keeps_no_value_in_clear_and_refuses_a_value_moved_or_edited(
 
 
 @case
+def any_entry_may_say_its_site_and_only_an_http_address_is_kept(vault_home: Path) -> None:
+    token = vault_store.create(
+        "OPENROUTER", "token", {"value": SECRET}, ["Leadz"], url="https://openrouter.ai/keys"
+    )
+    assert token["url"] == "https://openrouter.ai/keys"
+    assert token["url_variable"] == "OPENROUTER_URL" and token["variables"] == ["OPENROUTER"]
+    note = vault_store.create(
+        "CERT", "note", {"value": "a" * 12}, [], url="notion.so/my-integrations"
+    )
+    assert note["url"] == "https://notion.so/my-integrations", "a bare host is https"
+    assert vault_store.create("BARE", "token", {"value": "b" * 12}, [])["url_variable"] == ""
+    assert vault_store.change("BARE", url="localhost:8080/x")["url"] == "https://localhost:8080/x"
+    assert (
+        vault_store.change("BARE", url="HTTP://Dokploy.example")["url"] == "HTTP://Dokploy.example"
+    )
+    for wrong in (
+        "javascript:alert(1)",
+        "ftp://files.example",
+        "file:///etc/passwd",
+        "https://",
+        "https://exa mple.com",
+        "https://example.com:port",
+        "https://" + "a" * 500 + ".com",
+    ):
+        try:
+            vault_store.change("BARE", url=wrong)
+        except vault_store.Refused as error:
+            assert error.field == "url" and "not the address of a site" in str(error), error
+        else:
+            raise AssertionError(f"{wrong!r} should have been refused")
+    assert vault_store.listing()[0]["url"] == "HTTP://Dokploy.example", (
+        "a refused one changes nothing"
+    )
+    # The address is no secret: in clear in the file, beside the name.
+    assert b"https://openrouter.ai/keys" in vault_store.path().read_bytes()
+
+
+@case
+def an_entrys_address_is_no_other_entrys_variable(vault_home: Path) -> None:
+    vault_store.create("DOKPLOY", "login", {"user": "u" * 8, "password": "p" * 8}, [])
+    # DOKPLOY_URL is the login's address, even before it has one.
+    assert "already gives DOKPLOY" in _refused(
+        vault_store.create, "DOKPLOY_URL", "token", {"value": SECRET}, []
+    )
+    vault_store.create("SITE_URL", "token", {"value": SECRET}, [])
+    assert "already gives SITE_URL" in _refused(
+        vault_store.create, "SITE", "token", {"value": SECRET}, []
+    )
+    # A name whose address would be the runner's own.
+    assert "ANTHROPIC_BASE_URL is the runner's own" in _refused(
+        vault_store.create, "ANTHROPIC_BASE", "token", {"value": SECRET}, []
+    )
+
+
+@case
+def an_address_changed_by_hand_opens_nothing_and_its_changes_are_in_the_journal(
+    vault_home: Path,
+) -> None:
+    made = vault_store.create(
+        "BREVO",
+        "login",
+        {"user": "ada@hermez.dev", "password": "hunter2-hunter2"},
+        ["Brevo"],
+        url="https://app.brevo.com/login",
+        by="Salva",
+    )
+    vault_store.change("BREVO", url="https://app.brevo.com/account", by="Salva")
+    vault_store.change("BREVO", url="https://app.brevo.com/account", description="Brevo")
+    vault_store.change("BREVO", url="", by="Ada")
+    moments = [
+        (moment["action"], moment["detail"], moment["by"])
+        for moment in vault_store.history(made["id"])
+    ]
+    assert moments == [
+        ("url", "", "Ada"),
+        ("described", "", ""),
+        ("url", "https://app.brevo.com/account", "Salva"),
+        ("created", "", "Salva"),
+    ], moments
+    vault_store.change("BREVO", url="https://app.brevo.com/login")
+    assert vault_store.read("BREVO_PASSWORD") == "hunter2-hunter2"
+    assert vault_store.addresses("Brevo") == {"BREVO_URL": "https://app.brevo.com/login"}
+    # Somebody with the file alone sends the login to a site of their own.
+    connection = sqlite3.connect(vault_store.path())
+    connection.execute("UPDATE entries SET url = 'https://brevo.evil.io' WHERE name = 'BREVO'")
+    connection.commit()
+    connection.close()
+    assert "changed, or moved" in _refused(vault_store.read, "BREVO_PASSWORD")
+    assert vault_store.addresses("Brevo") == {}, "an address that does not open is not given"
+
+
+@case
+def a_vault_sealed_before_the_addresses_is_sealed_again_with_them_once(vault_home: Path) -> None:
+    vault_store.create("MA_CLE", "token", {"value": SECRET}, ["Leadz"], url="https://a.example")
+    vault_store.create("PLAIN", "token", {"value": SECRET + "-2"}, ["Leadz"])
+    raw = vault_store.decoded(vault_store.key_path().read_text())
+    # As the vault of the day before was sealed: without the address, and its check.
+    connection = sqlite3.connect(vault_store.path())
+    connection.row_factory = sqlite3.Row
+    for row in connection.execute("SELECT * FROM entries").fetchall():
+        plain = vault_store._open(raw, row["nonce"], row["sealed"], vault_store._bound(row))
+        nonce, sealed = vault_store._seal(
+            raw,
+            plain,
+            vault_store._associated_before(
+                row["id"], row["name"], row["kind"], json.loads(row["projects"])
+            ),
+        )
+        connection.execute(
+            "UPDATE entries SET nonce = ?, sealed = ? WHERE id = ?", (nonce, sealed, row["id"])
+        )
+    nonce, sealed = vault_store._seal(raw, vault_store._CHECK, b"check")
+    connection.execute("UPDATE meta SET nonce = ?, sealed = ? WHERE key = 'check'", (nonce, sealed))
+    connection.commit()
+    assert vault_store.read("MA_CLE") == SECRET and vault_store.read("PLAIN") == SECRET + "-2"
+    for row in connection.execute("SELECT * FROM entries").fetchall():
+        vault_store._open(raw, row["nonce"], row["sealed"], vault_store._bound(row))
+    check = connection.execute("SELECT nonce, sealed FROM meta WHERE key = 'check'").fetchone()
+    assert "changed, or moved" in _refused(
+        vault_store._open, raw, check["nonce"], check["sealed"], b"check"
+    ), "sealed again once, and never read the old way again"
+    # From then on, an address changed by hand is refused.
+    connection.execute("UPDATE entries SET url = 'https://b.example' WHERE name = 'MA_CLE'")
+    connection.commit()
+    connection.close()
+    assert "changed, or moved" in _refused(vault_store.read, "MA_CLE")
+
+
+@case
 def a_rotation_seals_everything_again_and_the_old_key_opens_nothing(vault_home: Path) -> None:
     for index in range(3):
         vault_store.create(f"KEY_{index}", "token", {"value": f"{SECRET}-{index}"}, ["Leadz"])
@@ -257,6 +386,28 @@ def a_key_granted_to_leadz_reaches_a_leadz_session_and_no_other(vault_home: Path
         secrets=["MA_CLE"],
     )
     assert "`MA_CLE`" in text and SECRET not in text, "the name, never the value"
+    # Its address, as <NAME>_URL beside it — unmasked, and named apart in the prompt.
+    vault_store.change("MA_CLE", url="https://openrouter.ai/keys")
+    job = _job("Leadz")
+    assert runner._secrets(job) == {"MA_CLE": SECRET, "MA_CLE_URL": "https://openrouter.ai/keys"}
+    assert job.addresses == ["MA_CLE_URL"]
+    assert vault.mask("https://openrouter.ai/keys") == "https://openrouter.ai/keys"
+    assert runner._secrets(_job("Ponos")) == {"MA_CLE": SECRET}, "no address it was not granted"
+    text = prompt.build(
+        prompt.DEFAULT,
+        project="Leadz",
+        title="t",
+        body="b",
+        repo="r",
+        branch="b",
+        base="main",
+        url="u",
+        secrets=["MA_CLE"],
+        addresses=["MA_CLE_URL"],
+    )
+    assert "in your environment: `MA_CLE`." in text and "`MA_CLE_URL`: an address" in text, text
+    alone = prompt.held_secrets([], ["MA_CLE_URL"])
+    assert alone.startswith("# Secrets") and "slips out" not in alone
     # The console's chat is no ticket: it is given nothing of the vault.
     chat = (
         Path(__file__).resolve().parents[1] / "src" / "ponos" / "web" / "console.py"
@@ -589,7 +740,13 @@ def ponos_vault_reads_a_value_from_stdin_and_never_prints_it(vault_home: Path) -
         sys.stdin, sys.stdout = io.StringIO(SECRET + "\n"), printed
         assert main(["vault", "set", "MA_CLE", "--project", "Leadz", "--project", "Opoil"]) == 0
         sys.stdin = io.StringIO("salva@hermez.dev\nhunter2-hunter2\n")
-        assert main(["vault", "set", "LEADZ", "--kind", "login", "--project", "Leadz"]) == 0
+        assert (
+            main(
+                ["vault", "set", "LEADZ", "--kind", "login", "--project", "Leadz"]
+                + ["--url", "https://leadz.example/login"]
+            )
+            == 0
+        )
         sys.stdin = io.StringIO(SECRET + "-again\n")
         assert main(["vault", "set", "MA_CLE"]) == 0, "set again replaces the value"
         assert main(["vault", "list"]) == 0
@@ -601,6 +758,7 @@ def ponos_vault_reads_a_value_from_stdin_and_never_prints_it(vault_home: Path) -
         sys.stdin, sys.stdout = stdin, stdout
     said = printed.getvalue()
     assert "MA_CLE" in said and "Leadz, Opoil" in said and "…gain" in said, said
+    assert "LEADZ_URL: https://leadz.example/login" in said, "list says the address"
     assert SECRET not in said and "hunter2" not in said, said
     assert vault_store.read("MA_CLE") == SECRET + "-again"
     assert [entry["name"] for entry in vault_store.listing()] == ["MA_CLE"]

@@ -616,12 +616,27 @@ does not see the page, and the API answers them 403), or `ponos vault` in a term
 
 An entry is one of three kinds — an **API key / token**, a **login + password** (given as
 `<NAME>_USER` and `<NAME>_PASSWORD`), a **secret note** of several lines (a certificate) —
-with the name of its variable, the **projects allowed** (none by default), a description
-and an optional expiry date. It reaches the sessions of those projects' tickets as an
+with the name of its variable, the **projects allowed** (none by default), a description,
+an optional expiry date and an optional **site**. It reaches the sessions of those projects' tickets as an
 environment variable, the way every `[vault]` key does, and is masked the same way;
 nothing more is needed in `config.toml`. A line of `[vault]` may still name one —
 `NPM_TOKEN = "ponos:NPM_TOKEN"` — and wins over the page for the same variable. The
 console's chat, which is no ticket, is given none of them.
+
+**The site of an entry.** Any entry may say where it is used: the sign-in page of a login,
+the dashboard where a token is managed or renewed (OpenRouter's keys, Dokploy, Notion's
+integrations). It is typed when the entry is made, and changed later with *Site* on its
+row; only an `http://` or `https://` address is kept — a bare host is read as `https://`
+it, anything else (`javascript:`, `ftp:`, a space in it) is refused with a message under
+the field. The list shows it as a link, by its domain alone, that opens the whole address
+in a new tab. It is no secret: it is kept in clear in `vault.db`, beside the name — but
+it is sealed with the value all the same (below), so an address changed in the file by
+hand opens nothing. The sessions given the entry are given it too, as `<NAME>_URL` beside
+the other variables (`NPM_TOKEN_URL`, `DOKPLOY_URL`), unmasked, and the prompt names it
+apart from the secrets: an address, not a value to hide. That name is the entry's even
+when it has no site yet: an entry called `DOKPLOY` and another called `DOKPLOY_URL` cannot
+both be kept, nor an entry whose `_URL` would be one of the runner's own variables. Each
+change of the site is written in the entry's journal, with what it became.
 
 **Write-only.** Once kept, a value is never answered again — not by the API, not in a
 refusal, not in a log. The list shows the name, the projects, when it was created and
@@ -633,17 +648,19 @@ alone takes the token.
 
 ```sh
 ponos vault set LEADZ_DOKPLOY_TOKEN --project Leadz   # asks for the value, without echo
-printf '%s\n%s\n' admin "$PASSWORD" | ponos vault set DOKPLOY --kind login --project Leadz
-ponos vault list                                       # names, projects, last use — never a value
+printf '%s\n%s\n' admin "$PASSWORD" | ponos vault set DOKPLOY --kind login --project Leadz \
+  --url https://dokploy.example.com/login              # its site: DOKPLOY_URL in a session
+ponos vault list                                       # names, projects, sites, last use — never a value
 ponos vault rm LEADZ_DOKPLOY_TOKEN
 ponos vault rotate                                     # every entry sealed again under a new key
 ```
 
 **How it is kept.** `vault.db`, in the state directory (`~/.local/state/ponos`), `0600`.
 Each entry is sealed on its own with AES-256-GCM, with a random 96-bit nonce at every
-write; the entry's id, name, kind and projects are its associated data, so a sealed value
-copied onto another entry, a byte changed, or a project added by hand in the file, no
-longer opens. The 32-byte master key (`secrets.token_bytes`, no passphrase) is never kept
+write; the entry's id, name, kind, projects and site are its associated data, so a sealed
+value copied onto another entry, a byte changed, or a project or a site changed by hand in
+the file, no longer opens. A vault sealed before the site was part of it is sealed again
+with it, once, the first time it is opened. The 32-byte master key (`secrets.token_bytes`, no passphrase) is never kept
 beside the data — in this order:
 
 1. the system keyring, when `secret-tool` is installed;
@@ -663,7 +680,7 @@ a backup, a volume moved to another host — and every place the runner writes: 
 session is given is masked in its transcript, the ticket's comments in Notion or in
 `ponos.db`, the log, the console's answers and stream, Telegram, Slack and the push
 notifications. Each entry's journal (Settings → Vault, the history of an entry) says when
-it was created, replaced, given other projects, revoked, and given to which ticket's
+it was created, replaced, given other projects or another site, revoked, and given to which ticket's
 session — never the value. It does **not** protect from somebody who has the Unix account
 that runs Ponos: that account reads the key wherever it is kept, and can ask the runner
 itself.

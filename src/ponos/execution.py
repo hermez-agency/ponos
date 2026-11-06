@@ -305,7 +305,8 @@ class Execution(Base):
                     else ""
                 )
                 + (f"- {job.prepared}\n" if job.prepared else ""),
-                secrets=sorted(job.secrets),
+                secrets=sorted(name for name in job.secrets if name not in job.addresses),
+                addresses=job.addresses,
                 workers=self.workers,
             )
             + (self._planned(job) if subtype else "")
@@ -627,7 +628,19 @@ class Execution(Base):
                 vault_store.used(given, getattr(ticket, "id", ""), project)
             except (sqlite3.Error, OSError) as error:
                 self.say(f"    ! the vault's journal: {error}")
-        return found.values
+        # The addresses of the entries it is granted, beside their values and
+        # never over a variable `[vault]` names: no secret, so none is masked.
+        try:
+            places = {
+                name: url
+                for name, url in vault_store.addresses(project).items()
+                if name not in granted
+            }
+        except (vault.VaultError, sqlite3.Error, OSError) as error:
+            self.say(f"    ! the vault's addresses: {error}")
+            places = {}
+        job.addresses = sorted(places)
+        return {**places, **found.values}
 
     def _report_missing(self, job: Job, outcome: session.Outcome) -> bool:
         """Did this session stop without its report, and may it be asked for it?

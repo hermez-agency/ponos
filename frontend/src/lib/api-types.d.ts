@@ -5214,8 +5214,13 @@ export interface components {
             updated: string;
             /** @description La fin de la valeur, quatre caractères au plus — rien sous douze. */
             print: string;
-            /** @description L'adresse du site d'un login : là où le navigateur de Ponos s'y connecte, et nulle part ailleurs. */
+            /**
+             * @description L'adresse du site de l'entrée (http ou https) : où un login se connecte — le navigateur de
+             *     Ponos ne le tape nulle part ailleurs —, où une clé se gère ou se renouvelle.
+             */
             url: string;
+            /** @description La variable où une session reçoit cette adresse, `<NOM>_URL` — vide sans adresse. */
+            url_variable: string;
             last_used: string;
             last_ticket: string;
             last_project: string;
@@ -5231,10 +5236,12 @@ export interface components {
         };
         VaultMoment: {
             /** @enum {string} */
-            action: "created" | "replaced" | "projects" | "described" | "revoked" | "read" | "rotated" | "login" | "login-failed" | "login-second-factor" | "login-refused";
+            action: "created" | "replaced" | "projects" | "described" | "url" | "revoked" | "read" | "rotated" | "login" | "login-failed" | "login-second-factor" | "login-refused";
             by: string;
             ticket: string;
             project: string;
+            /** @description Ce que l'adresse est devenue, pour `url` — vide si elle a été retirée. */
+            detail: string;
             at: string;
         };
         VaultNew: {

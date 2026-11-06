@@ -1707,6 +1707,8 @@ def command_vault(args: argparse.Namespace) -> int:
                     f"  {entry['name']:<24} {entry['kind']:<6} {projects}{printed}"
                     f"  {DIM}used: {used}{RESET}"
                 )
+                if entry["url"]:
+                    print(f"  {'':<24} {DIM}{entry['url_variable']}: {entry['url']}{RESET}")
             return 0
         if action == "set":
             known = {entry["name"]: entry for entry in vault_store.listing()}
@@ -2243,7 +2245,9 @@ def _add_console_commands(subparsers: argparse._SubParsersAction[argparse.Argume
     setting.add_argument("--description", help="what it is for")
     setting.add_argument("--expires", help="when it expires, YYYY-MM-DD")
     setting.add_argument(
-        "--url", help="a login's site: where Ponos's browser signs in with it, and nowhere else"
+        "--url",
+        help="its site (https://…): where a login signs in, where a key is managed — "
+        "given to sessions as <NAME>_URL",
     )
     removing = kept.add_parser("rm", help="remove an entry, for good")
     removing.add_argument("name", help="the entry's name")
