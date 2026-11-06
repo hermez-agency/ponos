@@ -22,6 +22,13 @@ async function openConsole(page: Page) {
   await expect(page.getByRole("textbox", { name: FIELD })).toBeVisible()
 }
 
+async function startOver(page: Page) {
+  const made = page.waitForResponse((response) => response.url().endsWith("/api/chat/new"))
+  await page.getByRole("button", { name: "Start a new conversation" }).click()
+  await made
+  await expect(page.locator("[data-slot=said]")).toHaveCount(0)
+}
+
 async function ask(page: Page, text: string) {
   const field = page.getByRole("textbox", { name: FIELD })
   await field.fill(text)
@@ -195,4 +202,75 @@ test("Stop keeps the waiting messages: they are sent, or thrown away", async ({ 
   await expect(waiting).toHaveCount(0)
   await expect(held).toHaveCount(0)
   await expect(page.getByText("never sent")).toHaveCount(0)
+})
+
+test("two conversations answer at once, and Stop reaches only its own", async ({ page }) => {
+  await openConsole(page)
+  const sleeping = page.locator("[data-slot=chat-tool-call][data-status=running]").filter({ hasText: "sleep 600" })
+  const stop = page.getByRole("button", { name: "Stop" })
+  const history = page.locator("[data-talk-history]")
+  const goTo = async (title: string) => {
+    await history.click()
+    await page.getByRole("menuitem").filter({ hasText: title }).click()
+    await expect(page.locator("[data-slot=said][data-role=you]").first()).toContainText(title)
+  }
+
+  // A is answering…
+  await startOver(page)
+  await ask(page, "slowly alpha")
+  await expect(sleeping).toBeVisible({ timeout: 10_000 })
+
+  // …and B is started beside it: a new conversation is never refused for A's turn.
+  await startOver(page)
+  await ask(page, "slowly bravo")
+  await expect(sleeping).toBeVisible({ timeout: 10_000 })
+  await expect(page.getByText(/a turn is in flight/)).toHaveCount(0)
+
+  const busy = async () =>
+    ((await (await page.request.get("/api/chat/sessions")).json()).sessions as { title: string; busy: boolean }[])
+      .filter((session) => session.busy)
+      .map((session) => session.title)
+      .sort()
+  expect(await busy()).toEqual(["slowly alpha", "slowly bravo"])
+
+  // The list says which are answering; A, caught up where it went on without us.
+  await history.click()
+  await expect(page.locator("[data-session-flag=busy]")).toHaveCount(1)
+  await page.getByRole("menuitem").filter({ hasText: "slowly alpha" }).click()
+  await expect(page.locator("[data-slot=said][data-role=you]").first()).toContainText("slowly alpha")
+  await expect(sleeping).toBeVisible()
+  await expect(stop).toBeVisible()
+
+  // Stop on A leaves B running.
+  await stop.click()
+  await expect(page.getByText("stopped by you")).toBeVisible()
+  await expect(stop).toHaveCount(0)
+  expect(await busy()).toEqual(["slowly bravo"])
+  await goTo("slowly bravo")
+  await expect(sleeping).toBeVisible()
+  await expect(stop).toBeVisible()
+  await stop.click()
+  await expect(page.getByText("stopped by you")).toBeVisible()
+  await expect(stop).toHaveCount(0)
+  expect(await busy()).toEqual([])
+
+  // Both answer: each resumes its own session.
+  await ask(page, "just the count, bravo")
+  await expect(page.getByText("Resumed, and done. The board has 13 tickets.")).toBeVisible()
+  await goTo("slowly alpha")
+  await ask(page, "just the count, alpha")
+  await expect(page.getByText("Resumed, and done. The board has 13 tickets.")).toBeVisible()
+})
+
+test("a command runs while a turn answers", async ({ page }) => {
+  await openConsole(page)
+  await ask(page, "slowly, then a command")
+  await expect(
+    page.locator("[data-slot=chat-tool-call][data-status=running]").filter({ hasText: "sleep 600" })
+  ).toBeVisible({ timeout: 10_000 })
+  await ask(page, ">status")
+  await expect(page.getByText("ponos status")).toBeVisible()
+  await expect(page.getByRole("button", { name: "Stop" })).toBeVisible()
+  await page.getByRole("button", { name: "Stop" }).click()
+  await expect(page.getByRole("button", { name: "Stop" })).toHaveCount(0)
 })

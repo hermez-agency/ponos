@@ -20,11 +20,14 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useConsole } from "@/hooks/use-console"
 import { api, why } from "@/lib/api"
+import { setOpenChat, useOpenChat } from "@/lib/open-chat"
 import { counted, currentLanguage, useT } from "@/lib/i18n"
 import type { ChatSession } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 import { openTalk } from "@/lib/talk"
+
+import { SessionFlag } from "./session-flag"
 
 /* Every conversation the console has kept, the latest first.
  *
@@ -40,7 +43,8 @@ import { openTalk } from "@/lib/talk"
 
 export function SessionsPage() {
   const t = useT()
-  const { runner } = useConsole()
+  const { activity } = useConsole()
+  const openId = useOpenChat()
   const Icon = useCurrentViewResourceContext().resource?.icon
   const [query, setQuery] = React.useState("")
   const [sessions, setSessions] = React.useState<ChatSession[] | null>(null)
@@ -48,7 +52,6 @@ export function SessionsPage() {
   const [renaming, setRenaming] = React.useState<ChatSession | null>(null)
   const [deleting, setDeleting] = React.useState<ChatSession | null>(null)
 
-  const chat = runner?.chat
   const read = React.useCallback(
     async (words: string) => {
       try {
@@ -62,26 +65,23 @@ export function SessionsPage() {
     []
   )
 
-  // Read again when what the open session says about itself changes — a
-  // first message gave it a title, an answer moved its date — and, after a
-  // pause, as the words are typed.
+  // Read again when any conversation moves — a first message gave it a title,
+  // an answer moved its date, a turn began or ended — and, after a pause, as
+  // the words are typed.
   React.useEffect(() => {
     const timer = window.setTimeout(() => void read(query), query ? 250 : 0)
     return () => window.clearTimeout(timer)
-  }, [query, read, chat?.id, chat?.title, chat?.turns, chat?.model, chat?.project])
+  }, [query, read, activity, openId])
 
-  const open = async (session: ChatSession) => {
-    try {
-      await api.openSession(session.id)
-      openTalk()
-    } catch (error) {
-      toast.error(t("The conversation could not be opened"), { description: why(error) })
-    }
+  // Which conversation a tab follows is its own: opening one moves this tab only.
+  const open = (session: ChatSession) => {
+    setOpenChat(session.id)
+    openTalk()
   }
 
   const start = async () => {
     try {
-      await api.resetChat()
+      setOpenChat((await api.newChat(openId)).id ?? "")
       openTalk()
     } catch (error) {
       toast.error(t("The conversation could not be opened"), { description: why(error) })
@@ -156,10 +156,10 @@ export function SessionsPage() {
             <li key={session.id} className="group flex items-center gap-1 pr-2" data-session={session.id}>
               <button
                 type="button"
-                onClick={() => void open(session)}
+                onClick={() => open(session)}
                 className={cn(
                   "hover:bg-accent focus-visible:ring-ring/30 flex min-w-0 flex-1 items-start gap-3 rounded-lg px-4 py-3 text-left outline-hidden focus-visible:ring-2",
-                  session.current && "bg-accent/40"
+                  session.id === openId && "bg-accent/40"
                 )}
               >
                 <MessageSquare className="text-muted-foreground mt-0.5 size-4 shrink-0" />
@@ -168,7 +168,8 @@ export function SessionsPage() {
                     <span className="truncate text-sm font-medium">
                       {session.title || t("Untitled conversation")}
                     </span>
-                    {session.current ? <Badge variant="secondary">{t("open")}</Badge> : null}
+                    {session.id === openId ? <Badge variant="secondary">{t("open")}</Badge> : null}
+                    <SessionFlag session={session} />
                   </span>
                   <span className="text-muted-foreground mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs">
                     <span>{when(session.updated)}</span>
@@ -350,7 +351,10 @@ function DeleteDialog({
       onOpenChange={(next) => (next ? undefined : onClose())}
       contentProps={{ "data-delete-session": true } as React.ComponentProps<"div">}
       title={t("Delete “{{name}}”?", { name: session?.title || t("Untitled conversation") })}
-      description={t("Its conversation and the files sent in it are deleted for good.")}
+      description={
+        t("Its conversation and the files sent in it are deleted for good.") +
+        (session?.busy ? ` ${t("Its turn in progress is stopped first.")}` : "")
+      }
       destructive
       disabled={!sure}
       confirm={

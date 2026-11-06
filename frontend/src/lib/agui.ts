@@ -12,12 +12,14 @@ import { newMessages } from "./agui-run"
  * the tab that started it is closed. So this is the other kind of connection
  * TanStack AI takes, the one that subscribes:
  *
- * - **subscribe** — the AG-UI events of every turn, whoever started it. They
- *   arrive on `/api/events` with everything else (`use-console` hands them
- *   here), and not on a stream of their own: a tab already holds one, and a
- *   second per tab would bring a few open tabs to the browser's limit of six
- *   connections to one server.
- * - **send** — the run, posted to `/api/chat/agui` as AG-UI's `RunAgentInput`.
+ * - **subscribe** — the AG-UI events of every turn of the conversation, whoever
+ *   started it. They arrive on `/api/events` with everything else
+ *   (`use-console` hands them here, with the conversation they are about), and
+ *   not on a stream of their own: a tab already holds one, and a second per
+ *   tab would bring a few open tabs to the browser's limit of six connections
+ *   to one server. A conversation left and come back to is hydrated again, its
+ *   turn in flight included: that is how a turn that went on behind is caught up.
+ * - **send** — the run, posted to `/api/chat/<id>/agui` as AG-UI's `RunAgentInput`.
  *   The server says the turn on the stream above, under the run id and the
  *   message id `useChat` chose, so the tab that sent it recognises its own.
  * - **hydrate** — the conversation as Ponos keeps it, from the same door: what
@@ -28,21 +30,27 @@ import { newMessages } from "./agui-run"
  * it, and the package in the drawer's own chunk.
  */
 
-type Listener = (event: StreamChunk) => void
+interface Listener {
+  thread: string
+  hear: (event: StreamChunk) => void
+}
 
 const listeners = new Set<Listener>()
 
-/** An AG-UI event off `/api/events`, for whichever conversation panel is open. */
-export function publishAgui(event: unknown) {
-  for (const listener of listeners) listener(event as StreamChunk)
+/** An AG-UI event off `/api/events`, for the panel that follows the conversation it is about. */
+export function publishAgui(event: unknown, thread: string) {
+  for (const listener of listeners) if (listener.thread === thread) listener.hear(event as StreamChunk)
 }
 
-async function* subscribe(signal?: AbortSignal): AsyncIterable<StreamChunk> {
+async function* subscribe(thread: string, signal?: AbortSignal): AsyncIterable<StreamChunk> {
   const waiting: StreamChunk[] = []
   let wake: (() => void) | null = null
-  const listener: Listener = (event) => {
-    waiting.push(event)
-    wake?.()
+  const listener: Listener = {
+    thread,
+    hear: (event) => {
+      waiting.push(event)
+      wake?.()
+    },
   }
   const stop = () => wake?.()
   listeners.add(listener)
@@ -67,26 +75,28 @@ async function* subscribe(signal?: AbortSignal): AsyncIterable<StreamChunk> {
   }
 }
 
-export const connection: SubscribeConnectionAdapter = {
-  subscribe,
+/* One connection per conversation: the events of every conversation arrive on
+ * the one stream, and each panel keeps the events of the one it draws. */
+export const connectionFor = (thread: string): SubscribeConnectionAdapter => ({
+  subscribe: (signal) => subscribe(thread, signal),
   async send(messages, data, _signal, run) {
-    await api.runChat({
-      threadId: run.threadId,
+    await api.runChat(thread, {
+      threadId: thread,
       runId: run.runId,
       messages: newMessages(messages as { role: string }[]) as typeof messages,
       // What a message carries besides its words: the ids of its files.
       forwardedProps: { ...data, ...run.forwardedProps },
     })
   },
-  async hydrate(threadId) {
-    const thread = await api.chatThread(threadId)
+  async hydrate() {
+    const thread_ = await api.chatThread(thread)
     return {
-      messages: thread.messages as unknown as UIMessage[],
+      messages: thread_.messages as unknown as UIMessage[],
       activeRun: null,
       interrupts: null,
     }
   },
-}
+})
 
 /** What Ponos alone knows about a message, in `metadata.ponos` (see `console.py`). */
 export interface Ponos {

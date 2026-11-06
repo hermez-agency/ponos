@@ -74,6 +74,26 @@ ones you used last first. A conversation on an OpenRouter model talks to OpenRou
 `claude.provider` says; without a key the picker offers Claude's models and leads to the
 setting. `web.chat_model` is the model a new conversation starts on.
 
+**Several conversations answer at once.** Each conversation has its own run — the turn in
+flight, the messages waiting behind it, its Stop, its stream — so you can send a message in
+one, switch to another, send one there, and come back: the first went on in the background,
+and the page catches up with it as it reopens. Which conversation is open is the *tab's*
+business, not the server's: two tabs, or a phone and a computer, follow two different ones.
+Starting, opening, renaming or deleting a conversation is never refused because another is
+answering; deleting one whose turn is running stops it first. The history menu and the
+**Conversations** page mark the ones answering (a pulsing dot), the ones waiting for a place
+(a hollow dot) and the ones that answered while nobody was reading (a plain dot); the
+history button carries a dot when another conversation is answering or unread. Each turn is
+a Claude session that spends the same subscription, so at most three (`Web.chat_max_turns`, a constant of the code)
+run at once: past it, a message waits in its own conversation — *Waiting for a free
+place* — and starts when a turn ends. A `>` command is not a turn and runs whatever the
+conversations are doing, one command at a time. The API names the conversation:
+`GET /api/chat/<id>`, `POST /api/chat/<id>` (send), `/api/chat/<id>/agui` (the AG-UI door),
+`/stop`, `/read`, `/model`, `/queue/…`, `/attachments`; `POST /api/chat/new` makes a blank one
+(on the model of `{"like": "<id>"}`), and `GET /api/chat` answers the latest, where a tab
+with none starts. The event stream says which conversation each `chat` and `agui` event is
+about.
+
 **The dashboard** opens on the period's [statistics](#statistics-on-the-dashboard), then
 the board. **On a phone** it opens on **To handle** instead: the blocked tickets and the
 ones in review, one card each — a blocked one first, then the pull requests to decide, then
@@ -329,8 +349,8 @@ window open; the palette prints N beside its entry. They are listed in one place
 That conversation is a real session, like every ticket's: `claude --resume <id>` in a
 terminal opens the very same one, and it survives the browser, the server and the machine.
 The line under the drawer's title says how many turns it has had and copies that command
-when clicked. *New conversation* — the pen at the top of the drawer — starts a fresh one;
-the old one stays resumable by its identifier.
+when clicked. *New conversation* — the pen at the top of the drawer — starts a fresh one
+beside it: the old one stays resumable by its identifier, and goes on answering if it was.
 
 **While it answers**, the conversation shows Ponos thinking — the flame swaying, the eyes
 searching — and one line about what the session is on, said in words rather than in tool

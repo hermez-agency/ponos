@@ -32,6 +32,7 @@ from support import (
 from ponos import openrouter, session
 from ponos.__main__ import subcommands
 from ponos.web import attachments as web_attachments
+from ponos.web import chats as web_chats
 from ponos.web import console as web_console
 
 # -- the web console ---------------------------------------------------------
@@ -151,10 +152,37 @@ def following_a_log_is_dropped_rather_than_left_to_hang() -> None:
 
 
 class _Chat(web_console.Chat):
-    """A Chat that keeps the prompts its session was given and the events it sent."""
+    """A conversation that keeps the prompts its session was given and the events it sent."""
 
     prompts: list[str]
     events: list[tuple[str, dict[str, Any]]]
+
+
+class _Chats(web_console.Chats):
+    """The conversations, each one sharing the same record of prompts and events."""
+
+    prompts: list[str]
+    events: list[tuple[str, dict[str, Any]]]
+
+    def _make(self, identifier: str, row: dict[str, Any] | None = None) -> web_console.Chat:
+        chat = _Chat(self, identifier, row)
+        chat.prompts = self.prompts
+        chat.events = self.events
+        return chat
+
+
+def _again(chat: _Chat, identifier: str) -> _Chat:
+    """Another conversation of the same console, by its name."""
+    found = chat.chats.get(identifier)
+    assert isinstance(found, _Chat)
+    return found
+
+
+def _fresh(chat: _Chat, like: str = "") -> _Chat:
+    """A new conversation of the same console."""
+    found = chat.chats.create(like)
+    assert isinstance(found, _Chat)
+    return found
 
 
 @contextmanager
@@ -172,11 +200,13 @@ def _chat(body: str = "", **constants: Any) -> Iterator[_Chat]:
         session.run = run
         session.available = lambda: "/usr/bin/claude"
         try:
-            chat = _Chat(
+            chats = _Chats(
                 _config(body, **constants), lambda kind, **said: events.append((kind, said))
             )
-            chat.prompts = prompts
-            chat.events = events
+            chats.prompts = prompts
+            chats.events = events
+            chat = chats.create()
+            assert isinstance(chat, _Chat)
             yield chat
         finally:
             session.run, session.available = original_run, original_available
@@ -290,7 +320,7 @@ def a_new_conversation_leaves_the_old_one_its_files_until_it_is_deleted() -> Non
         _said_to(chat)
         old, folder = chat.id, chat.folder().path
         assert folder.is_dir()
-        chat.reset()
+        chat = _fresh(chat)
         assert folder.is_dir(), "the old conversation is still in the list, with its files"
         try:
             chat.attachment(said["id"])
@@ -301,9 +331,11 @@ def a_new_conversation_leaves_the_old_one_its_files_until_it_is_deleted() -> Non
         again = chat.attach("b.png", io.BytesIO(b"png"), 3)
         assert chat.folder().path != folder, "a new conversation, a new folder"
         assert chat.attachment(again["id"]).name == "b.png"
-        chat.delete(old)
+        chat.chats.delete(old)
         assert not folder.exists(), "deleting a conversation takes its files with it"
-        assert [item["id"] for item in chat.sessions()] == [], "the new one has said nothing yet"
+        assert [item["id"] for item in chat.chats.sessions()] == [], (
+            "the new one has said nothing yet"
+        )
 
 
 @case
@@ -312,38 +344,43 @@ def conversations_are_listed_reopened_renamed_and_searched() -> None:
         chat.send("How do I rotate the Notion token?\nSecond line")
         _said_to(chat)
         first = chat.id
+        chats = chat.chats
         assert chat.title == "How do I rotate the Notion token?", chat.title
-        chat.reset()
+        chat = _fresh(chat)
         assert chat.history() == [] and chat.session_id == ""
         chat.send("Draft the release notes")
         _said_to(chat)
         second = chat.id
-        listed = chat.sessions()
+        listed = chats.sessions()
         assert [item["id"] for item in listed] == [second, first], "the latest first"
-        assert listed[0]["current"] and not listed[1]["current"]
-        assert [item["id"] for item in chat.sessions("notion")] == [first]
-        assert chat.sessions("notion")[0]["matched"] == "title"
-        assert chat.sessions("seen")[0]["matched"] == "content", "the answers are searched too"
-        assert chat.sessions("100%") == [], "a wildcard is a character"
-        chat.rename(first, "  Token   rotation ")
-        assert chat.sessions("rotation")[0]["title"] == "Token rotation"
-        chat.link(first, " Website ")
-        assert chat.sessions("website")[0]["project"] == "Website", "found by its project too"
-        chat.open(first)
+        assert [item["id"] for item in chats.sessions("notion")] == [first]
+        assert chats.sessions("notion")[0]["matched"] == "title"
+        assert chats.sessions("seen")[0]["matched"] == "content", "the answers are searched too"
+        assert chats.sessions("100%") == [], "a wildcard is a character"
+        chats.rename(first, "  Token   rotation ")
+        assert chats.sessions("rotation")[0]["title"] == "Token rotation"
+        chats.link(first, " Website ")
+        assert chats.sessions("website")[0]["project"] == "Website", "found by its project too"
+        chat = _again(chat, first)
         assert chat.id == first and chat.history()[0]["text"].startswith("How do I rotate")
         chat.send("and then?")
         assert "and then?" in _said_to(chat), "the session is resumed, without the brief again"
         assert chat.prompts[-1].startswith("[This conversation is about the project “Website”.]")
         assert chat.session_id and chat.turns == 2
         try:
-            chat.open("0123456789ab")
+            chats.get("0123456789ab")
         except LookupError:
             pass
         else:
             raise AssertionError("opened a conversation that does not exist")
-        chat.delete(first)
-        assert [item["id"] for item in chat.sessions()] == [second]
-        assert chat.history() == [], "the deleted one was open: a blank one takes its place"
+        chats.delete(first)
+        assert [item["id"] for item in chats.sessions()] == [second]
+        try:
+            chats.get(first)
+        except LookupError:
+            pass
+        else:
+            raise AssertionError("a deleted conversation is still held")
 
 
 @case
@@ -355,9 +392,9 @@ def a_conversation_keeps_its_model_and_the_settings_name_the_default() -> None:
         chat.send("hello")
         _said_to(chat)
         first = chat.id
-        chat.reset()
-        assert chat.effective_model() == "opus", "a new session keeps the model that was chosen"
-        chat.open(first)
+        other = _fresh(chat, first)
+        assert other.effective_model() == "opus", "a new session keeps the model that was chosen"
+        other.choose("sonnet")
         assert chat.effective_model() == "opus", "and the other one remembers its own"
         chat.choose("")
         assert chat.effective_model() == "haiku"
@@ -368,7 +405,7 @@ def a_conversation_keeps_its_model_and_the_settings_name_the_default() -> None:
                 pass
             else:
                 raise AssertionError(f"{refused} was accepted")
-        offered = chat.models()
+        offered = chat.chats.models()
         assert [item["id"] for item in offered["claude"]] == ["opus", "sonnet", "haiku", "fable"]
         assert offered["openrouter"] == {"configured": False, "models": [], "error": ""}
 
@@ -398,7 +435,7 @@ def an_openrouter_model_goes_through_openrouter_whatever_the_provider() -> None:
         assert "ANTHROPIC_BASE_URL" not in seen[-1]["environment"], (
             "a Claude model stays on the CLI"
         )
-        assert chat.models()["recent"] == ["sonnet"]
+        assert chat.chats.models()["recent"] == ["sonnet"]
 
 
 @case
@@ -580,8 +617,8 @@ def a_stopped_turn_is_kept_and_the_conversation_carries_on() -> None:
             assert calls[-1]["resume"] is True and calls[-1]["session_id"] == identifier
             # Read back from the disk, a stopped turn with nothing said stays.
             chat.messages.append(web_console.Message("stopped", ""))
-            chat._save()
-            again = web_console.Chat(chat.config, lambda *a, **k: None)
+            chat.save()
+            again = web_console.Chats(chat.config, lambda *a, **k: None).get(chat.id)
             assert [message.role for message in again.messages][-1] == "stopped"
     finally:
         session.exists = original
@@ -645,7 +682,7 @@ def dictation_without_a_key_says_what_is_missing() -> None:
         state = chat.state()["dictation"]
         assert state["ready"] is False and "OpenRouter key" in state["why"]
         try:
-            chat.transcribe(b"audio", "audio/webm")
+            chat.chats.transcribe(b"audio", "audio/webm")
         except openrouter.Unavailable as error:
             assert "openrouter.key" in str(error)
         else:
@@ -683,7 +720,7 @@ def dictation_is_sent_to_openrouter_in_the_language_asked_for() -> None:
         base = f"http://127.0.0.1:{server.server_address[1]}/api/v1"
         with _chat('[openrouter]\nkey = "sk-or-test"\n', openrouter={"base_url": base}) as chat:
             assert chat.state()["dictation"]["ready"] is True
-            said = chat.transcribe(b"\x1aE\xdf\xa3", "audio/webm;codecs=opus", "fr-FR")
+            said = chat.chats.transcribe(b"\x1aE\xdf\xa3", "audio/webm;codecs=opus", "fr-FR")
     finally:
         server.shutdown()
         server.server_close()
@@ -707,7 +744,7 @@ def the_console_takes_a_file_as_a_raw_body_and_serves_it_back_sandboxed() -> Non
 
     with _chat(web={"attachment_max_mb": 1}) as chat:
         api = _bare_api(_TalkClient([]))
-        api.chat = chat
+        api.chat = chat.chats
         console = web_app.Console(("127.0.0.1", 0), api, "tok")
         threading.Thread(target=console.serve_forever, daemon=True).start()
         base = f"http://127.0.0.1:{console.server_address[1]}"
@@ -726,11 +763,13 @@ def the_console_takes_a_file_as_a_raw_body_and_serves_it_back_sandboxed() -> Non
                 return error.code, json.loads(error.read() or b"{}"), error.headers
 
         try:
-            code, _, _ = post("/api/chat/attachments?name=a.png", b"png", guard=False)
+            code, _, _ = post(f"/api/chat/{chat.id}/attachments?name=a.png", b"png", guard=False)
             assert code == 403, "a page elsewhere cannot drop a file here"
-            code, said, _ = post("/api/chat/attachments?name=a.png", b"\x89PNG")
+            code, said, _ = post(f"/api/chat/{chat.id}/attachments?name=a.png", b"\x89PNG")
             assert code == 200 and said["kind"] == "image", said
-            code, refused, _ = post("/api/chat/attachments?name=big.png", b"x" * (1024 * 1024 + 1))
+            code, refused, _ = post(
+                f"/api/chat/{chat.id}/attachments?name=big.png", b"x" * (1024 * 1024 + 1)
+            )
             assert code == 413 and "attachment_max_mb" in refused["error"], refused
             code, refused, _ = post("/api/chat/transcribe?lang=fr", b"audio", kind="audio/webm")
             assert code == 503 and "OpenRouter key" in refused["error"], refused
@@ -742,10 +781,12 @@ def the_console_takes_a_file_as_a_raw_body_and_serves_it_back_sandboxed() -> Non
                 assert response.read() == b"\x89PNG"
                 assert response.headers["Content-Type"] == "image/png"
                 assert "sandbox" in response.headers["Content-Security-Policy"]
-            code, _, _ = post(
-                f"/api/chat/attachments/{said['id']}/remove", b"{}", kind="application/json"
+            code, refused, _ = post(
+                f"/api/chat/{chat.id}/attachments/{said['id']}/remove",
+                b"{}",
+                kind="application/json",
             )
-            assert code == 200
+            assert code == 200, refused
             try:
                 urllib.request.urlopen(request, timeout=5)
             except urllib.error.HTTPError as error:
@@ -771,7 +812,7 @@ def the_console_speaks_a_sentence_and_plans_a_reply_and_says_why_it_cannot() -> 
     with _chat(speech={"speed": 120}) as chat:
         assert chat.state()["speech"]["ready"] is speech.available()
         api = _bare_api(_TalkClient([]))
-        api.chat = chat
+        api.chat = chat.chats
         console = web_app.Console(("127.0.0.1", 0), api, "tok")
         threading.Thread(target=console.serve_forever, daemon=True).start()
         base = f"http://127.0.0.1:{console.server_address[1]}"
@@ -961,6 +1002,137 @@ def a_stop_holds_the_queue_until_it_is_sent_or_thrown_away() -> None:
         session.exists = original
 
 
+# -- several conversations at once --------------------------------------------
+
+
+def _held_open(chat: _Chat) -> dict[str, threading.Event]:
+    """The `_chat` session, made to wait for the Stop of *its own* conversation.
+
+    The prompt is kept so that a case can tell which conversation has begun;
+    each turn ends on its own Stop, or on `release`, whichever comes first.
+    """
+    gates: dict[str, threading.Event] = {}
+
+    def run(prompt: str, **rest: Any) -> session.Outcome:
+        chat.prompts.append(prompt)
+        gate = gates.setdefault(prompt.rsplit("\n", 1)[-1], threading.Event())
+        for _ in range(6000):
+            if rest["stop"].is_set():
+                return session.Outcome(
+                    False,
+                    False,
+                    rest["session_id"],
+                    "",
+                    Path("/dev/null"),
+                    answer="halfway",
+                    error="stopped",
+                    stopped=True,
+                )
+            if gate.wait(0.01):
+                break
+        return session.Outcome(
+            True, False, rest["session_id"], "", Path("/dev/null"), answer="done"
+        )
+
+    session.run = run
+    session.exists = lambda session_id: True
+    return gates
+
+
+@case
+def two_conversations_answer_at_once_and_a_stop_reaches_only_its_own() -> None:
+    original = session.exists
+    try:
+        with _chat() as first:
+            gates = _held_open(first)
+            second = _fresh(first)
+            first.send("alpha")
+            second.send("bravo")
+            _until(lambda: len(first.prompts) == 2, "both turns should be running")
+            assert first.busy and second.busy, "each carries its own run"
+            assert first.turn is not second.turn and first._stop is not second._stop
+            assert first.chats.running() == 2
+            # Opening, renaming or listing never waits for a turn of another.
+            listed = {item["id"]: item for item in first.chats.sessions()}
+            assert listed[first.id]["busy"] and listed[second.id]["busy"]
+            first.chats.rename(second.id, "Bravo")
+            assert _again(first, second.id) is second
+            first.stop()
+            _settled(first)
+            assert second.busy, "Stop on one does not stop the other"
+            assert first.history()[-1]["role"] == "stopped"
+            gates["bravo"].set()
+            _settled(second)
+            assert second.history()[-1]["text"] == "done"
+            assert second.unread and first.unread, "both ended with an answer nobody has read"
+            assert second.read()["unread"] is False
+            events = [said for kind, said in first.events if kind == "chat"]
+            assert {said["id"] for said in events} == {first.id, second.id}, "each event says whose"
+    finally:
+        session.exists = original
+
+
+@case
+def a_turn_past_the_limit_waits_in_its_conversation_for_a_place() -> None:
+    original = session.exists
+    try:
+        with _chat(web={"chat_max_turns": 2}) as one:
+            gates = _held_open(one)
+            two, three = _fresh(one), _fresh(one)
+            one.send("one")
+            two.send("two")
+            state = three.send("three")
+            assert not three.busy and state["limited"] is True and len(state["queue"]) == 1
+            assert state["running"] == 2 and state["limit"] == 2
+            assert len(one.prompts) == 2, "the third message did not start"
+            gates["one"].set()
+            _until(lambda: three.busy, "the place that was freed was not given")
+            assert three.state()["limited"] is False and three.queue == []
+            gates["two"].set()
+            gates["three"].set()
+            _settled(two)
+            _settled(three)
+            assert [m["role"] for m in three.history()] == ["you", "workspace"]
+    finally:
+        session.exists = original
+
+
+@case
+def a_conversation_deleted_while_it_answers_is_stopped_and_never_written_back() -> None:
+    original = session.exists
+    try:
+        with _chat() as chat:
+            _held_open(chat)
+            other = _fresh(chat)
+            chat.send("doomed")
+            other.send("kept")
+            _until(lambda: len(chat.prompts) == 2, "both should be running")
+            chat.chats.delete(chat.id)  # no “a turn is in flight”
+            _settled(chat)
+            assert other.busy, "the other conversation carries on"
+            assert [item["id"] for item in chat.chats.sessions()] == [other.id], (
+                "what the stopped turn said was not written back"
+            )
+            _until(lambda: web_chats.load(chat.id) is None, "the row came back")
+            _again(chat, other.id).stop()
+            _settled(other)
+    finally:
+        session.exists = original
+
+
+@case
+def a_name_the_server_forgot_is_a_blank_conversation_to_carry_on_in() -> None:
+    with _chat() as chat:
+        found = chat.chats.get("0123456789ab", blank=True)
+        assert found.history() == [] and found.id == "0123456789ab"
+        try:
+            chat.chats.get("not-a-name", blank=True)
+        except LookupError:
+            pass
+        else:
+            raise AssertionError("any string was taken for the name of a conversation")
+
+
 # -- in AG-UI ------------------------------------------------------------------
 
 
@@ -1030,14 +1202,13 @@ def a_turn_is_streamed_in_agui_and_kept_with_what_it_streamed() -> None:
         assert answer["metadata"]["ponos"]["role"] == "workspace"
 
         # Reopened from the disk, the conversation hydrates the same.
-        again = web_console.Chat(chat.config, lambda *a, **k: None)
-        hydrated = again.thread(chat.id)
+        again = web_console.Chats(chat.config, lambda *a, **k: None).get(chat.id)
+        hydrated = again.thread()
         assert hydrated["activeRun"] is None and hydrated["interrupts"] is None
         assert hydrated["messages"] == last
-        # A conversation that is not the open one is read from its row.
-        chat.reset()
-        assert chat.thread(again.id)["messages"] == last
-        assert chat.thread(chat.id)["messages"] == []
+        # Another conversation of the same console has its own, and a blank one none.
+        assert _fresh(chat).thread()["messages"] == []
+        assert chat.thread()["messages"] == last
 
 
 @case
@@ -1085,7 +1256,7 @@ def another_agui_client_is_answered_the_run_itself_as_server_sent_events() -> No
     with _chat() as chat:
         _speaking(chat)
         api = _bare_api(None)
-        api.chat = chat
+        api.chat = chat.chats
         console = web_app.Console(("127.0.0.1", 0), api, "tok")
         threading.Thread(target=console.serve_forever, daemon=True).start()
         try:
@@ -1095,7 +1266,7 @@ def another_agui_client_is_answered_the_run_itself_as_server_sent_events() -> No
             body = {"threadId": chat.id, "messages": [{"role": "user", "content": "count"}]}
             connection.request(
                 "POST",
-                "/api/chat/agui",
+                f"/api/chat/{chat.id}/agui",
                 body=json.dumps(body),
                 headers={
                     "Authorization": "Bearer tok",
@@ -1128,7 +1299,7 @@ def _posting(size: int) -> tuple[int, str]:
     with _chat() as chat:
         _speaking(chat)
         api = _bare_api(None)
-        api.chat = chat
+        api.chat = chat.chats
         console = web_app.Console(("127.0.0.1", 0), api, "tok")
         threading.Thread(target=console.serve_forever, daemon=True).start()
         try:
@@ -1139,7 +1310,7 @@ def _posting(size: int) -> tuple[int, str]:
             body = {"threadId": chat.id, "messages": [*history, {"role": "user", "content": "go"}]}
             connection.request(
                 "POST",
-                "/api/chat/agui",
+                f"/api/chat/{chat.id}/agui",
                 body=json.dumps(body),
                 headers={
                     "Authorization": "Bearer tok",

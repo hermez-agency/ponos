@@ -109,7 +109,7 @@ class Base(Chapters):
         self._images: images.Cache | None = None
         self.hub = live.Hub()
         self.commands = console.Commands(self.hub.publish, _subcommands())
-        self.chat = console.Chat(config, self.hub.publish, self.brief)
+        self.chat = console.Chats(config, self.hub.publish, self.brief)
         # What the ideas keep while they are found and scored: the scopes a
         # batch is being written for, under the lock that keeps a second click
         # from paying for the same batch, and who signs one written by hand.

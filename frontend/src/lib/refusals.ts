@@ -49,6 +49,23 @@ export const REFUSALS: readonly string[] = [
   // upkeep.py: the health band's fixes, and the tidy.
   "a fix is made only once it is confirmed",
   "a run is in progress — try again once it has finished",
+  // console.py: the conversations, and the commands typed beside them.
+  "no such session",
+  "a session needs a title",
+  "no such attachment: {{identifier}} — it was removed, or the conversation is over",
+  "no such attachment: {{identifier}}",
+  "“{{model}}” is not a model name",
+  "an OpenRouter model needs the OpenRouter key: add it in the settings",
+  "nothing to send",
+  "claude not found in PATH",
+  "{{model}} runs on OpenRouter, which has no key: pick a Claude model, or add the key in the settings",
+  "this run is for another conversation — reload the page",
+  "no such waiting message",
+  "unbalanced quotes: {{error}}",
+  "no command",
+  "unknown command “{{verb}}” — try one of: {{offered}}",
+  "a command is already running",
+  "a run needs a message from the user",
   // settings.py: a value the file cannot take.
   "{{label}}: yes or no",
   "{{label}}: a number",

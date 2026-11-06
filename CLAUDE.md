@@ -160,7 +160,7 @@ le lundi — CONTRIBUTING.md, « Dependencies ».
   révoque les connexions, `web/accounts.py` tient les comptes, leurs rôles (la garde de
   `web/app.py` les applique, `frontend/src/lib/role.ts` cache ce qu'un rôle ne peut pas faire)
   et le journal de qui a fait quoi sur un ticket ;
-  `web/console.py` tient la conversation avec l'espace de travail,
+  `web/console.py` tient les conversations avec l'espace de travail (`Chats` : le registre, la liste et la limite de tours simultanés, la constante `Web.chat_max_turns` ; `Chat` : une conversation et son propre tour, sa file, son Stop — le serveur n'en garde aucune « ouverte », chaque onglet suit la sienne, `frontend/src/lib/open-chat.ts`),
   `web/agui.py` la traduit en AG-UI pour le `useChat` de la page, et
   `web/attachments.py` les fichiers qu'un message y emporte).
 - `src/ponos/web/static/` — **généré**, pas du code source à modifier

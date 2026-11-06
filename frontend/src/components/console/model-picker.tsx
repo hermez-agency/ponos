@@ -157,11 +157,14 @@ export const warnToolless = (id: string, models: ChatModels | null) => {
 }
 
 export function ModelPicker({
+  chat,
   model,
   className,
   onChosen,
   settingsTo,
 }: {
+  /** The conversation the model is chosen for. */
+  chat: string
   /** What the next turn runs on, as the server resolved it. */
   model: string
   className?: string
@@ -177,7 +180,7 @@ export function ModelPicker({
     setOpen(false)
     if (id === model) return
     try {
-      await api.setChatModel(id)
+      await api.setChatModel(chat, id)
       warnToolless(id, models)
       onChosen?.()
     } catch (error) {

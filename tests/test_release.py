@@ -1843,7 +1843,7 @@ def the_console_says_what_the_server_refuses_in_french_too() -> None:
     recognises it in `frontend/src/lib/refusals.ts` — a template, `{{name}}`
     where an f-string puts a value — before `french.ts` translates it. So
     each `raise` with a sentence in the goals, the schedules, the projects
-    and their brief, the tidy and the settings must be on that list: one
+    and their brief, the tidy, the settings and the conversations must be on that list: one
     reworded here and not there would be shown in English again. Values are
     compared without their names — the Python names them after its variables.
     """
@@ -1854,7 +1854,7 @@ def the_console_says_what_the_server_refuses_in_french_too() -> None:
         return "{{}}"
 
     raised: dict[str, str] = {}
-    for module in ("goals", "schedules", "projects", "upkeep", "settings"):
+    for module in ("goals", "schedules", "projects", "upkeep", "settings", "console", "agui"):
         path = ROOT / "src/ponos/web" / f"{module}.py"
         for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
             if not (isinstance(node, ast.Raise) and isinstance(node.exc, ast.Call)):

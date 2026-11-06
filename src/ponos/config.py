@@ -626,6 +626,10 @@ class Web:
     # A chat turn is a Claude session like any other, and wants the same kind of
     # ceiling. Shorter than a ticket's: somebody is sitting in front of it.
     chat_timeout_minutes: int = 20
+    # How many conversations may be answering at once. Each turn is a Claude
+    # session, and they spend the same subscription: past this, a message waits
+    # in its conversation until a place is free.
+    chat_max_turns: int = 3
     # The model a new conversation of the console starts on. Empty: the runner's
     # own default model. Each conversation then keeps the one it was given.
     chat_model: str = ""

@@ -53,6 +53,8 @@ export interface ComposerProps {
   /** Stop was pressed; the end of the turn is on its way. */
   stopping?: boolean
   busy: boolean
+  /** A `>` command is running: the next waits for it, whatever the turn is doing. */
+  commanding?: boolean
   placeholder: string
   commands?: string[]
   upload?: (file: File, name: string) => Promise<Attached>
@@ -71,6 +73,7 @@ export function Composer({
   onStop,
   stopping = false,
   busy,
+  commanding = false,
   placeholder,
   commands,
   upload,
@@ -88,10 +91,10 @@ export function Composer({
   const files = useAttachments({ upload, discard, limitMb })
   const { pending } = files
   const menu = useCommands(text, setText, commands)
-  const ready = canSend({ text, attachments: pending, busy, sending })
+  const ready = canSend({ text, attachments: pending, commanding, sending })
 
   const send = async (words = text) => {
-    if (!canSend({ text: words, attachments: pending, busy, sending })) return
+    if (!canSend({ text: words, attachments: pending, commanding, sending })) return
     const carried = files.carriedWith(words)
     setSending(true)
     try {

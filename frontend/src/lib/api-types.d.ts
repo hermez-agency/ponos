@@ -544,41 +544,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Chat */
+        /**
+         * Chat
+         * @description The conversation spoken in last — where a browser that follows none starts.
+         */
         get: operations["chat_api_chat_get"];
         put?: never;
-        /** Send Chat */
-        post: operations["send_chat_api_chat_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/chat/agui": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Chat Thread
-         * @description A conversation as `useChat` hydrates it, from Ponos's own storage.
-         */
-        get: operations["chat_thread_api_chat_agui_get"];
-        put?: never;
-        /**
-         * Run Chat
-         * @description The chat's AG-UI door: a `RunAgentInput` in, the run's events out.
-         *
-         *     The console's own page asks for JSON and reads the events where it reads
-         *     everything else, on `/api/events` — one stream per tab, whatever it
-         *     watches. Any other AG-UI client asks for `text/event-stream` and is
-         *     answered the run itself, from `RUN_STARTED` to `RUN_FINISHED`: waiting
-         *     behind the turn in flight first, if there is one.
-         */
-        post: operations["run_chat_api_chat_agui_post"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -613,6 +585,57 @@ export interface paths {
         get: operations["chat_models_api_chat_models_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/chat/{identifier}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Conversation
+         * @description One conversation: what was said in it, and where it stands. Blank when nothing was.
+         */
+        get: operations["conversation_api_chat__identifier__get"];
+        put?: never;
+        /** Send Chat */
+        post: operations["send_chat_api_chat__identifier__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/chat/{identifier}/agui": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Chat Thread
+         * @description A conversation as `useChat` hydrates it, from Ponos's own storage.
+         */
+        get: operations["chat_thread_api_chat__identifier__agui_get"];
+        put?: never;
+        /**
+         * Run Chat
+         * @description The conversation's AG-UI door: a `RunAgentInput` in, the run's events out.
+         *
+         *     The console's own page asks for JSON and reads the events where it reads
+         *     everything else, on `/api/events` — one stream per tab, whatever it
+         *     watches. Any other AG-UI client asks for `text/event-stream` and is
+         *     answered the run itself, from `RUN_STARTED` to `RUN_FINISHED`: waiting
+         *     behind the turn in flight first, if there is one.
+         */
+        post: operations["run_chat_api_chat__identifier__agui_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1500,7 +1523,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/chat/attachments/{identifier}/remove": {
+    "/api/chat/new": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * New Chat
+         * @description A conversation nobody has spoken in, on the model of the one the page leaves.
+         */
+        post: operations["new_chat_api_chat_new_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/chat/{identifier}/attachments/{file}/remove": {
         parameters: {
             query?: never;
             header?: never;
@@ -1510,14 +1553,14 @@ export interface paths {
         get?: never;
         put?: never;
         /** Remove Chat Attachment */
-        post: operations["remove_chat_attachment_api_chat_attachments__identifier__remove_post"];
+        post: operations["remove_chat_attachment_api_chat__identifier__attachments__file__remove_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/chat/queue/send": {
+    "/api/chat/{identifier}/queue/send": {
         parameters: {
             query?: never;
             header?: never;
@@ -1527,14 +1570,14 @@ export interface paths {
         get?: never;
         put?: never;
         /** Send Queue */
-        post: operations["send_queue_api_chat_queue_send_post"];
+        post: operations["send_queue_api_chat__identifier__queue_send_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/chat/queue/discard": {
+    "/api/chat/{identifier}/queue/discard": {
         parameters: {
             query?: never;
             header?: never;
@@ -1544,14 +1587,14 @@ export interface paths {
         get?: never;
         put?: never;
         /** Discard Queue */
-        post: operations["discard_queue_api_chat_queue_discard_post"];
+        post: operations["discard_queue_api_chat__identifier__queue_discard_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/chat/queue/{identifier}/remove": {
+    "/api/chat/{identifier}/queue/{waiting}/remove": {
         parameters: {
             query?: never;
             header?: never;
@@ -1561,14 +1604,14 @@ export interface paths {
         get?: never;
         put?: never;
         /** Remove Queued */
-        post: operations["remove_queued_api_chat_queue__identifier__remove_post"];
+        post: operations["remove_queued_api_chat__identifier__queue__waiting__remove_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/chat/queue/{identifier}/edit": {
+    "/api/chat/{identifier}/queue/{waiting}/edit": {
         parameters: {
             query?: never;
             header?: never;
@@ -1578,14 +1621,14 @@ export interface paths {
         get?: never;
         put?: never;
         /** Edit Queued */
-        post: operations["edit_queued_api_chat_queue__identifier__edit_post"];
+        post: operations["edit_queued_api_chat__identifier__queue__waiting__edit_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/chat/stop": {
+    "/api/chat/{identifier}/stop": {
         parameters: {
             query?: never;
             header?: never;
@@ -1595,14 +1638,14 @@ export interface paths {
         get?: never;
         put?: never;
         /** Stop Chat */
-        post: operations["stop_chat_api_chat_stop_post"];
+        post: operations["stop_chat_api_chat__identifier__stop_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/chat/reset": {
+    "/api/chat/{identifier}/read": {
         parameters: {
             query?: never;
             header?: never;
@@ -1611,8 +1654,8 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Reset Chat */
-        post: operations["reset_chat_api_chat_reset_post"];
+        /** Read Chat */
+        post: operations["read_chat_api_chat__identifier__read_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1656,7 +1699,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/chat/model": {
+    "/api/chat/{identifier}/model": {
         parameters: {
             query?: never;
             header?: never;
@@ -1666,31 +1709,14 @@ export interface paths {
         get?: never;
         put?: never;
         /** Choose Chat Model */
-        post: operations["choose_chat_model_api_chat_model_post"];
+        post: operations["choose_chat_model_api_chat__identifier__model_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/chat/sessions/{identifier}/open": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Open Chat Session */
-        post: operations["open_chat_session_api_chat_sessions__identifier__open_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/chat/sessions/{identifier}/rename": {
+    "/api/chat/{identifier}/rename": {
         parameters: {
             query?: never;
             header?: never;
@@ -1700,14 +1726,14 @@ export interface paths {
         get?: never;
         put?: never;
         /** Rename Chat Session */
-        post: operations["rename_chat_session_api_chat_sessions__identifier__rename_post"];
+        post: operations["rename_chat_session_api_chat__identifier__rename_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/chat/sessions/{identifier}/project": {
+    "/api/chat/{identifier}/project": {
         parameters: {
             query?: never;
             header?: never;
@@ -1717,14 +1743,14 @@ export interface paths {
         get?: never;
         put?: never;
         /** Link Chat Session */
-        post: operations["link_chat_session_api_chat_sessions__identifier__project_post"];
+        post: operations["link_chat_session_api_chat__identifier__project_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/chat/sessions/{identifier}/delete": {
+    "/api/chat/{identifier}/delete": {
         parameters: {
             query?: never;
             header?: never;
@@ -1734,7 +1760,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Delete Chat Session */
-        post: operations["delete_chat_session_api_chat_sessions__identifier__delete_post"];
+        post: operations["delete_chat_session_api_chat__identifier__delete_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2238,7 +2264,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/chat/attachments": {
+    "/api/chat/{identifier}/attachments": {
         parameters: {
             query?: never;
             header?: never;
@@ -2255,7 +2281,7 @@ export interface paths {
          *     and a parser of forms would be a dependency for one field. The name comes
          *     in the query, the bytes are streamed to disk — never held.
          */
-        post: operations["upload_api_chat_attachments_post"];
+        post: operations["upload_api_chat__identifier__attachments_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2331,6 +2357,8 @@ export interface components {
             event: {
                 [key: string]: unknown;
             };
+            /** @description The conversation the event is about: a page follows one. */
+            thread: string;
         };
         /** @description A file kept by the server for a message: what the transcript draws it from. */
         Attached: {
@@ -2573,10 +2601,20 @@ export interface components {
             queue?: components["schemas"]["Queued"][];
             /** @description A turn ended before its time: the queue waits to be sent or thrown away. */
             held?: boolean;
-            messages: components["schemas"]["Message"][];
+            /** @description A turn of this conversation is in flight. */
             busy?: boolean;
+            /** @description Messages wait and nothing runs: every place is taken by other conversations. */
+            limited?: boolean;
+            /** @description An answer nobody has read yet. */
+            unread?: boolean;
+            /** @description How many turns run now, in every conversation. */
+            running?: number;
+            /** @description How many may run at once (`Web.chat_max_turns`). */
+            limit?: number;
+            messages: components["schemas"]["Message"][];
         };
         ChatAnswer: {
+            id: string;
             /** @enum {string} */
             stage: "answer" | "failed";
             text: string;
@@ -2585,12 +2623,23 @@ export interface components {
             seconds?: number;
             session_id?: string;
         };
+        /** @description What holds for every conversation: what a message may carry, the voice, the places. */
+        ChatDefaults: {
+            attachments: components["schemas"]["Accepted"];
+            dictation: components["schemas"]["Dictation"];
+            speech: components["schemas"]["Speaking"];
+            /** @description How many turns run now, in every conversation. */
+            running: number;
+            /** @description How many may run at once (`Web.chat_max_turns`). */
+            limit: number;
+        };
         ChatDeleted: {
+            id: string;
             /** @constant */
             stage: "deleted";
-            id?: string;
         };
         ChatModel: {
+            id: string;
             /** @constant */
             stage: "model";
             model?: string;
@@ -2604,26 +2653,26 @@ export interface components {
             default: string;
             in_use: string;
         };
-        ChatOpened: {
-            /** @constant */
-            stage: "opened";
-        };
         ChatQueue: {
+            id: string;
             /** @constant */
             stage: "queue";
             queue: components["schemas"]["Queued"][];
             held: boolean;
+            limited: boolean;
+        };
+        ChatRead: {
+            id: string;
+            /** @constant */
+            stage: "read";
         };
         ChatRenamed: {
+            id: string;
             /** @constant */
             stage: "renamed";
-            id?: string;
-        };
-        ChatReset: {
-            /** @constant */
-            stage: "reset";
         };
         ChatSent: {
+            id: string;
             /** @constant */
             stage: "sent";
             text: string;
@@ -2639,8 +2688,12 @@ export interface components {
             turns: number;
             /** @description The last message's date, ISO. */
             updated: string;
-            /** @description The one the console is talking to now. */
-            current: boolean;
+            /** @description A turn of it is answering now. */
+            busy: boolean;
+            /** @description A message waits for a place: every turn that may run is running. */
+            waiting: boolean;
+            /** @description It answered and nobody has read it. */
+            unread: boolean;
             /**
              * @description With a search: found in the title, or deeper in the transcript.
              * @enum {string}
@@ -2674,8 +2727,19 @@ export interface components {
             queue?: components["schemas"]["Queued"][];
             /** @description A turn ended before its time: the queue waits to be sent or thrown away. */
             held?: boolean;
+            /** @description A turn of this conversation is in flight. */
+            busy?: boolean;
+            /** @description Messages wait and nothing runs: every place is taken by other conversations. */
+            limited?: boolean;
+            /** @description An answer nobody has read yet. */
+            unread?: boolean;
+            /** @description How many turns run now, in every conversation. */
+            running?: number;
+            /** @description How many may run at once (`Web.chat_max_turns`). */
+            limit?: number;
         };
         ChatStep: {
+            id: string;
             label: string;
             detail: string;
             said?: boolean;
@@ -2686,6 +2750,7 @@ export interface components {
             stage: "step";
         };
         ChatStopped: {
+            id: string;
             /** @constant */
             stage: "stopped";
             text: string;
@@ -2693,6 +2758,7 @@ export interface components {
             session_id?: string;
         };
         ChatStopping: {
+            id: string;
             /** @constant */
             stage: "stopping";
         };
@@ -2884,6 +2950,9 @@ export interface components {
             /** @description The before/after captures of the ticket's pages, when it has any. */
             previews?: components["schemas"]["PreviewShot"][];
             caveats?: string[];
+        };
+        Deleted: {
+            id: string;
         };
         /** @description Where the demonstration ticket stands, and — once its run ended badly — why. */
         Demo: {
@@ -3539,6 +3608,13 @@ export interface components {
             said: string;
             fix: string;
         };
+        /** @description The conversation the page leaves: the new one starts on its model. */
+        NewChat: {
+            /** @default  */
+            like: string;
+        } & {
+            [key: string]: unknown;
+        };
         NewTicket: {
             /** @default  */
             title: string;
@@ -4075,7 +4151,7 @@ export interface components {
             upgrade?: components["schemas"]["Upgrade"];
             spend: number;
             handled: number;
-            chat: components["schemas"]["ChatState"];
+            chat: components["schemas"]["ChatDefaults"];
             commands: string[];
             busy: boolean;
         };
@@ -4607,7 +4683,7 @@ export interface components {
             sessions: components["schemas"]["SessionsEvent"];
             notifications: components["schemas"]["Bell"];
             step: components["schemas"]["StepEvent"];
-            chat: components["schemas"]["ChatReset"] | components["schemas"]["ChatOpened"] | components["schemas"]["ChatRenamed"] | components["schemas"]["ChatDeleted"] | components["schemas"]["ChatModel"] | components["schemas"]["ChatSent"] | components["schemas"]["ChatQueue"] | components["schemas"]["ChatStep"] | components["schemas"]["ChatStopping"] | components["schemas"]["ChatStopped"] | components["schemas"]["ChatAnswer"];
+            chat: components["schemas"]["ChatRenamed"] | components["schemas"]["ChatDeleted"] | components["schemas"]["ChatRead"] | components["schemas"]["ChatModel"] | components["schemas"]["ChatSent"] | components["schemas"]["ChatQueue"] | components["schemas"]["ChatStep"] | components["schemas"]["ChatStopping"] | components["schemas"]["ChatStopped"] | components["schemas"]["ChatAnswer"];
             agui: components["schemas"]["AguiEvent"];
             command: components["schemas"]["CommandStarted"] | components["schemas"]["CommandLine"] | components["schemas"]["CommandEnded"];
             talk: components["schemas"]["TalkEvent"];
@@ -6434,103 +6510,6 @@ export interface operations {
             };
         };
     };
-    send_chat_api_chat_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["Sent"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ChatState"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    chat_thread_api_chat_agui_get: {
-        parameters: {
-            query?: {
-                threadId?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ChatThread"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    run_chat_api_chat_agui_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["RunAgentInput"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ChatState"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     chat_sessions_api_chat_sessions_get: {
         parameters: {
             query?: {
@@ -6564,7 +6543,9 @@ export interface operations {
     };
     chat_models_api_chat_models_get: {
         parameters: {
-            query?: never;
+            query?: {
+                id?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -6578,6 +6559,147 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ChatModels"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    conversation_api_chat__identifier__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                identifier: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Chat"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_chat_api_chat__identifier__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                identifier: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["Sent"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    chat_thread_api_chat__identifier__agui_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                identifier: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatThread"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_chat_api_chat__identifier__agui_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                identifier: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RunAgentInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -8346,12 +8468,46 @@ export interface operations {
             };
         };
     };
-    remove_chat_attachment_api_chat_attachments__identifier__remove_post: {
+    new_chat_api_chat_new_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["NewChat"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_chat_attachment_api_chat__identifier__attachments__file__remove_post: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 identifier: string;
+                file: string;
             };
             cookie?: never;
         };
@@ -8377,47 +8533,7 @@ export interface operations {
             };
         };
     };
-    send_queue_api_chat_queue_send_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ChatState"];
-                };
-            };
-        };
-    };
-    discard_queue_api_chat_queue_discard_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ChatState"];
-                };
-            };
-        };
-    };
-    remove_queued_api_chat_queue__identifier__remove_post: {
+    send_queue_api_chat__identifier__queue_send_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -8448,12 +8564,76 @@ export interface operations {
             };
         };
     };
-    edit_queued_api_chat_queue__identifier__edit_post: {
+    discard_queue_api_chat__identifier__queue_discard_post: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 identifier: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_queued_api_chat__identifier__queue__waiting__remove_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                identifier: string;
+                waiting: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_queued_api_chat__identifier__queue__waiting__edit_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                identifier: string;
+                waiting: string;
             };
             cookie?: never;
         };
@@ -8483,11 +8663,13 @@ export interface operations {
             };
         };
     };
-    stop_chat_api_chat_stop_post: {
+    stop_chat_api_chat__identifier__stop_post: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                identifier: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -8501,13 +8683,24 @@ export interface operations {
                     "application/json": components["schemas"]["ChatState"];
                 };
             };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
     };
-    reset_chat_api_chat_reset_post: {
+    read_chat_api_chat__identifier__read_post: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                identifier: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -8519,6 +8712,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ChatState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -8587,11 +8789,13 @@ export interface operations {
             };
         };
     };
-    choose_chat_model_api_chat_model_post: {
+    choose_chat_model_api_chat__identifier__model_post: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                identifier: string;
+            };
             cookie?: never;
         };
         requestBody?: {
@@ -8620,38 +8824,7 @@ export interface operations {
             };
         };
     };
-    open_chat_session_api_chat_sessions__identifier__open_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                identifier: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ChatState"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    rename_chat_session_api_chat_sessions__identifier__rename_post: {
+    rename_chat_session_api_chat__identifier__rename_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -8686,7 +8859,7 @@ export interface operations {
             };
         };
     };
-    link_chat_session_api_chat_sessions__identifier__project_post: {
+    link_chat_session_api_chat__identifier__project_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -8721,7 +8894,7 @@ export interface operations {
             };
         };
     };
-    delete_chat_session_api_chat_sessions__identifier__delete_post: {
+    delete_chat_session_api_chat__identifier__delete_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -8738,7 +8911,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ChatState"];
+                    "application/json": components["schemas"]["Deleted"];
                 };
             };
             /** @description Validation Error */
@@ -9599,13 +9772,15 @@ export interface operations {
             };
         };
     };
-    upload_api_chat_attachments_post: {
+    upload_api_chat__identifier__attachments_post: {
         parameters: {
             query?: {
                 name?: string;
             };
             header?: never;
-            path?: never;
+            path: {
+                identifier: string;
+            };
             cookie?: never;
         };
         requestBody?: never;

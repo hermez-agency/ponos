@@ -130,20 +130,21 @@ export const isCommand = (text: string) => text.trimStart().startsWith(">")
 
 /* Whether the arrow would send anything — and it is drawn disabled when not.
  * A sentence can be sent while Ponos answers: it waits its turn. A command
- * cannot: it runs at once, and one command at a time. */
+ * runs at once, turn in flight or not, but one command at a time. */
 export function canSend({
   text,
   attachments,
-  busy,
+  commanding = false,
   sending = false,
 }: {
   text: string
   attachments: Pending[]
-  busy: boolean
+  /** A command is running already. */
+  commanding?: boolean
   sending?: boolean
 }): boolean {
   if (sending) return false
-  if (isCommand(text)) return !busy && text.trim().replace(/^>\s*/, "").length > 0
+  if (isCommand(text)) return !commanding && text.trim().replace(/^>\s*/, "").length > 0
   if (attachments.some((item) => item.state === "uploading")) return false
   return text.trim().length > 0 || attachments.some((item) => item.state === "done")
 }

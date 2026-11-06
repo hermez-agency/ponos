@@ -90,7 +90,7 @@ a small model read the ticket and choose.
 | **Publication** | *Post the 1.2 release on LinkedIn* | Prepared and shown to you first. Published once you say yes. |
 
 Tickets also [come back on their own](guide/tickets.md#what-comes-back-on-its-own) on a schedule, and the
-console's chat is a Claude Code session in your workspace.
+console's chat is a Claude Code session in your workspace — and several conversations can answer at once, each in its own tab.
 
 ## A board of its own
 

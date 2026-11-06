@@ -477,7 +477,9 @@ def the_openapi_schema_is_behind_the_same_door_as_the_api() -> None:
         assert (status, said) == (404, {"error": "no such route: /api/setup/summary"})
         status, _, said = _talk_to(console, "POST", "/api/tickets", {"ready": "maybe"}, **key)
         assert status == 400 and said["error"].startswith("ready: "), said
-        status, _, said = _talk_to(console, "POST", "/api/chat", {"attachments": "x"}, **key)
+        status, _, said = _talk_to(
+            console, "POST", "/api/chat/0123456789ab", {"attachments": "x"}, **key
+        )
         assert status == 400 and said["error"].startswith("attachments"), said
 
 

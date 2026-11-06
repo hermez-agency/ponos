@@ -154,9 +154,13 @@ export const api = {
     answer(client.GET("/api/schedules/{schedule_id}", { params: { path: { schedule_id: id } } })),
   scheduleActivity: (id: string) =>
     answer(client.GET("/api/schedules/{schedule_id}/activity", { params: { path: { schedule_id: id } } })),
-  chat: () => answer(client.GET("/api/chat")),
-  chatThread: (threadId: string) => answer(client.GET("/api/chat/agui", { params: { query: { threadId } } })),
-  runChat: (input: components["schemas"]["RunAgentInput"]) => answer(client.POST("/api/chat/agui", { body: input })),
+  /** The conversation spoken in last: where a browser that follows none starts. */
+  latestChat: () => answer(client.GET("/api/chat")),
+  chat: (id: string) => answer(client.GET("/api/chat/{identifier}", { params: { path: { identifier: id } } })),
+  chatThread: (threadId: string) =>
+    answer(client.GET("/api/chat/{identifier}/agui", { params: { path: { identifier: threadId } } })),
+  runChat: (id: string, input: components["schemas"]["RunAgentInput"]) =>
+    answer(client.POST("/api/chat/{identifier}/agui", { params: { path: { identifier: id } }, body: input })),
   settings: () => answer(client.GET("/api/settings")),
   folder: (path: string) => answer(client.GET("/api/settings/folder", { params: { query: { path } } })),
   statistics: (from: string, to: string, project?: string) =>
@@ -301,19 +305,26 @@ export const api = {
       })
     ),
   command: (line: string) => answer(client.POST("/api/command", { body: { line } })),
-  send: (text: string, attachments: string[] = []) =>
-    answer(client.POST("/api/chat", { body: { text, attachments } })),
-  attach: (file: File, name: string) =>
+  send: (chat: string, text: string, attachments: string[] = []) =>
     answer(
-      client.POST("/api/chat/attachments", {
-        params: { query: { name } },
+      client.POST("/api/chat/{identifier}", {
+        params: { path: { identifier: chat } },
+        body: { text, attachments },
+      })
+    ),
+  attach: (chat: string, file: File, name: string) =>
+    answer(
+      client.POST("/api/chat/{identifier}/attachments", {
+        params: { path: { identifier: chat }, query: { name } },
         headers: { "Content-Type": file.type || "application/octet-stream" },
         fetch: carrying(file),
       })
     ),
-  detach: (id: string) =>
+  detach: (chat: string, id: string) =>
     answer(
-      client.POST("/api/chat/attachments/{identifier}/remove", { params: { path: { identifier: id } } })
+      client.POST("/api/chat/{identifier}/attachments/{file}/remove", {
+        params: { path: { identifier: chat, file: id } },
+      })
     ),
   transcribe: (audio: Blob, language: string) =>
     answer(
@@ -341,37 +352,52 @@ export const api = {
     }
     return data as ArrayBuffer
   },
-  resetChat: () => answer(client.POST("/api/chat/reset")),
+  /** A new conversation, on the model of `like` (the one the page leaves). */
+  newChat: (like = "") => answer(client.POST("/api/chat/new", { body: { like } })),
   sessions: (query = "") => answer(client.GET("/api/chat/sessions", { params: { query: { q: query } } })),
-  openSession: (id: string) =>
-    answer(client.POST("/api/chat/sessions/{identifier}/open", { params: { path: { identifier: id } } })),
   renameSession: (id: string, title: string) =>
     answer(
-      client.POST("/api/chat/sessions/{identifier}/rename", {
+      client.POST("/api/chat/{identifier}/rename", {
         params: { path: { identifier: id } },
         body: { title },
       })
     ),
   deleteSession: (id: string) =>
-    answer(client.POST("/api/chat/sessions/{identifier}/delete", { params: { path: { identifier: id } } })),
-  chatModels: () => answer(client.GET("/api/chat/models")),
-  setChatModel: (model: string) => answer(client.POST("/api/chat/model", { body: { model } })),
+    answer(client.POST("/api/chat/{identifier}/delete", { params: { path: { identifier: id } } })),
+  chatModels: (id = "") => answer(client.GET("/api/chat/models", id ? { params: { query: { id } } } : {})),
+  setChatModel: (chat: string, model: string) =>
+    answer(
+      client.POST("/api/chat/{identifier}/model", { params: { path: { identifier: chat } }, body: { model } })
+    ),
   linkSession: (id: string, project: string) =>
     answer(
-      client.POST("/api/chat/sessions/{identifier}/project", {
+      client.POST("/api/chat/{identifier}/project", {
         params: { path: { identifier: id } },
         body: { project },
       })
     ),
-  stopChat: () => answer(client.POST("/api/chat/stop")),
-  unqueue: (id: string) =>
-    answer(client.POST("/api/chat/queue/{identifier}/remove", { params: { path: { identifier: id } } })),
-  amend: (id: string, text: string) =>
+  stopChat: (chat: string) =>
+    answer(client.POST("/api/chat/{identifier}/stop", { params: { path: { identifier: chat } } })),
+  /** The answer has been seen: the conversation is no longer flagged unread. */
+  readChat: (chat: string) =>
+    answer(client.POST("/api/chat/{identifier}/read", { params: { path: { identifier: chat } } })),
+  unqueue: (chat: string, id: string) =>
     answer(
-      client.POST("/api/chat/queue/{identifier}/edit", { params: { path: { identifier: id } }, body: { text } })
+      client.POST("/api/chat/{identifier}/queue/{waiting}/remove", {
+        params: { path: { identifier: chat, waiting: id } },
+      })
     ),
-  releaseQueue: () => answer(client.POST("/api/chat/queue/send")),
-  discardQueue: () => answer(client.POST("/api/chat/queue/discard")),
+  amend: (chat: string, id: string, text: string) =>
+    answer(
+      client.POST("/api/chat/{identifier}/queue/{waiting}/edit", {
+        params: { path: { identifier: chat, waiting: id } },
+        body: { text },
+      })
+    ),
+  releaseQueue: (chat: string) =>
+    answer(client.POST("/api/chat/{identifier}/queue/send", { params: { path: { identifier: chat } } })),
+  discardQueue: (chat: string) =>
+    answer(client.POST("/api/chat/{identifier}/queue/discard", { params: { path: { identifier: chat } } })),
   saveSettings: (payload: {
     settings: Record<string, SettingValue>
     projects?: Pair[]

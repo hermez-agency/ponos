@@ -139,7 +139,7 @@ const relayed = {
   },
 
   // A turn of the conversation, as AG-UI: for the panel's `useChat`.
-  agui: (event: AguiEvent) => publishAgui(event.event),
+  agui: (event: AguiEvent) => publishAgui(event.event, event.thread),
 
   // The installation checked again behind an answer past its time (see
   // `Upkeep.health`): the band, wherever it is drawn, takes it if it is newer.
@@ -214,7 +214,6 @@ export function ConsoleProvider({ children }: { children: React.ReactNode }) {
     sync: (event: SyncEvent) => setSynced(event),
   })
 
-  const { loadChat } = chat
   React.useEffect(() => {
     // The stream is already open by the time this runs, and only then the three
     // reads: two of them ask Notion, and a console that opened its live
@@ -222,9 +221,8 @@ export function ConsoleProvider({ children }: { children: React.ReactNode }) {
     // as Notion took to answer.
     void reloadState()
     greetUpdate()
-    void loadChat()
     readProjects()
-  }, [reloadState, loadChat, readProjects])
+  }, [reloadState, readProjects])
 
   const value = React.useMemo<ConsoleValue>(
     () => ({
