@@ -27,7 +27,7 @@ def a_frontmatter_survives_the_round_trip() -> None:
         "id": "a" * 32,
         "title": "Corriger l'entête « à faire »",
         "created": "2026-09-14T09:00:00+00:00",
-        "Status": "In review",
+        "statut": "review",
         "Active": False,
         "Cost": 1.25,
         "Day": "1",
@@ -53,21 +53,21 @@ def a_file_with_no_frontmatter_is_all_body() -> None:
 def tickets_are_written_and_read_back_as_markdown() -> None:
     with _board() as board:
         page_id = board.create_row(
-            "tickets", "Corriger l'entête", {"Status": "Ready", "Priority": "High"}
+            "tickets", "Corriger l'entête", {"statut": "ready", "Priorité": "High"}
         )
         board.append_markdown(page_id, "## À faire\n\nRelire la page.")
         page = board.page(page_id)
         assert page.title == "Corriger l'entête"
-        assert store.read(page, "Status") == "Ready"
-        assert store.read(page, "Priority") == "High"
+        assert store.read(page, "statut") == "ready"
+        assert store.read(page, "Priorité") == "High"
         assert "Relire la page." in board.blocks_text(page_id)
         # The file is where somebody would look for it, named after the ticket.
         written = list((board.root / "tickets").glob("*.md"))
         assert len(written) == 1 and written[0].name.startswith("corriger-l-entete-")
 
-        board.update("tickets", page_id, {"Status": "In progress", "Runner": "ponos@here"})
-        assert store.read(board.page(page_id), "Status") == "In progress"
-        assert store.read(board.page(page_id), "Runner") == "ponos@here"
+        board.update("tickets", page_id, {"statut": "progress", "Agent": "ponos@here"})
+        assert store.read(board.page(page_id), "statut") == "progress"
+        assert store.read(board.page(page_id), "Agent") == "ponos@here"
         # And the body is untouched by a property write.
         assert "Relire la page." in board.blocks_text(page_id)
 
@@ -76,7 +76,7 @@ def tickets_are_written_and_read_back_as_markdown() -> None:
 def a_markdown_ticket_reads_its_brief_without_its_live_reports() -> None:
     """A file has no toggle: the story of a run is fenced, and the brief leaves it out."""
     with _board() as board:
-        page_id = board.create_row("tickets", "Corriger l'entête", {"Status": "Ready"})
+        page_id = board.create_row("tickets", "Corriger l'entête", {"statut": "ready"})
         board.append_markdown(page_id, "## À faire\n\nRelire la page.")
         _run_on(board, "fr", "Je lis la configuration.", ok=False, page_id=page_id)
         board.append_markdown(page_id, "---\nPull request ouverte : x/y#3")
@@ -93,17 +93,17 @@ def a_markdown_ticket_reads_its_brief_without_its_live_reports() -> None:
 @case
 def a_markdown_board_answers_the_filters_the_runner_builds() -> None:
     with _board() as board:
-        ready = board.create_row("tickets", "À faire", {"Status": "Ready"})
-        board.create_row("tickets", "Finie", {"Status": "Done"})
-        found = board.query("tickets", {"property": "Status", "select": {"equals": "Ready"}})
+        ready = board.create_row("tickets", "À faire", {"statut": "ready"})
+        board.create_row("tickets", "Finie", {"statut": "done"})
+        found = board.query("tickets", {"property": "statut", "select": {"equals": "ready"}})
         assert [page.id for page in found] == [ready]
         # The woken filter: everything but the statuses that speak for a ticket.
         awake = board.query(
             "tickets",
             {
                 "and": [
-                    {"property": "Status", "select": {"does_not_equal": "Ready"}},
-                    {"property": "Status", "select": {"does_not_equal": "Done"}},
+                    {"property": "statut", "select": {"does_not_equal": "ready"}},
+                    {"property": "statut", "select": {"does_not_equal": "done"}},
                 ]
             },
         )
@@ -180,7 +180,7 @@ def the_whole_runner_runs_against_files_with_no_notion_at_all(state_home: Path) 
         # Typed by hand: a ticket with no type would first be classified, and
         # that is a question of its own — see the cases on kinds.py.
         page_id = board.create_row(
-            "tickets", "Écrire l'annonce", {"Status": "Ready", "Type": "Writing"}
+            "tickets", "Écrire l'annonce", {"statut": "ready", "Type": "Rédaction"}
         )
         board.append_markdown(page_id, "Rédige une annonce courte.")
         board.set_context("Je suis Camille Martin.")
@@ -203,7 +203,7 @@ def the_whole_runner_runs_against_files_with_no_notion_at_all(state_home: Path) 
 
         assert [result["status"] for result in results] == ["done"], results
         done = board.page(page_id)
-        assert store.read(done, "Status") == "Done"
+        assert store.read(done, "statut") == "done"
         assert "Voilà." in board.blocks_text(page_id), board.blocks_text(page_id)
         # The report went into the ticket's discussion, as it does on Notion.
         assert any(voice.is_report(comment.text) for comment in board.comments(page_id))
@@ -222,12 +222,12 @@ def two_processes_writing_one_ticket_lose_nothing() -> None:
 
     rounds = 60
     with _board() as board:
-        page_id = board.create_row("tickets", "Corriger l'entête", {"Status": "Ready"})
+        page_id = board.create_row("tickets", "Corriger l'entête", {"statut": "ready"})
 
         def writer(which: str) -> None:
             for index in range(rounds):
                 if which == "console":
-                    board.update("tickets", page_id, {"Status": f"S{index}"})
+                    board.update("tickets", page_id, {"statut": f"S{index}"})
                 board.append_markdown(page_id, f"{which}-{index}.")
 
         def reader() -> None:
@@ -260,4 +260,4 @@ def two_processes_writing_one_ticket_lose_nothing() -> None:
             if f"{which}-{index}." not in body
         ]
         assert not lost, f"{len(lost)} writes lost: {lost[:5]}"
-        assert store.read(board.page(page_id), "Status") == f"S{rounds - 1}"
+        assert store.read(board.page(page_id), "statut") == f"S{rounds - 1}"

@@ -173,7 +173,7 @@ def _english_goal(title: str) -> notion.Page:
             "Name": {"type": "title", "title": [{"plain_text": title}]},
             "Criterion": {"type": "rich_text", "rich_text": [{"plain_text": "Ten paying clients"}]},
             "Due": {"type": "date", "date": {"start": "2026-12-31", "end": None}},
-            "Status": {"type": "select", "select": {"name": "Active"}},
+            "statut": {"type": "select", "select": {"name": "Active"}},
             "Projects": {"type": "relation", "relation": [{"id": "aaaa-bbbb"}]},
         },
     )
@@ -191,5 +191,5 @@ def a_goal_written_in_english_reads_as_the_console_shows_it() -> None:
         "2026-12-31",
     )
     paused = _english_goal("Later")
-    paused.properties["Status"] = {"type": "select", "select": {"name": "On hold"}}
+    paused.properties["statut"] = {"type": "select", "select": {"name": "On hold"}}
     assert goals.active(_goals_database([paused]), "db") == [], "an English status is read too"

@@ -241,7 +241,7 @@ def the_sub_type_moves_the_level_a_code_ticket_starts_at() -> None:
 
 @case
 def init_offers_the_sub_type_column_and_doctor_names_it_when_it_is_missing() -> None:
-    settings = C.Notion(properties=dict(C._DEFAULT_PROPERTIES))
+    settings = C.Notion()
     column = provision.tickets_schema(settings)["Sous-type"]
     options = [option["name"] for option in column["select"]["options"]]
     assert options == [
@@ -257,7 +257,7 @@ def init_offers_the_sub_type_column_and_doctor_names_it_when_it_is_missing() -> 
     assert files.schemas(settings)["tickets"]["Sous-type"] == "select"
     from test_health import _columns
 
-    columns = _columns(settings, {"Status": "status"})
+    columns = _columns(settings, {"statut": "status"})
     assert "“Sous-type”" in columns.params["missing"], columns.params
 
 
@@ -270,7 +270,7 @@ def the_backfill_fills_the_code_tickets_from_their_prefix_alone(state_home: Path
         return notion.Page(id=identifier, url="", title=title, properties=properties)
 
     done = page("f", "[Bug] Fermé depuis un an", "Code")
-    done.properties["Status"] = {"type": "status", "status": {"name": "Done"}}
+    done.properties["statut"] = {"type": "status", "status": {"name": "done"}}
     pages = [
         done,
         page("a", "[Bug] Le bouton", "Code"),

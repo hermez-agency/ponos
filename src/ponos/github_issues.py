@@ -57,14 +57,13 @@ if TYPE_CHECKING:
 MARKER = "<!-- ponos -->"
 VOICE = "ponos"
 
-# The label that says a status, by the key of `[notion.status]` — without the
+# The label that says a status, by its key in `config.STATUS` — without the
 # word the label opens on. Ready has none: see the module docstring.
 STATUS_LABELS = {
     "running": "progress",
     "review": "review",
     "validated": "validated",
     "blocked": "blocked",
-    "failed": "failed",
     "paused": "paused",
     "cancelled": "cancelled",
     "done": "done",

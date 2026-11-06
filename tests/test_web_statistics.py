@@ -555,7 +555,7 @@ def a_password_given_with_a_decision_never_reaches_the_page(state_home: Path) ->
         project = board.create_row("projects", "Usine", {"Repository": "user/usine"})
         api = _ideas_api(board)
         said = api.runner.voice
-        page = board.create_row("tickets", "Publish", {"Status": settings.state("blocked")})
+        page = board.create_row("tickets", "Publish", {"statut": settings.state("blocked")})
         board.update("tickets", page, {"Project": [project]})
         board.comment(page, said.report(said.verdict("blocked", "nothing"), "No npm login."))
         api.decide(page, "other", text="Le mot de passe : Hz!2026kpl")
@@ -750,7 +750,7 @@ def the_console_never_shows_a_next_occurrence_already_behind_us() -> None:
 class _PageClient(_TalkClient):
     """A ticket page: its row, and the blocks written under it."""
 
-    def __init__(self, content: str, status: str = "Ready") -> None:
+    def __init__(self, content: str, status: str = "ready") -> None:
         super().__init__([])
         self._content = content
         self._status = status
@@ -760,7 +760,7 @@ class _PageClient(_TalkClient):
             id="1a2b3c4d-0000-0000-0000-000000000000",
             url="https://notion.so/p",
             title="Retirer le bandeau",
-            properties={"Status": {"type": "status", "status": {"name": self._status}}},
+            properties={"statut": {"type": "status", "status": {"name": self._status}}},
             raw={"created_time": "2026-09-01T09:00:00.000Z"},
         )
 
@@ -834,14 +834,14 @@ def a_card_put_back_in_ready_drops_the_last_pass_line_and_its_page_keeps_it_date
         _NotedPageClient.NOTE,
     ], cards
 
-    validated = _bare_api(_NotedPageClient("", status="Validated"))
+    validated = _bare_api(_NotedPageClient("", status="validated"))
     assert validated._runner is not None
     validated._runner._workspace = type("W", (), {"goals": "", "projects": ""})()
     payload = validated.ticket(ticket)
     assert payload["progress"] == _NotedPageClient.NOTE, "in validated the line is the card's"
     assert "earlier" not in payload, "nor is it said twice on its page"
 
-    ready = _bare_api(_NotedPageClient("", status="Ready"))
+    ready = _bare_api(_NotedPageClient("", status="ready"))
     assert ready._runner is not None
     ready._runner._workspace = type("W", (), {"goals": "", "projects": ""})()
     payload = ready.ticket(ticket)
@@ -925,19 +925,19 @@ def a_ticket_under_no_known_status_is_a_draft_and_no_column_is_added_for_it() ->
     """The board used to draw a "No status" column of its own, after Done.
 
     A ticket written without a status is a draft, and so is one under a status
-    nobody configured: it is never claimed, but dropping it from the board
+    Ponos does not know: it is never claimed, but dropping it from the board
     would hide exactly the card that needs a look. Both sit in the one column
     the drafts have, on the left — no column is added for them.
     """
-    api = _bare_api(_ColumnsClient(["Ready", "", "Parked"]))
+    api = _bare_api(_ColumnsClient(["ready", "", "Parked"]))
     assert api._runner is not None
     api._runner._workspace = type("W", (), {"goals": "", "projects": "", "tickets": "db"})()
     api._schema_at = time.time()
     board = api.board()
     keys = [column["key"] for column in board["columns"]]
     assert keys[0] == "draft" and "other" not in keys, keys
-    assert board["columns"][0] == {"key": "draft", "name": ""}, (
-        "the console names the drafts, not the board"
+    assert board["columns"][0] == {"key": "draft", "name": "draft"}, (
+        "the drafts' column is the drafts' status"
     )
     assert [item["column"] for item in board["tickets"]] == ["draft", "draft", "ready"]
 
@@ -950,7 +950,7 @@ class _CancelClient(_ColumnsClient):
         self.offered = offered
 
     def options(self, database: str, prop: str) -> list[str]:
-        return [*super().options(database, prop), *(["Cancelled"] if self.offered else [])]
+        return [*super().options(database, prop), *(["cancelled"] if self.offered else [])]
 
 
 @case
@@ -963,7 +963,7 @@ def a_cancelled_ticket_has_its_column_where_the_board_offers_one() -> None:
     """
     quiet = type("W", (), {"nudge": lambda self: None})()
 
-    api = _bare_api(_CancelClient(["Ready", "Cancelled", "Done"], offered=True))
+    api = _bare_api(_CancelClient(["ready", "cancelled", "done"], offered=True))
     assert api._runner is not None
     api._runner._workspace = type("W", (), {"goals": "", "projects": "", "tickets": "db"})()
     api._schema_at = time.time()
@@ -973,9 +973,9 @@ def a_cancelled_ticket_has_its_column_where_the_board_offers_one() -> None:
     assert keys[-2:] == ["done", "cancelled"], keys
     assert board["cancel"] is True
     assert [item["column"] for item in board["tickets"]] == ["ready", "done", "cancelled"]
-    assert api.set_status("1" * 32, "cancelled")["status"] == "Cancelled"
+    assert api.set_status("1" * 32, "cancelled")["status"] == "cancelled"
 
-    bare = _bare_api(_CancelClient(["Ready", "Done"], offered=False))
+    bare = _bare_api(_CancelClient(["ready", "done"], offered=False))
     assert bare._runner is not None
     bare._runner._workspace = type("W", (), {"goals": "", "projects": "", "tickets": "db"})()
     bare._schema_at = time.time()
@@ -984,40 +984,34 @@ def a_cancelled_ticket_has_its_column_where_the_board_offers_one() -> None:
     try:
         bare.set_status("1" * 32, "cancelled")
     except ValueError as error:
-        assert "no “Cancelled” option" in str(error), error
+        assert "no “cancelled” option" in str(error), error
     else:
         raise AssertionError("a status the board does not offer is refused before it is sent")
-
-    # A board that points cancelled at a status the runner moves tickets
-    # through has no cancelled column of its own: a cancelled `ready` is run.
-    assert api._runner is not None
-    api._config.notion.status = api._runner.config.notion.status = {"cancelled": "Done"}
-    assert api.board()["cancel"] is False
 
 
 @case
 def a_markdown_board_reads_and_writes_the_cancelled_status() -> None:
     """A board of files declares every default column, cancelled with them."""
     with _board() as board:
-        assert "Cancelled" in board.options("tickets", "Status")
-        page = board.create_row("tickets", "Plus besoin", {"Status": "Ready"})
+        assert "cancelled" in board.options("tickets", "statut")
+        page = board.create_row("tickets", "Plus besoin", {"statut": "ready"})
         api = _markdown_api(board)
         api.watch = type("W", (), {"nudge": lambda self: None})()
         api._schema_at = time.time()
         shown = api.board()
         assert shown["cancel"] is True
         assert "cancelled" in [column["key"] for column in shown["columns"]]
-        board.update("tickets", page, {"Status": "Cancelled"})
+        board.update("tickets", page, {"statut": "cancelled"})
         card = next(item for item in api.board()["tickets"] if item["id"] == page.replace("-", ""))
-        assert card["column"] == "cancelled" and card["status"] == "Cancelled"
-        assert store.read(board.page(page), "Status") == "Cancelled"
+        assert card["column"] == "cancelled" and card["status"] == "cancelled"
+        assert store.read(board.page(page), "statut") == "cancelled"
 
 
 @case
 def the_runner_never_runs_a_cancelled_ticket_even_when_named() -> None:
     """Not from the ready column, not woken by a comment, not by `run --ticket`."""
     with _board() as board:
-        page = board.create_row("tickets", "Abandonné", {"Status": "Cancelled"})
+        page = board.create_row("tickets", "Abandonné", {"statut": "cancelled"})
         runner = Runner.__new__(Runner)
         runner._journals = {}
         runner.config = C.Config(
@@ -1043,7 +1037,7 @@ def the_runner_never_runs_a_cancelled_ticket_even_when_named() -> None:
             ticket_module.Ticket(found).id
             for found in board.query(runner.database, runner._woken_filter())
         }
-        board.update("tickets", page, {"Status": "Blocked"})
+        board.update("tickets", page, {"statut": "blocked"})
         assert [ticket.title for ticket in runner.requested(page)] == ["Abandonné"]
 
 
@@ -1072,7 +1066,7 @@ class _PlanClient(_DraftClient):
 @case
 def a_new_ticket_planned_first_is_ticked_only_where_it_may_be_code() -> None:
     """« Plan d'abord » from New ticket: written on a code ticket, or one not typed yet."""
-    api = _bare_api(_PlanClient(["Ready"]))
+    api = _bare_api(_PlanClient(["ready"]))
     assert api._runner is not None
     api._runner._workspace = type("W", (), {"goals": "", "projects": "", "tickets": "db"})()
     api.watch = type("W", (), {"nudge": lambda self: None})()
@@ -1086,19 +1080,16 @@ def a_new_ticket_planned_first_is_ticked_only_where_it_may_be_code() -> None:
 
 
 @case
-def a_ticket_with_no_status_is_a_draft_whether_or_not_the_board_names_them() -> None:
+def a_ticket_with_no_status_is_a_draft_and_a_draft_is_written_draft() -> None:
     """Master Tickets has a `draft` option; the console put those under "No status".
 
     The drafts are always the first column, and a ticket with no status is one.
-    Named in `[notion.status]`, the column is also the option, and "New ticket"
-    with its "Draft" button writes it. Left unnamed, a move to the drafts
-    clears the status and a new draft is written with none — and one named the
-    same as `ready` is the runner's, so never called a draft.
+    The column is also the option, and "New ticket" with its "Draft" button
+    writes it.
     """
     quiet = type("W", (), {"nudge": lambda self: None})()
 
-    api = _bare_api(_DraftClient(["draft", "Ready", ""]))
-    api._config.notion.status = {"draft": "draft"}
+    api = _bare_api(_DraftClient(["draft", "ready", ""]))
     assert api._runner is not None
     api._runner._workspace = type("W", (), {"goals": "", "projects": "", "tickets": "db"})()
     api._schema_at = time.time()
@@ -1112,32 +1103,9 @@ def a_ticket_with_no_status_is_a_draft_whether_or_not_the_board_names_them() -> 
     api.create_ticket("Lancer l'audit", ready=True)
     assert api._runner is not None
     assert [
-        values.get("Status") for _, values in cast(_DraftClient, api._runner.client).created
-    ] == ["draft", "Ready"]
+        values.get("statut") for _, values in cast(_DraftClient, api._runner.client).created
+    ] == ["draft", "ready"]
     assert api.set_status("1" * 32, "draft")["status"] == "draft"
-
-    plain = _bare_api(_DraftClient(["draft", "Ready", ""]))
-    assert plain._runner is not None
-    plain._runner._workspace = type("W", (), {"goals": "", "projects": "", "tickets": "db"})()
-    plain._schema_at = time.time()
-    plain.watch = quiet
-    board = plain.board()
-    assert board["columns"][0] == {"key": "draft", "name": ""}
-    assert [item["column"] for item in board["tickets"]] == ["draft", "draft", "ready"]
-    plain.create_ticket("Écrire l'audit", ready=False)
-    assert plain._runner is not None
-    assert cast(_DraftClient, plain._runner.client).created == [("Écrire l'audit", {})], (
-        "no key, no status, as before"
-    )
-    assert plain.set_status("1" * 32, "draft")["status"] == "", (
-        "a move to the drafts clears the status"
-    )
-
-    assert C.Notion().state("draft") == "", "nothing is defaulted"
-    assert C.Notion(status={"draft": "Ready"}).state("draft") == "Ready"
-    assert web_tickets._draft(C.Notion(status={"draft": "Ready"})) == "", (
-        "a draft that is the runner's ready is no draft"
-    )
 
 
 class _UntitledClient(_ColumnsClient):
@@ -1159,7 +1127,7 @@ def a_ticket_without_a_title_is_named_by_the_console_in_its_language() -> None:
     The server sends the title Notion has — none — and the console says what
     to call it, through the dictionary like every other word it says.
     """
-    api = _bare_api(_UntitledClient(["Ready"]))
+    api = _bare_api(_UntitledClient(["ready"]))
     assert api._runner is not None
     api._runner._workspace = type("W", (), {"goals": "", "projects": "", "tickets": "db"})()
     api._schema_at = time.time()
@@ -1626,10 +1594,10 @@ def an_example_token_is_not_a_token_the_settings_call_set() -> None:
 def the_settings_are_six_pages_and_every_key_is_on_one_of_them_once() -> None:
     """Grouped by the question somebody asks, not by the table the loader reads.
 
-    Twenty-two sections at one rank put the Notion token beside the twenty-one
-    names of its properties. Six pages now, the names folded at the end of the
-    one about where tickets come from — and every model the runner can be told
-    to use on the page about models, rather than wherever its table was.
+    Twenty-two sections at one rank put the Notion token beside the names of
+    its databases. Six pages now, the names folded at the end of the one about
+    where tickets come from — and every model the runner can be told to use on
+    the page about models, rather than wherever its table was.
     """
     groups = [group.key for group in web_settings.GROUPS]
     assert len(groups) == 6 and len(set(groups)) == 6, groups
@@ -1648,9 +1616,8 @@ def the_settings_are_six_pages_and_every_key_is_on_one_of_them_once() -> None:
     for name in where:
         if not name.startswith("notion.") and "model" in name.rpartition(".")[2]:
             assert where[name].group == "models", f"{name} is not with the models"
-    for table in ("status", "properties", "pages", "types"):
-        for key in C.defaults(table):
-            assert where[f"notion.{table}.{key}"].fold == "mapping", f"notion.{table}.{key}"
+    for key in C.page_titles():
+        assert where[f"notion.pages.{key}"].fold == "mapping", f"notion.pages.{key}"
     notion = [name for name in where if name.startswith("notion.") and not where[name].fold]
     assert sorted(notion) == [
         "notion.mention",

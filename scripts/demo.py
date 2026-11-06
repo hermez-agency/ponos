@@ -126,32 +126,32 @@ AGENTS = {
 
 # -- the tickets ---------------------------------------------------------------
 
-CODE, WRITING, EXTERNAL, PUBLICATION = "Code", "Writing", "External action", "Publication"
+CODE, WRITING, EXTERNAL, PUBLICATION = "Code", "Rédaction", "Action externe", "Publication"
 
 # (project, title, type, sub-type, status, flag). The flag is the block code of a
 # ticket that stopped, or `ci:<state>` for a pull request in review. The order is
 # the order the generator draws in: change it and the whole board is another one.
 TICKETS = [
-    ("website", "Add a FAQ to the pricing page", CODE, "Feature", "Done", ""),
-    ("website", "Fix the contact form on Safari", CODE, "Bug", "Done", ""),
-    ("website", "Speed up the hero image on mobile", CODE, "Perf", "In review", "ci:passed"),
-    ("website", "Migrate the blog to MDX", CODE, "Refactor", "In progress", ""),
-    ("website", "The cookie banner is shown twice", CODE, "Bug", "Blocked", "merge.checks-failed"),
-    ("website", "Translate the legal pages into Spanish", WRITING, "", "Ready", ""),
-    ("website", "Add structured data to the product pages", CODE, "Feature", "Backlog", ""),
-    ("website", "Upgrade Astro to the next major", CODE, "Chore", "Done", ""),
-    ("website", "Case study: the Northwind launch", WRITING, "", "In review", ""),
-    ("ponos", "Show the cost of a ticket on its card", CODE, "Feature", "Done", ""),
-    ("ponos", "Retry a failed merge from the card", CODE, "Amélioration", "Validated", ""),
-    ("ponos", "Redact tokens in the session log", CODE, "Sécurité", "Done", ""),
-    ("ponos", "Split runner.py by chapter", CODE, "Refactor", "Done", ""),
-    ("ponos", "Document the vault in the README", CODE, "Docs", "Done", ""),
+    ("website", "Add a FAQ to the pricing page", CODE, "Feature", "done", ""),
+    ("website", "Fix the contact form on Safari", CODE, "Bug", "done", ""),
+    ("website", "Speed up the hero image on mobile", CODE, "Perf", "review", "ci:passed"),
+    ("website", "Migrate the blog to MDX", CODE, "Refactor", "progress", ""),
+    ("website", "The cookie banner is shown twice", CODE, "Bug", "blocked", "merge.checks-failed"),
+    ("website", "Translate the legal pages into Spanish", WRITING, "", "ready", ""),
+    ("website", "Add structured data to the product pages", CODE, "Feature", "draft", ""),
+    ("website", "Upgrade Astro to the next major", CODE, "Chore", "done", ""),
+    ("website", "Case study: the Northwind launch", WRITING, "", "review", ""),
+    ("ponos", "Show the cost of a ticket on its card", CODE, "Feature", "done", ""),
+    ("ponos", "Retry a failed merge from the card", CODE, "Amélioration", "validated", ""),
+    ("ponos", "Redact tokens in the session log", CODE, "Sécurité", "done", ""),
+    ("ponos", "Split runner.py by chapter", CODE, "Refactor", "done", ""),
+    ("ponos", "Document the vault in the README", CODE, "Docs", "done", ""),
     (
         "ponos",
         "Merge conflict on the config schema",
         CODE,
         "Bug",
-        "Blocked",
+        "blocked",
         "merge.conflict-decision",
     ),
     (
@@ -159,62 +159,62 @@ TICKETS = [
         "Ring the bell when a session asks a question",
         CODE,
         "Feature",
-        "In review",
+        "review",
         "ci:failed",
     ),
-    ("ponos", "Dark mode for the statistics page", CODE, "Feature", "Ready", ""),
-    ("ponos", "Keep the project index between two passes", CODE, "Perf", "Backlog", ""),
-    ("ponos", "Release 0.9: changelog and tag", PUBLICATION, "", "Backlog", ""),
-    ("app", "Add the vaccination calendar", CODE, "Feature", "In progress", ""),
-    ("app", "Push notifications for lost pets", CODE, "Feature", "Blocked", "session.question"),
-    ("app", "Crash when uploading a PNG over 10 MB", CODE, "Bug", "Done", ""),
-    ("app", "Rewrite the onboarding copy", WRITING, "", "Ready", ""),
-    ("app", "Remove the legacy API v1 endpoints", CODE, "Chore", "Backlog", ""),
+    ("ponos", "Dark mode for the statistics page", CODE, "Feature", "ready", ""),
+    ("ponos", "Keep the project index between two passes", CODE, "Perf", "draft", ""),
+    ("ponos", "Release 0.9: changelog and tag", PUBLICATION, "", "draft", ""),
+    ("app", "Add the vaccination calendar", CODE, "Feature", "progress", ""),
+    ("app", "Push notifications for lost pets", CODE, "Feature", "blocked", "session.question"),
+    ("app", "Crash when uploading a PNG over 10 MB", CODE, "Bug", "done", ""),
+    ("app", "Rewrite the onboarding copy", WRITING, "", "ready", ""),
+    ("app", "Remove the legacy API v1 endpoints", CODE, "Chore", "draft", ""),
     (
         "app",
         "Audit the vulnerable dependencies",
         CODE,
         "Sécurité",
-        "Blocked",
+        "blocked",
         "session.over-budget",
     ),
-    ("app", "The dashboard is slow with 10 000 pets", CODE, "Perf", "Failed", "runner.crashed"),
-    ("app", "Open the Play Store beta", EXTERNAL, "", "Blocked", "access.credentials"),
-    ("leadz", "Export the contacts as CSV", CODE, "Feature", "Done", ""),
-    ("leadz", "Deduplicate the companies by domain", CODE, "Amélioration", "Done", ""),
-    ("leadz", "Rate limit the search endpoint", CODE, "Sécurité", "In review", "ci:pending"),
-    ("leadz", "A health score for each folder", CODE, "Feature", "Ready", ""),
-    ("leadz", "Fix the SMS campaign preview", CODE, "Bug", "Done", ""),
+    ("app", "The dashboard is slow with 10 000 pets", CODE, "Perf", "blocked", "runner.crashed"),
+    ("app", "Open the Play Store beta", EXTERNAL, "", "blocked", "access.credentials"),
+    ("leadz", "Export the contacts as CSV", CODE, "Feature", "done", ""),
+    ("leadz", "Deduplicate the companies by domain", CODE, "Amélioration", "done", ""),
+    ("leadz", "Rate limit the search endpoint", CODE, "Sécurité", "review", "ci:pending"),
+    ("leadz", "A health score for each folder", CODE, "Feature", "ready", ""),
+    ("leadz", "Fix the SMS campaign preview", CODE, "Bug", "done", ""),
     (
         "leadz",
         "Replies are missed when the mail was forwarded",
         CODE,
         "Bug",
-        "Blocked",
+        "blocked",
         "session.no-commit",
     ),
-    ("leadz", "Install the Brevo webhook on the server", EXTERNAL, "", "Blocked", "access.sudo"),
-    ("leadz", "Archive the old campaigns", CODE, "Chore", "Backlog", ""),
-    ("brand", "Generate the favicons of every product", CODE, "Feature", "Done", ""),
-    ("brand", "Document the colour tokens", CODE, "Docs", "Done", ""),
-    ("brand", "Dark variants of the logos", CODE, "Feature", "In review", "ci:none"),
-    ("brand", "Speed up the SVG export script", CODE, "Perf", "Cancelled", ""),
-    ("brand", "Clean up a worktree left behind", CODE, "Chore", "Blocked", "worktree.residue"),
-    ("trader", "Backtest the momentum strategy", CODE, "Feature", "Done", ""),
-    ("trader", "Fix the timezone of the daily candles", CODE, "Bug", "Done", ""),
-    ("trader", "Alert when the API quota reaches 80 %", CODE, "Amélioration", "Ready", ""),
-    ("trader", "Refactor the broker adapters", CODE, "Refactor", "Backlog", ""),
-    ("trader", "Write the weekly report to Notion", WRITING, "", "Blocked", "notion.write-failed"),
-    ("newsletter", "Issue 41: autumn product news", WRITING, "", "Done", ""),
-    ("newsletter", "Issue 42: customer stories", WRITING, "", "In progress", ""),
-    ("newsletter", "Subject lines to test for issue 43", WRITING, "", "Ready", ""),
-    ("newsletter", "Publish issue 42 on the blog", PUBLICATION, "", "Backlog", ""),
-    ("newsletter", "Ask the guest author of issue 44", EXTERNAL, "", "Backlog", ""),
-    ("handbook", "Write the onboarding checklist", WRITING, "", "Done", ""),
-    ("handbook", "Update the holiday policy", WRITING, "", "In review", ""),
-    ("handbook", "Describe the release process", WRITING, "", "Done", ""),
-    ("handbook", "Which tools do we pay for?", WRITING, "", "Blocked", "ticket.empty"),
-    ("handbook", "Plan the quarterly retrospective", WRITING, "", "Cancelled", ""),
+    ("leadz", "Install the Brevo webhook on the server", EXTERNAL, "", "blocked", "access.sudo"),
+    ("leadz", "Archive the old campaigns", CODE, "Chore", "draft", ""),
+    ("brand", "Generate the favicons of every product", CODE, "Feature", "done", ""),
+    ("brand", "Document the colour tokens", CODE, "Docs", "done", ""),
+    ("brand", "Dark variants of the logos", CODE, "Feature", "review", "ci:none"),
+    ("brand", "Speed up the SVG export script", CODE, "Perf", "cancelled", ""),
+    ("brand", "Clean up a worktree left behind", CODE, "Chore", "blocked", "worktree.residue"),
+    ("trader", "Backtest the momentum strategy", CODE, "Feature", "done", ""),
+    ("trader", "Fix the timezone of the daily candles", CODE, "Bug", "done", ""),
+    ("trader", "Alert when the API quota reaches 80 %", CODE, "Amélioration", "ready", ""),
+    ("trader", "Refactor the broker adapters", CODE, "Refactor", "draft", ""),
+    ("trader", "Write the weekly report to Notion", WRITING, "", "blocked", "notion.write-failed"),
+    ("newsletter", "Issue 41: autumn product news", WRITING, "", "done", ""),
+    ("newsletter", "Issue 42: customer stories", WRITING, "", "progress", ""),
+    ("newsletter", "Subject lines to test for issue 43", WRITING, "", "ready", ""),
+    ("newsletter", "Publish issue 42 on the blog", PUBLICATION, "", "draft", ""),
+    ("newsletter", "Ask the guest author of issue 44", EXTERNAL, "", "draft", ""),
+    ("handbook", "Write the onboarding checklist", WRITING, "", "done", ""),
+    ("handbook", "Update the holiday policy", WRITING, "", "review", ""),
+    ("handbook", "Describe the release process", WRITING, "", "done", ""),
+    ("handbook", "Which tools do we pay for?", WRITING, "", "blocked", "ticket.empty"),
+    ("handbook", "Plan the quarterly retrospective", WRITING, "", "cancelled", ""),
 ]
 
 # The goals, one of each state the Objectifs page draws: (key, name, status,
@@ -841,7 +841,7 @@ def tickets_of(rng: random.Random) -> list[Ticket]:
     for name, (project, kind, subtype, count) in RECURRING.items():
         for back in range(count, 0, -1):
             ticket = Ticket(
-                project, f"{name} #{count - back + 1}", kind, subtype, "Done", "recurring"
+                project, f"{name} #{count - back + 1}", kind, subtype, "done", "recurring"
             )
             ticket.every, ticket.back = (30 if "Monthly" in name else 7), back
             found.append(ticket)
@@ -852,36 +852,35 @@ def tickets_of(rng: random.Random) -> list[Ticket]:
         if ticket.subtype in ("Sécurité", "Refactor"):
             ticket.model = "opus"
         bounds = {
-            "Backlog": (1, 20),
-            "Ready": (0.3, 6),
-            "In progress": (0.1, 1),
-            "In review": (0.3, 4),
-            "Validated": (0.5, 3),
-            "Done": (2, 40),
-            "Failed": (0.5, 3),
-            "Blocked": (1, 12),
-            "Cancelled": (8, 25),
+            "draft": (1, 20),
+            "ready": (0.3, 6),
+            "progress": (0.1, 1),
+            "review": (0.3, 4),
+            "validated": (0.5, 3),
+            "done": (2, 40),
+            "blocked": (1, 12),
+            "cancelled": (8, 25),
         }[ticket.status]
         ticket.created = ago(rng.uniform(*bounds))
         if ticket.every:
             ticket.created = ago(ticket.every * ticket.back - rng.uniform(0, 0.3))
-        if ticket.status not in ("Backlog", "Ready", "Cancelled"):
+        if ticket.status not in ("draft", "ready", "cancelled"):
             spent = rng.uniform(0.4, 3.0) if ticket.model == "haiku" else rng.uniform(1.0, 9.0)
             ticket.cost = round(spent, 2)
             ticket.minutes = round(rng.uniform(4, 55), 1)
-        if ticket.status in ("In review", "Validated", "Done") and ticket.repository:
+        if ticket.status in ("review", "validated", "done") and ticket.repository:
             ticket.pull_request = (
                 f"https://github.com/{ticket.repository}/pull/{rng.randint(20, 480)}"
             )
         ticket.edited = ticket.created + timedelta(days=rng.uniform(0.02, 1.5))
-        if ticket.status == "Done":
+        if ticket.status == "done":
             ticket.closed = min(ticket.created + timedelta(days=rng.uniform(0.2, 4)), ago(0.05))
             if ticket.every:
                 ticket.closed = min(ticket.created + timedelta(hours=rng.uniform(1, 6)), ago(0.05))
             ticket.edited = ticket.closed
         if ticket.edited > NOW:
             ticket.edited = NOW - timedelta(minutes=rng.randint(2, 50))
-        if ticket.status in ("Backlog", "Ready", "Cancelled"):
+        if ticket.status in ("draft", "ready", "cancelled"):
             ticket.edited = ticket.created
     return found
 
@@ -938,10 +937,10 @@ def board(root: Path, rng: random.Random, tickets: list[Ticket]) -> None:
             "id": ticket.id,
             "created": stamp(ticket.created),
             "edited": stamp(ticket.edited),
-            "Status": ticket.status,
+            "statut": ticket.status,
             "Project": [ident("project", ticket.project)],
             "Type": ticket.kind,
-            "Priority": rng.choice([10, 25, 40, 50, 60, 75, 90, 95]),
+            "Priorité": rng.choice([10, 25, 40, 50, 60, 75, 90, 95]),
             "Model": ticket.model,
         }
         if ticket.subtype:
@@ -953,12 +952,12 @@ def board(root: Path, rng: random.Random, tickets: list[Ticket]) -> None:
             front["Pull Request"] = ticket.pull_request
         if number % 7 == 3:
             front["Agent"] = [ident("agent", rng.choice(list(AGENTS)))]
-        if ticket.status == "In progress":
-            front["Runner"] = "ponos@devbox"
+        if ticket.status == "progress":
+            front["Agent"] = "ponos@devbox"
             front["Progress"] = f"Editing {rng.choice(FILES[ticket.project])}"
-        if ticket.status in ("Blocked", "Failed"):
+        if ticket.status == "blocked":
             front["Blocage"] = ticket.flag
-        if ticket.status == "Ready" and number % 3 == 0:
+        if ticket.status == "ready" and number % 3 == 0:
             front["Scheduled"] = stamp(ago(-0.2))
         if ticket.title == "Dark mode for the statistics page":
             front["Waiting for credit"] = True
@@ -987,7 +986,7 @@ def board(root: Path, rng: random.Random, tickets: list[Ticket]) -> None:
             "Active": active,
             "Type": kind,
             "Model": model,
-            "Priority": 50,
+            "Priorité": 50,
             "Project": [ident("project", project)],
         }
         if weekday:
@@ -1009,7 +1008,7 @@ def board(root: Path, rng: random.Random, tickets: list[Ticket]) -> None:
 
 def report_of(rng: random.Random, ticket: Ticket) -> str:
     """What Ponos wrote on the ticket when it stopped, or when it handed the work over."""
-    if ticket.status in ("Blocked", "Failed") and ticket.flag in STOPS:
+    if ticket.status == "blocked" and ticket.flag in STOPS:
         category, why, ask, options = STOPS[ticket.flag]
         lines = [
             f"🙋 Stuck — branch `ticket/{files.slug(ticket.title)[:30]}` ready",
@@ -1022,17 +1021,17 @@ def report_of(rng: random.Random, ticket: Ticket) -> str:
         if ticket.flag == "access.sudo":
             lines.append("`sudo systemctl enable --now brevo-webhook`")
         return "\n".join(lines)
-    if ticket.status in ("In review", "Validated", "Done") and ticket.pull_request:
+    if ticket.status in ("review", "validated", "done") and ticket.pull_request:
         lines = [
             f"✅ To review — PR #{ticket.pull_request.rsplit('/', 1)[-1]} · {rng.randint(1, 6)} commits"
             f" · {round(ticket.minutes or 0)} minutes",
             rng.choice(SUMMARIES),
             ticket.pull_request,
         ]
-        if ticket.status == "In review":
+        if ticket.status == "review":
             lines += [f"To check: {text}" for text in rng.sample(CAVEATS, rng.choice([0, 1, 2, 2]))]
         return "\n".join(lines)
-    if ticket.status == "In review":
+    if ticket.status == "review":
         return "✅ To review\nThe text is on the page, ready to read.\nTo check: the tone of the second paragraph"
     return ""
 
@@ -1040,23 +1039,25 @@ def report_of(rng: random.Random, ticket: Ticket) -> str:
 def runs_of(rng: random.Random, tickets: list[Ticket]) -> None:
     """The sessions each ticket went through, as the journal and the history will tell them."""
     for ticket in tickets:
-        if ticket.status in ("Backlog", "Ready", "Cancelled"):
+        if ticket.status in ("draft", "ready", "cancelled"):
             continue
         end = ticket.closed or ticket.edited
-        attempts = 2 if ticket.status == "Done" and rng.random() < 0.25 else 1
+        attempts = 2 if ticket.status == "done" and rng.random() < 0.25 else 1
         for attempt in range(attempts):
             last = attempt == attempts - 1
             minutes = (ticket.minutes or 10) / attempts
             finish = end if last else end - timedelta(hours=rng.uniform(2, 20))
             status = {
-                "Done": "done",
-                "In review": "done",
-                "Validated": "done",
-                "Blocked": "blocked",
-                "Failed": "failed",
-                "In progress": "",
+                "done": "done",
+                "review": "done",
+                "validated": "done",
+                "blocked": "blocked",
+                "progress": "",
             }[ticket.status]
-            code = ticket.flag if ticket.status in ("Blocked", "Failed") else ""
+            # A crash and a question are one status on the board, two outcomes in the history.
+            if ticket.flag == "runner.crashed":
+                status = "failed"
+            code = ticket.flag if ticket.status == "blocked" else ""
             if not last:
                 status, code = "blocked", rng.choice(PAST_STOPS)
             ticket.runs.append(
@@ -1069,7 +1070,7 @@ def runs_of(rng: random.Random, tickets: list[Ticket]) -> None:
                     "steps": rng.randint(5, 12),
                 }
             )
-        if ticket.status == "In progress":
+        if ticket.status == "progress":
             ticket.runs[-1]["start"] = NOW - timedelta(minutes=rng.randint(6, 14))
             ticket.runs[-1]["end"] = None
 
@@ -1104,7 +1105,7 @@ def history_of(rng: random.Random, tickets: list[Ticket]) -> None:
             elif ticket.kind != CODE:
                 line["kind"] = "publication" if ticket.kind == PUBLICATION else "document"
             state.record(line)
-        if ticket.status == "Done" and ticket.closed:
+        if ticket.status == "done" and ticket.closed:
             closing: dict[str, Any] = {
                 "at": stamp(ticket.closed),
                 "ticket": ticket.title,
@@ -1229,17 +1230,17 @@ def bell_of(tickets: list[Ticket]) -> None:
     from ponos import db, notifications
 
     rows: list[tuple[str, Ticket, float, bool]] = []
-    waiting = [t for t in tickets if t.status in ("Blocked", "Failed", "In review")]
+    waiting = [t for t in tickets if t.status in ("blocked", "review")]
     for number, ticket in enumerate(waiting):
-        if ticket.status == "In review":
+        if ticket.status == "review":
             kind = "ci" if ticket.flag == "ci:failed" else "review"
-        elif ticket.status == "Failed":
+        elif ticket.flag == "runner.crashed":
             kind = "failed"
         else:
             kind = notifications.kind_of("blocked", ticket.flag)
         rows.append((kind, ticket, 0.03 + 0.4 * number, number >= 5))
     # Older ones, read: tickets that were answered or merged since.
-    for number, ticket in enumerate([t for t in tickets if t.status == "Done"][:8]):
+    for number, ticket in enumerate([t for t in tickets if t.status == "done"][:8]):
         rows.append(("review", ticket, 2 + 1.7 * number, True))
     with db.transaction() as connection:
         for kind, ticket, days, read in rows:
@@ -1255,7 +1256,7 @@ def ideas_of(rng: random.Random, tickets: list[Ticket]) -> None:
     from ponos import db, ideas
 
     # The tickets an idea became are tickets of the board: the ones not yet taken.
-    open_ones = [t.id for t in tickets if t.status in ("Backlog", "Ready")]
+    open_ones = [t.id for t in tickets if t.status in ("draft", "ready")]
 
     def batch(project: str, rows: list[tuple[Any, ...]], days: float, model: str) -> None:
         proposals = [

@@ -741,7 +741,7 @@ class Delivery(Base):
         Ready, a Code ticket of sub-type Bug, at priority 75 (`REPAIR_PRIORITY`), with the
         failing jobs and the link of their run. One per base: the table remembers the ticket opened for a
         repository's base, and a second is only opened once that one is done or
-        failed — a base still red after a repair deserves a new look, not
+        blocked — a base still red after a repair deserves a new look, not
         silence. Under a lock, because two pull requests of one repository can
         be put aside by two threads of the same pass.
         """
@@ -757,7 +757,7 @@ class Delivery(Base):
                     page = None
                 if page and str(store.read(page, settings.prop("status")) or "") not in (
                     settings.state("done"),
-                    settings.state("failed"),
+                    settings.state("blocked"),
                 ):
                     return page.title
             if self.dry_run:

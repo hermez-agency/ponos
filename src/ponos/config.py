@@ -199,39 +199,32 @@ class Notion:
     # understood too — this is for the word you would actually type.
     mention: str = ""
     pages: dict[str, str] = field(default_factory=dict)
-    properties: dict[str, str] = field(default_factory=dict)
-    status: dict[str, str] = field(default_factory=dict)
-    # How the board spells the four types of ticket — see kinds.py. Not merged
-    # with the defaults: `kind_names()` needs to know which ones the file names,
-    # to try the other spellings only when it names none.
-    types: dict[str, str] = field(default_factory=dict)
+
+    # The names of the board — its columns, its statuses, its types — are not
+    # the file's to choose: see `PROPERTIES`. These read them, and nothing else.
 
     def prop(self, key: str) -> str:
-        return self.properties.get(key, _DEFAULT_PROPERTIES[key])
+        return PROPERTIES[key]
 
     def kind(self, key: str) -> str:
         """The option a type of ticket is written as on the board."""
-        return self.types.get(key, _DEFAULT_TYPES[key])
+        return TYPES[key]
 
     def kind_names(self, key: str) -> tuple[str, ...]:
-        """Every spelling that option may carry: the configured one, then the others.
+        """Every spelling that option may carry: the board's, then the older ones.
 
-        A name written in the file is the name meant, and nothing else is tried
-        past it. A file that says nothing gets
-        the English default and the French one — a board built by hand in French
-        says “Rédaction”, and reading it as no type at all would have the runner
+        A ticket typed before the names were fixed says “Writing” where the
+        board now says “Rédaction”: read as no type at all, the runner would
         classify, again and again, a ticket somebody already typed.
         """
-        if key in self.types:
-            return (self.types[key],)
-        return (_DEFAULT_TYPES[key], *_TYPE_ALIASES.get(key, ()))
+        return (TYPES[key], *_TYPE_ALIASES.get(key, ()))
 
     def kind_of(self, value: str) -> str:
         """The type a board option means, or "" for one that is none of the four."""
         wanted = str(value or "").strip().casefold()
         if not wanted:
             return ""
-        for key in _DEFAULT_TYPES:
+        for key in TYPES:
             if wanted in (name.strip().casefold() for name in self.kind_names(key)):
                 return key
         return ""
@@ -241,38 +234,7 @@ class Notion:
         return self.pages.get(key, _DEFAULT_PAGES[key])
 
     def state(self, key: str) -> str:
-        # "blocked" is optional, and only *against a named `failed`*: a file that
-        # says where failures go but not where questions go meant one column for
-        # both. A file that names neither gets the defaults, which are two —
-        # telling "the agent asked you something" from "something broke" is the
-        # whole reason the runner distinguishes them.
-        if key == "blocked" and "blocked" not in self.status and "failed" in self.status:
-            return self.state("failed")
-        # "review" reads the same way, against a named `done`: a file that says
-        # where a finished ticket goes but not where it waits for its pull
-        # request has one column for both, and nothing to watch for a merge. A
-        # file that names neither gets the defaults, which are two — the pull
-        # request being open and it being merged are not the same day.
-        if key == "review" and "review" not in self.status and "done" in self.status:
-            return self.state("done")
-        # "validated" reads the same way, against a named `review` or `done`: a
-        # file that says where a ticket waits to be looked at, or where it goes
-        # once it is, and nothing about where you accept it, described a board
-        # that ends at the pull request. It falls back on `review`, which is
-        # where the ticket already sits, and the runner reads a `validated` that
-        # is `review` as "this board has no such gesture". Renaming some other
-        # column is not a statement about this one: a file that names only
-        # `ready` still gets the default, and the board decides from there.
-        if key == "validated" and "validated" not in self.status:
-            if "review" in self.status or "done" in self.status:
-                return self.state("review")
-        # "draft" has no default at all: it names an option the board already
-        # has for tickets still being written, and a board without one keeps
-        # them with no status, as before. Unnamed, it is "", which no ticket
-        # is ever read as — the runner itself never asks for it.
-        if key == "draft":
-            return self.status.get("draft", "")
-        return self.status.get(key, _DEFAULT_STATUS[key])
+        return STATUS[key]
 
 
 @dataclass
@@ -943,18 +905,32 @@ class Config:
             )
 
 
-_DEFAULT_PROPERTIES = {
-    "status": "Status",
+# The board's columns, as `ponos init` creates them and every pass reads them.
+#
+# Fixed, and not a setting any more: they used to be `[notion.properties]`,
+# `[notion.status]` and `[notion.types]`, so that a board built by hand could
+# keep its own words — and the one board Ponos runs on is the one these are
+# taken from. A name somebody could change was a name every check, every
+# fallback and every test had to read through a setting: three tables of forty
+# keys for one spelling. `doctor` names each column, status or option a board
+# has otherwise, and `init` creates them.
+#
+# The options of the selects are French where they are words — Rédaction,
+# Amélioration, réussi — because that is the language the board is written
+# in; the statuses are the board's short lowercase keywords, which its
+# formulas and views filter on.
+PROPERTIES = {
+    "status": "statut",
     "project": "Project",
     # Which machine took the ticket, as ponos@host. Not to be confused
     # with `role` below: this one is a runner, that one is a craft.
-    "agent": "Runner",
+    "agent": "Agent",
     "pull_request": "Pull Request",
     "session": "Session",
     # Optional. A database without them behaves exactly as before: the runner
     # skips a property the schema does not declare.
     "model": "Model",  # per-ticket model, overrides runner.model
-    "priority": "Priority",  # a score from 0 to 100: which ready ticket goes first
+    "priority": "Priorité",  # a score from 0 to 100: which ready ticket goes first
     "cost": "Cost",  # written back, in dollars
     "duration": "Duration",  # written back, in minutes
     # What the session is doing right now, rewritten every few seconds while it
@@ -974,7 +950,7 @@ _DEFAULT_PROPERTIES = {
     # yes — see planning.py. An attribute too, for the same reason: the ticket
     # runs and asks like any other, and only what its session may do changes.
     "plan": "Plan d'abord",  # checkbox: plan first, then wait for a yes
-    # What kind of work the ticket is — Code, Writing, External action or
+    # What kind of work the ticket is — Code, Rédaction, Action externe or
     # Publication — which decides the road it takes. Optional, and empty is an
     # answer too: the runner works it out before running the ticket.
     "type": "Type",
@@ -985,15 +961,15 @@ _DEFAULT_PROPERTIES = {
     # A prompt run at every change of the ticket's status, whoever made it. Text,
     # optional, and empty means nothing happens: see transitions.py.
     "on": "On",
-    # Why a blocked or failed ticket stopped: a code of blocks.py, as a select a
-    # Notion view filters on. Written when it stops, emptied when it leaves.
+    # Why a blocked ticket stopped: a code of blocks.py, as a select a Notion
+    # view filters on. Written when it stops, emptied when it leaves.
     "block": "Blocage",
     # The state of the pull request's checks while the ticket is in review: a
     # select with three options (see ci.py), emptied for a repository without CI.
     "ci": "CI",
-    # Relation to the Agents database. It carries the same word as the database
-    # it points at, because it is the same thing.
-    "role": "Agent",
+    # Relation to the Agents database: the role a ticket is handled with.
+    # Optional, like the goal — and not « Agent », which is the machine's.
+    "role": "Rôle",
     # Relation to the Objectifs database: what the ticket is for. Named in the
     # singular for the same reason, and only its first page is read.
     "goal": "Objectif",
@@ -1029,59 +1005,63 @@ _DEFAULT_PAGES = {
 # The four types of ticket, told apart by the road they take rather than by what
 # they are about — see kinds.py. The keys are what the code says; the values are
 # the options of the board's Type column.
-_DEFAULT_TYPES = {
+TYPES = {
     "code": "Code",
-    "writing": "Writing",
-    "external": "External action",
+    "writing": "Rédaction",
+    "external": "Action externe",
     "publication": "Publication",
 }
 
-# The other spellings an option is recognised by, as long as the file names
-# none: the words a French board was written with.
+# The other spellings an option is still recognised by: the English words a
+# board was typed with before the names were fixed, and one without its accent.
 _TYPE_ALIASES = {
-    "writing": ("Rédaction", "Redaction"),
-    "external": ("Action externe",),
+    "writing": ("Writing", "Redaction"),
+    "external": ("External action",),
 }
 
-# The columns of the board, and they are meant to be read in that order.
+# The statuses of the board, and they are meant to be read in that order.
 #
-# "In review" rather than "Done": nothing is done when the runner lets go of a
-# ticket — a pull request is waiting for a human, and calling that Done is how a
-# board stops being believed. And `failed` and `blocked` are two columns, not
-# one: the agent asking a question is waiting for *you*, a session that crashed
-# is waiting for someone to read a log. The runner tells them apart; the board
-# used to put both in "Draft" and throw that away.
+# "review" rather than "done": nothing is done when the runner lets go of a
+# ticket — a pull request is waiting for a human, and calling that done is how a
+# board stops being believed.
 #
-# "Validated" is the answer to the question "In review" asks. Reviewing ends in
-# a gesture — merge this, publish this — and that gesture is the one thing a
+# One status for a ticket that stopped, "blocked", whether the agent asked a
+# question or a session crashed: the board has one column for both, and the
+# block cause (`Blocage`, see blocks.py) is what tells them apart. A `failed`
+# status beside it pointed at the same column for as long as there was a board.
+#
+# "validated" is the answer to the question "review" asks. Reviewing ends in a
+# gesture — merge this, publish this — and that gesture is the one thing a
 # board cannot do for you and the runner should not decide alone. So you move
 # the ticket one column to the right, and the runner does the gesture: it
 # merges the pull request, or it publishes what the ticket holds, and only then
-# is anything Done. A board that does not offer the column has no such moment,
-# and nothing changes: you merge by hand, as before.
+# is anything done.
 #
-# There is no column for "the credit ran out": a ticket nothing was started for
+# There is no status for "the credit ran out": a ticket nothing was started for
 # has not moved, so nothing on the board should say it did. It stays where it
-# was and is ticked — see `waiting` in `_DEFAULT_PROPERTIES`.
+# was and is ticked — see `waiting` in `PROPERTIES`.
 #
-# "Paused" is a ticket you stopped on purpose, with its worktree and its branch
+# "paused" is a ticket you stopped on purpose, with its worktree and its branch
 # kept: the runner never takes it back by itself, and only moving it to ready
 # runs it again — from the work already there, as any ticket that has run before.
 #
-# "Cancelled" is the other end of a ticket, beside Done: given up on, not
+# "cancelled" is the other end of a ticket, beside done: given up on, not
 # finished. Terminal like it — the runner never runs it, never takes it back —
 # and apart from it, because a board that files the tickets nobody wanted any
-# more under Done is a board whose Done stops meaning "this got done".
-_DEFAULT_STATUS = {
-    "ready": "Ready",
-    "running": "In progress",
-    "review": "In review",
-    "validated": "Validated",
-    "done": "Done",
-    "failed": "Failed",
-    "blocked": "Blocked",
-    "paused": "Paused",
-    "cancelled": "Cancelled",
+# more under done is a board whose done stops meaning "this got done".
+#
+# "draft" is a ticket still being written: the runner never reads nor writes it,
+# and never picks it up.
+STATUS = {
+    "ready": "ready",
+    "running": "progress",
+    "review": "review",
+    "validated": "validated",
+    "done": "done",
+    "blocked": "blocked",
+    "paused": "paused",
+    "cancelled": "cancelled",
+    "draft": "draft",
 }
 
 
@@ -1580,21 +1560,13 @@ def secret(stored: dict[str, str], table: str, key: str) -> str:
     return written or environment
 
 
-def defaults(table: str) -> dict[str, str]:
-    """The names the runner falls back on, for one of the four naming tables.
+def page_titles() -> dict[str, str]:
+    """The titles the runner looks for in the workspace, unless `[notion.pages]` names others.
 
-    `properties`, `status`, `pages`, `types` — the four places where a board that spells
-    a column its own way says so. Public because the console draws a field per
-    key, and a key it did not know about would be a setting nobody can reach.
+    Public because the console draws a field per key, and a key it did not know
+    about would be a setting nobody can reach.
     """
-    return dict(
-        {
-            "properties": _DEFAULT_PROPERTIES,
-            "status": _DEFAULT_STATUS,
-            "pages": _DEFAULT_PAGES,
-            "types": _DEFAULT_TYPES,
-        }[table]
-    )
+    return dict(_DEFAULT_PAGES)
 
 
 def is_identifier(value: str) -> bool:
@@ -1691,36 +1663,7 @@ def _notion(table: schema.NotionTable, stored: dict[str, str]) -> Notion:
         mention=table.mention,
         tickets_database=table.tickets_database,
         pages=dict(table.pages),
-        properties=_properties(table.properties),
-        # Not merged with the defaults: `state()` needs to know which keys the
-        # file actually sets, to let "blocked" fall back on "failed".
-        status=dict(table.status),
-        types=dict(table.types),
     )
-
-
-# The settings that read a column as a relation. Any other one reads text, a
-# select, a URL — a column none of these can share with it.
-_RELATIONS = ("project", "role", "goal", "after", "last_ticket")
-
-
-def _properties(written: dict[str, str]) -> dict[str, str]:
-    """The names of the board's columns: the file's, then the defaults.
-
-    Save one. `role` defaults to "Agent", which is what `agent` used to default
-    to — and a file written back then says `agent = "Agent"` of a text column.
-    Read as the role too, that text was taken for a relation, and a page was
-    asked of Notion on every ticket taken back. So a role the file does not name
-    steps aside, as no column at all, when its default is a column the file
-    gives to a setting that reads something else.
-    """
-    properties = {**_DEFAULT_PROPERTIES, **written}
-    if "role" not in written and any(
-        name == _DEFAULT_PROPERTIES["role"] and key not in _RELATIONS
-        for key, name in written.items()
-    ):
-        properties["role"] = ""
-    return properties
 
 
 def _runner(table: schema.RunnerTable) -> Runner:

@@ -123,8 +123,8 @@ to *Ready* and watch it work.
 is kept, what a previous version did not know how to create is added, and a column you
 retyped on purpose is never overruled.
 
-> One Notion quirk shows through: the API cannot create a `status` property, so `Status`
-> is made a **select** with the same five options. The runner reads either — it looks at
+> One Notion quirk shows through: the API cannot create a `status` property, so `statut`
+> is made a **select** with its nine options. The runner reads either — it looks at
 > the declared type and writes accordingly — so this changes nothing but the icon.
 
 You name the directory once; the runner finds the rest by the **title of a row**. Rename
@@ -272,9 +272,6 @@ for reading rather than for filling in.
 | `notion.workspace` | `""` | the database whose rows are your master pages |
 | `notion.tickets_database` | `""` | one database instead of a workspace; wins when both are set |
 | `[notion.pages]` | | which row of the workspace is the tickets database, the projects database, the agents database, the context page |
-| `[notion.properties]` | | if your columns have other names |
-| `[notion.status]` | | if your statuses have other names |
-| `[notion.types]` | | how the options of the Type column are spelled — `code`, `writing`, `external`, `publication`. Unset, the French *Rédaction* and *Action externe* are read too |
 | `[projects]` | | `"Notion name" = "/path"` for repositories that cannot be guessed |
 | `[github]` | | `"owner" = "gh account"`, when this machine answers to more than one GitHub — see *Several GitHub accounts* below |
 | `[web]` | | the console's host, port, and how it is opened — a token, or an email and a password. See *The web console* |
@@ -285,6 +282,12 @@ for reading rather than for filling in.
 | `openrouter.route_sessions` | `false` | run the sessions themselves on it |
 | `openrouter.base_url` | `https://openrouter.ai/api/v1` | only for a gateway of your own |
 | `openrouter.transcription_model` | `openai/whisper-1` | what the console's microphone is transcribed with |
+
+The board's columns, its statuses and the options of its `Type` column have **fixed names**
+— they are not settings: `ponos init` creates them and `ponos doctor` names what a board lacks.
+The list is in [The tickets database](board.md#the-tickets-database). `[notion.properties]`,
+`[notion.status]` and `[notion.types]`, which renamed them, are gone: a file that still holds
+them is read without them.
 
 `max_concurrent_per_project` caps how many of those places one project may hold: pull
 requests written side by side on one repository touch the same files, and each one that

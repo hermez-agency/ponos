@@ -37,7 +37,7 @@ def _outcome(**values: Any) -> session.Outcome:
 
 def _job(*, code: bool = False, page: notion.Page | None = None) -> ticket_module.Job:
     """A job on a fresh scratch directory: on a repository when `code` says so."""
-    page = page or _reviewed("p-ticket", "In progress", None)
+    page = page or _reviewed("p-ticket", "progress", None)
     root = Path(tempfile.mkdtemp())
     project = (
         projects.Project(name="Northwind", path=root / "repository")
@@ -55,8 +55,8 @@ def _job(*, code: bool = False, page: notion.Page | None = None) -> ticket_modul
 
 def _runner(status: dict[str, str] | None = None) -> tuple[Runner, notion.Page, list[str]]:
     """A runner on a fake board that keeps what it says, instead of logging it."""
-    page = _reviewed("p-ticket", "In progress", None)
-    runner = _board_runner([page], status or {"review": "In review", "done": "Done"})
+    page = _reviewed("p-ticket", "progress", None)
+    runner = _board_runner([page], status or {"review": "review", "done": "done"})
     runner.config.runner.auto_update = False
     runner.config.runner.keep_worktree_on_failure = False
     said: list[str] = []
@@ -409,19 +409,19 @@ def _killed_then(
 def a_killed_session_whose_ticket_is_cancelled_in_the_pause_is_not_tried_again(
     state_home: Path,
 ) -> None:
-    runner, page, _ = _runner({"cancelled": "Cancelled"})
+    runner, page, _ = _runner({"cancelled": "cancelled"})
     job = _job(code=True, page=page)
 
     def cancel() -> None:
         # Moved on the board, under the page this run holds: Notion's copy, not ours.
-        _client(runner)._pages = [_reviewed("p-ticket", "Cancelled", None)]
+        _client(runner)._pages = [_reviewed("p-ticket", "cancelled", None)]
 
     outcome, started = _killed_then(runner, job, cancel)
     assert started == [], "no session -again for a ticket somebody gave up on"
     assert outcome.killed == "signal SIGKILL" and not outcome.ok
     with _git_answering(remove_worktree=lambda repo, path: None):
         runner._code_stopped(job, outcome)
-    assert [values for _, values in _client(runner).written if "Status" in values] == [], (
+    assert [values for _, values in _client(runner).written if "statut" in values] == [], (
         "the ticket stays cancelled"
     )
 
@@ -498,7 +498,7 @@ def work_done_on_a_dashboard_with_nothing_committed_is_delivered_into_the_page(
     assert result is not None and result["status"] == "done"
     assert removed == [job.workdir]
     assert "Variable ajoutée sur Dokploy" in bodies[0] and "RESULT" not in bodies[0], bodies
-    assert _client(runner).written[-1][1]["Status"] == "Done"
+    assert _client(runner).written[-1][1]["statut"] == "done"
     assert runner.voice.say("done-elsewhere") in _client(runner).comments_written[-1]
 
 

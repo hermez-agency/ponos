@@ -35,7 +35,6 @@ import { CardTime } from "@/components/console/ticket-time"
 import { moveWithToast as move } from "@/hooks/use-console"
 import { currentBoard, titleOf, useBoard } from "@/lib/board-store"
 import { conflictOf } from "@/lib/conflicts"
-import { actionsOf } from "@/lib/decision"
 import { currentLanguage, t, useT } from "@/lib/i18n"
 import { money } from "@/lib/numbers"
 import type { Block, BlockFamily, Ci, CiState, Earlier, Subtype, Ticket } from "@/lib/types"
@@ -57,7 +56,6 @@ export const LABEL: Record<string, string> = {
   paused: "Paused",
   review: "In review",
   validated: "Validated",
-  failed: "Failed",
   done: "Done",
   cancelled: "Cancelled",
 }
@@ -97,10 +95,12 @@ export function conflictSaid(ticket: Pick<Ticket, "sync_error" | "sync_status">)
 }
 
 /* The words a ticket's type is written in on the board: the runner's own
- * ("Writing", "Publication"), which it acts on and which stay its values — but
- * said, wherever the console draws them, in its language. A word the
- * dictionary does not know (a type a board added) is drawn as it is. */
-export const choiceWord = (value: string): string => (value ? t(value) : value)
+ * ("Rédaction", "Publication"), which it acts on and which stay its values — but
+ * said, wherever the console draws them, in its language: through the English
+ * word, which the dictionary says in French again. A word the dictionary does
+ * not know (a type a board added) is drawn as it is. */
+const BOARD_WORDS: Record<string, string> = { Rédaction: "Writing", "Action externe": "External action" }
+export const choiceWord = (value: string): string => (value ? t(BOARD_WORDS[value] ?? value) : value)
 
 /** The colour of a column, as text. */
 export const TONE: Record<string, string> = {
@@ -109,7 +109,6 @@ export const TONE: Record<string, string> = {
   blocked: "text-tr-amber",
   review: "text-tr-violet",
   validated: "text-tr-pink",
-  failed: "text-tr-red",
   cancelled: "text-muted-foreground line-through",
 }
 
@@ -122,7 +121,6 @@ export const SEED: Record<string, string> = {
   blocked: "bg-tr-amber",
   review: "bg-tr-violet",
   validated: "bg-tr-pink",
-  failed: "bg-tr-red",
   cancelled: "ring-muted-foreground bg-transparent ring-[1.5px] ring-inset",
 }
 
@@ -775,12 +773,9 @@ function MergeGestures({ ticket, retry }: { ticket: Ticket; retry: boolean }) {
 export function TicketActions({
   ticket,
   className,
-  answer,
 }: {
   ticket: Ticket
   className?: string
-  /** Where answering opens — the ticket's page, on its discussion. None where the discussion already is. */
-  answer?: { href: string; onClick?: React.MouseEventHandler<HTMLAnchorElement> }
 }) {
   const board = useBoard()
   const t = useT()
@@ -823,10 +818,9 @@ export function TicketActions({
     )
   const named = (key: string) =>
     columnTitle(key, board.columns.find((column) => column.key === key)?.name)
-  const block = ticket.column === "failed" ? ticket.block : null
   // A ticket that has run already is run again — « Relancer » — rather than
   // made ready as a draft would be.
-  const again = ticket.column === "review" || ticket.column === "done" || ticket.column === "failed"
+  const again = ticket.column === "review" || ticket.column === "done"
   const ready = {
     title: again
       ? t("Run “{{title}}” again?", { title: titleOf(ticket) })
@@ -850,35 +844,6 @@ export function TicketActions({
     confirm: again ? t("Run it again") : t("Make it ready"),
     onConfirm: () => void move(ticket, "ready"),
   }
-  // The gesture the cause of a stop proposes, first on the card. Answering
-  // and the pull request are links; the others put the ticket back in ready,
-  // which is the one thing the console can do about them — the line of help
-  // says what to do first, when there is something.
-  const ci = block?.action === "base-ci" ? actionsOf(ticket.pull_request) : ""
-  const proposed = !block
-    ? null
-    : block.action === "answer" && answer ? (
-        <Button variant="outline" size="sm" asChild className="text-tr-amber hover:text-tr-amber">
-          <Link to={answer.href} onClick={answer.onClick} data-slot="block-action">
-            <MessageCircleQuestion />
-            {t("Answer")}
-          </Link>
-        </Button>
-      ) : block.action === "open-pr" && ticket.pull_request ? (
-        <Button variant="outline" size="sm" asChild>
-          <a href={ticket.pull_request} target="_blank" rel="noreferrer noopener" data-slot="block-action">
-            {t("See the pull request")}
-            <ExternalLink />
-          </a>
-        </Button>
-      ) : ci ? (
-        <Button variant="outline" size="sm" asChild>
-          <a href={ci} target="_blank" rel="noreferrer noopener" data-slot="block-action">
-            {t("See the base's CI")}
-            <ExternalLink />
-          </a>
-        </Button>
-      ) : null
   // Giving a ticket up is offered wherever it stands but in the runner's hands,
   // and only on a board that has a column to give it up in. Behind "…": it is
   // the gesture a card is least often for, and one click from it is enough —
@@ -955,7 +920,6 @@ export function TicketActions({
       {/* What a card waiting on you is for: why it waits, and what to do —
           see `ticket-decision.tsx`. The plain gestures stay beside it. */}
       <DecideButton ticket={ticket} />
-      {proposed}
       {/* A cancelled ticket is reopened as a draft: given up on is not ready,
           and the session a ready ticket starts is paid for. */}
       {ticket.column === "cancelled" ? (

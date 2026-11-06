@@ -141,7 +141,7 @@ mention = "@claude"
 #             makes a document ticket come back sounding like you rather than
 #             like nobody. Keep it to one screen: you pay it on every ticket.
 #   agents    optional: the page holding a database of agents. A ticket points
-#             at one through its `Agent` column, and that agent's page is the
+#             at one through its `Rôle` column, and that agent's page is the
 #             role the session plays — its craft, its rules, its model
 #   schedules optional: the page holding a database of schedules — what comes
 #             back on its own. Absent, nothing repeats and nothing changes
@@ -160,138 +160,13 @@ context = "Context"
 schedules = "Schedules"      # on the board this shipped against: "Master Scheluder"
 goals = "Objectifs"
 
-# Rename here if your Notion columns are named differently.
-# A property that does not exist in the database is skipped — and said: once
-# per run when it is written, and by `ponos doctor` with what it turns off.
-[notion.properties]
-status = "Status"
-project = "Project"          # relation → your projects database
-pull_request = "Pull Request"
-
-# Which machine took the ticket, written as ponos@host. Not the same
-# thing as `role` below, which is the craft the session plays. Without the
-# column, a ticket abandoned in progress still goes back to ready, but the board
-# is taken to be run by one machine: a second one would put back the first's.
-agent = "Runner"
-
-# Written when the ticket is claimed. As a URL column it becomes a link that
-# opens the session; as a text column it holds the bare identifier.
-session = "Session"
-
-# All six are optional — a database without them behaves exactly as before.
-model = "Model"          # select: pick the model per ticket, over runner.model
-priority = "Priority"    # number, 0 to 100: the highest runs first, empty is 50 (a select
-                         # of Urgent, High, Normal, Low still reads as 100, 75, 50, 25)
-cost = "Cost"            # number: what the run cost, written back
-duration = "Duration"    # number: how long it took, in minutes
-role = "Agent"           # relation → your agents database: who handles the ticket
-                         # ("" reads none; left out, it steps aside when another
-                         # setting above already names a column "Agent")
-goal = "Objectif"        # relation → your goals database: what the ticket is for
-after = "Après"          # relation → the tickets database itself: the tickets this one
-                         # comes after. It is not started while one of them is not done,
-                         # its card says what it waits for, and it starts on its own at
-                         # the first pass after the last one is. `init` adds the column
-
-# text: what the session is doing right now, rewritten every ten seconds while
-# it runs and cleared when it ends — see runner.progress below.
-progress = "Progress"
-
-# A date here is a start gate, not a deadline: the ticket is left alone until
-# that moment, then picked up on the first pass after it.
-due = "Scheduled"
-
-# checkbox: ticked while the subscription's window is spent under the ticket, or
-# while the reserve below is holding it back. An attribute rather than a column,
-# because nothing happened to the ticket: it is still ready — or still validated
-# — and the tick is the note saying why nobody has got to it yet. The pass that
-# has credit again takes the ticked ones *before* anything else, picking their
-# session back up where it stopped, and unticks them as it claims them.
-# Optional: a board without the column waits exactly as it did before, silently.
-waiting = "Waiting for credit"
-
-# checkbox: « Plan d'abord ». Ticked on a code ticket, its first session runs in
-# plan mode — it reads, it cannot write — and ends on its plan (steps, files,
-# risks, cost) and the question « Je lance ce plan ? », blocked like any other
-# question. A yes runs it again the ordinary way, with the plan in its prompt,
-# and unticks the box; any other answer amends the plan. A project may tick it
-# for its tickets above a priority or of some sub-types (its settings, in the
-# console). ponos init adds it. Optional: without it, no ticket plans first.
-plan = "Plan d'abord"
-
-# select: the road a ticket takes — Code, Writing, External action or
-# Publication, see [notion.types] below. Optional, and empty is a request: the
-# runner works it out before running the ticket (runner.classify). A board
-# without the column runs every ticket by what its project holds, as before.
-type = "Type"
-
-# select: what kind of change a code ticket is — Bug, Feature, Amélioration,
-# Chore, Refactor, Perf, Docs or Sécurité — ignored on the other types. It sets
-# the prefix of the commit and the pull request (fix:, feat:…) and the CHANGELOG
-# section. Empty, the runner fills it before the ticket runs: from the title's
-# prefix ([Bug], [Ops]…) without asking anybody, else with the classification's
-# light model, and an Amélioration when in doubt. Never rewritten once written.
-# ponos init adds it; `ponos subtypes --backfill` fills the code tickets already
-# on the board from their prefix. Optional: without it, the prefix alone counts.
-subtype = "Sous-type"
-
-# select: why a blocked or failed ticket stopped, as a code from the catalogue
-# (merge.checks-failed, session.question, worktree.residue…) — filled when it
-# stops, emptied when it leaves. What a Notion view filters and groups blocks
-# by; the console reads it for the card's badge. ponos init adds it, with every
-# code as an option. Optional: without it, the code is still in the history.
-block = "Blocage"
-# The state of the pull request's checks while the ticket is in review: a select
-# with three options (en cours, réussi, erreur), rewritten by the runner as the
-# checks move and left empty for a repository without CI. ponos init adds it.
-# Optional: without it the console still shows the state, only Notion does not.
-ci = "CI"
-# text: a prompt Ponos runs at every change of the ticket's status — whoever
-# makes it, you or the runner (ready → in progress, in review → validated,
-# → blocked…). The session is told the old status, the new one and the ticket
-# (title, page, project, pull request, result); the prompt decides what to do
-# for which transition. Empty, nothing happens. See runner.on_* below for the
-# guardrails. ponos init adds it. Optional: without it no prompt runs.
-on = "On"
-
-# The columns of the *schedules* database — what comes back on its own. A row
-# there is the recipe for a ticket and the cadence it is born at; the body of
-# the page is the brief, copied into each ticket so it reads on its own. What
-# comes out is an ordinary ticket: same ready column, same queue, same session,
-# same pull request. The schedule only presses the button for you.
-#
-# The first four are yours to fill in:
-#   cadence  Hourly, Daily, Weekly, Monthly — the whole of it. A cadence the
-#            runner does not know means the row is skipped and `doctor` says so
-#   at       the hour, written 09:00. Empty means midnight — and, hourly, :00
-#   day      Monday for a weekly one (empty: whichever day it is read on),
-#            1 to 31 for a monthly one, clipped to the last day the month has:
-#            the 31st in February is the 28th
-#   active   the tick that turns it on. Unticking stops everything and deletes
-#            nothing, which is what you want on the way back from holiday
-#
-# The last three the runner writes, and they are how it keeps its word:
-#   next_run  when the next ticket is born. Written *before* the ticket is made,
-#             never after — a crash in between loses one occurrence, the other
-#             order would make two, and two identical tickets cost two sessions.
-#             It is also recomputed **from now**, so a machine that was off for
-#             three days wakes up owing one ticket and not twelve. This is
-#             anacron, not cron: turning a laptop back on sets off no avalanche
-#   last_run  when the last one was
-#   last_ticket  what the last occurrence produced. While that ticket is neither
-#             done nor failed, no new one is made — `next_run` moves on anyway,
-#             and the pass says so. Without that rule, one schedule stuck on a
-#             question fills the board with twenty copies of itself
-#
-# Project, Model and Priority are read from the same names as above: what the
-# schedule carries, every ticket it makes carries too.
-cadence = "Cadence"
-at = "At"
-day = "Day"
-active = "Active"
-next_run = "Next"
-last_run = "Last"
-last_ticket = "Last ticket"
+# The board's columns, its statuses and the options of its Type column have
+# fixed names — `statut`, `ready`, `progress`, `review`, `validated`, `done`,
+# `blocked`, `paused`, `cancelled`, `draft`, `Priorité`, `Rédaction`… — and are
+# not settings: `ponos init` creates them, and `ponos doctor` names each one a
+# board lacks or has under another type. The list, column by column, is in
+# guide/board.md, "The tickets database". A file that still holds
+# [notion.properties], [notion.status] or [notion.types] is read without them.
 
 # On the projects database, two columns are read by name, either capitalisation:
 #   Repository  the GitHub URL or owner/name — matched against your clones, and
@@ -302,91 +177,6 @@ last_ticket = "Last ticket"
 # The model is picked from the narrowest choice that names one:
 #   the ticket's Model, then its agent's Model, then the one runner.auto_model
 #   chooses, then runner.model below.
-
-# The states that drive the whole system. Point them at whatever your board
-# calls them — `ponos doctor` checks that each one really exists.
-#   ready    what the runner picks up — move a ticket here once its description
-#            is precise enough to be handled without you
-#   running  claimed, work in progress (stops a second pass from taking it)
-#   review   branch pushed, pull request opened, waiting for your review. It is
-#            where a ticket waits, and not "Done", because nothing is done: a
-#            human has still to look at it. Each run asks GitHub about those
-#            pull requests and moves on the tickets whose own has been merged
-#   validated
-#            you read what came back and said yes. This is the one column that
-#            makes the runner act rather than report: it merges the pull
-#            request the ticket carries — `merge_method` below — or, when there
-#            is none, runs a session that publishes what the ticket holds (the
-#            post, the email, the announcement), and then moves it to done.
-#            Optional: a board that does not offer the column simply has no
-#            such gesture, and you merge by hand as before
-#   done     the pull request has been merged — merging is the only gesture,
-#            nothing else to close by hand. A ticket that produced a document
-#            rather than a pull request lands here directly, having nothing to
-#            wait for. Name `done` and leave `review` out and you get one column
-#            for both, as before: the ticket stops at the pull request
-#   failed   something broke: the session, the push, the worktree
-#   blocked  the agent could not settle the ticket and asked a question instead
-#            of guessing — or the project could not be located. Its own column:
-#            "waiting for you" and "something is wrong" are different days
-#   paused   a ticket you stopped on purpose, from the console: its session is
-#            ended, its worktree and its branch are kept. The runner never takes
-#            it back by itself, answers under it never wake it — move it to
-#            ready and the next session carries on from the work already there.
-#            Optional: a board that does not offer the option has no such
-#            gesture (`doctor` says so, `init` adds it to a select)
-#   cancelled  a ticket you gave up on. Terminal, like done, and not done: the
-#            runner never runs it, never takes it back, never answers it into
-#            work again, and the statistics count it neither closed nor open —
-#            what it cost stays in the totals. Optional: a board that does not
-#            offer the option has no such gesture (`doctor` says so, `init`
-#            adds it to a select); move it out of the column to reopen it
-#   draft    optional, and with no default: the option your board already has
-#            for a ticket still being written. The console draws those tickets
-#            in a "Drafts" column, and "New ticket" with "Ready to run" off puts
-#            the ticket there; the runner never picks one up. Left out, a draft
-#            has no status at all and shows under "No status", as before. It
-#            names an option, it never creates one — and it must not be one of
-#            the statuses above
-[notion.status]
-ready = "Ready"
-running = "In progress"
-review = "In review"
-validated = "Validated"
-done = "Done"
-failed = "Failed"
-blocked = "Blocked"
-paused = "Paused"
-cancelled = "Cancelled"
-# draft = "Draft"
-
-# The four types a ticket can be, as the options of its Type column spell them.
-# Told apart by the road the work takes, not by what it is about:
-#   code         a repository, a branch, a pull request — what every ticket on a
-#                project with a repository used to be
-#   writing      no repository: the answer is written into the ticket's page. On
-#                a project that has one, the session may read it, never change it
-#   external     done outside — in the browser with Claude in Chrome, in a DNS
-#                zone, in a service's settings. No repository; the session stops
-#                at its first doubt, and its answer is the log of what it did
-#   publication  public and irreversible — a post, a deployment, a message sent.
-#                Prepared first and moved to review, *nothing published*; it goes
-#                out only once you move it to validated, then lands in done
-# Left unset, a board spelled in French is read as well: “Rédaction” and
-# “Action externe” mean writing and external. Name one here and that name is
-# the only one read for it.
-[notion.types]
-code = "Code"
-writing = "Writing"
-external = "External action"
-publication = "Publication"
-
-# One column for two states is a fine board too — name `failed` and leave
-# `blocked` out, and questions land wherever failures do; name `done` and leave
-# `review` out, and a ticket stops at its open pull request, with nothing
-# watching for the merge:
-#   done = "Done"
-#   failed = "Needs you"
 
 [runner]
 # Where to look for repositories. Projects are matched by their origin remote —
@@ -727,7 +517,7 @@ unblock_interval_seconds = 21600  # a ticket is looked at once in this long (600
 
 # Let the schedules database make tickets. A pass reads it between the validated
 # column and the queue, so a ticket born at 09:00 is claimed by that very pass
-# rather than by the next one. See [notion.properties] above for what a row
+# rather than by the next one. See guide/tickets.md for what a row
 # holds, and `ponos schedules` for what is coming.
 #   ponos schedules --run "Revue des dépendances"   without waiting
 # Off, the database is read by nobody and no row has to be unticked — and a

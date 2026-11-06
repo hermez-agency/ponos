@@ -25,7 +25,6 @@ from support import (
 )
 
 from ponos import channels, github_checks, notion, projects, session, state, voice
-from ponos import config as C
 from ponos import git as git_module
 from ponos import ticket as ticket_module
 from ponos.runner import Runner
@@ -43,15 +42,15 @@ def _client(runner: Runner) -> _BoardClient:
 def a_merged_pull_request_moves_its_ticket_to_done() -> None:
     client, closed = _closing(
         [
-            _reviewed("p-merged", "In review", "https://github.com/x/y/pull/1"),
-            _reviewed("p-open", "In review", "https://github.com/x/y/pull/2"),
+            _reviewed("p-merged", "review", "https://github.com/x/y/pull/1"),
+            _reviewed("p-open", "review", "https://github.com/x/y/pull/2"),
             _reviewed("p-ready", "Not started", None),
         ],
         {"https://github.com/x/y/pull/1": "MERGED", "https://github.com/x/y/pull/2": "OPEN"},
-        {"review": "In review", "done": "Done"},
+        {"review": "review", "done": "done"},
     )
     assert closed == 1
-    assert client.written == [("p-merged", {"Status": "Done"})]
+    assert client.written == [("p-merged", {"statut": "done"})]
     assert client.comments_written[0] == ("✅ Merged — PR #1\nhttps://github.com/x/y/pull/1")
 
 
@@ -118,7 +117,7 @@ def a_ticket_in_review_carries_its_ci_on_the_board_and_stops_when_it_leaves(
 
     url = "https://github.com/x/y/pull/2"
     runner = _board_runner(
-        [_reviewed("p-open", "In review", url)], {"review": "In review", "done": "Done"}
+        [_reviewed("p-open", "review", url)], {"review": "review", "done": "done"}
     )
     asked: list[str] = []
     head, listed = git_module.pull_request_head, github_checks.checks
@@ -163,8 +162,8 @@ def a_ticket_in_progress_carries_the_phase_it_is_in_and_drops_it_when_it_leaves(
 ) -> None:
     """A ticket waiting for its CI says so on its card, not « starting… » for an hour."""
     url = "https://github.com/x/y/pull/371"
-    runner = _board_runner([], {"review": "In review", "done": "Done"})
-    ticket = ticket_module.Ticket(_reviewed("p-wait", "Ready", ""))
+    runner = _board_runner([], {"review": "review", "done": "done"})
+    ticket = ticket_module.Ticket(_reviewed("p-wait", "ready", ""))
     settings = runner.config.notion
     runner._write(ticket, {settings.prop("status"): settings.state("running")})
     assert state.phases()["pwait"][0] == "starting", state.phases()
@@ -193,8 +192,8 @@ def a_board_told_to_answer_in_french_is_answered_in_french() -> None:
     written under a ticket, and nothing in between is worth checking on its own.
     """
     runner = _board_runner(
-        [_reviewed("p-merged", "In review", "https://github.com/x/y/pull/1")],
-        {"review": "In review", "done": "Done"},
+        [_reviewed("p-merged", "review", "https://github.com/x/y/pull/1")],
+        {"review": "review", "done": "done"},
     )
     runner.config.runner.language = "FR"
     with _github({"https://github.com/x/y/pull/1": "MERGED"}):
@@ -209,7 +208,7 @@ def a_stuck_ticket_in_french_is_stuck_in_french_from_the_first_line_to_the_phone
     """The comment that asked for the setting: a French question wrapped in
     three English sentences. Every line of it comes out of `voice`, and so does
     the message that reaches the phone."""
-    runner = _board_runner([_reviewed("p-stuck", "In progress", None)], {"blocked": "Blocked"})
+    runner = _board_runner([_reviewed("p-stuck", "progress", None)], {"blocked": "blocked"})
     runner.config.runner.language = "fr"
     runner.config.notify = _config(
         '[notify]\ndesktop = false\n\n[notify.telegram]\ntoken = "123:abc"\nchat = "42"\n'
@@ -276,12 +275,12 @@ def _validating(
 @case
 def validating_a_ticket_is_what_merges_its_pull_request() -> None:
     client, merges, _, results = _validating(
-        [_reviewed("p-validated", "Validated", "https://github.com/x/y/pull/1")],
+        [_reviewed("p-validated", "validated", "https://github.com/x/y/pull/1")],
         {"https://github.com/x/y/pull/1": "OPEN"},
         {},
     )
     assert merges == [("https://github.com/x/y/pull/1", "squash")]
-    assert client.written == [("p-validated", {"Status": "Done"})]
+    assert client.written == [("p-validated", {"statut": "done"})]
     assert results and results[0]["status"] == "done"
     assert client.comments_written[0].startswith("✅ Merged — PR #1 · squash merge")
 
@@ -290,25 +289,25 @@ def validating_a_ticket_is_what_merges_its_pull_request() -> None:
 def a_pull_request_already_merged_only_moves_its_ticket() -> None:
     """Merged by hand between two runs: nothing to merge, still done."""
     client, merges, _, results = _validating(
-        [_reviewed("p-validated", "Validated", "https://github.com/x/y/pull/1")],
+        [_reviewed("p-validated", "validated", "https://github.com/x/y/pull/1")],
         {"https://github.com/x/y/pull/1": "MERGED"},
         {},
     )
     assert merges == []
-    assert client.written == [("p-validated", {"Status": "Done"})]
+    assert client.written == [("p-validated", {"statut": "done"})]
     assert client.comments_written[0].startswith("✅ Merged — PR #1 · already merged")
 
 
 @case
 def a_merge_github_refuses_leaves_the_ticket_blocked_and_says_why() -> None:
     client, merges, _, results = _validating(
-        [_reviewed("p-validated", "Validated", "https://github.com/x/y/pull/1")],
+        [_reviewed("p-validated", "validated", "https://github.com/x/y/pull/1")],
         {"https://github.com/x/y/pull/1": "OPEN"},
         {},
         refuses="gh pr merge: Pull request is not mergeable: the merge commit cannot be cleanly created",
     )
     assert len(merges) == 1, "refused once, not retried in the same pass"
-    assert client.written == [("p-validated", {"Status": "Blocked", "Blocage": "merge.refused"})]
+    assert client.written == [("p-validated", {"statut": "blocked", "Blocage": "merge.refused"})]
     assert "not mergeable" in client.comments_written[0]
     assert results and results[0]["status"] == "blocked"
 
@@ -316,19 +315,19 @@ def a_merge_github_refuses_leaves_the_ticket_blocked_and_says_why() -> None:
 @case
 def a_pull_request_closed_rather_than_merged_is_a_question_not_a_merge() -> None:
     client, merges, _, _ = _validating(
-        [_reviewed("p-validated", "Validated", "https://github.com/x/y/pull/1")],
+        [_reviewed("p-validated", "validated", "https://github.com/x/y/pull/1")],
         {"https://github.com/x/y/pull/1": "CLOSED"},
         {},
     )
     assert merges == []
-    assert client.written == [("p-validated", {"Status": "Blocked", "Blocage": "merge.pr-closed"})]
+    assert client.written == [("p-validated", {"statut": "blocked", "Blocage": "merge.pr-closed"})]
 
 
 @case
 def nothing_is_merged_on_an_answer_github_did_not_give() -> None:
     """`gh` missing or unauthenticated: the ticket waits for the next pass."""
     client, merges, _, results = _validating(
-        [_reviewed("p-validated", "Validated", "https://github.com/x/y/pull/1")],
+        [_reviewed("p-validated", "validated", "https://github.com/x/y/pull/1")],
         {},
         {},
     )
@@ -340,8 +339,8 @@ def a_validated_ticket_with_no_pull_request_is_published_rather_than_merged() ->
     """The Instagram post, the email, the announcement: work with no branch."""
     client, merges, published, _ = _validating(
         [
-            _reviewed("p-post", "Validated", None),
-            _reviewed("p-empty", "Validated", ""),
+            _reviewed("p-post", "validated", None),
+            _reviewed("p-empty", "validated", ""),
         ],
         {},
         {},
@@ -354,47 +353,23 @@ def a_validated_ticket_with_no_pull_request_is_published_rather_than_merged() ->
 def a_board_without_a_validated_column_is_never_even_queried() -> None:
     """No such option on the board, no such gesture: not even a query."""
     client, merges, published, results = _validating(
-        [_reviewed("p-validated", "Validated", "https://github.com/x/y/pull/1")],
+        [_reviewed("p-validated", "validated", "https://github.com/x/y/pull/1")],
         {"https://github.com/x/y/pull/1": "OPEN"},
         {},
-        options=["Ready", "In progress", "In review", "Done"],
+        options=["ready", "progress", "review", "done"],
     )
     assert results == [] and merges == [] and published == []
     assert client.queried == [], "a board with no column is not read at all"
 
 
 @case
-def a_file_that_names_its_columns_without_validated_asked_for_no_gesture() -> None:
-    """Most often a file written before the column existed. It stays as it was."""
-    settings = C.Notion(status={"review": "In review", "done": "Done"})
-    assert settings.state("validated") == settings.state("review") == "In review"
-
-    # But renaming some other column says nothing about this one: a file that
-    # only translates "Ready" has not asked for the gesture to go away.
-    settings = C.Notion(status={"ready": "À faire"})
-    assert settings.state("validated") == "Validated"
-    assert settings.state("ready") == "À faire"
-
-    client, merges, published, results = _validating(
-        [_reviewed("p-review", "In review", "https://github.com/x/y/pull/1")],
-        {"https://github.com/x/y/pull/1": "OPEN"},
-        {"review": "In review", "done": "Done"},
-    )
-    assert results == [] and merges == [] and published == []
-    assert client.queried == []
-
-    # And a file that names nothing at all gets the whole board, gesture included.
-    assert C.Notion().state("validated") == "Validated"
-
-
-@case
 def a_validated_ticket_on_a_repository_with_no_pull_request_asks_rather_than_publishes() -> None:
     """Nothing to merge, and nothing on the page to publish: a question."""
-    runner = _board_runner([_reviewed("p-code", "Validated", None)], {})
+    runner = _board_runner([_reviewed("p-code", "validated", None)], {})
     runner.resolver = None  # type: ignore[assignment]  # never asked: the project is said below
     runner._project_of = lambda ticket: projects.Project(name="Site", path=Path("/repo"))  # type: ignore[method-assign]  # a double: the ticket's project
     results = runner.deliver()
-    assert _client(runner).written == [("p-code", {"Status": "Blocked", "Blocage": "merge.no-pr"})]
+    assert _client(runner).written == [("p-code", {"statut": "blocked", "Blocage": "merge.no-pr"})]
     assert (
         _client(runner)
         .comments_written[0]
@@ -407,8 +382,8 @@ def a_validated_ticket_on_a_repository_with_no_pull_request_asks_rather_than_pub
 def a_dry_run_says_what_it_would_merge_and_merges_nothing() -> None:
     runner = _board_runner(
         [
-            _reviewed("p-pr", "Validated", "https://github.com/x/y/pull/1"),
-            _reviewed("p-post", "Validated", None),
+            _reviewed("p-pr", "validated", "https://github.com/x/y/pull/1"),
+            _reviewed("p-post", "validated", None),
         ],
         {},
     )
@@ -444,7 +419,7 @@ def _in(**delta: float) -> str:
 def a_validated_publication_waits_for_its_date() -> None:
     """The post is written and accepted; the hour it goes out is still the one
     the ticket names."""
-    runner = _board_runner([_dated(_reviewed("ppost", "Validated", None), _in(days=2))], {})
+    runner = _board_runner([_dated(_reviewed("ppost", "validated", None), _in(days=2))], {})
     runner._publish = lambda ticket, project: (_ for _ in ()).throw(  # type: ignore[method-assign, misc, assignment]  # a double: never to be called
         AssertionError("published before its date")
     )
@@ -459,7 +434,7 @@ def a_validated_publication_waits_for_its_date() -> None:
 def a_validated_pull_request_waits_for_its_date_too() -> None:
     """One column, one rule: a merge is held back like a publication."""
     runner = _board_runner(
-        [_dated(_reviewed("ppr", "Validated", "https://github.com/x/y/pull/1"), _in(hours=3))],
+        [_dated(_reviewed("ppr", "validated", "https://github.com/x/y/pull/1"), _in(hours=3))],
         {},
     )
     with _github({"https://github.com/x/y/pull/1": "OPEN"}, merge=_never_merged):
@@ -473,7 +448,7 @@ def a_validated_pull_request_waits_for_its_date_too() -> None:
 def a_validated_ticket_whose_date_has_passed_is_carried_out_at_once() -> None:
     """The date says "not before", never "not until somebody looks again"."""
     runner = _board_runner(
-        [_dated(_reviewed("ppr", "Validated", "https://github.com/x/y/pull/1"), _in(hours=-1))],
+        [_dated(_reviewed("ppr", "validated", "https://github.com/x/y/pull/1"), _in(hours=-1))],
         {},
     )
     merges: list[tuple[str, str]] = []
@@ -490,7 +465,7 @@ def a_validated_ticket_whose_date_has_passed_is_carried_out_at_once() -> None:
 @case
 def a_validated_date_that_cannot_be_read_never_holds_a_publication_back() -> None:
     """The same rule as the queue: an unreadable date freezes nothing."""
-    runner = _board_runner([_dated(_reviewed("ppost", "Validated", None), "bientôt")], {})
+    runner = _board_runner([_dated(_reviewed("ppost", "validated", None), "bientôt")], {})
     published: list[str] = []
     runner._publish = lambda ticket, project: published.append(ticket.id)  # type: ignore[method-assign, misc, assignment]  # a double: no session
     runner._project_of = lambda ticket: projects.Project(name="Blog", path=None)  # type: ignore[method-assign]  # a double: the ticket's project
@@ -503,10 +478,10 @@ def what_the_validated_column_is_holding_back_is_listed() -> None:
     """`ponos list` shows the whole calendar, both columns of it."""
     runner = _board_runner(
         [
-            _dated(_reviewed("plater", "Validated", None), _in(days=3)),
-            _dated(_reviewed("psoon", "Validated", None), _in(hours=2)),
-            _reviewed("pnow", "Validated", None),
-            _dated(_reviewed("pelsewhere", "Ready", None), _in(hours=1)),
+            _dated(_reviewed("plater", "validated", None), _in(days=3)),
+            _dated(_reviewed("psoon", "validated", None), _in(hours=2)),
+            _reviewed("pnow", "validated", None),
+            _dated(_reviewed("pelsewhere", "ready", None), _in(hours=1)),
         ],
         {},
     )
@@ -521,22 +496,22 @@ def a_publication_a_crash_interrupted_comes_back_as_a_question(state_home: Path)
         url="",
         title="Le post",
         properties={
-            "Status": {"type": "status", "status": {"name": "In progress"}},
-            "Runner": {"type": "rich_text", "rich_text": [{"plain_text": "ponos@laptop"}]},
+            "statut": {"type": "status", "status": {"name": "progress"}},
+            "Agent": {"type": "rich_text", "rich_text": [{"plain_text": "ponos@laptop"}]},
         },
         raw={"last_edited_time": "2020-01-01T00:00:00.000+00:00"},
     )
     runner = _board_runner([claimed], {})
-    state.claim("ppost", "Validated")
+    state.claim("ppost", "validated")
     recovered = runner.sweep()
     assert state.claims() == {}, "the note is dropped once it has been read"
     assert recovered == 1
     assert _client(runner).written == [
-        ("ppost", {"Status": "Blocked", "Blocage": "worktree.interrupted"})
+        ("ppost", {"statut": "blocked", "Blocage": "worktree.interrupted"})
     ]
     said = _client(runner).comments_written[0]
     assert said.startswith("🙋 Stuck\nIts publication was interrupted")
-    assert "“Validated”" in said and "An answer here" not in said
+    assert "“validated”" in said and "An answer here" not in said
 
 
 @case
@@ -546,14 +521,14 @@ def a_ticket_claimed_from_ready_is_still_put_back_in_the_queue(state_home: Path)
         url="",
         title="Le header",
         properties={
-            "Status": {"type": "status", "status": {"name": "In progress"}},
-            "Runner": {"type": "rich_text", "rich_text": [{"plain_text": "ponos@laptop"}]},
+            "statut": {"type": "status", "status": {"name": "progress"}},
+            "Agent": {"type": "rich_text", "rich_text": [{"plain_text": "ponos@laptop"}]},
         },
         raw={"last_edited_time": "2020-01-01T00:00:00.000+00:00"},
     )
     runner = _board_runner([claimed], {})
     assert runner.sweep() == 1
-    assert _client(runner).written == [("p-work", {"Status": "Ready"})]
+    assert _client(runner).written == [("p-work", {"statut": "ready"})]
     assert "picking it up again" in _client(runner).comments_written[0]
 
 
@@ -572,8 +547,8 @@ def a_ticket_put_back_after_a_crash_leaves_its_last_step_behind(state_home: Path
     runner = _board_runner([lost, _in_progress("p-quiet", None)], {})
     assert runner.sweep() == 2
     assert _client(runner).written == [
-        ("p-lost", {"Progress": "", "Status": "Ready"}),
-        ("p-quiet", {"Status": "Ready"}),
+        ("p-lost", {"Progress": "", "statut": "ready"}),
+        ("p-quiet", {"statut": "ready"}),
     ]
 
 
@@ -585,10 +560,10 @@ def a_publication_interrupted_by_a_crash_leaves_its_last_step_behind_too(state_h
         "rich_text": [{"plain_text": "Bash · gh pr merge"}],
     }
     runner = _board_runner([interrupted], {})
-    state.claim("ppost", "Validated")
+    state.claim("ppost", "validated")
     assert runner.sweep() == 1
     assert _client(runner).written == [
-        ("ppost", {"Progress": "", "Status": "Blocked", "Blocage": "worktree.interrupted"})
+        ("ppost", {"Progress": "", "statut": "blocked", "Blocage": "worktree.interrupted"})
     ]
 
 
@@ -602,8 +577,8 @@ def a_board_without_a_runner_column_still_gets_its_abandoned_tickets_back(state_
     runner = _board_runner([_in_progress("p-lost", None), _in_progress("p-other", None)], {})
     assert runner.sweep() == 2
     assert _client(runner).written == [
-        ("p-lost", {"Status": "Ready"}),
-        ("p-other", {"Status": "Ready"}),
+        ("p-lost", {"statut": "ready"}),
+        ("p-other", {"statut": "ready"}),
     ]
 
 
@@ -694,7 +669,7 @@ def a_relaunched_session_adds_up_what_both_tries_cost(state_home: Path) -> None:
     job = SimpleNamespace(
         session_id="s",
         resume=False,
-        ticket=ticket_module.Ticket(_reviewed("p-ticket", "In progress", None)),
+        ticket=ticket_module.Ticket(_reviewed("p-ticket", "progress", None)),
     )
     original = resources.reachable, session.exists
     try:
@@ -744,7 +719,7 @@ def a_ticket_this_run_holds_is_never_put_back(state_home: Path) -> None:
     runner = _board_runner(
         [_in_progress("p-held", None), _in_progress("p-signed", "ponos@laptop")], {}
     )
-    _client(runner).columns = {"Runner": "rich_text"}
+    _client(runner).columns = {"Agent": "rich_text"}
     runner._claimed = {"pheld", "psigned"}  # `Ticket.id`, dashes dropped
     assert runner.sweep() == 0
     assert _client(runner).written == []
@@ -761,9 +736,9 @@ def with_a_runner_column_only_this_hosts_tickets_come_back(state_home: Path) -> 
         ],
         {},
     )
-    _client(runner).columns = {"Runner": "rich_text"}
+    _client(runner).columns = {"Agent": "rich_text"}
     assert runner.sweep() == 1
-    assert _client(runner).written == [("p-mine", {"Status": "Ready"})]
+    assert _client(runner).written == [("p-mine", {"statut": "ready"})]
 
 
 @case
@@ -771,10 +746,10 @@ def a_publication_interrupted_on_a_board_without_a_runner_column_still_asks(
     state_home: Path,
 ) -> None:
     runner = _board_runner([_in_progress("ppost", None)], {})
-    state.claim("ppost", "Validated")
+    state.claim("ppost", "validated")
     assert runner.sweep() == 1
     assert _client(runner).written == [
-        ("ppost", {"Status": "Blocked", "Blocage": "worktree.interrupted"})
+        ("ppost", {"statut": "blocked", "Blocage": "worktree.interrupted"})
     ]
 
 
@@ -803,32 +778,32 @@ def a_write_to_a_column_the_board_lacks_is_said_once_a_run() -> None:
     runner = _board_runner([], {})
     runner.quiet = False
     runner._unwritten = set()
-    client = _SchemaOnly({"Status": "status"}, dropped=runner._dropped)
+    client = _SchemaOnly({"statut": "status"}, dropped=runner._dropped)
     runner.client = client
     out = io.StringIO()
     with contextlib.redirect_stdout(out):
         for page in ("p1", "p2", "p3"):
-            client.update("db", page, {"Status": "In progress", "Runner": "ponos@laptop"})
+            client.update("db", page, {"statut": "progress", "Agent": "ponos@laptop"})
             client.update("db", page, {"Progress": "reading the code"})
     said = out.getvalue().splitlines()
     assert len(said) == 2, said
-    assert "“Runner” is not a column of the board" in said[0]
+    assert "“Agent” is not a column of the board" in said[0]
     assert "a second one on this board would put back" in said[0], "with what it costs"
     assert "“Progress”" in said[1] and "while it runs" in said[1]
     assert all(
-        body == {"properties": {"Status": {"status": {"name": "In progress"}}}}
+        body == {"properties": {"statut": {"status": {"name": "progress"}}}}
         for body in client.patched[::2]
     ), "the status still goes through"
     runner._unwritten = set()  # what `tick` does: the next run says it again
     with contextlib.redirect_stdout(out):
-        client.update("db", "p4", {"Runner": "ponos@laptop"})
-    assert out.getvalue().count("“Runner”") == 2
+        client.update("db", "p4", {"Agent": "ponos@laptop"})
+    assert out.getvalue().count("“Agent”") == 2
 
 
 @case
 def publishing_hands_the_page_as_it_stands_to_a_session_and_then_closes_it() -> None:
     """The whole road for a ticket with no branch: claim, publish, done."""
-    runner = _board_runner([_reviewed("p-post", "Validated", None)], {})
+    runner = _board_runner([_reviewed("p-post", "validated", None)], {})
     runner.config.runner.progress = False
     runner.config.runner.attach_sessions = False
     runner.resolver = None  # type: ignore[assignment]  # a ticket with no project never reaches it
@@ -857,9 +832,9 @@ def publishing_hands_the_page_as_it_stands_to_a_session_and_then_closes_it() -> 
 
     # Claimed first, exactly as a run claims a ticket, and only then closed:
     # a second machine watching the board must not post the same thing twice.
-    assert [values["Status"] for _, values in _client(runner).written] == [
-        "In progress",
-        "Done",
+    assert [values["statut"] for _, values in _client(runner).written] == [
+        "progress",
+        "done",
     ]
     assert results and results[0]["kind"] == "delivery"
 
@@ -878,7 +853,7 @@ def a_publication_whose_session_does_not_start_fails_and_lets_its_claim_go(
     Nothing went out, so the note that would turn a crash into a question — the
     post may be out already — is let go: the next run has nothing to ask about.
     """
-    runner = _board_runner([_reviewed("p-post", "Validated", None)], {})
+    runner = _board_runner([_reviewed("p-post", "validated", None)], {})
     runner.config.runner.progress = False
     runner.config.runner.attach_sessions = False
     runner.resolver = None  # type: ignore[assignment]  # never asked: the project is said below
@@ -895,9 +870,9 @@ def a_publication_whose_session_does_not_start_fails_and_lets_its_claim_go(
 
     assert results and results[0]["status"] == "failed", results
     assert results[0]["code"] == "session.not-started", results
-    assert [values["Status"] for _, values in _client(runner).written] == [
-        "In progress",
-        "Failed",
+    assert [values["statut"] for _, values in _client(runner).written] == [
+        "progress",
+        "blocked",
     ]
     assert _client(runner).written[-1][1]["Blocage"] == "session.not-started"
     said = _client(runner).comments_written[-1]
@@ -911,7 +886,7 @@ def a_publication_whose_closing_write_found_notion_down_is_not_put_back_to_ready
     state_home: Path,
 ) -> None:
     """The post is out; only "done" could not be written. Ready would post it twice."""
-    page = _reviewed("ppost", "Validated", None)
+    page = _reviewed("ppost", "validated", None)
     runner = _board_runner([page], {})
     runner.config.runner.progress = False
     runner.config.runner.attach_sessions = False
@@ -919,7 +894,7 @@ def a_publication_whose_closing_write_found_notion_down_is_not_put_back_to_ready
     written = runner.client.update
 
     def update(database_id: str, page_id: str, values: dict[str, Any]) -> None:
-        if values.get("Status") == "Done":
+        if values.get("statut") == "done":
             raise notion.Offline("PATCH /pages: connection refused")
         written(database_id, page_id, values)
 
@@ -938,16 +913,16 @@ def a_publication_whose_closing_write_found_notion_down_is_not_put_back_to_ready
         runner.deliver()
     finally:
         session.run = original
-    assert state.claims() == {"ppost": "Validated"}, "the note outlives the unwritten close"
+    assert state.claims() == {"ppost": "validated"}, "the note outlives the unwritten close"
 
     # The next run: the ticket is where the claim left it, in progress.
-    page.properties["Status"] = {"type": "status", "status": {"name": "In progress"}}
+    page.properties["statut"] = {"type": "status", "status": {"name": "progress"}}
     page.raw = {"last_edited_time": "2020-01-01T00:00:00.000+00:00"}
     runner._claimed = set()
     _client(runner).written.clear()
     assert runner.sweep() == 1
     assert _client(runner).written == [
-        ("ppost", {"Status": "Blocked", "Blocage": "worktree.interrupted"})
+        ("ppost", {"statut": "blocked", "Blocage": "worktree.interrupted"})
     ]
 
 
@@ -1011,7 +986,7 @@ def a_pull_request_whose_jobs_are_green_or_skipped_is_merged() -> None:
 @case
 def a_validated_pull_request_with_a_red_job_blocks_its_ticket_as_checks_failed() -> None:
     url = "https://github.com/x/y/pull/1"
-    runner = _board_runner([_reviewed("ppr", "Validated", url)], {})
+    runner = _board_runner([_reviewed("ppr", "validated", url)], {})
 
     def merge(url: str, method: str = "squash", accounts: Any = None) -> str:
         raise github_checks.ChecksNotGreen("failed", ["frontend"])
@@ -1020,7 +995,7 @@ def a_validated_pull_request_with_a_red_job_blocks_its_ticket_as_checks_failed()
         results = runner.deliver()
     assert results and results[0]["status"] == "blocked"
     assert _client(runner).written == [
-        ("ppr", {"Status": "Blocked", "Blocage": "merge.checks-failed"})
+        ("ppr", {"statut": "blocked", "Blocage": "merge.checks-failed"})
     ]
 
 
@@ -1033,7 +1008,7 @@ def a_pull_request_validated_while_its_ci_is_red_is_blocked_without_its_review_l
     written for review is emptied rather than left to contradict it.
     """
     url = "https://github.com/x/y/pull/1"
-    page = _reviewed("ppr", "Validated", url)
+    page = _reviewed("ppr", "validated", url)
     page.properties["Progress"] = {
         "type": "rich_text",
         "rich_text": [{"plain_text": "Not merged: CI: red."}],
@@ -1048,14 +1023,14 @@ def a_pull_request_validated_while_its_ci_is_red_is_blocked_without_its_review_l
     assert [result["status"] for result in results] == ["blocked"]
     assert _client(runner).written == [
         ("ppr", {"Progress": ""}),
-        ("ppr", {"Status": "Blocked", "Blocage": "merge.checks-failed"}),
+        ("ppr", {"statut": "blocked", "Blocage": "merge.checks-failed"}),
     ]
 
 
 @case
 def a_validated_pull_request_whose_ci_still_runs_stays_validated_with_its_line() -> None:
     url = "https://github.com/x/y/pull/1"
-    page = _reviewed("ppr", "Validated", url)
+    page = _reviewed("ppr", "validated", url)
     page.properties["Progress"] = {
         "type": "rich_text",
         "rich_text": [{"plain_text": "Merge postponed to the next pass, left validated"}],
@@ -1108,7 +1083,7 @@ def a_ci_github_refuses_for_the_accounts_billing_waits_validated_and_is_said_onc
     first = "https://github.com/Acme/site/pull/1"
     second = "https://github.com/Acme/shop/pull/2"
     runner = _board_runner(
-        [_reviewed("p-site", "Validated", first), _reviewed("p-shop", "Validated", second)], {}
+        [_reviewed("p-site", "validated", first), _reviewed("p-shop", "validated", second)], {}
     )
     told: list[tuple[str, str]] = []
     runner._announce = lambda title, body: told.append((title, body))  # type: ignore[method-assign]  # a double: what is announced is kept

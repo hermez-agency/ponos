@@ -230,25 +230,38 @@ tickets are made up:
 
 ### The tickets database
 
+The names below are **fixed**: they are not settings, `ponos init` creates them exactly so,
+and `ponos doctor` names each column a board lacks or holds under another type, each status
+it does not offer and each option of `Sous-type` that is none of the runner's. A
+configuration that still holds `[notion.properties]`, `[notion.status]` or `[notion.types]`
+— they were how a board built by hand used to keep its own words — is read without them.
+
+The options of the selects are **French** wherever they are words — `Rédaction`, `Action
+externe`, `Amélioration`, `Sécurité`, `en cours`, `réussi`, `erreur`: it is the language the
+board is written in, the one its tickets are typed in, and the one most of its options already
+spoke. The development words a commit and a CHANGELOG share (`Bug`, `Feature`, `Refactor`…)
+stay as conventional commits say them, and the statuses are the board's short lowercase
+keywords (`ready`, `progress`, `review`…) its formulas and views filter on.
+
 | Property | Type | Role |
 | --- | --- | --- |
 | `Name` | title | what the agent must do, in one line — leave it empty and the runner writes one from the body |
-| `Status` | status *or* select | **what drives the whole system** — see [The statuses](tickets.md#the-statuses) |
+| `statut` | select (*or* status) | **what drives the whole system** — see [The statuses](tickets.md#the-statuses) |
 | `Project` | relation | *optional* — to the projects database: decides the repository |
-| `Agent` | relation | *optional* — to the agents database: decides who handles it |
-| `Runner` | text | filled by the runner: which machine took the ticket |
+| `Rôle` | relation | *optional* — to the agents database: decides who handles it |
+| `Agent` | text | filled by the runner: which machine took the ticket |
 | `Pull Request` | URL | filled by the runner at the end |
 | `Session` | **URL** or text | written as soon as the ticket is claimed. Make it a URL and it becomes a link that opens the session; leave it text and it holds the bare ID |
-| `Priority` | number | *optional* — a score from 0 (not important at all) to 100 (right now): the ready tickets run highest first, the oldest first on a tie; an empty cell is 50. A board whose column is still the old select of `Urgent`, `High`, `Normal`, `Low` keeps working — they read as 100, 75, 50 and 25, and a score is written back as the nearest word — until it is moved to a number column |
-| `Model` | select | *optional* — `opus`, `sonnet`, `haiku`. This ticket's model, over its agent's and over `runner.model` |
+| `Priorité` | number | *optional* — a score from 0 (not important at all) to 100 (right now): the ready tickets run highest first, the oldest first on a tie; an empty cell is 50 |
+| `Model` | select | *optional* — `opus`, `sonnet`, `haiku`, `fable`. This ticket's model, over its agent's and over `runner.model` |
 | `Cost` | number | *optional* — written back, in dollars |
 | `Duration` | number | *optional* — written back, in minutes |
 | `Progress` | text | *optional* — **what the session is doing right now**, rewritten every ten seconds |
 | `Scheduled` | date | *optional* — **hold the ticket until that moment**, then run it — or, on a validated ticket, publish it |
 | `Waiting for credit` | checkbox | *optional* — ticked by the runner while the subscription's window is spent under the ticket. It does not move: it is still ready, and the tick is the note saying why nobody has got to it yet |
 | `Plan d'abord` | checkbox | *optional* — on a **Code** ticket, **a plan before any code**: the first session only plans, and the work waits for your yes. Unticked by the runner once the plan is approved — see [Plan first](tickets.md#plan-first-a-plan-and-a-yes-before-any-code) |
-| `Type` | select | *optional* — `Code`, `Writing`, `External action`, `Publication`: **the road the ticket takes**. Empty, the runner works it out before running it — see [The type of a ticket](#the-type-of-a-ticket) |
-| `Blocage` | select | *optional* — filled by the runner when a ticket stops: **why**, as a code (`merge.checks-failed`, `session.question`, `worktree.residue`…), emptied when it leaves *Blocked* or *Failed* — see [Why a ticket stopped](tickets.md#why-a-ticket-stopped) |
+| `Type` | select | *optional* — `Code`, `Rédaction`, `Action externe`, `Publication`: **the road the ticket takes**. Empty, the runner works it out before running it — see [The type of a ticket](#the-type-of-a-ticket) |
+| `Blocage` | select | *optional* — filled by the runner when a ticket stops: **why**, as a code (`merge.checks-failed`, `session.question`, `worktree.residue`…), emptied when it leaves *blocked* — see [Why a ticket stopped](tickets.md#why-a-ticket-stopped) |
 | `CI` | select | *optional* — written by the runner while the ticket is in *In review*: the state of its pull request's checks (`en cours`, `réussi`, `erreur`), empty for a repository without CI — see [CI on the card](tickets.md#ci-on-the-card) |
 | `Sous-type` | select | *optional* — on a **Code** ticket, what kind of change it is: `Bug`, `Feature`, `Amélioration`, `Chore`, `Refactor`, `Perf`, `Docs`, `Sécurité`. Decides the prefix of its commit and pull request and its CHANGELOG section; ignored on the other types. Empty, the runner fills it — see [The sub-type of a code ticket](#the-sub-type-of-a-code-ticket) |
 | `On` | text | *optional* — a **prompt Ponos runs at every change of the ticket's status**, yours or the runner's. Empty, nothing happens — see [A prompt on every change of status](tickets.md#a-prompt-on-every-change-of-status) |
@@ -384,8 +397,8 @@ about. An option that is none of the four — a column you use for something els
 alone as well, and the ticket runs by its project as it always did. A board without the
 column at all, or `runner.classify = false`, is the runner exactly as it was; `ponos
 init` adds the column to an existing board, and `ponos doctor` says which of the
-four options it offers. A board spelled in French — *Rédaction*, *Action externe* — is read
-as such without a word of configuration; `[notion.types]` renames them otherwise.
+four options it offers. A ticket typed in English before the names were fixed — *Writing*,
+*External action* — is still read as its type.
 
 **A ticket run as the wrong type corrects itself, once.** A *Writing*, *External action* or
 *Publication* ticket on a project that has a repository is told where that repository is,
@@ -840,7 +853,7 @@ A project says *where* the work happens. It says nothing about **who** does it, 
 “fix this regression” and “write this announcement” are not the same craft on the same
 repository.
 
-Add an `Agent` relation column on your tickets, pointing at a database of agents. One row
+Add a `Rôle` relation column on your tickets, pointing at a database of agents. One row
 per role, and **the body of its page is the role**, exactly as a project page is its brief:
 
 > **Dev front**
@@ -860,7 +873,7 @@ The role is read after your context page and after the project's brief, and **it
 loosen the frame**: committing without pushing, and answering `RESULT: blocked` rather than
 guessing, live in the template, above anything a page can say.
 
-All of it is optional twice over: a tickets database with no `Agent` column behaves exactly
+All of it is optional twice over: a tickets database with no `Rôle` column behaves exactly
 as it always has, and a ticket that names no agent runs on the runner's own prompt.
 
 ### The goals database — what the ticket is for

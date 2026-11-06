@@ -199,28 +199,29 @@ How it behaves, because a prompt that acts on its own needs limits:
   in a scratch directory of its own, never in your repository: work for the repository is a
   ticket it creates.
 - **Errors stay on the ticket.** A failed, overspent or timed-out execution is logged,
-  commented on the ticket (`⚠️ The « On » prompt failed on Ready → Blocked: …`) and never
+  commented on the ticket (`⚠️ The « On » prompt failed on ready → blocked: …`) and never
   changes its status. It is also a line of `ponos history` (`kind: on`) and counts in the
   day's spending.
 
 ## The statuses
 
-This is where your control over the system lives. The names are yours — map them under
-`[notion.status]`, and `ponos doctor` checks each one actually exists on the
-board, because a status the database does not offer would only fail at the very end of a
-ticket.
+This is where your control over the system lives. The options of the `statut` column are
+**fixed** — they are not settings — and `ponos doctor` checks each one actually exists on
+the board, because a status the database does not offer would only fail at the very end of
+a ticket. It also names a status the board offers that is none of these: a ticket there is
+read as a draft, and nobody will ever pick it up.
 
-`ponos init` creates these eight:
+`ponos init` creates these nine:
 
-| Key | Default | What it means |
+| Status | In the console | What it means |
 | --- | --- | --- |
+| `draft` | **Draft** | still being written. The runner never writes nor picks one up; *New ticket*'s *Draft* button puts the ticket there, and a ticket with no status at all sits in the same column. |
 | `ready` | **Ready** | the description is precise enough for an agent to handle it alone. **The gesture that triggers work** — the other being a comment answering a ticket already handled once. |
-| `running` | **In progress** | claimed by the runner. Stops the next run from taking it again. |
+| `progress` | **In progress** | claimed by the runner. Stops the next run from taking it again. |
 | `review` | **In review** | branch pushed, pull request opened. Yours to review. |
 | `validated` | **Validated** | you read it and said yes. **The second gesture that makes the runner act** — it merges the pull request, or publishes what the ticket holds, and then closes it. |
 | `done` | **Done** | that pull request has been merged — or the ticket produced a document, which has nothing to wait for. |
-| `failed` | **Failed** | something broke: the session, the push, the worktree. |
-| `blocked` | **Blocked** | the agent would not guess and asked a question instead — or its project could not be located. Answer in a comment and the ticket runs again. |
+| `blocked` | **Blocked** | the ticket stopped: the agent would not guess and asked a question, its project could not be located, or something broke — the session, the push, the worktree. Its `Blocage` cell says which. Answer in a comment and the ticket runs again. |
 | `paused` | **Paused** | you stopped it on purpose, from the console, while it was in progress: its session is ended and its worktree and branch kept. The runner **never takes it back by itself** — not from a comment either; only moving it to *Ready* (**Resume**) runs it again, and the new session opens on the work already there, as for any ticket that has run before. *Optional*, like *Cancelled*: `ponos doctor` says so, and `ponos init` adds it to a select. |
 | `cancelled` | **Cancelled** | you gave up on it. **Terminal**, like *Done*, and not *Done*: the runner never runs it — not from *Ready*, not woken by a comment, not even named with `ponos run --ticket` — and the statistics count it neither closed nor open, though what its sessions spent stays in the spending. *Optional*: a board without the option simply has no such gesture; `ponos doctor` says so, and `ponos init` adds it to a select (on a Notion *status* property, add the option by hand). |
 
@@ -290,13 +291,14 @@ replies and no commit. What was already read is a mark kept in `ponos.db`: a com
 handled once. `runner.pr_review_comments = false` turns all of it off; it only concerns the
 pull requests Ponos opened.
 
-Four of those names are deliberate. *In review* rather than *Done*, because nothing is
+Some of those names are deliberate. *In review* rather than *Done*, because nothing is
 done when the runner lets go of a ticket: a pull request is waiting for a human, and a
 board that calls that *Done* stops being believed by the second week. *Done* is then kept
-for what it says — merged, published, out. And *Blocked* is its own column rather than a
-shade of *Failed*, because the runner works hard to tell them apart — a ticket waiting for
-**you** and a session that crashed are different days, and pouring both into one column
-throws that away.
+for what it says — merged, published, out. And there is **one** status for a ticket that
+stopped, *Blocked*, whether it asks you something or crashed: the runner still tells them
+apart, but by the cause it writes in `Blocage` — a family, a label, a gesture — rather than
+by a second column. A `failed` status beside it pointed at the same column on the board
+Ponos runs on for as long as there was one.
 
 There is deliberately **no column for "the credit ran out"**. A ticket the subscription
 ran out under is waiting for nobody, so letting it into *Blocked* would have made the one
@@ -325,34 +327,10 @@ the same move works — a ticket moved to *Paused* or *Cancelled* from anywhere 
 card included, is stopped the same way. One short line is left on the ticket (« Mis en pause »,
 « Abandonné »), nothing of the machinery.
 
-*Validated* is the fourth, and the odd one: every other column **reports**, this one
+*Validated* is the odd one: every other column **reports**, this one
 **asks**. It is the answer to the question *In review* puts — is this what you wanted? —
 and moving a ticket there is you saying yes, go on. See
 [Validated, and what it sets off](#validated-and-what-it-sets-off).
-
-One column for two states is still a fine board, if yours is small. Name `failed` and
-leave `blocked` out, and questions land wherever failures do; name `done` and leave
-`review` out, and a ticket stops at its open pull request. A file that names its columns
-and does not name `validated` has no validation gesture either — nothing is merged or
-published for you, exactly as before:
-
-```toml
-[notion.status]
-done = "Shipped"
-failed = "Needs you"
-```
-
-An eighth key, `draft`, is optional and has no default: it names the option your board
-**already has** for a ticket still being written — `ponos init` creates none, and
-the runner never writes nor picks one up. Named, the console draws those tickets in a
-*Draft* column of their own (*Brouillon* in French), first, and *New ticket*'s *Draft*
-button puts the ticket there; `doctor` checks the option exists and is none of the seven
-above. Left out, a draft has no status and sits in that same column, as before:
-
-```toml
-[notion.status]
-draft = "draft"
-```
 
 ## Merging is the only gesture
 
@@ -419,9 +397,8 @@ an **`Après`** relation, pointing at other tickets of the same board.
 
 `ponos init` adds the column — a relation from the tickets database to itself, which can
 only be declared once the database exists — and running it again adds it to a board built
-before it; `ponos doctor` says so when the column is there under another type. Rename it under `[notion.properties]` (`after = "Après"`), or empty the
-setting to turn the whole thing off; a board without the column runs every ready ticket, as
-before. A Markdown board has it too, as a list of ticket ids.
+before it; `ponos doctor` says so when the column is there under another type. A board without the
+column runs every ready ticket, as before. A Markdown board has it too, as a list of ticket ids.
 
 ## Ten tickets on one repository
 
@@ -596,13 +573,11 @@ finished. Between the two, the runner does the typing.
 
 Five things are worth knowing:
 
-- **the column is opt-in.** A board whose `Status` does not offer *Validated* is never
+- **the column is opt-in.** A board whose `statut` does not offer `validated` is never
   even queried, and everything behaves exactly as it did — you merge by hand, and
   *In review* → *Done* stays yours. `ponos init` adds the option to an existing
   board (a real Notion *status* property cannot be widened through the API: `init` says
-  so and you add it in one click). A configuration that names `review` or `done` under
-  `[notion.status]` without naming `validated` describes a board that ends at the pull
-  request, and gets no gesture either;
+  so and you add it in one click);
 - **it is claimed like any other work.** A ticket being published moves to *In progress*
   while its session runs, so a second machine watching the same board cannot post the same
   thing twice. And a run that dies mid-publication does **not** put that ticket back in the
@@ -792,10 +767,10 @@ a ticket born at 09:00 is claimed by that very pass rather than by the next one.
   lost. This is anacron, not cron — turning a laptop back on must not set off an
   avalanche of sessions;
 - **an occurrence that is still open blocks the next one, and the pass says so.** While
-  the ticket in `Last ticket` is neither *Done* nor *Failed* — so still ready, running, in
-  review, validated, or blocked on a question nobody has answered — no second ticket is
-  made. `Next` moves on regardless. Without that, one schedule stuck on a question fills
-  the board with twenty copies of itself.
+  the ticket in `Last ticket` is neither *Done*, *Blocked* nor *Cancelled* — so still ready,
+  running, in review or validated — no second ticket is made. `Next` moves on regardless.
+  Without that, one schedule whose ticket waits for its review fills the board with twenty
+  copies of itself. A blocked occurrence is not waited for: the next one is a fresh try.
 
 Three smaller ones, in the same spirit. **A schedule written this minute does not fire
 this minute:** an empty `Next` is computed and written, and nothing is born — creating a

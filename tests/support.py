@@ -492,7 +492,7 @@ def _schedule_page(page_id: str, **values: Any) -> notion.Page:
                 "relation": [{"id": last_ticket}] if last_ticket else [],
             },
             "Project": {"type": "relation", "relation": [{"id": "p-northwind"}]},
-            "Priority": {"type": "number", "number": 40},
+            "Priorité": {"type": "number", "number": 40},
             **(
                 {"Type": {"type": "select", "select": {"name": values["type"]}}}
                 if values.get("type")
@@ -538,7 +538,7 @@ class _ScheduleClient:
     def schema(self, database_id: str) -> dict[str, str]:
         if database_id == "db-schedules":
             return dict(self._columns)
-        return {"Status": "status"}
+        return {"statut": "status"}
 
     def trash(self, page_id: str) -> str:
         self.trashed.append(page_id)
@@ -587,7 +587,7 @@ def _recurring(
     runner._journals = {}
     runner.client = _ScheduleClient(pages, tickets, refuses, marks, columns)  # type: ignore[assignment]  # a fake: only the schedules
     runner.config = C.Config(
-        notion=C.Notion(properties=dict(C._DEFAULT_PROPERTIES), status={}),
+        notion=C.Notion(),
         runner=C.Runner(schedule=schedule, max_load_per_core=0),
         projects={},
         path=Path("/nowhere"),
@@ -709,7 +709,7 @@ class _BoardClient:
         self, pages: list[notion.Page], options: list[str] | None = None, waiting: bool = False
     ):
         self._pages = pages
-        self._options = options if options is not None else ["In review", "Validated", "Done"]
+        self._options = options if options is not None else ["review", "validated", "done"]
         # A board that predates the attribute simply has no such property, and
         # the runner then waits for the credit with nothing to show for it.
         self.waiting = waiting
@@ -722,7 +722,7 @@ class _BoardClient:
         self.columns: dict[str, str] = {}
 
     def schema(self, database_id: str) -> dict[str, str]:
-        schema = {"Status": "status", "Pull Request": "url", **self.columns}
+        schema = {"statut": "status", "Pull Request": "url", **self.columns}
         if self.waiting:
             schema["Waiting for credit"] = "checkbox"
         return schema
@@ -742,7 +742,7 @@ class _BoardClient:
     def query(self, database_id: str, filter_: dict[str, Any] | None = None) -> list[notion.Page]:
         self.queried.append(filter_)
         wanted = (filter_ or {}).get("status", {}).get("equals")
-        return [page for page in self._pages if notion.read(page, "Status") == wanted]
+        return [page for page in self._pages if notion.read(page, "statut") == wanted]
 
     def page(self, page_id: str) -> notion.Page:
         # The very page the pass read: what a run holds is what Notion says,
@@ -761,13 +761,13 @@ class _BoardClient:
     def create_row(self, database_id: str, title: str, values: dict[str, Any] | None = None) -> str:
         page_id = f"created{len(self.created)}"
         self.created.append((title, values or {}))
-        status = (values or {}).get("Status", "")
+        status = (values or {}).get("statut", "")
         self._pages.append(
             notion.Page(
                 id=page_id,
                 url="",
                 title=title,
-                properties={"Status": {"type": "status", "status": {"name": status}}},
+                properties={"statut": {"type": "status", "status": {"name": status}}},
             )
         )
         return page_id
@@ -777,7 +777,7 @@ class _BoardClient:
 
 
 def _reviewed(page_id: str, status: str, pull_request: str | None) -> notion.Page:
-    properties: dict[str, Any] = {"Status": {"type": "status", "status": {"name": status}}}
+    properties: dict[str, Any] = {"statut": {"type": "status", "status": {"name": status}}}
     if pull_request is not None:
         properties["Pull Request"] = {"type": "url", "url": pull_request}
     return notion.Page(id=page_id, url="", title=page_id, properties=properties)
@@ -794,7 +794,7 @@ def _board_runner(
     runner._journals = {}
     runner.client = _BoardClient(pages, options, waiting)  # type: ignore[assignment]  # a fake: only the board
     runner.config = C.Config(
-        notion=C.Notion(properties=dict(C._DEFAULT_PROPERTIES), status=status),
+        notion=C.Notion(),
         # No update looked for mid-pass: that is a `git fetch` of this checkout.
         # Nor the load of whatever else this machine runs: a test case asks for it.
         runner=C.Runner(auto_update=False, max_load_per_core=0),
@@ -870,9 +870,9 @@ def _closing(
 
 def _in_progress(page_id: str, runner_label: str | None) -> notion.Page:
     """A ticket left in progress long ago, signed by `runner_label` if given."""
-    properties: dict[str, Any] = {"Status": {"type": "status", "status": {"name": "In progress"}}}
+    properties: dict[str, Any] = {"statut": {"type": "status", "status": {"name": "progress"}}}
     if runner_label is not None:
-        properties["Runner"] = {"type": "rich_text", "rich_text": [{"plain_text": runner_label}]}
+        properties["Agent"] = {"type": "rich_text", "rich_text": [{"plain_text": runner_label}]}
     return notion.Page(
         id=page_id,
         url="",
@@ -887,7 +887,7 @@ def _ready(page_id: str) -> notion.Page:
         id=page_id,
         url="",
         title=page_id,
-        properties={"Status": {"type": "status", "status": {"name": "Ready"}}},
+        properties={"statut": {"type": "status", "status": {"name": "ready"}}},
     )
 
 
@@ -901,7 +901,7 @@ class _NamelessClient:
 
     def schema(self, database_id: str) -> dict[str, str]:
         # Not "Name": the title column is called whatever Notion was told.
-        return {"Titre": "title", "Status": "status"}
+        return {"Titre": "title", "statut": "status"}
 
     def title_property(self, database_id: str) -> str:
         return notion.Client.title_property(self, database_id)  # type: ignore[arg-type]  # the real lookup
@@ -1142,7 +1142,7 @@ class _ColumnsClient(_TalkClient):
                 url="",
                 title=f"ticket {index}",
                 properties={
-                    "Status": {"type": "status", "status": {"name": status} if status else None}
+                    "statut": {"type": "status", "status": {"name": status} if status else None}
                 },
                 raw={"created_time": "2026-09-01T09:00:00.000Z"},
             )
@@ -1150,10 +1150,10 @@ class _ColumnsClient(_TalkClient):
         ]
 
     def schema(self, database: str) -> dict[str, str]:
-        return {"Name": "title", "Status": "status"}
+        return {"Name": "title", "statut": "status"}
 
     def options(self, database: str, prop: str) -> list[str]:
-        return ["Ready", "In progress", "In review", "Blocked", "Failed", "Done"]
+        return ["ready", "progress", "review", "blocked", "done"]
 
 
 def _saved(body: str = "") -> tuple[Path, C.Config]:

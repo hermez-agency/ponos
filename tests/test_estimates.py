@@ -119,7 +119,7 @@ def an_estimate_compares_the_model_only_when_the_ticket_names_one(state_home: Pa
 class _BugClient(_TalkClient):
     """A ready Code/Bug ticket of the project Ponos."""
 
-    def __init__(self, status: str = "Ready") -> None:
+    def __init__(self, status: str = "ready") -> None:
         super().__init__([])
         self._status = status
 
@@ -129,7 +129,7 @@ class _BugClient(_TalkClient):
             url="https://notion.so/p",
             title="Le bandeau ne se ferme pas",
             properties={
-                "Status": {"type": "status", "status": {"name": self._status}},
+                "statut": {"type": "status", "status": {"name": self._status}},
                 "Type": {"type": "select", "select": {"name": "Code"}},
                 "Sous-type": {"type": "select", "select": {"name": "Bug"}},
                 "Project": {"type": "relation", "relation": [{"id": "p" * 32}]},
@@ -155,7 +155,7 @@ def the_page_of_a_ready_bug_says_what_it_is_likely_to_cost(state_home: Path) -> 
     _ten_bugs()
     found = _api(_BugClient()).ticket("1a2b3c4d000000000000000000000000")["estimate"]
     assert found["cost"] == 1.1 and found["cost_high"] == 1.64, found
-    assert "estimate" not in _api(_BugClient("Done")).ticket("1a2b3c4d000000000000000000000000")
+    assert "estimate" not in _api(_BugClient("done")).ticket("1a2b3c4d000000000000000000000000")
 
 
 @case

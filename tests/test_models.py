@@ -123,7 +123,7 @@ def a_priority_is_a_score_from_0_to_100_and_the_old_words_still_read() -> None:
 @case
 def the_ready_tickets_run_by_score_highest_first_and_the_oldest_on_a_tie() -> None:
     def ready(identifier: str, created: str, cell: dict[str, Any] | None) -> notion.Page:
-        properties = {"Priority": cell} if cell else {}
+        properties = {"Priorité": cell} if cell else {}
         return notion.Page(
             id=identifier,
             url="",

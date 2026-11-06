@@ -23,11 +23,11 @@ from ponos.ticket import short_id
 KEEP = "DECISION: keep\nREASON: B n'est pas fini."
 
 
-def _page(ident: str, title: str, status: str = "Blocked", **values: Any) -> notion.Page:
+def _page(ident: str, title: str, status: str = "blocked", **values: Any) -> notion.Page:
     """A row of the board, last edited `age` ago (two hours unless told otherwise)."""
     age: timedelta = values.pop("age", timedelta(hours=2))
     edited = values.pop("edited", (datetime.now(UTC) - age).isoformat())
-    properties: dict[str, Any] = {"Status": {"type": "status", "status": {"name": status}}}
+    properties: dict[str, Any] = {"statut": {"type": "status", "status": {"name": status}}}
     for name, checked in values.items():
         properties[name.replace("_", " ")] = {"type": "checkbox", "checkbox": checked}
     return notion.Page(
@@ -49,14 +49,14 @@ class _Board:
     def schema(self, database_id: str) -> dict[str, str]:
         if self.refuses:
             raise notion.NotionError(self.refuses)
-        return {"Status": "status"}
+        return {"statut": "status"}
 
     def query(self, database_id: str, filter_: dict[str, Any] | None = None) -> list[notion.Page]:
         self.asked.append(filter_)
         if filter_ is None:
             return self.pages
         wanted = filter_["status"]["equals"]
-        return [page for page in self.pages if store.read(page, "Status") == wanted]
+        return [page for page in self.pages if store.read(page, "statut") == wanted]
 
 
 class _Pass(_Unblocking):
@@ -193,7 +193,7 @@ def only_the_blocked_tickets_nobody_is_on_are_looked_at(state_home: Path) -> Non
             _page("c", "Déjà répondu"),
             _page("d", "Attend des crédits", Waiting_for_credit=True),
             _page("e", "Pris par cette passe"),
-            _page("f", "Prêt", status="Ready"),
+            _page("f", "Prêt", status="ready"),
         ]
     )
     runner = _pass(board)
@@ -202,7 +202,7 @@ def only_the_blocked_tickets_nobody_is_on_are_looked_at(state_home: Path) -> Non
         results = runner.unblock()
     assert _examined(calls) == ["https://notion.so/a"], _examined(calls)
     assert [result["id"] for result in results] == ["a"]
-    assert board.asked[0] == {"property": "Status", "status": {"equals": "Blocked"}}, (
+    assert board.asked[0] == {"property": "statut", "status": {"equals": "blocked"}}, (
         "the blocked column, by the status the board is written in"
     )
 
@@ -227,7 +227,7 @@ def a_date_the_runner_cannot_read_does_not_hide_a_ticket(state_home: Path) -> No
 
 @case
 def nothing_due_reads_neither_the_board_nor_a_session(state_home: Path) -> None:
-    board = _Board([_page("a", "A", age=timedelta(minutes=1)), _page("f", "F", status="Done")])
+    board = _Board([_page("a", "A", age=timedelta(minutes=1)), _page("f", "F", status="done")])
     runner = _pass(board)
     with _no_session(KEEP) as calls:
         assert runner.unblock() == []
@@ -283,14 +283,14 @@ def out_of_credit_the_ticket_is_looked_at_again_at_the_next_pass(state_home: Pat
 
 @case
 def the_session_reads_the_whole_board_a_line_per_ticket(state_home: Path) -> None:
-    others = [_page(f"x{n:03d}", f"Autre {n}", status="Done") for n in range(unblocking.OVERVIEW)]
+    others = [_page(f"x{n:03d}", f"Autre {n}", status="done") for n in range(unblocking.OVERVIEW)]
     nameless = notion.Page(id="z", url="", title="Sans statut")
     runner = _pass(_Board([_page("a", "Ticket A"), *others, nameless]))
     with _no_session(KEEP) as calls:
         runner.unblock()
     prompt = calls[0]["prompt"]
-    assert f"- [Blocked] Ticket A ({short_id('a')})" in prompt
-    assert f"- [Done] Autre 0 ({short_id('x000')})" in prompt
+    assert f"- [blocked] Ticket A ({short_id('a')})" in prompt
+    assert f"- [done] Autre 0 ({short_id('x000')})" in prompt
     assert "(and 2 more)" in prompt, "a board past OVERVIEW is cut, and says by how much"
     assert "Autre 199" not in prompt and "Sans statut" not in prompt
 
@@ -299,7 +299,7 @@ def the_session_reads_the_whole_board_a_line_per_ticket(state_home: Path) -> Non
 def a_short_board_is_shown_whole_with_a_mark_for_a_missing_status() -> None:
     runner = _pass(_Board([_page("a", "Ticket A"), notion.Page(id="z", url="", title="Nu")]))
     assert runner._overview() == (
-        f"- [Blocked] Ticket A ({short_id('a')})\n- [?] Nu ({short_id('z')})"
+        f"- [blocked] Ticket A ({short_id('a')})\n- [?] Nu ({short_id('z')})"
     )
 
 

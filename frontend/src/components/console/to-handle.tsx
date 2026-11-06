@@ -128,7 +128,7 @@ function HandleCard({ ticket }: { ticket: Ticket }) {
         </p>
       ) : null}
       {ticket.column === "review" ? <TicketCi ci={ticket.ci} /> : null}
-      <TicketActions ticket={ticket} answer={{ href, onClick: open }} />
+      <TicketActions ticket={ticket} />
     </li>
   )
 }

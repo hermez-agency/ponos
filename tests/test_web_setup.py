@@ -456,8 +456,8 @@ def a_demonstration_ticket_that_failed_names_why_the_session_would_not_start(
                         "id": ticket,
                         "title": "Dire bonjour",
                         "url": "",
-                        "column": "failed",
-                        "status": "Failed",
+                        "column": "blocked",
+                        "status": "blocked",
                         "progress": "",
                     }
                 ]

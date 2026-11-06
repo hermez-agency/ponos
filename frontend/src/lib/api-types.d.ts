@@ -2542,7 +2542,7 @@ export interface components {
         };
         Column: {
             /** @enum {string} */
-            key: "draft" | "ready" | "running" | "blocked" | "paused" | "review" | "validated" | "failed" | "done" | "cancelled";
+            key: "draft" | "ready" | "running" | "blocked" | "paused" | "review" | "validated" | "done" | "cancelled";
             name: string;
         };
         /** @description A command started: what runs, as the stream's `started` says it again. */
@@ -2594,7 +2594,7 @@ export interface components {
              */
             sync?: "pending";
             /** @enum {string} */
-            column: "draft" | "ready" | "running" | "blocked" | "paused" | "review" | "validated" | "failed" | "done" | "cancelled";
+            column: "draft" | "ready" | "running" | "blocked" | "paused" | "review" | "validated" | "done" | "cancelled";
             /** @description The lines written on the ticket, after the one that says who relayed them. */
             told: string[];
             /** @description The tickets it made, by their page ids. */
@@ -2637,7 +2637,7 @@ export interface components {
             title: string;
             url: string;
             /** @enum {string} */
-            column: "draft" | "ready" | "running" | "blocked" | "paused" | "review" | "validated" | "failed" | "done" | "cancelled";
+            column: "draft" | "ready" | "running" | "blocked" | "paused" | "review" | "validated" | "done" | "cancelled";
             status: string;
             progress: string;
             running: boolean;
@@ -3875,7 +3875,7 @@ export interface components {
             /** @description Why no ticket was made, in the runner's words. */
             reason: string;
             /** @description Where that ticket is now, "" where there is none or it left the board. */
-            column: ("draft" | "ready" | "running" | "blocked" | "paused" | "review" | "validated" | "failed" | "done" | "cancelled") | "";
+            column: ("draft" | "ready" | "running" | "blocked" | "paused" | "review" | "validated" | "done" | "cancelled") | "";
             /** @description Said from a ticket born before the runner kept its passes, rather than recorded. */
             inferred: boolean;
         };
@@ -3890,7 +3890,7 @@ export interface components {
             url: string;
             status: string;
             /** @enum {string} */
-            column: "draft" | "ready" | "running" | "blocked" | "paused" | "review" | "validated" | "failed" | "done" | "cancelled";
+            column: "draft" | "ready" | "running" | "blocked" | "paused" | "review" | "validated" | "done" | "cancelled";
             created: string;
             cost: number | null;
             /** @description In minutes, as on a card. */
@@ -4173,7 +4173,7 @@ export interface components {
              * @description The column the ticket goes to.
              * @enum {string}
              */
-            column: "draft" | "ready" | "running" | "blocked" | "paused" | "review" | "validated" | "failed" | "done" | "cancelled";
+            column: "draft" | "ready" | "running" | "blocked" | "paused" | "review" | "validated" | "done" | "cancelled";
             /**
              * @description What it needs before it can be done: nothing, words, a note, a model, titles.
              * @enum {string}
@@ -4226,7 +4226,7 @@ export interface components {
         };
         StatusCount: {
             /** @enum {string} */
-            key: "draft" | "ready" | "running" | "blocked" | "paused" | "review" | "validated" | "failed" | "done" | "cancelled";
+            key: "draft" | "ready" | "running" | "blocked" | "paused" | "review" | "validated" | "done" | "cancelled";
             count: number;
         };
         StatusCounts: {
@@ -4374,7 +4374,7 @@ export interface components {
             url: string;
             status: string;
             /** @enum {string} */
-            column: "draft" | "ready" | "running" | "blocked" | "paused" | "review" | "validated" | "failed" | "done" | "cancelled";
+            column: "draft" | "ready" | "running" | "blocked" | "paused" | "review" | "validated" | "done" | "cancelled";
             project: string;
             /** @description The project's page id, empty for a ticket without one. */
             project_id?: string;
@@ -4464,7 +4464,7 @@ export interface components {
             url: string;
             status: string;
             /** @enum {string} */
-            column: "draft" | "ready" | "running" | "blocked" | "paused" | "review" | "validated" | "failed" | "done" | "cancelled";
+            column: "draft" | "ready" | "running" | "blocked" | "paused" | "review" | "validated" | "done" | "cancelled";
             project: string;
             /** @description The project's page id, empty for a ticket without one. */
             project_id?: string;

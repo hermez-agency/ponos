@@ -12,7 +12,7 @@ from ponos.web import board as board_module
 
 def _ticket(key: str, title: str, status: str, after: list[str] | None = None) -> store.Page:
     properties: dict[str, Any] = {
-        "Status": {"type": "status", "status": {"name": status}},
+        "statut": {"type": "status", "status": {"name": status}},
     }
     if after is not None:
         properties["Après"] = {"type": "relation", "relation": [{"id": one} for one in after]}
@@ -20,37 +20,37 @@ def _ticket(key: str, title: str, status: str, after: list[str] | None = None) -
 
 
 def _unmet(page: store.Page, board: dict[str, store.Page]) -> list[str]:
-    return [found.title for found in dependencies.unmet(page, "Après", "Status", "Done", board.get)]
+    return [found.title for found in dependencies.unmet(page, "Après", "statut", "done", board.get)]
 
 
 @case
 def a_ticket_waits_for_every_ticket_it_comes_after_that_is_not_done() -> None:
     board = {
-        "aaaa": _ticket("aaaa", "Migration 1", "In progress"),
-        "bbbb": _ticket("bbbb", "Migration 2", "Done"),
-        "cccc": _ticket("cccc", "Migration 3", "Ready"),
+        "aaaa": _ticket("aaaa", "Migration 1", "progress"),
+        "bbbb": _ticket("bbbb", "Migration 2", "done"),
+        "cccc": _ticket("cccc", "Migration 3", "ready"),
     }
-    waiting = _ticket("dddd", "Migration 4", "Ready", ["aa-aa", "bbbb", "cccc"])
+    waiting = _ticket("dddd", "Migration 4", "ready", ["aa-aa", "bbbb", "cccc"])
     assert _unmet(waiting, board) == ["Migration 1", "Migration 3"]
-    found = dependencies.unmet(waiting, "Après", "Status", "Done", board.get)
+    found = dependencies.unmet(waiting, "Après", "statut", "done", board.get)
     assert dependencies.said(found) == "Migration 1, Migration 3"
 
 
 @case
 def a_ticket_that_names_nothing_or_nothing_to_be_found_waits_for_nothing() -> None:
-    board = {"aaaa": _ticket("aaaa", "Fait", "Done")}
+    board = {"aaaa": _ticket("aaaa", "Fait", "done")}
     # No column, an empty one, a column that is not a relation, the setting off.
-    assert _unmet(_ticket("dddd", "seul", "Ready"), board) == []
-    assert _unmet(_ticket("dddd", "seul", "Ready", []), board) == []
-    texted = _ticket("dddd", "seul", "Ready")
+    assert _unmet(_ticket("dddd", "seul", "ready"), board) == []
+    assert _unmet(_ticket("dddd", "seul", "ready", []), board) == []
+    texted = _ticket("dddd", "seul", "ready")
     texted.properties["Après"] = {"type": "rich_text", "rich_text": []}
     assert _unmet(texted, board) == []
-    named = _ticket("dddd", "seul", "Ready", ["zzzz"])
-    assert dependencies.unmet(named, "", "Status", "Done", board.get) == []
+    named = _ticket("dddd", "seul", "ready", ["zzzz"])
+    assert dependencies.unmet(named, "", "statut", "done", board.get) == []
     # A page nobody can find never becomes done: it holds nothing back.
     assert _unmet(named, board) == []
     # Nor does a ticket that names itself.
-    assert _unmet(_ticket("dddd", "seul", "Ready", ["dddd"]), board) == []
+    assert _unmet(_ticket("dddd", "seul", "ready", ["dddd"]), board) == []
 
 
 @case

@@ -121,7 +121,7 @@ def a_ticket_with_neither_a_title_nor_content_is_asked_about_rather_than_named(
         job = runner.prepare(ticket)
 
     assert job is None and asked == []
-    assert _written(runner) == [{"Status": "Blocked", "Blocage": "ticket.empty"}]
+    assert _written(runner) == [{"statut": "blocked", "Blocage": "ticket.empty"}]
 
 
 @case

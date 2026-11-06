@@ -111,7 +111,7 @@ def clean_force_does_not_list_the_worktree_of_a_ticket_in_progress(state_home: P
     left = state_home / "worktrees" / "app-5e6f7a8b"
     going.mkdir(parents=True)
     left.mkdir(parents=True)
-    state.claim("page-1a2b3c4d", "In progress")
+    state.claim("page-1a2b3c4d", "progress")
     printed = io.StringIO()
     with contextlib.redirect_stdout(printed):
         assert cli_main(["clean", "--force"]) == 0

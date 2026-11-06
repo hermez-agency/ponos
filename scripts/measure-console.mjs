@@ -72,10 +72,10 @@ from ponos import files
 board = files.Board(Path(sys.argv[1]))
 prop = board.settings().prop
 projects = [board.create_row("projects", f"Projet {i}", {"Repository": f"user/repo-{i}"}) for i in range(6)]
-others = ["Ready", "In progress", "In review", "Blocked", "Failed"]
+others = ["ready", "progress", "review", "blocked"]
 now = datetime.datetime.now(datetime.timezone.utc)
 for i in range(${TOTAL}):
-    status = "Done" if i < ${DONE} else others[i % len(others)]
+    status = "done" if i < ${DONE} else others[i % len(others)]
     page = board.create_row("tickets", f"Ticket numéro {i}", {prop("status"): status, prop("project"): [projects[i % 6]]})
     _, path = board._find(page)
     front, body = files.parse(path.read_text(encoding="utf-8"))

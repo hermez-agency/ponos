@@ -235,12 +235,10 @@ class Digest(Base):
         return sent
 
     def _decisions(self) -> list[tuple[str, str, str]]:
-        """The tickets waiting for a person: in review, blocked, failed — with their link."""
+        """The tickets waiting for a person: in review or blocked — with their link."""
         status_property = self.config.notion.prop("status")
         kind = self.client.schema(self.database).get(status_property, "status")
-        columns = dict.fromkeys(
-            self.config.notion.state(key) for key in ("review", "blocked", "failed")
-        )
+        columns = (self.config.notion.state("review"), self.config.notion.state("blocked"))
         waiting = []
         for column in columns:
             for page in self.client.query(

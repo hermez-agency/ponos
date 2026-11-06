@@ -16,7 +16,7 @@ from ponos import db, files, store, sync
 @case
 def a_ticket_written_in_notion_appears_in_the_files() -> None:
     with _mirror("Je suis Camille Martin.") as (here, there, both, marks):
-        page_id = here.create_row("tickets", "Corriger l'entête", {"Status": "Ready"})
+        page_id = here.create_row("tickets", "Corriger l'entête", {"statut": "ready"})
         here.replace_markdown(page_id, "Relire la page d'accueil.")
 
         report = both.synchronise(_settings(), stamps=marks)
@@ -26,7 +26,7 @@ def a_ticket_written_in_notion_appears_in_the_files() -> None:
         ], [entry.what for entry in report.carried]
         mirrored = there.page(page_id)
         assert mirrored.title == "Corriger l'entête"
-        assert store.read(mirrored, "Status") == "Ready"
+        assert store.read(mirrored, "statut") == "ready"
         assert there.blocks_text(page_id) == "Relire la page d'accueil."
         assert there.context() == "Je suis Camille Martin."
 
@@ -35,10 +35,10 @@ def a_ticket_written_in_notion_appears_in_the_files() -> None:
         assert not both.synchronise(_settings(), stamps=marks).carried
 
         # And a change in Notion afterwards reaches the file.
-        here.update("tickets", page_id, {"Status": "Done"})
+        here.update("tickets", page_id, {"statut": "done"})
         again = both.synchronise(_settings(), stamps=marks)
         assert [entry.what for entry in again.carried] == ["notion→markdown"]
-        assert store.read(there.page(page_id), "Status") == "Done"
+        assert store.read(there.page(page_id), "statut") == "done"
 
 
 @case
@@ -51,7 +51,7 @@ def a_pass_on_an_unchanged_board_writes_no_stamp() -> None:
     """
     with _mirror() as (here, there, both, marks):
         for title in ("Un", "Deux", "Trois"):
-            here.create_row("tickets", title, {"Status": "Ready"})
+            here.create_row("tickets", title, {"statut": "ready"})
         both.synchronise(_settings(), stamps=marks)
 
         connection = db.connect(marks._database)
@@ -66,7 +66,7 @@ def a_pass_on_an_unchanged_board_writes_no_stamp() -> None:
 
         # A page that moves is the one row written.
         page_id = next(iter(here.pages))
-        here.update("tickets", page_id, {"Status": "Done"})
+        here.update("tickets", page_id, {"statut": "done"})
         both.synchronise(_settings(), stamps=again)
         assert connection.total_changes == before + 1, connection.total_changes - before
 
@@ -74,25 +74,25 @@ def a_pass_on_an_unchanged_board_writes_no_stamp() -> None:
 @case
 def a_ticket_written_in_a_file_appears_in_notion() -> None:
     with _mirror() as (here, there, both, marks):
-        local = there.create_row("tickets", "Écrire l'annonce", {"Status": "Ready"})
+        local = there.create_row("tickets", "Écrire l'annonce", {"statut": "ready"})
         there.replace_markdown(local, "Une annonce courte.")
 
         report = both.synchronise(_settings(), stamps=marks)
         assert [entry.what for entry in report.carried] == ["created-in-notion"]
         created = report.carried[0].page
         assert here.pages[created].title == "Écrire l'annonce"
-        assert store.read(here.pages[created], "Status") == "Ready"
+        assert store.read(here.pages[created], "statut") == "ready"
         assert here.bodies[created] == "Une annonce courte."
         # The file now wears Notion's identifier: the URL, the relations and
         # every report from here on carry that one, and nothing carries its own.
         assert there.page(created).title == "Écrire l'annonce"
 
         # Changed in the file afterwards, and carried the other way.
-        there.update("tickets", created, {"Status": "In review"})
+        there.update("tickets", created, {"statut": "review"})
         there.replace_markdown(created, "Une annonce, relue.")
         again = both.synchronise(_settings(), stamps=marks)
         assert [entry.what for entry in again.carried] == ["markdown→notion"]
-        assert store.read(here.pages[created], "Status") == "In review"
+        assert store.read(here.pages[created], "statut") == "review"
         assert here.bodies[created] == "Une annonce, relue."
 
 
@@ -106,28 +106,28 @@ def a_page_moved_on_both_sides_is_a_conflict_the_newest_wins() -> None:
     of the side that won.
     """
     with _mirror() as (here, there, both, marks):
-        page_id = here.create_row("tickets", "Le ticket", {"Status": "Ready"})
+        page_id = here.create_row("tickets", "Le ticket", {"statut": "ready"})
         both.synchronise(_settings(), stamps=marks)
 
         # Both move, and Notion moves last.
-        there.update("tickets", page_id, {"Status": "Blocked"})
-        here.update("tickets", page_id, {"Status": "Done"})
+        there.update("tickets", page_id, {"statut": "blocked"})
+        here.update("tickets", page_id, {"statut": "done"})
 
         report = both.synchronise(_settings(), stamps=marks)
         assert len(report.conflicts) == 1
         said = report.conflicts[0].detail
         assert "Notion wins" in said and "newest" in said
-        assert store.read(there.page(page_id), "Status") == "Done"
+        assert store.read(there.page(page_id), "statut") == "done"
 
         # And the other way round: the file is the later one, by a minute —
         # within the same one, Notion would keep it.
         earlier = (datetime.now(UTC) - timedelta(minutes=1)).isoformat()
-        here.update("tickets", page_id, {"Status": "Failed"}, at=earlier)
-        there.update("tickets", page_id, {"Status": "In review"})
+        here.update("tickets", page_id, {"statut": "blocked"}, at=earlier)
+        there.update("tickets", page_id, {"statut": "review"})
         back = both.synchronise(_settings(), stamps=marks)
         assert len(back.conflicts) == 1
         assert "Markdown wins" in back.conflicts[0].detail
-        assert store.read(here.pages[page_id], "Status") == "In review"
+        assert store.read(here.pages[page_id], "statut") == "review"
 
 
 @case
@@ -140,21 +140,21 @@ def a_conflict_in_the_same_minute_goes_to_notion_and_says_so() -> None:
     minute before they are compared, and a tie goes to Notion, in so many words.
     """
     with _mirror() as (here, there, both, marks):
-        page_id = here.create_row("tickets", "Le ticket", {"Status": "Ready"})
+        page_id = here.create_row("tickets", "Le ticket", {"statut": "ready"})
         both.synchronise(_settings(), stamps=marks)
 
         _, path = there._find(page_id)
         front, body = files.parse(path.read_text(encoding="utf-8"))
-        front["Status"] = "Blocked"
+        front["statut"] = "blocked"
         front["edited"] = "2030-01-01T10:05:30.123456+00:00"
         path.write_text(files.render(front, body), encoding="utf-8")
-        here.update("tickets", page_id, {"Status": "Done"}, at="2030-01-01T10:05:00.000Z")
+        here.update("tickets", page_id, {"statut": "done"}, at="2030-01-01T10:05:00.000Z")
 
         report = both.synchronise(_settings(), stamps=marks)
         assert len(report.conflicts) == 1, report.entries
         said = report.conflicts[0].detail
         assert "same minute" in said and "Notion wins" in said, said
-        assert store.read(there.page(page_id), "Status") == "Done"
+        assert store.read(there.page(page_id), "statut") == "done"
 
 
 @case
@@ -168,17 +168,17 @@ def a_file_edited_by_hand_without_touching_edited_reaches_notion() -> None:
     quietly written over.
     """
     with _mirror() as (here, there, both, marks):
-        page_id = here.create_row("tickets", "Le ticket", {"Status": "Ready"})
+        page_id = here.create_row("tickets", "Le ticket", {"statut": "ready"})
         both.synchronise(_settings(), stamps=marks)
 
         _, path = there._find(page_id)
         text = path.read_text(encoding="utf-8")
-        assert "Status: Ready" in text, text
-        path.write_text(text.replace("Status: Ready", "Status: Blocked"), encoding="utf-8")
+        assert "statut: ready" in text, text
+        path.write_text(text.replace("statut: ready", "statut: blocked"), encoding="utf-8")
 
         report = both.synchronise(_settings(), stamps=marks)
         assert [entry.what for entry in report.carried] == ["markdown→notion"], report.entries
-        assert store.read(here.pages[page_id], "Status") == "Blocked"
+        assert store.read(here.pages[page_id], "statut") == "blocked"
         assert not both.synchronise(_settings(), stamps=marks).carried
 
         # A body changed by hand travels the same way.
@@ -191,11 +191,11 @@ def a_file_edited_by_hand_without_touching_edited_reaches_notion() -> None:
 
         # Both sides move: a conflict, journalled, whichever side wins.
         text = path.read_text(encoding="utf-8")
-        path.write_text(text.replace("Status: Blocked", "Status: Failed"), encoding="utf-8")
-        here.update("tickets", page_id, {"Status": "Done"})
+        path.write_text(text.replace("statut: blocked", "statut: paused"), encoding="utf-8")
+        here.update("tickets", page_id, {"statut": "done"})
         both_moved = both.synchronise(_settings(), stamps=marks)
         assert len(both_moved.conflicts) == 1, both_moved.entries
-        assert store.read(there.page(page_id), "Status") == "Done"
+        assert store.read(there.page(page_id), "statut") == "done"
 
 
 @case
@@ -208,7 +208,7 @@ def a_deletion_is_written_down_and_never_carried_across() -> None:
     not a reason to throw away the file they may have been editing.
     """
     with _mirror() as (here, there, both, marks):
-        page_id = here.create_row("tickets", "Le ticket", {"Status": "Ready"})
+        page_id = here.create_row("tickets", "Le ticket", {"statut": "ready"})
         both.synchronise(_settings(), stamps=marks)
         _, path = there._find(page_id)
         path.unlink()
@@ -222,7 +222,7 @@ def a_deletion_is_written_down_and_never_carried_across() -> None:
         assert both.synchronise(_settings(), stamps=marks).deletions
 
         # The other way: the Notion page goes, the file stays.
-        local = there.create_row("tickets", "L'autre", {"Status": "Ready"})
+        local = there.create_row("tickets", "L'autre", {"statut": "ready"})
         both.synchronise(_settings(), stamps=marks)
         created = [page for page in here.pages if here.pages[page].title == "L'autre"][0]
         del here.pages[created]
@@ -270,14 +270,14 @@ def a_mirrored_write_lands_on_both_boards_at_once() -> None:
     """Between two reconciliations, the run's own work must be on both sides.
 
     A ticket claimed at 14:02 and reconciled at 14:15 would otherwise spend
-    thirteen minutes reading "Ready" in the files while a session works on it.
+    thirteen minutes reading "ready" in the files while a session works on it.
     """
     with _mirror() as (here, there, both, marks):
-        page_id = here.create_row("tickets", "Le ticket", {"Status": "Ready"})
+        page_id = here.create_row("tickets", "Le ticket", {"statut": "ready"})
         both.synchronise(_settings(), stamps=marks)
 
-        both.update("tickets", page_id, {"Status": "In progress"})
-        assert store.read(there.page(page_id), "Status") == "In progress"
+        both.update("tickets", page_id, {"statut": "progress"})
+        assert store.read(there.page(page_id), "statut") == "progress"
         both.append_markdown(page_id, "Un rapport.")
         assert "Un rapport." in there.blocks_text(page_id)
         both.comment(page_id, "Fini.")

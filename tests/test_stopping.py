@@ -95,7 +95,7 @@ class _Running(_ColumnsClient):
     """A board with one ticket in progress, and what was written on it."""
 
     def __init__(
-        self, status: str = "In progress", options: tuple[str, ...] = ("Paused", "Cancelled")
+        self, status: str = "progress", options: tuple[str, ...] = ("paused", "cancelled")
     ) -> None:
         super().__init__([status])
         self.status = status
@@ -110,7 +110,7 @@ class _Running(_ColumnsClient):
             id=page_id,
             url="",
             title="ticket",
-            properties={"Status": {"type": "status", "status": {"name": self.status}}},
+            properties={"statut": {"type": "status", "status": {"name": self.status}}},
             raw={},
         )
 
@@ -140,9 +140,9 @@ def a_ticket_in_progress_is_paused_with_its_work_kept_and_one_short_line(state_h
     client = _Running()
     api = _console(client)
     path = _scratch()
-    state.claim(TICKET, "Ready")
+    state.claim(TICKET, "ready")
     answered = api.set_status(TICKET, "paused")
-    assert answered["status"] == "Paused", answered
+    assert answered["status"] == "paused", answered
     assert path.exists(), "pausing keeps what was done"
     assert client.comments_written == [(TICKET, "Paused")], client.comments_written
     assert state.claims() == {}, "the sweep must not put a paused ticket back to ready"
@@ -156,7 +156,7 @@ def a_ticket_is_abandoned_with_its_directory_removed_and_never_left_as_residue(
     client = _Running()
     api = _console(client)
     path = _scratch()
-    assert api.set_status(TICKET, "cancelled")["status"] == "Cancelled"
+    assert api.set_status(TICKET, "cancelled")["status"] == "cancelled"
     assert not path.exists()
     assert client.comments_written == [(TICKET, "Abandoned")]
 
@@ -193,13 +193,13 @@ def the_console_waits_for_the_session_to_be_gone_before_it_touches_the_worktree(
 def a_ticket_that_is_not_in_progress_is_only_moved_and_no_session_is_asked_to_stop(
     state_home: Path,
 ) -> None:
-    client = _Running("Ready")
+    client = _Running("ready")
     api = _console(client)
     assert api.set_status(TICKET, "paused")["sync"] == "pending"
     assert stopping.requested(TICKET) == "" and client.comments_written == []
     # Or a card dragged there that still shows the status it was in.
     stale = _Running()
-    _console(stale).set_status(TICKET, "cancelled", "Ready")
+    _console(stale).set_status(TICKET, "cancelled", "ready")
     assert stale.comments_written == []
 
 
@@ -208,8 +208,8 @@ def a_board_without_the_option_is_never_written_into_and_does_not_offer_it(
     state_home: Path,
 ) -> None:
     for options, key, word in (
-        (("Cancelled",), "paused", "no “Paused” option"),
-        (("Paused",), "cancelled", "no “Cancelled” option"),
+        (("cancelled",), "paused", "no “paused” option"),
+        (("paused",), "cancelled", "no “cancelled” option"),
     ):
         try:
             _console(_Running(options=options)).set_status(TICKET, key)
@@ -222,7 +222,7 @@ def a_board_without_the_option_is_never_written_into_and_does_not_offer_it(
         return [item["key"] for item in _console(client).board()["columns"]]
 
     assert "paused" in columns(_Running())
-    assert "paused" not in columns(_Running(options=("Cancelled",)))
+    assert "paused" not in columns(_Running(options=("cancelled",)))
 
 
 @case
@@ -265,7 +265,7 @@ def a_session_the_console_asked_to_end_is_ended_and_left_to_the_console(state_ho
     finally:
         session.run = original
     assert ended == [True] and outcome.stopped
-    state.claim(TICKET, "Ready")
+    state.claim(TICKET, "ready")
     result = runner._halted(job, outcome)
     assert result and result["status"] == "stopped" and result["reason"] == "pause", result
     assert stopping.wait(TICKET, 0), "the console is told the session is gone"

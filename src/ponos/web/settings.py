@@ -212,14 +212,15 @@ GROUPS: tuple[Group, ...] = (
     ),
 )
 
-# The folded blocks a group may end on. One today: the names a board that was not
-# built by `init` may spell differently — forty keys almost nobody changes, which
-# used to be three pages of their own at the same rank as the token.
+# The folded blocks a group may end on. One today: the titles of the databases,
+# for a workspace whose rows were not named by `init`. The board's columns,
+# statuses and types have no such block: their names are fixed (see
+# `config.PROPERTIES`).
 FOLDS: dict[str, tuple[str, str]] = {
     "mapping": (
         "Advanced mapping",
-        "Only for a board whose names differ from the ones `ponos init` creates: its "
-        "columns, its properties, its databases and its types.",
+        "Only for a workspace whose rows differ from the ones `ponos init` creates: the "
+        "titles of its databases.",
     ),
 }
 
@@ -237,9 +238,9 @@ LEGACY: dict[str, str] = {
 def _naming(
     table: str, words: dict[str, tuple[str, str]], advanced: bool = False
 ) -> tuple[Field, ...]:
-    """A field per key of one of the four naming tables.
+    """A field per title of `[notion.pages]`.
 
-    Generated from the defaults rather than listed again: a property the runner
+    Generated from the defaults rather than listed again: a database the runner
     learns to read is a field the console offers the same day — under its key,
     until somebody gives it a label of its own here.
     """
@@ -252,7 +253,7 @@ def _naming(
             help=words.get(key, ("", ""))[1],
             advanced=advanced,
         )
-        for key in config_module.defaults(table)
+        for key in config_module.page_titles()
     )
 
 
@@ -662,116 +663,6 @@ SECTIONS: tuple[Section, ...] = (
         ),
     ),
     Section(
-        key="status",
-        group="source",
-        fold="mapping",
-        title="Names of the board's columns",
-        blurb=(
-            "Change these only if your board's columns are named differently. Leaving "
-            "Blocked empty while renaming Failed means one column for both."
-        ),
-        fields=_naming(
-            "status",
-            {
-                "ready": ("Ready", "The tickets the runner picks up."),
-                "running": ("In progress", "Where a ticket goes while it is worked on."),
-                "review": ("In review", "Work done, waiting for your review."),
-                "validated": ("Validated", "You accepted it: the runner merges, or publishes."),
-                "done": ("Done", "Finished and closed."),
-                "failed": ("Failed", "Something broke; a log says what."),
-                "blocked": ("Blocked", "The runner asked you a question and is waiting."),
-                "paused": ("Paused", ""),
-                "cancelled": (
-                    "Cancelled",
-                    "Given up on: never run, counted neither done nor open.",
-                ),
-            },
-        )
-        + (
-            Field(
-                "notion.status",
-                "draft",
-                "text",
-                "Draft",
-                "Optional: the option your board already has for tickets still being "
-                "written. Never picked up. Empty: a draft has no status.",
-            ),
-        ),
-    ),
-    Section(
-        key="properties",
-        group="source",
-        fold="mapping",
-        title="Names of the ticket properties",
-        blurb=(
-            "Change these only if your Notion properties are named differently. An optional "
-            "one may be missing: what it would hold is simply not written."
-        ),
-        fields=_naming(
-            "properties",
-            {
-                "status": ("Status", "Required."),
-                "project": ("Project", "Relation to the Projects database."),
-                "agent": ("Machine", "Written by the runner: which machine took the ticket."),
-                "pull_request": ("Pull request", "Written by the runner when one is opened."),
-                "session": ("Session", "Written by the runner: the link that reopens the session."),
-                "model": ("Model", "This ticket's model, over the default one."),
-                "priority": (
-                    "Priority",
-                    "A score from 0 to 100: the highest Ready ticket goes first.",
-                ),
-                "cost": ("Cost", "Written by the runner, in dollars."),
-                "duration": ("Duration", "Written by the runner, in minutes."),
-                "progress": ("Progress", "Written by the runner: what the session is doing."),
-                "due": ("Scheduled for", "A date here holds the ticket until then."),
-                "waiting": (
-                    "Waiting for credit",
-                    "Ticked while the subscription limit is reached.",
-                ),
-                "plan": (
-                    "Plan first",
-                    "Ticked, the first session proposes a plan and waits for a yes.",
-                ),
-                "role": ("Agent", "Relation to the Agents database: who handles the ticket."),
-                "goal": ("Goal", "Relation to the Goals database: what the ticket is for."),
-                "after": (
-                    "After",
-                    "Relation to other tickets: not started before they are done.",
-                ),
-                "type": (
-                    "Type",
-                    "Code, Writing, External action or Publication; empty, it is guessed.",
-                ),
-                "block": (
-                    "Block cause",
-                    "Written by the runner: why a stopped ticket stopped, as a code.",
-                ),
-                "ci": (
-                    "CI",
-                    "Written by the runner: the state of the pull request's checks while it is in review.",
-                ),
-                "subtype": (
-                    "Sub-type",
-                    "Bug, Feature, Amélioration… on a code ticket; empty, it is deduced.",
-                ),
-                "on": (
-                    "Prompt on status change",
-                    "A prompt run at every change of the ticket's status; empty, nothing runs.",
-                ),
-                "cadence": ("Schedule: cadence", "Hourly, Daily, Weekly or Monthly."),
-                "at": ("Schedule: time", "The hour, written 09:00."),
-                "day": ("Schedule: day", "Monday… or 1 to 31."),
-                "active": ("Schedule: active", "Unticked: paused, nothing deleted."),
-                "next_run": ("Schedule: next run", "Written by the runner."),
-                "last_run": ("Schedule: last run", "Written by the runner."),
-                "last_ticket": (
-                    "Schedule: last ticket",
-                    "Written by the runner: what the last occurrence created.",
-                ),
-            },
-        ),
-    ),
-    Section(
         key="pages",
         group="source",
         fold="mapping",
@@ -789,28 +680,6 @@ SECTIONS: tuple[Section, ...] = (
                 "context": ("Context page", "Who the work is for, read by every session."),
                 "schedules": ("Schedules database", "Recurring tickets; absent, nothing recurs."),
                 "goals": ("Goals database", "What a ticket is for, read into its prompt."),
-            },
-        ),
-    ),
-    Section(
-        key="type_names",
-        group="source",
-        fold="mapping",
-        title="Names of the ticket types",
-        blurb="The four types, as your Type column spells them.",
-        fields=_naming(
-            "types",
-            {
-                "code": ("Name of the Code type", "As written in your Type column."),
-                "writing": ("Name of the Writing type", "As written in your Type column."),
-                "external": (
-                    "Name of the External action type",
-                    "As written in your Type column.",
-                ),
-                "publication": (
-                    "Name of the Publication type",
-                    "As written in your Type column.",
-                ),
             },
         ),
     ),
@@ -2069,14 +1938,8 @@ def _fallback(config: Config, entry: Field) -> object:
         from .. import provider
 
         return provider.chosen(config)
-    if entry.table == "notion.status":
-        return config_module.defaults("status").get(entry.key, "")
-    if entry.table == "notion.properties":
-        return config_module.defaults("properties")[entry.key]
     if entry.table == "notion.pages":
-        return config_module.defaults("pages")[entry.key]
-    if entry.table == "notion.types":
-        return config_module.defaults("types")[entry.key]
+        return config_module.page_titles()[entry.key]
     if entry.key.startswith("auto_model_subtype_"):
         return config.runner.subtype_shift(entry.key.removeprefix("auto_model_subtype_"))
     holder = {

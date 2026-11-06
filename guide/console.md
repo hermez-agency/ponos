@@ -86,7 +86,7 @@ folded until you open them (the choice is kept, as on a computer), and the board
 column at a time under a row of tabs with their counts — *Blocked 3 · In review 2…* —
 opening on *Blocked*, then *In review*, or on the tab you left. **The board** is the Notion board, read from Notion and written back to it, drawn as
 the columns the board has — *Ready*, *In progress*, *In review*, *Validated* where the
-board offers it, *Blocked*, *Failed*, *Done* — under the board's own names. Nothing here
+board offers it, *Blocked*, *Done* — under the board's own names. Nothing here
 is a second database: **drag a card into a column and the ticket moves**, and the ticket
 you write behind *New ticket* is a page in the same database, with its brief as real
 Notion blocks — and, where the board has those columns, its *Priority*, *Type* and *Model*
@@ -493,7 +493,7 @@ the runner got through over a period: the last seven days when you open it, or t
 24 hours (yesterday and today: the figures count in days), thirty days, everything since the
 board's oldest ticket, or two dates of your own. Four cards: the tickets **open**
 on the evening of the last day (every column but *Done*, *Validated* and *Cancelled*, *Blocked*
-and *Failed* included — so a period that ends today says what the board says), those **closed**
+included — so a period that ends today says what the board says), those **closed**
 (moved to *Done* or *Validated*) and those **created** in the period, and what the sessions
 **spent**. Under them, the **activity**: one chart, the tickets created and closed as two bars a
 day and the open stock as a line over them — on its own scale, on the right, when it is of
@@ -613,7 +613,7 @@ when the board is in.
 One rule, the same on the page, in its drawer, in a project's *Goals* box and in the MCP
 connector's `list_goals`:
 
-- **done** is the tickets in the `done` column (`[notion.status] done`, `Done` by default) —
+- **done** is the tickets in the `done` column —
   not *In review*, not *Validated*: a ticket counts once its pull request is merged or its page
   published;
 - **the total** is every ticket that points at the goal **but the cancelled ones** — drafts,
@@ -645,8 +645,8 @@ column makes there (`Tickets` below, whatever Notion named it):
 | `Total` | Rollup | relation `Tickets`, property `Compté`, *Count* → *Checked* |
 | `Avancement` | Formula | `if(prop("Total") > 0, prop("Faits") / prop("Total"), 0)`, shown as a percent |
 
-`Status`, `Done` and `Cancelled` are the names of your board: write the ones
-[`[notion.properties] status` and `[notion.status]`](configuration.md#4-the-rest-of-the-file) give. One gap stays,
+`statut`, `done` and `cancelled` are the names of the board, fixed — see
+[The tickets database](board.md#the-tickets-database). One gap stays,
 and it is Notion's: a rollup counts a ticket on **every** goal of its relation, the console on
 its first — tie each ticket to a single goal and the two agree.
 

@@ -23,7 +23,7 @@ def _page(identifier: str, status: str, prompt: str = "", title: str = "") -> no
         url=f"https://notion.test/{identifier}",
         title=title or identifier,
         properties={
-            "Status": {"type": "status", "status": {"name": status}},
+            "statut": {"type": "status", "status": {"name": status}},
             "On": text("rich_text", prompt),
         },
     )
@@ -42,7 +42,7 @@ class _OnBoard:
         return self.pages[page_id]
 
     def schema(self, database: str) -> dict[str, str]:
-        return {"Status": "status", "On": "rich_text"}
+        return {"statut": "status", "On": "rich_text"}
 
     def set(self, identifier: str, status: str) -> None:
         self.pages[identifier] = _page(
@@ -131,18 +131,18 @@ def a_status_is_a_change_only_from_the_second_time_it_is_seen_and_only_once(
 ) -> None:
     from ponos import transitions
 
-    assert transitions.observe("t1", "Ready", title="A", depth_limit=3) == (0, ""), "a first sight"
-    assert transitions.observe("t1", "Ready", title="A", depth_limit=3) == (0, ""), "nothing moved"
-    found, old = transitions.observe("t1", "Done", title="A", depth_limit=3)
-    assert found and old == "Ready"
-    assert transitions.observe("t1", "Done", title="A", depth_limit=3) == (0, ""), (
+    assert transitions.observe("t1", "ready", title="A", depth_limit=3) == (0, ""), "a first sight"
+    assert transitions.observe("t1", "ready", title="A", depth_limit=3) == (0, ""), "nothing moved"
+    found, old = transitions.observe("t1", "done", title="A", depth_limit=3)
+    assert found and old == "ready"
+    assert transitions.observe("t1", "done", title="A", depth_limit=3) == (0, ""), (
         "the same change is not met twice: it is already the starting point"
     )
-    assert [(row["old"], row["new"]) for row in transitions.pending(10)] == [("Ready", "Done")]
+    assert [(row["old"], row["new"]) for row in transitions.pending(10)] == [("ready", "done")]
     # A ticket that loses its prompt is forgotten: the day it gets one again
     # is a first sight, not a change from a status it had months ago.
     transitions.forget(set())
-    assert transitions.observe("t1", "Blocked", title="A", depth_limit=3) == (0, "")
+    assert transitions.observe("t1", "blocked", title="A", depth_limit=3) == (0, "")
 
 
 @case
@@ -151,16 +151,16 @@ def the_on_prompt_of_a_ticket_runs_with_the_transition_and_is_closed_with_what_i
 ) -> None:
     from ponos import transitions
 
-    board = _OnBoard(_page("t1", "Ready", "Si Done, crée le déploiement.", "Site"))
+    board = _OnBoard(_page("t1", "ready", "Si Done, crée le déploiement.", "Site"))
     runner = _on_runner(board)
     runner.transitions()  # the starting point
-    board.set("t1", "Done")
+    board.set("t1", "done")
     seen, fake = _a_session_that()
     with _replacing(session, "run", fake):
         results = runner.transitions()
     assert [entry["status"] for entry in results] == ["on-ok"], results
     prompt = seen[0]["prompt"]
-    assert "Old status: Ready" in prompt and "New status: Done" in prompt, prompt
+    assert "Old status: ready" in prompt and "New status: done" in prompt, prompt
     assert "Si Done, crée le déploiement." in prompt
     assert seen[0]["max_budget_usd"] == 1.0, "a ceiling by default"
     assert seen[0]["timeout_minutes"] == 10
@@ -174,15 +174,15 @@ def what_an_execution_moves_or_creates_never_wakes_a_prompt_and_its_children_are
 ) -> None:
     from ponos import transitions
 
-    board = _OnBoard(_page("t1", "Ready", "Crée un ticket de suivi puis passe-moi en Done."))
+    board = _OnBoard(_page("t1", "ready", "Crée un ticket de suivi puis passe-moi en Done."))
     runner = _on_runner(board)
     runner.transitions()
-    board.set("t1", "In progress")
+    board.set("t1", "progress")
 
     def effect() -> None:
         # What the prompt does: moves its own ticket, makes another, with a prompt too.
-        board.set("t1", "Done")
-        board.pages["t2"] = _page("t2", "Ready", "Moi aussi.")
+        board.set("t1", "done")
+        board.pages["t2"] = _page("t2", "ready", "Moi aussi.")
 
     seen, fake = _a_session_that(effect)
     with _replacing(session, "run", fake):
@@ -193,7 +193,7 @@ def what_an_execution_moves_or_creates_never_wakes_a_prompt_and_its_children_are
         runner._on_read = float("-inf")
         assert runner.transitions() == [] and len(seen) == 1, "no loop"
         # But t2 is a ticket like another from now on, one generation down.
-        board.set("t2", "Done")
+        board.set("t2", "done")
         runner._on_read = float("-inf")
         assert [e["status"] for e in runner.transitions()] == ["on-ok"]
         (row,) = transitions.history("t2")
@@ -204,7 +204,7 @@ def what_an_execution_moves_or_creates_never_wakes_a_prompt_and_its_children_are
 def a_chain_of_tickets_made_by_prompts_stops_at_the_depth_the_file_allows(state_home: Path) -> None:
     from ponos import transitions
 
-    board = _OnBoard(_page("t1", "Ready", "Fais un ticket."))
+    board = _OnBoard(_page("t1", "ready", "Fais un ticket."))
     runner = _on_runner(board, on_max_depth=1)
     runner.transitions()
     generation = {"n": 0}
@@ -213,18 +213,18 @@ def a_chain_of_tickets_made_by_prompts_stops_at_the_depth_the_file_allows(state_
         # Every execution makes the next ticket of the chain, with the same prompt.
         generation["n"] += 1
         name = f"c{generation['n']}"
-        board.pages[name] = _page(name, "Ready", "Fais un ticket.")
+        board.pages[name] = _page(name, "ready", "Fais un ticket.")
 
     seen, fake = _a_session_that(effect)
     with _replacing(session, "run", fake):
-        board.set("t1", "Done")
+        board.set("t1", "done")
         for _ in range(4):
             runner._on_read = float("-inf")
             runner.transitions()
             # What the chain does by itself: each new ticket is done by somebody.
             for name in [n for n in board.pages if n.startswith("c")]:
-                if notion.read(board.pages[name], "Status") != "Done":
-                    board.set(name, "Done")
+                if notion.read(board.pages[name], "statut") != "done":
+                    board.set(name, "done")
     # t1 (depth 0) and c1 (depth 1) ran; c2 would be depth 2 > the limit of 1.
     assert generation["n"] == 2, generation
     skipped = [row for row in transitions.history("c2") if row["state"] == "skipped"]
@@ -237,17 +237,17 @@ def an_execution_that_fails_or_overspends_is_commented_and_never_touches_a_statu
 ) -> None:
     from ponos import transitions
 
-    board = _OnBoard(_page("t1", "Ready", "Fais-le."))
+    board = _OnBoard(_page("t1", "ready", "Fais-le."))
     runner = _on_runner(board)
     runner.transitions()
-    board.set("t1", "Blocked")
+    board.set("t1", "blocked")
     _, fake = _a_session_that(ok=False, blocked=True, over_budget=True, answer="", summary="")
     with _replacing(session, "run", fake):
         results = runner.transitions()
     assert [entry["status"] for entry in results] == ["on-failed"], results
     assert runner.moved == [], "the status is the board's"
     assert len(runner.comments_written) == 1
-    assert "Ready → Blocked" in runner.comments_written[0] and "1.00" in runner.comments_written[0]
+    assert "ready → blocked" in runner.comments_written[0] and "1.00" in runner.comments_written[0]
     assert transitions.history("t1")[0]["state"] == "failed"
     runner._on_read = float("-inf")
     assert runner.transitions() == [], "a failure is not tried again by itself"
@@ -257,10 +257,10 @@ def an_execution_that_fails_or_overspends_is_commented_and_never_touches_a_statu
 def an_execution_that_never_started_for_want_of_credit_is_still_to_run(state_home: Path) -> None:
     from ponos import transitions
 
-    board = _OnBoard(_page("t1", "Ready", "Fais-le."))
+    board = _OnBoard(_page("t1", "ready", "Fais-le."))
     runner = _on_runner(board)
     runner.transitions()
-    board.set("t1", "Done")
+    board.set("t1", "done")
     _, broke = _a_session_that(ok=False, exhausted=True, answer="")
     with _replacing(session, "run", broke):
         assert runner.transitions() == []
@@ -273,7 +273,7 @@ def an_execution_that_never_started_for_want_of_credit_is_still_to_run(state_hom
 
 @case
 def the_board_is_read_for_moved_statuses_no_more_often_than_the_file_says(state_home: Path) -> None:
-    board = _OnBoard(_page("t1", "Ready", "Fais-le."))
+    board = _OnBoard(_page("t1", "ready", "Fais-le."))
     runner = _on_runner(board, on_interval_seconds=30)
     reads: list[int] = []
     original = board.query
@@ -297,8 +297,8 @@ def the_board_is_read_for_moved_statuses_no_more_often_than_the_file_says(state_
 def an_execution_a_dead_run_left_open_is_closed_and_never_run_again(state_home: Path) -> None:
     from ponos import transitions
 
-    transitions.observe("t1", "Ready", title="A", depth_limit=3)
-    found, _ = transitions.observe("t1", "Done", title="A", depth_limit=3)
+    transitions.observe("t1", "ready", title="A", depth_limit=3)
+    found, _ = transitions.observe("t1", "done", title="A", depth_limit=3)
     assert transitions.start(found) and not transitions.start(found), "taken once"
     assert transitions.abandon(-5) == 1, "older than the future: any execution left open"
     (row,) = transitions.history("t1")

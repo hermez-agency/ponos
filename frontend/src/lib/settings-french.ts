@@ -36,8 +36,8 @@ export const SETTINGS_FRENCH: Record<string, string> = {
   "Notifications are refused for this site: allow them in the browser's settings, then come back here.":
     "Les notifications sont refusées pour ce site : autorisez-les dans les réglages du navigateur, puis revenez ici.",
   "Advanced mapping": "Correspondance avancée",
-  "Only for a board whose names differ from the ones `ponos init` creates: its columns, its properties, its databases and its types.":
-    "Seulement pour un tableau dont les noms diffèrent de ceux que crée `ponos init` : ses colonnes, ses propriétés, ses bases et ses types.",
+  "Only for a workspace whose rows differ from the ones `ponos init` creates: the titles of its databases.":
+    "Seulement pour un espace dont les lignes diffèrent de celles que crée `ponos init` : les titres de ses bases.",
   Languages: "Langues",
   "What the runner writes in, and what this console opens in: the language picked in a browser comes first, the default is for every browser that has not picked one.":
     "La langue dans laquelle le runner écrit, et celle dans laquelle cette console s'ouvre : la langue choisie dans un navigateur passe en premier, celle par défaut vaut pour tous ceux qui n'en ont pas choisi.",

@@ -1927,9 +1927,9 @@ def the_console_says_a_ticket_changed_in_notion_meanwhile_in_its_own_words() -> 
     found = patterns["RUNNER"].match(sentence)
     assert found and found.groups() == ("blocked", "cancelled"), sentence
 
-    sentence = str(board.Conflict("Done"))
+    sentence = str(board.Conflict("done"))
     found = patterns["CONSOLE"].match(sentence)
-    assert found and found.groups() == ("Done",), sentence
+    assert found and found.groups() == ("done",), sentence
 
 
 @case

@@ -227,12 +227,12 @@ def the_api_is_notions_unless_a_test_says_otherwise() -> None:
 
 @case
 def values_are_encoded_for_the_type_the_database_declares() -> None:
-    assert notion._encode("status", "Done") == {"status": {"name": "Done"}}
-    assert notion._encode("select", "Done") == {"select": {"name": "Done"}}
+    assert notion._encode("status", "done") == {"status": {"name": "done"}}
+    assert notion._encode("select", "done") == {"select": {"name": "done"}}
     assert notion._encode("url", "https://x") == {"url": "https://x"}
     assert notion._encode("number", 1.5) == {"number": 1.5}
     # A property the database does not have is skipped, not guessed at.
-    assert notion._encode(None, "Done") is None
+    assert notion._encode(None, "done") is None
     assert notion._encode("status", None) is None
     assert notion._encode("status", "") is None, "a status cannot be emptied, so it is left"
 
@@ -262,14 +262,14 @@ def properties_are_read_back_as_plain_python() -> None:
         url="u",
         title="t",
         properties={
-            "Status": {"type": "status", "status": {"name": "Done"}},
+            "statut": {"type": "status", "status": {"name": "done"}},
             "Empty": {"type": "status", "status": None},
             "Cost": {"type": "number", "number": 0.42},
             "Project": {"type": "relation", "relation": [{"id": "abc"}]},
             "Session": {"type": "url", "url": "ponos://session/x"},
         },
     )
-    assert notion.read(page, "Status") == "Done"
+    assert notion.read(page, "statut") == "done"
     assert notion.read(page, "Empty") is None
     assert notion.read(page, "Cost") == 0.42
     assert notion.read(page, "Project") == ["abc"]

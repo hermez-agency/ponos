@@ -627,7 +627,7 @@ const TicketCardBody = React.memo(function TicketCardBody({
         </p>
       ) : null}
 
-      <TicketActions ticket={ticket} className="-mx-1" answer={{ href, onClick: open }} />
+      <TicketActions ticket={ticket} className="-mx-1" />
       <TicketFoot ticket={ticket} />
     </div>
   )

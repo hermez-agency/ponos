@@ -43,7 +43,7 @@ def _knowing(comments: list[notion.Comment]) -> Runner:
 def _ticket() -> Any:
     """A ticket this machine claimed, so one whose comments are worth reading."""
     runner = {"type": "rich_text", "rich_text": [{"plain_text": "ponos@laptop"}]}
-    page = notion.Page(id="p", url="", title="t", properties={"Runner": runner})
+    page = notion.Page(id="p", url="", title="t", properties={"Agent": runner})
     return type("T", (), {"page": page})()
 
 

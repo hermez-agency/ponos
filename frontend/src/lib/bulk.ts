@@ -30,9 +30,9 @@ export interface Selectable {
 /** The columns a ticket is in the runner's hands in: stopped from its card, not moved from a bar. */
 const HELD = new Set(["running", "paused"])
 
-/** Launched: a draft, a failed run, or a ticket set aside by hand. */
+/** Launched: a draft, or a ticket set aside by hand. */
 export function launchable(ticket: Selectable): boolean {
-  if (ticket.column === "draft" || ticket.column === "failed") return true
+  if (ticket.column === "draft") return true
   return ticket.column === "blocked" && !ticket.block
 }
 

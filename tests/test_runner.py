@@ -479,7 +479,7 @@ def a_pass_stops_filling_places_once_the_credits_run_out(state_home: Path) -> No
 
 def _moved(page: notion.Page, status: str) -> None:
     """The page's status, changed the way a person or a run changes it."""
-    page.properties["Status"] = {"type": "status", "status": {"name": status}}
+    page.properties["statut"] = {"type": "status", "status": {"name": status}}
 
 
 @contextmanager
@@ -509,7 +509,7 @@ def a_new_ticket_is_taken_and_left_alone_once_its_run_has_moved_it(state_home: P
             name = job.ticket.page.id
             runs.append(name)
             if name == "p-new":
-                _moved(page, "In review")
+                _moved(page, "review")
             else:
                 time.sleep(2.5)  # two looks at the board while it runs
             return {"id": name, "status": "done"}
@@ -539,13 +539,13 @@ def a_ticket_played_by_this_pass_then_made_ready_again_is_played_again(state_hom
             runs.append(name)
             if name == "p-again":
                 if runs.count("p-again") == 1:
-                    _moved(page, "Blocked")
+                    _moved(page, "blocked")
                 else:
-                    _moved(page, "In review")
+                    _moved(page, "review")
                     again.set()
             else:
                 time.sleep(0.5)
-                _moved(page, "Ready")  # somebody asks for it again
+                _moved(page, "ready")  # somebody asks for it again
                 again.wait(10)
             return {"id": name, "status": "done"}
 
@@ -581,7 +581,7 @@ def a_ticket_still_in_a_session_of_this_pass_is_not_run_beside_it(state_home: Pa
                 time.sleep(2.5)  # two looks at a column that still says ready
                 noted.append(state.held())
             else:
-                _moved(page, "In review")
+                _moved(page, "review")
             with guard:
                 flying -= 1
             return {"id": job.ticket.page.id, "status": "done"}
@@ -620,10 +620,10 @@ def an_orphan_claim_is_let_go_of_by_the_sweep(state_home: Path) -> None:
     live = _in_progress("p-live", None)
     live.raw["last_edited_time"] = datetime.now(UTC).isoformat()
     runner = _board_runner([live], {})
-    state.claim("plive", "Validated")
-    state.claim("pgone", "Validated")
+    state.claim("plive", "validated")
+    state.claim("pgone", "validated")
     assert runner.sweep() == 0, "too recent to be called abandoned"
-    assert state.claims() == {"plive": "Validated"}
+    assert state.claims() == {"plive": "validated"}
 
 
 @case
@@ -723,8 +723,8 @@ def a_ticket_that_refuses_a_write_does_not_stop_the_sweep_or_the_closing(state_h
 
     url = "https://github.com/x/y/pull/"
     runner = _board_runner(
-        [_reviewed("p-a", "In review", url + "1"), _reviewed("p-b", "In review", url + "2")],
-        {"review": "In review", "done": "Done"},
+        [_reviewed("p-a", "review", url + "1"), _reviewed("p-b", "review", url + "2")],
+        {"review": "review", "done": "done"},
     )
     written = runner.client.update
     runner.client.update = update  # type: ignore[method-assign]  # a double: one page refused
@@ -802,10 +802,10 @@ def a_pull_request_validated_mid_pass_is_merged_without_waiting_for_the_session(
     def execute(job: ticket_module.Job) -> dict[str, Any]:
         # Validated by you while the session runs, as it happens on a board.
         _client(runner)._pages.append(
-            _reviewed("p-validated", "Validated", "https://github.com/x/y/pull/1")
+            _reviewed("p-validated", "validated", "https://github.com/x/y/pull/1")
         )
         merged.wait(10)
-        # Two more looks at the column, which still answers "Validated":
+        # Two more looks at the column, which still answers "validated":
         # the fake board only remembers what was written, it does not move.
         time.sleep(2.2)
         return {"id": job.ticket.page.id, "status": "done"}
@@ -822,7 +822,7 @@ def a_pull_request_validated_mid_pass_is_merged_without_waiting_for_the_session(
     assert merged.is_set(), "merged while the session was still running"
     assert merges == ["https://github.com/x/y/pull/1"], "and merged once, not at every look"
     assert sorted(result["id"] for result in results) == ["p-long", "pvalidated"]
-    assert ("p-validated", {"Status": "Done"}) in _client(runner).written
+    assert ("p-validated", {"statut": "done"}) in _client(runner).written
 
 
 @case
@@ -836,7 +836,7 @@ def a_merge_refused_then_retried_mid_pass_is_asked_for_again(state_home: Path) -
     with _settling(0.1):
         runner = _long_runner([_ready("p-long")])
         runner.config.runner.max_concurrent = 1
-        page = _reviewed("p-validated", "Validated", url)
+        page = _reviewed("p-validated", "validated", url)
 
         def execute(job: ticket_module.Job) -> dict[str, Any]:
             _client(runner)._pages.append(page)
@@ -847,8 +847,8 @@ def a_merge_refused_then_retried_mid_pass_is_asked_for_again(state_home: Path) -
             asked.append(url)
             if len(asked) == 1:
                 # Red: the ticket is blocked, and somebody validates it again.
-                _moved(page, "Blocked")
-                threading.Timer(0.5, _moved, (page, "Validated")).start()
+                _moved(page, "blocked")
+                threading.Timer(0.5, _moved, (page, "validated")).start()
                 raise github_checks.ChecksNotGreen("failed", ["frontend"])
             merged.set()
             return "merged"
@@ -887,7 +887,7 @@ def a_publication_validated_mid_pass_takes_the_next_free_place(state_home: Path)
         return {"ticket": ticket.title, "id": ticket.id, "status": "done"}
 
     def execute(job: ticket_module.Job) -> dict[str, Any]:
-        _client(runner)._pages.append(_reviewed("p-post", "Validated", None))
+        _client(runner)._pages.append(_reviewed("p-post", "validated", None))
         out.wait(10)
         return {"id": job.ticket.page.id, "status": "done"}
 
@@ -903,7 +903,7 @@ def a_pass_that_refills_nothing_leaves_the_validated_column_alone(state_home: Pa
     """A named ticket and a dry run take nothing off the board — that column
     included, which `tick` has already read for them."""
     runner = _long_runner([_ready("p-one")])
-    _client(runner)._pages.append(_reviewed("p-post", "Validated", None))
+    _client(runner)._pages.append(_reviewed("p-post", "validated", None))
     runner._publish = lambda ticket, project: (_ for _ in ()).throw(  # type: ignore[method-assign, misc, assignment]  # a double: never to be called
         AssertionError("published by a pass that refills nothing")
     )
@@ -930,14 +930,14 @@ def _paid_then_cut(failure: Exception) -> list[dict[str, Any]]:
             encoding="utf-8",
         )
         page_id = board.create_row(
-            "tickets", "Écrire l'annonce", {"Status": "Ready", "Type": "Writing"}
+            "tickets", "Écrire l'annonce", {"statut": "ready", "Type": "Rédaction"}
         )
         board.append_markdown(page_id, "Rédige une annonce courte.")
         run = Runner(C.load(path), quiet=True)
         written = run.client.update
 
         def update(database_id: str, page_id: str, values: dict[str, Any]) -> None:
-            if values.get("Status", "In progress") != "In progress":
+            if values.get("statut", "progress") != "progress":
                 raise failure
             written(database_id, page_id, values)
 
@@ -1031,7 +1031,7 @@ def a_merge_that_raises_fails_its_ticket_and_the_next_one_is_merged(state_home: 
     one that raised used to end the pass, and leave the rest of the column."""
     first, second = "https://github.com/x/y/pull/1", "https://github.com/x/y/pull/2"
     runner = _long_runner(
-        [_reviewed("p-one", "Validated", first), _reviewed("p-two", "Validated", second)]
+        [_reviewed("p-one", "validated", first), _reviewed("p-two", "validated", second)]
     )
     merges: list[str] = []
 

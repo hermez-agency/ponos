@@ -561,7 +561,7 @@ class Board(Base):
         """
         settings = self.config.notion
         cancelled = settings.state("cancelled")
-        others = ("ready", "running", "review", "validated", "done", "failed", "blocked", "paused")
+        others = ("ready", "running", "review", "validated", "done", "blocked", "paused")
         if not cancelled or cancelled in (settings.state(key) for key in others):
             return False
         return cancelled in self.client.options(self.database, settings.prop("status"))
@@ -577,7 +577,7 @@ class Board(Base):
         """
         settings = self.config.notion
         paused = settings.state("paused")
-        others = ("ready", "running", "review", "validated", "done", "failed", "blocked")
+        others = ("ready", "running", "review", "validated", "done", "blocked")
         if not paused or paused in (settings.state(key) for key in others):
             return False
         return paused in self.client.options(self.database, settings.prop("status"))

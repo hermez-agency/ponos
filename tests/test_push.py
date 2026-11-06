@@ -91,7 +91,7 @@ def a_bell_reaches_a_subscribed_phone_encrypted_signed_and_opening_the_decision(
     told to keep one per ticket, and what the phone opens is the ticket's page
     on the tab its decision is taken in.
     """
-    assert push.ring("question", "t1", "Blocked", "Le header") == 0, "nobody subscribed"
+    assert push.ring("question", "t1", "blocked", "Le header") == 0, "nobody subscribed"
     key = push.public_key()
     assert len(_unb64(key)) == 65 and push.public_key() == key, "drawn once, then kept"
     assert push.key_path().stat().st_mode & 0o077 == 0, "nobody else reads the key"
@@ -150,7 +150,7 @@ def a_subscription_the_push_service_forgot_is_dropped_and_a_bad_one_never_kept(
         return httpx.Response(410 if str(request.url).endswith("/gone") else 201)
 
     with _http_answering(handler):
-        assert push.ring("blocked", "t1", "Blocked", "") == 1
+        assert push.ring("blocked", "t1", "blocked", "") == 1
     assert [item.endpoint for item in push.subscriptions()] == [kept.endpoint]
 
     point, auth = _b64(kept.point), _b64(kept.auth)
@@ -163,7 +163,7 @@ def a_subscription_the_push_service_forgot_is_dropped_and_a_bad_one_never_kept(
         raise httpx.ConnectError("no network")
 
     with _http_answering(silent):
-        assert push.ring("blocked", "t1", "Blocked", "") == 0, "said quietly, never raised"
+        assert push.ring("blocked", "t1", "blocked", "") == 0, "said quietly, never raised"
     assert len(push.subscriptions()) == 1, "a silence is not a refusal"
 
 

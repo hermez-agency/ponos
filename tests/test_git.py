@@ -115,7 +115,7 @@ def _aged_page(page_id: str, status: str, edited_days_ago: float) -> notion.Page
         id=page_id,
         url="",
         title=page_id,
-        properties={"Status": {"type": "status", "status": {"name": status}}},
+        properties={"statut": {"type": "status", "status": {"name": status}}},
         raw={"last_edited_time": edited.isoformat()},
     )
 
@@ -164,11 +164,11 @@ def a_pass_tidies_what_done_tickets_left_and_nothing_else(state_home: Path) -> N
         )
     }
     pages = [
-        _aged_page(f"page-{tail['done']}", "Done", 30),
-        _aged_page(f"page-{tail['fresh']}", "Done", 2),
-        _aged_page(f"page-{tail['blocked']}", "Blocked", 30),
-        _aged_page(f"page-{tail['review']}", "In review", 30),
-        _aged_page(f"page-{tail['claimed']}", "Done", 30),
+        _aged_page(f"page-{tail['done']}", "done", 30),
+        _aged_page(f"page-{tail['fresh']}", "done", 2),
+        _aged_page(f"page-{tail['blocked']}", "blocked", 30),
+        _aged_page(f"page-{tail['review']}", "review", 30),
+        _aged_page(f"page-{tail['claimed']}", "done", 30),
     ]
     worktrees, scratch = state_home / "worktrees", state_home / "scratch"
     done = _aged(worktrees / f"app-{tail['done']}", 30)
@@ -185,7 +185,7 @@ def a_pass_tidies_what_done_tickets_left_and_nothing_else(state_home: Path) -> N
     young_orphan = _aged(scratch / f"kind-{tail['gone2']}", 1)
     old_log = _aged(state_home / "logs" / "old.jsonl", 30, directory=False)
     new_log = _aged(state_home / "logs" / "new.jsonl", 1, directory=False)
-    state.claim(f"page-{tail['claimed']}", "Validated")
+    state.claim(f"page-{tail['claimed']}", "validated")
 
     runner = _tidying(pages)
     tidied = runner.tidy()
@@ -278,14 +278,14 @@ def a_done_tickets_worktree_with_uncommitted_work_is_kept(state_home: Path) -> N
         is_dirty=lambda _path: True,
         remove_worktree=lambda _repo, path: removed.append(path),
     ):
-        _tidying([_aged_page("page-1a2b3c4d", "Done", 30)]).tidy()
+        _tidying([_aged_page("page-1a2b3c4d", "done", 30)]).tidy()
     assert worktree.exists() and not removed
     with _git_answering(
         repository_of=lambda _path: state_home,
         is_dirty=lambda _path: False,
         remove_worktree=lambda _repo, path: [removed.append(path), shutil.rmtree(path)],  # type: ignore[func-returns-value]  # both done, nothing to return
     ):
-        _tidying([_aged_page("page-1a2b3c4d", "Done", 30)]).tidy(now=True)
+        _tidying([_aged_page("page-1a2b3c4d", "done", 30)]).tidy(now=True)
     assert removed == [worktree] and not worktree.exists()
 
 
@@ -322,7 +322,7 @@ def the_daily_tidy_forgets_the_mcp_clients_nobody_authorised(state_home: Path) -
 @case
 def the_retention_can_be_turned_off(state_home: Path) -> None:
     scratch = _aged(state_home / "scratch" / "notes-1a2b3c4d", 30)
-    page = _aged_page("page-1a2b3c4d", "Done", 30)
+    page = _aged_page("page-1a2b3c4d", "done", 30)
     _tidying([page], "[runner]\nclean_done_worktrees = false\n").tidy()
     assert scratch.exists()
     _tidying([page], "[runner]\nlog_retention_days = 0\n").tidy(now=True)
@@ -396,8 +396,8 @@ def a_cancelled_ticket_loses_its_worktree_like_a_done_one_and_a_validated_one_ke
     cancelled = _aged(state_home / "worktrees" / "app-1a2b3c41", 30)
     validated = _aged(state_home / "worktrees" / "app-1a2b3c42", 20)
     pages = [
-        _aged_page("page-1a2b3c41", "Cancelled", 30),
-        _aged_page("page-1a2b3c42", "Validated", 30),
+        _aged_page("page-1a2b3c41", "cancelled", 30),
+        _aged_page("page-1a2b3c42", "validated", 30),
     ]
     with _git_answering(
         repository_of=lambda _path: state_home,
@@ -416,11 +416,11 @@ def a_forgotten_worktree_goes_unless_its_ticket_runs_or_it_holds_work_nobody_els
 ) -> None:
     tail = ["1a2b3c51", "1a2b3c52", "1a2b3c53", "1a2b3c54", "1a2b3c55", "1a2b3c56", "1a2b3c57"]
     pages = [
-        _aged_page(f"page-{tail[0]}", "Failed", 40),
-        _aged_page(f"page-{tail[1]}", "In progress", 40),
-        _aged_page(f"page-{tail[2]}", "Blocked", 40),
-        _aged_page(f"page-{tail[3]}", "Blocked", 40),
-        _aged_page(f"page-{tail[4]}", "Blocked", 3),
+        _aged_page(f"page-{tail[0]}", "blocked", 40),
+        _aged_page(f"page-{tail[1]}", "progress", 40),
+        _aged_page(f"page-{tail[2]}", "blocked", 40),
+        _aged_page(f"page-{tail[3]}", "blocked", 40),
+        _aged_page(f"page-{tail[4]}", "blocked", 3),
     ]
     names = ["failed", "running", "dirty", "unpushed", "young", "gone", "stray"]
     places = {
@@ -542,7 +542,7 @@ def the_console_measures_the_disk_and_cleans_only_between_runs(state_home: Path)
     console = web_api.Api.__new__(web_api.Api)
     console._config = _config("")
     console._stamp = web_base._stamp(console._config.path)
-    console._runner = _tidying([_aged_page("page-1a2b3c4d", "Done", 30)])
+    console._runner = _tidying([_aged_page("page-1a2b3c4d", "done", 30)])
     measured = console.disk()
     assert measured["sizes"]["scratch"] >= 1000 and measured["retention_days"] == 14
     with state.lock():
@@ -829,7 +829,7 @@ def a_merge_refused_for_being_behind_is_replayed_and_asked_again() -> None:
     question.
     """
 
-    runner = _board_runner([_reviewed("pbehind", "Validated", "https://github.com/x/y/pull/1")], {})
+    runner = _board_runner([_reviewed("pbehind", "validated", "https://github.com/x/y/pull/1")], {})
     runner.config.runner.rebase = True
     runner._project_of = lambda ticket: projects.Project("Site", Path("/repo"))  # type: ignore[method-assign]  # a double: the ticket\'s project
     attempts: list[str] = []
@@ -883,7 +883,7 @@ def a_replay_pushed_on_a_repository_with_ci_is_not_merged_before_its_checks(
     url = "https://github.com/x/y/pull/1"
     repo = state_home / "repo"
     (repo / ".github" / "workflows").mkdir(parents=True)
-    runner = _board_runner([_reviewed("pfresh", "Validated", url)], {})
+    runner = _board_runner([_reviewed("pfresh", "validated", url)], {})
     runner.config.runner.rebase = True
     runner._project_of = lambda ticket: projects.Project("Site", repo)  # type: ignore[method-assign]  # a double: the ticket\'s project
     attempts: list[str] = []
@@ -915,7 +915,7 @@ def a_replay_pushed_on_a_repository_with_ci_is_not_merged_before_its_checks(
 def a_merge_refused_for_anything_else_is_still_a_question() -> None:
     """Nothing is pushed again to answer a review that has not happened."""
 
-    runner = _board_runner([_reviewed("preview", "Validated", "https://github.com/x/y/pull/1")], {})
+    runner = _board_runner([_reviewed("preview", "validated", "https://github.com/x/y/pull/1")], {})
     runner._project_of = lambda ticket: projects.Project("Site", Path("/repo"))  # type: ignore[method-assign]  # a double: the ticket\'s project
     replayed: list[tuple[Any, ...]] = []
 
@@ -939,7 +939,7 @@ def a_replay_that_conflicts_leaves_the_merge_refused() -> None:
     """The branch goes back as it was, and the ticket asks rather than guesses."""
 
     runner = _board_runner(
-        [_reviewed("pconflict", "Validated", "https://github.com/x/y/pull/1")], {}
+        [_reviewed("pconflict", "validated", "https://github.com/x/y/pull/1")], {}
     )
     # Resolution off: what is under test is the replay giving up, as it did
     # before conflicts were handed to a session — and as it still does then.
@@ -975,7 +975,7 @@ def github_calling_a_pull_request_conflicting_is_heard_before_any_merge() -> Non
     """
 
     url = "https://github.com/x/y/pull/1"
-    runner = _board_runner([_reviewed("pdirty", "Validated", url)], {})
+    runner = _board_runner([_reviewed("pdirty", "validated", url)], {})
     runner._project_of = lambda ticket: projects.Project("Site", Path("/repo"))  # type: ignore[method-assign]  # a double: the ticket\'s project
     attempts: list[str] = []
     replayed: list[tuple[Any, ...]] = []
@@ -1015,7 +1015,7 @@ def a_replay_that_conflicts_is_handed_to_a_session_rather_than_to_you() -> None:
     """
     url = "https://github.com/x/y/pull/1"
     for left_out, expected in (("", "session"), ("Autre, site ", "blocked")):
-        runner = _board_runner([_reviewed("pconflict", "Validated", url)], {})
+        runner = _board_runner([_reviewed("pconflict", "validated", url)], {})
         runner.config.runner.resolve_conflicts_except = left_out
         runner.under_reserve = lambda: 0.0  # type: ignore[method-assign]  # a double: credit to spare
         runner._project_of = lambda ticket: projects.Project("Site", Path("/repo"))  # type: ignore[method-assign]  # a double: the ticket\'s project
@@ -1057,7 +1057,7 @@ def a_base_that_keeps_moving_is_replayed_twice_then_asked_about(state_home: Path
     from ponos import delivery
 
     url = "https://github.com/x/y/pull/1"
-    page = _reviewed("pmoving", "Validated", url)
+    page = _reviewed("pmoving", "validated", url)
     replayed: list[tuple[Any, ...]] = []
 
     def merge(url: str, method: str = "squash", accounts: Any = None) -> str:
@@ -1066,7 +1066,7 @@ def a_base_that_keeps_moving_is_replayed_twice_then_asked_about(state_home: Path
 
     passes: list[list[dict[str, Any]]] = []
     for _ in range(3):
-        runner = _board_runner([page], {"blocked": "Blocked"})
+        runner = _board_runner([page], {"blocked": "blocked"})
         runner._project_of = lambda ticket: projects.Project("Site", Path("/repo"))  # type: ignore[method-assign]  # a double: the ticket\'s project
         with (
             _github({url: "OPEN"}, merge=merge),
@@ -1097,7 +1097,7 @@ def a_base_moved_by_the_runners_own_merges_is_not_held_against_the_ticket(state_
     runner in between, the limit holds — see the case above.
     """
     url = "https://github.com/x/y/pull/1"
-    page = _reviewed("pqueued", "Validated", url)
+    page = _reviewed("pqueued", "validated", url)
     replayed: list[tuple[Any, ...]] = []
     refusals = ["not mergeable"] * 5
 
@@ -1107,7 +1107,7 @@ def a_base_moved_by_the_runners_own_merges_is_not_held_against_the_ticket(state_
             raise git_module.GitError(f"gh pr merge: Pull Request is {refusals.pop()}")
         return "merged"
 
-    runner = _board_runner([page], {"blocked": "Blocked"})
+    runner = _board_runner([page], {"blocked": "blocked"})
     runner._project_of = lambda ticket: projects.Project("Site", Path("/repo"))  # type: ignore[method-assign]  # a double: the ticket\'s project
     passes: list[list[dict[str, Any]]] = []
     for sibling in (2, 3, 4):
@@ -1157,7 +1157,7 @@ def _reading_checks(
         failing_on=lambda url, base, accounts=None: asked.append(f"base {base}") or on_base,  # type: ignore[func-returns-value]  # asked, then answered
     ):
         checks, said = runner._checked(
-            ticket_module.Ticket(_reviewed("t-1", "In progress", "")), url, Path("/work"), "main"
+            ticket_module.Ticket(_reviewed("t-1", "progress", "")), url, Path("/work"), "main"
         )
     return checks, said, asked
 
@@ -1437,7 +1437,7 @@ def a_forced_merge_that_is_a_question_still_waits_in_review() -> None:
         "pending",
         refuses="Head branch is out of date",
         blocker="BEHIND",
-        options=["In review", "Done"],
+        options=["review", "done"],
     )
     assert not later and len(merges) == 1, "without the column, nothing changes"
 
@@ -1538,7 +1538,7 @@ def a_red_base_sets_the_pull_request_aside_and_opens_one_repair_for_all_of_them(
 ) -> None:
     """Base red: no merge, no question, the card says so — and one ticket to repair it."""
     first, second = "https://github.com/x/y/pull/1", "https://github.com/x/y/pull/2"
-    pages = [_reviewed("p1", "In progress", first), _reviewed("p2", "In progress", second)]
+    pages = [_reviewed("p1", "progress", first), _reviewed("p2", "progress", second)]
     with _red_base():
         runner = _board_runner(pages, {})
         (why, later), merges = _forced_on_red_base(runner, pages[0], first)
@@ -1552,20 +1552,20 @@ def a_red_base_sets_the_pull_request_aside_and_opens_one_repair_for_all_of_them(
     assert len(_client(runner).created) == 1, _client(runner).created
     title, values = _client(runner).created[0]
     assert title == "Repair main of Site", title
-    assert values["Status"] == "Ready" and values["Priority"] == 75, values
+    assert values["statut"] == "ready" and values["Priorité"] == 75, values
     assert "`frontend`" in _client(runner).bodies[0] and _REPAIR_RUN in _client(runner).bodies[0]
 
 
 @case
 def the_repair_of_a_base_is_a_high_priority_code_bug(state_home: Path) -> None:
     url = "https://github.com/x/y/pull/1"
-    page = _reviewed("p1", "In progress", url)
+    page = _reviewed("p1", "progress", url)
     with _red_base():
         runner = _board_runner([page], {})
         _forced_on_red_base(runner, page, url)
     _, values = _client(runner).created[0]
     assert values["Type"] == "Code" and values["Sous-type"] == "Bug", values
-    assert values["Priority"] == 75, values
+    assert values["Priorité"] == 75, values
 
 
 @case
@@ -1575,8 +1575,8 @@ def the_pull_request_of_a_repair_is_validated_without_waiting_for_a_review(
     """A repair opened by the runner is merged once green; any other code ticket still waits."""
     project = projects.Project("Site", Path("/repo"))
     runner = _board_runner([], {})
-    other = ticket_module.Ticket(_reviewed("p-other", "In progress", ""))
-    repair = ticket_module.Ticket(_reviewed("t-1", "In progress", ""))
+    other = ticket_module.Ticket(_reviewed("p-other", "progress", ""))
+    repair = ticket_module.Ticket(_reviewed("t-1", "progress", ""))
     state.repairing("x/y", "main", "t-1")  # the board spells ids with dashes
     assert runner._forced("code", project, other) == ""
     assert runner._forced("code", project, repair)
@@ -1588,13 +1588,13 @@ def a_repair_that_is_done_is_followed_by_a_new_one_if_the_base_is_red_again(
     state_home: Path,
 ) -> None:
     url = "https://github.com/x/y/pull/1"
-    page = _reviewed("p1", "In progress", url)
+    page = _reviewed("p1", "progress", url)
     with _red_base():
         runner = _board_runner([page], {})
         _forced_on_red_base(runner, page, url)
-        _client(runner)._pages[-1].properties["Status"] = {
+        _client(runner)._pages[-1].properties["statut"] = {
             "type": "status",
-            "status": {"name": "Done"},
+            "status": {"name": "done"},
         }
         _forced_on_red_base(runner, page, url)
     assert len(_client(runner).created) == 2, _client(runner).created
@@ -1620,7 +1620,7 @@ def _repairing(
     from ponos import session as session_module
 
     url = "https://github.com/x/y/pull/1"
-    page = _reviewed("p1", "In progress", url)
+    page = _reviewed("p1", "progress", url)
     runner = _board_runner([page], {})
     runner._body = lambda ticket: "Le titre est faux."  # type: ignore[method-assign]  # a double: the ticket's body
     runner._add_cost = lambda *args: None  # type: ignore[method-assign]  # a double: nothing paid
@@ -1731,7 +1731,7 @@ def a_merge_that_took_a_repair_carries_its_cost_into_the_history(state_home: Pat
     from ponos import session as session_module
 
     url = "https://github.com/x/y/pull/1"
-    page = _reviewed("p1", "In progress", url)
+    page = _reviewed("p1", "progress", url)
     runner = _board_runner([page], {})
     repair = session_module.Outcome(
         ok=True,
@@ -1778,7 +1778,7 @@ def the_repair_attempts_of_a_ticket_are_kept_by_head_commit(state_home: Path) ->
 def a_pull_request_set_aside_waits_for_a_green_base_then_goes_on_its_own(state_home: Path) -> None:
     """Still red: left alone, no merge asked. Green again: merged, and the card says so."""
     url = "https://github.com/x/y/pull/1"
-    page = _reviewed("p1", "Validated", url)
+    page = _reviewed("p1", "validated", url)
     merges: list[str] = []
 
     def merge(url: str, method: str = "squash", accounts: Any = None) -> str:
@@ -1808,7 +1808,7 @@ def a_resolved_pull_request_on_a_red_base_goes_back_to_validated_without_a_quest
     state_home: Path,
 ) -> None:
     url = "https://github.com/x/y/pull/1"
-    page = _reviewed("p1", "In progress", url)
+    page = _reviewed("p1", "progress", url)
     with _red_base():
         runner = _board_runner([page], {})
         done = runner._left_for_base(
@@ -1820,8 +1820,8 @@ def a_resolved_pull_request_on_a_red_base_goes_back_to_validated_without_a_quest
         )
         assert state.waiting_for_base("p1")
     assert done["status"] == "waiting" and done["reason"] == "merge.base-red", done
-    status = [values["Status"] for _, values in _client(runner).written if "Status" in values]
-    assert status == ["Validated"], status
+    status = [values["statut"] for _, values in _client(runner).written if "statut" in values]
+    assert status == ["validated"], status
     assert "the base is red, it is not this pull request" in _client(runner).comments_written[-1]
     assert "Repair main of Site" in _client(runner).comments_written[-1]
 

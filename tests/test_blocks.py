@@ -79,7 +79,7 @@ def every_fail_carries_a_code_the_catalogue_knows() -> None:
     for cause in asked:
         assert cause in blocks.CAUSES, f"{cause!r} is not in blocks.py"
     # And at run time: a code the catalogue does not hold is refused, not written.
-    runner = _board_runner([_reviewed("p-1", "In progress", None)], {"blocked": "Blocked"})
+    runner = _board_runner([_reviewed("p-1", "progress", None)], {"blocked": "blocked"})
     client = runner.client
     assert isinstance(client, _BoardClient)
     try:
@@ -146,7 +146,7 @@ def every_sentence_said_for_a_cause_is_read_back_to_it() -> None:
         "base": "main",
         "branch": "ticket/x",
         "limit": "$5",
-        "origin": "Validated",
+        "origin": "validated",
         "problem": "x",
         "url": "https://github.com/o/r/pull/1",
     }
@@ -189,7 +189,7 @@ def every_sentence_said_for_a_cause_is_read_back_to_it() -> None:
 @case
 def a_stop_writes_its_cause_on_the_board_and_in_its_result_and_leaving_clears_it() -> None:
     runner = _board_runner(
-        [_reviewed("p-stop", "In progress", None)], {"blocked": "Blocked", "failed": "Failed"}
+        [_reviewed("p-stop", "progress", None)], {"blocked": "blocked", "failed": "blocked"}
     )
     client = runner.client
     assert isinstance(client, _BoardClient)
@@ -202,33 +202,33 @@ def a_stop_writes_its_cause_on_the_board_and_in_its_result_and_leaving_clears_it
         question="?",
     )
     assert blocked["status"] == "blocked" and blocked["code"] == "merge.refused", blocked
-    assert client.written == [("p-stop", {"Status": "Blocked", "Blocage": "merge.refused"})]
+    assert client.written == [("p-stop", {"statut": "blocked", "Blocage": "merge.refused"})]
     failed = runner._fail(ticket, runner.voice.say("crashed"), "boom", code="runner.crashed")
     assert failed["code"] == "runner.crashed", failed
     assert client.written[-1] == (
         "p-stop",
-        {"Status": "Failed", "Blocage": "runner.crashed"},
+        {"statut": "blocked", "Blocage": "runner.crashed"},
     )
 
     # The page now says why it stopped; the next status that is not a stop empties it.
     page = client._pages[0]
     page.properties["Blocage"] = {"type": "select", "select": {"name": "runner.crashed"}}
-    page.properties["Status"] = {"type": "status", "status": {"name": "Failed"}}
+    page.properties["statut"] = {"type": "status", "status": {"name": "blocked"}}
     client.written.clear()
-    runner._set(ticket, Status="In progress", Runner="ponos@laptop")
+    runner._set(ticket, statut="progress", Agent="ponos@laptop")
     assert client.written == [
-        ("p-stop", {"Blocage": "", "Status": "In progress", "Runner": "ponos@laptop"})
+        ("p-stop", {"Blocage": "", "statut": "progress", "Agent": "ponos@laptop"})
     ], client.written
     # A card with nothing in the column is not written to for nothing.
     del page.properties["Blocage"]
     client.written.clear()
-    runner._set(ticket, Status="Done")
-    assert client.written == [("p-stop", {"Status": "Done"})], client.written
+    runner._set(ticket, statut="done")
+    assert client.written == [("p-stop", {"statut": "done"})], client.written
 
 
 @case
 def a_session_that_did_not_finish_is_told_by_its_cause() -> None:
-    runner = _board_runner([_reviewed("p-1", "In progress", None)], {"blocked": "Blocked"})
+    runner = _board_runner([_reviewed("p-1", "progress", None)], {"blocked": "blocked"})
     client = runner.client
     assert isinstance(client, _BoardClient)
     ended = session.Outcome(
@@ -246,7 +246,7 @@ def a_session_that_did_not_finish_is_told_by_its_cause() -> None:
 def the_board_offers_the_column_and_doctor_names_it_when_it_is_missing() -> None:
     from ponos import blocks
 
-    settings = C.Notion(properties=dict(C._DEFAULT_PROPERTIES))
+    settings = C.Notion()
     column = provision.tickets_schema(settings)["Blocage"]
     options = [option["name"] for option in column["select"]["options"]]
     assert options == list(blocks.CODES), options
@@ -254,7 +254,7 @@ def the_board_offers_the_column_and_doctor_names_it_when_it_is_missing() -> None
     assert files.schemas(settings)["tickets"]["Blocage"] == "select"
     from test_health import _columns
 
-    columns = _columns(settings, {"Status": "status"})
+    columns = _columns(settings, {"statut": "status"})
     assert "“Blocage”" in columns.params["missing"], columns.params
 
 
@@ -277,11 +277,11 @@ def a_stopped_card_carries_its_cause_from_the_board_or_else_from_the_history(
 ) -> None:
     from ponos import blocks
 
-    state.record({"id": "c2", "status": "failed", "reason": "x", "code": "merge.refused"})
+    state.record({"id": "c2", "status": "blocked", "reason": "x", "code": "merge.refused"})
     state.record({"id": "c4", "status": "blocked", "reason": "x", "code": "merge.refused"})
     cards: list[dict[str, Any]] = [
         {"id": "c1", "column": "blocked", "block": blocks.describe("session.question")},
-        {"id": "c2", "column": "failed", "block": None},
+        {"id": "c2", "column": "blocked", "block": None},
         {"id": "c3", "column": "blocked", "block": None},
         # Left the stopped columns: whatever the column still said, it is not drawn.
         {"id": "c4", "column": "ready", "block": blocks.describe("merge.refused")},

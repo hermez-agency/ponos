@@ -1632,7 +1632,6 @@ export const FRENCH: Record<string, string> = {
   "Same model": "Même modèle",
   "Same model ({{model}})": "Même modèle ({{model}})",
   "Ponos is working…": "Ponos travaille…",
-  "The session failed.": "La session a échoué.",
   Confirm: "Confirmer",
   "This machine": "Cette machine",
   "What an MCP is, how to plug Ponos into Claude, and the ones the sessions use.": "Ce qu'est un MCP, comment brancher Ponos à Claude, et ceux qu'utilisent les sessions.",

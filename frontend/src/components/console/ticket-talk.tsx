@@ -115,13 +115,11 @@ export function TicketTalk({ ticket, onSession }: { ticket: Ticket; onSession: (
   const loud = talk.filter((message) => !quiet(message.role, message.text))
   const last = loud[loud.length - 1]
   const moving = ticket.column === "ready" || ticket.column === "running"
-  const failed = sent !== null && answers <= sent && ticket.column === "failed"
   // A running ticket is at work whatever was said last: the window reopened
   // after an unblock, or after a reload, has no memory of having sent.
   const working =
-    !failed &&
-    ((sent !== null && answers <= sent) ||
-      (sent === null && (ticket.column === "running" || (moving && last?.role === "you"))))
+    (sent !== null && answers <= sent) ||
+    (sent === null && (ticket.column === "running" || (moving && last?.role === "you")))
 
   // Ponos spoke: it is no longer at work on what you said.
   React.useEffect(() => {
@@ -351,7 +349,6 @@ export function TicketTalk({ ticket, onSession }: { ticket: Ticket; onSession: (
           </div>
         ) : null}
         {working ? <Working /> : null}
-        {failed ? <Failed ticket={ticket} /> : null}
         {!talk.length && !talkLoading && !blocked ? (
           <p className="text-muted-foreground text-sm">
             {t("Nothing has been said on this ticket yet.")}
@@ -526,13 +523,3 @@ function Working() {
   )
 }
 
-/** The session that was to answer failed: why, where Ponos would have answered. */
-function Failed({ ticket }: { ticket: Ticket }) {
-  const t = useT()
-  return (
-    <Ponos variant="destructive" slot="failed">
-      <p className="font-semibold">{ticket.block ? blockSaid(ticket.block.label) : t("The session failed.")}</p>
-      {ticket.block ? <p>{blockSaid(ticket.block.help)}</p> : null}
-    </Ponos>
-  )
-}

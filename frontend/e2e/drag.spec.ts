@@ -58,7 +58,7 @@ for (const [id, title, grip] of [
         const ticket = tickets.find((item) => item.id === id)
         return `${ticket?.status} ${ticket?.sync ?? ""}`.trim()
       })
-      .toBe("Ready")
+      .toBe("ready")
     // Still there once the page is read again: what moved is the ticket.
     await page.reload()
     await expect(page.locator(`[data-ticket-card="${LONG}"]`)).toBeVisible()

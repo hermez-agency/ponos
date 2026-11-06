@@ -141,7 +141,7 @@ class Reports(Base):
         on a card that says something, as for the refusal below.
         """
         settings = self.config.notion
-        if target in (settings.state("blocked"), settings.state("failed")):
+        if target == settings.state("blocked"):
             return {}
         block = settings.prop("block")
         return {block: ""} if store.read(ticket.page, block) else {}
@@ -583,21 +583,15 @@ class Reports(Base):
         """The row for a ticket written from a channel, and its address.
 
         Type and sub-type are left empty: the classifier fills them in before
-        the ticket runs, as on a ticket written in Notion. A draft goes where the
-        board keeps its drafts when it names that option, and has no status
-        otherwise — the same rule as the console's « New ticket ».
+        the ticket runs, as on a ticket written in Notion. A draft is written
+        in the drafts' status — the same rule as the console's « New ticket ».
         """
         settings = self.config.notion
         values: dict[str, Any] = {}
-        draft = settings.state("draft")
-        moving = [
-            settings.state(key)
-            for key in ("ready", "running", "review", "validated", "done", "failed", "blocked")
-        ]
         if ready:
             values[settings.prop("status")] = settings.state("ready")
-        elif draft and draft not in moving:
-            values[settings.prop("status")] = draft
+        else:
+            values[settings.prop("status")] = settings.state("draft")
         if project:
             values[settings.prop("project")] = [project]
         if settings.prop("priority") in self.client.schema(self.database):
@@ -701,7 +695,7 @@ class Reports(Base):
         self._tell("failed", ticket, "failed", said.brief(asked))
         self._set(
             ticket,
-            **{self.config.notion.prop("status"): self.config.notion.state("failed"), **spent},
+            **{self.config.notion.prop("status"): self.config.notion.state("blocked"), **spent},
         )
         self._comment(
             ticket,
