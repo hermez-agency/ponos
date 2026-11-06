@@ -55,6 +55,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -450,6 +451,14 @@ class Mirror:
         count = self.primary.replace_markdown(page_id, markdown)
         try:
             self.mirror.replace_markdown(page_id, markdown)
+        except StoreError:
+            pass
+        return count
+
+    def replace_section(self, page_id: str, titles: Sequence[str], markdown: str) -> int:
+        count = self.primary.replace_section(page_id, titles, markdown)
+        try:
+            self.mirror.replace_section(page_id, titles, markdown)
         except StoreError:
             pass
         return count

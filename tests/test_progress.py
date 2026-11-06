@@ -1,4 +1,4 @@
-"""`progress.py`: the live report written on a ticket."""
+"""`progress.py`: the live line a session keeps on the board, and the steps it reads."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from typing import Any
 
 from support import _Clock, _run_on, case
 
-from ponos import markdown, notion, progress, session, voice
+from ponos import markdown, notion, progress, session
 
 # -- the live report ---------------------------------------------------------
 
@@ -48,33 +48,21 @@ def what_the_agent_said_is_written_whole_and_not_cut_to_a_bullet() -> None:
     """A paragraph of reasoning is the part a human reads; it goes down entire."""
     said = "Le ticket parle de la documentation. " * 20  # far past a bullet's 200
     steps = progress.describe(_assistant({"type": "text", "text": said}))
-    assert steps[0].label == said.strip() and "…" not in steps[0].label
+    assert steps[0].label == said.strip() and "…" not in steps[0].label and steps[0].said
 
     live, client, clock = _reporting()
     live.add(steps[0])
-    live.add(progress.Step("Bash", "npm test"))
     clock.now += 11
     live.flush()
-    # Prose is a paragraph; a tool call never reaches the page.
-    assert client.kinds == ["paragraph"]
-    assert client.blocks[0] == said.strip()
-
-    live.add(steps[0])
-    clock.now += 11
-    live.flush()
-    # One paragraph after the other, no rule between them.
-    assert client.kinds == ["paragraph", "paragraph"]
-    # The board column shows a line, whatever the page shows.
+    # The board column shows a line, whatever the journal keeps.
     assert len(client.properties[-1]) <= progress.LINE
 
 
 @case
-def the_ticket_gets_what_the_agent_said_and_not_each_command() -> None:
-    """“Bash · npx vite --port 5199” teaches nothing to whoever reads a ticket.
+def the_column_counts_each_command_and_shows_the_last() -> None:
+    """The calls are counted and shown, one at a time, in the board's column.
 
-    The calls stay counted in the title and shown in the board's column; their
-    detail is the log's and the console's. A failed one stays off as well: what
-    the agent says next is what it made of it.
+    A failed one too: it is the last thing that happened.
     """
     live, client, clock = _reporting()
     for step in progress.describe(
@@ -95,33 +83,14 @@ def the_ticket_gets_what_the_agent_said_and_not_each_command() -> None:
         live.add(step)
     clock.now += 11
     live.flush()
-    assert client.blocks == ["Le port 5199 est pris ; je prends un autre port."]
-    assert client.titles[-1].startswith("⏳ Live — 5 steps")
+    assert live.written == 5
     assert client.properties[-1] == "Error · exit 1"
 
 
 @case
-def a_turn_too_long_for_a_ticket_page_is_the_only_one_cut() -> None:
+def a_turn_too_long_for_a_step_is_the_only_one_cut() -> None:
     steps = progress.describe(_assistant({"type": "text", "text": "x" * (progress.SAID + 500)}))
     assert len(steps[0].label) == progress.SAID and steps[0].label.endswith("…")
-
-    live, client, clock = _reporting()
-    live.add(steps[0])
-    clock.now += 11
-    live.flush()
-    # Notion caps a piece of rich text, not a block: the paragraph is in pieces.
-    assert client.pieces[-1] > 1 and client.blocks[-1] == steps[0].label
-
-
-@case
-def the_markdown_an_agent_writes_reaches_the_page_as_markup() -> None:
-    live, client, clock = _reporting()
-    live.add(progress.Step("**Interprétation** : lire `README.md`.", said=True))
-    clock.now += 11
-    live.flush()
-    assert client.blocks == ["Interprétation : lire README.md."], "no stray asterisks"
-    marked = [name for mark in client.marks for name, on in mark.items() if on]
-    assert marked == ["bold", "code"]
 
 
 @case
@@ -153,35 +122,19 @@ def only_a_failing_tool_result_is_worth_a_line() -> None:
 
 
 class _Live:
-    """A Notion that counts what a live report would have written to it."""
+    """A board that counts what a live report would have written to it."""
 
     def __init__(self, refuse: bool = False) -> None:
         self.refuse = refuse
-        self.blocks: list[str] = []  # the text of every child appended under the toggle
-        self.kinds: list[str] = []  # and its block type
-        self.pieces: list[int] = []  # and how many pieces of rich text it took
-        self.marks: list[dict[str, Any]] = []  # every annotation any of those pieces carried
-        self.titles: list[str] = []  # every title the toggle has carried
         self.properties: list[str] = []  # every value written to the board column
+        self.page: list[str] = []  # every write aimed at the page itself
 
     def append_blocks(self, block_id: str, blocks: list[dict[str, Any]]) -> list[str]:
-        if self.refuse:
-            raise notion.NotionError("403 forbidden")
-        if block_id == "page":
-            return ["toggle"]
-        for block in blocks:
-            kind = block["type"]
-            parts = block[kind].get("rich_text", [])
-            self.kinds.append(kind)
-            self.pieces.append(len(parts))
-            self.blocks.append("".join(part["text"]["content"] for part in parts))
-            self.marks += [part["annotations"] for part in parts if part.get("annotations")]
+        self.page.append(block_id)
         return ["block"] * len(blocks)
 
     def update_block(self, block_id: str, payload: dict[str, Any]) -> None:
-        if self.refuse:
-            raise notion.NotionError("403 forbidden")
-        self.titles.append(payload["toggle"]["rich_text"][0]["text"]["content"])
+        self.page.append(block_id)
 
     def update(self, database_id: str, page_id: str, values: dict[str, Any]) -> None:
         if self.refuse:
@@ -210,28 +163,43 @@ def the_steps_are_written_on_the_cadence_and_not_before() -> None:
     for index in range(5):
         clock.now += 1
         live.add(progress.Step("Read", f"file-{index}.py"))
-    assert client.blocks == [], "nothing written before the cadence came round"
-
-    assert client.titles == [], "nothing written before the cadence came round"
+    assert client.properties == [], "nothing written before the cadence came round"
 
     clock.now += 6
     live.add(progress.Step("Bash", "pytest"))
-    assert client.titles[-1].startswith("⏳ Live — 6 steps"), "one write, counting all that waited"
-    assert client.properties[-1] == "Bash · pytest", "the board column shows the last step"
+    assert client.properties == ["Bash · pytest"], "one write, the last step"
+    assert live.written == 6, "counting all that waited"
+
+
+@case
+def the_page_is_never_written_while_the_session_runs() -> None:
+    """The page is the mission and what was done (ticket_page.py), not a log.
+
+    A run used to append a toggle per session holding everything the agent
+    said: three runs, three toggles, and nobody could tell what stood done. The
+    steps are the run journal's now; the board only gets its one live line.
+    """
+    live, client, clock = _reporting()
+    live.add(progress.Step("Je lis la configuration.", said=True))
+    live.add(progress.Step("Bash", "npm test"))
+    clock.now += 120
+    live.close()
+    assert client.page == [], client.page
+    assert client.properties == ["Bash · npm test", ""]
 
 
 class _Stuck(_Live):
-    """A Notion that holds every write until it is let go — a 429, waited out."""
+    """A board that holds every write until it is let go — a 429, waited out."""
 
     def __init__(self) -> None:
         super().__init__()
         self.free = threading.Event()
         self.held = threading.Event()
 
-    def append_blocks(self, block_id: str, blocks: list[dict[str, Any]]) -> list[str]:
+    def update(self, database_id: str, page_id: str, values: dict[str, Any]) -> None:
         self.held.set()
         assert self.free.wait(10), "never let go"
-        return super().append_blocks(block_id, blocks)
+        super().update(database_id, page_id, values)
 
 
 class _Session:
@@ -251,7 +219,15 @@ def a_notion_that_takes_minutes_does_not_hold_up_reading_the_session() -> None:
     what waited goes down in one write when Notion answers.
     """
     clock, client = _Clock(), _Stuck()
-    live = progress.Live(client, "page", interval=10.0, clock=clock, background=True)  # type: ignore[arg-type]  # a fake: only what a live report writes
+    live = progress.Live(
+        client,  # type: ignore[arg-type]  # a fake: only what a live report writes
+        "page",
+        database="db",
+        property_name="Progress",
+        interval=10.0,
+        clock=clock,
+        background=True,
+    )
     said = [
         json.dumps(_assistant({"type": "text", "text": f"Étape {index}."})) + "\n"
         for index in range(200)
@@ -267,13 +243,13 @@ def a_notion_that_takes_minutes_does_not_hold_up_reading_the_session() -> None:
     elapsed = time.monotonic() - started
 
     assert client.held.wait(5), "the writer had started its first write"
-    assert len(texts) == 200 and client.blocks == [], "read to the end, Notion still stuck"
+    assert len(texts) == 200 and client.properties == [], "read to the end, Notion still stuck"
     assert elapsed < 2, f"reading took {elapsed:.1f}s behind a stuck Notion"
 
     client.free.set()
-    live.close("done")
-    assert client.titles[-1].startswith("✓ 200 steps"), "every step counted"
-    assert client.blocks == [f"Étape {index}." for index in range(200)], "none lost, in order"
+    live.close()
+    assert live.written == 200, "every step counted"
+    assert client.properties[-1] == "", "and the column cleared on the way out"
 
 
 @case
@@ -281,52 +257,11 @@ def what_is_still_waiting_is_written_when_the_session_ends() -> None:
     live, client, clock = _reporting()
     live.add(progress.Step("Edit", "src/x.py"))
     clock.now += 120
-    live.close("removed the header")
+    live.close()
 
-    assert client.blocks == []
-    assert client.titles[-1] == "✓ 1 step · 2 minutes · removed the header"
+    assert client.properties[0] == "Edit · src/x.py"
     # A finished ticket no longer claims to be doing anything.
     assert client.properties[-1] == ""
-
-
-@case
-def a_run_that_went_wrong_calls_its_block_a_trace_and_keeps_it_there() -> None:
-    """The report is two lines and says where the rest is; the rest is here.
-
-    Which is the whole move: what every comment used to end on — the command
-    that resumes the session, the log, the worktree that was kept — is worth
-    exactly one click on the day a run failed, and nothing at all on every
-    other day.
-    """
-    live, client, clock = _reporting()
-    live.add(progress.Step("Edit", "src/x.py"))
-    clock.now += 120
-    live.close("it asked a question", ok=False)
-    assert client.titles[-1] == "⚠️ Trace — 1 step · 2 minutes · it asked a question"
-
-    assert live.detail("To pick the session back up: `claude --resume s-1`.")
-    assert client.blocks[-1].startswith("To pick the session back up")
-    assert not live.detail("  "), "nothing to file is not something to file"
-
-
-@case
-def a_ticket_with_no_block_to_file_a_trace_in_keeps_it_in_the_report() -> None:
-    """A trace nobody can find is a trace nobody has."""
-    live, client, _ = _reporting()
-    assert not live.detail("`claude --resume s-1`"), "no step, no toggle, nowhere to put it"
-    assert client.blocks == []
-
-
-@case
-def the_block_a_run_leaves_speaks_the_language_the_report_does() -> None:
-    """“⏳ Live — 16 step(s)” under a French verdict is one glance, two languages."""
-    clock, client = _Clock(), _Live()
-    live = progress.Live(client, "page", words=voice.Voice("fr"), clock=clock)  # type: ignore[arg-type]  # a fake: only what a live report writes
-    live.add(progress.Step("Edit", "src/x.py"))
-    clock.now += 120
-    live.close()
-    assert client.titles[0].startswith("⏳ En cours")
-    assert client.titles[-1] == "✓ 1 étape · 2 minutes"
 
 
 class _Page:
@@ -433,10 +368,10 @@ def a_toggle_that_only_looks_like_a_run_is_kept() -> None:
 
 
 @case
-def a_session_that_did_nothing_leaves_no_toggle_behind() -> None:
+def a_session_that_did_nothing_writes_nothing() -> None:
     live, client, _ = _reporting()
-    live.close("nothing to do")
-    assert client.blocks == [] and client.titles == []
+    live.close()
+    assert client.properties == [] and client.page == []
 
 
 @case
@@ -449,8 +384,8 @@ def the_same_step_twice_in_a_row_is_said_once() -> None:
     live.add(progress.Step("Read", "src/y.py"))
     clock.now += 11
     live.flush()
-    assert client.blocks == ["Je lis la config."]
-    assert client.titles[-1].startswith("⏳ Live — 3 steps")
+    assert live.written == 3
+    assert client.properties[-1] == "Read · src/y.py"
 
 
 @case
@@ -460,38 +395,8 @@ def a_notion_that_refuses_costs_the_report_and_not_the_ticket() -> None:
     for index in range(10):
         clock.now += 11
         live.add(progress.Step("Read", f"file-{index}.py"))
-    live.close("done anyway")
-    assert live.disabled and client.blocks == []
-
-
-@case
-def a_reporter_never_writes_more_than_a_page_can_hold() -> None:
-    live, client, clock = _reporting()
-    for index in range(progress.MAX_STEPS + 50):
-        live.add(progress.Step(f"Paragraphe {index}.", said=True))
-    clock.now += 11
-    live.flush()
-    assert len(client.blocks) == progress.MAX_STEPS + 1, "the prose, then one line saying enough"
-    assert client.blocks[-1].startswith("…")
-
-    # Capped is not disabled: the page stops, the title still counts and ends.
-    live.add(progress.Step("Encore un.", said=True))
-    clock.now += 11
-    live.close("done")
-    assert len(client.blocks) == progress.MAX_STEPS + 1
-    assert client.titles[-1].startswith(f"✓ {progress.MAX_STEPS + 51} steps")
-    assert client.titles[-1].endswith("· done")
-
-
-@case
-def tool_calls_by_the_hundred_do_not_cost_the_prose_its_place() -> None:
-    live, client, clock = _reporting()
-    for index in range(progress.MAX_STEPS + 50):
-        live.add(progress.Step("Read", f"file-{index}.py"))
-    live.add(progress.Step("Tout est lu ; je lance les tests.", said=True))
-    clock.now += 11
-    live.flush()
-    assert client.blocks == ["Tout est lu ; je lance les tests."]
+    live.close()
+    assert live.disabled and client.properties == []
 
 
 # -- the plan ----------------------------------------------------------------

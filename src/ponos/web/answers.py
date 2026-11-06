@@ -280,6 +280,10 @@ class TicketDetail(Ticket):
 
     content: str
     """The page's blocks, flattened the way the runner reads them."""
+    mission: str
+    """The page's first part, the one a session is told — see ticket_page.py."""
+    done: str
+    """Its second part, « What was done »: the last report, then the history — empty before any session."""
     model_in_use: ModelInUse = omitted()
     """The model it runs on: the last session's own word, then the column, then the defaults."""
     on: str = omitted()

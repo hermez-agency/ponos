@@ -1362,7 +1362,10 @@ def a_long_message_keeps_its_first_line_as_the_title_and_the_rest_as_the_body(
 ) -> None:
     board, _ = _writing("/ticket ponos fix the stop button\nit hides on mobile\nunder 400px")
     assert board.rows[0][0] == "fix the stop button"
-    assert board.notes == ["fix the stop button\nit hides on mobile\nunder 400px"]
+    # The body is the mission of a page in two parts — see ticket_page.py.
+    (note,) = board.notes
+    assert note.startswith("## Mission\n\nfix the stop button\nit hides on mobile\nunder 400px\n\n")
+    assert "## What was done" in note
 
 
 @case

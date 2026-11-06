@@ -30,7 +30,7 @@ directories are made the first time something is written into them.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
@@ -310,6 +310,17 @@ class Store(Protocol):
     def append_markdown(self, page_id: str, markdown: str) -> int: ...
 
     def replace_markdown(self, page_id: str, markdown: str) -> int: ...
+
+    def replace_section(self, page_id: str, titles: Sequence[str], markdown: str) -> int:
+        """Make a page end on `markdown`, in place of its part headed by one of `titles`.
+
+        That heading and everything after it go, and so do the folded blocks
+        an older run's live report left on the page; what is above stays block
+        for block — the mission a person wrote, see ticket_page.py. A page
+        without such a heading gets `markdown` appended. Returns the count of
+        blocks written.
+        """
+        ...
 
     def append_blocks(self, block_id: str, blocks: list[dict[str, Any]]) -> list[str]: ...
 

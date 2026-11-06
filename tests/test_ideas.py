@@ -28,7 +28,6 @@ from ponos import (
     schedules,
     session,
     store,
-    voice,
 )
 
 # -- ideas -------------------------------------------------------------------
@@ -959,35 +958,28 @@ def an_image_in_a_brief_is_named_for_the_session_and_drawn_by_the_console() -> N
 
 
 @case
-def the_live_report_writes_its_steps_into_the_file() -> None:
-    """A text file has no fold to hide a session's story in, so it keeps it.
+def the_live_line_is_written_on_a_board_of_files_too() -> None:
+    """The board's live column comes off the same flush on a Markdown board.
 
-    The toggle's title is the one thing lost — there is no line to rewrite in
-    place — and `update_block` says so by doing nothing. What must not happen is
-    the report disabling itself: the board's live column comes off the same
-    flush, and a Markdown installation would silently stop having one.
+    What must not happen is the report disabling itself there — a Markdown
+    installation would silently stop having one — nor writing the session's
+    steps into the file: the page is the mission and what was done.
     """
     with _board() as board:
         page_id = board.create_row("tickets", "Un ticket", {"statut": "ready"})
         live = progress.Live(
-            board,
-            page_id,
-            database="tickets",
-            property_name="Progress",
-            interval=0,
-            words=voice.Voice(""),
+            board, page_id, database="tickets", property_name="Progress", interval=0
         )
         live.add(progress.Step("Read", "src/x.py"))
         live.flush()
         assert store.read(board.page(page_id), "Progress") == "Read · src/x.py"
         live.add(progress.Step("J'ai lu le fichier.", said=True))
         live.flush()
-        live.close("Fini.", ok=True)
+        live.close()
 
         assert not live.disabled
         written = board.blocks_text(page_id)
-        assert "src/x.py" not in written, written
-        assert "J'ai lu le fichier." in written
+        assert "src/x.py" not in written and "J'ai lu le fichier." not in written, written
         # Cleared on the way out, exactly as on a Notion board.
         assert store.read(board.page(page_id), "Progress") == ""
 

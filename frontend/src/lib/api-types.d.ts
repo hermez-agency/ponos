@@ -4532,6 +4532,10 @@ export interface components {
             estimate?: components["schemas"]["Estimate"] | null;
             /** @description The page's blocks, flattened the way the runner reads them. */
             content: string;
+            /** @description The page's first part, the one a session is told — see ticket_page.py. */
+            mission: string;
+            /** @description Its second part, « What was done »: the last report, then the history — empty before any session. */
+            done: string;
             /** @description The model it runs on: the last session's own word, then the column, then the defaults. */
             model_in_use?: components["schemas"]["ModelInUse"];
             /** @description The prompt run at every change of the ticket's status, empty for none. */

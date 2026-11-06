@@ -18,7 +18,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from . import priority, state, store
+from . import priority, state, store, ticket_page
 from . import schedules as schedules_module
 from . import voice as voice_module
 from .base import Base
@@ -262,13 +262,18 @@ class Recurrence(Base):
             schedule.page.id, "launched" if strict else "born", ticket=page_id, title=title
         )
         try:
+            # The schedule's page is the mission of every ticket it makes —
+            # its own mission, when it was written in the two parts too.
             self.client.append_markdown(
                 page_id,
-                self.voice.say(
-                    "born-of-schedule", name=schedule.name, stamp=stamp, url=schedule.page.url
-                )
-                + "\n"
-                + (f"\n{brief}\n" if brief.strip() else ""),
+                ticket_page.template(
+                    self.voice,
+                    self.voice.say(
+                        "born-of-schedule", name=schedule.name, stamp=stamp, url=schedule.page.url
+                    )
+                    + "\n"
+                    + (f"\n{mission}\n" if (mission := ticket_page.mission(brief)) else ""),
+                ),
             )
         except store.StoreError as error:
             self.say(f"  ! {title} — created, but its body was refused: {voice_module.line(error)}")

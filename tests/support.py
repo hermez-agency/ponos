@@ -29,7 +29,7 @@ import tempfile
 import threading
 import time
 import traceback
-from collections.abc import Callable, Collection, Iterator
+from collections.abc import Callable, Collection, Iterator, Sequence
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
@@ -51,14 +51,14 @@ from ponos import (
     images,
     leftovers,
     log,
+    markdown,
     notion,
-    progress,
     projects,
     provider,
     session,
     store,
     sync,
-    voice,
+    ticket_page,
     workspace,
 )
 from ponos import config as C
@@ -405,7 +405,7 @@ class _Unblocking(Runner):
     def _project_of(self, ticket: ticket_module.Ticket) -> projects.Project:
         return projects.Project(name="", path=None)
 
-    def _body(self, ticket: ticket_module.Ticket) -> str:
+    def _body(self, ticket: ticket_module.Ticket, *, done: bool = False) -> str:
         return "Dépend du ticket B."
 
     def discussion(self, ticket: ticket_module.Ticket) -> list[str]:
@@ -718,6 +718,7 @@ class _BoardClient:
         self.queried: list[object] = []
         self.created: list[tuple[str, dict[str, Any]]] = []
         self.bodies: list[str] = []
+        self.sections: list[tuple[str, str]] = []
         # Columns a test adds to the board: the Runner one, to begin with.
         self.columns: dict[str, str] = {}
 
@@ -774,6 +775,11 @@ class _BoardClient:
 
     def append_markdown(self, page_id: str, text: str) -> None:
         self.bodies.append(text)
+
+    def replace_section(self, page_id: str, titles: Sequence[str], markdown: str) -> int:
+        # The part « What was done », as each run left it: the last one wins.
+        self.sections.append((page_id, markdown))
+        return 1
 
 
 def _reviewed(page_id: str, status: str, pull_request: str | None) -> notion.Page:
@@ -1007,13 +1013,29 @@ class _Clock:
 def _run_on(
     page: store.Store, words: str, said: str, *, ok: bool = True, page_id: str = "page"
 ) -> None:
-    """One session's live report, as `execution` would leave it on the page."""
-    clock = _Clock()
-    live = progress.Live(page, page_id, words=voice.Voice(words), clock=clock)
-    live.add(progress.Step(said, said=True))
-    live.add(progress.Step("Bash", "npm test"))
-    clock.now += 90
-    live.close("stopped" if not ok else "", ok=ok)
+    """One session's live report, as a run left it on the page before it came in two parts.
+
+    No run writes one any more (ticket_page.py), but the pages written before
+    still hold them: the brief skips them, and putting the page in its two
+    parts takes them away.
+    """
+    steps = "2 étapes" if words == "fr" else "2 steps"
+    title = f"✓ {steps} · 2 minutes" if ok else f"⚠️ Trace — {steps} · 2 minutes · stopped"
+    toggle = page.append_blocks(
+        page_id,
+        [
+            {
+                "object": "block",
+                "type": "toggle",
+                "toggle": {
+                    "rich_text": [
+                        {"type": "text", "text": {"content": title}, "annotations": {"bold": True}}
+                    ]
+                },
+            }
+        ],
+    )[0]
+    page.append_blocks(toggle, markdown.to_blocks(said))
 
 
 class _Fresh:
@@ -1401,6 +1423,17 @@ class _NotionBoard:
         self.bodies[page_id] = markdown.strip()
         self._touch(page_id, at)
         return 1
+
+    def replace_section(
+        self, page_id: str, titles: Sequence[str], markdown: str, at: str = ""
+    ) -> int:
+        lines = self.bodies.get(page_id, "").splitlines()
+        cut = next(
+            (at for at, line in enumerate(lines) if ticket_page.is_heading(line, titles)),
+            len(lines),
+        )
+        above = "\n".join(lines[:cut]).strip()
+        return self.replace_markdown(page_id, f"{above}\n\n{markdown}".strip(), at)
 
     def comment(self, page_id: str, text: str, discussion_id: str = "") -> None:
         self.said.append((page_id, text))

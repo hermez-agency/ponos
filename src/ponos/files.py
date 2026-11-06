@@ -56,7 +56,7 @@ import os
 import re
 import unicodedata
 import uuid
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeVar
@@ -733,6 +733,26 @@ class Board:
             return _blocks(markdown)
         front["edited"] = now()
         _write(path, render(front, markdown))
+        return _blocks(markdown)
+
+    @_exclusive
+    def replace_section(self, page_id: str, titles: Sequence[str], markdown: str) -> int:
+        """The body's last part rewritten, what is above it kept. See `store.Store`."""
+        from . import ticket_page
+
+        _, path = self._find(page_id)
+        front, body = parse(_text(path))
+        kept = re.sub(r"\n{3,}", "\n\n", _LIVE.sub("", body)).strip()
+        lines = kept.splitlines()
+        cut = next(
+            (index for index, line in enumerate(lines) if ticket_page.is_heading(line, titles)),
+            len(lines),
+        )
+        above = "\n".join(lines[:cut]).strip()
+        text = f"{above}\n\n{markdown.strip()}".strip()
+        if text != body.strip():
+            front["edited"] = now()
+            _write(path, render(front, text))
         return _blocks(markdown)
 
     @_exclusive

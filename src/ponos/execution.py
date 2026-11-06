@@ -1,7 +1,7 @@
 """Running the session, and the two ways a ticket comes back from one.
 
 `prepare` decided everything; here it happens. One function starts the session,
-opens its run in the local journal and closes the live block whatever becomes
+opens its run in the local journal and closes the live line whatever becomes
 of it — `_run_session` — and two
 say what a finished session was worth, depending on what the ticket had to
 begin with.
@@ -36,7 +36,6 @@ import shutil
 import time
 from collections.abc import Callable
 from dataclasses import replace
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -60,6 +59,7 @@ from . import (
     stopping,
     store,
     subtypes,
+    ticket_page,
     vault,
     worktree_setup,
 )
@@ -220,12 +220,13 @@ class Execution(Base):
         chosen = self.config.runner.allowed(
             job.model or job.agent.model or self.config.runner.model
         )
-        live = job.live = self._live(job)
+        live = self._live(job)
         run = self._journal(job, log, chosen)
         outcome = self._launch(job, text, log, chosen, live, run)
+        run.answer, run.summary, run.caveats = outcome.answer, outcome.summary, outcome.caveats
         self._file_session(job, outcome)
         if live:
-            self._close_live(live, outcome)
+            live.close()
         self._hold_credits(outcome)
         self._propose_lesson(job, outcome)
         return outcome
@@ -336,11 +337,11 @@ class Execution(Base):
             if self._report_missing(job, outcome):
                 outcome = self._write_up(job, outcome, log, chosen, live, run)
         except BaseException:
-            # A session that dies still leaves a ticket saying “⏳ Live” and a
-            # column stuck on whatever it was doing. Closing here is what makes
-            # the page tell the truth on the way out too.
+            # A session that dies still leaves a column stuck on whatever it
+            # was doing. Closing here is what makes the card tell the truth on
+            # the way out too.
             if live:
-                live.close(self.voice.say("live-interrupted"), ok=False)
+                live.close()
             raise
         return outcome
 
@@ -354,23 +355,6 @@ class Execution(Base):
             if session.relocate(outcome.session_id, home):
                 job.session_home = home
                 self.say(f"    session filed under {home}")
-
-    def _close_live(self, live: progress.Live, outcome: session.Outcome) -> None:
-        """The block's last word: what the session achieved, or which of the
-        ways of not achieving it this was. After the session has been filed,
-        because a run that went wrong puts the way back into it in this very
-        block — see `_filed` — and that sentence names where the session now
-        lives.
-        """
-        said = self.voice
-        if self._out_of_credit(outcome):
-            closing, ended_well = said.say("live-waiting"), True
-        elif outcome.ok:
-            closing, ended_well = said.brief(outcome.summary, 120), True
-        else:
-            closing = said.say("live-blocked" if outcome.blocked else "live-stopped")
-            ended_well = False
-        live.close(closing, ok=ended_well)
 
     def _died(self, outcome: session.Outcome) -> str:
         """Why a session that did not end by itself was cut, or '' when it was not.
@@ -640,7 +624,6 @@ class Execution(Base):
             database=self.database,
             property_name=self.config.notion.prop("progress"),
             interval=self.config.runner.progress_interval_seconds,
-            words=self.voice,
             say=self.say,
             # Never on the loop that reads the session: a Notion answering 429
             # would stop that loop, and the CLI behind a full pipe — progress.py.
@@ -1602,11 +1585,23 @@ class Execution(Base):
         """
         ticket = job.ticket
         said = self.voice
-        stamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
+        # The text is what the session did: the report of the ticket's part
+        # « What was done », written now — a page that refuses it fails the
+        # ticket — and again, with its line of history, when the run is closed.
+        run = self._journals.get(ticket.id)
+        if run is not None:
+            run.answer = content
         try:
-            blocks = self.client.append_markdown(
-                ticket.page.id,
-                f"\n---\n{content}\n\n*ponos · {stamp} · session `{outcome.session_id}`*",
+            blocks = self._write_done(
+                ticket,
+                ticket_page.report(
+                    said,
+                    status="done",
+                    summary=outcome.summary,
+                    pull_request=pull_request,
+                    answer=content,
+                ),
+                strict=True,
             )
         except store.StoreError as error:
             return self._fail(

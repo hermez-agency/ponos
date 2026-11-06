@@ -227,6 +227,38 @@ export function TicketPage() {
   )
 }
 
+/* A ticket's page in its two parts (ticket_page.py): the mission somebody
+ * wrote — the one part a session is told — and what was done, which Ponos
+ * rewrites at the end of every session, its history under it. Apart, so that
+ * what stands done is read at a glance rather than dug out of the brief. */
+function TicketParts({ mission, done }: { mission: string; done: string }) {
+  const t = useT()
+  return (
+    <div className="flex flex-col gap-6">
+      <section data-slot="ticket-mission" className="flex flex-col gap-2">
+        <Eyebrow>{t("Mission")}</Eyebrow>
+        {mission.trim() ? (
+          <Markdown text={mission} />
+        ) : (
+          <p className="text-muted-foreground text-sm">
+            {t("The page is empty: the title is the whole brief.")}
+          </p>
+        )}
+      </section>
+      <section data-slot="ticket-done" className="flex flex-col gap-2">
+        <Eyebrow>{t("What was done")}</Eyebrow>
+        {done.trim() ? (
+          <Markdown text={done} />
+        ) : (
+          <p className="text-muted-foreground text-sm">
+            {t("Nothing yet: Ponos writes this part at the end of every session.")}
+          </p>
+        )}
+      </section>
+    </div>
+  )
+}
+
 /* The brief of the ticket on screen, read once per opening.
  *
  * Read again when the board says the ticket was edited while the page is
@@ -236,6 +268,8 @@ function useBrief(page: TicketDetail | undefined) {
   const [brief, setBrief] = React.useState<{
     id: string
     content?: string
+    mission?: string
+    done?: string
     model?: TicketDetail["model_in_use"]
     previews?: TicketDetail["previews"]
     problem?: string
@@ -253,7 +287,16 @@ function useBrief(page: TicketDetail | undefined) {
     if (!id) return
     let live = true
     readTicket(id, edited).then(
-      (detail) => live && setBrief({ id, content: detail.content, model: detail.model_in_use, previews: detail.previews }),
+      (detail) =>
+        live &&
+        setBrief({
+          id,
+          content: detail.content,
+          mission: detail.mission,
+          done: detail.done,
+          model: detail.model_in_use,
+          previews: detail.previews,
+        }),
       (error) => live && setBrief({ id, problem: why(error) })
     )
     return () => {
@@ -264,6 +307,8 @@ function useBrief(page: TicketDetail | undefined) {
   const mine = brief && brief.id === id ? brief : undefined
   return {
     content: mine?.content,
+    mission: mine?.mission,
+    done: mine?.done,
     model: mine?.model,
     previews: mine?.previews,
     problem: mine?.problem,
@@ -671,12 +716,8 @@ function TicketTabs({
                   <Skeleton className="h-3 w-2/3" />
                 </div>
               )
-            ) : brief.content ? (
-              <Markdown text={brief.content} />
             ) : (
-              <p className="text-muted-foreground text-sm">
-                {t("The page is empty: the title is the whole brief.")}
-              </p>
+              <TicketParts mission={brief.mission ?? brief.content} done={brief.done ?? ""} />
             )}
           </div>
           <PreviewPairs ticket={ticket.id} shots={brief.previews} />

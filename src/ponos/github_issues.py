@@ -38,7 +38,7 @@ import json
 import re
 import shutil
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import quote
@@ -315,14 +315,16 @@ class Issues(Board):
         return super().page(page_id)
 
     def blocks_text(self, block_id: str, depth: int = 0, *, live: bool = True) -> str:
-        """The issue's body is the brief; what a run wrote on the file is the live report."""
+        """The issue's body is the mission; what a run wrote on the file comes after it.
+
+        Its part « What was done » included, which `ticket_page.mission` leaves
+        out of a brief like any other page's.
+        """
         found = self._issue(block_id)
         if found is None:
             return super().blocks_text(block_id, depth, live=live)
         body = str(found[1].get("body") or "").strip()
-        if not live:
-            return body
-        return f"{body}\n\n{super().blocks_text(block_id, depth, live=True)}".strip()
+        return f"{body}\n\n{super().blocks_text(block_id, depth, live=live)}".strip()
 
     def comments(self, page_id: str) -> list[Comment]:
         """The comments of the issue, as one discussion — GitHub has no threads."""
@@ -425,6 +427,10 @@ class Issues(Board):
         self.call(decoded[0], "PATCH", f"issues/{decoded[1]}", body=markdown.strip())
         self._seen.pop(page_id.replace("-", ""), None)
         return 1
+
+    def replace_section(self, page_id: str, titles: Sequence[str], markdown: str) -> int:
+        """An issue's body is its mission, never rewritten: the part goes on the file."""
+        return super().replace_section(page_id, titles, markdown)
 
     def trash(self, page_id: str) -> str:
         """An issue is never deleted: it is closed as not planned, which GitHub can undo."""

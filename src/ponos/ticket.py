@@ -18,7 +18,7 @@ import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from . import agents, goals, progress, store
+from . import agents, goals, store
 from .projects import Project
 
 
@@ -78,10 +78,6 @@ class Job:
     # carried on rather than opened. Only ever true for a ticket that came back
     # ticked as waiting for credit — see `prepare`.
     resume: bool = False
-    # The folded block this job's session wrote its steps into, once it has one.
-    # Kept on the job because what goes in it is decided after the session ends:
-    # a run that failed files its trace there rather than in the report.
-    live: progress.Live | None = None
     # The project's secrets, read from `[vault]` once per session and handed to
     # it as environment variables — see vault.py. Never written anywhere.
     secrets: dict[str, str] = field(default_factory=dict)

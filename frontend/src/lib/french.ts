@@ -465,6 +465,10 @@ export const FRENCH: Record<string, string> = {
   "Before these lines": "Avant ces lignes",
   "The page is empty: the title is the whole brief.":
     "La page est vide : le titre est tout le brief.",
+  Mission: "Mission",
+  "What was done": "Ce qui a été fait",
+  "Nothing yet: Ponos writes this part at the end of every session.":
+    "Rien encore : Ponos écrit cette partie à la fin de chaque session.",
   "This ticket could not be read.": "Ce ticket n'a pas pu être lu.",
   "Ticket created": "Ticket créé",
   "could not move the ticket": "impossible de déplacer le ticket",

@@ -31,6 +31,7 @@ from . import (
     channels,
     conversation,
     credits,
+    journal,
     log,
     notifications,
     openrouter,
@@ -42,6 +43,7 @@ from . import (
     state,
     store,
     sync,
+    ticket_page,
 )
 from . import config as config_module
 from . import question as question_module
@@ -60,6 +62,11 @@ COMMENT_LIMIT = 10
 # How often a low disk may cost a tidy: it reads the whole board.
 DISK_TIDY_INTERVAL = 600
 COMMENT_CHARS = 2000
+
+# The endings of a run that did no work — out of credit, put back in the queue,
+# cut by the network: its line goes into the ticket's history, but the report
+# above it stays the last one a session wrote (ticket_page.py).
+UNWORKED = ("waiting", "requeued", "interrupted")
 
 # What a session identifier looks like — `session.new_id` draws a UUID4. Matched
 # rather than trusted because the Session column is a column like any other: a
@@ -597,8 +604,7 @@ class Reports(Base):
         if settings.prop("priority") in self.client.schema(self.database):
             values[settings.prop("priority")] = self.priority_cell(priority.DEFAULT)
         page_id = self.client.create_row(self.database, title, values)
-        if body:
-            self.client.append_markdown(page_id, body)
+        self.client.append_markdown(page_id, ticket_page.template(self.voice, body))
         return page_id, self.client.page(page_id).url
 
     def asked(self, page_id: str) -> question_module.Question | None:
@@ -761,8 +767,6 @@ class Reports(Base):
         )
         if under == said.brief(question.ask):
             under = ""
-        if note.strip() == said.say("trace-in-page"):
-            note = ""
         self._comment(
             ticket,
             said.paragraphs(
@@ -858,35 +862,71 @@ class Reports(Base):
         if run is None:
             return
         result = result or {}
-        run.end(
-            str(result.get("status") or "done"),
-            str(result.get("pull_request") or result.get("merged") or result.get("reason") or ""),
-            str(result.get("code") or ""),
+        status = str(result.get("status") or "done")
+        pull_request = str(result.get("pull_request") or result.get("merged") or "")
+        reason = str(result.get("reason") or "")
+        report = ticket_page.report(
+            self.voice,
+            status=status,
+            # The session's own sentence when it ended on one; the runner's
+            # reason when the ticket stopped on something else than its answer.
+            summary=run.summary if status == "done" else reason or run.summary,
+            pull_request=pull_request if pull_request.startswith("http") else "",
+            answer=run.answer,
+            caveats=run.caveats,
         )
+        if status in UNWORKED:
+            # A session that did no work says nothing of the work: the last
+            # report that did stays, and this one is only a line of history.
+            earlier = (one.get("report") for one in reversed(journal.history(ticket.id)))
+            report = next((said for said in earlier if said), report)
+        said = pull_request or reason or run.summary
+        run.end(status, said, str(result.get("code") or ""), report)
+        if not self.dry_run:
+            self._write_done(ticket, report)
+
+    def _write_done(self, ticket: Ticket, report: str, *, strict: bool = False) -> int:
+        """The ticket's part « What was done », written again from the journal.
+
+        Replaced and never appended to: the last session's report, then one
+        line per session the journal has of the ticket — see ticket_page.py.
+        Commentary like the rest of a report: a page that refuses it costs the
+        ticket nothing but the part, which the next session writes again —
+        unless `strict`, for a text whose deliverable the part is: the error is
+        then the caller's. Returns the count of blocks written.
+        """
+        lines = [
+            ticket_page.history_line(self.voice, run, self.config.web.url)
+            for run in journal.history(ticket.id)
+        ]
+        try:
+            count = self.client.replace_section(
+                ticket.page.id,
+                ticket_page.DONE,
+                ticket_page.section(self.voice, report, lines),
+            )
+        except store.StoreError as error:
+            if strict:
+                raise
+            self.say(f"    ! {ticket.title}: its part “what was done” was not written: {error}")
+            return 0
+        state.shape(ticket.id)
+        return count
 
     def _filed(self, job: Job, outcome: session.Outcome, *rest: object) -> str:
-        """The machinery of a failed run, put where it does not crowd the report.
+        """The machinery of a failed run, said under its report.
 
-        Inside the folded block the run already wrote its steps into, which is
-        where somebody looking for it would open anyway — and the report then
-        says so in one line. A ticket that has no such block, because the live
-        report is off or Notion refused it, keeps the trace in the comment: a
-        trace nobody can find is a trace nobody has.
-
-        Nothing of this is said when a run went right. The command that resumes
-        a finished session is not something anybody has ever needed to read.
+        The command that resumes the session, its log, the worktree that was
+        kept: worth one look on the day a run failed, and nothing at all on
+        every other day — nothing of this is said when a run went right.
         """
-        said = self.voice.paragraphs(self._trace(job, outcome), *rest)
-        if job.live and job.live.detail(said):
-            return self.voice.say("trace-in-page")
-        return said
+        return self.voice.paragraphs(self._trace(job, outcome), *rest)
 
     def _trace(self, job: Job, outcome: session.Outcome) -> str:
         """Where to look when the report was not enough — and only then.
 
-        One sentence, and it no longer ends a report: it goes into the folded
-        block of a run that failed, which is the only day anybody has wanted to
-        read it. See `_filed`.
+        One sentence, and only under the report of a run that failed, which is
+        the only day anybody has wanted to read it. See `_filed`.
         """
         return self.voice.trace(outcome.resume_command, outcome.log, job.session_home)
 
