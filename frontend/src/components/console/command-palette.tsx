@@ -103,7 +103,7 @@ export function CommandPalette() {
   const navigate = useNavigate()
   const board = useBoard()
   const listed = useProjects()
-  const { refresh, resetChat } = useConsole()
+  const { refresh, newChat } = useConsole()
   const { params } = useRoute()
   // The project whose page is open, if one is: a new ticket starts with it.
   // Only one with a page of its own can be a ticket's.
@@ -210,7 +210,7 @@ export function CommandPalette() {
       icon: MessageSquarePlus,
       onSelect: () =>
         run(() => {
-          void resetChat()
+          void newChat()
           openTalk()
         }),
     },

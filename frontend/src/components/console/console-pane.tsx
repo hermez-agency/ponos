@@ -12,7 +12,7 @@ import { useConsole, type Entry } from "@/hooks/use-console"
 import { hotkeyLabel, useHotkeys } from "@/hooks/use-hotkeys"
 import { useSpeaker } from "@/hooks/use-speaker"
 import { useVoiceMode } from "@/hooks/use-voice-mode"
-import { connection, ponosOf } from "@/lib/agui"
+import { connectionFor, ponosOf } from "@/lib/agui"
 import { api, why } from "@/lib/api"
 import { currentLanguage, useT } from "@/lib/i18n"
 import { cents, money } from "@/lib/numbers"
@@ -53,8 +53,6 @@ import { Turn } from "./turn"
 const WELCOME =
   "Ask me anything about your workspace — I can read your repositories, look at the board and create tickets. Type > followed by a command (>status, >list, >doctor) to use the CLI directly."
 
-const upload = (file: File, name: string) => api.attach(file, name)
-const discard = (id: string) => void api.detach(id).catch(() => {})
 // The page's own language: what the person talking is reading, and so the
 // likeliest one they are speaking. The server prefers `runner.language`.
 const transcribe = async (audio: Blob) => (await api.transcribe(audio, currentLanguage())).text
@@ -62,20 +60,18 @@ const transcribe = async (audio: Blob) => (await api.transcribe(audio, currentLa
 const carriesFiles = (event: React.DragEvent) => event.dataTransfer.types.includes("Files")
 
 export function ConsolePane() {
-  const { busy, resetChat, runner, reloadState } = useConsole()
+  const { newChat, chat, reloadState } = useConsole()
   const t = useT()
   const composer = React.useRef<ComposerHandle>(null)
-  // A turn in flight is not interrupted by a new conversation: the button is
-  // disabled then, and so is the shortcut.
+  // A turn in flight is not interrupted by a new conversation: it goes on
+  // answering in the one this tab leaves, and the list says so.
   const startOver = React.useCallback(async () => {
-    if (busy) return
-    await resetChat()
+    await newChat()
     composer.current?.focus()
-  }, [busy, resetChat])
+  }, [newChat])
   useHotkeys({ newChat: () => void startOver() })
   const shortcut = hotkeyLabel("newChat")
   const [dragging, setDragging] = React.useState(false)
-  const chat = runner?.chat
 
   return (
     <div
@@ -114,6 +110,7 @@ export function ConsolePane() {
           {chat?.title || "Ponos"}
         </span>
         <ModelPicker
+          chat={chat?.id ?? ""}
           model={chat?.model_in_use ?? ""}
           onChosen={() => void reloadState()}
           settingsTo={settingsHref("models")}
@@ -125,7 +122,6 @@ export function ConsolePane() {
               size="icon-sm"
               className="opacity-70 hover:opacity-100"
               aria-label={t("Start a new conversation")}
-              disabled={busy}
               aria-keyshortcuts={shortcut.aria}
               onClick={() => void startOver()}
               data-new-chat
@@ -135,7 +131,7 @@ export function ConsolePane() {
           </TooltipTrigger>
           <TooltipContent side="bottom">{`${t("Start a new conversation")} · ${shortcut.label}`}</TooltipContent>
         </Tooltip>
-        <TalkHistory disabled={busy} />
+        <TalkHistory />
       </div>
 
       {/* One `useChat` per conversation: opening another one from the history,
@@ -167,9 +163,25 @@ function Talk({
   threadId: string
   composer: React.RefObject<ComposerHandle | null>
 }) {
-  const { transcript, busy, stopping, queue, held, submit, stopChat, runner, say } = useConsole()
+  const {
+    transcript,
+    chat,
+    busy,
+    commanding,
+    stopping,
+    queue,
+    held,
+    limited,
+    elsewhere,
+    submit,
+    stopChat,
+    runner,
+    say,
+  } = useConsole()
   const t = useT()
-  const chat = runner?.chat
+  const connection = React.useMemo(() => connectionFor(threadId), [threadId])
+  const upload = React.useCallback((file: File, name: string) => api.attach(threadId, file, name), [threadId])
+  const discard = React.useCallback((id: string) => void api.detach(threadId, id).catch(() => {}), [threadId])
   const { messages, sendMessage } = useChat({
     connection,
     threadId,
@@ -195,10 +207,13 @@ function Talk({
    * once and the turn streams under it. A command, a message while Ponos is
    * still answering, and files without words go the way they always went —
    * the server's queue is where a message waits, so every tab sees it wait. */
+  const full = elsewhere.running >= (chat?.limit ?? runner?.chat?.limit ?? 3)
   const send = React.useCallback(
     async (text: string, attachments: Attached[] = []) => {
       const line = text.trim()
-      if (!line || line.startsWith(">") || busy || queue.length) return submit(text, attachments)
+      // Behind a turn, or with every place taken: the server's queue, which
+      // every tab sees, rather than a message drawn here that would not start.
+      if (!line || line.startsWith(">") || busy || queue.length || full) return submit(text, attachments)
       // Not waited for: it settles when the turn ends, and the field is free
       // as soon as the message has left. A refusal is said by `onError`.
       sendMessage(line, { body: { attachments: attachments.map((item) => item.id) } }).catch(
@@ -206,7 +221,7 @@ function Talk({
       )
       return true
     },
-    [busy, queue.length, submit, sendMessage]
+    [busy, queue.length, full, submit, sendMessage]
   )
 
   /* The voice. One speaker for both ways in: the voice mode, and the Listen
@@ -256,7 +271,7 @@ function Talk({
 
   const said = React.useMemo(() => interleaved(messages, transcript), [messages, transcript])
   const last = messages[messages.length - 1]
-  const answering = busy && !transcript.some((entry) => entry.kind === "command" && entry.code === null)
+  const answering = busy
 
   return (
     <>
@@ -277,7 +292,7 @@ function Talk({
           )
         )}
         {answering ? <Working stopping={stopping} /> : null}
-        {queue.length ? <Waiting queue={queue} held={held} /> : null}
+        {queue.length ? <Waiting chat={threadId} queue={queue} held={held} limited={limited} /> : null}
       </ChatConversation>
 
       <div className="px-3 pt-1 pb-3">
@@ -293,6 +308,7 @@ function Talk({
           className={voice.mode !== "off" ? "mt-2" : undefined}
           ref={composer}
           busy={busy}
+          commanding={commanding}
           onSend={send}
           onStop={answering ? stop : undefined}
           stopping={stopping}

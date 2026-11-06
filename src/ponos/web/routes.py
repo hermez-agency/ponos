@@ -189,7 +189,7 @@ class Answered(APIRoute):
                     length = int(request.headers.get("content-length") or 0)
                 except ValueError:
                     length = 0
-                if length > (MAX_RUN_BODY if self.path == "/api/chat/agui" else MAX_BODY):
+                if length > (MAX_RUN_BODY if self.path.endswith("/agui") else MAX_BODY):
                     return fail(413, TOO_LARGE)
                 request = _as_json(request)
             try:
@@ -291,6 +291,12 @@ class Sent(Payload):
 
 class Model(Payload):
     model: str = ""
+
+
+class NewChat(Payload):
+    """The conversation the page leaves: the new one starts on its model."""
+
+    like: str = ""
 
 
 class RunAgentInput(Payload):
@@ -594,14 +600,9 @@ def spending(
 
 @router.get("/api/chat", response_model=answers.Chat)
 def chat(request: Request) -> Response:
-    talk = _api(request).chat
+    """The conversation spoken in last — where a browser that follows none starts."""
+    talk = _api(request).chat.latest()
     return answer({"messages": talk.history(), **talk.state()})
-
-
-@router.get("/api/chat/agui", response_model=answers.ChatThread)
-def chat_thread(request: Request, threadId: str = "") -> Response:  # noqa: N803
-    """A conversation as `useChat` hydrates it, from Ponos's own storage."""
-    return answer(_api(request).chat.thread(threadId))
 
 
 @router.get("/api/chat/sessions", response_model=answers.ChatSessions)
@@ -610,8 +611,22 @@ def chat_sessions(request: Request, q: str = "") -> Response:
 
 
 @router.get("/api/chat/models", response_model=answers.ChatModels)
-def chat_models(request: Request) -> Response:
-    return answer(_api(request).chat.models())
+def chat_models(request: Request, id: str = "") -> Response:  # noqa: A002
+    talk = _api(request).chat
+    return answer(talk.models(talk.get(id, blank=True).model if id else ""))
+
+
+@router.get("/api/chat/{identifier:attachment}", response_model=answers.Chat)
+def conversation(request: Request, identifier: str) -> Response:
+    """One conversation: what was said in it, and where it stands. Blank when nothing was."""
+    talk = _api(request).chat.get(identifier, blank=True)
+    return answer({"messages": talk.history(), **talk.state()})
+
+
+@router.get("/api/chat/{identifier:attachment}/agui", response_model=answers.ChatThread)
+def chat_thread(request: Request, identifier: str) -> Response:
+    """A conversation as `useChat` hydrates it, from Ponos's own storage."""
+    return answer(_api(request).chat.get(identifier, blank=True).thread())
 
 
 @router.get("/api/settings", response_model=answers.Settings)
@@ -1339,16 +1354,27 @@ def command(request: Request, payload: Line = Body(default_factory=Line)) -> Res
     return answer(_api(request).commands.start(payload.line))
 
 
-@router.post("/api/chat", response_model=answers.ChatState)
-def send_chat(request: Request, payload: Sent = Body(default_factory=Sent)) -> Response:
-    return answer(_api(request).chat.send(payload.text, payload.attachments or []))
+@router.post("/api/chat/new", response_model=answers.ChatState)
+def new_chat(request: Request, payload: NewChat = Body(default_factory=NewChat)) -> Response:
+    """A conversation nobody has spoken in, on the model of the one the page leaves."""
+    return answer(_api(request).chat.create(payload.like).state())
 
 
-@router.post("/api/chat/agui", response_model=answers.ChatState)
-def run_chat(
-    request: Request, payload: RunAgentInput = Body(default_factory=RunAgentInput)
+@router.post("/api/chat/{identifier:attachment}", response_model=answers.ChatState)
+def send_chat(
+    request: Request, identifier: str, payload: Sent = Body(default_factory=Sent)
 ) -> Response:
-    """The chat's AG-UI door: a `RunAgentInput` in, the run's events out.
+    talk = _api(request).chat.get(identifier, blank=True)
+    return answer(talk.send(payload.text, payload.attachments or []))
+
+
+@router.post("/api/chat/{identifier:attachment}/agui", response_model=answers.ChatState)
+def run_chat(
+    request: Request,
+    identifier: str,
+    payload: RunAgentInput = Body(default_factory=RunAgentInput),
+) -> Response:
+    """The conversation's AG-UI door: a `RunAgentInput` in, the run's events out.
 
     The console's own page asks for JSON and reads the events where it reads
     everything else, on `/api/events` — one stream per tab, whatever it
@@ -1356,7 +1382,7 @@ def run_chat(
     answered the run itself, from `RUN_STARTED` to `RUN_FINISHED`: waiting
     behind the turn in flight first, if there is one.
     """
-    talk = _api(request).chat
+    talk = _api(request).chat.get(identifier, blank=True)
     given = payload.model_dump()
     if "text/event-stream" not in request.headers.get("accept", ""):
         return answer(talk.run(given))
@@ -1398,42 +1424,49 @@ def run_chat(
 
 
 @router.post(
-    "/api/chat/attachments/{identifier:attachment}/remove", response_model=answers.Detached
+    "/api/chat/{identifier:attachment}/attachments/{file:attachment}/remove",
+    response_model=answers.Detached,
 )
-def remove_chat_attachment(request: Request, identifier: str) -> Response:
-    return answer(_api(request).chat.detach(identifier))
+def remove_chat_attachment(request: Request, identifier: str, file: str) -> Response:
+    return answer(_api(request).chat.get(identifier, blank=True).detach(file))
 
 
-@router.post("/api/chat/queue/send", response_model=answers.ChatState)
-def send_queue(request: Request) -> Response:
-    return answer(_api(request).chat.release())
+@router.post("/api/chat/{identifier:attachment}/queue/send", response_model=answers.ChatState)
+def send_queue(request: Request, identifier: str) -> Response:
+    return answer(_api(request).chat.get(identifier, blank=True).release())
 
 
-@router.post("/api/chat/queue/discard", response_model=answers.ChatState)
-def discard_queue(request: Request) -> Response:
-    return answer(_api(request).chat.discard())
+@router.post("/api/chat/{identifier:attachment}/queue/discard", response_model=answers.ChatState)
+def discard_queue(request: Request, identifier: str) -> Response:
+    return answer(_api(request).chat.get(identifier, blank=True).discard())
 
 
-@router.post("/api/chat/queue/{identifier:attachment}/remove", response_model=answers.ChatState)
-def remove_queued(request: Request, identifier: str) -> Response:
-    return answer(_api(request).chat.unqueue(identifier))
+@router.post(
+    "/api/chat/{identifier:attachment}/queue/{waiting:attachment}/remove",
+    response_model=answers.ChatState,
+)
+def remove_queued(request: Request, identifier: str, waiting: str) -> Response:
+    return answer(_api(request).chat.get(identifier, blank=True).unqueue(waiting))
 
 
-@router.post("/api/chat/queue/{identifier:attachment}/edit", response_model=answers.ChatState)
+@router.post(
+    "/api/chat/{identifier:attachment}/queue/{waiting:attachment}/edit",
+    response_model=answers.ChatState,
+)
 def edit_queued(
-    request: Request, identifier: str, payload: Sent = Body(default_factory=Sent)
+    request: Request, identifier: str, waiting: str, payload: Sent = Body(default_factory=Sent)
 ) -> Response:
-    return answer(_api(request).chat.amend(identifier, payload.text))
+    return answer(_api(request).chat.get(identifier, blank=True).amend(waiting, payload.text))
 
 
-@router.post("/api/chat/stop", response_model=answers.ChatState)
-def stop_chat(request: Request) -> Response:
-    return answer(_api(request).chat.stop())
+@router.post("/api/chat/{identifier:attachment}/stop", response_model=answers.ChatState)
+def stop_chat(request: Request, identifier: str) -> Response:
+    return answer(_api(request).chat.get(identifier, blank=True).stop())
 
 
-@router.post("/api/chat/reset", response_model=answers.ChatState)
-def reset_chat(request: Request) -> Response:
-    return answer(_api(request).chat.reset())
+@router.post("/api/chat/{identifier:attachment}/read", response_model=answers.ChatState)
+def read_chat(request: Request, identifier: str) -> Response:
+    return answer(_api(request).chat.get(identifier, blank=True).read())
 
 
 @router.post("/api/chat/speak/plan", response_model=answers.SpeechPlan)
@@ -1455,31 +1488,28 @@ def speak(request: Request, payload: Say = Body(default_factory=Say)) -> Respons
     return Response(sound, media_type="audio/wav", headers={"Cache-Control": "no-store"})
 
 
-@router.post("/api/chat/model", response_model=answers.ChatState)
-def choose_chat_model(request: Request, payload: Model = Body(default_factory=Model)) -> Response:
-    return answer(_api(request).chat.choose(payload.model))
+@router.post("/api/chat/{identifier:attachment}/model", response_model=answers.ChatState)
+def choose_chat_model(
+    request: Request, identifier: str, payload: Model = Body(default_factory=Model)
+) -> Response:
+    return answer(_api(request).chat.get(identifier, blank=True).choose(payload.model))
 
 
-@router.post("/api/chat/sessions/{identifier:attachment}/open", response_model=answers.ChatState)
-def open_chat_session(request: Request, identifier: str) -> Response:
-    return answer(_api(request).chat.open(identifier))
-
-
-@router.post("/api/chat/sessions/{identifier:attachment}/rename", response_model=answers.ChatState)
+@router.post("/api/chat/{identifier:attachment}/rename", response_model=answers.ChatState)
 def rename_chat_session(
     request: Request, identifier: str, payload: Title = Body(default_factory=Title)
 ) -> Response:
     return answer(_api(request).chat.rename(identifier, payload.title))
 
 
-@router.post("/api/chat/sessions/{identifier:attachment}/project", response_model=answers.ChatState)
+@router.post("/api/chat/{identifier:attachment}/project", response_model=answers.ChatState)
 def link_chat_session(
     request: Request, identifier: str, payload: ProjectLink = Body(default_factory=ProjectLink)
 ) -> Response:
     return answer(_api(request).chat.link(identifier, payload.project))
 
 
-@router.post("/api/chat/sessions/{identifier:attachment}/delete", response_model=answers.ChatState)
+@router.post("/api/chat/{identifier:attachment}/delete", response_model=answers.Deleted)
 def delete_chat_session(request: Request, identifier: str) -> Response:
     return answer(_api(request).chat.delete(identifier))
 

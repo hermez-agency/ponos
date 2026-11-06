@@ -1550,7 +1550,7 @@ def _local_api(board: ledger.Ledger) -> web_api.Api:
     runner.resolver = projects.Resolver(api._config.runner.workspace_root, {})
     # What `state()` folds in and nothing here exercises: the chat and the
     # command line are the console's own, and have no board behind them.
-    api.chat = type("Chat", (), {"state": lambda self: {}})()
+    api.chat = type("Chat", (), {"defaults": lambda self: {}})()
     api.commands = type("Commands", (), {"allowed": (), "busy": False})()
     return api
 

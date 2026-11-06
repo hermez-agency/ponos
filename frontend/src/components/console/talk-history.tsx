@@ -1,7 +1,6 @@
 import * as React from "react"
 import { ClockIcon } from "lucide-react"
 import { Link } from "react-resource-view"
-import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -11,11 +10,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { useConsole } from "@/hooks/use-console"
 import { api, why } from "@/lib/api"
 import { currentLanguage, useT } from "@/lib/i18n"
+import { setOpenChat, useOpenChat } from "@/lib/open-chat"
 import { closeTalk } from "@/lib/talk"
 import type { ChatSession } from "@/lib/types"
 import { sessionsHref } from "@/resources/sessions"
+
+import { SessionFlag } from "./session-flag"
 
 /* The latest conversations, one click from the one that is open.
  *
@@ -33,12 +36,16 @@ function when(stamp: string): string {
   return date.toLocaleString(currentLanguage(), { dateStyle: "medium", timeStyle: "short" })
 }
 
-export function TalkHistory({ disabled }: { disabled: boolean }) {
+export function TalkHistory() {
   const t = useT()
+  const openId = useOpenChat()
+  const { elsewhere, activity } = useConsole()
   const [sessions, setSessions] = React.useState<ChatSession[] | null>(null)
   const [problem, setProblem] = React.useState("")
+  const [shown, setShown] = React.useState(false)
 
   const read = async (open: boolean) => {
+    setShown(open)
     if (!open) return
     try {
       setSessions((await api.sessions("")).sessions)
@@ -48,14 +55,16 @@ export function TalkHistory({ disabled }: { disabled: boolean }) {
     }
   }
 
-  const open = async (session: ChatSession) => {
-    if (session.current) return
-    try {
-      await api.openSession(session.id)
-    } catch (error) {
-      toast.error(t("The conversation could not be opened"), { description: why(error) })
-    }
-  }
+  // The menu is open while a conversation answers: its flags follow.
+  React.useEffect(() => {
+    if (shown) void read(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `read` is the menu's own, changed by every render
+  }, [activity])
+
+  // Following another conversation is this tab's own business: the one left
+  // goes on answering, and the list says so.
+  const open = (session: ChatSession) => setOpenChat(session.id)
+  const flagged = elsewhere.busy + elsewhere.unread > 0
 
   return (
     <DropdownMenu onOpenChange={(next) => void read(next)}>
@@ -65,12 +74,18 @@ export function TalkHistory({ disabled }: { disabled: boolean }) {
             <Button
               variant="ghost"
               size="icon-sm"
-              className="opacity-70 hover:opacity-100"
               aria-label={t("Conversations")}
-              disabled={disabled}
+              className="relative opacity-70 hover:opacity-100"
               data-talk-history
+              data-elsewhere={flagged || undefined}
             >
               <ClockIcon />
+              {flagged ? (
+                <span
+                  aria-hidden
+                  className={`bg-primary absolute top-1 right-1 size-1.5 rounded-full ${elsewhere.busy ? "animate-pulse" : ""}`}
+                />
+              ) : null}
             </Button>
           </DropdownMenuTrigger>
         </TooltipTrigger>
@@ -92,16 +107,19 @@ export function TalkHistory({ disabled }: { disabled: boolean }) {
               <DropdownMenuItem
                 key={session.id}
                 className="flex-col items-start gap-0"
-                aria-current={session.current || undefined}
+                aria-current={session.id === openId || undefined}
                 onSelect={() => void open(session)}
                 data-session={session.id}
               >
-                <span className="w-full truncate font-medium">
-                  {session.title || t("Untitled conversation")}
+                <span className="flex w-full items-center gap-2">
+                  <span className="truncate font-medium">
+                    {session.title || t("Untitled conversation")}
+                  </span>
+                  {session.id === openId ? null : <SessionFlag session={session} />}
                 </span>
                 <span className="text-muted-foreground text-xs">
                   {when(session.updated)}
-                  {session.current ? ` · ${t("open")}` : ""}
+                  {session.id === openId ? ` · ${t("open")}` : ""}
                 </span>
               </DropdownMenuItem>
             ))}

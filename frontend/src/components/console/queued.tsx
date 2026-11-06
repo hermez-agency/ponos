@@ -32,7 +32,18 @@ async function attempt(action: () => Promise<unknown>, failed: string, done?: st
   }
 }
 
-export function Waiting({ queue, held }: { queue: Queued[]; held: boolean }) {
+export function Waiting({
+  chat,
+  queue,
+  held,
+  limited = false,
+}: {
+  chat: string
+  queue: Queued[]
+  held: boolean
+  /** Nothing runs in this conversation: every place is taken by the turns of the others. */
+  limited?: boolean
+}) {
   const t = useT()
   if (!queue.length) return null
   return (
@@ -51,7 +62,7 @@ export function Waiting({ queue, held }: { queue: Queued[]; held: boolean }) {
           </span>
           <Button
             size="sm"
-            onClick={() => void attempt(api.releaseQueue, t("The waiting messages could not be sent"))}
+            onClick={() => void attempt(() => api.releaseQueue(chat), t("The waiting messages could not be sent"))}
           >
             <SendIcon />
             {t("Send")}
@@ -71,7 +82,7 @@ export function Waiting({ queue, held }: { queue: Queued[]; held: boolean }) {
               </>
             }
             onConfirm={() =>
-              attempt(api.discardQueue, t("The waiting messages could not be discarded"), t("Messages discarded"))
+              attempt(() => api.discardQueue(chat), t("The waiting messages could not be discarded"), t("Messages discarded"))
             }
             trigger={
               <Button size="sm" variant="outline">
@@ -82,20 +93,25 @@ export function Waiting({ queue, held }: { queue: Queued[]; held: boolean }) {
           />
         </div>
       ) : null}
+      {limited && !held ? (
+        <p data-slot="queue-limited" role="status" className="text-muted-foreground text-right text-xs">
+          {t("Waiting for a free place: other conversations are answering.")}
+        </p>
+      ) : null}
       {queue.map((item) => (
-        <Pending key={item.id} item={item} />
+        <Pending key={item.id} chat={chat} item={item} />
       ))}
     </div>
   )
 }
 
-function Pending({ item }: { item: Queued }) {
+function Pending({ chat, item }: { chat: string; item: Queued }) {
   const t = useT()
   const [editing, setEditing] = React.useState(false)
   const [text, setText] = React.useState(item.text)
 
   const save = async () => {
-    await attempt(() => api.amend(item.id, text), t("The waiting message could not be changed"))
+    await attempt(() => api.amend(chat, item.id, text), t("The waiting message could not be changed"))
     setEditing(false)
   }
 
@@ -157,7 +173,7 @@ function Pending({ item }: { item: Queued }) {
             size="icon-sm"
             className="text-muted-foreground shrink-0 rounded-full"
             aria-label={t("Remove the waiting message")}
-            onClick={() => void attempt(() => api.unqueue(item.id), t("The waiting message could not be removed"))}
+            onClick={() => void attempt(() => api.unqueue(chat, item.id), t("The waiting message could not be removed"))}
           >
             <Trash2Icon />
           </Button>

@@ -64,15 +64,15 @@ test("an image is added, and removed by its cross", () => {
   let list: Pending[] = []
   list = withAdded(list, [image("one", "uploading")])
   assert.equal(list.length, 1)
-  assert.equal(canSend({ text: "", attachments: list, busy: false }), false, "still uploading")
+  assert.equal(canSend({ text: "", attachments: list }), false, "still uploading")
   list = settled(list, "one", { state: "done", id: "abcdef123456" })
   assert.equal(list[0].id, "abcdef123456")
-  assert.equal(canSend({ text: "", attachments: list, busy: false }), true, "an image alone is a message")
+  assert.equal(canSend({ text: "", attachments: list }), true, "an image alone is a message")
   list = withAdded(list, [image("two")])
   list = without(list, "one")
   assert.deepEqual(list.map((item) => item.key), ["two"])
   list = without(list, "two")
-  assert.equal(canSend({ text: "", attachments: list, busy: false }), false)
+  assert.equal(canSend({ text: "", attachments: list }), false)
 })
 
 test("a pasted screenshot is taken, and named after the moment it was pasted", () => {
@@ -89,14 +89,15 @@ test("a pasted screenshot is taken, and named after the moment it was pasted", (
 })
 
 test("the arrow is off while there is nothing to send, or an answer is being written", () => {
-  assert.equal(canSend({ text: "", attachments: [], busy: false }), false)
-  assert.equal(canSend({ text: "   \n ", attachments: [], busy: false }), false)
-  assert.equal(canSend({ text: "hello", attachments: [], busy: false }), true)
-  assert.equal(canSend({ text: "hello", attachments: [], busy: true }), true, "it waits its turn")
-  assert.equal(canSend({ text: ">status", attachments: [], busy: true }), false, "a command runs at once")
-  assert.equal(canSend({ text: "hello", attachments: [], busy: false, sending: true }), false)
+  assert.equal(canSend({ text: "", attachments: [] }), false)
+  assert.equal(canSend({ text: "   \n ", attachments: [] }), false)
+  assert.equal(canSend({ text: "hello", attachments: [] }), true)
+  assert.equal(canSend({ text: "hello", attachments: [], commanding: true }), true, "it waits its turn")
+  assert.equal(canSend({ text: ">status", attachments: [] }), true, "a command runs while a turn answers")
+  assert.equal(canSend({ text: ">status", attachments: [], commanding: true }), false, "one command at a time")
+  assert.equal(canSend({ text: "hello", attachments: [], sending: true }), false)
   assert.equal(
-    canSend({ text: "", attachments: [image("x", "error")], busy: false }),
+    canSend({ text: "", attachments: [image("x", "error")] }),
     false,
     "a refused file is not a message"
   )
@@ -113,8 +114,8 @@ test("a line that starts with > is a command, completed from the ones the runner
   assert.deepEqual(completions(">logs 3ca4", commands), [], "past the verb, nothing to offer")
   assert.deepEqual(completions("status", commands), [], "a sentence is not completed")
   assert.equal(completed("status"), ">status ")
-  assert.equal(canSend({ text: ">", attachments: [], busy: false }), false, "no verb yet")
-  assert.equal(canSend({ text: ">status", attachments: [], busy: false }), true)
+  assert.equal(canSend({ text: ">", attachments: [] }), false, "no verb yet")
+  assert.equal(canSend({ text: ">status", attachments: [] }), true)
 })
 
 test("a transcription lands after what is already typed", () => {

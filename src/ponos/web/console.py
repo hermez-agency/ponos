@@ -17,8 +17,10 @@ They are not the same gesture and they are not made to look the same.
 The conversation survives the browser, the server and the machine: it is a real
 Claude Code session, resumed by its identifier, and `claude --resume <id>` in a
 terminal opens the very same one. There are many of them — each is a row of
-`ponos.db` (see `chats`) with its own title, model and files, and the console
-has one *open* at a time: the one it talks to, which any browser sees.
+`ponos.db` (see `chats`) with its own title, model and files, and its own run:
+several can be answering at once (`Chats`, bounded by `web.chat_max_turns`).
+The server holds no conversation "open" — each browser follows the one it chose,
+and every call names the conversation it is about.
 
 A message is more than its words: what it carries — a screenshot, a PDF, a clip
 — is kept in a folder of the conversation, and named in the prompt by path (see
@@ -235,8 +237,30 @@ class Queued:
         return said
 
 
-class Chat:
-    """One conversation with the whole workspace, kept across restarts."""
+# What the console names a conversation: twelve hex digits, like its files.
+_NAME = re.compile(r"[0-9a-f]{12}")
+
+
+class Chats:
+    """Every conversation the console holds, and the places their turns share.
+
+    A conversation is a `Chat`, and each carries its own state of execution —
+    the turn in flight, the messages waiting behind it, the Stop event, the
+    AG-UI stream. What belongs to none of them is here: the registry, the list
+    of conversations, the model catalogue, the voice, and the limit on how many
+    turns run at once (`web.chat_max_turns`), since each is a Claude session
+    that spends the subscription.
+
+    Which conversation a browser follows is that browser's own business: the
+    server holds no "open" one, and every call names the conversation it is
+    about. One lock serves all of them — what it protects is bookkeeping done in
+    microseconds, and a turn itself runs outside it — which is also what keeps
+    "is there a place left?" and "take it" a single step.
+    """
+
+    # Past this many held in memory, the ones nobody is using go back to the
+    # database they came from.
+    HELD = 30
 
     def __init__(
         self,
@@ -244,10 +268,262 @@ class Chat:
         publish: Callable[..., None],
         brief: Callable[[], str] | None = None,
     ) -> None:
-        self.config = config
+        self._config = config
         self.publish = publish
         self.brief = brief or (lambda: "")
-        self._lock = threading.Lock()
+        self.lock = threading.RLock()
+        self._held: dict[str, Chat] = {}
+        files.prune(attachments_dir(), self._config.web.attachment_days)
+
+    @property
+    def config(self) -> Config:
+        return self._config
+
+    @config.setter
+    def config(self, fresh: Config) -> None:
+        self._config = fresh
+
+    def _make(self, identifier: str, row: dict[str, Any] | None = None) -> Chat:
+        return Chat(self, identifier, row)
+
+    # -- the registry --------------------------------------------------------
+
+    def get(self, identifier: str, blank: bool = False) -> Chat:
+        """The conversation of that name: held, else read from its row.
+
+        With `blank`, a name nothing answers to is a conversation nobody has
+        spoken in yet — a browser may hold the name of one the server forgot
+        (a restart, a tidy), and it is not an error to carry on in it.
+        """
+        with self.lock:
+            found = self._held.get(identifier)
+            if found is not None:
+                return found
+            row = chats.load(identifier) if _NAME.fullmatch(identifier) else None
+            if row is None and not (blank and _NAME.fullmatch(identifier)):
+                raise LookupError("no such session")
+            found = self._make(identifier, row)
+            self._held[identifier] = found
+            self._tidy(keep=found)
+            return found
+
+    def create(self, like: str = "") -> Chat:
+        """A new conversation, on the model of `like` — starting over is not changing one's mind."""
+        with self.lock:
+            model = ""
+            if like:
+                try:
+                    model = self.get(like, blank=True).model
+                except LookupError:
+                    model = ""
+            chat = self._make(secrets.token_hex(6))
+            chat.model = model
+            self._held[chat.id] = chat
+            self._tidy(keep=chat)
+            return chat
+
+    def latest(self) -> Chat:
+        """The conversation spoken in last, or a new one: where a browser with none starts."""
+        row = chats.latest()
+        return self.get(str(row["id"])) if row is not None else self.create()
+
+    def hold(self, chat: Chat) -> None:
+        """Keep a conversation that is about to run where the places are counted."""
+        self._held[chat.id] = chat
+
+    def _tidy(self, keep: Chat) -> None:
+        """Forget the conversations nobody is using: blank ones, and saved ones past `HELD`.
+
+        Never the one just asked for, nor one the caller may still hold: a
+        blank conversation held by a browser is recreated by name when asked for.
+        """
+        idle = [chat for chat in self._held.values() if chat.idle() and chat is not keep]
+        for chat in idle:
+            if not chat.messages or len(self._held) > self.HELD:
+                del self._held[chat.id]
+
+    @property
+    def busy(self) -> bool:
+        with self.lock:
+            return any(chat.busy for chat in self._held.values())
+
+    # -- the places ----------------------------------------------------------
+
+    @property
+    def limit(self) -> int:
+        return max(1, self._config.web.chat_max_turns)
+
+    def running(self) -> int:
+        with self.lock:
+            return sum(1 for chat in self._held.values() if chat.busy)
+
+    def room(self) -> bool:
+        """Whether one more turn may start now. The lock is held by whoever asks."""
+        return self.running() < self.limit
+
+    def advance(self) -> None:
+        """Start what waits for a place, the oldest message first, as places free up."""
+        with self.lock:
+            waiting = sorted(
+                (chat for chat in self._held.values() if chat.queue and not chat.busy),
+                key=lambda chat: chat.queue[0].at,
+            )
+            for chat in waiting:
+                if not self.room():
+                    return
+                chat.advance()
+
+    # -- state ---------------------------------------------------------------
+
+    def defaults(self) -> dict[str, Any]:
+        """What holds for every conversation: what a message may carry, the voice, the places."""
+        why = speech.refusal(self.config.speech)
+        return {
+            "attachments": {
+                "max_mb": self.config.web.attachment_max_mb,
+                "accepted": sorted(files.ACCEPTED),
+                "ffmpeg": bool(files.ffmpeg()),
+            },
+            "dictation": {
+                "ready": bool(self.config.openrouter.key),
+                "why": ""
+                if self.config.openrouter.key
+                else (
+                    "Dictation is transcribed by OpenRouter: add an OpenRouter key in the settings"
+                ),
+                "send": self.config.web.send_after_transcription,
+            },
+            "speech": {"ready": not why, "why": why},
+            "running": self.running(),
+            "limit": self.limit,
+        }
+
+    def sessions(self, query: str = "") -> list[dict[str, Any]]:
+        """Every conversation, the latest first, with the ones answering or unread flagged."""
+        found = chats.listing(query)
+        with self.lock:
+            for item in found:
+                held = self._held.get(item["id"])
+                item["busy"] = bool(held and held.busy)
+                item["waiting"] = bool(held and held.queue and not held.busy and not held.held)
+                item["unread"] = bool(held and held.unread)
+        return found
+
+    # -- the conversations ---------------------------------------------------
+
+    def rename(self, identifier: str, title: str) -> dict[str, Any]:
+        title = " ".join(title.split())
+        if not title:
+            raise ValueError("a session needs a title")
+        chat = self.get(identifier)
+        with self.lock:
+            chat.title = title[:200]
+            chat.save()
+        self.publish("chat", stage="renamed", id=identifier)
+        return chat.state()
+
+    def link(self, identifier: str, project: str) -> dict[str, Any]:
+        """Say which project a conversation is about — or none, with an empty name."""
+        project = " ".join(project.split())[:200]
+        chat = self.get(identifier)
+        with self.lock:
+            chat.project = project
+            chat.save()
+        self.publish("chat", stage="renamed", id=identifier)
+        return chat.state()
+
+    def delete(self, identifier: str) -> dict[str, Any]:
+        """Forget a conversation and the files dropped in it.
+
+        A turn still answering is stopped first, and what it would have said is
+        thrown away with the rest: it never writes the row back.
+        """
+        with self.lock:
+            chat = self.get(identifier)
+            folder = chat.folder_name
+            chat.discard_all()
+            self._held.pop(identifier, None)
+            chats.remove(identifier)
+        if folder:
+            files.Folder(attachments_dir(), folder).clear()
+        self.publish("chat", stage="deleted", id=identifier)
+        self.advance()
+        return {"id": identifier}
+
+    # -- the model -----------------------------------------------------------
+
+    def effective_model(self, model: str = "") -> str:
+        """What a turn runs on: the conversation's own, else the settings' default."""
+        return model or self.config.web.chat_model.strip() or self.config.runner.model
+
+    def models(self, current: str = "") -> dict[str, Any]:
+        """What the picker offers: Claude's, and OpenRouter's when it has a key."""
+        configured = bool(self.config.openrouter.key)
+        listed: list[dict[str, Any]] = []
+        why = ""
+        if configured:
+            try:
+                listed = openrouter.catalogue(self.config.openrouter)
+            except openrouter.Unavailable as error:
+                why = str(error)
+        return {
+            "claude": [{"id": name, "name": name.capitalize()} for name in CLAUDE_MODELS],
+            "openrouter": {"configured": configured, "models": listed, "error": why},
+            "recent": chats.recent_models(),
+            "default": self.config.web.chat_model.strip() or self.config.runner.model,
+            "in_use": self.effective_model(current),
+        }
+
+    # -- the voice -----------------------------------------------------------
+
+    def transcribe(self, audio: bytes, content_type: str, interface: str = "") -> dict[str, Any]:
+        """What was said, as text, in the language the runner speaks.
+
+        `runner.language` when it names one; otherwise the page's own language,
+        which is what the person talking is reading; otherwise Whisper's guess.
+        """
+        asked = self.config.runner.language.strip()
+        language = (
+            voice.understood(asked) if asked else voice.understood(interface) if interface else ""
+        )
+        text = openrouter.transcribe(self.config.openrouter, audio, content_type, language)
+        return {"text": text, "language": language}
+
+    def speech_plan(self, text: str, lang: str, final: bool) -> dict[str, Any]:
+        """The sentences of a reply worth saying aloud, in the language of the page."""
+        spoken = self.config.runner.language.strip() or lang
+        speech.warm(self.config.speech, spoken)
+        return {"sentences": speech.plan(text, spoken, final), "language": voice.understood(spoken)}
+
+    def speak(self, text: str, lang: str) -> bytes:
+        """A sentence of the reply as a WAV, in the voice of the language."""
+        spoken = self.config.runner.language.strip() or lang
+        return speech.synthesize(self.config.speech, text, spoken)
+
+    def attachment(self, identifier: str) -> files.Attachment:
+        """A file of any conversation, by its name: they are unguessable, and found where they were kept."""
+        if not _NAME.fullmatch(identifier or ""):
+            raise LookupError(f"no such attachment: {identifier}")
+        root = attachments_dir()
+        for path in root.glob(f"*/{identifier}-*") if root.is_dir() else ():
+            if path.is_file():
+                return files.Attachment(identifier, path.name[len(identifier) + 1 :], path)
+        raise LookupError(
+            f"no such attachment: {identifier} — it was removed, or the conversation is over"
+        )
+
+
+class Chat:
+    """One conversation with the whole workspace, kept across restarts.
+
+    It holds its own run: whether a turn is in flight, what waits behind it,
+    the event that stops it, the AG-UI of it. Another conversation's turn is
+    none of its business, except for the places they share (see `Chats`).
+    """
+
+    def __init__(self, chats_: Chats, identifier: str, row: dict[str, Any] | None = None) -> None:
+        self.chats = chats_
+        self._lock = chats_.lock
         self._busy = False
         # Set by Stop, read by the session of the turn in flight: one per turn,
         # so a stop that arrives late cannot reach the next one.
@@ -262,16 +538,15 @@ class Chat:
         # The turn in flight, as AG-UI says it (see agui.py): what a page that
         # opens mid-turn is drawn, and what the events of the session go through.
         self.turn: agui.Turn | None = None
+        # An answer nobody has read yet: set when a turn ends, cleared by `read`.
+        # In memory — it is a hint for the list, not part of the conversation.
+        self.unread = False
+        # Deleted while it ran: nothing it says afterwards is written anywhere.
+        self.discarded = False
         # Whoever follows the turns in AG-UI on a stream of their own, besides
         # the pages that read them on `/api/events` — see `listen`.
         self._listeners: set[queue.Queue[dict[str, Any]]] = set()
-        self._blank()
-        self._load()
-        files.prune(attachments_dir(), self.config.web.attachment_days)
-
-    def _blank(self) -> None:
-        """A conversation nobody has spoken in: not written anywhere until someone does."""
-        self.id = secrets.token_hex(6)
+        self.id = identifier
         self.title = ""
         # Empty: the default of the settings, whatever it is when the turn runs.
         self.model = ""
@@ -283,19 +558,34 @@ class Chat:
         # The folder this conversation's files are kept in: named when the
         # first one arrives, and emptied with the conversation.
         self.folder_name = ""
-        self.queue = []
-        self.held = False
-
-    # -- persistence ---------------------------------------------------------
-
-    def _load(self) -> None:
-        """Reopen the conversation spoken in last."""
-        row = chats.latest()
         if row is not None:
             self._adopt(row)
 
+    @property
+    def config(self) -> Config:
+        return self.chats.config
+
+    def publish(self, kind: str, **said: Any) -> None:
+        """An event of the stream, said to be about this conversation."""
+        if kind == "chat":
+            said["id"] = self.id
+        self.chats.publish(kind, **said)
+
+    def brief(self) -> str:
+        return self.chats.brief()
+
+    def idle(self) -> bool:
+        """Nothing runs in it and nothing waits: it can be forgotten and read again.
+
+        Not a blank one that already has a model chosen or files dropped in it:
+        nothing on disk would bring those back.
+        """
+        unsaved = not self.messages and bool(self.model or self.folder_name)
+        return not self._busy and not self.queue and not self._listeners and not unsaved
+
+    # -- persistence ---------------------------------------------------------
+
     def _adopt(self, row: dict[str, Any]) -> None:
-        self.id = str(row["id"])
         self.title = str(row.get("title") or "")
         self.model = str(row.get("model") or "")
         self.project = str(row.get("project") or "")
@@ -305,10 +595,10 @@ class Chat:
         self.folder_name = str(row.get("folder") or "")
         self.messages = _messages(row)
 
-    def _save(self) -> None:
-        if not self.messages:
+    def save(self) -> None:
+        if not self.messages or self.discarded:
             # Nothing said, nothing to keep: a new conversation opened and left
-            # again is not one more row in the list.
+            # again is not one more row in the list. And a deleted one stays so.
             return
         chats.save(
             {
@@ -335,8 +625,8 @@ class Chat:
         return self._busy
 
     def state(self) -> dict[str, Any]:
-        why = speech.refusal(self.config.speech)
         return {
+            **self.chats.defaults(),
             "id": self.id,
             "title": self.title,
             "model": self.model,
@@ -348,31 +638,27 @@ class Chat:
             "stopping": bool(self._stop and self._stop.is_set()),
             "queue": [queued.as_dict() for queued in self.queue],
             "held": self.held,
+            # Something waits and nothing runs, and it was not a Stop that held
+            # it: every place is taken by another conversation.
+            "limited": bool(self.queue) and not self._busy and not self.held,
+            "unread": self.unread,
             "resume_command": f"claude --resume {self.session_id}" if self.session_id else "",
-            "attachments": {
-                "max_mb": self.config.web.attachment_max_mb,
-                "accepted": sorted(files.ACCEPTED),
-                "ffmpeg": bool(files.ffmpeg()),
-            },
-            "dictation": {
-                "ready": bool(self.config.openrouter.key),
-                "why": ""
-                if self.config.openrouter.key
-                else (
-                    "Dictation is transcribed by OpenRouter: add an OpenRouter key in the settings"
-                ),
-                "send": self.config.web.send_after_transcription,
-            },
-            "speech": {"ready": not why, "why": why},
         }
 
     def history(self) -> list[dict[str, Any]]:
         return [message.as_dict() for message in self.messages]
 
+    def read(self) -> dict[str, Any]:
+        """The answer has been seen, by somebody following this conversation."""
+        if self.unread:
+            self.unread = False
+            self.publish("chat", stage="read")
+        return self.state()
+
     # -- in AG-UI ------------------------------------------------------------
 
     def ui(self) -> list[dict[str, Any]]:
-        """The open conversation as `useChat` holds it — the turn in flight included."""
+        """The conversation as `useChat` holds it — the turn in flight included."""
         said = [message.as_ui(f"{self.id}-{index}") for index, message in enumerate(self.messages)]
         turn = self.turn
         if turn is not None:
@@ -386,24 +672,14 @@ class Chat:
             )
         return said
 
-    def thread(self, identifier: str) -> dict[str, Any]:
-        """What `useChat` hydrates a conversation from: Ponos's own storage.
+    def thread(self) -> dict[str, Any]:
+        """What `useChat` hydrates the conversation from: Ponos's own storage.
 
-        The open one is read from memory, its turn in flight included; another
-        one from its row. Never a run to rejoin: the events of the one in
-        flight come on the stream every page already has open.
+        Its turn in flight included, read from memory — which is how a page
+        that comes back to a conversation catches up. Never a run to rejoin:
+        the events of the turn come on the stream every page already has open.
         """
-        if not identifier or identifier == self.id:
-            messages = self.ui()
-        else:
-            row = chats.load(identifier)
-            if row is None:
-                raise LookupError("no such session")
-            messages = [
-                message.as_ui(f"{identifier}-{index}")
-                for index, message in enumerate(_messages(row))
-            ]
-        return {"messages": messages, "activeRun": None, "interrupts": None}
+        return {"messages": self.ui(), "activeRun": None, "interrupts": None}
 
     def listen(self) -> queue.Queue[dict[str, Any]]:
         """A channel for every AG-UI event of the turns from now on."""
@@ -420,7 +696,7 @@ class Chat:
         """AG-UI events, to every page (`/api/events`) and every listener."""
         listeners = list(self._listeners)
         for event in events:
-            self.publish("agui", event=event)
+            self.chats.publish("agui", event=event, thread=self.id)
             for channel in listeners:
                 try:
                     channel.put_nowait(event)
@@ -432,98 +708,10 @@ class Chat:
     def _snapshot(self) -> None:
         self._emit([agui.snapshot(self.ui())])
 
-    def reset(self) -> dict[str, Any]:
-        """Start a new conversation. The old one stays in the list, to be reopened.
-
-        The model stays the one chosen: starting over is not changing one's mind.
-        """
-        with self._lock:
-            if self._busy:
-                raise RuntimeError("a turn is in flight — let it finish first")
-            model = self.model
-            self._blank()
-            self.model = model
-        self.publish("chat", stage="reset")
-        return self.state()
-
-    # -- the conversations ---------------------------------------------------
-
-    def sessions(self, query: str = "") -> list[dict[str, Any]]:
-        """Every conversation, the latest first, flagged for the one that is open."""
-        found = chats.listing(query)
-        for item in found:
-            item["current"] = item["id"] == self.id
-        return found
-
-    def open(self, identifier: str) -> dict[str, Any]:
-        """Make another conversation the one the console talks to."""
-        with self._lock:
-            if self._busy:
-                raise RuntimeError("a turn is in flight — let it finish first")
-            if identifier != self.id:
-                row = chats.load(identifier)
-                if row is None:
-                    raise LookupError("no such session")
-                self._blank()
-                self._adopt(row)
-        self.publish("chat", stage="opened")
-        return self.state()
-
-    def rename(self, identifier: str, title: str) -> dict[str, Any]:
-        title = " ".join(title.split())
-        if not title:
-            raise ValueError("a session needs a title")
-        with self._lock:
-            if identifier == self.id:
-                self.title = title[:200]
-                self._save()
-            else:
-                row = chats.load(identifier)
-                if row is None:
-                    raise LookupError("no such session")
-                chats.save({**row, "title": title[:200]})
-        self.publish("chat", stage="renamed", id=identifier)
-        return self.state()
-
-    def delete(self, identifier: str) -> dict[str, Any]:
-        """Forget a conversation and the files that were dropped in it."""
-        with self._lock:
-            if identifier == self.id:
-                if self._busy:
-                    raise RuntimeError("a turn is in flight — let it finish first")
-                folder = self.folder_name
-                self._blank()
-            else:
-                row = chats.load(identifier)
-                if row is None:
-                    raise LookupError("no such session")
-                folder = row.get("folder", "")
-            chats.remove(identifier)
-        if folder:
-            files.Folder(attachments_dir(), folder).clear()
-        self.publish("chat", stage="deleted", id=identifier)
-        return self.state()
-
-    def link(self, identifier: str, project: str) -> dict[str, Any]:
-        """Say which project a conversation is about — or none, with an empty name."""
-        project = " ".join(project.split())[:200]
-        with self._lock:
-            if identifier == self.id:
-                self.project = project
-                self._save()
-            else:
-                row = chats.load(identifier)
-                if row is None:
-                    raise LookupError("no such session")
-                chats.save({**row, "project": project})
-        self.publish("chat", stage="renamed", id=identifier)
-        return self.state()
-
     # -- the model -----------------------------------------------------------
 
     def effective_model(self) -> str:
-        """What a turn runs on: the conversation's own, else the settings' default."""
-        return self.model or self.config.web.chat_model.strip() or self.config.runner.model
+        return self.chats.effective_model(self.model)
 
     def choose(self, model: str) -> dict[str, Any]:
         """Run this conversation on `model` from the next turn on; empty: the default."""
@@ -534,27 +722,9 @@ class Chat:
             raise ValueError("an OpenRouter model needs the OpenRouter key: add it in the settings")
         with self._lock:
             self.model = model
-            self._save()
+            self.save()
         self.publish("chat", stage="model", model=self.effective_model())
         return self.state()
-
-    def models(self) -> dict[str, Any]:
-        """What the picker offers: Claude's, and OpenRouter's when it has a key."""
-        configured = bool(self.config.openrouter.key)
-        listed: list[dict[str, Any]] = []
-        why = ""
-        if configured:
-            try:
-                listed = openrouter.catalogue(self.config.openrouter)
-            except openrouter.Unavailable as error:
-                why = str(error)
-        return {
-            "claude": [{"id": name, "name": name.capitalize()} for name in CLAUDE_MODELS],
-            "openrouter": {"configured": configured, "models": listed, "error": why},
-            "recent": chats.recent_models(),
-            "default": self.config.web.chat_model.strip() or self.config.runner.model,
-            "in_use": self.effective_model(),
-        }
 
     # -- what a message carries ----------------------------------------------
 
@@ -567,7 +737,7 @@ class Chat:
         with self._lock:
             if not self.folder_name:
                 self.folder_name = secrets.token_hex(8)
-                self._save()
+                self.save()
         limit = self.config.web.attachment_max_mb * 1024 * 1024
         return self.folder().save(name, source, length, limit).as_dict()
 
@@ -577,30 +747,6 @@ class Chat:
 
     def attachment(self, identifier: str) -> files.Attachment:
         return self.folder().find(identifier)
-
-    def transcribe(self, audio: bytes, content_type: str, interface: str = "") -> dict[str, Any]:
-        """What was said, as text, in the language the runner speaks.
-
-        `runner.language` when it names one; otherwise the page's own language,
-        which is what the person talking is reading; otherwise Whisper's guess.
-        """
-        asked = self.config.runner.language.strip()
-        language = (
-            voice.understood(asked) if asked else voice.understood(interface) if interface else ""
-        )
-        text = openrouter.transcribe(self.config.openrouter, audio, content_type, language)
-        return {"text": text, "language": language}
-
-    def speech_plan(self, text: str, lang: str, final: bool) -> dict[str, Any]:
-        """The sentences of a reply worth saying aloud, in the language of the page."""
-        spoken = self.config.runner.language.strip() or lang
-        speech.warm(self.config.speech, spoken)
-        return {"sentences": speech.plan(text, spoken, final), "language": voice.understood(spoken)}
-
-    def speak(self, text: str, lang: str) -> bytes:
-        """A sentence of the reply as a WAV, in the voice of the language."""
-        spoken = self.config.runner.language.strip() or lang
-        return speech.synthesize(self.config.speech, text, spoken)
 
     # -- one turn ------------------------------------------------------------
 
@@ -616,6 +762,9 @@ class Chat:
         `run_id` and `message_id` are the names `useChat` gave the run and the
         message, when they came through AG-UI (see `run`): the turn is said
         under them, so the page that sent it recognises its own.
+
+        It waits, in this conversation's queue, behind the turn in flight, and
+        also when every place is taken by other conversations' turns.
         """
         text = text.strip()
         # Every id resolved before anything moves: a message whose file is gone
@@ -631,7 +780,8 @@ class Chat:
                 "pick a Claude model, or add the key in the settings"
             )
         with self._lock:
-            if self._busy or self.queue:
+            self.chats.hold(self)
+            if self._busy or self.queue or not self.chats.room():
                 # Behind the turn in flight, and behind whatever already waits.
                 self.queue.append(Queued(text, carried, run_id=run_id, message_id=message_id))
                 queued = True
@@ -647,12 +797,12 @@ class Chat:
 
         The conversation is the server's, not the page's: of the messages the
         run carries, only the last one the user wrote is new, and the rest is
-        what this conversation already holds. A run for a conversation that is
-        not the open one is refused rather than said in the wrong place.
+        what this conversation already holds. A run for another conversation
+        than the one the door names is refused rather than said in the wrong place.
         """
         thread = str(given.get("threadId") or "")
         if thread and thread != self.id:
-            raise RuntimeError("another conversation is open — reload it first")
+            raise RuntimeError("this run is for another conversation — reload the page")
         message = agui.last_user(list(given.get("messages") or []))
         forwarded = given.get("forwardedProps")
         attached = forwarded.get("attachments") if isinstance(forwarded, dict) else None
@@ -672,6 +822,7 @@ class Chat:
     ) -> None:
         """Start a turn on `text`. The lock is held, and nothing is running."""
         self._busy = True
+        self.unread = False
         self._stop = threading.Event()
         first = not self.session_id
         if first:
@@ -682,7 +833,7 @@ class Chat:
         )
         if not self.title:
             self.title = chats.titled(text) or (said[0]["name"] if said else "")
-        self._save()
+        self.save()
         self.publish("chat", stage="sent", text=text, attachments=said, session_id=self.session_id)
         # The conversation first, with the message that starts the turn in it:
         # every page has it before the first word of the answer arrives.
@@ -706,12 +857,15 @@ class Chat:
             stage="queue",
             queue=[queued.as_dict() for queued in self.queue],
             held=self.held,
+            limited=bool(self.queue) and not self._busy and not self.held,
         )
 
-    def _advance(self) -> None:
-        """Start the next waiting message, once the turn before it is over."""
+    def advance(self) -> None:
+        """Start the next waiting message, once the turn before it is over and a place is free."""
         with self._lock:
-            if self._busy or self.held or not self.queue:
+            if self._busy or self.held or not self.queue or self.discarded:
+                return
+            if not self.chats.room():
                 return
             waiting = self.queue.pop(0)
             # Taken off the list before it is said in the transcript: the page
@@ -750,7 +904,7 @@ class Chat:
         """Send what waits, after a turn that ended before its time."""
         with self._lock:
             self.held = False
-        self._advance()
+        self.chats.advance()
         self._announce_queue()
         return self.state()
 
@@ -762,12 +916,22 @@ class Chat:
         self._announce_queue()
         return self.state()
 
+    def discard_all(self) -> None:
+        """The conversation is being deleted: stop its turn, drop its queue, write nothing more."""
+        with self._lock:
+            self.discarded = True
+            self.queue = []
+            self.held = False
+            if self._stop is not None:
+                self._stop.set()
+
     def stop(self) -> dict[str, Any]:
         """Interrupt the turn in flight; the conversation carries on after it.
 
         Asking twice, or after the turn has ended on its own, is not an error:
         the button is pressed by somebody who saw a turn running, and the turn
-        does not wait for the click to arrive before it finishes.
+        does not wait for the click to arrive before it finishes. It stops this
+        conversation's turn and no other.
         """
         with self._lock:
             asked = self._stop
@@ -821,15 +985,18 @@ class Chat:
                 )
                 # Written before the turn is said to be over: whoever waits for
                 # `busy` to drop (a test, a restart) finds the transcript saved.
-                self._save()
+                self.save()
                 self.turn = None
                 self._busy = False
+                self.unread = True
                 self.held = bool(self.queue)
             self._emit(turn.failed(str(error)))
             self._snapshot()
             self.publish("chat", stage="failed", text=str(error))
             if self.held:
                 self._announce_queue()
+            # The place it held is free: another conversation may be waiting for it.
+            self.chats.advance()
             return
 
         if outcome.stopped:
@@ -852,9 +1019,10 @@ class Chat:
                     cost=round(outcome.cost_usd, 4),
                 )
             )
-            self._save()
+            self.save()
             self.turn = None
             self._busy = False
+            self.unread = True
         self._emit([*last, *turn.finished()])
         self._snapshot()
         self.publish(
@@ -866,7 +1034,8 @@ class Chat:
             seconds=seconds,
             session_id=self.session_id,
         )
-        self._advance()
+        # Its own queue first, then whatever waits for a place in other conversations.
+        self.chats.advance()
 
     def _stopped(
         self, outcome: session.Outcome, first: bool, started: float, turn: agui.Turn
@@ -894,9 +1063,10 @@ class Chat:
                     seconds=seconds,
                 )
             )
-            self._save()
+            self.save()
             self.turn = None
             self._busy = False
+            self.unread = True
             self.held = bool(self.queue)
         self._emit(turn.finished(stopped=True))
         self._snapshot()
@@ -909,6 +1079,7 @@ class Chat:
         )
         if self.held:
             self._announce_queue()
+        self.chats.advance()
 
     def _on_event(self, event: dict[str, Any], turn: agui.Turn | None = None) -> None:
         if turn is not None:

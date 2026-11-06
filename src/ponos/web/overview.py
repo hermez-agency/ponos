@@ -82,7 +82,7 @@ class Overview(Base):
             "upgrade": self.upgrade.offer(local),
             "spend": round(spend, 2),
             "handled": handled,
-            "chat": self.chat.state(),
+            "chat": self.chat.defaults(),
             "commands": sorted(self.commands.allowed),
             "busy": self.commands.busy,
         }

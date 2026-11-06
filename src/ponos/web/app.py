@@ -1206,8 +1206,8 @@ async def events(request: Request, after: str = "", board: str = "") -> Response
 # -- what a message carries --------------------------------------------------
 
 
-@doors.post("/api/chat/attachments", response_model=answers.Attached)
-def upload(request: Request, name: str = "") -> Response:
+@doors.post("/api/chat/{identifier:attachment}/attachments", response_model=answers.Attached)
+def upload(request: Request, identifier: str, name: str = "") -> Response:
     """One file for the message being written, as the raw body of the request.
 
     Raw rather than multipart: one file per request is what the page sends,
@@ -1219,7 +1219,11 @@ def upload(request: Request, name: str = "") -> Response:
     except ValueError:
         length = 0
     try:
-        said = _console(request).api.chat.attach(name, _Body(request), length)
+        said = (
+            _console(request)
+            .api.chat.get(identifier, blank=True)
+            .attach(name, _Body(request), length)
+        )
     except attachments.TooLarge as error:
         return fail(413, str(error))
     except ValueError as error:

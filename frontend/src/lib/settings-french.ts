@@ -153,6 +153,7 @@ export const SETTINGS_FRENCH: Record<string, string> = {
   "Refresh the board every": "Rafraîchir le tableau toutes les",
   "Time limit per discussion reply": "Durée maximale par réponse de la discussion",
   "Largest attached file": "Plus gros fichier joint",
+  "Simultaneous discussion replies": "Réponses simultanées de la discussion",
   "Keep attached files": "Garder les fichiers joints",
   "Keep session logs": "Garder les journaux des sessions",
   "Check the board every": "Consulter le tableau toutes les",
@@ -572,6 +573,8 @@ export const SETTINGS_FRENCH: Record<string, string> = {
     "Seulement tant que cette page est ouverte. 5 au minimum.",
   "For the discussion with the workspace, in this console.":
     "Pour la discussion avec l'espace de travail, dans cette console.",
+  "Conversations answering at the same time. Past this, a message waits for a place; each reply is a Claude session.":
+    "Conversations qui répondent en même temps. Au-delà, un message attend une place ; chaque réponse est une session Claude.",
   "Per file sent in the discussion. A larger one is refused, with the reason.":
     "Par fichier envoyé dans la discussion. Un fichier plus gros est refusé, avec la raison.",
   "Copies of what you sent in the discussion, deleted after this or with “new conversation”.":

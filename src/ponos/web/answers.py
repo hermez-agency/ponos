@@ -895,6 +895,16 @@ class ChatState(Shape):
     """What was said while a turn ran, in order: sent one by one after it."""
     held: bool = omitted()
     """A turn ended before its time: the queue waits to be sent or thrown away."""
+    busy: bool = omitted()
+    """A turn of this conversation is in flight."""
+    limited: bool = omitted()
+    """Messages wait and nothing runs: every place is taken by other conversations."""
+    unread: bool = omitted()
+    """An answer nobody has read yet."""
+    running: int = omitted()
+    """How many turns run now, in every conversation."""
+    limit: int = omitted()
+    """How many may run at once (`web.chat_max_turns`)."""
 
 
 class Attached(Shape):
@@ -936,7 +946,22 @@ class Chat(ChatState):
     """The conversation as the page opens it: what was said, and where it stands."""
 
     messages: list[Message]
-    busy: bool = omitted()
+
+
+class ChatDefaults(Shape):
+    """What holds for every conversation: what a message may carry, the voice, the places."""
+
+    attachments: Accepted
+    dictation: Dictation
+    speech: Speaking
+    running: int
+    """How many turns run now, in every conversation."""
+    limit: int
+    """How many may run at once (`web.chat_max_turns`)."""
+
+
+class Deleted(Shape):
+    id: str
 
 
 class ChatSession(Shape):
@@ -949,8 +974,12 @@ class ChatSession(Shape):
     turns: int
     updated: str
     """The last message's date, ISO."""
-    current: bool
-    """The one the console is talking to now."""
+    busy: bool
+    """A turn of it is answering now."""
+    waiting: bool
+    """A message waits for a place: every turn that may run is running."""
+    unread: bool
+    """It answered and nobody has read it."""
     matched: Literal["title", "content"] = omitted()
     """With a search: found in the title, or deeper in the transcript."""
 
@@ -972,6 +1001,8 @@ class AguiEvent(Shape):
     """One AG-UI event of a turn of the workspace, for the page's `useChat`."""
 
     event: dict[str, Any]
+    thread: str
+    """The conversation the event is about: a page follows one."""
 
 
 class ChatSessions(Shape):
@@ -1165,7 +1196,7 @@ class RunnerState(Shape):
     """The update the version offers, and how far one is — see `web/upgrade.py`."""
     spend: float
     handled: int
-    chat: ChatState
+    chat: ChatDefaults
     commands: list[str]
     busy: bool
 
@@ -2557,58 +2588,59 @@ class StepEvent(Step):
     log: str
 
 
-class ChatReset(Shape):
-    stage: Literal["reset"]
+class ChatEvent(Shape):
+    """What every event of a conversation says first: which one it is about."""
+
+    id: str
 
 
-class ChatOpened(Shape):
-    stage: Literal["opened"]
-
-
-class ChatRenamed(Shape):
+class ChatRenamed(ChatEvent):
     stage: Literal["renamed"]
-    id: str = omitted()
 
 
-class ChatDeleted(Shape):
+class ChatDeleted(ChatEvent):
     stage: Literal["deleted"]
-    id: str = omitted()
 
 
-class ChatModel(Shape):
+class ChatRead(ChatEvent):
+    stage: Literal["read"]
+
+
+class ChatModel(ChatEvent):
     stage: Literal["model"]
     model: str = omitted()
 
 
-class ChatSent(Shape):
+class ChatSent(ChatEvent):
     stage: Literal["sent"]
     text: str
     attachments: list[Attached] = omitted()
     session_id: str
 
 
-class ChatQueue(Shape):
+class ChatQueue(ChatEvent):
     stage: Literal["queue"]
     queue: list[Queued]
     held: bool
+    limited: bool
 
 
-class ChatStep(Step):
+class ChatStep(Step, ChatEvent):
     stage: Literal["step"]
 
 
-class ChatStopping(Shape):
+class ChatStopping(ChatEvent):
     stage: Literal["stopping"]
 
 
-class ChatStopped(Shape):
+class ChatStopped(ChatEvent):
     stage: Literal["stopped"]
     text: str
     seconds: float = omitted()
     session_id: str = omitted()
 
 
-class ChatAnswer(Shape):
+class ChatAnswer(ChatEvent):
     stage: Literal["answer", "failed"]
     text: str
     ok: bool = omitted()
@@ -2665,10 +2697,9 @@ class Stream(Shape):
     notifications: Bell
     step: StepEvent
     chat: (
-        ChatReset
-        | ChatOpened
-        | ChatRenamed
+        ChatRenamed
         | ChatDeleted
+        | ChatRead
         | ChatModel
         | ChatSent
         | ChatQueue
