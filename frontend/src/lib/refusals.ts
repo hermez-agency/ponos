@@ -24,6 +24,7 @@ export const REFUSALS: readonly string[] = [
   "the board: {{error}}",
   "the body is not JSON",
   "invalid request",
+  "this request is too large for the console: send files as attachments, not inside the message",
   // goals.py
   "a goal needs a name",
   "this workspace has no goals database",

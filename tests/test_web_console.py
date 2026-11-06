@@ -1038,3 +1038,52 @@ def another_agui_client_is_answered_the_run_itself_as_server_sent_events() -> No
         kinds = [event["type"] for event in events]
         assert kinds[0] == "RUN_STARTED" and kinds[-1] == "RUN_FINISHED", kinds
         assert "TOOL_CALL_START" in kinds and "MESSAGES_SNAPSHOT" not in kinds, kinds
+
+
+def _posting(size: int) -> tuple[int, str]:
+    """The status and the sentence of a run posted with `size` bytes of earlier thread."""
+    from ponos.web import app as web_app
+
+    with _chat() as chat:
+        _speaking(chat)
+        api = _bare_api(None)
+        api.chat = chat
+        console = web_app.Console(("127.0.0.1", 0), api, "tok")
+        threading.Thread(target=console.serve_forever, daemon=True).start()
+        try:
+            connection = http.client.HTTPConnection(
+                "127.0.0.1", console.server_address[1], timeout=20
+            )
+            history = [{"role": "assistant", "content": "x" * size}]
+            body = {"threadId": chat.id, "messages": [*history, {"role": "user", "content": "go"}]}
+            connection.request(
+                "POST",
+                "/api/chat/agui",
+                body=json.dumps(body),
+                headers={
+                    "Authorization": "Bearer tok",
+                    "X-Ponos": "1",
+                    "Content-Type": "application/json",
+                },
+            )
+            response = connection.getresponse()
+            raw = response.read().decode()
+            connection.close()
+            return response.status, raw
+        finally:
+            console.shutdown()
+            console.server_close()
+
+
+@case
+def a_thread_over_a_megabyte_still_takes_a_new_message() -> None:
+    """An AG-UI client posting the whole history is not refused for its length."""
+    status, raw = _posting(1024 * 1024 + 1)
+    assert status == 200, raw
+
+
+@case
+def a_body_far_too_large_is_refused_in_words_a_person_can_act_on() -> None:
+    status, raw = _posting(33 * 1024 * 1024)
+    assert status == 413, status
+    assert "attachments" in json.loads(raw)["error"], raw

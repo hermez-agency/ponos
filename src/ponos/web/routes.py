@@ -54,6 +54,12 @@ logger = logging.getLogger(__name__)
 # Bodies are small — a ticket, a message, a command. Anything larger is a
 # mistake, and reading it would be the mistake becoming ours.
 MAX_BODY = 256 * 1024
+# The chat's door reads only the last user message of what it is posted, but
+# another AG-UI client sends the whole thread each turn: it gets room for it.
+MAX_RUN_BODY = 32 * 1024 * 1024
+TOO_LARGE = (
+    "this request is too large for the console: send files as attachments, not inside the message"
+)
 
 # Except a picture, which is a file and not a message: the console shrinks it
 # before sending, and this is Notion's own ceiling for one piece.
@@ -170,8 +176,8 @@ class Answered(APIRoute):
                     length = int(request.headers.get("content-length") or 0)
                 except ValueError:
                     length = 0
-                if length > MAX_BODY:
-                    return fail(413, "a message is smaller than that")
+                if length > (MAX_RUN_BODY if self.path == "/api/chat/agui" else MAX_BODY):
+                    return fail(413, TOO_LARGE)
                 request = _as_json(request)
             try:
                 return await handler(request)
@@ -793,7 +799,7 @@ async def _small(request: Request) -> bytes:
     except ValueError:
         length = 0
     if length > MAX_BODY:
-        raise ValueError("a message is smaller than that")
+        raise ValueError(TOO_LARGE)
     return await request.body()
 
 
