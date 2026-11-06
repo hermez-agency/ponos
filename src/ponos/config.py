@@ -860,6 +860,9 @@ class Config:
     # The keys no table reads, as `(line, "table.key", "the known key it is
     # closest to")` — ignored, and said so: see `schema.unknown`.
     unknown: tuple[tuple[int, str, str], ...] = ()
+    # The keys the file holds that are constants now — line and dotted name:
+    # see `schema.REMOVED`.
+    retired: tuple[tuple[int, str], ...] = ()
 
     @property
     def standalone(self) -> bool:
@@ -1584,9 +1587,9 @@ def load(path: Path | None = None, *, secrets: Path | None = None) -> Config:
     secrets, the environment, the defaults that depend on where this runs.
     """
     target = path or config_path()
-    raw, file, unknown = _validated(target)
+    raw, file, unknown, retired = _validated(target)
     stored = read_secrets(secrets or secrets_path(target))
-    runner = _runner(file.runner)
+    runner = _runner(file.runner, _section(raw, "runner"))
     return Config(
         notion=_notion(file.notion, stored),
         runner=runner,
@@ -1594,20 +1597,24 @@ def load(path: Path | None = None, *, secrets: Path | None = None) -> Config:
         path=target,
         web=_web(file.web, stored),
         notify=_notify(file.notify, stored, runner),
+        # The sessions run on OpenRouter exactly when that is the provider chosen:
+        # `route_sessions` is no key of the file any more.
         openrouter=OpenRouter(
-            key=secret(stored, "openrouter", "key"), **file.openrouter.model_dump()
+            key=secret(stored, "openrouter", "key"),
+            route_sessions=file.claude.provider == "openrouter",
         ),
-        speech=Speech(**file.speech.model_dump()),
-        browser=Browser(**file.browser.model_dump()),
+        speech=Speech(),
+        browser=Browser(),
         claude=Claude(provider=file.claude.provider, api_key=secret(stored, "claude", "api_key")),
         budget=Budget(**file.budget.model_dump()),
-        review=Review(**file.review.model_dump()),
+        review=Review(),
         permissions=Permissions(**file.permissions.model_dump()),
         vault=_vault(file.vault),
         github=dict(file.github),
         github_access=_github_access(file.github_access, stored),
         exposed=tuple(f"{table}.{key}" for table, key in exposed(raw)),
         unknown=unknown,
+        retired=retired,
     )
 
 
@@ -1630,7 +1637,12 @@ def readable() -> bool:
 
 def _validated(
     target: Path,
-) -> tuple[dict[str, Any], schema.File, tuple[tuple[int, str, str], ...]]:
+) -> tuple[
+    dict[str, Any],
+    schema.File,
+    tuple[tuple[int, str, str], ...],
+    tuple[tuple[int, str], ...],
+]:
     """The file as TOML says it, read against schema.py, and the keys it reads none of.
 
     Or a ConfigError naming what is wrong.
@@ -1653,7 +1665,12 @@ def _validated(
             "This version's environment is missing it — ponos update --environment makes it, "
             "and so does the next run"
         ) from error
-    return raw, schema.read(raw, text, target), tuple(schema.unknown(raw, text))
+    return (
+        raw,
+        schema.read(raw, text, target),
+        tuple(schema.unknown(raw, text)),
+        tuple(schema.retired(raw, text)),
+    )
 
 
 def _notion(table: schema.NotionTable, stored: dict[str, str]) -> Notion:
@@ -1666,8 +1683,18 @@ def _notion(table: schema.NotionTable, stored: dict[str, str]) -> Notion:
     )
 
 
-def _runner(table: schema.RunnerTable) -> Runner:
-    read = table.model_dump(exclude={f"auto_model_subtype_{key}" for key in subtypes.KEYS})
+def _runner(table: schema.RunnerTable, raw: dict[str, Any]) -> Runner:
+    """The runner the file describes: its ~16 keys, every other setting the constant it was.
+
+    The four `force_validated_<type>` booleans a file still holds are read when
+    it does not write `force_validated` — a retired key stays tolerated, and the
+    machine whose file says `force_validated_code = true` keeps merging its code.
+    """
+    if "force_validated" in table.model_fields_set:
+        forced = table.force_validated
+    else:
+        forced = tuple(kind for kind in TYPES if raw.get(f"force_validated_{kind}") is True)
+    read = table.model_dump(exclude={"force_validated"})
     return Runner(
         **{
             **read,
@@ -1675,7 +1702,7 @@ def _runner(table: schema.RunnerTable) -> Runner:
             # The file first: a language picked in Settings is a decision taken
             # later than the deployment that set the environment.
             "language": table.language or os.environ.get(LANGUAGE_ENV, "").strip(),
-            "auto_model_subtypes": table.subtype_shifts(),
+            **{f"force_validated_{kind}": kind in forced for kind in TYPES},
         }
     )
 
@@ -1691,17 +1718,20 @@ def _web(table: schema.WebTable, stored: dict[str, str]) -> Web:
             # newline that file ends with, and lock you out of your own console.
             "email": (os.environ.get(WEB_EMAIL_ENV) or table.email).strip(),
             "password": secret(stored, "web", "password"),
-            "trusted_proxies": _trusted_proxies(table),
+            "trusted_proxies": _trusted_proxies(),
         }
     )
 
 
-def _trusted_proxies(table: schema.WebTable) -> tuple[str, ...]:
-    if "trusted_proxies" in table.model_fields_set:
-        return table.trusted_proxies
+def _trusted_proxies() -> tuple[str, ...]:
+    """The proxies whose forwarded address is believed: the environment's, or the default.
+
+    No longer a key of the file — a unit file or a container holds it, as it
+    already could.
+    """
     written = os.environ.get(TRUSTED_PROXIES_ENV, "")
     found = tuple(entry for entry in (part.strip() for part in written.split(",")) if entry)
-    return found or table.trusted_proxies
+    return found or Web.trusted_proxies
 
 
 def _notify(table: schema.NotifyTable, stored: dict[str, str], runner: Runner) -> Notify:
@@ -1710,11 +1740,8 @@ def _notify(table: schema.NotifyTable, stored: dict[str, str], runner: Runner) -
     # changes, and a file written before any of this existed behaves as it did.
     return Notify(
         desktop=runner.notify if table.desktop is None else table.desktop,
-        replies=table.replies,
         events=table.events,
         digest=table.digest,
-        digest_day=table.digest_day,
-        digest_hour=min(table.digest_hour, 23),
         telegram=_channel(table.telegram, secret(stored, "notify.telegram", "token")),
         slack=_channel(table.slack, secret(stored, "notify.slack", "token")),
     )

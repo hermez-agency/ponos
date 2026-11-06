@@ -67,7 +67,8 @@ def the_digest_is_off_unless_asked(state_home: Path) -> None:
     settings = _config(
         '[notify]\ndigest = "weekly"\ndigest_day = "friday"\ndigest_hour = 18\n'
     ).notify
-    assert (settings.digest, settings.digest_day, settings.digest_hour) == ("weekly", "friday", 18)
+    # The day and the hour are constants: Monday at nine, whatever a file still says.
+    assert (settings.digest, settings.digest_day, settings.digest_hour) == ("weekly", "monday", 9)
 
 
 @case

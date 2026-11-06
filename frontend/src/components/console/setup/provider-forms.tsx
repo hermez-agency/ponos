@@ -3,7 +3,6 @@ import { RefreshCw } from "lucide-react"
 import { Command, Field } from "@/components/console/setup/bits"
 import { Rich } from "@/components/console/text"
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
 import { useT } from "@/lib/i18n"
 
 /** What `claude` answered last: installed or not, and the commands that follow. */
@@ -91,18 +90,14 @@ export function CliLogin({
 export function KeyForm({
   chosen,
   value,
-  routed,
   busy,
   onType,
-  onRoute,
   onSave,
 }: {
   chosen: "api_key" | "openrouter"
   value: string
-  routed: boolean
   busy: boolean
   onType: (value: string) => void
-  onRoute: (routed: boolean) => void
   onSave: () => void
 }) {
   const t = useT()
@@ -125,17 +120,6 @@ export function KeyForm({
           "Left empty, the key already in the configuration — or in the container's environment — is the one checked."
         )}
       />
-      {chosen === "openrouter" ? (
-        <label className="flex items-start gap-2 text-sm">
-          <Checkbox checked={routed} onCheckedChange={(checked) => onRoute(checked === true)} className="mt-0.5" />
-          <span>
-            <span className="font-medium">{t("Run the sessions on OpenRouter")}</span>
-            <span className="text-muted-foreground block text-xs leading-relaxed">
-              {t("Off, the key is only handed to the sessions, and they keep running on the CLI's sign-in.")}
-            </span>
-          </span>
-        </label>
-      ) : null}
       <div>
         <Button type="submit" disabled={busy}>
           {busy ? t("Checking…") : t("Check and save")}

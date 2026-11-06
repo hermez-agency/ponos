@@ -196,87 +196,64 @@ reads what the last check found.
 
 ### 4. The rest of the file
 
-Every key below is also a field in the console's **Settings** tab —
-`ponos service run`, and the same file, drawn as a page. What follows is the same list,
-for reading rather than for filling in.
+The file holds about thirty keys — what somebody actually changes. Every other
+setting is a constant of the code, at the value it always had by default, and is not in
+the file nor in **Settings** (`ponos service run`, the same file drawn as a page). Every
+key below is a field there; the file itself is `config.example.toml`, under 150 lines.
 
 | Key | Default | Effect |
 | --- | --- | --- |
 | `runner.workspace_root` | `~/workspace` | where to look for repositories — and where one you have not cloned yet is cloned |
 | `runner.interval_seconds` | `1800` | the daemon's safety net: it looks at the whole board — ready column, validated column, CI, reviews, merged pull requests, the mirror — at least this often, whatever woke it in between. A ticket made ready is started within seconds whatever this says; read again when the file changes |
 | `runner.max_concurrent` | `2` | tickets handled side by side — an empty place is filled from the board without waiting for anything to end |
-| `runner.max_concurrent_per_project` | `2` | of those places, how many one project (with a repository) may hold at once — the next ticket of another project goes first, and the held one starts when a place of its project frees |
 | `runner.timeout_minutes` | `30` | past this, the session is killed and the ticket fails |
 | `runner.wait_for_credits` | `true` | a spent subscription window puts the runner to sleep instead of failing tickets — see [When the credits run out](credits.md#when-the-credits-run-out) |
-| `runner.credit_reserve_percent` | `5` | the share of each window the runner refuses to touch, so there is a subscription left for you — `0`–`50`, see [Stopping before the wall](credits.md#stopping-before-the-wall) |
 | `runner.model` | `""` | `"opus"`, `"sonnet"`… empty = the CLI's default |
 | `runner.language` | `""` | `"fr"` to be answered in French — see [The language it answers in](board.md#the-language-it-answers-in) |
 | `runner.app_language` | `""` | the language the console opens in; empty follows `runner.language` — see [The language it answers in](board.md#the-language-it-answers-in) |
-| `runner.permission_mode` | `"bypassPermissions"` | see [What protects your code](safety.md#what-protects-your-code) |
-| `runner.branch_prefix` | `"ticket/"` | prefix of the created branches |
 | `runner.base_branch` | `""` | empty = each repository's default branch |
-| `runner.push` | `true` | `false`: commits stay local |
-| `runner.open_pull_request` | `true` | `false`: the branch is pushed, without a PR |
-| `runner.rebase` | `true` | replay the branch onto its base before the pull request, and once more when a validated merge is refused for being behind |
-| `runner.resolve_conflicts` | `true` | when that replay stops on a conflict, a session resolves it, checks it, and the merge is asked again |
-| `runner.resolve_conflicts_except` | `""` | projects, by name and comma-separated, whose conflicts are always left to you |
-| `runner.resolve_model` | `""` | the model that resolves — empty: the ticket's own |
-| `review.ci_retries` | `5` | how many times a ticket in review whose CI is red, or that conflicts, is put back in *Ready* by Ponos before it is blocked; `0` never retries — see [a red CI in review](tickets.md#ci-retries) |
-| `runner.pr_review_comments` | `true` | a review of the pull request on GitHub that requests changes, or a comment that opens on `runner.pr_review_mention`, puts the ticket back in *Ready* — see [reviewing on GitHub](tickets.md#github-reviews) |
-| `runner.pr_review_mention` | `"@ponos"` | the word a comment on the pull request opens on to ask for work |
-| `runner.checks_timeout_minutes` | `20` | how long a resolved pull request's CI is waited for before the merge; `0` does not wait |
-| `runner.local_ci` | `false` | run the project's CI on this machine, in Docker, once the session has committed and before the push — the command the project's Settings tab declares, else its workflows through `act`; a red one goes back to the same session to be fixed. Needs Docker; a project may say otherwise for itself. GitHub's CI still runs |
-| `runner.local_ci_attempts` | `3` | how many times the local CI runs, the first included; still red after the last, the ticket is blocked (`merge.local-ci-failed`) and no pull request is opened |
-| `runner.local_ci_concurrent` | `1` | how many local CIs run at once on this machine; the next waits for a place. Containers, networks and compose volumes are named `ponos-ci-<ticket>` and removed after each run |
-| `runner.self_review` | `true` | before the push, a session in plan mode reads the diff against the ticket's done criterion and the project's CLAUDE.md; what it finds blocking goes back to the ticket's session once, then the pull request opens and its *Review* section says what was fixed and what was left. A project may say otherwise for itself — see [Read once before the pull request](tickets.md#read-once-before-the-pull-request) |
-| `runner.review_model` | `"sonnet"` | the model that reviews — empty: the ticket's own |
-| `runner.setup_timeout_minutes` | `10` | how long a project's setup command may run in a fresh worktree before the session starts; past it the command is killed and the ticket is blocked (`worktree.setup-failed`). See [Preparing a worktree](#preparing-a-worktree-before-the-session) |
 | `runner.merge_method` | `"squash"` | how a **validated** pull request is merged — `squash`, `merge`, `rebase` |
-| `runner.force_validated_code` | `false` | merge a Code ticket's pull request as soon as its session succeeds, then *Done* — see [*Force validated*](tickets.md#force-validated-skipping-the-review) |
-| `runner.force_validated_publication` | `false` | publish a Publication as soon as it is prepared, without waiting in review |
-| `runner.force_validated_writing`, `runner.force_validated_external` | `false` | the same switch for Writing and External action — which already end in *Done*, so they change nothing today |
-| `runner.relaunch_delay_seconds` | `15` | a session killed from outside (SIGKILL/SIGTERM, or cut by a network outage) is resumed once after this delay if the network answers, the ticket is still in progress and no Stop was asked for meanwhile; killed again, the ticket is blocked as `session.killed` with the exact reason |
-| `runner.min_free_memory_mb` | `2048` | no session is started while less memory than this is available (`MemAvailable`); `0` turns the guard off. `ponos doctor` reports it |
-| `runner.max_load_per_core` | `1.5` | no session is started while the load over the last minute is above this many times the cores (`nproc`) — 30 on 20 cores; the ticket waits in *Ready* and the runner says it once. `0` turns the guard off. `ponos doctor` reports it |
-| `runner.session_workers` | `0` | how many workers the tests of one session may take: exported as `VITEST_MAX_WORKERS`, `PLAYWRIGHT_WORKERS`, `JEST_WORKERS`, `PYTEST_XDIST_AUTO_NUM_WORKERS`, `CARGO_BUILD_JOBS`, `GOMAXPROCS` and said in its prompt; `0` is its part of the cores, `nproc` divided by `runner.max_concurrent` (1 at least). `ponos doctor` reports it |
-| `runner.keep_worktree_on_failure` | `true` | keep enough around to understand a failure |
-| `runner.notify` | `true` | one desktop notification per finished ticket, clicked to open its Notion page — `[notify]` carries it to your phone |
+| `runner.force_validated` | `[]` | the types of ticket validated as soon as their session succeeds, among `"code"` (the pull request is merged, then *Done*), `"publication"` (published without waiting in review), `"writing"` and `"external"` (which already end in *Done*, so they change nothing today) — see [*Force validated*](tickets.md#force-validated-skipping-the-review). Replaces the four `force_validated_<type>` booleans, which are still read when this line is absent |
+| `runner.local_ci` | `false` | run the project's CI on this machine, in Docker, once the session has committed and before the push — the command the project's Settings tab declares, else its workflows through `act`; a red one goes back to the same session to be fixed. Needs Docker; a project may say otherwise for itself. GitHub's CI still runs |
+| `runner.self_review` | `true` | before the push, a session in plan mode reads the diff against the ticket's done criterion and the project's CLAUDE.md; what it finds blocking goes back to the ticket's session once, then the pull request opens and its *Review* section says what was fixed and what was left. A project may say otherwise for itself — see [Read once before the pull request](tickets.md#read-once-before-the-pull-request) |
+| `runner.unblock` | `false` | look once at a ticket that waits on its own, and answer it when the answer is already written |
 | `runner.auto_update` | `true` | the daemon keeps the installation on the latest version, and restarts on it — its sessions taken back |
 | `runner.update_channel` | `"release"` | what "latest" means: the newest `vX.Y.Z` tag, or `"main"` for every commit. No tag, no update; anything unknown reads as `"release"` |
-| `runner.update_interval_seconds` | `3600` | how often the daemon asks; one minute is the floor |
-| `runner.log_retention_days` | `14` | drop older session logs, once a day, and the same age of steps, sync journal, MCP calls and finished transitions in `ponos.db`; `0` keeps everything |
-| `runner.min_free_disk_mb` | `5120` | under this much free disk (in MB), a tidy runs before any ticket is started; if the space is still short, nothing starts, the ticket stays in Ready and the console says so; `0` turns the guard off. `ponos doctor` reports it |
-| `runner.stale_worktree_days` | `30` | once a day, remove any worktree untouched for this long, whatever its ticket — never one whose ticket is in progress, nor one with uncommitted changes or commits no remote has; its local branch goes when a remote holds all of it; `0` turns it off |
-| `runner.tmp_retention_hours` | `24` | each session gets a `TMPDIR` of its own under `~/.cache/ponos/tmp/<session>`, removed when it ends; once a day, what is left after this many hours goes, and so do the `tmp*`, `ponos-*tmp*` and `pt` folders in `~/.cache` and the `tmp*` in your home untouched for two hours; `0` turns it off |
-| `runner.docker_prune` | `true` | once a day, `docker image prune -a`, `docker builder prune` (both on what is over a day old) and `docker volume prune`: nothing a container, running or stopped, refers to is touched; `false` leaves Docker alone |
-| `runner.worktree_exclude` | `""` | folders new worktrees are made without (sparse checkout), e.g. `"docs/media"` — left out before the checkout so big media never reach the disk; a ticket that needs one runs `git sparse-checkout disable` |
-| `runner.clean_done_worktrees` | `true` | once a day, also remove the worktrees and scratch directories of tickets done or cancelled for `log_retention_days` — see [What `clean` removes](usage.md#what-clean-removes-and-what-it-refuses-to) |
-| `runner.attach_sessions` | `true` | file each session under its project, so `claude --resume` there lists it |
-| `runner.prompt_file` | `""` | your own prompt template, for repository tickets |
-| `runner.document_prompt_file` | `""` | the same, for tickets with no repository |
-| `runner.delivery_prompt_file` | `""` | the same, for publishing a validated ticket |
-| `runner.classify` | `true` | work out the type of a ticket that reaches *Ready* with none — `false` runs it by its project, as before. See [The type of a ticket](board.md#the-type-of-a-ticket) |
-| `runner.classify_model` | `"haiku"` | the model that classifies: it reads one page and answers one line. Empty is the CLI's own |
-| `runner.auto_model` | `true` | choose the model of a ticket whose `Model` is empty, from its type, size, wording and priority — `false` gives every one `runner.model`. See [The model of a ticket](board.md#the-model-of-a-ticket) |
-| `runner.auto_model_light` … `auto_model_heaviest` | `"haiku"`, `"sonnet"`, `"opus"`, `"fable"` | the model of each of the four levels; an empty one borrows the nearest |
-| `runner.auto_model_code` … `auto_model_publication` | `"standard"`, Writing `"light"` | the level each type starts from: `light`, `standard`, `heavy` or `heaviest` |
-| `runner.auto_model_subtype_bug` … `auto_model_subtype_security` | Docs and Chore `"lower"`, Sécurité `"higher"`, the others `"same"` | how a code ticket's sub-type moves the level Code starts from: `lower`, `same` or `higher` |
-| `runner.auto_model_escalate` | `true` | a ticket whose chosen model failed runs one level up next time, once |
-| `runner.use_fable` | `false` | allow Claude Fable at all; off, every session the runner starts — chosen, escalated, written on a ticket or its agent, the console's chat — runs on `opus` instead |
-| `runner.classify_confidence` | `"medium"` | `low`, `medium` or `high` — the least confidence a guess is acted on with; below it, the ticket is blocked with the question |
+| `runner.ideas_*` | off | the ideas schedule, written by the *Planned* page's dialog rather than by hand: `ideas_schedule`, `ideas_at`, `ideas_day`, `ideas_every_hours`, `ideas_cron`, `ideas_scope`, `ideas_projects`, `ideas_workspace`, `ideas_per_batch`, `ideas_skip_above`, `ideas_budget_usd`, `ideas_notify`, `ideas_model` |
+| `budget.daily_usd`, `budget.per_ticket_usd` | no limit | the day's and one session's ceilings — see [Stopping before the wall](credits.md#stopping-before-the-wall) |
 | `notion.workspace` | `""` | the database whose rows are your master pages |
 | `notion.tickets_database` | `""` | one database instead of a workspace; wins when both are set |
+| `notion.mention` | `"@claude"` | the word that asks for an answer rather than a run |
 | `[notion.pages]` | | which row of the workspace is the tickets database, the projects database, the agents database, the context page |
+| `notify.desktop` | `true` | one desktop notification per finished ticket — `[notify]` carries it to your phone |
+| `notify.events` | all three | which moments are sent: `blocked`, `failed`, `done` |
+| `notify.digest` | `"off"` | `"daily"` or `"weekly"`: the summary of the period, sent on its own (Monday at 9 for the weekly one) |
+| `notify.telegram.chat`, `notify.slack.channel` | `""` | where the messages go; `allowed_users` of each names who may answer and command — see *Telegram and Slack* |
+| `web.host`, `web.port`, `web.url`, `web.email` | `127.0.0.1`, `8787`, `""`, `""` | the console's address and how it is opened — a token, or an email and a password. See *The web console* |
+| `claude.provider` | `""` | who answers the sessions — see *Who answers the sessions* below |
+| `permissions.allowed`, `permissions.ask` | | what a session does alone, and what always waits for your word |
+| `github_access.mode`, `github_access.token_item` | `""` | how GitHub is reached without `gh` — see *Connect GitHub* below |
 | `[projects]` | | `"Notion name" = "/path"` for repositories that cannot be guessed |
 | `[github]` | | `"owner" = "gh account"`, when this machine answers to more than one GitHub — see *Several GitHub accounts* below |
-| `[web]` | | the console's host, port, and how it is opened — a token, or an email and a password. See *The web console* |
-| `web.attachment_max_mb` | `25` | how heavy a file sent to the workspace may be |
-| `web.attachment_days` | `7` | how long a conversation's files are kept when nobody starts a new one |
-| `web.send_after_transcription` | `false` | send a dictated message as soon as it is transcribed, rather than leave it to be read over |
+| `[vault]` | | what each project's sessions are given — see *Keys a ticket may use* below |
 | `OPENROUTER_API_KEY` | | not a key of this file: the secret is in `secrets.env` or the environment (see the secrets above) — one key in front of every other provider, see *Every other model* below |
-| `openrouter.route_sessions` | `false` | run the sessions themselves on it |
-| `openrouter.base_url` | `https://openrouter.ai/api/v1` | only for a gateway of your own |
-| `openrouter.transcription_model` | `openai/whisper-1` | what the console's microphone is transcribed with |
+
+### What is a constant now
+
+Everything else that used to be a line of the file is read as the value it had by default,
+whatever a file still says: a line left behind is harmless, and `ponos doctor` names it so it can be
+deleted. They are listed, with their values, in the *Breaking* entry of the
+[changelog](../CHANGELOG.md): among them the guards (`min_free_memory_mb` 2048,
+`max_load_per_core` 1.5, `min_free_disk_mb` 5120, `credit_reserve_percent` 5), the places per
+project (`max_concurrent_per_project` 2), the branch (`branch_prefix` `ticket/`; fetch, push, pull
+request and rebase all on), the conflicts (resolved by a session), the retention (`log_retention_days`
+14, `stale_worktree_days` 30, `tmp_retention_hours` 24), the models (`auto_model` on, the four levels
+`haiku`, `sonnet`, `opus` and `fable` — which stays off: `use_fable` `false`, so the heaviest level runs
+on `opus` —, `review_model` `sonnet`, `classify_model` `haiku`), the console's polling and its
+attachments (`web.poll_seconds` 15, `web.attachment_max_mb` 25), the voice (`[speech]`) and the
+gateway of OpenRouter (`openrouter.base_url`, `openrouter.transcription_model`). `PONOS_WEB_TRUSTED_PROXIES`
+still names the proxies a container trusts. The sessions run on OpenRouter exactly when
+`claude.provider = "openrouter"`.
 
 The board's columns, its statuses and the options of its `Type` column have **fixed names**
 — they are not settings: `ponos init` creates them and `ponos doctor` names what a board lacks.
@@ -284,13 +261,12 @@ The list is in [The tickets database](board.md#the-tickets-database). `[notion.p
 `[notion.status]` and `[notion.types]`, which renamed them, are gone: a file that still holds
 them is read without them.
 
-`max_concurrent_per_project` caps how many of those places one project may hold: pull
-requests written side by side on one repository touch the same files, and each one that
-lands makes the others conflict. A ready ticket whose project is already at the limit stays
+One project (with a repository) holds at most two of those places (`max_concurrent_per_project`, a
+constant): pull requests written side by side on one repository touch the same files, and each
+one that lands makes the others conflict. A ready ticket whose project is already at the limit stays
 in the column — the daemon says `project at its limit` — and the next ticket of another
 project goes first; it starts as soon as a ticket of its project ends. Projects without a
-repository (documents) are not counted. It is also in the console's *Settings*, under
-*Tickets in parallel per project*.
+repository (documents) are not counted.
 
 `max_concurrent` is a number of **places**, not a batch size, and the daemon holds them
 for as long as it runs. A place that frees — a session ended — or one never taken is filled
@@ -369,10 +345,10 @@ provider = "cli"        # or "api_key", or "openrouter"
 |---|---|---|
 | `"cli"` | Claude Code signed in as you, `claude auth login` once on that machine | Your subscription. The only one that keeps **Claude in Chrome**, and the only one whose credits come in windows worth [waiting for](credits.md#when-the-credits-run-out). |
 | `"api_key"` | An Anthropic key: `ANTHROPIC_API_KEY`, in `secrets.env` or the environment | Billed by the token. No browser, nothing to wait for. |
-| `"openrouter"` | The OpenRouter key (below), `OPENROUTER_API_KEY` | With `route_sessions = true` the sessions run there, and a model is an OpenRouter slug. No browser, nothing to wait for. |
+| `"openrouter"` | The OpenRouter key (below), `OPENROUTER_API_KEY` | The sessions run there, and a model is an OpenRouter slug. No browser, nothing to wait for. |
 
-An empty `provider` is a file written before the key existed, and it reads the way that
-file always worked: OpenRouter when its sessions are routed there, the CLI otherwise. A key
+An empty `provider` is a file written before the key existed: the sessions run on the CLI,
+whatever key is there. A key
 in the file wins over the one in the environment, which only fills an empty line — a key
 somebody has just typed and checked must not lose to one a compose file was started with.
 An Anthropic key is handed to a session only when it is the provider: given to a CLI
@@ -411,7 +387,8 @@ what any of those are.
 The other way is a decision rather than a convenience:
 
 ```toml
-route_sessions = true
+[claude]
+provider = "openrouter"
 ```
 
 The sessions themselves then run on it. Claude Code speaks to OpenRouter instead of to
@@ -429,7 +406,7 @@ subscription's: nothing is metered in windows any more, so `runner.wait_for_cred
 nothing left to wait for, and `runner.credit_reserve_percent` no window to reserve a share
 of.
 
-Both switches are fields of the console's **Settings** tab, under *OpenRouter (other models)*; the
+The provider is a field of the console's **Settings** tab, and so is the key; the
 key is a secret like any other, so it goes out to the page as “set, ending in …abcd” and
 comes back only when you type a new one.
 
@@ -706,16 +683,14 @@ python -m pip install 'playwright>=1.64.1'   # the `browser` extra
 python -m playwright install chromium
 ```
 
-```toml
-[browser]
-default = "ponos"   # or "chrome": Claude in Chrome, as before
-headless = true     # false opens a visible window, to watch or debug a session
-```
+Ponos's browser is the default, and runs without a window: both are constants (`[browser]
+default` and `headless`, no longer keys of `config.toml` — a file that still holds them is
+read without them). Claude in Chrome stays one line of a ticket or one setting of a project away.
 
 **Which browser.** Only external tickets are concerned: a publication still posts from your
 own accounts, in your Chrome. A ticket names its browser with a line of its body —
 `Browser: chrome`, `Navigateur : Ponos` —, else its project's settings say (the
-**Browser** card of a project's Settings tab), else `[browser] default`. On a machine
+**Browser** card of a project's Settings tab), else Ponos's browser. On a machine
 without Playwright or its Chromium, the ticket runs in Claude in Chrome and the runner
 says why.
 

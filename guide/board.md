@@ -428,8 +428,8 @@ stopped by the quota carries its session on with the model it began on. What a r
 chosen and how it ended is kept in the local journal, so this works the same with Notion
 or without. Through OpenRouter, name its slugs in the four levels.
 
-**Fable only when you say so.** It costs far more than Opus, so `runner.use_fable` is
-off by default, and then nothing the runner starts runs on it: the *heaviest* level, and
+**Fable is off.** It costs far more than Opus, so `runner.use_fable` is a constant,
+`false` — it is no key of the file any more — and nothing the runner starts runs on it: the *heaviest* level, and
 any level whose model is `fable`, runs on `opus`, an escalation stops there, a session
 begun on Fable carries on on Opus, and a `Model` of `fable` written on a ticket or its
 agent runs on Opus too — its report says *Fable is turned off in the settings: run on

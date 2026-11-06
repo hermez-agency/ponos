@@ -224,13 +224,12 @@ def the_sub_type_moves_the_level_a_code_ticket_starts_at() -> None:
         "Le token", body, kind="writing", code=False, grid=grid, subtype="security"
     )
     assert writing.level == "light", "only a code ticket"
+    # The shifts are constants of the sub-types: a line in the file moves none.
     path, _ = _saved()
     with open(path, "a", encoding="utf-8") as handle:
-        handle.write(
-            '\n[runner]\nauto_model_subtype_docs = "same"\nauto_model_subtype_bug = "nope"\n'
-        )
+        handle.write('\n[runner]\nauto_model_subtype_docs = "same"\n')
     loaded = C.load(path).runner
-    assert loaded.subtype_shift("docs") == "same" and loaded.subtype_shift("bug") == "same"
+    assert loaded.subtype_shift("docs") == "lower" and loaded.subtype_shift("bug") == "same"
     assert loaded.subtype_shift("security") == "higher"
     top = C.Runner(auto_model_code="heaviest").model_grid()
     assert (

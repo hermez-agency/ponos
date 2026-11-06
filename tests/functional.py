@@ -40,6 +40,7 @@ import time
 import uuid
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -1308,8 +1309,16 @@ SETTINGS = {
 class Bench:
     """One machine, one board, and the gestures a scenario is written in."""
 
-    def __init__(self, root: Path, board: Board, database: str, logs: dict[str, Path]) -> None:
+    def __init__(
+        self,
+        root: Path,
+        board: Board,
+        database: str,
+        logs: dict[str, Path],
+        settings: dict[str, object],
+    ) -> None:
         self.root = root
+        self.settings = settings
         self.board = board
         self.database = database
         self.logs = logs
@@ -1444,11 +1453,23 @@ class Bench:
 
     # -- running -------------------------------------------------------------
 
+    def load(self) -> C.Config:
+        """The configuration the file makes — and the constants a scenario changes.
+
+        Most of what a scenario sets is no key of the file any more (a
+        constant of the code): it is put on the runner after the file is read.
+        """
+        config = C.load(self.config)
+        known: dict[str, Any] = {
+            name: value for name, value in self.settings.items() if hasattr(config.runner, name)
+        }
+        return replace(config, runner=replace(config.runner, **known))
+
     def run(self) -> list[dict[str, Any]]:
         """One pass of the runner, exactly the one the timer makes."""
         for path in self.logs.values():
             path.write_text("", encoding="utf-8")
-        results = Runner(C.load(self.config), quiet=True).tick()
+        results = Runner(self.load(), quiet=True).tick()
         assert not self.board.refused, f"the fake Notion could not answer {self.board.refused}"
         return results
 
@@ -1611,7 +1632,7 @@ def bench(**overrides: object) -> Iterator[Bench]:
                 settle = github_checks.RERUN_SETTLE_SECONDS
                 github_checks.RERUN_SETTLE_SECONDS = 0
                 try:
-                    yield Bench(root, board, database, logs)
+                    yield Bench(root, board, database, logs, settings)
                 finally:
                     github_checks.RERUN_SETTLE_SECONDS = settle
 
@@ -1668,7 +1689,7 @@ def a_scheduled_pass_finds_ideas_for_the_projects_ticked_and_for_those_only(mach
     beta = machine.project("Beta").replace("-", "")
     gamma = machine.project("Gamma").replace("-", "")
     C.edit(machine.config, [("runner", "ideas_projects", f"{alpha}, {gamma}")])
-    api = web_api.Api(C.load(machine.config))
+    api = web_api.Api(machine.load())
     # The fake Notion has no workspace page to find the projects database under,
     # so the console is given the index it would have read from it.
     api._projects = {
@@ -1929,7 +1950,7 @@ def a_ready_ticket_runs_with_notion_cut_and_the_mirror_catches_up_on_its_return(
     properties = machine.board.pages[ticket]["properties"]
     properties["Type"] = _stored({"select": {"name": "Code"}})
     properties["Sous-type"] = _stored({"select": {"name": "Bug"}})
-    configuration = C.load(machine.config)
+    configuration = machine.load()
     client = store.open(configuration, notion_only=True)
     seen = ledger.Ledger(client, configuration.notion)
     space = seen.workspace(configuration.notion)

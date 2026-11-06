@@ -15,7 +15,6 @@ from pathlib import Path
 from typing import Any, cast
 
 from support import (
-    ROOT,
     _bare_runner,
     _board_runner,
     _BoardClient,
@@ -133,9 +132,9 @@ class _BoardOf:
         return self._pages
 
 
-def _tidying(pages: list[notion.Page], body: str = "", error: str = "") -> Runner:
+def _tidying(pages: list[notion.Page], body: str = "", error: str = "", **constants: Any) -> Runner:
     runner = _bare_runner(_BoardOf(pages, error))
-    runner.config = _config(body)
+    runner.config = _config(body, **constants)
     runner._workspace = workspace.Workspace(tickets="db", projects="projects", agents="agents")
     return runner
 
@@ -237,7 +236,7 @@ def the_tidy_removes_stale_temporary_folders_and_prunes_docker(state_home: Path)
     real = leftovers.docker, leftovers.prune_docker
     leftovers.docker, leftovers.prune_docker = docker, REAL_PRUNE
     try:
-        tidied = _tidying([], "[runner]\ntmp_retention_hours = 1\n").tidy(now=True)
+        tidied = _tidying([], tmp_retention_hours=1).tidy(now=True)
         assert tidied is not None and tidied.tmp == 2 and tidied.docker, tidied
         assert [command[:2] for command in asked] == [
             ["image", "prune"],
@@ -245,7 +244,7 @@ def the_tidy_removes_stale_temporary_folders_and_prunes_docker(state_home: Path)
             ["volume", "prune"],
         ]
         asked.clear()
-        _tidying([], "[runner]\ndocker_prune = false\n").tidy(now=True)
+        _tidying([], docker_prune=False).tidy(now=True)
         assert not asked, "docker_prune = false leaves Docker alone"
     finally:
         leftovers.docker, leftovers.prune_docker = real
@@ -314,7 +313,7 @@ def the_daily_tidy_forgets_the_mcp_clients_nobody_authorised(state_home: Path) -
             "UPDATE mcp_clients SET created_at = '2026-01-01T00:00:00+00:00' WHERE id = ?",
             (abandoned,),
         )
-    tidied = _tidying([], "[runner]\nlog_retention_days = 0\n").tidy(now=True)
+    tidied = _tidying([], log_retention_days=0).tidy(now=True)
     assert tidied is not None and tidied.records == 1, tidied
     assert oauth.client(abandoned) is None
 
@@ -323,12 +322,10 @@ def the_daily_tidy_forgets_the_mcp_clients_nobody_authorised(state_home: Path) -
 def the_retention_can_be_turned_off(state_home: Path) -> None:
     scratch = _aged(state_home / "scratch" / "notes-1a2b3c4d", 30)
     page = _aged_page("page-1a2b3c4d", "done", 30)
-    _tidying([page], "[runner]\nclean_done_worktrees = false\n").tidy()
+    _tidying([page], clean_done_worktrees=False).tidy()
     assert scratch.exists()
-    _tidying([page], "[runner]\nlog_retention_days = 0\n").tidy(now=True)
+    _tidying([page], log_retention_days=0).tidy(now=True)
     assert scratch.exists()
-    example = (ROOT / "config.example.toml").read_text(encoding="utf-8")
-    assert "clean_done_worktrees = true" in example
 
 
 @case
@@ -449,13 +446,13 @@ def a_forgotten_worktree_goes_unless_its_ticket_runs_or_it_holds_work_nobody_els
         remove_worktree=lambda _repo, path: shutil.rmtree(path),
         delete_branch=lambda _repo, branch: branches.append(branch),
     ):
-        _tidying(pages, "[runner]\nlog_retention_days = 0\n").tidy()
+        _tidying(pages, log_retention_days=0).tidy()
         gone = {name for name, path in places.items() if not path.exists()}
         assert gone == {"failed", "gone", "stray"}, gone
         assert sorted(branches) == [f"ticket/app-{tail[0]}", f"ticket/app-{tail[5]}"]
         # A ticket still in progress, and every one when it is turned off.
         again = _aged(state_home / "worktrees" / f"app-{tail[0]}", 40)
-        _tidying(pages, "[runner]\nstale_worktree_days = 0\n").tidy(now=True)
+        _tidying(pages, stale_worktree_days=0).tidy(now=True)
         assert again.exists()
         # Nothing is guessed from a board that was not read.
         _tidying([]).tidy(now=True)
@@ -1893,17 +1890,15 @@ def a_resolution_report_is_what_the_session_wrote_above_its_verdict() -> None:
 
 @case
 def conflicts_are_resolved_everywhere_but_where_the_file_says_not() -> None:
-    config = _config('[runner]\nresolve_conflicts_except = ["Northwind", "Site vitrine"]\n')
-    assert config.runner.resolve_conflicts_except == "Northwind, Site vitrine"
+    config = _config(resolve_conflicts_except="Northwind, Site vitrine")
     assert not config.runner.resolves_conflicts("site vitrine")
     assert config.runner.resolves_conflicts("Trader IA")
-    assert (
-        _config('[runner]\nresolve_conflicts_except = "Site"\n').runner.resolve_conflicts_except
-        == "Site"
+    # No key of the file any more: a line there changes nothing.
+    assert _config('[runner]\nresolve_conflicts_except = "Site"\n').runner.resolves_conflicts(
+        "Site"
     )
-    off = _config("[runner]\nresolve_conflicts = false\n").runner
+    off = _config(resolve_conflicts=False).runner
     assert not off.resolves_conflicts("Trader IA")
-    assert _config("[runner]\nchecks_timeout_minutes = -3\n").runner.checks_timeout_minutes == 0
 
 
 @case

@@ -156,15 +156,6 @@ def _provider(config: config_module.Config, *, installed: bool) -> list[Check]:
                 params={"name": provider.NAMES[which]},
             )
         )
-        if which == "openrouter" and not config.openrouter.route_sessions:
-            found.append(
-                _check(
-                    "claude.login",
-                    WARN,
-                    "Claude connection",
-                    "openrouter.route_sessions = false: the sessions still run on the CLI's sign-in.",
-                )
-            )
     return found
 
 

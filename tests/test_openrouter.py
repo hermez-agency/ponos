@@ -36,7 +36,7 @@ def no_openrouter_key_starts_a_session_exactly_as_before() -> None:
 @case
 def a_routed_session_is_told_where_to_go_and_with_what() -> None:
     """`ANTHROPIC_AUTH_TOKEN`, not `ANTHROPIC_API_KEY`: a gateway wants a bearer."""
-    config = _config('[openrouter]\nkey = "sk-or-v1-secret"\nroute_sessions = true\n')
+    config = _config('[claude]\nprovider = "openrouter"\n[openrouter]\nkey = "sk-or-v1-secret"\n')
     variables = openrouter.environment(config.openrouter)
     assert variables["ANTHROPIC_BASE_URL"] == "https://openrouter.ai/api"
     assert variables["OPENROUTER_BASE_URL"] == "https://openrouter.ai/api/v1"
@@ -44,18 +44,21 @@ def a_routed_session_is_told_where_to_go_and_with_what() -> None:
     assert "ANTHROPIC_API_KEY" not in variables
     # A gateway of your own, and the trailing slash that would double up.
     own = _config(
-        '[openrouter]\nkey = "k"\nroute_sessions = true\nbase_url = "https://gw.example/v1/"\n'
+        '[claude]\nprovider = "openrouter"\n[openrouter]\nkey = "k"\n',
+        openrouter={"base_url": "https://gw.example/v1/"},
     )
     assert openrouter.environment(own.openrouter)["ANTHROPIC_BASE_URL"] == "https://gw.example"
     bare = _config(
-        '[openrouter]\nkey = "k"\nroute_sessions = true\nbase_url = "https://gw.example/anthropic"\n'
+        '[claude]\nprovider = "openrouter"\n[openrouter]\nkey = "k"\n',
+        openrouter={"base_url": "https://gw.example/anthropic"},
     )
     assert (
         openrouter.environment(bare.openrouter)["ANTHROPIC_BASE_URL"]
         == "https://gw.example/anthropic"
     )
-    blank = _config('[openrouter]\nkey = "k"\nbase_url = ""\n')
-    assert blank.openrouter.base_url == C.OPENROUTER_URL, "emptied, the default answers"
+    # The gateway is a constant: a line in the file does not move it.
+    blank = _config('[openrouter]\nkey = "k"\nbase_url = "https://gw.example"\n')
+    assert blank.openrouter.base_url == C.OPENROUTER_URL
 
 
 @case

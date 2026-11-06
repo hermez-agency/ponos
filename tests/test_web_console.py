@@ -158,7 +158,7 @@ class _Chat(web_console.Chat):
 
 
 @contextmanager
-def _chat(body: str = "") -> Iterator[_Chat]:
+def _chat(body: str = "", **constants: Any) -> Iterator[_Chat]:
     """A Chat whose Claude session is a function, in a throwaway state directory."""
     with _state_home():
         prompts: list[str] = []
@@ -172,7 +172,9 @@ def _chat(body: str = "") -> Iterator[_Chat]:
         session.run = run
         session.available = lambda: "/usr/bin/claude"
         try:
-            chat = _Chat(_config(body), lambda kind, **said: events.append((kind, said)))
+            chat = _Chat(
+                _config(body, **constants), lambda kind, **said: events.append((kind, said))
+            )
             chat.prompts = prompts
             chat.events = events
             yield chat
@@ -254,7 +256,7 @@ def a_video_is_looked_at_through_frames_or_said_to_be_unseen() -> None:
 
 @case
 def a_file_past_the_limit_or_of_the_wrong_kind_is_refused_with_a_reason() -> None:
-    with _chat("[web]\nattachment_max_mb = 1\n") as chat:
+    with _chat(web={"attachment_max_mb": 1}) as chat:
         heavy = 2 * 1024 * 1024
         try:
             chat.attach("film.mov", io.BytesIO(b""), heavy)
@@ -346,7 +348,7 @@ def conversations_are_listed_reopened_renamed_and_searched() -> None:
 
 @case
 def a_conversation_keeps_its_model_and_the_settings_name_the_default() -> None:
-    with _chat('[web]\nchat_model = "haiku"\n') as chat:
+    with _chat(web={"chat_model": "haiku"}) as chat:
         assert chat.effective_model() == "haiku", "the setting is the default of a new session"
         chat.choose("opus")
         assert chat.state()["model"] == "opus"
@@ -679,7 +681,7 @@ def dictation_is_sent_to_openrouter_in_the_language_asked_for() -> None:
     threading.Thread(target=server.serve_forever, daemon=True).start()
     try:
         base = f"http://127.0.0.1:{server.server_address[1]}/api/v1"
-        with _chat(f'[openrouter]\nkey = "sk-or-test"\nbase_url = "{base}"\n') as chat:
+        with _chat('[openrouter]\nkey = "sk-or-test"\n', openrouter={"base_url": base}) as chat:
             assert chat.state()["dictation"]["ready"] is True
             said = chat.transcribe(b"\x1aE\xdf\xa3", "audio/webm;codecs=opus", "fr-FR")
     finally:
@@ -703,7 +705,7 @@ def the_console_takes_a_file_as_a_raw_body_and_serves_it_back_sandboxed() -> Non
 
     from ponos.web import app as web_app
 
-    with _chat("[web]\nattachment_max_mb = 1\n") as chat:
+    with _chat(web={"attachment_max_mb": 1}) as chat:
         api = _bare_api(_TalkClient([]))
         api.chat = chat
         console = web_app.Console(("127.0.0.1", 0), api, "tok")
@@ -766,7 +768,7 @@ def the_console_speaks_a_sentence_and_plans_a_reply_and_says_why_it_cannot() -> 
     from ponos import speech
     from ponos.web import app as web_app
 
-    with _chat("[speech]\nspeed = 120\n") as chat:
+    with _chat(speech={"speed": 120}) as chat:
         assert chat.state()["speech"]["ready"] is speech.available()
         api = _bare_api(_TalkClient([]))
         api.chat = chat

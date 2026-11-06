@@ -206,14 +206,12 @@ def this_repository_regenerates_its_api_types_with_its_bundle_on_a_replay() -> N
 
 
 @case
-def max_concurrent_per_project_defaults_to_two_and_is_never_below_one() -> None:
+def max_concurrent_per_project_is_a_constant_of_two() -> None:
     with tempfile.TemporaryDirectory() as folder:
         path = Path(folder) / "config.toml"
         assert C.Runner().max_concurrent_per_project == 2
-        path.write_text("[runner]\nmax_concurrent_per_project = 0\n", encoding="utf-8")
-        assert C.load(path).runner.max_concurrent_per_project == 1
         path.write_text("[runner]\nmax_concurrent_per_project = 3\n", encoding="utf-8")
-        assert C.load(path).runner.max_concurrent_per_project == 3
+        assert C.load(path).runner.max_concurrent_per_project == 2
 
 
 @case

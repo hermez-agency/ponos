@@ -44,9 +44,7 @@ def the_first_connection_writes_the_provider_only_once_it_answers() -> None:
             said = web_setup.save_provider(api, {"provider": "api_key", "key": "sk-ant-good"})
             assert said["ok"] and api.config.claude.provider == "api_key"
             assert api.config.claude.api_key == "sk-ant-good"
-            said = web_setup.save_provider(
-                api, {"provider": "openrouter", "key": "sk-or-good", "route_sessions": True}
-            )
+            said = web_setup.save_provider(api, {"provider": "openrouter", "key": "sk-or-good"})
             assert said["ok"] and provider.chosen(api.config) == "openrouter"
             assert api.config.openrouter.route_sessions is True
             # The CLI is written at once: what it needs is typed in a terminal.
