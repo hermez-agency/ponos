@@ -2,6 +2,7 @@ import type { StreamChunk } from "@tanstack/ai"
 import type { SubscribeConnectionAdapter, UIMessage } from "@tanstack/ai-react"
 
 import { api } from "./api"
+import { newMessages } from "./agui-run"
 
 /* The conversation's connection, as TanStack AI's `useChat` wants one.
  *
@@ -72,7 +73,7 @@ export const connection: SubscribeConnectionAdapter = {
     await api.runChat({
       threadId: run.threadId,
       runId: run.runId,
-      messages,
+      messages: newMessages(messages as { role: string }[]) as typeof messages,
       // What a message carries besides its words: the ids of its files.
       forwardedProps: { ...data, ...run.forwardedProps },
     })

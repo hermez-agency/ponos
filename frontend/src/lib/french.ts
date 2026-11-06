@@ -1918,6 +1918,8 @@ export const FRENCH: Record<string, string> = {
   "the board: {{error}}": "Le tableau : {{error}}",
   "the body is not JSON": "La requête n'est pas du JSON.",
   "invalid request": "Requête invalide.",
+  "this request is too large for the console: send files as attachments, not inside the message":
+    "Ce message est trop gros pour la console : joins les fichiers comme pièces jointes au lieu de les coller dans le texte, ou raccourcis-le.",
   "a goal needs a name": "Un objectif a besoin d'un nom.",
   "this workspace has no goals database": "Cet espace de travail n'a pas de base d'objectifs.",
   "nothing to change": "Rien à modifier.",
