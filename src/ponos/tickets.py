@@ -62,8 +62,9 @@ _TEXT = (
     "scheduled",
     "role",
     "goal",
+    "twin",
 )
-_NUMBERS = ("priority", "cost", "duration")
+_NUMBERS = ("priority", "cost", "duration", "attempts")
 _FLAGS = ("waiting", "plan_first")
 
 
@@ -94,6 +95,8 @@ class Record:
     goal: str = ""
     waiting: bool = False
     plan_first: bool = False
+    attempts: int = 1
+    twin: str = ""
     notion: str = ""
     created_at: str = ""
     edited_at: str = ""

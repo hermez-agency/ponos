@@ -25,6 +25,7 @@ import shutil
 from pathlib import Path
 
 from . import (
+    attempts,
     blocks,
     conversation,
     git,
@@ -78,6 +79,7 @@ class Preparation(Base):
         self._say_job(ticket, job)
         if not self._take(ticket, job):
             return None
+        self._second_attempt(ticket)
         return job
 
     def _locate(self, ticket: Ticket) -> Project | None:
@@ -299,6 +301,14 @@ class Preparation(Base):
             if line:
                 self.say("    · " + line)
                 job.notes.append(line)
+
+    def _second_attempt(self, ticket: Ticket) -> None:
+        """A ticket that asked for two attempts gets its sibling now that it has started — see attempts.py."""
+        if self.dry_run:
+            return
+        made = attempts.sibling(ticket.id)
+        if made is not None:
+            self.say(f"    · {ticket.title} — second attempt queued as “{made.title}”")
 
     def _take(self, ticket: Ticket, job: Job) -> bool:
         """Claim the ticket — False when it left ready before the claim took."""

@@ -454,6 +454,28 @@ only be declared once the database exists — and running it again adds it to a 
 before it; `ponos doctor` says so when the column is there under another type. A board without the
 column runs every ready ticket, as before. A Markdown board has it too, as a list of ticket ids.
 
+## Two attempts: a sibling ticket that tries again
+
+Some tickets are worth trying twice, side by side. A **code** ticket created with
+`attempts: 2` (the `attempts` key of `POST /api/tickets`; 1 by default, 2 at most) is
+tried by **two tickets** rather than one:
+
+- **The second attempt is a sibling, not a second pull request.** When the first one is
+  claimed, Ponos clones it — title followed by *(tentative 2)*, same project, type,
+  sub-type, model, priority, mission, « Plan d'abord » and `Après` — and puts the clone in
+  *Ready*. Each of the two then follows the ordinary road: its own branch, its own
+  worktree, its own session, its own pull request. « One pull request per ticket » is
+  untouched.
+- **Once.** The two remember each other; a ticket that already has its sibling does not make
+  another, whatever happens to it (blocked, answered, run again), and the clone counts as a
+  single attempt.
+- **Nothing compares them, and nothing closes the other.** Both pull requests wait for your
+  validation, each on its own; merging one leaves the other open, and you close it. Closing
+  the loser automatically is the next step.
+
+The two numbers live in `ponos.db` only (`attempts`, `twin`): the Notion board has no column
+for them, and the sibling is mirrored like any ticket.
+
 ## Read once before the pull request
 
 The review a pull request gets from you comes late, and finds what a reading against the
