@@ -1525,6 +1525,14 @@ export const FRENCH: Record<string, string> = {
   "any priority": "toutes les priorités",
   "any type": "tous les types",
 
+  /* -- What waits for you, on a phone (to-handle.tsx) and the board's tabs -- */
+  "To handle": "À traiter",
+  "Nothing waits for you: no ticket is blocked or in review.":
+    "Rien ne vous attend : aucun ticket bloqué ni en revue.",
+  "Show the other one": "Voir l'autre",
+  "Show the {{count}} others": "Voir les {{count}} autres",
+  "Columns of the board": "Colonnes du board",
+
   /* -- Unblock and Decide (ticket-decision.tsx, lib/decision.ts) ----------- */
   Unblock: "Débloquer",
   Decide: "Décider",

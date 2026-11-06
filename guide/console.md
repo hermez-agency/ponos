@@ -75,7 +75,16 @@ ones you used last first. A conversation on an OpenRouter model talks to OpenRou
 setting. `web.chat_model` is the model a new conversation starts on.
 
 **The dashboard** opens on the period's [statistics](#statistics-on-the-dashboard), then
-the board. **The board** is the Notion board, read from Notion and written back to it, drawn as
+the board. **On a phone** it opens on **To handle** instead: the blocked tickets and the
+ones in review, one card each — a blocked one first, then the pull requests to decide, then
+the stops Ponos is already retrying; the one waiting longest first in each. A card says
+why the ticket waits and carries its gesture: *Unblock* opens its discussion on the question
+and its quick replies, *Decide* the numbered choices of its pull request — a tap there, a
+tap on the answer. The first four are drawn, *Show the N others* the rest, and *Unblock (N)*
+and *Decide (N)* in its heading go through a whole column. Under it the statistics are
+folded until you open them (the choice is kept, as on a computer), and the board shows one
+column at a time under a row of tabs with their counts — *Blocked 3 · In review 2…* —
+opening on *Blocked*, then *In review*, or on the tab you left. **The board** is the Notion board, read from Notion and written back to it, drawn as
 the columns the board has — *Ready*, *In progress*, *In review*, *Validated* where the
 board offers it, *Blocked*, *Failed*, *Done* — under the board's own names. Nothing here
 is a second database: **drag a card into a column and the ticket moves**, and the ticket

@@ -58,6 +58,7 @@ import { Robot, TicketRobot } from "@/components/console/robot"
 import { RunnerStrip } from "@/components/console/runner-strip"
 import { HealthBand } from "@/components/console/health-band"
 import { StatisticsBand } from "@/components/console/statistics"
+import { ToHandle } from "@/components/console/to-handle"
 import { CardLive } from "@/components/console/session-log"
 import { useOpensOverTheList } from "@/components/console/record-window"
 import { SeriesButton } from "@/components/console/ticket-decision"
@@ -101,6 +102,8 @@ import {
 import type { ColumnKey, Ticket, TicketDetail } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { canAct, readOnly } from "@/lib/role"
+import { usePhone } from "@/lib/phone"
+import { openingColumn } from "@/lib/to-handle"
 
 /* The tickets, declared once for react-resource-view.
  *
@@ -742,11 +745,15 @@ function DashboardTop({
   const latest = React.useRef(fetchData)
   latest.current = fetchData
   React.useEffect(() => subscribeBoard(() => latest.current()), [])
+  // On a phone the dashboard opens on what waits for you, before the health
+  // band and the figures (see `to-handle.tsx`).
+  const phone = usePhone()
   // The figures are the board's: a ticket's page is drawn under the same
   // `top`, and has its own column to say what it is doing.
   if (!loading)
     return listing ? (
       <>
+        {phone ? <ToHandle /> : null}
         <HealthBand />
         <RunnerStrip action={<IdeasButton inline />} />
         <StatisticsBand />
@@ -934,6 +941,8 @@ function BoardColumn({
       data-board-column={column}
       className={cn(
         "group/column flex flex-1 basis-0 snap-start flex-col gap-2 *:w-auto *:min-w-0 [&_header>p]:flex-1 [&_header>span]:hidden",
+        // Alone on a phone's screen, it takes the width there is.
+        "max-md:min-w-0",
         COLUMN_MIN
       )}
     >
@@ -960,6 +969,70 @@ function BoardColumn({
  * date to share a line. Below it a card's title wraps a word to a line; above it the columns share the width, with no upper bound, and past
  * what the screen holds the board scrolls sideways — the board, not the page. */
 const COLUMN_MIN = "min-w-[21rem]"
+
+/* The column a phone's board was last left on, for as long as the tab lives:
+ * opening a ticket and coming back is not starting again from Blocked. */
+let chosenColumn: string | undefined
+
+/* The board on a phone: one column at a time, chosen from a row of tabs, each
+ * with how many cards it holds — « Bloqué 3 · En revue 2 ». Seven columns side
+ * by side, each 21rem wide, were six swipes across, and Blocked was the fourth.
+ * The row scrolls sideways when the names do not fit; the column chosen is the
+ * one drawn, full width. It opens on Blocked, then In review — what waits for
+ * you — or on the one picked last (`openingColumn`). */
+function PhoneTabs({
+  columns,
+  shown,
+  onChoose,
+}: {
+  columns: { key: string; name: string; count: number }[]
+  shown: string
+  onChoose: (key: string) => void
+}) {
+  const t = useT()
+  const row = React.useRef<HTMLDivElement>(null)
+  // The tab on show is brought into the row's view — Blocked, fourth, opened
+  // out of sight — by scrolling the row alone: `scrollIntoView` would move the
+  // page down to the board as well.
+  React.useLayoutEffect(() => {
+    const element = row.current
+    const tab = element?.querySelector<HTMLElement>(`[data-board-tab="${shown}"]`)
+    if (!element || !tab) return
+    element.scrollLeft = tab.offsetLeft - element.offsetLeft - (element.clientWidth - tab.offsetWidth) / 2
+  }, [shown])
+  if (columns.length < 2) return null
+  return (
+    <div
+      ref={row}
+      role="tablist"
+      aria-label={t("Columns of the board")}
+      data-slot="board-tabs"
+      className="scroll-thin -mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1"
+    >
+      {columns.map((column) => {
+        const on = column.key === shown
+        return (
+          <button
+            key={column.key}
+            type="button"
+            role="tab"
+            aria-selected={on}
+            data-board-tab={column.key}
+            onClick={() => onChoose(column.key)}
+            className={cn(
+              "focus-visible:ring-ring/50 flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-sm whitespace-nowrap outline-none focus-visible:ring-2",
+              on ? "bg-foreground text-background border-transparent" : "text-muted-foreground bg-card"
+            )}
+          >
+            <span className={cn("size-1.5 shrink-0 rounded-full", SEED[column.key] ?? "bg-muted-foreground")} />
+            {capital(column.name)}
+            <span className="tabular-nums opacity-70">{column.count}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
 
 /* Whether the empty columns are drawn anyway, as the last person at this
  * browser left it. Hidden by default: on a board with three columns at "rien",
@@ -1093,6 +1166,20 @@ function BoardColumns({ rows: all = [] }: ListComponentPropsInterface) {
   const scroll = (direction: 1 | -1) =>
     strip.current?.scrollBy({ left: direction * strip.current.clientWidth * 0.8, behavior: "smooth" })
 
+  // On a phone, one column at a time, under tabs that count their cards.
+  const phone = usePhone()
+  const drawnColumns = columns.filter((column) => emptyShown || !empty.has(column.key))
+  const [chosen, setChosen] = React.useState(() => chosenColumn)
+  const shownColumn = openingColumn(
+    drawnColumns.map((column) => column.key),
+    new Set(columns.filter((column) => !empty.has(column.key)).map((column) => column.key)),
+    chosen
+  )
+  const choose = (key: string) => {
+    chosenColumn = key
+    setChosen(key)
+  }
+
   return (
     <div className="flex min-w-0 flex-col gap-2">
       <TicketSearch
@@ -1111,6 +1198,17 @@ function BoardColumns({ rows: all = [] }: ListComponentPropsInterface) {
           </Button>
         </p>
       ) : null}
+      {phone ? (
+        <PhoneTabs
+          columns={drawnColumns.map((column) => ({
+            key: column.key,
+            name: columnTitle(column.key, column.name),
+            count: rows.filter((row) => row.data?.column === column.key).length,
+          }))}
+          shown={shownColumn}
+          onChoose={choose}
+        />
+      ) : null}
       <div className={cn("relative", filtering && !rows.length && "hidden")}>
         <div
           ref={strip}
@@ -1119,6 +1217,8 @@ function BoardColumns({ rows: all = [] }: ListComponentPropsInterface) {
         >
           {columns.map((column) => {
             const name = columnTitle(column.key, column.name)
+            // A phone draws the column its tabs are on, and none of the others.
+            if (phone && column.key !== shownColumn) return null
             if (!emptyShown && empty.has(column.key)) {
               return dragging ? (
                 <DropZone
