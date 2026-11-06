@@ -278,6 +278,8 @@ class RunnerTable(Table):
     # The floor is ten seconds, which is the fastest a run itself goes: a
     # zero here would turn every pass into a full scan of the board.
     reply_interval_seconds: Annotated[Integer, _at_least(10)] = Runner.reply_interval_seconds
+    pr_review_comments: bool = Runner.pr_review_comments
+    pr_review_mention: Filled = Runner.pr_review_mention
     reply_scan: AtLeast1 = Runner.reply_scan
     reply_timeout_minutes: AtLeast1 = Runner.reply_timeout_minutes
     reply_permission_mode: Filled = Runner.reply_permission_mode

@@ -686,6 +686,18 @@ reply_scan = 20                  # pages looked at per pass
 reply_timeout_minutes = 10       # somebody is waiting for this one
 reply_permission_mode = "plan"   # it talks; it does not work
 
+# Reviewing on GitHub. A ticket in review whose pull request is reviewed there
+# goes back to ready, with the comments — file, line, the diff they are about,
+# who wrote them — in the prompt: the session resumes on the pull request's own
+# branch, pushes, and answers in each thread with one line (what changed, or why
+# nothing). Two things wake it: a review that *requests changes* (all its line
+# comments come with it), and a comment — on a line, or the body of a review —
+# that opens on the mention below. Comments of bots, and the runner's own, never
+# do; neither does anything written before Ponos first looked at the pull
+# request. Only for the pull requests Ponos opened. Off: the reviews are yours.
+pr_review_comments = true
+pr_review_mention = "@ponos"     # the word that opens a comment meant for it
+
 # The « On » column: a prompt a ticket carries and Ponos runs at every change of
 # its status, with the old status, the new one and the ticket in front of it. The
 # board is looked at once in `on_interval_seconds` (ten at the least); a ticket

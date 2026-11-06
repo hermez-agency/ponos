@@ -823,6 +823,25 @@ if "You are resolving that conflict" in prompt:
           "session_id": session, "num_turns": 4, "total_cost_usd": 0.05})
     raise SystemExit(0)
 
+# A pull request reviewed on GitHub: the session addresses each comment with a
+# commit, and answers each thread by its id, as the prompt asks.
+if "Review comments left on GitHub" in prompt:
+    import re
+
+    ids = re.findall(r"^\\[([\\w-]+)\\] @", prompt, re.MULTILINE)
+    (here / "REVIEWED.md").write_text("reviewed\\n", encoding="utf-8")
+    subprocess.run(["git", "add", "REVIEWED.md"], cwd=here, check=True, capture_output=True)
+    subprocess.run(["git", "-c", "user.name=Fake Claude", "-c", "user.email=fake@example.invalid",
+                    "-c", "commit.gpgsign=false", "commit", "-m", "Traite la revue"],
+                   cwd=here, check=True, capture_output=True)
+    if os.environ.get("FAKE_CLAUDE_REVIEW_NOTHING"):
+        subprocess.run(["git", "reset", "--hard", "HEAD~1"], cwd=here, check=True,
+                       capture_output=True)
+        said = "\\n".join(f"REPLY {one}: c'est voulu, rien à changer" for one in ids)
+        finish(said + "\\nRESULT: ok — rien à changer, expliqué dans les fils", turns=2)
+    said = "\\n".join(f"REPLY {one}: corrigé dans REVIEWED.md" for one in ids)
+    finish(said + "\\nRESULT: ok — revue traitée", turns=2)
+
 # A validated pull request red by its own fault: the repair session fixes it
 # the way the CI of the scenarios checks — `FIXED.md` committed, nothing pushed.
 if "You are repairing that" in prompt:
@@ -1060,6 +1079,30 @@ if args[:1] == ["api"] and issues_file and "/issues" in " ".join(args):
         print(json.dumps(one["labels"]))
     else:
         print("unknown request", file=sys.stderr)
+        raise SystemExit(1)
+    raise SystemExit(0)
+
+# The reviews of the pull requests, as `FAKE_GH_REVIEWS` holds them: `{"reviews":
+# [...], "comments": [...], "replies": []}` in GitHub's own shapes. A reply
+# posted in a thread is written back under `replies`, to be read by the scenario.
+reviews_file = os.environ.get("FAKE_GH_REVIEWS", "")
+if args[:1] == ["api"] and reviews_file and "/pulls/" in " ".join(args):
+    method = args[args.index("-X") + 1] if "-X" in args else "GET"
+    target = next(part for part in args[1:] if part.startswith("repos/"))
+    path, _, query = target.partition("?")
+    with open(reviews_file, encoding="utf-8") as handle:
+        held = json.load(handle)
+    if method == "POST" and path.endswith("/replies"):
+        held["replies"].append({"to": path.split("/")[-2],
+                                "body": args[args.index("-f") + 1].partition("=")[2]})
+        with open(reviews_file, "w", encoding="utf-8") as handle:
+            json.dump(held, handle)
+        print("{}")
+    elif method == "GET" and path.endswith("/reviews"):
+        print(json.dumps(held["reviews"] if "page=1" in query else []))
+    elif method == "GET" and path.endswith("/comments"):
+        print(json.dumps(held["comments"] if "page=1" in query else []))
+    else:
         raise SystemExit(1)
     raise SystemExit(0)
 
@@ -1391,6 +1434,30 @@ class Bench:
         )
         (self.root / "logs" / "issues.json").write_text(json.dumps(held), encoding="utf-8")
 
+    def review(
+        self,
+        reviews: list[dict[str, Any]] | None = None,
+        comments: list[dict[str, Any]] | None = None,
+    ) -> list[dict[str, Any]]:
+        """What the fake GitHub holds of the reviews of every pull request, and the replies posted.
+
+        Written whole each time: what a reviewer has said so far, as GitHub's own shapes.
+        The replies the runner posted are kept, and returned.
+        """
+        path = self.root / "logs" / "reviews.json"
+        replies = json.loads(path.read_text("utf-8"))["replies"] if path.exists() else []
+        path.write_text(
+            json.dumps({"reviews": reviews or [], "comments": comments or [], "replies": replies}),
+            encoding="utf-8",
+        )
+        os.environ["FAKE_GH_REVIEWS"] = str(path)
+        # A reviewer is asked about once a minute: let the next pass ask again.
+        for page_id in self.board.pages:
+            ticket_id = page_id.replace("-", "")
+            if row := state.review_row(ticket_id):
+                state.keep_review(ticket_id, {**row, "asked": 0.0})
+        return replies
+
     def labels(self, number: int) -> list[str]:
         held = self._held()
         one = next(issue for issue in held["issues"] if issue["number"] == number)
@@ -1556,6 +1623,8 @@ def bench(**overrides: object) -> Iterator[Bench]:
                 "FAKE_GH_CHECKS": "",
                 "FAKE_GH_ANNOTATION": "",
                 "FAKE_GH_GREEN_WITH": "",
+                "FAKE_GH_REVIEWS": "",
+                "FAKE_CLAUDE_REVIEW_NOTHING": "",
                 **{name: str(path) for name, path in logs.items()},
             }
             with _environ(environment):
@@ -4385,6 +4454,145 @@ def an_on_prompt_is_not_run_when_the_feature_is_off_nor_for_an_empty_prompt() ->
 
 def main() -> int:
     return support.run(sys.argv[1:])
+
+
+def _reviewer(login: str = "salva", kind: str = "User") -> dict[str, str]:
+    return {"login": login, "type": kind}
+
+
+def _line(number: int, body: str, review: int = 0, **extra: Any) -> dict[str, Any]:
+    return {
+        "id": number,
+        "body": body,
+        "path": "src/a.py",
+        "line": 3,
+        "diff_hunk": "@@ -1,2 +1,3 @@\n x = 1\n+y = 2",
+        "pull_request_review_id": review,
+        "user": _reviewer(),
+        **extra,
+    }
+
+
+def _in_review(machine: Bench) -> tuple[Path, str, str]:
+    """A code ticket delivered as a pull request, and read once by the runner."""
+    repository = machine.repository("site")
+    ticket = machine.ticket("Corriger l'entête", "Une phrase.", machine.project("Site", repository))
+    machine.review()
+    machine.run()
+    assert machine.status(ticket) == "In review", machine.status(ticket)
+    assert len(machine.pull_requests()) == 1
+    branch = machine.pull_requests()[0]["branch"]
+    # The second reading is the first of its reviews: it only sets the marks.
+    machine.run()
+    assert machine.status(ticket) == "In review", machine.status(ticket)
+    return repository, ticket, branch
+
+
+@case
+def a_review_requesting_changes_reruns_the_ticket_and_answers_in_each_thread(
+    machine: Bench,
+) -> None:
+    """Two line comments of a « Changes requested » review: one session, one commit, two replies."""
+    repository, ticket, branch = _in_review(machine)
+    machine.review(
+        reviews=[
+            {
+                "id": 11,
+                "state": "CHANGES_REQUESTED",
+                "body": "",
+                "user": _reviewer(),
+            }
+        ],
+        comments=[_line(21, "Renomme ceci.", 11), _line(22, "Et ceci aussi.", 11, line=9)],
+    )
+
+    results = machine.run()
+
+    assert results and results[0]["status"] == "done", results
+    assert machine.status(ticket) == "In review", machine.status(ticket)
+    handed = [
+        call for call in machine.sessions() if "Review comments left on GitHub" in call["prompt"]
+    ]
+    assert len(handed) == 1, machine.sessions()
+    prompt = handed[0]["prompt"]
+    assert "[21] @salva — src/a.py:3" in prompt and "[22] @salva — src/a.py:9" in prompt, prompt
+    assert "+y = 2" in prompt and "Renomme ceci." in prompt, prompt
+    assert "REVIEWED.md" in machine.files_on(repository, branch), "the review was not pushed"
+    replies = machine.review()
+    assert sorted(reply["to"] for reply in replies) == ["21", "22"], replies
+    assert all("corrigé dans REVIEWED.md" in reply["body"] for reply in replies), replies
+    assert all(reply["body"].startswith("<!-- ponos -->") for reply in replies), replies
+
+    # The replies are the runner's own: read back, they wake nothing.
+    machine.review(
+        reviews=[{"id": 11, "state": "CHANGES_REQUESTED", "body": "", "user": _reviewer()}],
+        comments=[
+            _line(21, "Renomme ceci.", 11),
+            _line(22, "Et ceci aussi.", 11, line=9),
+            _line(23, "<!-- ponos -->\n@ponos corrigé", 0, in_reply_to_id=21),
+        ],
+    )
+    machine.run()
+    assert not machine.sessions(), machine.sessions()
+    assert machine.status(ticket) == "In review", machine.status(ticket)
+
+
+@case
+def a_comment_opening_on_the_mention_reruns_the_ticket_and_the_others_do_not(
+    machine: Bench,
+) -> None:
+    """`@ponos` on a line wakes the ticket; a plain comment, a bot's, and a late mention do not."""
+    _, ticket, _ = _in_review(machine)
+    machine.review(
+        comments=[
+            _line(31, "Joli, merci."),
+            _line(32, "@ponos-ci regarde", user=_reviewer("ci", "User")),
+            _line(33, "@ponos corrige", user=_reviewer("copilot[bot]", "Bot")),
+            _line(34, "Je pense à @ponos pour ça."),
+        ]
+    )
+
+    machine.run()
+
+    assert not machine.sessions(), machine.sessions()
+    assert machine.status(ticket) == "In review", machine.status(ticket)
+
+    machine.review(comments=[_line(35, "@ponos Utilise une constante ici.")])
+    machine.run()
+
+    assert len(machine.sessions()) == 1, machine.sessions()
+    assert "Utilise une constante ici." in machine.sessions()[-1]["prompt"]
+    assert [reply["to"] for reply in machine.review()] == ["35"]
+    assert machine.status(ticket) == "In review", machine.status(ticket)
+
+
+@case
+def a_review_that_needs_no_change_is_answered_in_its_threads_without_a_commit(
+    machine: Bench,
+) -> None:
+    """The session says why nothing changed: the threads hear it, the ticket stays in review."""
+    _, ticket, _ = _in_review(machine)
+    machine.review(comments=[_line(41, "@ponos pourquoi pas un dict ?")])
+    os.environ["FAKE_CLAUDE_REVIEW_NOTHING"] = "1"
+
+    machine.run()
+
+    replies = machine.review()
+    assert [reply["to"] for reply in replies] == ["41"], replies
+    assert "rien à changer" in replies[0]["body"], replies
+    assert machine.status(ticket) == "In review", machine.status(ticket)
+
+
+@case
+@runner_settings(pr_review_comments=False)
+def reviews_are_left_alone_when_the_setting_is_off(machine: Bench) -> None:
+    _, ticket, _ = _in_review(machine)
+    machine.review(comments=[_line(51, "@ponos corrige")])
+
+    machine.run()
+
+    assert not machine.sessions(), machine.sessions()
+    assert machine.status(ticket) == "In review", machine.status(ticket)
 
 
 if __name__ == "__main__":

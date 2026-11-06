@@ -656,6 +656,64 @@ def keep_rework(ticket_id: str, count: int, base_said: bool) -> None:
         pass
 
 
+def review_row(ticket_id: str) -> dict[str, Any] | None:
+    """What was read of that ticket's pull request reviews, or None before the first reading."""
+    try:
+        with db.transaction(immediate=False) as connection:
+            found = connection.execute(
+                "SELECT url, review_id, comment_id, asked, pending, brief FROM pr_reviews "
+                "WHERE ticket = ?",
+                (ticket_id,),
+            ).fetchone()
+    except db.ERRORS:
+        return None
+    if not found:
+        return None
+    try:
+        pending = json.loads(found[4])
+    except ValueError:
+        pending = []
+    return {
+        "url": str(found[0]),
+        "review_id": int(found[1]),
+        "comment_id": int(found[2]),
+        "asked": float(found[3]),
+        "pending": pending if isinstance(pending, list) else [],
+        "brief": str(found[5]),
+    }
+
+
+def keep_review(ticket_id: str, row: dict[str, Any]) -> None:
+    """Write what was read of that ticket's reviews."""
+    try:
+        with db.transaction() as connection:
+            connection.execute(
+                "INSERT OR REPLACE INTO pr_reviews "
+                "(ticket, url, review_id, comment_id, asked, pending, brief) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (
+                    ticket_id,
+                    row["url"],
+                    row["review_id"],
+                    row["comment_id"],
+                    row["asked"],
+                    json.dumps(row["pending"]),
+                    row["brief"],
+                ),
+            )
+    except db.ERRORS:
+        pass
+
+
+def drop_review(ticket_id: str) -> None:
+    """Forget that ticket's reviews: its pull request is merged."""
+    try:
+        with db.transaction() as connection:
+            connection.execute("DELETE FROM pr_reviews WHERE ticket = ?", (ticket_id,))
+    except db.ERRORS:
+        pass
+
+
 def _number(value: object) -> float | None:
     try:
         return None if value is None or value == "" else float(value)  # type: ignore[arg-type]

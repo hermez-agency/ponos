@@ -414,6 +414,12 @@ export const SETTINGS_FRENCH: Record<string, string> = {
   "Answer comments": "Répondre aux commentaires",
   "Off: comments get no answer. Answering a blocked ticket's question still starts it again.":
     "Désactivé : les commentaires restent sans réponse. Répondre à la question d'un ticket bloqué le relance toujours.",
+  "Work on GitHub reviews": "Traiter les revues GitHub",
+  "A review that requests changes, or a comment that opens on the word below, puts the ticket back in Ready: the session resumes on the pull request's branch, pushes, and answers in each thread.":
+    "Une revue qui demande des changements, ou un commentaire qui s'ouvre sur le mot ci-dessous, remet le ticket en Ready : la session reprend sur la branche de la pull request, pousse, et répond dans chaque fil.",
+  "Word that asks for work in a review": "Mot qui demande du travail dans une revue",
+  "`@ponos` by default: write `@ponos rename this` in a comment on a line of the pull request.":
+    "`@ponos` par défaut : écrivez `@ponos renomme ceci` dans un commentaire sur une ligne de la pull request.",
   "10 at the least.": "10 au minimum.",
   "Tickets looked at each time": "Tickets examinés à chaque fois",
   "One request each; the next ones are looked at the time after.":

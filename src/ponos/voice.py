@@ -797,6 +797,48 @@ _SAID: dict[str, dict[str, str]] = {
             "pousse jusqu'à une CI verte. Ne change pas le périmètre du ticket."
         ),
     },
+    "pr-review-handback": {
+        "en": (
+            "Ponos puts this ticket back in ready — {n} review comment(s) on GitHub, from {who}.\n"
+            "Pull request: {url}\n"
+            "They are listed below in the ticket's discussion; the session resumes on the "
+            "branch of the pull request."
+        ),
+        "fr": (
+            "Ponos remet ce ticket en Ready — {n} commentaire(s) de revue sur GitHub, de {who}.\n"
+            "Pull request : {url}\n"
+            "Ils sont repris plus bas dans la discussion du ticket ; la session reprend sur "
+            "la branche de la pull request."
+        ),
+    },
+    "pr-review-brief": {
+        "en": (
+            "Review comments left on GitHub, on the pull request {url} — they are the ask, "
+            "each with the file, the line and the diff it is about:\n{threads}\n"
+            "Work on the branch of the pull request, which is already checked out: address "
+            "each comment with a commit, run the checks, and do not open another pull request. "
+            "Then end your report with one line per comment id above, exactly "
+            "`REPLY <id>: <one sentence>` — what changed, or why nothing did. Each is posted "
+            "in its thread on GitHub."
+        ),
+        "fr": (
+            "Commentaires de revue laissés sur GitHub, sur la pull request {url} — ils sont "
+            "la demande, chacun avec le fichier, la ligne et le diff qu'il vise :\n{threads}\n"
+            "Travaille sur la branche de la pull request, déjà extraite : traite chaque "
+            "commentaire par un commit, lance les vérifications, et n'ouvre pas une autre pull "
+            "request. Termine ensuite ton rapport par une ligne par identifiant ci-dessus, "
+            "exactement `REPLY <id>: <une phrase>` — ce qui a changé, ou pourquoi rien. "
+            "Chacune est publiée dans son fil sur GitHub."
+        ),
+    },
+    "pr-review-reply-done": {
+        "en": "Done in the latest commit of this branch.",
+        "fr": "Traité dans le dernier commit de cette branche.",
+    },
+    "pr-review-reply-none": {
+        "en": "Nothing changed: {why}",
+        "fr": "Rien n'a changé : {why}",
+    },
     "ci-rework-red": {
         "en": "the CI of the pull request is red",
         "fr": "la CI de la pull request est rouge",

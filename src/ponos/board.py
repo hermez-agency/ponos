@@ -811,6 +811,7 @@ class Board(Base):
                     ticket, said.report(said.verdict("merged", said.pull_request(url)), url)
                 )
                 state.keep_rework(ticket.id, 0, False)
+                state.drop_review(ticket.id)
                 closed += 1
             except store.Unreachable:
                 raise
@@ -818,6 +819,7 @@ class Board(Base):
                 self.say(f"  ! {ticket.title} — not closed: {voice_module.line(error)}")
         # The ones still open are the ones whose CI is worth knowing.
         self.follow_ci(waiting)
+        self.follow_reviews(waiting)
         return closed
 
     def closing(self, began: float) -> str:
