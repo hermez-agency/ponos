@@ -174,7 +174,7 @@ class Tail:
     ) -> None:
         self.hub = hub
         self.directory = directory or state.logs_dir()
-        self.held = held or state.running
+        self.held = held or in_flight
         self._offsets: dict[str, int] = {}
         self._seen: set[str] = set()
         # The sessions last announced, so that a pass which changes nothing
@@ -323,18 +323,27 @@ def _last_line(handle: BinaryIO) -> bytes:
     return tail.rstrip(b"\r\n")
 
 
+def in_flight() -> str:
+    """Whether anything can be writing a session's log: a scheduler, or a session written down.
+
+    A daemon restarting on a new version holds no place for a second, and its
+    sessions go on all the same — see adoption.py.
+    """
+    return "yes" if state.scheduler() or state.sessions() else ""
+
+
 def active(
     directory: Path | None = None, held: Callable[[], str] | None = None
 ) -> list[dict[str, Any]]:
     """The sessions running now, newest first, as `[{source, log}]`.
 
     Three things have to agree. The log was written in the last few minutes; its
-    last line is not the session's answer; and a run holds the lock — a runner
-    killed mid-session leaves a log that looks alive for `IDLE_SECONDS`, and the
-    lock is what the kernel drops the moment the process goes.
+    last line is not the session's answer; and something is in flight
+    (`in_flight`) — a log left by a session nobody follows any more looks alive
+    for `IDLE_SECONDS`.
     """
     directory = directory or state.logs_dir()
-    if not (held or state.running)():
+    if not (held or in_flight)():
         return []
     found: list[tuple[float, dict[str, Any]]] = []
     for path in _live_logs(directory):

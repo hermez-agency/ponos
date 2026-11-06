@@ -101,7 +101,7 @@ test("validating and running again ask first, as their buttons did", async ({ pa
   const more = card(page).getByRole("button", { name: "More actions" })
   await more.click()
   await page.getByRole("menuitem", { name: "Validate and publish" }).click()
-  await expect(dialog(page)).toContainText("The runner merges its pull request on its next pass.")
+  await expect(dialog(page)).toContainText("The runner merges its pull request right away.")
   await dialog(page).getByRole("button", { name: "Cancel" }).click()
   await expect(dialog(page)).toBeHidden()
   await more.click()

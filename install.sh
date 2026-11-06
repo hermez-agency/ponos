@@ -11,8 +11,8 @@
 #                                          followed commit after commit)
 #   TR_SRC        local folder to copy     (install from a clone, no network,
 #                                          and no auto-update: there is no remote)
-#   TR_INTERVAL   seconds between runs     (default: 1800, i.e. 30 min)
-#   TR_NO_SERVICE=1   do not install the systemd units (timer nor console)
+#   TR_INTERVAL   seconds between two looks of the safety net (default: 1800, i.e. 30 min)
+#   TR_NO_SERVICE=1   do not install the systemd units (daemon nor console)
 #   TR_NO_WEB=1       install the console's unit, but leave it stopped
 #   TR_NO_OPEN=1      do not open the console in the browser at the end
 set -eu
@@ -165,7 +165,7 @@ fi
 
 # --- 2. sources -------------------------------------------------------------
 # Each version in a directory of its own, and `app` moved onto it in one rename:
-# a pass the timer starts meanwhile runs on the old version or on the new one,
+# a process started meanwhile runs on the old version or on the new one,
 # never on a mixture of the two. The version replaced is kept, for what still
 # runs on it and for going back.
 mkdir -p "$APP_ROOT" "$BIN_DIR"
@@ -378,7 +378,7 @@ if [ -d "$APP_DIR/src/ponos/icons" ]; then
     have gtk-update-icon-cache && gtk-update-icon-cache -q -t "$ICON_DIR" >/dev/null 2>&1
 fi
 
-# --- 6. timer and console ---------------------------------------------------
+# --- 6. daemon and console --------------------------------------------------
 # What keeps them running depends on the machine: systemd's user session where
 # there is one *that answers* — WSL, a container or an SSH session often have
 # the command and no bus behind it, and asking it then fails the whole script —,
@@ -429,25 +429,31 @@ PY
 fi
 
 if [ "$SERVICES" = systemd ]; then
-    say "Installing the timer (one run every ${INTERVAL}s)"
+    say "Installing the daemon (the board looked at again every ${INTERVAL}s at the latest)"
     mkdir -p "$UNIT_DIR"
-    ACCURACY=30s
-    [ "$INTERVAL" -lt 60 ] && ACCURACY=1s
     # The login PATH is copied into the unit: a systemd service has neither
     # ~/.local/bin nor node in its own, so it would find neither claude nor npm.
     sed -e "s|@BIN@|$BIN|g" -e "s|@PATH@|$PATH|g" \
         "$APP_DIR/systemd/ponos.service.in" > "$UNIT_DIR/ponos.service"
-    sed -e "s|@INTERVAL@|$INTERVAL|g" -e "s|@ACCURACY@|$ACCURACY|g" \
-        "$APP_DIR/systemd/ponos.timer.in" > "$UNIT_DIR/ponos.timer"
+    # The timer of the passes, from an installation before the daemon: off and
+    # gone, the service it started now runs for good.
+    if [ -f "$UNIT_DIR/ponos.timer" ]; then
+        systemctl --user disable --now ponos.timer >/dev/null 2>&1 || true
+        rm -f "$UNIT_DIR/ponos.timer"
+    fi
     sed -e "s|@BIN@|$BIN|g" -e "s|@PATH@|$PATH|g" \
         "$APP_DIR/systemd/ponos-web.service.in" > "$UNIT_DIR/ponos-web.service"
     # Written and left off: publishing the MCP endpoint is `ponos tailscale enable`.
     sed -e "s|@BIN@|$BIN|g" -e "s|@PATH@|$PATH|g" \
         "$APP_DIR/systemd/ponos-tailscale.service.in" > "$UNIT_DIR/ponos-tailscale.service"
     systemctl --user daemon-reload
-    systemctl --user enable --now ponos.timer >/dev/null 2>&1 \
-        && ok "ponos.timer enabled" \
-        || warn "enable it by hand: systemctl --user enable --now ponos.timer"
+    # `restart` rather than `start`: an installation over an older one puts its
+    # daemon on the code just installed — its sessions carry on, and are taken
+    # back by the one that comes up (KillMode=process, see the unit).
+    systemctl --user enable ponos.service >/dev/null 2>&1 \
+        && systemctl --user restart ponos.service >/dev/null 2>&1 \
+        && ok "ponos.service enabled" \
+        || warn "enable it by hand: systemctl --user enable --now ponos.service"
     # The console starts with the rest. What it opens is loopback — behind that
     # port sits a runner that starts Claude Code sessions with bypassPermissions,
     # so it is reachable from this machine and from nowhere else, and widening
@@ -462,14 +468,14 @@ if [ "$SERVICES" = systemd ]; then
             warn "start it by hand: systemctl --user enable --now ponos-web"
         fi
     fi
-    # Without lingering, the timer stops when the session closes.
+    # Without lingering, the daemon stops when the session closes.
     if have loginctl && [ "$(loginctl show-user "$USER" -p Linger --value 2>/dev/null)" != "yes" ]; then
         warn "to keep it running with no session open: sudo loginctl enable-linger $USER"
     fi
 elif [ "$SERVICES" = launchd ]; then
-    # The Mac's systemd: one agent keeps the console up, the other starts a
-    # pass every INTERVAL seconds. Both log beside the runner's state.
-    say "Installing the launchd agents (one run every ${INTERVAL}s)"
+    # The Mac's systemd: one agent keeps the console up, the other the daemon.
+    # Both log beside the runner's state.
+    say "Installing the launchd agents (the daemon and the console)"
     AGENTS="$HOME/Library/LaunchAgents"
     mkdir -p "$AGENTS" "$STATE_DIR"
     agent() {  # label, the words after ponos, the keys that say when it runs
@@ -491,7 +497,7 @@ PLIST
         launchctl unload "$AGENTS/$1.plist" >/dev/null 2>&1 || true
         launchctl load -w "$AGENTS/$1.plist"
     }
-    agent app.ponos.run run "<key>StartInterval</key><integer>$INTERVAL</integer>" \
+    agent app.ponos.run daemon "<key>RunAtLoad</key><true/><key>KeepAlive</key><true/>" \
         && ok "app.ponos.run loaded" || warn "could not load $AGENTS/app.ponos.run.plist"
     if [ "${TR_NO_WEB:-0}" != "1" ]; then
         agent app.ponos.web "service run" "<key>RunAtLoad</key><true/><key>KeepAlive</key><true/>" \
@@ -499,24 +505,24 @@ PLIST
             || warn "could not load $AGENTS/app.ponos.web.plist — start it by hand: ponos service run"
     fi
 elif [ "$SERVICES" = background ]; then
-    say "Starting the console and the runner"
-    # No timer here, so the loop the container runs does its job: one run every
-    # interval. Its PID is kept beside the console's, for uninstall.sh and for
-    # `ponos doctor`, which tells a loop that runs from one that does not.
+    say "Starting the console and the daemon"
+    # No systemd here: the daemon is started in the background. Its PID is kept
+    # beside the console's, for uninstall.sh and for `ponos doctor`, which tells
+    # a daemon that runs from one that does not.
     mkdir -p "$STATE_DIR/web"
     LOOP_PID=$(cat "$STATE_DIR/web/run.pid" 2>/dev/null || true)
     case "$LOOP_PID" in
         ''|*[!0-9]*) LOOP_PID= ;;
     esac
-    if [ -n "$LOOP_PID" ] && ps -p "$LOOP_PID" -o args= 2>/dev/null | grep -q "run --every"; then
-        ok "a runner loop already runs (pid $LOOP_PID)"
+    if [ -n "$LOOP_PID" ] && ps -p "$LOOP_PID" -o args= 2>/dev/null | grep -q "daemon"; then
+        ok "a daemon already runs (pid $LOOP_PID)"
     else
         (
             umask 077
-            nohup "$BIN" run --every >>"$STATE_DIR/web/run.log" 2>&1 </dev/null &
+            nohup "$BIN" daemon >>"$STATE_DIR/web/run.log" 2>&1 </dev/null &
             echo $! > "$STATE_DIR/web/run.pid"
         )
-        ok "runner started in the background: one run every ${INTERVAL}s (until this machine restarts: then “ponos run --every”)"
+        ok "daemon started in the background (until this machine restarts: then “ponos daemon”)"
     fi
     if [ "${TR_NO_WEB:-0}" != "1" ]; then
         if console_up; then
@@ -537,7 +543,7 @@ elif [ "$SERVICES" = background ]; then
         fi
     fi
 else
-    warn "no unit installed — run passes with “ponos run --every”, the console with “ponos service run”"
+    warn "no unit installed — start the daemon with “ponos daemon”, the console with “ponos service run”"
 fi
 
 # Started is not answering: the address is printed — and opened — once it does.

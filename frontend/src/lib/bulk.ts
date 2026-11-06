@@ -36,7 +36,7 @@ export function launchable(ticket: Selectable): boolean {
   return ticket.column === "blocked" && !ticket.block
 }
 
-/** Set aside: what waits in Ready for the next pass. */
+/** Set aside: what waits in Ready for a free place. */
 export const asideable = (ticket: Selectable): boolean => ticket.column === "ready"
 
 /** Given up: anything not already given up and not in the runner's hands. */

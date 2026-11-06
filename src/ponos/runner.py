@@ -1,11 +1,17 @@
-"""One run: take the ready tickets, do them, report back to Notion.
+"""A run with no daemon behind it: take the ready tickets, do them, report back.
 
-A run has two phases, and the order matters.
+The daemon is how Ponos runs (see daemon.py and scheduler.py): one process,
+places filled the moment they free. What is left here is `ponos run` on a
+machine where no daemon holds the places — a checkout, a test, a server
+somebody runs by hand: one look at the board, its work done, and the process
+ends. Everything it does, the daemon does too, from the same chapters.
+
+It has two phases, and the order matters.
 
 **First, sequentially:** read the ready tickets, locate their project, and
 *claim* them by moving them to "in progress". Claiming before working is what
-stops the timer from picking up a ticket already taken — and doing it
-sequentially keeps two tickets from racing over the same repository index.
+stops a second scheduler from picking up a ticket already taken — and doing
+it sequentially keeps two tickets from racing over the same repository index.
 
 **Then, in parallel:** each claimed ticket gets its worktree, its Claude
 session, its branch and its pull request. A ticket that fails takes only itself
@@ -14,29 +20,17 @@ rather than guessed — with the reason in a comment, while the others carry on.
 
 The two phases interleave, because the second one is long. `max_concurrent`
 sessions run at a time, and every session that ends frees a place the board is
-asked to fill straight away: a ticket made ready at 14:10 starts at 14:10, not
-when the session that began at 14:04 is finally done. A pass therefore ends
-when the ready column is empty and nothing is left in flight — or once it has
-stopped taking work, when a newer version is out or it has run its span (see
-`Board.closing`): a busy board never empties, and a pass of a day ran on code
-a day old.
+asked to fill straight away. The run ends when the ready column is empty and
+nothing is left in flight. The sessions a daemon left running when it died are
+adopted first (see adoption.py): their tickets are finished here.
 
-The validated column is read on that same cadence, and for the same reason: a
+The validated column is read on the same cadence, and for the same reason: a
 merge you asked for at 14:20 has nothing to do with the session that began at
 14:04, and waiting for it is the one thing it should never do.
-
-What is left in this module is that pass and nothing else. `tick` decides what
-a run is made of and in which order; `_work` keeps `max_concurrent` places
-filled until the board has nothing left to fill them with. Everything a pass
-asks for on the way — reading the board, preparing a ticket, running its
-session, carrying out a validated one, answering a comment — is a chapter of
-its own in a module of its own, and `base.py` says why they are assembled the
-way they are rather than held at arm's length.
 """
 
 from __future__ import annotations
 
-import time
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from typing import Any
 
@@ -55,6 +49,7 @@ from . import (
     reports,
     review,
     reviews,
+    scheduler,
     state,
     transitions,
     unblocking,
@@ -79,13 +74,14 @@ class Runner(
     reviews.Reviews,
     transitions.Transitions,
     unblocking.Unblocking,
+    scheduler.Scheduler,
     base.Base,
 ):
-    """One pass of the runner, over everything a pass is made of."""
+    """The runner: the daemon's places (`serve`), or one run of them (`tick`)."""
 
     def tick(self, *, limit: int | None = None, reference: str = "") -> list[dict[str, Any]]:
-        # At the top, under the run lock, before a single ticket is claimed:
-        # what makes an update land between two sessions — see update.py.
+        # At the top, before a single ticket is claimed: what makes an update
+        # land between two sessions — see update.py.
         if not self.dry_run:
             update_module.between_runs(self.config.runner, say=self.say, notify=self._notify)
         # The subscription out is the reserve's wall rather than its line, and
@@ -101,6 +97,10 @@ class Runner(
         # on your phone is in the very cache the queue is about to read.
         self._comments.clear()
         self._claimed = set()
+        # What a daemon that died left running, taken back before anything is
+        # read: their tickets are work in flight, not leftovers to sweep.
+        orphans = [] if self.dry_run or reference else self.orphans()
+        self._claimed |= {ticket_id for ticket_id, *_ in orphans}
         self._usage_warned = False
         self._unwritten = set()
         self.mirror()
@@ -151,6 +151,8 @@ class Runner(
                 # which is the one thing this is not. Said once — the column is
                 # empty by the next pass, and a ticket already in it is skipped.
                 parked = state.record_all(self.park(tickets))
+                if orphans:
+                    return delivered + parked + self._work([], None, refill=False, adopted=orphans)
                 if self.announce_idle and not parked and not delivered:
                     if resets:
                         self.say(
@@ -159,6 +161,8 @@ class Runner(
                     else:
                         self.say(f"Nothing new started until {credits.when(reserved)}.")
                 return delivered + parked
+            if not tickets and orphans:
+                return delivered + self._work([], None, refill=True, talk=True, adopted=orphans)
             if not tickets:
                 replies = self.converse() + self.unblock()
                 if self.announce_idle and not replies and not delivered:
@@ -180,21 +184,27 @@ class Runner(
         # a dry run, which claims nothing and would read the same column back.
         # The comments waiting for an answer go into the pool too — see `talk`.
         results = self._work(
-            tickets, limit, refill=not reference and not self.dry_run, talk=not reference
+            tickets,
+            limit,
+            refill=not reference and not self.dry_run,
+            talk=not reference,
+            adopted=orphans,
         )
         return delivered + results
 
     def _work(
-        self, ready: list[Ticket], ceiling: int | None, *, refill: bool, talk: bool = False
+        self,
+        ready: list[Ticket],
+        ceiling: int | None,
+        *,
+        refill: bool,
+        talk: bool = False,
+        adopted: list[tuple[str, str, str, Any]] | None = None,
     ) -> list[dict[str, Any]]:
         """Run the ready tickets, `max_concurrent` sessions in flight throughout.
 
-        A queue rather than a batch. A pass used to prepare the first
-        `max_concurrent` tickets, wait for every one of them, and only then end
-        — so a ticket made ready while a two-hour session was running waited for
-        that session, then for the timer, however many places were free. The run
-        lock and the timer see no change: it is the *pass* that became
-        continuous, not the number of runs.
+        A queue rather than a batch: a ticket made ready while a two-hour
+        session runs takes the next free place, not the next run.
 
         Here a completion is a place, and a place is filled from the board as it
         is **now**: `queue()` is asked again, which is what keeps the priority
@@ -205,12 +215,8 @@ class Runner(
         A completion is not the *only* place, and that was the second half of
         the same fault: a place standing empty while one session runs is a place
         the board could fill straight away, and waiting for that session to end
-        before looking made `max_concurrent = 2` behave like one. Nobody else
-        can look either — the run lock belongs to this pass for as long as it
-        lasts, and the timer meets it and leaves. So the pass looks on its own,
-        at the timer's cadence (`interval_seconds`): exactly as often as the
-        board would have been read had nothing been running, and not one request
-        more.
+        before looking made `max_concurrent = 2` behave like one. So the run
+        looks on its own, every `interval_seconds`, as the daemon does.
 
         **The validated column is looked at on that same cadence**, full pool or
         not, and that is the third half of the same fault. A merge costs no
@@ -241,11 +247,13 @@ class Runner(
         queued = list(ready)
         publishing: list[tuple[Ticket, Project]] = []
         flight: set[Future[dict[str, Any] | None]] = set()
-        stalled = False  # the credits ran out, or the pass is closing: nothing more is begun
-        began = time.time()
+        stalled = False  # the credits ran out: nothing more is begun
         said: list[dict[str, Any]] = []  # what `talk` answered, once it has a place
 
-        with ThreadPoolExecutor(max_workers=width) as pool:
+        with ThreadPoolExecutor(max_workers=width + len(adopted or [])) as pool:
+            for ticket_id, owner, _, work in adopted or []:
+                hand.take(ticket_id, owner)
+                flight.add(hand.carry(pool.submit(work), ticket_id))
             while True:
                 # The reserve, asked again at every free place rather than once
                 # at the top: the sessions in flight are what fills the window,
@@ -257,13 +265,6 @@ class Runner(
                     results += state.record_all(self.park(queued))
                     queued = []
                     publishing = []
-                # Closing leaves the ready tickets where they are, for the next
-                # pass: nothing is wrong with them, only with this pass's age.
-                why = "" if stalled or not refill else self.closing(began)
-                if why:
-                    stalled = True
-                    queued, publishing = [], []
-                    self.say(f"  ⏸ {why} — nothing more is begun until the next pass.")
                 # Publications first: a validated ticket is one gesture from
                 # done, and a place is better spent finishing work you have
                 # accepted than beginning work nobody has read yet. `--limit`

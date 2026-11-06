@@ -29,14 +29,17 @@ component, or click a node through to the file it is drawn from.
 
 A run is deliberately one object — one store, one reading of the workspace, one
 cache of a page's comments — so what is split is the work, not the state. `base.py` holds
-that state and says why the split is shaped the way it is; `runner.py` keeps the pass
-itself and nothing else. The rest is one chapter per module:
+that state and says why the split is shaped the way it is; `scheduler.py` is the daemon's
+loop — the places, filled the moment they free — and `runner.py` a run with no daemon
+behind it. The rest is one chapter per module:
 
 | File | What it holds |
 | --- | --- |
-| `runner.py` | the pass: what a run is made of, and how places are kept filled |
+| `scheduler.py` | the daemon's places: the next ready ticket the moment one frees, the upkeep beside them |
+| `adoption.py` | the sessions a daemon before this one started, taken back after a restart or an update |
+| `runner.py` | a run with no daemon behind it: what `ponos run` does alone |
 | `base.py` | the state of a run, and what every chapter has under its hand |
-| `board.py` | reading the board, and the tidyings a pass does first |
+| `board.py` | reading the board, and the tidyings done before reading it |
 | `preparation.py` | locating the project, naming the nameless, telling its type, claiming the ticket |
 | `execution.py` | the session, and the two ways a ticket comes back from one |
 | `delivery.py` | the validated column: merging, or publishing what the ticket holds |
@@ -47,7 +50,7 @@ itself and nothing else. The rest is one chapter per module:
 | `ticket.py` | `Ticket` and `Job`, the two nouns everything else passes around |
 
 Around them sit the modules a run leans on rather than consists of: `store.py` and the
-board behind it (`notion.py`, the mirror, and `pages.py`, the pages kept in `ponos.db`), `git.py`, `github_checks.py` (a pull request's checks, and the merge that waits on them), `github_app.py` (the GitHub App and its tokens), `session.py`,
+board behind it (`notion.py`, the mirror, and `pages.py`, the pages kept in `ponos.db`), `git.py`, `github_checks.py` (a pull request's checks, and the merge that waits on them), `github_app.py` (the GitHub App and its tokens), `session.py` (and `tether.py`, what holds a session once its daemon is gone), `daemon.py` (the process around the scheduler: its lock, its signals, its `exec`), `launches.py` (« Run now »),
 `voice.py`, `kinds.py` (the four types of ticket, and what counts as a doubt), `progress.py`, `conversation.py`, `schedules.py`, `credits.py`, `db.py` (the local SQLite
 memory, `ponos.db`, and its numbered migrations), `journal.py` (every run and its steps, in it), `channels/` and `web/`.
 
@@ -545,7 +548,7 @@ answered in its own page without a single git command, a session that fails with
 leaving an orphan worktree, and a board with two projects where the ticket has to run in
 the repository its `Project` relation names. Two more follow a ticket with no `Type`: one
 classified *Publication*, prepared into *In review* without a worktree and published only
-on the pass after it was moved to *Validated*; one the classification hesitated over,
+once it was moved to *Validated*; one the classification hesitated over,
 blocked with the question while a ticket typed by hand runs beside it. Nothing is mocked: a **Notion of its own**
 answers on a loopback port and keeps a state the assertions read back, a repository and a
 bare remote stand in for GitHub, and a `claude` and a `gh` at the head of `PATH` do what
@@ -578,7 +581,7 @@ writes the demonstration board of the screenshots, serves it from this checkout 
 headless Chrome through one ticket — *New ticket*, *In progress* with its live line,
 *In review* with its cost, *Decide* then *Validate* — in light and in dark, into
 `docs/media/console-loop-{light,dark}.mp4` and their posters (ffmpeg makes the videos). No
-Claude Code session runs: a stand-in holds the run lock, writes the session log and moves
+Claude Code session runs: a stand-in holds the scheduler's place, writes the session log and moves
 the ticket with the runner's own pieces, so the console shows what it shows of a real run.
 The script also writes, into `docs/index.html` and its French twin `docs/fr/index.html`, the second at which each of the four
 gestures begins, for the legend under the film to follow it.

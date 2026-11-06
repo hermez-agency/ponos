@@ -39,13 +39,11 @@ from .. import (
     stopping,
     store,
     subtypes,
-    systemd,
     ticket_page,
     timestamps,
     worktime,
 )
 from .. import attempts as attempts_module
-from .. import config as config_module
 from .. import goals as goals_module
 from .. import kinds as kinds_module
 from .. import priority as priority_module
@@ -145,6 +143,10 @@ def _closed(board: dict[str, Any], every: bool) -> dict[str, Any]:
 
 def _kept_path() -> Path:
     return state_dir() / "web" / "board.json"
+
+
+# How long « Run now » waits for the daemon's answer.
+LAUNCH_WAIT = 30.0
 
 
 class Tickets(Base):
@@ -491,20 +493,13 @@ class Tickets(Base):
             "budget": credits.held(what="budget") if configuration.budget.daily_usd > 0 else 0.0,
         }
         clocks = {what: credits.when(until) if until else "" for what, until in waits.items()}
-        passing = bool(state.running())
-        timer = (
-            passing
-            or config_module.in_container()
-            or any(clocks.values())
-            or systemd.read().label == "enabled"
-        )
-        noted = state.held() if passing else {}
+        scheduling = bool(state.scheduler())
+        noted = state.held() if scheduling else {}
         for ticket in ready:
             ticket["held"] = board_module.held(
                 ticket,
                 noted,
-                passing=passing,
-                timer=timer,
+                scheduling=scheduling or any(clocks.values()),
                 waits=clocks,
                 after=after.get(ids.bare(ticket.get("id", "")), ""),
             )
@@ -795,6 +790,27 @@ class Tickets(Base):
     def transitions(self, page_id: str) -> dict[str, Any]:
         """The executions of one ticket's « On » prompt, newest first."""
         return {"transitions": transitions_module.history(page_id)}
+
+    def launch(self, page_id: str, force: bool = False) -> dict[str, Any]:
+        """« Run now »: the daemon gives the ticket a free place, or says there is none.
+
+        `force` takes a place past the limit, once — what the page offers when
+        the first answer was `full`. With no daemon behind the console, the
+        ticket is run by a `ponos run --ticket` of its own, as the demonstration
+        ticket is (see setup.py): every place is free then.
+        """
+        from .. import daemon, launches
+        from . import setup
+
+        if daemon.holder():
+            identifier = launches.ask(page_id, force=force)
+            daemon.nudge()
+            said = launches.wait(identifier, LAUNCH_WAIT)
+            if said is None:
+                return {"status": "refused", "message": "the daemon did not answer"}
+            return said
+        setup.play(ids.bare(page_id))
+        return {"status": "started", "message": "no daemon — run by a process of its own"}
 
     def set_status(self, page_id: str, key: str, seen: str | None = None) -> dict[str, Any]:
         """Move a ticket: queued now, in Notion as soon as Notion takes it.

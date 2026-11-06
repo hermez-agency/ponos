@@ -426,10 +426,10 @@ _PLAYED: dict[str, subprocess.Popen[bytes]] = {}
 def demo(api: Api, payload: dict[str, Any]) -> dict[str, Any]:
     """Write the demonstration ticket, and play it now rather than at the next pass.
 
-    The timer would pick it up — in half an hour, or never on a machine with no
-    systemd. What starts it here is `ponos run --ticket`, the command a pass
-    runs, in a process of its own that outlives the request: it takes the same
-    lock as the timer, so the two never run the ticket twice.
+    The daemon would pick it up within seconds — but there may be no daemon on
+    a machine just installed. What starts it here is `ponos run --ticket`, in a
+    process of its own that outlives the request: it asks the daemon for a
+    place when there is one, and runs the ticket itself when there is not.
     """
     language = _text(payload, "language")
     title, body = DEMO.get(language) or DEMO["en"]

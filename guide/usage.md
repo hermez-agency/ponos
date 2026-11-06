@@ -11,16 +11,16 @@ ponos init <url>   # build (or complete) the Notion board under a page
 ponos init <url> --token -  # the same, saving the Notion token read from stdin or asked unechoed (--no-demo: no demonstration ticket)
 ponos config       # open config.toml in your editor
 ponos list         # the ready tickets, and their project
-ponos run          # one run, right now
+ponos daemon       # hold the places and fill each one as it frees — what ponos.service runs (--dry-run)
+ponos run          # start now what can start: the daemon is asked, or this runs alone when there is none
 ponos run --dry-run          # what it would do, touching nothing
-ponos run --ticket <url>     # that one ticket, whatever its status
-ponos run --limit <n>        # at most that many tickets in this run
-ponos run --every [seconds]  # keep running: one run every interval, where there is no systemd
+ponos run --ticket <url>     # that one ticket now, in a free place — or says none is (--force: past the limit, once)
+ponos run --limit <n>        # with no daemon: at most that many tickets in this run
 ponos logs -f      # follow the running session (--follow)
 ponos logs <ticket>          # the last session of that ticket (--raw: the raw JSON stream)
 ponos logs <ticket> --runs   # the ticket's runs, from the local journal
 ponos logs --service         # the runner's and the console's own log, ponos.log
-ponos status       # timer, console, current run, recent tickets
+ponos status       # daemon, console, places taken and free per project, the queue and why each waits, recent tickets
 ponos history      # what has been handled, with the pull requests (-n, --number: how many)
 ponos history --csv --project <name> --month 2026-10   # every session of a project and what it cost, as CSV (--since, --to: another period)
 ponos projects     # Notion project → local repository mapping
@@ -36,9 +36,9 @@ ponos clean --force --days <n>  # and drop the session logs older than that many
 ponos update       # move the installation to the newest version
 ponos update --check         # what is available, changing nothing
 ponos update --environment   # make the .venv of the version in use again
-ponos service on   # apply interval_seconds, start the timer and the console
-ponos service off  # stop the timer, the console and the Tailscale doors
-ponos service status         # the state of ponos.timer, ponos-web.service and ponos-tailscale.service
+ponos service on   # write the units, (re)start the daemon and the console — the sessions in flight carry on
+ponos service off  # stop the daemon, the console and the Tailscale doors
+ponos service status         # the state of ponos.service, ponos-web.service and ponos-tailscale.service
 ponos service run  # the web console, in this terminal (it already runs on its own)
 ponos service run --host <address> --port <port>  # bind elsewhere than web.host and web.port
 ponos service run --print-token    # print the console's token, and exit
@@ -70,15 +70,15 @@ What a script, a cron line or a container's healthcheck can read from `$?`:
 
 | Code | Means |
 |------|-------|
-| `0` | Done — and also a pass that finds another one holding the run lock, or a network that is down: the next pass is the one that does the work. |
-| `1` | A problem to look at: `doctor` or `sync` found some, the board could not be read, a `run` whose every ticket failed (one failed out of three is still `0`). |
+| `0` | Done — and also a `run` that found the daemon and asked it to look, or a network that is down: the next look is the one that does the work. |
+| `1` | A problem to look at: `doctor` found some, the board could not be read, a `run` whose every ticket failed (one failed out of three is still `0`), a `run --ticket` the daemon had no free place for. |
 | `2` | Nothing was tried: the configuration cannot be read or is unusable (`run`, `status`, `doctor`, `init`, `notify`…), a command line `ponos` does not understand, or a checkout refused because it would write the real state. |
 | `130` | Stopped with Ctrl-C. |
 
 ### The runner gives way to your desktop
 
-The sessions are children of the runner's unit, `ponos.service`, and the unit
-puts them in the background: `Nice=10`, `CPUWeight=20` (the desktop's apps keep
+The sessions run in the daemon's unit, `ponos.service`, and the unit puts them
+in the background: `Nice=10`, `CPUWeight=20` (the desktop's apps keep
 the default 100), `IOSchedulingClass=idle` (they touch the disk when nothing else
 wants it), and `MemoryHigh=60%` — past 60% of the machine's memory, the kernel
 reclaims theirs and slows them down rather than yours. Five sessions at once no
@@ -113,7 +113,8 @@ look at it — which is the point, since a commit that failed to push is sometim
 the only copy there is — and the line printed under it is the command that drops
 the branch once you have what you need.
 
-`clean --force` takes the run lock, and refuses while a run holds it: a worktree kept by a
+`clean --force` leaves alone the worktree of every ticket in flight — a session followed,
+a session written down for the daemon to take back, a ticket claimed: a worktree kept by a
 failure and the worktree a session is working in right now sit side by side, and nothing
 on disk tells them apart. And it only ever acts on a repository that claims the directory:
 a directory counts as a worktree when it carries git's `.git` *file* and the repository
@@ -121,7 +122,7 @@ that file names lists it among its worktrees. Anything else — a scratch direct
 a session made inside one — is removed as a directory, and git is never asked from inside
 it, where it would have climbed to whatever repository the state directory sits in.
 
-Nobody has to remember it, though. Once a day a run tidies on its own — the
+Nobody has to remember it, though. Once a day the daemon tidies on its own — the
 retention is `log_retention_days`: session logs older than that — and in `ponos.db`
 the steps of the runs of that age (the runs themselves stay, with their outcome and
 cost), the sync journal, the MCP calls and the finished transitions, the file being
@@ -136,7 +137,7 @@ and named. A branch is deleted only when a remote holds all its commits. A
 folder under `worktrees/` that no repository knows, with no `.git` and no ticket
 on the board, goes like an orphan scratch directory.
 
-The same pass empties the temporary folders — each session works in a `TMPDIR`
+The same tidy empties the temporary folders — each session works in a `TMPDIR`
 of its own under `~/.cache/ponos/tmp`, removed when it ends, and what is left
 after `tmp_retention_hours` goes, with the old `tmp*` folders of `~/.cache` and
 `~` — and prunes Docker (`docker_prune`): the images, build cache and volumes no

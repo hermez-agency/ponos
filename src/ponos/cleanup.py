@@ -269,9 +269,9 @@ class Cleanup(Base):
     def tidy(self, *, now: bool = False) -> Tidied | None:
         """Apply the retention, once a day — or `now`, when the console asks.
 
-        Under the run lock, as every caller already is: a worktree a session
-        is standing in and one a finished ticket left behind look alike on
-        disk, and the lock is what guarantees there is no session.
+        A worktree a session is standing in and one a finished ticket left
+        behind look alike on disk: the tickets in flight here (`state.going`)
+        and those in progress on the board are left alone.
         """
         if not now and time.time() - tidied_at() < DAY:
             return None
@@ -312,7 +312,7 @@ class Cleanup(Base):
         }
         busy = {short_id(page.id) for page in pages if store.read(page, status) == running}
         known = {short_id(page.id) for page in pages}
-        claimed = {short_id(ticket) for ticket in state.claims()}
+        claimed = {short_id(ticket) for ticket in state.going()}
         for place in ("worktrees", "scratch"):
             root = state_dir() / place
             if not root.is_dir():

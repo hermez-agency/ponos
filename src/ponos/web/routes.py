@@ -1285,6 +1285,20 @@ def set_ticket_goal(
     return answer(done)
 
 
+class Launch(Payload):
+    force: bool = False
+
+
+@router.post("/api/tickets/{ticket_id:page}/launch", response_model=answers.Launched)
+def launch_ticket(
+    request: Request, ticket_id: str, payload: Launch = Body(default_factory=Launch)
+) -> Response:
+    launched = _api(request).launch(ticket_id, payload.force)
+    if launched["status"] == "started":
+        _done(request, ticket_id, "launched", "forced" if payload.force else "")
+    return answer(launched)
+
+
 @router.post("/api/tickets/{ticket_id:page}/status", response_model=answers.Moved)
 def set_ticket_status(
     request: Request, ticket_id: str, payload: Move = Body(default_factory=Move)

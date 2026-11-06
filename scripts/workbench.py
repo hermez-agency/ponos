@@ -8,7 +8,7 @@ everything around the data, and it is here once: a configuration of its own
 (no Notion token, so the board is `ponos.db`), a `XDG_STATE_HOME` and a `HOME` in a temporary
 directory so that nothing reads the state of the console you run for yourself,
 and a `claude`, a `gh` and a `systemctl` first in the PATH, so that nothing
-reaches a session, GitHub, the machine's timer or its keyring.
+reaches a session, GitHub, the machine's daemon or its keyring.
 
 The caller writes the board and the local state (the journal, the bell) between
 `stage` and `serve`, because those are written through `ponos` itself, and
@@ -125,8 +125,8 @@ say({{"type": "result", "result": answer, "session_id": session, "total_cost_usd
 """
 
 
-# The runner's systemd timer, which the dashboard's health band reads: a board of
-# fixtures arms none, and on a machine with systemd but no timer (GitHub's
+# The daemon's systemd unit, which the dashboard's health band reads: a board of
+# fixtures runs none, and on a machine with systemd but no daemon (GitHub's
 # runners) the band would push the charts down and fail the tests that point at
 # them.
 SYSTEMCTL = """#!{python}
@@ -136,12 +136,9 @@ args = sys.argv[1:]
 if "is-enabled" in args:
     print("enabled")
 elif "show" in args:
-    print("SubState=waiting")
-    print("NextElapseUSecRealtime=Mon 2099-01-01 00:00:00 UTC")
-    print("NextElapseUSecMonotonic=infinity")
-elif "list-timers" in args:
-    print("NEXT LEFT LAST PASSED UNIT ACTIVATES")
-    print("Mon 2099-01-01 00:00:00 UTC 1h left n/a n/a ponos.timer ponos.service")
+    print("ActiveState=active")
+    print("SubState=running")
+    print("NRestarts=0")
 """
 
 # A keyring that never answers: the vault's key goes to `vault.key`, under this

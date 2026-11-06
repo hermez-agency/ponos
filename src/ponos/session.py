@@ -23,6 +23,7 @@ import shlex
 import shutil
 import signal
 import subprocess
+import sys
 import threading
 import time
 import uuid
@@ -150,6 +151,96 @@ def new_id() -> str:
     return str(uuid.uuid4())
 
 
+@dataclass
+class Handle:
+    """A session started detached, as much of it as a later runner needs to follow it.
+
+    `pid` is the tether's (see tether.py), which is also the process group the
+    CLI runs in; `code` is where the tether writes how the CLI ended. Stored in
+    `ponos.db` while the session runs (`state.track_session`), so that a runner
+    started after this one — an update's `exec`, a restart, a crash — reads the
+    same log to its end rather than killing the session or starting it over.
+    """
+
+    session_id: str
+    pid: int
+    log: Path
+    stderr: Path
+    code: Path
+    cwd: Path
+    started: float
+    timeout_minutes: int = 30
+    tmp: Path | None = None
+
+    def to_json(self) -> dict[str, Any]:
+        return {
+            "session_id": self.session_id,
+            "pid": self.pid,
+            "log": str(self.log),
+            "stderr": str(self.stderr),
+            "code": str(self.code),
+            "cwd": str(self.cwd),
+            "started": self.started,
+            "timeout_minutes": self.timeout_minutes,
+            "tmp": str(self.tmp) if self.tmp else "",
+        }
+
+    @classmethod
+    def from_json(cls, value: Mapping[str, Any]) -> Handle:
+        return cls(
+            session_id=str(value["session_id"]),
+            pid=int(value["pid"]),
+            log=Path(value["log"]),
+            stderr=Path(value["stderr"]),
+            code=Path(value["code"]),
+            cwd=Path(value["cwd"]),
+            started=float(value.get("started") or time.time()),
+            timeout_minutes=int(value.get("timeout_minutes") or 30),
+            tmp=Path(value["tmp"]) if value.get("tmp") else None,
+        )
+
+    @property
+    def deadline(self) -> float:
+        return self.started + self.timeout_minutes * 60
+
+    def alive(self) -> bool:
+        """Whether the tether is still there — and is this session's, not a pid reused."""
+        return tethered(self.pid, self.session_id)
+
+    def ended(self) -> bool:
+        """Whether the CLI has ended: its code written, or nobody left to write it."""
+        return self.code.exists() or not self.alive()
+
+
+def tethered(pid: int, session_id: str) -> bool:
+    """Whether `pid` is a live tether holding `session_id`.
+
+    A child of this process is reaped on the way — a tether that ended under a
+    runner that `exec`ed is still its child, and would otherwise stay a zombie
+    that `kill(pid, 0)` calls alive. Anybody else's is read in /proc, whose
+    command line names the session: a pid reused by an unrelated process is not
+    a session going.
+    """
+    try:
+        done, _ = os.waitpid(pid, os.WNOHANG)
+        if done == pid:
+            return False
+    except ChildProcessError:
+        pass
+    except OSError:
+        return False
+    try:
+        arguments = Path(f"/proc/{pid}/cmdline").read_bytes().split(b"\0")
+        state = Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[-1].split()[0]
+    except (OSError, IndexError):
+        try:
+            os.kill(pid, 0)
+        except (ProcessLookupError, PermissionError):
+            return False
+        return True
+    return state != "Z" and session_id.encode() in arguments
+
+
 def run(
     prompt: str,
     *,
@@ -166,7 +257,64 @@ def run(
     max_budget_usd: float = 0.0,
     chrome: bool = True,
     mcp_config: Path | None = None,
+    adopted: Handle | None = None,
+    track: Callable[[Handle], None] | None = None,
 ) -> Outcome:
+    """One session, from its start to what it came to.
+
+    Started detached (see tether.py) and followed through its log; `track` is
+    told its handle the moment it exists, which is how the runner writes it down
+    for whoever comes after. `adopted` is a session a runner before this one
+    started: nothing is launched, it is followed from where it is.
+    """
+    if adopted is not None:
+        handle = adopted
+        # What the runner before this one already reported is not reported
+        # again: the steps are in the journal and on the card.
+        try:
+            skip = handle.log.stat().st_size
+        except OSError:
+            skip = 0
+    else:
+        handle = launch(
+            prompt,
+            cwd=cwd,
+            log=log,
+            model=model,
+            permission_mode=permission_mode,
+            timeout_minutes=timeout_minutes,
+            session_id=session_id,
+            resume=resume,
+            environment=environment,
+            max_budget_usd=max_budget_usd,
+            chrome=chrome,
+            mcp_config=mcp_config,
+        )
+        skip = 0
+        if track is not None:
+            try:
+                track(handle)
+            except Exception:
+                logger.exception("    ! the session was not written down for a restart")
+    return finish(handle, on_event=on_event, stop=stop, skip=skip)
+
+
+def launch(
+    prompt: str,
+    *,
+    cwd: Path,
+    log: Path,
+    model: str = "",
+    permission_mode: str = "bypassPermissions",
+    timeout_minutes: int = 30,
+    session_id: str = "",
+    resume: bool = False,
+    environment: dict[str, str] | None = None,
+    max_budget_usd: float = 0.0,
+    chrome: bool = True,
+    mcp_config: Path | None = None,
+) -> Handle:
+    """Start a session detached from this process, and say where to follow it."""
     binary = available()
     if not binary:
         raise FileNotFoundError("claude not found in PATH")
@@ -195,89 +343,212 @@ def run(
         **(environment or {}),
     }
     leftovers.warn_pinned(cwd)
-    started = time.monotonic()
     log.parent.mkdir(parents=True, exist_ok=True)
     stderr_path = log.with_suffix(".err")
+    code_path = log.with_name(log.name + ".code")
+    code_path.unlink(missing_ok=True)
+    # The transcript is private from its first byte: the tether opens it so.
+    with disk.open_private(log), disk.open_private(stderr_path):
+        pass
+    source = str(Path(__file__).resolve().parents[1])
+    tether_environment = {
+        **inheritable(os.environ),
+        "PYTHONPATH": os.pathsep.join(
+            part for part in (source, os.environ.get("PYTHONPATH", "")) if part
+        ),
+    }
+    spec = {
+        "command": command,
+        "cwd": str(cwd),
+        "log": str(log),
+        "stderr": str(stderr_path),
+        "code": str(code_path),
+        "environment": inherited,
+        "prompt": prompt,
+        # Masked before anything reads it: the transcript, the steps written
+        # into the ticket, the answer — see vault.py.
+        "forms": list(vault.forms()),
+    }
+    started = time.time()
+    tether = subprocess.Popen(
+        [sys.executable, "-m", "ponos.tether", session_id],
+        cwd=str(cwd),
+        stdin=subprocess.PIPE,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        env=tether_environment,
+        # Its own session, so that neither this process's end nor a signal sent
+        # to its group reaches it — and its own group, so we can end it all.
+        start_new_session=True,
+    )
+    assert tether.stdin is not None
+    try:
+        tether.stdin.write(json.dumps(spec).encode())
+        tether.stdin.close()
+    except (BrokenPipeError, OSError):
+        pass
+    _CHILDREN[tether.pid] = tether
+    return Handle(
+        session_id=session_id,
+        pid=tether.pid,
+        log=log,
+        stderr=stderr_path,
+        code=code_path,
+        cwd=cwd,
+        started=started,
+        timeout_minutes=timeout_minutes,
+        tmp=scratch_tmp,
+    )
 
-    # Private from their first byte: a transcript is the brief, the code and
-    # whatever a command printed on the way, secrets included when one was.
-    with disk.open_private(log) as journal, disk.open_private(stderr_path) as errors:
-        process = subprocess.Popen(
-            command,
-            cwd=str(cwd),
-            stdout=subprocess.PIPE,
-            stderr=errors,
-            text=True,
-            bufsize=1,
-            env=inherited,
-            start_new_session=True,  # its own process group, so we can kill it all
-            stdin=subprocess.PIPE,
-        )
-        # From a thread: a prompt larger than the pipe's buffer would block
-        # this write until the session reads it, while the session may be
-        # waiting for us to read what it has already written.
-        threading.Thread(
-            target=_feed, args=(process, prompt), name="tr-prompt", daemon=True
-        ).start()
 
-        timed_out = threading.Event()
+# The tethers this process started, kept so that `Popen` reaps them itself: a
+# `waitpid` of ours on a pid `subprocess` also watches would take its status.
+_CHILDREN: dict[int, subprocess.Popen[bytes]] = {}
 
-        def expire() -> None:
-            timed_out.set()
-            try:
-                os.killpg(os.getpgid(process.pid), signal.SIGTERM)
-                time.sleep(5)
-                os.killpg(os.getpgid(process.pid), signal.SIGKILL)
-            except (ProcessLookupError, PermissionError):
-                pass
+# How often a session's log is looked at for new lines.
+FOLLOW_SECONDS = 0.1
 
-        watchdog = threading.Timer(timeout_minutes * 60, expire)
-        watchdog.start()
 
-        # Asked to stop by the caller: the console's Stop. The whole group goes,
-        # and not the CLI alone — a `pytest` or a `npm install` it had started
-        # would otherwise carry on with nobody to read it. Claude Code writes
-        # its conversation as it goes, so what was said before the signal is
-        # still there for the next `--resume`.
-        interrupted = threading.Event()
+def finish(
+    handle: Handle,
+    *,
+    on_event: Callable[[dict[str, Any]], None] | None = None,
+    stop: threading.Event | None = None,
+    skip: int = 0,
+) -> Outcome:
+    """Follow a session to its end, then clean up after it and say what it came to.
 
-        def interrupt(asked: threading.Event) -> None:
-            while process.poll() is None:
-                if asked.wait(0.2):
-                    interrupted.set()
-                    halt(process)
-                    return
-
-        if stop is not None:
-            threading.Thread(target=interrupt, args=(stop,), name="tr-stop", daemon=True).start()
-
-        try:
-            final, texts = _read(process, journal, on_event)
-            process.wait()
-        finally:
-            watchdog.cancel()
-            # Whatever the way out — a result, a timeout, a Stop, an exception —
-            # nothing the session started stays behind it.
-            reap(process)
-            leftovers.stop_processes(cwd)
-            leftovers.sweep(cwd)
-            leftovers.drop_tmp(scratch_tmp)
+    `skip` is how many bytes of the log were already reported by whoever
+    followed it before: read for the answer, not handed to `on_event` again.
+    """
+    final, texts, code, interrupted, timed_out = follow(
+        handle, on_event=on_event, stop=stop, skip=skip
+    )
+    # Whatever the way out — a result, a timeout, a Stop, an exception —
+    # nothing the session started stays behind it.
+    reap(handle.pid)
+    _CHILDREN.pop(handle.pid, None)
+    leftovers.stop_processes(handle.cwd)
+    leftovers.sweep(handle.cwd)
+    leftovers.drop_tmp(handle.tmp)
     # Written by the CLI itself, so masked once it has let go of it.
-    vault.scrub(stderr_path)
-
-    seconds = time.monotonic() - started
+    vault.scrub(handle.stderr)
     return _outcome(
         final,
         texts,
-        session_id=session_id,
-        log=log,
-        stderr_path=stderr_path,
-        seconds=seconds,
-        code=process.returncode,
-        interrupted=interrupted.is_set(),
-        timed_out=timed_out.is_set(),
-        timeout_minutes=timeout_minutes,
+        session_id=handle.session_id,
+        log=handle.log,
+        stderr_path=handle.stderr,
+        seconds=time.time() - handle.started,
+        code=code,
+        interrupted=interrupted,
+        timed_out=timed_out,
+        timeout_minutes=handle.timeout_minutes,
     )
+
+
+def follow(
+    handle: Handle,
+    *,
+    on_event: Callable[[dict[str, Any]], None] | None = None,
+    stop: threading.Event | None = None,
+    skip: int = 0,
+) -> tuple[dict[str, Any], list[str], int, bool, bool]:
+    """Read a session's log as it is written, until the session has ended.
+
+    Its last event, what it said, its exit code, and whether it was stopped or
+    timed out on the way. The deadline is the session's own, counted from when
+    it started — a runner that adopts it an hour in does not give it an hour more.
+    """
+    final: dict[str, Any] = {}
+    texts: list[str] = []
+    interrupted = timed_out = False
+    consumed = 0  # the bytes of the complete lines read so far
+    buffer = b""
+    child = _CHILDREN.get(handle.pid)
+    reading: IO[bytes] | None = None
+    try:
+        while True:
+            ended = handle.code.exists() or (
+                child.poll() is not None if child is not None else not handle.alive()
+            )
+            if reading is None:
+                try:
+                    reading = handle.log.open("rb")
+                except OSError:
+                    reading = None
+            chunk = reading.read() if reading is not None else b""
+            buffer += chunk
+            while b"\n" in buffer:
+                line, buffer = buffer.split(b"\n", 1)
+                consumed += len(line) + 1
+                event = _parse(line.decode("utf-8", errors="replace"))
+                if event is None:
+                    continue
+                if on_event is not None and consumed > skip:
+                    on_event = _listen(on_event, event)
+                if event.get("type") == "result":
+                    final = event
+                elif event.get("type") == "assistant":
+                    for block in event.get("message", {}).get("content", []):
+                        if block.get("type") == "text":
+                            texts.append(block.get("text", ""))
+            if ended and not chunk:
+                last = _parse(buffer.decode("utf-8", errors="replace")) if buffer.strip() else None
+                if last is not None and last.get("type") == "result":
+                    final = last
+                break
+            if not ended and stop is not None and stop.is_set() and not interrupted:
+                interrupted = True
+                halt(handle.pid)
+                continue
+            if not ended and not timed_out and time.time() >= handle.deadline:
+                timed_out = True
+                halt(handle.pid)
+                continue
+            if not chunk:
+                time.sleep(FOLLOW_SECONDS)
+    finally:
+        if reading is not None:
+            reading.close()
+    return final, texts, _code(handle, child), interrupted, timed_out
+
+
+def _parse(line: str) -> dict[str, Any] | None:
+    try:
+        event = json.loads(line)
+    except json.JSONDecodeError:
+        return None
+    return event if isinstance(event, dict) else None
+
+
+def _listen(
+    on_event: Callable[[dict[str, Any]], None], event: dict[str, Any]
+) -> Callable[[dict[str, Any]], None] | None:
+    """Hand one event over; a listener that raises is dropped, never the session."""
+    try:
+        on_event(event)
+    except Exception as error:
+        # Whoever watches the session is never allowed to stop it: a reporter
+        # that throws is dropped, and the ticket runs to its end unwatched.
+        logger.exception("    ! live report dropped: %s", error)
+        return None
+    return on_event
+
+
+def _code(handle: Handle, child: subprocess.Popen[bytes] | None) -> int:
+    """How the CLI ended, as the tether wrote it; a killed tether wrote nothing."""
+    deadline = time.monotonic() + 2
+    while not handle.code.exists() and time.monotonic() < deadline:
+        if child is not None and child.poll() is not None:
+            break
+        if child is None and not handle.alive():
+            break
+        time.sleep(0.05)
+    try:
+        return int(handle.code.read_text(encoding="utf-8").strip())
+    except (OSError, ValueError):
+        return -signal.SIGKILL
 
 
 def inheritable(environ: Mapping[str, str]) -> dict[str, str]:
@@ -364,42 +635,6 @@ def _command(
     if max_budget_usd > 0:
         command += ["--max-budget-usd", f"{max_budget_usd:.2f}"]
     return command
-
-
-def _read(
-    process: subprocess.Popen[str],
-    journal: IO[str],
-    on_event: Callable[[dict[str, Any]], None] | None,
-) -> tuple[dict[str, Any], list[str]]:
-    """The stream, written to the journal as it comes: its last event, and what was said."""
-    final: dict[str, Any] = {}
-    texts: list[str] = []
-    for line in process.stdout:  # type: ignore[union-attr]
-        # Masked before anything reads it: the transcript, the steps
-        # written into the ticket, the answer — see vault.py.
-        line = vault.mask(line)
-        journal.write(line)
-        journal.flush()
-        try:
-            event = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if on_event is not None:
-            try:
-                on_event(event)
-            except Exception as error:
-                # Whoever watches the session is never allowed to stop
-                # it: a reporter that throws is dropped, and the ticket
-                # runs to its end unwatched.
-                logger.exception("    ! live report dropped: %s", error)
-                on_event = None
-        if event.get("type") == "result":
-            final = event
-        elif event.get("type") == "assistant":
-            for block in event.get("message", {}).get("content", []):
-                if block.get("type") == "text":
-                    texts.append(block.get("text", ""))
-    return final, texts
 
 
 def _outcome(
@@ -499,47 +734,62 @@ def _outcome(
 GRACE_SECONDS = 5
 
 
-def halt(process: subprocess.Popen[str]) -> None:
+def halt(target: subprocess.Popen[str] | int) -> None:
     """End a session's whole process group: asked first, then made to.
 
     By the group id, which with `start_new_session` is the leader's pid and
     outlives it: a command the session started is still in it once the CLI
     itself has exited, and it is the one that has to go.
     """
+    pid = target if isinstance(target, int) else target.pid
     try:
-        os.killpg(process.pid, signal.SIGTERM)
+        os.killpg(pid, signal.SIGTERM)
     except (ProcessLookupError, PermissionError):
         return
+    if not isinstance(target, int):
+        try:
+            target.wait(timeout=GRACE_SECONDS)
+        except subprocess.TimeoutExpired:
+            pass
+    else:
+        _gone(pid, GRACE_SECONDS)
     try:
-        process.wait(timeout=GRACE_SECONDS)
-    except subprocess.TimeoutExpired:
-        pass
-    try:
-        os.killpg(process.pid, signal.SIGKILL)
+        os.killpg(pid, signal.SIGKILL)
     except (ProcessLookupError, PermissionError):
         pass
 
 
-def reap(process: subprocess.Popen[str]) -> None:
+def _gone(group: int, seconds: float) -> bool:
+    """Whether the group is empty within `seconds` — its tether reaped on the way."""
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline:
+        child = _CHILDREN.get(group)
+        if child is not None:
+            child.poll()
+        try:
+            os.killpg(group, 0)
+        except (ProcessLookupError, PermissionError):
+            return True
+        time.sleep(0.1)
+    return False
+
+
+def reap(target: subprocess.Popen[str] | int) -> None:
     """End what is left of a session's process group once its leader is gone.
 
     `halt` is for a session still running; this is for the one that ended, and
     whose `pnpm dev` did not. Nothing to wait for when the group is empty, so a
     session that cleaned up after itself costs nothing.
     """
+    pid = target if isinstance(target, int) else target.pid
     try:
-        os.killpg(process.pid, signal.SIGTERM)
+        os.killpg(pid, signal.SIGTERM)
     except (ProcessLookupError, PermissionError):
         return
-    deadline = time.monotonic() + GRACE_SECONDS
-    while time.monotonic() < deadline:
-        try:
-            os.killpg(process.pid, 0)
-        except (ProcessLookupError, PermissionError):
-            return
-        time.sleep(0.1)
+    if _gone(pid, GRACE_SECONDS):
+        return
     try:
-        os.killpg(process.pid, signal.SIGKILL)
+        os.killpg(pid, signal.SIGKILL)
     except (ProcessLookupError, PermissionError):
         pass
 
@@ -768,15 +1018,6 @@ def pull_requests(log: Path) -> list[str]:
                     if url not in found:
                         found.append(url)
     return found
-
-
-def _feed(process: subprocess.Popen[str], prompt: str) -> None:
-    """Hand the prompt to the session on stdin, then close it: that is the end."""
-    try:
-        process.stdin.write(prompt)  # type: ignore[union-attr]
-        process.stdin.close()  # type: ignore[union-attr]
-    except (BrokenPipeError, OSError, ValueError):
-        pass  # the session died first; what it said on the way out is the story
 
 
 def _verdict(answer: str) -> str:

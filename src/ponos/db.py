@@ -1077,6 +1077,32 @@ def _markdown_board_is_gone(connection: sqlite3.Connection) -> None:
     connection.execute("DROP TABLE IF EXISTS sync_stamps")
 
 
+def _detached_sessions(connection: sqlite3.Connection) -> None:
+    # Les sessions en cours, détachées du démon qui les a lancées : de quoi les
+    # réadopter après un redémarrage ou une mise à jour (adoption.py). Et ce que
+    # l'ordonnanceur dit de ses places, une ligne, réécrite à chaque tour.
+    connection.execute(
+        """
+        CREATE TABLE sessions (
+            session  TEXT PRIMARY KEY,
+            ticket   TEXT NOT NULL DEFAULT '',
+            handle   TEXT NOT NULL,
+            job      TEXT NOT NULL DEFAULT '',
+            started  TEXT NOT NULL
+        )
+        """
+    )
+    connection.execute(
+        """
+        CREATE TABLE places (
+            id        INTEGER PRIMARY KEY CHECK (id = 1),
+            snapshot  TEXT NOT NULL DEFAULT '{}',
+            at        TEXT NOT NULL
+        )
+        """
+    )
+
+
 # Appended to, never edited or renamed: a file remembers each of these by name,
 # and the version of a file is how many of them it has been through. Statements go through `execute` one at a time — `executescript`
 # commits whatever transaction is open before it starts, which would apply half
@@ -1132,6 +1158,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     _tickets_have_attempts,
     _board_pages,
     _markdown_board_is_gone,
+    _detached_sessions,
 )
 
 # Any way a read or a write of the database can fail. A note the runner keeps

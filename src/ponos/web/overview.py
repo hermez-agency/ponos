@@ -1,6 +1,6 @@
 """What the header and the statistics page say: the machine's state, and the figures.
 
-Read off this machine — the lock, the timer, the history in `ponos.db`, the
+Read off this machine — the daemon and its places, the history in `ponos.db`, the
 version installed — and never off the board, except where a figure is about
 its tickets. The header is drawn again at every reconnection, so nothing here
 asks a remote anything: an update waiting is read from the stamp a run wrote.
@@ -8,6 +8,7 @@ asks a remote anything: an update waiting is read from the stamp a run wrote.
 
 from __future__ import annotations
 
+import shutil
 from datetime import datetime
 from typing import Any
 
@@ -20,13 +21,16 @@ from .base import Base
 
 class Overview(Base):
     def state(self, local: bool = True) -> dict[str, Any]:
-        """Everything the header shows: the timer, the lock, the version, the spend.
+        """Everything the header shows: the daemon, its places, the version, the spend.
 
         `local`: whether the page asking is on this machine, which is where an
         update can be started from — see `upgrade.Upgrade.offer`.
         """
         configuration = self.config
-        held = state.running()
+        holder = state.scheduler()
+        places = state.places() if holder else {}
+        if places and places.get("pid") != holder.get("pid"):
+            places = {}
         handled, spend = state.totals()
         # A timer that is on and a board that does not move is the one state
         # somebody would open a terminal for. `credits` is 0 the rest of the
@@ -43,17 +47,19 @@ class Overview(Base):
         budget_spent = state.spent_today() if budget_limit > 0 else 0.0
         version = update_module.running()
         return {
-            # In a container the timer is the image's `ponos run --every`, which
-            # starts with it and stops with it: on for as long as this answers.
-            # Without systemd, the installer's own loop is the timer.
-            "timer": "enabled"
-            if config_module.in_container() or systemd.looping()
+            # The daemon: running while a scheduler holds the places — in a
+            # container or without systemd that is all there is to read; under
+            # systemd, why it is not otherwise.
+            "daemon": "running"
+            if holder
+            else "stopped"
+            if config_module.in_container() or not shutil.which("systemctl")
             else systemd.read().label,
-            "running": bool(held),
-            "lock": held,
+            "running": bool(places.get("busy")) or bool(state.sessions()),
+            "places": _places(places, configuration),
             # The sessions in flight, read from their logs: what a page that has
             # just been reloaded counts before the stream has said a word.
-            "sessions": live.active(held=lambda: held),
+            "sessions": live.active(held=live.in_flight),
             "credits": waiting,
             "credits_at": credits.when(waiting) if waiting else "",
             # The day's spending limit, once reached: asked of the history
@@ -144,6 +150,49 @@ class Overview(Base):
                 models=journal.models(),
             )
         )
+
+
+def _places(written: dict[str, Any], configuration: config_module.Config) -> dict[str, Any]:
+    """What the daemon last wrote of its places, in the shape the header reads.
+
+    Its own figures when it is there; the configured ones, all free, when not.
+    """
+    width = int(written.get("width") or configuration.runner.max_concurrent)
+    return {
+        "width": width,
+        "per_project": int(
+            written.get("per_project") or configuration.runner.max_concurrent_per_project
+        ),
+        "free": int(written.get("free", width)),
+        "busy": [
+            {
+                "ticket": str(place.get("ticket", "")),
+                "title": str(place.get("title", "")),
+                "project": str(place.get("project", "")),
+                "kind": str(place.get("kind", "")),
+                "since": float(place.get("since") or 0),
+            }
+            for place in written.get("busy") or []
+        ],
+        "projects": [
+            {
+                "name": name,
+                "busy": int(counted.get("busy", 0)),
+                "limit": int(counted.get("limit", 0)),
+            }
+            for name, counted in sorted((written.get("projects") or {}).items())
+        ],
+        "queue": [
+            {
+                "ticket": str(waiting.get("ticket", "")),
+                "title": str(waiting.get("title", "")),
+                "project": str(waiting.get("project", "")),
+                "why": str(waiting.get("why", "")),
+                "detail": str(waiting.get("detail", "")),
+            }
+            for waiting in written.get("queue") or []
+        ],
+    }
 
 
 def _update_available() -> str:

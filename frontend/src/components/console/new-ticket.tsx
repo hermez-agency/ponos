@@ -11,7 +11,6 @@ import { EDITOR_SETTLES } from "@/components/console/new-ticket-lazy"
 import { TicketEstimate } from "@/components/console/ticket-estimate"
 import { ComboboxInputController } from "@/components/console/combobox"
 import { Kbd } from "@/components/console/confirm-dialog"
-import { every } from "@/components/console/runner-strip"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -324,7 +323,7 @@ export function NewTicketFields() {
 /* -- the foot ---------------------------------------------------------------- */
 
 /* Two ways out instead of a box to tick and one button: a draft the runner
- * leaves alone, or a ticket launched at its next pass. Both are the same
+ * leaves alone, or a ticket launched as soon as a place is free. Both are the same
  * submission, with `ready` said first — and said in the form, so it is sent
  * the way it always was. The submission waits for the form to hold it: a
  * change and a submission in the same click would send what the form held
@@ -332,7 +331,7 @@ export function NewTicketFields() {
 export function NewTicketFoot() {
   const context = useFormContext()
   const { runner } = useConsole()
-  const seconds = runner?.timer === "enabled" ? (runner.interval_seconds ?? 0) : 0
+  const on = runner?.daemon === "running"
   const mac = typeof navigator !== "undefined" && isMac(navigator.platform || navigator.userAgent)
   const [asked, setAsked] = React.useState<boolean | null>(null)
   const ready = context.form.data?.ready !== false
@@ -353,9 +352,9 @@ export function NewTicketFoot() {
   return (
     <div className="bg-popover sticky bottom-0 z-10 mt-5 flex flex-col-reverse gap-3 border-t py-4 sm:flex-row sm:items-center sm:justify-between">
       <p className="text-muted-foreground text-xs">
-        {seconds
-          ? t("Launched, the ticket starts at the next pass, within {{every}}.", { every: every(seconds) })
-          : t("Launched, the ticket starts at the next pass.")}
+        {on
+          ? t("Launched, the ticket starts as soon as a place is free.")
+          : t("Launched, the ticket starts once the daemon runs.")}
       </p>
       <div className="flex shrink-0 justify-end gap-2">
         <Button type="button" variant="secondary" disabled={busy} onClick={() => ask(false)}>

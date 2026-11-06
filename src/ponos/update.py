@@ -1,17 +1,20 @@
 """Keeping the installation on the latest version, with nobody asking for it.
 
-The runner already wakes up on a timer, so it does not need a second one: a run
-looks at the clock before it looks at the tickets, and once an hour it asks the
-remote whether the installed code is still the newest. One `git fetch` in the
+The daemon already loops, so it does not need a timer of its own: once an
+update interval, it asks the remote whether the installed code is still the
+newest. One `git fetch` in the
 install directory answers that — which is why `install.sh` *clones* the
 repository there rather than unpacking a tarball. "Am I up to date" is a
 question git already knows how to answer; a version number in a file would only
 be a second, less truthful copy of it.
 
-An update lands **between** two runs, never inside one. The check happens under
-the run lock and before a single ticket is claimed, so no session is ever
-swapped out from under itself; the code that just landed takes over on the next
-pass, which is at most one interval away.
+An update never swaps a session out from under itself. The daemon installs the
+new version beside the one in use, then `exec`s itself onto it once nothing is
+in flight that a restart could not carry on: the Claude sessions already going
+finish on the code they started with — they are not the daemon's children
+(see tether.py) — and are adopted by the new one, while everything started
+afterwards runs on the new code (see scheduler.py and adoption.py). A `ponos
+run` with no daemon behind it still checks at its top (`between_runs`).
 
 The console is the exception, and `restart_console` is why: it is one process
 that answers for weeks, so nothing about it takes over on its own.
@@ -364,22 +367,50 @@ def between_runs(
     notify("Ponos updated", short)
 
 
-def pending(settings: Runner) -> bool:
-    """Is a newer version out? Asked by a pass still running, never applied by it.
+def install_newer(
+    settings: Runner,
+    *,
+    say: Callable[[str], None],
+    notify: Callable[[str, str], None],
+) -> bool:
+    """Once an interval, put the newest version in place; whether one was.
 
-    A pass that keeps refilling its places can last a day, and `between_runs`
-    is only at its top: on 23 October a fix merged at 14:49 was not loaded
-    before the next morning. The pass asks here instead, on the same interval,
-    and ends once the answer is yes — the update itself waits for the top of
-    the next one, with no session underneath it. How often is the caller's
-    business (`Board.closing`).
-
-    `clock=False`, as the console's look: a check written down here would make
-    the next pass find its own not due, and install nothing for an hour.
+    The daemon's `between_runs`: it has no top of a pass to do it at, so it
+    asks on the update interval, from its loop, and installs there and then —
+    under `state.installing`, so that the console's button and this never copy
+    the same directories at once. What is running is not touched: the version
+    in use stays on disk, and the daemon `exec`s itself onto the new one once
+    nothing is in flight that a restart could not carry on (see scheduler.py).
     """
-    if in_container() or not settings.auto_update:
+    from . import state
+
+    if in_container():
         return False
-    return check(channel=settings.update_channel, clock=False).stale
+    healed = heal_environment()
+    if healed:
+        say(f"  ! {healed}")
+    if not settings.auto_update:
+        return False
+    status = check(channel=settings.update_channel)
+    if status.reason:
+        say(f"  ! version not checked: {status.reason}")
+        return False
+    if not status.stale:
+        return False
+    short = describe(status)
+    say(f"  ↑ a newer version is out ({short}) — installing")
+    try:
+        with state.installing():
+            error = apply(status, settings.interval_seconds)
+    except state.Busy as busy:
+        say(f"  ! not installed now: {busy}")
+        return False
+    if error:
+        say(f"  ! update failed: {error}")
+        return False
+    say("    installed — the daemon restarts on it, and takes its sessions back")
+    notify("Ponos updated", short)
+    return True
 
 
 def heal_environment() -> str:
@@ -408,6 +439,11 @@ def _binary() -> Path:
     return Path(shutil.which("ponos") or Path.home() / ".local/bin/ponos")
 
 
+def launcher() -> Path:
+    """The `ponos` script `install.sh` wrote — what the daemon `exec`s to change version."""
+    return _binary()
+
+
 def write_launcher(app: Path | None = None) -> Path:
     """Rewrite ~/.local/bin/ponos from the template in the app directory.
 
@@ -427,30 +463,33 @@ def write_launcher(app: Path | None = None) -> Path:
     return binary
 
 
+def units_dir() -> Path:
+    """Where the user's systemd reads its units: `$XDG_CONFIG_HOME/systemd/user`."""
+    configured = os.environ.get("XDG_CONFIG_HOME", "")
+    return (Path(configured) if configured else Path.home() / ".config") / "systemd" / "user"
+
+
 def write_units(interval_seconds: int, app: Path | None = None) -> Path:
     """Regenerate the systemd units from the templates shipped with the app.
 
-    The interval lives in the configuration, not in the unit: changing a number
-    and running `ponos service on` is a better story than reinstalling.
+    The daemon's unit, the console's and the tailnet's. The timer of the pass
+    model is not among them any more: `systemd.migrate` takes an installed one
+    down, the first time the daemon starts. `interval_seconds` is not written
+    into any unit — the daemon reads it from the configuration as it goes.
     """
     app = app or app_dir()
-    units = Path.home() / ".config" / "systemd" / "user"
+    units = units_dir()
     units.mkdir(parents=True, exist_ok=True)
 
     service = (app / "systemd" / "ponos.service.in").read_text()
     service = service.replace("@BIN@", str(_binary())).replace("@PATH@", os.environ.get("PATH", ""))
     (units / "ponos.service").write_text(service)
 
-    timer = (app / "systemd" / "ponos.timer.in").read_text()
-    timer = timer.replace("@INTERVAL@", str(interval_seconds))
-    timer = timer.replace("@ACCURACY@", "1s" if interval_seconds < 60 else "30s")
-    (units / "ponos.timer").write_text(timer)
-
     # The console's unit is written whether or not it is enabled: writing it
-    # costs nothing, and an update that refreshed the timer but left the console
-    # on last month's ExecStart would be the kind of half-update this module
-    # exists to prevent. Starting it is `install.sh` and `ponos service on`;
-    # an update never turns on what somebody turned off.
+    # costs nothing, and an update that refreshed the daemon but left the
+    # console on last month's ExecStart would be the kind of half-update this
+    # module exists to prevent. Starting it is `install.sh` and `ponos service
+    # on`; an update never turns on what somebody turned off.
     console = app / "systemd" / "ponos-web.service.in"
     if console.exists():
         text = console.read_text()

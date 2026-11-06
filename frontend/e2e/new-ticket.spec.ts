@@ -46,7 +46,7 @@ test("a new ticket carries its priority, type and model, and Ctrl+Enter launches
   })
   const dialog = await open(page)
 
-  await expect(dialog.getByText("Launched, the ticket starts at the next pass")).toBeVisible()
+  await expect(dialog.getByText(/Launched, the ticket starts/)).toBeVisible()
   await expect(dialog.getByText("Ready to run")).toHaveCount(0)
   await score(dialog).fill("80")
   await expect(score(dialog)).toHaveValue("80")

@@ -44,8 +44,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-from .. import __version__, db, ideas, ids, journal, log, state, store, systemd
-from .. import config as config_module
+from .. import __version__, db, ideas, ids, journal, log, state, store
 from .. import kinds as kinds_module
 from . import live
 from .oauth import READ, WRITE, Grant
@@ -97,7 +96,7 @@ une question : lisez-la avec get_task, puis répondez avec answer_question — o
 lisez avec list_solutions ce qui la débloquerait, et appliquez-en une avec \
 apply_solution, qui sert aussi à décider d'une tâche en review.
 - Une tâche créée ici reste en « draft » : la personne la relit et la passe \
-en « ready » depuis la console, et le runner la lance alors à sa prochaine passe.
+en « ready » depuis la console, et le démon la lance dès qu'une place se libère.
 - Répondre à une tâche bloquée, ou lui appliquer une solution, la relance : sa \
 session reprend avec cette réponse. Aucun outil ne lance de commande, ne modifie \
 la configuration ni ne supprime quoi que ce soit."""
@@ -164,7 +163,7 @@ TOOLS: list[dict[str, Any]] = [
         "description": "Liste les tâches de Ponos, les plus récemment modifiées d'abord, avec "
         "pour chacune son identifiant, son titre, son projet, son objectif, son statut, son type, "
         "sa priorité, sa pull request et son coût. Statuts : draft (brouillon, jamais lancé), ready (en file, "
-        "le runner le prendra à sa prochaine passe), running (session en cours), "
+        "le démon la lance dès qu'une place se libère), running (session en cours), "
         "blocked (« vous attend » : une session pose une question), review (travail "
         "livré, attend une relecture), validated (relu, en cours de fusion ou de publication), "
         "paused (en pause : arrêtée par vous, jamais reprise seule), failed (échec), done "
@@ -207,8 +206,9 @@ TOOLS: list[dict[str, Any]] = [
         "name": "runner_status",
         "title": "Runner et dépenses",
         "scope": READ,
-        "description": "Renvoie l'état du runner : la minuterie (active ou non, et sa cadence), "
-        "une passe en cours ou non, les sessions en cours et leur tâche, les tâches au statut "
+        "description": "Renvoie l'état du runner : le démon (en marche ou non), ses places "
+        "(libres, prises) et sa file d'attente avec la raison de chaque attente, les sessions en "
+        "cours et leur tâche, les tâches au statut "
         "running, et les dépenses — aujourd'hui, sur la période demandée et par projet sur cette "
         "période, avec la limite quotidienne si elle est réglée. À appeler pour « que fait "
         "Ponos ? » ou « combien j'ai dépensé ? ».",
@@ -348,7 +348,7 @@ TOOLS: list[dict[str, Any]] = [
         "bloquée ou en review : la décision et la consigne sont écrites dans sa discussion, que la "
         "prochaine session lira, puis la tâche change de colonne (ready pour la relancer, "
         "validated pour la valider, done pour l'abandonner ou la rejeter). Une tâche remise en "
-        "ready sera lancée par le runner à sa prochaine passe, et coûtera une session.",
+        "ready sera lancée par le démon dès qu'une place se libère, et coûtera une session.",
         "inputSchema": _schema(
             {
                 "task": TASK_REFERENCE,
@@ -839,8 +839,9 @@ def get_task(api: Api, task: str) -> dict[str, Any]:
 
 def runner_status(api: Api, days: int = 30) -> dict[str, Any]:
     configuration = api.config
-    held = state.running()
-    sessions = live.active(held=lambda: held)
+    holder = state.scheduler()
+    places = state.places() if holder else {}
+    sessions = live.active(held=live.in_flight)
     try:
         cards = api.board()["tickets"]
     except store.StoreError:
@@ -854,9 +855,20 @@ def runner_status(api: Api, days: int = 30) -> dict[str, Any]:
         projects = []
     limit = configuration.budget.daily_usd
     return {
-        "timer": "enabled" if config_module.in_container() else systemd.read().label,
+        "daemon": "running" if holder else "stopped",
         "interval_seconds": configuration.runner.interval_seconds,
-        "run_in_progress": bool(held),
+        "places": {
+            "width": places.get("width", configuration.runner.max_concurrent),
+            "free": places.get("free", configuration.runner.max_concurrent),
+            "queue": [
+                {
+                    "task": waiting.get("ticket", ""),
+                    "title": waiting.get("title", ""),
+                    "why": waiting.get("why", ""),
+                }
+                for waiting in places.get("queue") or []
+            ],
+        },
         "sessions": [
             {
                 "task": session["source"],

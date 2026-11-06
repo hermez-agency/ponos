@@ -123,8 +123,12 @@ le lundi — CONTRIBUTING.md, « Dependencies ».
 
 - `src/ponos/` — le cœur. Un run reste **un seul objet**, découpé par
   responsabilité : `base.py` porte son état (le board, caches, voix) et
-  son docstring explique la forme choisie ; `runner.py` ne garde que la passe
-  (`tick`, `_work`) ; chaque chapitre a son module — `board.py` (lire le
+  son docstring explique la forme choisie ; `scheduler.py` est la boucle du
+  démon (`serve` : les places, remplies dès qu'elles se libèrent, et l'entretien
+  à côté), `adoption.py` reprend les sessions d'un démon précédent, `runner.py`
+  ne garde que le passage sans démon de `ponos run` (`tick`, `_work`) ; autour,
+  `daemon.py` (le processus : verrou, signaux, `exec` de mise à jour) et
+  `tether.py` (ce qui tient une session détachée) ; chaque chapitre a son module — `board.py` (lire le
   tableau, le remettre d'aplomb), `preparation.py` (localiser le projet,
   réclamer le ticket), `execution.py` (la session, et ce qu'un ticket en
   rapporte), `delivery.py` (la colonne validée : fusionner, publier),
@@ -182,8 +186,9 @@ le lundi — CONTRIBUTING.md, « Dependencies ».
 - `Dockerfile`, `docker-compose.yml`, `docker/entrypoint.sh` — l'image : une
   autre façon d'installer, pas un autre programme. `PONOS_CONTAINER` y dit au
   cœur qu'il n'y a ni systemd ni mise à jour automatique (`config.in_container`).
-- `systemd/` — gabarits des unités (`.service.in`, `.timer.in`) posées par
-  `install.sh` pour le timer et la console.
+- `systemd/` — gabarits des unités (`.service.in`) posées par `install.sh` pour
+  le démon et la console ; `ponos.timer.in` n'est plus qu'une cale, lue par une
+  version d'avant le démon quand elle installe la mise à jour qui l'apporte.
 - `desktop/` — gabarit du handler `ponos://` enregistré sur le bureau.
 - `diagrams/` — `ponos.architecture.json` est la source du diagramme ;
   `architecture.html` et `ponos.png` en sont générés, voir `CONTRIBUTING.md`

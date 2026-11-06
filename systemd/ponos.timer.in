@@ -1,20 +1,15 @@
+# Never installed by this version, and kept for one reason: a Ponos from
+# before the daemon writes this file when it installs the update that brings
+# the daemon, and fails the update if it is missing. The daemon, once started,
+# disables and removes the timer it wrote (systemd.migrate).
 [Unit]
-Description=ponos — picks up ready Notion tickets
-Documentation=https://github.com/hermez-agency/ponos
+Description=ponos — the timer of the passes, replaced by ponos.service
 
 [Timer]
-# Three starting points, because a timer with none of them never fires again.
-# OnUnitActiveSec counts from the service's last activation and OnBootSec from
-# the boot: a timer (re)started long after boot, after a service that failed,
-# had neither and sat "active" with no next run. OnActiveSec counts from the
-# timer's own start, and always holds.
 OnActiveSec=@INTERVAL@s
 OnBootSec=@INTERVAL@s
 OnUnitActiveSec=@INTERVAL@s
-# A ten-second timer needs second-level accuracy; a half-hourly one does not,
-# and letting systemd coalesce its wake-ups is worth more than the precision.
 AccuracySec=@ACCURACY@
-# Catch up on the missed run if the machine was off.
 Persistent=true
 Unit=ponos.service
 

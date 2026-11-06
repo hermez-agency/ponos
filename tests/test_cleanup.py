@@ -87,20 +87,20 @@ def _cleaning(worktrees: dict[str, dict[str, Any]]) -> tuple[str, list[str]]:
 
 
 @case
-def clean_leaves_the_worktrees_of_a_run_in_progress_alone(state_home: Path) -> None:
-    """`clean --force` beside a running pass would remove the worktree a
-    session is writing in: kept by a failure or in use, nothing on disk tells
-    the two apart. It takes the run lock, or it does nothing."""
-    kept = state_home / "worktrees" / "app-1a2b3c4d"
-    kept.mkdir(parents=True)
-    printed = io.StringIO()
-    with state.lock(), contextlib.redirect_stdout(printed):
-        assert cli_main(["clean", "--force"]) == 1
-    assert kept.exists(), "a worktree was removed under a running pass"
-    assert "run is in progress" in _plain(printed.getvalue())
-    with contextlib.redirect_stdout(io.StringIO()):
+def clean_leaves_the_worktree_of_a_session_in_flight_alone_while_the_daemon_runs(
+    state_home: Path,
+) -> None:
+    """The daemon never lets go of its place, so `clean --force` cannot wait for it:
+    what it spares is the worktree of a session written down for adoption."""
+    going = state_home / "worktrees" / "app-1a2b3c4d"
+    left = state_home / "worktrees" / "app-5e6f7a8b"
+    going.mkdir(parents=True)
+    left.mkdir(parents=True)
+    state.track_session("s-1", "page-1a2b3c4d", {"pid": 1}, "")
+    with state.scheduling(), contextlib.redirect_stdout(io.StringIO()):
         assert cli_main(["clean", "--force"]) == 0
-    assert not kept.exists(), "and once the pass is over, it goes"
+    assert going.exists(), "a worktree was removed under a session in flight"
+    assert not left.exists(), "and the daemon holding its place stops nothing else"
 
 
 @case

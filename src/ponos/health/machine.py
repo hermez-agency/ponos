@@ -1,6 +1,6 @@
 """The machine group: what this computer gives a session.
 
-Tools, disk, memory, load, the timer that wakes the runner and the priority
+Tools, disk, memory, load, the daemon that holds the places and the priority
 sessions run at. What Ponos's own installation says — its channels, version,
 database, leftovers — is `installation`, apart for its length only.
 """
@@ -12,7 +12,7 @@ import shutil
 import sys
 from datetime import datetime
 
-from .. import browser, cleanup, disk, git, leftovers, local_ci, resources, systemd
+from .. import browser, cleanup, disk, git, leftovers, local_ci, resources, state, systemd
 from .. import config as config_module
 from .check import ERROR, INFO, OK, WARN, Check, _check, _fix, _installing
 
@@ -473,9 +473,13 @@ def _load(config: config_module.Config) -> list[Check]:
 
 
 def _runner(config: config_module.Config) -> list[Check]:
-    """What starts a run, how often, and how a session is let loose."""
+    """What holds the places, how many there are, and how a session is let loose."""
     runner = config.runner
-    every = {"interval": str(runner.interval_seconds)}
+    every = {
+        "interval": str(runner.interval_seconds),
+        "places": str(runner.max_concurrent),
+        "per_project": str(runner.max_concurrent_per_project),
+    }
     found: list[Check] = []
     if config_module.in_container():
         found.append(
@@ -483,18 +487,18 @@ def _runner(config: config_module.Config) -> list[Check]:
                 "machine.runner",
                 OK,
                 "Runner",
-                "The runner starts with the container: one run every {{interval}}s (`ponos run --every`).",
+                "The daemon starts with the container (`ponos daemon`): {{places}} place(s), the board looked at again every {{interval}}s at the latest.",
                 params=every,
             )
         )
     elif not shutil.which("systemctl"):
-        if systemd.looping():
+        if state.scheduler():
             found.append(
                 _check(
                     "machine.runner",
                     OK,
                     "Runner",
-                    "No systemd here: the loop `ponos run --every` runs in the background, one run every {{interval}}s.",
+                    "No systemd here: `ponos daemon` runs in the background, {{places}} place(s).",
                     params=every,
                 )
             )
@@ -504,20 +508,20 @@ def _runner(config: config_module.Config) -> list[Check]:
                     "machine.runner",
                     WARN,
                     "Runner",
-                    "No systemd here and no runner loop: no ticket is taken until `ponos run --every` is started (`ponos run` for a single pass).",
+                    "No systemd here and no daemon: no ticket is taken until `ponos daemon` is started (`ponos run` for a single run).",
                 )
             )
     else:
         found.append(
             _check(
-                "machine.runner",
+                "machine.places",
                 INFO,
                 "Runner",
-                "One run every {{interval}}s (`ponos service on` applies a change).",
+                "{{places}} place(s), {{per_project}} per project; the board is looked at again every {{interval}}s at the latest.",
                 params=every,
             )
         )
-        found.append(_timer(systemd.read()))
+        found.append(_service(systemd.read()))
         priority = _priority(systemd.priority())
         if priority:
             found.append(priority)
@@ -578,43 +582,36 @@ def _workers(runner: config_module.Runner) -> Check:
     )
 
 
-def _timer(timer: systemd.Timer) -> Check:
-    """The timer, and an error when it will never fire.
+def _service(service: systemd.Service) -> Check:
+    """The daemon's unit, and an error while it is not running.
 
-    `enabled` is what `is-enabled` says, and it stayed true for the two hours the
-    runner was silent: the timer was loaded, active, and had no next run. That
-    state is the fault, and it is the only visible sign of it.
+    `enabled` is what `is-enabled` says, and it says nothing of a unit that
+    failed or was stopped by hand: `ActiveState` is what tells.
     """
-    if timer.enabled != "enabled":
+    if service.enabled != "enabled":
         return _check(
             "machine.runner",
             ERROR,
             "Runner",
-            "The runner's timer is {{state}}: no ticket is picked up.",
-            params={"state": timer.enabled},
-            cause="`ponos service on` was never run, or the timer was disabled.",
+            "The runner's daemon is {{state}}: no ticket is picked up.",
+            params={"state": service.enabled},
+            cause="`ponos service on` was never run, or ponos.service was disabled.",
             steps=["In a terminal on this machine, run `ponos service on`."],
-            evidence=timer.row,
         )
-    if timer.stalled:
+    if not service.running:
         return _check(
             "machine.runner",
             ERROR,
             "Runner",
-            "The runner's timer is enabled but will never fire.",
-            cause="systemd holds no next run for it.",
-            steps=["In a terminal on this machine, run `ponos service on` to arm it again."],
-            evidence=timer.row,
+            "The runner's daemon is enabled but not running ({{state}}).",
+            params={"state": service.active or "stopped"},
+            cause="ponos.service stopped, or keeps failing to start.",
+            steps=[
+                "In a terminal on this machine, run `ponos service on`.",
+                "If it stops again, read why: `journalctl --user -u ponos.service -n 50`.",
+            ],
         )
-    return _check(
-        "machine.runner",
-        OK,
-        "Runner",
-        "The runner's timer is active, and a run is in progress."
-        if timer.running
-        else "The runner's timer is active.",
-        evidence=timer.row,
-    )
+    return _check("machine.runner", OK, "Runner", "The runner's daemon is running.")
 
 
 # `IOSchedulingClass` as `show` writes it: the kernel's number for the class.

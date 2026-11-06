@@ -1065,50 +1065,48 @@ def health_says_how_many_workers_a_session_is_given() -> None:
 
 
 @case
-def health_says_a_timer_that_will_never_fire_and_how_often_a_run_comes() -> None:
+def health_says_a_daemon_that_does_not_run_and_how_many_places_it_holds() -> None:
     from ponos import health
-    from ponos.systemd import Timer
+    from ponos.systemd import Service
 
-    assert health._timer(Timer("enabled", substate="waiting", armed=True)).state == "ok"
-    running = health._timer(Timer("enabled", substate="running"))
-    assert running.state == "ok" and "in progress" in running.said
-    assert health._timer(Timer("enabled", substate="elapsed")).state == "error", "stalled"
-    assert health._timer(Timer("disabled")).state == "error"
+    assert health._service(Service("enabled", active="active")).state == "ok"
+    stopped = health._service(Service("enabled", active="failed"))
+    assert stopped.state == "error" and "not running" in stopped.said, "enabled is not enough"
+    assert health._service(Service("disabled")).state == "error"
 
-    config = _config("[runner]\ninterval_seconds = 120\nprogress = false\n")
+    config = _config("[runner]\ninterval_seconds = 120\nmax_concurrent = 3\nprogress = false\n")
     with (
         _patched(health.shutil, which=lambda name: f"/usr/bin/{name}"),
         _patched(
             health.systemd,
-            read=lambda: Timer("enabled", substate="waiting", armed=True),
+            read=lambda: Service("enabled", active="active"),
             priority=lambda: {"Nice": "10", "IOSchedulingClass": "3"},
         ),
     ):
         found = health._runner(config)
     assert _verdicts(found) == [
-        ("machine.runner", "info"),
+        ("machine.places", "info"),
         ("machine.runner", "ok"),
         ("machine.priority", "ok"),
         ("settings.permissions", "info"),
         ("settings.workers", "info"),
         ("settings.progress", "info"),
     ], found
-    assert found[0].params["interval"] == "120"
+    assert found[0].params["interval"] == "120" and found[0].params["places"] == "3"
 
 
 @case
-def health_does_not_tick_a_machine_without_systemd_and_without_a_loop() -> None:
-    from ponos import health
+def health_does_not_tick_a_machine_without_systemd_and_without_a_daemon(state_home: Path) -> None:
+    from ponos import health, state
 
     config = _config("[runner]\ninterval_seconds = 120\n")
-    for looping, state in ((False, "warn"), (True, "ok")):
-        with (
-            _patched(health.shutil, which=lambda name: None),
-            _patched(health.systemd, looping=lambda looping=looping: looping),
-        ):
+    with _patched(health.shutil, which=lambda name: None):
+        found = health._runner(config)
+        assert found[0].code == "machine.runner" and found[0].state == "warn", found[0]
+        assert "ponos daemon" in found[0].said
+        with state.scheduling():
             found = health._runner(config)
-        assert found[0].code == "machine.runner" and found[0].state == state, found[0]
-        assert "ponos run --every" in found[0].said
+        assert found[0].state == "ok", found[0]
 
 
 @case
@@ -1501,7 +1499,7 @@ def health_says_whether_the_ideas_schedule_can_fire() -> None:
 def _machine(*, healthy: bool = True) -> Iterator[None]:
     """Every probe of the machine answered: a sound one, or one where three things are wrong."""
     from ponos import health
-    from ponos.systemd import Timer
+    from ponos.systemd import Service
 
     version = subprocess.CompletedProcess([], 0, "2.1.0 (Claude Code)\n", "")
     signed_out = subprocess.CompletedProcess([], 1, "", "You are not logged into any GitHub hosts")
@@ -1519,7 +1517,7 @@ def _machine(*, healthy: bool = True) -> Iterator[None]:
         _patched(health.shutil, which=lambda name: f"/usr/bin/{name}"),
         _patched(
             health.systemd,
-            read=lambda: Timer("enabled", substate="waiting", armed=True),
+            read=lambda: Service("enabled", active="active"),
             priority=lambda: {"Nice": "10", "IOSchedulingClass": "3"},
         ),
         _patched(health.github_app, describe=lambda with_repositories=True: []),
@@ -1693,7 +1691,9 @@ def health_adds_the_type_and_subtype_a_schedules_database_lacks_and_then_says_ok
 
 
 @case
-def the_runner_loop_is_told_by_its_pid_file_and_its_command_line(state_home: Path) -> None:
+def the_daemon_without_systemd_is_told_by_its_pid_file_and_its_command_line(
+    state_home: Path,
+) -> None:
     import subprocess
     import sys
 
@@ -1705,7 +1705,7 @@ def the_runner_loop_is_told_by_its_pid_file_and_its_command_line(state_home: Pat
     (web / "run.pid").write_text("not a number\n", encoding="utf-8")
     assert not systemd.looping()
     sleeper = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
-    loop = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)", "run", "--every"])
+    loop = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)", "daemon"])
     try:
         (web / "run.pid").write_text(f"{sleeper.pid}\n", encoding="utf-8")
         assert not systemd.looping(), "a live process that is not the loop"

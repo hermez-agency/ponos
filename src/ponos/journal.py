@@ -134,6 +134,31 @@ class Run:
             return cls(None, say)
         return cls(identifier, say)
 
+    @classmethod
+    def resume(cls, identifier: int, say: Callable[[str], None] = lambda message: None) -> Run:
+        """A run a runner before this one opened, carried on where it was left.
+
+        Its steps go on being numbered after the last one written, and what it
+        has cost so far is counted in. A run already closed — the sweep of a
+        runner that did not know the session was still going — is not reopened:
+        the caller opens a new one.
+        """
+        try:
+            with db.transaction(immediate=False) as connection:
+                row = connection.execute(
+                    "SELECT ended_at, cost_usd, (SELECT max(position) FROM steps WHERE run = ?)"
+                    " FROM runs WHERE id = ?",
+                    (identifier, identifier),
+                ).fetchone()
+        except _FAILURES:
+            return cls(None, say)
+        if not row or row[0] is not None:
+            return cls(None, say)
+        run = cls(identifier, say)
+        run.cost = float(row[1]) if row[1] is not None else None
+        run.position = int(row[2] or 0)
+        return run
+
     @property
     def open(self) -> bool:
         return self.id is not None
@@ -210,10 +235,9 @@ class Run:
 def interrupted(live: set[str]) -> int:
     """Close the runs a dead runner left open, on the moment of their last step.
 
-    Called under the run lock, where no other pass can be on a session; the
-    tickets in `live` — `stopping.live`, a session whose run is still there —
-    are kept open all the same, the one proof of a session going that does not
-    depend on the lock. Failed, on `worktree.interrupted`: what happened to the
+    Called by the scheduler, where nobody else can be starting a session; the
+    tickets in `live` — `stopping.live`, a session whose runner is still there,
+    and the sessions written down for adoption — are kept open all the same. Failed, on `worktree.interrupted`: what happened to the
     run, which is not what happens to its ticket — `sweep` sees to that. How
     many were closed; none when the journal cannot be written.
     """

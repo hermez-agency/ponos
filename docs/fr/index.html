@@ -990,7 +990,7 @@
       <div class="card">
         <div class="card-header"><h3 class="card-title">Ce qu’il lui faut</h3></div>
         <ul>
-          <li>Linux ou macOS — systemd ou launchd le maintiennent en marche, et sans l’un ni l’autre la console démarre quand même. Sous Windows, WSL convient sans minuteur : un ticket part quand la console le lance, ou avec <code>ponos run</code> ;</li>
+          <li>Linux ou macOS — systemd ou launchd le maintiennent en marche, et sans l’un ni l’autre la console démarre quand même. Sous Windows, WSL convient sans systemd : le démon tourne alors en arrière-plan, <code>ponos daemon</code> ;</li>
           <li><code>python3</code> ≥ 3.11 — ses quatre dépendances, httpx, pydantic, FastAPI et uvicorn, vont dans un environnement à lui, créé par l’installeur ;</li>
           <li>l’accès réseau à PyPI pendant l’installation, pour les récupérer (et à <code>uv</code>, depuis GitHub, quand la machine ne peut pas installer un paquet) ;</li>
           <li><code>git</code> et <a href="https://claude.com/claude-code" target="_blank" rel="noopener">Claude Code</a>, que l’installeur propose d’installer ;</li>

@@ -131,7 +131,7 @@ from .machine import _memory as _memory
 from .machine import _priority as _priority
 from .machine import _private_state as _private_state
 from .machine import _runner as _runner
-from .machine import _timer as _timer
+from .machine import _service as _service
 from .machine import _tools as _tools
 from .machine import _video_sent as _video_sent
 from .machine import _workers as _workers

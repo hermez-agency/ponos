@@ -51,7 +51,7 @@ channel, an incoming trigger, a schedule or the *Repair main* ticket starts with
 headings; one written without them is all mission until its first session ends.
 
 The open tickets of a board written before this format — *Ready*, *Blocked*, *In review*
-and drafts — are put into it once, a few per pass: the page as it stands becomes the
+and drafts — are put into it once, a few per round of the daemon's upkeep: the page as it stands becomes the
 mission, the toggles the old live report left on it go, and « What was done » gets the
 last report Ponos commented and the sessions the journal has. *Done* and *Cancelled*
 tickets keep the page they ended with. The default template of your Notion board is
@@ -140,29 +140,29 @@ Three rules decide when it speaks, and all three are about knowing who is being 
   you ask for words instead — `@claude pourquoi tu demandes ?` gets an answer, and leaves
   the ticket exactly where it is.
 
-And it never answers itself. Every comment it writes comes back to it on the next pass, so
+And it never answers itself. Every comment it writes comes back to it on the next look, so
 it asks Notion for its own user ID and compares identifiers rather than trying to recognise
 its own signature. When Notion will not say — a token without the reach, a network that is
-down — it says nothing at all that pass. A conversation with oneself is the one failure
+down — it says nothing at all that time. A conversation with oneself is the one failure
 mode here that would never end.
 
 A thread is one long Claude Code session, resumed: ask a second question and it lands in
 the same conversation as the first, which is why the second answer knows what the first one
 said. `claude --resume` in a terminal opens that very session.
 
-The pass runs on a cadence of its own — `reply_interval_seconds`, sixty by default —
+The answers run on a cadence of their own — `reply_interval_seconds`, sixty by default —
 because a comment does not change a page and Notion has no way of being asked *what has
 been commented on since*. So it looks where a conversation can plausibly be: the tickets a
-run reads anyway, and the pages it has spoken on, `reply_scan` of them per pass with the
+daemon reads anyway, and the pages it has spoken on, `reply_scan` of them per look with the
 window moving each time. A ticket sitting in *Ready* that it has never touched is the one
 place it is not listening — and that one is about to be run, which is where your comment
 was going to be read regardless.
 
-Answers never come before the work. In a pass with tickets ready, the tickets take their
-places first; the answers — and the look at the blocked tickets, below — then take one
-place of `max_concurrent` between them, one session after the other, so what runs at once
-stays capped whatever is waiting. With every place taken, they wait for the first one that
-frees. A pass with nothing ready answers up to `max_concurrent` threads side by side.
+Answers never come before the work. With tickets ready, the tickets take their places
+first; the answers — and the look at the blocked tickets, below — then take one place of
+`max_concurrent` between them, one session after the other, so what runs at once stays
+capped whatever is waiting. With every place taken, they wait for the first one that
+frees.
 
 | Where you write | What happens |
 | --- | --- |
@@ -210,7 +210,7 @@ why — the latter only when the reason changed, not every time it is checked. I
 `ponos history`, the entry is `unblocked` or `kept-blocked`, with the reason.
 
 It is deliberately slow and small: a ticket is looked at once every
-`unblock_interval_seconds` (six hours by default), three tickets at most per pass, and never
+`unblock_interval_seconds` (six hours by default), three tickets at most per look, and never
 one edited in the last hour — a question asked just now is waiting for its answer. A ticket
 already answered in a comment is left to the usual way of waking.
 
@@ -295,7 +295,7 @@ back from its sentences, French and English, when `ponos.db` was migrated; a sen
 matched no cause is counted as `unknown`.
 
 <a id="ci-on-the-card"></a>**CI on the card.** A ticket in *In review* with a pull request shows
-whether its checks pass, without a trip to GitHub. Each pass asks `gh` for the checks of the
+whether its checks pass, without a trip to GitHub. Each round of the daemon's upkeep asks `gh` for the checks of the
 open pull requests of that column — every 30 seconds while one is running, every five
 minutes once settled — and keeps the answer in `ponos.db`; the console reads it with the
 list, so opening the board or a card asks GitHub nothing. Three states: `en cours` (a check
@@ -392,7 +392,7 @@ GitHub — through `gh` — what became of those pull requests, and a ticket who
 been **merged** moves to *Done*, with a comment saying so. So you merge, and the board
 catches up on its own; nothing else to close by hand.
 
-The cadence is the runner's own: `interval_seconds`, not a second timer to install and
+The cadence is the daemon's own: `interval_seconds`, not a second timer to install and
 forget. A ticket whose pull request is still open, closed without merging, or unreachable
 because `gh` is not authenticated simply stays in review — the next run asks again. A
 board whose `review` and `done` are one column has nowhere for a ticket to wait, so
@@ -439,7 +439,7 @@ an **`Après`** relation, pointing at other tickets of the same board.
   happened to it, it is not blocked — and its card says **« waiting for: <ticket> »**
   (*« attend : <ticket> »* in French), naming every one still to be done. The journal says
   it once, when it changes.
-- **It starts on its own.** The first pass after the last of them reaches *Done* takes it,
+- **It starts on its own.** The first look after the last of them reaches *Done* takes it,
   as if it had just been made ready: nothing to tick again, no comment to write. A ticket
   whose pull request it waits for reaches *Done* when that pull request is merged — see
   [Merging is the only gesture](#merging-is-the-only-gesture).
@@ -562,7 +562,7 @@ and the second no longer replays cleanly — “Pull Request has merge conflicts
    sub-type *Bug*, at priority 75, with the failing jobs and the link of their run — never
    a second one while it is open. Its pull request is validated without waiting for you,
    whatever *Force validated* says: once its CI is green it is merged by the runner, since
-   every other pull request of the repository waits behind it. And at every pass the base is read again: once those checks are no longer red
+   every other pull request of the repository waits behind it. And at every round the base is read again: once those checks are no longer red
    there, the pull request goes on by itself. `ponos doctor` and `ponos projects` say when
    a repository's base has no CI run at push, or only skipped ones: that is how a red base
    goes unseen.
@@ -618,7 +618,7 @@ A session is started only if a conflict is left in hand-written code — and it 
 given the list without the files that were settled.
 
 **One merge at a time per repository.** The merges of a repository wait in a line — the
-validated ones of the pass and the forced ones of the sessions alike — and each pull
+validated ones of the column and the forced ones of the sessions alike — and each pull
 request is replayed onto the base as the merge before it left it, just before its own
 merge. Three validated pull requests on one repository merge one after the other, and
 the base no longer moves under a replay in progress (the *“`main` keeps moving faster”*
@@ -631,8 +631,8 @@ to press *Merge*. You read the post the agent drafted and it is right: someone s
 to publish it. That last step is the one the board has always left to a human — and it is
 the one part of a ticket that is pure mechanics.
 
-*Validated* is where you hand it over. You move the ticket one column to the right, and on
-its next pass the runner does the last thing the ticket needs:
+*Validated* is where you hand it over. You move the ticket one column to the right, and the
+daemon — told at once — does the last thing the ticket needs:
 
 ```
 Notion                    Ponos                               what happens
@@ -654,7 +654,7 @@ conflicts with its base is replayed and, if need be, resolved first — see *Ten
 one repository* above. One that GitHub refuses for anything else — a check still red, a
 review still required — puts the ticket in *Blocked* with GitHub's own wording in a
 comment, because that wording is the answer. One already merged
-by hand between two passes just moves to *Done*. One closed without merging is a question,
+by hand meanwhile just moves to *Done*. One closed without merging is a question,
 not a merge: *Blocked*, and the ticket says so.
 
 **A ticket with no pull request** is the other half, and the interesting one. The work
@@ -689,22 +689,22 @@ Five things are worth knowing:
   thing twice. And a run that dies mid-publication does **not** put that ticket back in the
   queue: it may have posted seconds before dying, so it comes back as *Blocked* asking
   whether it went out, and one click on *Validated* tries again;
-- **it comes before the queue, and never one at a time.** Merges and publications are
-  settled at the top of a pass, before any new ticket is claimed — a ticket you have
-  accepted comes before one nobody has read. Publications run side by side under
+- **it comes before the queue, and never one at a time.** A publication takes the next
+  free place before any ready ticket — a ticket you have accepted comes before one nobody
+  has read. Publications run side by side under
   `max_concurrent`, so four of them cost one session's wait rather than four;
-- **and it never waits for what is in progress.** The column is read again every
-  `interval_seconds` for as long as the pass lasts, whether or not a place is free: a
+- **and it never waits for what is in progress.** The column is read the moment a ticket
+  is moved there, and again every `interval_seconds`, whether or not a place is free: a
   pull request you validate at 14:20 is merged at 14:20 — a merge is two `gh` calls and
   costs no place at all — and a publication takes the next place that frees, ahead of
   the ready column. A validated ticket therefore never sits behind a two-hour session it
   has nothing to do with;
 - **a date on the ticket still holds.** `Scheduled` says "not before this moment"
   wherever it is written, so a validated ticket dated Thursday is merged or published on
-  Thursday rather than on the next pass. It is what makes the column a schedule and not
+  Thursday rather than at once. It is what makes the column a schedule and not
   just a *go*: you accept the post when you have read it, and it goes out when it should.
-  `ponos list` shows those alongside the ready tickets that are waiting, and a
-  pass says how many are;
+  `ponos list` shows those alongside the ready tickets that are waiting, and `ponos
+  status` lists them with why each waits;
 - **it is never guessed at.** The runner acts on that column and on nothing else: no
   ticket is merged or published because a session felt sure of itself — only because you
   moved it, or ticked [*Force validated*](#force-validated-skipping-the-review) for its
@@ -742,7 +742,7 @@ names the projects that have their own, and so does `ponos doctor`.
   `merge_method`, as a validated one is. A merge that is only *not yet* goes to
   *Validated* instead: a branch another ticket overtook while its CI ran (behind its base,
   or in conflict with it — GitHub is not even asked when it already says so), or a CI
-  still running when `checks_timeout_minutes` runs out. The next pass merges it the way it
+  still running when `checks_timeout_minutes` runs out. The daemon then merges it the way it
   merges any validated ticket — replaying the branch, resolving the conflict — without
   holding a session's place meanwhile, and the report says the merge was postponed and
   why. A merge that is a question — a check red on this pull request only, a review or a
@@ -750,8 +750,8 @@ names the projects that have their own, and so does `ponos doctor`.
   report and on its card, and you take it from there as before. So does every refusal on
   a board with no *Validated* column;
 - **Publication** — what the session prepared is published straight away by the
-  publishing session, in the same pass. Under the credit reserve it goes to *Validated*
-  instead, and the first pass with credit again publishes it;
+  publishing session, in the same place. Under the credit reserve it goes to *Validated*
+  instead, and it is published once the credit is back;
 - **Writing** and **External action** already end in *Done*, with nothing left to
   validate: their boxes are there for symmetry, and change nothing today.
 
@@ -859,20 +859,20 @@ Active ✓, Next ≤ now ────▶ recur()
                                                                  Project / Model / Priority
                                                                  Type / Sous-type
                                                                  │
-                                 the queue of the same pass  ◀────┘
+                                 the queue, at the next look ◀────┘
 ```
 
 `recur` sits between the validated column and the queue — before the queue on purpose, so
-a ticket born at 09:00 is claimed by that very pass rather than by the next one.
+a ticket born at 09:00 is claimed at the very next look of the daemon.
 
 **Two rules surprise people, and both of them are the point:**
 
 - **catching up creates one occurrence, never the missed ones.** Machine off for three
-  days, timer stopped, laptop shut: waking up gives you one ticket for the occurrence
+  days, daemon stopped, laptop shut: waking up gives you one ticket for the occurrence
   that is due, not twelve. `Next` is recomputed *from now*, never by stacking up what was
   lost. This is anacron, not cron — turning a laptop back on must not set off an
   avalanche of sessions;
-- **an occurrence that is still open blocks the next one, and the pass says so.** While
+- **an occurrence that is still open blocks the next one, and the daemon says so.** While
   the ticket in `Last ticket` is neither *Done*, *Blocked* nor *Cancelled* — so still ready,
   running, in review or validated — no second ticket is made. `Next` moves on regardless.
   Without that, one schedule whose ticket waits for its review fills the board with twenty

@@ -1,14 +1,14 @@
 """Updating the installation from the console, without cutting anything short.
 
-The runner already updates itself between two runs (`update.between_runs`);
-what the console adds is *now*, on a click, with somebody watching. The rules
-are the same ones, and for the same reason: the update takes **the run lock**.
-Every Claude session a ticket starts runs inside a pass that holds it, so
-holding it is the one guarantee that no session is running — and that none
-starts while the code is being swapped: the timer's next run finds it busy,
-claims nothing, and leaves every ticket where it was. A click while a ticket is
-running is therefore not refused, it is *queued*: the update waits for the
-lock, says so, and can be called off while it waits.
+The daemon already updates itself (`update.install_newer`); what the console
+adds is *now*, on a click, with somebody watching. The new version is put in
+place beside the one in use, under the install lock that the daemon's own
+update takes too, and the daemon is then asked to restart on it (SIGHUP, see
+daemon.py): it does once nothing is in flight that a restart could not carry on,
+and the Claude sessions going meanwhile finish on the code they started with —
+the new daemon adopts them. A click while the console itself is busy — a chat
+turn, a command — is not refused, it is *queued*: the update waits, says so,
+and can be called off while it waits.
 
 Nothing the page sends chooses what runs. The endpoint takes no command, no
 revision and no path: it asks the remote again, under the lock, what the
@@ -24,8 +24,9 @@ line. What was going on is written down first, so the process that comes back
 knows it came back from an update.
 
 The console also asks on its own, when it starts and every quarter of an hour
-(`watch`): a run asks once an hour at most, and only when the timer is on —
-the button would otherwise appear an hour after the commit it offers, or never.
+(`watch`): the daemon asks once an update interval at most, and only when
+`auto_update` is on — the button would otherwise appear an hour after the
+commit it offers, or never.
 It is one `git fetch` per quarter, from one process, whatever the number of
 pages open; a page that loads reads what the last look found.
 
@@ -48,7 +49,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from .. import disk, environment, log, state
+from .. import daemon, disk, environment, log, state
 from .. import update as update_module
 from ..config import Runner, in_container, state_dir
 
@@ -279,12 +280,18 @@ class Upgrade:
             other = self.busy()
             if not other:
                 try:
-                    with state.lock():
-                        if self._installed():
-                            break
-                        return
+                    with state.installing():
+                        installed = self._installed()
                 except state.Busy:
-                    other = "a ticket is running"
+                    other = "the daemon is installing an update"
+                else:
+                    if not installed:
+                        return
+                    # The daemon restarts on it once what is in flight allows:
+                    # its sessions carry on, and are taken back by the new one.
+                    if daemon.reload():
+                        self._say("the daemon restarts on it, its sessions taken back")
+                    break
             if other != said:
                 self._say(f"waiting: {other}")
                 self._set("waiting", other)

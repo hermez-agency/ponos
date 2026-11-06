@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { PriorityBadge } from "@/components/console/priority"
 import { DecideButton } from "@/components/console/ticket-decision"
+import { RunNow } from "@/components/console/ticket-launch"
 import { TicketEstimate } from "@/components/console/ticket-estimate"
 import { CardTime } from "@/components/console/ticket-time"
 import { moveWithToast as move } from "@/hooks/use-console"
@@ -176,15 +177,15 @@ export function lasted(minutes: number): string {
 export const reachable = (address: string): boolean => /^https?:\/\//.test(address)
 
 /* The waits a ready card keeps to itself: the column's ordinary state — the
- * next reading of the board, the next run of the timer, every place taken, a
- * project that holds its own. Said on every card, the same line runs down the
+ * daemon's next look at the board, every place taken, a project that holds its
+ * own. Said on every card, the same line runs down the
  * whole column; « In progress N/max » says it once. The runner still writes
  * them in its own journal (see `board.py`). */
-const ORDINARY = ["pass", "next", "places", "project"]
+const ORDINARY = ["next", "places", "project"]
 
 /* Why a ready card is still in its column, in the server's words (`held` in
  * `web/board.py`) — only when the wait is out of the ordinary or something
- * can be done about it: credit, the day's limit, a timer that is off, a date,
+ * can be done about it: credit, the day's limit, no daemon running, a date,
  * the tickets it comes after (« Après », see `dependencies.py`). */
 export function TicketHeld({ ticket }: { ticket: Ticket }) {
   const t = useT()
@@ -197,15 +198,15 @@ export function TicketHeld({ ticket }: { ticket: Ticket }) {
     reserve: t("waiting: credit reserve reached until {{at}}", { at: held.detail }),
     budget: t("waiting: today's spending limit reached until {{at}}", { at: held.detail }),
     running: t("waiting: a session is still on it — run again once it ends"),
-    limit: t("waiting: --limit reached for this pass"),
-    timer: t("waiting: the timer is off — nothing takes it"),
+    limit: t("waiting: --limit reached for this run"),
+    daemon: t("waiting: no daemon is running — nothing takes it"),
   }
   return (
     <div className="flex flex-wrap gap-1.5" data-slot="ticket-held">
       <Chip
         className={cn(
           "whitespace-normal",
-          ["timer", "credits", "budget"].includes(held.reason) && "border-tr-amber text-tr-amber"
+          ["daemon", "credits", "budget"].includes(held.reason) && "border-tr-amber text-tr-amber"
         )}
       >
         {said[held.reason] ?? t("waiting")}
@@ -719,7 +720,7 @@ const MERGE_REFUSED = new Set(["merge.checks-failed", "merge.refused"])
 /** What a pull request whose merge did not happen offers, besides running it again.
  *
  * Neither starts a session. Retrying puts the ticket back in validated, where
- * the runner asks GitHub for the merge on its next pass and merges once the
+ * the runner asks GitHub for the merge at once and merges once the
  * checks are green — confirmed, since a merge is not taken back. Sending it back
  * to review withdraws the validation, for the pull request to be decided on
  * again. "Make ready", the only gesture these cards used to show, starts a new
@@ -737,7 +738,7 @@ function MergeGestures({ ticket, retry }: { ticket: Ticket; retry: boolean }) {
           label={t("Retry the merge")}
           title={t("Retry the merge of “{{title}}”?", { title: titleOf(ticket) })}
           body={t(
-            "No session is started: the ticket goes back to {{column}}, and the runner merges its pull request on its next pass once its checks are green. A merge is not taken back from here.",
+            "No session is started: the ticket goes back to {{column}}, and the runner merges its pull request as soon as its checks are green. A merge is not taken back from here.",
             { column: named("validated") }
           )}
           confirm={t("Retry the merge")}
@@ -765,7 +766,7 @@ function MergeGestures({ ticket, retry }: { ticket: Ticket; retry: boolean }) {
  * you could not click. Where a gesture moves the ticket, the toast that
  * follows names the column it lands in, in the board's own word.
  *
- * Every way back to Ready is confirmed, because Ready is where the next pass
+ * Every way back to Ready is confirmed, because Ready is where the next free place
  * starts a paid session: "make ready" on a Done card used to be one stray click
  * away from one. On Done — the column that holds almost every card — the
  * gesture is rare, so it waits behind a "…" rather than sitting on each card.
@@ -831,11 +832,11 @@ export function TicketActions({
         : "",
       again
         ? t(
-            "The ticket goes back to {{column}} and the next pass starts a new session on it — a session that is paid for, like the first one.",
+            "The ticket goes back to {{column}} and a new session starts on it as soon as a place is free — a session that is paid for, like the first one.",
             { column: named("ready") }
           )
         : t(
-            "The ticket goes to {{column}} and the next pass starts a session on it — a session that is paid for.",
+            "The ticket goes to {{column}} and a session starts on it as soon as a place is free — a session that is paid for.",
             { column: named("ready") }
           ),
     ]
@@ -858,8 +859,8 @@ export function TicketActions({
   const validate = {
     title: t("Validate “{{title}}”?", { title: titleOf(ticket) }),
     body: ticket.pull_request
-      ? t("The runner merges its pull request on its next pass. A merge is not taken back from here.")
-      : t("The runner publishes what the ticket holds on its next pass."),
+      ? t("The runner merges its pull request right away. A merge is not taken back from here.")
+      : t("The runner publishes what the ticket holds at the next free place."),
     confirm: t("Validate"),
     onConfirm: () => void move(ticket, "validated"),
   }
@@ -953,6 +954,7 @@ export function TicketActions({
           <Confirmed label={again ? t("Run again") : t("Make ready")} {...ready} />
         </>
       ) : null}
+      {ticket.column === "ready" ? <RunNow ticket={ticket} /> : null}
       {ticket.column === "ready" ? (
         <Button
           variant="outline"

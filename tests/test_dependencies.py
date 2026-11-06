@@ -56,9 +56,9 @@ def a_ticket_that_names_nothing_or_nothing_to_be_found_waits_for_nothing() -> No
 @case
 def a_ready_card_says_which_tickets_it_waits_for_after_its_date() -> None:
     card = {"id": "dddd", "column": "ready", "scheduled": ""}
-    held = board_module.held(card, {}, passing=False, timer=True, after="Migration 1")
+    held = board_module.held(card, {}, scheduling=True, after="Migration 1")
     assert held == {"reason": "after", "detail": "Migration 1"}, held
     # A date still to come is said first, as it is everywhere a card waits.
     dated = {**card, "scheduled": "2999-01-01T09:00+00:00"}
-    assert board_module.held(dated, {}, passing=False, timer=True, after="M1")["reason"] == "date"
-    assert board_module.held(card, {}, passing=False, timer=True)["reason"] == "next"
+    assert board_module.held(dated, {}, scheduling=True, after="M1")["reason"] == "date"
+    assert board_module.held(card, {}, scheduling=True)["reason"] == "next"

@@ -1,18 +1,21 @@
 import * as React from "react"
-import { Activity, Gauge, Timer } from "lucide-react"
+import { Activity, Gauge, LayoutGrid } from "lucide-react"
 
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { useConsole, useStatus } from "@/hooks/use-console"
 import { counted, t as translate, useT } from "@/lib/i18n"
 import { money, number } from "@/lib/numbers"
+import type { Places, Waiting } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 import { Rich } from "./text"
 
 /* The runner's three numbers, in one line over the board.
  *
- * How many sessions are writing, how often the timer comes round, what has been
- * handled and what it cost. They had a page of their own, as three big tiles
+ * How many sessions are writing, how many of the daemon's places are taken —
+ * and, on a click, which ticket holds each and why the queue waits — what has
+ * been handled and what it cost. They had a page of their own, as three big tiles
  * over the sessions — and the sessions now live on their tickets, so the numbers
  * came to the board, where those tickets are, as a strip rather than tiles: a
  * board is for reading cards, and a row of figures over it is read in one
@@ -27,28 +30,104 @@ import { Rich } from "./text"
  * laptop — so it is a container: under 44rem one figure a line, and the button
  * says its words only where the three notes have room beside it.
  *
- * Above them, whatever is stopping the whole thing: a timer that is on above a
+ * Above them, whatever is stopping the whole thing: a daemon that is on above a
  * board that stands still has only one other honest reading, and it is "this
  * thing is broken". Everything is read off the state the console already has.
  */
 
-/* What the timer's state is called, in words. `systemctl is-enabled` answers
- * in its own vocabulary — `not-found`, `masked`, `static` — and "timer
- * not-found" is a log line, not a sentence. */
-const TIMER: Record<string, string> = {
-  disabled: "timer switched off — ponos service on",
-  "not-found": "timer not installed — ponos service on",
-  "not installed": "timer not installed — ponos service on",
-  masked: "timer masked in systemd",
-  stalled: "timer on, with no next run",
-  "no systemd": "no systemd and no runner loop — ponos run --every",
-  unknown: "timer state unknown",
+/* What the daemon's state is called, in words. `systemctl` answers in its own
+ * vocabulary — `not-found`, `masked`, `failed` — and "daemon not-found" is a
+ * log line, not a sentence. */
+const DAEMON: Record<string, string> = {
+  disabled: "daemon switched off — ponos service on",
+  "not-found": "daemon not installed — ponos service on",
+  "not installed": "daemon not installed — ponos service on",
+  masked: "daemon masked in systemd",
+  failed: "daemon stopped on an error — ponos service on",
+  stopped: "no daemon — ponos daemon",
+  inactive: "daemon stopped — ponos service on",
+  "no systemd": "no daemon — ponos daemon",
+  unknown: "daemon state unknown",
 }
 
-function timerNote(state: string | undefined): string {
+function daemonNote(state: string | undefined): string {
   if (!state) return "—"
-  const said = TIMER[state]
-  return said ? translate(said) : translate("timer {{state}}", { state })
+  const said = DAEMON[state]
+  return said ? translate(said) : translate("daemon {{state}}", { state })
+}
+
+/* Why a ticket of the queue waits, as the daemon writes it (`scheduler.py`). */
+function waits(waiting: Waiting): string {
+  const said: Record<string, string> = {
+    places: translate("every place is taken"),
+    project: translate("its project is at its limit"),
+    after: translate("waits for {{tickets}}", { tickets: waiting.detail }),
+    date: translate("not before {{at}}", { at: waiting.detail }),
+    credits: translate("out of credit"),
+    reserve: translate("the credit reserve is reached"),
+  }
+  return said[waiting.why] ?? waiting.why
+}
+
+/* The places, one line each, then the projects at their count, then the
+ * queue with why each waits: what `ponos status` prints, in the console. */
+function PlacesList({ places }: { places: Places }) {
+  const t = useT()
+  return (
+    <div className="flex flex-col gap-3 text-sm" data-slot="places-list">
+      <section className="flex flex-col gap-1">
+        <h3 className="font-medium">
+          {t("{{busy}} of {{width}} places taken", {
+            busy: String(places.busy.length),
+            width: String(places.width),
+          })}
+        </h3>
+        {places.busy.length ? (
+          <ul className="text-muted-foreground flex flex-col gap-0.5">
+            {places.busy.map((place, index) => (
+              <li key={`${place.ticket}-${index}`} className="truncate">
+                {place.title || (place.kind === "replies" ? t("the answers to comments") : place.kind)}
+                {place.project ? ` · ${place.project}` : ""}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-muted-foreground">{t("every place is free")}</p>
+        )}
+      </section>
+      {places.projects.length ? (
+        <section className="flex flex-col gap-1">
+          <h3 className="font-medium">{t("By project")}</h3>
+          <ul className="text-muted-foreground flex flex-col gap-0.5">
+            {places.projects.map((project) => (
+              <li key={project.name}>
+                {t("{{project}}: {{busy}} of {{limit}}", {
+                  project: project.name,
+                  busy: String(project.busy),
+                  limit: String(project.limit),
+                })}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+      <section className="flex flex-col gap-1">
+        <h3 className="font-medium">
+          {counted(places.queue.length, "{{count}} ticket waiting", "{{count}} tickets waiting")}
+        </h3>
+        {places.queue.length ? (
+          <ul className="flex flex-col gap-0.5">
+            {places.queue.map((waiting) => (
+              <li key={waiting.ticket} className="flex min-w-0 flex-col">
+                <span className="truncate">{waiting.title}</span>
+                <span className="text-muted-foreground truncate text-xs">{waits(waiting)}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </section>
+    </div>
+  )
 }
 
 /** An interval, as somebody would say it out loud. */
@@ -98,7 +177,8 @@ export function RunnerStrip({ action }: { action?: React.ReactNode }) {
   const { running: sessions } = useStatus()
   const t = useT()
   const running = board.tickets.filter((item) => item.column === "running").length
-  const on = runner?.timer === "enabled"
+  const on = runner?.daemon === "running"
+  const places = runner?.places
 
   return (
     <div className="mb-4 flex flex-col gap-3">
@@ -146,16 +226,35 @@ export function RunnerStrip({ action }: { action?: React.ReactNode }) {
             }
             tone={sessions.length ? "text-tr-green" : undefined}
           />
-          <Figure
-            icon={Timer}
-            label={t("timer")}
-            value={on ? every(runner?.interval_seconds ?? 0) : t("off")}
-            note={on ? t("between two runs") : timerNote(runner?.timer)}
-            tone={on ? undefined : "text-tr-amber"}
-          // "between two runs" says less than the other two notes: where the
-          // line is short, it is the one that gives way.
-          spare={on}
-          />
+          <Popover>
+            <PopoverTrigger
+              className="min-w-0 cursor-pointer text-left"
+              aria-label={t("The daemon's places and its queue")}
+              data-slot="places-trigger"
+            >
+              <Figure
+                icon={LayoutGrid}
+                label={t("places")}
+                value={on && places ? `${places.busy.length}/${places.width}` : t("off")}
+                note={
+                  !on
+                    ? daemonNote(runner?.daemon)
+                    : places?.queue.length
+                      ? counted(places.queue.length, "{{count}} ticket waiting", "{{count}} tickets waiting")
+                      : t("nothing waits")
+                }
+                tone={on ? undefined : "text-tr-amber"}
+                // "nothing waits" says less than the other two notes: where the
+                // line is short, it is the one that gives way.
+                spare={on && !places?.queue.length}
+              />
+            </PopoverTrigger>
+            {places ? (
+              <PopoverContent align="start" className="w-80">
+                <PlacesList places={places} />
+              </PopoverContent>
+            ) : null}
+          </Popover>
           <Figure
             icon={Gauge}
             label={t("handled")}

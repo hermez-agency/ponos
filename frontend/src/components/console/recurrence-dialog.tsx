@@ -175,13 +175,13 @@ function Summary({ data, original }: { data: Record<string, unknown>; original?:
   const kept = active && said ? Date.parse(said) : NaN
   const next = Number.isNaN(kept) ? nextAfter({ cadence, at, day }, now, zoneOf(runnerZone())) : kept
   // Due already — the server says so with the moment it was asked — is born on
-  // the very next pass, not at an hour of its own.
+  // the very next look at the board, not at an hour of its own.
   const due = !Number.isNaN(kept) && kept <= now + 60_000
   const when =
     next === null
       ? ""
       : due
-        ? t("at the next pass")
+        ? t("at the next look at the board")
         : t("{{date}} at {{time}}", {
           date: new Intl.DateTimeFormat(locale(), { weekday: "short", day: "numeric", month: "short" }).format(next),
           time: new Intl.DateTimeFormat(locale(), { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(next),

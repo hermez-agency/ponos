@@ -11,20 +11,30 @@ first and says everything that is missing at once, each with
 the command that installs it here — `apt-get`, `dnf`, `pacman` or `brew`, whichever this
 machine has — and ends on one line that installs them all (`sudo apt-get install -y python3 python3-venv git`); it picks the newest Python that is recent enough, `python3.12` beside an older
 `python3` included, and offers to install Claude Code when it is not there. Then it installs
-the `ponos` command into `~/.local/bin` and arms a timer that picks up ready tickets **every
-30 minutes** — `interval_seconds` in the configuration changes that, down to a few seconds if
-you want a ticket picked up as soon as you move it:
+the `ponos` command into `~/.local/bin` and starts **the daemon**, `ponos daemon`: one
+process that holds the places (`max_concurrent`, `max_concurrent_per_project`) and starts
+the next ready ticket — by priority, a ticket waiting for another left where it is — the
+moment one frees. A ticket moved to *Ready* from the console, the MCP or `ponos run` wakes it
+at once; one made ready anywhere else is seen within seconds, and the board is looked at again
+every `interval_seconds` (30 minutes by default) whatever happens, as a safety net:
 
-- **Linux with a systemd user session** — a systemd timer, and the console as a service;
-- **macOS** — two launchd agents in `~/Library/LaunchAgents`, `app.ponos.run` and
-  `app.ponos.web`, logging under `~/.local/state/ponos/`;
-- **neither** — WSL, a container, an SSH session with no user bus: no timer, so the installer
-  starts two processes in the background — the console, and `ponos run --every`, the loop
-  that does what the timer would (one run every `runner.interval_seconds`). A ticket moved
-  to *Ready* is taken without another command. Both last until the machine restarts: start
-  them again with `ponos service run` and `ponos run --every`. `ponos doctor`, `ponos status` and
-  the console's runner strip say the same thing — and `doctor` warns, rather than ticking,
-  when no loop is running.
+- **Linux with a systemd user session** — `ponos.service`, always on (`Restart=always`), and
+  the console as a service. An installation from before the daemon had a timer,
+  `ponos.timer`: the daemon turns it off and removes it the first time it starts;
+- **macOS** — two launchd agents in `~/Library/LaunchAgents`, `app.ponos.run` (the daemon,
+  kept alive) and `app.ponos.web`, logging under `~/.local/state/ponos/`;
+- **neither** — WSL, a container, an SSH session with no user bus: no systemd, so the
+  installer starts two processes in the background — the console, and `ponos daemon`. Both
+  last until the machine restarts: start them again with `ponos service run` and
+  `ponos daemon`. `ponos doctor`, `ponos status` and the console's runner strip say the same
+  thing — and `doctor` warns, rather than ticking, when no daemon is running.
+
+**The sessions are not the daemon's children.** Each Claude session is held by a small
+process of its own (it writes the session's log and how it ended), written down in
+`ponos.db` with its ticket. Restart the daemon — `ponos service on`, an update, a crash — and
+the sessions carry on; the daemon that comes back takes each one back, reads it to its end,
+and does the rest of its ticket: the push, the pull request, the status. The unit is
+`KillMode=process` for that reason: stopping it never stops a session.
 
 It ends by opening the [web console](console.md#the-web-console) on `http://127.0.0.1:8787`, where the
 [first connection](console.md#the-first-connection) does the rest; `TR_NO_WEB=1` leaves the console
@@ -53,19 +63,13 @@ rather than wait for the next release; a repository with no release yet is insta
 
 You will rarely need to. The installer clones the repository into
 `~/.local/share/ponos/app`, which is what lets the runner answer *"am I still on
-the latest version"* with one `git fetch`. A run looks at the clock before it looks at the
-tickets: **once an hour** it asks, and if the answer is no it updates itself — the
-launcher and the systemd units included — before claiming a single ticket. The change
-therefore lands between two sessions, never inside one, and the new code takes over on the
-next pass.
-
-A pass that keeps finding work would otherwise never reach the top of the next one, so a
-pass in flight asks the same question on the same hourly cadence, without installing
-anything. Once a newer version is out — or once the pass has run for 30 minutes — it starts
-nothing more: the sessions in flight finish, the pass ends, and the ready tickets wait for
-the next one, which updates first. A pass therefore lasts about 30 minutes plus, at most,
-`runner.timeout_minutes`, and its end is also when systemd stops whatever the sessions left
-running.
+the latest version"* with one `git fetch`. The daemon asks **once an hour**
+(`update_interval_seconds`), and if the answer is no it installs the new version beside the
+one in use — the launcher and the systemd units included — then restarts itself on it: an
+`exec`, same process, new code. It waits, to do so, only for what a restart could not carry
+on (a push, a merge, a reply under way, never more than a few minutes); the Claude sessions in
+flight finish on the code they started with, and are taken back by the new daemon. Everything
+that starts afterwards runs on the new version.
 
 What it asks about is **the newest release** — the highest `vX.Y.Z` tag on the remote —
 and not the tip of `main`. A commit merged into `main` is not something every installation
@@ -97,20 +101,20 @@ the commits in between, on `main`), and asks before doing anything. *Update now*
 what `ponos update` does, with every step drawn as it happens — downloading,
 installing, restarting — and the page reloads by itself from the new version:
 
-- **nothing running is cut short.** The update takes the run lock, which every ticket's
-  session runs under: with a ticket in flight the button reads *Update after the ticket*,
-  the update waits for it (and can be called off meanwhile), and the timer's next pass,
-  finding the lock held, claims nothing. A chat turn or a command typed in the console is
-  waited for the same way;
+- **nothing running is cut short.** The new version is put in place beside the one in use,
+  then the daemon is asked to restart on it, which it does as above: the sessions in flight
+  carry on and are taken back. Only another install under way (the daemon's own) is waited
+  for, and a chat turn or a command typed in the console — the update can be called off
+  meanwhile;
 - **a failure leaves the old version.** The new code is started by a Python of its own
   before it is kept; if it does not start, or its launcher and units cannot be written,
   the installation goes back to the commit it replaced, the dialog says why, and the log is
   there — in the dialog, and in `~/.local/state/ponos/web/update.log`. The same
-  holds for an update made by a run or by `ponos update`;
+  holds for an update made by the daemon or by `ponos update`;
 - **nothing runs on half of two versions.** Each version is installed in a directory of
   its own, `~/.local/share/ponos/app-<commit>`, and `app` is a link moved onto it
-  in one step once it starts. A pass reads the link once, when it starts, and runs whole
-  on the version it found; the previous version stays on disk beside the new one, and
+  in one step once it starts. A process reads the link once, when it starts, and runs whole
+  on the version it found — the daemon reads it again when it restarts itself; the previous version stays on disk beside the new one, and
   `ponos.db` as it was before the new one migrated it, as `ponos.db.v<N>.bak`
   (see [Troubleshooting](troubleshooting.md#when-it-does-not-work));
 - **each version has its own Python environment.** `app-<commit>/.venv` is made from the
@@ -121,11 +125,11 @@ installing, restarting — and the page reloads by itself from the new version:
   Debian and Ubuntu, pip in an environment comes with `python3-venv`). A version whose
   environment cannot be made, or whose console does not import in it, is never pointed at,
   and the one in use keeps its own. An installation updated by a version from before
-  environments gets its `.venv` on its next pass, with nothing to do: until then, and on a
-  `python3` that cannot make one at all, the launcher runs the machine's `python3` as it
-  always has — where a pass, which cannot read `config.toml` without pydantic, makes the
-  environment and runs no ticket —, and the console says what it is missing and starts
-  again on the environment once the pass has made it;
+  environments gets its `.venv` the next time the daemon starts, with nothing to do: until
+  then, and on a `python3` that cannot make one at all, the launcher runs the machine's
+  `python3` as it always has — where the daemon, which cannot read `config.toml` without
+  pydantic, makes the environment and starts again in it —, and the console says what it is
+  missing and starts again on the environment once it is made;
 - **no `pip` is needed to install a package.** On Debian or Ubuntu without `python3-venv`,
   `python3` cannot give an environment pip. When `requirements.txt` lists a package and the
   machine has neither `uv` nor `ensurepip`, `install.sh` and the update fetch
@@ -134,7 +138,7 @@ installing, restarting — and the page reloads by itself from the new version:
   `~/.local/share/ponos/uv`, without `sudo`, and install with it. Offline, the new version
   is not made, and the one in use carries on; the next check tries again. An environment
   whose Python a distribution upgrade took away (`.venv/bin/python` leading nowhere, or
-  `pyvenv.cfg` naming an interpreter that is gone) is made again by the next pass.
+  `pyvenv.cfg` naming an interpreter that is gone) is made again by the daemon's next check.
   `ponos doctor` has a *Python environment* line under *Machine* — there, its interpreter runs, and each
   package of `requirements.txt` imports — and when it is not, the command that mends it:
   `ponos update --environment`;
@@ -162,7 +166,7 @@ compare itself against: it says so once per check and carries on.
 | Variable | Effect |
 | --- | --- |
 | `TR_INTERVAL=10` | seconds between two runs (default: 1800, i.e. 30 min) |
-| `TR_NO_SERVICE=1` | no timer and no console: you run `ponos run` yourself |
+| `TR_NO_SERVICE=1` | no daemon and no console: you run `ponos daemon` (or `ponos run`) yourself |
 | `TR_NO_WEB=1` | the console's unit is installed, but left stopped |
 | `TR_NO_OPEN=1` | the console is started, but not opened in the browser |
 | `TR_SRC=.` | install from a local clone, without the network — and without self-updating |

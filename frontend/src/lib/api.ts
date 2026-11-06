@@ -136,6 +136,11 @@ export const api = {
     answer(client.POST("/api/goals/{goal_id}/delete", { params: { path: { goal_id: id } } })),
   setTicketGoal: (ticket: string, goal: string) =>
     answer(client.POST("/api/tickets/{ticket_id}/goal", { params: { path: { ticket_id: ticket } }, body: { goal } })),
+  /** « Run now »: a free place, or `full` — and with `force`, a place past the limit, once. */
+  launch: (ticket: string, force = false) =>
+    answer(
+      client.POST("/api/tickets/{ticket_id}/launch", { params: { path: { ticket_id: ticket } }, body: { force } })
+    ),
   /** A score from 0 to 100; empty is the middle one, 50. */
   setPriority: (ticket: string, priority: number | "") =>
     answer(

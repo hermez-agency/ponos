@@ -25,7 +25,7 @@
  *
  * No Claude Code session runs, and nothing is paid for. The run is played by a
  * stand-in (RUN below) that does what a pass leaves behind it, with the
- * runner's own pieces: it holds the run lock (`state.lock`), writes the session
+ * runner's own pieces: it holds the scheduler's place (`state.scheduling`), writes the session
  * log where a session writes it (`state.log_file`), in Claude Code's
  * stream-json — the console tails it into the card's live line and Ponos's
  * face, as it does for a real session — and moves the ticket and writes its
@@ -140,7 +140,7 @@ for line in sys.stdin:
     command, _, rest = line.strip().partition(" ")
     if command == "claim":
         page = next(row.id for row in board.query("tickets") if row.title == rest)
-        lock = state.lock()
+        lock = state.scheduling()
         lock.__enter__()
         log = state.log_file(short_id(page))
         write({"type": "system", "subtype": "init"})

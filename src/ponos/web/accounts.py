@@ -341,7 +341,7 @@ def accept(code: str, email: str, name: str, password: str, reserved: str = "") 
 # -- the audit -------------------------------------------------------------------
 
 # What somebody can do to a ticket from the console, as the audit names it.
-ACTIONS = ("created", "moved", "told", "decided", "priority", "on", "goal")
+ACTIONS = ("created", "moved", "told", "decided", "priority", "on", "goal", "launched")
 
 # What a ticket's journal shows, at most: the latest.
 AUDIT_SHOWN = 200

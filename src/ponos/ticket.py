@@ -94,6 +94,19 @@ class Job:
     # What the self-review raised and what became of it, as the pull request
     # says it under the session's summary — see review.py. "" for nothing to say.
     review: str = ""
+    # Whether the worktree was an earlier attempt's branch, picked up — which
+    # makes its push a forced one. Kept on the job so that a session adopted
+    # after a restart pushes the way the one that started it would have.
+    reused: bool = False
+    # The run this job writes into the local journal, once opened — see
+    # journal.py — so that an adopted session goes on writing into the same one.
+    run: int | None = None
+    # Whether this job's session is the ticket's own — the one a restart
+    # adopts and carries on (adoption.py) — and the session a runner before
+    # this one started, when it is being carried on: a `session.Handle`, typed
+    # loosely so that this module still depends on nothing.
+    adoptable: bool = False
+    adopted: object = None
 
 
 def short_id(page_id: str) -> str:

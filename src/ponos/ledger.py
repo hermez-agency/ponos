@@ -280,8 +280,11 @@ class Ledger:
         record = self._ticket(page_id) if self._live(database_id) else None
         if record is None:
             self.notion.update(database_id, page_id, self._for_notion(values))
+            self._nudge({"status": values.get(self.settings.prop("status"))})
             return
-        self._write(lambda: tickets.update(record.id, **self._row(values)))
+        row = self._row(values)
+        self._write(lambda: tickets.update(record.id, **row))
+        self._nudge(row)
 
     def create_row(self, database_id: str, title: str, values: dict[str, Any] | None = None) -> str:
         if not self._live(database_id):
@@ -289,7 +292,20 @@ class Ledger:
         row = self._row(values or {})
         after = row.pop("after", None)
         made = self._write(lambda: tickets.create(vault.mask(title.strip()), after=after, **row))
+        self._nudge(row)
         return made.id if made else ""
+
+    def _nudge(self, row: dict[str, Any]) -> None:
+        """A ticket just made ready or validated: the daemon is told now, not at its next look.
+
+        Whoever wrote it — the console, the MCP, a channel's answer, the CLI —
+        writes through here. The daemon's own writes do not wake it: it knows.
+        """
+        status = row.get("status")
+        if status and status in (self.settings.state("ready"), self.settings.state("validated")):
+            from . import daemon
+
+            daemon.nudge()
 
     def append_markdown(self, page_id: str, markdown: str) -> int:
         if (record := self._ticket(page_id)) is None:

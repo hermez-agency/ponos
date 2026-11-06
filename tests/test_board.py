@@ -512,8 +512,8 @@ def why_a_ready_ticket_waits_is_written_once_until_it_changes(state_home: Path) 
 
     runner.explain([first, second], 2, limited=True)
     assert said[1:] == [
-        "  … a1 — waiting: --limit reached for this pass",
-        "  … a2 — waiting: --limit reached for this pass",
+        "  … a1 — waiting: --limit reached for this run",
+        "  … a2 — waiting: --limit reached for this run",
     ]
     assert state.held() == {"a1": ("limit", ""), "a2": ("limit", "")}
 

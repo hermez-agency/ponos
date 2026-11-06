@@ -1,6 +1,6 @@
 """The command line interface.
 
-`run` is what the systemd timer calls; everything else exists so you can find
+`daemon` is what `ponos.service` runs; everything else exists so you can find
 out what it did without reading a systemd journal.
 """
 
@@ -11,6 +11,7 @@ import getpass
 import json
 import os
 import shutil
+import signal
 import sqlite3
 import subprocess
 import sys
@@ -24,12 +25,14 @@ from . import (
     channels,
     conversation,
     credits,
+    daemon,
     db,
     environment,
     git,
     github_checks,
     health,
     journal,
+    launches,
     leftovers,
     log,
     notion,
@@ -38,7 +41,6 @@ from . import (
     session,
     spending,
     state,
-    stopping,
     store,
     subtypes,
     systemd,
@@ -111,44 +113,88 @@ def load_config() -> config_module.Config:
 
 
 def command_run(args: argparse.Namespace) -> int:
-    if getattr(args, "every", None) is not None:
-        return run_every(args)
+    """Start now what can start: the daemon is asked to, or this process does it alone.
+
+    With a daemon holding the places, it is the one that decides: `ponos run`
+    wakes it, and `--ticket` asks it for that ticket in a free place — and
+    says so when there is none, unless `--force` takes one past the limit,
+    once. With no daemon, this process is the scheduler for one run: it adopts
+    what a dead daemon left running, starts what is ready, and ends with its
+    last session.
+    """
     if not config_module.readable() and update_module.app_dir().is_symlink():
         return _environment_first()
+    if not args.dry_run and _asked_the_daemon(args):
+        return 0 if not getattr(args, "_refused", False) else 1
     configuration = load_config()
     runner = Runner(configuration, dry_run=args.dry_run, announce_idle=sys.stdout.isatty())
     try:
-        with state.lock():
+        with state.scheduling():
+            # `run` is a scheduler too while it lasts: a `ponos run` meeting it
+            # asks it to look, and a look is what it does anyway.
+            signal.signal(signal.SIGUSR1, lambda *_: None)
             results = runner.tick(limit=args.limit, reference=args.ticket or "")
-    except state.Busy as error:
-        print(f"{DIM}{error}{RESET}")
+    except state.Busy:
+        # A daemon came up between the look and the lock: it is the one to ask.
+        _asked_the_daemon(args)
         return 0
     except store.Unreachable as error:
-        # A network that is down is not a failed run: the timer would otherwise
-        # report the service as failing every few seconds until it came back,
-        # and the next pass is the one that finds it back.
+        # A network that is down is not a failed run: the next look is the one
+        # that finds it back.
         print(f"{DIM}offline — nothing is run until the network is back ({error}){RESET}")
         return 0
     except store.StoreError as error:
         print(f"{RED}the board:{RESET} {error}", file=sys.stderr)
         return 1
     failures = sum(1 for result in results if result.get("status") == "failed")
-    # The timer should only see a failure if the whole run failed: one ticket
-    # out of three going wrong is not a service outage.
+    # A failure only if the whole run failed: one ticket out of three going
+    # wrong is not a service outage.
     return 1 if results and failures == len(results) else 0
 
 
+# How long `run --ticket` waits for the daemon's answer.
+LAUNCH_WAIT = 60.0
+
+
+def _asked_the_daemon(args: argparse.Namespace) -> bool:
+    """Whether a daemon holds the places — and if so, what it said to this request."""
+    pid = daemon.holder()
+    if not pid:
+        return False
+    if not args.ticket:
+        daemon.nudge()
+        ok(f"the daemon (pid {pid}) is looking at the board now")
+        return True
+    identifier = launches.ask(args.ticket, force=bool(getattr(args, "force", False)))
+    daemon.nudge()
+    answer = launches.wait(identifier, LAUNCH_WAIT)
+    if answer is None:
+        warn(f"the daemon (pid {pid}) did not answer within {LAUNCH_WAIT:.0f}s")
+        args._refused = True
+    elif answer["status"] == "started":
+        ok(f"started{' — ' + answer['message'] if answer['message'] else ''}")
+    elif answer["status"] == "full":
+        warn(f"no free place: {answer['message']}")
+        print(
+            f"    {DIM}ponos run --ticket {args.ticket} --force   to take one past the limit, once{RESET}"
+        )
+        args._refused = True
+    else:
+        bad(f"not started: {answer['message']}")
+        args._refused = True
+    return True
+
+
 def _environment_first() -> int:
-    """A pass on a Python that cannot read the configuration: the environment, and only that.
+    """A run on a Python that cannot read the configuration: the environment, and only that.
 
     The machine's Python, running a version that an older one installed before
     versions had an environment (see environment.py): it has no pydantic, so
     no configuration and no ticket — but it can make the `.venv` that has it,
-    under the run lock as a pass would, and the launcher starts the next pass
-    in it.
+    and the launcher starts the next run in it.
     """
     try:
-        with state.lock():
+        with state.installing():
             problem = update_module.heal_environment()
     except state.Busy as error:
         print(f"{DIM}{error}{RESET}")
@@ -160,85 +206,20 @@ def _environment_first() -> int:
     return 0
 
 
-# How often a loop waiting for its next run looks at the configuration. A file
-# that moved is somebody who has just set the board up, or changed the interval:
-# the next run is started then, rather than up to an interval later.
-LOOP_GLANCE = 5.0
+def command_daemon(args: argparse.Namespace) -> int:
+    """The daemon in the foreground: what `ponos.service` and the image run."""
+    if not config_module.readable() and update_module.app_dir().is_symlink():
+        if _environment_first():
+            return 1
+        return _reexec_daemon()
+    return daemon.serve(dry_run=args.dry_run)
 
 
-def run_every(args: argparse.Namespace, *, passes: int = 0) -> int:
-    """What the systemd timer does, for a machine that has no systemd — a container.
-
-    Each run is `ponos run` in a process of its own, exactly what the timer
-    starts: it takes the run lock like any other, so a run already going — the
-    console's `run`, a second loop — turns it away as busy rather than doubling
-    it; and it imports the code on disk, so a run never outlives the version it
-    started on. The interval is read from the configuration before every wait
-    unless `--every` named one, so changing it in the console needs no restart.
-
-    `passes` stops after that many runs; zero is forever. For the tests.
-    """
-    command = [sys.executable, "-m", PRODUCT, "run"]
-    for flag, value in (("--ticket", args.ticket), ("--limit", args.limit)):
-        if value:
-            command += [flag, str(value)]
-    if args.dry_run:
-        command.append("--dry-run")
-    # The sources this process was started from, so `-m ponos` finds them
-    # whatever launched it — the launcher, the image, a checkout.
-    source = str(Path(__file__).resolve().parents[1])
-    inherited = os.environ.get("PYTHONPATH", "")
-    environment = {
-        **os.environ,
-        "PYTHONPATH": os.pathsep.join(part for part in (source, inherited) if part),
-    }
-    done = 0
-    waiting = False
-    while True:
-        started = time.monotonic()
-        if _usable():
-            waiting = False
-            subprocess.run(command, env=environment)
-        elif not waiting:
-            # A container's first minutes: the console is up, nobody has given
-            # it a board yet. Said once, rather than as an error every minute.
-            print(
-                f"{DIM}no board configured yet — the first run starts once there is one{RESET}",
-                flush=True,
-            )
-            waiting = True
-        # Read after the run, which may write the file itself.
-        seen = _config_stamp()
-        done += 1
-        if passes and done >= passes:
-            return 0
-        interval = args.every or _interval()
-        while time.monotonic() - started < interval:
-            time.sleep(min(LOOP_GLANCE, max(0.0, interval - (time.monotonic() - started))))
-            if _config_stamp() != seen:
-                break
-
-
-def _usable() -> bool:
-    try:
-        config_module.load().require_usable()
-    except config_module.ConfigError:
-        return False
-    return True
-
-
-def _interval() -> int:
-    try:
-        return config_module.load().runner.interval_seconds
-    except config_module.ConfigError:
-        return config_module.Runner().interval_seconds
-
-
-def _config_stamp() -> float:
-    try:
-        return config_module.config_path().stat().st_mtime
-    except OSError:
-        return 0.0
+def _reexec_daemon() -> int:
+    """The environment just made: the daemon starts again in it."""
+    arguments = daemon.command()
+    os.execv(arguments[0], arguments)
+    return 0  # pragma: no cover — execv does not return
 
 
 def command_list(args: argparse.Namespace) -> int:
@@ -589,7 +570,7 @@ def command_status(args: argparse.Namespace) -> int:
 def _status_services(configuration: config_module.Config) -> None:
     """`ponos status` and `ponos service status`: the units, or the loop where there is no systemd."""
     if shutil.which("systemctl"):
-        _timer_line(systemd.read())
+        _daemon_line(systemd.read())
         # The console runs by default, so its absence is worth a line: nothing
         # about a ticket goes wrong when it is down, you simply have no board.
         console = subprocess.run(
@@ -614,23 +595,68 @@ def _status_services(configuration: config_module.Config) -> None:
         else:
             _kept(f"ponos-tailscale.service: {tailnet or 'not installed'}")
     else:
-        if systemd.looping():
-            ok(
-                f"no systemd — the loop `ponos run --every` runs, one run every {configuration.runner.interval_seconds}s"
-            )
+        if daemon.holder():
+            ok(f"no systemd — `ponos daemon` runs (pid {daemon.holder()})")
         else:
-            warn(
-                "no systemd and no runner loop — no ticket is taken until `ponos run --every` is started"
-            )
+            warn("no systemd and no daemon — no ticket is taken until `ponos daemon` is started")
 
 
 def _status_run() -> None:
-    """`ponos status`: the run under way, if one is."""
-    held = state.running()
-    if held:
-        warn(_run_line(held))
-    else:
-        ok("no run in progress")
+    """`ponos status`: the places — taken, free, per project — and the queue, with why each waits."""
+    holder = state.scheduler()
+    if not holder:
+        warn("no daemon holds the places — `ponos run` starts what is ready, alone")
+        return
+    since = _since(str(holder.get("since", "")))
+    print(f"  {DIM}scheduler: pid {holder.get('pid')}{since}{RESET}")
+    places = state.places()
+    if not places or places.get("pid") != holder.get("pid"):
+        print(f"  {DIM}its places are not written down yet{RESET}")
+        return
+    busy, width = places.get("busy") or [], int(places.get("width") or 0)
+    ok(f"places: {len(busy)} taken, {places.get('free', 0)} free, of {width}")
+    for place in busy:
+        what = place.get("title") or {"replies": "the answers to comments"}.get(
+            place.get("kind", ""), place.get("kind", "")
+        )
+        project = f" · {place['project']}" if place.get("project") else ""
+        started = _span(time.time() - float(place.get("since") or time.time()))
+        print(f"    {DIM}▸{RESET} {what}{DIM}{project} — {started}{RESET}")
+    for name, counted in sorted((places.get("projects") or {}).items()):
+        print(f"    {DIM}{name}: {counted['busy']} of {counted['limit']} place(s){RESET}")
+    queue = places.get("queue") or []
+    if not queue:
+        print(f"  {DIM}queue: empty{RESET}")
+        return
+    print(f"  queue: {len(queue)} ticket(s)")
+    for waiting in queue:
+        print(
+            f"    {DIM}…{RESET} {waiting.get('title', '')}  {DIM}{_waits(waiting, places)}{RESET}"
+        )
+
+
+# Why a ticket of the queue waits, as `status` says it.
+WAITS = {
+    "places": "every place is taken",
+    "project": "its project is at its limit",
+    "after": "waits for {detail}",
+    "date": "not before {detail}",
+    "credits": "out of credit",
+    "reserve": "the credit reserve is reached",
+}
+
+
+def _waits(waiting: dict[str, Any], places: dict[str, Any]) -> str:
+    said = WAITS.get(str(waiting.get("why", "")), str(waiting.get("why", "")))
+    return said.format(detail=waiting.get("detail", ""))
+
+
+def _since(started: str) -> str:
+    try:
+        moment = datetime.fromisoformat(started).timestamp()
+    except ValueError:
+        return ""
+    return f", since {_moment(moment)} ({_span(time.time() - moment)})"
 
 
 def _status_credits(configuration: config_module.Config) -> None:
@@ -995,51 +1021,17 @@ def _kept(message: str) -> None:
     print(f"  {DIM}·{RESET} {message}")
 
 
-def _timer_line(timer: systemd.Timer) -> None:
-    """One line for the timer, and it is red when the timer will never fire.
-
-    `enabled` is what `is-enabled` says, and it stayed true for the two hours the
-    runner was silent: the timer was loaded, active, and had no next run. That
-    state is the fault, and it is the only visible sign of it.
-    """
-    if timer.stalled:
-        bad("ponos.timer: enabled, but no next run — it will never fire again")
-        print(f"    {DIM}ponos service on   to restart it{RESET}")
-    elif timer.enabled == "enabled":
-        ok("ponos.timer: enabled" + (" — a run is in progress" if timer.running else ""))
+def _daemon_line(service: systemd.Service) -> None:
+    """One line for the daemon's unit: running, or why not."""
+    if service.running:
+        restarts = f" — restarted {service.restarts} time(s)" if service.restarts else ""
+        ok(f"ponos.service: running{restarts}")
+    elif service.enabled == "enabled":
+        bad(f"ponos.service: enabled, but {service.active or 'stopped'}")
+        print(f"    {DIM}ponos service on   to start it{RESET}")
     else:
-        warn(f"ponos.timer: {timer.enabled}")
-    times = _timer_times(timer)
-    if times:
-        print(f"    {DIM}{times}{RESET}")
-
-
-def _timer_times(timer: systemd.Timer) -> str:
-    """The next pass and the last one, on the local clock and from now.
-
-    Not the `list-timers` line, which `status` once printed as it came: without
-    its headers, the two `-` of a run in progress — no next run until this one
-    ends — read as nothing at all, and its dates as somebody else's log.
-    """
-    now = time.time()
-    said = []
-    if timer.running:
-        said.append("next pass: once this one ends")
-    elif timer.next:
-        said.append(f"next pass: {_moment(timer.next)}, in {_span(timer.next - now)}")
-    if timer.last:
-        said.append(f"last pass: {_moment(timer.last)}, {_span(now - timer.last)} ago")
-    return " · ".join(said)
-
-
-def _run_line(held: str) -> str:
-    """The run the lock names — `<pid> <UTC start>` — said as how long it has lasted."""
-    pid, _, started = held.partition(" ")
-    try:
-        start = datetime.fromisoformat(started).timestamp()
-    except ValueError:
-        return f"a run is in progress (pid {pid})" if pid.isdigit() else "a run is in progress"
-    return f"a run is in progress since {_moment(start)}, {_span(time.time() - start)} (pid {pid})"
+        warn(f"ponos.service: {service.enabled}")
+        print(f"    {DIM}ponos service on   to install and start it{RESET}")
 
 
 def _moment(at: float) -> str:
@@ -1258,7 +1250,7 @@ def _branch_kept(
 
 
 def _sweep(directories: list[Path]) -> None:
-    """Remove what `clean --force` was asked to, the run lock held."""
+    """Remove what `clean --force` was asked to — none of it in flight."""
     try:
         configuration = config_module.load()
         configured_base, accounts = configuration.runner.base_branch, configuration.github
@@ -1357,23 +1349,23 @@ def _report_stray_work(projects: list[leftovers.Project], held: list[tuple[int, 
 
 
 def _stop_stray_work() -> int:
-    """Stop what a session left running, once the run lock says no session is in progress."""
+    """Stop what a session left running in a worktree no ticket in flight holds.
+
+    The worktrees of the tickets in flight are spared by `_stray_work` itself
+    (see `state.going`): the daemon never lets go of its place, so waiting for
+    "no run in progress" would be waiting for good.
+    """
     projects, held = _stray_work()
     if not projects and not held:
         return 0
     title(f"{len(projects)} compose project(s), {len(held)} process(es) left running")
     _report_stray_work(projects, held)
-    try:
-        with state.lock():
-            for project in projects:
-                if leftovers.stop_project(project):
-                    ok(f"compose project {project.name} brought down")
-                else:
-                    bad(f"compose project {project.name} could not be brought down")
-            leftovers.kill([pid for pid, _ in held])
-    except state.Busy:
-        bad("a run is in progress, and these may be the ones it works with")
-        return 1
+    for project in projects:
+        if leftovers.stop_project(project):
+            ok(f"compose project {project.name} brought down")
+        else:
+            bad(f"compose project {project.name} could not be brought down")
+    leftovers.kill([pid for pid, _ in held])
     return 0
 
 
@@ -1385,7 +1377,7 @@ def command_clean(args: argparse.Namespace) -> int:
     # What a ticket in progress here holds — its worktree and its scratch — is
     # not "left behind": listing it was how `clean --force` once stopped the
     # processes of a session that was running.
-    going = {short_id(ticket) for ticket in (*stopping.live(), *state.claims())}
+    going = {short_id(ticket) for ticket in state.going()}
     directories = [
         directory
         for parent in ("worktrees", "scratch")
@@ -1396,11 +1388,7 @@ def command_clean(args: argparse.Namespace) -> int:
     # Residue first, forced or not: a directory with no `.git` holds nothing
     # git could lose, only what containers wrote there as root. Emptying it asks
     # nothing of the user, so the list below is only what could be somebody's work.
-    try:
-        with state.lock():
-            directories = _clear_residues(directories)
-    except state.Busy:
-        pass  # the sweep below says so, when it is asked to remove anything
+    directories = _clear_residues(directories)
     if not directories:
         if not args.force:
             _report_stray_work(*_stray_work())
@@ -1415,28 +1403,22 @@ def command_clean(args: argparse.Namespace) -> int:
         _report_stray_work(*_stray_work())
         print(f"\n{DIM}ponos clean --force to remove them{RESET}")
         return 0
-    # Under the run lock, or not at all: a worktree kept by a failure and the
-    # worktree a session is working in right now sit side by side, and nothing
-    # on disk tells them apart. A run in progress is the one moment `clean`
-    # must not choose between them.
-    try:
-        with state.lock():
-            _sweep(directories)
-            removed = state.prune_logs(args.days)
-            if removed:
-                print(f"  removed {removed} log file(s) older than {args.days} days")
-            # The scratch directory a conversation runs in, for a ticket with no
-            # repository. Kept while the runner still remembers the page — that
-            # is what makes the next question land in the same Claude session.
-            talks = conversation.clean_talks(
-                {short_id(page) for page in conversation.Ledger.load().known_pages()}
-            )
-            if talks:
-                print(f"  removed {talks} conversation directory(ies)")
-    except state.Busy:
-        bad("a run is in progress, and some of these are the worktrees it works in")
-        print(f"  {DIM}try again once it has finished — ponos status says when{RESET}")
-        return 1
+    # A worktree kept by a failure and the worktree a session is working in
+    # right now sit side by side, and nothing on disk tells them apart: what
+    # is in flight is asked again just before, and spared.
+    going = {short_id(ticket) for ticket in state.going()}
+    _sweep([path for path in directories if path.name.rsplit("-", 1)[-1] not in going])
+    removed = state.prune_logs(args.days)
+    if removed:
+        print(f"  removed {removed} log file(s) older than {args.days} days")
+    # The scratch directory a conversation runs in, for a ticket with no
+    # repository. Kept while the runner still remembers the page — that is
+    # what makes the next question land in the same Claude session.
+    talks = conversation.clean_talks(
+        {short_id(page) for page in conversation.Ledger.load().known_pages()}
+    )
+    if talks:
+        print(f"  removed {talks} conversation directory(ies)")
     return 0
 
 
@@ -1798,7 +1780,7 @@ def command_service(args: argparse.Namespace) -> int:
     """The runner on this machine: on, off, how it stands, or the console in the foreground.
 
     One verb because they are one answer to "is the runner on this machine
-    running" — the timer that runs tickets and the console are switched on and
+    running" — the daemon that runs tickets and the console are switched on and
     off together, since a console left behind by `off` would keep showing a
     board nothing is picking up.
     """
@@ -1828,7 +1810,9 @@ def _service_status() -> int:
 
 
 def _service_off() -> int:
-    code = subprocess.call(["systemctl", "--user", "disable", "--now", "ponos.timer"])
+    """The daemon and the console off. The sessions in flight are not stopped: they
+    finish on their own, and the next daemon takes their tickets back."""
+    code = subprocess.call(["systemctl", "--user", "disable", "--now", "ponos.service"])
     subprocess.call(["systemctl", "--user", "disable", "--now", "ponos-web.service"])
     # The public door goes with the console it opens onto.
     subprocess.call(
@@ -1844,20 +1828,22 @@ def _service_on() -> int:
     except config_module.ConfigError as error:
         print(f"{RED}error:{RESET} {error}", file=sys.stderr)
         return 2
-    interval = configuration.runner.interval_seconds
-    update_module.write_units(interval)
+    units = update_module.write_units(configuration.runner.interval_seconds)
     subprocess.call(["systemctl", "--user", "daemon-reload"])
-    # Enabled, then restarted rather than `--now`: a timer that is already
-    # active is left alone by `--now`, and a timer left alone keeps the next
-    # run it had — which, after the fault this exists to cure, is none. A
-    # restart gives OnActiveSec its starting point; the service, if one is
-    # running, is not the timer's to stop and carries on.
-    code = subprocess.call(["systemctl", "--user", "enable", "ponos.timer"])
+    systemd.migrate(units)
+    # Enabled, then restarted rather than `--now`: a daemon already running is
+    # left on its old unit by `--now`. A restart costs no session — they are
+    # not the daemon's children (KillMode=process), and the daemon that comes
+    # up takes them back.
+    code = subprocess.call(["systemctl", "--user", "enable", "ponos.service"])
     if code == 0:
-        code = subprocess.call(["systemctl", "--user", "restart", "ponos.timer"])
+        code = subprocess.call(["systemctl", "--user", "restart", "ponos.service"])
     if code == 0:
-        every = f"{interval}s" if interval < 120 else f"{interval // 60} min"
-        ok(f"timer enabled — one run every {every}")
+        runner = configuration.runner
+        ok(
+            f"daemon enabled — {runner.max_concurrent} place(s), "
+            f"{runner.max_concurrent_per_project} per project"
+        )
     console = subprocess.call(["systemctl", "--user", "enable", "--now", "ponos-web.service"])
     if console == 0:
         ok(f"console enabled — http://{configuration.web.host}:{configuration.web.port}")
@@ -1991,20 +1977,24 @@ def build_parser() -> argparse.ArgumentParser:
 
 def _add_ticket_commands(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """`run`, `list` and what reads or tidies the board: the tickets themselves."""
-    run = subparsers.add_parser("run", help="handle the ready tickets (one run)")
+    run = subparsers.add_parser(
+        "run", help="start now what can start (the daemon is asked, or this runs alone)"
+    )
     run.add_argument("--ticket", help="URL or ID of one ticket, whatever its status")
+    run.add_argument(
+        "--force",
+        action="store_true",
+        help="with --ticket: take a place past the limit when none is free, once",
+    )
     run.add_argument("--limit", type=int, help="maximum number of tickets for this run")
     run.add_argument("--dry-run", action="store_true", help="show without changing anything")
-    run.add_argument(
-        "--every",
-        type=int,
-        nargs="?",
-        const=0,
-        metavar="SECONDS",
-        help="keep running, one run every SECONDS (default: runner.interval_seconds) — "
-        "the timer, where there is no systemd",
-    )
     run.set_defaults(function=command_run)
+
+    serving = subparsers.add_parser(
+        "daemon", help="hold the places and fill each one as it frees (what ponos.service runs)"
+    )
+    serving.add_argument("--dry-run", action="store_true", help="show without changing anything")
+    serving.set_defaults(function=command_daemon)
 
     listing = subparsers.add_parser("list", help="list the ready tickets")
     listing.set_defaults(function=command_list)
@@ -2040,7 +2030,9 @@ def _add_ticket_commands(subparsers: argparse._SubParsersAction[argparse.Argumen
 
 def _add_reading_commands(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """What says how things went: status, history, logs, diagnostics."""
-    status = subparsers.add_parser("status", help="timer, console, current run, recent tickets")
+    status = subparsers.add_parser(
+        "status", help="daemon, console, places and queue, recent tickets"
+    )
     status.set_defaults(function=command_status)
 
     history = subparsers.add_parser("history", help="tickets already handled")
@@ -2118,11 +2110,11 @@ def _add_setup_commands(subparsers: argparse._SubParsersAction[argparse.Argument
 def _add_console_commands(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """The service and its console, its MCP server, its tailnet, and the messages sent to your phone."""
     service = subparsers.add_parser(
-        "service", help="the timer and the console: on, off, status, or run in the foreground"
+        "service", help="the daemon and the console: on, off, status, or run in the foreground"
     )
     states = service.add_subparsers(dest="action", help="what to do (default: status)")
-    states.add_parser("on", help="apply runner.interval_seconds, start the timer and the console")
-    states.add_parser("off", help="stop the timer, the console and the Tailscale doors")
+    states.add_parser("on", help="write the units, (re)start the daemon and the console")
+    states.add_parser("off", help="stop the daemon, the console and the Tailscale doors")
     states.add_parser("status", help="the state of the systemd units")
     serving = states.add_parser(
         "run", help="the web console in this terminal: board, command line and chat"

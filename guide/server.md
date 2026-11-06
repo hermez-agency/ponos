@@ -113,13 +113,11 @@ Dokploy, below). To open it on your own machine, add `ports: ["127.0.0.1:8787:87
 the service, then open `http://127.0.0.1:8787` — the request comes from Docker's network
 rather than from loopback, so the first connection asks for the code from the logs.
 
-**One service, two halves.** The container runs the loop the systemd timer would have
-started — `ponos run --every`, a run every `runner.interval_seconds`, each in a process
-of its own that takes the run lock like any other, so two passes never overlap — and the
-console in the foreground, whose logs are the container's. The loop reads the interval
-again before every wait, and starts the next run at once when the configuration changes:
-the minute a board is connected, its first run begins. Until there is one, it says so once
-and waits. The image sets the interval to 60 seconds in the configuration it writes on
+**One service, two halves.** The container runs the daemon — `ponos daemon`, the one
+process that holds the places and starts the next ready ticket the moment one frees,
+started again should it ever stop — and the console in the foreground, whose logs are the
+container's. The daemon reads the configuration again when it changes: the minute a board is
+connected, it starts looking at it. Until there is one, it says so once and waits. The image sets the interval to 60 seconds in the configuration it writes on
 first start — so there is a board to write a ticket on at once, in `ponos.db` on the data volume; with `ANTHROPIC_API_KEY`
 and no `CLAUDE_CODE_OAUTH_TOKEN`, the `api_key` provider. That file is written once: the
 console changes it afterwards. `GET /healthz` answers `{"ok": true}` without a key, and is

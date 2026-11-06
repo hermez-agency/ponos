@@ -27,7 +27,7 @@ week or month in the console.
 
 The board is the console, its tickets kept in `ponos.db`; Notion (`ponos init <page-url>`) is
 optional and mirrors them. The installer checks the machine,
-starts the console and opens it (Linux or macOS; WSL works without a timer): the rest — Notion, GitHub, a first project, a demonstration
+starts the console and opens it (Linux or macOS; WSL works without systemd): the rest — Notion, GitHub, a first project, a demonstration
 ticket played on the spot — is the console's first connection, step by step. Python
 3.11+; the installer puts its five dependencies (httpx, pydantic, cryptography, FastAPI, uvicorn) into an
 environment of its own, fetched from PyPI, so it needs the network while it installs — no build

@@ -320,7 +320,7 @@ def a_read_only_mcp_client_sees_and_can_call_no_tool_that_writes(state_home: Pat
             "Usine",
             "(sans projet)",
         ]
-        assert status["run_in_progress"] is False and status["sessions"] == []
+        assert status["daemon"] == "stopped" and status["sessions"] == []
 
 
 @case

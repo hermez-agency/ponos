@@ -203,7 +203,7 @@ for reading rather than for filling in.
 | Key | Default | Effect |
 | --- | --- | --- |
 | `runner.workspace_root` | `~/workspace` | where to look for repositories — and where one you have not cloned yet is cloned |
-| `runner.interval_seconds` | `1800` | seconds between two passes, and how often a pass in flight looks at the board — for a ticket to put in an empty place, and for one you have validated since — `ponos service on` applies a change |
+| `runner.interval_seconds` | `1800` | the daemon's safety net: it looks at the whole board — ready column, validated column, CI, reviews, merged pull requests, the mirror — at least this often, whatever woke it in between. A ticket made ready is started within seconds whatever this says; read again when the file changes |
 | `runner.max_concurrent` | `2` | tickets handled side by side — an empty place is filled from the board without waiting for anything to end |
 | `runner.max_concurrent_per_project` | `2` | of those places, how many one project (with a repository) may hold at once — the next ticket of another project goes first, and the held one starts when a place of its project frees |
 | `runner.timeout_minutes` | `30` | past this, the session is killed and the ticket fails |
@@ -241,9 +241,9 @@ for reading rather than for filling in.
 | `runner.session_workers` | `0` | how many workers the tests of one session may take: exported as `VITEST_MAX_WORKERS`, `PLAYWRIGHT_WORKERS`, `JEST_WORKERS`, `PYTEST_XDIST_AUTO_NUM_WORKERS`, `CARGO_BUILD_JOBS`, `GOMAXPROCS` and said in its prompt; `0` is its part of the cores, `nproc` divided by `runner.max_concurrent` (1 at least). `ponos doctor` reports it |
 | `runner.keep_worktree_on_failure` | `true` | keep enough around to understand a failure |
 | `runner.notify` | `true` | one desktop notification per finished ticket, clicked to open its Notion page — `[notify]` carries it to your phone |
-| `runner.auto_update` | `true` | a run keeps the installation on the latest version |
+| `runner.auto_update` | `true` | the daemon keeps the installation on the latest version, and restarts on it — its sessions taken back |
 | `runner.update_channel` | `"release"` | what "latest" means: the newest `vX.Y.Z` tag, or `"main"` for every commit. No tag, no update; anything unknown reads as `"release"` |
-| `runner.update_interval_seconds` | `3600` | how often a run asks; one minute is the floor |
+| `runner.update_interval_seconds` | `3600` | how often the daemon asks; one minute is the floor |
 | `runner.log_retention_days` | `14` | drop older session logs, once a day, and the same age of steps, sync journal, MCP calls and finished transitions in `ponos.db`; `0` keeps everything |
 | `runner.min_free_disk_mb` | `5120` | under this much free disk (in MB), a tidy runs before any ticket is started; if the space is still short, nothing starts, the ticket stays in Ready and the console says so; `0` turns the guard off. `ponos doctor` reports it |
 | `runner.stale_worktree_days` | `30` | once a day, remove any worktree untouched for this long, whatever its ticket — never one whose ticket is in progress, nor one with uncommitted changes or commits no remote has; its local branch goes when a remote holds all of it; `0` turns it off |
@@ -287,51 +287,52 @@ them is read without them.
 `max_concurrent_per_project` caps how many of those places one project may hold: pull
 requests written side by side on one repository touch the same files, and each one that
 lands makes the others conflict. A ready ticket whose project is already at the limit stays
-in the column — the pass says `project at its limit` — and the next ticket of another
+in the column — the daemon says `project at its limit` — and the next ticket of another
 project goes first; it starts as soon as a ticket of its project ends. Projects without a
 repository (documents) are not counted. It is also in the console's *Settings*, under
 *Tickets in parallel per project*.
 
-`max_concurrent` is a number of **places**, not a batch size. A pass keeps that many
-sessions running for as long as the ready column has anything in it: a session that ends
-frees a place, the board is read again on the spot, and what goes in is whichever ticket
-is top of the queue *then* — highest priority score, date, age, exactly as at the start. So a ticket
-made ready at 14:10 starts at 14:10 rather than waiting on the two-hour session that
-began at 14:04, and the pass ends when nothing is ready and nothing is in flight.
+`max_concurrent` is a number of **places**, not a batch size, and the daemon holds them
+for as long as it runs. A place that frees — a session ended — or one never taken is filled
+on the spot, from the board as it is *then*: the ready tickets by priority score, date, age,
+a ticket that comes after another left where it is (« Après »), a project at its limit
+passed over for the next one. So a ticket made ready at 14:10 starts at 14:10, not when the
+two-hour session that began at 14:04 ends. The daemon looks when a place frees, when the
+console, the MCP or `ponos run` moves a ticket to *Ready* (it is told at once), whenever the
+ready tickets of `ponos.db` change (counted every two seconds, a local read), and every
+`interval_seconds` whatever happens.
 
-A place does not have to be *freed* to be filled: one that was never taken — two places,
-one ticket ready — is looked at too, every `interval_seconds`, for as long as the pass
-lasts. That is the same cadence the timer reads the board on, and it has to come from the
-pass, because the run lock belongs to the pass until it ends and the timer only meets it
-and leaves. Without it, tickets arriving one at a time would run one at a time whatever
-`max_concurrent` said, which is exactly what a board with one ticket in progress and
-three waiting looks like.
+The *validated* column, the CI and the reviews of the pull requests in review, the merged
+ones to close, the answers typed on a phone and the « On » prompts are seen to beside the
+places, in a thread of their own, every `interval_seconds` — and at once when a ticket is
+moved to *Validated*: a merge needs no place, it is two `gh` calls, and a publication takes
+the next place that frees, before any ready ticket. Work you have accepted is one gesture
+from done, and nothing about a session in flight has anything to do with it. See
+[Validated, and what it sets off](tickets.md#validated-and-what-it-sets-off).
 
-The *validated* column is read on that same cadence, and even when every place is taken:
-a merge needs no place — it is two `gh` calls in the pass's own thread — and a
-publication takes the next one that frees, before any ready ticket. Work you have
-accepted is one gesture from done, and nothing about a session in flight has anything to
-do with it. See [Validated, and what it sets off](tickets.md#validated-and-what-it-sets-off).
+**Run now.** A ready card has a *Run now* button, and `ponos run --ticket <url>` does the
+same: the ticket takes a free place at once, ahead of its turn. When none is free — every
+place taken, or its project at its limit — the answer says so, and the console offers to run
+it past the limit, once (`--force` on the command line): a place the limit does not count.
 
-A ticket moved back to ready is asked for again, whether or not this pass already ran
-it: it is held out only while a session of the pass is still on it — and fifteen seconds
-after, for Notion to stop serving its old status — then played again on its branch and
-its pull request, with a new report on the ticket. A ready card in the console says
-what it is waiting for when the wait is out of the ordinary: its date, the credit, the
-reserve or the day's limit, a session still on it, or a timer that is off. The ordinary
-wait — the next reading of the board, the next run of the timer, every place taken — is
-not repeated on every card: the « In progress N/max » header says it once. The pass
-writes every reason in its log as they change, starting with `…`.
+**Where it stands.** `ponos status` and the console's runner strip (click *places*) list the
+places — which ticket holds each, per project — and the queue, each ticket with why it waits:
+every place taken, its project at its limit, a ticket it comes after, a date, the credit or
+the reserve. A ready card says it too when the wait is out of the ordinary — its date, the
+credit, the reserve or the day's limit, a session still on it, or no daemon running. The
+ordinary wait — every place taken — is not repeated on every card: the « In progress
+N/max » header says it once. The daemon writes every reason in its log as they change,
+starting with `…`.
 
-Two things follow. `ponos run --limit 3` means three tickets for that pass, not
-three at a time — the limit caps what is taken off the ready column, `max_concurrent`
-caps what runs at once, and a validated ticket carried out along the way is counted by
-neither. And a comment addressed to the runner during a long pass is answered by the
-**next** pass, because answering starts a session of its own and that would put more
-sessions in flight than you allowed. An answer to a *blocked* ticket asks for work rather
-than for a reply, so that one is picked up by the pass itself at the next freed place —
-including one typed in Telegram or Slack, which is written onto its ticket at every
-refill.
+A ticket moved back to ready is asked for again, whether or not it ran already: it is held
+out only while a session is still on it — and fifteen seconds after, for the board to stop
+serving its old status — then played again on its branch and its pull request.
+
+`ponos run`, with a daemon running, only asks it to look now. With none — a checkout, a
+test, a machine where the daemon is off — it is the scheduler for one run: it takes back the
+sessions a dead daemon left, starts what is ready, keeps the places filled, and ends with its
+last session. `ponos run --limit 3` then means three tickets for that run, not three at a
+time.
 
 ### Preparing a worktree before the session
 

@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -331,32 +332,47 @@ def in_a_container_a_new_version_is_a_new_image() -> None:
 
 
 @case
-def a_loop_of_runs_takes_the_lock_like_the_timer_did() -> None:
-    """`run --every` starts `ponos run` itself, and a run already going turns it away."""
+def a_run_beside_the_daemon_asks_it_to_look_rather_than_running_a_second_scheduler() -> None:
+    """`ponos run` with a daemon holding the places wakes it (SIGUSR1) and starts nothing itself."""
+    import signal
+
     root = Path(tempfile.mkdtemp())
     config = root / "config.toml"
     config.write_text("[runner]\n", encoding="utf-8")
-    arguments = build_parser().parse_args(["run", "--every", "1"])
-    assert arguments.every == 1
-    assert build_parser().parse_args(["run", "--every"]).every == 0, "the configuration's interval"
-    with _environment(PONOS_CONFIG=str(config)), _state_home():
-        with state.lock():
+    assert build_parser().parse_args(["daemon"]).function.__name__ == "command_daemon"
+    try:
+        build_parser().parse_args(["run", "--every", "1"])
+    except SystemExit:
+        pass
+    else:
+        raise AssertionError("`run --every` is gone: the daemon replaced it")
+    woken = threading.Event()
+    previous = signal.signal(signal.SIGUSR1, lambda *_: woken.set())
+    try:
+        with _environment(PONOS_CONFIG=str(config)), _state_home(), state.scheduling():
             answered = subprocess.run(
                 [
                     sys.executable,
                     "-c",
                     (
-                        "import sys; from ponos.__main__ import run_every, build_parser;"
-                        "sys.exit(run_every(build_parser().parse_args(['run', '--every', '1']), passes=2))"
+                        "import sys; from ponos.__main__ import command_run, build_parser;"
+                        "sys.exit(command_run(build_parser().parse_args(['run'])))"
                     ),
                 ],
                 capture_output=True,
                 text=True,
                 timeout=120,
-                env={**os.environ, "PYTHONPATH": str(Path(__file__).resolve().parents[1] / "src")},
+                env={
+                    **os.environ,
+                    "PYTHONPATH": str(Path(__file__).resolve().parents[1] / "src"),
+                    "PONOS_NOTION_TOKEN": "ntn_test",
+                },
             )
-        assert answered.returncode == 0, answered.stderr
-        assert answered.stdout.count("a run is already in progress") == 2, answered.stdout
+            assert woken.wait(10), "the daemon was not woken"
+    finally:
+        signal.signal(signal.SIGUSR1, previous)
+    assert answered.returncode == 0, answered.stderr + answered.stdout
+    assert "is looking at the board now" in answered.stdout, answered.stdout
 
 
 @case
