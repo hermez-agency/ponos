@@ -968,7 +968,7 @@ def a_refresh_token_that_comes_back_after_it_turned_over_takes_its_client_with_i
 def signing_out_everywhere_signs_the_oauth_connectors_out_and_names_the_drawn_tokens(
     state_home: Path,
 ) -> None:
-    """`serve --sign-out-everywhere` used to draw a new key for the cookies alone.
+    """`service run --sign-out-everywhere` used to draw a new key for the cookies alone.
 
     A connector kept its refresh token — ninety days, renewed at each use, so
     for ever. Every client that came in over OAuth is signed out now; a token
@@ -981,7 +981,7 @@ def signing_out_everywhere_signs_the_oauth_connectors_out_and_names_the_drawn_to
     local_id, local_token = web_oauth.local("Claude Code", write=False)
     out = io.StringIO()
     with contextlib.redirect_stdout(out):
-        assert cli_main(["serve", "--sign-out-everywhere"]) == 0
+        assert cli_main(["service", "run", "--sign-out-everywhere"]) == 0
     said = out.getvalue()
     assert web_oauth.check(pair["access_token"]) is None, "the connector answers no more"
     try:

@@ -5,7 +5,7 @@ After=network-online.target
 
 [Service]
 Type=simple
-ExecStart=@BIN@ serve
+ExecStart=@BIN@ service run
 
 # The console outlives its sessions: a chat turn can take minutes and a restart
 # in the middle of one would lose nothing but the connection — the conversation

@@ -368,8 +368,8 @@ _FRENCH = {
     "Open the console": "Ouvrir la console",
     "Sign in to open the console.": "Connectez-vous pour ouvrir la console.",
     "wrong email or password": "e-mail ou mot de passe incorrect",
-    "This console needs its token. <code>ponos serve --print-token</code> prints it, "
-    "and it is kept in {where}.": "Cette console demande son jeton. <code>ponos serve --print-token</code> "
+    "This console needs its token. <code>ponos service run --print-token</code> prints it, "
+    "and it is kept in {where}.": "Cette console demande son jeton. <code>ponos service run --print-token</code> "
     "l'affiche, et il est gardé dans {where}.",
     "<code>PONOS_WEB_TOKEN</code> of <code>{path}</code>": "le <code>PONOS_WEB_TOKEN</code> de <code>{path}</code>",
     "the <code>PONOS_WEB_TOKEN</code> environment variable": "la variable d'environnement <code>PONOS_WEB_TOKEN</code>",
@@ -470,7 +470,7 @@ def gate_page(language: str = "en", where: str = "", said: str = "") -> str:
   <h1>Ponos</h1>
   <p>{
             say(
-                "This console needs its token. <code>ponos serve --print-token</code> prints it, "
+                "This console needs its token. <code>ponos service run --print-token</code> prints it, "
                 "and it is kept in {where}."
             ).format(where=where)
         }</p>
@@ -764,7 +764,7 @@ def serve(
             return f"{address}  —  sign in as {entry.email}"
         if claimable(config, entry):
             return f"{address}  —  not set up yet: the first browser to open it sets its password"
-        return f"{address}/?token=…  —  the token: ponos serve --print-token"
+        return f"{address}/?token=…  —  the token: ponos service run --print-token"
 
     # Drawn once per start, and only while nobody has claimed the console: it is
     # what a first connection from anywhere but this machine has to give.

@@ -570,7 +570,7 @@ def clients() -> list[dict[str, Any]]:
 
 
 def revoke_connectors() -> int:
-    """Take back the keys of every client signed in over OAuth — `serve --sign-out-everywhere`.
+    """Take back the keys of every client signed in over OAuth — `service run --sign-out-everywhere`.
 
     The connectors went through the console's sign-in to get them, and signing
     out everywhere has to reach them too: a refresh token lives ninety days and

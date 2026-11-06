@@ -1,4 +1,4 @@
-"""The console the browser tests open: a real `ponos serve`, on a board of files.
+"""The console the browser tests open: a real `ponos service run`, on a board of files.
 
 Real rather than a page with its API stubbed, because what these tests guard is
 what the page does once the server has answered — how tall it is, whether it

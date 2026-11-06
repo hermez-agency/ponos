@@ -333,7 +333,7 @@ def the_timer_counts_from_its_own_start() -> None:
 @case
 def the_runner_unit_runs_its_sessions_behind_the_desktop() -> None:
     """Five sessions at nice 0, as equals of the browser they drive, and the
-    desktop stopped answering: the unit `ponos enable` writes sets them back."""
+    desktop stopped answering: the unit `ponos service on` writes sets them back."""
     previous = os.environ["HOME"]
     os.environ["HOME"] = tempfile.mkdtemp()
     try:

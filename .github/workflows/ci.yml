@@ -181,7 +181,7 @@ jobs:
         with:
           python-version: "3.13"
 
-      # Le `ponos serve` que les e2e ouvrent importe ce que le cœur importe.
+      # Le `ponos service run` que les e2e ouvrent importe ce que le cœur importe.
       - name: Ce que le runner importe
         if: github.event_name == 'push' || steps.changes.outputs.frontend == 'true'
         run: python3 -m pip install --disable-pip-version-check --require-hashes -r requirements.txt

@@ -8,7 +8,7 @@
 | --- | --- |
 | the installer prints `✗ … is missing` | run the command printed under it, then the install line again — everything missing is listed at once |
 | `Failed to connect to bus` (an older installer) | there is no systemd user session here — WSL, a container, SSH: install again, the console is now started without it |
-| the browser does not open | open `http://127.0.0.1:8787` yourself; nothing answers? `ponos serve` starts it and says why it cannot |
+| the browser does not open | open `http://127.0.0.1:8787` yourself; nothing answers? `ponos service run` starts it and says why it cannot |
 | `ponos: command not found` | `~/.local/bin` is not in your `PATH` — the installer prints the line to add |
 | Notion shows no page in the console | the page is not shared with the integration: `···` at the top right of the page → *Connections* → your integration. The console sees it within seconds |
 | the demonstration ticket fails | the console shows what the run said. *Run the full diagnosis* on the summary is `ponos doctor`, and is the text to paste when asking for help |
@@ -46,7 +46,7 @@
 | an answer lands on the wrong ticket | a bare “oui” answers the last question asked. Reply *to* the message, or paste the ticket's link, when two are waiting |
 | the runner talks but never listens | `notify.replies = false`, or the run is a `--dry-run`: answers are only read at the top of a real run |
 | the timer does not fire with no session open | `sudo loginctl enable-linger $USER` |
-| `status` says the timer has no next run | it was restarted, with a unit written before this fix, after a run that failed — and will never fire again: `ponos enable` rewrites the unit and restarts it |
+| `status` says the timer has no next run | it was restarted, with a unit written before this fix, after a run that failed — and will never fire again: `ponos service on` rewrites the unit and restarts it |
 | the version never moves | the install directory is a copy, not a clone: an installation older than self-updating, or one made with `TR_SRC`. `doctor` says which — run `install.sh` again |
 | branch pushed, no pull request | `gh` cannot reach its credentials from a systemd service — locked keyring. Use `gh auth login` with a token, or set `GH_TOKEN` in the unit |
 | `claude: command not found` in the journal | the PATH baked into the unit predates a node version change: run `install.sh` again |

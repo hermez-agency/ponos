@@ -702,7 +702,7 @@ SECTIONS: tuple[Section, ...] = (
                 "ten seconds; a look that finds nothing costs one request.",
                 minimum=1,
                 unit="seconds",
-                after="`ponos enable` writes it into the systemd timer",
+                after="`ponos service on` writes it into the systemd timer",
             ),
             Field(
                 "runner",

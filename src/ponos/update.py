@@ -431,7 +431,7 @@ def write_units(interval_seconds: int, app: Path | None = None) -> Path:
     """Regenerate the systemd units from the templates shipped with the app.
 
     The interval lives in the configuration, not in the unit: changing a number
-    and running `ponos enable` is a better story than reinstalling.
+    and running `ponos service on` is a better story than reinstalling.
     """
     app = app or app_dir()
     units = Path.home() / ".config" / "systemd" / "user"
@@ -449,7 +449,7 @@ def write_units(interval_seconds: int, app: Path | None = None) -> Path:
     # The console's unit is written whether or not it is enabled: writing it
     # costs nothing, and an update that refreshed the timer but left the console
     # on last month's ExecStart would be the kind of half-update this module
-    # exists to prevent. Starting it is `install.sh` and `ponos enable`;
+    # exists to prevent. Starting it is `install.sh` and `ponos service on`;
     # an update never turns on what somebody turned off.
     console = app / "systemd" / "ponos-web.service.in"
     if console.exists():

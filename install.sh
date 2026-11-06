@@ -416,7 +416,7 @@ PY
 
 if [ "$SERVICES" != none ]; then
     # The interval lives in the configuration, so that changing it later is one
-    # number and "ponos enable" rather than a reinstall. TR_INTERVAL
+    # number and "ponos service on" rather than a reinstall. TR_INTERVAL
     # only seeds it, on a configuration that does not set it yet.
     INTERVAL=$("$PYTHON" - "$CONFIG" "$TR_INTERVAL" <<'PY'
 import pathlib, re, sys, tomllib
@@ -477,14 +477,14 @@ elif [ "$SERVICES" = launchd ]; then
     say "Installing the launchd agents (one run every ${INTERVAL}s)"
     AGENTS="$HOME/Library/LaunchAgents"
     mkdir -p "$AGENTS" "$STATE_DIR"
-    agent() {  # label, verb, the keys that say when it runs
+    agent() {  # label, the words after ponos, the keys that say when it runs
         cat > "$AGENTS/$1.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
   <key>Label</key><string>$1</string>
-  <key>ProgramArguments</key><array><string>$BIN</string><string>$2</string></array>
+  <key>ProgramArguments</key><array><string>$BIN</string>$(for word in $2; do printf "<string>%s</string>" "$word"; done)</array>
   <key>EnvironmentVariables</key>
   <dict><key>PATH</key><string>$PATH</string><key>PYTHONUNBUFFERED</key><string>1</string></dict>
   <key>StandardOutPath</key><string>$STATE_DIR/$1.log</string>
@@ -499,9 +499,9 @@ PLIST
     agent app.ponos.run run "<key>StartInterval</key><integer>$INTERVAL</integer>" \
         && ok "app.ponos.run loaded" || warn "could not load $AGENTS/app.ponos.run.plist"
     if [ "${TR_NO_WEB:-0}" != "1" ]; then
-        agent app.ponos.web serve "<key>RunAtLoad</key><true/><key>KeepAlive</key><true/>" \
+        agent app.ponos.web "service run" "<key>RunAtLoad</key><true/><key>KeepAlive</key><true/>" \
             && CONSOLE_UP=1 && ok "app.ponos.web loaded — $CONSOLE" \
-            || warn "could not load $AGENTS/app.ponos.web.plist — start it by hand: ponos serve"
+            || warn "could not load $AGENTS/app.ponos.web.plist — start it by hand: ponos service run"
     fi
 elif [ "$SERVICES" = background ]; then
     say "Starting the console and the runner"
@@ -533,16 +533,16 @@ elif [ "$SERVICES" = background ]; then
             # said, and `ponos doctor` flags anything else under the state.
             (
                 umask 077
-                nohup "$BIN" serve >>"$STATE_DIR/web/serve.log" 2>&1 </dev/null &
+                nohup "$BIN" service run >>"$STATE_DIR/web/serve.log" 2>&1 </dev/null &
                 # Kept for uninstall.sh: nothing else knows this process is ours.
                 echo $! > "$STATE_DIR/web/serve.pid"
             )
             CONSOLE_UP=1
-            ok "started in the background — $CONSOLE (until this machine restarts: then “ponos serve”)"
+            ok "started in the background — $CONSOLE (until this machine restarts: then “ponos service run”)"
         fi
     fi
 else
-    warn "no unit installed — run passes with “ponos run --every”, the console with “ponos serve”"
+    warn "no unit installed — run passes with “ponos run --every”, the console with “ponos service run”"
 fi
 
 # Started is not answering: the address is printed — and opened — once it does.
@@ -564,7 +564,7 @@ fi
 # readable only from a state file nobody would think to look in.
 OPEN="$CONSOLE"
 if [ "${CONSOLE_UP:-0}" = "1" ] && [ "$CONSOLE_CLAIMED" = "claimed" ]; then
-    TOKEN=$("$BIN" serve --print-token 2>/dev/null || true)
+    TOKEN=$("$BIN" service run --print-token 2>/dev/null || true)
     [ -n "$TOKEN" ] && OPEN="$CONSOLE/?token=$TOKEN"
 fi
 
@@ -580,7 +580,7 @@ if [ "${CONSOLE_UP:-0}" = "1" ]; then
         fi
     fi
 else
-    printf '  Start the console, then open %s — it walks you through the rest:\n\n    %sponos serve%s\n\n' "$CONSOLE" "$BOLD" "$RESET"
+    printf '  Start the console, then open %s — it walks you through the rest:\n\n    %sponos service run%s\n\n' "$CONSOLE" "$BOLD" "$RESET"
 fi
 printf '  %sstuck?%s         ponos doctor   %s(the same diagnosis as the console, to paste when asking for help)%s\n' "$DIM" "$RESET" "$DIM" "$RESET"
 printf '  %sconfiguration%s  %s\n' "$DIM" "$RESET" "$CONFIG"

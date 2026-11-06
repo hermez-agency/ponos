@@ -124,7 +124,7 @@ def serve_never_prints_the_token_it_is_opened_with(state_home: Path) -> None:
         web_api.Api, web_app.Console = original  # type: ignore[misc]
     assert "Ponos console on http://127.0.0.1:8787" in started.getvalue()
     assert secret not in started.getvalue(), started.getvalue()
-    assert "ponos serve --print-token" in started.getvalue(), "and says where it is read"
+    assert "ponos service run --print-token" in started.getvalue(), "and says where it is read"
 
     taken = io.StringIO()
     with socket.socket() as listening:
@@ -135,7 +135,7 @@ def serve_never_prints_the_token_it_is_opened_with(state_home: Path) -> None:
             assert web_server.serve(configuration, host="127.0.0.1", port=port) == 0
     assert "already listening" in taken.getvalue()
     assert secret not in taken.getvalue(), taken.getvalue()
-    assert "ponos serve --print-token" in taken.getvalue()
+    assert "ponos service run --print-token" in taken.getvalue()
 
 
 @case
@@ -718,7 +718,7 @@ def a_sign_in_lasts_thirty_days_from_its_last_use_and_all_of_them_end_at_once(
 
     It carries its date now, signed: refused past thirty days, renewed — a day
     at most after it was given — by any answer to a browser still using it,
-    and every one of them refused at once by `serve --sign-out-everywhere`.
+    and every one of them refused at once by `service run --sign-out-everywhere`.
     """
     from ponos.web import server as web_server
     from ponos.web import sessions as web_sessions
@@ -755,7 +755,7 @@ def a_sign_in_lasts_thirty_days_from_its_last_use_and_all_of_them_end_at_once(
             {"email": "me@example.com", "password": "one I remember"},
         )
         assert status == 200
-        assert cli_main(["serve", "--sign-out-everywhere"]) == 0
+        assert cli_main(["service", "run", "--sign-out-everywhere"]) == 0
         assert (state_home / "web" / "sessions").stat().st_mode & 0o077 == 0, "kept as the token is"
         status, _, _ = opened(given)
         assert status == 401, "signed out everywhere — the running console as well"

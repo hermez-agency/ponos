@@ -867,7 +867,7 @@
         <img class="light" src="../console/schedules-light.webp" width="1440" height="900" loading="lazy" alt="Les plannings de la console en clair : le calendrier d’un mois des tickets récurrents, les passes déjà faites et celles à venir.">
         <img class="dark" src="../console/schedules-dark.webp" width="1440" height="900" loading="lazy" alt="Les plannings de la console en sombre : le calendrier d’un mois des tickets récurrents, les passes déjà faites et celles à venir.">
       </div>
-      <figcaption>La console actuelle (en anglais ici), sur un tableau de démonstration. <code>ponos serve</code> — l’installeur la démarre déjà. <a href="https://github.com/hermez-agency/ponos/blob/main/guide/console.md#the-web-console">Tout ce qu’elle fait →</a></figcaption>
+      <figcaption>La console actuelle (en anglais ici), sur un tableau de démonstration. <code>ponos service run</code> — l’installeur la démarre déjà. <a href="https://github.com/hermez-agency/ponos/blob/main/guide/console.md#the-web-console">Tout ce qu’elle fait →</a></figcaption>
     </figure>
   </div>
 </section>
@@ -1029,7 +1029,7 @@
           <div class="faq-body">
             <ul>
               <li><b>L’installeur s’est arrêté.</b> Il a affiché ce qui manque et la commande qui l’installe : lance-la, puis relance la ligne d’installation.</li>
-              <li><b>La console ne s’ouvre pas.</b> Va toi-même sur <code>http://127.0.0.1:8787</code> ; si rien ne répond, <code>ponos serve</code> la démarre et dit pourquoi elle ne peut pas.</li>
+              <li><b>La console ne s’ouvre pas.</b> Va toi-même sur <code>http://127.0.0.1:8787</code> ; si rien ne répond, <code>ponos service run</code> la démarre et dit pourquoi elle ne peut pas.</li>
               <li><b>Notion ne trouve aucune page.</b> La page doit être partagée avec l’intégration : <code>···</code> en haut à droite → <em>Connections</em> → ton intégration. La console la voit en quelques secondes.</li>
               <li><b>Le ticket de démonstration échoue.</b> La console montre ce que la passe a dit ; <em>Run the full diagnosis</em> sur le récapitulatif — ou <code>ponos doctor</code> dans un terminal — vérifie tout, et c’est le texte à coller pour demander de l’aide.</li>
             </ul>
@@ -1075,7 +1075,7 @@
 url = "https://&lt;machine&gt;.&lt;tailnet&gt;.ts.net"</pre>
                 La console répond à ce nom, et à celui-là seulement ; sans lui, un <code>421</code>. Aucun redémarrage nécessaire.
               </li>
-              <li><b>Ouvre l’adresse sur ton téléphone</b>, et connecte-toi comme sur la machine — ton e-mail et ton mot de passe, ou le jeton (<code>ponos serve --print-token</code>).</li>
+              <li><b>Ouvre l’adresse sur ton téléphone</b>, et connecte-toi comme sur la machine — ton e-mail et ton mot de passe, ou le jeton (<code>ponos service run --print-token</code>).</li>
             </ol>
             <p class="faq-note"><b>Jamais <code>tailscale funnel</code>.</b> Funnel met la console sur l’Internet public, et derrière elle se trouve un runner qui exécute du code sur ta machine. Reste sur ton tailnet.</p>
           </div>

@@ -870,7 +870,7 @@
         <img class="light" src="console/schedules-light.webp" width="1440" height="900" loading="lazy" alt="The console's schedules in light: a month's calendar of the recurring tickets, the passes already made and the ones to come.">
         <img class="dark" src="console/schedules-dark.webp" width="1440" height="900" loading="lazy" alt="The console's schedules in dark: a month's calendar of the recurring tickets, the passes already made and the ones to come.">
       </div>
-      <figcaption>The current console, on a demonstration board. <code>ponos serve</code> — the installer already starts it. <a href="https://github.com/hermez-agency/ponos/blob/main/guide/console.md#the-web-console">Everything it does →</a></figcaption>
+      <figcaption>The current console, on a demonstration board. <code>ponos service run</code> — the installer already starts it. <a href="https://github.com/hermez-agency/ponos/blob/main/guide/console.md#the-web-console">Everything it does →</a></figcaption>
     </figure>
   </div>
 </section>
@@ -1032,7 +1032,7 @@
           <div class="faq-body">
             <ul>
               <li><b>The installer stopped.</b> It printed what is missing and the command that installs it: run that, then the install line again.</li>
-              <li><b>The console does not open.</b> Go to <code>http://127.0.0.1:8787</code> yourself; if nothing answers, <code>ponos serve</code> starts it and says why it cannot.</li>
+              <li><b>The console does not open.</b> Go to <code>http://127.0.0.1:8787</code> yourself; if nothing answers, <code>ponos service run</code> starts it and says why it cannot.</li>
               <li><b>Notion finds no page.</b> The page has to be shared with the integration: <code>···</code> at the top right → <em>Connections</em> → your integration. The console sees it within a few seconds.</li>
               <li><b>The demonstration ticket fails.</b> The console shows what the run said; <em>Run the full diagnosis</em> on the summary — or <code>ponos doctor</code> in a terminal — checks everything, and is the text to paste when asking for help.</li>
             </ul>
@@ -1078,7 +1078,7 @@
 url = "https://&lt;machine&gt;.&lt;tailnet&gt;.ts.net"</pre>
                 The console answers that name, and that one only; without it, a <code>421</code>. No restart needed.
               </li>
-              <li><b>Open the address on your phone</b>, and sign in as on the machine — your email and password, or the token (<code>ponos serve --print-token</code>).</li>
+              <li><b>Open the address on your phone</b>, and sign in as on the machine — your email and password, or the token (<code>ponos service run --print-token</code>).</li>
             </ol>
             <p class="faq-note"><b>Never <code>tailscale funnel</code>.</b> Funnel puts the console on the public Internet, and behind it sits a runner that runs code on your machine. Stay on your tailnet.</p>
           </div>

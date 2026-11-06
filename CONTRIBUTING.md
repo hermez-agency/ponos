@@ -93,7 +93,7 @@ year and gzips them on the way out; `index.html`, which names the current ones, 
 kept, and that is how an update reaches a browser that cached the last build.
 
 That is the whole arrangement, and it is deliberate. `install.sh` clones this repository
-onto a machine that has `python3` and `git`, and `ponos serve` is
+onto a machine that has `python3` and `git`, and `ponos service run` is
 [FastAPI](https://fastapi.tiangolo.com), served by [uvicorn](https://uvicorn.dev), in
 the version's own `.venv`. **Nothing about the console asks the machine that runs it for Node.**
 Node is a thing you need to *change* the console, not to use it.
@@ -133,7 +133,7 @@ puts them together and says why:
 | `web/ideas.py` | finding ideas, scoring them, turning the kept ones into tickets |
 
 ```sh
-curl -H "Authorization: Bearer $(ponos serve --print-token)" http://127.0.0.1:8787/openapi.json
+curl -H "Authorization: Bearer $(ponos service run --print-token)" http://127.0.0.1:8787/openapi.json
 ```
 
 ```sh
@@ -160,7 +160,7 @@ the way back to the sign-in on a 401, the server's sentence in an `ApiError`, an
 bodies of a picture, a file or a recording, which the schema does not describe.
 
 `npm run test:e2e` is Playwright, driving the Chrome already installed rather than a
-browser of its own: `e2e/console.py` starts a real `ponos serve` on a throwaway
+browser of its own: `e2e/console.py` starts a real `ponos service run` on a throwaway
 Markdown board, so the tests read the build that `npm run build` last wrote and nothing of
 yours. They hold what neither Python suite can see — that a page taller than the screen
 scrolls, by the wheel and by the keyboard, and still does once a dialog has come and gone.
@@ -195,7 +195,7 @@ drawn in English there whatever the machine's language, so a French translation 
 changes moves no test.
 
 `npm run dev` proxies `/api` to `http://127.0.0.1:8787` — set `PONOS_ORIGIN` for
-another address. Open the real console once first (`ponos serve`, then its URL with
+another address. Open the real console once first (`ponos service run`, then its URL with
 the token): the dev server borrows the cookie that URL sets, because the API refuses
 anything else.
 
@@ -207,7 +207,7 @@ cd frontend && npm run dev:demo    # the page, hot reloaded, proxying /api to it
 # open http://127.0.0.1:8791/?token=demo once (the cookie), then http://127.0.0.1:5173
 ```
 
-`scripts/demo.py` is a real `ponos serve` on a throwaway Markdown board, under a temporary
+`scripts/demo.py` is a real `ponos service run` on a throwaway Markdown board, under a temporary
 `XDG_STATE_HOME` and `HOME`, with a stand-in `claude`, `gh` and `systemctl` first in the
 `PATH` — no Notion, no network, nothing of yours read or written, and the directory removed
 when you press Ctrl-C. The board is drawn to be looked at: eight projects, sixty-odd tickets in

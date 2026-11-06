@@ -5,7 +5,7 @@
  *   node scripts/measure-console.mjs [--runs 3] [--throttle 4] [--keep]
  *
  * Writes a throwaway Markdown board — 350 tickets, 340 of them Done, six
- * projects, three schedules —, starts `ponos serve` on it from this
+ * projects, three schedules —, starts `ponos service run` on it from this
  * checkout (`PYTHONPATH=src`, so what is measured is `src/ponos/web/
  * static` as the last `npm run build` left it), and drives headless Chrome
  * ($CHROME, or google-chrome on the PATH) over the DevTools protocol. Nothing
@@ -95,7 +95,7 @@ const stop = () => {
 };
 process.on('exit', stop);
 
-const server = spawn('python3', ['-m', 'ponos', 'serve', '--port', String(SERVER_PORT)], {
+const server = spawn('python3', ['-m', 'ponos', 'service', 'run', '--port', String(SERVER_PORT)], {
   cwd: root,
   env: {
     ...process.env,

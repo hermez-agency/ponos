@@ -5,7 +5,7 @@
 # After any change:  ponos doctor
 #
 # Every key in here is also a field in the web console's Settings tab
-# (`ponos serve`). It writes back into this very file, one line at a
+# (`ponos service run`). It writes back into this very file, one line at a
 # time, and leaves these comments where they are — so editing it by hand and
 # editing it in a browser are the same gesture, and neither undoes the other.
 #
@@ -185,7 +185,7 @@ goals = "Objectifs"
 workspace_root = "~/workspace"
 
 # Seconds between two passes. Changing this takes effect on the next
-# `ponos enable`, which rewrites the systemd timer from this value.
+# `ponos service on`, which rewrites the systemd timer from this value.
 # A pass with nothing to do costs one Notion query, so a short interval is
 # cheap: 10 means a ticket starts being worked on within ten seconds. It is
 # also how often a pass already running looks for a ticket to put in a place
@@ -627,7 +627,7 @@ classify_confidence = "medium"   # low, medium or high: the least a guess is act
 # tickets — never one already kept or thrown away. Its cost is recorded per batch.
 ideas_model = "haiku"            # empty: the CLI's own — routed through OpenRouter, name a slug
 
-# Finding ideas without being asked, while the console runs (`ponos serve`): the
+# Finding ideas without being asked, while the console runs (`ponos service run`): the
 # "Ponos, find me ideas" button keeps working whatever is set here. The same
 # keys are in the Settings window of the Ideas page.
 #   "off"       only the button finds ideas (the default)
@@ -926,14 +926,14 @@ channel = ""
 # default_project = "Ponos"
 
 # ---------------------------------------------------------------------------
-# The web console — ponos serve
+# The web console — ponos service run
 # ---------------------------------------------------------------------------
 # The board, this CLI and a chat with your whole workspace, in one page. It is
-# started for you — `install.sh` and `ponos enable` arm its unit along
+# started for you — `install.sh` and `ponos service on` arm its unit along
 # with the timer, so it is up on http://127.0.0.1:8787 with nothing to type:
-#   ponos serve --print-token             # the token, if you lost the URL
-#   systemctl --user stop ponos-web       # stop it until the next boot
-#   ponos disable                         # stop the timer and the console
+#   ponos service run --print-token   # the token, if you lost the URL
+#   systemctl --user stop ponos-web   # stop it until the next boot
+#   ponos service off                 # stop the timer and the console
 #
 # READ THIS BEFORE CHANGING host. Behind this port sits a runner that starts
 # Claude Code sessions with bypassPermissions — anything that can reach it can
@@ -999,7 +999,7 @@ trusted_proxies = ["127.0.0.1", "::1"]
 # the Settings write it so, and a line in clear from before is replaced by its
 # digest on the next launch, with the same password still signing in. The
 # environment's may be either. A sign-in lasts thirty days from its last use;
-# `ponos serve --sign-out-everywhere` ends them all.
+# `ponos service run --sign-out-everywhere` ends them all.
 email = ""
 
 # How often the console asks Notion what the board looks like — and only while a

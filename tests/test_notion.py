@@ -72,7 +72,7 @@ def the_console_starts_on_the_file_install_sh_leaves(state_home: Path) -> None:
         printed, errors = io.StringIO(), io.StringIO()
         try:
             with contextlib.redirect_stdout(printed), contextlib.redirect_stderr(errors):
-                assert cli_main(["serve", "--print-token"]) == 0, errors.getvalue()
+                assert cli_main(["service", "run", "--print-token"]) == 0, errors.getvalue()
                 try:
                     cli_main(["run"])
                 except SystemExit as stopped:

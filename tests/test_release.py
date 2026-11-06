@@ -1360,7 +1360,7 @@ def the_documentation_only_cites_commands_the_cli_has() -> None:
             assert verb in verbs, f"{page} cites `ponos {verb}`, which the CLI does not have"
         found.update(cited)
     # The guide's own list of commands: finding none of it is the reading that broke.
-    assert {"init", "run", "doctor", "serve"} <= found, f"only {sorted(found)} found in the pages"
+    assert {"init", "run", "doctor", "service"} <= found, f"only {sorted(found)} found in the pages"
 
 
 @case

@@ -1,4 +1,4 @@
-"""What the two consoles made of fixtures have in common: a real `ponos serve`, on nothing real.
+"""What the two consoles made of fixtures have in common: a real `ponos service run`, on nothing real.
 
 `frontend/e2e/console.py` is the console the browser tests open, and
 `scripts/demo.py` the one you open to work on the interface. Their data differ —
@@ -234,4 +234,4 @@ def stage(
 
 
 def serve(port: str) -> None:
-    os.execvp(sys.executable, [sys.executable, "-m", "ponos", "serve", "--port", port])
+    os.execvp(sys.executable, [sys.executable, "-m", "ponos", "service", "run", "--port", port])

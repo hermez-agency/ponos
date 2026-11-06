@@ -333,7 +333,7 @@ def _console(config: config_module.Config) -> list[Check]:
                 "settings.console",
                 OK,
                 "Console",
-                "{{address}} is opened with its token (`ponos serve --print-token`).",
+                "{{address}} is opened with its token (`ponos service run --print-token`).",
                 params=params,
             )
         )
@@ -535,7 +535,7 @@ def _ideas(settings: config_module.Runner) -> list[Check]:
             "settings.ideas",
             INFO,
             title,
-            "The passes run in the console (`ponos serve`), not in the timer's run.",
+            "The passes run in the console (`ponos service run`), not in the timer's run.",
         )
     )
     return found

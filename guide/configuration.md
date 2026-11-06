@@ -198,13 +198,13 @@ reads what the last check found.
 ### 4. The rest of the file
 
 Every key below is also a field in the console's **Settings** tab —
-`ponos serve`, and the same file, drawn as a page. What follows is the same list,
+`ponos service run`, and the same file, drawn as a page. What follows is the same list,
 for reading rather than for filling in.
 
 | Key | Default | Effect |
 | --- | --- | --- |
 | `runner.workspace_root` | `~/workspace` | where to look for repositories — and where one you have not cloned yet is cloned |
-| `runner.interval_seconds` | `1800` | seconds between two passes, and how often a pass in flight looks at the board — for a ticket to put in an empty place, and for one you have validated since — `ponos enable` applies a change |
+| `runner.interval_seconds` | `1800` | seconds between two passes, and how often a pass in flight looks at the board — for a ticket to put in an empty place, and for one you have validated since — `ponos service on` applies a change |
 | `runner.max_concurrent` | `2` | tickets handled side by side — an empty place is filled from the board without waiting for anything to end |
 | `runner.max_concurrent_per_project` | `2` | of those places, how many one project (with a repository) may hold at once — the next ticket of another project goes first, and the held one starts when a place of its project frees |
 | `runner.timeout_minutes` | `30` | past this, the session is killed and the ticket fails |

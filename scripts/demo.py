@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A console to work on the interface with: a real `ponos serve`, on a board made up.
+"""A console to work on the interface with: a real `ponos service run`, on a board made up.
 
     python3 scripts/demo.py [port]        # 8791, and the token is "demo"
     cd frontend && npm run dev:demo       # the page, hot reloaded, on that console
@@ -1371,7 +1371,7 @@ def main(argv: list[str]) -> int:
         )
         print("  stop  Ctrl-C — the temporary state is removed\n", flush=True)
         # A child rather than an exec, so that the state is removed when it stops.
-        child = subprocess.Popen([sys.executable, "-m", "ponos", "serve", "--port", port])
+        child = subprocess.Popen([sys.executable, "-m", "ponos", "service", "run", "--port", port])
         signal.signal(signal.SIGTERM, lambda *_: child.terminate())
         try:
             return child.wait()

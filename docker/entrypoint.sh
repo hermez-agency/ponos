@@ -48,4 +48,4 @@ if [ "$#" -gt 0 ]; then
 fi
 
 ponos run --every &
-exec ponos serve --host 0.0.0.0
+exec ponos service run --host 0.0.0.0

@@ -156,8 +156,8 @@ export const SETTINGS_FRENCH: Record<string, string> = {
     "Là où sont vos dépôts git, par ex. `~/workspace`. Le dépôt d'un projet y est cherché — et cloné ici s'il manque.",
   "The delay between two looks for Ready tickets. 10 starts a ticket within ten seconds; a look that finds nothing costs one request.":
     "Le délai entre deux recherches de tickets prêts. 10 démarre un ticket en moins de dix secondes ; une recherche qui ne trouve rien coûte une requête.",
-  "`ponos enable` writes it into the systemd timer":
-    "`ponos enable` l'écrit dans la minuterie systemd",
+  "`ponos service on` writes it into the systemd timer":
+    "`ponos service on` l'écrit dans la minuterie systemd",
   "Tickets in parallel": "Tickets en parallèle",
   "Tickets in parallel per project": "Tickets en parallèle par projet",
   "How many of those sessions may work on the same project at once. Pull requests written side by side on one repository touch the same files and conflict when the first one lands: 2 keeps that rare.":

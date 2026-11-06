@@ -1127,7 +1127,7 @@ def health_says_the_rank_the_sessions_run_at() -> None:
     former = health._priority(
         {"Nice": "0", "CPUWeight": "[not set]", "IOSchedulingClass": "2", "MemoryHigh": "infinity"}
     )
-    assert former and former.state == "warn" and "ponos enable" in former.steps[0], former
+    assert former and former.state == "warn" and "ponos service on" in former.steps[0], former
     assert "MemoryHigh infinity" in former.text(former.said)
     assert health._priority({}) is None, "no systemd, nothing to say"
     french = _french()

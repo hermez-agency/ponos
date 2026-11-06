@@ -54,7 +54,7 @@ question nobody is told about waits until you next open the board.
 And the thing to make sure of: **run one runner, not two.** Claiming a ticket is a read
 then a write, not an atomic operation, so two runners watching the same board will
 occasionally start the same ticket twice. If you keep a copy on your laptop, keep it
-stopped (`ponos disable`) and use it for `--ticket` runs on demand.
+stopped (`ponos service off`) and use it for `--ticket` runs on demand.
 
 ### Who can write a ticket can run commands on that machine
 
