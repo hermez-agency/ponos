@@ -213,7 +213,6 @@ export function ContextBlock() {
             </span>
           </div>
           <p className="text-muted-foreground text-xs">
-            <Eyebrow>{drawn.storage}</Eyebrow> —{" "}
             {t("saved to the “{{page}}” page, and read again on the next run.", {
               page: drawn.where,
             })}

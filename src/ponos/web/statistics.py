@@ -76,8 +76,8 @@ LONGEST = 731
 
 def day_of(stamp: str, zone: tzinfo | None = None) -> date | None:
     """The local day an ISO timestamp falls on, or None for an empty or broken one."""
-    # A date with no time — what a board of files may carry — is that day here,
-    # and an hour with no offset is read here too, as the synchronisation does:
+    # A date with no time — what a typed date may carry — is that day here,
+    # and an hour with no offset is read here too, as the rest of the board does:
     # "here" is the zone the days are counted in, the machine's unless named.
     moment = timestamps.parse(stamp, naive=zone or "local")
     return None if moment is None else moment.astimezone(zone).date()

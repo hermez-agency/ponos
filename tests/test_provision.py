@@ -166,6 +166,7 @@ def the_workspace_is_written_back_into_the_configuration() -> None:
     path.write_text(
         '[notion]\n# keep me\ntoken = "ntn_x"\nworkspace = ""\n\n[runner]\nfetch = true\n'
     )
+    C.move_secrets(path)  # as a launch leaves it: a token that counts
 
     assert C.write_notion_value(path, "workspace", "abc") is True
     assert C.write_notion_value(path, "workspace", "abc") is False, "already says that"

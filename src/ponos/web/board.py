@@ -32,9 +32,9 @@ One more thing was measured, and it is why a confirmed write is *held* for a few
 seconds: a database query sees a `PATCH` one to four seconds after the `PATCH`
 answered. A read in between would put the card back where it came from.
 
-Everything written down goes to the same journal as the Markdown mirror's
-reconciliation (`sync_journal` in `ponos.db`, `ponos sync --journal`): one place to ask
-"when did this ticket change, and when did the other side see it?".
+Everything written down goes to one journal (`sync_journal` in `ponos.db`, see
+`board_journal.py`): one place to ask "when did this ticket change, and when did
+the other side see it?".
 """
 
 from __future__ import annotations
@@ -49,7 +49,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from .. import disk, ids, store, sync, timestamps
+from .. import board_journal, disk, ids, store, timestamps
 
 # How far behind the last read an incremental read starts. A minute would do
 # for the rounding alone; the second one is for a clock that is not Notion's.
@@ -89,7 +89,7 @@ class Reader:
     def __init__(
         self,
         clock: Callable[[], float] = time.time,
-        journal: Callable[[sync.Report], None] = sync.write_journal,
+        journal: Callable[[board_journal.Report], None] = board_journal.write_journal,
     ) -> None:
         self._clock = clock
         self._journal = journal
@@ -149,7 +149,7 @@ class Reader:
                     "last_edited_time": {"on_or_after": _stamp(since)},
                 },
             )
-        report = sync.Report()
+        report = board_journal.Report()
         with self._lock:
             before = dict(self._pages)
             now = self._clock()
@@ -170,7 +170,9 @@ class Reader:
                     if key in self._held:
                         continue
                     held = before.get(key)
-                    if held is not None and sync.fingerprint(held) == sync.fingerprint(page):
+                    if held is not None and board_journal.fingerprint(
+                        held
+                    ) == board_journal.fingerprint(page):
                         continue  # the window's overlap: already known
                     self._pages[key] = page
             if before:
@@ -186,7 +188,7 @@ class Reader:
         held: dict[str, store.Page],
         truth: dict[str, store.Page],
         status: str,
-        report: sync.Report,
+        report: board_journal.Report,
     ) -> list[dict[str, Any]]:
         """What the incremental reads had wrong, as the full read found it.
 
@@ -216,7 +218,7 @@ class Reader:
         before: dict[str, store.Page],
         after: dict[str, store.Page],
         status: str,
-        report: sync.Report,
+        report: board_journal.Report,
         now: float,
     ) -> None:
         """Write down every status the console has just seen change.
@@ -271,7 +273,7 @@ class Outbox:
         self,
         path: Path | None = None,
         clock: Callable[[], float] = time.time,
-        journal: Callable[[sync.Report], None] = sync.write_journal,
+        journal: Callable[[board_journal.Report], None] = board_journal.write_journal,
     ) -> None:
         self._path = path
         self._clock = clock
@@ -342,7 +344,7 @@ class Outbox:
                 if write.state == "pending" and write.next_at <= now
             ]
         moved = False
-        report = sync.Report()
+        report = board_journal.Report()
         for write in due:
             outcome = self._attempt(write, send, report)
             with self._lock:
@@ -363,7 +365,7 @@ class Outbox:
         return max(0.5, min(waiting) - self._clock()) if waiting else 3600.0
 
     def _attempt(
-        self, write: Write, send: Callable[[Write], store.Page | None], report: sync.Report
+        self, write: Write, send: Callable[[Write], store.Page | None], report: board_journal.Report
     ) -> str:
         """One try. `sent`, or the write is left saying why not."""
         write.attempts += 1

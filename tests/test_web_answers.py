@@ -126,7 +126,7 @@ def _goals_api() -> web_api.Api:
 
 @case
 def a_goal_counts_the_tickets_the_board_lists_column_by_column() -> None:
-    """The progress is the board's, counted: no rollup read, a Markdown board has none."""
+    """The progress is the board's, counted: no rollup read, a board without Notion has none."""
     api = _goals_api()
     tickets = [
         {"id": "t1", "goal_id": "aaaagoal", "column": "done"},
@@ -138,8 +138,8 @@ def a_goal_counts_the_tickets_the_board_lists_column_by_column() -> None:
     api._goal_tickets = lambda: tickets  # type: ignore[method-assign]  # a double: no board read
     said = api.goals()
     assert said["configured"] is True
-    # Which board, for the page that would say "Notion" on a board of files.
-    assert said["storage"] == "notion", said
+    # Whether a Notion is behind it, for the page that would say "Notion" on a board without.
+    assert said["notion"] is True, said
     assert said["statuses"] == ["À faire", "En cours", "Fait"], said
     assert [goal["name"] for goal in said["goals"]] == ["Lancer la v1", "Ranger"], said
     launch, tidy = said["goals"]

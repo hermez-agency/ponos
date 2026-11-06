@@ -7,7 +7,7 @@ From the discussion on a ticket to *Done*: the statuses, the review, *Validated*
 ## A ticket's page: the mission, and what was done
 
 Every ticket's page has two parts, under two headings, and the same two for every ticket
-— in Notion, in a Markdown board, in the console:
+— in Notion, in the console:
 
 ```markdown
 ## Mission
@@ -226,8 +226,7 @@ every transition, so it says which ones concern it:
 > If it goes to **Validated**, create the deployment ticket in the *Infra* project. Any
 > other change: do nothing.
 
-It is the same text field on a Markdown board (an `On:` line in the ticket's front matter),
-and in the console, on the ticket's page under its brief, with the list of its executions:
+It is the same field in `ponos.db`, and in the console, on the ticket's page under its brief, with the list of its executions:
 the transition each answered, its state, what it cost, how long it took and what it said.
 `ponos init` adds the column to a board that does not have it; `ponos doctor` says if it is
 missing. Settings › Prompt on status change turns it off (`runner.on = false`).
@@ -406,8 +405,7 @@ off your hands.
 ## Plan first: a plan and a yes before any code
 
 A big ticket misread is found out late, and paid for in full. So a code ticket can ask to be
-**planned first**: tick **`Plan d'abord`** on it — the box of the board, the
-`Plan d'abord: true` of a Markdown ticket, or the box of the console's *New ticket*.
+**planned first**: tick **`Plan d'abord`** on it — the box of the board, or the box of the console's *New ticket*.
 
 - **Its first session only plans.** It runs in Claude Code's plan mode
   (`--permission-mode plan`): it reads the repository, it cannot write — no file changed,
@@ -452,7 +450,7 @@ an **`Après`** relation, pointing at other tickets of the same board.
 `ponos init` adds the column — a relation from the tickets database to itself, which can
 only be declared once the database exists — and running it again adds it to a board built
 before it; `ponos doctor` says so when the column is there under another type. A board without the
-column runs every ready ticket, as before. A Markdown board has it too, as a list of ticket ids.
+column runs every ready ticket, as before.
 
 ## Two attempts: a sibling ticket that tries again
 

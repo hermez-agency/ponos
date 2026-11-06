@@ -2665,7 +2665,7 @@ export interface components {
             page: string;
             /** @description What that page is called, for the sentence that says it is missing. */
             where: string;
-            storage: string;
+            notion: boolean;
             editable: boolean;
         };
         ContextSaved: {
@@ -2993,8 +2993,8 @@ export interface components {
             statuses: string[];
             /** @description Whether the workspace has a goals database at all. */
             configured: boolean;
-            /** @description `storage.mode`: which board these came off. */
-            storage?: string;
+            /** @description Whether a Notion sits behind this board. */
+            notion?: boolean;
         };
         HTTPValidationError: {
             detail?: components["schemas"]["ValidationError"][];
@@ -3588,7 +3588,7 @@ export interface components {
         ProjectDeleted: {
             id: string;
             name: string;
-            /** @description Where the page can be restored from; empty on a board of files. */
+            /** @description Where the page can be restored from; empty on a board without Notion. */
             url: string;
             tickets: number;
             blocked: number;
@@ -3711,8 +3711,8 @@ export interface components {
         Projects: {
             projects: components["schemas"]["Project"][];
             workspace_root: string;
-            /** @description `storage.mode`: which board these came off. */
-            storage: string;
+            /** @description Whether a Notion sits behind this board. */
+            notion: boolean;
         };
         ProviderChecked: {
             ok: boolean;
@@ -3842,10 +3842,8 @@ export interface components {
             /** @description What the sessions have cost since midnight. */
             budget_spent: number;
             workspace_root: string;
-            /** @description `storage.mode`: "notion", "markdown", or "both". */
-            storage: string;
-            /** @description Where the Markdown board is, empty unless there is one. */
-            board_path: string;
+            /** @description Whether a Notion sits behind this board. */
+            notion: boolean;
             interval_seconds: number;
             model: string;
             permission_mode: string;
@@ -4050,8 +4048,8 @@ export interface components {
             timezone?: string;
             /** @description What that page is called, for the sentence that says it is missing. */
             page: string;
-            /** @description `storage.mode`: which board these came off. */
-            storage?: string;
+            /** @description Whether a Notion sits behind this board. */
+            notion?: boolean;
             schedules: components["schemas"]["Schedule"][];
             /** @description What the form offers for the type and the sub-type: only the columns the database has. */
             choices?: components["schemas"]["ScheduleChoices"];
@@ -4157,14 +4155,13 @@ export interface components {
         SetupBoard: {
             /** @enum {string} */
             state: "ok" | "missing" | "error";
-            storage: string;
+            notion: boolean;
             /** @description The ID, for the technical detail: `name` is what the page says. */
             workspace: string;
             /** @description The workspace's title on Notion, "" when Notion did not say it. */
             name: string;
             /** @description Where it opens on Notion, "" when Notion did not say it. */
             url: string;
-            path: string;
             /** @description Null when the board could not be counted. */
             tickets: number | null;
             said: string;
@@ -4239,7 +4236,7 @@ export interface components {
             code_drawn: boolean;
             container: boolean;
             version: string;
-            storage: string;
+            notion: boolean;
         };
         /** @description What the installation amounts to: one entry per thing that has to work. */
         SetupSummary: {

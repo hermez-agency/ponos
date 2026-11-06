@@ -1,6 +1,6 @@
 # Ponos
 
-> Write the ticket. It comes back done. Ponos is a harness around Claude Code that runs your tasks on your machine — code, writing, external actions, publications — on a board of its own: the web console, over a folder of Markdown files. Notion, GitHub, Telegram, Slack and OpenRouter plug in when you want them; none of them is required. Nothing is merged or published until you say yes.
+> Write the ticket. It comes back done. Ponos is a harness around Claude Code that runs your tasks on your machine — code, writing, external actions, publications — on a board of its own: the web console, its tickets kept in a local database. Notion, GitHub, Telegram, Slack and OpenRouter plug in when you want them; none of them is required. Nothing is merged or published until you say yes.
 
 The loop is four gestures: you write a ticket and move it to *Ready*; Ponos does it, in a
 Claude Code session on a disposable git worktree of its own — or a scratch directory, for a
@@ -25,8 +25,8 @@ a click; goals — a criterion and a due date, counted in the tickets tied to th
 runner writes; and the schedules' calendar — the recurring tickets to come, laid out by day,
 week or month in the console.
 
-The board is the console and its folder of Markdown files (`storage.mode = "markdown"`), or
-Notion (`ponos init <page-url>`), or both kept in step. The installer checks the machine,
+The board is the console, its tickets kept in `ponos.db`; Notion (`ponos init <page-url>`) is
+optional and mirrors them. The installer checks the machine,
 starts the console and opens it (Linux or macOS; WSL works without a timer): the rest — Notion, GitHub, a first project, a demonstration
 ticket played on the spot — is the console's first connection, step by step. Python
 3.11+; the installer puts its five dependencies (httpx, pydantic, cryptography, FastAPI, uvicorn) into an
@@ -44,5 +44,5 @@ command and the Python package are called ponos.
 - [Goals](https://github.com/hermez-agency/ponos/blob/main/guide/console.md#goals): what the tickets are for — a card per goal, its due date, Late when past, and "n of m tickets done" counted by the console on any board
 - [The vault](https://github.com/hermez-agency/ponos/blob/main/guide/configuration.md#keys-a-ticket-may-use-the-vault): `[vault]` — where keys are read (env, keyring, pass, bitwarden) and which ones each project's sessions get, as environment variables, masked in everything the runner writes
 - [Recurring tickets](https://github.com/hermez-agency/ponos/blob/main/guide/tickets.md#what-comes-back-on-its-own): schedules that write a ticket and move it to Ready on their own — one occurrence on waking, never the missed ones — and their calendar in the console
-- [Documentation](https://github.com/hermez-agency/ponos#readme): installation, the board and its columns, the types of ticket, the Validated column, recurring tickets, Telegram and Slack, the web console, the Markdown board, Notion, OpenRouter, several GitHub accounts, usage limits, configuration, safety, troubleshooting, Ponos the mascot
+- [Documentation](https://github.com/hermez-agency/ponos#readme): installation, the board and its columns, the types of ticket, the Validated column, recurring tickets, Telegram and Slack, the web console, the local board, Notion, OpenRouter, several GitHub accounts, usage limits, configuration, safety, troubleshooting, Ponos the mascot
 - [Changelog](https://github.com/hermez-agency/ponos/blob/main/CHANGELOG.md): what changed, release by release

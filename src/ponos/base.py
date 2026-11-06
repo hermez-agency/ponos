@@ -212,9 +212,9 @@ class Base(Chapters):
         # minute into the systemd journal forever, and buries the runs that
         # matter. A terminal wants the reassurance; a log does not.
         self.announce_idle = announce_idle
-        # The board, whichever one the configuration asked for: Notion, a
-        # directory of Markdown files, or the two kept in step. Nothing above
-        # this line knows which — see store.py.
+        # The board, whichever one the configuration asked for: `ponos.db` with
+        # Notion behind it, or on its own. Nothing above this line knows
+        # which — see store.py.
         self.client = store.open(config, dropped=self._dropped)
         self.resolver = Resolver(config.runner.workspace_root, config.projects, config.github)
         self.agent_label = f"ponos@{socket.gethostname()}"

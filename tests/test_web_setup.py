@@ -171,40 +171,17 @@ def the_first_connection_finds_what_notion_shares_and_keeps_only_a_token_it_acce
 
 
 @case
-def the_board_step_can_choose_files_over_notion_without_a_token_or_a_restart() -> None:
-    """No token and `mode = "notion"` is an installation no board answers: files are the way out.
-
-    The way out used to be editing config.toml by hand and restarting the
-    console. The choice is written, picked up by the next read of the file, and
-    the board is then the folder's — a project can be made on it.
-    """
+def the_board_step_needs_no_token_to_work_without_notion() -> None:
+    """No token is an installation whose board is `ponos.db`: nothing is missing, nothing is asked."""
     from ponos.web import setup as web_setup
 
     path = Path(tempfile.mkdtemp()) / "config.toml"
-    path.write_text('[storage]\nmode = "notion"\n', encoding="utf-8")
+    path.write_text("[notion]\n", encoding="utf-8")
     api = _api(path)
     with _environment(PONOS_NOTION_TOKEN=None):
-        assert web_setup._board(api)["state"] == "missing"
-        said = web_setup.save_notion(api, {"storage": "markdown"})
-        answers.NotionProvisioned.model_validate(said)
-        assert api.config.storage.mode == "markdown"
+        drawn = web_setup._board(api)
         # _Fresh has no board to count tickets on; what matters is that none asks for a token.
-        assert said["board"]["storage"] == "markdown" and "token" not in said["board"]["said"]
-        assert path.read_text(encoding="utf-8").count("mode =") == 1
-        try:
-            web_setup.save_notion(api, {"storage": "sqlite"})
-        except ValueError:
-            pass
-        else:
-            raise AssertionError("an unknown board is refused")
-        # Back to Notion only once there is a token to read it with.
-        try:
-            web_setup.save_notion(api, {"storage": "notion"})
-        except C.ConfigError:
-            pass
-        else:
-            raise AssertionError("Notion without a token is not written")
-        assert api.config.storage.mode == "markdown"
+        assert drawn["notion"] is False and "token" not in drawn["said"], drawn
 
 
 @case
@@ -341,7 +318,7 @@ def the_installer_gives_the_same_install_commands_as_doctor() -> None:
 
 @case
 def a_fresh_container_is_sent_to_the_steps_until_they_have_been_gone_through() -> None:
-    """A Markdown board is usable at once: nothing but a mark says the steps are still owed."""
+    """A board without Notion is usable at once: nothing but a mark says the steps are still owed."""
     from support import _state_home
 
     from ponos.web import setup as web_setup

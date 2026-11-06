@@ -32,7 +32,7 @@
 **A harness around [Claude Code](https://claude.com/claude-code) that runs your tasks on
 your machine — code, writing, actions, posts.**
 
-Write the ticket on **Ponos**'s own board — the console, or a folder of Markdown files. He
+Write the ticket on **Ponos**'s own board — the console. He
 brings back a pull request, a text, an action carried out or a post ready to go. You answer
 in a word, even from your phone, and nothing ships until you say yes. Notion, GitHub,
 Telegram, Slack and OpenRouter plug in when you want them; none of them is required.
@@ -95,9 +95,8 @@ console's chat is a Claude Code session in your workspace.
 ## A board of its own
 
 Ponos needs nobody else's board. The [console](guide/console.md#the-web-console), on `127.0.0.1`, is where
-you write a ticket, drag it to *Ready* and watch its session live. Under it, the board is
-[a folder of Markdown files](guide/board.md#without-notion-the-board-as-markdown-files): `grep`, your
-editor and `git` read it too.
+you write a ticket, drag it to *Ready* and watch its session live. Under it, the tickets are
+in `ponos.db`, on your machine ([without Notion](guide/board.md#without-notion), nothing else is needed).
 
 <p align="center">
   <picture>
@@ -149,7 +148,7 @@ real thing before the next. The language; the password that opens the console; w
 the sessions; Notion — paste the integration's token, add it to one page, and the board is
 built under that page, found on its own as soon as it is shared; GitHub in one click; a first
 project; and a demonstration ticket, played there and then, which is the proof that every
-step holds. No Notion? The board can be [a folder of Markdown files](guide/board.md#without-notion-the-board-as-markdown-files).
+step holds. No Notion? [Skip it](guide/board.md#without-notion): the tickets are in `ponos.db`.
 
 It needs Linux or macOS (WSL works too, without a timer: [a ticket then runs when the console starts it, or with `ponos run`](guide/installation.md)), `python3` ≥ 3.11 — what it imports, httpx and pydantic for the
 runner, cryptography for the pushes to your phone and FastAPI and uvicorn for the console, goes into an environment of its own, made by the installer —,
@@ -211,7 +210,7 @@ The guide, one page per subject — [its contents](guide/README.md):
 | --- | --- |
 | [Installation](guide/installation.md) | what the installer arms, updating, the install variables, uninstalling |
 | [Configuration](guide/configuration.md) | Notion, `config.toml`, who answers the sessions, OpenRouter, GitHub, the vault |
-| [The board](guide/board.md) | the board as Markdown files or GitHub issues, the Notion databases, the type, sub-type and model of a ticket |
+| [The board](guide/board.md) | where the tickets live, with or without Notion, the Notion databases, the type, sub-type and model of a ticket |
 | [A ticket's life](guide/tickets.md) | the comments, the statuses, ten tickets on one repository, *Validated*, the tickets that come back |
 | [Telegram and Slack](guide/channels.md) | being told, and answering with one word |
 | [The web console](guide/console.md) | the console, its first connection, signing in, connecting Ponos to Claude |

@@ -20,7 +20,7 @@ import httpx
 from support import _bare_runner, _board, _config, _http_answering, _ideas_api, _tools, case
 
 from ponos import config as C
-from ponos import files, health, notion, prompt, push, session, vault, vault_store
+from ponos import health, ledger, notion, pages, prompt, push, session, tickets, vault, vault_store
 from ponos.channels import request as channel_request
 
 if TYPE_CHECKING:
@@ -301,7 +301,7 @@ def what_a_session_prints_of_a_vault_key_is_masked_everywhere(vault_home: Path) 
     assert SECRET not in outcome.answer and "echo: ***" in outcome.answer
     assert SECRET not in (home / "s.jsonl").read_text() and SECRET not in json.dumps(seen)
     assert (home / "s.err").read_text() == "echo: ***\n"
-    # The comment on the ticket, in Notion and on the Markdown board.
+    # The comment on the ticket, in Notion and in ponos.db.
     sent: list[bytes] = []
 
     def answered(request: httpx.Request) -> httpx.Response:
@@ -328,10 +328,15 @@ def what_a_session_prints_of_a_vault_key_is_masked_everywhere(vault_home: Path) 
             push.encrypt = encrypt
     assert len(sent) == 4 and all(SECRET.encode() not in body for body in sent), sent
     assert sealed and SECRET.encode() not in sealed[0] and b"***" in sealed[0], sealed
-    board = files.Board(vault_home.parent / "board", _config("").notion)
+    notion_settings = _config("").notion
+    board = ledger.Ledger(pages.Pages(notion_settings), notion_settings)
+    board.workspace(notion_settings)
     page = board.create_row(board.resolve_database("Tickets"), f"Deploy {SECRET}")
     board.comment(page, outcome.answer + SECRET)
-    written = "".join(path.read_text() for path in (vault_home.parent / "board").rglob("*.md"))
+    written = "".join(
+        [record.title for record in tickets.listing()]
+        + [remark.text for record in tickets.listing() for remark in tickets.comments(record.id)]
+    )
     assert SECRET not in written and "***" in written
     # The console, its JSON and its stream.
     with _board() as markdown:

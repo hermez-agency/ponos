@@ -44,20 +44,20 @@ from ponos import (
     conversation,
     db,
     environment,
-    files,
     github_app,
     github_checks,
     github_token,
     images,
+    ledger,
     leftovers,
     log,
     markdown,
     notion,
+    pages,
     projects,
     provider,
     session,
     store,
-    sync,
     ticket_page,
     workspace,
 )
@@ -1206,12 +1206,16 @@ class _ColumnsClient(_TalkClient):
         return ["ready", "progress", "review", "blocked", "done"]
 
 
-def _saved(body: str = "") -> tuple[Path, C.Config]:
-    """A configuration file on disk, and the runner's reading of it."""
+def _saved(body: str = "", *, notion: bool = True) -> tuple[Path, C.Config]:
+    """A configuration file on disk, and the runner's reading of it.
+
+    `notion=False` names none: the board it is read for is the database's own.
+    """
     path = Path(tempfile.mkdtemp()) / "config.toml"
     path.write_text(
         "# a file somebody wrote by hand\n"
-        '[notion]\ntoken = "ntn_real"\ntickets_database = "abc"\n' + body,
+        + ('[notion]\ntoken = "ntn_real"\ntickets_database = "abc"\n' if notion else "")
+        + body,
         encoding="utf-8",
     )
     C.move_secrets(path)  # as a launch leaves it, see `_config`
@@ -1325,13 +1329,21 @@ FRONTEND = ROOT / "frontend"
 
 
 @contextmanager
-def _board(**settings_overrides: Any) -> Iterator[files.Board]:
-    """A throwaway Markdown board, and the naming settings it is read under."""
-    directory = tempfile.mkdtemp()
-    try:
-        yield files.Board(Path(directory) / "board", _settings(**settings_overrides))
-    finally:
-        shutil.rmtree(directory, ignore_errors=True)
+def _board(language: str = "", **settings_overrides: Any) -> Iterator[ledger.Ledger]:
+    """A board in the `ponos.db` of the case, emptied: the tickets, and the pages beside them.
+
+    The rest of the state — ideas, history, journal — is the case's own, so
+    that two boards of one case still share it.
+    """
+    with db.transaction() as connection:
+        for table in ("tickets", "ticket_comments", "ticket_after", "mirror_queue"):
+            connection.execute(f"DELETE FROM {table}")
+        for table in ("board_pages", "board_comments"):
+            connection.execute(f"DELETE FROM {table}")
+    settings = _settings(**settings_overrides)
+    board = ledger.Ledger(pages.Pages(settings), settings, language)
+    board.workspace(settings)
+    yield board
 
 
 class _NotionBoard:
@@ -1359,7 +1371,7 @@ class _NotionBoard:
         pass
 
     def schema(self, database_id: str) -> dict[str, str]:
-        return files.schemas(_settings())[database_id]
+        return store.shape(_settings())[database_id]
 
     def options(self, database_id: str, name: str) -> list[str]:
         return []
@@ -1483,27 +1495,12 @@ def _stamp() -> str:
     return datetime.now(UTC).isoformat(timespec="microseconds")
 
 
-@contextmanager
-def _mirror(
-    context: str = "",
-) -> Iterator[tuple[_NotionBoard, files.Board, sync.Mirror, sync.Stamps]]:
-    """Both boards and a fresh set of stamps, with nothing shared between runs."""
-    directory = Path(tempfile.mkdtemp())
-    try:
-        here = _NotionBoard(context)
-        there = files.Board(directory / "board", _settings())
-        both = sync.Mirror(here, there)  # type: ignore[arg-type]  # a fake Notion, without a network
-        yield here, there, both, sync.Stamps(directory / "ponos.db")
-    finally:
-        shutil.rmtree(directory, ignore_errors=True)
+def _local_api(board: ledger.Ledger) -> web_api.Api:
+    """An Api reading a board without Notion, and nothing else built.
 
-
-def _markdown_api(board: files.Board) -> web_api.Api:
-    """An Api reading a board made of files, and nothing else built.
-
-    The same shape `_bare_api` builds, with the store swapped and a
-    `[storage]` that says so: these three panes exist to be usable on an
-    installation where there is no integration to ask anything of.
+    The same shape `_bare_api` builds, with the store swapped: these panes
+    exist to be usable on an installation where there is no integration to ask
+    anything of.
     """
     api = _bare_api(board, me=board.me())
     api._config = C.Config(
@@ -1512,7 +1509,6 @@ def _markdown_api(board: files.Board) -> web_api.Api:
         projects={},
         path=Path("/nowhere/config.toml"),
         web=C.Web(),
-        storage=C.Storage(mode="markdown", path=board.root),
     )
     runner = api._runner
     assert runner is not None  # `_bare_api` built it
@@ -1527,9 +1523,9 @@ def _markdown_api(board: files.Board) -> web_api.Api:
     return api
 
 
-def _ideas_api(board: files.Board) -> web_api.Api:
-    """A console on a Markdown board, ready to find and keep ideas."""
-    api = _markdown_api(board)
+def _ideas_api(board: ledger.Ledger) -> web_api.Api:
+    """A console on a board without Notion, ready to find and keep ideas."""
+    api = _local_api(board)
     api._schema_at = time.time()
     api._reader = web_board.Reader(journal=lambda report: None)
     api._outbox = web_board.Outbox(journal=lambda report: None)

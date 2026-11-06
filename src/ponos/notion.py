@@ -676,7 +676,7 @@ class Client:
         Part of the store interface rather than of `workspace.resolve`, because
         "what is this board made of" is the one question each backend answers in
         its own terms: a Notion workspace is a directory database whose rows
-        hold inline databases, and a Markdown board is four directories.
+        hold inline databases, and a board without Notion is five names.
 
         Imported here rather than at the top: `workspace` reads pages through
         this very client, and the two modules would otherwise import each other.

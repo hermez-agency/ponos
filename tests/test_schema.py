@@ -138,13 +138,11 @@ def the_tolerances_of_the_old_loader_are_kept() -> None:
 
     config = _config(
         '[budget]\ndaily_usd = ""\nper_ticket_usd = -3\n'
-        '[storage]\nmode = "markdwon"\n'
         '[claude]\nprovider = "anthropic"\n'
         '[notify]\nevents = ["blocked", "never"]\n'
         "[notify.telegram]\nchat = -100123\nallowed_users = [1, 2]\n"
     )
     assert config.budget.daily_usd == config.budget.per_ticket_usd == 0.0
-    assert config.storage.mode == "notion"
     assert config.claude.provider == ""
     assert config.notify.events == ("blocked",)
     assert config.notify.telegram == {"chat": "-100123", "allowed_users": "1,2"}

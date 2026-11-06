@@ -512,7 +512,7 @@ export const api = {
   /* `save: false` only tries the key — the settings' Test button — and writes nothing. */
   saveProvider: (chosen: { provider: string; key?: string; route_sessions?: boolean; save?: boolean }) =>
     answer(client.POST("/api/setup/provider", { body: chosen })),
-  saveNotion: (typed: { token: string; page: string; workspace?: string; storage?: string }) =>
+  saveNotion: (typed: { token: string; page: string; workspace?: string }) =>
     answer(client.POST("/api/setup/notion", { body: typed })),
   /* Asked again every few seconds while somebody is in Notion sharing a page. */
   sharedWithNotion: (token: string) =>

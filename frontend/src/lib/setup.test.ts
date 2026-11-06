@@ -47,11 +47,10 @@ const summary: Summary = {
   model: { state: "ok", model: "", auto: true, said: "" },
   board: {
     state: "ok",
-    storage: "notion",
+    notion: true,
     workspace: "3a8451680af480918afcf0eb9cf70e7b",
     name: "Master workspace",
     url: "https://www.notion.so/3a8451680af480918afcf0eb9cf70e7b",
-    path: "",
     tickets: 12,
     said: "",
   },

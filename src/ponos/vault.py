@@ -19,7 +19,7 @@ token may still print it — an `npm whoami --verbose`, an `env` to debug a
 failing deploy — and what it prints travels into its transcript, the steps
 written live into the ticket, the comment that closes it, the console and the
 phone. Each of those has one door everything goes through (`session.run`,
-`notion.Client._request`, the Markdown board's writer, a channel's request, the
+`notion.Client._request`, the ledger's writes, a channel's request, the
 console's JSON), and `mask` stands in it: every value this process has read is
 replaced by `***` before it goes out. Masked by value rather than by name,
 because what leaks is never `$NPM_TOKEN`, it is what it expands to.

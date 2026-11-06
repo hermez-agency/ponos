@@ -8,9 +8,9 @@ import time
 from typing import Any
 
 import httpx
-from support import _bare_api, _board, _http_answering, _markdown_api, case
+from support import _bare_api, _board, _http_answering, _local_api, case
 
-from ponos import files, notion, store, workspace
+from ponos import ledger, notion, store, workspace
 from ponos.ticket import short_id
 from ponos.web import api as web_api
 
@@ -22,9 +22,9 @@ class _Watch:
         pass
 
 
-def _api(board: files.Board) -> web_api.Api:
-    """An Api over a board of files, which counts a goal's tickets without `board`."""
-    api = _markdown_api(board)
+def _api(board: ledger.Ledger) -> web_api.Api:
+    """An Api over a board without Notion, which counts a goal's tickets without `board`."""
+    api = _local_api(board)
     api.watch = _Watch()  # type: ignore[assignment]  # a double: nothing watches
     api._goals, api._goals_at = {}, 0.0
 
@@ -35,7 +35,7 @@ def _api(board: files.Board) -> web_api.Api:
     return api
 
 
-def _ticket(board: files.Board, title: str) -> str:
+def _ticket(board: ledger.Ledger, title: str) -> str:
     return board.create_row("tickets", title)
 
 
@@ -142,7 +142,7 @@ def tying_tickets_to_a_goal_writes_each_once_and_says_which_failed() -> None:
             asked.append(f"page {page_id}")
             return page(page_id)
 
-        board.update, board.page = written, read_back  # type: ignore[method-assign]  # doubles
+        board.update, board.page = written, read_back  # type: ignore[method-assign, assignment]  # doubles
         said = api.save_goal(goal, {"tickets": tickets})
         assert said["written"] == sorted(set(tickets) - {refused}), said
         assert said["failed"] == [{"id": refused, "error": "PATCH /pages: 429 rate limited"}]

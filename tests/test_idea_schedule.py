@@ -12,7 +12,7 @@ from typing import Any
 from support import _board, _ideas_api, _saved, case
 
 from ponos import config as C
-from ponos import db, files, idea_schedule, ideas, project_settings, schedules, session
+from ponos import db, idea_schedule, ideas, ledger, project_settings, schedules, session
 from ponos.web import base as web_base
 
 NOW = datetime.fromisoformat("2026-10-21T10:30:00")  # a Wednesday
@@ -177,7 +177,7 @@ def _answering(cost: float = 0.02) -> tuple[Callable[..., session.Outcome], list
 class _Pass:
     """A console with three projects, a fake session, and the schedule set as asked."""
 
-    def __init__(self, board: files.Board, **keys: Any) -> None:
+    def __init__(self, board: ledger.Ledger, **keys: Any) -> None:
         self.board = board
         idea_schedule.plan_next(_plan(), None)  # a moment left by the run before
         self.ids = {
@@ -409,7 +409,7 @@ def the_dialog_saves_into_the_file_and_the_projects_ticked_replace_what_each_sai
     state_home: Path,
 ) -> None:
     with _board() as board:
-        path, config = _saved(f'\n[storage]\nmode = "markdown"\npath = "{board.root}"\n')
+        path, config = _saved(notion=False)
         run = _Pass(board)
         api = run.api
         api._config = config

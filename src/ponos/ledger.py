@@ -14,7 +14,7 @@ untouched: projects, agents, goals, schedules, the standing context.
 ticket is a write to `ponos.db` and a row in the mirror's queue; the board is
 told on the next pass (`board.Board.mirror`). A Notion that is down, or whose
 token is refused, changes nothing for a ticket: the columns and the options
-the runner asks about come from the shape of the board (`files.schemas`), not
+the runner asks about come from the shape of the board (`store.shape`), not
 from a request, and the databases it resolved last are kept in a small file
 (`_Remembered`) for the pass that cannot resolve them.
 
@@ -41,7 +41,7 @@ from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
 
-from . import db, files, ids, provision, store, ticket_page, tickets
+from . import db, ids, pages, provision, store, ticket_page, tickets, vault
 from . import voice as voice_module
 from .config import STATUS, Notion
 from .log import FILE_ONLY
@@ -172,9 +172,12 @@ class Ledger:
         self.settings = settings
         self.words = voice_module.Voice(language)
         self._tickets = ""
+        # Without Notion there is nothing to fall back on: the tickets are the
+        # database's from the first one, adopted or not.
+        self._alone = isinstance(notion, pages.Pages)
         self._remembered = _Remembered()
         self._pages = _Pages()
-        schema = files.schemas(settings)["tickets"]
+        schema = store.shape(settings)["tickets"]
         self._schema = schema
         self._by_name = {settings.prop(key): column for column, key in _PROPERTIES}
         self._title = next((name for name, kind in schema.items() if kind == "title"), "Name")
@@ -188,11 +191,14 @@ class Ledger:
 
     def _live(self, database_id: str) -> bool:
         """Whether this database is the tickets one and the database holds tickets."""
-        return bool(self._tickets) and _bare(database_id) == self._tickets and tickets.adopted()
+        return bool(self._tickets) and _bare(database_id) == self._tickets and self._adopted()
+
+    def _adopted(self) -> bool:
+        return self._alone or tickets.adopted()
 
     def _ticket(self, page_id: str) -> tickets.Record | None:
         """The ticket a page id names, or None for a page that is not one (or no ledger yet)."""
-        if not self._tickets or not tickets.adopted():
+        if not self._tickets or not self._adopted():
             return None
         return tickets.of_page(page_id)
 
@@ -230,7 +236,7 @@ class Ledger:
                 self._pages.keep(found)
             return found
         pages = [self._page(record) for record in tickets.listing()]
-        return [page for page in pages if files._matches(page, filter_)]
+        return [page for page in pages if store.matches(page, filter_)]
 
     def page(self, page_id: str) -> Page:
         if (record := self._ticket(page_id)) is not None:
@@ -282,7 +288,7 @@ class Ledger:
             return self.notion.create_row(database_id, title, self._for_notion(values or {}))
         row = self._row(values or {})
         after = row.pop("after", None)
-        made = self._write(lambda: tickets.create(title.strip(), after=after, **row))
+        made = self._write(lambda: tickets.create(vault.mask(title.strip()), after=after, **row))
         return made.id if made else ""
 
     def append_markdown(self, page_id: str, markdown: str) -> int:
@@ -330,7 +336,7 @@ class Ledger:
         self._write(
             lambda: tickets.comment(
                 record.id,
-                text,
+                vault.mask(text),
                 author=self._remembered.read().get("me", ""),
                 discussion=discussion_id,
             )
@@ -468,8 +474,11 @@ class Ledger:
         A ticket born here has an id of its own until the mirror has made its
         page; a relation (a schedule's last ticket) can only name the page, and
         one that has none yet is left out. Anything that is not a ticket is
-        passed on as it came.
+        passed on as it came — and so is everything, without a Notion: a ticket
+        is then the only page a relation can name.
         """
+        if self._alone:
+            return dict(values)
         out: dict[str, Any] = {}
         for name, value in values.items():
             if isinstance(value, (list, tuple)):
@@ -494,7 +503,8 @@ class Ledger:
 
     def _rewrite(self, record: tickets.Record, markdown: str) -> None:
         """Cut a whole page back into its two parts and keep them."""
-        parts = ticket_page.split(markdown)
+        # The database is a door like the others: see vault.py.
+        parts = ticket_page.split(vault.mask(markdown))
         done = parts.done
         for words in voice_module.every("page-done-empty"):
             if done.strip().strip("*").strip() == words:

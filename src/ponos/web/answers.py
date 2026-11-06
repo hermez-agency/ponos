@@ -632,7 +632,7 @@ class ProjectDeleted(Shape):
     id: str
     name: str
     url: str
-    """Where the page can be restored from; empty on a board of files."""
+    """Where the page can be restored from; empty on a board without Notion."""
     tickets: int
     blocked: int
     trashed: int
@@ -641,8 +641,8 @@ class ProjectDeleted(Shape):
 class Projects(Shape):
     projects: list[Project]
     workspace_root: str
-    storage: str
-    """`storage.mode`: which board these came off."""
+    notion: bool
+    """Whether a Notion sits behind this board."""
 
 
 class Context(Shape):
@@ -653,7 +653,7 @@ class Context(Shape):
     """The page it is written on, "" where the workspace has none."""
     where: str
     """What that page is called, for the sentence that says it is missing."""
-    storage: str
+    notion: bool
     editable: bool
 
 
@@ -746,8 +746,8 @@ class Schedules(Shape):
     when unknown."""
     page: str
     """What that page is called, for the sentence that says it is missing."""
-    storage: str = omitted()
-    """`storage.mode`: which board these came off."""
+    notion: bool = omitted()
+    """Whether a Notion sits behind this board."""
     schedules: list[Schedule]
     choices: ScheduleChoices = omitted()
     """What the form offers for the type and the sub-type: only the columns the database has."""
@@ -1084,10 +1084,8 @@ class RunnerState(Shape):
     budget_spent: float
     """What the sessions have cost since midnight."""
     workspace_root: str
-    storage: str
-    """`storage.mode`: "notion", "markdown", or "both"."""
-    board_path: str
-    """Where the Markdown board is, empty unless there is one."""
+    notion: bool
+    """Whether a Notion sits behind this board."""
     interval_seconds: int
     model: str
     permission_mode: str
@@ -1792,8 +1790,8 @@ class Goals(Shape):
     """The options of the goals' status column, in the database's order."""
     configured: bool
     """Whether the workspace has a goals database at all."""
-    storage: str = omitted()
-    """`storage.mode`: which board these came off."""
+    notion: bool = omitted()
+    """Whether a Notion sits behind this board."""
 
 
 class GoalNamed(Shape):
@@ -2206,7 +2204,7 @@ class SetupState(Shape):
     """The console drew a code when it started — without one, outside is refused."""
     container: bool
     version: str
-    storage: str
+    notion: bool
 
 
 SetupHealth = Literal["ok", "missing", "error"]
@@ -2273,14 +2271,13 @@ class SetupModel(Shape):
 
 class SetupBoard(Shape):
     state: SetupHealth
-    storage: str
+    notion: bool
     workspace: str
     """The ID, for the technical detail: `name` is what the page says."""
     name: str
     """The workspace's title on Notion, "" when Notion did not say it."""
     url: str
     """Where it opens on Notion, "" when Notion did not say it."""
-    path: str
     tickets: int | None
     """Null when the board could not be counted."""
     said: str

@@ -11,7 +11,7 @@ from typing import Any
 from support import FRONTEND, ROOT, _board_runner, _BoardClient, _reviewed, case
 
 from ponos import config as C
-from ponos import files, journal, provision, session, state, store, voice
+from ponos import journal, provision, session, state, store, voice
 from ponos import ticket as ticket_module
 from ponos.web import statistics as web_statistics
 from ponos.web import tickets as web_tickets
@@ -251,7 +251,7 @@ def the_board_offers_the_column_and_doctor_names_it_when_it_is_missing() -> None
     options = [option["name"] for option in column["select"]["options"]]
     assert options == list(blocks.CODES), options
     assert "block" in store.COLUMNS and store.COLUMNS["block"][0] == ("select",)
-    assert files.schemas(settings)["tickets"]["Blocage"] == "select"
+    assert store.shape(settings)["tickets"]["Blocage"] == "select"
     from test_health import _columns
 
     columns = _columns(settings, {"statut": "status"})

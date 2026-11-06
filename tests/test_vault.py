@@ -13,7 +13,7 @@ import httpx
 from support import _bare_runner, _config, _http_answering, _tools, case
 
 from ponos import config as C
-from ponos import files, notion, prompt, session, vault
+from ponos import ledger, notion, pages, prompt, session, tickets, vault
 
 # -- the vault ---------------------------------------------------------------
 
@@ -135,12 +135,21 @@ def a_secret_read_is_masked_wherever_it_would_be_written() -> None:
             stderr.write_text("auth failed for npm_0123456789\n")
             vault.scrub(stderr)
             assert stderr.read_text() == "auth failed for ***\n"
-            # The Markdown board.
-            board = files.Board(Path(directory) / "board", _config("").notion)
+            # The database.
+            settings = _config("").notion
+            board = ledger.Ledger(pages.Pages(settings), settings)
+            board.workspace(settings)
             database = board.resolve_database("Tickets")
             page = board.create_row(database, "Publish npm_0123456789")
             board.comment(page, "done with npm_0123456789")
-            written = "".join(path.read_text() for path in Path(directory, "board").rglob("*.md"))
+            written = "".join(
+                [record.title for record in tickets.listing()]
+                + [
+                    remark.text
+                    for record in tickets.listing()
+                    for remark in tickets.comments(record.id)
+                ]
+            )
             assert "npm_0123456789" not in written and "***" in written, written
         # Notion: what is sent, whatever the call.
         sent: list[bytes] = []

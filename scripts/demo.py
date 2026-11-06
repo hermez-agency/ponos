@@ -34,11 +34,13 @@ from __future__ import annotations
 
 import hashlib
 import random
+import re
 import shutil
 import signal
 import subprocess
 import sys
 import tempfile
+import unicodedata
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -49,7 +51,7 @@ import workbench  # noqa: E402
 
 workbench.relaunch()
 
-from ponos import files, schedules  # noqa: E402
+from ponos import schedules  # noqa: E402
 
 PORT = "8791"
 TOKEN = "demo"
@@ -805,9 +807,11 @@ def brief(rng: random.Random, title: str, size: str) -> str:
     return "\n\n".join(parts)
 
 
-def write_page(directory: Path, title: str, front: dict[str, Any], body: str) -> None:
-    name = f"{files.slug(title)}-{front['id'][-8:]}.md"
-    (directory / name).write_text(files.render({"title": title, **front}, body), encoding="utf-8")
+def slug(text: str, limit: int = 48) -> str:
+    """A branch name somebody can read, from a title somebody wrote."""
+    text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode()
+    text = re.sub(r"[^a-zA-Z0-9]+", "-", text).strip("-").lower()
+    return text[:limit].rstrip("-") or "page"
 
 
 class Ticket:
@@ -885,18 +889,11 @@ def tickets_of(rng: random.Random) -> list[Ticket]:
     return found
 
 
-def board(root: Path, rng: random.Random, tickets: list[Ticket]) -> None:
-    """The board in Markdown files: projects, agents, tickets, comments and recurrences."""
-    folders = {
-        name: root / name
-        for name in ("tickets", "projects", "agents", "schedules", "goals", "comments")
-    }
-    for folder in folders.values():
-        folder.mkdir(parents=True)
-    (root / "context.md").write_text(
+def board(seed: workbench.Seed, rng: random.Random, tickets: list[Ticket]) -> None:
+    """The board in `ponos.db`: projects, agents, tickets, comments and recurrences."""
+    seed.context(
         "We are a small agency. Write plainly, in the language of the ticket, and say what you "
-        "could not check.\n\nPull requests are small and say why. Nothing is merged on a red build.\n",
-        encoding="utf-8",
+        "could not check.\n\nPull requests are small and say why. Nothing is merged on a red build.\n"
     )
     for key, (name, icon, repository, about) in PROJECTS.items():
         front: dict[str, Any] = {"id": ident("project", key), "created": stamp(ago(60))}
@@ -904,17 +901,15 @@ def board(root: Path, rng: random.Random, tickets: list[Ticket]) -> None:
             front["icon"] = icon
         if repository:
             front["Repository"] = repository
-        write_page(
-            folders["projects"],
-            name,
-            front,
+        seed.write(
+            "projects",
+            {"title": name, **front},
             f"{about}\n\n## Conventions\n\n{sentence_list(TASKS[:3])}",
         )
     for key, (name, model, role) in AGENTS.items():
-        write_page(
-            folders["agents"],
-            name,
-            {"id": ident("agent", key), "Model": model, "created": stamp(ago(45))},
+        seed.write(
+            "agents",
+            {"title": name, "id": ident("agent", key), "Model": model, "created": stamp(ago(45))},
             role,
         )
     served = {}
@@ -930,7 +925,7 @@ def board(root: Path, rng: random.Random, tickets: list[Ticket]) -> None:
         }
         if due is not None:
             front["Échéance"] = ago(-due).date().isoformat()
-        write_page(folders["goals"], name, front, about)
+        seed.write("goals", {"title": name, **front}, about)
         served.update({title: front["id"] for title in titles})
     for number, ticket in enumerate(tickets):
         front = {
@@ -965,18 +960,10 @@ def board(root: Path, rng: random.Random, tickets: list[Ticket]) -> None:
             front["Objectif"] = [served[ticket.title]]
         size = ("short", "medium", "long", "medium")[number % 4]
         body = "" if ticket.flag == "ticket.empty" else brief(rng, ticket.title, size)
-        write_page(folders["tickets"], ticket.title, front, body)
+        seed.write("tickets", {"title": ticket.title, **front}, body)
         said = report_of(rng, ticket)
         if said:
-            comment = {
-                "id": ident("comment", ticket.title),
-                "at": stamp(ticket.edited),
-                "by": REPORT_AUTHOR,
-                "discussion": ident("comment", ticket.title),
-            }
-            (folders["comments"] / f"{ticket.id}.md").write_text(
-                files.render(comment, said), encoding="utf-8"
-            )
+            seed.say(ticket.id, said, at=stamp(ticket.edited), by=REPORT_AUTHOR)
     for name, project, cadence, at, weekday, active, kind, subtype, model, text in SCHEDULES:
         front = {
             "id": ident("schedule", name),
@@ -1003,7 +990,7 @@ def board(root: Path, rng: random.Random, tickets: list[Ticket]) -> None:
         born = [t for t in tickets if t.flag == "recurring" and t.title.startswith(name)]
         if born:
             front["Last ticket"] = [born[-1].id]
-        write_page(folders["schedules"], name, front, text)
+        seed.write("schedules", {"title": name, **front}, text)
 
 
 def report_of(rng: random.Random, ticket: Ticket) -> str:
@@ -1011,7 +998,7 @@ def report_of(rng: random.Random, ticket: Ticket) -> str:
     if ticket.status == "blocked" and ticket.flag in STOPS:
         category, why, ask, options = STOPS[ticket.flag]
         lines = [
-            f"🙋 Stuck — branch `ticket/{files.slug(ticket.title)[:30]}` ready",
+            f"🙋 Stuck — branch `ticket/{slug(ticket.title)[:30]}` ready",
             f"{category}: {why}",
         ]
         if ask:
@@ -1100,7 +1087,7 @@ def history_of(rng: random.Random, tickets: list[Ticket]) -> None:
                 )
             elif ticket.pull_request:
                 line["pull_request"] = ticket.pull_request
-                line["branch"] = f"ticket/{files.slug(ticket.title)[:30]}"
+                line["branch"] = f"ticket/{slug(ticket.title)[:30]}"
                 line["commits"] = rng.randint(1, 6)
             elif ticket.kind != CODE:
                 line["kind"] = "publication" if ticket.kind == PUBLICATION else "document"
@@ -1345,8 +1332,8 @@ def build(here: Path) -> None:
     """Everything: the board, then the local state the console reads beside it."""
     rng = random.Random(SEED)
     tickets = tickets_of(rng)
-    board(here / "board", rng, tickets)
-    workbench.stage(here, here / "board", token=TOKEN)
+    workbench.stage(here, token=TOKEN)
+    board(workbench.Seed(), rng, tickets)
     runs_of(rng, tickets)
     history_of(rng, tickets)
     journal_of(rng, tickets)

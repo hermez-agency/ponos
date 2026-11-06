@@ -4,15 +4,16 @@
 `scripts/demo.py` the one you open to work on the interface. Their data differ —
 one ticket per gesture to check against a board drawn to be looked at — and
 must stay apart, or a prettier demo would move a test. What does not differ is
-everything around the data, and it is here once: the board of files under a
-configuration of its own, a `XDG_STATE_HOME` and a `HOME` in a temporary
+everything around the data, and it is here once: a configuration of its own
+(no Notion token, so the board is `ponos.db`), a `XDG_STATE_HOME` and a `HOME` in a temporary
 directory so that nothing reads the state of the console you run for yourself,
 and a `claude`, a `gh` and a `systemctl` first in the PATH, so that nothing
 reaches a session, GitHub, the machine's timer or its keyring.
 
 The caller writes the board and the local state (the journal, the bell) between
 `stage` and `serve`, because those are written through `ponos` itself, and
-`ponos` reads where its state is from the environment `stage` sets.
+`ponos` reads where its state is from the environment `stage` sets: `Seed` is
+how a board is written there, ticket by ticket and page by page.
 """
 
 from __future__ import annotations
@@ -177,30 +178,22 @@ def tool(name: str, payload: dict[str, Any]) -> dict[str, Any]:
 
 def stage(
     here: Path,
-    board: Path,
     *,
     token: str | None,
     signed: bool = True,
     newer: str = "",
-    notion: bool = False,
 ) -> None:
     """Everything a console needs around its board, in `here`, and the environment that points at it.
 
     `token` None is a console nobody has claimed. `newer` is a commit the
     update check found, for the version at the top right to offer; empty, the
     checkout is the newest there is. Either way the console's own checks are
-    off, so that nothing asks a remote. `notion` is the file `install.sh` used to
-    leave: `mode = "notion"` and no token, the board nobody can read yet.
+    off, so that nothing asks a remote.
     """
     config = here / "config.toml"
-    storage = (
-        '[storage]\nmode = "notion"\n'
-        if notion
-        else f'[storage]\nmode = "markdown"\npath = "{board}"\n'
-    )
     config.write_text(
         # No load guard: a busy machine must not hold the board's tickets back.
-        f"{storage}\n[runner]\nauto_update = false\nmax_load_per_core = 0\n",
+        "[runner]\nauto_update = false\nmax_load_per_core = 0\n",
         encoding="utf-8",
     )
     if token is not None:
@@ -251,3 +244,97 @@ def stage(
 
 def serve(port: str) -> None:
     os.execvp(sys.executable, [sys.executable, "-m", "ponos", "service", "run", "--port", port])
+
+
+class Seed:
+    """A board written into the `ponos.db` `stage` pointed at, the way the console reads it.
+
+    A page is given as it used to be written in a file: a title, the board's
+    own column names with their values, a body. Call it after `stage`, and
+    close the database (`ponos.db.close()`) before `serve`.
+    """
+
+    def __init__(self) -> None:
+        from ponos import config, ledger, pages
+
+        settings = config.Notion()
+        self.store = ledger.Ledger(pages.Pages(settings), settings)
+        self.store.workspace(settings)
+
+    def write(self, collection: str, front: dict[str, Any], body: str = "") -> None:
+        """A page as its front matter said it: `id`, `title`, `created`, `icon`, and the board's columns."""
+        columns = dict(front)
+        id, title = columns.pop("id"), columns.pop("title")
+        if collection == "tickets":
+            self.ticket(
+                id,
+                title,
+                body,
+                created=columns.pop("created", ""),
+                edited=columns.pop("edited", ""),
+                **columns,
+            )
+        else:
+            self.page(collection, id, title, body, icon=columns.pop("icon", ""), **columns)
+
+    def ticket(
+        self,
+        id: str,
+        title: str,
+        body: str = "",
+        *,
+        created: str = "",
+        edited: str = "",
+        **properties: Any,
+    ) -> None:
+        from ponos import db, tickets
+
+        born: dict[str, Any] = {"created_at": created} if created else {}
+        tickets.create(title, id=id, **born)
+        if properties:
+            self.store.update("tickets", id, properties)
+        if body:
+            self.store.replace_markdown(id, body)
+        if edited:
+            # Last, because every write above stamps the ticket with the moment it was made.
+            with db.transaction() as connection:
+                connection.execute("UPDATE tickets SET edited_at = ? WHERE id = ?", (edited, id))
+
+    def project(
+        self, id: str, name: str, body: str = "", *, icon: str = "", **properties: Any
+    ) -> None:
+        self.page("projects", id, name, body, icon=icon, **properties)
+
+    def page(
+        self,
+        collection: str,
+        id: str,
+        title: str,
+        body: str = "",
+        *,
+        icon: str = "",
+        **properties: Any,
+    ) -> None:
+        from ponos import store
+
+        # The pages a ticket points at are the database's own here (see pages.py).
+        self.store.notion.create_row(collection, title, properties, page_id=id)  # type: ignore[call-arg]
+        if body:
+            self.store.replace_markdown(id, body)
+        if icon:
+            self.store.set_picture(id, "icon", store.Picture(emoji=icon))
+
+    def say(self, ticket: str, text: str, *, at: str = "", by: str = "ponos") -> None:
+        """A comment on a ticket, by default the runner's."""
+        from ponos import db, tickets
+
+        remark = tickets.comment(ticket, text, author=by)
+        if at:
+            with db.transaction() as connection:
+                connection.execute(
+                    "UPDATE ticket_comments SET at = ? WHERE id = ?", (at, remark.id)
+                )
+
+    def context(self, text: str) -> None:
+        """The standing context every ticket is read with."""
+        self.store.notion.set_context(text)  # type: ignore[attr-defined]

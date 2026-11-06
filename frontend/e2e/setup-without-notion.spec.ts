@@ -2,8 +2,8 @@ import { expect, test } from "@playwright/test"
 
 /* The first connection on the configuration `install.sh` used to leave:
  * `mode = "notion"` and no token. Nobody has to edit a file — the Notion step
- * offers a board of Markdown files next to the token, and the project and the
- * demonstration ticket are then made on it.
+ * has nothing to choose: the Notion step is optional, and the project and the
+ * demonstration ticket are made on Ponos's own board.
  */
 
 test.use({ viewport: { width: 1280, height: 900 }, locale: "en-GB", timezoneId: "UTC" })
@@ -18,17 +18,9 @@ test("without Notion, the first connection reaches a project and a demonstration
   await expect(page.getByTestId("setup-provider")).toBeVisible()
   await page.getByRole("button", { name: "Continue" }).click()
 
-  // Two roads of the same weight, and neither is taken for the visitor.
+  // No token, and nothing to choose: Notion is offered, and passing is allowed.
   await expect(page.getByTestId("setup-notion")).toBeVisible()
-  const roads = page.getByRole("radiogroup", { name: "Where the board lives" }).getByRole("radio")
-  await expect(roads).toHaveCount(2)
-  await expect(page.getByTestId("board-notion")).toHaveAttribute("aria-checked", "false")
-  await expect(page.getByTestId("board-markdown")).toHaveAttribute("aria-checked", "false")
-  await expect(page.getByRole("button", { name: "Continue" })).toBeDisabled()
-
-  await page.getByTestId("board-markdown").click()
-  await expect(page.getByTestId("board-markdown")).toHaveAttribute("aria-checked", "true")
-  await expect(page.getByTestId("board-files")).toBeVisible()
+  await expect(page.getByRole("radiogroup")).toHaveCount(0)
   await page.getByRole("button", { name: "Continue" }).click()
 
   await expect(page.getByTestId("setup-github")).toBeVisible()

@@ -1,10 +1,10 @@
-"""The console the browser tests open: a real `ponos service run`, on a board of files.
+"""The console the browser tests open: a real `ponos service run`, on a board in a `ponos.db` of its own.
 
 Real rather than a page with its API stubbed, because what these tests guard is
 what the page does once the server has answered — how tall it is, whether it
 scrolls — and a stub would be a second copy of every route to keep true. The
-board is Markdown in a temporary directory (`files.py`), so nothing reaches
-Notion, and `XDG_STATE_HOME` points there too, so nothing reads the state of the
+board is a `ponos.db` in a temporary directory, with no Notion token, so
+nothing reaches Notion, and `XDG_STATE_HOME` points there too, so nothing reads the state of the
 console you run for yourself.
 
     python3 e2e/console.py 8790
@@ -52,7 +52,7 @@ from __future__ import annotations
 import shutil
 import sys
 import tempfile
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -61,8 +61,6 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import workbench  # noqa: E402
 
 workbench.relaunch()
-
-from ponos import files  # noqa: E402
 
 # The token the tests open the console with: a board of fixtures has nothing to guard.
 TOKEN = "e2e"
@@ -82,7 +80,11 @@ GESTURES = {
 # of a session: validated and waiting, and blocked on a red CI.
 MERGES = {
     "00000000000000000000000000fe4901": ("A pull request waiting for its merge", "validated", ""),
-    "00000000000000000000000000fe4902": ("A merge refused on a red CI", "blocked", "merge.checks-failed"),
+    "00000000000000000000000000fe4902": (
+        "A merge refused on a red CI",
+        "blocked",
+        "merge.checks-failed",
+    ),
 }
 # Cards waiting on you, for a blocked ticket's discussion and the Decide tab:
 # blocked on a report that names its kind of stop — one to read, and one for
@@ -113,7 +115,11 @@ NAMES = {
 }
 # A card in progress that no session has written a step for yet, on a model
 # whose name is longer than the card is wide.
-STARTING = ("000000000000000000000000000057a1", "Warm up the engine", "qwen/qwen-2.5-coder-32b-instruct")
+STARTING = (
+    "000000000000000000000000000057a1",
+    "Warm up the engine",
+    "qwen/qwen-2.5-coder-32b-instruct",
+)
 # A card in progress between two sessions: its pull request opened, its CI waited for.
 WAITING_CI = ("0000000000000000000000000000c1a1", "Wait for the checks")
 # Code tickets with a sub-type, written as the board writes it: the card wears
@@ -147,7 +153,12 @@ DELIVERED = (
 # their priority — and two in review. One project, with an icon.
 SERIES = {
     "000000000000000000000000005e0001": ("Pick the colour", "blocked", "session.question", 30),
-    "000000000000000000000000005e0002": ("Give the deploy key", "blocked", "access.credentials", 90),
+    "000000000000000000000000005e0002": (
+        "Give the deploy key",
+        "blocked",
+        "access.credentials",
+        90,
+    ),
     "000000000000000000000000005e0003": ("Restart the build", "blocked", "session.killed", 99),
     "000000000000000000000000005e0004": ("Add the dark mode", "review", "", 50),
     "000000000000000000000000005e0005": ("Add the footer", "review", "", 50),
@@ -155,14 +166,20 @@ SERIES = {
 SERIES_PROJECT = ("000000000000000000000000005e0caf", "Studio", "🎨")
 PAUSED = "00000000000000000000000000005ed1"
 DUE = "00000000000000000000000000005ed2"
-PROJECTS = {"0000000000000000000000000000cafe": "Website", "0000000000000000000000000000beef": "Newsletter"}
+PROJECTS = {
+    "0000000000000000000000000000cafe": "Website",
+    "0000000000000000000000000000beef": "Newsletter",
+}
 WRITING = ("0000000000000000000000000000f00d", "Journal", "📝")
 # A ticket on a project that has an icon: what its card's foot shows.
 FOOTED = ("00000000000000000000000000f007ed", "Write the journal entry")
 # Two projects only the deleting tests touch — one from the list, one from its
 # page — each with a ticket ready and one done, which a deletion must tell apart.
 # Written only for the console given `doomed`: the other tests count projects.
-DOOMED = {"0000000000000000000000000000d001": "Old shop", "0000000000000000000000000000d002": "Old blog"}
+DOOMED = {
+    "0000000000000000000000000000d001": "Old shop",
+    "0000000000000000000000000000d002": "Old blog",
+}
 
 
 def pull_request(id: str) -> str:
@@ -183,7 +200,11 @@ def checks_of() -> None:
                 "head": "abc123",
                 "state": verdict,
                 "checks": [
-                    {"name": f"job-{number}", "bucket": bucket, "link": f"https://github.com/example/site/actions/runs/{number}"}
+                    {
+                        "name": f"job-{number}",
+                        "bucket": bucket,
+                        "link": f"https://github.com/example/site/actions/runs/{number}",
+                    }
                     for number, bucket in enumerate(buckets)
                 ],
                 "since": time.time(),
@@ -194,37 +215,26 @@ def checks_of() -> None:
     db.close()
 
 
-def board(root: Path, doomed: bool = False) -> None:
-    tickets = root / "tickets"
-    tickets.mkdir(parents=True)
+def board(seed: workbench.Seed, doomed: bool = False) -> None:
     brief = "\n\n".join(
         f"## Part {part}\n\n" + " ".join(["A line of the brief, long enough to wrap."] * 12)
         for part in range(1, 41)
     )
     long = {"id": LONG, "title": "A long ticket", "statut": "ready", "Priorité": 90}
-    (tickets / f"a-long-ticket-{LONG[-8:]}.md").write_text(files.render(long, brief), encoding="utf-8")
+    seed.write("tickets", long, brief)
     asking = {
         "id": ASKING,
         "title": "A ticket with a question",
         "statut": "blocked",
         "Blocage": "session.question",
     }
-    (tickets / f"a-ticket-with-a-question-{ASKING[-8:]}.md").write_text(
-        files.render(asking, "Put the logo in the header."), encoding="utf-8"
-    )
-    comments = root / "comments"
-    comments.mkdir()
-    question = {"id": "q1", "at": "2026-09-30T10:00:00+00:00", "by": "ponos", "discussion": "q1"}
-    (comments / f"{ASKING}.md").write_text(
-        files.render(question, "🙋 Question\nWhich header, the dashboard's or the site's?"), encoding="utf-8"
-    )
+    seed.write("tickets", asking, "Put the logo in the header.")
+    seed.say(ASKING, "🙋 Question\nWhich header, the dashboard's or the site's?")
     for id, title in NAMES.items():
         page = {"id": id, "title": title, "statut": "review", "Pull Request": pull_request(id)}
         if id in SUBTYPED:
             page.update({"Type": "Code", "Sous-type": SUBTYPED[id]})
-        (tickets / f"{title.lower().replace(' ', '-')}-{id[-8:]}.md").write_text(
-            files.render(page, "A short brief."), encoding="utf-8"
-        )
+        seed.write("tickets", page, "A short brief.")
     for id, (title, status, column) in WAITING.items():
         page = {"id": id, "title": title, "statut": status}
         if id in CHECKED:
@@ -232,106 +242,81 @@ def board(root: Path, doomed: bool = False) -> None:
             # What it cost: the foot of its card has more to say than its checks.
             page["Cost"] = 7.28
             page["created"] = "2026-10-15T10:00:00+00:00"
-        (tickets / f"{title.lower().replace(' ', '-')}-{id[-8:]}.md").write_text(
-            files.render(page, "A short brief."), encoding="utf-8"
-        )
-        said = {"id": f"r{id[-4:]}", "at": "2026-10-01T10:00:00+00:00", "by": "ponos",
-                "discussion": f"r{id[-4:]}"}
-        (comments / f"{id}.md").write_text(
-            files.render(said, REPORTS.get(id, STUCK) if column == "blocked" else DELIVERED), encoding="utf-8"
-        )
+        seed.write("tickets", page, "A short brief.")
+        seed.say(id, REPORTS.get(id, STUCK) if column == "blocked" else DELIVERED)
     id, title = WAITING_CI
     page = {"id": id, "title": title, "statut": "progress", "Pull Request": pull_request(id)}
-    (tickets / f"{title.lower().replace(' ', '-')}-{id[-8:]}.md").write_text(
-        files.render(page, "A short brief."), encoding="utf-8"
-    )
+    seed.write("tickets", page, "A short brief.")
     id, title, model = STARTING
     page = {"id": id, "title": title, "statut": "progress", "Model": model}
-    (tickets / f"{title.lower().replace(' ', '-')}-{id[-8:]}.md").write_text(
-        files.render(page, "A short brief."), encoding="utf-8"
-    )
+    seed.write("tickets", page, "A short brief.")
     for number in range(1, 13):
         page = {"id": f"{number:032d}", "title": f"Ticket {number}", "statut": "draft"}
-        (tickets / f"ticket-{number}-{page['id'][-8:]}.md").write_text(
-            files.render(page, "A short brief."), encoding="utf-8"
-        )
+        seed.write("tickets", page, "A short brief.")
     for id, (title, status) in GESTURES.items():
         page = {"id": id, "title": title, "statut": status}
-        (tickets / f"{title.lower().replace(' ', '-')}-{id[-8:]}.md").write_text(
-            files.render(page, "A short brief."), encoding="utf-8"
-        )
+        seed.write("tickets", page, "A short brief.")
     for id, (title, status, code) in MERGES.items():
         page = {"id": id, "title": title, "statut": status, "Pull Request": pull_request(id)}
         if code:
             page["Blocage"] = code
-        (tickets / f"{title.lower().replace(' ', '-')}-{id[-8:]}.md").write_text(
-            files.render(page, "A short brief."), encoding="utf-8"
-        )
-    projects = root / "projects"
-    projects.mkdir()
+        seed.write("tickets", page, "A short brief.")
     for id, name in PROJECTS.items():
         page = {"id": id, "title": name, "Repository": f"example/{name.lower()}"}
-        (projects / f"{name.lower()}-{id[-8:]}.md").write_text(
-            files.render(page, f"The brief of {name}."), encoding="utf-8"
-        )
+        seed.write("projects", page, f"The brief of {name}.")
     for number, (id, name) in enumerate(DOOMED.items() if doomed else ()):
         page = {"id": id, "title": name, "Repository": f"example/{name.lower().replace(' ', '-')}"}
-        (projects / f"{name.lower().replace(' ', '-')}-{id[-8:]}.md").write_text(
-            files.render(page, f"The brief of {name}."), encoding="utf-8"
-        )
+        seed.write("projects", page, f"The brief of {name}.")
         for status in ("ready", "done"):
-            ticket = f"{number * 2 + (status == "done") + 1:030d}0{number + 1}"
+            ticket = f"{number * 2 + (status == 'done') + 1:030d}0{number + 1}"
             title = f"{name} work, {status.lower()}"
             page = {"id": ticket, "title": title, "statut": status, "Project": [id]}
-            (tickets / f"{title.lower().replace(' ', '-').replace(',', '')}-{ticket[-8:]}.md").write_text(
-                files.render(page, "A short brief."), encoding="utf-8"
-            )
+            seed.write("tickets", page, "A short brief.")
     id, name, icon = WRITING
     page = {"id": id, "title": name, "icon": icon}
-    (projects / f"{name.lower()}-{id[-8:]}.md").write_text(
-        files.render(page, f"The brief of {name}."), encoding="utf-8"
-    )
+    seed.write("projects", page, f"The brief of {name}.")
     # A ticket on that project, for the card's foot: its icon, and its link.
     page = {"id": FOOTED[0], "title": FOOTED[1], "statut": "ready", "Project": [WRITING[0]]}
-    (tickets / f"footed-{FOOTED[0][-8:]}.md").write_text(files.render(page, "A short brief."), encoding="utf-8")
+    seed.write("tickets", page, "A short brief.")
     # Two schedules whose `Next` is weeks behind: one turned off since, which
     # will not fire, and one on, which fires on the next pass. Neither may show
     # a date in the past.
-    schedules = root / "schedules"
-    schedules.mkdir()
     for id, name, active in ((PAUSED, "Test email", False), (DUE, "Weekly digest", True)):
-        page = {"id": id, "title": name, "Cadence": "Hourly", "At": "00:00",
-                "Active": active, "Next": "2026-09-09T21:00:00+02:00"}
+        page = {
+            "id": id,
+            "title": name,
+            "Cadence": "Hourly",
+            "At": "00:00",
+            "Active": active,
+            "Next": "2026-09-09T21:00:00+02:00",
+        }
         # The turned-off one did fire, a minute ago: the calendar's only past.
         if not active:
-            page["Last"] = (datetime.now().astimezone() - timedelta(minutes=1)).isoformat(timespec="minutes")
-        (schedules / f"{name.lower().replace(' ', '-')}-{id[-8:]}.md").write_text(
-            files.render(page, "Send it."), encoding="utf-8"
-        )
+            page["Last"] = (datetime.now().astimezone() - timedelta(minutes=1)).isoformat(
+                timespec="minutes"
+            )
+        seed.write("schedules", page, "Send it.")
 
 
-def series_board(root: Path) -> None:
+def series_board(seed: workbench.Seed) -> None:
     """The board of `series.spec.ts`: nothing but the cards its series go through."""
-    tickets = root / "tickets"
-    tickets.mkdir(parents=True)
-    comments = root / "comments"
-    comments.mkdir()
-    projects = root / "projects"
-    projects.mkdir()
     id, name, icon = SERIES_PROJECT
     page = {"id": id, "title": name, "icon": icon}
-    (projects / f"{name.lower()}-{id[-8:]}.md").write_text(files.render(page, f"The brief of {name}."), encoding="utf-8")
+    seed.write("projects", page, f"The brief of {name}.")
     for number, (id, (title, status, code, priority)) in enumerate(SERIES.items()):
-        page = {"id": id, "title": title, "statut": status, "Priorité": priority, "Project": [SERIES_PROJECT[0]],
-                "created": f"2026-10-{10 + number}T10:00:00+00:00"}
+        page = {
+            "id": id,
+            "title": title,
+            "statut": status,
+            "Priorité": priority,
+            "Project": [SERIES_PROJECT[0]],
+            "created": f"2026-10-{10 + number}T10:00:00+00:00",
+        }
         if code:
             page["Blocage"] = code
-        (tickets / f"{title.lower().replace(' ', '-')}-{id[-8:]}.md").write_text(
-            files.render(page, "A short brief."), encoding="utf-8"
-        )
-        said = {"id": f"r{id[-4:]}", "at": "2026-10-01T10:00:00+00:00", "by": "ponos", "discussion": f"r{id[-4:]}"}
+        seed.write("tickets", page, "A short brief.")
         report = DELIVERED if status == "review" else STUCK
-        (comments / f"{id}.md").write_text(files.render(said, report), encoding="utf-8")
+        seed.say(id, report)
 
 
 # The board of `accounts.spec.ts`: what a reader looks at, and what a member validates.
@@ -344,20 +329,13 @@ ACCOUNTS = {
 SHARED = "✅ To review — 2 commits · 4 minutes\nAdds a share button under each article."
 
 
-def accounts_board(root: Path) -> None:
+def accounts_board(seed: workbench.Seed) -> None:
     """The board of `accounts.spec.ts`: nothing but the cards its two people look at."""
-    tickets, comments = root / "tickets", root / "comments"
-    tickets.mkdir(parents=True)
-    comments.mkdir()
     for id, (title, status) in ACCOUNTS.items():
         page = {"id": id, "title": title, "statut": status}
-        (tickets / f"{title.lower().replace(' ', '-')}-{id[-8:]}.md").write_text(
-            files.render(page, "A short brief."), encoding="utf-8"
-        )
+        seed.write("tickets", page, "A short brief.")
         if status == "review":
-            said = {"id": f"r{id[-4:]}", "at": "2026-10-01T10:00:00+00:00", "by": "ponos",
-                    "discussion": f"r{id[-4:]}"}
-            (comments / f"{id}.md").write_text(files.render(said, SHARED), encoding="utf-8")
+            seed.say(id, SHARED)
 
 
 def journal_of(ticket: str) -> None:
@@ -373,9 +351,20 @@ def journal_of(ticket: str) -> None:
     first.event({"type": "system", "subtype": "init", "model": "claude-sonnet-4-5-20250929"})
     first.event(workbench.said("I read the brief first."))
     first.event(workbench.tool("Bash", {"command": "make test"}))
-    first.event({"type": "user", "message": {"content": [
-        {"type": "tool_result", "is_error": True, "content": "make: *** No rule to make target"}
-    ]}})
+    first.event(
+        {
+            "type": "user",
+            "message": {
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "is_error": True,
+                        "content": "make: *** No rule to make target",
+                    }
+                ]
+            },
+        }
+    )
     first.event({"type": "result", "total_cost_usd": 0.12})
     first.end("failed", "the session ended badly")
     second = journal.Run.start(ticket=ticket, title="A ticket that asked", session="second")
@@ -388,7 +377,7 @@ def journal_of(ticket: str) -> None:
     second.end("blocked", "which header", "session.question")
     # Fifteen minutes of work in all — ten, then five — and the hour between
     # them waited on, for the time the Brief adds up and the card wears.
-    now = datetime.now(timezone.utc).replace(microsecond=0)
+    now = datetime.now(UTC).replace(microsecond=0)
     for run, begun, minutes in ((first, 130, 10), (second, 60, 5)):
         start = now - timedelta(minutes=begun)
         with db.transaction() as connection:
@@ -412,7 +401,7 @@ def bell_of() -> None:
 
     notifications.add("failed", LONG, "A long ticket")
     notifications.add("review", "0000000000000000000000000000d0e0", "A finished ticket")
-    rung = (datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat(timespec="seconds")
+    rung = (datetime.now(UTC) - timedelta(minutes=10)).isoformat(timespec="seconds")
     with db.transaction() as connection:
         connection.execute("UPDATE notifications SET at = ?", (rung,))
     notifications.add("review", "00000000000000000000000000c1c102", "Speed up the search")
@@ -427,8 +416,8 @@ def main() -> None:
     port = sys.argv[1] if len(sys.argv) > 1 else "8790"
     # `unclaimed`: no token and no sign-in, for the first connection's steps.
     mode = sys.argv[2] if len(sys.argv) > 2 else ""
-    # `fresh`: unclaimed too, on the configuration `install.sh` used to leave —
-    # Notion as the board and no token to read it with.
+    # `fresh`: unclaimed too, and on no board at all — what an installation
+    # serves before anything is written: no Notion, and nothing in `ponos.db`.
     fresh = mode == "fresh"
     unclaimed = mode == "unclaimed" or fresh
     here = Path(tempfile.mkdtemp(prefix="ponos-e2e-"))
@@ -437,20 +426,23 @@ def main() -> None:
         here = Path(tempfile.gettempdir()) / f"ponos-e2e-accounts-{port}"
         shutil.rmtree(here, ignore_errors=True)
         here.mkdir()
-        accounts_board(here / "board")
-    elif mode == "series":
-        series_board(here / "board")
-    elif not fresh:
-        board(here / "board", doomed=mode == "doomed")
     workbench.stage(
         here,
-        here / "board",
         token=None if unclaimed else TOKEN,
         signed=not unclaimed,
         newer=NEWER,
-        notion=fresh,
     )
     if not fresh:
+        seed = workbench.Seed()
+        if mode == "accounts":
+            accounts_board(seed)
+        elif mode == "series":
+            series_board(seed)
+        else:
+            board(seed, doomed=mode == "doomed")
+        from ponos import db
+
+        db.close()
         journal_of(ASKING)
         bell_of()
         checks_of()

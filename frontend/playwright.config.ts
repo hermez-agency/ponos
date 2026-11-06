@@ -4,7 +4,7 @@ import { defineConfig } from "@playwright/test"
 
 /* The console in a browser, against a real `ponos service run`.
  *
- * `e2e/console.py` starts it on a board of Markdown files it writes itself, so
+ * `e2e/console.py` starts it on a `ponos.db` it fills itself, so
  * the tests need python3 with what the runner imports (`requirements.txt`) and
  * nothing of yours: the repository's `.venv` when `uv sync` has made one, the
  * `python3` on the PATH otherwise — the CI installs the requirements there. The browser is the Chrome

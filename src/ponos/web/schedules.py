@@ -191,9 +191,8 @@ class Schedules(Base):
             "timezone": schedules_module.timezone_name(),
             "database": database,
             "page": self.config.notion.page("schedules"),
-            # Which board: "a row in the database" is Notion's sentence, and a
-            # Markdown board has files.
-            "storage": self.config.storage.mode,
+            # "A row in the database" is Notion's sentence.
+            "notion": not self.config.standalone,
             "schedules": [self._schedule(row, projects) for row in rows],
             # The passes that find ideas, drawn on the same calendar and not
             # editable from it: they are set on the Ideas page.

@@ -17,7 +17,7 @@ from collections import Counter
 from pathlib import Path
 from types import ModuleType
 
-from support import ROOT, case
+from support import ROOT, _state_home, case
 
 _STAMP = re.compile(r"\d{4}-\d\d-\d\dT[\d:.+-]+")
 
@@ -30,24 +30,29 @@ def _demo() -> ModuleType:
     return module
 
 
-def _written(demo: ModuleType, directory: Path) -> dict[str, str]:
-    """The board of one start, by file, with every date taken out: those are what may differ."""
-    rng = random.Random(demo.SEED)
-    demo.board(directory, rng, demo.tickets_of(rng))
-    return {
-        str(path.relative_to(directory)): _STAMP.sub("<date>", path.read_text(encoding="utf-8"))
-        for path in sorted(directory.rglob("*.md"))
-    }
+def _written() -> dict[str, str]:
+    """The board of one start, by table, with every date taken out: those are what may differ."""
+    from ponos import db
+
+    demo = _demo()
+    with _state_home():
+        rng = random.Random(demo.SEED)
+        demo.board(demo.workbench.Seed(), rng, demo.tickets_of(rng))
+        found: dict[str, str] = {}
+        with db.transaction(immediate=False) as connection:
+            for table in ("tickets", "ticket_after", "ticket_comments", "board_pages"):
+                rows = connection.execute(f"SELECT * FROM {table} ORDER BY 1, 2").fetchall()  # noqa: S608
+                found[table] = _STAMP.sub("<date>", "\n".join(repr(tuple(row)) for row in rows))
+        db.close()
+    return found
 
 
 @case
 def the_demo_board_is_the_same_at_every_start() -> None:
-    demo = _demo()
-    with tempfile.TemporaryDirectory() as first, tempfile.TemporaryDirectory() as second:
-        one = _written(demo, Path(first) / "board")
-        two = _written(demo, Path(second) / "board")
+    one, two = _written(), _written()
     assert one == two
-    assert len(one) > 100, len(one)
+    assert len(one["tickets"].splitlines()) > 60, len(one["tickets"].splitlines())
+    assert one["board_pages"] and one["ticket_comments"]
 
 
 @case
@@ -94,6 +99,7 @@ def the_demo_serves_its_board_and_removes_what_it_wrote() -> None:
     with socket.socket() as probe:
         probe.bind(("127.0.0.1", 0))
         port = probe.getsockname()[1]
+    before = set(Path(tempfile.gettempdir()).glob("ponos-demo-*"))
     process = subprocess.Popen(
         [sys.executable, str(ROOT / "scripts" / "demo.py"), str(port)],
         stdout=subprocess.PIPE,
@@ -132,10 +138,10 @@ def the_demo_serves_its_board_and_removes_what_it_wrote() -> None:
         )["goals"]
         assert len(goals) >= 3, goals
         assert all(goal["tickets"].get("done") for goal in goals), goals
-        directory = Path(board["tickets"][0]["url"].removeprefix("file://")).parents[2]
-        assert directory.is_dir()
     finally:
         process.send_signal(signal.SIGINT)
         output, _ = process.communicate(timeout=30)
     assert "npm run dev:demo" in output and "?token=demo" in output, output
-    assert not directory.exists(), "the demo left its temporary directory behind"
+    assert set(Path(tempfile.gettempdir()).glob("ponos-demo-*")) <= before, (
+        "the demo left its temporary directory behind"
+    )

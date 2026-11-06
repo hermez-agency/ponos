@@ -15,7 +15,7 @@
  *
  * What is filmed is the console as this checkout builds it (`PYTHONPATH=src`,
  * `src/ponos/web/static` as the last `npm run build` left it), served
- * by `ponos service run` on a throwaway Markdown board — the demonstration
+ * by `ponos service run` on a throwaway board in a `ponos.db` — the demonstration
  * board of docs/console/*.webp, three projects and a few tickets — and driven
  * by headless Chrome ($CHROME, or google-chrome) over the DevTools protocol, as
  * scripts/measure-console.mjs does. Nothing of yours is read or written: the
@@ -71,17 +71,18 @@ process.on('SIGINT', () => process.exit(130));
 
 /* -- the board -------------------------------------------------------------- */
 
-// The demonstration board of the console's screenshots, written with the
-// board's own writer. Nothing in progress: the board opens on Ready, In
+// The demonstration board of the console's screenshots, written through
+// the board's own store. Nothing in progress: the board opens on Ready, In
 // review and Validated, and the one ticket that moves is the one filmed. Each
 // type of work is written once, or the health band opens on a warning.
 const SEED = `
-import datetime, sys
-from pathlib import Path
-from ponos import files
+import datetime
+from ponos import config, db, ledger, pages
 
-board = files.Board(Path(sys.argv[1]))
-prop = board.settings().prop
+settings = config.Notion()
+board = ledger.Ledger(pages.Pages(settings), settings)
+board.workspace(settings)
+prop = settings.prop
 projects = {name: board.create_row("projects", name, {"Repository": f"acme/{slug}"})
             for name, slug in (("Landing page", "landing"), ("Billing API", "billing"), ("Newsletter", "newsletter"))}
 now = datetime.datetime.now(datetime.timezone.utc)
@@ -99,10 +100,10 @@ for title, status, project, kind, priority, cost, days in (
     if cost:
         values[prop("cost")] = cost
     page = board.create_row("tickets", title, values)
-    _, path = board._find(page)
-    front, body = files.parse(path.read_text(encoding="utf-8"))
-    front["created"] = front["edited"] = (now - datetime.timedelta(days=days)).isoformat(timespec="seconds")
-    path.write_text(files.render(front, "A ticket of the demonstration board."), encoding="utf-8")
+    board.replace_markdown(page, "A ticket of the demonstration board.")
+    moment = (now - datetime.timedelta(days=days)).isoformat(timespec="seconds")
+    with db.transaction() as connection:
+        connection.execute("UPDATE tickets SET created_at = ?, edited_at = ? WHERE id = ?", (moment, moment, page))
 print(projects["Landing page"])
 `;
 
@@ -114,13 +115,14 @@ print(projects["Landing page"])
 // and moves the ticket to In review, and lets the lock go.
 const RUN = `
 import json, sys, time, urllib.request
-from pathlib import Path
-from ponos import files, state
+from ponos import config, ledger, pages, state
 from ponos.ticket import short_id
 
-board = files.Board(Path(sys.argv[1]))
-prop = board.settings().prop
-base, token = sys.argv[2], sys.argv[3]
+settings = config.Notion()
+board = ledger.Ledger(pages.Pages(settings), settings)
+board.workspace(settings)
+prop = settings.prop
+base, token = sys.argv[1], sys.argv[2]
 lock = None
 log = None
 page = ""
@@ -175,7 +177,7 @@ import json, os, sys
 from pathlib import Path
 sys.path.insert(0, sys.argv[1])
 import workbench
-workbench.stage(Path(sys.argv[2]), Path(sys.argv[3]), token=sys.argv[4])
+workbench.stage(Path(sys.argv[2]), token=sys.argv[3])
 print(json.dumps({k: os.environ[k] for k in ("PATH", "HOME", "PONOS_CONFIG", "XDG_STATE_HOME", "PYTHONPATH")}))
 `;
 
@@ -195,18 +197,17 @@ async function until(check, what, timeout = 20_000) {
 
 async function stage(theme) {
   const here = join(scratch, theme);
-  const board = join(here, 'board');
   const config = join(here, 'config.toml');
   const port = 8890 + Math.floor(Math.random() * 100);
   mkdirSync(here, { recursive: true });
   const env = {
     ...process.env,
-    ...JSON.parse(execFileSync(python, ['-c', STAGE, join(root, 'scripts'), here, board, TOKEN], { encoding: 'utf-8' })),
+    ...JSON.parse(execFileSync(python, ['-c', STAGE, join(root, 'scripts'), here, TOKEN], { encoding: 'utf-8' })),
   };
   // The workspace folder the health band looks for, and a state nobody else may read.
   mkdirSync(join(env.HOME, 'workspace'));
   execFileSync('chmod', ['-R', 'go-rwx', join(env.XDG_STATE_HOME, 'ponos')]);
-  execFileSync(python, ['-c', SEED, board], { env });
+  execFileSync(python, ['-c', SEED], { env });
   const server = spawn(python, ['-m', 'ponos', 'service', 'run', '--port', String(port)], {
     cwd: root,
     env,
@@ -216,7 +217,7 @@ async function stage(theme) {
   const base = `http://127.0.0.1:${port}`;
   await until(() => fetch(`${base}/`).then((answer) => answer.status < 500), 'the console');
 
-  const run = spawn(python, ['-c', RUN, board, base, TOKEN], { env, stdio: ['pipe', 'pipe', 'inherit'] });
+  const run = spawn(python, ['-c', RUN, base, TOKEN], { env, stdio: ['pipe', 'pipe', 'inherit'] });
   children.push(run);
   let answered = () => {};
   run.stdout.on('data', () => answered());

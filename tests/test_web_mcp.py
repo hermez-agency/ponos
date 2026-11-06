@@ -417,11 +417,7 @@ def the_mcp_connector_says_its_name_and_who_holds_the_key(state_home: Path) -> N
         assert not answer["isError"]
         assert me["console"] == "https://ponos.example" and me["email"] == "moi@example.com"
         assert me["client"] == "claude.ai" and me["access"] == "lecture et écriture"
-        assert (
-            me["projects"] == 1
-            and me["waiting_for_you"] == 1
-            and me["board"] == api.config.storage.mode
-        )
+        assert me["projects"] == 1 and me["waiting_for_you"] == 1 and me["board"] == "ponos.db"
         assert web_mcp.calls() == [], "reading who you are is no write"
         refused = _mcp_call(api, writer, "whoami", qui="moi")
         assert refused["isError"], "whoami takes no argument"

@@ -311,7 +311,7 @@ class Configuration(Base):
             "text": space.context,
             "page": space.context_page,
             "where": self.config.notion.page("context"),
-            "storage": self.config.storage.mode,
+            "notion": not self.config.standalone,
             # No page to write to is not an error, it is a workspace without a
             # context row — the pane says so rather than offering a save button
             # that could only fail.

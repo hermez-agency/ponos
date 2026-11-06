@@ -28,6 +28,7 @@ from typing import Any, TypeVar
 
 from . import (
     blocks,
+    board_journal,
     channels,
     conversation,
     credits,
@@ -42,7 +43,6 @@ from . import (
     session,
     state,
     store,
-    sync,
     ticket_page,
 )
 from . import config as config_module
@@ -194,7 +194,7 @@ class Reports(Base):
             f"    ! {ticket.title} — moved to {found or 'no status'} in Notion during the run; "
             f"{target} is not written over it"
         )
-        report = sync.Report()
+        report = board_journal.Report()
         report.note(
             "conflict",
             "tickets",
@@ -203,7 +203,7 @@ class Reports(Base):
             f"the runner would have written {target}, but the page says {found or 'no status'} "
             f"(it said {known or 'no status'} when the runner last read it); not overwritten",
         )
-        sync.write_journal(report)
+        board_journal.write_journal(report)
         return False
 
     def _remember(self, ticket: Ticket, value: str) -> None:

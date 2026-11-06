@@ -7,7 +7,7 @@ from typing import Any
 from support import case
 
 from ponos import reviews
-from ponos.github_issues import MARKER
+from ponos.reviews import MARKER
 
 
 def _comment(number: int, body: str, login: str = "salva", kind: str = "User", **more: Any) -> Any:

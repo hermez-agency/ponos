@@ -168,7 +168,7 @@ def goals_schema(projects: str = "") -> dict[str, Any]:
     """A goal is a name, what meets it and when — the Objectifs database as Notion has it.
 
     Not built by `provision`: the database is made in Notion, by hand, with the
-    rollups that count its tickets. This is its shape for a board of files,
+    rollups that count its tickets. This is its shape for a board without Notion,
     which has no rollup and counts them itself (see `Api.goals`): the tickets
     point at the goal, never the other way round.
     """

@@ -18,7 +18,7 @@ other answer is an amendment, and the next session plans again with it.
 is read back from its comment (see question.py), and the plan with it: under a
 heading of its own, last in the comment, where `question.found` never looks. A
 report the runner can read back still means something after a restart, on
-another machine, or on a board mirrored to Markdown files.
+another machine.
 
 **A project may tick the box for its tickets** — those at or above a priority,
 or of some sub-types (a Refactor, say): see `Rule`. Only on a ticket's first

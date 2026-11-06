@@ -183,8 +183,8 @@ def notion_rewrites_the_second_part_and_never_the_mission() -> None:
 
 
 @case
-def a_board_of_files_rewrites_the_second_part_and_drops_its_live_reports() -> None:
-    with _board() as board:
+def the_ledger_rewrites_the_second_part_and_drops_its_live_reports() -> None:
+    with _board("fr") as board:
         page_id = board.create_row("tickets", "Corriger l'entête", {"statut": "ready"})
         board.append_markdown(page_id, "Relire la page.")
         _run_on(board, "fr", "Je lis la configuration.", page_id=page_id)
@@ -192,7 +192,7 @@ def a_board_of_files_rewrites_the_second_part_and_drops_its_live_reports() -> No
         for report in ("Un.", "Deux."):
             board.replace_section(page_id, ticket_page.DONE, ticket_page.section(said, report, []))
         body = board.blocks_text(page_id)
-        assert body == "Relire la page.\n\n## Ce qui a été fait\n\nDeux.", body
+        assert body == "## Mission\n\nRelire la page.\n\n## Ce qui a été fait\n\nDeux.", body
 
 
 # -- three sessions on one ticket -------------------------------------------------
@@ -219,9 +219,9 @@ def _runner(board: Any) -> Runner:
 def a_ticket_run_three_times_has_one_part_and_three_lines_of_history(state_home: Path) -> None:
     """The acceptance of the format: replaced at every session, never stacked."""
     try:
-        with _board() as board:
+        with _board("fr") as board:
             page_id = board.create_row("tickets", "Corriger l'entête", {"statut": "ready"})
-            board.append_markdown(
+            board.replace_markdown(
                 page_id, ticket_page.template(voice.Voice("fr"), "Le titre est faux.")
             )
             runner = _runner(board)
@@ -269,7 +269,7 @@ def a_ticket_run_three_times_has_one_part_and_three_lines_of_history(state_home:
 def a_session_that_did_no_work_keeps_the_last_report(state_home: Path) -> None:
     """Out of credit, or put back in the queue: a line of history, and the report stays."""
     try:
-        with _board() as board:
+        with _board("fr") as board:
             page_id = board.create_row("tickets", "Corriger l'entête", {"statut": "ready"})
             runner = _runner(board)
             ticket = ticket_module.Ticket(board.page(page_id))
@@ -290,7 +290,7 @@ def a_session_that_did_no_work_keeps_the_last_report(state_home: Path) -> None:
 def an_open_ticket_written_before_the_format_is_put_in_two_parts_once(state_home: Path) -> None:
     """The mission is the page as it stood; the last report comes from the comments."""
     try:
-        with _board() as board:
+        with _board("fr") as board:
             runner = _runner(board)
             page_id = board.create_row("tickets", "Corriger l'entête", {"statut": "ready"})
             board.append_markdown(page_id, "Le titre est faux.")
@@ -305,7 +305,10 @@ def an_open_ticket_written_before_the_format_is_put_in_two_parts_once(state_home
             assert page.mission == "Le titre est faux.", page
             assert "Entête corrigé." in page.report, page.report
             assert "Je lis la configuration." not in board.blocks_text(page_id)
-            assert board.blocks_text(finished) == "Rien à toucher.", "a done ticket is not touched"
+            assert ticket_page.split(board.blocks_text(finished)).mission == "Rien à toucher."
+            assert not ticket_page.split(board.blocks_text(finished)).report, (
+                "a done ticket is not touched"
+            )
 
             # Once: the board is not read for it again.
             board.append_markdown(page_id, "Ajouté depuis.")

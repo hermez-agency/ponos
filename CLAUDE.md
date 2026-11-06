@@ -135,9 +135,9 @@ le lundi — CONTRIBUTING.md, « Dependencies ».
 - `src/ponos/` — autour du run : `config.py` (et `schema.py`, ce que chaque table de
   `config.toml` peut dire, en modèles pydantic ; `project_settings.py`, ce qu'un
   projet décide pour lui-même par-dessus, gardé dans `ponos.db`), `store.py` (la couture
-  vers un tableau, quel qu'il soit) et les trois qui la remplissent —
-  `notion.py`, `files.py` (le board en fichiers Markdown), `sync.py` (les deux
-  en phase) —, `health/` (les vérifications, une section par module, que le dashboard et `ponos doctor` partagent, et les corrections qu'il propose), `git.py`, `github_checks.py` (ce que GitHub dit des checks d'une PR, et la fusion qui les attend), `github_app.py` (la GitHub App créée depuis la console,
+  vers un tableau, quel qu'il soit) et ce qui la remplit —
+  `notion.py` (Notion, devenu le miroir), `pages.py` (les pages des projets, agents, objectifs,
+  récurrences et contexte, dans `ponos.db` quand il n'y a pas de jeton Notion) —, `health/` (les vérifications, une section par module, que le dashboard et `ponos doctor` partagent, et les corrections qu'il propose), `git.py`, `github_checks.py` (ce que GitHub dit des checks d'une PR, et la fusion qui les attend), `github_app.py` (la GitHub App créée depuis la console,
   ses jetons d'installation, devant `gh`), `session.py`, `provider.py` (qui répond aux sessions :
   le CLI connecté, une clé Anthropic ou OpenRouter), `voice.py` (les mots et la langue),
   `vault.py` (les clés que `[vault]` donne aux sessions d'un projet, et leur masquage partout où le runner écrit),

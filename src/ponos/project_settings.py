@@ -8,8 +8,8 @@ one, the file's otherwise. A project that says nothing behaves exactly as it
 did before there were project settings at all.
 
 **Here, not on the board.** A setting of Ponos's is not something to add a
-column to somebody's Notion database for, nor something a Markdown board should
-have to carry in its front matter. It lives in `ponos.db`, beside what the
+column to somebody's Notion database for, nor something a board without Notion should
+have to carry in its pages. It lives in `ponos.db`, beside what the
 runner keeps about its own work — see migration 16 in db.py — and survives a
 restart the way the history does.
 

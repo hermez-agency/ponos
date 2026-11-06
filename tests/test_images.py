@@ -11,9 +11,9 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from support import ROOT, _board, _markdown_api, case
+from support import ROOT, _board, _local_api, case
 
-from ponos import db, files, images, notion, store
+from ponos import db, images, notion, store
 
 # -- a project's picture -----------------------------------------------------
 
@@ -366,41 +366,38 @@ def the_notion_client_uploads_a_picture_then_sets_it_on_the_page() -> None:
 
 
 @case
-def a_markdown_project_keeps_its_picture_beside_it() -> None:
-    """The same gestures on a board of files: the picture is a file next to the page.
+def a_local_project_keeps_its_picture_beside_the_database() -> None:
+    """The same gestures on a board without Notion: the picture is a file next to `ponos.db`.
 
-    Its name is in the frontmatter, so the directory moves, commits and syncs
-    whole — and nothing is downloaded, since there is nowhere to download from.
+    The page keeps its address, and nothing is downloaded, since there is
+    nowhere to download from.
     """
     with _board() as board:
         page = board.create_row("projects", "Opoil", {})
-        api = _markdown_api(board)
+        api = _local_api(board)
         api.all_projects()
 
         shown = api.set_picture(page, "cover", store.Picture(data=PNG, type="image/png"))
         assert shown["cover"]["kind"] == "image" and "pending" not in shown["cover"], shown
         assert shown["cover"]["src"].startswith(f"/api/projects/{page}/image/cover?v=")
-        _, path = board._find(page)
-        front, _ = files.parse(path.read_text(encoding="utf-8"))
-        assert front["cover"] == f"{path.stem}.cover.png"
-        assert (path.parent / front["cover"]).read_bytes() == PNG
+        folder = db.path().parent / "pictures"
+        assert (folder / f"{page}.cover.png").read_bytes() == PNG
+        assert board.page(page).raw["cover"] == {
+            "type": "external",
+            "external": {"url": (folder / f"{page}.cover.png").as_uri()},
+        }
         assert api.picture(page, "cover") == (PNG, "image/png")
         # A column is still a column: the picture is the page's, not a property.
         assert "cover" not in board.page(page).properties
 
         api.set_picture(page, "icon", store.Picture(emoji="🛢️"))
-        assert files.parse(path.read_text(encoding="utf-8"))[0]["icon"] == "🛢️"
+        assert board.page(page).raw["icon"] == {"type": "emoji", "emoji": "🛢️"}
         rows = {row["id"]: row for row in api.all_projects()["projects"]}
         assert rows[page]["icon"] == {"kind": "emoji", "emoji": "🛢️"}
 
         api.set_picture(page, "cover", store.Picture())
-        assert "cover" not in files.parse(path.read_text(encoding="utf-8"))[0]
-        assert not list(path.parent.glob("*.cover.*")), "the file it replaced goes with it"
-
-        # A frontmatter is not a way to serve whatever the path leads to.
-        text = path.read_text(encoding="utf-8").replace("icon: 🛢️", "icon: ../../../etc/passwd")
-        path.write_text(text, encoding="utf-8")
-        assert board.page(page).raw["icon"] is None
+        assert board.page(page).raw["cover"] is None
+        assert not list(folder.glob("*.cover.*")), "the file it replaced goes with it"
 
 
 @case

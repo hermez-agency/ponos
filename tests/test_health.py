@@ -15,7 +15,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from support import FRONTEND, _config, _environment, _git_answering, case
+from support import FRONTEND, _board, _config, _environment, _git_answering, case
 
 from ponos import config as C
 from ponos import db, provision, store, update, workspace
@@ -154,19 +154,19 @@ def health_offers_to_add_the_missing_properties_and_does_it_only_once_confirmed(
 
 
 @case
-def health_adds_the_missing_properties_of_a_mirrored_board_on_its_notion_side() -> None:
-    from ponos import files, health, sync
+def health_adds_the_missing_properties_of_a_ledger_board_on_its_notion_side() -> None:
+    from ponos import health, ledger
 
     settings, board = _health_board(skip=("Agent",))
     config = _config("")
     config.notion = settings
-    mirrored = sync.Mirror(board, files.Board(Path(tempfile.mkdtemp())))  # type: ignore[arg-type]  # a fake: a board in memory
+    mirrored = ledger.Ledger(board, settings)  # type: ignore[arg-type]  # a fake: a board in memory
     original = workspace.resolve
     workspace.resolve = lambda backend, settings: workspace.Workspace(
         tickets="db", projects="projects", agents="agents"
     )
     try:
-        # A mirror has no `add_properties` of its own: the fix used to stop on it.
+        # The ledger has no `add_properties` of its own: the fix used to stop on it.
         done = health.fix(config, mirrored, "notion_columns", confirmed=True)
     finally:
         workspace.resolve = original
@@ -641,16 +641,18 @@ def health_says_what_keeps_a_schedule_from_making_its_ticket() -> None:
 
 
 @case
-def health_reads_a_markdown_board_to_the_end_and_finds_nothing_wrong_with_a_new_one() -> None:
+def health_reads_a_board_without_notion_to_the_end_and_finds_nothing_wrong_with_a_new_one() -> None:
     from ponos import health
 
-    directory = Path(tempfile.mkdtemp())
-    config = _config(f'[storage]\nmode = "markdown"\npath = "{directory}/board"\n')
-    found, space = health._board(config, store.open(config))
+    path = Path(tempfile.mkdtemp()) / "config.toml"
+    path.write_text("[notion]\n", encoding="utf-8")
+    config = C.load(path)
+    with _board():  # emptied: no ticket yet
+        found, space = health._board(config, store.open(config))
     assert health.problems(found) == 0, _lines(found)
     assert space is None, "only a Notion board's projects are looked through one by one"
     said = _lines(found)
-    assert "Not created yet" in said and "Notion is never asked anything" in said
+    assert "Notion is never asked anything" in said
     assert "No ticket yet: nothing to read a discussion on" in said
     for code in ("notion.tickets", "notion.columns", "notion.statuses", "notion.comments"):
         assert code in said, code
@@ -1554,10 +1556,7 @@ def doctor_finds_a_sound_installation_in_place_and_a_broken_one_wrong(state_home
     C.private_state()  # as a launch leaves it, see `__main__`
     root = Path(tempfile.mkdtemp())
     path = root / "config.toml"
-    path.write_text(
-        f'[storage]\nmode = "markdown"\npath = "{root}/board"\n'
-        f'[runner]\nworkspace_root = "{root}"\nmin_free_disk_mb = 5120\n'
-    )
+    path.write_text(f'[runner]\nworkspace_root = "{root}"\nmin_free_disk_mb = 5120\n')
     with _environment(PONOS_CONFIG=str(path)), _machine():
         code, said = _doctor_said(cli.command_doctor, None)
     assert code == 0, said

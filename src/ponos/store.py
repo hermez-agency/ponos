@@ -17,15 +17,14 @@ So this module is the seam. Three things live here and nothing else:
 - **the interface.** `Store` says what the rest of the runner may ask of a
   board. It is a `Protocol` rather than a base class, because the fakes the test
   suite is made of are duck-typed and were never going to inherit from anything;
-- **the choice.** `open()` reads `[storage]` and hands back the one the
-  configuration asked for: Notion as before, Markdown files on disk, the two
-  kept in step, or the issues of a GitHub repository. Nothing above this module
-  knows which it got.
+- **the choice.** `open()` hands back the board `ponos.db` keeps: its tickets
+  from `ledger.py`, and the rest — projects, agents, goals, schedules — from
+  Notion when a token is set, and from `pages.py` when there is none. Nothing
+  above this module knows which it got.
 
 What is *not* here is provisioning: creating a database, widening a select,
 adding a property. That is Notion's own shape being built, it only ever happens
-through `ponos init`, and a Markdown board has none of it — the
-directories are made the first time something is written into them.
+through `ponos init`, and a board without Notion has none of it.
 """
 
 from __future__ import annotations
@@ -37,13 +36,6 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 if TYPE_CHECKING:
     from .config import Config, Notion
     from .workspace import Workspace
-
-# The modes of `storage.mode`, and the whole of them.
-MODES = ("notion", "markdown", "both", "github")
-
-# How a page edited on both sides at once is settled. One rule, named, because
-# the day there is a second one the configuration has to be able to say which.
-CONFLICTS = ("newest",)
 
 # The kinds of property Notion computes itself: a value written to one is not
 # refused, it is dropped without a word (see `notion._encode`). A column the
@@ -340,8 +332,8 @@ class Store(Protocol):
     def trash(self, page_id: str) -> str:
         """Put a page in the board's trash — never delete it — and say where to take it back.
 
-        Notion keeps a trashed page for thirty days and a Markdown board keeps
-        the file in its `trash/` directory: either way somebody can undo it. What
+        Notion keeps a trashed page for thirty days and `ponos.db` keeps the row
+        flagged: either way somebody can undo it. What
         comes back is the address that does so (the page's own, in Notion), or
         nothing where the board has none.
         """
@@ -369,54 +361,87 @@ class Store(Protocol):
         ...
 
 
+def shape(settings: Notion) -> dict[str, dict[str, str]]:
+    """{collection: {property: kind}}, from the one place the board is declared.
+
+    `provision.py` builds the Notion databases from these very shapes, so a
+    column added there is a column `ponos.db` reads the same day. The relation
+    targets are named after the collections rather than after database IDs,
+    since here that is what a relation points at.
+    """
+    from . import provision
+
+    def kinds(schema: dict[str, Any]) -> dict[str, str]:
+        return {name: next(iter(kind)) for name, kind in schema.items()}
+
+    return {
+        # The goal a ticket serves is a column Notion boards add by hand, so
+        # `tickets_schema` does not declare it; `ponos.db` has it too.
+        "tickets": {
+            **kinds(provision.tickets_schema(settings, "projects", "agents", "tickets")),
+            settings.prop("goal"): "relation",
+        },
+        "projects": kinds(provision.projects_schema()),
+        "agents": kinds(provision.agents_schema(settings)),
+        "schedules": kinds(provision.schedules_schema(settings, "tickets", "projects")),
+        "goals": kinds(provision.goals_schema("projects")),
+    }
+
+
+def matches(page: Page, filter_: dict[str, Any] | None) -> bool:
+    """Does this page satisfy one of the filters the runner builds?
+
+    Three shapes and no more, because three is all there are: an `and` of
+    clauses, an `equals`, and a `does_not_equal`. Anything else matches
+    everything — a filter this cannot read must not silently empty the board.
+    """
+    if not filter_:
+        return True
+    if "and" in filter_:
+        return all(matches(page, clause) for clause in filter_["and"])
+    if "or" in filter_:
+        return any(matches(page, clause) for clause in filter_["or"])
+    name = filter_.get("property")
+    if not name:
+        return True
+    for kind, test in filter_.items():
+        if kind == "property" or not isinstance(test, dict):
+            continue
+        value = read(page, name)
+        if "equals" in test:
+            return bool(value == test["equals"])
+        if "does_not_equal" in test:
+            return bool(value != test["does_not_equal"])
+    return True
+
+
 def open(  # noqa: A001
     config: Config, *, dropped: Callable[[str, str], None] | None = None, notion_only: bool = False
 ) -> Store:
     """The store the configuration asks for.
 
-    `notion` is served by `ponos.db` (see ledger.py) except for `notion_only`,
-    which asks for the Notion client itself: the import and the checks of the
-    board are about Notion, not about the tickets.
+    The tickets are served by `ponos.db` (see ledger.py); what is not a ticket
+    is Notion's when the configuration holds a token, and the database's own
+    otherwise (see pages.py). `notion_only` asks for the Notion client itself:
+    the import and the checks of the board are about Notion, not about the
+    tickets.
 
     `dropped` hears of every property a write leaves out because the database
-    has no such column — `(database, name)` — which only Notion ever does: a
-    Markdown board keeps whatever it is given.
+    has no such column — `(database, name)` — which only Notion ever does.
 
-    `notion` is the default and the whole of the old behaviour. `markdown` never
-    reaches the network: a token is not even read. `both` is the two of them,
-    reconciled before every pass — see `sync.py`.
-
-    Imported here rather than at the top, so that a Markdown-only installation
-    never loads a module whose only job is to talk to an API it will not use.
+    Imported here rather than at the top, so that an installation without
+    Notion never loads a module whose only job is to talk to an API it will
+    not use.
     """
-    mode = config.storage.mode
-    if mode == "github":
-        from .github_issues import Issues
+    from .ledger import Ledger
 
-        return Issues(config.storage.path, config.notion, config.issues, config.github)
-    # `config.notion` is handed over whichever mode this is, and that is not a
-    # contradiction: the `[notion]` table is two things at once — the token and
-    # the workspace, which only Notion uses, and the *names* of the columns and
-    # the columns' values, which are the board's whoever holds it.
-    if mode == "markdown":
-        from .files import Board
+    if config.standalone:
+        from .pages import Pages
 
-        return Board(config.storage.path, config.notion)
-    if mode == "both":
-        from .files import Board
-        from .notion import Client
-        from .sync import Mirror
-
-        return Mirror(
-            Client(config.notion.token, dropped=dropped),
-            Board(config.storage.path, config.notion),
-            conflict=config.storage.conflict,
-        )
+        return Ledger(Pages(config.notion), config.notion, config.runner.language)
     from .notion import Client
 
     client = Client(config.notion.token, dropped=dropped)
     if notion_only:
         return client
-    from .ledger import Ledger
-
     return Ledger(client, config.notion, config.runner.language)

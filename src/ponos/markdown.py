@@ -207,8 +207,7 @@ def plain(block: dict[str, Any]) -> str:
 
     The return journey, and it lives here rather than in the client because a
     block is the shape a *page* is made of, not a shape the HTTP layer invented:
-    the Notion client flattens a page with it, and a board made of files writes
-    the live report's blocks down with it.
+    the Notion client flattens a page with it.
 
     Lossy where Notion is richer than a line of text — a toggle keeps its title
     and loses its fold, a table comes back empty — and that is the trade the

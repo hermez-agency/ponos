@@ -18,7 +18,7 @@ Two rules keep that from becoming brittle:
   share whole stays possible.
 
 All of which is *Notion's* shape, and that is why `from_notion` is named for it:
-a Markdown board has no directory and no rows, it has four directories on disk.
+a board without Notion has no directory and no rows, it has five names.
 `resolve` therefore asks the store, and each store answers in its own terms.
 """
 
