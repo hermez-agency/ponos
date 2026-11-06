@@ -1230,6 +1230,49 @@ SECTIONS: tuple[Section, ...] = (
         ),
     ),
     Section(
+        key="speech",
+        group="models",
+        title="Voice (answers read aloud)",
+        blurb=(
+            "The console reads its answers aloud with Piper, on this machine: nothing is "
+            "sent to a voice service. It needs the `voice` extra (`pip install piper-tts`); "
+            "a voice is downloaded the first time it is used (about 60 MB, kept in "
+            "`~/.cache/ponos/voices`)."
+        ),
+        fields=(
+            Field(
+                "speech",
+                "enabled",
+                "bool",
+                "Read answers aloud",
+                "Off: the voice mode and the Listen buttons are greyed out in the console.",
+            ),
+            Field(
+                "speech",
+                "voice_fr",
+                "text",
+                "French voice",
+                "A Piper voice name, e.g. `fr_FR-siwis-medium` or `fr_FR-upmc-medium`.",
+            ),
+            Field(
+                "speech",
+                "voice_en",
+                "text",
+                "English voice",
+                "A Piper voice name, e.g. `en_US-lessac-medium` or `en_GB-alan-medium`.",
+            ),
+            Field(
+                "speech",
+                "speed",
+                "int",
+                "Speaking speed",
+                "100 is the voice's own pace; 130 is a little faster. 50 at the least.",
+                minimum=50,
+                unit="%",
+            ),
+        ),
+    ),
+    Section(
         key="ideas",
         group="models",
         title="Finding ideas on a schedule",
@@ -1977,6 +2020,7 @@ def _fallback(config: Config, entry: Field) -> object:
         "notify": config.notify,
         "web": config.web,
         "openrouter": config.openrouter,
+        "speech": config.speech,
         "claude": config.claude,
         "permissions": config.permissions,
         "storage": config.storage,

@@ -246,6 +246,7 @@ def every_setting_the_file_holds_is_one_the_console_can_reach() -> None:
         ("web", C.Web()),
         ("notify", C.Notify()),
         ("openrouter", C.OpenRouter()),
+        ("speech", C.Speech()),
         ("claude", C.Claude()),
         ("storage", C.Storage()),
         ("issues", C.Issues()),

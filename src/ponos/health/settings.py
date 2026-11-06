@@ -10,7 +10,7 @@ import sqlite3
 from datetime import datetime
 
 from .. import config as config_module
-from .. import idea_schedule, kinds, project_settings, vault, vault_store, voice
+from .. import idea_schedule, kinds, project_settings, speech, vault, vault_store, voice
 from ..web import attempts
 from .check import ERROR, INFO, OK, WARN, Check, _check
 
@@ -26,6 +26,47 @@ def _settings(config: config_module.Config) -> list[Check]:
         *_vault_store(),
         *_console(config),
         *_ideas(config.runner),
+    ]
+
+
+def _voice(settings: config_module.Speech) -> list[Check]:
+    """The console's voice: Piper installed, and which voices are already downloaded."""
+    title = "Voice"
+    if not settings.enabled:
+        return [_check("settings.voice", INFO, title, "Off: speech.enabled is false.")]
+    if not speech.available():
+        return [
+            _check(
+                "settings.voice",
+                INFO,
+                title,
+                "Piper is not installed: the voice mode and the Listen buttons are greyed out.",
+                steps=[
+                    "Install the `voice` extra: `pip install piper-tts` in Ponos's environment."
+                ],
+            )
+        ]
+    names = (settings.voice_fr, settings.voice_en)
+    missing = [name for name in names if not (speech.voice_dir() / f"{name}.onnx").exists()]
+    if missing:
+        return [
+            _check(
+                "settings.voice",
+                OK,
+                title,
+                "Piper is installed; {{voices}} will be downloaded (about 60 MB each) into "
+                "{{folder}} the first time they speak.",
+                params={"voices": ", ".join(missing), "folder": str(speech.voice_dir())},
+            )
+        ]
+    return [
+        _check(
+            "settings.voice",
+            OK,
+            title,
+            "Piper is installed, with {{voices}}.",
+            params={"voices": ", ".join(names)},
+        )
     ]
 
 
@@ -581,6 +622,7 @@ def _console(config: config_module.Config) -> list[Check]:
                 "Off: it is transcribed by OpenRouter (openrouter.key).",
             )
         )
+    found.extend(_voice(config.speech))
     chat_model = web.chat_model
     model = {"model": chat_model}
     if chat_model and "/" in chat_model and not openrouter.key:

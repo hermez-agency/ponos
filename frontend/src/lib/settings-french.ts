@@ -547,6 +547,21 @@ export const SETTINGS_FRENCH: Record<string, string> = {
   "Dictation model": "Modèle de dictée",
   "Turns a message dictated in the console into text.":
     "Transforme en texte un message dicté dans la console.",
+  "Voice (answers read aloud)": "Voix (réponses lues à voix haute)",
+  "The console reads its answers aloud with Piper, on this machine: nothing is sent to a voice service. It needs the `voice` extra (`pip install piper-tts`); a voice is downloaded the first time it is used (about 60 MB, kept in `~/.cache/ponos/voices`).":
+    "La console lit ses réponses à voix haute avec Piper, sur cette machine : rien n'est envoyé à un service de voix. Il lui faut l'extra `voice` (`pip install piper-tts`) ; une voix se télécharge à sa première utilisation (environ 60 Mo, gardée dans `~/.cache/ponos/voices`).",
+  "Read answers aloud": "Lire les réponses à voix haute",
+  "Off: the voice mode and the Listen buttons are greyed out in the console.":
+    "Désactivé : le mode vocal et les boutons Écouter sont grisés dans la console.",
+  "French voice": "Voix française",
+  "A Piper voice name, e.g. `fr_FR-siwis-medium` or `fr_FR-upmc-medium`.":
+    "Un nom de voix Piper, par ex. `fr_FR-siwis-medium` ou `fr_FR-upmc-medium`.",
+  "English voice": "Voix anglaise",
+  "A Piper voice name, e.g. `en_US-lessac-medium` or `en_GB-alan-medium`.":
+    "Un nom de voix Piper, par ex. `en_US-lessac-medium` ou `en_GB-alan-medium`.",
+  "Speaking speed": "Vitesse de parole",
+  "100 is the voice's own pace; 130 is a little faster. 50 at the least.":
+    "100 est l'allure de la voix ; 130 est un peu plus rapide. 50 au minimum.",
   "API address": "Adresse de l'API",
   "Only for a gateway of your own that speaks the same API.":
     "Seulement pour une passerelle à vous qui parle la même API.",

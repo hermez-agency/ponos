@@ -45,7 +45,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.convertors import Convertor, register_url_convertor
 
 from .. import config as config_module
-from .. import journal, notifications, preview, push, store, vault, vault_store, voice
+from .. import journal, notifications, preview, push, speech, store, vault, vault_store, voice
 from .. import triggers as triggers_module
 from . import accounts, agui, answers, creation, github, mcp_setup, sessions, setup
 from . import attempts as attempts_module
@@ -288,6 +288,14 @@ class RunAgentInput(Payload):
     runId: str = ""  # noqa: N815
     messages: list[Any] = Field(default_factory=list)
     forwardedProps: dict[str, Any] | None = None  # noqa: N815
+
+
+class Say(Payload):
+    """A reply, or a part of one, to be read aloud — see `speech.plan`."""
+
+    text: str = ""
+    lang: str = ""
+    final: bool = True
 
 
 class Title(Payload):
@@ -1285,6 +1293,25 @@ def stop_chat(request: Request) -> Response:
 @router.post("/api/chat/reset", response_model=answers.ChatState)
 def reset_chat(request: Request) -> Response:
     return answer(_api(request).chat.reset())
+
+
+@router.post("/api/chat/speak/plan", response_model=answers.SpeechPlan)
+def speak_plan(request: Request, payload: Say = Body(default_factory=Say)) -> Response:
+    return answer(_api(request).chat.speech_plan(payload.text, payload.lang, payload.final))
+
+
+@router.post("/api/chat/speak", response_class=Response)
+def speak(request: Request, payload: Say = Body(default_factory=Say)) -> Response:
+    """One sentence of a reply, spoken: a WAV, synthesised by Piper on this machine."""
+    try:
+        sound = _api(request).chat.speak(payload.text, payload.lang)
+    except speech.Unavailable as error:
+        return fail(503, str(error))
+    except speech.SpeechError as error:
+        return fail(502, str(error))
+    except ValueError as error:
+        return fail(400, str(error))
+    return Response(sound, media_type="audio/wav", headers={"Cache-Control": "no-store"})
 
 
 @router.post("/api/chat/model", response_model=answers.ChatState)

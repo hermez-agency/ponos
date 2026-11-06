@@ -30,6 +30,10 @@ dependencies = [
     "cryptography>=50.0.2",
 ]
 
+[project.optional-dependencies]
+# The console's voice (speech.py): Piper, synthesising on this machine.
+voice = ["piper-tts>=1.3.0"]
+
 [project.urls]
 Homepage = "https://hermez.dev"
 Repository = "https://github.com/hermez-agency/ponos"

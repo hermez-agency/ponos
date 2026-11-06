@@ -393,4 +393,10 @@ export const HEALTH_FRENCH: Record<string, string> = {
   "{{repository}} has no label “{{label}}”: no issue can be a ticket yet.": "{{repository}} n'a pas d'étiquette « {{label}} » : aucune issue ne peut encore être un ticket.",
   "Create it: `gh label create {{label}} --repo {{repository}}`.": "Créez-la : `gh label create {{label}} --repo {{repository}}`.",
   "The label “{{label}}” of {{repository}} could not be checked.": "L'étiquette « {{label}} » de {{repository}} n'a pas pu être vérifiée.",
+  "Voice": "Voix",
+  "Off: speech.enabled is false.": "Désactivée : speech.enabled est faux.",
+  "Piper is not installed: the voice mode and the Listen buttons are greyed out.": "Piper n'est pas installé : le mode vocal et les boutons Écouter sont grisés.",
+  "Install the `voice` extra: `pip install piper-tts` in Ponos's environment.": "Installez l'extra `voice` : `pip install piper-tts` dans l'environnement de Ponos.",
+  "Piper is installed; {{voices}} will be downloaded (about 60 MB each) into {{folder}} the first time they speak.": "Piper est installé ; {{voices}} sera téléchargé (environ 60 Mo chacune) dans {{folder}} à la première prise de parole.",
+  "Piper is installed, with {{voices}}.": "Piper est installé, avec {{voices}}.",
 }

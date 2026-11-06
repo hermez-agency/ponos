@@ -756,6 +756,85 @@ def the_console_takes_a_file_as_a_raw_body_and_serves_it_back_sandboxed() -> Non
 
 
 @case
+def the_console_speaks_a_sentence_and_plans_a_reply_and_says_why_it_cannot() -> None:
+    """`/api/chat/speak` over HTTP: guarded like the rest, a WAV when Piper is there, a reason when not."""
+    import urllib.error
+    import urllib.request
+
+    from test_speech import _piper
+
+    from ponos import speech
+    from ponos.web import app as web_app
+
+    with _chat("[speech]\nspeed = 120\n") as chat:
+        assert chat.state()["speech"]["ready"] is speech.available()
+        api = _bare_api(_TalkClient([]))
+        api.chat = chat
+        console = web_app.Console(("127.0.0.1", 0), api, "tok")
+        threading.Thread(target=console.serve_forever, daemon=True).start()
+        base = f"http://127.0.0.1:{console.server_address[1]}"
+
+        def post(path: str, body: dict[str, Any], guard: bool = True, token: bool = True) -> Any:
+            headers = {"Content-Type": "application/json"}
+            if token:
+                headers["Authorization"] = "Bearer tok"
+            if guard:
+                headers["X-Ponos"] = "1"
+            request = urllib.request.Request(
+                base + path, data=json.dumps(body).encode(), headers=headers, method="POST"
+            )
+            try:
+                with urllib.request.urlopen(request, timeout=5) as response:
+                    return response.status, response.read(), response.headers
+            except urllib.error.HTTPError as error:
+                return error.code, error.read(), error.headers
+
+        original = speech.available
+        try:
+            code, _, _ = post("/api/chat/speak", {"text": "Bonjour.", "lang": "fr"}, token=False)
+            assert code in (401, 403), "the voice is behind the console's door"
+            code, _, _ = post("/api/chat/speak", {"text": "Bonjour.", "lang": "fr"}, guard=False)
+            assert code == 403, "a page elsewhere cannot make the runner speak"
+
+            speech.available = lambda: False
+            assert chat.state()["speech"]["ready"] is False
+            assert "Piper" in chat.state()["speech"]["why"]
+            code, body, _ = post("/api/chat/speak", {"text": "Bonjour.", "lang": "fr"})
+            assert code == 503 and "piper-tts" in json.loads(body)["error"], body
+
+            speech.available = original
+            with _piper():
+                code, body, headers = post(
+                    "/api/chat/speak", {"text": "Bonjour **toi**.", "lang": "fr"}
+                )
+                assert code == 200 and headers["Content-Type"] == "audio/wav", (code, body)
+                assert body[:4] == b"RIFF"
+                code, body, _ = post("/api/chat/speak", {"text": "```\nx\n```", "lang": "fr"})
+                assert code == 200, "a block of code is spoken as a pointer to the screen"
+                code, body, _ = post("/api/chat/speak", {"text": "  ", "lang": "fr"})
+                assert code == 400, body
+            code, body, _ = post(
+                "/api/chat/speak/plan",
+                {
+                    "text": "Voici le code :\n```\nx\n```\nFini. Et la suite",
+                    "lang": "fr",
+                    "final": False,
+                },
+            )
+            planned = json.loads(body)
+            assert code == 200 and planned["language"] == "fr", planned
+            assert planned["sentences"] == [
+                "Voici le code :",
+                "Je t'ai mis le code à l'écran.",
+                "Fini.",
+            ]
+        finally:
+            speech.available = original
+            console.shutdown()
+            console.server_close()
+
+
+@case
 def the_message_bar_is_one_block_with_its_gestures_inside() -> None:
     """The bar is a component a ticket's thread can take, and the old form is gone.
 
