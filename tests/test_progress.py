@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import io
 import json
+import tempfile
 import threading
 import time
 import uuid
-from collections.abc import Iterator
+from pathlib import Path
 from typing import Any
 
 from support import _Clock, _run_on, case
@@ -202,13 +202,6 @@ class _Stuck(_Live):
         super().update(database_id, page_id, values)
 
 
-class _Session:
-    """What `session._read` reads: a process, reduced to its output."""
-
-    def __init__(self, lines: Iterator[str]) -> None:
-        self.stdout = iter(lines)
-
-
 @case
 def a_notion_that_takes_minutes_does_not_hold_up_reading_the_session() -> None:
     """The report used to be written from the loop that reads the CLI's output.
@@ -233,13 +226,26 @@ def a_notion_that_takes_minutes_does_not_hold_up_reading_the_session() -> None:
         for index in range(200)
     ]
 
-    def ticking() -> Iterator[str]:
-        for line in said:
-            clock.now += 1  # a write comes due every ten lines
-            yield line
+    def ticking(event: dict[str, Any]) -> None:
+        clock.now += 1  # a write comes due every ten lines
+        live.event(event)
 
+    # A session that has ended, its log and its code on disk: what `follow` reads.
+    directory = Path(tempfile.mkdtemp())
+    log = directory / "session.jsonl"
+    log.write_text("".join(said), encoding="utf-8")
+    (directory / "session.jsonl.code").write_text("0", encoding="utf-8")
+    handle = session.Handle(
+        session_id="s-1",
+        pid=2**22 + 1,  # past pid_max: nobody's
+        log=log,
+        stderr=directory / "session.err",
+        code=directory / "session.jsonl.code",
+        cwd=directory,
+        started=time.time(),
+    )
     started = time.monotonic()
-    final, texts = session._read(_Session(ticking()), io.StringIO(), live.event)  # type: ignore[arg-type]  # a process reduced to its output
+    final, texts, *_ = session.follow(handle, on_event=ticking)
     elapsed = time.monotonic() - started
 
     assert client.held.wait(5), "the writer had started its first write"

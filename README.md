@@ -113,7 +113,7 @@ Everything runs on your machine; the board, GitHub and your channel are the only
 reaches — see [Architecture](CONTRIBUTING.md#architecture).
 
 <p align="center">
-  <a href="CONTRIBUTING.md#architecture"><img src="docs/architecture.webp" width="720" alt="The pieces of Ponos and how they fit together: the timer, the runner, the Claude Code session, the git worktrees, the console and the local state on your machine; the Notion board, GitHub and Telegram or Slack outside it."></a>
+  <a href="CONTRIBUTING.md#architecture"><img src="docs/architecture.webp" width="720" alt="The pieces of Ponos and how they fit together: the daemon, the runner, the Claude Code session, the git worktrees, the console and the local state on your machine; the Notion board, GitHub and Telegram or Slack outside it."></a>
 </p>
 
 ## Plugs in where you already work. If you want.
@@ -150,7 +150,7 @@ built under that page, found on its own as soon as it is shared; GitHub in one c
 project; and a demonstration ticket, played there and then, which is the proof that every
 step holds. No Notion? [Skip it](guide/board.md#without-notion): the tickets are in `ponos.db`.
 
-It needs Linux or macOS (WSL works too, without a timer: [a ticket then runs when the console starts it, or with `ponos run`](guide/installation.md)), `python3` ≥ 3.11 — what it imports, httpx and pydantic for the
+It needs Linux or macOS (WSL works too, without systemd: [the daemon then runs in the background until the machine restarts](guide/installation.md)), `python3` ≥ 3.11 — what it imports, httpx and pydantic for the
 runner, cryptography for the pushes to your phone and FastAPI and uvicorn for the console, goes into an environment of its own, made by the installer —,
 `git` and [Claude Code](https://claude.com/claude-code), which the installer offers to
 install when it is missing. `gh` is optional: the console connects GitHub itself. What the
@@ -170,7 +170,7 @@ click: [Install with Dokploy](guide/server.md#install-with-dokploy).
 Notion                    Ponos                               what you get
 ──────                    ─────────────                       ────────────
 
-Ready         ──────▶     claims it, writes the session link
+Ready         ──────▶     a place frees: claims it, writes the session link
                           │
 In progress   ◀───────────┤
                           │
@@ -184,6 +184,12 @@ Validated     ──────▶     merges that pull request — or publishe
                           ticket holds: the post, the mail, the announcement
 Done          ◀───────────  once it is in
 ```
+
+A ticket made *Ready* starts the moment one of the daemon's places is free — `max_concurrent`
+of them, `max_concurrent_per_project` per repository —, by priority, after the tickets it
+waits for; « Run now » on its card takes a free place at once. The daemon, `ponos daemon`,
+runs for good (`ponos.service`), and a restart or an update never cuts a session short: the
+daemon that comes back takes it back. See [Installing](guide/installation.md).
 
 Which of the two you get is decided by the ticket's **Type** when it has one — `Code`,
 `Rédaction`, `Action externe`, `Publication` — and otherwise by the project: a project that

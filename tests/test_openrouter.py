@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import json
 import os
 import subprocess
 import tempfile
@@ -62,17 +63,27 @@ def what_the_runner_adds_wins_over_the_shell_it_was_started_from() -> None:
     """A key configured for the runner beats one that happens to be exported."""
     seen: dict[str, str] = {}
 
+    class _Stdin(io.BytesIO):
+        def close(self) -> None:
+            # What the tether is handed: the session's own environment in it.
+            seen.update(json.loads(self.getvalue())["environment"])
+            super().close()
+
     class _Process:
-        stdin = io.StringIO()
         stdout: list[str] = []
         returncode = 0
         pid = 2**22 + 1  # past pid_max: no group to reap, and none of ours to hit
 
+        def __init__(self) -> None:
+            self.stdin = _Stdin()
+
         def wait(self) -> None:
             pass
 
+        def poll(self) -> int:
+            return 0
+
     def _popen(command: list[str], **arguments: Any) -> _Process:
-        seen.update(arguments["env"])
         return _Process()
 
     directory = Path(tempfile.mkdtemp())

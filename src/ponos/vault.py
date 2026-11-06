@@ -332,6 +332,11 @@ def forget() -> None:
         _forms = ()
 
 
+def forms() -> tuple[str, ...]:
+    """Every form `mask` looks for — what a session's tether is handed (see tether.py)."""
+    return _forms
+
+
 def mask(text: str) -> str:
     """`text` with every value this process has read replaced by `***`."""
     for form in _forms:

@@ -11,7 +11,7 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-from .. import __version__, channels, cleanup, db, environment, leftovers, state, stopping
+from .. import __version__, channels, cleanup, db, environment, leftovers, state
 from .. import config as config_module
 from .. import update as update_module
 from ..ticket import short_id
@@ -266,7 +266,7 @@ def _version(config: config_module.Config, remote: bool) -> list[Check]:
                 "machine.update",
                 INFO,
                 "Updates",
-                "Checked by a run every {{every}}s (runner.auto_update).",
+                "Checked by the daemon every {{every}}s (runner.auto_update): it installs a newer version and restarts on it, its sessions taken back.",
                 params={"every": str(runner.update_interval_seconds)},
             )
         )
@@ -445,7 +445,7 @@ def _spared() -> set[Path]:
     it would pull the floor from under the ticket.
     """
     root = leftovers.worktrees()
-    going = {short_id(ticket) for ticket in (*stopping.live(), *state.claims())}
+    going = {short_id(ticket) for ticket in state.going()}
     return {
         worktree
         for worktree in (root.iterdir() if root.is_dir() else ())

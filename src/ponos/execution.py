@@ -41,6 +41,7 @@ from pathlib import Path
 from typing import Any
 
 from . import (
+    adoption,
     blocks,
     browser,
     generated,
@@ -211,6 +212,8 @@ class Execution(Base):
         a conflict resolved or a CI repaired is not where a CHANGELOG entry or
         a test reproducing a bug are asked for. `phase` is what the console
         says the ticket is going through meanwhile — see `state.enter`.
+        A job marked `adoptable` is on its ticket's own session, the one a
+        restart carries on (see adoption.py).
         """
         state.enter(job.ticket.id, phase, detail)
         job.secrets = self._secrets(job)
@@ -223,7 +226,16 @@ class Execution(Base):
             job.model or job.agent.model or self.config.runner.model
         )
         live = self._live(job)
-        run = self._journal(job, log, chosen)
+        run = (
+            journal.Run.resume(job.run, say=self.say)
+            if job.adopted is not None and job.run is not None
+            else None
+        )
+        if run is None or not run.open:
+            run = self._journal(job, log, chosen)
+        else:
+            self._journals[job.ticket.id] = run
+        job.run = run.id
         outcome = self._launch(job, text, log, chosen, live, run)
         run.answer, run.summary, run.caveats = outcome.answer, outcome.summary, outcome.caveats
         self._file_session(job, outcome)
@@ -508,7 +520,14 @@ class Execution(Base):
         """
         if job.resume:
             text = prompt_module.carry_on(self.voice.instruction())
-        opening = "picking session" if job.resume else "Claude session"
+        adopted, job.adopted = job.adopted, None
+        opening = (
+            "following session"
+            if adopted is not None
+            else "picking session"
+            if job.resume
+            else "Claude session"
+        )
         self.say(f"    {opening} {job.session_id}{' · ' + model if model else ''} → {log}")
         return self._paid(
             job.ticket.id,
@@ -526,6 +545,8 @@ class Execution(Base):
             environment={**job.secrets, **self.environment_for(model), **self._github(job)},
             on_event=_both(run.event, live.event if live else None),
             max_budget_usd=self.config.budget.per_ticket_usd,
+            adopted=adopted,
+            record=adoption.record(job) if job.adoptable else "",
             **self._browsing(job, log),
         )
 
@@ -712,24 +733,32 @@ class Execution(Base):
         ticket, project = job.ticket, job.project
         assert project.path is not None
 
-        if self.config.runner.fetch:
-            git.fetch(project.path)
-        try:
-            worktree = git.add_worktree(
-                project.path,
-                job.workdir,
-                job.branch,
-                job.base,
-                git.exclusions(self.config.runner.worktree_exclude),
-            )
-        except git.GitError as error:
-            return self._fail(
-                ticket, self.voice.say("no-worktree"), str(error), code="worktree.residue"
-            )
-        self._note_worktree(job, worktree)
-        if failure := self._prepare_worktree(job):
-            return failure
+        if job.adopted is not None:
+            # A session a runner before this one started, in the worktree it
+            # made: nothing is fetched, made or set up again under it.
+            worktree = git.Worktree(reused=job.reused)
+        else:
+            if self.config.runner.fetch:
+                git.fetch(project.path)
+            try:
+                worktree = git.add_worktree(
+                    project.path,
+                    job.workdir,
+                    job.branch,
+                    job.base,
+                    git.exclusions(self.config.runner.worktree_exclude),
+                )
+            except git.GitError as error:
+                return self._fail(
+                    ticket, self.voice.say("no-worktree"), str(error), code="worktree.residue"
+                )
+            job.reused = worktree.reused
+            self._note_worktree(job, worktree)
+            if failure := self._prepare_worktree(job):
+                return failure
 
+        # The ticket's own session: written down so that a restart carries it on.
+        job.adoptable = True
         try:
             outcome = self._run_session(
                 job, prompt_module.template(self.config.runner.prompt_file), subtype=True
@@ -1481,6 +1510,7 @@ class Execution(Base):
         """A ticket with no repository: the deliverable is the ticket's own page."""
         ticket = job.ticket
         job.workdir.mkdir(parents=True, exist_ok=True)
+        job.adoptable = True
         try:
             outcome = self._run_session(
                 job,

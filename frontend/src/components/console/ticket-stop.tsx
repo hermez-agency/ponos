@@ -31,7 +31,7 @@ export default function StopGestures({ ticket, className }: { ticket: Ticket; cl
         <ConfirmDialog
           title={t("Make “{{title}}” ready?", { title: titleOf(ticket) })}
           description={t(
-            "The ticket goes to {{column}} and the next pass starts a session on it — a session that is paid for.",
+            "The ticket goes to {{column}} and a session starts on it as soon as a place is free — a session that is paid for.",
             { column: columnTitle("ready", board.columns.find((column) => column.key === "ready")?.name) }
           )}
           confirm={t("Make it ready")}

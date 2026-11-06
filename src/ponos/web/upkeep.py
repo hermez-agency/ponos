@@ -3,7 +3,7 @@
 What the top of the dashboard warns about, the fixes a check offers, and the
 daily tidy run on request. Both write — a fix changes the board, a tidy removes
 worktrees — so both are made only once they are asked for in so many words: a
-fix confirmed, a tidy under the run lock.
+fix confirmed, a tidy that leaves the tickets in flight alone.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ import time
 from datetime import UTC, datetime
 from typing import Any
 
-from .. import cleanup, health, resources, state
+from .. import cleanup, health, resources
 from .. import config as config_module
 from .base import Base
 
@@ -133,13 +133,9 @@ class Upkeep(Base):
         return {"done": done, **self.health(fresh=True)}
 
     def clean(self) -> dict[str, Any]:
-        """The daily tidy, now. Under the run lock, or refused while a run holds
-        it — the worktrees a session stands in are the ones it would weigh."""
-        try:
-            with state.lock():
-                tidied = self.runner.tidy(now=True)
-        except state.Busy as error:
-            raise RuntimeError("a run is in progress — try again once it has finished") from error
+        """The daily tidy, now. The worktrees of the tickets in flight are left
+        alone by the tidy itself — see `state.going`."""
+        tidied = self.runner.tidy(now=True)
         return {
             "removed": len(tidied.removed) if tidied else 0,
             "logs": tidied.logs if tidied else 0,

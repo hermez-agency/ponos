@@ -536,8 +536,7 @@ def held(
     ticket: dict[str, Any],
     noted: dict[str, tuple[str, str]],
     *,
-    passing: bool,
-    timer: bool,
+    scheduling: bool,
     waits: dict[str, str] | None = None,
     now: datetime | None = None,
     after: str = "",
@@ -549,10 +548,10 @@ def held(
     waiting for, from the first of these that holds: its date, the tickets it
     comes after (`after`, see dependencies.py), the credit, the reserve or the
     day's limit (`waits`: what each has written down, as a clock reads it),
-    what the pass under way wrote down about it (`noted`, see `Board.explain` —
-    read only while a pass holds the lock, since a pass that died leaves its
-    record behind), and otherwise the next reading of the board: the pass's own
-    if one is under way, the timer's if it is on.
+    what the scheduler wrote down about it (`noted`, see `Board.explain` — read
+    only while a scheduler holds its place, since one that died leaves its
+    record behind), and otherwise its next look at the board (`next`) — or,
+    with no daemon at all, that nothing takes it (`daemon`).
     """
     if ticket.get("column") != "ready":
         return {}
@@ -564,7 +563,7 @@ def held(
     for what, until in (waits or {}).items():
         if until:
             return {"reason": what, "detail": until}
-    if passing:
-        reason, detail = noted.get(ids.bare(ticket.get("id", "")), ("pass", ""))
+    if scheduling:
+        reason, detail = noted.get(ids.bare(ticket.get("id", "")), ("next", ""))
         return {"reason": reason, "detail": detail}
-    return {"reason": "next" if timer else "timer", "detail": ""}
+    return {"reason": "daemon", "detail": ""}

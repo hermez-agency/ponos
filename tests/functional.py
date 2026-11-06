@@ -4084,16 +4084,19 @@ def a_picture_chosen_in_the_console_is_the_cover_in_notion_and_the_other_way_rou
 
 
 @case
-def a_pass_started_during_an_update_runs_on_one_version_and_never_on_both(machine: Bench) -> None:
-    """On 30 September 2026 a pass started while an update rewrote the app in
-    place, imported a `store.py` already new with a `ledger.py` still old, and
-    died on `ImportError: cannot import name 'SLOTS'`.
+def a_new_version_restarts_the_daemon_which_takes_its_session_back_and_runs_the_next_on_it(
+    machine: Bench,
+) -> None:
+    """What replaced `PASS_SPAN`: the daemon `exec`s itself onto a new version.
 
-    So the road is driven the way the timer drives it: through the installed
-    launcher, as processes of their own. A pass is held in the middle of its
-    session while a version lands whose two modules only work together; a pass
-    started then, and one started after, must run whole on one version — and
-    the one held must finish on the version it started on, still on disk.
+    Driven the way `ponos.service` drives it: the installed launcher, as a
+    process of its own. A session is held in the middle of its ticket while a
+    version lands whose two modules only work together (on 30 September 2026
+    a pass that imported half of each died on `ImportError`); the `ponos run`s
+    started meanwhile only wake the daemon. Once installed, the daemon is asked
+    to restart (what the console's button does): it `exec`s onto the new code,
+    takes the held session back, finishes its ticket — and the next ticket is
+    run by the new version.
     """
     from ponos import update
 
@@ -4154,86 +4157,206 @@ def a_pass_started_during_an_update_runs_on_one_version_and_never_on_both(machin
         "PONOS_CONTAINER": "",
     }
 
-    def started(*arguments: str) -> subprocess.Popen[str]:
+    def started(*arguments: str, out: Path | None = None) -> subprocess.Popen[str]:
         return subprocess.Popen(
             [str(launcher), *arguments],
-            stdout=subprocess.PIPE,
+            stdout=out.open("w") if out else subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
         )
 
     project = machine.project("Lettre d'information")
     ticket = machine.ticket("Rédiger l'édito", "Deux paragraphes.", project)
+    said = machine.root / "daemon.out"
     with _environ(environment):
-        held = started("run")
-        for _ in range(300):
-            if Path(f"{hold}.started").exists() or held.poll() is not None:
-                break
-            time.sleep(0.1)
-        assert Path(f"{hold}.started").exists(), held.communicate()[0]
+        daemon = started("daemon", out=said)
+        try:
+            assert _waited(lambda: Path(f"{hold}.started").exists(), 60), said.read_text()
 
-        # The incident's shape: a module that needs a name only the new
-        # version of another one has.
-        store_py = work / "src/ponos/store.py"
-        store_py.write_text(store_py.read_text() + "\nHANDOVER = 'v2'\n")
-        runner_py = work / "src/ponos/runner.py"
-        runner_py.write_text(
-            runner_py.read_text().replace(
-                "from .ticket import Ticket\n",
-                "from .ticket import Ticket\nfrom .store import HANDOVER  # noqa: F401\n",
-                1,
+            # The incident's shape: a module that needs a name only the new
+            # version of another one has.
+            store_py = work / "src/ponos/store.py"
+            store_py.write_text(store_py.read_text() + "\nHANDOVER = 'v2'\n")
+            runner_py = work / "src/ponos/runner.py"
+            runner_py.write_text(
+                runner_py.read_text().replace(
+                    "from .ticket import Job, Ticket\n",
+                    "from .ticket import Job, Ticket\nfrom .store import HANDOVER  # noqa: F401\n",
+                    1,
+                )
             )
-        )
-        init_py = work / "src/ponos/__init__.py"
-        init_py.write_text(init_py.read_text().replace('__version__ = "', '__version__ = "9.', 1))
-        second = land("two")
+            init_py = work / "src/ponos/__init__.py"
+            init_py.write_text(
+                init_py.read_text().replace('__version__ = "', '__version__ = "9.', 1)
+            )
+            second = land("two")
 
-        # Started while the update copies, resets and checks the new version.
-        during: list[str] = []
-        installing = threading.Thread(
-            target=lambda: during.append(update.install(update.check(app, "main"), 600, app))
+            # Started while the update copies, resets and checks the new version.
+            during: list[str] = []
+            installing = threading.Thread(
+                target=lambda: during.append(update.install(update.check(app, "main"), 600, app))
+            )
+            installing.start()
+            meanwhile: list[subprocess.Popen[str]] = []
+            while installing.is_alive():
+                if sum(one.poll() is None for one in meanwhile) < 3:
+                    meanwhile.append(started("run"))
+                time.sleep(0.05)
+            installing.join()
+            assert during == [""], during
+            assert app.resolve().name == f"app-{second[:12]}"
+            for one in meanwhile:
+                out = one.communicate(timeout=120)[0]
+                assert one.returncode == 0 and "Error" not in out, out
+                assert "looking at the board now" in out, "a run beside the daemon only wakes it"
+
+            # The version the session started on is still whole on disk.
+            previous = app.with_name(f"app-{first[:12]}")
+            assert "HANDOVER" not in (previous / "src/ponos/store.py").read_text()
+
+            # What the console's button does once the version is in place.
+            daemon.send_signal(signal.SIGHUP)
+            assert _waited(lambda: "ponos 9." in said.read_text(), 60), said.read_text()
+            assert _waited(lambda: "taken back" in said.read_text(), 30), said.read_text()
+            assert daemon.poll() is None, "the daemon restarted in place, same pid"
+            hold.touch()
+            assert _waited(lambda: machine.status(ticket) == "done", 60), (
+                machine.status(ticket),
+                said.read_text(),
+            )
+            assert len(machine.sessions()) == 1, "the held session was carried on, not redone"
+
+            # The next ticket: the new version runs it.
+            after = machine.ticket("Relire l'édito", "Une passe de relecture.", project)
+            nudged = started("run")
+            assert nudged.communicate(timeout=120)[0]
+            assert _waited(lambda: machine.status(after) == "done", 60), said.read_text()
+            text = said.read_text()
+            assert "Error" not in text and "Traceback" not in text, text
+        finally:
+            daemon.send_signal(signal.SIGTERM)
+            daemon.wait(timeout=120)
+
+
+def _waited(condition: Callable[[], object], seconds: float) -> bool:
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline:
+        if condition():
+            return True
+        time.sleep(0.1)
+    return bool(condition())
+
+
+@case
+@runner_settings(max_concurrent=2, interval_seconds=3600)
+def a_ticket_made_ready_beside_a_long_session_starts_in_the_free_place_within_seconds(
+    machine: Bench,
+) -> None:
+    """6 November, 14:16: a place free, a ticket ready, and half an hour of nothing.
+
+    Two places, one long session holding the first. A ticket made ready then
+    starts in the second within seconds — not when the long one ends, nor at
+    the next look of the safety net (an hour here).
+    """
+    from ponos import scheduler
+
+    hold = machine.root / "hold"
+    first_project = machine.project("Lettre d'information")
+    second_project = machine.project("Blog")
+    long = machine.ticket("Rédiger l'édito", "Deux paragraphes.", first_project)
+    runner = Runner(C.load(machine.config), quiet=True)
+    signals = scheduler.Signals()
+    ended: list[str] = []
+    with _environ({"FAKE_CLAUDE_HOLD": str(hold)}):
+        serving = threading.Thread(
+            target=lambda: ended.append(runner.serve(signals)), name="test-daemon", daemon=True
         )
-        installing.start()
-        meanwhile: list[subprocess.Popen[str]] = []
-        while installing.is_alive():
-            # A few at a time: a pass every 50 ms, unbounded, slowed the
-            # update past a minute in the image — and past the held pass.
-            if sum(one.poll() is None for one in meanwhile) < 3:
-                meanwhile.append(started("run"))
-            time.sleep(0.05)
-        installing.join()
-        assert during == [""], during
-        assert app.resolve().name == f"app-{second[:12]}"
-        # The new version's own environment, holding what it imports, before
-        # anything ran on it.
-        probe = subprocess.run(
-            [str(app / ".venv" / "bin" / "python"), "-c", "import httpx, fastapi, uvicorn"],
-            capture_output=True,
+        serving.start()
+        try:
+            assert _waited(lambda: len(machine.sessions()) == 1, 30), machine.sessions()
+            assert machine.status(long) == "progress"
+            began = time.monotonic()
+            later = machine.ticket("Annoncer l'édito", "Un billet court.", second_project)
+            # What the console, the MCP and `ponos run` do on a ticket made ready
+            # (`daemon.nudge`, a SIGUSR1 that `daemon.listen` turns into this).
+            signals.nudge()
+            assert _waited(lambda: len(machine.sessions()) == 2, 15), "the free place stayed free"
+            assert time.monotonic() - began < 10, time.monotonic() - began
+            assert machine.status(later) == "progress"
+            assert machine.status(long) == "progress", "the long session is still going"
+            hold.touch()
+            assert _waited(lambda: machine.status(long) == machine.status(later) == "done", 60), (
+                machine.status(long),
+                machine.status(later),
+            )
+        finally:
+            signals.stop.set()
+            serving.join(120)
+    assert ended == ["stop"], ended
+    assert not machine.board.refused, machine.board.refused
+
+
+@case
+def a_daemon_killed_under_a_session_is_started_again_and_the_session_is_carried_to_its_pr(
+    machine: Bench,
+) -> None:
+    """Restarting the daemon never kills a session — and nothing of its ticket is lost.
+
+    The daemon is killed outright (SIGKILL: no grace, no cleanup) in the middle
+    of a code ticket's session. The session is not its child: it goes on. A new
+    daemon finds it written down, follows it to its end, and the ticket comes
+    back as it would have — a branch, a pull request, « review ».
+    """
+    hold = machine.root / "hold"
+    repository = machine.repository("site")
+    project = machine.project("Site", repository)
+    ticket = machine.ticket("Corriger l'entête", "Le titre est faux, corrige-le.", project)
+    environment = {
+        "PONOS_CONFIG": str(machine.config),
+        "FAKE_CLAUDE_HOLD": str(hold),
+        "PYTHONPATH": str(ROOT / "src"),
+    }
+    outputs = [machine.root / "first.out", machine.root / "second.out"]
+
+    def daemon(out: Path) -> subprocess.Popen[str]:
+        return subprocess.Popen(
+            [sys.executable, "-m", "ponos", "daemon"],
+            stdout=out.open("w"),
+            stderr=subprocess.STDOUT,
             text=True,
         )
-        assert probe.returncode == 0, probe.stderr
 
-        meanwhile.append(started("run"))
-        for one in meanwhile:
-            said = one.communicate(timeout=120)[0]
-            assert one.returncode == 0 and "Error" not in said, said
-            assert "already in progress" in said, said
-
-        # The held pass started on the old version; it is still whole on disk.
-        previous = app.with_name(f"app-{first[:12]}")
-        assert "HANDOVER" not in (previous / "src/ponos/store.py").read_text(), (
-            "the version a pass was running on was written over"
-        )
-        hold.touch()
-        said = held.communicate(timeout=120)[0]
-        assert held.returncode == 0 and "Error" not in said, said
-        assert machine.status(ticket) == "done", machine.status(ticket)
-
-        version = started("--version")
-        assert "9." in version.communicate(timeout=60)[0], "the next pass is not the new version"
-        after = started("run")
-        said = after.communicate(timeout=120)[0]
-        assert after.returncode == 0 and "Error" not in said, said
+    with _environ(environment):
+        first = daemon(outputs[0])
+        try:
+            assert _waited(lambda: Path(f"{hold}.started").exists(), 60), outputs[0].read_text()
+            (row,) = state.sessions()
+            tether = int(row["handle"]["pid"])
+        finally:
+            first.send_signal(signal.SIGKILL)
+            first.wait(timeout=30)
+        assert machine.status(ticket) == "progress"
+        os.kill(tether, 0)  # the session outlived its daemon
+        second = daemon(outputs[1])
+        try:
+            assert _waited(lambda: "taken back" in outputs[1].read_text(), 60), outputs[
+                1
+            ].read_text()
+            hold.touch()
+            assert _waited(lambda: machine.status(ticket) == "review", 60), (
+                machine.status(ticket),
+                outputs[1].read_text(),
+            )
+        finally:
+            second.send_signal(signal.SIGTERM)
+            second.wait(timeout=120)
+    assert len(machine.sessions()) == 1, "the session was carried on, not started again"
+    opened = machine.pull_requests()
+    assert len(opened) == 1 and machine.board.value(ticket, "Pull Request") == opened[0]["url"]
+    assert state.sessions() == [], "nothing left written down once it is done"
+    runs = journal.runs(ticket)
+    assert len(runs) == 1 and runs[0]["status"] == "done", runs
+    assert "Traceback" not in outputs[1].read_text(), outputs[1].read_text()
 
 
 def _worktree_of(machine: Bench) -> Path:

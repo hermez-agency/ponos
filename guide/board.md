@@ -91,7 +91,7 @@ and it adds nothing — a ticket already there is left as it is, and only its
 missing comments are completed. Until you have run it, the tickets are Notion's as
 before; from the first ticket in the database on, they are the database's.
 
-**What still comes up from Notion** is a closed list, read on every pass:
+**What still comes up from Notion** is a closed list, read at every look of the daemon's upkeep (`interval_seconds`):
 
 - a page you create;
 - a change of status;
@@ -103,18 +103,18 @@ priority, the model… — belongs to Ponos. If you edit one of those cells in N
 the mirror writes the database's value over it.
 
 **The mirror** is the other direction: every change made to a ticket in
-`ponos.db` waits in a queue, and each pass sends it to Notion, in order. A change
+`ponos.db` waits in a queue, and each round of the daemon's upkeep sends it to Notion, in order. A change
 that Notion does not take (a token that is no longer valid, no network) stays in
 the queue with its count of tries and its last error, and goes again on the next
-pass; no ticket waits for it. A ticket whose changes are still queued is not read
+round; no ticket waits for it. A ticket whose changes are still queued is not read
 from Notion until they have been sent, so the older word never wins over the newer.
 
 **Notion can be down and the tickets still run.** A token that is refused, no network:
 ready tickets are claimed, worked, delivered and answered from `ponos.db`, and the
-mirror catches Notion up when it answers again. A pass that cannot reach Notion starts
+mirror catches Notion up when it answers again. A daemon that cannot reach Notion starts
 from the databases and the project pages it last read there (kept beside `ponos.db`);
 a project page it never read cannot be found without Notion. A ticket created in the
-console appears in Notion at the next pass, and one created in Notion appears in the
+console appears in Notion at the next round, and one created in Notion appears in the
 console at the next, from either side.
 
 ### The tickets database
@@ -157,7 +157,7 @@ keywords (`ready`, `progress`, `review`…) its formulas and views filter on.
 
 `Waiting for credit` is an attribute rather than an eighth column, and on purpose: nothing
 happened to a ticket nothing was started for, so nothing on the board should say it moved.
-The pass that has credit again takes the ticked ones first — they are the ones already
+Once the credit is back, the daemon takes the ticked ones first — they are the ones already
 half done — picks their session back up, and unticks them as it claims them. It is also
 the reason this reaches a board you built last month: a property can be added to an
 existing database through Notion's API, where an option on a real `status` cannot. Run
@@ -240,7 +240,7 @@ comment, then runs the ticket exactly as if you had picked that type yourself:
 > The ticket asks for a post on LinkedIn, which goes out in public.
 > Wrong? Change the Type column — a type somebody chose is never overwritten.
 
-It runs in the pass's own thread, like the session that names a nameless ticket: it starts
+It runs in the daemon's own thread, like the session that names a nameless ticket: it starts
 nothing beside the sessions in flight and holds none of their places for longer than it
 takes to answer one question.
 
@@ -274,8 +274,8 @@ that left files changed, or says it changed the code, is still blocked
 The comment asks *Writing or Publication?* and says which is the more careful of the two —
 in doubt, always the one further along *Writing → Code → External action → Publication*.
 **The Type column is left empty** rather than filled with that guess: a type the runner
-wrote would read, on the next pass, as a type you had chosen. Pick it, or answer: the
-question offers one button per type, in the console and on your phone, and the next pass
+wrote would read, the next time, as a type you had chosen. Pick it, or answer: the
+question offers one button per type, in the console and on your phone, and the daemon
 writes the type you clicked — or named in a sentence, *action externe*, a typo apart
 (*readction*), or by its number — into the column, then runs the ticket without asking
 again. An answer that names two types, or none, goes back to the classification.
@@ -293,7 +293,7 @@ four options it offers. A ticket typed in English before the names were fixed �
 and that it may not change it. When what the ticket asks for is precisely a change there, the
 session writes no answer and ends on a `KIND: code` line instead of asking to be run again:
 the runner writes *Code* in the column, says so in a comment (*↩️ Back in the queue*), and
-puts the ticket back in *Ready* — the next pass runs it in a worktree, with a fresh session,
+puts the ticket back in *Ready* — the next free place runs it in a worktree, with a fresh session,
 and nothing is asked of you. Only once a ticket: a second `KIND: code` on the same ticket is
 not believed, and it stops as its session did, for you to look at.
 

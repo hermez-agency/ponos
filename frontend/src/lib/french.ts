@@ -205,8 +205,20 @@ export const FRENCH: Record<string, string> = {
   "waiting: credit reserve reached until {{at}}": "en attente : réserve de crédit atteinte jusqu’à {{at}}",
   "waiting: today's spending limit reached until {{at}}": "en attente : plafond de dépense du jour atteint jusqu’à {{at}}",
   "waiting: a session is still on it — run again once it ends": "en attente : une session est encore dessus — relancé dès qu’elle se termine",
-  "waiting: --limit reached for this pass": "en attente : --limit atteint pour cette passe",
-  "waiting: the timer is off — nothing takes it": "en attente : le timer est arrêté — rien ne le prendra",
+  "ran it now": "l'a lancé tout de suite",
+  "ran it now, past the limit": "l'a lancé tout de suite, au-delà de la limite",
+  "Start it in a free place now, ahead of its turn in the queue.":
+    "Le démarrer tout de suite dans une place libre, avant son tour dans la file.",
+  "“{{title}}” is starting now": "« {{title}} » démarre maintenant",
+  "“{{title}}” was not started": "« {{title}} » n'a pas été lancé",
+  "No place is free": "Aucune place n'est libre",
+  "{{why}}. Run “{{title}}” anyway, past the limit — one more session at once than the settings allow, this once?":
+    "{{why}}. Lancer « {{title}} » quand même, au-delà de la limite — une session de plus en même temps que ce que les réglages permettent, pour cette fois ?",
+  "Run it past the limit": "Le lancer au-delà de la limite",
+  "All {{count}} places are taken": "Les {{count}} places sont prises",
+  "{{project}} already holds its {{count}} places": "{{project}} occupe déjà ses {{count}} places",
+  "waiting: --limit reached for this run": "en attente : --limit atteint pour ce lancement",
+  "waiting: no daemon is running — nothing takes it": "en attente : aucun démon ne tourne — rien ne le prendra",
   waiting: "en attente",
   "“{{title}}” did not reach Notion": "« {{title}} » n’est pas arrivé dans Notion",
   "“{{title}}” was changed in Notion meanwhile": "« {{title}} » a été modifié dans Notion entre-temps",
@@ -344,9 +356,8 @@ export const FRENCH: Record<string, string> = {
   "no git": "sans git",
   "The runner deduces the commit prefix and the CHANGELOG section.":
     "Le runner déduit le préfixe du commit et la section du CHANGELOG.",
-  "Launched, the ticket starts at the next pass, within {{every}}.":
-    "Lancé, le ticket démarre au prochain passage, d'ici {{every}}.",
-  "Launched, the ticket starts at the next pass.": "Lancé, le ticket démarre au prochain passage.",
+  "Launched, the ticket starts as soon as a place is free.": "Lancé, le ticket démarre dès qu'une place se libère.",
+  "Launched, the ticket starts once the daemon runs.": "Lancé, le ticket démarre dès que le démon tourne.",
   "Launch the ticket": "Lancer le ticket",
   "no project": "aucun projet",
   "Open the project {{name}}": "Ouvrir le projet {{name}}",
@@ -485,12 +496,12 @@ export const FRENCH: Record<string, string> = {
   "The runner no longer touches it, until it is made ready again.":
     "Le runner n'y touche plus, jusqu'à ce qu'il soit remis prêt.",
   "Run “{{title}}” again?": "Relancer « {{title}} » ?",
-  "The ticket goes back to {{column}} and the next pass starts a new session on it — a session that is paid for, like the first one.":
-    "Le ticket retourne dans {{column}} et la prochaine passe lance une nouvelle session dessus — une session payante, comme la première.",
+  "The ticket goes back to {{column}} and a new session starts on it as soon as a place is free — a session that is paid for, like the first one.":
+    "Le ticket retourne dans {{column}} et une nouvelle session démarre dessus dès qu'une place se libère — une session payante, comme la première.",
   "Run it again": "Relancer",
   "Make “{{title}}” ready?": "Rendre « {{title}} » prêt ?",
-  "The ticket goes to {{column}} and the next pass starts a session on it — a session that is paid for.":
-    "Le ticket passe dans {{column}} et la prochaine passe lance une session dessus — une session payante.",
+  "The ticket goes to {{column}} and a session starts on it as soon as a place is free — a session that is paid for.":
+    "Le ticket passe dans {{column}} et une session démarre dessus dès qu'une place se libère — une session payante.",
   "Its validation is withdrawn: the runner will not merge or publish it.":
     "Sa validation est annulée : le runner ne le fusionnera ni ne le publiera.",
   "Make it ready": "Lancer le ticket",
@@ -523,8 +534,8 @@ export const FRENCH: Record<string, string> = {
   "Launch {{count}} tickets?": "Lancer {{count}} tickets ?",
   "Launch {{count}} ticket": "Lancer {{count}} ticket",
   "Launch {{count}} tickets": "Lancer {{count}} tickets",
-  "They go to {{column}} and the next passes start a session on each — sessions that are paid for.":
-    "Ils passent dans {{column}} et les prochaines passes lancent une session sur chacun — des sessions payantes.",
+  "They go to {{column}} and a session starts on each as places free — sessions that are paid for.":
+    "Ils passent dans {{column}} et une session démarre sur chacun à mesure que les places se libèrent — des sessions payantes.",
   "Estimated cost: ≈ {{cost}}, up to {{high}}": "Coût estimé : ≈ {{cost}}, jusqu'à {{high}}",
   "No estimate yet: too few tickets like these have run.":
     "Pas encore d'estimation : trop peu de tickets semblables ont tourné.",
@@ -539,14 +550,14 @@ export const FRENCH: Record<string, string> = {
   "They go to {{column}}: the runner no longer touches them. Each one can be reopened from its card.":
     "Ils passent dans {{column}} : le runner n'y touche plus. Chacun se rouvre depuis sa carte.",
   "Validate “{{title}}”?": "Valider « {{title}} » ?",
-  "The runner merges its pull request on its next pass. A merge is not taken back from here.":
-    "Le runner fusionne sa pull request à sa prochaine passe. Une fusion ne se défait pas d'ici.",
-  "The runner publishes what the ticket holds on its next pass.":
-    "Le runner publie le contenu du ticket à sa prochaine passe.",
+  "The runner merges its pull request right away. A merge is not taken back from here.":
+    "Le runner fusionne sa pull request tout de suite. Une fusion ne se défait pas d'ici.",
+  "The runner publishes what the ticket holds at the next free place.":
+    "Le runner publie le contenu du ticket à la prochaine place libre.",
   "Retry the merge": "Réessayer la fusion",
   "Retry the merge of “{{title}}”?": "Réessayer la fusion de « {{title}} » ?",
-  "No session is started: the ticket goes back to {{column}}, and the runner merges its pull request on its next pass once its checks are green. A merge is not taken back from here.":
-    "Aucune session n'est lancée : le ticket retourne dans {{column}}, et le runner fusionne sa pull request à sa prochaine passe, dès que sa CI est verte. Une fusion ne se défait pas d'ici.",
+  "No session is started: the ticket goes back to {{column}}, and the runner merges its pull request as soon as its checks are green. A merge is not taken back from here.":
+    "Aucune session n'est lancée : le ticket retourne dans {{column}}, et le runner fusionne sa pull request dès que sa CI est verte. Une fusion ne se défait pas d'ici.",
   "Back to review": "Renvoyer en revue",
   "Back to {{column}}, to be decided on again: nothing is merged, and no session is started.":
     "De retour dans {{column}}, pour en décider à nouveau : rien n'est fusionné, et aucune session n'est lancée.",
@@ -573,12 +584,14 @@ export const FRENCH: Record<string, string> = {
     "Une récurrence écrite ici est un ticket qui revient tout seul.",
   Close: "Fermer",
   Link: "Lien",
-  "timer switched off — ponos service on": "minuterie arrêtée — ponos service on",
-  "timer not installed — ponos service on": "minuterie non installée — ponos service on",
-  "timer masked in systemd": "minuterie masquée dans systemd",
-  "timer on, with no next run": "minuterie active, sans prochaine passe",
-  "no systemd and no runner loop — ponos run --every": "pas de systemd ni de boucle du runner — ponos run --every",
-  "timer state unknown": "état de la minuterie inconnu",
+  "daemon switched off — ponos service on": "démon arrêté — ponos service on",
+  "daemon not installed — ponos service on": "démon non installé — ponos service on",
+  "daemon masked in systemd": "démon masqué dans systemd",
+  "daemon stopped on an error — ponos service on": "démon arrêté sur une erreur — ponos service on",
+  "no daemon — ponos daemon": "aucun démon — ponos daemon",
+  "daemon stopped — ponos service on": "démon arrêté — ponos service on",
+  "daemon state unknown": "état du démon inconnu",
+  "daemon {{state}}": "démon {{state}}",
 
   /* -- the search over the board and a project's tickets ------------------- */
   "Search tickets: title, id, result, pull request…":
@@ -823,10 +836,23 @@ export const FRENCH: Record<string, string> = {
   "{{count}} ticket in progress": "{{count}} ticket en cours",
   "{{count}} tickets in progress": "{{count}} tickets en cours",
   "nothing in progress": "rien en cours",
-  timer: "minuterie",
-  "timer {{state}}": "minuterie {{state}}",
-  off: "arrêtée",
-  "between two runs": "entre deux passes",
+  places: "places",
+  off: "arrêté",
+  "nothing waits": "rien n'attend",
+  "The daemon's places and its queue": "Les places du démon et sa file d'attente",
+  "{{busy}} of {{width}} places taken": "{{busy}} place(s) prise(s) sur {{width}}",
+  "the answers to comments": "les réponses aux commentaires",
+  "every place is free": "toutes les places sont libres",
+  "By project": "Par projet",
+  "{{project}}: {{busy}} of {{limit}}": "{{project}} : {{busy}} sur {{limit}}",
+  "{{count}} ticket waiting": "{{count}} ticket en attente",
+  "{{count}} tickets waiting": "{{count}} tickets en attente",
+  "every place is taken": "toutes les places sont prises",
+  "its project is at its limit": "son projet est à sa limite",
+  "waits for {{tickets}}": "attend {{tickets}}",
+  "not before {{at}}": "pas avant {{at}}",
+  "out of credit": "plus de crédit",
+  "the credit reserve is reached": "la réserve de crédit est atteinte",
   handled: "traités",
   "{{amount}} spent so far": "{{amount}} dépensés jusqu'ici",
   "{{count}} step": "{{count}} étape",
@@ -910,7 +936,7 @@ export const FRENCH: Record<string, string> = {
   "Every {{day}} at {{time}}": "Chaque {{day}} à {{time}}",
   "On day {{day}} of every month at {{time}}": "Le {{day}} de chaque mois à {{time}}",
   "{{date}} at {{time}}": "{{date}} à {{time}}",
-  "at the next pass": "à la prochaine passe",
+  "at the next look at the board": "au prochain relevé du tableau",
   "Next ticket: {{when}}.": "Prochain ticket : {{when}}.",
   "Next ticket, once it is turned on: {{when}}.": "Prochain ticket, une fois activée : {{when}}.",
   "Choose a cadence and an hour to see when the next ticket is created.":
@@ -1083,7 +1109,7 @@ export const FRENCH: Record<string, string> = {
   "Who you are, what the team does, the stack, the conventions, the things never to do. Keep it to one screen.":
     "Qui vous êtes, ce que fait l'équipe, la stack, les conventions, ce qu'il ne faut jamais faire. Tenez-vous à un écran.",
   "saved to the “{{page}}” page, and read again on the next run.":
-    "enregistré dans la page « {{page}} », relu à la prochaine passe.",
+    "enregistré dans la page « {{page}} », relu au prochain ticket.",
   "The context is saved": "Le contexte est enregistré",
   "Every ticket from here on is told this.": "Chaque ticket à partir de maintenant le reçoit.",
   "The context was not saved": "Le contexte n'a pas été enregistré",

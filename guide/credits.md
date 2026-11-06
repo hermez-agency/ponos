@@ -18,25 +18,24 @@ So it waits instead. When a session dies on the quota:
   *blocked*, which is the column that means *you* are needed; a column that also means
   "come back at six" has stopped saying anything. A comment says why and asks nothing of
   you. Its branch, its worktree and whatever it had already committed are left exactly as
-  they are, and so is its session: the pass that has credit again picks that very
+  they are, and so is its session: once the credit is back, the daemon picks that very
   conversation back up rather than starting the ticket over;
 - **nothing else is started**. The wait is written to
-  `~/.local/state/ponos/ponos.db`, and the runs in between — a run is a process
-  the timer starts, not a loop — find it and do nothing at all: no session, no claim, no
-  answer in a thread. What was queued behind it is ticked the same way, rather than
+  `~/.local/state/ponos/ponos.db`, and the daemon reads it at every free place and starts
+  nothing at all meanwhile: no session, no claim, no answer in a thread. What was queued behind it is ticked the same way, rather than
   sitting in *ready* looking like a runner gone quiet;
-- **the first run after it carries on**, and it takes the ticked tickets *first* — before
+- **the daemon carries on once it is over**, and it takes the ticked tickets *first* — before
   anything else in *ready*. They are the ones already half done, and a board that spends
   the returning credit on starting things rather than on finishing them is a board that
   never finishes anything. Claiming one unticks it.
 
 How long it waits is what Claude Code said. `Claude AI usage limit reached|1758031200` is
-the CLI naming the moment; when it names none, the wait is a quarter of an hour and a run
-that finds the limit still standing simply writes a new one. Guessing a full window would
+the CLI naming the moment; when it names none, the wait is a quarter of an hour and a
+session that finds the limit still standing simply writes a new one. Guessing a full window would
 be the expensive mistake — what was hit is the *end* of one, and it may be a minute away.
 
 `ponos status` says how much of it is left, and the console says the same thing at
-the top of *Live*, because a timer that is on above a board that does not move has only one
+the top of *Live*, because a daemon that runs above a board that does not move has only one
 honest reading otherwise: it is broken.
 
 The `Waiting for credit` checkbox is optional, like every property past the first few.
@@ -48,9 +47,9 @@ and the credit is waited out exactly as before, only with nothing on the board t
 A sign-in that expired is waited out the same way. When a session dies on *Failed to
 authenticate: OAuth session expired and could not be refreshed*, the ticket goes back to
 *ready* without being blocked, nothing else is started, and one notification asks you to
-sign Claude in again (`claude auth login`). No clock ends that wait: each pass asks
-`claude auth status`, and the first one that finds Claude signed in again carries on by
-itself, with the ticket it put back.
+sign Claude in again (`claude auth login`). No clock ends that wait: the daemon asks
+`claude auth status` at every free place, and the first answer that finds Claude signed
+in again carries on by itself, with the ticket it put back.
 
 Set `runner.wait_for_credits = false` to have the old behaviour back — an exhausted quota
 reported as the session failure it looks like. There is one case for it: an
@@ -100,15 +99,15 @@ session is 97 % spent. Past the line:
 - **everything that costs no credit carries on**: a pull request you validated this
   morning is still merged this afternoon, merged ones are still closed, the board is still
   swept. That is the whole difference between this line and a spent window, which stops
-  the pass outright;
+  every new session outright;
 - **the tickets it did not start are ticked as waiting for credit** where they stand, and
   come back first when the window rolls over;
-- **you are told once**, at the line and again on the way back — not on every pass. Four
-  hours at a ten-second cadence is fourteen hundred passes, and a phone that rings on each
+- **you are told once**, at the line and again on the way back — not at every look. Four
+  hours at a ten-second cadence is fourteen hundred looks, and a phone that rings on each
   of them is a phone that stops being read.
 
-The reading is taken again at every free place rather than once a pass: a pass lasts as
-long as its longest session, and the sessions in flight are what fills the window. `0`
+The reading is taken again at every free place: the sessions in flight are what fills the
+window. `0`
 spends the lot, which is what the runner did before this setting existed; `50` is the most
 it will accept. If the usage cannot be read at all — no Claude Code store, a payload whose
 shape changed — the runner says so once and behaves exactly as it does at `0`: a runner
@@ -124,7 +123,7 @@ a session cost — which a subscription does not, so they are for an API key or 
   sessions started since local midnight cost — every one of them, those that name, classify
   or repair a ticket included, each written down the moment it ends. A cost the database
   refuses is not lost: the error goes to `ponos.log`, the line waits in `spending.owed` beside
-  `ponos.db`, counted all the same, and the next pass writes it down. Past it nothing new begins — not a ticket, not
+  `ponos.db`, counted all the same, and the next session written down takes it along. Past it nothing new begins — not a ticket, not
   a publication, not an answer in a thread — and what is running finishes. The ready tickets
   are ticked as waiting, Telegram and Slack are told once, and the console shows a banner;
   merges and everything else that costs nothing carry on. It lifts at midnight.

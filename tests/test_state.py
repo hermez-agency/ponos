@@ -1,4 +1,4 @@
-"""`state.py`: the lock, the claims, and the timer that keeps the runner alive."""
+"""`state.py`: the scheduler's place, the claims, the sessions, and the daemon's unit."""
 
 from __future__ import annotations
 
@@ -18,46 +18,63 @@ from ponos import db, log, state, systemd, update
 
 
 @case
-def a_lock_left_by_a_dead_run_is_not_a_run(state_home: Path) -> None:
-    """`run.lock` on disk is what a killed run leaves behind; the flock is not.
+def a_scheduler_lock_left_by_a_dead_daemon_is_not_a_scheduler(state_home: Path) -> None:
+    """`scheduler.lock` on disk is what a killed daemon leaves behind; the flock is not.
 
-    For two hours on 7 September 2026, `status` read the leftover file as a run
-    in progress, and the search for the silence went the wrong way.
+    For two hours on 7 September 2026, `status` read such a leftover file as a
+    run in progress, and the search for the silence went the wrong way.
     """
     state_home.mkdir(parents=True)
-    (state_home / "run.lock").write_text("4242 2026-09-07T11:57:17+00:00\n")
-    assert state.running() == "", "a file nobody holds is not a run"
-    with state.lock():
-        assert state.running().startswith(str(os.getpid())), "a held lock is one"
-    assert state.running() == ""
+    (state_home / state.SCHEDULER).write_text("4242 2026-09-07T11:57:17+00:00\n")
+    assert state.scheduler() == {}, "a file nobody holds is no scheduler"
+    with state.scheduling():
+        assert state.scheduler()["pid"] == os.getpid(), "a held lock is one"
+    assert state.scheduler() == {}
 
 
 @case
-def a_run_turned_away_leaves_the_lock_and_its_holder_alone(state_home: Path) -> None:
+def a_second_scheduler_turned_away_leaves_the_lock_and_its_holder_alone(state_home: Path) -> None:
     """The lock file is one inode for good, and its PID survives a refusal.
 
-    Unlinking it on release let a run waiting on the old inode and a run that
+    Unlinking it on release let a holder waiting on the old inode and one that
     created a new one both hold "the" lock. And `open("w")` emptied the file
-    before asking for the lock — so a run turned away as busy had erased the
-    name of the run that turned it away.
+    before asking for the lock — so a process turned away as busy had erased
+    the name of the one that turned it away.
     """
-    path = state_home / "run.lock"
-    with state.lock():
+    path = state_home / state.SCHEDULER
+    with state.scheduling():
         inode = path.stat().st_ino
         try:
-            with state.lock():
-                raise AssertionError("two runs held the lock at once")
+            with state.scheduling():
+                raise AssertionError("two schedulers held the lock at once")
         except state.Busy:
             pass
         assert path.read_text().startswith(f"{os.getpid()} "), "the holder is still named"
-        assert state.running().startswith(str(os.getpid()))
+        assert state.scheduler()["pid"] == os.getpid()
+        with state.installing():
+            pass  # another lock: an install does not wait for the daemon
     assert path.exists(), "the lock file is never removed"
     assert path.stat().st_ino == inode, "and never replaced"
     assert path.read_text() == "", "nobody is named once the lock is let go of"
     assert path.stat().st_mode & 0o777 == 0o600
-    with state.lock():
+    with state.scheduling():
         assert path.stat().st_ino == inode
         assert path.read_text().count("\n") == 1, "one holder, written once"
+
+
+@case
+def a_session_written_down_is_read_back_and_counted_as_in_flight(state_home: Path) -> None:
+    """What a restart adopts: one row a session, with the job of its ticket."""
+    state.track_session("s-1", "abc-def", {"pid": 12, "log": "/x"}, '{"ticket": "abcdef"}')
+    state.track_session("s-2", "", {"pid": 13}, "")
+    found = {row["session"]: row for row in state.sessions()}
+    assert found["s-1"]["ticket"] == "abcdef" and found["s-1"]["handle"]["pid"] == 12
+    assert found["s-2"]["job"] == ""
+    assert "abcdef" in state.going(), "a ticket whose session is written down is in flight"
+    state.untrack_session("s-1")
+    assert [row["session"] for row in state.sessions()] == ["s-2"]
+    state.keep_places({"width": 2, "busy": [], "queue": []})
+    assert state.places()["width"] == 2 and state.places()["at"]
 
 
 @case
@@ -239,107 +256,67 @@ def the_statistics_read_the_history_off_its_columns(state_home: Path) -> None:
 
 
 @case
-def a_timer_with_no_next_run_is_stalled_rather_than_enabled() -> None:
-    """What the incident's timer answered, and what a healthy one answers."""
-    starved = systemd.describe(
-        "enabled",
-        "SubState=elapsed\nNextElapseUSecRealtime=\nNextElapseUSecMonotonic=infinity\n",
-        "NEXT LEFT LAST PASSED UNIT ACTIVATES\n- - Mon 2026-09-07 13:57:17 CEST 2h ago ponos.timer ponos.service\n",
-    )
-    assert starved.stalled and starved.label == "stalled"
-    assert starved.row.startswith("- -"), "the list-timers line travels with the verdict"
-
-    armed = systemd.describe(
-        "enabled", "SubState=waiting\nNextElapseUSecRealtime=\nNextElapseUSecMonotonic=18h 48min\n"
-    )
-    assert armed.armed and not armed.stalled and armed.label == "enabled"
-
-    busy = systemd.describe(
-        "enabled", "SubState=running\nNextElapseUSecRealtime=\nNextElapseUSecMonotonic=\n"
-    )
-    assert busy.running and not busy.stalled, "no next run while the service runs is a run"
-
-    off = systemd.describe(
-        "disabled", "SubState=dead\nNextElapseUSecRealtime=\nNextElapseUSecMonotonic=\n"
-    )
-    assert not off.stalled and off.label == "disabled", "only an enabled timer can lie"
-    assert systemd.describe("", "").label == "", "and what is not installed says so as it did"
+def the_daemon_unit_says_whether_it_runs_and_not_only_whether_it_is_enabled() -> None:
+    """`is-enabled` stays true for a unit that failed: `ActiveState` is what tells."""
+    running = systemd.describe("enabled", "ActiveState=active\nSubState=running\nNRestarts=2\n")
+    assert running.running and running.label == "running" and running.restarts == 2
+    failed = systemd.describe("enabled", "ActiveState=failed\nSubState=failed\n")
+    assert not failed.running and failed.label == "failed"
+    off = systemd.describe("disabled", "ActiveState=inactive\n")
+    assert off.label == "disabled", "a unit switched off says so first"
 
 
 @case
-def status_says_the_timer_and_the_run_in_local_time_and_from_now() -> None:
-    """`status` printed the `list-timers` line bare — `-       - Fri 2026-10-23
-    10:19:18 CEST 4h 54min ago` — and the run as a PID beside a UTC timestamp."""
-    import time
-    from datetime import UTC, datetime
-
-    from ponos import __main__ as cli
-
-    then = time.time() - (4 * 3600 + 54 * 60)
-    busy = systemd.describe(
-        "enabled",
-        "SubState=running\nNextElapseUSecRealtime=\nNextElapseUSecMonotonic=infinity\n",
-        "NEXT LEFT LAST PASSED UNIT ACTIVATES\n- - Fri 2026-10-23 10:19:18 CEST 4h 54min ago "
-        "ponos.timer ponos.service\n",
-        f"LastTriggerUSec=@{then:.0f}\nNextElapseUSecRealtime=\n",
-    )
-    assert busy.last == round(then) and busy.next == 0
-    said = cli._timer_times(busy)
-    assert said.startswith("next pass: once this one ends · last pass: "), said
-    assert said.endswith(", 4 h 54 min ago"), said
-    assert cli._moment(then) in said, "on the local clock"
-    assert "-" not in said and "CEST" not in said, "and nothing of the bare line"
-
-    armed = systemd.describe(
-        "enabled",
-        "SubState=waiting\nNextElapseUSecRealtime=\nNextElapseUSecMonotonic="
-        f"{time.monotonic() + 185:.6f}s\n",
-        stamps="LastTriggerUSec=n/a\nNextElapseUSecRealtime=\n",
-    )
-    assert abs(armed.next - (time.time() + 185)) < 2, "a monotonic next run, as a date"
-    assert armed.last == 0
-    assert cli._timer_times(armed).startswith("next pass: "), cli._timer_times(armed)
-    assert ", in 3 min" in cli._timer_times(armed)
-    calendar = systemd.describe(
-        "enabled", "SubState=waiting\n", stamps="NextElapseUSecRealtime=@1792743558\n"
-    )
-    assert calendar.next == 1792743558
-
-    started = datetime.fromtimestamp(then, UTC).isoformat()
-    line = cli._run_line(f"2529887 {started}")
-    assert line == f"a run is in progress since {cli._moment(then)}, 4 h 54 min (pid 2529887)"
-    assert cli._run_line("a run in progress") == "a run is in progress", "nobody named"
-    assert [cli._span(s) for s in (12, 180, 90000)] == ["12 s", "3 min", "1 d 1 h"]
-    assert systemd._span("18h 48min") == 18 * 3600 + 48 * 60
-    assert systemd._span("infinity") == 0 and systemd._span("") == 0
-
-
-@case
-def the_timer_counts_from_its_own_start() -> None:
-    """OnBootSec serves once; OnUnitActiveSec needs a service that ran. A timer
-    restarted after a failed run had neither, and never fired again."""
-    previous = os.environ["HOME"]
-    os.environ["HOME"] = tempfile.mkdtemp()
+def the_timer_of_the_passes_is_no_longer_written_and_an_installed_one_is_taken_down() -> None:
+    """The units an update writes are the daemon's; the timer it replaced goes, by itself."""
+    previous = os.environ.get("XDG_CONFIG_HOME")
+    os.environ["XDG_CONFIG_HOME"] = tempfile.mkdtemp()
     try:
         units = update.write_units(600, ROOT)
+        assert not (units / "ponos.timer").exists()
+        service = (units / "ponos.service").read_text()
+        for directive in ("Type=simple", "Restart=always", "KillMode=process"):
+            assert directive in service, directive
+        assert " daemon" in service, "the unit runs the daemon"
+        (units / "ponos.timer").write_text("[Timer]\n")
+        calls: list[tuple[str, ...]] = []
+        import shutil
+
+        original, which = systemd._systemctl, shutil.which
+
+        def recorded(*arguments: str) -> str:
+            calls.append(arguments)
+            return ""
+
+        systemd._systemctl = recorded
+        shutil.which = lambda *_, **__: "/bin/true"  # type: ignore[assignment]
+        try:
+            assert systemd.migrate(units)
+            assert not systemd.migrate(units), "once"
+        finally:
+            systemd._systemctl, shutil.which = original, which
+        assert not (units / "ponos.timer").exists()
+        assert ("disable", "--now", "ponos.timer") in calls and ("enable", "ponos.service") in calls
     finally:
-        os.environ["HOME"] = previous
-    timer = (units / "ponos.timer").read_text()
-    for directive in ("OnActiveSec=600s", "OnBootSec=600s", "OnUnitActiveSec=600s"):
-        assert directive in timer, directive
-    assert "@" not in timer, "a placeholder left in the unit"
+        if previous is None:
+            os.environ.pop("XDG_CONFIG_HOME", None)
+        else:
+            os.environ["XDG_CONFIG_HOME"] = previous
 
 
 @case
 def the_runner_unit_runs_its_sessions_behind_the_desktop() -> None:
     """Five sessions at nice 0, as equals of the browser they drive, and the
     desktop stopped answering: the unit `ponos service on` writes sets them back."""
-    previous = os.environ["HOME"]
-    os.environ["HOME"] = tempfile.mkdtemp()
+    previous = os.environ.get("XDG_CONFIG_HOME")
+    os.environ["XDG_CONFIG_HOME"] = tempfile.mkdtemp()
     try:
         units = update.write_units(600, ROOT)
     finally:
-        os.environ["HOME"] = previous
+        if previous is None:
+            os.environ.pop("XDG_CONFIG_HOME", None)
+        else:
+            os.environ["XDG_CONFIG_HOME"] = previous
     service = (units / "ponos.service").read_text().splitlines()
     for directive in ("Nice=10", "CPUWeight=20", "IOSchedulingClass=idle", "MemoryHigh=60%"):
         assert directive in service, directive

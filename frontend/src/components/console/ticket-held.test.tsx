@@ -19,14 +19,14 @@ const said = (reason: string, detail = "") =>
   )
 
 describe("a ready card", () => {
-  test.each(["pass", "next", "places", "project"])("says nothing of the ordinary wait: %s", (reason) => {
+  test.each(["next", "places", "project"])("says nothing of the ordinary wait: %s", (reason) => {
     expect(said(reason, "3")).toBeNull()
   })
 
   test.each([
     ["credits", "14:00", "out of credit"],
     ["budget", "00:00", "spending limit"],
-    ["timer", "", "timer is off"],
+    ["daemon", "", "no daemon is running"],
     ["date", "2026-12-01", "scheduled for"],
   ])("still says why it waits: %s", (reason, detail, words) => {
     expect(said(reason, detail)?.textContent).toContain(words)

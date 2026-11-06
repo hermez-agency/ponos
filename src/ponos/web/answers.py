@@ -1087,10 +1087,58 @@ class Upgrade(UpgradeProgress):
     """What to type instead."""
 
 
+class Place(Shape):
+    """One of the daemon's places, and what holds it."""
+
+    ticket: str
+    title: str
+    project: str
+    kind: str
+    """`ticket`, `publication`, `replies` or `session` — a session nobody carries on."""
+    since: float
+
+
+class ProjectPlaces(Shape):
+    name: str
+    busy: int
+    limit: int
+
+
+class Waiting(Shape):
+    """A ticket of the queue, and why it waits."""
+
+    ticket: str
+    title: str
+    project: str
+    why: str
+    """`places`, `project`, `after`, `date`, `credits` or `reserve`."""
+    detail: str
+
+
+class Places(Shape):
+    """The daemon's places — taken, free, per project — and its queue."""
+
+    width: int
+    per_project: int
+    free: int
+    busy: list[Place]
+    projects: list[ProjectPlaces]
+    queue: list[Waiting]
+
+
+class Launched(Shape):
+    """What « Run now » came to: `started`, `full` (no place free) or `refused`."""
+
+    status: str
+    message: str
+
+
 class RunnerState(Shape):
-    timer: str
+    daemon: str
+    """`running`, or why it is not: `stopped`, `disabled`, `failed`, `not installed`…"""
     running: bool
-    lock: str
+    """Whether anything is in flight: a place taken, or a session written down."""
+    places: Places
     sessions: list[Running]
     """The sessions in flight, read from their logs by the server."""
     credits: float
@@ -2254,7 +2302,7 @@ class AuditEntry(Shape):
     who: str
     """The name, as it was then; empty for the token."""
     email: str
-    action: Literal["created", "moved", "told", "decided", "priority", "on", "goal"]
+    action: Literal["created", "moved", "told", "decided", "priority", "on", "goal", "launched"]
     detail: str
     """The column moved to, the choice made, the priority set."""
 

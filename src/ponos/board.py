@@ -39,7 +39,6 @@ from . import (
     tickets,
 )
 from . import ledger as ledger_module
-from . import update as update_module
 from . import voice as voice_module
 from .base import Base
 from .projects import Project
@@ -56,12 +55,6 @@ from .ticket import Ticket
 # was made (see web/board.py), so a ticket failed in a second could still come
 # back "ready" from the status it had before — and be run a second time.
 SETTLE = 15.0
-
-# How long a pass goes on taking new work. Past it, nothing more is begun and
-# the pass ends with its last session — `timeout_minutes` later at the most —
-# so the unit's end, which takes with it what the sessions left running, and
-# the update at the top of the next pass come at least that often.
-PASS_SPAN = 30 * 60.0
 
 # The open tickets whose page is put in its two parts (ticket_page.py), and how
 # many a pass does at most: each costs a few requests, and a board of two
@@ -735,10 +728,12 @@ class Board(Base):
     def sweep(self) -> int:
         """Put back tickets a dead runner left claimed.
 
-        A run holds an exclusive lock, so at the start of a run no other run of
-        ours can be in flight — any ticket still marked "in progress" under this
-        host's name was therefore abandoned, by a reboot, a `systemctl stop`, or
-        a crash. It goes back to ready rather than staying stuck for good.
+        Only the scheduler sweeps, and there is one on a machine (see
+        `state.scheduling`): a ticket still marked "in progress" under this
+        host's name, that it holds no session of and that no session written
+        down for adoption is on, was therefore abandoned — by a reboot or a
+        crash between two sessions. It goes back to ready rather than staying
+        stuck for good.
 
         Back to ready, but **not** when it was claimed for a publication. A
         ticket taken from the validated column was work somebody had already
@@ -758,8 +753,8 @@ class Board(Base):
         this host's, which is true of a board one machine runs, and the only
         thing that can be known: doctor says what it costs with two.
 
-        Never one this run holds, whichever: a ticket claimed by the pass under
-        way is work, not a leftover.
+        Never one this scheduler holds, whichever: a ticket it has claimed is
+        work, not a leftover.
 
         Either way the card's line is emptied: only `Live.close` does it after
         a session, and a run that was killed never got there — a ticket back in
@@ -767,7 +762,10 @@ class Board(Base):
         run in the journal is closed, first and whatever the board answers: it
         is this machine's to close, the board has no say in it.
         """
-        closed = journal.interrupted(stopping.live())
+        # A session written down for adoption is going, whoever followed it:
+        # its run stays open, and its ticket stays in progress.
+        adopted = {row["ticket"] for row in state.sessions()}
+        closed = journal.interrupted(stopping.live() | adopted)
         if closed:
             self.say(f"  ↺ {closed} run(s) left open by a dead runner, closed")
         status_property = self.config.notion.prop("status")
@@ -794,7 +792,7 @@ class Board(Base):
             # One page that refuses a write is that page's business: the others
             # are seen to all the same.
             try:
-                if ticket.id in self._claimed:
+                if ticket.id in self._claimed or ticket.id in adopted:
                     continue
                 if signed and store.read(page, agent) != self.agent_label:
                     continue
@@ -855,7 +853,7 @@ class Board(Base):
         # some other way — moved by hand, or by a run that died before it could
         # say so. Kept, it would go on holding a worktree (see cleanup.py) and
         # turn the ticket's next claim into a publication "interrupted".
-        working = {Ticket(page).id for page in running} | self._claimed
+        working = {Ticket(page).id for page in running} | self._claimed | adopted
         for orphan in set(state.claims()) - working:
             state.release(orphan)
         return recovered
@@ -923,28 +921,6 @@ class Board(Base):
         self.follow_ci(waiting)
         self.follow_reviews(waiting)
         return closed
-
-    def closing(self, began: float) -> str:
-        """Why this pass should take nothing more, or "" while it may go on.
-
-        A pass that refills itself only ends once the ready column is empty,
-        and a busy board never is: the pass of 23 October lasted a day and
-        fifty minutes, on the code it had started with — a fix merged at 14:49
-        was not loaded, and the pull requests it would have held were merged
-        without it. Two things end a pass now: a newer version out, which only
-        lands at the top of the next one, and `PASS_SPAN` gone by. Either way
-        what is in flight is left to finish, and the ready tickets stay ready
-        for the pass that follows on the timer.
-        """
-        if time.time() - began >= PASS_SPAN:
-            return "this pass has run long enough"
-        # On the update interval, as the top of a pass would have asked.
-        settings = self.config.runner
-        last = max(update_module.last_check(), self._update_looked)
-        if time.time() - last < settings.update_interval_seconds:
-            return ""
-        self._update_looked = time.time()
-        return "a newer version is out" if update_module.pending(settings) else ""
 
     def _again(self, hand: InHand) -> list[Ticket]:
         """The tickets a freed place can be filled with, board read afresh.
@@ -1065,9 +1041,9 @@ class Board(Base):
             if (self._explained or {}).get(key) == why:
                 continue
             said = {
-                "running": "a session of this pass is still on it — run again once it ends",
+                "running": "a session is still on it — run again once it ends",
                 "places": f"all {width} place(s) taken — it starts at the next free one",
-                "limit": "--limit reached for this pass",
+                "limit": "--limit reached for this run",
                 "project": f"its project already holds {limit} place(s) — it starts when one frees",
             }[why]
             self.say(f"  … {ticket.title} — waiting: {said}")

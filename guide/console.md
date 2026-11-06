@@ -31,7 +31,7 @@ Open `http://127.0.0.1:8787` and you get one page, four things:
 │               │  │ High     │  │ pytest   │  │  pytest. Nothing committed. │
 │               │  └──────────┘  └──────────┘  │                             │
 │               │                              │  > status                   │
-│               │                 ───▶      (●)│  timer on · 30 min          │
+│               │                 ───▶      (●)│  1/2 places · 3 waiting     │
 └───────────────┴──────────────────────────────┴─────────────────────────────┘
      the menu           the board, live            the drawer the bubble opens
 ```
@@ -91,15 +91,20 @@ is a second database: **drag a card into a column and the ticket moves**, and th
 you write behind *New ticket* is a page in the same database, with its brief as real
 Notion blocks — and, where the board has those columns, its *Priority*, *Type* and *Model*
 (an empty type is deduced by the runner, as for a ticket written in Notion). *Ready to
-run* is ticked by default, and the form says what that means: a session, at the next
-pass. **Ctrl+Enter** (⌘+Enter) creates the ticket from any of its fields. What the console adds is the part Notion cannot do — the running session's
+run* is ticked by default, and the form says what that means: a session, as soon as a
+place is free. **Ctrl+Enter** (⌘+Enter) creates the ticket from any of its fields. What the console adds is the part Notion cannot do — the running session's
 steps, live, read straight from the session log on disk rather than from the `Progress`
 column. A card in progress has a pulsing dot, how many steps its session has taken, and
 what it is on in one line — what the agent last said, or else the last tool it ran. Over
-the columns, one strip carries the runner's figures: the sessions writing, the timer
-between two passes, the tickets handled and what they cost. A card in review carries a **validate** button, where the board has that column:
-confirm it and the next pass merges its pull request, or publishes what it holds; *run
-again* asks the same way, since it starts a session that is paid for. A move is queued by
+the columns, one strip carries the runner's figures: the sessions writing, the daemon's
+places (taken over all, and how many tickets wait — clicked, which ticket holds each place,
+per project, and the queue with why each ticket waits: every place taken, its project at
+its limit, a ticket it comes after, a date, the credit), the tickets handled and what they
+cost. A ready card carries **Run now**: the daemon gives it a free place at once, or says
+none is free and offers to run it past the limit, once. A card in review carries a
+**validate** button, where the board has that column: confirm it and the daemon merges its
+pull request at once, or publishes what it holds at the next free place; *run again* asks
+the same way, since it starts a session that is paid for. A move is queued by
 the console rather than made while the browser waits: the card lands in its new column
 saying *waiting to be sent to Notion*, the console reads the page first — and **does not
 overwrite a status somebody changed in Notion since the card showed it**, saying so on the
@@ -507,21 +512,21 @@ the one picked, in the address (`&schedule=<id>`) so a link opens on it: its hea
 actions (run now, edit, delete, the switch that pauses it), what it made — tickets, their
 standing, their total and average cost, their average duration, how many of those that
 finished are done, a chart by week — and three tabs under them: *Tickets*, every ticket it
-made, newest first, each opening in its window; *Runs*, every pass, with the ticket it made
+made, newest first, each opening in its window; *Runs*, every time it came due, with the ticket it made
 or why it made none (skipped because the last one was still open, or refused by the board);
 *Settings*, its form, written on the spot. On a phone the one picked takes the whole screen,
 with a way back to the list. The runner keeps a line per occurrence in `ponos.db` for this;
 the tickets made before it did are found by its history and by their dated title
-(`web/lineage.py`), and the passes that made none before it are not known.
+(`web/lineage.py`), and the times it made none before it are not known.
 
 *New schedule* and the name of a row open the window that writes the six columns a schedule
 is written in — the cadence, the hour, the day, the tick, and the project, model and priority
 the ticket inherits — as buttons rather than selects: the day only appears for a weekly or a
 monthly one, the hour is a time field, and a line under them says when the next ticket is born.
-Never `Next`, `Last` or the ticket the last occurrence made: those are what a *pass* writes
+Never `Next`, `Last` or the ticket the last occurrence made: those are what the *runner* writes
 back, and a console that let you edit them would let you make an occurrence happen twice.
 A row nobody can read says what is wrong with it instead of a date it does not have, a
-row turned off says *paused* rather than the date the last pass left on it, and
+row turned off says *paused* rather than the date the runner last left on it, and
 `runner.schedule = false` is said at the foot of the page, because a browser is the one
 place that switch would otherwise be invisible — with *Turn it on in the settings*, which opens
 the settings on that switch, focused. The page asks the board when you open it
@@ -840,7 +845,7 @@ by hand), `POST /api/ideas/<id>` (reworded), `POST /api/ideas/generate`, `POST
 
 ### Keeping it running
 
-It already is. `install.sh` arms the console's unit along with the timer, and
+It already is. `install.sh` arms the console's unit along with the daemon's, and
 `ponos service on` does the same on an installation that predates this — so the
 console is up on `http://127.0.0.1:8787` with nothing to type, and comes back with the
 machine.
@@ -848,8 +853,8 @@ machine.
 ```sh
 ponos service run --print-token   # the token, if you lost the URL
 systemctl --user stop ponos-web   # stop it until the next boot
-ponos service off                 # stop the timer and the console for good
-ponos service status              # how the timer, the console and the Tailscale unit stand
+ponos service off                 # stop the daemon and the console for good
+ponos service status              # how the daemon, the console and the Tailscale unit stand
 ```
 
 What it opens is loopback, which is why it can be a default: the port is reachable from
@@ -1004,8 +1009,8 @@ steps, drawn by the console itself, one write each:
 7. **Channels**, optional — Telegram and Slack. Leave Telegram's chat id empty, say anything
    to your new bot, and the id is read back from it, the same gesture as `notify --pair`.
 8. **First ticket** — a short writing ticket, put on the board in *Ready* under the first
-   project and **played at once** with `ponos run --ticket`, rather than at the timer's next
-   pass: the step follows it to *Review*, links it, and says *it works*. One that fails shows
+   project and **played at once** with `ponos run --ticket`, in a free place of the daemon —
+   or by a run of its own when no daemon is up yet: the step follows it to *Review*, links it, and says *it works*. One that fails shows
    what its run printed.
 9. **Summary** — what the console runs on, one line per thing that has to work, each `ok`,
    `missing` or `error`, and each leading to the step that changes it: this machine (git,
@@ -1035,7 +1040,7 @@ OK on every line opens `/setup` on the summary rather than on the language.
 
 `serve` starts on the file `install.sh` leaves, Notion token or not — these steps are where
 the token gets filled in, so the console only refuses a configuration that is missing or
-does not parse. Until a token is there, `ponos run`, which is what the timer calls, keeps
+does not parse. Until a token is there, the daemon waits for one, and `ponos run` keeps
 refusing with the list of what is missing.
 
 > **Who may claim it.** On a laptop the console listens on loopback, and the first browser
@@ -1190,7 +1195,7 @@ back is a task, a project, an idea, an amount — never a page or a property.
 | `list_projects` | Projets | read | the projects: name, icon, repository |
 | `list_tasks` | Tâches | read | the tasks, each with its goal, filtered by project, by status, or `waiting_for_you` (the blocked ones) |
 | `get_task` | Détail d'une tâche | read | one task: its goal, its brief, the last turns of its discussion and the question it waits on, the pull request, the cost, the session, the last runs |
-| `runner_status` | Runner et dépenses | read | the timer, the sessions in flight, the tasks running, what was spent today, over the period and project by project |
+| `runner_status` | Runner et dépenses | read | the daemon, its places and its queue with why each task waits, the sessions in flight, the tasks running, what was spent today, over the period and project by project |
 | `list_ideas` | Idées | read | the ideas of a project, or of the workspace, by state, each with its score and why |
 | `list_goals` | Objectifs | read | the goals: status, due date, criterion, projects and progress — tasks done out of all but the cancelled ones |
 | `create_task` | Créer une tâche | write | a *draft* task, with its description, project, type, priority and goal (by name, whatever the case, or id) — through the console's *New ticket*, so the same rules as any other; a person sets it *ready* in the console |

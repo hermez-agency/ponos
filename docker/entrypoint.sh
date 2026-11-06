@@ -4,16 +4,17 @@
 # A configuration when the volume has none yet: the example, with the three
 # lines a container answers differently — the projects under /workspace, the
 # console listening to the network Docker gives it (the installation code
-# guards it until somebody claims it, see web/setup.py), and a run every minute,
-# since a pass with nothing to do is one request to the board. And a fourth:
+# guards it until somebody claims it, see web/setup.py), and the board looked at
+# again every minute by the daemon's safety net, which costs one request. And a fourth:
 # the provider, when the only way to Claude given is an Anthropic key: the
 # sessions are billed to it rather than waiting for a sign-in nobody will type.
 #
 # Then git signed in through gh when a token was given, so a push goes out as
 # the account the pull requests are opened as. And then the two halves of a
-# runner: the loop of runs the systemd timer would start (`ponos run --every`),
-# and the console in the foreground, whose logs are the container's — the
-# installation code among them.
+# runner: the daemon (`ponos daemon`), started again should it ever stop — the
+# loop here is what `Restart=always` is to its systemd unit — and the console in
+# the foreground, whose logs are the container's, the installation code among
+# them.
 #
 # Given a command, the container runs that instead: `docker compose run ponos
 # ponos doctor`, or the CI's test suite.
@@ -41,5 +42,5 @@ if [ "$#" -gt 0 ]; then
     exec "$@"
 fi
 
-ponos run --every &
+(while :; do ponos daemon; sleep 5; done) &
 exec ponos service run --host 0.0.0.0

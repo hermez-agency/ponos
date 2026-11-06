@@ -536,7 +536,7 @@ def a_worktree_is_made_without_the_excluded_folders_and_the_main_checkout_keeps_
 
 
 @case
-def the_console_measures_the_disk_and_cleans_only_between_runs(state_home: Path) -> None:
+def the_console_measures_the_disk_and_cleans_beside_the_daemon(state_home: Path) -> None:
 
     _aged(state_home / "scratch" / "notes-1a2b3c4d", 30)
     console = web_api.Api.__new__(web_api.Api)
@@ -545,14 +545,9 @@ def the_console_measures_the_disk_and_cleans_only_between_runs(state_home: Path)
     console._runner = _tidying([_aged_page("page-1a2b3c4d", "done", 30)])
     measured = console.disk()
     assert measured["sizes"]["scratch"] >= 1000 and measured["retention_days"] == 14
-    with state.lock():
-        try:
-            console.clean()
-        except RuntimeError as error:
-            assert "run is in progress" in str(error)
-        else:
-            raise AssertionError("a tidy ran under a pass")
-    cleaned = console.clean()
+    # The daemon never lets go of its place: the tidy does not wait for it.
+    with state.scheduling():
+        cleaned = console.clean()
     assert cleaned["removed"] == 1 and cleaned["sizes"]["scratch"] == 0, cleaned
 
 

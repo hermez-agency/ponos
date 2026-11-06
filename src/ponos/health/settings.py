@@ -724,7 +724,7 @@ def _ideas(settings: config_module.Runner) -> list[Check]:
             "settings.ideas",
             INFO,
             title,
-            "The passes run in the console (`ponos service run`), not in the timer's run.",
+            "The passes run in the console (`ponos service run`), not in the daemon.",
         )
     )
     return found

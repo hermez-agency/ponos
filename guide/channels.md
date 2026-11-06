@@ -181,7 +181,7 @@ fail, and the Notion comment stays the record either way. `ponos doctor` says wh
 channel is live, as whom, and where; the console's health band says a channel in error in
 amber — *1 thing to fix: Slack notifications do not arrive* — and keeps *before tickets can
 run*, in red, for what stops the runner from taking a ticket. A channel the runner cannot read is said once in
-`ponos.log`, then again only when the error changes or goes away — not at every pass.
+`ponos.log`, then again only when the error changes or goes away — not at every look.
 
 ### The week in one message — the digest
 
@@ -202,10 +202,10 @@ statistics); and the tickets **waiting for a decision** — those in review, blo
 each with its project and its link.
 
 It is computed from `ponos.db` and the board, with no Claude session: it costs nothing. A
-period is named by the moment it ends, so it is sent **once** however many passes meet it —
-the timer's, the console's — and a machine that was asleep at the hour sends it on waking, up
+period is named by the moment it ends, so it is sent **once** however many looks meet it —
+the daemon's, the console's — and a machine that was asleep at the hour sends it on waking, up
 to a day late; a digest switched on on a Wednesday does not send Monday's. A period no channel
-took is tried again at the next pass.
+took is tried again at the next round of the daemon's upkeep.
 
 `ponos notify --digest` sends the period under way (the last seven days, or the last day for
 `daily`) right now, whatever was already sent, to see what it says before Monday does.

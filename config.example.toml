@@ -128,19 +128,19 @@ goals = "Objectifs"
 # created from its GitHub link alone needs no `git clone` from you.
 workspace_root = "~/workspace"
 
-# Seconds between two passes. Changing this takes effect on the next
-# `ponos service on`, which rewrites the systemd timer from this value.
-# A pass with nothing to do costs one Notion query, so a short interval is
-# cheap: 10 means a ticket starts being worked on within ten seconds. It is
-# also how often a pass already running looks for a ticket to put in a place
-# it has left empty — the timer cannot, the run lock is that pass's.
+# The daemon's safety net, in seconds: whatever woke it in between, it looks at
+# the whole board at least this often — the ready column, the validated one, the
+# CI and the reviews of the pull requests in review, the merged ones, the mirror.
+# A ticket made ready does not wait for it: the console, the MCP and `ponos run`
+# tell the daemon at once, and the ready tickets of ponos.db are counted every
+# two seconds. Read again when the file changes, no restart needed.
 interval_seconds = 1800
 
 # Places, not a batch size: this many sessions run side by side, and a place is
 # filled from the board straight away — whether a session just freed it or it
 # was never taken, so tickets arriving one at a time still run side by side.
-# Each place costs a full Claude session. A pass ends when nothing is ready and
-# nothing is in flight.
+# Each place costs a full Claude session. The daemon holds them for good, and
+# fills each one the moment it frees.
 max_concurrent = 2
 
 # Of those places, how many one project may hold at once. Pull requests written
@@ -482,14 +482,12 @@ unblock_interval_seconds = 21600  # a ticket is looked at once in this long (600
 # workspace with no schedules page never had any of this to begin with.
 schedule = true
 
-# Keep the installation on the latest version, on its own. A run looks at the
-# clock before it looks at the tickets: once every update_interval_seconds it
-# asks the repository whether the installed code is still the newest, and brings
-# it up to date if it is not. The update happens before any ticket is claimed,
-# so it never lands in the middle of a session, and the new code takes over on
-# the next pass. A pass in flight asks too, on the same interval: once a newer
-# version is out — or once it has run for 30 minutes — it starts nothing more,
-# and ends with the sessions it has, so the next pass updates.
+# Keep the installation on the latest version, on its own. Once every
+# update_interval_seconds the daemon asks the repository whether the installed
+# code is still the newest; if not, it installs the new version beside the one in
+# use and restarts itself on it (an exec, same process). The Claude sessions in
+# flight are not cut: they finish on the code they started with, and the new
+# daemon takes them back. Everything started afterwards runs on the new code.
 #   ponos update --check   what is available, right now
 #   ponos update           apply it by hand
 # Only works on an installation made by install.sh from the repository: one made
@@ -502,7 +500,7 @@ auto_update = true
 # What "the newest" means.
 #   "release"  the newest release tag (vX.Y.Z) and nothing in between: a commit
 #              pushed to main is not something every installation runs until it
-#              is released. No tag yet means no update, and the run says so. An
+#              is released. No tag yet means no update, and the daemon says so. An
 #              installation already ahead of the newest tag is never taken back.
 #   "main"     every commit of the branch it was installed from, within the hour.
 # Anything else reads as "release". `ponos doctor` says which is in use.

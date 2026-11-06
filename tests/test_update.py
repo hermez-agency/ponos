@@ -699,13 +699,16 @@ def _until(condition: Callable[[], object], seconds: float = 5.0) -> None:
 
 
 @case
-def an_update_from_the_console_waits_for_the_ticket_in_flight(state_home: Path) -> None:
-    """A click while a ticket runs is queued behind the run lock, never under it.
+def an_update_from_the_console_waits_for_an_install_in_flight_and_not_for_the_daemon(
+    state_home: Path,
+) -> None:
+    """A click is queued behind the daemon's own install, never under it — and not behind the daemon.
 
-    Every session a ticket starts runs inside a pass that holds the lock; the
-    update takes the same lock, so nothing is swapped while one runs, and the
-    timer's next pass finds it busy and claims nothing. Called off while it
-    waits, nothing is installed; a chat turn is waited for as well.
+    The daemon never lets go of its place, so the button cannot wait for it:
+    the version is put in place beside the one in use, and the daemon is asked
+    to restart on it. What it waits for is another install (the install lock)
+    and the console's own chat turn. Called off while it waits, nothing is
+    installed.
     """
     from ponos.web import upgrade as web_upgrade
 
@@ -721,11 +724,11 @@ def an_update_from_the_console_waits_for_the_ticket_in_flight(state_home: Path) 
             reboot=lambda: restarted.append(1),
             poll=0.02,
         )
-        with state.lock():
+        with state.scheduling(), state.installing():
             upgrade.start()
             _until(lambda: upgrade.detail == "a conversation turn is being answered")
             talking["now"] = ""
-            _until(lambda: upgrade.detail == "a ticket is running")
+            _until(lambda: upgrade.detail == "the daemon is installing an update")
             assert upgrade.phase == "waiting" and not fake.installed, "installed under a run"
             try:
                 upgrade.start()
@@ -748,9 +751,9 @@ def an_update_from_the_console_waits_for_the_ticket_in_flight(state_home: Path) 
         upgrade.phase = "idle"
         fake.installed.clear()
         restarted.clear()
-        with state.lock():
+        with state.installing():
             upgrade.start()
-            _until(lambda: upgrade.detail == "a ticket is running")
+            _until(lambda: upgrade.detail == "the daemon is installing an update")
             upgrade.cancel()
             _until(lambda: upgrade.phase == "idle")
         time.sleep(0.1)

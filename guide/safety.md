@@ -48,12 +48,16 @@ them on the program's normal path:
   itself, but under `reply_permission_mode` — `plan` by default, which Claude Code cannot
   write from. Asking it a question in a comment can cost you a minute of its time and
   nothing else.
-- **Two runs never overlap.** A file lock means a run that outlasts the timer's interval
-  is not lapped by the next one.
-- **A ticket is never stuck for good.** Because a run holds that lock, any ticket still
-  marked *in progress* at the start of a run was abandoned — by a reboot, a
-  `systemctl stop`, a crash. It goes back in the queue with a comment saying so, instead
-  of sitting claimed forever, its *Progress* line emptied. Tickets claimed by another machine are left alone — which
+- **One scheduler, never two.** The daemon holds a file lock for as long as it lives: a
+  `ponos run` that finds it held asks the daemon to look rather than starting tickets
+  beside it, so no ticket is claimed twice and no place counted twice.
+- **A restart never kills a session.** The sessions are not the daemon's children, and each
+  is written down in `ponos.db` with its ticket: a daemon that restarts — an update, a crash,
+  `ponos service on` — takes them back and finishes their tickets.
+- **A ticket is never stuck for good.** A ticket still marked *in progress* under this
+  host's name, with no session written down for it and none being followed, was abandoned —
+  by a reboot or a crash between two sessions. It goes back in the queue with a comment
+  saying so, instead of sitting claimed forever, its *Progress* line emptied. Tickets claimed by another machine are left alone — which
   machine claimed one is the *Runner* column, and a board without it is taken to be run
   by a single machine: there, every ticket in progress no run is holding goes back.
   `ponos doctor` says which columns are missing and what each one switches off. One
@@ -69,7 +73,7 @@ them on the program's normal path:
   `open_pull_request` opens one.
 - **A red job is never merged.** Before every merge the runner reads the pull request's
   checks: one that failed blocks the ticket (`merge.checks-failed`, the jobs named), one
-  still running leaves it *Validated* for the next pass. That is the runner's own rule; the
+  still running leaves it *Validated* until they are done. That is the runner's own rule; the
   repository's is the **branch protection** on its base, which also stops a merge made by
   hand. On GitHub: *Settings → Branches → Add branch ruleset* (or classic protection) on
   `main`, *Require status checks to pass*, and pick the jobs of your CI — or from a

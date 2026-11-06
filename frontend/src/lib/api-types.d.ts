@@ -1449,6 +1449,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tickets/{ticket_id}/launch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Launch Ticket */
+        post: operations["launch_ticket_api_tickets__ticket_id__launch_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tickets/{ticket_id}/status": {
         parameters: {
             query?: never;
@@ -2334,7 +2351,7 @@ export interface components {
             who: string;
             email: string;
             /** @enum {string} */
-            action: "created" | "moved" | "told" | "decided" | "priority" | "on" | "goal";
+            action: "created" | "moved" | "told" | "decided" | "priority" | "on" | "goal" | "launched";
             /** @description The column moved to, the choice made, the priority set. */
             detail: string;
         };
@@ -3356,6 +3373,17 @@ export interface components {
             link: string;
             invitation: components["schemas"]["Invitation"];
         };
+        Launch: {
+            /** @default false */
+            force: boolean;
+        } & {
+            [key: string]: unknown;
+        };
+        /** @description What « Run now » came to: `started`, `full` (no place free) or `refused`. */
+        Launched: {
+            status: string;
+            message: string;
+        };
         Line: {
             /** @default  */
             line: string;
@@ -3649,6 +3677,24 @@ export interface components {
             cover: components["schemas"]["Picture"];
             icon: components["schemas"]["Picture"];
         };
+        /** @description One of the daemon's places, and what holds it. */
+        Place: {
+            ticket: string;
+            title: string;
+            project: string;
+            /** @description `ticket`, `publication`, `replies` or `session` — a session nobody carries on. */
+            kind: string;
+            since: number;
+        };
+        /** @description The daemon's places — taken, free, per project — and its queue. */
+        Places: {
+            width: number;
+            per_project: number;
+            free: number;
+            busy: components["schemas"]["Place"][];
+            projects: components["schemas"]["ProjectPlaces"][];
+            queue: components["schemas"]["Waiting"][];
+        };
         /** @description One capture kept for a ticket: which side of the change, which page, which file. */
         PreviewShot: {
             /** @enum {string} */
@@ -3834,6 +3880,11 @@ export interface components {
             /** @description Characters in the kept ones together. */
             capacity: number;
         };
+        ProjectPlaces: {
+            name: string;
+            busy: number;
+            limit: number;
+        };
         /** @description When the project's tickets are ticked « Plan d'abord » by themselves — see planning.py. */
         ProjectPlan: {
             /** @description The lowest priority score planned first; none for no threshold. */
@@ -3993,9 +4044,11 @@ export interface components {
             ended: boolean;
         };
         RunnerState: {
-            timer: string;
+            /** @description `running`, or why it is not: `stopped`, `disabled`, `failed`, `not installed`… */
+            daemon: string;
+            /** @description Whether anything is in flight: a place taken, or a session written down. */
             running: boolean;
-            lock: string;
+            places: components["schemas"]["Places"];
             /** @description The sessions in flight, read from their logs by the server. */
             sessions: components["schemas"]["Running"][];
             /** @description When the credits come back, in seconds since the epoch — 0 while there are some. */
@@ -5107,6 +5160,15 @@ export interface components {
              * @default
              */
             confirm: string;
+        };
+        /** @description A ticket of the queue, and why it waits. */
+        Waiting: {
+            ticket: string;
+            title: string;
+            project: string;
+            /** @description `places`, `project`, `after`, `date`, `credits` or `reserve`. */
+            why: string;
+            detail: string;
         };
         Week: {
             week: string;
@@ -8168,6 +8230,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TicketGoal"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    launch_ticket_api_tickets__ticket_id__launch_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ticket_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["Launch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Launched"];
                 };
             };
             /** @description Validation Error */

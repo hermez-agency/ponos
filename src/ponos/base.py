@@ -47,10 +47,11 @@ from .projects import Resolver
 from .ticket import Ticket
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Container
     from pathlib import Path
 
     from . import question as question_module
+    from .board import InHand
     from .cleanup import Tidied
     from .projects import Project
     from .ticket import Job
@@ -79,6 +80,29 @@ if TYPE_CHECKING:
 
         # board.py
         def _moment(self, ticket: Ticket) -> datetime | None: ...
+        def queue(self) -> tuple[list[Ticket], list[tuple[Ticket, datetime]]]: ...
+        def _ready_filter(self) -> dict[str, Any]: ...
+        def requested(self, reference: str) -> list[Ticket]: ...
+        def mirror(self) -> None: ...
+        def reshape(self) -> int: ...
+        def sweep(self) -> int: ...
+        def close_merged(self) -> int: ...
+        def in_repository(self, ticket: Ticket) -> str: ...
+        def pick(self, queued: list[Ticket], hand: InHand) -> Ticket | None: ...
+        def explain(
+            self, queued: list[Ticket], width: int, *, limited: bool = False, done: bool = False
+        ) -> None: ...
+
+        # preparation.py
+        def prepare(self, ticket: Ticket) -> Job | None: ...
+
+        # replies.py
+        def talk(self, said: list[dict[str, Any]]) -> None: ...
+
+        # transitions.py, recurrence.py, digest.py
+        def transitions(self) -> list[dict[str, Any]]: ...
+        def born(self) -> list[dict[str, Any]]: ...
+        def digest(self, *, now: bool = False, at: datetime | None = None) -> bool: ...
         def waiting_flag(self) -> str: ...
         def plan_flag(self) -> str: ...
         def type_column(self) -> str: ...
@@ -109,6 +133,10 @@ if TYPE_CHECKING:
         def validated_column(self) -> bool: ...
         def _forced(self, kind: str, project: Project, ticket: Ticket | None = None) -> str: ...
         def _force_merge(self, job: Job, url: str) -> tuple[str, bool]: ...
+        def delivering(
+            self, taken: Container[str] | None = None
+        ) -> tuple[list[dict[str, Any]], list[tuple[Ticket, Project]]]: ...
+        def _carry_out(self, ticket: Ticket, project: Project) -> dict[str, Any] | None: ...
         def _publish(
             self,
             ticket: Ticket,
@@ -118,6 +146,7 @@ if TYPE_CHECKING:
         ) -> dict[str, Any] | None: ...
 
         # execution.py
+        def execute(self, job: Job) -> dict[str, Any] | None: ...
         def _run_session(
             self,
             job: Job,
@@ -188,6 +217,9 @@ if TYPE_CHECKING:
             home: Path | None = None,
         ) -> dict[str, Any]: ...
         def under_reserve(self) -> float: ...
+        def waiting_for_credits(self) -> float: ...
+        def park(self, tickets: list[Ticket], until: float = 0.0) -> list[dict[str, Any]]: ...
+        def room_for_a_session(self) -> bool: ...
         def unblock(self) -> list[dict[str, Any]]: ...
 
 else:
@@ -277,9 +309,31 @@ class Base(Chapters):
         # after, and what they wait for — see `Board._after`.
         self._waiting_on: dict[str, tuple[Ticket, str]] = {}
         self._explained: dict[str, str] | None = None
-        # When a pass in flight last asked whether a newer version is out —
-        # not written in the stamp, see `update.pending` and `Board.closing`.
-        self._update_looked = 0.0
+        # The tickets whose own session is being followed right now — the one
+        # thing in flight a restart carries on (see adoption.py). What else is
+        # in flight is what the daemon waits for before it `exec`s.
+        self._following: set[str] = set()
+
+    def reconfigure(self, config: Config) -> bool:
+        """Take a configuration read again; False when the board must be opened anew for it.
+
+        The daemon's: a pass used to read the file afresh at every start, and
+        the daemon never starts again. What is read off `self.config` when it
+        is needed follows at once; the projects and the workspace are resolved
+        again. Notion's token and the standalone switch are what the board is
+        opened with, and change under nobody's feet: False, and the daemon
+        restarts on them.
+        """
+        if (config.notion.token, config.standalone) != (
+            self.config.notion.token,
+            self.config.standalone,
+        ):
+            return False
+        self.config = config
+        self.dry_run = self.dry_run or config.runner.dry_run
+        self.resolver = Resolver(config.runner.workspace_root, config.projects, config.github)
+        self._workspace = None
+        return True
 
     @property
     def workspace(self) -> workspace_module.Workspace:
@@ -369,10 +423,33 @@ class Base(Chapters):
             **session.workers(self.workers),
             **(options.get("environment") or {}),
         }
+        # Written down the moment it starts, and let go of once followed to
+        # its end: a runner started meanwhile finds it there — see adoption.py.
+        # `record` is the ticket's job, for its own session; "" for the others.
+        record = str(options.pop("record", "") or "")
+        started: list[str] = []
+        adopted = options.get("adopted")
+        if isinstance(adopted, session.Handle):
+            started.append(adopted.session_id)
+
+        def track(handle: session.Handle) -> None:
+            started.append(handle.session_id)
+            if not self.dry_run:
+                state.track_session(handle.session_id, ticket, handle.to_json(), record)
+
+        options["track"] = track
+        # While it is followed, the ticket's work is a session somebody after
+        # this process can carry on: the daemon may `exec` under it.
+        following: set[str] = self.__dict__.setdefault("_following", set())
+        if record:
+            following.add(ticket)
         try:
             outcome = session.run(prompt, **options)
         finally:
             over.set()
+            following.discard(ticket)
+            for one in started:
+                state.untrack_session(one)
         state.spend(outcome.cost_usd, ticket)
         return outcome
 

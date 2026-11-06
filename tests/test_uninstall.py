@@ -118,7 +118,7 @@ def uninstalling_takes_back_everything_install_sh_put_down() -> None:
             web.mkdir(parents=True)
             (web / "serve.pid").write_text(f"{console.pid}\n", encoding="utf-8")
             loop = subprocess.Popen(
-                ["sh", str(home / ".local/bin/ponos"), "run", "--every"], start_new_session=True
+                ["sh", str(home / ".local/bin/ponos"), "daemon"], start_new_session=True
             )
             (web / "run.pid").write_text(f"{loop.pid}\n", encoding="utf-8")
 
@@ -126,9 +126,7 @@ def uninstalling_takes_back_everything_install_sh_put_down() -> None:
             assert done.returncode == 0, done.stdout + done.stderr
 
             assert console.wait(timeout=10) is not None, "the background console still runs"
-            assert loop and loop.wait(timeout=10) is not None, (
-                "the background runner loop still runs"
-            )
+            assert loop and loop.wait(timeout=10) is not None, "the background daemon still runs"
         finally:
             if loop and loop.poll() is None:
                 loop.kill()

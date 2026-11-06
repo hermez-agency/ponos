@@ -843,7 +843,7 @@ def _board_runner(
     runner._claimed = set()
     runner._red = set()
     runner._holding, runner._explained = {}, None
-    runner._update_looked = 0.0
+    runner._following = set()
     runner._comments = {}
     runner._usage_warned = False
     runner._spellings = conversation.names()

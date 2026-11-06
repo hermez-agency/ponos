@@ -1,4 +1,4 @@
-"""`runner.py`: the pass, and the places it fills."""
+"""`runner.py` and `scheduler.py`: a run with no daemon, and the daemon's places."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ from support import (
 )
 
 from ponos import config as C
-from ponos import credits, github_checks, notion, projects, state, store, workspace
+from ponos import credits, github_checks, notion, projects, scheduler, state, store, workspace
 from ponos import ticket as ticket_module
 from ponos.runner import Runner
 from ponos.web import board as web_board
@@ -302,67 +302,118 @@ def _closing_runner(state_home: Path, announce: Callable[[], object]) -> tuple[R
     return runner, started
 
 
-@case
-def an_update_announced_mid_pass_claims_nothing_more_and_ends_the_pass(state_home: Path) -> None:
-    """The 23 October pass: a day and fifty minutes on the code it started with.
+def _serving(runner: Runner, signals: scheduler.Signals) -> tuple[threading.Thread, list[str]]:
+    """The daemon's loop in a thread of its own, without its upkeep: the places alone."""
+    ended: list[str] = []
+    thread = threading.Thread(
+        target=lambda: ended.append(runner.serve(signals, upkeep=False)), daemon=True
+    )
+    thread.start()
+    return thread, ended
 
-    A pass that refills itself never reaches the top of the next one, which is
-    where an update lands — so a fix merged at 14:49 was never loaded, and the
-    pull requests merged after it were merged by the code it fixed. Once a newer
-    version is out, the pass starts nothing more, lets what runs finish, and
-    ends: the next one starts on the new code.
+
+def _until(condition: Callable[[], bool], seconds: float = 10.0) -> bool:
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline:
+        if condition():
+            return True
+        time.sleep(0.05)
+    return condition()
+
+
+@case
+def the_daemon_starts_a_ticket_made_ready_beside_a_long_session_within_seconds(
+    state_home: Path,
+) -> None:
+    """6 November, 14:16: a pass past its span took nothing more for half an hour.
+
+    The daemon has no span: two places, one long session, and a ticket made
+    ready meanwhile starts in the free place at once — not at the end of the
+    long one, nor at the next `interval_seconds` (an hour here).
     """
+    runner, started = _closing_runner(state_home, lambda: None)
+    runner.config.runner.interval_seconds = 3600
+    signals = scheduler.Signals()
+    thread, ended = _serving(runner, signals)
+    try:
+        assert _until(lambda: started == ["p-long", "p-second"], 8), started
+    finally:
+        signals.stop.set()
+        thread.join(15)
+    assert ended == ["stop"], ended
+    assert state.places()["width"] == 2, "the places are written down for status"
+
+
+@case
+def run_now_takes_a_free_place_says_when_there_is_none_and_may_pass_the_limit_once(
+    state_home: Path,
+) -> None:
+    """« Run now » and `ponos run --ticket`: a free place, or « full » — or past the limit."""
+    from ponos import launches
+
+    release = threading.Event()
+    started: list[str] = []
+    runner = _board_runner([_ready("p-long")], {})
+    runner.config.runner.max_concurrent = 1
+    runner.prepare = lambda ticket: ticket_module.Job(  # type: ignore[method-assign]  # a double: prepared for free
+        ticket, projects.Project(name="", path=None), branch="", base="", workdir=Path("/tmp")
+    )
+
+    def execute(job: ticket_module.Job) -> dict[str, Any]:
+        started.append(job.ticket.page.id)
+        release.wait(10)
+        return {"ticket": job.ticket.page.id, "id": job.ticket.page.id, "status": "done"}
+
+    runner.execute = execute  # type: ignore[method-assign]  # a double: no session
+    runner.requested = lambda reference: [ticket_module.Ticket(_ready(reference))]  # type: ignore[method-assign]
+    signals = scheduler.Signals()
+    thread, _ = _serving(runner, signals)
+    try:
+        assert _until(lambda: started == ["p-long"]), started
+        asked = launches.ask("p-other")
+        signals.nudge()
+        assert launches.wait(asked, 10) == {
+            "status": "full",
+            "message": "all 1 place(s) are taken",
+        }
+        forced = launches.ask("p-other", force=True)
+        signals.nudge()
+        answer = launches.wait(forced, 10)
+        assert answer is not None and answer["status"] == "started", answer
+        assert _until(lambda: started == ["p-long", "p-other"]), started
+    finally:
+        release.set()
+        signals.stop.set()
+        thread.join(15)
+
+
+@case
+def a_newer_version_installed_ends_the_loop_for_a_restart_once_nothing_is_in_flight(
+    state_home: Path,
+) -> None:
+    """What replaces the span: the daemon reloads itself — after the work a restart
+    cannot carry on, never under it."""
     from ponos import update as update_module
 
-    announced = threading.Event()
-    real = update_module.check
-
-    def check(
-        app: Path | None = None, channel: str = "release", *, clock: bool = True
-    ) -> update_module.Status:
-        if not announced.is_set():
-            return update_module.Status(current="a", latest="a")
-        return update_module.Status(current="a", latest="b")
-
-    runner, started = _closing_runner(state_home, announced.set)
+    runner = _board_runner([], {})
     runner.config.runner.auto_update = True
-    runner.config.runner.update_interval_seconds = 0  # asked at every look
-    update_module.check = check
+    runner.config.runner.update_interval_seconds = 60
+    installed: list[bool] = []
+    real = update_module.install_newer, update_module.due
+
+    def install_newer(settings: C.Runner, **_: object) -> bool:
+        installed.append(True)
+        return True
+
+    update_module.install_newer = install_newer
+    update_module.due = lambda interval_seconds: not installed
+    signals = scheduler.Signals()
     try:
-        began = time.monotonic()
-        results = runner._work(runner.queue()[0], None, refill=True)
-        lasted = time.monotonic() - began
+        thread, ended = _serving(runner, signals)
+        thread.join(15)
     finally:
-        update_module.check = real
-
-    assert started == ["p-long"], "nothing claimed once the update was out"
-    assert [result["id"] for result in results] == ["p-long"]
-    assert lasted < 3, "the pass ended as soon as the session in flight did"
-    tickets = {ticket.page.id for ticket in runner.queue()[0]}
-    assert "p-second" in tickets, "left in ready for the next pass"
-
-
-@case
-def a_pass_takes_no_new_ticket_past_its_span(state_home: Path) -> None:
-    """A pass with a board that never empties still ends.
-
-    Past `PASS_SPAN` nothing more is begun: what is in flight finishes and the
-    pass returns, so the systemd unit's end — which takes with it what the
-    sessions left running — and the next pass's update come within a span and
-    one session, never a day.
-    """
-    from ponos import board
-
-    span = board.PASS_SPAN
-    runner, started = _closing_runner(state_home, lambda: None)
-    board.PASS_SPAN = 0.5
-    try:
-        results = runner._work(runner.queue()[0], None, refill=True)
-    finally:
-        board.PASS_SPAN = span
-
-    assert started == ["p-long"], started
-    assert [result["id"] for result in results] == ["p-long"]
+        update_module.install_newer, update_module.due = real
+    assert ended == ["reload"] and installed == [True], (ended, installed)
 
 
 def _talking_runner(
@@ -743,24 +794,22 @@ def a_ready_card_always_says_what_it_is_waiting_for() -> None:
     def held(
         ticket: dict[str, Any] = card,
         noted: dict[str, tuple[str, str]] | None = None,
-        passing: bool = True,
-        timer: bool = True,
+        scheduling: bool = True,
         waits: dict[str, str] | None = None,
     ) -> tuple[Any, Any]:
-        found = web_board.held(
-            ticket, noted or {}, passing=passing, timer=timer, waits=waits, now=now
-        )
+        found = web_board.held(ticket, noted or {}, scheduling=scheduling, waits=waits, now=now)
         return found.get("reason"), found.get("detail")
 
-    assert web_board.held({**card, "column": "review"}, {}, passing=True, timer=True) == {}
+    assert web_board.held({**card, "column": "review"}, {}, scheduling=True) == {}
     later = {**card, "scheduled": "2026-10-10T09:00+02:00"}
     assert held(later, waits={"credits": "04:00"}) == ("date", "2026-10-10T09:00+02:00")
     assert held(waits={"credits": "04:00", "reserve": ""}) == ("credits", "04:00")
     assert held(noted={"p1": ("running", "")}) == ("running", "")
     assert held(noted={"p1": ("places", "2")}) == ("places", "2")
-    assert held() == ("pass", "")
-    assert held(noted={"p1": ("running", "")}, passing=False) == ("next", ""), "a dead pass's note"
-    assert held(passing=False, timer=False) == ("timer", "")
+    assert held() == ("next", "")
+    assert held(noted={"p1": ("running", "")}, scheduling=False) == ("daemon", ""), (
+        "a dead scheduler's note is not read"
+    )
 
 
 # -- a validated ticket never waits for a session ----------------------------

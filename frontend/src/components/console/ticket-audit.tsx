@@ -39,6 +39,8 @@ function said(t: ReturnType<typeof useT>, entry: AuditEntry): string {
       return entry.detail ? t("changed its « On » prompt") : t("removed its « On » prompt")
     case "goal":
       return entry.detail ? t("tied it to a goal") : t("untied it from its goal")
+    case "launched":
+      return entry.detail === "forced" ? t("ran it now, past the limit") : t("ran it now")
   }
 }
 

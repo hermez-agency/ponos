@@ -1,8 +1,8 @@
-"""Lock, claims, logs and history, under ~/.local/state/ponos.
+"""The scheduler's place, claims, sessions, logs and history, under ~/.local/state/ponos.
 
-The lock is the only thing stopping the systemd timer from picking up a ticket
-already in flight: a run lasting longer than the interval is normal, two
-simultaneous runs are not.
+The scheduler's place is what keeps two processes from starting tickets side
+by side: the daemon holds it for as long as it lives, and a `ponos run` that
+finds it taken asks the daemon to look rather than starting a second one.
 
 The claims are the other half of that: the column each in-flight ticket was
 taken from, so that a run which dies mid-ticket is recovered as what it was
@@ -45,32 +45,30 @@ def logs_dir() -> Path:
 
 
 class Busy(Exception):
-    """Another run is already in progress."""
+    """Somebody else already holds what was asked for: the scheduler's place, or an install."""
 
 
-@contextmanager
-def lock() -> Iterator[None]:
-    """Hold the run lock for as long as the block lasts, or raise Busy.
+def _held_file(name: str, label: str) -> Iterator[None]:
+    """Hold `name` under the state directory for as long as the block lasts, or raise Busy.
 
     The file is never deleted, and that is the point. Unlinking it on release
-    opened a window for two runs at once: a run that had opened the old file
+    opened a window for two holders at once: one that had opened the old file
     and was waiting to lock it would lock a file no longer on disk, while the
-    next one created a fresh `run.lock` and locked that — two locks, two runs.
-    One path, one inode, for good.
+    next one created a fresh file and locked that. One path, one inode, for good.
 
     And the file is opened without being emptied: `open("w")` truncated it
-    before the lock was even asked for, so a run turned away as busy had just
-    erased the PID of the run that turned it away. It is emptied and written
-    only once the lock is ours.
+    before the lock was even asked for, so a process turned away as busy had
+    just erased the PID of the one that turned it away. It is emptied and
+    written only once the lock is ours.
     """
     state_dir().mkdir(parents=True, exist_ok=True)
-    path = state_dir() / "run.lock"
+    path = state_dir() / name
     handle = open(path, "a+", encoding="utf-8", opener=disk.opener())  # noqa: SIM115
     try:
         fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError as error:
         handle.close()
-        raise Busy(f"a run is already in progress (lock {path})") from error
+        raise Busy(f"{label} ({path})") from error
     handle.seek(0)
     handle.truncate()
     handle.write(f"{os.getpid()} {datetime.now(UTC).isoformat()}\n")
@@ -79,7 +77,7 @@ def lock() -> Iterator[None]:
         yield
     finally:
         # Emptied rather than removed: the next reader finds nobody named,
-        # which is what `running` says anyway once the flock is gone.
+        # which is what `scheduler` says anyway once the flock is gone.
         try:
             handle.seek(0)
             handle.truncate()
@@ -89,26 +87,159 @@ def lock() -> Iterator[None]:
         handle.close()
 
 
-def running() -> str:
-    """What the lock says about the run in progress, or "" when there is none.
+SCHEDULER = "scheduler.lock"
+
+
+@contextmanager
+def scheduling() -> Iterator[None]:
+    """Be the one process on this machine that starts tickets — the daemon, or a lone `run`.
+
+    Not a lock against a second *run*: `ponos run` meeting it asks the holder
+    to look at the board now (see daemon.py) rather than being turned away. It
+    is what stops two schedulers from claiming the same ticket and from
+    counting the same places twice — and what a holder that dies drops at once,
+    the kernel being the one that keeps it.
+    """
+    yield from _held_file(SCHEDULER, "a scheduler is already running")
+
+
+@contextmanager
+def installing() -> Iterator[None]:
+    """Hold the installation while a version is put in place, or raise Busy.
+
+    The daemon's own update and the console's button would otherwise copy and
+    switch the same directories at the same time.
+    """
+    yield from _held_file("install.lock", "an update is already being installed")
+
+
+def scheduler() -> dict[str, Any]:
+    """Who holds the scheduler's place: `{pid, since}`, or {} when nobody does.
 
     The file is not the lock: the flock on it is, and the kernel drops it with
-    the process that took it. A run killed mid-way leaves `run.lock` on disk,
-    holding nobody — for two hours on 7 September 2026, `status` read that
-    leftover as a run in progress and sent the search the wrong way. Asking the
-    flock is asking the kernel, which does not keep stale files.
+    the process that took it. A scheduler killed mid-way leaves the file on
+    disk, holding nobody — for two hours on 7 September 2026, `status` read
+    such a leftover as a run in progress. Asking the flock is asking the
+    kernel, which does not keep stale files.
     """
     try:
-        handle = (state_dir() / "run.lock").open("r+")
+        handle = (state_dir() / SCHEDULER).open("r+")
     except OSError:
-        return ""
+        return {}
     with handle:
         try:
             fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
-            return handle.read().strip() or "a run in progress"
+            said = handle.read().split()
+            try:
+                return {"pid": int(said[0]), "since": said[1] if len(said) > 1 else ""}
+            except (IndexError, ValueError):
+                return {"pid": 0, "since": ""}
         fcntl.flock(handle, fcntl.LOCK_UN)
-    return ""
+    return {}
+
+
+# -- the sessions in flight, for whoever schedules after this process ---------
+
+
+def track_session(session_id: str, ticket: str, handle: dict[str, Any], job: str = "") -> None:
+    """Write down a session the moment it is started — see adoption.py.
+
+    `job` is what continuing its ticket after a restart takes, as JSON; "" for
+    a session nobody continues (a reply, a classification): it is only seen
+    to its end then, so that it is reaped and the place it holds is counted.
+    """
+    try:
+        with db.transaction() as connection:
+            connection.execute(
+                "INSERT OR REPLACE INTO sessions (session, ticket, handle, job, started)"
+                " VALUES (?, ?, ?, ?, ?)",
+                (
+                    session_id,
+                    ticket.replace("-", ""),
+                    json.dumps(handle),
+                    job,
+                    datetime.now(UTC).isoformat(timespec="seconds"),
+                ),
+            )
+    except db.ERRORS:
+        pass
+
+
+def untrack_session(session_id: str) -> None:
+    try:
+        with db.transaction() as connection:
+            connection.execute("DELETE FROM sessions WHERE session = ?", (session_id,))
+    except db.ERRORS:
+        pass
+
+
+def sessions() -> list[dict[str, Any]]:
+    """The sessions written down and not yet seen to their end, oldest first."""
+    try:
+        with db.transaction(immediate=False) as connection:
+            rows = connection.execute(
+                "SELECT session, ticket, handle, job, started FROM sessions ORDER BY started"
+            ).fetchall()
+    except db.ERRORS:
+        return []
+    found = []
+    for session, ticket, handle, job, started in rows:
+        try:
+            value = json.loads(handle)
+        except json.JSONDecodeError:
+            continue
+        found.append(
+            {
+                "session": str(session),
+                "ticket": str(ticket),
+                "handle": value,
+                "job": str(job),
+                "started": str(started),
+            }
+        )
+    return found
+
+
+def going() -> set[str]:
+    """The tickets that are work in flight here — a session followed, written down, or a claim.
+
+    What `clean`, the daily tidy and the doctor leave alone: the daemon never
+    lets go of its place, so "no run in progress" is no longer something they
+    can wait for. What is not one of these is nobody's.
+    """
+    from . import stopping
+
+    found = {*stopping.live(), *claims(), *(row["ticket"] for row in sessions())}
+    return {ticket.replace("-", "") for ticket in found}
+
+
+def keep_places(snapshot: dict[str, Any]) -> None:
+    """What the scheduler says of its places and its queue, for `status` and the console."""
+    try:
+        with db.transaction() as connection:
+            connection.execute(
+                "INSERT OR REPLACE INTO places (id, snapshot, at) VALUES (1, ?, ?)",
+                (json.dumps(snapshot), datetime.now(UTC).isoformat(timespec="seconds")),
+            )
+    except db.ERRORS:
+        pass
+
+
+def places() -> dict[str, Any]:
+    """The last snapshot `keep_places` wrote, with when — {} when there is none."""
+    try:
+        with db.transaction(immediate=False) as connection:
+            row = connection.execute("SELECT snapshot, at FROM places WHERE id = 1").fetchone()
+    except db.ERRORS:
+        return {}
+    if not row:
+        return {}
+    try:
+        snapshot = json.loads(row[0])
+    except json.JSONDecodeError:
+        return {}
+    return {**snapshot, "at": str(row[1])} if isinstance(snapshot, dict) else {}
 
 
 def claim(ticket_id: str, status: str) -> None:

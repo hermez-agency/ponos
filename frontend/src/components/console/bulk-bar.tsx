@@ -230,7 +230,7 @@ export function BulkBar() {
         onOpenChange={setLaunching}
         title={counted(launched.length, "Launch {{count}} ticket?", "Launch {{count}} tickets?")}
         description={t(
-          "They go to {{column}} and the next passes start a session on each — sessions that are paid for.",
+          "They go to {{column}} and a session starts on each as places free — sessions that are paid for.",
           { column: named("ready") }
         )}
         confirm={counted(launched.length, "Launch {{count}} ticket", "Launch {{count}} tickets")}

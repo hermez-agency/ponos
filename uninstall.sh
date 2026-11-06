@@ -20,9 +20,10 @@ if [ -x "$BIN" ] && have tailscale; then
 fi
 
 if have systemctl; then
-    say "Stopping the timer and the console"
+    say "Stopping the daemon and the console"
+    # The timer an installation from before the daemon may still have.
     systemctl --user disable --now ponos.timer >/dev/null 2>&1 || true
-    systemctl --user stop ponos.service >/dev/null 2>&1 || true
+    systemctl --user disable --now ponos.service >/dev/null 2>&1 || true
     systemctl --user disable --now ponos-web.service >/dev/null 2>&1 || true
     systemctl --user disable --now ponos-tailscale.service >/dev/null 2>&1 || true
 fi
