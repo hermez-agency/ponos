@@ -21,6 +21,7 @@ def _settings(config: config_module.Config) -> list[Check]:
         *_keys(config),
         *_languages(config.runner),
         *_validation(config.runner),
+        *_self_review(config.runner),
         *_vault(config),
         *_vault_store(),
         *_console(config),
@@ -224,6 +225,28 @@ def _validation(settings: config_module.Runner) -> list[Check]:
             )
         )
     return found
+
+
+def _self_review(settings: config_module.Runner) -> list[Check]:
+    """Whether a branch is read against its ticket before its push — see review.py."""
+    if not settings.self_review:
+        return [
+            _check(
+                "settings.self_review",
+                INFO,
+                "Self-review",
+                "runner.self_review is off: branches are pushed without being read against their ticket.",
+            )
+        ]
+    return [
+        _check(
+            "settings.self_review",
+            OK,
+            "Self-review",
+            "Each branch is read against its ticket by {{model}} before the push, and its session picked up once on what is blocking.",
+            params={"model": settings.review_model or "the ticket’s own model"},
+        )
+    ]
 
 
 def _vault(config: config_module.Config) -> list[Check]:

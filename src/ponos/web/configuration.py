@@ -94,6 +94,7 @@ class Configuration(Base):
             },
             "ideas": self._project_ideas(bare),
             "local_ci": self._project_local_ci(bare),
+            "self_review": self._project_self_review(bare),
             "setup": project_settings.setup(bare),
             "preview": {
                 **project_settings.preview(bare).as_dict(),
@@ -153,6 +154,16 @@ class Configuration(Base):
         self.hub.publish("settings", project=bare)
         return self.project_notes(bare)
 
+    def _project_self_review(self, bare: str) -> dict[str, Any]:
+        """Whether a project's branches are reviewed before their pull request, and whose word it is."""
+        own = project_settings.self_review(bare)
+        globally = self.config.runner.self_review
+        return {
+            "enabled": own if own is not None else globally,
+            "own": own is not None,
+            "global": globally,
+        }
+
     def _project_local_ci(self, bare: str) -> dict[str, Any]:
         """The project's local CI: whether it runs, whose word that is, what runs it — and Docker."""
         own = project_settings.local_ci(bare)
@@ -199,6 +210,7 @@ class Configuration(Base):
         preparing = payload.get("setup")
         photographing = payload.get("preview")
         planned = payload.get("plan")
+        reviewing = payload.get("self_review")
         if validation is None and isinstance(planned, dict):
             threshold = planned.get("priority")
             if threshold is not None and (
@@ -216,6 +228,11 @@ class Configuration(Base):
             ) or not isinstance(photographing.get("pages"), list):
                 raise ValueError(
                     "say what starts the project, its address and the pages to photograph"
+                )
+        elif validation is None and isinstance(reviewing, dict):
+            if not isinstance(reviewing.get("enabled"), bool):
+                raise ValueError(
+                    "say whether the project's branches are reviewed before their pull request"
                 )
         elif validation is None and isinstance(preparing, dict):
             if not isinstance(preparing.get("command"), str):
@@ -273,6 +290,10 @@ class Configuration(Base):
             project_settings.set_preview(bare, name, preview.parse(photographing))
         if isinstance(planned, dict):
             project_settings.set_plan(bare, name, planning.rule(planned))
+        if isinstance(reviewing, dict):
+            # The file's own answer is not a decision of the project's, as for ideas.
+            agrees = reviewing["enabled"] == self.config.runner.self_review
+            project_settings.set_self_review(bare, name, None if agrees else reviewing["enabled"])
         self.hub.publish("settings", project=bare)
         return self.project_settings(bare)
 

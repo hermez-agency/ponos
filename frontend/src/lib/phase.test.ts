@@ -24,6 +24,7 @@ test("every long phase has words of its own", () => {
   assert.equal(said(reading(phase("repair", "npm test"), at)!.said), "fixing the CI")
   assert.equal(said(reading(phase("rebase", "main"), at)!.said), "rebasing onto main")
   assert.equal(said(reading(phase("local-ci", "npm test"), at)!.said), "running the CI here")
+  assert.equal(said(reading(phase("review", "sonnet"), at)!.said), "reviewing the diff against the ticket")
   assert.equal(said(reading(phase("resolve", "main"), at)!.said), "resolving the conflicts with main")
 })
 
@@ -33,7 +34,7 @@ test("a session, or its start, is left to its steps", () => {
 })
 
 test("only the phases without a session are quiet", () => {
-  for (const key of ["rebase", "local-ci", "checks"] as const) assert.equal(reading(phase(key), at)!.quiet, true)
+  for (const key of ["rebase", "review", "local-ci", "checks"] as const) assert.equal(reading(phase(key), at)!.quiet, true)
   for (const key of ["starting", "session", "repair", "resolve"] as const)
     assert.equal(reading(phase(key), at)!.quiet, false)
 })

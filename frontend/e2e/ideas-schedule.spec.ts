@@ -23,6 +23,8 @@ const settings = (page: Page) => page.getByRole("button", { name: "Settings", ex
 const window_ = (page: Page) => page.locator('[data-slot="ideas-settings-window"]')
 const line = (page: Page) => page.locator('[data-slot="ideas-plan-line"]')
 const switchOf = (page: Page) => page.getByRole("switch", { name: "Find ideas for this project on the schedule" })
+// The project's other switches say the same lines: the ideas' own card is the one read.
+const ideasCard = (page: Page) => page.locator('[data-card="project-ideas"]')
 
 async function pick(page: Page, label: string, option: string) {
   await window_(page).getByRole("combobox", { name: label }).click()
@@ -74,10 +76,10 @@ test("a cron line that is not one is refused with the reason", async ({ page }) 
 test("a project turns itself off from its own page, and the list in the window shows it", async ({ page }) => {
   await open(page, WEBSITE)
   await expect(switchOf(page)).toHaveAttribute("aria-checked", "true")
-  await expect(page.getByText("Follows the general settings.")).toBeVisible()
+  await expect(ideasCard(page).getByText("Follows the general settings.")).toBeVisible()
   await switchOf(page).click()
   await expect(switchOf(page)).toHaveAttribute("aria-checked", "false")
-  await expect(page.getByText("This project's own choice, whatever the general settings say.")).toBeVisible()
+  await expect(ideasCard(page).getByText("This project's own choice, whatever the general settings say.")).toBeVisible()
 
   await open(page)
   await settings(page).click()

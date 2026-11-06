@@ -990,6 +990,36 @@ _SAID: dict[str, dict[str, str]] = {
             "corriger — ou faut-il désactiver la CI locale pour ce projet ?"
         ),
     },
+    # -- the self-review, before the push — see review.py ----------------------
+    "review-ok": {"en": "Review: nothing blocking.", "fr": "Relecture : rien de bloquant."},
+    "review-told": {
+        "en": "Review: {points}, the session picked up once — fixed: {fixed}, left: {left}.",
+        "fr": "Relecture : {points}, session reprise une fois — corrigés : {fixed}, restants : {left}.",
+    },
+    "review-untold": {
+        "en": "Review: {points}, the session picked up once — what it did is in its report.",
+        "fr": "Relecture : {points}, session reprise une fois — ce qu'elle en a fait est dans son compte rendu.",
+    },
+    "review-unfinished": {
+        "en": "Review: {points}; the session picked up on them did not finish — all left.",
+        "fr": "Relecture : {points} ; la session reprise dessus n'a pas abouti — tous restants.",
+    },
+    "review-heading": {"en": "### Review", "fr": "### Relecture"},
+    "review-intro": {
+        "en": "The self-review found {points} before the push; the session was picked up once to deal with them.",
+        "fr": "La relecture automatique a relevé {points} avant le push ; la session a été reprise une fois pour les traiter.",
+    },
+    "review-intro-unfinished": {
+        "en": "The self-review found {points} before the push; the session picked up on them did not finish, so all are left.",
+        "fr": "La relecture automatique a relevé {points} avant le push ; la session reprise dessus n'a pas abouti, tous restent donc.",
+    },
+    "review-raised": {"en": "Raised:", "fr": "Relevés :"},
+    "review-fixed": {"en": "Fixed:", "fr": "Corrigés :"},
+    "review-left": {"en": "Left:", "fr": "Restants :"},
+    "review-answer": {
+        "en": "What the session says of it: {summary}",
+        "fr": "Ce que la session en dit : {summary}",
+    },
     "base-moved-again": {
         "en": "Pushed, but the base moved again in the meantime: replayed once more on the next pass.",
         "fr": "Poussée, mais la base a encore bougé entre-temps : rejouée à nouveau au prochain passage.",
@@ -1457,6 +1487,8 @@ _SAID: dict[str, dict[str, str]] = {
     "blocks": {"en": "{count} blocks", "fr": "{count} blocs"},
     "step": {"en": "{count} step", "fr": "{count} étape"},
     "steps": {"en": "{count} steps", "fr": "{count} étapes"},
+    "point": {"en": "{count} blocking point", "fr": "{count} point bloquant"},
+    "points": {"en": "{count} blocking points", "fr": "{count} points bloquants"},
     "minute": {"en": "{count} minute", "fr": "{count} minute"},
     "minutes": {"en": "{count} minutes", "fr": "{count} minutes"},
     "under-a-minute": {"en": "under a minute", "fr": "moins d'une minute"},

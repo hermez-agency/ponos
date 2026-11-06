@@ -382,6 +382,19 @@ local_ci_attempts = 3
 # How many local CIs run at once on this machine, whatever the number of
 # tickets in flight: the next one waits for a place.
 local_ci_concurrent = 1
+# Self-review before the pull request: once the session has committed, and
+# before anything is pushed, a short session in plan mode (read only) reads the
+# branch's diff against the ticket — its done criterion first — and the
+# project's CLAUDE.md, and answers `REVIEW: ok` or a short list of blocking
+# points. When it finds some, the ticket's session is picked up once
+# (`--resume`) to deal with them; then the pull request opens whatever
+# happened, and what was fixed and what is left go in its description and in
+# the ticket's report, under « Review ». A `REVIEW: ok` adds nothing to the pull
+# request. Never more than one pick-up per pass. Its cost is added to the
+# ticket's. A project may turn it on or off for itself, in its Settings tab.
+self_review = true
+# The model that reads. Empty: the ticket's own.
+review_model = "sonnet"
 # How long a project's setup command (`npm ci`, `uv sync`…) may run in a fresh
 # worktree before the session starts. The command is the one the project's
 # Settings tab declares, else the repository's `.ponos/setup.sh`; neither, and

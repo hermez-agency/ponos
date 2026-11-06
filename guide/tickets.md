@@ -454,6 +454,37 @@ only be declared once the database exists — and running it again adds it to a 
 before it; `ponos doctor` says so when the column is there under another type. A board without the
 column runs every ready ticket, as before. A Markdown board has it too, as a list of ticket ids.
 
+## Read once before the pull request
+
+The review a pull request gets from you comes late, and finds what a reading against the
+ticket finds in a minute: a test the ticket asked for and nobody wrote, a generated file
+not regenerated, a translation forgotten, a done criterion met only in words. So once the
+session has committed, and before anything is pushed, a second session reads the branch —
+`runner.self_review`, on by default:
+
+1. A short session of its own starts in the worktree, in **plan mode** (it reads, it
+   cannot write), on `runner.review_model` (`sonnet` by default; empty, the ticket's
+   model). It is given the ticket — its *Critère de fin*, *Done when* or *Definition of
+   done* first — the project's `CLAUDE.md` (or `AGENTS.md`) and the diff against the base,
+   and told what counts as blocking: the criterion not met, something asked and not done,
+   missing tests, a generated file or a translation left behind, a plain mistake. Not
+   style. It answers `REVIEW: ok`, or `REVIEW: blocking` and at most eight points, each
+   with its file and its reason.
+2. With points, the ticket's own session is picked up **once** (`--resume`) with them: it
+   fixes and commits what it agrees with, and says, point by point, `FIXED:` or `LEFT:`
+   and why. It is not asked again.
+3. Then the branch goes on its way as before — replayed onto its base, the local CI if
+   there is one, the push — and the pull request opens **whatever happened**. Its
+   description carries a **Review** section under the summary: the points raised, what
+   was fixed and what was left. The ticket's report says it in one line (*Review: 2
+   blocking points, the session picked up once — fixed: 1, left: 1.*).
+
+A `REVIEW: ok` adds nothing to the pull request — only *Review: nothing blocking.* in the
+report. A review that fails, or answers without a `REVIEW:` line, is as if it had not been
+asked. What the review and the pick-up cost is added to the ticket's *Cost*. A project
+turns it on or off for itself in its **Settings** tab (*Self-review before pull request*);
+`runner.self_review = false` turns it off everywhere else.
+
 ## Ten tickets on one repository
 
 The base branch does not wait for a session. Ten tickets aimed at one repository means ten

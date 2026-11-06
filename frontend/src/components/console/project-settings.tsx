@@ -119,6 +119,18 @@ export function ProjectSettingsTab({ project }: { project: string }) {
     }
   }
 
+  const saveSelfReview = async (enabled: boolean) => {
+    setSaving(true)
+    try {
+      setSettings(await api.saveProjectSettings(project, { self_review: { enabled } }))
+      setProblem("")
+    } catch (error) {
+      setProblem(why(error))
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const saveSetup = async (command: string) => {
     setSaving(true)
     try {
@@ -141,7 +153,7 @@ export function ProjectSettingsTab({ project }: { project: string }) {
       </div>
     )
 
-  const { validation, ideas, local_ci: localCi } = settings
+  const { validation, ideas, local_ci: localCi, self_review: selfReview } = settings
   return (
     <div className="flex max-w-[720px] min-w-0 flex-col gap-5" data-slot="project-settings">
       {problem ? (
@@ -233,6 +245,30 @@ export function ProjectSettingsTab({ project }: { project: string }) {
         onSave={savePreview}
       />
       <LocalCiCard key={localCi.command} localCi={localCi} saving={saving} onSave={saveLocalCi} />
+      <Card data-card="project-self-review" className="gap-0 py-0">
+        <CardHeader className="gap-1 px-5 pt-5 pb-2 sm:px-6">
+          <CardTitle className="text-base">{t("Self-review before pull request")}</CardTitle>
+          <CardDescription className="text-[13px] leading-relaxed">
+            {t(
+              "Before the push, a short session reads the diff against the ticket's done criterion; the ticket's session is picked up once on what it finds blocking, and the pull request says what was fixed."
+            )}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="px-5 pb-4 sm:px-6">
+          <Row
+            id="project-self-review"
+            label={t("Review this project's branches before their pull request")}
+            line={
+              selfReview.own
+                ? t("This project's own choice, whatever the general settings say.")
+                : t("Follows the general settings.")
+            }
+            checked={selfReview.enabled}
+            disabled={saving}
+            onChange={(enabled) => void saveSelfReview(enabled)}
+          />
+        </CardContent>
+      </Card>
     </div>
   )
 }

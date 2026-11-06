@@ -795,6 +795,7 @@ export const FRENCH: Record<string, string> = {
   "rebasing onto {{base}}": "rebase sur {{base}}",
   rebasing: "rebase en cours",
   "running the CI here": "lance la CI en local",
+  "reviewing the diff against the ticket": "relit le diff contre le ticket",
   "waiting for the CI of PR #{{number}}": "attend la CI de la PR #{{number}}",
   "waiting for the CI of the pull request": "attend la CI de la PR",
   "fixing the CI of PR #{{number}}": "répare la CI de la PR #{{number}}",

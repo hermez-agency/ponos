@@ -12,7 +12,7 @@
 
 /** What the server sends: `phase` on a card in progress, null when the runner wrote none. */
 export interface Phase {
-  key: "starting" | "session" | "rebase" | "local-ci" | "checks" | "repair" | "resolve"
+  key: "starting" | "session" | "rebase" | "review" | "local-ci" | "checks" | "repair" | "resolve"
   detail: string
   since: string
 }
@@ -47,6 +47,8 @@ function words(phase: Phase): Said | null {
   switch (phase.key) {
     case "rebase":
       return detail ? { key: "rebasing onto {{base}}", params: { base: detail } } : { key: "rebasing", params: {} }
+    case "review":
+      return { key: "reviewing the diff against the ticket", params: {} }
     case "local-ci":
       return { key: "running the CI here", params: {} }
     case "checks":
@@ -75,7 +77,8 @@ export function reading(phase: Phase | null | undefined, now: number): Reading |
   return {
     said: words(phase),
     seconds,
-    quiet: phase.key === "rebase" || phase.key === "local-ci" || phase.key === "checks",
+    // The self-review is a session, but not the ticket's: its steps are written nowhere.
+    quiet: phase.key === "rebase" || phase.key === "review" || phase.key === "local-ci" || phase.key === "checks",
     young: seconds < STARTING_SECONDS,
   }
 }

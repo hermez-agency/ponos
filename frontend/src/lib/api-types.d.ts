@@ -3424,10 +3424,10 @@ export interface components {
          */
         Phase: {
             /** @enum {string} */
-            key: "starting" | "session" | "rebase" | "local-ci" | "checks" | "repair" | "resolve";
+            key: "starting" | "session" | "rebase" | "review" | "local-ci" | "checks" | "repair" | "resolve";
             /**
-             * @description The base for a rebase or a resolution, the command for the local CI, the pull request for
-             *     its checks or their repair.
+             * @description The base for a rebase or a resolution, the model of a self-review, the command for the
+             *     local CI, the pull request for its checks or their repair.
              */
             detail: string;
             /** @description When it began, ISO 8601 in UTC. */
@@ -3644,12 +3644,22 @@ export interface components {
             /** @description Whether a Chrome is installed here to take them. */
             chrome: boolean;
         };
+        /** @description Whether a project's branches are reviewed before their pull request — see review.py. */
+        ProjectSelfReview: {
+            /** @description What applies to it: its own word, or the file's. */
+            enabled: boolean;
+            /** @description Whether the project says so itself, against `runner.self_review` saying for it. */
+            own: boolean;
+            /** @description `runner.self_review`, whatever the project says. */
+            global: boolean;
+        };
         /** @description What a project decides for itself — see project_settings.py. */
         ProjectSettings: {
             id: string;
             validation: components["schemas"]["Validation"];
             ideas: components["schemas"]["ProjectIdeas"];
             local_ci: components["schemas"]["ProjectLocalCi"];
+            self_review: components["schemas"]["ProjectSelfReview"];
             /** @description The command run in each fresh worktree before its session; empty, the repository's `.ponos/setup.sh` if any. */
             setup: string;
             preview: components["schemas"]["ProjectPreview"];

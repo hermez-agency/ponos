@@ -1198,6 +1198,15 @@ SECTIONS: tuple[Section, ...] = (
             ),
             Field(
                 "runner",
+                "review_model",
+                "text",
+                "Model that reviews",
+                "Reads each branch against its ticket before the push. Empty: the model the "
+                "ticket was worked with.",
+                placeholder="the ticket's own model",
+            ),
+            Field(
+                "runner",
                 "classify_model",
                 "text",
                 "Model that guesses the type",
@@ -1556,6 +1565,26 @@ SECTIONS: tuple[Section, ...] = (
                 "this machine; the next one waits for a place.",
                 minimum=1,
                 advanced=True,
+            ),
+        ),
+    ),
+    Section(
+        key="self_review",
+        group="code",
+        title="Self-review before pull request",
+        blurb="A short session reads the branch's diff against the ticket before the push, and "
+        "the ticket's session is picked up once on what it finds blocking.",
+        fields=(
+            Field(
+                "runner",
+                "self_review",
+                "bool",
+                "Self-review before pull request",
+                "Once the session has committed, a session in plan mode reads the diff against "
+                "the ticket's done criterion and the project's CLAUDE.md. What it finds blocking "
+                "goes back to the ticket's session once; then the pull request opens and says "
+                "what was fixed and what was left. Its cost is added to the ticket's. A project "
+                "can turn it on or off for itself.",
             ),
         ),
     ),
