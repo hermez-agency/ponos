@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Ponos — Écris le ticket. Il revient fait.</title>
-<meta name="description" content="Écris le ticket. Il revient fait. Ponos est un harnais autour de Claude Code qui exécute tes tâches sur ta machine — code, rédaction, actions, publications — sur un tableau à lui, la console ou un dossier de fichiers Markdown. Notion et GitHub se branchent si tu le veux, et rien ne part sans ton oui.">
+<meta name="description" content="Écris le ticket. Il revient fait. Ponos est un harnais autour de Claude Code qui exécute tes tâches sur ta machine — code, rédaction, actions, publications — sur un tableau à lui, la console. Notion et GitHub se branchent si tu le veux, et rien ne part sans ton oui.">
 <link rel="canonical" href="https://the-ponos.app/fr/">
 <link rel="alternate" hreflang="en" href="https://the-ponos.app/">
 <link rel="alternate" hreflang="fr" href="https://the-ponos.app/fr/">
@@ -55,7 +55,7 @@
     "Des idées proposées, notées, puis transformées en tickets",
     "Des objectifs qui comptent les tickets terminés",
     "Un coffre qui donne à chaque projet ses seules clés, masquées partout",
-    "Un tableau à lui : la console web locale, sur un dossier de fichiers Markdown",
+    "Un tableau à lui : la console web locale, sur une base locale",
     "Un chat avec la machine, dans la console",
     "Intégrations facultatives : Notion, GitHub, Telegram, Slack, OpenRouter pour tout autre modèle"
   ],
@@ -598,8 +598,8 @@
       <h1>Écris le ticket. <span>Il revient fait.</span></h1>
       <p class="tagline">Un harnais autour de Claude Code qui exécute tes tâches sur ta machine — code, rédaction, actions, publications.</p>
       <p class="lede">
-        Écris le ticket sur le tableau de <strong>Ponos</strong> — la console, ou un dossier de
-        fichiers Markdown. Il te rapporte une pull request, un texte, une action menée à bien ou une
+        Écris le ticket sur le tableau de <strong>Ponos</strong> — la console.
+        Il te rapporte une pull request, un texte, une action menée à bien ou une
         publication prête à partir. Tu réponds d’un mot, même depuis ton téléphone, et rien ne part sans ton oui.
       </p>
       <div class="cta">
@@ -829,7 +829,7 @@
     <div class="sec-head">
       <span class="label">La console</span>
       <h2>Un tableau à lui.</h2>
-      <p>Ponos n’a besoin du tableau de personne. La console, sur <code>127.0.0.1</code>, est l’endroit où tu écris un ticket, le glisses vers <em>Ready</em> et regardes sa session en direct — avec, à côté, un chat avec tout ton espace de travail. Dessous, le tableau est un dossier de fichiers Markdown : <code>grep</code>, ton éditeur et <code>git</code> le lisent aussi.</p>
+      <p>Ponos n’a besoin du tableau de personne. La console, sur <code>127.0.0.1</code>, est l’endroit où tu écris un ticket, le glisses vers <em>Ready</em> et regardes sa session en direct — avec, à côté, un chat avec tout ton espace de travail. Dessous, le tableau est une base locale, <code>ponos.db</code>.</p>
     </div>
     <figure class="shots">
       <div class="shots-bar">
@@ -946,7 +946,7 @@
         </div>
       </div>
     </div>
-    <p class="notion-foot">Notion et le dossier de fichiers peuvent aussi être tenus en phase, les deux à la fois. <a href="https://github.com/hermez-agency/ponos/blob/main/guide/board.md#both-and-what-happens-when-they-disagree">Les deux, et quand ils divergent →</a></p>
+    <p class="notion-foot"><code>ponos.db</code> reste la référence ; Notion en est une copie. <a href="https://github.com/hermez-agency/ponos/blob/main/guide/board.md#the-mirror-ponosdb-first-notion-a-copy">Le miroir →</a></p>
 
     <div class="sec-head" id="claude" style="margin:5rem 0 1.5rem;scroll-margin-top:76px">
       <span class="label">Claude</span>
@@ -985,7 +985,7 @@
       <div class="card">
         <div class="card-header"><h3 class="card-title">Ensuite, la console te guide</h3></div>
         <p>Sur <code>http://127.0.0.1:8787</code>, une première connexion par étapes, chacune vérifiée pour de bon avant la suivante : la langue, ton mot de passe, qui répond aux sessions, Notion — colle le jeton, ajoute Ponos à une page, le tableau se construit dessous —, GitHub en un clic, un premier projet, et un ticket de démonstration joué sur-le-champ pour prouver que tout marche.</p>
-        <p>Pas de Notion ? Le tableau peut être un dossier de fichiers Markdown : <a href="#notion">Ton tableau dans Notion</a> dit les deux.</p>
+        <p>Pas de Notion ? Le tableau vit dans <code>ponos.db</code> : <a href="#notion">Ton tableau dans Notion</a> dit les deux.</p>
       </div>
       <div class="card">
         <div class="card-header"><h3 class="card-title">Ce qu’il lui faut</h3></div>
@@ -1044,7 +1044,7 @@
             <p>Les trois étapes sont <a href="#server">plus haut</a>. L’image embarque tout ce dont un ticket a besoin — Claude Code, git, <code>gh</code>, Node —, figée sur la version avec laquelle le modèle a été publié, et tourne sous un utilisateur à elle, jamais root. Quatre volumes nommés gardent la configuration et le tableau, les clones, et les connexions de Claude Code et de <code>gh</code> ; un healthcheck interroge <code>/healthz</code> ; la mémoire est plafonnée à 4 Go.</p>
             <ul>
               <li><b>Obligatoire :</b> <code>CLAUDE_CODE_OAUTH_TOKEN</code> (ton abonnement) ou <code>ANTHROPIC_API_KEY</code>.</li>
-              <li><b>Facultatif :</b> <code>OPENROUTER_API_KEY</code> pour tous les autres modèles ; <code>GH_TOKEN</code> pour les pull requests — ou une GitHub App, créée depuis la console ; <code>PONOS_NOTION_TOKEN</code> pour un tableau dans Notion — sans lui, le tableau est en fichiers Markdown ; <code>PONOS_TELEGRAM_TOKEN</code> et <code>PONOS_SLACK_TOKEN</code> pour ton téléphone.</li>
+              <li><b>Facultatif :</b> <code>OPENROUTER_API_KEY</code> pour tous les autres modèles ; <code>GH_TOKEN</code> pour les pull requests — ou une GitHub App, créée depuis la console ; <code>PONOS_NOTION_TOKEN</code> pour un tableau dans Notion — sans lui, le tableau reste dans <code>ponos.db</code> ; <code>PONOS_TELEGRAM_TOKEN</code> et <code>PONOS_SLACK_TOKEN</code> pour ton téléphone.</li>
               <li><b>Générées ou à définir :</b> <code>PONOS_WEB_EMAIL</code>, <code>PONOS_WEB_PASSWORD</code> et <code>PONOS_WEB_TOKEN</code> ; <code>PONOS_LANGUAGE</code>, <code>en</code> ou <code>fr</code> ; <code>TZ</code>, le fuseau dans lequel les heures d’un planning sont lues.</li>
             </ul>
             <p>Un Dokploy sans Ponos dans son catalogue l’importe : un service <em>Compose</em>, <em>Advanced › Import</em>, et le Base64 que la <a href="https://github.com/hermez-agency/ponos/blob/main/guide/server.md#install-with-dokploy">documentation</a> affiche.</p>
@@ -1095,7 +1095,7 @@ url = "https://&lt;machine&gt;.&lt;tailnet&gt;.ts.net"</pre>
       <a href="https://github.com/hermez-agency/ponos/blob/main/guide/tickets.md#what-comes-back-on-its-own">Les tickets qui reviennent <span>§</span></a>
       <a href="https://github.com/hermez-agency/ponos/blob/main/guide/console.md#the-web-console">La console web <span>§</span></a>
       <a href="https://github.com/hermez-agency/ponos/blob/main/guide/console.md#connect-ponos-to-claude">Connecter Ponos à Claude <span>§</span></a>
-      <a href="https://github.com/hermez-agency/ponos/blob/main/guide/board.md#without-notion-the-board-as-markdown-files">Le tableau en fichiers Markdown <span>§</span></a>
+      <a href="https://github.com/hermez-agency/ponos/blob/main/guide/board.md#without-notion">Le tableau sans Notion <span>§</span></a>
       <a href="https://github.com/hermez-agency/ponos/blob/main/guide/configuration.md#every-other-model">Tous les autres modèles <span>§</span></a>
       <a href="https://github.com/hermez-agency/ponos/blob/main/guide/configuration.md#connect-github-in-one-click">Connecter GitHub en un clic <span>§</span></a>
       <a href="https://github.com/hermez-agency/ponos/blob/main/guide/configuration.md#several-github-accounts">Plusieurs comptes GitHub <span>§</span></a>

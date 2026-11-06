@@ -318,7 +318,7 @@ def the_installer_gives_the_same_install_commands_as_doctor() -> None:
 
 @case
 def a_fresh_container_is_sent_to_the_steps_until_they_have_been_gone_through() -> None:
-    """A Markdown board is usable at once: nothing but a mark says the steps are still owed."""
+    """A board without Notion is usable at once: nothing but a mark says the steps are still owed."""
     from support import _state_home
 
     from ponos.web import setup as web_setup

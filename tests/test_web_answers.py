@@ -126,7 +126,7 @@ def _goals_api() -> web_api.Api:
 
 @case
 def a_goal_counts_the_tickets_the_board_lists_column_by_column() -> None:
-    """The progress is the board's, counted: no rollup read, a Markdown board has none."""
+    """The progress is the board's, counted: no rollup read, a board without Notion has none."""
     api = _goals_api()
     tickets = [
         {"id": "t1", "goal_id": "aaaagoal", "column": "done"},

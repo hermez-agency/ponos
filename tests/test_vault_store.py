@@ -301,7 +301,7 @@ def what_a_session_prints_of_a_vault_key_is_masked_everywhere(vault_home: Path) 
     assert SECRET not in outcome.answer and "echo: ***" in outcome.answer
     assert SECRET not in (home / "s.jsonl").read_text() and SECRET not in json.dumps(seen)
     assert (home / "s.err").read_text() == "echo: ***\n"
-    # The comment on the ticket, in Notion and on the Markdown board.
+    # The comment on the ticket, in Notion and in ponos.db.
     sent: list[bytes] = []
 
     def answered(request: httpx.Request) -> httpx.Response:

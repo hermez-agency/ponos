@@ -958,9 +958,9 @@ def an_image_in_a_brief_is_named_for_the_session_and_drawn_by_the_console() -> N
 
 @case
 def the_live_line_is_written_on_a_board_of_files_too() -> None:
-    """The board's live column comes off the same flush on a Markdown board.
+    """The board's live column comes off the same flush on a board without Notion.
 
-    What must not happen is the report disabling itself there — a Markdown
+    What must not happen is the report disabling itself there — a ponos.db
     installation would silently stop having one — nor writing the session's
     steps into the file: the page is the mission and what was done.
     """
