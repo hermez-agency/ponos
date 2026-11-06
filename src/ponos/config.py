@@ -686,6 +686,24 @@ class Speech:
     speed: int = 100
 
 
+# Which browser the sessions of external tickets act in: Ponos's own (Chromium
+# driven by Playwright, see browser.py) or Claude in Chrome, the user's Chrome.
+BROWSERS = ("ponos", "chrome")
+
+
+@dataclass
+class Browser:
+    """`[browser]`: the browser external tickets use. See browser.py.
+
+    `default` is the word of every project that does not say its own (Settings
+    of a project), and a ticket may still name the other one in its body.
+    `headless` false shows the window, to watch a session or debug one.
+    """
+
+    default: str = "ponos"
+    headless: bool = True
+
+
 # How GitHub is reached. Empty is the whole of the old behaviour: a GitHub App
 # when one is connected, the `gh` accounts otherwise — and a token, when one is
 # given, only in the place of `gh`. `app` and `token` say which of the two wins.
@@ -825,6 +843,7 @@ class Config:
     notify: Notify = field(default_factory=Notify)
     openrouter: OpenRouter = field(default_factory=OpenRouter)
     speech: Speech = field(default_factory=Speech)
+    browser: Browser = field(default_factory=Browser)
     claude: Claude = field(default_factory=Claude)
     budget: Budget = field(default_factory=Budget)
     review: Review = field(default_factory=Review)
@@ -1579,6 +1598,7 @@ def load(path: Path | None = None, *, secrets: Path | None = None) -> Config:
             key=secret(stored, "openrouter", "key"), **file.openrouter.model_dump()
         ),
         speech=Speech(**file.speech.model_dump()),
+        browser=Browser(**file.browser.model_dump()),
         claude=Claude(provider=file.claude.provider, api_key=secret(stored, "claude", "api_key")),
         budget=Budget(**file.budget.model_dump()),
         review=Review(**file.review.model_dump()),

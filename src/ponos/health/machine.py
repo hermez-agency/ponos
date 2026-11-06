@@ -12,7 +12,7 @@ import shutil
 import sys
 from datetime import datetime
 
-from .. import cleanup, disk, git, leftovers, local_ci, resources, systemd
+from .. import browser, cleanup, disk, git, leftovers, local_ci, resources, systemd
 from .. import config as config_module
 from .check import ERROR, INFO, OK, WARN, Check, _check, _fix, _installing
 
@@ -21,6 +21,7 @@ def _machine(config: config_module.Config) -> list[Check]:
     return [
         *_tools(),
         *_docker(config),
+        *_browser(config),
         *_disk(config),
         *_private_state(),
         *_memory(config),
@@ -73,6 +74,47 @@ def _docker(config: config_module.Config) -> list[Check]:
                 if found.installed
                 else "Install Docker Engine, then check again."
             ],
+        )
+    ]
+
+
+def _browser(config: config_module.Config) -> list[Check]:
+    """Ponos's browser: Playwright and its Chromium, and the command that installs them.
+
+    A warning when `[browser] default` sends external tickets to it — they
+    fall back on Claude in Chrome until it is there — and a note otherwise.
+    """
+    title = "Ponos's browser"
+    wanted = config.browser.default == browser.PONOS
+    if not browser.available():
+        said = "Playwright is not installed: external tickets use Claude in Chrome."
+    elif not browser.chromium():
+        said = (
+            "Playwright is installed, but not its Chromium: external tickets use Claude in Chrome."
+        )
+    else:
+        return [
+            _check(
+                "machine.browser",
+                OK,
+                title,
+                "Playwright and its Chromium are installed: external tickets can sign in with the vault."
+                if wanted
+                else "Playwright and its Chromium are installed; browser.default sends external tickets to Claude in Chrome.",
+            )
+        ]
+    commands = browser.install_commands()
+    return [
+        _check(
+            "machine.browser",
+            WARN if wanted else INFO,
+            title,
+            said,
+            cause="browser.default is ponos: every external ticket falls back on Claude in Chrome."
+            if wanted
+            else "",
+            steps=["Install it into Ponos's Python: `{{install}}`, then `{{chromium}}`."],
+            params={"install": commands[0], "chromium": commands[1]},
         )
     ]
 

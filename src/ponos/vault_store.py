@@ -32,7 +32,12 @@ runs Ponos, who can read the key wherever it is kept and ask the runner itself.
 
 The journal (`journal` table) says who did what to an entry — created,
 replaced, its projects changed, revoked — and every time a session was given
-it, with the ticket and the project; never a value.
+it, with the ticket and the project; never a value. Ponos's browser writes
+there too, each time it signs in with a login (`signed_in`): the entry, the
+ticket, the project and how it ended.
+
+A login may carry the address of the site it opens (`url`): what the browser
+signs in on, and the only site it ever types that login into — see browser.py.
 """
 
 from __future__ import annotations
@@ -302,6 +307,7 @@ CREATE TABLE IF NOT EXISTS entries (
     created TEXT NOT NULL,
     updated TEXT NOT NULL,
     print TEXT NOT NULL DEFAULT '',
+    url TEXT NOT NULL DEFAULT '',
     nonce BLOB NOT NULL,
     sealed BLOB NOT NULL
 );
@@ -345,6 +351,10 @@ def _connected(create: bool = True) -> Iterator[sqlite3.Connection]:
         connection.execute("PRAGMA journal_mode=DELETE")
         connection.execute("PRAGMA secure_delete=ON")
         connection.executescript(SCHEMA)
+        columns = {row[1] for row in connection.execute("PRAGMA table_info(entries)")}
+        if "url" not in columns:
+            # A vault written before an entry could say which site it is for.
+            connection.execute("ALTER TABLE entries ADD COLUMN url TEXT NOT NULL DEFAULT ''")
         with connection:
             yield connection
     finally:
@@ -438,6 +448,7 @@ def _shown(row: sqlite3.Row, last: dict[str, dict[str, str]]) -> dict[str, Any]:
         "created": row["created"],
         "updated": row["updated"],
         "print": row["print"],
+        "url": row["url"],
         "last_used": used.get("at", ""),
         "last_ticket": used.get("ticket", ""),
         "last_project": used.get("project", ""),
@@ -535,6 +546,21 @@ def _checked_expiry(expires: str) -> str:
         raise Refused("expires", f"{expires!r} is not a date (YYYY-MM-DD)") from None
 
 
+def _checked_url(url: str) -> str:
+    """The address of the site an entry is for: http(s) and a host, or nothing."""
+    from urllib.parse import urlsplit
+
+    url = url.strip()
+    if not url:
+        return ""
+    if "://" not in url:
+        url = "https://" + url
+    parts = urlsplit(url)
+    if parts.scheme not in ("http", "https") or not parts.hostname:
+        raise Refused("url", f"{url!r} is not the address of a site (https://…)")
+    return url[:500]
+
+
 def _checked_projects(projects: list[str]) -> list[str]:
     return sorted({project.strip() for project in projects if project.strip()}, key=str.casefold)
 
@@ -561,6 +587,7 @@ def create(
     description: str = "",
     expires: str = "",
     by: str = "",
+    url: str = "",
 ) -> dict[str, Any]:
     """A new entry, sealed — and said without its value."""
     if kind not in KINDS:
@@ -575,6 +602,7 @@ def create(
             "projects": _checked_projects(projects),
             "description": description.strip()[:500],
             "expires": _checked_expiry(expires),
+            "url": _checked_url(url),
             "created": _now(),
         }
         key = _key(connection, create=True)
@@ -585,7 +613,7 @@ def create(
         )
         connection.execute(
             "INSERT INTO entries (id, name, kind, projects, description, expires, created, "
-            "updated, print, nonce, sealed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "updated, print, url, nonce, sealed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 row["id"],
                 name,
@@ -596,6 +624,7 @@ def create(
                 row["created"],
                 row["created"],
                 _print_of(kind, kept),
+                row["url"],
                 nonce,
                 sealed,
             ),
@@ -622,6 +651,7 @@ def change(
     description: str | None = None,
     expires: str | None = None,
     by: str = "",
+    url: str | None = None,
 ) -> dict[str, Any]:
     """An entry's value replaced, its projects changed, or what it says of itself.
 
@@ -648,13 +678,14 @@ def change(
         nonce, sealed = _seal(key.raw, plain, _associated(row["id"], name, kind, now))
         connection.execute(
             "UPDATE entries SET projects = ?, description = ?, expires = ?, updated = ?, "
-            "print = ?, nonce = ?, sealed = ? WHERE id = ?",
+            "print = ?, url = ?, nonce = ?, sealed = ? WHERE id = ?",
             (
                 json.dumps(now),
                 row["description"] if description is None else description.strip()[:500],
                 row["expires"] if expires is None else _checked_expiry(expires),
                 _now(),
                 printed,
+                row["url"] if url is None else _checked_url(url),
                 nonce,
                 sealed,
                 row["id"],
@@ -743,6 +774,48 @@ def used(variables_given: list[str], ticket: str, project: str) -> None:
         for row in connection.execute("SELECT id, name, kind FROM entries").fetchall():
             if set(variables(row["name"], row["kind"])) & set(variables_given):
                 _write_down(connection, row, "read", ticket=ticket, project=project)
+
+
+def logins(project: str) -> dict[str, str]:
+    """The logins granted to `project`, by name, with the address of their site ("" for none).
+
+    Read without the key: who may use an entry and where it signs in are not
+    sealed, only its value is.
+    """
+    if not exists():
+        return {}
+    wanted = project.strip().casefold()
+    with _lock, _connected() as connection:
+        rows = connection.execute(
+            "SELECT name, projects, url FROM entries WHERE kind = ?", (LOGIN,)
+        ).fetchall()
+    return {
+        row["name"]: row["url"]
+        for row in rows
+        if wanted and wanted in {name.casefold() for name in _projects(row)}
+    }
+
+
+# How a sign-in by the browser ended, as the journal writes it: one action each.
+SIGNED_IN, SIGN_IN_FAILED, SECOND_FACTOR, SIGN_IN_REFUSED = (
+    "login",
+    "login-failed",
+    "login-second-factor",
+    "login-refused",
+)
+SIGN_INS = (SIGNED_IN, SIGN_IN_FAILED, SECOND_FACTOR, SIGN_IN_REFUSED)
+
+
+def signed_in(name: str, ticket: str, project: str, result: str) -> None:
+    """Write down that Ponos's browser signed in with `name`, and how it ended (`SIGN_INS`)."""
+    if result not in SIGN_INS:
+        raise ValueError(f"a sign-in ends in one of {', '.join(SIGN_INS)}")
+    if not exists():
+        return
+    with _lock, _connected() as connection:
+        row = connection.execute("SELECT id, name FROM entries WHERE name = ?", (name,)).fetchone()
+        if row is not None:
+            _write_down(connection, row, result, ticket=ticket, project=project)
 
 
 def rotate() -> tuple[int, Key]:

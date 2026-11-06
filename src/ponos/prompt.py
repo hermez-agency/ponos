@@ -639,9 +639,9 @@ Then end on the RESULT line the first message asked for.
 EXTERNAL = """\
 # This ticket is an external action
 
-It is carried out outside any repository — in the browser, with Claude in \
-Chrome; in a DNS zone; in the settings of a third-party service. Three rules \
-come on top of the others:
+It is carried out outside any repository — in a browser (Ponos's own when a \
+section below says so, Claude in Chrome otherwise); in a DNS zone; in the \
+settings of a third-party service. Three rules come on top of the others:
 
 - **Stop at the first doubt.** An account you are not sure is the right one, a \
 value the ticket does not give, a screen that does not look like what the ticket \
@@ -745,6 +745,41 @@ def held_secrets(names: Iterable[str]) -> str:
         "name (`$NAME`), and never print, echo, commit or write their values "
         "anywhere — not in a file, a comment, a log or your report. Any value that "
         "slips out is replaced by *** before it reaches Notion or the console.\n"
+    )
+
+
+def held_browser(logins: dict[str, str]) -> str:
+    """What a session given Ponos's browser is told: its tools, and the logins it may use.
+
+    The names and the sites, never a value: `browser_login` is given a name and
+    types the rest itself — see browser_server.py.
+    """
+    from .browser import host
+
+    listed = "".join(
+        f"- `{name}` — {host(url) or 'no site address yet: it cannot sign in'}\n"
+        for name, url in sorted(logins.items())
+    )
+    return (
+        "# The browser\n\n"
+        "This ticket acts in Ponos's own browser, not in Claude in Chrome: use the tools of "
+        "the `ponos-browser` server (`browser_navigate`, `browser_read`, `browser_click`, "
+        "`browser_type`, `browser_press`, `browser_screenshot`, `browser_download`, "
+        "`browser_upload`). Read the page with `browser_read` before acting on it. The "
+        "project's cookies are kept from one ticket to the next: a site may already be "
+        "signed in.\n\n"
+        + (
+            "To sign in, call `browser_login` with the name of one of these entries of the "
+            "vault — the browser fills the form itself, and you never see nor type the "
+            "password:\n\n" + listed + "\n"
+            if listed
+            else "No login of the vault is granted to this project: a site that asks to sign "
+            "in is a question (`CODE: access.credentials`).\n\n"
+        )
+        + "If `browser_login` answers that a second factor or a CAPTCHA is requested, do not "
+        "try to get past it: stop, and end `RESULT: blocked` with `CATEGORY: manual`, asking "
+        "the person to finish signing in from the console (the project's settings, Browser) "
+        "and to answer « done ».\n"
     )
 
 

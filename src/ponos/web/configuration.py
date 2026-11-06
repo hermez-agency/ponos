@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import Any
 
 from .. import (
+    browser,
     idea_schedule,
     local_ci,
     notes,
@@ -21,6 +22,7 @@ from .. import (
     store,
     subtypes,
 )
+from .. import config as config_module
 from .. import kinds as kinds_module
 from . import settings as settings_module
 from .base import Base
@@ -101,6 +103,31 @@ class Configuration(Base):
                 "chrome": bool(preview.chrome()),
             },
             "plan": self._project_plan(bare),
+            "browser": self._project_browser(bare),
+        }
+
+    def _project_name(self, bare: str) -> str:
+        return next(
+            (
+                str(row["name"])
+                for row in self.all_projects()["projects"]
+                if project_settings.key(row["id"]) == bare
+            ),
+            "",
+        )
+
+    def _project_browser(self, bare: str) -> dict[str, Any]:
+        """The browser of the project's external tickets, whose word that is, and its profile."""
+        own = project_settings.browser(bare)
+        globally = self.config.browser.default
+        name = self._project_name(bare)
+        return {
+            "value": own or globally,
+            "own": own is not None,
+            "global": globally,
+            "missing": browser.missing(),
+            "project": name,
+            "sites": browser.sites(browser.load(name)) if name else [],
         }
 
     def _project_plan(self, bare: str) -> dict[str, Any]:
@@ -211,7 +238,11 @@ class Configuration(Base):
         photographing = payload.get("preview")
         planned = payload.get("plan")
         reviewing = payload.get("self_review")
-        if validation is None and isinstance(planned, dict):
+        browsing = payload.get("browser")
+        if validation is None and isinstance(browsing, dict):
+            if browsing.get("value") not in config_module.BROWSERS:
+                raise ValueError("say which browser the project's external tickets use")
+        elif validation is None and isinstance(planned, dict):
             threshold = planned.get("priority")
             if threshold is not None and (
                 isinstance(threshold, bool)
@@ -294,6 +325,10 @@ class Configuration(Base):
             # The file's own answer is not a decision of the project's, as for ideas.
             agrees = reviewing["enabled"] == self.config.runner.self_review
             project_settings.set_self_review(bare, name, None if agrees else reviewing["enabled"])
+        if isinstance(browsing, dict):
+            # The file's own answer is not a decision of the project's, as for ideas.
+            agrees = browsing["value"] == self.config.browser.default
+            project_settings.set_browser(bare, name, None if agrees else browsing["value"])
         self.hub.publish("settings", project=bare)
         return self.project_settings(bare)
 

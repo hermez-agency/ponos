@@ -207,6 +207,24 @@ export const api = {
     answer(client.GET("/api/vault/{entry_id}/history", { params: { path: { entry_id: id } } })),
   /* The writes: a value goes in and never comes back. `confirm` is the
    * password again, when the server asks for it (a 403 under `confirm`). */
+  /** Ponos's browser: its profiles by project, and the browsers running now. */
+  browser: () => answer(client.GET("/api/browser")),
+  /** Forget everything a project's browser kept: every site signed out. */
+  resetBrowser: (project: string) => answer(client.POST("/api/browser/reset", { body: { project } })),
+  /** A browser on the project's profile, for somebody to drive from here: its id. */
+  openBrowser: (project: string, url: string) =>
+    answer(client.POST("/api/browser/live", { body: { project, url } })),
+  /** One action played in a live browser: a click on its screen, some text, a key. */
+  browserAct: (
+    id: string,
+    action: { action: "click" | "type" | "press" | "goto" | "scroll" | "close"; x?: number; y?: number; text?: string; key?: string; url?: string }
+  ) =>
+    answer(
+      client.POST("/api/browser/live/{identifier}", {
+        params: { path: { identifier: id } },
+        body: { x: 0, y: 0, text: "", key: "", url: "", ...action },
+      })
+    ),
   createVaultEntry: (body: VaultNew) => answer(client.POST("/api/vault", { body })),
   changeVaultEntry: (id: string, body: VaultChange) =>
     answer(client.PUT("/api/vault/{entry_id}", { params: { path: { entry_id: id } }, body })),
@@ -367,6 +385,7 @@ export const api = {
       setup?: { command: string }
       preview?: { command: string; url: string; pages: string[] }
       plan?: { priority: number | null; subtypes: string[] }
+      browser?: { value: "ponos" | "chrome" }
     }
   ) =>
     answer(

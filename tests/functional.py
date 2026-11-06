@@ -752,6 +752,48 @@ if refused:
           "result": refused, "session_id": session, "num_turns": 1, "total_cost_usd": spent})
     raise SystemExit(1)
 
+# A session given Ponos's browser (`--mcp-config`): it starts `ponos-browser` the
+# way Claude Code does, and plays `FAKE_CLAUDE_BROWSE` — a JSON list of
+# [tool, arguments], where "$NAME" is the value of a variable it holds, the way a
+# model would copy one out of its environment — writing every call and every
+# answer into its stream as the CLI does. What came back is its ANSWER.md.
+browse = os.environ.get("FAKE_CLAUDE_BROWSE", "")
+if browse and "--mcp-config" in args:
+    servers = json.loads(Path(args[args.index("--mcp-config") + 1]).read_text())["mcpServers"]
+    spec = servers["ponos-browser"]
+    server = subprocess.Popen([spec["command"], *spec["args"]], env={**os.environ, **spec["env"]},
+                              stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+
+    def rpc(number, method, params):
+        server.stdin.write(json.dumps({"jsonrpc": "2.0", "id": number, "method": method,
+                                       "params": params}) + "\\n")
+        server.stdin.flush()
+        return json.loads(server.stdout.readline())
+
+    rpc(0, "initialize", {"protocolVersion": "2025-06-18", "capabilities": {}})
+    answers = []
+    for number, (tool, arguments) in enumerate(json.loads(browse), start=1):
+        arguments = {key: os.environ.get(value[1:], value)
+                     if isinstance(value, str) and value.startswith("$") else value
+                     for key, value in arguments.items()}
+        emit({"type": "assistant", "message": {"content": [
+            {"type": "tool_use", "id": f"t{number}", "name": "mcp__ponos-browser__" + tool,
+             "input": arguments}]}})
+        reply = rpc(number, "tools/call", {"name": tool, "arguments": arguments})["result"]
+        emit({"type": "user", "message": {"content": [
+            {"type": "tool_result", "tool_use_id": f"t{number}", "content": reply["content"],
+             "is_error": reply["isError"]}]}})
+        first = reply["content"][0]
+        answers.append(tool + ": " + (first.get("text") or "[" + first["type"] + "]"))
+    server.stdin.close()
+    server.wait(timeout=60)
+    (Path.cwd() / "ANSWER.md").write_text("\\n\\n".join(answers), encoding="utf-8")
+    emit({"type": "assistant", "message": {"content": [{"type": "text", "text": "Fait."}]}})
+    emit({"type": "result", "subtype": "success", "is_error": False,
+          "result": "RESULT: ok — navigation faite", "session_id": session, "num_turns": 4,
+          "total_cost_usd": 0.02})
+    raise SystemExit(0)
+
 here = Path.cwd()
 
 
@@ -1545,6 +1587,7 @@ def bench(**overrides: object) -> Iterator[Bench]:
                 "FAKE_GH_GREEN_WITH": "",
                 "FAKE_GH_REVIEWS": "",
                 "FAKE_CLAUDE_REVIEW_NOTHING": "",
+                "FAKE_CLAUDE_BROWSE": "",
                 **{name: str(path) for name, path in logs.items()},
             }
             with _environ(environment):
@@ -4594,6 +4637,376 @@ def reviews_are_left_alone_when_the_setting_is_off(machine: Bench) -> None:
 
     assert not machine.sessions(), machine.sessions()
     assert machine.status(ticket) == "review", machine.status(ticket)
+
+
+# -- Ponos's browser -------------------------------------------------------------
+
+
+SITE_USER = "ada@hermez.test"
+SITE_PASSWORD = "correct-horse-battery-staple-42"
+SITE_CODE = "123456"
+
+_FORM = (
+    "<html><head><title>{title}</title></head><body><h1>{title}</h1>{error}"
+    '<form method="post" action="{action}">{fields}<button type="submit">Entrer</button>'
+    "</form></body></html>"
+)
+_SIGN_IN = (
+    '<label>E-mail <input type="email" name="email" autocomplete="username"></label>'
+    '<label>Mot de passe <input type="password" name="password"></label>'
+)
+
+
+class _SiteHandler(BaseHTTPRequestHandler):
+    """A site to sign in to: a form, an optional second factor, and a page behind them."""
+
+    def log_message(self, format: str, *args: Any) -> None:
+        pass
+
+    def _page(self, body: str, status: int = 200, cookie: str = "") -> None:
+        encoded = body.encode()
+        self.send_response(status)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(encoded)))
+        if cookie:
+            self.send_header("Set-Cookie", f"sid={cookie}; Path=/; HttpOnly")
+        self.end_headers()
+        self.wfile.write(encoded)
+
+    def _go(self, where: str, cookie: str = "") -> None:
+        self.send_response(302)
+        self.send_header("Location", where)
+        self.send_header("Content-Length", "0")
+        if cookie:
+            self.send_header("Set-Cookie", f"sid={cookie}; Path=/; HttpOnly")
+        self.end_headers()
+
+    def _signed(self) -> bool:
+        said = self.headers.get("Cookie", "")
+        return any(part.strip() in self.server.sessions for part in said.split(";"))  # type: ignore[attr-defined]
+
+    def do_GET(self) -> None:
+        path = urlparse(self.path).path
+        if path in ("/login", "/otp-login"):
+            self._page(_FORM.format(title="Connexion", error="", action=path, fields=_SIGN_IN))
+        elif path == "/captcha-login":
+            self._page(
+                _FORM.format(
+                    title="Connexion",
+                    error='<div class="g-recaptcha" data-sitekey="x"></div>',
+                    action="/login",
+                    fields=_SIGN_IN,
+                )
+            )
+        elif path == "/code":
+            fields = '<label>Code de vérification <input name="code" autocomplete="one-time-code"></label>'
+            self._page(
+                _FORM.format(
+                    title="Double authentification", error="", action="/code", fields=fields
+                )
+            )
+        elif path == "/elsewhere":
+            port = self.headers.get("Host", "").rsplit(":", 1)[-1]
+            self._go(f"http://localhost:{port}/login")
+        elif path.startswith("/private"):
+            if not self._signed():
+                self._go("/login")
+                return
+            self._page(
+                "<html><head><title>Espace privé</title></head><body>"
+                f"<h1>Espace privé</h1><p>Projets : alpha, beta</p><p>Page {path}</p>"
+                f"<p>Connecté en tant que {SITE_USER}</p></body></html>"
+            )
+        else:
+            self._page("<html><body>Accueil</body></html>")
+
+    def do_POST(self) -> None:
+        path = urlparse(self.path).path
+        length = int(self.headers.get("Content-Length", "0") or 0)
+        form = {
+            key: values[0] for key, values in parse_qs(self.rfile.read(length).decode()).items()
+        }
+        if path in ("/login", "/otp-login"):
+            if form.get("email") == SITE_USER and form.get("password") == SITE_PASSWORD:
+                if path == "/otp-login":
+                    self._go("/code")
+                    return
+                cookie = uuid.uuid4().hex
+                self.server.sessions.add(f"sid={cookie}")  # type: ignore[attr-defined]
+                self._go("/private", cookie)
+                return
+            error = '<p role="alert">Identifiants incorrects</p>'
+            self._page(_FORM.format(title="Connexion", error=error, action=path, fields=_SIGN_IN))
+        elif path == "/code" and form.get("code") == SITE_CODE:
+            cookie = uuid.uuid4().hex
+            self.server.sessions.add(f"sid={cookie}")  # type: ignore[attr-defined]
+            self._go("/private", cookie)
+        else:
+            self._go("/code")
+
+
+@contextmanager
+def _site() -> Iterator[str]:
+    """The sign-in site, on a loopback port: its address, as an entry of the vault names it."""
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _SiteHandler)
+    server.sessions = set()  # type: ignore[attr-defined]
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_port}"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+def _browser_installed() -> None:
+    from ponos import browser
+
+    if why := browser.missing():
+        raise support.Skip(f"Ponos's browser cannot start here: {why}")
+
+
+def _keyring_free(machine: Bench) -> None:
+    """A `secret-tool` that answers nothing: the vault's key goes to the bench's own file."""
+    _script(machine.root / "bin" / "secret-tool", "raise SystemExit(1)\n")
+
+
+def _login_entry(name: str, url: str, project: str = "Brevo") -> None:
+    from ponos import vault_store
+
+    vault_store.create(
+        name,
+        vault_store.LOGIN,
+        {"user": SITE_USER, "password": SITE_PASSWORD},
+        [project],
+        url=url,
+    )
+
+
+def _everything_written(root: Path) -> Iterator[tuple[Path, str]]:
+    for path in root.rglob("*"):
+        if path.is_file() and path.suffix not in (".png", ".db", ".lock"):
+            yield path, path.read_text(encoding="utf-8", errors="replace")
+
+
+@case
+def an_external_ticket_signs_in_with_the_vault_and_never_sees_the_password(machine: Bench) -> None:
+    """`browser_login`, on a local site: the protected page is reached, the password said nowhere.
+
+    The whole road of an external ticket in Ponos's browser: the runner gives
+    the session `ponos-browser` instead of Claude in Chrome, the session signs
+    in by the entry's name and reads the page behind the form. A value copied
+    out of the environment is refused by `browser_type`, and a sign-in asked on
+    another host than the entry's is refused too. Nothing written — the
+    transcript, the log, the board, the profile — holds the password.
+    """
+    _browser_installed()
+    _keyring_free(machine)
+    machine.typed()
+    with _site() as site:
+        _login_entry("SITE", site + "/login")
+        project = machine.project("Brevo")
+        ticket = machine.ticket("Lire la liste des projets", "Ouvre le tableau de bord.", project)
+        machine.board.pages[ticket]["properties"]["Type"] = _stored(
+            {"select": {"name": "Action externe"}}
+        )
+        steps = [
+            ["browser_login", {"entry": "SITE"}],
+            ["browser_read", {"what": "text"}],
+            ["browser_type", {"label": "Mot de passe", "value": "$SITE_PASSWORD"}],
+            [
+                "browser_login",
+                {"entry": "SITE", "url": site.replace("127.0.0.1", "localhost") + "/login"},
+            ],
+            ["browser_login", {"entry": "AUTRE"}],
+            ["browser_screenshot", {}],
+        ]
+        with _environ({"FAKE_CLAUDE_BROWSE": json.dumps(steps)}):
+            results = machine.run()
+
+    assert [(result["id"], result["status"]) for result in results] == [(ticket, "done")], (
+        results,
+        machine.sessions(),
+    )
+    (call,) = machine.sessions()
+    assert "browser_login" in call["prompt"] and "`SITE`" in call["prompt"], call["prompt"]
+    body = machine.board.body(ticket)
+    assert "browser_login: connected" in body, body
+    assert "Projets : alpha, beta" in body, "the page behind the form was read"
+    assert "browser_type: refused: that is a value of the vault" in body, body
+    assert "browser_login: refused: localhost is not the site of SITE" in body, body
+    assert "browser_login: refused: 'AUTRE' is not a login granted" in body, body
+    assert "browser_screenshot: [image]" in body, body
+    assert SITE_USER not in body, "the user is a value of the vault too"
+
+    from ponos import browser, vault_store
+
+    assert browser.sites(browser.load("Brevo")) == ["127.0.0.1"], "the sign-in stays in the profile"
+    (entry,) = vault_store.listing()
+    actions = [moment["action"] for moment in vault_store.history(entry["id"])]
+    assert actions[:2] == ["login-refused", "login"], actions
+    assert all(
+        moment["ticket"] == ticket.replace("-", "") and moment["project"] == "Brevo"
+        for moment in vault_store.history(entry["id"])[:2]
+    )
+    transcripts = list(Path(os.environ["XDG_STATE_HOME"]).rglob("*.jsonl"))
+    assert any("mcp__ponos-browser__browser_login" in path.read_text() for path in transcripts)
+    for path, text in _everything_written(machine.root):
+        assert SITE_PASSWORD not in text, f"the password is written in {path}"
+
+
+def _browse_directly(
+    environment: dict[str, str], steps: list[tuple[str, dict[str, Any]]]
+) -> list[str]:
+    """`ponos-browser` driven over its standard input, as a session drives it: the texts it answered."""
+    server = subprocess.Popen(
+        [sys.executable, "-m", "ponos.browser_server"],
+        env={**os.environ, **environment},
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        text=True,
+    )
+    assert server.stdin is not None and server.stdout is not None
+    said: list[str] = []
+    try:
+        for number, (tool, arguments) in enumerate([("initialize", {}), *steps], start=1):
+            method = "initialize" if tool == "initialize" else "tools/call"
+            params = arguments if tool == "initialize" else {"name": tool, "arguments": arguments}
+            server.stdin.write(
+                json.dumps({"jsonrpc": "2.0", "id": number, "method": method, "params": params})
+                + "\n"
+            )
+            server.stdin.flush()
+            reply = json.loads(server.stdout.readline())
+            if method == "tools/call":
+                said.append(str(reply["result"]["content"][0].get("text", "")))
+    finally:
+        server.stdin.close()
+        server.wait(timeout=60)
+    return said
+
+
+def _session_environment(site: str, session: str, downloads: Path) -> dict[str, str]:
+    from ponos import browser
+
+    return {
+        **browser.server_environment(
+            project="Brevo",
+            ticket="t1",
+            session=session,
+            headless=True,
+            logins={
+                "SITE": site + "/login",
+                "CODE": site + "/otp-login",
+                "ROBOT": site + "/captcha-login",
+                "AILLEURS": site + "/elsewhere",
+            },
+            downloads=downloads,
+        ),
+        "PYTHONPATH": str(Path(__file__).resolve().parents[1] / "src"),
+    }
+
+
+@case
+def two_sessions_browse_side_by_side_and_keep_one_profile(machine: Bench) -> None:
+    """Two browsers of one project at once: each its own context, both signed in, one profile."""
+    _browser_installed()
+    _keyring_free(machine)
+    with _site() as site:
+        _login_entry("SITE", site + "/login")
+        found: dict[str, list[str]] = {}
+
+        def browse(name: str) -> None:
+            found[name] = _browse_directly(
+                _session_environment(site, name, machine.root / name),
+                [
+                    ("browser_login", {"entry": "SITE"}),
+                    ("browser_navigate", {"url": f"{site}/private/{name}"}),
+                    ("browser_read", {"what": "text"}),
+                ],
+            )
+
+        threads = [threading.Thread(target=browse, args=(name,)) for name in ("one", "two")]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=180)
+
+        for name in ("one", "two"):
+            assert found[name][0].startswith("connected"), found[name]
+            assert f"Page /private/{name}" in found[name][2], found[name]
+            assert SITE_PASSWORD not in "".join(found[name])
+        from ponos import browser
+
+        state = browser.load("Brevo")
+        # One cookie: the same name on the same site is one cookie, the last kept wins.
+        assert state is not None and len(state["cookies"]) == 1, state
+
+        # The next session starts signed in: the profile is the project's.
+        again = _browse_directly(
+            _session_environment(site, "three", machine.root / "three"),
+            [("browser_navigate", {"url": f"{site}/private/again"})],
+        )
+        assert "Espace privé" in again[0], again
+
+
+@case
+def a_second_factor_stops_the_session_and_a_person_finishes_it_from_the_console(
+    machine: Bench,
+) -> None:
+    """A one-time code is never answered by the browser: the person types it, the profile keeps it."""
+    _browser_installed()
+    _keyring_free(machine)
+    from ponos import browser, vault_store
+
+    with _site() as site:
+        _login_entry("CODE", site + "/otp-login")
+        _login_entry("ROBOT", site + "/captcha-login")
+        _login_entry("AILLEURS", site + "/elsewhere")
+        downloads = machine.root / "work"
+        said = _browse_directly(
+            _session_environment(site, "otp", downloads),
+            [
+                ("browser_login", {"entry": "CODE"}),
+                ("browser_login", {"entry": "ROBOT"}),
+                ("browser_login", {"entry": "AILLEURS"}),
+            ],
+        )
+        assert said[2].startswith("refused: the sign-in page is on localhost"), said
+        assert said[0].startswith("second factor requested: the site asks for a second factor"), (
+            said
+        )
+        assert said[1].startswith("second factor requested: the site asks for a CAPTCHA"), said
+        assert (downloads / "ponos-browser-sign-in.png").is_file(), "the session has its screenshot"
+        entries = {entry["name"]: entry["id"] for entry in vault_store.listing()}
+        assert vault_store.history(entries["CODE"])[0]["action"] == "login-second-factor"
+        assert not browser.sites(browser.load("Brevo")), "nobody is signed in yet"
+
+        # The person, from the console: a browser on the project's profile, the code typed.
+        config = C.load(machine.config)
+        identifier = browser.open_for_person(config, "Brevo", site + "/code")
+        deadline = time.time() + 60
+        while not any(item["id"] == identifier for item in browser.live()):
+            assert time.time() < deadline, "the person's browser never showed its screen"
+            time.sleep(0.2)
+        assert browser.screen(identifier) is not None
+        browser.send(identifier, {"action": "press", "key": "Tab"})
+        browser.send(identifier, {"action": "type", "text": SITE_CODE})
+        browser.send(identifier, {"action": "press", "key": "Enter"})
+        while not browser.sites(browser.load("Brevo")):
+            assert time.time() < deadline, "the code typed by the person was not kept"
+            time.sleep(0.2)
+        browser.send(identifier, {"action": "close"})
+        while any(item["id"] == identifier for item in browser.live()):
+            assert time.time() < deadline, "the person's browser did not close"
+            time.sleep(0.2)
+
+        again = _browse_directly(
+            _session_environment(site, "resumed", downloads),
+            [("browser_navigate", {"url": f"{site}/private"})],
+        )
+        assert "Espace privé" in again[0], again
 
 
 if __name__ == "__main__":

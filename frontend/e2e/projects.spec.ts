@@ -473,4 +473,23 @@ test.describe("the settings of a project", () => {
     await expect(code(page)).toHaveAttribute("aria-checked", "false")
     await expect(code(page)).toBeDisabled()
   })
+
+  test("choose the browser of its external tickets, and see the sites its profile is signed in to", async ({ page }) => {
+    await go(page, `${WEBSITE}&tab=settings`)
+    await onThePageOf(page, "Website")
+    const card = page.locator('[data-card="project-browser"]')
+    const choice = card.locator('[data-slot="project-browser-choice"]')
+    await expect(choice).toHaveValue("ponos")
+    await expect(card.getByText("Follows the general settings.")).toBeVisible()
+    await expect(card.getByText("No site yet.")).toBeVisible()
+
+    await choice.selectOption("chrome")
+    await expect(card.getByText("This project's own choice, whatever the general settings say.")).toBeVisible()
+    await page.reload()
+    await expect(page.locator('[data-card="project-browser"] [data-slot="project-browser-choice"]')).toHaveValue("chrome")
+
+    // Back to the file's word: the project says nothing of its own any more.
+    await page.locator('[data-card="project-browser"] [data-slot="project-browser-choice"]').selectOption("ponos")
+    await expect(page.locator('[data-card="project-browser"]').getByText("Follows the general settings.")).toBeVisible()
+  })
 })

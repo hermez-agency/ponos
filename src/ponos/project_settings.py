@@ -35,7 +35,7 @@ from typing import Any
 
 from . import db, planning
 from . import preview as preview_module
-from .config import Config
+from .config import BROWSERS, Config
 from .kinds import KINDS
 
 # The keys a project may hold: one JSON object, the settings beside each other.
@@ -60,6 +60,9 @@ PREVIEW = "preview"
 # When its tickets are ticked « Plan d'abord » by themselves — see planning.py:
 # `priority`, the lowest score planned first, and `subtypes`. Absent, none is.
 PLAN = "plan"
+# The browser its external tickets act in — see browser.py: "ponos" or
+# "chrome". Absent, `browser.default` decides.
+BROWSER = "browser"
 
 
 def key(project: str) -> str:
@@ -206,6 +209,31 @@ def set_self_review(project: str, name: str, value: bool | None) -> None:
             settings.pop(SELF_REVIEW, None)
         else:
             settings[SELF_REVIEW] = value
+
+    _write(project, name, change)
+
+
+def browser(project: str) -> str | None:
+    """The browser the project's external tickets use, if it says — None, the file's word."""
+    if not key(project):
+        return None
+    try:
+        own = _read(project).get(BROWSER)
+    except db.ERRORS:
+        return None
+    return own if own in BROWSERS else None
+
+
+def set_browser(project: str, name: str, value: str | None) -> None:
+    """Name the project's browser, or hand the choice back to the file (None)."""
+    if value is not None and value not in BROWSERS:
+        raise ValueError(f"a browser is one of {', '.join(BROWSERS)}")
+
+    def change(settings: dict[str, Any]) -> None:
+        if value is None:
+            settings.pop(BROWSER, None)
+        else:
+            settings[BROWSER] = value
 
     _write(project, name, change)
 

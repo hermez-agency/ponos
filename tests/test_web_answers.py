@@ -61,6 +61,7 @@ def every_route_that_answers_json_names_its_shape() -> None:
                 assert not content, (method, path, content)
                 unnamed.append(f"{method} {path}")
     assert sorted(unnamed) == [
+        "get /api/browser/live/{identifier}/screen",
         "get /api/chat/attachments/{identifier}",
         "get /api/files/{file_id}",
         "get /api/projects/{project_id}/image/{slot}",

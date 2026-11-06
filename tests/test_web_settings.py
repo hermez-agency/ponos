@@ -247,6 +247,7 @@ def every_setting_the_file_holds_is_one_the_console_can_reach() -> None:
         ("notify", C.Notify()),
         ("openrouter", C.OpenRouter()),
         ("speech", C.Speech()),
+        ("browser", C.Browser()),
         ("claude", C.Claude()),
         ("permissions", C.Permissions()),
         ("github_access", C.GithubAccess()),

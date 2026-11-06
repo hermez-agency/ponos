@@ -689,3 +689,73 @@ it was created, replaced, given other projects, revoked, and given to which tick
 session — never the value. It does **not** protect from somebody who has the Unix account
 that runs Ponos: that account reads the key wherever it is kept, and can ask the runner
 itself.
+
+### Ponos's browser: external tickets that sign in on their own
+
+An *external action* — open Dokploy and read the list of projects, change a setting in
+Brevo — used to run in **Claude in Chrome**, your own Chrome: it had to be open, with its
+extension connected and the right account active, two sessions in it stepped on each
+other, and a sign-in form stopped the ticket until somebody typed the password. Ponos now
+has a browser of its own: **Chromium driven by Playwright**, on the machine Ponos runs on,
+without a window unless you ask for one. Install it once, into Ponos's Python —
+`ponos doctor` prints the two commands for yours:
+
+```sh
+python -m pip install 'playwright>=1.64.1'   # the `browser` extra
+python -m playwright install chromium
+```
+
+```toml
+[browser]
+default = "ponos"   # or "chrome": Claude in Chrome, as before
+headless = true     # false opens a visible window, to watch or debug a session
+```
+
+**Which browser.** Only external tickets are concerned: a publication still posts from your
+own accounts, in your Chrome. A ticket names its browser with a line of its body —
+`Browser: chrome`, `Navigateur : Ponos` —, else its project's settings say (the
+**Browser** card of a project's Settings tab), else `[browser] default`. On a machine
+without Playwright or its Chromium, the ticket runs in Claude in Chrome and the runner
+says why.
+
+**What the session gets.** An MCP server, `ponos-browser`, in place of Claude in Chrome,
+with `browser_navigate`, `browser_read` (the page's accessibility tree or its text),
+`browser_click`, `browser_type`, `browser_press`, `browser_screenshot`, `browser_download`
+and `browser_upload` (files of its working directory), and `browser_login`. Every session
+starts a browser and a context of its own: two tickets browse at the same time without
+meeting.
+
+**Signing in without the password.** A *login + password* entry of the vault takes a
+**site** — the address of its sign-in page (Settings → Vault, *Site*; `ponos vault set
+NAME --kind login --url https://…`). The prompt names the logins granted to the ticket's
+project, and nothing else; the session calls `browser_login` with one of those names, and
+the browser opens the site, finds the user and password fields, fills them, submits, and
+answers one of three things: *connected*, *failed* with the reason, or *second factor
+requested*. The model never holds the value: it is read inside the server, every word
+sent back — a page's text, its tree, an error — has the vault's values and the password
+fields masked, screenshots are taken with those fields hidden, and `browser_type` refuses
+to type a value of the vault the model would have copied or guessed.
+
+**Where a login is typed.** Only for the projects the entry is granted to, and only on the
+host of its site or one of its subdomains: a sign-in asked on another host, or a page that
+sends the browser to another one, is refused before anything is typed — the guard against
+a page that only looks like the right one. Every sign-in is written in the entry's journal:
+the ticket, the project, the date, and whether it was connected, failed, stopped on a second
+factor or refused.
+
+**A second factor, a CAPTCHA.** The browser never answers them. `browser_login` says so,
+with a screenshot in the ticket's folder, and the session ends *Blocked* asking you to
+finish. On the project's Settings tab, **Browser → Sign in here** opens the site in a
+browser on the project's profile, shown live on the page: click on the picture where you
+would click, type the code, *Done, close it*, and answer the ticket « done » — it resumes
+signed in. A session that is running shows in the same card, live.
+
+**One profile per project.** The cookies and the local storage a session leaves are kept
+per project in `~/.local/state/ponos/browser/profiles/<project>.json`, `0600` in a `0700`
+folder like `vault.db`, and merged back at the end of each session, so a site signed in
+once stays signed in for the next ticket. The card lists the sites the profile holds
+cookies for, and **Reset** signs them all out. Out of scope, on purpose: getting past a
+CAPTCHA or a second factor, signing in with Google or another OAuth provider in your
+place, and filling in a means of payment. Irreversible actions — sending, paying, deleting,
+publishing — stay under the rules of external tickets: the session stops at its first
+doubt.

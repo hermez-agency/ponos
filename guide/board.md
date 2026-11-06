@@ -225,7 +225,7 @@ out**, not by what it is about:
 | --- | --- | --- |
 | **Code** | a worktree, a branch, commits, a pull request — what every ticket on a repository always was | *In review* with its pull request |
 | **Writing** | no repository: a scratch directory and `ANSWER.md`. On a project that has one, the session may *read* it, never change it | *Done*, the answer in the page |
-| **External action** | no repository, the browser allowed (Claude in Chrome), a DNS zone, a service's settings, a deployment or a setting in production. **It stops at its first doubt** — a wrong account, a value the ticket does not give — rather than acting on a guess | *Done*, with the **log of every action** in the page: where, what changed, before and after, what was checked |
+| **External action** | no repository, the browser allowed ([Ponos's own](configuration.md#ponoss-browser-external-tickets-that-sign-in-on-their-own), or Claude in Chrome), a DNS zone, a service's settings, a deployment or a setting in production. **It stops at its first doubt** — a wrong account, a value the ticket does not give — rather than acting on a guess | *Done*, with the **log of every action** in the page: where, what changed, before and after, what was checked |
 | **Publication** | public and irreversible: a post, a message sent. **In two steps** — see below | *In review*, nothing published; then *Done* once you validated it |
 
 **Empty is a request.** A ticket that reaches *Ready* with no type is classified before

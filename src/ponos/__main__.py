@@ -1675,6 +1675,7 @@ def command_vault(args: argparse.Namespace) -> int:
                     description=args.description,
                     expires=args.expires,
                     by=who,
+                    url=args.url,
                 )
                 ok(f"{args.name}: value replaced")
                 return 0
@@ -1687,6 +1688,7 @@ def command_vault(args: argparse.Namespace) -> int:
                 description=args.description or "",
                 expires=args.expires or "",
                 by=who,
+                url=args.url or "",
             )
             ok(f"{made['name']}: kept, for {', '.join(made['projects']) or 'no project yet'}")
             print(f"{DIM}  a session sees {', '.join(made['variables'])}{RESET}")
@@ -2176,6 +2178,9 @@ def _add_console_commands(subparsers: argparse._SubParsersAction[argparse.Argume
     )
     setting.add_argument("--description", help="what it is for")
     setting.add_argument("--expires", help="when it expires, YYYY-MM-DD")
+    setting.add_argument(
+        "--url", help="a login's site: where Ponos's browser signs in with it, and nowhere else"
+    )
     removing = kept.add_parser("rm", help="remove an entry, for good")
     removing.add_argument("name", help="the entry's name")
     removing.add_argument("--yes", action="store_true", help="without asking")

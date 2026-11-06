@@ -200,6 +200,12 @@ name, and its value is replaced by `***` everywhere Ponos writes. It protects a 
 `vault.db` and the logs, not somebody with the Unix account that runs Ponos:
 [Ponos's own vault](guide/configuration.md#ponoss-own-vault-settings--vault).
 
+An external ticket acts in **Ponos's own browser** — Chromium driven by Playwright, one
+profile per project — and signs in with a login of the vault by its name: the browser
+fills the form itself, on the entry's own site only, and the model never sees the
+password. A second factor stops the ticket; you finish it from the console:
+[Ponos's browser](guide/configuration.md#ponoss-browser-external-tickets-that-sign-in-on-their-own).
+
 ---
 
 ## The documentation

@@ -164,6 +164,8 @@ def run(
     on_event: Callable[[dict[str, Any]], None] | None = None,
     stop: threading.Event | None = None,
     max_budget_usd: float = 0.0,
+    chrome: bool = True,
+    mcp_config: Path | None = None,
 ) -> Outcome:
     binary = available()
     if not binary:
@@ -177,6 +179,8 @@ def run(
         permission_mode=permission_mode,
         model=model,
         max_budget_usd=max_budget_usd,
+        chrome=chrome,
+        mcp_config=mcp_config,
     )
 
     # What the caller adds comes last: an OpenRouter key configured for the
@@ -321,8 +325,15 @@ def _command(
     permission_mode: str,
     model: str,
     max_budget_usd: float,
+    chrome: bool = True,
+    mcp_config: Path | None = None,
 ) -> list[str]:
-    """The CLI's command line for one session."""
+    """The CLI's command line for one session.
+
+    `chrome` false leaves Claude in Chrome out: the session browses with
+    Ponos's own browser instead, the `ponos-browser` server `mcp_config`
+    names (browser.py) — added to the servers Claude Code already has.
+    """
     command = [
         binary,
         "--print",
@@ -333,7 +344,8 @@ def _command(
         # needs the OAuth session of the CLI: an ANTHROPIC_API_KEY session gets
         # `user:inference` alone and the integration refuses to load — which is
         # also what a session routed through OpenRouter is, see openrouter.py.
-        "--chrome",
+        *(["--chrome"] if chrome else []),
+        *(["--mcp-config", str(mcp_config)] if mcp_config else []),
         # `--resume` continues a conversation that already exists, and refuses
         # to be given an identifier to create: the console's chat is one long
         # session, drawn once and carried on turn after turn, which is what

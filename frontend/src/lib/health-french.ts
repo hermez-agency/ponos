@@ -399,4 +399,11 @@ export const HEALTH_FRENCH: Record<string, string> = {
   "Install the `voice` extra: `pip install piper-tts` in Ponos's environment.": "Installez l'extra `voice` : `pip install piper-tts` dans l'environnement de Ponos.",
   "Piper is installed; {{voices}} will be downloaded (about 60 MB each) into {{folder}} the first time they speak.": "Piper est installé ; {{voices}} sera téléchargé (environ 60 Mo chacune) dans {{folder}} à la première prise de parole.",
   "Piper is installed, with {{voices}}.": "Piper est installé, avec {{voices}}.",
+  "Ponos's browser": "Navigateur de Ponos",
+  "Playwright is not installed: external tickets use Claude in Chrome.": "Playwright n'est pas installé : les tickets externes passent par Claude in Chrome.",
+  "Playwright is installed, but not its Chromium: external tickets use Claude in Chrome.": "Playwright est installé, mais pas son Chromium : les tickets externes passent par Claude in Chrome.",
+  "Playwright and its Chromium are installed: external tickets can sign in with the vault.": "Playwright et son Chromium sont installés : les tickets externes peuvent se connecter avec le coffre.",
+  "Playwright and its Chromium are installed; browser.default sends external tickets to Claude in Chrome.": "Playwright et son Chromium sont installés ; browser.default envoie les tickets externes vers Claude in Chrome.",
+  "browser.default is ponos: every external ticket falls back on Claude in Chrome.": "browser.default vaut ponos : chaque ticket externe se rabat sur Claude in Chrome.",
+  "Install it into Ponos's Python: `{{install}}`, then `{{chromium}}`.": "Installez-le dans le Python de Ponos : `{{install}}`, puis `{{chromium}}`.",
 }

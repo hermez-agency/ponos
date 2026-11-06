@@ -74,6 +74,9 @@ class Job:
     reference: Path | None = None
     # What kind of change a code ticket is — see subtypes.py — "" for none.
     subtype: str = ""
+    # The browser an external ticket acts in, once the run has chosen: "ponos"
+    # for Ponos's own (browser.py), "" for Claude in Chrome as before.
+    browser: str = ""
     # Whether `session_id` names a conversation Claude Code already has, to be
     # carried on rather than opened. Only ever true for a ticket that came back
     # ticked as waiting for credit — see `prepare`.

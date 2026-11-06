@@ -1222,6 +1222,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/browser": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Browser State */
+        get: operations["browser_state_api_browser_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/browser/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Browser Reset */
+        post: operations["browser_reset_api_browser_reset_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/browser/live": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Browser Open */
+        post: operations["browser_open_api_browser_live_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/browser/live/{identifier}/screen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Browser Screen */
+        get: operations["browser_screen_api_browser_live__identifier__screen_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/browser/live/{identifier}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Browser Act */
+        post: operations["browser_act_api_browser_live__identifier__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/invitations": {
         parameters: {
             query?: never;
@@ -2356,6 +2441,64 @@ export interface components {
             /** @description Changed or new, each with the ticket it now follows (`""`: the first). */
             changed: components["schemas"]["Changed"][];
             removed: string[];
+        };
+        /** @description Ponos's browser: whether it is installed, its profiles, and the browsers running. */
+        Browser: {
+            /** @description Why it cannot start here, "" when it can. */
+            missing: string;
+            /** @description The commands that install it into Ponos's Python. */
+            install: string[];
+            profiles: components["schemas"]["BrowserProfile"][];
+            live: components["schemas"]["BrowserLive"][];
+        };
+        BrowserAction: {
+            /** @default  */
+            action: string;
+            /** @default 0 */
+            x: number;
+            /** @default 0 */
+            y: number;
+            /** @default  */
+            text: string;
+            /** @default  */
+            key: string;
+            /** @default  */
+            url: string;
+        };
+        /** @description A browser running now: a session's, or one opened for a person. */
+        BrowserLive: {
+            id: string;
+            project: string;
+            ticket: string;
+            url: string;
+            title: string;
+            at: string;
+            /** @description Opened from the console, for somebody to drive. */
+            person: boolean;
+            /** @description What it stopped on — a second factor, a CAPTCHA — "" otherwise. */
+            waiting: string;
+        };
+        BrowserOpen: {
+            /** @default  */
+            project: string;
+            /** @default  */
+            url: string;
+        };
+        BrowserOpened: {
+            id: string;
+        };
+        /** @description One project's profile in Ponos's browser. */
+        BrowserProfile: {
+            /** @description The file it is kept under. */
+            slug: string;
+            /** @description The project it belongs to, "" when no known project has that name any more. */
+            project: string;
+            sites: string[];
+            updated: string;
+        };
+        BrowserReset: {
+            /** @default  */
+            project: string;
         };
         /** @description One switch for each of the four types of ticket. */
         ByKind: {
@@ -3561,6 +3704,27 @@ export interface components {
                 [key: string]: number;
             };
         };
+        /** @description The browser of a project's external tickets — see browser.py. */
+        ProjectBrowser: {
+            /**
+             * @description What applies to it: its own word, or `[browser] default`.
+             * @enum {string}
+             */
+            value: "ponos" | "chrome";
+            /** @description Whether the project says so itself. */
+            own: boolean;
+            /**
+             * @description `[browser] default`, whatever the project says.
+             * @enum {string}
+             */
+            global: "ponos" | "chrome";
+            /** @description Why Ponos's browser cannot start on this machine, "" when it can. */
+            missing: string;
+            /** @description The project's name, which its profile is kept under. */
+            project: string;
+            /** @description The domains its profile holds cookies for: the sites it is signed in to. */
+            sites: string[];
+        };
         /** @description What a repository and a folder turn out to be, asked while a new project is written. */
         ProjectCheck: {
             /** @description The repository as it will be kept: `https://github.com/owner/name`. */
@@ -3707,6 +3871,7 @@ export interface components {
             setup: string;
             preview: components["schemas"]["ProjectPreview"];
             plan: components["schemas"]["ProjectPlan"];
+            browser: components["schemas"]["ProjectBrowser"];
         };
         Projects: {
             projects: components["schemas"]["Project"][];
@@ -4875,6 +5040,7 @@ export interface components {
             projects?: string[] | null;
             description?: string | null;
             expires?: string | null;
+            url?: string | null;
         };
         /** @description Une entrée du coffre de Ponos, sans sa valeur : aucune route ne la renvoie. */
         VaultEntry: {
@@ -4891,6 +5057,8 @@ export interface components {
             updated: string;
             /** @description La fin de la valeur, quatre caractères au plus — rien sous douze. */
             print: string;
+            /** @description L'adresse du site d'un login : là où le navigateur de Ponos s'y connecte, et nulle part ailleurs. */
+            url: string;
             last_used: string;
             last_ticket: string;
             last_project: string;
@@ -4906,7 +5074,7 @@ export interface components {
         };
         VaultMoment: {
             /** @enum {string} */
-            action: "created" | "replaced" | "projects" | "described" | "revoked" | "read" | "rotated";
+            action: "created" | "replaced" | "projects" | "described" | "revoked" | "read" | "rotated" | "login" | "login-failed" | "login-second-factor" | "login-refused";
             by: string;
             ticket: string;
             project: string;
@@ -4930,6 +5098,8 @@ export interface components {
             description: string;
             /** @default  */
             expires: string;
+            /** @default  */
+            url: string;
         };
         VaultRevoke: {
             /**
@@ -7576,6 +7746,156 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VaultEntry"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    browser_state_api_browser_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Browser"];
+                };
+            };
+        };
+    };
+    browser_reset_api_browser_reset_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["BrowserReset"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Browser"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    browser_open_api_browser_live_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["BrowserOpen"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrowserOpened"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    browser_screen_api_browser_live__identifier__screen_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                identifier: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    browser_act_api_browser_live__identifier__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                identifier: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["BrowserAction"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ok"];
                 };
             };
             /** @description Validation Error */
