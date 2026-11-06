@@ -224,6 +224,8 @@ class Base(Chapters):
         # for an answer — and asking Notion three times for the same thread is
         # how a board with forty tickets becomes a rate limit problem.
         self._comments: dict[str, list[store.Comment]] = {}
+        # The page edits already read for the database — see notion_import.rise.
+        self._risen: dict[str, str] = {}
         self._ledger: conversation.Ledger | None = None
         self._ledger_lock = threading.Lock()
         self._spellings: tuple[str, ...] | None = None

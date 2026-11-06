@@ -30,6 +30,7 @@ ponos schedules    # what comes back on its own, and when it next does
 ponos schedules --run <name>  # make its ticket now, without waiting for the hour (--force: even if the last one is still open)
 ponos sync         # reconcile the Notion board and the Markdown one
 ponos sync --journal         # what past reconciliations carried, and what they refused (-n, --number: how many)
+ponos import notion          # fill ponos.db from Master Tickets and Master Projects, once (run again, it adds nothing)
 ponos doctor       # full diagnostics
 ponos clean                  # empty worktree directories that are only root-owned residue (no .git)
 ponos clean --force          # remove worktrees, their branches, and scratch dirs

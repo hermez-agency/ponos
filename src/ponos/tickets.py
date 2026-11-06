@@ -205,6 +205,17 @@ def get(ticket: str) -> Record | None:
         return _record(connection, row) if row else None
 
 
+def of_page(page: str) -> Record | None:
+    """The ticket a Notion page is, whether the page made it or it made the page."""
+    page = _key(page)
+    with db.transaction(immediate=False) as connection:
+        row = connection.execute(
+            "SELECT * FROM tickets WHERE notion = ? OR id = ? ORDER BY notion = ? DESC",
+            (page, page, page),
+        ).fetchone()
+        return _record(connection, row) if row else None
+
+
 def listing(*, status: str = "", project: str = "") -> list[Record]:
     """The tickets in a status and/or a project: highest priority first, oldest first among equals."""
     where, args = [], []
@@ -277,10 +288,14 @@ def update(ticket: str, **values: Any) -> Record | None:
 def delete(ticket: str) -> bool:
     ticket = _key(ticket)
     with db.transaction() as connection:
-        gone = connection.execute("DELETE FROM tickets WHERE id = ?", (ticket,)).rowcount > 0
-        if gone:
-            _queue(connection, ticket, "deleted")
-    return gone
+        row = connection.execute("SELECT notion FROM tickets WHERE id = ?", (ticket,)).fetchone()
+        if row is None:
+            return False
+        connection.execute("DELETE FROM tickets WHERE id = ?", (ticket,))
+        # The page goes with the row, so the queue keeps the page's address:
+        # the ticket will not be there to be asked when the mirror trashes it.
+        _queue(connection, ticket, "deleted", notion=row[0])
+    return True
 
 
 def comment(ticket: str, text: str, *, author: str = "", discussion: str = "") -> Remark:
@@ -335,4 +350,74 @@ def failed(change: int, error: str) -> None:
     with db.transaction() as connection:
         connection.execute(
             "UPDATE mirror_queue SET tries = tries + 1, error = ? WHERE id = ?", (error, change)
+        )
+
+
+def received(ticket: str, **values: Any) -> Record | None:
+    """Write what Notion said about a ticket — and queue nothing.
+
+    What comes up from the board is already there: queueing it would send it
+    straight back. `edited_at` may be given, for the day of the page's own edit;
+    without it, now. None when the ticket does not exist.
+    """
+    ticket = _key(ticket)
+    values.setdefault("edited_at", _now())
+    _check(values)
+    for flag in _FLAGS:
+        if flag in values:
+            values[flag] = int(bool(values[flag]))
+    sets = ", ".join(f"{name} = ?" for name in values)
+    with db.transaction() as connection:
+        found = connection.execute(
+            f"UPDATE tickets SET {sets} WHERE id = ?", (*values.values(), ticket)
+        ).rowcount
+    return get(ticket) if found else None
+
+
+def heard(
+    ticket: str, text: str, *, at: str, author: str = "", discussion: str = "", echo: bool = False
+) -> bool:
+    """Keep a comment Notion holds, unless the ticket has it already; True when it was new.
+
+    Never queued, for the reason `received` gives. Told apart by the moment
+    Notion dated it and its words — so that an import run twice, or a pass that
+    reads the same page again, adds nothing. `echo` is a comment Ponos wrote
+    itself: the mirror sent it from a row dated a few seconds earlier, so the
+    words alone say it is that one.
+    """
+    ticket = _key(ticket)
+    with db.transaction() as connection:
+        if not connection.execute("SELECT 1 FROM tickets WHERE id = ?", (ticket,)).fetchone():
+            return False
+        seen = (
+            connection.execute(
+                "SELECT 1 FROM ticket_comments WHERE ticket = ? AND text = ?"
+                + ("" if echo else " AND at = ?"),
+                (ticket, text) if echo else (ticket, text, at),
+            ).fetchone()
+            is not None
+        )
+        if not seen:
+            connection.execute(
+                "INSERT INTO ticket_comments (ticket, discussion, author, text, at) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (ticket, discussion, author, text, at),
+            )
+    return not seen
+
+
+def empty() -> bool:
+    """Whether no ticket was ever imported or written here — the state before the import."""
+    with db.transaction(immediate=False) as connection:
+        return connection.execute("SELECT 1 FROM tickets LIMIT 1").fetchone() is None
+
+
+def waiting(ticket: str) -> bool:
+    """Whether a change of this ticket is still in the queue."""
+    with db.transaction(immediate=False) as connection:
+        return (
+            connection.execute(
+                "SELECT 1 FROM mirror_queue WHERE ticket = ? LIMIT 1", (_key(ticket),)
+            ).fetchone()
+            is not None
         )
