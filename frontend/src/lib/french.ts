@@ -1365,6 +1365,20 @@ export const FRENCH: Record<string, string> = {
   "Claude Code": "Claude Code",
   "Client": "Client",
   "Worktree setup": "Préparation du worktree",
+  "Repository path": "Chemin du dépôt",
+  "Where this project's repository is on this machine. Empty: the page's Path property, then the clone found under the workspace root by its GitHub address.":
+    "Où se trouve le dépôt de ce projet sur cette machine. Vide : la propriété Path de la page, puis le clone trouvé sous la racine de l'espace de travail par son adresse GitHub.",
+  "Path": "Chemin",
+  "An older config.toml still says {{path}} under [projects].":
+    "Un ancien config.toml dit encore {{path}} sous [projects].",
+  "Vault keys": "Clés du coffre",
+  "The environment variables this project's sessions are given, and the vault item each is read from. Never the values: only where to read them.":
+    "Les variables d'environnement que reçoivent les sessions de ce projet, et l'élément du coffre où chacune est lue. Jamais les valeurs : seulement où les lire.",
+  "Keys": "Clés",
+  "One per line: `NPM_TOKEN = hermez/npm`, or `NPM_TOKEN` alone to read it under its own name.":
+    "Une par ligne : `NPM_TOKEN = hermez/npm`, ou `NPM_TOKEN` seul pour la lire sous son propre nom.",
+  "An older config.toml still grants {{keys}} under [vault.projects].":
+    "Un ancien config.toml accorde encore {{keys}} sous [vault.projects].",
   "Plan first": "Plan d'abord",
   "The first session proposes a plan and waits for your yes before writing any code.":
     "La première session propose un plan et attend votre oui avant d'écrire du code.",

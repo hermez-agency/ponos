@@ -24,7 +24,7 @@
 | the agent knows nothing about you | the global context, on top of the Projects page, is empty. The run says so once |
 | a comment on a ticket changes nothing | the ticket is *done*, or no run of this host ever reported on it — those two never wake |
 | a ticket ignores its agent | the `Rôle` column is missing or is not a relation — `doctor` names it |
-| “project not found on disk” | none of what the project declares leads to a repository — the comment lists each way that was tried and why it failed. Fix its `Path` or `Repository` property, or add `"Project name" = "/path"` under `[projects]` |
+| “project not found on disk” | none of what the project declares leads to a repository — the comment lists each way that was tried and why it failed. Fix its `Path` or `Repository` property, or set its *Repository path* in the project's Settings tab |
 | a ticket ran, but its comment says a declaration is wrong | the repository was found by a fallback: a `Path` pointing nowhere, or a `Repository` GitHub has since renamed. Correct the project page — `ponos projects` shows it with a `!` until you do |
 | a ticket became a document when you wanted code | its project names no repository. Give the project page a `Path` or a `Repository` |
 | “nothing to work from” | the ticket has neither a title nor a description — a page left on the bare template counts as empty |

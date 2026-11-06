@@ -309,6 +309,29 @@ def _self_review(settings: config_module.Runner) -> list[Check]:
     ]
 
 
+def _grants(config: config_module.Config) -> tuple[dict[str, dict[str, str]], list[str]]:
+    """What each project is given: `[vault.projects]` of an older file, then the project's own keys.
+
+    The project's Settings tab keeps its keys in `ponos.db` (project_settings.py);
+    one of them replaces the file's for the same variable. A key the runner
+    keeps for itself is refused here as it is when the file names it.
+    """
+    grants = {name: dict(granted) for name, granted in config.vault.projects.items()}
+    found: list[str] = []
+    reserved = config_module.reserved_variables()
+    for name, entries in project_settings.every_vault().items():
+        kept = grants.setdefault(
+            next((one for one in grants if one.casefold() == name.casefold()), name), {}
+        )
+        for variable, item in entries.items():
+            why = vault.problems(variable, item, reserved)
+            if why:
+                found.append(f"{name}: {why}")
+            else:
+                kept[variable] = item
+    return {name: granted for name, granted in grants.items() if granted}, found
+
+
 def _vault(config: config_module.Config) -> list[Check]:
     """The keys `[vault]` grants each project, and whether they can be read now.
 
@@ -317,6 +340,7 @@ def _vault(config: config_module.Config) -> list[Check]:
     """
     settings = config.vault
     title = "Vault"
+    grants, own_problems = _grants(config)
     found = [
         _check(
             "settings.vault",
@@ -325,9 +349,9 @@ def _vault(config: config_module.Config) -> list[Check]:
             "A line of [vault] cannot be used as written.",
             evidence=problem,
         )
-        for problem in settings.problems
+        for problem in (*settings.problems, *own_problems)
     ]
-    if not settings.projects:
+    if not grants:
         if vault_store.exists() and vault_store.listing():
             # Ponos's own vault grants its keys itself: see `_vault_store`.
             return found
@@ -342,7 +366,7 @@ def _vault(config: config_module.Config) -> list[Check]:
         return found
     used = {settings.provider} | {
         vault.where(item, settings.provider)[0]
-        for granted in settings.projects.values()
+        for granted in grants.values()
         for item in granted.values()
     }
     for name in sorted(used & set(vault.PROVIDERS)):
@@ -369,7 +393,7 @@ def _vault(config: config_module.Config) -> list[Check]:
                 )
             )
     stored = config_module.read_secrets(config_module.secrets_path(config.path))
-    for project, granted in sorted(settings.projects.items()):
+    for project, granted in sorted(grants.items()):
         read = vault.read(granted, settings.provider, stored)
         if read.values:
             found.append(

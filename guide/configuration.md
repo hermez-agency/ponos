@@ -135,7 +135,7 @@ key below is a field there; the file itself is `config.example.toml`, under 150 
 | `claude.provider` | `""` | who answers the sessions — see *Who answers the sessions* below |
 | `permissions.allowed`, `permissions.ask` | | what a session does alone, and what always waits for your word |
 | `github_access.mode`, `github_access.token_item` | `""` | how GitHub is reached without `gh` — see *Connect GitHub* below |
-| `[projects]` | | `"Project name" = "/path"` for repositories that cannot be guessed |
+| `[projects]` | | no longer written here: a project's path is set in its Settings tab (*Repository path*). A `[projects]` table from an older file is still read |
 | `[github]` | | `"owner" = "gh account"`, when this machine answers to more than one GitHub — see *Several GitHub accounts* below |
 | `[vault]` | | what each project's sessions are given — see *Keys a ticket may use* below |
 | `OPENROUTER_API_KEY` | | not a key of this file: the secret is in `secrets.env` or the environment (see the secrets above) — one key in front of every other provider, see *Every other model* below |
@@ -432,7 +432,11 @@ accounts*.
 A ticket that publishes a package, redeploys a service or calls an API needs a token — and
 a ticket is the worst place to write one: it is a page of the board, a prompt, a transcript and
 sometimes a pull request. So keys stay where they already live, and `[vault]` says two
-things: **where** they are read, and **which ones each project is given**.
+things: **where** they are read, and **which ones each project is given**. The first stays in
+`config.toml`; the second is set per project, in the project's Settings tab (*Vault keys*, one
+`NPM_TOKEN = hermez/npm` per line — a bare name is read under its own name), and kept in `ponos.db`.
+The `[vault.projects]` tables below are what an older file says: they are still read, a key the
+project sets itself replaces the file's for the same variable, and `ponos doctor` checks both.
 
 ```toml
 [vault]

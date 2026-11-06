@@ -14,7 +14,7 @@ import hashlib
 import time
 from typing import Any
 
-from .. import store
+from .. import project_settings, store
 from .base import Base
 from .creation import COLUMNS, is_site
 
@@ -110,7 +110,8 @@ class Projects(Base):
             known = {}
         overrides = dict(self.config.projects)
         for project in sorted(known.values(), key=lambda item: item["name"].lower()):
-            declared = overrides.pop(project["name"], "")
+            filed = overrides.pop(project["name"], "")
+            declared = project_settings.path(project["id"]) or filed
             rows.append({**project, "configured": declared, "source": "board"})
         for name, path in sorted(overrides.items(), key=lambda pair: pair[0].lower()):
             rows.append(
@@ -152,7 +153,10 @@ class Projects(Base):
         # repository was found by its remote. Left out of the list: finding it
         # walks the disk, and a card has no room for it.
         located = self.runner.resolver.locate(
-            row["name"], row.get("configured") or row.get("path") or "", row.get("repository") or ""
+            row["name"],
+            row.get("configured") or row.get("path") or "",
+            row.get("repository") or "",
+            row["id"],
         )
         content = self.runner.client.blocks_text(page_id)
         return {

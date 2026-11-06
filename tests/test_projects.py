@@ -199,7 +199,9 @@ def a_project_no_way_leads_to_says_everything_that_was_tried() -> None:
         in message
     )
     assert "GitHub gave no other name" in message
-    assert '"Jeu d\'usine mobile" = "/path/to/the/repo"' in message, "and what to do about it"
+    assert "Set the path of \"Jeu d'usine mobile\" in the project's Settings" in message, (
+        "and what to do about it"
+    )
     assert asked == ["salvadorcardona/factory-mobile"]
 
 

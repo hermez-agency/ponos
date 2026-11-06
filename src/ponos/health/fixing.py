@@ -50,7 +50,7 @@ def fix(
         if row is None:
             raise LookupError("that project is not on the board")
         resolver = projects.Resolver(config.runner.workspace_root, config.projects, config.github)
-        path = resolver.locate(row["name"], row["path"], row["repository"])
+        path = resolver.locate(row["name"], row["path"], row["repository"], row["id"])
         if path is None:
             raise LookupError("that project has no local copy")
         result = git.git(["remote", "set-head", "origin", "--auto"], path, timeout=PROBE_TIMEOUT)
