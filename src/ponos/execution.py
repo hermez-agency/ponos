@@ -44,6 +44,7 @@ from . import (
     adoption,
     blocks,
     browser,
+    diagnostic,
     generated,
     git,
     github_token,
@@ -309,7 +310,27 @@ class Execution(Base):
             )
             + (self._planned(job) if subtype else "")
             + self._browser_prompt(job)
+            + self._diagnostic_prompt(job)
         )
+
+    def _diagnostic_prompt(self, job: Job) -> str:
+        """What a diagnostic's session is told on top of the frame — see diagnostic.py."""
+        if job.kind != "diagnostic":
+            return ""
+        access, variables = self._diagnostic_access(job)
+        return "\n\n" + diagnostic.prompt(access, variables)
+
+    def _diagnostic_access(self, job: Job) -> tuple[diagnostic.Access, dict[str, list[str]]]:
+        """What the project lets its diagnostics reach, and the variables its hosts' entries become."""
+        access = project_settings.diagnostic(job.project.notion_id)
+        if not access.entries:
+            return access, {}
+        try:
+            listed = vault_store.listing()
+        except (vault.VaultError, sqlite3.Error, OSError) as error:
+            self.say(f"    ! the vault of Ponos cannot be read: {error}")
+            listed = []
+        return access, diagnostic.granted(access, listed)
 
     def _browser_prompt(self, job: Job) -> str:
         """Choose the browser of an external ticket, and what its session is told of it.
@@ -585,6 +606,12 @@ class Execution(Base):
             self.say(f"    ! the vault of Ponos cannot be read: {error}")
             kept = {}
         granted = {**kept, **self.config.vault.granted(project)}
+        if getattr(job, "kind", "") == "diagnostic":
+            # The entries the project's SSH hosts name, declared on its settings
+            # page for this road alone: a deliberate grant, read like the others.
+            for variables in self._diagnostic_access(job)[1].values():
+                for variable in variables:
+                    granted.setdefault(variable, f"ponos:{variable}")
         if not granted:
             return {}
         stored = config_module.read_secrets(config_module.secrets_path(self.config.path))
@@ -1545,13 +1572,18 @@ class Execution(Base):
 
         # Answered and finished, but said as a stop: read, rather than asked
         # again — see `_answered_anyway`. In review, since it said blocked.
-        anyway = bool(content) and _answered_anyway(job, outcome)
+        # Never a diagnostic: one that stopped did not find its cause, and what
+        # it wrote is not to become tickets.
+        anyway = bool(content) and _answered_anyway(job, outcome) and job.kind != "diagnostic"
         if anyway:
             self.say("    · blocked without a question, its answer written — sent to review")
             outcome = replace(outcome, ok=True, blocked=False)
 
         if not outcome.ok or not content:
             return self._document_failed(job, outcome, content)
+
+        if job.kind == "diagnostic":
+            return self._diagnosed(job, outcome, content)
 
         opened, note = self._adopted(outcome)
         return self._deliver_text(
@@ -1575,7 +1607,12 @@ class Execution(Base):
         rings: the session already said what a person would have answered.
         A second claim is not believed — the ticket ends as its session did.
         """
-        if job.kind == "code" or not job.reference or kinds.claimed(outcome.answer) != "code":
+        # A diagnostic that needs code says so in a fix ticket, and is not made code.
+        if (
+            job.kind in ("code", "diagnostic")
+            or not job.reference
+            or kinds.claimed(outcome.answer) != "code"
+        ):
             return None
         ticket = job.ticket
         column = self.type_column()

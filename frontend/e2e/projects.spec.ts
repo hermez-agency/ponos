@@ -492,4 +492,37 @@ test.describe("the settings of a project", () => {
     await page.locator('[data-card="project-browser"] [data-slot="project-browser-choice"]').selectOption("ponos")
     await expect(page.locator('[data-card="project-browser"]').getByText("Follows the general settings.")).toBeVisible()
   })
+
+  test("declare what its diagnostics may read, and send their fix tickets straight to Ready", async ({ page }) => {
+    await go(page, `${WEBSITE}&tab=settings`)
+    await onThePageOf(page, "Website")
+    const card = () => page.locator('[data-card="project-diagnostic"]')
+    const ready = () => card().getByRole("switch", { name: "Fix tickets straight to Ready" })
+    await expect(ready()).toHaveAttribute("aria-checked", "false")
+    await expect(card().getByRole("button", { name: "Save" })).toBeDisabled()
+
+    await card().getByLabel("Admin MCP servers").fill("lead-finder, umami")
+    await card().getByLabel("Production addresses").fill("https://website.example")
+    await card().getByRole("button", { name: "Add a host" }).click()
+    await card().getByLabel("SSH address").fill("deck@steamdeck.local")
+    await card().getByLabel("What it is").fill("the console")
+    await card().getByRole("button", { name: "Save" }).click()
+    await expect(card().getByRole("button", { name: "Save" })).toBeDisabled()
+
+    await page.reload()
+    await expect(card().getByLabel("Admin MCP servers")).toHaveValue("lead-finder, umami")
+    await expect(card().getByLabel("SSH address")).toHaveValue("deck@steamdeck.local")
+    await ready().click()
+    await expect(ready()).toHaveAttribute("aria-checked", "true")
+    await expect(card().getByText("They start as soon as the diagnostic is closed", { exact: false })).toBeVisible()
+    // The switch saved with what was saved of the rest, and nothing of it lost.
+    await page.reload()
+    await expect(ready()).toHaveAttribute("aria-checked", "true")
+    await expect(card().getByLabel("Production addresses")).toHaveValue("https://website.example")
+
+    // An address that is not one is refused, and said.
+    await card().getByLabel("Production addresses").fill("ftp://website.example")
+    await card().getByRole("button", { name: "Save" }).click()
+    await expect(page.getByText("is not an http or https address", { exact: false })).toBeVisible()
+  })
 })

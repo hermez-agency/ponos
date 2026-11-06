@@ -138,6 +138,7 @@ def a_project_with_its_own_validation_overrides_the_file_both_ways() -> None:
                 "writing": False,
                 "external": False,
                 "publication": False,
+                "diagnostic": False,
             }
             assert project_settings.owning_validation() == [
                 {"id": page.replace("-", ""), "name": "Client"}

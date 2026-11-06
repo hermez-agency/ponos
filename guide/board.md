@@ -149,7 +149,7 @@ keywords (`ready`, `progress`, `review`…) its formulas and views filter on.
 | `Scheduled` | date | *optional* — **hold the ticket until that moment**, then run it — or, on a validated ticket, publish it |
 | `Waiting for credit` | checkbox | *optional* — ticked by the runner while the subscription's window is spent under the ticket. It does not move: it is still ready, and the tick is the note saying why nobody has got to it yet |
 | `Plan d'abord` | checkbox | *optional* — on a **Code** ticket, **a plan before any code**: the first session only plans, and the work waits for your yes. Unticked by the runner once the plan is approved — see [Plan first](tickets.md#plan-first-a-plan-and-a-yes-before-any-code) |
-| `Type` | select | *optional* — `Code`, `Rédaction`, `Action externe`, `Publication`: **the road the ticket takes**. Empty, the runner works it out before running it — see [The type of a ticket](#the-type-of-a-ticket) |
+| `Type` | select | *optional* — `Code`, `Rédaction`, `Action externe`, `Publication`, `Diagnostic`: **the road the ticket takes**. Empty, the runner works it out before running it — see [The type of a ticket](#the-type-of-a-ticket) |
 | `Blocage` | select | *optional* — filled by the runner when a ticket stops: **why**, as a code (`merge.checks-failed`, `session.question`, `worktree.residue`…), emptied when it leaves *blocked* — see [Why a ticket stopped](tickets.md#why-a-ticket-stopped) |
 | `CI` | select | *optional* — written by the runner while the ticket is in *In review*: the state of its pull request's checks (`en cours`, `réussi`, `erreur`), empty for a repository without CI — see [CI on the card](tickets.md#ci-on-the-card) |
 | `Sous-type` | select | *optional* — on a **Code** ticket, what kind of change it is: `Bug`, `Feature`, `Amélioration`, `Chore`, `Refactor`, `Perf`, `Docs`, `Sécurité`. Decides the prefix of its commit and pull request and its CHANGELOG section; ignored on the other types. Empty, the runner fills it — see [The sub-type of a code ticket](#the-sub-type-of-a-code-ticket) |
@@ -218,7 +218,7 @@ for things that are neither — *enter these DNS records at Hostinger*, *post th
 LinkedIn*, *deploy that* — and those do not take the same road, nor go wrong the same way.
 A pull request is read before it is merged; a post, once it is out, is out.
 
-So a ticket has a `Type`, and its four values are told apart by **how the work is carried
+So a ticket has a `Type`, and its five values are told apart by **how the work is carried
 out**, not by what it is about:
 
 | Type | The road | What comes back |
@@ -227,6 +227,7 @@ out**, not by what it is about:
 | **Writing** | no repository: a scratch directory and `ANSWER.md`. On a project that has one, the session may *read* it, never change it | *Done*, the answer in the page |
 | **External action** | no repository, the browser allowed ([Ponos's own](configuration.md#ponoss-browser-external-tickets-that-sign-in-on-their-own), or Claude in Chrome), a DNS zone, a service's settings, a deployment or a setting in production. **It stops at its first doubt** — a wrong account, a value the ticket does not give — rather than acting on a guess | *Done*, with the **log of every action** in the page: where, what changed, before and after, what was checked |
 | **Publication** | public and irreversible: a post, a message sent. **In two steps** — see below | *In review*, nothing published; then *Done* once you validated it |
+| **Diagnostic** | « X does not work »: an investigation, **read only** — the repository, its pull requests, Ponos's logs and what its project declares — see [A diagnostic](#a-diagnostic-the-cause-then-the-tickets-that-fix-it) | *Done*, the cause and its proof in the page, and the **fix tickets it wrote** on the board; *Blocked* with a question when no cause is found |
 
 **Empty is a request.** A ticket that reaches *Ready* with no type is classified before
 anything else happens to it: a short session on a light model (`runner.classify_model`,
@@ -314,6 +315,63 @@ a ticket with no pull request, and a publication takes it **whatever its project
 a post about a repository's release is still prepared in its page and never in a branch. A
 board without a *Validated* column has no such gesture: the prepared content lands in
 *Review* (or *Done*) and publishing it is yours.
+
+### A diagnostic: the cause, then the tickets that fix it
+
+A sentence like *the chat does not work* makes a vague ticket, and a vague ticket gets fixed
+on a guess. A **Diagnostic** ticket does the investigation first: its session finds why,
+proves it, and writes the tickets that fix it — at the level of detail of a ticket written
+by hand — and Ponos creates them on the board.
+
+**It starts from a sentence.** The title is the symptom as you would say it, the project is
+optional. Four ways to write one:
+
+- the console: **Diagnose** in a project's header, or *Diagnose a problem* in the command
+  palette (Ctrl/⌘ K) — the *New ticket* dialog, its type already *Diagnostic*;
+- the console's chat: `> diagnose "the emails do not go out" --project Leadz`;
+- the CLI: `ponos diagnose "the emails do not go out" --project Leadz` — *Ready* at once,
+  `--draft` to leave it in the drafts;
+- the MCP: `create_task` with `type: "diagnostic"` (a draft, as every task the MCP creates).
+
+**It reads, and changes nothing.** Like a *Writing* ticket it is given no worktree and no
+branch, only the project's repository to read — `origin/main` first, its history, its recent
+pull requests — and Ponos's own state and logs. On top of that, what the project declares on
+its **Settings** tab, card *Diagnostic*:
+
+| Declared | What the session may do with it |
+| --- | --- |
+| **Admin MCP servers** — their names in `claude mcp list` | call their tools that read: health, recent errors, status, configuration |
+| **SSH hosts** — `user@host`, the vault entry that opens it, what the machine is | read-only commands (`cat`, `journalctl`, `systemctl status`, `docker logs`…). The entry is handed to that session alone, by name, as for [the vault](configuration.md#ponoss-own-vault-settings--vault) |
+| **Production addresses** | `curl`, GET only |
+
+Nothing in that list is a write access, and the session is told the rest: no commit, no
+push, no write in production, no restart, no deployment, no message sent. Dokploy or Umami
+are read the same way, through their MCP server or their address.
+
+**What comes back**, once the cause is found:
+
+1. the **report**, in the ticket's page: the symptom, the cause with its proof — files and
+   lines, log extracts, commands and what they answered —, what remains uncertain;
+2. the **fix tickets**, written by the session in `FIXES.json` and created by Ponos: each one
+   with its *Context*, *Expected*, *Done when* and *Out of scope*, in the diagnostic's
+   project, of the type and sub-type the session gave it, and
+   [« after »](tickets.md#a-ticket-that-comes-after-another) the diagnostic and the fixes it
+   depends on — a relation the runner waits on, not a sentence in a text. A file Ponos cannot
+   read creates nothing at all, and blocks the diagnostic with the reason;
+3. the diagnostic goes to *Done*, and its comment lists the tickets created.
+
+The fix tickets are **drafts** by default, for you to read. *Fix tickets straight to Ready*,
+on the same card, sends them to *Ready*: each one starts as soon as what it comes after is
+done — the diagnostic first, which closes in the same breath.
+
+**No cause, no ticket.** A session that cannot find the cause stops in *Blocked*, with what it
+checked and ruled out in its report and the precise question that would let it go on — an
+access, a log, a fact only you know. Whatever it may have left in `FIXES.json` is not read: a
+fix written on a guess is what this type exists to avoid. Answer, and it starts again.
+
+It starts on the *heavy* level of [the model of a ticket](#the-model-of-a-ticket)
+(`auto_model_diagnostic`, a constant of the code rather than a key of the file), and fixing in the same session is out of its scope: it
+writes no code.
 
 ### The sub-type of a code ticket
 

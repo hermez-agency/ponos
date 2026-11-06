@@ -7,7 +7,7 @@ DNS records at the registrar, post this on LinkedIn, deploy that — and those d
 not have the same road, nor the same way of going wrong. A pull request is read
 before it is merged; a post, once it is out, is out.
 
-So a ticket has a **type**, and there are four, told apart by the road they
+So a ticket has a **type**, and there are five, told apart by the road they
 take rather than by what they are about:
 
 - `code` — a repository, a branch, a pull request;
@@ -16,7 +16,11 @@ take rather than by what they are about:
   browser, in a DNS zone, in the settings of a service. It stops at the first
   doubt, and its answer is the log of what it did;
 - `publication` — something public and irreversible. Prepared first, sent to
-  review, and only published once somebody has moved it to *Validated*.
+  review, and only published once somebody has moved it to *Validated*;
+- `diagnostic` — no repository to change either, only one to read: a session
+  investigates a symptom (« X does not work ») in the code, the logs and the
+  read-only accesses its project declares, writes down the cause with its
+  proof, and writes the tickets that fix it. See diagnosis.py.
 
 The column is optional, and empty is a request: work it out. A short session on
 the lightest model reads the title, the content and whether the project has a
@@ -69,19 +73,21 @@ from . import subtypes
 from .config import CONFIDENCES
 from .projects import Project
 
-KINDS = ("code", "writing", "external", "publication")
+KINDS = ("code", "writing", "external", "publication", "diagnostic")
 
 # From the least guarded road to the most. Choosing “the more careful” of two
 # types is choosing the one further down this line: a publication waits for a
 # human before anything goes out, an external action stops at its first doubt.
-PRUDENCE = ("writing", "code", "external", "publication")
+# A diagnostic changes nothing anywhere — it reads, and writes tickets that are
+# drafts unless its project says otherwise — so it sits beside the text.
+PRUDENCE = ("writing", "diagnostic", "code", "external", "publication")
 
 # The two that act on the world rather than on a branch or a page.
 RISKY = ("external", "publication")
 
-# Neither of these three is worked in a repository, whatever the project holds:
-# what they produce does not go into one — nor does it ever ask for a commit.
-WITHOUT_REPOSITORY = ("writing", "external", "publication")
+# None of these is worked in a repository, whatever the project holds: what
+# they produce does not go into one — nor does it ever ask for a commit.
+WITHOUT_REPOSITORY = ("writing", "external", "publication", "diagnostic")
 
 # How close a word typed in an answer must be to a type's name to be read as
 # it: “readction” is Rédaction, “action” alone is not. A name of four
@@ -97,7 +103,7 @@ Below is a ticket that a runner is about to carry out on its own. Before it \
 does, say what kind of ticket it is. Do not do the ticket, and do not open \
 anything: read it and classify it.
 
-The four types are told apart by how the work is carried out, not by its \
+The five types are told apart by how the work is carried out, not by its \
 subject:
 
 - "code": the deliverable is a change in a code repository — a branch and a \
@@ -114,6 +120,10 @@ setting an environment variable or a setting in production, pointing a \
 domain, creating tickets out of an audit: external.
 - "publication": something goes out in public and cannot be taken back — a \
 post on a social network, an email or a message sent to people.
+- "diagnostic": something does not work and nobody knows why yet — "X is \
+broken", "why does Y" — and the ticket asks to find the cause, not to fix it: \
+an investigation, read only, that ends with the cause and the tickets that \
+would fix it. A ticket that already says what to change is code.
 
 When two types fit, choose the more careful one: publication before external, \
 external before writing. A ticket that asks to draft a post AND to publish it \
@@ -131,7 +141,7 @@ is a commit.
 
 Answer with one JSON object and nothing else — no preamble, no code fence:
 
-{{"type": "code|writing|external|publication", "reason": "one sentence, in the \
+{{"type": "code|writing|external|publication|diagnostic", "reason": "one sentence, in the \
 language the ticket is written in", "confidence": "low|medium|high", \
 "alternative": "the other type you hesitated with, or an empty string", \
 "subtype": "{subtypes}, or an empty string when the type is not code", \
@@ -202,7 +212,7 @@ def parse(answer: str) -> Guess:
     The last object that reads as one rather than the whole answer: a session
     that ignores “and nothing else” wraps its JSON in a sentence or a fence far
     more often than it gets the JSON itself wrong. Anything that is not one of
-    the four types comes back as no type at all, which `doubt` refuses.
+    the five types comes back as no type at all, which `doubt` refuses.
     """
     for found in reversed(re.findall(r"\{[^{}]*\}", answer or "")):
         try:
@@ -328,8 +338,8 @@ def _folded(text: str) -> str:
 def worked_in(project: Project, kind: str) -> Project:
     """The project as this type of ticket works in it: with its repository or not.
 
-    A text, an external action and a publication have nowhere to go in a
-    repository, even on a project that has one — the project still gives the
+    A text, an external action, a publication and a diagnostic have nowhere to
+    go in a repository, even on a project that has one — the project still gives the
     ticket its name and its brief, but the work happens in a scratch directory
     and comes back into the page. A code ticket on a project without a
     repository has nothing to commit to either, and takes the road it always

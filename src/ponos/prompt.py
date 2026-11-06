@@ -812,6 +812,15 @@ def kind(kind: str, repository: object = "") -> str:
     get to change it.
     """
     section = {"external": EXTERNAL, "publication": PREPARE}.get(kind, "")
+    if kind == "diagnostic":
+        # Its own section comes after the frame (diagnostic.py), and it has no
+        # code to ask for: a diagnostic that needs one writes a fix ticket.
+        return (
+            f"- The project's repository is at {repository}: read it — `origin/main` "
+            "first —, and change nothing in it.\n"
+            if repository
+            else ""
+        )
     if repository:
         section = (
             f"- The project's repository is at {repository}: read it if the ticket "

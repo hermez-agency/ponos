@@ -52,8 +52,14 @@ _STATUS_COLOURS = {
     "cancelled": "default",
 }
 
-# The four types, from the most harmless road to the most guarded one.
-_TYPE_COLOURS = {"code": "blue", "writing": "gray", "external": "orange", "publication": "red"}
+# The five types, from the most harmless road to the most guarded one.
+_TYPE_COLOURS = {
+    "writing": "gray",
+    "diagnostic": "purple",
+    "code": "blue",
+    "external": "orange",
+    "publication": "red",
+}
 
 # The families of blocks.py, in the colours the console draws them in.
 _CI_COLOURS = {

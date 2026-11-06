@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Check, Clock, Columns2, Copy, FileText, Folder, FolderGit2, LayoutGrid, Plus, SearchX, X } from "lucide-react"
+import { Check, Clock, Columns2, Copy, FileText, Folder, FolderGit2, LayoutGrid, Plus, SearchX, Stethoscope, X } from "lucide-react"
 import {
   ActionList,
   useFormContext,
@@ -687,6 +687,25 @@ export function NewTicket({
         <span className="sr-only">{t("New ticket for {{name}}", { name: project.name })}</span>
       </Link>
     </div>
+  )
+}
+
+/** “Diagnose”: the same dialog, already a Diagnostic of this project — the title is the
+ * symptom as you would say it, and the session finds the cause and writes the fixes. */
+export function DiagnoseButton({ project }: { project: ProjectItem }) {
+  const link = useViewLink({ resource: tickets, action: "create" })
+  if (!isAPage(project.id)) return null
+  return (
+    <Link
+      to={carrying(link.to, { project: project.id, type: "diagnostic" })}
+      onClick={link.onOpen}
+      data-project-diagnose
+      title={t("Something does not work: a session finds why, then writes the tickets that fix it")}
+      className={cn(buttonVariants({ variant: "outline", size: "sm" }), "bg-card whitespace-nowrap")}
+    >
+      <Stethoscope />
+      {t("Diagnose")}
+    </Link>
   )
 }
 

@@ -267,7 +267,7 @@ def _types(
         return []
     offered = client.options(space.tickets, column)
     absent = []
-    for key in ("code", "writing", "external", "publication"):
+    for key in config_module.TYPES:
         names = settings.kind_names(key)
         if not any(name in offered for name in names):
             absent.append(names[0])

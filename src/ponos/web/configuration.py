@@ -9,10 +9,12 @@ workspace or a property name changed is a different board.
 
 from __future__ import annotations
 
+import sqlite3
 from typing import Any
 
 from .. import (
     browser,
+    diagnostic,
     idea_schedule,
     local_ci,
     notes,
@@ -21,6 +23,8 @@ from .. import (
     project_settings,
     store,
     subtypes,
+    vault,
+    vault_store,
 )
 from .. import config as config_module
 from .. import kinds as kinds_module
@@ -104,7 +108,17 @@ class Configuration(Base):
             },
             "plan": self._project_plan(bare),
             "browser": self._project_browser(bare),
+            "diagnostic": self._project_diagnostic(bare),
         }
+
+    @staticmethod
+    def _project_diagnostic(bare: str) -> dict[str, Any]:
+        """What the project's diagnostics may reach, and the vault's entries to choose from."""
+        try:
+            entries = sorted(str(entry["name"]) for entry in vault_store.listing())
+        except (vault.VaultError, sqlite3.Error, OSError):
+            entries = []
+        return {**project_settings.diagnostic(bare).as_dict(), "entries": entries}
 
     def _project_name(self, bare: str) -> str:
         return next(
@@ -239,7 +253,13 @@ class Configuration(Base):
         planned = payload.get("plan")
         reviewing = payload.get("self_review")
         browsing = payload.get("browser")
-        if validation is None and isinstance(browsing, dict):
+        investigating = payload.get("diagnostic")
+        access = None
+        if validation is None and isinstance(investigating, dict):
+            if "ready" in investigating and not isinstance(investigating["ready"], bool):
+                raise ValueError("say whether fix tickets go straight to Ready")
+            access = diagnostic.checked(investigating)
+        elif validation is None and isinstance(browsing, dict):
             if browsing.get("value") not in config_module.BROWSERS:
                 raise ValueError("say which browser the project's external tickets use")
         elif validation is None and isinstance(planned, dict):
@@ -325,6 +345,8 @@ class Configuration(Base):
             # The file's own answer is not a decision of the project's, as for ideas.
             agrees = reviewing["enabled"] == self.config.runner.self_review
             project_settings.set_self_review(bare, name, None if agrees else reviewing["enabled"])
+        if access is not None:
+            project_settings.set_diagnostic(bare, name, access)
         if isinstance(browsing, dict):
             # The file's own answer is not a decision of the project's, as for ideas.
             agrees = browsing["value"] == self.config.browser.default

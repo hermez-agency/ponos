@@ -1046,6 +1046,36 @@ _SAID: dict[str, dict[str, str]] = {
         "en": "The worktree is kept as it was left: `{path}`, on branch `{branch}`.",
         "fr": "Le worktree est conservé tel quel : `{path}`, sur la branche `{branch}`.",
     },
+    "fix-context": {"en": "Context", "fr": "Contexte"},
+    "fix-expected": {"en": "Expected", "fr": "Attendu"},
+    "fix-done": {"en": "Done when", "fr": "Fini quand"},
+    "fix-out": {"en": "Out of scope", "fr": "Hors périmètre"},
+    "fix-from": {"en": "Written by the diagnostic", "fr": "Écrit par le diagnostic"},
+    "diagnostic-fixes": {
+        "en": "Fix tickets created ({count}), in {column}, each after this diagnostic: {titles}.",
+        "fr": "Tickets de correction créés ({count}), en {column}, chacun après ce diagnostic : "
+        "{titles}.",
+    },
+    "diagnostic-no-fix": {
+        "en": "No fix ticket: the report says why.",
+        "fr": "Aucun ticket de correction : le rapport dit pourquoi.",
+    },
+    "diagnostic-fix-failed": {
+        "en": "The series of fix tickets stopped on an error, and the ones after it were not "
+        "created: {error}",
+        "fr": "La série des tickets de correction s'est arrêtée sur une erreur, et ceux qui "
+        "suivaient n'ont pas été créés : {error}",
+    },
+    "diagnostic-fixes-unreadable": {
+        "en": "The diagnostic's fix tickets could not be read",
+        "fr": "Les tickets de correction du diagnostic n'ont pas pu être lus",
+    },
+    "diagnostic-fixes-unreadable-question": {
+        "en": "The session found a cause, but its fix tickets cannot be read ({problem}), so "
+        "none was created: run the diagnostic again?",
+        "fr": "La session a trouvé une cause, mais ses tickets de correction sont illisibles "
+        "({problem}), donc aucun n'a été créé : relancer le diagnostic ?",
+    },
     "workdir-kept": {
         "en": "The working directory is kept as it was left: `{path}`.",
         "fr": "Le répertoire de travail est conservé tel quel : `{path}`.",

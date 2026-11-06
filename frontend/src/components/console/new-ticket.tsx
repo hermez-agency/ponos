@@ -89,7 +89,7 @@ export const SegmentedInputController: InputControllerComponentInterface = ({ fo
       role="group"
       aria-label={t(String(formInput.label ?? ""))}
       data-slot="segmented"
-      className="bg-field flex gap-0.5 rounded-lg border p-0.5"
+      className="bg-field flex flex-wrap gap-0.5 rounded-lg border p-0.5"
     >
       {(formInput.valueOptions ?? []).map((option) => {
         const key = String(option.value ?? "")
@@ -102,7 +102,7 @@ export const SegmentedInputController: InputControllerComponentInterface = ({ fo
             title={option.description}
             onClick={() => onChange({ ...formInput, value: key, violations: [] })}
             className={cn(
-              "text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring/50 min-w-0 flex-auto rounded-md px-1.5 py-1 text-xs whitespace-nowrap font-medium transition-colors outline-none focus-visible:ring-[3px]",
+              "text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring/50 flex-auto rounded-md px-1.5 py-1 text-xs whitespace-nowrap font-medium transition-colors outline-none focus-visible:ring-[3px]",
               chosen && "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground"
             )}
           >

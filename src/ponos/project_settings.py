@@ -34,6 +34,7 @@ from collections.abc import Callable
 from typing import Any
 
 from . import db, planning
+from . import diagnostic as diagnostic_module
 from . import preview as preview_module
 from .config import BROWSERS, Config
 from .kinds import KINDS
@@ -63,6 +64,10 @@ PLAN = "plan"
 # The browser its external tickets act in — see browser.py: "ponos" or
 # "chrome". Absent, `browser.default` decides.
 BROWSER = "browser"
+# What its diagnostics may reach, and where their fix tickets land — see
+# diagnostic.py: `mcp`, `hosts`, `urls` and `ready`. Absent, nothing beyond the
+# repository and Ponos, and fix tickets in the drafts.
+DIAGNOSTIC = "diagnostic"
 
 
 def key(project: str) -> str:
@@ -306,6 +311,32 @@ def set_plan(project: str, name: str, rule: planning.Rule) -> None:
             settings[PLAN] = rule.as_dict()
         else:
             settings.pop(PLAN, None)
+
+    _write(project, name, change)
+
+
+def diagnostic(project: str) -> diagnostic_module.Access:
+    """What the project's diagnostics may reach — none, and drafts, when it says nothing.
+
+    Nothing readable is a project that declared nothing: a diagnostic that
+    reaches less than it could asks a question, which is the side to fall on.
+    """
+    if not key(project):
+        return diagnostic_module.Access()
+    try:
+        return diagnostic_module.parse(_read(project).get(DIAGNOSTIC))
+    except db.ERRORS:
+        return diagnostic_module.Access()
+
+
+def set_diagnostic(project: str, name: str, access: diagnostic_module.Access) -> None:
+    """Give the project's diagnostics their accesses, or none (an empty one)."""
+
+    def change(settings: dict[str, Any]) -> None:
+        if access:
+            settings[DIAGNOSTIC] = access.as_dict()
+        else:
+            settings.pop(DIAGNOSTIC, None)
 
     _write(project, name, change)
 

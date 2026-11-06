@@ -483,6 +483,7 @@ const KINDS = [
   { key: "writing", label: "Writing" },
   { key: "external", label: "External action" },
   { key: "publication", label: "Publication" },
+  { key: "diagnostic", label: "Diagnostic" },
 ]
 
 // Radix's select takes no empty value: these stand for "every one" and "none".

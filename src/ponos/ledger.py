@@ -43,7 +43,7 @@ from typing import Any
 
 from . import db, ids, pages, provision, store, ticket_page, tickets, vault
 from . import voice as voice_module
-from .config import STATUS, Notion
+from .config import STATUS, TYPES, Notion
 from .log import FILE_ONLY
 from .store import Comment, Page, Picture
 from .workspace import Workspace
@@ -434,11 +434,7 @@ class Ledger:
             kind = self._schema.get(name)
             value: Any = getattr(record, column)
             if column == "kind":
-                value = (
-                    settings.kind(value)
-                    if value in ("code", "writing", "external", "publication")
-                    else ""
-                )
+                value = settings.kind(value) if value in TYPES else ""
             elif column in _ONE:
                 value = [value] if value else []
             elif column in ("cost", "duration"):
