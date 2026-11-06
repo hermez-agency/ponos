@@ -1,5 +1,5 @@
 import * as React from "react"
-import { useBlocker, useLocation } from "@tanstack/react-router"
+import { useBlocker } from "@tanstack/react-router"
 import { BookOpen, Pencil, RefreshCw, Save } from "lucide-react"
 import { toast } from "sonner"
 
@@ -10,7 +10,6 @@ import { useT } from "@/lib/i18n"
 import type { Context } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { canAct } from "@/lib/role"
-import { CONTEXT_ANCHOR } from "@/resources/projects"
 
 import { EmptyState } from "./empty-state"
 import { Eyebrow } from "./frame"
@@ -67,7 +66,6 @@ export function ContextBlock() {
   const [problem, setProblem] = React.useState("")
   const [saving, setSaving] = React.useState(false)
   const body = React.useRef<HTMLDivElement>(null)
-  const hash = useLocation({ select: (location) => location.hash })
 
   const setText = React.useCallback((value: string) => {
     // A text back to what the page says is no draft at all.
@@ -93,11 +91,6 @@ export function ContextBlock() {
   React.useEffect(() => {
     void load(true)
   }, [load])
-
-  // The link from a project's brief lands here.
-  React.useEffect(() => {
-    if (hash === CONTEXT_ANCHOR && drawn) document.getElementById(CONTEXT_ANCHOR)?.scrollIntoView()
-  }, [hash, drawn])
 
   const save = async () => {
     setSaving(true)
@@ -142,9 +135,8 @@ export function ContextBlock() {
 
   return (
     <section
-      id={CONTEXT_ANCHOR}
       data-slot="context-block"
-      className="bg-card mb-6 flex scroll-mt-4 flex-col gap-3 rounded-xl border p-4"
+      className="bg-card mb-6 flex flex-col gap-3 rounded-xl border p-4"
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">

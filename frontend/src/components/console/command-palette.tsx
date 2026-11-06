@@ -40,7 +40,6 @@ import { says, ticketsFor } from "@/lib/palette-search"
 import { useRoute } from "@/lib/router"
 import { terms } from "@/lib/ticket-search"
 import {
-  CONTEXT_ANCHOR,
   PROJECTS,
   idOf,
   newProjectHref,
@@ -53,6 +52,7 @@ import { goalsHref, newGoalHref } from "@/resources/goals"
 import { ideasHref, newIdeaHref } from "@/resources/ideas"
 import { newScheduleHref, schedulesHref } from "@/resources/schedules"
 import { sessionsHref } from "@/resources/sessions"
+import { contextHref } from "@/resources/context"
 import { settingsHref } from "@/resources/settings"
 import { boardHref, ticketHref, tickets } from "@/resources/tickets"
 
@@ -85,7 +85,7 @@ const PAGES = [
   { name: "Ideas", icon: Lightbulb, href: ideasHref },
   { name: "Goals", icon: Target, href: goalsHref },
   { name: "Conversations", icon: MessagesSquare, href: sessionsHref },
-  { name: "Global context", icon: BookOpen, href: () => `${projectsHref()}#${CONTEXT_ANCHOR}` },
+  { name: "Context", icon: BookOpen, href: () => contextHref() },
   { name: "Settings", icon: Settings2, href: () => settingsHref() },
 ]
 

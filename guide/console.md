@@ -466,8 +466,7 @@ the documents; both are kept in the address, so a shared link or a reload opens 
 
 It is drawn in **three layouts**, and the tab you are on is in the address. *Columns*, the one
 it opens on, puts the list on the left, one compact line per project (icon, name, type, tickets,
-last activity), and on the right the global context folded to a few lines — always in view, with
-*See all*, *Edit* and its character count — and, under it, the project picked in the list: its
+last activity), and on the right the project picked in the list (the global context is no longer here: it has [its own page](#the-context-page)): its
 page, the very one its address opens — the same header (*+ Ticket*, *Edit*, the “…” menu), the
 same figures and the same *Tickets*, *Ideas*, *Schedules*, *Brief* and *Settings* tabs — without the way back
 to a list that is right there, and with *Open the project's page ↗* to see it alone, on the tab
@@ -653,6 +652,22 @@ yet is shown in the server's own words. The pages before the console — the fir
 drawn by the server and read `Accept-Language` the same way. What is *not* translated is what belongs to somebody else — a ticket's title and the
 columns of your board are Notion's, the output of `> status` is the CLI's, and a report a run
 wrote is in the language [`runner.language`](configuration.md#4-the-rest-of-the-file) asked for.
+
+### The Context page
+
+Everything a session is given besides its ticket lives on one page, **Context** in the menu (and
+in the command palette, Ctrl+K). It is a page of tabs — the tab you are on is in the address, so
+`?view=console/context/read/context/vault` is a link you can send — and each tab is fetched when
+you open it:
+
+| Tab | What it holds |
+|---|---|
+| **Context** | the global context: the standing text every ticket is told first, for all the projects. Folded to a few lines, *See all* reads the rest, *Edit* writes it in place with the editor the brief uses; leaving with something typed asks first |
+| **Vault** | Ponos's own vault — the keys, logins and notes the sessions are given, [kept encrypted](configuration.md#ponoss-own-vault-context--vault). An admin's: for a member or a reader the tab is not there, and the API answers 403 |
+
+The context used to sit beside the Projects page, and the vault was a tab of Settings; the
+Projects page no longer carries the context, and the old address `settings/vault` (and
+`?page=context`) leads to the new page. More tabs will join these two.
 
 ### Goals
 
@@ -1134,7 +1149,7 @@ one of three roles:
 |---|---|
 | **Reader** | see the board, the tickets, the projects, the ideas, the goals and the schedules — and change nothing |
 | **Member** | also write tickets, launch them, answer them, validate them, edit projects, ideas, goals and schedules, talk to the workspace |
-| **Admin** | also change the settings and the vault in them — *Settings → Vault*, which nobody else even sees listed ([Ponos's own vault](configuration.md#ponoss-own-vault-settings--vault)) —, a project's own settings (its forced validation among them), the GitHub App, the ideas' schedule, the update, and the accounts |
+| **Admin** | also change the settings and the vault in them — *Context → Vault*, which nobody else even sees listed ([Ponos's own vault](configuration.md#ponoss-own-vault-context--vault)) —, a project's own settings (its forced validation among them), the GitHub App, the ideas' schedule, the update, and the accounts |
 
 **The sign-in of `[web]` is the first admin**, with nothing to migrate: it stays where it is,
 heads the list, and cannot be demoted or deleted from the console by anybody it invited. The

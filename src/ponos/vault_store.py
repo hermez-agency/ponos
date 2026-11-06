@@ -1,4 +1,4 @@
-"""Ponos's own vault: the keys typed into Settings → Vault, kept encrypted.
+"""Ponos's own vault: the keys typed into Context → Vault, kept encrypted.
 
 `[vault]` reads keys where they already live — the keyring, `pass`, Bitwarden
 — and on most machines none of them is installed: every key ended up in the

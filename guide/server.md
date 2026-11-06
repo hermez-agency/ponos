@@ -145,7 +145,7 @@ typed in the console's first connection or Settings lands in `/data/config/ponos
 | `PONOS_NOTION_TOKEN` | The Notion integration token. |
 | `PONOS_TELEGRAM_TOKEN`, `PONOS_SLACK_TOKEN` | The bots that reach your phone. |
 | `PONOS_WEB_TOKEN` | The console's token, for scripts; drawn and kept in the volume when empty. |
-| `PONOS_VAULT_KEY` | The key of Ponos's own vault (32 bytes, base64: `python3 -c "import secrets, base64; print(base64.urlsafe_b64encode(secrets.token_bytes(32)).decode())"`). Without it, the image has no keyring and the key is a file on the same volume as `vault.db` — see [Ponos's own vault](configuration.md#ponoss-own-vault-settings--vault). |
+| `PONOS_VAULT_KEY` | The key of Ponos's own vault (32 bytes, base64: `python3 -c "import secrets, base64; print(base64.urlsafe_b64encode(secrets.token_bytes(32)).decode())"`). Without it, the image has no keyring and the key is a file on the same volume as `vault.db` — see [Ponos's own vault](configuration.md#ponoss-own-vault-context--vault). |
 | `GH_TOKEN` | The account pull requests are opened as; `git` pushes through `gh` with it. |
 | `ANTHROPIC_API_KEY` | The key of the `api_key` provider. |
 | `OPENROUTER_API_KEY` | The OpenRouter key. |

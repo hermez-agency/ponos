@@ -22,7 +22,7 @@ import { SCOPE } from "@/lib/resource-view"
 import { consoleRouter, useRoute } from "@/lib/router"
 import { canAct } from "@/lib/role"
 import { scopes } from "@/resources/scope"
-import { CONTEXT_ANCHOR, projectsHref } from "@/resources/projects"
+import { CONTEXT, contextHref, VAULT_TAB } from "@/resources/context"
 import { SESSIONS, sessionsHref } from "@/resources/sessions"
 import { SETTINGS, settingsHref } from "@/resources/settings"
 import { TICKETS, boardHref } from "@/resources/tickets"
@@ -58,15 +58,18 @@ function Page({ params }: { params: ViewResourceContextParams }) {
   // `/?view=console/live/list` among them, now that sessions are read on their
   // tickets, and the statistics' `/?view=console/statistics/list`, now that
   // they are drawn at the top of the dashboard.
-  // The context was a page of its own, and is the first block of the projects
-  // now: a bookmarked `/?view=console/context/list` leads there.
-  if (!resource && resourceId === "context")
-    return <Navigate to={`${projectsHref()}#${CONTEXT_ANCHOR}`} replace />
   if (!resource) return <Navigate to={boardHref()} replace />
   // The settings are one file, so they have no list: the package still links
   // to one — the breadcrumb in the bar does — and a list asked for is the file.
   if (resourceId === SETTINGS && action === ActionList.list)
     return <Navigate to={settingsHref()} replace />
+  // The vault was a tab of the settings: it is a tab of the context now, and an
+  // address written before leads there. The context is one page too, so its
+  // list is the page.
+  if (resourceId === SETTINGS && params.subResource === VAULT_TAB)
+    return <Navigate to={contextHref(VAULT_TAB)} replace />
+  if (resourceId === CONTEXT && action === ActionList.list)
+    return <Navigate to={contextHref()} replace />
   // The sessions the other way round: a list now, whose page draws it, and
   // the one record they used to be read as is a bookmarked address that leads
   // there.

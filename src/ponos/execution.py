@@ -593,7 +593,7 @@ class Execution(Base):
         App's token. What could not be read is said, by name only, and the
         ticket runs without it.
 
-        Ponos's own vault adds the entries Settings → Vault grants the project
+        Ponos's own vault adds the entries Context → Vault grants the project
         (vault_store.py), under what `[vault]` says: a line of the file is the
         more deliberate of the two. What the session is given of it is written
         in the vault's journal, with the ticket.
