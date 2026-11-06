@@ -6,10 +6,11 @@ each table read against what the runner will do with it.
 
 from __future__ import annotations
 
+import sqlite3
 from datetime import datetime
 
 from .. import config as config_module
-from .. import idea_schedule, kinds, project_settings, vault, voice
+from .. import idea_schedule, kinds, project_settings, vault, vault_store, voice
 from ..web import attempts
 from .check import ERROR, INFO, OK, WARN, Check, _check
 
@@ -21,6 +22,7 @@ def _settings(config: config_module.Config) -> list[Check]:
         *_languages(config.runner),
         *_validation(config.runner),
         *_vault(config),
+        *_vault_store(),
         *_console(config),
         *_ideas(config.runner),
     ]
@@ -243,6 +245,9 @@ def _vault(config: config_module.Config) -> list[Check]:
         for problem in settings.problems
     ]
     if not settings.projects:
+        if vault_store.exists() and vault_store.listing():
+            # Ponos's own vault grants its keys itself: see `_vault_store`.
+            return found
         found.append(
             _check(
                 "settings.vault",
@@ -304,6 +309,125 @@ def _vault(config: config_module.Config) -> list[Check]:
                     evidence=missing,
                 )
             )
+    return found
+
+
+def _vault_store() -> list[Check]:
+    """Ponos's own vault: its file, where its key is kept, and what is in it — never a value.
+
+    A key kept as a file is said every time: it is the one way in that a backup
+    of the configuration and the state together takes with it. See vault_store.py.
+    """
+    title = "Vault"
+    try:
+        entries = vault_store.listing()
+    except (vault.VaultError, sqlite3.Error, OSError) as error:
+        return [
+            _check(
+                "settings.vault",
+                ERROR,
+                title,
+                "The vault of Ponos cannot be opened.",
+                evidence=str(error),
+            )
+        ]
+    if not entries:
+        return []
+    found: list[Check] = []
+    problem = vault_store.problem()
+    if problem:
+        found.append(
+            _check(
+                "settings.vault",
+                ERROR,
+                title,
+                "The vault of Ponos cannot be opened.",
+                evidence=problem,
+            )
+        )
+    held = vault_store.path()
+    for target in (held, vault_store.key_path()):
+        mode = vault_store.mode_of(target)
+        if mode is not None and mode & 0o077:
+            found.append(
+                _check(
+                    "settings.vault",
+                    ERROR,
+                    title,
+                    "{{path}} can be read by others.",
+                    params={"path": str(target), "mode": f"{mode:o}"},
+                    steps=["Make it yours alone: `chmod 600 {{path}}`."],
+                )
+            )
+    where = vault_store.whereabouts()
+    if where["source"] == "file":
+        found.append(
+            _check(
+                "settings.vault",
+                WARN,
+                title,
+                "The vault's key is a file, {{path}}: a backup that holds it and vault.db holds every key.",
+                params={"path": where["where"]},
+                cause="Neither secret-tool nor PONOS_VAULT_KEY was there when the vault was made.",
+                steps=[
+                    "Keep {{path}} out of the backups of the state directory, or give the key in PONOS_VAULT_KEY instead.",
+                ],
+            )
+        )
+    elif where["source"]:
+        found.append(
+            _check(
+                "settings.vault",
+                OK,
+                title,
+                "The vault's key is kept apart from it: {{where}}.",
+                params={"where": where["where"]},
+            )
+        )
+    past, soon = vault_store.expiring()
+    if past:
+        found.append(
+            _check(
+                "settings.vault",
+                ERROR,
+                title,
+                "Past their expiry date in the vault: {{names}}.",
+                params={"names": ", ".join(past)},
+                steps=["Replace the value in Settings → Vault, or revoke the entry."],
+            )
+        )
+    if soon:
+        found.append(
+            _check(
+                "settings.vault",
+                WARN,
+                title,
+                "Expiring within {{days}} days in the vault: {{names}}.",
+                params={"names": ", ".join(soon), "days": str(vault_store.EXPIRING_DAYS)},
+            )
+        )
+    alone = [entry["name"] for entry in entries if not entry["projects"]]
+    if alone:
+        found.append(
+            _check(
+                "settings.vault",
+                WARN,
+                title,
+                "Granted to no project, so given to no session: {{names}}.",
+                params={"names": ", ".join(alone)},
+                steps=["Choose its projects in Settings → Vault."],
+            )
+        )
+    if not found or all(check.state == OK for check in found):
+        found.append(
+            _check(
+                "settings.vault",
+                OK,
+                title,
+                "The vault of Ponos holds {{count}} entries.",
+                params={"count": str(len(entries))},
+            )
+        )
     return found
 
 

@@ -144,3 +144,39 @@ def issued(proof: str, cookie: str, now: float | None = None, holder: int = 0) -
     if moment - given > LIFETIME or given - moment > 60:
         return None
     return given
+
+
+# -- a password typed lately ---------------------------------------------------
+
+# How long a password typed — to sign in, or again for the vault — is taken as
+# proof that the person is still in front of the browser.
+PROVEN_FOR = 5 * 60
+
+_proven: dict[str, float] = {}
+
+
+def _digest(cookie: str) -> str:
+    return hashlib.sha256(cookie.encode()).hexdigest()
+
+
+def prove(cookie: str, now: float | None = None) -> None:
+    """The password was typed by whoever holds `cookie`, just now.
+
+    Kept in memory, by digest, and nowhere else: the date a cookie carries
+    says when it was given *or renewed*, and a cookie a day old is renewed by
+    any request — it is no proof that anybody typed anything.
+    """
+    moment = time.time() if now is None else now
+    with _lock:
+        for known, at in list(_proven.items()):
+            if moment - at > PROVEN_FOR:
+                del _proven[known]
+        _proven[_digest(cookie)] = moment
+
+
+def proven(cookie: str, now: float | None = None) -> bool:
+    """Whoever holds `cookie` typed the password less than `PROVEN_FOR` ago."""
+    moment = time.time() if now is None else now
+    with _lock:
+        at = _proven.get(_digest(cookie))
+    return at is not None and moment - at <= PROVEN_FOR

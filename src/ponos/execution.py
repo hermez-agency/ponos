@@ -33,6 +33,7 @@ from __future__ import annotations
 import logging
 import re
 import shutil
+import sqlite3
 import time
 from collections.abc import Callable
 from dataclasses import replace
@@ -61,6 +62,7 @@ from . import (
     subtypes,
     ticket_page,
     vault,
+    vault_store,
     worktree_setup,
 )
 from . import config as config_module
@@ -500,9 +502,22 @@ class Execution(Base):
         that a project can never stand in for the provider's key or the GitHub
         App's token. What could not be read is said, by name only, and the
         ticket runs without it.
+
+        Ponos's own vault adds the entries Settings → Vault grants the project
+        (vault_store.py), under what `[vault]` says: a line of the file is the
+        more deliberate of the two. What the session is given of it is written
+        in the vault's journal, with the ticket.
         """
-        granted = self.config.vault.granted(job.project.name)
-        if not granted or self.dry_run:
+        if self.dry_run:
+            return {}
+        project = job.project.name
+        try:
+            kept = vault_store.granted(project)
+        except (sqlite3.Error, OSError) as error:
+            self.say(f"    ! the vault of Ponos cannot be read: {error}")
+            kept = {}
+        granted = {**kept, **self.config.vault.granted(project)}
+        if not granted:
             return {}
         stored = config_module.read_secrets(config_module.secrets_path(self.config.path))
         found = vault.read(granted, self.config.vault.provider, stored)
@@ -510,6 +525,13 @@ class Execution(Base):
             self.say(f"    · secrets: {', '.join(sorted(found.values))}")
         for missing in found.missing:
             self.say(f"    ! secret not read: {missing}")
+        given = [name for name in found.values if granted[name].startswith("ponos:")]
+        if given:
+            ticket = getattr(job, "ticket", None)
+            try:
+                vault_store.used(given, getattr(ticket, "id", ""), project)
+            except (sqlite3.Error, OSError) as error:
+                self.say(f"    ! the vault's journal: {error}")
         return found.values
 
     def _report_missing(self, job: Job, outcome: session.Outcome) -> bool:

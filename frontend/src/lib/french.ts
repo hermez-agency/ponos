@@ -1968,6 +1968,8 @@ export const FRENCH: Record<string, string> = {
     "Cette console n'a pas de page à l'adresse {{path}}. Ses pages sont celles-ci :",
   // The accounts of a shared console — see web/accounts.py.
   "Who the console is shared with, and what each of them may do.": "Avec qui la console est partagée, et ce que chacun peut y faire.",
+  Vault: "Coffre-fort",
+  "The logins, passwords and API keys the sessions are given, kept encrypted.": "Les logins, mots de passe et clés d'API que reçoivent les sessions, gardés chiffrés.",
   "validated it": "l'a validé",
   "rejected it": "l'a refusé",
   "ran it again": "l'a relancé",

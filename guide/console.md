@@ -1068,7 +1068,7 @@ one of three roles:
 |---|---|
 | **Reader** | see the board, the tickets, the projects, the ideas, the goals and the schedules — and change nothing |
 | **Member** | also write tickets, launch them, answer them, validate them, edit projects, ideas, goals and schedules, talk to the workspace |
-| **Admin** | also change the settings and the vault in them, a project's own settings (its forced validation among them), the GitHub App, the ideas' schedule, the update, and the accounts |
+| **Admin** | also change the settings and the vault in them — *Settings → Vault*, which nobody else even sees listed ([Ponos's own vault](configuration.md#ponoss-own-vault-settings--vault)) —, a project's own settings (its forced validation among them), the GitHub App, the ideas' schedule, the update, and the accounts |
 
 **The sign-in of `[web]` is the first admin**, with nothing to migrate: it stays where it is,
 heads the list, and cannot be demoted or deleted from the console by anybody it invited. The

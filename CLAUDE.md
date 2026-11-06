@@ -141,6 +141,7 @@ le lundi — CONTRIBUTING.md, « Dependencies ».
   ses jetons d'installation, devant `gh`), `session.py`, `provider.py` (qui répond aux sessions :
   le CLI connecté, une clé Anthropic ou OpenRouter), `voice.py` (les mots et la langue),
   `vault.py` (les clés que `[vault]` donne aux sessions d'un projet, et leur masquage partout où le runner écrit),
+  `vault_store.py` (le coffre de Ponos, Réglages → Coffre-fort : `vault.db` chiffré entrée par entrée, sa clé maîtresse, son journal),
   `passwords.py` (le mot de passe de la console, gardé en digest scrypt),
   `http.py` (le seul client HTTP : un `httpx.Client` par service et la
   politique de réessai de Notion pour tous — les tests y branchent un
@@ -195,7 +196,7 @@ le lundi — CONTRIBUTING.md, « Dependencies ».
 - Le cœur n'importe que la bibliothèque standard, ses propres modules,
   httpx, pydantic et cryptography — httpx seulement dans `http.py` : une requête passe par
   `http.send`, jamais par `urllib.request` ; cryptography seulement dans `push.py`,
-  au moment d'envoyer ; pydantic seulement dans
+  au moment d'envoyer, et dans `vault_store.py`, au moment de sceller ou d'ouvrir une entrée ; pydantic seulement dans
   `schema.py`, que `config.load` importe en lisant le fichier, pour qu'une
   passe sur le `python3` de la machine fabrique encore le `.venv`. FastAPI (et ce qu'il tire) n'entre
   que dans `web/app.py`, `web/routes.py` et `web/answers.py` — un test le vérifie. Un autre

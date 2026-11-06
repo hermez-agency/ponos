@@ -100,11 +100,11 @@ test("the settings say what the console runs on, line by line", async ({ page })
   await expect.poll(() => new URL(page.url()).searchParams.get("view")).toBe("console/settings/read/config/communication")
 })
 
-test("ten pages (six from the file, then GitHub, triggers, MCP and the accounts), and an old link to a section opens the page it is on", async ({ page }) => {
+test("eleven pages (six from the file, then GitHub, triggers, MCP, the vault and the accounts), and an old link to a section opens the page it is on", async ({ page }) => {
   await open(page, "/?view=console/settings/read/config/notify")
   await settingsPage(page)
   await expect.poll(() => new URL(page.url()).searchParams.get("view")).toBe("console/settings/read/config/communication")
-  await expect(page.getByRole("tab")).toHaveCount(10)
+  await expect(page.getByRole("tab")).toHaveCount(11)
   await expect(page.locator('[data-card="notify"]')).toBeVisible()
 })
 
@@ -146,4 +146,31 @@ test("the models are one table, and a change waits under a bar that sticks", asy
   await expect(bar).toHaveCSS("position", "sticky")
   await bar.getByRole("button", { name: "Cancel" }).click()
   await expect(bar.getByRole("status")).toHaveText("No changes")
+})
+
+test("the vault keeps a value it never shows again, and empties the form that carried it", async ({ page }) => {
+  const value = "e2e_vault_value_0123456789"
+  await open(page, "/?view=console/settings/read/config/vault")
+  await expect(page.locator('[data-card="vault-key"]')).toBeVisible()
+  const form = page.locator('[data-card="vault-new"]')
+  const field = form.locator('[data-slot="vault-value"]')
+  await expect(field).toHaveAttribute("type", "password")
+  await expect(field).toHaveAttribute("autocomplete", "off")
+  await form.locator('[data-slot="vault-name"]').fill("E2E_DEPLOY_TOKEN")
+  await field.fill(value)
+  await form.locator('[data-slot="vault-projects"] [role="checkbox"]').first().click()
+  // A console opened with its token alone: the token is what is typed again.
+  const confirm = form.locator('[data-slot="vault-confirm"]')
+  if (await confirm.count()) await confirm.fill("e2e")
+  await form.locator('[data-slot="vault-create"]').click()
+  const row = page.locator('[data-vault="E2E_DEPLOY_TOKEN"]')
+  await expect(row).toBeVisible()
+  await expect(row).toContainText("…6789")
+  await expect(field).toHaveValue("")
+  await expect(page.locator("body")).not.toContainText(value)
+  // The key is a file here — no secret-tool, no PONOS_VAULT_KEY — and the page says where.
+  await expect(page.locator('[data-slot="vault-key-file"]')).toBeVisible()
+  await expect(page.locator('[data-slot="vault-key-where"]')).toContainText("vault.key")
+  const stored = await page.evaluate(() => JSON.stringify({ ...localStorage }) + JSON.stringify({ ...sessionStorage }))
+  expect(stored).not.toContain(value)
 })

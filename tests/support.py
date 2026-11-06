@@ -179,6 +179,33 @@ def state_home(case: Callable[..., None]) -> Iterator[Path]:
 
 
 @fixture
+def vault_home(case: Callable[..., None]) -> Iterator[Path]:
+    """A vault of Ponos of the case's own: its state, its `vault.key`, and no keyring.
+
+    The keyring is the machine's: a case that wants one puts a `secret-tool`
+    of its own in front of the `PATH` and says so (`vault_store.keyring_usable`).
+    """
+    from ponos import vault, vault_store
+
+    config = os.environ.get("XDG_CONFIG_HOME")
+    usable = vault_store.keyring_usable
+    os.environ["XDG_CONFIG_HOME"] = tempfile.mkdtemp()
+    vault_store.keyring_usable = lambda: False
+    vault.forget()
+    try:
+        with _state_home() as path:
+            yield path
+    finally:
+        vault.forget()
+        vault_store.keyring_usable = usable
+        os.environ.pop(C.VAULT_KEY_ENV, None)
+        if config is None:
+            os.environ.pop("XDG_CONFIG_HOME", None)
+        else:
+            os.environ["XDG_CONFIG_HOME"] = config
+
+
+@fixture
 def installation(
     case: Callable[..., None],
 ) -> Iterator[tuple[Callable[..., str], Path, str]]:
@@ -201,6 +228,7 @@ MACHINE = (
     C.OPENROUTER_KEY_ENV,
     C.ANTHROPIC_KEY_ENV,
     provider.OAUTH_TOKEN_ENV,
+    C.VAULT_KEY_ENV,
 )
 
 

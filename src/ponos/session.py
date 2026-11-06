@@ -285,7 +285,7 @@ def inheritable(environ: Mapping[str, str]) -> dict[str, str]:
     transcript and the ticket. A session is given what `[vault]` grants its
     project and what its provider needs, by the caller: the rest stays here.
     """
-    withheld = set(config.SECRETS.values())
+    withheld = set(config.SECRETS.values()) | {config.VAULT_KEY_ENV}
     return {name: value for name, value in environ.items() if name not in withheld}
 
 

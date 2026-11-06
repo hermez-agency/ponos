@@ -93,6 +93,7 @@ REFUSED = {
     "clean": "deletes worktrees a session may be standing in — do it from a terminal",
     "init": "builds a whole Notion workspace — do it from a terminal, or the first connection",
     "mcp": "draws and takes back the MCP server's keys — do it from a terminal",
+    "vault": "keeps and removes the sessions' keys — Settings → Vault, or a terminal",
 }
 
 # The Claude models the console offers, whatever else is configured: the ones
