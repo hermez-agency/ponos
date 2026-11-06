@@ -119,17 +119,18 @@ const question = (scope: string, from: string, to: string) => `${scope}|${from}|
  * by default: the figures are why the dashboard is more than the board — but
  * folded on a phone, until somebody opens it: there the dashboard opens on what
  * waits for you (`to-handle.tsx`), and two screens of figures stood between it
- * and the board. */
+ * and the board. A project's page keeps them open: it has no such block. */
 const FOLDED_KEY = "ponos-dashboard-statistics"
 const PROJECT_FOLDED_KEY = "ponos-project-statistics"
 
 function useFolded(key: string) {
   const [folded, setFolded] = React.useState(() => {
+    const byDefault = key === FOLDED_KEY && isPhone()
     try {
       const kept = localStorage.getItem(key)
-      return kept === null ? isPhone() : kept === "folded"
+      return kept === null ? byDefault : kept === "folded"
     } catch {
-      return isPhone()
+      return byDefault
     }
   })
   const change = React.useCallback(

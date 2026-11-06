@@ -34,6 +34,8 @@ test("a card without a step puts the dot and « starting… » on one line", asy
 test("the same on a narrow screen", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 700 })
   await open(page)
+  // A phone's board draws one column at a time, and opens on Blocked: the card is in progress.
+  await page.locator('[data-board-tab="running"]').click()
   await check(page)
 })
 

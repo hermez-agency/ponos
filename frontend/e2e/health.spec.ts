@@ -87,7 +87,8 @@ async function open(page: Page, answers: unknown[], fixed: string[] = [], unfold
   // Folded is the default; a test that wants the lines asks for them.
   if (unfolded) await page.addInitScript(() => localStorage.setItem("ponos-health-open", "open"))
   await page.goto("/")
-  await expect(page.getByText("A long ticket").filter({ visible: true }).first()).toBeVisible()
+  // Any card: a phone's board draws one column at a time, and "A long ticket" is in Ready.
+  await expect(page.locator("[data-ticket-card]").filter({ visible: true }).first()).toBeVisible()
 }
 
 const shot = async (page: Page, name: string) => {
