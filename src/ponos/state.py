@@ -526,6 +526,42 @@ def switch_kind(ticket_id: str) -> None:
         pass
 
 
+# What `shape` is told once every open ticket of the board has been seen to.
+EVERY_PAGE = "*"
+
+
+def shaped(ticket_ids: list[str]) -> set[str]:
+    """Which of these tickets already have their page in two parts — see ticket_page.py.
+
+    A table that cannot be read answers all of them: a page left in its old
+    shape costs a glance, one rewritten every pass costs the board its quota.
+    """
+    if not ticket_ids:
+        return set()
+    try:
+        with db.transaction(immediate=False) as connection:
+            rows = connection.execute(
+                f"SELECT ticket FROM page_formats WHERE ticket IN ({','.join('?' * len(ticket_ids))})",
+                [ticket.replace("-", "") for ticket in ticket_ids],
+            ).fetchall()
+    except db.ERRORS:
+        return set(ticket_ids)
+    found = {row[0] for row in rows}
+    return {ticket for ticket in ticket_ids if ticket.replace("-", "") in found}
+
+
+def shape(ticket_id: str) -> None:
+    """That ticket's page is in two parts now, and is not to be put in them again."""
+    try:
+        with db.transaction() as connection:
+            connection.execute(
+                "INSERT OR IGNORE INTO page_formats (ticket, at) VALUES (?, ?)",
+                (ticket_id.replace("-", ""), datetime.now(UTC).isoformat(timespec="seconds")),
+            )
+    except db.ERRORS:
+        pass
+
+
 def mended(ticket_id: str, head: str) -> bool:
     """Has a session already been sent after the red checks of the ticket's branch at `head`?
 

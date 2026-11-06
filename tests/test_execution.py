@@ -6,7 +6,7 @@ import os
 import subprocess
 import tempfile
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from types import TracebackType
 from typing import Any, cast
@@ -483,11 +483,11 @@ def work_done_on_a_dashboard_with_nothing_committed_is_delivered_into_the_page(
     runner, page, _ = _runner()
     bodies: list[str] = []
 
-    def append(page_id: str, markdown: str) -> int:
+    def replace(page_id: str, titles: Sequence[str], markdown: str) -> int:
         bodies.append(markdown)
         return 1
 
-    runner.client.append_markdown = append  # type: ignore[method-assign]  # a double: the body is kept
+    runner.client.replace_section = replace  # type: ignore[method-assign]  # a double: the part is kept
     job = _job(code=True, page=page)
     removed: list[Path] = []
     answer = "Variable ajoutée sur Dokploy, service redéployé.\n\nRESULT: ok — redéployé"
@@ -654,10 +654,10 @@ def an_answer_notion_refuses_fails_the_ticket_and_says_where_it_still_is(state_h
     runner, page, _ = _runner()
     job = _job(page=page)
 
-    def refusing(page_id: str, text: str) -> None:
+    def refusing(page_id: str, titles: Sequence[str], text: str) -> None:
         raise notion.NotionError("PATCH /blocks: 502 bad gateway")
 
-    runner.client.append_markdown = refusing  # type: ignore[method-assign, assignment]  # a double: Notion refuses
+    runner.client.replace_section = refusing  # type: ignore[method-assign, assignment]  # a double: Notion refuses
 
     def answered(job: ticket_module.Job, template: str) -> session.Outcome:
         (job.workdir / "ANSWER.md").write_text("La réponse, entière.")

@@ -41,6 +41,7 @@ from . import (
     state,
     store,
     subtypes,
+    ticket_page,
 )
 from . import question as question_module
 from . import voice as voice_module
@@ -107,7 +108,8 @@ class Preparation(Base):
     def _read(self, ticket: Ticket, short: str) -> str | None:
         """The ticket's body, its page named if it had no title — None, failed, when unusable."""
         try:
-            body = self.client.blocks_text(ticket.page.id, live=False)
+            # Its mission: « What was done » is the runner's, and not a brief.
+            body = ticket_page.mission(self.client.blocks_text(ticket.page.id, live=False))
         except store.StoreError as error:
             self._fail(ticket, self.voice.say("unreadable"), str(error), code="notion.read-failed")
             return None

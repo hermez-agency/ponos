@@ -86,6 +86,11 @@ class Run:
         # What the run has cost so far, from the `result` line each session
         # ends on — two when a lost session was started again.
         self.cost: float | None = None
+        # What the session answered, once it has: the report its ticket's page
+        # keeps (ticket_page.py) is made of it when the run is closed.
+        self.answer = ""
+        self.summary = ""
+        self.caveats: list[str] = []
 
     @classmethod
     def start(
@@ -174,14 +179,18 @@ class Run:
                 "UPDATE runs SET session = ?, log = ? WHERE id = ?", (session, str(log), self.id)
             )
 
-    def end(self, status: str, reason: str = "", code: str = "") -> None:
-        """What the ticket came to, and the cause it stopped on. Once: a run closed is not reopened."""
+    def end(self, status: str, reason: str = "", code: str = "", report: str = "") -> None:
+        """What the ticket came to, the cause it stopped on, and what its page says of it.
+
+        Once: a run closed is not reopened. `report` is the part « What was
+        done » of the ticket's page, as this run left it — see ticket_page.py.
+        """
         if not self.open:
             return
         self._write(
-            "UPDATE runs SET ended_at = ?, status = ?, reason = ?, code = ?, cost_usd = ?"
-            " WHERE id = ? AND ended_at IS NULL",
-            (_now(), status, str(reason or "")[:TEXT], code, self.cost, self.id),
+            "UPDATE runs SET ended_at = ?, status = ?, reason = ?, code = ?, cost_usd = ?,"
+            " report = ? WHERE id = ? AND ended_at IS NULL",
+            (_now(), status, str(reason or "")[:TEXT], code, self.cost, report, self.id),
         )
 
     def _write(
@@ -277,6 +286,26 @@ def runs(ticket: str = "", limit: int = 50) -> list[dict[str, Any]]:
             )
         names = [column[0] for column in cursor.description]
         return [_run(row, names) for row in cursor.fetchall()]
+
+
+def history(ticket: str) -> list[dict[str, Any]]:
+    """A ticket's ended runs, oldest first, with what each wrote on its page.
+
+    What its part « What was done » is written from (ticket_page.py). Empty
+    when the journal cannot be read: the part then says only the last session.
+    """
+    try:
+        with db.transaction(immediate=False) as connection:
+            cursor = connection.execute(
+                "SELECT id, ticket, started_at, ended_at, status, reason, cost_usd, report"
+                " FROM runs WHERE ticket = ? AND ended_at IS NOT NULL"
+                " ORDER BY started_at, id",
+                (_ticket_key(connection, ticket),),
+            )
+            names = [column[0] for column in cursor.description]
+            return [dict(zip(names, row, strict=True)) for row in cursor.fetchall()]
+    except _FAILURES:
+        return []
 
 
 def spans(ticket: str = "") -> dict[str, list[dict[str, Any]]]:

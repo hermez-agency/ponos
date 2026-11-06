@@ -20,7 +20,7 @@ import contextlib
 import json
 import os
 import re
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Sequence
 from typing import TYPE_CHECKING, Any
 
 from . import http, store, vault
@@ -484,6 +484,30 @@ class Client:
         """
         self.delete_children(page_id)
         return self.append_markdown(page_id, markdown)
+
+    def replace_section(self, page_id: str, titles: Sequence[str], markdown: str) -> int:
+        """The page's last part rewritten, and nothing above it. See `store.Store`.
+
+        Block by block rather than through `replace_markdown`: the mission
+        above is somebody's page, with whatever Notion lets them put in it,
+        and a trip through Markdown would lose what a line of text cannot hold.
+        The new part is appended before the old one is deleted, so that a page
+        Notion stops answering halfway through still has one of the two.
+        """
+        from . import markdown as converter
+        from . import progress, ticket_page
+
+        gone: list[str] = []
+        started = False
+        for block in self._paged("GET", f"/blocks/{page_id}/children"):
+            if not started and block.get("type", "").startswith("heading_"):
+                started = ticket_page.is_heading(converter.plain(block), titles)
+            if started or progress.is_live(block):
+                gone.append(block["id"])
+        count = self.append_markdown(page_id, markdown)
+        for identifier in gone:
+            self._request("DELETE", f"/blocks/{identifier}")
+        return count
 
     def delete_children(self, block_id: str) -> int:
         """Empty a page, block by block, and say how many went.

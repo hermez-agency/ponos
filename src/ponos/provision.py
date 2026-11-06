@@ -32,7 +32,8 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Any
 
-from . import blocks, ci, notion, subtypes
+from . import blocks, ci, notion, subtypes, ticket_page
+from . import voice as voice_module
 from .config import Notion
 from .schedules import CADENCES
 
@@ -93,7 +94,7 @@ runner work once, without setting anything else up.
 
 Move it to **{ready}** and wait for the next pass. It has no project, so it
 takes the document path: no repository is touched, and the answer is written
-back into this page, below this text.
+back into this page, under “What was done”.
 
 **What to do:** introduce ponos in a short paragraph, as if to someone
 who has never heard of it.
@@ -514,7 +515,12 @@ def provision(
         # Deliberately left with no status: the runner picks up nothing, and the
         # first Claude session of a fresh install is one the user asked for.
         ticket = client.create_row(tickets, "Introduce ponos")
-        client.append_markdown(ticket, DEMO_TICKET.format(ready=settings.state("ready")))
+        client.append_markdown(
+            ticket,
+            ticket_page.template(
+                voice_module.Voice(), DEMO_TICKET.format(ready=settings.state("ready"))
+            ),
+        )
         report.note("created", "a demonstration ticket, waiting for you to start it")
 
     if demo and not client.query(schedules):

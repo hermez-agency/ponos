@@ -35,6 +35,7 @@ from . import (
     stopping,
     store,
     subtypes,
+    ticket_page,
 )
 from . import update as update_module
 from . import voice as voice_module
@@ -59,6 +60,13 @@ SETTLE = 15.0
 # so the unit's end, which takes with it what the sessions left running, and
 # the update at the top of the next pass come at least that often.
 PASS_SPAN = 30 * 60.0
+
+# The open tickets whose page is put in its two parts (ticket_page.py), and how
+# many a pass does at most: each costs a few requests, and a board of two
+# hundred open tickets is better done over a few passes than in one. A ticket
+# done or cancelled keeps the page it ended with.
+RESHAPED = ("ready", "blocked", "review", "draft")
+RESHAPED_PER_PASS = 10
 
 
 class InHand:
@@ -545,11 +553,23 @@ class Board(Base):
         except (LookupError, store.StoreError):
             return Project(name="", path=None)
 
-    def _body(self, ticket: Ticket) -> str:
+    def _body(self, ticket: Ticket, *, done: bool = False) -> str:
+        """The ticket's mission — the one part of its page a session is told.
+
+        What the runner wrote under « What was done » stays out: the comments
+        already carry each session's report, and a page read whole handed the
+        next session every earlier one again (ticket_page.py). `done` adds the
+        last report under the mission, for the one session whose work it is:
+        the publication of a text that report holds.
+        """
         try:
-            return self.client.blocks_text(ticket.page.id, live=False)
+            text = self.client.blocks_text(ticket.page.id, live=False)
         except store.StoreError:
             return ""
+        parts = ticket_page.split(text)
+        if done and parts.report:
+            return f"{parts.mission}\n\n---\n\n{parts.report}".strip()
+        return parts.mission
 
     def cancelled_column(self) -> bool:
         """Does this board offer a cancelled option of its own?
@@ -629,6 +649,80 @@ class Board(Base):
             self.say(f"  ⌫ {entry.title or entry.page} — {entry.detail}")
         if carried := report.carried:
             self.say(f"  ⇄ {len(carried)} page(s) carried across")
+
+    def reshape(self) -> int:
+        """Put the open tickets' pages in their two parts, once each — see ticket_page.py.
+
+        The page as it stands, without the toggles the old live report left on
+        it, is the mission, and is not touched; « What was done » is appended
+        under it: the last report the runner wrote under the ticket, then the
+        sessions the journal has of it. Once every open ticket has been seen,
+        the board is not read for it again: a ticket written since comes with
+        both parts already.
+        """
+        if state.shaped([state.EVERY_PAGE]):
+            return 0
+        settings = self.config.notion
+        status = settings.prop("status")
+        wanted = dict.fromkeys(filter(None, (settings.state(key) for key in RESHAPED)))
+        try:
+            kind = self.client.schema(self.database).get(status, "status")
+            pages = [
+                page
+                for name in wanted
+                for page in self.client.query(
+                    self.database, {"property": status, kind: {"equals": name}}
+                )
+            ]
+        except store.Unreachable:
+            raise
+        except store.StoreError as error:
+            self.say(f"  ! the open tickets could not be read: {voice_module.line(error)}")
+            return 0
+        tickets = [Ticket(page) for page in pages]
+        seen = state.shaped([ticket.id for ticket in tickets])
+        left = [ticket for ticket in tickets if ticket.id not in seen]
+        reshaped = 0
+        for ticket in left[:RESHAPED_PER_PASS]:
+            try:
+                if self._reshape(ticket):
+                    reshaped += 1
+            except store.Unreachable:
+                raise
+            except store.StoreError as error:
+                self.say(f"  ! {ticket.title} — not put in two parts: {voice_module.line(error)}")
+                continue
+            state.shape(ticket.id)
+        if reshaped:
+            self.say(f"  ⇵ {reshaped} ticket page(s) put in two parts")
+        if len(left) <= RESHAPED_PER_PASS:
+            state.shape(state.EVERY_PAGE)
+        return reshaped
+
+    def _reshape(self, ticket: Ticket) -> bool:
+        """One page in two parts, unless it already is. Whether it was written."""
+        text = self.client.blocks_text(ticket.page.id, live=False)
+        if ticket_page.split(text).done:
+            return False
+        try:
+            said = self.comments(ticket.page.id)
+        except store.Unreachable:
+            raise
+        except store.StoreError:
+            # Comments an integration may not read: the part is the history alone.
+            said = []
+        last = next(
+            (comment.text for comment in reversed(said) if voice_module.is_report(comment.text)),
+            "",
+        )
+        history = [
+            ticket_page.history_line(self.voice, run, self.config.web.url)
+            for run in journal.history(ticket.id)
+        ]
+        self.client.replace_section(
+            ticket.page.id, ticket_page.DONE, ticket_page.section(self.voice, last, history)
+        )
+        return True
 
     def sweep(self) -> int:
         """Put back tickets a dead runner left claimed.

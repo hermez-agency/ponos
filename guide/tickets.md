@@ -4,6 +4,60 @@
 
 From the discussion on a ticket to *Done*: the statuses, the review, *Validated*, and the tickets that come back on their own.
 
+## A ticket's page: the mission, and what was done
+
+Every ticket's page has two parts, under two headings, and the same two for every ticket
+— in Notion, in a Markdown board, in the console:
+
+```markdown
+## Mission
+
+Remove the banner from the dashboard header.
+
+## Ce qui a été fait
+
+**Résultat** : ✅ banner removed from the template and its stylesheet
+
+**Pull request** : https://github.com/you/site/pull/12
+
+**What changed** — … **To validate** — … **Checked** — … **Not checked** — …
+**What remains** — …
+
+### Historique
+
+- 2026-11-06 09:00 · 12 minutes · 1,50 $ · ✅ https://github.com/you/site/pull/12 · [session](…)
+- 2026-11-06 14:20 · 4 minutes · 0,40 $ · ✅ the header test renamed · [session](…)
+```
+
+- **Mission** is yours — or the agent's that created the ticket. Ponos never rewrites it,
+  and it is the only part of the page a session is told, with the answers in the
+  comments: a ticket sent back to *Ready* does not hand its next session the reports of
+  the last ones, nor old answers to take for instructions.
+- **What was done** (« Ce qui a été fait ») is Ponos's. It is rewritten at the end of every
+  session, **replaced and never stacked**: the result in one sentence, the pull request,
+  the session's own report — what changed, the choices to validate, what was checked and
+  what was not, what remains —, then what is left to check. A ticket that asks for a text
+  has the text there. A session that did no work — out of credit, put back in the queue,
+  cut by the network — keeps the last report and only adds its line.
+- **The history**, at the bottom, is one line per session: date, duration, cost, result,
+  and a link to the session in the console's live tab, where every step is (with `[web]
+  url` set). It is read from the run journal of `ponos.db`, which is where the part is
+  written from — whatever holds the board, the format is the ticket's, not Notion's.
+
+The questions of a blocked ticket stay in the comments: that is where they are answered.
+The headings are written in the language of `runner.language` and recognised in either,
+at any level of heading. A ticket created by the console, the MCP connector, an agent, a
+channel, an incoming trigger, a schedule or the *Repair main* ticket starts with both
+headings; one written without them is all mission until its first session ends.
+
+The open tickets of a board written before this format — *Ready*, *Blocked*, *In review*
+and drafts — are put into it once, a few per pass: the page as it stands becomes the
+mission, the toggles the old live report left on it go, and « What was done » gets the
+last report Ponos commented and the sessions the journal has. *Done* and *Cancelled*
+tickets keep the page they ended with. The default template of your Notion board is
+yours to set: give it the two headings, `## Mission` and `## Ce qui a été fait` (or
+`## What was done`).
+
 ## The discussion on a ticket
 
 The comments of a ticket go into the prompt, oldest first, which closes the loop the
@@ -553,7 +607,8 @@ by hand between two passes just moves to *Done*. One closed without merging is a
 not a merge: *Blocked*, and the ticket says so.
 
 **A ticket with no pull request** is the other half, and the interesting one. The work
-already exists — an earlier run wrote it into the page, and you have just read it — so a
+already exists — an earlier run wrote it under « What was done », and you have just read
+it — so a
 session is started with one instruction: *publish this, do not rewrite it*. What
 publishing means comes from the ticket itself: post it to that account, send it to that
 list, put it on that page. It uses the tools the machine actually has (an MCP server, a

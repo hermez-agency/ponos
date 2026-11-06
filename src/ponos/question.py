@@ -277,6 +277,28 @@ def caveats(answer: str) -> list[str]:
     return said[-CAVEATS:]
 
 
+def prose(answer: str) -> str:
+    """A session's answer without the lines written for the runner at its end.
+
+    The RESULT line, the fields of a question, the caveats and the lesson are
+    each said elsewhere — the status, the comment, the list of what is left to
+    check — and what is above them is the report a person reads: that is what
+    a ticket's page keeps of the session (see ticket_page.py).
+    """
+    lines = str(answer or "").rstrip().splitlines()
+    while lines:
+        line = lines[-1].strip().strip("*_`").lstrip("-#> ").strip("*_` ")
+        if (
+            not line
+            or line.upper().startswith("RESULT")
+            or any(pattern.match(line) for pattern in (_FIELD, _CAVEAT, _LESSON))
+        ):
+            lines.pop()
+            continue
+        break
+    return "\n".join(lines).strip()
+
+
 def lesson(answer: str) -> str:
     """The durable fact about the project a session that ended ok wrote, or "".
 

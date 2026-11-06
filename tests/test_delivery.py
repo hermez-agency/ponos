@@ -225,7 +225,6 @@ def a_stuck_ticket_in_french_is_stuck_in_french_from_the_first_line_to_the_phone
             code="session.question",
             blocked=True,
             question="Audit déjà livré et validé : on le refait ?",
-            note=said.say("trace-in-page"),
         )
     finally:
         channels.announce = original
@@ -233,9 +232,9 @@ def a_stuck_ticket_in_french_is_stuck_in_french_from_the_first_line_to_the_phone
     assert comment == "🙋 Bloqué\nAudit déjà livré et validé : on le refait ?", comment
     assert sent and sent[0].startswith("🙋 Bloqué · p-stuck"), sent
     english = voice.Voice("en")
-    for key in ("verdict-blocked", "yes-or-no", "trace-in-page"):
+    for key in ("verdict-blocked", "yes-or-no"):
         assert english.say(key) not in comment + sent[0], key
-    # The folded block and the session's footer, said the same way.
+    # The session's footer, said the same way.
     assert said.count(130, "step") + " · " + said.minutes(19 * 60) == "130 étapes · 19 minutes"
     assert said.minutes(20.0) == "moins d'une minute"
     assert said.trace("claude --resume abc", "/tmp/log").startswith("Pour reprendre la session")

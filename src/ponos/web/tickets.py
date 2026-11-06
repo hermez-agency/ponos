@@ -40,6 +40,7 @@ from .. import (
     subtypes,
     sync,
     systemd,
+    ticket_page,
     timestamps,
     worktime,
 )
@@ -634,9 +635,12 @@ class Tickets(Base):
             self.config.runner.model,
         )
         # Only on the page, not on every card of the board: a prompt can be long.
+        parts = ticket_page.split(content)
         return {
             **card,
             "content": content,
+            "mission": parts.mission,
+            "done": parts.done,
             "on": str(store.read(page, settings.prop("on")) or ""),
             "previews": preview.listing(page_id),
         }
@@ -739,8 +743,9 @@ class Tickets(Base):
         if plan and kind in ("", "code"):
             values[settings.prop("plan")] = True
         page_id = self.runner.client.create_row(self.runner.database, title, values)
-        if body.strip():
-            self.runner.client.append_markdown(page_id, body)
+        # Both parts from the start, whoever writes it — the console, the MCP,
+        # an agent, a trigger: see ticket_page.py.
+        self.runner.client.append_markdown(page_id, ticket_page.template(self.runner.voice, body))
         self.watch.nudge()
         return {"id": page_id, "title": title}
 

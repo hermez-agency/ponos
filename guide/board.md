@@ -552,46 +552,32 @@ resolution follow the same rule. Turn it on to get the behaviour above unchanged
 
 #### Live, on the ticket itself
 
-A run used to say nothing between *In progress* and the pull request. Now it narrates:
-while the session works, its steps are written **into the ticket**, on a ten-second
-cadence.
+A run used to say nothing between *In progress* and the pull request. Now it narrates,
+in two places that answer two different questions — and neither of them is the ticket's
+page, which holds the mission and what was done (see
+[A ticket's page: the mission, and what was done](tickets.md#a-tickets-page-the-mission-and-what-was-done)).
 
-Two places, and they answer two different questions.
+- **The `Progress` column** carries the last step, on a ten-second cadence, so a glance
+  at the board — from a phone, without opening anything — shows which ticket is on
+  `Bash · npm test` and which is still reading. With a plan (the agent's todo list) it
+  says how far the plan is: `3/5 — writing the tests`. It is cleared when the run ends:
+  « What was done », the comment, the status and the pull request speak from then on.
+- **The console's live tab** has every step — what the agent said, whole and in its own
+  markdown, and each command, file read and edit between — read from the run journal
+  (see [The run journal](troubleshooting.md#the-run-journal)); `ponos logs -f` streams
+  the same from a terminal. The *Session* column of the board, and each line of the
+  history under « What was done », lead there.
 
-- **The page** gets one toggle per run — `⏳ Live — 12 steps · 3 minutes` — and under it
-  what the agent *said*, one paragraph after the other, whole and in its own markdown.
-  The commands, file reads and edits are counted in the title but never written: their
-  detail is in the run journal the console reads (see [The run journal](troubleshooting.md#the-run-journal)) and in
-  the log (`ponos logs -f`). Open it to follow the
-  work; leave it collapsed and its title alone tells you it is moving. When the
-  run ends the toggle settles into `✓ 27 steps · 6 minutes · removed the header`, and
-  stays as the story of what happened — or into `⚠️ Trace — 27 steps · 6 minutes`, with the
-  command that resumes the session and the path of its log inside, on a run that did not
-  get there. Its title follows `runner.language` like everything else the runner says.
-- **The `Progress` column** carries the last line, so a glance at the board — from a
-  phone, without opening anything — shows which ticket is on `Bash · npm test` and which
-  is still reading. It is cleared when the run ends: the comment, the status and the pull
-  request speak from then on.
-
-What the agent *said* is shown as it said it, on the page, in that column and on the
-console's card under *Ponos is working…*: the run does not rewrite it into a step of its
-own. So it is the prompt that sees to its language — with `runner.language` set, the
-sentence that asks for the report in that language asks for these lines too, as short,
-whole sentences rather than notes the agent leaves itself (“Now delivery around the
-claim.”). Without it, the agent keeps its own habits, which are often English.
-
-```
-⏳ Live — 12 steps · 3 minutes
-   I will remove the banner from the template and the stylesheet rules that
-   went with it, then run the tests.
-
-   The banner is gone and the tests pass. I stop my server and run the full
-   checks.
-```
+What the agent *says* is shown as it said it, in that column and on the console's card
+under *Ponos is working…*: the run does not rewrite it into a step of its own. So it is
+the prompt that sees to its language — with `runner.language` set, the sentence that asks
+for the report in that language asks for these lines too, as short, whole sentences
+rather than notes the agent leaves itself (“Now delivery around the claim.”). Without it,
+the agent keeps its own habits, which are often English.
 
 A **cadence, not a stream**: a session emits several events a second, and writing each one
-would rewrite the page continuously, spend the integration's rate limit and produce
-something nobody can read. Ten seconds is the default, five the floor:
+would spend the integration's rate limit for a line nobody can read that fast. Ten seconds
+is the default, five the floor:
 
 ```toml
 [runner]
@@ -599,24 +585,13 @@ progress = true
 progress_interval_seconds = 10
 ```
 
-What reaches the ticket is what the agent *says* — the part a human reads — and nothing
-else: no line per command, file read or edit, and no failed tool call either, since the
-agent's next sentence says what it made of it. It is not shortened: it goes down entire,
-and only a turn of several thousand characters is ever cut. A session that talks past
-three hundred paragraphs stops there, with a line saying so: a ticket page is not a log
-file. And a board with no `Progress` column, or an integration
-that refuses the write, costs the report and nothing else — the ticket runs to its end
-either way.
+A board with no `Progress` column, or an integration that refuses the write, costs the
+line and nothing else — the ticket runs to its end either way. `ponos init` adds the
+column to an existing board.
 
-The toggles are the page's, not the brief's. A ticket sent back to *Ready* is briefed on
-what you wrote and on the report each run ended on — the pull request, the answer — but
-never on the toggles: the next session does not pay for the steps of the last one, nor
-take them for instructions, and the console's view of a ticket leaves them out as well.
-They are recognised by their title, so a toggle of your own is still read. On a Markdown
-board, which has no toggle, the story of a run is written between `<!-- ponos:live -->`
-and `<!-- /ponos:live -->` and left out the same way.
-
-`ponos init` adds the column to an existing board; the toggles need nothing.
+Runs before this used to append a toggle per session to the page — `✓ 27 steps · 6
+minutes · removed the header`. Those still on a page are recognised by their title, left
+out of every brief, and taken away when the page is put in its two parts.
 
 #### From the terminal
 
@@ -690,13 +665,13 @@ https://github.com/you/site/pull/12
 
 Where the rest went: the machine that ran it is the board's *Runner* column, the session
 is its *Session* column — a link you click rather than a command you copy — and the
-command that resumes it, with the log path, is folded into the block the run writes its
-steps into, on the days a run went wrong. On the other days nobody has ever needed them.
+command that resumes it, with the log path, is said under the report on the days a run
+went wrong. On the other days nobody has ever needed them.
 
 The same line also travels into every prompt, so the summary at the top of a report, the
 document a ticket with no repository produces, the answers given in the comments and the
-sentences the session says while it works — the `Progress` column, the live block — are
-written in it too. What it does *not* touch is the repository: commit messages, code and
+sentences the session says while it works — the `Progress` column, the console's live
+tab — are written in it too. What it does *not* touch is the repository: commit messages, code and
 identifiers keep the language the repository already uses, because a branch is read by
 whoever works on it and not by whoever asked for it.
 
@@ -707,7 +682,8 @@ French comes back in French, under a report written in English. That is the runn
 has always behaved, and naming a language here is what replaces it with a decision.
 
 Everything the runner writes where you read it follows the setting: the comments under a
-ticket, the title of the folded block (`✓ 130 étapes · 19 minutes`), the line that resumes
+ticket, the two headings of its page (« Mission », « Ce qui a été fait ») and its history
+(`12 minutes · 1,50 $`), the line that resumes
 the session, the body of the pull requests it opens, the note about a branch a ticket
 already had, the line a ticket born of a schedule opens with, the answer it relays from
 Telegram or Slack, and the desktop and phone notifications. Only an error is quoted as it

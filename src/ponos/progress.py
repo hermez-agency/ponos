@@ -1,52 +1,39 @@
-"""What the session is doing, written into the ticket while it does it.
+"""What the session is doing, said on the board while it does it.
 
 A run used to be a black box: the ticket went to *In progress* and nothing more
-was said until the pull request arrived, half an hour later. The transcript was
-there all along — `ponos logs -f` streams it — but that means a terminal
-on the machine that runs the tickets, which is not where you are when you glance
-at the board from a phone.
+was said until the pull request arrived, half an hour later. Then the story
+went into the ticket itself: one folded block per run, appended to the page,
+holding every sentence the agent said. A ticket run three times ended on three
+of them, nobody could tell at a glance what stood done, and the page read as a
+brief could carry them into the next prompt. So the page is now the ticket's
+mission and what was done, rewritten at the end of each session (ticket_page.py),
+and the steps live where they are read step by step: the run journal
+(journal.py, which the console's live tab reads) and the log (`ponos logs -f`).
+`describe` feeds both.
 
-So the story goes **into the ticket**, as it happens. The run appends one toggle
-to the page and writes under it what the agent says it is doing: the page stays
-as short as it was, and the gist of the work is one click away. The toggle's own
-title carries the count of steps and the elapsed time, so a collapsed toggle
-still shows movement.
+What remains here is the one line of the board's `Progress` column, which a
+card shows from a phone without opening anything:
 
-Two things keep it from becoming noise, and they are the whole design:
+- **A cadence, not a stream.** Steps are counted and the last one published at
+  most once every `progress_interval_seconds` (ten by default). A session emits
+  several events a second; writing each one would spend the integration's rate
+  limit for a line nobody can read that fast.
+- **A percentage only from a plan.** The agent cannot know how many tool calls
+  it will make, so a share of steps would be a guess dressed as a figure. What
+  it does know is its todo list: `TodoWrite` becomes a `Plan` step whose detail
+  is the list, and the column says “3/5 — writing the tests” from it. No plan,
+  no figure: the column keeps saying the last thing done, and the console draws
+  a bar that does not claim a length.
 
-- **A cadence, not a stream.** Steps are buffered and written at most once every
-  `progress_interval_seconds` (ten by default). A session emits several events a
-  second; writing each one would rewrite the page continuously, spend the
-  integration's rate limit and produce something nobody can read.
-- **What was said, never what was done.** The page used to get a bullet per
-  tool call — “Bash · npx vite --port 5199”, “Read /tmp/portrait.png” — between
-  the agent's sentences, and a ticket became a log nobody reads twice: those
-  lines teach nothing to whoever opens it. Only the prose goes down now, whole,
-  one paragraph after the other, with its markdown honoured. A failed tool call
-  stays off too: the agent's next sentence says what it made of it. The calls
-  are still counted in the title and still shown, one at a time, in the board's
-  `Progress` column; their detail is the run journal's (journal.py, which the
-  console reads) and the log's (`ponos logs -f`) — `describe` feeds both.
-
-**A percentage only from a plan.** The agent cannot know how many tool calls it
-will make, so a share of steps would be a guess dressed as a figure. What it does
-know is its todo list: `TodoWrite` becomes a `Plan` step whose detail is the
-list, and the board's `Progress` column says “3/5 — writing the tests” from it.
-No plan, no figure: the column keeps saying the last thing done, and the console
-draws a bar that does not claim a length.
-
-Nothing here can fail a ticket. Every call to Notion is caught, and a page that
-refuses three writes in a row switches the whole thing off for the rest of the
-session — the work carries on, unreported.
+Nothing here can fail a ticket. Every call to the board is caught, and one that
+refuses three writes in a row switches the line off for the rest of the session.
 
 Nor can it slow one down. The steps come from the loop that reads the session's
 output, and a write to Notion can take minutes — four tries, each waiting out a
 429 —, during which nothing read the pipe: it filled, and the CLI stopped on its
-next write while its timeout kept running. A run's report is therefore written
-from **a thread of its own**: feeding it only buffers, and what piles up while
-Notion is slow goes down in one write when it answers. The buffer is bounded
-too: past `MAX_STEPS` paragraphs a page would not take them anyway, and the
-tool calls are only counted.
+next write while its timeout kept running. The line is therefore written from
+**a thread of its own**: feeding it only counts, and what piles up while Notion
+is slow goes down in one write when it answers.
 """
 
 from __future__ import annotations
@@ -60,27 +47,20 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from . import markdown, store
-from . import voice as voice_module
+from . import store
 
 logger = logging.getLogger(__name__)
 
 # The default cadence, in seconds. Ten is short enough to feel live and long
-# enough that a page is not rewritten under the reader's eyes.
+# enough that a card is not rewritten under the reader's eyes.
 CADENCE = 10.0
 
 # How much of a tool step survives into the board's column. A command, not a file.
 LINE = 200
 
-# How much of what the agent *said* survives. Generous on purpose: this is the
-# part a human actually reads, and the only thing that should ever shorten it is
-# a turn so long that a ticket page is the wrong place for it.
+# How much of what the agent *said* survives into a step. Generous on purpose:
+# this is the part a human actually reads, in the console's live tab.
 SAID = 5700
-
-# A ceiling on the paragraphs one session writes into its ticket. A long session
-# can make hundreds of tool calls without one too many, since they stay off the
-# page; but a turn after turn of prose without end is a log file again.
-MAX_STEPS = 300
 
 # Consecutive Notion refusals after which the reporting gives up for good.
 MAX_FAILURES = 3
@@ -244,24 +224,23 @@ def describe(event: dict[str, Any]) -> list[Step]:
     return steps
 
 
-# The titles `Live` gives its toggle, and has given it: “⏳ Live”, “⏳ Live — 4
-# steps · 2 minutes” while it runs, “✓ 12 steps · 9 minutes” once done, “⚠️ Trace
-# — 3 steps · …” when the run went wrong. Bold, all of it, as `_open` writes it.
+# The titles the live report gave the toggle it used to append to a ticket's
+# page: “⏳ Live”, “⏳ Live — 4 steps · 2 minutes” while it ran, “✓ 12 steps · 9
+# minutes” once done, “⚠️ Trace — 3 steps · …” when the run went wrong. Bold,
+# all of it.
 _LIVE_TITLE = re.compile(r"⏳ .+|✓ \d+ .+|⚠️ .+ — \d+ .+", re.DOTALL)
 
 
 def is_live(block: dict[str, Any]) -> bool:
-    """Whether a block of a page is one of the toggles this module wrote.
+    """Whether a block of a page is one of the toggles a run's live report left.
 
-    A ticket keeps the story of every run, and a page read as a brief must not:
-    a ticket sent back to *Ready* would hand its next session the journal of
-    the previous ones — tokens paid for nothing, and old steps an agent can
-    take for instructions. No marker of our own is needed to tell them apart,
-    and an older page has none anyway: the title is the mark, bold from end to
-    end, opening on the sign of a run — and, once it has settled, on how many
-    steps it counted. A
-    toggle somebody wrote by hand rarely looks like that, and costs only itself
-    if it does.
+    None is written any more, but the pages written before the format in two
+    parts (ticket_page.py) still hold them: a brief must not read them — old
+    steps an agent can take for instructions — and putting such a page into
+    its two parts takes them away. The title is the mark, bold from end to end,
+    opening on the sign of a run and, once it had settled, on how many steps it
+    counted. A toggle somebody wrote by hand rarely looks like that, and costs
+    only itself if it does.
     """
     if block.get("type") != "toggle":
         return False
@@ -274,24 +253,13 @@ def is_live(block: dict[str, Any]) -> bool:
     return bool(_LIVE_TITLE.fullmatch(title.strip()))
 
 
-def _paragraph(step: Step) -> dict[str, Any]:
-    """A sentence the agent wrote, as a sentence — whole, and in its own words.
-
-    Notion caps one piece of rich text at two thousand characters, not the block
-    that holds them, so a long turn is a handful of pieces and not a cut.
-    """
-    parts: list[dict[str, Any]] = []
-    for start in range(0, len(step.label), markdown.MAX_CONTENT):
-        parts += markdown.inline(step.label[start : start + markdown.MAX_CONTENT])
-    return {"object": "block", "type": "paragraph", "paragraph": {"rich_text": parts}}
-
-
 class Live:
-    """A ticket's live report: buffer the steps, write them on the cadence.
+    """A ticket's live line: buffer the steps, publish the last one on the cadence.
 
     Held by the job that runs the session, fed one event at a time, and closed
-    when the session ends. Everything it writes is additive — the toggle it
-    creates is its own, so a ticket run three times keeps the three stories.
+    when the session ends. It writes one thing, the board's `Progress` column:
+    the page is the ticket's mission and what was done (ticket_page.py), and
+    the steps are the run journal's.
     """
 
     def __init__(
@@ -302,8 +270,6 @@ class Live:
         database: str = "",
         property_name: str = "",
         interval: float = CADENCE,
-        heading: str = "",
-        words: voice_module.Voice | None = None,
         clock: Callable[[], float] = time.monotonic,
         say: Callable[[str], None] = lambda message: None,
         background: bool = False,
@@ -313,19 +279,13 @@ class Live:
         self.database = database
         self.property_name = property_name
         self.interval = max(1.0, float(interval))
-        # The block's title is read on the ticket, next to a report written in
-        # the configured language: “⏳ Live — 16 step(s)” under a French verdict
-        # was the runner speaking two languages in the same glance.
-        self.words = words or voice_module.Voice()
-        self.heading = heading or self.words.say("live")
         self.clock = clock
         self.say = say
         self.started = clock()
         self.written = 0
         self.disabled = False
-        # What waits for the next write: the paragraphs, how many steps in all,
-        # and the last of them — the only one the board's column shows.
-        self._pending: list[Step] = []
+        # What waits for the next write: how many steps, and the last of them
+        # — the only one the board's column shows.
         self._waiting = 0
         self._latest = ""
         self._lock = threading.Lock()
@@ -337,10 +297,7 @@ class Live:
         self._writer: threading.Thread | None = None
         self._closing = False
         self._plan: list[dict[str, str]] = []
-        self._toggle = ""
-        self._paragraphs = 0
         self._failures = 0
-        self._capped = False
 
     # -- feeding ------------------------------------------------------------
 
@@ -352,9 +309,8 @@ class Live:
     def add(self, step: Step) -> None:
         if self.disabled:
             return
-        # Two identical lines in a row say nothing the first one did not: an
-        # agent saying the same sentence twice would otherwise write it twice,
-        # and the same call made twice would count as two steps.
+        # Two identical lines in a row say nothing the first one did not: the
+        # same call made twice would otherwise count as two steps.
         with self._lock:
             if step.line == self._latest:
                 return
@@ -362,8 +318,6 @@ class Live:
             self._waiting += 1
             if step.label == PLAN:
                 self._plan = read_plan(step.detail)
-            if step.said and len(self._pending) < MAX_STEPS:
-                self._pending.append(step)
         if self.clock() - self._last_flush < self.interval:
             return
         if self.background:
@@ -398,41 +352,25 @@ class Live:
     # -- writing ------------------------------------------------------------
 
     def flush(self) -> int:
-        """Write what has accumulated. Returns how many steps were written."""
+        """Publish what has accumulated. Returns how many steps it counted."""
         self._last_flush = self.clock()
         if self.disabled:
             return 0
         with self._lock:
-            pending, self._pending = self._pending, []
             count, self._waiting = self._waiting, 0
             last = self._latest
         if not count:
             return 0
-        said = pending[: max(0, MAX_STEPS - self._paragraphs)]
-
-        if not self._open():
-            return 0
-        if said:
-            try:
-                self.client.append_blocks(self._toggle, [_paragraph(step) for step in said])
-            except store.StoreError as error:
-                self._failed(error)
-                return 0
-        self._failures = 0
         self.written += count
-        self._paragraphs += len(said)
-        self._retitle(f"⏳ {self.heading} — {self._tally()}")
         self._publish(summary(self._plan) or _one_line(last))
-        if self._paragraphs >= MAX_STEPS:
-            self._cap()
         return count
 
-    def close(self, note: str = "", *, ok: bool = True) -> None:
-        """Last flush, then the toggle stops saying it is live.
+    def close(self) -> None:
+        """Last flush, then the column stops saying what is being done.
 
-        A run that ended badly renames it rather than ticking it: the block is
-        no longer the story of a session, it is the trace of one, and it is
-        where the report sends whoever wants the rest — see `detail`.
+        The ticket's own report — its part « What was done », the comment, the
+        status, the pull request — is what speaks now; a column still showing
+        “Edit src/x.py” would be saying something that stopped being true.
 
         The session is over by now: waiting here for a write still under way
         holds up the report, never the work.
@@ -444,94 +382,10 @@ class Live:
         if self.disabled:
             return
         self.flush()
-        if not self._toggle:
-            return
-        tail = f" · {_one_line(note, 120)}" if note else ""
-        if ok:
-            self._retitle(f"✓ {self._tally()}{tail}")
-        else:
-            self._retitle(f"⚠️ {self.words.say('live-trace')} — {self._tally()}{tail}")
-        # The ticket's own report — the comment, the status, the pull request —
-        # is what speaks now; a column still showing “Edit src/x.py” would be
-        # saying something that stopped being true.
-        self._publish("")
+        if self.written:
+            self._publish("")
 
-    def detail(self, text: str) -> bool:
-        """One last paragraph inside the block, and whether it got there.
-
-        What a comment used to end on — the command that resumes the session,
-        the log, the worktree that was kept — said once, folded, and only when
-        a run went wrong. The answer matters to the caller: a block that was
-        never opened, or a page that refused three writes, is not somewhere a
-        trace can be left, and the report then carries it itself.
-        """
-        if self.disabled or not self._toggle or not str(text or "").strip():
-            return False
-        try:
-            self.client.append_blocks(self._toggle, [_paragraph(Step(_prose(text)))])
-        except store.StoreError as error:
-            self._failed(error)
-            return False
-        return True
-
-    # -- the page -----------------------------------------------------------
-
-    def _open(self) -> bool:
-        """Create the toggle, on the first step and not before.
-
-        Lazily, so a session that ends before it did anything leaves no empty
-        “Live” block behind on the ticket.
-        """
-        if self._toggle:
-            return True
-        try:
-            created = self.client.append_blocks(
-                self.page_id,
-                [
-                    {
-                        "object": "block",
-                        "type": "toggle",
-                        "toggle": {
-                            "rich_text": [
-                                {
-                                    "type": "text",
-                                    "text": {"content": f"⏳ {self.heading}"},
-                                    "annotations": {"bold": True},
-                                }
-                            ]
-                        },
-                    }
-                ],
-            )
-        except store.StoreError as error:
-            self._failed(error)
-            return False
-        if not created:
-            self.disabled = True
-            return False
-        self._toggle = created[0]
-        return True
-
-    def _retitle(self, title: str) -> None:
-        if not self._toggle:
-            return
-        try:
-            self.client.update_block(
-                self._toggle,
-                {
-                    "toggle": {
-                        "rich_text": [
-                            {
-                                "type": "text",
-                                "text": {"content": title[:LINE]},
-                                "annotations": {"bold": True},
-                            }
-                        ]
-                    }
-                },
-            )
-        except store.StoreError as error:
-            self._failed(error)
+    # -- the board ----------------------------------------------------------
 
     def _publish(self, line: str) -> None:
         """The current step, in the board's own column — when there is one."""
@@ -541,30 +395,8 @@ class Live:
             self.client.update(self.database, self.page_id, {self.property_name: line})
         except store.StoreError as error:
             self._failed(error)
-
-    def _cap(self) -> None:
-        """Enough. The paragraphs stop; the count and the title go on.
-
-        A ticket page is not a log file, and a session that talks for hours
-        would turn it into one. What stops here is the *page* — the run carries
-        on, its title keeps counting, and `close` still says how it ended.
-        """
-        if self._capped:
             return
-        self._capped = True
-        if not self._toggle:
-            return
-        try:
-            self.client.append_blocks(
-                self._toggle,
-                [_paragraph(Step("… " + self.words.say("too-many-steps", count=MAX_STEPS)))],
-            )
-        except store.StoreError:
-            pass
-
-    def _tally(self) -> str:
-        elapsed = self.clock() - self.started
-        return f"{self.words.count(self.written, 'step')} · {self.words.minutes(elapsed)}"
+        self._failures = 0
 
     def _failed(self, error: store.StoreError) -> None:
         self._failures += 1

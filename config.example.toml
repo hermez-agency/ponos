@@ -439,15 +439,16 @@ session_host = ""
 # answer it with one word.
 notify = true
 
-# The steps of a running session, written into its own ticket while it happens.
-# The run opens one toggle on the page — “⏳ Live — 12 steps · 3 minutes” — and
-# drops a line under it per file read, per command run, per sentence the agent
-# says. The `Progress` column of the board carries the last one, so a glance at
-# the board is enough to see a ticket move.
+# The last step of a running session, in the `Progress` column of its ticket:
+# “Bash · npm test”, or “3/5 — writing the tests” once the agent keeps a plan.
+# A glance at the board is enough to see a ticket move. The page itself is never
+# written while the session runs — it holds the mission and « What was done »,
+# rewritten at the end — and every step is in the run journal the console's
+# live tab reads.
 #
 # A cadence, not a stream: a session emits several events a second, and writing
-# each one would rewrite the page continuously for nothing. Ten seconds reads as
-# live; five is the floor. The log stays the place for everything else:
+# each one would rewrite the column continuously for nothing. Ten seconds reads
+# as live; five is the floor. The log stays the place for everything else:
 #   ponos logs -f
 progress = true
 progress_interval_seconds = 10

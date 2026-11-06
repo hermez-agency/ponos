@@ -72,6 +72,7 @@ from . import (
     state,
     store,
     subtypes,
+    ticket_page,
 )
 from . import prompt as prompt_module
 from . import voice as voice_module
@@ -779,12 +780,15 @@ class Delivery(Base):
                 state.repairing(repository, base, page_id)
                 self.client.append_markdown(
                     page_id,
-                    said.say(
-                        "repair-body",
-                        base=base,
-                        project=project.name or repository,
-                        jobs=jobs or "-",
-                        url=url,
+                    ticket_page.template(
+                        said,
+                        said.say(
+                            "repair-body",
+                            base=base,
+                            project=project.name or repository,
+                            jobs=jobs or "-",
+                            url=url,
+                        ),
                     ),
                 )
             except store.StoreError as error:
@@ -1534,7 +1538,7 @@ class Delivery(Base):
             branch="",
             base="",
             workdir=state_dir() / "scratch" / f"deliver-{short}",
-            body=self._body(ticket),
+            body=self._body(ticket, done=True),
             session_id=session.new_id(),
             log=state.log_file(short),
             model=str(store.read(ticket.page, self.config.notion.prop("model")) or ""),

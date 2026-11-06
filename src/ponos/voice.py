@@ -286,10 +286,6 @@ _SAID: dict[str, dict[str, str]] = {
     "because": {"en": "{category}: {why}", "fr": "{category} : {why}"},
     # A line of a review report: what the session could not check itself.
     "caveat": {"en": "To check: {text}", "fr": "À vérifier : {text}"},
-    "trace-in-page": {
-        "en": "What it did is in the folded block at the bottom of the page.",
-        "fr": "Ce qu'il a fait est dans le bloc replié en bas de la page.",
-    },
     "trace": {
         "en": "To pick the session back up: `{resume}`{picker}. Its log is `{log}`.",
         "fr": "Pour reprendre la session : `{resume}`{picker}. Son journal est `{log}`.",
@@ -1156,10 +1152,6 @@ _SAID: dict[str, dict[str, str]] = {
         "fr": "*Né de la récurrence « {name} », {stamp}* — {url}",
     },
     # -- the folded block, when it is longer than it is worth ------------------
-    "too-many-steps": {
-        "en": "more than {count} paragraphs — the rest is in the log",
-        "fr": "plus de {count} paragraphes — la suite est dans le journal",
-    },
     # -- talking in a thread --------------------------------------------------
     "no-reply": {
         "en": "I could not answer this one: {error}.\nIts log is `{log}`.",
@@ -1468,18 +1460,32 @@ _SAID: dict[str, dict[str, str]] = {
     "minute": {"en": "{count} minute", "fr": "{count} minute"},
     "minutes": {"en": "{count} minutes", "fr": "{count} minutes"},
     "under-a-minute": {"en": "under a minute", "fr": "moins d'une minute"},
-    # -- the folded block a run leaves on the page ----------------------------
-    # Its title, while the session runs and once it is over. A failed run calls
-    # it a trace, because that is what somebody opens it for.
-    "live": {"en": "Live", "fr": "En cours"},
-    "live-trace": {"en": "Trace", "fr": "Trace"},
-    "live-interrupted": {"en": "interrupted", "fr": "interrompu"},
-    "live-stopped": {"en": "stopped", "fr": "arrêté"},
-    "live-blocked": {"en": "it asked a question", "fr": "il a posé une question"},
-    "live-waiting": {
-        "en": "out of credit — it will be picked up again",
-        "fr": "crédits épuisés — il sera repris",
+    # -- a ticket's page, in its two parts — see ticket_page.py ----------------
+    # The headings are read back as well as written: every language's is
+    # recognised, whatever the runner speaks today.
+    "page-mission": {"en": "Mission", "fr": "Mission"},
+    "page-done": {"en": "What was done", "fr": "Ce qui a été fait"},
+    "page-history": {"en": "History", "fr": "Historique"},
+    "page-done-empty": {
+        "en": "Nothing yet: Ponos rewrites this part at the end of every session.",
+        "fr": "Rien encore : Ponos réécrit cette partie à la fin de chaque session.",
     },
+    "page-result": {"en": "**Result:** {text}", "fr": "**Résultat** : {text}"},
+    "page-pull-request": {"en": "**Pull request:** {url}", "fr": "**Pull request** : {url}"},
+    "page-to-check": {"en": "Left to check", "fr": "Reste à vérifier"},
+    "page-question-in-comments": {
+        "en": "The question it asks is in the comments: answer it there.",
+        "fr": "La question posée est dans les commentaires : c'est là qu'on y répond.",
+    },
+    "page-session": {"en": "session", "fr": "session"},
+    "page-status-done": {"en": "done", "fr": "terminé"},
+    "page-status-blocked": {"en": "it asked a question", "fr": "il a posé une question"},
+    "page-status-failed": {"en": "it failed", "fr": "échec"},
+    "page-status-waiting": {"en": "out of credit", "fr": "crédits épuisés"},
+    "page-status-interrupted": {"en": "interrupted", "fr": "interrompu"},
+    "page-status-requeued": {"en": "put back in the queue", "fr": "remis dans la file"},
+    "page-status-stopped": {"en": "stopped", "fr": "arrêté"},
+    "page-status-other": {"en": "ended", "fr": "terminé"},
     # -- what the session is told to write in ---------------------------------
     # Not a report: the sentence handed to `prompt.build`, which is why it is
     # written *to* the session and not about it — and why both rows are in

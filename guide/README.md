@@ -44,6 +44,7 @@ How to install Ponos, configure it and use it, one page per subject. Working on 
 
 ## [A ticket's life](tickets.md)
 
+- [A ticket's page: the mission, and what was done](tickets.md#a-tickets-page-the-mission-and-what-was-done)
 - [The discussion on a ticket](tickets.md#the-discussion-on-a-ticket)
 - [Talking to it in the comments](tickets.md#talking-to-it-in-the-comments)
 - [Looking again at what is blocked](tickets.md#looking-again-at-what-is-blocked)

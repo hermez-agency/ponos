@@ -1047,6 +1047,7 @@ class _DraftClient(_ColumnsClient):
     def __init__(self, statuses: list[str]) -> None:
         super().__init__(statuses)
         self.created: list[tuple[str, dict[str, Any]]] = []
+        self.bodies: list[str] = []
 
     def options(self, database: str, prop: str) -> list[str]:
         return ["draft", *super().options(database, prop)]
@@ -1054,6 +1055,10 @@ class _DraftClient(_ColumnsClient):
     def create_row(self, database_id: str, title: str, values: dict[str, Any] | None = None) -> str:
         self.created.append((title, dict(values or {})))
         return "f" * 32
+
+    def append_markdown(self, page_id: str, markdown: str) -> int:
+        self.bodies.append(markdown)
+        return 1
 
 
 class _PlanClient(_DraftClient):
@@ -1089,7 +1094,8 @@ def a_ticket_with_no_status_is_a_draft_and_a_draft_is_written_draft() -> None:
     """
     quiet = type("W", (), {"nudge": lambda self: None})()
 
-    api = _bare_api(_DraftClient(["draft", "ready", ""]))
+    client = _DraftClient(["draft", "ready", ""])
+    api = _bare_api(client)
     assert api._runner is not None
     api._runner._workspace = type("W", (), {"goals": "", "projects": "", "tickets": "db"})()
     api._schema_at = time.time()
@@ -1101,6 +1107,9 @@ def a_ticket_with_no_status_is_a_draft_and_a_draft_is_written_draft() -> None:
     assert [item["column"] for item in board["tickets"]] == ["draft", "draft", "ready"]
     api.create_ticket("Écrire l'audit", ready=False)
     api.create_ticket("Lancer l'audit", ready=True)
+    # A ticket comes with its two parts, even one that is all title.
+    assert len(client.bodies) == 2, client.bodies
+    assert all(body.startswith("## Mission\n\n## What was done") for body in client.bodies)
     assert api._runner is not None
     assert [
         values.get("statut") for _, values in cast(_DraftClient, api._runner.client).created

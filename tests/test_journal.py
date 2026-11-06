@@ -8,10 +8,12 @@ import logging
 import os
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 from support import case
 
+from ponos import config as C
 from ponos import db, journal, models, notion, state
 from ponos import ticket as ticket_module
 from ponos.__main__ import main as cli_main
@@ -224,6 +226,18 @@ def every_road_out_of_a_ticket_closes_its_run(state_home: Path) -> None:
     try:
         runner = Runner.__new__(Runner)
         runner._journals = {}
+        runner.config = C.Config(
+            notion=C.Notion(), runner=C.Runner(), projects={}, path=Path("/nowhere")
+        )
+        runner.dry_run = False
+        written: list[str] = []
+
+        def replace_section(page: str, titles: object, text: str) -> int:
+            written.append(text)
+            return 1
+
+        # A fake: only the part it writes.
+        runner.client = SimpleNamespace(replace_section=replace_section)
         ticket = ticket_module.Ticket(notion.Page(id="b" * 32, url="", title="t"))
         runner._journals[ticket.id] = journal.Run.start(ticket=ticket.id)
         result = {
@@ -236,6 +250,9 @@ def every_road_out_of_a_ticket_closes_its_run(state_home: Path) -> None:
         (closed,) = journal.runs(ticket.id)
         assert (closed["status"], closed["reason"]) == ("blocked", "which header?")
         assert not runner._journals, "closed once, and forgotten"
+        # And the ticket's page says so, in its part « What was done ».
+        assert written and written[-1].startswith("## What was done"), written
+        assert "which header?" in written[-1]
         # A ticket's work that ran no session has no run to close.
         assert runner._guarded(ticket, lambda: None) is None
     finally:

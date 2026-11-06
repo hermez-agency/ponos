@@ -1622,7 +1622,7 @@ def _repairing(
     url = "https://github.com/x/y/pull/1"
     page = _reviewed("p1", "progress", url)
     runner = _board_runner([page], {})
-    runner._body = lambda ticket: "Le titre est faux."  # type: ignore[method-assign]  # a double: the ticket's body
+    runner._body = lambda ticket, done=False: "Le titre est faux."  # type: ignore[method-assign, misc]  # a double: the ticket's body
     runner._add_cost = lambda *args: None  # type: ignore[method-assign]  # a double: nothing paid
     sessions: list[tuple[Any, ...]] = []
     heads = list(heads)

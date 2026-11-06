@@ -631,6 +631,17 @@ def _pr_reviews(connection: sqlite3.Connection) -> None:
     )
 
 
+def _pages_in_two_parts(connection: sqlite3.Connection) -> None:
+    # What each session wrote in its ticket's part « What was done », kept
+    # with its run so that the part can be written again from here whatever
+    # holds the ticket — and the tickets whose page was put into that shape
+    # once, so that it is not read again for it (ticket_page.py, board.py).
+    connection.execute("ALTER TABLE runs ADD COLUMN report TEXT NOT NULL DEFAULT ''")
+    connection.execute(
+        "CREATE TABLE page_formats (ticket TEXT PRIMARY KEY, at TEXT NOT NULL DEFAULT '')"
+    )
+
+
 def _kind_switches(connection: sqlite3.Connection) -> None:
     # The tickets a session ran as a text or an action said were code, and the
     # runner made code and put back in ready (execution.py): once a ticket.
@@ -966,6 +977,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     _push_subscriptions,
     _hooks,
     _pr_reviews,
+    _pages_in_two_parts,
 )
 
 # Any way a read or a write of the database can fail. A note the runner keeps

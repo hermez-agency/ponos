@@ -68,7 +68,6 @@ def _asking(
             code="session.question",
             blocked=True,
             question=question,
-            note=runner.voice.say("trace-in-page"),
         )
     finally:
         channels.announce = original

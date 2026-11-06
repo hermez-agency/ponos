@@ -128,6 +128,8 @@ function ticket(change: Partial<TicketDetail> = {}): TicketDetail {
     created: "",
     edited: "2026-10-01T10:00:00.000Z",
     content: "",
+    mission: "",
+    done: "",
     ...change,
   }
 }

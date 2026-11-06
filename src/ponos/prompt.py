@@ -108,6 +108,12 @@ repository already uses. **Do not push** and do not open a pull request: that is
 the runner's job.
 5. If the request is too ambiguous to settle alone, or if the ticket does not \
 match this repository, do not guess: commit nothing and explain what is missing.
+6. Before the final line, write a short report in Markdown: it becomes the \
+ticket's part « What was done », under the result and the pull request the \
+runner writes there itself. Say, in this order and each in a few lines, leaving \
+out what has nothing to say: **What changed**, **To validate** (the choices \
+you made that someone should confirm), **Checked** (what you ran and what it \
+said), **Not checked**, **What remains**. No heading above them.
 {language}
 End with a final line, exactly one of these two. It is read on a phone, as a \
 notification, so it is one sentence of under 200 characters and it is cut where \

@@ -35,7 +35,7 @@ them on the program's normal path:
   four options on one line, so that `2`, *la 2* or the option's own words answer it;
   **free** is the question alone, saying what to give. The session hands these over as
   `DONE:`, `WHY:`, `QUESTION:`, `MODE:` and `OPTION:` lines before its `RESULT`; the
-  checks and the logs stay in the folded block. However it arrives — in Notion, from
+  checks go under « What was done » on the page, and the steps stay in the run journal. However it arrives — in Notion, from
   Telegram or Slack, from the console — the answer reaches the next run with the
   question and the option it chose. A prompt file of your own that does not ask for these
   lines blocks as before, with its `RESULT` line as a free question.

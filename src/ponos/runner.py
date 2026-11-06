@@ -122,6 +122,7 @@ class Runner(
         else:
             if not self.dry_run:
                 self.sweep()
+                self.reshape()
                 self.close_merged()
                 # Here rather than after the work: a pass with nothing ready
                 # returns before it gets there, and that is most passes.

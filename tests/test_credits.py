@@ -176,7 +176,7 @@ def a_board_without_the_attribute_puts_the_ticket_back_and_says_nothing() -> Non
     assert runner.waiting_flag() == "", "nothing to tick, and nothing pretends there is"
 
 
-def _that_failed(page: notion.Page, *, folded: bool) -> tuple[Runner, list[str], dict[str, Any]]:
+def _that_failed(page: notion.Page) -> tuple[Runner, dict[str, Any]]:
     """A document ticket whose session stopped, run to its report."""
     runner = _board_runner([page], {})
     runner.config.runner.auto_update = False
@@ -198,7 +198,6 @@ def _that_failed(page: notion.Page, *, folded: bool) -> tuple[Runner, list[str],
         )
 
     runner._run_session = stopped  # type: ignore[assignment, method-assign]  # a double: no session
-    filed: list[str] = []
     job = ticket_module.Job(
         ticket_module.Ticket(page),
         projects.Project(name="", path=None),
@@ -206,50 +205,23 @@ def _that_failed(page: notion.Page, *, folded: bool) -> tuple[Runner, list[str],
         base="",
         workdir=Path(tempfile.mkdtemp()) / "doc",
     )
-    if folded:
-
-        class Folded:
-            def detail(self, text: str) -> bool:
-                filed.append(text)
-                return True
-
-        job.live = Folded()  # type: ignore[assignment]  # a double: only the folded block
     result = runner._execute_document(job)
     assert result is not None
-    return runner, filed, result
+    return runner, result
 
 
 @case
-def a_run_that_failed_says_what_to_do_and_folds_the_rest_into_the_page() -> None:
-    """A report used to end on the session id, the log path and the directory
-    to resume from — three lines of machinery pushed to a phone every time.
+def a_run_that_failed_keeps_its_trace_under_its_verdict() -> None:
+    """The way back into a failed session is said once, under the verdict.
 
-    They are not gone, they are folded: the block the run already wrote its
-    steps into takes them, and the report spends its lines on the verdict.
+    A run used to fold it into the toggle its steps went into; the page holds
+    no such toggle any more (ticket_page.py), so it stays where it can be read.
     """
-    runner, filed, result = _that_failed(_reviewed("p-doc", "progress", None), folded=True)
+    runner, result = _that_failed(_reviewed("p-none", "progress", None))
     assert result["status"] == "failed"
     said = _board(runner).comments_written[0]
-    assert said.splitlines() == [
-        "⚠️ Failed — The session did not make it to the end.",
-        "npm test exited 1",
-        "What it did is in the folded block at the bottom of the page.",
-    ], said
-    assert "claude --resume s-1" not in said
-    assert filed == [
-        "To pick the session back up: `claude --resume s-1`. Its log is `/logs/x.jsonl`."
-    ]
-
-
-@case
-def a_ticket_whose_run_wrote_no_block_keeps_the_trace_under_its_verdict() -> None:
-    """`runner.progress = false`, or a Notion that refused: the trace has
-    nowhere to be folded into, so it stays where it can be read."""
-    runner, filed, _ = _that_failed(_reviewed("p-none", "progress", None), folded=False)
-    said = _board(runner).comments_written[0]
-    assert filed == []
-    assert said.endswith("Its log is `/logs/x.jsonl`.")
     assert said.startswith("⚠️ Failed — ")
+    assert said.endswith("Its log is `/logs/x.jsonl`.")
 
 
 def _answered_on(comments: list[str], answer: str, write: str) -> tuple[Runner, dict[str, Any]]:

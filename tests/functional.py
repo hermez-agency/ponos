@@ -278,6 +278,11 @@ class Board:
             return 200, {"results": self._append(identifier, body.get("children", []))}
         if route == ("PATCH", "blocks", "*"):
             return 200, self._retitle(identifier, body)
+        if route == ("DELETE", "blocks", "*"):
+            # Archived, as Notion does: gone from its parent's children.
+            for parent, held in self.blocks.items():
+                self.blocks[parent] = [block for block in held if block["id"] != identifier]
+            return 200, {"object": "block", "id": identifier, "archived": True}
         if route == ("GET", "comments"):
             page = (query.get("block_id") or [""])[0].replace("-", "")
             return 200, {
@@ -465,6 +470,9 @@ class _Handler(BaseHTTPRequestHandler):
 
     def do_PATCH(self) -> None:
         self._answer("PATCH")
+
+    def do_DELETE(self) -> None:
+        self._answer("DELETE")
 
     def log_message(self, *args: object) -> None:
         """A test suite that narrates every request is a test suite nobody reads."""
@@ -2093,12 +2101,12 @@ def _running(pid: int) -> bool:
 
 @case
 @runner_settings(progress=True)
-def the_page_keeps_what_the_agent_said_and_the_journal_every_step(machine: Bench) -> None:
-    """The ticket gets the gist; the console, reading the journal, gets the rest.
+def the_page_keeps_the_report_and_the_journal_every_step(machine: Bench) -> None:
+    """The ticket gets what was done; the console, reading the journal, gets the rest.
 
-    A sentence and a command, from one session: the sentence goes onto the
-    page, under the live block, and the command does not — it is in the
-    journal, beside the sentence, in the order they came.
+    A sentence and a command, from one session: neither goes onto the page —
+    the step by step is the journal's, in the order they came — and the page
+    ends on its part « What was done », the session's result in one sentence.
     """
     repository = machine.repository("site")
     project = machine.project("Site", repository)
@@ -2107,11 +2115,13 @@ def the_page_keeps_what_the_agent_said_and_the_journal_every_step(machine: Bench
     results = machine.run()
 
     assert results and results[0]["status"] == "done", results
-    page = "\n".join(machine.board.body(key) for key in list(machine.board.blocks))
-    assert "Le titre est faux, corrige-le." in page, page
-    assert "J'écris FAKE.md puis je le commite." in page, page
-    assert "RESULT: ok — un fichier écrit et commité" in page, page
+    page = machine.board.body(ticket)
+    mission, done = page.split("What was done")
+    assert "Le titre est faux, corrige-le." in mission, page
+    assert "un fichier écrit et commité" in done, page
+    assert "J'écris FAKE.md puis je le commite." not in page, page
     assert "git commit" not in page and "Bash" not in page, "a command was written onto the ticket"
+    assert not [block for block in machine.board.blocks[ticket] if block["type"] == "toggle"]
     (run,) = journal.runs(ticket)
     kinds = [step["kind"] for step in journal.steps(run["id"])["steps"]]
     assert kinds == ["said", "tool", "said"], kinds
@@ -2152,13 +2162,12 @@ def a_writing_ticket_is_answered_in_its_page_and_touches_no_repository(machine: 
 @case
 @runner_settings(progress=True)
 def a_ticket_run_again_is_not_briefed_on_its_previous_run(machine: Bench) -> None:
-    """Ready a second time: the session reads the brief, not the last run's story.
+    """Ready three times: one part « What was done », three lines of history.
 
-    Each run leaves its live report on the page, folded in a toggle. A ticket
-    sent back to Ready that handed all of it to its next session would pay for
-    every step of every earlier run, at every run — and hand it old steps to
-    take for instructions. The answer the first run wrote stays: it is part of
-    what the page now says.
+    The part is replaced at the end of every session, never stacked, and a
+    session is told the mission alone: a ticket sent back to Ready that handed
+    its next session every earlier report would pay for them at every run —
+    and hand it old answers to take for instructions.
     """
     project = machine.project("Lettre d'information", None)
     ticket = machine.ticket("Rédiger l'édito", "Deux paragraphes sur l'automne.", project)
@@ -2166,23 +2175,29 @@ def a_ticket_run_again_is_not_briefed_on_its_previous_run(machine: Bench) -> Non
     with _environ({"FAKE_CLAUDE_SAY": "Je relis d'abord la charte éditoriale."}):
         results = machine.run()
     assert results[0]["status"] == "done", results
-    toggles = [block for block in machine.board.blocks[ticket] if block["type"] == "toggle"]
-    assert len(toggles) == 1 and toggles[0]["has_children"], machine.board.blocks[ticket]
-    story = machine.board.blocks[toggles[0]["id"]]
-    assert any("la charte éditoriale" in str(block) for block in story), story
+    for _ in range(2):
+        machine.move(ticket, "ready")
+        results = machine.run()
+        assert results[0]["status"] == "done", results
 
-    machine.move(ticket, "ready")
-    machine.board.requests.clear()
-    results = machine.run()
-    assert results[0]["status"] == "done", results
+    blocks = machine.board.blocks[ticket]
+    headings = [
+        "".join(part["plain_text"] for part in block["heading_2"]["rich_text"])
+        for block in blocks
+        if block["type"] == "heading_2"
+    ]
+    assert headings == ["What was done"], headings
+    history = [block for block in blocks if block["type"] == "bulleted_list_item"]
+    assert len(history) == 3, machine.board.body(ticket)
+    assert machine.board.body(ticket).count("La réponse.") == 1, machine.board.body(ticket)
+    assert not [block for block in blocks if block["type"] == "toggle"], blocks
+    assert "la charte éditoriale" not in machine.board.body(ticket), "a step reached the page"
 
-    prompt = machine.sessions()[-1]["prompt"]
-    assert "Deux paragraphes sur l'automne." in prompt, prompt
-    assert "La réponse." in prompt, "the answer the first run wrote is still the page's"
-    assert "la charte éditoriale" not in prompt, "the first run's story reached the second"
-    assert f"GET /v1/blocks/{toggles[0]['id']}/children" not in machine.board.requests, (
-        "the first run's toggle was opened to be skipped"
-    )
+    for later in machine.sessions()[1:]:
+        prompt = later["prompt"]
+        assert "Deux paragraphes sur l'automne." in prompt, prompt
+        assert "La réponse." not in prompt, "an earlier report reached the next session"
+        assert "What was done" not in prompt and "History" not in prompt, prompt
 
 
 @case
