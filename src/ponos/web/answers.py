@@ -840,6 +840,19 @@ class Dictation(Shape):
     send: bool
 
 
+class Speaking(Shape):
+    ready: bool
+    why: str
+    """Why the voice cannot be offered (off, or Piper absent); empty when it can."""
+
+
+class SpeechPlan(Shape):
+    """What of a reply is worth saying aloud, a sentence per item."""
+
+    sentences: list[str]
+    language: str
+
+
 class ChatState(Shape):
     id: str = omitted()
     """The console's own identifier of the open session, not Claude Code's."""
@@ -858,6 +871,8 @@ class ChatState(Shape):
     """What a message may carry: the extensions the server keeps, and how heavy."""
     dictation: Dictation = omitted()
     """Whether the microphone can be offered, and why not when it cannot."""
+    speech: Speaking = omitted()
+    """Whether the voice can be offered (Piper installed, on), and why not when it cannot."""
     queue: list[Queued] = omitted()
     """What was said while a turn ran, in order: sent one by one after it."""
     held: bool = omitted()

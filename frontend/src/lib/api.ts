@@ -300,6 +300,24 @@ export const api = {
         fetch: carrying(audio),
       })
     ),
+  /* The sentences of a reply worth saying aloud (the server drops code, tables
+   * and markup); `final` false holds back a sentence still being written. */
+  speakPlan: (text: string, language: string, final: boolean) =>
+    answer(client.POST("/api/chat/speak/plan", { body: { text, lang: language, final } })),
+  /* One sentence as a WAV, synthesised by Piper on the runner's machine. The
+   * sound is not JSON, so it does not go through `answer`. */
+  speak: async (text: string, language: string): Promise<ArrayBuffer> => {
+    const { data, response, error } = await client.POST("/api/chat/speak", {
+      body: { text, lang: language, final: true },
+      parseAs: "arrayBuffer",
+    })
+    if (response.status === 401) backToTheDoor()
+    if (!response.ok || !data) {
+      const said = refusal(error)
+      throw new ApiError(said.error || silent(response.status), response.status)
+    }
+    return data as ArrayBuffer
+  },
   resetChat: () => answer(client.POST("/api/chat/reset")),
   sessions: (query = "") => answer(client.GET("/api/chat/sessions", { params: { query: { q: query } } })),
   openSession: (id: string) =>

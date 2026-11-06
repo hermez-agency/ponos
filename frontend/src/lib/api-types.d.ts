@@ -1517,6 +1517,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/chat/speak/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Speak Plan */
+        post: operations["speak_plan_api_chat_speak_plan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/chat/speak": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Speak
+         * @description One sentence of a reply, spoken: a WAV, synthesised by Piper on this machine.
+         */
+        post: operations["speak_api_chat_speak_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/chat/model": {
         parameters: {
             query?: never;
@@ -2370,6 +2407,8 @@ export interface components {
             attachments?: components["schemas"]["Accepted"];
             /** @description Whether the microphone can be offered, and why not when it cannot. */
             dictation?: components["schemas"]["Dictation"];
+            /** @description Whether the voice can be offered (Piper installed, on), and why not when it cannot. */
+            speech?: components["schemas"]["Speaking"];
             /** @description What was said while a turn ran, in order: sent one by one after it. */
             queue?: components["schemas"]["Queued"][];
             /** @description A turn ended before its time: the queue waits to be sent or thrown away. */
@@ -2469,6 +2508,8 @@ export interface components {
             attachments?: components["schemas"]["Accepted"];
             /** @description Whether the microphone can be offered, and why not when it cannot. */
             dictation?: components["schemas"]["Dictation"];
+            /** @description Whether the voice can be offered (Piper installed, on), and why not when it cannot. */
+            speech?: components["schemas"]["Speaking"];
             /** @description What was said while a turn ran, in order: sent one by one after it. */
             queue?: components["schemas"]["Queued"][];
             /** @description A turn ended before its time: the queue waits to be sent or thrown away. */
@@ -3838,6 +3879,17 @@ export interface components {
             saved: string[];
             after: string[];
         };
+        /** @description A reply, or a part of one, to be read aloud — see `speech.plan`. */
+        Say: {
+            /** @default  */
+            text: string;
+            /** @default  */
+            lang: string;
+            /** @default true */
+            final: boolean;
+        } & {
+            [key: string]: unknown;
+        };
         /** @description One row of the Schedules database: a recipe for a ticket, and how often it is born. */
         Schedule: {
             id: string;
@@ -4248,6 +4300,16 @@ export interface components {
             number: number;
             /** @description The choice in the runner's words, as the ticket will be told it. */
             label: string;
+        };
+        Speaking: {
+            ready: boolean;
+            /** @description Why the voice cannot be offered (off, or Piper absent); empty when it can. */
+            why: string;
+        };
+        /** @description What of a reply is worth saying aloud, a sentence per item. */
+        SpeechPlan: {
+            sentences: string[];
+            language: string;
         };
         /** @description The statistics of one period — `web/statistics.py`. */
         Statistics: {
@@ -8041,6 +8103,70 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ChatState"];
+                };
+            };
+        };
+    };
+    speak_plan_api_chat_speak_plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["Say"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpeechPlan"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    speak_api_chat_speak_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["Say"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -1,6 +1,7 @@
 import * as React from "react"
 import { useChat, type UIMessage } from "@tanstack/ai-react"
 import { PaperclipIcon, SquarePenIcon } from "lucide-react"
+import { toast } from "sonner"
 
 import { ChatConversation } from "@/components/chat/chat-conversation"
 import { ChatMessage } from "@/components/chat/chat-message"
@@ -9,10 +10,13 @@ import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useConsole, type Entry } from "@/hooks/use-console"
 import { hotkeyLabel, useHotkeys } from "@/hooks/use-hotkeys"
+import { useSpeaker } from "@/hooks/use-speaker"
+import { useVoiceMode } from "@/hooks/use-voice-mode"
 import { connection, ponosOf } from "@/lib/agui"
 import { api, why } from "@/lib/api"
 import { currentLanguage, useT } from "@/lib/i18n"
 import { cents, money } from "@/lib/numbers"
+import { wordsOf } from "@/lib/voice-mode"
 import type { Attached } from "@/lib/types"
 import { clock } from "@/lib/worktime"
 import { settingsHref } from "@/resources/settings"
@@ -20,6 +24,7 @@ import { settingsHref } from "@/resources/settings"
 import { AttachedGallery } from "./attachments"
 import { Composer, type ComposerHandle } from "./composer"
 import { ModelPicker } from "./model-picker"
+import { ListenButton, VoiceModeButton, VoicePanel } from "./voice-mode"
 import { Waiting } from "./queued"
 import { Robot } from "./robot"
 import { TalkHistory } from "./talk-history"
@@ -204,6 +209,51 @@ function Talk({
     [busy, queue.length, submit, sendMessage]
   )
 
+  /* The voice. One speaker for both ways in: the voice mode, and the Listen
+   * button of an answer, which the mode takes over when it starts. */
+  const speaker = useSpeaker({
+    onError: (error) => toast.error(t("The voice could not speak"), { description: why(error) }),
+  })
+  const voiceReady = Boolean(chat?.speech?.ready && chat?.dictation?.ready)
+  const voice = useVoiceMode({
+    ready: voiceReady,
+    reason: (!chat?.speech?.ready ? chat?.speech?.why : chat?.dictation?.why) ?? "",
+    speaker,
+    transcribe,
+    send: (text) => send(text),
+    messages,
+    busy,
+  })
+  const [readAloud, setReadAloud] = React.useState<string | null>(null)
+  const wasSpeaking = React.useRef(false)
+  React.useEffect(() => {
+    if (wasSpeaking.current && !speaker.speaking) setReadAloud(null)
+    wasSpeaking.current = speaker.speaking
+  }, [speaker.speaking])
+  const listen = React.useCallback(
+    async (message: UIMessage) => {
+      if (readAloud === message.id) {
+        speaker.stop()
+        setReadAloud(null)
+        return
+      }
+      speaker.unlock()
+      speaker.stop()
+      void api.speakPlan("", currentLanguage(), false).catch(() => {})
+      setReadAloud(message.id)
+      try {
+        const plan = await api.speakPlan(wordsOf(message.parts), currentLanguage(), true)
+        if (!plan.sentences.length) setReadAloud(null)
+        for (const sentence of plan.sentences) speaker.say(sentence, plan.language)
+      } catch (error) {
+        setReadAloud(null)
+        toast.error(t("The answer could not be read aloud"), { description: why(error) })
+      }
+    },
+    [readAloud, speaker, t]
+  )
+  const canListen = Boolean(chat?.speech?.ready) && voice.mode === "off"
+
   const said = React.useMemo(() => interleaved(messages, transcript), [messages, transcript])
   const last = messages[messages.length - 1]
   const answering = busy && !transcript.some((entry) => entry.kind === "command" && entry.code === null)
@@ -219,6 +269,8 @@ function Talk({
               key={item.id}
               message={item}
               streaming={answering && item === last && item.role === "assistant"}
+              onListen={canListen ? listen : undefined}
+              listening={readAloud === item.id}
             />
           ) : (
             <Local key={`local-${item.id}`} entry={item} />
@@ -229,7 +281,16 @@ function Talk({
       </ChatConversation>
 
       <div className="px-3 pt-1 pb-3">
+        {voice.mode !== "off" ? (
+          <VoicePanel
+            mode={voice.mode}
+            levels={voice.levels}
+            onInterrupt={voice.interrupt}
+            onLeave={voice.leave}
+          />
+        ) : null}
         <Composer
+          className={voice.mode !== "off" ? "mt-2" : undefined}
           ref={composer}
           busy={busy}
           onSend={send}
@@ -244,6 +305,7 @@ function Talk({
           dictation={
             chat?.dictation ?? { ready: false, why: t("Dictation is not available"), send: false }
           }
+          tools={<VoiceModeButton on={voice.mode !== "off"} blocked={voice.blocked} onToggle={voice.toggle} />}
         />
       </div>
     </>
@@ -277,9 +339,14 @@ function interleaved(messages: ReadonlyArray<UIMessage>, entries: Entry[]): (UIM
 const Said = React.memo(function Said({
   message,
   streaming,
+  onListen,
+  listening = false,
 }: {
   message: UIMessage
   streaming: boolean
+  /** Given when the voice can read this answer; not while the voice mode holds the conversation. */
+  onListen?: (message: UIMessage) => void
+  listening?: boolean
 }) {
   const t = useT()
   const ponos = ponosOf(message)
@@ -320,6 +387,9 @@ const Said = React.memo(function Said({
         Ponos
       </div>
       {words ? <ChatMessage message={drawn} streaming={streaming} /> : null}
+      {words && !streaming && onListen ? (
+        <ListenButton active={listening} onClick={() => onListen(message)} />
+      ) : null}
       {ponos.error ? (
         <p role="alert" className="border-destructive/40 bg-destructive/10 text-destructive rounded-xl border px-3 py-2 text-sm">
           {ponos.error}

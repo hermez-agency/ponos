@@ -64,6 +64,7 @@ from .config import (
     Permissions,
     Review,
     Runner,
+    Speech,
     Storage,
     Web,
     identifier,
@@ -438,6 +439,14 @@ class OpenRouterTable(Table):
     transcription_model: Filled = OpenRouter.transcription_model
 
 
+class SpeechTable(Table):
+    enabled: bool = Speech.enabled
+    voice_fr: Filled = Speech.voice_fr
+    voice_en: Filled = Speech.voice_en
+    # Below half the pace nothing is intelligible, above double it nothing is.
+    speed: Annotated[Integer, _at_least(50)] = Speech.speed
+
+
 class ClaudeTable(Table):
     # A typo must not leave the sessions on an account nobody chose: an
     # unknown word is the file that says nothing.
@@ -516,6 +525,7 @@ class File(Table):
     web: WebTable = Field(default_factory=WebTable)
     notify: NotifyTable = Field(default_factory=NotifyTable)
     openrouter: OpenRouterTable = Field(default_factory=OpenRouterTable)
+    speech: SpeechTable = Field(default_factory=SpeechTable)
     claude: ClaudeTable = Field(default_factory=ClaudeTable)
     budget: BudgetTable = Field(default_factory=BudgetTable)
     review: ReviewTable = Field(default_factory=ReviewTable)

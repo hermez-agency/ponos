@@ -854,6 +854,22 @@ transcription_model = "openai/whisper-1"
 # for a gateway of your own that speaks the same API.
 # base_url = "https://openrouter.ai/api/v1"
 
+# The console reading its answers aloud — the Listen button on a reply, and the
+# voice mode where you talk and it answers. Synthesised here by Piper, with no
+# service in between; it needs the `voice` extra (pip install piper-tts), and
+# the console greys the buttons out with the reason until it is there. A voice
+# is downloaded the first time it is used into ~/.cache/ponos/voices (about
+# 60 MB each, not versioned anywhere); `ponos doctor` says what is installed.
+[speech]
+enabled = true
+# One voice per language of the page (runner.language, else the page's own).
+# Names from https://huggingface.co/rhasspy/piper-voices — fr_FR-upmc-medium
+# is another French one.
+voice_fr = "fr_FR-siwis-medium"
+voice_en = "en_US-lessac-medium"
+# Percent of the voice's own pace: 100 is normal, 130 a little faster. 50 at the least.
+speed = 100
+
 # ---------------------------------------------------------------------------
 # Being told where you are, and answering with one word
 # ---------------------------------------------------------------------------

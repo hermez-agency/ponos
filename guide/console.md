@@ -386,6 +386,47 @@ corrected before you send it. `web.send_after_transcription = true` sends it as 
 is back. Without an OpenRouter key, or with a microphone the browser blocks, the button is
 greyed out and its tooltip says which.
 
+**Voice.** The console can read its answers aloud and hold a spoken conversation. The
+voice is made on this machine by [Piper](https://github.com/rhasspy/piper): no service hears
+what Ponos says.
+
+- *Listen*, under each answer, reads that answer; pressed again, it stops.
+- *Voice mode*, the waveform button in the bar, is the hands-free loop: it listens, a
+  silence of a second and a half after you spoke ends the sentence, which is transcribed
+  (as in Dictation above) and sent at once; the answer is read sentence by sentence while it
+  is still being written, then it listens again. The strip over the bar says *Listening…*,
+  *Thinking…* or *Speaking…* with the same wave as the microphone's. Talk over the voice,
+  or press *Interrupt*, and it stops; *Leave* ends the mode. It needs the microphone, the
+  OpenRouter key of Dictation and Piper — without one of them the button is greyed out and
+  its tooltip says which. On a phone the first tap is what lets the browser play sound at
+  all (iOS and Safari refuse it before a gesture), so the mode starts from the button and
+  never by itself.
+- What is read is not what is written. Code blocks, tables and links are not read out: a
+  block becomes *"Je t'ai mis le code à l'écran."* (*"I put the code on screen."*), a link
+  becomes *"un lien"*, the markdown is dropped. Past about 700 characters the rest of a
+  long answer is left to the screen with *"Je t'ai mis le détail à l'écran."* The full text
+  stays displayed. Use a headset in voice mode: through loudspeakers the voice reaches the
+  microphone and can end up interrupting itself.
+
+*Setting it up.* Piper is optional, the `voice` extra: install it in the environment of the
+version in use — `uv pip install --python ~/.local/share/ponos/app/.venv/bin/python piper-tts`
+(or `pip install piper-tts` in that `.venv`) — and restart the console. An update gives a
+version a `.venv` of its own (see [Installation](installation.md)), so run the command again
+after one. In Docker, run it in the container, or add it to your own image. `[speech]` in
+`config.toml` (Settings → Models → Voice) switches it on or off (`enabled`), names the voice
+of each language (`voice_fr`, `fr_FR-siwis-medium` by default, `fr_FR-upmc-medium` is
+another; `voice_en`, `en_US-lessac-medium`) and the pace (`speed`, 100 is normal). The
+language is `runner.language`, or the one the console is shown in. Voices are not shipped:
+the first sentence in a language downloads its model — a `.onnx` and its `.onnx.json`, about
+**60 MB** for a medium voice — from the `rhasspy/piper-voices` repository into
+`~/.cache/ponos/voices` (`$XDG_CACHE_HOME/ponos/voices`); delete the folder to get the
+space back. The model is loaded when the mode opens, so the first sound follows the first
+sentence of the answer by about a tenth of a second on an ordinary machine (loading the
+model takes two seconds). `ponos doctor` says whether Piper is installed and which voices are
+downloaded. The API behind it is `POST /api/chat/speak` (`{"text", "lang"}` → `audio/wav`) and
+`POST /api/chat/speak/plan` (the sentences worth saying of a reply), both behind the console's
+sign-in like every other route.
+
 An address written anywhere the console shows text — an answer, the output of a command, a
 step of a session, a comment on a ticket — is a link you can click. A pull request the
 runner just opened is one click away, not a URL to read out loud into another tab.

@@ -666,6 +666,26 @@ class OpenRouter:
     transcription_model: str = "openai/whisper-1"
 
 
+# The voices Piper speaks with, by the language of the reply. See speech.py.
+DEFAULT_VOICE_FR = "fr_FR-siwis-medium"
+DEFAULT_VOICE_EN = "en_US-lessac-medium"
+
+
+@dataclass
+class Speech:
+    """`[speech]`: the console reading its answers aloud, with Piper. See speech.py.
+
+    On by default: it costs nothing until Piper is installed and somebody presses
+    the button, and the console says why it is greyed out until then.
+    """
+
+    enabled: bool = True
+    voice_fr: str = DEFAULT_VOICE_FR
+    voice_en: str = DEFAULT_VOICE_EN
+    # Percent of the voice's own pace: 100 is normal, 150 a third faster.
+    speed: int = 100
+
+
 # How GitHub is reached. Empty is the whole of the old behaviour: a GitHub App
 # when one is connected, the `gh` accounts otherwise — and a token, when one is
 # given, only in the place of `gh`. `app` and `token` say which of the two wins.
@@ -862,6 +882,7 @@ class Config:
     web: Web = field(default_factory=Web)
     notify: Notify = field(default_factory=Notify)
     openrouter: OpenRouter = field(default_factory=OpenRouter)
+    speech: Speech = field(default_factory=Speech)
     claude: Claude = field(default_factory=Claude)
     budget: Budget = field(default_factory=Budget)
     review: Review = field(default_factory=Review)
@@ -1604,6 +1625,7 @@ def load(path: Path | None = None, *, secrets: Path | None = None) -> Config:
         openrouter=OpenRouter(
             key=secret(stored, "openrouter", "key"), **file.openrouter.model_dump()
         ),
+        speech=Speech(**file.speech.model_dump()),
         claude=Claude(provider=file.claude.provider, api_key=secret(stored, "claude", "api_key")),
         budget=Budget(**file.budget.model_dump()),
         review=Review(**file.review.model_dump()),

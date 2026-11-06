@@ -45,7 +45,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from .. import disk, openrouter, progress, provider, session, voice
+from .. import disk, openrouter, progress, provider, session, speech, voice
 from .. import log as log_module
 from ..config import Config, state_dir
 from . import agui, chats
@@ -335,6 +335,7 @@ class Chat:
         return self._busy
 
     def state(self) -> dict[str, Any]:
+        why = speech.refusal(self.config.speech)
         return {
             "id": self.id,
             "title": self.title,
@@ -362,6 +363,7 @@ class Chat:
                 ),
                 "send": self.config.web.send_after_transcription,
             },
+            "speech": {"ready": not why, "why": why},
         }
 
     def history(self) -> list[dict[str, Any]]:
@@ -588,6 +590,17 @@ class Chat:
         )
         text = openrouter.transcribe(self.config.openrouter, audio, content_type, language)
         return {"text": text, "language": language}
+
+    def speech_plan(self, text: str, lang: str, final: bool) -> dict[str, Any]:
+        """The sentences of a reply worth saying aloud, in the language of the page."""
+        spoken = self.config.runner.language.strip() or lang
+        speech.warm(self.config.speech, spoken)
+        return {"sentences": speech.plan(text, spoken, final), "language": voice.understood(spoken)}
+
+    def speak(self, text: str, lang: str) -> bytes:
+        """A sentence of the reply as a WAV, in the voice of the language."""
+        spoken = self.config.runner.language.strip() or lang
+        return speech.synthesize(self.config.speech, text, spoken)
 
     # -- one turn ------------------------------------------------------------
 
