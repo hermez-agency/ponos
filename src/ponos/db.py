@@ -730,6 +730,14 @@ def _tickets(connection: sqlite3.Connection) -> None:
     connection.execute("CREATE INDEX mirror_queue_by_ticket ON mirror_queue (ticket, id)")
 
 
+def _tickets_have_a_role_and_a_goal(connection: sqlite3.Connection) -> None:
+    # The two relations of the board `tickets` left out: the craft that works
+    # the ticket (Master Agents) and the goal it serves (Master Objectifs). Each
+    # holds one page id, bare, as `project` does — see tickets.py.
+    connection.execute("ALTER TABLE tickets ADD COLUMN role TEXT NOT NULL DEFAULT ''")
+    connection.execute("ALTER TABLE tickets ADD COLUMN goal TEXT NOT NULL DEFAULT ''")
+
+
 def _kind_switches(connection: sqlite3.Connection) -> None:
     # The tickets a session ran as a text or an action said were code, and the
     # runner made code and put back in ready (execution.py): once a ticket.
@@ -1067,6 +1075,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     _pr_reviews,
     _pages_in_two_parts,
     _tickets,
+    _tickets_have_a_role_and_a_goal,
 )
 
 # Any way a read or a write of the database can fail. A note the runner keeps

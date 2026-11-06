@@ -489,11 +489,17 @@ def command_import(args: argparse.Namespace) -> int:
     do. See notion_import.py.
     """
     from . import notion_import
+    from .ledger import Ledger
 
     configuration = load_config()
     try:
-        client = store.open(configuration)
-        space = client.workspace(configuration.notion)
+        client = store.open(configuration, notion_only=True)
+        # Through the ledger, which keeps the databases it found: the first pass
+        # after the import may find Notion refusing, and must still start.
+        ledger = Ledger(client, configuration.notion)
+        space = ledger.workspace(configuration.notion)
+        if space.projects:
+            ledger.query(space.projects)
         title("Importing Notion into ponos.db")
         report = notion_import.run(client, configuration, space)
     except store.StoreError as error:

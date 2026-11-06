@@ -38,6 +38,7 @@ from . import (
     ticket_page,
     tickets,
 )
+from . import ledger as ledger_module
 from . import update as update_module
 from . import voice as voice_module
 from .base import Base
@@ -661,14 +662,17 @@ class Board(Base):
         """
         # Nothing to keep level before `ponos import notion` has been run, and
         # only a Notion board has a mirror to be level with.
-        if self.dry_run or self.config.storage.mode != "notion" or tickets.empty():
+        if self.dry_run or self.config.storage.mode != "notion" or not tickets.adopted():
             return
         from . import mirror as mirror_module
         from . import notion_import
 
+        # Notion itself, not the ledger in front of it: the mirror is the one
+        # reader and writer of the board left (see ledger.py).
+        board = self.client.notion if isinstance(self.client, ledger_module.Ledger) else self.client
         try:
-            risen = notion_import.rise(self.client, self.config, self.workspace, self._risen)
-            sent = mirror_module.flush(self.client, self.config, self.workspace)
+            risen = notion_import.rise(board, self.config, self.workspace, self._risen)
+            sent = mirror_module.flush(board, self.config, self.workspace)
         except store.StoreError as error:
             self.say(f"  ! mirror: {voice_module.line(error)}")
             return

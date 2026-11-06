@@ -91,6 +91,9 @@ def columns(page: store.Page, config: Config) -> dict[str, Any]:
     values: dict[str, Any] = {"status": status_of(page, config)}
     projects = store.read(page, settings.prop("project")) or []
     values["project"] = _id(projects[0]) if projects else ""
+    for name, key in (("role", "role"), ("goal", "goal")):
+        related = store.read(page, settings.prop(key)) or []
+        values[name] = _id(related[0]) if related else ""
     values["kind"] = settings.kind_of(str(store.read(page, settings.prop("type")) or ""))
     for name, key in _COPIED:
         values[name] = str(store.read(page, settings.prop(key)) or "")

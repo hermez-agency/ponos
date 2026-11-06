@@ -61,8 +61,10 @@ from ponos import (  # noqa: E402
     github_checks,
     images,
     journal,
+    ledger,
     local_ci,
     notion,
+    notion_import,
     planning,
     preview,
     project_settings,
@@ -70,6 +72,7 @@ from ponos import (  # noqa: E402
     question,
     state,
     store,
+    tickets,
 )
 from ponos import config as C  # noqa: E402
 from ponos import http as http_module  # noqa: E402
@@ -153,6 +156,8 @@ class Board:
         # silently short of one: most roads in `notion.py` swallow a refusal.
         self.refused: list[str] = []
         self.me = {"object": "user", "id": _ident(), "name": "Ponos", "type": "bot"}
+        # A Notion whose token is refused: every request answers 401.
+        self.down = False
 
     # -- building a board ----------------------------------------------------
 
@@ -248,7 +253,7 @@ class Board:
         most of the roads in `notion.py` swallow a refusal on purpose.
         """
         self.requests.append(f"{method} {path}")
-        if not token.startswith("Bearer "):
+        if self.down or not token.startswith("Bearer "):
             return 401, {"message": "API token is invalid"}
         parts = [part for part in path.split("/") if part]
         if parts and parts[0] == "v1":
@@ -1990,6 +1995,51 @@ def a_project_rule_plans_its_high_tickets_first_once_even_on_a_board_without_the
 
     assert results[ticket.replace("-", "")]["status"] == "done", results
     assert machine.sessions()[-1]["permission_mode"] != "plan", machine.sessions()[-1]
+    db.close()
+
+
+@case
+def a_ready_ticket_runs_with_notion_cut_and_the_mirror_catches_up_on_its_return(
+    machine: Bench,
+) -> None:
+    """The database is the source: a refused token stops no ticket, and Notion hears of it later.
+
+    Imported once, as `ponos import notion` does; then the board answers 401
+    to everything and a pass still claims the ticket, runs it and opens its
+    pull request — all of it in `ponos.db`. The page in Notion is the old one
+    until a pass can reach it, and then it says what the database said.
+    """
+    repository = machine.repository("site")
+    project = machine.project("Site", repository)
+    ticket = machine.ticket("Corriger l'entête", "Le titre est faux, corrige-le.", project)
+    machine.subtyped()
+    properties = machine.board.pages[ticket]["properties"]
+    properties["Type"] = _stored({"select": {"name": "Code"}})
+    properties["Sous-type"] = _stored({"select": {"name": "Bug"}})
+    configuration = C.load(machine.config)
+    client = store.open(configuration, notion_only=True)
+    seen = ledger.Ledger(client, configuration.notion)
+    space = seen.workspace(configuration.notion)
+    seen.page(project)
+    imported = notion_import.run(client, configuration, space)
+    assert imported.created == 1, imported
+
+    machine.board.down = True
+    results = machine.run()
+
+    assert len(results) == 1 and results[0]["status"] == "done", results
+    record = tickets.get(ticket)
+    assert record is not None and record.status == "review", record
+    assert record.pull_request == machine.pull_requests()[0]["url"]
+    assert machine.status(ticket) == "ready", "Notion was cut: its page cannot have moved"
+    assert tickets.pending(), "what Notion has not heard is waiting in the queue"
+
+    machine.board.down = False
+    machine.run()
+
+    assert machine.status(ticket) == "review", machine.status(ticket)
+    assert machine.board.value(ticket, "Pull Request") == record.pull_request
+    assert not tickets.pending()
     db.close()
 
 

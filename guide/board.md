@@ -231,16 +231,17 @@ tickets are made up:
 ### The mirror: `ponos.db` first, Notion a copy
 
 Tickets are moving into `ponos.db`, and Notion is becoming a mirror of them. This
-is the second of four steps; for now the runner still *reads* Notion, and the
-database is kept level with it so that the day the readers move there is nothing
-to catch up.
+is the third of four steps: once `ponos import notion` has filled the database, the
+runner, the console, the MCP and the CLI read and write the tickets there and never
+ask Notion for one. Notion is touched only by the mirror below — projects, agents,
+goals and the standing context are still read from it.
 
 **`ponos import notion`** fills the database once, from your Master Tickets and
 Master Projects: each ticket with its properties, its Mission and its
 « What was done », the tickets it comes after, and its comments. Run it again
 and it adds nothing — a ticket already there is left as it is, and only its
-missing comments are completed. Until you have run it, passes do not touch the
-database at all.
+missing comments are completed. Until you have run it, the tickets are Notion's as
+before; from the first ticket in the database on, they are the database's.
 
 **What still comes up from Notion** is a closed list, read on every pass:
 
@@ -259,6 +260,14 @@ that Notion does not take (a token that is no longer valid, no network) stays in
 the queue with its count of tries and its last error, and goes again on the next
 pass; no ticket waits for it. A ticket whose changes are still queued is not read
 from Notion until they have been sent, so the older word never wins over the newer.
+
+**Notion can be down and the tickets still run.** A token that is refused, no network:
+ready tickets are claimed, worked, delivered and answered from `ponos.db`, and the
+mirror catches Notion up when it answers again. A pass that cannot reach Notion starts
+from the databases and the project pages it last read there (kept beside `ponos.db`);
+a project page it never read cannot be found without Notion. A ticket created in the
+console appears in Notion at the next pass, and one created in Notion appears in the
+console at the next, from either side.
 
 ### The tickets database
 

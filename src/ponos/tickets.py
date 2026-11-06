@@ -2,9 +2,9 @@
 
 `ticket.py` is a Notion page read the way a run reads it; this is the ticket
 itself, for the day the database is the source and the board only a mirror.
-Nothing reads it yet — the runner, the console and the MCP still go through
-`store` — and that is on purpose: the model and its tables come first, so that
-each next step moves one reader onto them rather than all at once.
+The runner, the console, the MCP and the CLI reach it through `ledger.py`, a
+`store.Store` that serves the tickets from these tables; Notion is told by the
+mirror alone.
 
 **The two parts of the page are two columns.** `mission` is what you write and
 `report` is what Ponos rewrites when it is done; they are not one Markdown
@@ -60,6 +60,8 @@ _TEXT = (
     "on_change",
     "due",
     "scheduled",
+    "role",
+    "goal",
 )
 _NUMBERS = ("priority", "cost", "duration")
 _FLAGS = ("waiting", "plan_first")
@@ -88,6 +90,8 @@ class Record:
     duration: float = 0.0
     due: str = ""
     scheduled: str = ""
+    role: str = ""
+    goal: str = ""
     waiting: bool = False
     plan_first: bool = False
     notion: str = ""
@@ -410,6 +414,26 @@ def empty() -> bool:
     """Whether no ticket was ever imported or written here — the state before the import."""
     with db.transaction(immediate=False) as connection:
         return connection.execute("SELECT 1 FROM tickets LIMIT 1").fetchone() is None
+
+
+def adopted() -> bool:
+    """Whether the database is the source of the tickets: it has held one, and holds them still.
+
+    `empty` says nothing once every ticket has been deleted, and a board whose
+    last ticket was trashed must not fall back on Notion — the page the mirror
+    is yet to trash would come back as a ticket. So the first time a ticket is
+    seen here, a marker is written beside the file, and it is never taken down.
+    """
+    marker = db.path().with_name("tickets-adopted")
+    if marker.exists():
+        return True
+    if empty():
+        return False
+    try:
+        marker.write_text(_now(), encoding="utf-8")
+    except OSError:
+        pass  # the tickets are there; only the memory of it is lost
+    return True
 
 
 def waiting(ticket: str) -> bool:
