@@ -100,11 +100,11 @@ test("the settings say what the console runs on, line by line", async ({ page })
   await expect.poll(() => new URL(page.url()).searchParams.get("view")).toBe("console/settings/read/config/communication")
 })
 
-test("nine pages (six from the file, then GitHub, MCP and the accounts), and an old link to a section opens the page it is on", async ({ page }) => {
+test("ten pages (six from the file, then GitHub, triggers, MCP and the accounts), and an old link to a section opens the page it is on", async ({ page }) => {
   await open(page, "/?view=console/settings/read/config/notify")
   await settingsPage(page)
   await expect.poll(() => new URL(page.url()).searchParams.get("view")).toBe("console/settings/read/config/communication")
-  await expect(page.getByRole("tab")).toHaveCount(9)
+  await expect(page.getByRole("tab")).toHaveCount(10)
   await expect(page.locator('[data-card="notify"]')).toBeVisible()
 })
 

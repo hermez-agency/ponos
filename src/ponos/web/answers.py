@@ -1389,6 +1389,60 @@ class McpOverview(Shape):
     clients: list[McpClient]
 
 
+class Trigger(Shape):
+    """Un déclencheur entrant, sans sa clé : elle n'est dite qu'à sa création."""
+
+    id: str
+    name: str
+    preset: str
+    project: str
+    project_name: str
+    kind: str
+    subtype: str
+    priority: int
+    status: str
+    title: str
+    brief: str
+    per_hour: int
+    created_at: str
+    revoked: bool
+    last_at: str
+    count: int
+
+
+class TriggerPreset(Shape):
+    key: str
+    name: str
+    title: str
+    brief: str
+    kind: str
+    subtype: str
+
+
+class TriggerProject(Shape):
+    id: str
+    name: str
+
+
+class Triggers(Shape):
+    """Les déclencheurs, les préréglages que le formulaire propose, et les projets."""
+
+    hooks: list[Trigger]
+    presets: list[TriggerPreset]
+    projects: list[TriggerProject]
+    per_hour: int
+
+
+class TriggerCreated(Shape):
+    hook: Trigger
+    key: str
+    """L'unique fois où la clé est dite."""
+
+
+class TriggerRevoked(Shape):
+    id: str
+
+
 class McpServer(Shape):
     """One MCP server Claude Code holds, as `claude mcp list` says it."""
 

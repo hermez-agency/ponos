@@ -1071,6 +1071,46 @@ def _push_subscriptions(connection: sqlite3.Connection) -> None:
     )
 
 
+def _hooks(connection: sqlite3.Connection) -> None:
+    # Les déclencheurs entrants (triggers.py). `digest` : le SHA-256 de la clé
+    # de l'adresse, jamais la clé. `revoked_at` NULL tant que la clé répond.
+    # `hook_events` : un événement reçu, inscrit avant son ticket — la clé
+    # primaire est ce qui fait qu'un même événement n'en crée qu'un.
+    connection.execute(
+        """
+        CREATE TABLE hooks (
+            id          TEXT PRIMARY KEY,
+            digest      TEXT NOT NULL UNIQUE,
+            name        TEXT NOT NULL,
+            preset      TEXT NOT NULL DEFAULT 'generic',
+            project     TEXT NOT NULL DEFAULT '',
+            kind        TEXT NOT NULL DEFAULT '',
+            subtype     TEXT NOT NULL DEFAULT '',
+            priority    INTEGER NOT NULL DEFAULT 50,
+            status      TEXT NOT NULL DEFAULT 'draft',
+            title       TEXT NOT NULL DEFAULT '',
+            brief       TEXT NOT NULL DEFAULT '',
+            event       TEXT NOT NULL DEFAULT '',
+            per_hour    INTEGER NOT NULL DEFAULT 10,
+            created_at  TEXT NOT NULL,
+            revoked_at  TEXT
+        )
+        """
+    )
+    connection.execute(
+        """
+        CREATE TABLE hook_events (
+            hook    TEXT NOT NULL REFERENCES hooks (id) ON DELETE CASCADE,
+            event   TEXT NOT NULL,
+            at      TEXT NOT NULL,
+            ticket  TEXT NOT NULL DEFAULT '',
+            PRIMARY KEY (hook, event)
+        )
+        """
+    )
+    connection.execute("CREATE INDEX hook_events_by_time ON hook_events (hook, at)")
+
+
 # Appended to, never edited or renamed: a file remembers each of these by name,
 # and the version of a file is how many of them it has been through. Statements go through `execute` one at a time — `executescript`
 # commits whatever transaction is open before it starts, which would apply half
@@ -1119,6 +1159,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     _kind_switches,
     _accounts,
     _push_subscriptions,
+    _hooks,
 )
 
 # Any way a read or a write of the database can fail. A note the runner keeps

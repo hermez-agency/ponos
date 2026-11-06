@@ -654,6 +654,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/triggers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** All Triggers */
+        get: operations["all_triggers_api_triggers_get"];
+        put?: never;
+        /** Create Trigger */
+        post: operations["create_trigger_api_triggers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/mcp/servers": {
         parameters: {
             query?: never;
@@ -1525,6 +1543,23 @@ export interface paths {
         put?: never;
         /** Delete Chat Session */
         post: operations["delete_chat_session_api_chat_sessions__identifier__delete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/triggers/{hook_id}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revoke Trigger */
+        post: operations["revoke_trigger_api_triggers__hook_id__revoke_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4562,6 +4597,52 @@ export interface components {
         Transitions: {
             transitions: components["schemas"]["Transition"][];
         };
+        /** @description Un déclencheur entrant, sans sa clé : elle n'est dite qu'à sa création. */
+        Trigger: {
+            id: string;
+            name: string;
+            preset: string;
+            project: string;
+            project_name: string;
+            kind: string;
+            subtype: string;
+            priority: number;
+            status: string;
+            title: string;
+            brief: string;
+            per_hour: number;
+            created_at: string;
+            revoked: boolean;
+            last_at: string;
+            count: number;
+        };
+        TriggerCreated: {
+            hook: components["schemas"]["Trigger"];
+            /** @description L'unique fois où la clé est dite. */
+            key: string;
+        };
+        TriggerPreset: {
+            key: string;
+            name: string;
+            title: string;
+            brief: string;
+            kind: string;
+            subtype: string;
+        };
+        TriggerProject: {
+            id: string;
+            name: string;
+        };
+        TriggerRevoked: {
+            id: string;
+        };
+        /** @description Les déclencheurs, les préréglages que le formulaire propose, et les projets. */
+        Triggers: {
+            hooks: components["schemas"]["Trigger"][];
+            presets: components["schemas"]["TriggerPreset"][];
+            projects: components["schemas"]["TriggerProject"][];
+            per_hour: number;
+        };
         /** @description The last decision taken back: the idea proposed again, and what it had been. */
         Undone: {
             idea: components["schemas"]["Idea"];
@@ -6129,6 +6210,61 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["McpOverview"];
+                };
+            };
+        };
+    };
+    all_triggers_api_triggers_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Triggers"];
+                };
+            };
+        };
+    };
+    create_trigger_api_triggers_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TriggerCreated"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -7757,6 +7893,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ChatState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_trigger_api_triggers__hook_id__revoke_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                hook_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TriggerRevoked"];
                 };
             };
             /** @description Validation Error */

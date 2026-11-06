@@ -1637,6 +1637,8 @@ export const FRENCH: Record<string, string> = {
   "This machine": "Cette machine",
   "What an MCP is, how to plug Ponos into Claude, and the ones the sessions use.": "Ce qu'est un MCP, comment brancher Ponos à Claude, et ceux qu'utilisent les sessions.",
   "MCP": "MCP",
+  "Triggers": "Déclencheurs",
+  "The addresses a tool calls — Sentry, GitHub Actions, anything — to open a ticket.": "Les adresses qu'un outil appelle — Sentry, GitHub Actions, n'importe lequel — pour ouvrir un ticket.",
   // Conversations — the ones kept by the console, and the model they run on.
   Conversations: "Conversations",
   Chat: "Chat",

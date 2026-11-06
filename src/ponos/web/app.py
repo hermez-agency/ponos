@@ -52,7 +52,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.requests import ClientDisconnect
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from .. import __version__, db, openrouter, tailscale, vault, voice
+from .. import __version__, db, openrouter, tailscale, triggers, vault, voice
 from .. import config as config_module
 from ..config import state_dir
 from . import (
@@ -132,6 +132,9 @@ class Console:
         self.code = code
         # Who got the door wrong lately — see `attempts`.
         self.attempts = attempts.Attempts()
+        # The same for the keys of the incoming triggers, apart: a tool retrying
+        # a revoked key must not make the console's own sign-in wait.
+        self.hook_attempts = attempts.Attempts()
         # How many clients each address registered this hour — see `oauth.register`.
         self.registrations = attempts.Quota(oauth.REGISTRATIONS_PER_HOUR, 3600)
         host, port = address
@@ -493,6 +496,8 @@ OPEN_READS = (
     "/invite",
 )
 OPEN_WRITES = ("/mcp", "/oauth/register", "/oauth/token", "/oauth/authorize")
+# The incoming triggers: the key in the address is the only lock, see triggers.py.
+HOOKS = triggers.ROUTE + "/"
 
 # The writes that produce a way in, and so cannot ask for one first: signing
 # in, an invitation taken, and — on a console nobody has claimed — the first
@@ -613,7 +618,7 @@ class Guard:
             return fail(404, "no such route")
         if reading and (route in OPEN_READS or route.startswith(("/.well-known/", "/static/pwa/"))):
             return None
-        if not reading and route in OPEN_WRITES:
+        if not reading and (route in OPEN_WRITES or route.startswith(HOOKS)):
             return None
         # Three writes cannot be authorised beforehand, because they are what
         # produces the authorisation (`OPENINGS`). Everything else about them
@@ -704,7 +709,7 @@ def _journal(request: Request, status: int) -> None:
     if status < 400:
         return
     (logger.error if status >= 500 else logger.warning)(
-        "console: %s %s → %d", request.method, request.url.path, status
+        "console: %s %s → %d", request.method, triggers.mask(request.url.path), status
     )
 
 
@@ -1377,6 +1382,33 @@ def mcp_message(request: Request) -> Response:
     if said is None:
         return _send(202, b"", "application/json")
     return answer(said)  # one message or a batch, masked the same
+
+
+@doors.post("/api/hooks/{key}", include_in_schema=False)
+def hook(request: Request, key: str) -> Response:
+    """A tool calls: a ticket is born, or it already was. See `triggers.py`.
+
+    Without the console's token — the key in the address is the lock — and
+    without the guard header no page could set: a webhook is not a page. A key
+    that is wrong answers 404 like any route, and counts as an attempt, so an
+    address cannot be guessed at the speed of the network.
+    """
+    console = _console(request)
+    asking = _asking(request)
+    knocker = asking.knocker()
+    if wait := console.hook_attempts.waiting(knocker):
+        return _too_many(wait)
+    raw = _read(request)
+    if raw is None:
+        return fail(413, "an event is smaller than that")
+    status, said, headers = console.api.receive(key, raw)
+    if status == 404:
+        console.hook_attempts.failed(knocker)
+    else:
+        console.hook_attempts.forgive(knocker)
+    response = answer(said, status)
+    response.headers.update(headers)
+    return response
 
 
 @doors.post("/oauth/register", include_in_schema=False)

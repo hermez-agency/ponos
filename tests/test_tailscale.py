@@ -21,7 +21,8 @@ def _serve_status(
         f"{name}:8443": {"Handlers": {"/": {"Proxy": local}}},
         f"{name}:443": {
             "Handlers": {
-                path: {"Proxy": local + path} for path in ("/mcp", "/oauth", "/.well-known")
+                path: {"Proxy": local + path}
+                for path in ("/mcp", "/oauth", "/.well-known", "/api/hooks")
             }
         },
     }
@@ -41,6 +42,7 @@ def tailscale_publishes_the_mcp_paths_on_the_funnel_port_and_the_console_on_anot
         "--set-path=/mcp",
         "--set-path=/oauth",
         "--set-path=/.well-known",
+        "--set-path=/api/hooks",
     ]
     assert all(line[2] == "--https=443" for line in funnelled)
     assert all(not line[-1].endswith(":8787") for line in funnelled), (
@@ -147,7 +149,7 @@ def the_tailscale_watch_waits_for_the_tailnet_then_publishes_and_republishes_aft
 
     tailscale.watch(8787, 30, run=run, sleep=sleep, log=said.append, rounds=7)
     published = [line for line in ran if line[0] in ("serve", "funnel") and "status" not in line]
-    assert len(published) == 2 * 4, ("once on connecting, once after the drift", published)
+    assert len(published) == 2 * 5, ("once on connecting, once after the drift", published)
     assert said[0].startswith("tailscale is Stopped"), said
     assert sum("serving" in line for line in said) == 2, said
 

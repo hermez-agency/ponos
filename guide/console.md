@@ -884,7 +884,7 @@ ports.
 | Door | Address | Who reaches it |
 | --- | --- | --- |
 | Console | `https://<machine>.<tailnet>.ts.net:8443` | your devices on the tailnet |
-| Connector | `https://<machine>.<tailnet>.ts.net/mcp` | the Internet — `/mcp`, `/oauth`, `/.well-known`, no other path |
+| Connector | `https://<machine>.<tailnet>.ts.net/mcp` | the Internet — `/mcp`, `/oauth`, `/.well-known` and `/api/hooks` ([incoming triggers](tickets.md#a-ticket-that-comes-from-a-tool-incoming-triggers)), no other path |
 
 1. **On the laptop**: install [Tailscale](https://tailscale.com/download) and `sudo tailscale up`. In
    the [admin console](https://login.tailscale.com/admin) enable *MagicDNS* and *HTTPS certificates*

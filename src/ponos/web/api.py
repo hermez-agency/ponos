@@ -53,6 +53,7 @@ from . import (
     creation,
     discussion,
     goals,
+    hooks,
     ideas,
     journals,
     overview,
@@ -77,6 +78,7 @@ class Api(
     journals.Journals,
     discussion.Discussion,
     ideas.Ideas,
+    hooks.Hooks,
     base.Base,
 ):
     """The console, over everything it is asked about."""

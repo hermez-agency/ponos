@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Bell, Cpu, FolderGit2, GitPullRequest, Inbox, Play, Plug, Settings2, SlidersHorizontal, Users } from "lucide-react"
+import { Bell, Cpu, FolderGit2, GitPullRequest, Inbox, Play, Plug, Settings2, SlidersHorizontal, Users, Webhook } from "lucide-react"
 import { ActionList } from "react-data-form"
 import {
   createViewResource,
@@ -55,6 +55,7 @@ const ICONS: Record<string, IconType> = {
   code: FolderGit2,
   communication: Bell,
   mcp: Plug,
+  triggers: Webhook,
   "github-app": GitPullRequest,
   accounts: Users,
 }
@@ -99,6 +100,19 @@ const LazyAccountsPage = React.lazy(() =>
 const AccountsPage = () => (
   <React.Suspense fallback={null}>
     <LazyAccountsPage />
+  </React.Suspense>
+)
+
+/* The Triggers tab, for the same reason: keys a tool calls, not a key of the file. */
+const TRIGGERS_TAB = "triggers"
+
+const LazyTriggersPage = React.lazy(() =>
+  import("@/components/console/triggers-page").then((module) => ({ default: module.TriggersPage }))
+)
+
+const TriggersPage = () => (
+  <React.Suspense fallback={null}>
+    <LazyTriggersPage />
   </React.Suspense>
 )
 
@@ -149,6 +163,14 @@ function tellTheTabs() {
       description: "The GitHub App tickets clone, push and open their pull requests with.",
       icon: ICONS[GITHUB_TAB],
       component: GithubPage,
+    })
+  if (pages.length)
+    pages.push({
+      id: TRIGGERS_TAB,
+      label: "Triggers",
+      description: "The addresses a tool calls — Sentry, GitHub Actions, anything — to open a ticket.",
+      icon: ICONS[TRIGGERS_TAB],
+      component: TriggersPage,
     })
   if (pages.length)
     pages.push({

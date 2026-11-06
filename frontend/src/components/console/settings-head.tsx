@@ -156,7 +156,7 @@ function KeysSwitch() {
 }
 
 /** The two pages the file does not describe, named as their tabs are (see `resources/settings`). */
-const PAGE_NAMES: Record<string, string> = { "github-app": "GitHub", mcp: "MCP" }
+const PAGE_NAMES: Record<string, string> = { "github-app": "GitHub", triggers: "Triggers", mcp: "MCP" }
 
 /* What sits above the tabs: where you are, how to find a setting, and whatever
  * `doctor` would refuse to start over. */

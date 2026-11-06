@@ -45,6 +45,7 @@ from starlette.convertors import Convertor, register_url_convertor
 
 from .. import config as config_module
 from .. import journal, notifications, preview, push, store, vault, voice
+from .. import triggers as triggers_module
 from . import accounts, agui, answers, creation, github, mcp_setup, setup
 from .api import Api
 
@@ -596,6 +597,11 @@ def mcp(request: Request) -> Response:
     return answer(mcp_setup.overview(asking.loopback(), _api(request).config.web.url))
 
 
+@router.get("/api/triggers", response_model=answers.Triggers)
+def all_triggers(request: Request) -> Response:
+    return answer(_api(request).all_triggers())
+
+
 @router.get("/api/mcp/servers", response_model=answers.McpServers)
 def mcp_servers() -> Response:
     return answer(mcp_setup.servers())
@@ -1106,6 +1112,27 @@ def create_project(request: Request, payload: Fields = Body(default_factory=dict
         said = str(error)
         violation = {"propertyPath": error.field, "message": said}
         return answer({"error": said, "violations": [violation]}, 400)
+
+
+@router.post("/api/triggers", response_model=answers.TriggerCreated)
+def create_trigger(request: Request, payload: Fields = Body(default_factory=dict)) -> Response:
+    try:
+        created = _api(request).create_trigger(payload)
+    except triggers_module.Refused as error:
+        said = str(error)
+        return answer(
+            {"error": said, "violations": [{"propertyPath": error.field, "message": said}]}, 400
+        )
+    # The address, in the form the tool is given: the console's own, as the page reached it.
+    return answer(created)
+
+
+@router.post("/api/triggers/{hook_id}/revoke", response_model=answers.TriggerRevoked)
+def revoke_trigger(request: Request, hook_id: str) -> Response:
+    try:
+        return answer(_api(request).revoke_trigger(hook_id))
+    except LookupError:
+        return fail(404, "no such trigger")
 
 
 @router.post("/api/projects/{project_id:page}/delete", response_model=answers.ProjectDeleted)
