@@ -2609,7 +2609,7 @@ export interface components {
             unread?: boolean;
             /** @description How many turns run now, in every conversation. */
             running?: number;
-            /** @description How many may run at once (`web.chat_max_turns`). */
+            /** @description How many may run at once (`Web.chat_max_turns`). */
             limit?: number;
             messages: components["schemas"]["Message"][];
         };
@@ -2630,7 +2630,7 @@ export interface components {
             speech: components["schemas"]["Speaking"];
             /** @description How many turns run now, in every conversation. */
             running: number;
-            /** @description How many may run at once (`web.chat_max_turns`). */
+            /** @description How many may run at once (`Web.chat_max_turns`). */
             limit: number;
         };
         ChatDeleted: {
@@ -2735,7 +2735,7 @@ export interface components {
             unread?: boolean;
             /** @description How many turns run now, in every conversation. */
             running?: number;
-            /** @description How many may run at once (`web.chat_max_turns`). */
+            /** @description How many may run at once (`Web.chat_max_turns`). */
             limit?: number;
         };
         ChatStep: {

@@ -84,8 +84,8 @@ answering; deleting one whose turn is running stops it first. The history menu a
 **Conversations** page mark the ones answering (a pulsing dot), the ones waiting for a place
 (a hollow dot) and the ones that answered while nobody was reading (a plain dot); the
 history button carries a dot when another conversation is answering or unread. Each turn is
-a Claude session that spends the same subscription, so `web.chat_max_turns` (3) bounds how
-many run at once: past it, a message waits in its own conversation — *Waiting for a free
+a Claude session that spends the same subscription, so at most three (`Web.chat_max_turns`, a constant of the code)
+run at once: past it, a message waits in its own conversation — *Waiting for a free
 place* — and starts when a turn ends. A `>` command is not a turn and runs whatever the
 conversations are doing, one command at a time. The API names the conversation:
 `GET /api/chat/<id>`, `POST /api/chat/<id>` (send), `/api/chat/<id>/agui` (the AG-UI door),
@@ -985,7 +985,6 @@ answers 404 to any path but those three on a request that came through Funnel.
 | `PONOS_WEB_PASSWORD` | | not a key of this file: the secret is in `secrets.env` or the environment, which wins (see [Configuration](configuration.md#configuration), and below) |
 | `web.poll_seconds` | `15` | how often the console asks Notion what changed (a two-minute overlapping window; the whole board every five minutes) — only while a browser is connected; a page asking for the board meanwhile (dashboard, goals, statistics) is served that last read, unless a write from the console came after it. `GET /api/board` answers that last read whatever its age, reads the board again behind the answer once it is older than this, and keeps it on disk so that a console just restarted answers at once; it carries only the 50 latest tickets of *Done* and of *Cancelled* — `hidden` counts the others, `?closed=all` gives them all. The console's own columns come from the event stream, whole |
 | `web.chat_timeout_minutes` | `20` | past this, a chat turn is killed |
-| `web.chat_max_turns` | `3` | how many conversations may be answering at once; past it a message waits in its conversation for a place |
 | `web.chat_model` | `""` | the model a new conversation starts on (`opus`…, or an OpenRouter slug); empty: `runner.model` |
 
 ### The first connection

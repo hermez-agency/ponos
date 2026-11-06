@@ -904,7 +904,7 @@ class ChatState(Shape):
     running: int = omitted()
     """How many turns run now, in every conversation."""
     limit: int = omitted()
-    """How many may run at once (`web.chat_max_turns`)."""
+    """How many may run at once (`Web.chat_max_turns`)."""
 
 
 class Attached(Shape):
@@ -957,7 +957,7 @@ class ChatDefaults(Shape):
     running: int
     """How many turns run now, in every conversation."""
     limit: int
-    """How many may run at once (`web.chat_max_turns`)."""
+    """How many may run at once (`Web.chat_max_turns`)."""
 
 
 class Deleted(Shape):

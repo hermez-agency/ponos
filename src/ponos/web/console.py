@@ -18,7 +18,7 @@ The conversation survives the browser, the server and the machine: it is a real
 Claude Code session, resumed by its identifier, and `claude --resume <id>` in a
 terminal opens the very same one. There are many of them — each is a row of
 `ponos.db` (see `chats`) with its own title, model and files, and its own run:
-several can be answering at once (`Chats`, bounded by `web.chat_max_turns`).
+several can be answering at once (`Chats`, bounded by `Web.chat_max_turns`).
 The server holds no conversation "open" — each browser follows the one it chose,
 and every call names the conversation it is about.
 
@@ -248,7 +248,7 @@ class Chats:
     the turn in flight, the messages waiting behind it, the Stop event, the
     AG-UI stream. What belongs to none of them is here: the registry, the list
     of conversations, the model catalogue, the voice, and the limit on how many
-    turns run at once (`web.chat_max_turns`), since each is a Claude session
+    turns run at once (`Web.chat_max_turns`), since each is a Claude session
     that spends the subscription.
 
     Which conversation a browser follows is that browser's own business: the
