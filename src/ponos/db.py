@@ -163,6 +163,12 @@ audit is one row per thing somebody did to a ticket from the console, the name
 copied as it was then, as `ideas` copies who wrote one. The console's own
 sign-in of `[web]` is not a row: it is the first administrator, whatever the
 file says, and needs nothing migrated to stay one.
+
+Migration 44 is the ticket itself, which `ponos.db` is about to become the
+source of — see tickets.py. A row a ticket with the properties of the board
+and the two parts of its page, the tickets it comes after, its comments, and
+the queue of changes the Notion mirror has still to push. Only the tables are
+here: nothing reads or writes them yet.
 """
 
 from __future__ import annotations
@@ -642,6 +648,88 @@ def _pages_in_two_parts(connection: sqlite3.Connection) -> None:
     )
 
 
+def _tickets(connection: sqlite3.Connection) -> None:
+    # The ticket itself — see tickets.py. Its id is the one the board gave it
+    # (dashes removed) while a board still exists, so every table that names a
+    # ticket by that id keeps pointing at it. `mission` and `report` are the
+    # two parts of the page; the other columns are the properties of the board.
+    # `kind` is the ticket's type (`type` is a keyword in too many places).
+    connection.execute(
+        """
+        CREATE TABLE tickets (
+            id            TEXT PRIMARY KEY,
+            title         TEXT NOT NULL DEFAULT '',
+            project       TEXT NOT NULL DEFAULT '',
+            status        TEXT NOT NULL DEFAULT 'draft',
+            priority      INTEGER NOT NULL DEFAULT 50,
+            kind          TEXT NOT NULL DEFAULT '',
+            subtype       TEXT NOT NULL DEFAULT '',
+            mission       TEXT NOT NULL DEFAULT '',
+            report        TEXT NOT NULL DEFAULT '',
+            pull_request  TEXT NOT NULL DEFAULT '',
+            session       TEXT NOT NULL DEFAULT '',
+            agent         TEXT NOT NULL DEFAULT '',
+            model         TEXT NOT NULL DEFAULT '',
+            progress      TEXT NOT NULL DEFAULT '',
+            block         TEXT NOT NULL DEFAULT '',
+            ci            TEXT NOT NULL DEFAULT '',
+            on_change     TEXT NOT NULL DEFAULT '',
+            cost          REAL NOT NULL DEFAULT 0,
+            duration      REAL NOT NULL DEFAULT 0,
+            due           TEXT NOT NULL DEFAULT '',
+            scheduled     TEXT NOT NULL DEFAULT '',
+            waiting       INTEGER NOT NULL DEFAULT 0,
+            plan_first    INTEGER NOT NULL DEFAULT 0,
+            notion        TEXT NOT NULL DEFAULT '',
+            created_at    TEXT NOT NULL,
+            edited_at     TEXT NOT NULL
+        )
+        """
+    )
+    connection.execute("CREATE INDEX tickets_by_status ON tickets (status, priority)")
+    connection.execute("CREATE INDEX tickets_by_project ON tickets (project, status)")
+    # The tickets a ticket comes after: a relation, so one row a pair.
+    connection.execute(
+        """
+        CREATE TABLE ticket_after (
+            ticket  TEXT NOT NULL REFERENCES tickets (id) ON DELETE CASCADE,
+            after   TEXT NOT NULL,
+            PRIMARY KEY (ticket, after)
+        )
+        """
+    )
+    connection.execute(
+        """
+        CREATE TABLE ticket_comments (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            ticket      TEXT NOT NULL REFERENCES tickets (id) ON DELETE CASCADE,
+            discussion  TEXT NOT NULL DEFAULT '',
+            author      TEXT NOT NULL DEFAULT '',
+            text        TEXT NOT NULL,
+            at          TEXT NOT NULL
+        )
+        """
+    )
+    connection.execute("CREATE INDEX ticket_comments_by_ticket ON ticket_comments (ticket, id)")
+    # What the mirror has still to tell Notion, in the order it happened: a
+    # change is a row until Notion has taken it, and an unreachable Notion
+    # leaves the rows where they are.
+    connection.execute(
+        """
+        CREATE TABLE mirror_queue (
+            id        INTEGER PRIMARY KEY AUTOINCREMENT,
+            ticket    TEXT NOT NULL,
+            what      TEXT NOT NULL,
+            payload   TEXT NOT NULL DEFAULT '{}',
+            at        TEXT NOT NULL,
+            tries     INTEGER NOT NULL DEFAULT 0,
+            error     TEXT NOT NULL DEFAULT ''
+        )
+        """
+    )
+    connection.execute("CREATE INDEX mirror_queue_by_ticket ON mirror_queue (ticket, id)")
+
+
 def _kind_switches(connection: sqlite3.Connection) -> None:
     # The tickets a session ran as a text or an action said were code, and the
     # runner made code and put back in ready (execution.py): once a ticket.
@@ -978,6 +1066,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     _hooks,
     _pr_reviews,
     _pages_in_two_parts,
+    _tickets,
 )
 
 # Any way a read or a write of the database can fail. A note the runner keeps
