@@ -242,10 +242,10 @@ def the_interval_never_reaches_systemd_as_zero() -> None:
 
 
 @case
-def the_update_check_never_runs_more_than_once_a_minute() -> None:
-    """At a ten-second cadence, an unbounded value would fetch six times a minute."""
+def the_update_check_keeps_its_hourly_constant() -> None:
+    """The interval of the check is no key any more: the file cannot ask for a fetch a second."""
     assert _config("").runner.update_interval_seconds == 3600
-    assert _config("[runner]\nupdate_interval_seconds = 5\n").runner.update_interval_seconds == 60
+    assert _config("[runner]\nupdate_interval_seconds = 5\n").runner.update_interval_seconds == 3600
     assert _config("").runner.auto_update is True
     assert _config("[runner]\nauto_update = false\n").runner.auto_update is False
 
@@ -405,16 +405,14 @@ def the_consoles_sign_in_may_live_in_the_environment_rather_than_the_file() -> N
 def the_consoles_trusted_proxies_come_from_the_file_or_else_the_environment() -> None:
     """Traefik's address is only known to the deployment: a container says it.
 
-    The file wins once it carries the line — even empty, which trusts nobody.
+    Not a key of the file any more: a line there is ignored, the environment answers.
     """
     path, config = _saved()
     assert config.web.trusted_proxies == ("127.0.0.1", "::1"), "this machine, by default"
     with _environ(**{C.TRUSTED_PROXIES_ENV: " 10.0.1.5, ,10.0.2.0/24 "}):
         assert C.load(path).web.trusted_proxies == ("10.0.1.5", "10.0.2.0/24")
         written, _ = _saved('\n[web]\ntrusted_proxies = ["192.0.2.1"]\n')
-        assert C.load(written).web.trusted_proxies == ("192.0.2.1",)
-        nobody, _ = _saved("\n[web]\ntrusted_proxies = []\n")
-        assert C.load(nobody).web.trusted_proxies == ()
+        assert C.load(written).web.trusted_proxies == ("10.0.1.5", "10.0.2.0/24")
 
 
 @contextmanager

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import os
 import time
@@ -40,7 +41,9 @@ def a_ticket_names_its_browser_over_its_project_over_the_file(state_home: Path) 
     assert browser.chosen(config, project) == "chrome", "the project's own word"
     assert browser.chosen(config, project, "browser: ponos") == "ponos", "the ticket's, over it"
     project_settings.set_browser(project, "Brevo", None)
-    assert browser.chosen(_config('[browser]\ndefault = "chrome"\n'), project) == "chrome"
+    other = _config("")
+    other.browser = dataclasses.replace(other.browser, default="chrome")
+    assert browser.chosen(other, project) == "chrome"
 
 
 @case
@@ -218,7 +221,9 @@ def doctor_says_whether_ponos_browser_can_start_and_how_to_install_it() -> None:
             browser.available = lambda installed=installed: installed  # type: ignore[misc]
             browser.chromium = lambda found=found: found  # type: ignore[misc]
             (check,) = machine._browser(_config(""))
-            (quiet,) = machine._browser(_config('[browser]\ndefault = "chrome"\n'))
+            other = _config("")
+            other.browser = dataclasses.replace(other.browser, default="chrome")
+            (quiet,) = machine._browser(other)
             assert check.code == "machine.browser" and check.state == state, check
             assert quiet.state in ("info", "ok"), quiet
             if state == "warn":

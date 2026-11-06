@@ -189,8 +189,7 @@ def stage(
     """
     config = here / "config.toml"
     config.write_text(
-        # No load guard: a busy machine must not hold the board's tickets back.
-        "[runner]\nauto_update = false\nmax_load_per_core = 0\n",
+        "[runner]\nauto_update = false\n",
         encoding="utf-8",
     )
     if token is not None:

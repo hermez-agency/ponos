@@ -16,7 +16,6 @@ export function ProviderStep({ container, onNext }: { container: boolean; onNext
   const t = useT()
   const [chosen, setChosen] = React.useState<Provider | null>(null)
   const [key, setKey] = React.useState("")
-  const [routed, setRouted] = React.useState(true)
   const [busy, setBusy] = React.useState(false)
   const [said, setSaid] = React.useState<{ ok: boolean; text: string } | null>(null)
   // What `claude` answered last: installed or not, and the commands that follow.
@@ -31,7 +30,6 @@ export function ProviderStep({ container, onNext }: { container: boolean; onNext
     seeded.current = true
     if (summary.provider.stated) setChosen(summary.provider.provider)
     if (summary.provider.stated && summary.provider.provider === "cli") void checkLogin(false)
-    setRouted(summary.provider.provider !== "openrouter" || summary.provider.route_sessions)
     // `checkLogin` is called once, behind `seeded`: a new one each render is no
     // reason to look again.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -44,7 +42,6 @@ export function ProviderStep({ container, onNext }: { container: boolean; onNext
       const answer = await api.saveProvider({
         provider,
         key: key.trim(),
-        route_sessions: provider === "openrouter" ? routed : undefined,
       })
       if (answer.command)
         setLogin({ installed: answer.installed ?? true, install: answer.install ?? "", command: answer.command })
@@ -123,10 +120,8 @@ export function ProviderStep({ container, onNext }: { container: boolean; onNext
         <KeyForm
           chosen={chosen}
           value={key}
-          routed={routed}
           busy={busy}
           onType={setKey}
-          onRoute={setRouted}
           onSave={() => void save(chosen)}
         />
       ) : null}

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+from dataclasses import replace
 
 from support import _environment, _saved, case
 
@@ -36,14 +37,17 @@ def a_file_with_no_provider_runs_its_sessions_where_it_always_did() -> None:
     with _environment(ANTHROPIC_API_KEY=None, OPENROUTER_API_KEY=None):
         _, plain = _saved()
         assert provider.chosen(plain) == "cli" and provider.environment(plain) == {}
-        _, routed = _saved('\n[openrouter]\nkey = "sk-or-1234567890"\nroute_sessions = true\n')
+        # A key alone changes nothing; the provider is what routes the sessions.
+        _, only_key = _saved('\n[openrouter]\nkey = "sk-or-1234567890"\nroute_sessions = true\n')
+        assert provider.chosen(only_key) == "cli"
+        _, routed = _saved(
+            '\n[claude]\nprovider = "openrouter"\n[openrouter]\nkey = "sk-or-1234567890"\n'
+        )
         assert provider.chosen(routed) == "openrouter"
         assert provider.environment(routed)["ANTHROPIC_AUTH_TOKEN"] == "sk-or-1234567890"
 
         # Chosen on purpose, the provider wins over a key that is only there.
-        _, cli = _saved(
-            '\n[claude]\nprovider = "cli"\n[openrouter]\nkey = "sk-or-1234567890"\nroute_sessions = true\n'
-        )
+        _, cli = _saved('\n[claude]\nprovider = "cli"\n[openrouter]\nkey = "sk-or-1234567890"\n')
         given = provider.environment(cli)
         assert "ANTHROPIC_AUTH_TOKEN" not in given and "ANTHROPIC_BASE_URL" not in given
         assert given["OPENROUTER_API_KEY"] == "sk-or-1234567890", "still there for the work"
@@ -79,7 +83,9 @@ def only_the_cli_waits_for_credits() -> None:
         assert Runner(_saved()[1], quiet=True)._waits_for_credits
         keyed = _saved('\n[claude]\nprovider = "api_key"\napi_key = "sk-ant-abcdefghijkl"\n')[1]
         assert not Runner(keyed, quiet=True)._waits_for_credits
-        routed = _saved('\n[openrouter]\nkey = "sk-or-1234567890"\nroute_sessions = true\n')[1]
+        routed = _saved(
+            '\n[claude]\nprovider = "openrouter"\n[openrouter]\nkey = "sk-or-1234567890"\n'
+        )[1]
         assert not Runner(routed, quiet=True)._waits_for_credits
 
 
@@ -93,8 +99,8 @@ def a_slug_session_reaches_claude_code_without_the_v1_it_adds_itself() -> None:
         given = provider.environment(keyed, model="deepseek/deepseek-v3.1-terminus")
         assert given["ANTHROPIC_BASE_URL"] == "https://openrouter.ai/api"
         assert given["OPENROUTER_BASE_URL"] == "https://openrouter.ai/api/v1"
-        _, own = _saved(
-            '\n[openrouter]\nkey = "sk-or-1234567890"\nbase_url = "https://gw.example/anthropic/"\n'
+        own = replace(
+            keyed, openrouter=replace(keyed.openrouter, base_url="https://gw.example/anthropic")
         )
         given = provider.environment(own, model="deepseek/deepseek-v3.1-terminus")
         assert given["ANTHROPIC_BASE_URL"] == "https://gw.example/anthropic"

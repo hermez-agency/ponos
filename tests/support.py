@@ -31,6 +31,7 @@ import time
 import traceback
 from collections.abc import Callable, Collection, Iterator, Sequence
 from contextlib import contextmanager
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeVar
@@ -263,7 +264,34 @@ def isolate() -> None:
 # -- the doubles more than one file uses -------------------------------------
 
 
-def _config(body: str) -> C.Config:
+def _config(
+    body: str = "",
+    *,
+    web: dict[str, Any] | None = None,
+    openrouter: dict[str, Any] | None = None,
+    speech: dict[str, Any] | None = None,
+    notify: dict[str, Any] | None = None,
+    **runner: Any,
+) -> C.Config:
+    """A configuration read from `body`; the rest sets the constants the file cannot.
+
+    `runner` for the runner's, and a dict for each other table: `web={"poll_seconds": 5}`.
+    """
+    config = _file_config(body)
+    if runner:
+        config = replace(config, runner=replace(config.runner, **runner))
+    if web:
+        config = replace(config, web=replace(config.web, **web))
+    if openrouter:
+        config = replace(config, openrouter=replace(config.openrouter, **openrouter))
+    if speech:
+        config = replace(config, speech=replace(config.speech, **speech))
+    if notify:
+        config = replace(config, notify=replace(config.notify, **notify))
+    return config
+
+
+def _file_config(body: str) -> C.Config:
     path = Path(tempfile.mkdtemp()) / "config.toml"
     path.write_text('[notion]\ntoken = "ntn_real"\ntickets_database = "abc"\n' + body)
     # Written the way a file used to be, and read the way a launch leaves it:

@@ -43,30 +43,22 @@ from pydantic import (
 )
 from pydantic_core import ErrorDetails, PydanticUseDefault
 
-from . import models, subtypes
 from .config import (
-    BROWSERS,
-    CONFIDENCES,
-    DIGEST_DAYS,
     DIGESTS,
     EVENTS,
     GITHUB_MODES,
     IDEAS_SCHEDULES,
     IDEAS_SCOPES,
     MERGE_METHODS,
-    MOST_RESERVED,
     PROVIDERS,
     SECRETS,
+    TYPES,
     UPDATE_CHANNELS,
     WEEKDAYS,
-    Browser,
     Budget,
     ConfigError,
-    OpenRouter,
     Permissions,
-    Review,
     Runner,
-    Speech,
     Web,
     identifier,
 )
@@ -204,8 +196,21 @@ class NotionTable(Table):
     pages: dict[str, str] = Field(default_factory=dict)
 
 
-Shift = Annotated[str, _one_of(subtypes.SHIFTS)]
-Level = Annotated[str, _one_of(models.LEVELS)]
+def _forced(value: object) -> tuple[str, ...]:
+    """The types a list names, in the board's order; a word that is none of them is dropped.
+
+    A string reads as well as a list, the console writing its lines as text.
+    Filtered rather than refused, like the other lists here: a typo must not
+    stop the runner, nor merge a type nobody named.
+    """
+    named = {str(word).strip().lower() for word in _words(value)}
+    return tuple(kind for kind in TYPES if kind in named)
+
+
+def _words(value: object) -> list[Any]:
+    if isinstance(value, (list, tuple)):
+        return list(value)
+    return str(value).replace(",", " ").split()
 
 
 class RunnerTable(Table):
@@ -214,20 +219,8 @@ class RunnerTable(Table):
     # only spin: one second is the floor that means anything here.
     interval_seconds: AtLeast1 = Runner.interval_seconds
     max_concurrent: AtLeast1 = Runner.max_concurrent
-    max_concurrent_per_project: AtLeast1 = Runner.max_concurrent_per_project
     timeout_minutes: AtLeast1 = Runner.timeout_minutes
-    relaunch_delay_seconds: AtLeast0 = Runner.relaunch_delay_seconds
-    min_free_memory_mb: AtLeast0 = Runner.min_free_memory_mb
-    max_load_per_core: PerCore = Runner.max_load_per_core
-    session_workers: AtLeast0 = Runner.session_workers
-    min_free_disk_mb: AtLeast0 = Runner.min_free_disk_mb
     wait_for_credits: bool = Runner.wait_for_credits
-    # Both ends clamped rather than refused: a file saying 150 meant "keep
-    # plenty", not "never run again", and a negative reserve is a typo for
-    # none at all.
-    credit_reserve_percent: Annotated[
-        AtLeast0, AfterValidator(lambda value: min(MOST_RESERVED, value))
-    ] = Runner.credit_reserve_percent
 
     model: Text = Runner.model
     # Kept as the file wrote it: `voice` reads it down to a language it
@@ -235,84 +228,18 @@ class RunnerTable(Table):
     # asked for" is one the loader must not flatten.
     language: Text = Runner.language
     app_language: Text = Runner.app_language
-    permission_mode: Text = Runner.permission_mode
-    branch_prefix: str = Runner.branch_prefix
     base_branch: Text = Runner.base_branch
-    fetch: bool = Runner.fetch
-    push: bool = Runner.push
-    open_pull_request: bool = Runner.open_pull_request
-    rebase: bool = Runner.rebase
-    force_validated_code: bool = Runner.force_validated_code
-    force_validated_writing: bool = Runner.force_validated_writing
-    force_validated_external: bool = Runner.force_validated_external
-    force_validated_publication: bool = Runner.force_validated_publication
+    # The types of ticket the runner merges without waiting for a review, as
+    # a list rather than one boolean a type. `config.load` reads the four
+    # booleans a file still holds when this one is not written.
+    force_validated: Annotated[tuple[str, ...], BeforeValidator(_forced)] = ()
     merge_method: Annotated[str, _one_of(MERGE_METHODS)] = Runner.merge_method
-    resolve_conflicts: bool = Runner.resolve_conflicts
-    resolve_conflicts_except: Names = Runner.resolve_conflicts_except
-    resolve_model: Text = Runner.resolve_model
-    checks_timeout_minutes: AtLeast0 = Runner.checks_timeout_minutes
     local_ci: bool = Runner.local_ci
-    local_ci_attempts: AtLeast1 = Runner.local_ci_attempts
-    local_ci_concurrent: AtLeast1 = Runner.local_ci_concurrent
     self_review: bool = Runner.self_review
-    review_model: Text = Runner.review_model
-    setup_timeout_minutes: AtLeast1 = Runner.setup_timeout_minutes
-    keep_worktree_on_failure: bool = Runner.keep_worktree_on_failure
-    attach_sessions: bool = Runner.attach_sessions
-    session_host: Text = Runner.session_host
-    dry_run: bool = Runner.dry_run
-    prompt_file: Text = Runner.prompt_file
-    document_prompt_file: Text = Runner.document_prompt_file
-    delivery_prompt_file: Text = Runner.delivery_prompt_file
-
-    notify: bool = Runner.notify
-    progress: bool = Runner.progress
-    # Ten seconds reads as live and costs three writes a ticket per tick.
-    # The floor is five: below that, two tickets running at once would spend
-    # the integration's rate limit on saying what they are about to do.
-    progress_interval_seconds: Annotated[Integer, _at_least(5)] = Runner.progress_interval_seconds
-    reply: bool = Runner.reply
-    # The floor is ten seconds, which is the fastest a run itself goes: a
-    # zero here would turn every pass into a full scan of the board.
-    reply_interval_seconds: Annotated[Integer, _at_least(10)] = Runner.reply_interval_seconds
-    pr_review_comments: bool = Runner.pr_review_comments
-    pr_review_mention: Filled = Runner.pr_review_mention
-    reply_scan: AtLeast1 = Runner.reply_scan
-    reply_timeout_minutes: AtLeast1 = Runner.reply_timeout_minutes
-    reply_permission_mode: Filled = Runner.reply_permission_mode
-    on: bool = Runner.on
-    on_interval_seconds: Annotated[Integer, _at_least(10)] = Runner.on_interval_seconds
-    on_max_depth: AtLeast0 = Runner.on_max_depth
-    on_timeout_minutes: AtLeast1 = Runner.on_timeout_minutes
-    on_permission_mode: Text = Runner.on_permission_mode
     unblock: bool = Runner.unblock
-    # A ticket is looked at once in this long, and a session is spent each
-    # time: ten minutes is the floor.
-    unblock_interval_seconds: Annotated[Integer, _at_least(600)] = Runner.unblock_interval_seconds
-    schedule: bool = Runner.schedule
 
-    auto_update: bool = Runner.auto_update
-    # A typo here must not quietly put an installation on every commit of
-    # `main`: anything unknown is the careful answer.
-    update_channel: Annotated[str, _one_of(UPDATE_CHANNELS)] = Runner.update_channel
-    # A run asks the remote at most once per this interval. The floor is a
-    # minute: at a ten-second cadence, an unbounded value would turn into a
-    # `git fetch` six times a minute, forever.
-    update_interval_seconds: Annotated[Integer, _at_least(60)] = Runner.update_interval_seconds
-    log_retention_days: AtLeast0 = Runner.log_retention_days
-    clean_done_worktrees: bool = Runner.clean_done_worktrees
-    stale_worktree_days: AtLeast0 = Runner.stale_worktree_days
-    tmp_retention_hours: AtLeast0 = Runner.tmp_retention_hours
-    docker_prune: bool = Runner.docker_prune
-    worktree_exclude: Names = Runner.worktree_exclude
-
-    classify: bool = Runner.classify
-    # Empty is the CLI's own model, which is a choice too: a runner routed
-    # through OpenRouter has no `haiku` to be given.
-    classify_model: Text = Runner.classify_model
-    # A typo must not turn into a threshold nothing reaches, which would block
-    # every ticket.
-    classify_confidence: Annotated[str, _one_of(CONFIDENCES)] = Runner.classify_confidence
+    # The ideas schedule: the Planned page's dialog writes these, so they stay
+    # keys of the file though Settings no longer draws a card for them.
     ideas_model: Text = Runner.ideas_model
     ideas_schedule: Annotated[str, _one_of(IDEAS_SCHEDULES)] = Runner.ideas_schedule
     ideas_at: Text = Runner.ideas_at
@@ -333,38 +260,11 @@ class RunnerTable(Table):
     ideas_skip_above: AtLeast0 = Runner.ideas_skip_above
     ideas_budget_usd: Dollars = Runner.ideas_budget_usd
     ideas_notify: bool = Runner.ideas_notify
-    auto_model: bool = Runner.auto_model
-    # Empty is allowed: a level that names no model borrows the nearest one
-    # that does — see `models.Grid.model`.
-    auto_model_light: Text = Runner.auto_model_light
-    auto_model_standard: Text = Runner.auto_model_standard
-    auto_model_heavy: Text = Runner.auto_model_heavy
-    auto_model_heaviest: Text = Runner.auto_model_heaviest
-    # A typo is the type's default level, not a level nothing answers.
-    auto_model_code: Level = Runner.auto_model_code
-    auto_model_writing: Level = Runner.auto_model_writing
-    auto_model_external: Level = Runner.auto_model_external
-    auto_model_publication: Level = Runner.auto_model_publication
-    # One per sub-type of subtypes.py; "" is the sub-type's own shift, and so is
-    # a word that is none of the three.
-    auto_model_subtype_bug: Shift = ""
-    auto_model_subtype_feature: Shift = ""
-    auto_model_subtype_improvement: Shift = ""
-    auto_model_subtype_chore: Shift = ""
-    auto_model_subtype_refactor: Shift = ""
-    auto_model_subtype_perf: Shift = ""
-    auto_model_subtype_docs: Shift = ""
-    auto_model_subtype_security: Shift = ""
-    auto_model_escalate: bool = Runner.auto_model_escalate
-    use_fable: bool = Runner.use_fable
 
-    def subtype_shifts(self) -> dict[str, str]:
-        """`auto_model_subtypes`: the sub-types the file moves, and how."""
-        return {
-            key: shift
-            for key in subtypes.KEYS
-            if (shift := getattr(self, f"auto_model_subtype_{key}", ""))
-        }
+    auto_update: bool = Runner.auto_update
+    # A typo here must not quietly put an installation on every commit of
+    # `main`: anything unknown is the careful answer.
+    update_channel: Annotated[str, _one_of(UPDATE_CHANNELS)] = Runner.update_channel
 
 
 def _users(value: object) -> str:
@@ -380,20 +280,17 @@ Users = Annotated[str, BeforeValidator(_users)]
 class TelegramTable(Table):
     chat: Text = ""
     allowed_users: Users = ""
-    default_project: Text = ""
 
 
 class SlackTable(Table):
     channel: Text = ""
     allowed_users: Users = ""
-    default_project: Text = ""
 
 
 class NotifyTable(Table):
     # None is the file saying nothing: `runner.notify` answers, as it did
     # before this table existed.
     desktop: bool | None = None
-    replies: bool = True
     # Filtered rather than trusted: a typo in this list would otherwise
     # silence a moment without ever saying so.
     events: Annotated[
@@ -406,8 +303,6 @@ class NotifyTable(Table):
     ] = EVENTS
     # The summary of a period sent on its own — see digest.py. Off unless asked.
     digest: Annotated[str, _one_of(DIGESTS)] = "off"
-    digest_day: Annotated[str, _one_of(DIGEST_DAYS)] = "monday"
-    digest_hour: AtLeast0 = 9
     telegram: TelegramTable = Field(default_factory=TelegramTable)
     slack: SlackTable = Field(default_factory=SlackTable)
 
@@ -416,37 +311,7 @@ class WebTable(Table):
     host: Filled = Web.host
     port: Integer = Web.port
     url: Address = Web.url
-    trusted_proxies: Sentences = Web.trusted_proxies
     email: Text = Web.email
-    # Five seconds is the floor for the same reason as the live report's:
-    # below that, a page left open in a tab becomes a second full-time reader
-    # of the board.
-    poll_seconds: Annotated[Integer, _at_least(5)] = Web.poll_seconds
-    chat_timeout_minutes: AtLeast1 = Web.chat_timeout_minutes
-    chat_model: Text = Web.chat_model
-    attachment_max_mb: AtLeast1 = Web.attachment_max_mb
-    attachment_days: AtLeast1 = Web.attachment_days
-    send_after_transcription: bool = Web.send_after_transcription
-
-
-class OpenRouterTable(Table):
-    # Emptied, the default answers.
-    base_url: Annotated[Address, AfterValidator(_or_default)] = OpenRouter.base_url
-    route_sessions: bool = OpenRouter.route_sessions
-    transcription_model: Filled = OpenRouter.transcription_model
-
-
-class SpeechTable(Table):
-    enabled: bool = Speech.enabled
-    voice_fr: Filled = Speech.voice_fr
-    voice_en: Filled = Speech.voice_en
-    # Below half the pace nothing is intelligible, above double it nothing is.
-    speed: Annotated[Integer, _at_least(50)] = Speech.speed
-
-
-class BrowserTable(Table):
-    default: Annotated[str, _one_of(BROWSERS)] = Browser.default
-    headless: bool = Browser.headless
 
 
 class ClaudeTable(Table):
@@ -455,14 +320,9 @@ class ClaudeTable(Table):
     provider: Annotated[str, _one_of(PROVIDERS)] = ""
 
 
-class ReviewTable(Table):
-    ci_retries: AtLeast0 = Review.ci_retries
-
-
 class BudgetTable(Table):
     daily_usd: Dollars = Budget.daily_usd
     per_ticket_usd: Dollars = Budget.per_ticket_usd
-    on_usd: Dollars = Budget.on_usd
 
 
 class PermissionsTable(Table):
@@ -503,12 +363,8 @@ class File(Table):
     projects: dict[str, str] = Field(default_factory=dict)
     web: WebTable = Field(default_factory=WebTable)
     notify: NotifyTable = Field(default_factory=NotifyTable)
-    openrouter: OpenRouterTable = Field(default_factory=OpenRouterTable)
-    speech: SpeechTable = Field(default_factory=SpeechTable)
-    browser: BrowserTable = Field(default_factory=BrowserTable)
     claude: ClaudeTable = Field(default_factory=ClaudeTable)
     budget: BudgetTable = Field(default_factory=BudgetTable)
-    review: ReviewTable = Field(default_factory=ReviewTable)
     permissions: PermissionsTable = Field(default_factory=PermissionsTable)
     vault: VaultTable = Field(default_factory=VaultTable)
     github: Annotated[dict[str, str], AfterValidator(_owners)] = Field(default_factory=dict)
@@ -591,6 +447,146 @@ RETIRED: frozenset[tuple[str, ...]] = frozenset(
 )
 
 
+# The keys this version stopped reading when `config.toml` came down to what
+# somebody actually changes: each is now a constant of `config.py` (the default
+# its dataclass has always had), and a file that still writes one is read all
+# the same — `retired` names it for `ponos doctor`. The refusal of what no
+# table knows comes with the command that converts the file, not before: an
+# installation updated on its own must not stop on the line it was left with.
+# `force_validated_<type>` became the one list `force_validated`; the rest has
+# no successor. Tables whole — `[openrouter]`, `[speech]`, `[review]` — are here
+# key by key and have no model any more.
+REMOVED: dict[str, tuple[str, ...]] = {
+    "runner": (
+        "max_concurrent_per_project",
+        "relaunch_delay_seconds",
+        "min_free_memory_mb",
+        "max_load_per_core",
+        "session_workers",
+        "min_free_disk_mb",
+        "credit_reserve_percent",
+        "permission_mode",
+        "branch_prefix",
+        "fetch",
+        "push",
+        "open_pull_request",
+        "rebase",
+        "force_validated_code",
+        "force_validated_writing",
+        "force_validated_external",
+        "force_validated_publication",
+        "resolve_conflicts",
+        "resolve_conflicts_except",
+        "resolve_model",
+        "checks_timeout_minutes",
+        "local_ci_attempts",
+        "local_ci_concurrent",
+        "review_model",
+        "setup_timeout_minutes",
+        "keep_worktree_on_failure",
+        "attach_sessions",
+        "session_host",
+        "dry_run",
+        "prompt_file",
+        "document_prompt_file",
+        "delivery_prompt_file",
+        "notify",
+        "progress",
+        "progress_interval_seconds",
+        "reply",
+        "reply_interval_seconds",
+        "pr_review_comments",
+        "pr_review_mention",
+        "reply_scan",
+        "reply_timeout_minutes",
+        "reply_permission_mode",
+        "on",
+        "on_interval_seconds",
+        "on_max_depth",
+        "on_timeout_minutes",
+        "on_permission_mode",
+        "unblock_interval_seconds",
+        "schedule",
+        "update_interval_seconds",
+        "log_retention_days",
+        "clean_done_worktrees",
+        "stale_worktree_days",
+        "tmp_retention_hours",
+        "docker_prune",
+        "worktree_exclude",
+        "classify",
+        "classify_model",
+        "classify_confidence",
+        "auto_model",
+        "auto_model_light",
+        "auto_model_standard",
+        "auto_model_heavy",
+        "auto_model_heaviest",
+        "auto_model_code",
+        "auto_model_writing",
+        "auto_model_external",
+        "auto_model_publication",
+        "auto_model_subtype_bug",
+        "auto_model_subtype_feature",
+        "auto_model_subtype_improvement",
+        "auto_model_subtype_chore",
+        "auto_model_subtype_refactor",
+        "auto_model_subtype_perf",
+        "auto_model_subtype_docs",
+        "auto_model_subtype_security",
+        "auto_model_escalate",
+        "use_fable",
+    ),
+    "notify.telegram": ("default_project",),
+    "notify.slack": ("default_project",),
+    "notify": (
+        "replies",
+        "digest_day",
+        "digest_hour",
+    ),
+    "web": (
+        "trusted_proxies",
+        "poll_seconds",
+        "chat_timeout_minutes",
+        "chat_model",
+        "attachment_max_mb",
+        "attachment_days",
+        "send_after_transcription",
+    ),
+    "openrouter": (
+        "base_url",
+        "route_sessions",
+        "transcription_model",
+    ),
+    "speech": (
+        "enabled",
+        "voice_fr",
+        "voice_en",
+        "speed",
+    ),
+    "browser": ("default", "headless"),
+    "review": ("ci_retries",),
+    "budget": ("on_usd",),
+}
+
+
+def retired(raw: dict[str, Any], text: str) -> list[tuple[int, str]]:
+    """Each key the file still holds that is a constant now: its line and its dotted name."""
+    secrets = {(*table.split("."), key) for table, key in SECRETS}
+    found: list[tuple[int, str]] = []
+    for table, keys in REMOVED.items():
+        where = tuple(table.split("."))
+        node: object = raw
+        for part in where:
+            node = node.get(part) if isinstance(node, dict) else None
+        if not isinstance(node, dict):
+            continue
+        for key in keys:
+            if key in node and (*where, key) not in secrets:
+                found.append((line_of(text, (*where, key)), f"{table}.{key}"))
+    return sorted(found)
+
+
 def unknown(raw: dict[str, Any], text: str) -> list[tuple[int, str, str]]:
     """Each key no table reads: its line, its dotted name, and the known one it is closest to.
 
@@ -598,7 +594,13 @@ def unknown(raw: dict[str, Any], text: str) -> list[tuple[int, str, str]]:
     file's to choose — `[projects]`, `[github]`, `[notion.pages]` — has none,
     and a table nobody knows is one key, its contents left unread.
     """
-    exempt = RETIRED | {(*table.split("."), key) for table, key in SECRETS}
+    exempt = (
+        RETIRED
+        | {(*table.split("."), key) for table, key in SECRETS}
+        | {(*table.split("."), key) for table, keys in REMOVED.items() for key in keys}
+        # A table that has no model any more: its keys are said by `retired`.
+        | {(table,) for table in REMOVED if table not in File.model_fields}
+    )
     found: list[tuple[int, str, str]] = []
 
     def walk(model: type[Table], node: dict[str, Any], where: tuple[str, ...]) -> None:

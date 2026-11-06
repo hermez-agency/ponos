@@ -19,6 +19,7 @@ def _settings(config: config_module.Config) -> list[Check]:
     return [
         *_secrets(config),
         *_keys(config),
+        *_retired(config),
         *_languages(config.runner),
         *_validation(config.runner),
         *_self_review(config.runner),
@@ -141,6 +142,24 @@ def _keys(config: config_module.Config) -> list[Check]:
             cause="It is ignored, and its default applies.",
         )
         for line, key, match in config.unknown
+    ]
+
+
+def _retired(config: config_module.Config) -> list[Check]:
+    """The keys of config.toml that are constants now: read as the default, and told once."""
+    if not config.retired:
+        return []
+    names = ", ".join(key for _, key in config.retired)
+    return [
+        _check(
+            "settings.retired",
+            INFO,
+            "Configuration",
+            "{{file}} still holds {{count}} keys that are constants now ({{keys}}).",
+            params={"file": config.path.name, "count": str(len(config.retired)), "keys": names},
+            cause="They are ignored, and each one's default applies.",
+            steps=["Delete those lines; the file keeps working as it is until then."],
+        )
     ]
 
 

@@ -534,7 +534,7 @@ export const api = {
   setupDone: () => answer(client.POST("/api/setup/done")),
   claudeLogin: () => answer(client.GET("/api/setup/claude")),
   /* `save: false` only tries the key — the settings' Test button — and writes nothing. */
-  saveProvider: (chosen: { provider: string; key?: string; route_sessions?: boolean; save?: boolean }) =>
+  saveProvider: (chosen: { provider: string; key?: string; save?: boolean }) =>
     answer(client.POST("/api/setup/provider", { body: chosen })),
   saveNotion: (typed: { token: string; page: string; workspace?: string }) =>
     answer(client.POST("/api/setup/notion", { body: typed })),

@@ -180,20 +180,21 @@ def a_failed_choice_climbs_one_level_once_and_stays_there() -> None:
 
 @case
 def the_grid_is_the_configurations_and_an_empty_level_borrows_the_nearest() -> None:
-    path = Path(tempfile.mkdtemp()) / "config.toml"
-    path.write_text(
-        '[notion]\ntoken = "x"\n[runner]\nauto_model_light = ""\n'
-        'auto_model_heavy = "anthropic/claude-opus"\nauto_model_writing = "heavy"\n'
-        'auto_model_code = "massive"\n',
-        encoding="utf-8",
-    )
-    settings = C.load(path).runner
+    settings = C.Runner(auto_model_light="", auto_model_heavy="anthropic/claude-opus")
     grid = settings.model_grid()
     assert grid.model("light") == "sonnet", "below is nothing, so the one above"
     assert grid.model("heavy") == "anthropic/claude-opus"
-    assert settings.auto_model_code == "standard", "a level nothing answers is the default"
-    text = models.choose("Un mot", "", kind="writing", code=False, grid=grid)
-    assert text.model == "anthropic/claude-opus", text
+    writing = C.Runner(auto_model_light="", auto_model_writing="light").model_grid()
+    text = models.choose("Un mot", "", kind="writing", code=False, grid=writing)
+    assert text.model == "sonnet", text
+    # The grid is no key of the file any more: a line there changes nothing.
+    path = Path(tempfile.mkdtemp()) / "config.toml"
+    path.write_text(
+        '[notion]\ntoken = "x"\n[runner]\nauto_model_heavy = "anthropic/claude-opus"\n'
+        'auto_model_code = "massive"\n',
+        encoding="utf-8",
+    )
+    assert C.load(path).runner.model_grid().model("heavy") == "opus"
 
 
 @case
@@ -214,7 +215,7 @@ def without_use_fable_the_heaviest_level_and_an_escalation_stop_at_opus() -> Non
 
 
 @case
-def a_config_without_use_fable_has_no_fable_and_true_brings_it_back() -> None:
+def a_config_has_no_fable_and_only_the_constant_brings_it_back() -> None:
     path = Path(tempfile.mkdtemp()) / "config.toml"
     path.write_text('[notion]\ntoken = "x"\n[runner]\n', encoding="utf-8")
     settings = C.load(path).runner
@@ -222,9 +223,10 @@ def a_config_without_use_fable_has_no_fable_and_true_brings_it_back() -> None:
     assert settings.auto_model_heaviest == "fable", "the level keeps its name"
     assert settings.model_grid().model("heaviest") == "opus"
     assert settings.allowed("fable") == "opus" and settings.allowed("sonnet") == "sonnet"
+    # Not a key of the file any more: a line there changes nothing.
     path.write_text('[notion]\ntoken = "x"\n[runner]\nuse_fable = true\n', encoding="utf-8")
-    settings = C.load(path).runner
-    assert settings.use_fable is True and settings.allowed("fable") == "fable"
+    assert C.load(path).runner.use_fable is False
+    assert C.Runner(use_fable=True).allowed("fable") == "fable"
 
 
 def _modelled(title: str, body: str, **properties: Any) -> tuple[Runner, ticket_module.Ticket]:

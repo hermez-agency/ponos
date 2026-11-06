@@ -129,25 +129,6 @@ test("the keys are hidden until asked for", async ({ page }) => {
   await expect(key).toHaveCount(0)
 })
 
-test("the models are one table, and a change waits under a bar that sticks", async ({ page }) => {
-  await open(page, "/?view=console/settings/read/config/models")
-  await settingsPage(page)
-  const grid = page.getByTestId("model-grid")
-  // Four levels by four types, and three shifts by eight sub-types under them.
-  await expect(grid.getByRole("radio")).toHaveCount(16 + 24)
-  const subtypes = page.getByTestId("model-grid-subtypes")
-  await expect(subtypes.getByRole("radio", { name: "Security — One level higher" })).toBeChecked()
-  await expect(subtypes.getByRole("radio", { name: "Docs — One level lower" })).toBeChecked()
-  await expect(subtypes.getByRole("radio", { name: "Bug — Same as Code" })).toBeChecked()
-  const bar = page.getByTestId("settings-bar")
-  await expect(bar.getByRole("status")).toHaveText("No changes")
-  await grid.getByRole("radio", { name: "Code — Heavy work" }).check()
-  await expect(bar.getByRole("status")).toHaveText("Unsaved changes")
-  await expect(bar).toHaveCSS("position", "sticky")
-  await bar.getByRole("button", { name: "Cancel" }).click()
-  await expect(bar.getByRole("status")).toHaveText("No changes")
-})
-
 test("the vault keeps a value it never shows again, and empties the form that carried it", async ({ page }) => {
   const value = "e2e_vault_value_0123456789"
   await open(page, "/?view=console/settings/read/config/vault")

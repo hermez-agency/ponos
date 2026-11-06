@@ -13,7 +13,7 @@ from collections.abc import Callable, Iterable, Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from support import FRONTEND, _board, _config, _environment, _git_answering, case
 
@@ -577,7 +577,7 @@ def health_counts_comments_it_is_refused_but_not_one_it_could_not_read_once() ->
     assert ("settings.reply", "ok") in _verdicts(found), "it answers by default"
     empty = _DoctorBoard([])
     empty.tickets = []
-    quiet = _config("[runner]\nreply = false\nunblock = false\n")
+    quiet = _config(reply=False, unblock=False)
     found = health._comments(quiet, empty, SPACE)  # type: ignore[arg-type]  # a fake: a board in memory
     assert {check.state for check in found} == {"info"}, found
 
@@ -697,7 +697,6 @@ def health_says_which_provider_answers_and_counts_one_that_cannot() -> None:
     assert health.problems(found) == 0
     said = _lines(found)
     assert 'claude.provider = "openrouter"' in said and "sk-or-…7890" in said
-    assert "route_sessions = false" in said, "a provider whose sessions are not on it is said"
 
 
 @case
@@ -733,16 +732,17 @@ def health_says_claude_is_missing_and_asks_the_cli_who_is_signed_in() -> None:
 def health_says_which_model_runs_an_empty_ticket_and_whether_fable_is_allowed() -> None:
     from ponos import health
 
-    found = health._models(_config("[runner]\nuse_fable = false\n"))
+    found = health._models(_config(use_fable=False))
     fable = next(check for check in found if check.code == "claude.fable")
     assert fable.state == "info" and fable.params["instead"] == "opus"
-    found = health._models(_config("[runner]\nuse_fable = true\n"))
+    found = health._models(_config(use_fable=True))
     assert ("claude.fable", "ok") in _verdicts(found)
     assert ("claude.model", "ok") in _verdicts(found), "the rules choose an empty model"
 
     routed = _config(
-        '[openrouter]\nkey = "sk-or-1234567890"\nroute_sessions = true\n'
-        '[runner]\nideas_model = "sonnet"\n'
+        '[openrouter]\nkey = "sk-or-1234567890"\n',
+        openrouter={"route_sessions": True},
+        ideas_model="sonnet",
     )
     found = health._models(routed)
     assert ("claude.ideas", "warn") in _verdicts(found), "a Claude name OpenRouter cannot route"
@@ -953,23 +953,23 @@ def health_calls_desktop_notifications_not_applicable_without_a_display() -> Non
 def health_says_the_disk_space_and_what_tidies_it(state_home: Path) -> None:
     from ponos import health
 
-    def disk(body: str, room: tuple[int, int] | None) -> list[Check]:
+    def disk(room: tuple[int, int] | None, **constants: Any) -> list[Check]:
         with _patched(health.resources, disk_mb=lambda path: room):
-            return health._disk(_config(body))
+            return health._disk(_config(**constants))
 
-    found = disk("[runner]\nmin_free_disk_mb = 5120\n", (90000, 100000))
+    found = disk((90000, 100000))
     assert ("machine.disk", "ok") in _verdicts(found) and health.problems(found) == 0
     assert ("machine.residue", "ok") in _verdicts(found)
-    found = disk("[runner]\nmin_free_disk_mb = 5120\n", (1000, 100000))
+    found = disk((1000, 100000))
     assert ("machine.disk", "error") in _verdicts(found), "no ticket starts under the floor"
-    found = disk("[runner]\nmin_free_disk_mb = 0\n", (1000, 100000))
+    found = disk((1000, 100000), min_free_disk_mb=0)
     assert ("machine.disk", "info") in _verdicts(found) and health.problems(found) == 0
-    assert ("machine.disk", "warn") in _verdicts(disk("", None)), "the guard cannot tell"
-    found = disk("[runner]\nlog_retention_days = 0\n", (90000, 100000))
+    assert ("machine.disk", "warn") in _verdicts(disk(None)), "the guard cannot tell"
+    found = disk((90000, 100000), log_retention_days=0)
     assert ("machine.tidy", "warn") in _verdicts(found)
 
     (state_home / "worktrees" / "leftover" / "node_modules").mkdir(parents=True)
-    found = disk("", (90000, 100000))
+    found = disk((90000, 100000))
     assert ("machine.residue", "warn") in _verdicts(found), _lines(found)
 
 
@@ -1019,7 +1019,7 @@ def health_reports_what_others_can_read_in_the_state_and_tightens_it(state_home:
 def health_says_when_memory_is_short_and_when_it_cannot_tell() -> None:
     from ponos import health
 
-    config = _config("[runner]\nmin_free_memory_mb = 2048\n")
+    config = _config()
     for free, expected, words in (
         (100, "warn", "100 MB available, under runner.min_free_memory_mb (2048 MB)"),
         (4096, "ok", "4096 MB available (a session starts above 2048 MB)"),
@@ -1034,7 +1034,7 @@ def health_says_when_memory_is_short_and_when_it_cannot_tell() -> None:
 def health_says_when_the_load_is_too_high_and_when_it_cannot_tell() -> None:
     from ponos import health
 
-    config = _config("[runner]\nmax_load_per_core = 1.5\n")
+    config = _config()
     for measured, expected, words in (
         ((74.0, 20), "warn", "Load 74.0 on 20 cores, above runner.max_load_per_core (1.5, so 30)"),
         ((12.0, 20), "ok", "Load 12.0 on 20 cores (a session starts at 30 or below)"),
@@ -1043,7 +1043,7 @@ def health_says_when_the_load_is_too_high_and_when_it_cannot_tell() -> None:
         with _patched(health.resources, load=lambda measured=measured: measured):
             found = health._load(config)
         assert found[0].state == expected and words in _lines(found), _lines(found)
-    off = _config("[runner]\nmax_load_per_core = 0\n")
+    off = _config(max_load_per_core=0)
     with _patched(health.resources, load=lambda: (74.0, 20)):
         assert health._load(off)[0].state == "info"
 
@@ -1054,13 +1054,13 @@ def health_says_how_many_workers_a_session_is_given() -> None:
 
     for written, words in (
         (
-            "max_concurrent = 7\n",
+            {"max_concurrent": 7},
             "take 2 workers at most: 20 cores shared by runner.max_concurrent (7)",
         ),
-        ("session_workers = 6\n", "runner.session_workers = 6"),
+        ({"session_workers": 6}, "runner.session_workers = 6"),
     ):
         with _patched(health.resources, cores=lambda: 20):
-            found = health._workers(_config("[runner]\n" + written).runner)
+            found = health._workers(_config(**cast(dict[str, Any], written)).runner)
         assert found.state == "info" and words in _lines([found]), _lines([found])
 
 
@@ -1430,13 +1430,11 @@ def health_says_a_language_nobody_speaks_here() -> None:
 def health_says_what_leaves_the_machine_unread_and_what_cannot_be_merged() -> None:
     from ponos import health
 
-    found = health._validation(
-        _config("[runner]\nforce_validated_code = true\npush = false\n").runner
-    )
+    found = health._validation(_config('[runner]\nforce_validated = ["code"]\n', push=False).runner)
     said = _lines(found)
     assert "Force validated: code" in said
     assert "no pull request is opened to merge" in said
-    found = health._validation(_config("[runner]\nrebase = false\n").runner)
+    found = health._validation(_config(rebase=False).runner)
     said = _lines(found)
     assert "runner.rebase is off" in said and "Force validated" not in said
     assert health.problems(found) == 0, "a choice, said, never counted"
@@ -1474,7 +1472,7 @@ def health_says_half_a_sign_in_and_a_connector_address_claude_ai_cannot_add() ->
         )
     )
     assert health.problems(signed) == 0 and ("settings.mcp", "ok") in _verdicts(signed)
-    routed = health._console(_config('[web]\nchat_model = "openai/gpt-5"\n'))
+    routed = health._console(_config(web={"chat_model": "openai/gpt-5"}))
     assert ("settings.chat", "warn") in _verdicts(routed), "an OpenRouter model with no key"
 
 

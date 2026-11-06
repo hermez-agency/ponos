@@ -47,7 +47,7 @@ test("the first connection goes from the account to the summary", async ({ page 
   // The e2e `claude` is signed in as nobody: written all the same, and said.
   await expect(page.getByRole("status")).toContainText("claude auth login")
   await page.getByTestId("provider-openrouter").click()
-  await expect(page.getByRole("checkbox")).toBeChecked()
+  await expect(page.getByRole("checkbox")).toHaveCount(0)
 
   await page.getByRole("button", { name: "Continue" }).click()
   await expect(page.getByTestId("setup-notion")).toBeVisible()

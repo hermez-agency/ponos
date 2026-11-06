@@ -11,7 +11,7 @@ from typing import Any
 from support import _saved, case
 
 from ponos import config as C
-from ponos import subtypes
+from ponos import schema
 from ponos.web import settings as web_settings
 
 # -- the settings tab ---------------------------------------------------------
@@ -26,14 +26,14 @@ def a_value_is_written_as_toml_spells_it() -> None:
     assert C._literal('a "quoted" \\ path') == '"a \\"quoted\\" \\\\ path"'
 
     path, _ = _saved()
-    assert C.write_value(path, "runner", "dry_run", True)
+    assert C.write_value(path, "runner", "unblock", True)
     assert C.write_value(path, "runner", "interval_seconds", 900)
     assert C.write_value(path, "notify", "events", ["blocked"])
     # A project called "Site vitrine" is not a bare key, and has to survive
     # being written and read back under the same name.
     assert C.write_value(path, "projects", "Site vitrine", "~/work/site")
     config = C.load(path)
-    assert config.runner.dry_run is True
+    assert config.runner.unblock is True
     assert config.runner.interval_seconds == 900
     assert config.notify.events == ("blocked",)
     assert "Site vitrine" in config.projects
@@ -160,9 +160,9 @@ def a_floor_the_loader_would_repair_quietly_is_refused_here() -> None:
     path, config = _saved()
     for name, value in (
         ("runner.interval_seconds", 0),
-        ("runner.progress_interval_seconds", 1),
-        ("web.poll_seconds", 2),
-        ("runner.update_interval_seconds", 30),
+        ("runner.max_concurrent", 0),
+        ("runner.timeout_minutes", 0),
+        ("web.port", -1),
     ):
         try:
             web_settings.save(config, {"settings": {name: value}})
@@ -240,36 +240,27 @@ def every_setting_the_file_holds_is_one_the_console_can_reach() -> None:
     The console draws itself from `settings.SECTIONS`; this is what keeps that
     description from falling behind the dataclasses it describes.
     """
-    expected = set()
-    for table, holder in (
-        ("runner", C.Runner()),
-        ("web", C.Web()),
-        ("notify", C.Notify()),
-        ("openrouter", C.OpenRouter()),
-        ("speech", C.Speech()),
-        ("browser", C.Browser()),
-        ("claude", C.Claude()),
-        ("permissions", C.Permissions()),
-        ("github_access", C.GithubAccess()),
-    ):
-        for name in vars(holder):
-            # The two channel tables are their own sections, and `projects` is a
-            # mapping you add rows to rather than a list of known keys.
-            if name in ("telegram", "slack"):
-                continue
-            expected.add(f"{table}.{name}")
-    for name in vars(C.Notion()):
-        if name == "pages":
-            continue
-        expected.add(f"notion.{name}")
+    # What the file keeps: the keys of schema.py, and the secrets that live elsewhere.
+    expected = {f"runner.{name}" for name in schema.RunnerTable.model_fields}
+    expected.discard("runner.force_validated")
+    # The one list, drawn as a switch a type: see `settings._forced_changes`.
+    expected |= {f"runner.force_validated_{kind}" for kind in C.TYPES}
+    expected |= {f"web.{name}" for name in schema.WebTable.model_fields}
+    expected |= {"web.token", "web.password"}
+    expected |= {f"notion.{name}" for name in schema.NotionTable.model_fields} - {"notion.pages"}
+    expected |= {"notion.token"}
     expected |= {f"notion.pages.{key}" for key in C.page_titles()}
+    expected |= {f"notify.{name}" for name in schema.NotifyTable.model_fields}
+    expected -= {"notify.telegram", "notify.slack"}
     expected |= {"notify.telegram.token", "notify.telegram.chat"}
     expected |= {"notify.slack.token", "notify.slack.channel"}
-
-    # A mapping the file writes one key per sub-type: see `Runner.auto_model_subtypes`.
-    expected.discard("runner.auto_model_subtypes")
-    expected |= {f"runner.auto_model_subtype_{key}" for key in subtypes.KEYS}
-    # A key the page draws under its newer name instead: see `LEGACY`.
+    expected |= {f"claude.{name}" for name in schema.ClaudeTable.model_fields} | {"claude.api_key"}
+    expected |= {"openrouter.key"}
+    expected |= {f"permissions.{name}" for name in schema.PermissionsTable.model_fields}
+    expected |= {f"github_access.{name}" for name in schema.GithubAccessTable.model_fields}
+    expected |= {"github_access.token"}
+    # Named in the file and not drawn: the two lists of people a channel listens to,
+    # which are edited where they are read (see `notify.telegram`).
     expected -= set(web_settings.LEGACY)
     missing = expected - set(web_settings.FIELDS)
     assert not missing, f"not reachable from the console: {sorted(missing)}"
@@ -310,7 +301,7 @@ def a_choice_is_shown_in_words_and_saved_as_the_file_spells_it() -> None:
         for field in section["fields"]
     }
     assert drawn["runner.merge_method"]["options"]["squash"] == "One commit (squash)"
-    assert drawn["runner.branch_prefix"]["advanced"] is True
+    assert drawn["notion.tickets_database"]["advanced"] is True
     assert drawn["runner.max_concurrent"]["advanced"] is False
     web_settings.save(config, {"settings": {"runner.merge_method": "rebase"}})
     assert 'merge_method = "rebase"' in path.read_text()

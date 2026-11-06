@@ -1,747 +1,86 @@
-# ponos — configuration
+# ponos — configuration, ~/.config/ponos/config.toml
 #
-#   ~/.config/ponos/config.toml
+# About thirty keys, and every one is also in the console's Settings (it writes
+# into this very file, one line at a time, and leaves these comments alone).
+# Everything not named here is a constant of the code — the retired keys, and
+# what each became, are listed in CHANGELOG.md. A file that still holds one is
+# read all the same: `ponos doctor` names it. After any change:  ponos doctor
 #
-# After any change:  ponos doctor
-#
-# Every key in here is also a field in the web console's Settings tab
-# (`ponos service run`). It writes back into this very file, one line at a
-# time, and leaves these comments where they are — so editing it by hand and
-# editing it in a browser are the same gesture, and neither undoes the other.
-#
-# Secrets — every token, key and password — are not in this file, and are not
-# read from it. They live in the environment, or in
-#
-#   ~/.config/ponos/secrets.env      (beside this file; PONOS_SECRETS moves it)
-#
-# one NAME=value a line, created 0600 — the file the console and `ponos init`
-# write them to. When both have a value, secrets.env wins, except for the
-# console's password, where the environment does. The names:
-#
-#   PONOS_NOTION_TOKEN     the Notion integration token        [notion]
-#   PONOS_WEB_TOKEN        the console's token                 [web]
-#   PONOS_WEB_PASSWORD     the console's sign-in password      [web]
-#   PONOS_TELEGRAM_TOKEN   the Telegram bot token              [notify.telegram]
-#   PONOS_SLACK_TOKEN      the Slack bot token (xoxb-…)        [notify.slack]
-#   ANTHROPIC_API_KEY      the Anthropic key                   [claude]
-#   OPENROUTER_API_KEY     the OpenRouter key                  [openrouter]
-#   PONOS_GITHUB_TOKEN     a GitHub personal access token      [github_access]
-#   PONOS_GITHUB_APPS      the GitHub Apps connected from the console, as one
-#                          JSON line (Settings › GitHub writes it, Disconnect
-#                          removes it — never typed by hand)
-#
-# A secret left in this file by an older version is moved into secrets.env by
-# the next launch, which says so; until then it is ignored. `ponos doctor`
-# checks both files.
+# Secrets — tokens, keys, passwords — are never here. They live in the
+# environment or in ~/.config/ponos/secrets.env (NAME=value, 0600; PONOS_SECRETS
+# moves it): PONOS_NOTION_TOKEN, PONOS_WEB_TOKEN, PONOS_WEB_PASSWORD,
+# PONOS_TELEGRAM_TOKEN, PONOS_SLACK_TOKEN, ANTHROPIC_API_KEY, OPENROUTER_API_KEY,
+# PONOS_GITHUB_TOKEN. Where both hold one, secrets.env wins (the console's
+# password: the environment).
 
 [notion]
-# Optional: the tickets live in ponos.db either way. Without a token, the projects,
-# agents, goals, schedules and standing context live there too, and nothing in this
-# table needs a value. With one, Notion is where those are read, and a mirror of
-# the tickets.
-# The token of an internal Notion integration (https://www.notion.so/my-integrations)
-# is PONOS_NOTION_TOKEN — in secrets.env or the environment, never here.
-# The workspace page must be shared with it — everything under it is then
-# reachable: the page's ··· menu → Connections → your integration.
-
-# The workspace database: one database whose rows are your master pages, each
-# holding its own inline database. Name it once, and the runner finds the rest
-# by the title of a row — see [notion.pages] below.
-#
-# You do not have to build any of it by hand:
-#
-#     ponos init <url-of-a-notion-page>
-#
-# creates the five databases with their columns, their relations and their
-# status options, and writes the line below for you. Share the page with your
-# integration first — that is the one step no API can take.
+# Optional: the tickets live in ponos.db either way. With a token, Notion also
+# holds the projects, agents, goals, schedules and context, and mirrors the
+# tickets. The page must be shared with the integration.
+# `ponos init <url-of-a-notion-page>` builds the databases and writes this line.
 workspace = ""
-
-# Only if you would rather point at one database than share a whole workspace.
-# Set, it wins over the workspace's tickets page. The URL is enough — the ID is
-# extracted from it — and if it is an inline database, the URL of the page
-# holding it works too.
+# Only to point at one database rather than a whole workspace (a URL is enough).
 tickets_database = ""
-
-# How you call it in a comment when you want an answer rather than a run.
-#
-# A comment under one of its reports is already a conversation: reply and it
-# replies. Naming it is for everywhere else on the tickets it looks at — the
-# ones it has reported on, whatever column they are in now, and the ones that
-# are not settled. It is also how you say "talk to me" instead of "do it again"
-# on a ticket it is waiting on. Its own name, as Notion writes it when you
-# @-mention the integration, always works too, as do @ponos and @runner.
-# This is for the word you would actually type.
+# What you type in a comment to get an answer rather than a run.
 mention = "@claude"
 
-# Which row of the workspace is what, matched on its title, case ignored.
-#   tickets   REQUIRED: the page holding your tickets database
-#   projects  optional: the page holding your projects database. The runner
-#             reaches a project through the ticket's relation, so this only
-#             gives `doctor` something to check
-#   context   optional: a plain page saying who you are, what you work with,
-#             how you like things written. Its text goes into EVERY prompt,
-#             before the project's brief and before the ticket — which is what
-#             makes a document ticket come back sounding like you rather than
-#             like nobody. Keep it to one screen: you pay it on every ticket.
-#   agents    optional: the page holding a database of agents. A ticket points
-#             at one through its `Rôle` column, and that agent's page is the
-#             role the session plays — its craft, its rules, its model
-#   schedules optional: the page holding a database of schedules — what comes
-#             back on its own. Absent, nothing repeats and nothing changes
-#   goals     optional: the page holding a database of goals. A ticket points
-#             at one through its `Objectif` column, and the session reads the
-#             goal's name, its page, its `Critère` and its `Échéance` before its
-#             role. Absent, the runner says so once per run and carries on
-#
-# A row is found under the title named here, or under the default below, and
-# under no other: a board whose rows carry older titles names them here.
+# Which row of the workspace is what (title, case ignored). Only `tickets` is
+# required; `ponos init` names the others.
 [notion.pages]
 tickets = "Tickets"
 projects = "Projects"
-agents = "Agents"
-context = "Context"
-schedules = "Schedules"      # on the board this shipped against: "Master Scheluder"
-goals = "Objectifs"
-
-# The board's columns, its statuses and the options of its Type column have
-# fixed names — `statut`, `ready`, `progress`, `review`, `validated`, `done`,
-# `blocked`, `paused`, `cancelled`, `draft`, `Priorité`, `Rédaction`… — and are
-# not settings: `ponos init` creates them, and `ponos doctor` names each one a
-# board lacks or has under another type. The list, column by column, is in
-# guide/board.md, "The tickets database". A file that still holds
-# [notion.properties], [notion.status] or [notion.types] is read without them.
-
-# On the projects database, two columns are read by name, either capitalisation:
-#   Repository  the GitHub URL or owner/name — matched against your clones, and
-#               cloned into workspace_root when you have none of it yet
-#   Path        an explicit path, when the repository is not under workspace_root
-# A project with neither is a project without code: its tickets become documents.
-
-# The model is picked from the narrowest choice that names one:
-#   the ticket's Model, then its agent's Model, then the one runner.auto_model
-#   chooses, then runner.model below.
+# agents, context, schedules, goals: see `ponos init`
 
 [runner]
-# Where to look for repositories. Projects are matched by their origin remote —
-# and one that matches nothing here is cloned into this folder, so a project
-# created from its GitHub link alone needs no `git clone` from you.
-workspace_root = "~/workspace"
-
-# The daemon's safety net, in seconds: whatever woke it in between, it looks at
-# the whole board at least this often — the ready column, the validated one, the
-# CI and the reviews of the pull requests in review, the merged ones, the mirror.
-# A ticket made ready does not wait for it: the console, the MCP and `ponos run`
-# tell the daemon at once, and the ready tickets of ponos.db are counted every
-# two seconds. Read again when the file changes, no restart needed.
-interval_seconds = 1800
-
-# Places, not a batch size: this many sessions run side by side, and a place is
-# filled from the board straight away — whether a session just freed it or it
-# was never taken, so tickets arriving one at a time still run side by side.
-# Each place costs a full Claude session. The daemon holds them for good, and
-# fills each one the moment it frees.
-max_concurrent = 2
-
-# Of those places, how many one project may hold at once. Pull requests written
-# side by side on one repository touch the same files, and each one that lands
-# makes the others conflict; a ticket whose project is already at this number
-# waits in the ready column, and the next ticket of another project goes first.
-# Only projects with a repository count. A project may also say which files its
-# build generates in a `.ponos.toml` at the root of its repository, so that a
-# replay settles their conflicts without a session:
-#   generated = ["src/ponos/web/static/**"]
-#   build = "cd frontend && npm ci && npm run build"
-max_concurrent_per_project = 2
-
-# Past this, the session is killed and the ticket goes back as failed.
-timeout_minutes = 30
-
-# A session killed from outside — SIGKILL (exit 137), SIGTERM (143), or cut off
-# while the network was down — is carried on once with `--resume`, this many
-# seconds later, and only if the network answers, the ticket is still in
-# progress and nobody asked the console to stop it meanwhile. Killed again, the ticket is
-# blocked as `session.killed` with the reason: the signal, the kernel's OOM line
-# when `journalctl -k` or `dmesg` has one, or the network.
-relaunch_delay_seconds = 15
-
-# No session is started while less memory than this is available (MemAvailable
-# in /proc/meminfo, in MB): the ticket stays in Ready and is started by the
-# next pass, once the sessions in flight have let go of some. Eight sessions,
-# `tsc`, `vitest` and PHPUnit at once is how the kernel kills one of them.
-# 0 turns the guard off. `ponos doctor` shows what is available now.
-min_free_memory_mb = 2048
-
-# No session is started while the load average over the last minute is above
-# this many times the cores this process may use (`nproc`): 1.5 on 20 cores
-# stops at 30. The ticket stays in Ready and is started by a later pass, once
-# the load has come down; what is running is left alone, and the runner says it
-# once. A saturated machine stretches every session already running, and its
-# tests time out (seven sessions took the load to 74 on 20 cores).
-# 0 turns the guard off. `ponos doctor` shows the load now.
-max_load_per_core = 1.5
-
-# How many workers the tests of one session may take. Vitest, Playwright,
-# Jest and `pytest -n auto` each start one per core when nobody says otherwise,
-# and seven sessions doing it at once took the load to 74 on 20 cores. The
-# number is exported to every session — VITEST_MAX_WORKERS (and the
-# VITEST_MAX_THREADS / VITEST_MAX_FORKS of Vitest 1–3), PLAYWRIGHT_WORKERS,
-# JEST_WORKERS, PYTEST_XDIST_AUTO_NUM_WORKERS, CARGO_BUILD_JOBS, GOMAXPROCS —
-# and its prompt says to stay under it, flags included (`--workers`,
-# `--maxWorkers`, `-n`). 0 is each session's part of the cores: `nproc` divided
-# by max_concurrent, 1 at least (2 on 20 cores with max_concurrent = 7).
-# `ponos doctor` shows the number a session gets.
-session_workers = 0
-
-# The same guard for the disk the state directory (worktrees, logs) is on, in
-# MB. Under it, a tidy runs before anything is started — at most every ten
-# minutes — and if the space is still short no ticket is started: it stays in
-# Ready, not Blocked, and the console and your notifications say so. A full disk
-# fails every ticket at once (git worktree add: No space left on device).
-# 0 turns the guard off.
-min_free_disk_mb = 5120
-
-# A subscription is metered in windows: a few hours of work, then Claude Code
-# answers "usage limit reached" to everything until the window rolls over. With
-# this on, that is not a failure — the ticket stays where it is, ticked as
-# waiting for credit, its branch and its worktree untouched, and nothing at all
-# is run until the credits return. The CLI usually says when that is; when it
-# does not, the runner tries again a quarter of an hour later.
-#   ponos status   says how long there is left to wait
-# Off: an exhausted quota fails every ticket it touches, one after another —
-# and the reserve below stops meaning anything, since there is no window left to
-# hold a share of.
-wait_for_credits = true
-
-# The share of each window the runner refuses to touch, as a percentage, so that
-# the subscription it has been chewing on all afternoon still has something left
-# for the terminal *you* open. At 5 it starts nothing past 95 % of the session
-# window or of the week — whichever is the more constraining, which is the same
-# pair of figures `/usage` shows in Claude Code.
-#
-# What is already running is never killed: it finishes. What was not started is
-# ticked as waiting for credit and comes back, first in the queue, on the pass
-# that has credit again — picking its session back up rather than beginning the
-# ticket over. Merges, publications and everything else that costs no credit
-# carry on throughout.
-#
-# 0 spends the lot, which is what the runner did before this line existed. 50 is
-# the most; past that it is not a reserve, it is a decision to halve the machine.
-# If the usage cannot be read at all — no Claude Code store, a shape that changed
-# — the runner says so once and behaves exactly as it does with 0.
-credit_reserve_percent = 5
-
-# Empty = the CLI's default model. Otherwise "opus", "sonnet", "haiku"…
-model = ""
-
-# The language the runner answers in: its reports under a ticket, the question a
-# blocked one asks, the line that reaches your phone — and what it asks a session
-# to write, which is the summary at the top of every report.
-#   en | fr        "FR", "fr-FR" and "français" all say the same thing
-#
-# Empty is English, and it is more than that: it means nobody decided. Each
-# session then keeps the rule its prompt already carries — answer in the language
-# the ticket is written in, reply in the language you were written to — so a
-# French ticket comes back in French, under an English report. Naming a language
-# here is what replaces that rule with a decision. Left empty here, PONOS_LANGUAGE
-# from the environment is read instead — how a container is given one.
-language = ""
-
-# The language the console opens in, until you pick one with its FR / EN select
-# (that choice is kept by the browser, and wins). Also the language of the pages
-# it shows before you are in — the sign-in, the first set-up.
-#   en | fr        spelled any way `language` accepts
-#
-# Empty follows `language`, so one line is enough to have everything in French.
-# Both empty: the console reads the browser's languages, as it always did. The
-# CLI and the journal stay in English whatever is written here.
-app_language = ""
-
-# A session with nobody to answer cannot ask for permission. The work happens in
-# a disposable worktree, never in your working copy. Use "acceptEdits" to forbid
-# unapproved shell commands — at the cost of sessions that stall as soon as a
-# test needs running.
-permission_mode = "bypassPermissions"
-
-branch_prefix = "ticket/"
-
-# Empty = the repository's default branch (origin/HEAD, else main then master).
-base_branch = ""
-
-fetch = true              # git fetch before creating the branch
-push = true               # push the branch once commits are in
-open_pull_request = true  # gh pr create — opening one merges nothing
-
-# Replay the branch on top of its base before the pull request is opened, and
-# again when a validated merge is refused for being behind. A session takes an
-# hour and the base branch does not wait for it: ten tickets on one repository
-# means nine pull requests opened on a `main` that has moved. With this, each
-# one opens on what the repository holds now — and a merge GitHub refuses for
-# that reason is retried once, after the branch has been replayed and pushed.
-# A rebase that hits a conflict changes nothing: the branch goes back as it
-# was, the pull request opens all the same, and the conflict is said on the
-# ticket rather than discovered on GitHub.
-rebase = true
-
-# When that replay stops on a conflict — two tickets touched the same lines —
-# a session resolves it rather than you: it is told the ticket, the pull
-# request and what landed on the base, keeps both sides, regenerates lockfiles
-# and generated files rather than merging them, and runs the project's checks.
-# The result is pushed with --force-with-lease (never --force) and merged. A
-# conflict that is a decision, checks still red, commits somebody else pushed,
-# or a base that moved again after two replays block the ticket with the
-# question, and whatever was resolved is pushed on a branch of its own.
-# Needs `rebase = true`. Off, a conflict blocks the ticket as it always did.
-resolve_conflicts = true
-# Projects whose conflicts are always left to you, by their Notion name.
-#   resolve_conflicts_except = ["Boutique", "Site vitrine"]
-resolve_conflicts_except = ""
-# The model that resolves. Empty: the ticket's own, as its session had it.
-# Its cost is added to the ticket's Cost column either way.
-resolve_model = ""
-# How long a resolved pull request's CI is waited for before the merge is
-# asked. Only a repository with a .github/workflows directory is waited on;
-# 0 does not wait — GitHub still refuses a merge a required check has not
-# passed. A red check is run again once, and waited for again; one still red
-# that the base branch fails too is not held against the pull request.
-checks_timeout_minutes = 20
-
-# Local CI before the pull request: once the session has committed, the
-# project's CI runs on this machine, and a red one goes back to the same
-# session to be fixed — then runs again — before anything is pushed. Off by
-# default, and only possible where Docker answers (`ponos doctor` says
-# whether it does): without it, tickets run exactly as before. A project may
-# turn it on or off for itself, in its Settings tab.
-#
-# What runs, in this order: the command the project's Settings tab declares
-# (`make ci`, `npm run ci`…), otherwise its GitHub workflows through `act`
-# (nektos/act) when it is installed; neither, and nothing runs. The containers
-# and networks it starts are named after the ticket — COMPOSE_PROJECT_NAME
-# and PONOS_CI_NAME are set for the command — and removed once it ends. The
-# CI on GitHub still runs, and stays the check that counts.
-local_ci = false
-# How many times the CI runs before the ticket is blocked on it, the first
-# included.
-local_ci_attempts = 3
-# How many local CIs run at once on this machine, whatever the number of
-# tickets in flight: the next one waits for a place.
-local_ci_concurrent = 1
-# Self-review before the pull request: once the session has committed, and
-# before anything is pushed, a short session in plan mode (read only) reads the
-# branch's diff against the ticket — its done criterion first — and the
-# project's CLAUDE.md, and answers `REVIEW: ok` or a short list of blocking
-# points. When it finds some, the ticket's session is picked up once
-# (`--resume`) to deal with them; then the pull request opens whatever
-# happened, and what was fixed and what is left go in its description and in
-# the ticket's report, under « Review ». A `REVIEW: ok` adds nothing to the pull
-# request. Never more than one pick-up per pass. Its cost is added to the
-# ticket's. A project may turn it on or off for itself, in its Settings tab.
-self_review = true
-# The model that reads. Empty: the ticket's own.
-review_model = "sonnet"
-# How long a project's setup command (`npm ci`, `uv sync`…) may run in a fresh
-# worktree before the session starts. The command is the one the project's
-# Settings tab declares, else the repository's `.ponos/setup.sh`; neither, and
-# nothing runs. Past this many minutes it is killed and the ticket is blocked
-# (`worktree.setup-failed`), without a session started.
-setup_timeout_minutes = 10
-
-# How a *validated* pull request is merged — see `validated` above. Nothing
-# is ever merged without that gesture; this only says what the gesture does.
-#   squash | merge | rebase
-merge_method = "squash"
-
-# Force validated: skip the review for one type of ticket. Once its session
-# has succeeded, the runner does at once what moving it to `validated` would
-# have set off, and the ticket goes to done — its report says the validation
-# was forced, and by which of these. Code: the pull request is opened, its CI
-# waited for (`checks_timeout_minutes`), then merged with `merge_method`; a
-# merge GitHub refuses — a conflict, red checks, missing rights — leaves the
-# ticket in review with the reason in its report and on its card. Publication:
-# what was prepared is published straight away, by the publishing session.
-# Writing and external action already end in done, with nothing left to
-# validate: their switch is there for symmetry, and changes nothing today.
-# A ticket that failed, was blocked or ran out of credit is never validated,
-# and a ticket already in review when you tick one of these stays there.
-# All off: every ticket waits for you, as it always has.
-# A project may have its own four switches instead — the Settings tab of its
-# page in the console, kept in ponos.db rather than here — and those win over
-# these for its tickets, in either direction.
-force_validated_code = false
-force_validated_writing = false
-force_validated_external = false
-force_validated_publication = false
-
-# A failure leaves its worktree in place for the post-mortem.
-#   ponos clean --force  to tidy up
-keep_worktree_on_failure = true
-
-# Move each finished session's transcript under the project's directory, so it
-# appears in `claude --resume` there, beside the sessions you started yourself.
-# Without this the session is still resumable by its ID, but it stays filed
-# under the disposable worktree it ran in — a directory that no longer exists.
-# Tickets with no repository are filed under workspace_root.
-attach_sessions = true
-
-# The ssh destination where sessions actually run. Leave empty when the runner
-# is on this machine. Set it when the runner lives on a server: the Session link
-# then opens the session over ssh from whichever machine you click on, instead
-# of looking for a transcript that is not there.
-#   session_host = "salva@vps.example.com"
-session_host = ""
-
-# One desktop notification per finished ticket. The point of the runner is that
-# you are not watching it; without this you discover your pull request tomorrow.
-# [notify] further down carries the same line to your phone — and lets you
-# answer it with one word.
-notify = true
-
-# The last step of a running session, in the `Progress` column of its ticket:
-# “Bash · npm test”, or “3/5 — writing the tests” once the agent keeps a plan.
-# A glance at the board is enough to see a ticket move. The page itself is never
-# written while the session runs — it holds the mission and « What was done »,
-# rewritten at the end — and every step is in the run journal the console's
-# live tab reads.
-#
-# A cadence, not a stream: a session emits several events a second, and writing
-# each one would rewrite the column continuously for nothing. Ten seconds reads
-# as live; five is the floor. The log stays the place for everything else:
-#   ponos logs -f
-progress = true
-progress_interval_seconds = 10
-
-# Answering in the comments. A ticket then has two ways of being spoken to, and
-# they are not the same gesture:
-#
-#   - answer the question a `blocked` run asked, and the ticket runs again. That
-#     loop is what `blocked` is for, and it is untouched;
-#   - reply under any of its reports, or name it (see notion.mention above), and
-#     it *answers* — in the same thread, in the language you wrote in. Nothing
-#     is claimed, no status moves, nothing is built.
-#
-# It answers about the ticket it is under: it reads the page, the discussion,
-# the project's brief, the context page and the repository. It cannot change
-# any of it — reply_permission_mode is the guardrail, and `plan` is a mode
-# Claude Code will not write from. If what you are asking for is work, it says
-# so, and that is a ticket.
-#
-# The scan costs one request per page and a run can come round every ten
-# seconds, so a pass happens on its own cadence and looks at a window of the
-# pages the runner has spoken on, moving the window each time.
-reply = true
-reply_interval_seconds = 60      # ten seconds is the floor
-reply_scan = 20                  # pages looked at per pass
-reply_timeout_minutes = 10       # somebody is waiting for this one
-reply_permission_mode = "plan"   # it talks; it does not work
-
-# Reviewing on GitHub. A ticket in review whose pull request is reviewed there
-# goes back to ready, with the comments — file, line, the diff they are about,
-# who wrote them — in the prompt: the session resumes on the pull request's own
-# branch, pushes, and answers in each thread with one line (what changed, or why
-# nothing). Two things wake it: a review that *requests changes* (all its line
-# comments come with it), and a comment — on a line, or the body of a review —
-# that opens on the mention below. Comments of bots, and the runner's own, never
-# do; neither does anything written before Ponos first looked at the pull
-# request. Only for the pull requests Ponos opened. Off: the reviews are yours.
-pr_review_comments = true
-pr_review_mention = "@ponos"     # the word that opens a comment meant for it
-
-# The « On » column: a prompt a ticket carries and Ponos runs at every change of
-# its status, with the old status, the new one and the ticket in front of it. The
-# board is looked at once in `on_interval_seconds` (ten at the least); a ticket
-# met for the first time is a starting point, not a change. One execution per
-# transition, written down before it starts: a restart never runs it twice.
-# Guardrails: a change of status made by an execution (and a ticket it created)
-# never starts another one for the ticket it came from, a ticket born of an
-# execution runs its own prompt only `on_max_depth` generations down, an
-# execution stops at `budget.on_usd` dollars, and an error is
-# written on the ticket as a comment without ever moving its status. It acts, so
-# it runs under `permission_mode` unless `on_permission_mode` says otherwise.
-on = true
-on_interval_seconds = 30
-on_max_depth = 3
-on_timeout_minutes = 10
-on_permission_mode = ""
-
-# Look again at the Blocked column, ticket by ticket. A session reads why a
-# ticket stopped — a dependency on another ticket, missing information, an
-# action somebody else had to take — and whether that still holds. Only when it
-# can say what changed does the ticket go back to Ready; otherwise it stays
-# blocked. Either way the reason is written on the ticket as a comment and in
-# the history (`unblocked` / `kept-blocked`). It runs under reply_permission_mode,
-# so it cannot change anything. Off by default: it costs a session per ticket.
-unblock = false
-unblock_interval_seconds = 21600  # a ticket is looked at once in this long (600 at the least)
-
-# Let the schedules database make tickets. A pass reads it between the validated
-# column and the queue, so a ticket born at 09:00 is claimed by that very pass
-# rather than by the next one. See guide/tickets.md for what a row
-# holds, and `ponos schedules` for what is coming.
-#   ponos schedules --run "Revue des dépendances"   without waiting
-# Off, the database is read by nobody and no row has to be unticked — and a
-# workspace with no schedules page never had any of this to begin with.
-schedule = true
-
-# Keep the installation on the latest version, on its own. Once every
-# update_interval_seconds the daemon asks the repository whether the installed
-# code is still the newest; if not, it installs the new version beside the one in
-# use and restarts itself on it (an exec, same process). The Claude sessions in
-# flight are not cut: they finish on the code they started with, and the new
-# daemon takes them back. Everything started afterwards runs on the new code.
-#   ponos update --check   what is available, right now
-#   ponos update           apply it by hand
-# Only works on an installation made by install.sh from the repository: one made
-# from a local copy (TR_SRC=.) has no remote to compare itself against, and says
-# so once instead of updating.
-# The console asks too, when it starts and every 15 minutes, to show its Update
-# button: that is a check, not an install, and false turns it off as well.
+workspace_root = "~/workspace"   # where the repositories are cloned and found
+interval_seconds = 1800          # the daemon looks at the whole board at least this often
+max_concurrent = 2               # sessions at once
+timeout_minutes = 30             # one session
+language = ""                    # of the reports: "fr", "en"; empty is English
+app_language = ""                # of the console; empty follows language, then the browser
+model = ""                       # a session's model; empty is the CLI's own
+base_branch = ""                 # empty is the repository's default branch
+merge_method = "squash"          # "squash", "merge" or "rebase"
+# The types of ticket validated without waiting for your review: "code" (merged),
+# "publication" (published), "writing", "external".
+force_validated = []
+local_ci = false                 # run the project's CI in Docker before the push
+self_review = true               # a second session reads the diff before the pull request
+unblock = false                  # try once to unblock a ticket that waits on its own
+wait_for_credits = true          # no new session while the account is out of credit
 auto_update = true
+update_channel = "release"       # "release" (tags) or "main" (every commit)
+# Ideas found on a schedule: the Planned page writes these, no need to by hand.
+# ideas_schedule = "off"   # "off", "every_4h", "daily", "weekly", "hours", "cron"
+# ideas_at = "09:00"
+# ideas_day = "Monday"
+# ideas_every_hours = 6
+# ideas_cron = ""
+# ideas_scope = "all"      # "all" or "selected" (ideas_projects)
+# ideas_projects = ""
+# ideas_workspace = false
+# ideas_per_batch = 10
+# ideas_skip_above = 20    # not while this many ideas wait
+# ideas_budget_usd = 0.0
+# ideas_notify = false
+# ideas_model = ""
 
-# What "the newest" means.
-#   "release"  the newest release tag (vX.Y.Z) and nothing in between: a commit
-#              pushed to main is not something every installation runs until it
-#              is released. No tag yet means no update, and the daemon says so. An
-#              installation already ahead of the newest tag is never taken back.
-#   "main"     every commit of the branch it was installed from, within the hour.
-# Anything else reads as "release". `ponos doctor` says which is in use.
-update_channel = "release"
-update_interval_seconds = 3600   # one hour; a minute is the floor
-
-# Drop session logs older than this. 0 keeps everything. The Notion comment
-# keeps the summary either way, and the transcript lives in ~/.claude/projects.
-# The same age empties ponos.db of the steps of older runs (the runs stay), of
-# the sync journal, the MCP calls and the finished transitions, and the file is
-# compacted once a quarter of it is free. `ponos doctor` says its size.
-# Applied once a day by a run, whether or not a ticket is ready.
-log_retention_days = 14
-
-# Once a day, also remove the worktrees and scratch directories of tickets that
-# have been done or cancelled for log_retention_days, and the scratch directories of tickets
-# no longer on the board. Never a ticket in progress, blocked, failed or in
-# review; never a worktree with uncommitted changes; never a branch. false keeps
-# them until `ponos clean --force`. The console's settings page shows
-# the space taken and a "Clean up" button.
-clean_done_worktrees = true
-
-# Also once a day: a worktree untouched for this many days is removed, whatever
-# its ticket's status (a failed ticket kept for a post-mortem, a ticket gone
-# from the board) — never one whose ticket is in progress, never one with
-# changes not committed or commits no remote has. Its local branch goes with it
-# when a remote holds all its commits. 0 turns it off.
-stale_worktree_days = 30
-
-# Each session gets a TMPDIR of its own under ~/.cache/ponos/tmp/<session>, removed
-# when the session ends. Once a day, what is left there after this many hours goes,
-# and so do the temporary folders older sessions and tests left directly in ~/.cache
-# (tmp*, ponos-*tmp*, pt…) and in your home (tmp*) once untouched for two hours.
-# 0 turns it off.
-tmp_retention_hours = 24
-
-# Also once a day: docker image prune -a, docker builder prune and docker volume
-# prune, filtered to what is more than a day old — never a running container nor
-# its volumes, and never a volume a stopped container still refers to. false keeps
-# Docker as it is.
-docker_prune = true
-
-# Folders new worktrees are made without (a sparse checkout), comma-separated
-# or as a list — for big media files a ticket almost never touches, such as
-# "docs/media". Left out *before* the checkout, so they never use the disk. The
-# main checkout is untouched; a ticket that needs one of them runs
-# `git sparse-checkout disable` in its worktree. Empty checks everything out.
-worktree_exclude = ""
-
-dry_run = false
-
-# Your own prompt templates. Empty = the runner's, which fit the general case.
-#   prompt_file           tickets on a project that has a repository
-#   document_prompt_file  tickets on a project that has none: the agent writes
-#                         ANSWER.md and the runner publishes it into the ticket
-#   delivery_prompt_file  validated tickets with no pull request: the session
-#                         that publishes what the ticket already holds
-prompt_file = ""
-document_prompt_file = ""
-delivery_prompt_file = ""
-
-# A ticket whose Type is empty is classified before it runs: a short session on
-# a light model reads its title, its content and whether its project has a
-# repository, and answers a type, one sentence of reason, a confidence and the
-# type it hesitated with. It runs in the pass's own thread — nothing starts
-# beside it and it holds no place of max_concurrent. The type goes into the
-# column and the reason into a comment, so it can be corrected where it is read;
-# a type somebody chose is never overwritten, nor asked about again.
-#
-# A doubt is never settled by running the ticket. Under `classify_confidence`,
-# or hesitating between two types when one of them is external or publication,
-# the ticket is blocked with the question and its Type left empty for you to
-# choose. Off, an empty Type runs by what the project holds, as before.
-classify = true
-classify_model = "haiku"         # empty: the CLI's own — routed through OpenRouter, name a slug
-classify_confidence = "medium"   # low, medium or high: the least a guess is acted on with
-
-# "Find ideas", from the dashboard or a project's page: one short session
-# proposes ten at once, given the project's brief, its README and its latest
-# tickets — never one already kept or thrown away. Its cost is recorded per batch.
-ideas_model = "haiku"            # empty: the CLI's own — routed through OpenRouter, name a slug
-
-# Finding ideas without being asked, while the console runs (`ponos service run`): the
-# "Ponos, find me ideas" button keeps working whatever is set here. The same
-# keys are in the Settings window of the Ideas page.
-#   "off"       only the button finds ideas (the default)
-#   "every_4h"  four hours after the last pass
-#   "daily"     every day at `ideas_at`
-#   "weekly"    every week on `ideas_day`, at `ideas_at`
-#   "hours"     every `ideas_every_hours` hours after the last pass
-#   "cron"      the five-field line of `ideas_cron`
-# Hours are this machine's, as a recurrence's are; a pass missed while the
-# console was off is run once when it comes back, never once for each.
-ideas_schedule = "off"
-ideas_at = "09:00"               # "daily" and "weekly": the hour, as 09:00
-ideas_day = "Monday"             # "weekly": a day of the week
-ideas_every_hours = 6            # "hours": at least 1
-ideas_cron = ""                  # "cron": minute hour day month weekday, e.g. "0 9 * * 1-5"
-# Which projects a pass covers: "all" (the ones added later too) or "selected"
-# (those of `ideas_projects`, by page id or name: ["Website", "Newsletter"]).
-# A project's own page can still turn itself off or on, and what it says wins.
-ideas_scope = "all"
-ideas_projects = ""
-ideas_workspace = false          # also ideas for the workspace, the ones with no project
-# What a pass may do. Ideas per project and per pass (1 to 20); a project that
-# already has this many new, unsorted ideas is skipped and the journal says so
-# (0: never skipped); the most a pass may spend, in dollars, read between two
-# projects (0: no ceiling); and a message on the channels after a pass that
-# found some.
-ideas_per_batch = 10
-ideas_skip_above = 20
-ideas_budget_usd = 0
-ideas_notify = false
-
-# A ticket whose Model is empty (and whose agent names none) gets a model chosen
-# for it before it runs — by rules, not by a session, so it costs nothing: its
-# type sets the level it starts from, its size and its wording move it (remove,
-# rename, reword in the title → light; past 600 words or 25 list items → one
-# up; audit, migration, refactor, debug → heavy), and an Urgent or High ticket
-# never runs on the lightest. The model and the reason go
-# into a comment, never into the Model column. Off: runner.model for every one.
-auto_model = true
-# The model of each level. Empty borrows the nearest level below, then above.
-# Routed through OpenRouter, name its slugs here.
-auto_model_light = "haiku"
-auto_model_standard = "sonnet"
-auto_model_heavy = "opus"
-auto_model_heaviest = "fable"
-# The level each type starts from: light, standard, heavy or heaviest. A board
-# without types starts a ticket on a repository as code, any other as writing.
-auto_model_code = "standard"
-auto_model_writing = "light"
-auto_model_external = "standard"      # never lower: the lightest model in a browser
-auto_model_publication = "standard"   # clicks the wrong button
-# How a code ticket's sub-type moves the level Code starts at: lower, same or
-# higher, within the four levels. Unset: Docs and Chore one lower, Sécurité one
-# higher, the others where Code starts.
-# auto_model_subtype_docs = "lower"
-# auto_model_subtype_chore = "lower"
-# auto_model_subtype_security = "higher"
-# auto_model_subtype_bug = "same"
-# auto_model_subtype_feature = "same"
-# auto_model_subtype_improvement = "same"
-# auto_model_subtype_refactor = "same"
-# auto_model_subtype_perf = "same"
-# A ticket whose chosen model failed runs one level up when it comes back —
-# once, and its comment says so. The next attempt keeps that model.
-auto_model_escalate = true
-# Claude Fable at all. Off (the default), nothing the runner starts runs on it:
-# the heaviest level, an escalation, a Model written on a ticket or its agent,
-# the console's chat — every one runs on opus instead, and a ticket whose Model
-# said fable says so in its report. Fable costs far more than Opus.
-use_fable = false
-
-# ---------------------------------------------------------------------------
-# Who answers the sessions
-# ---------------------------------------------------------------------------
-# The account every session runs on, and the choice that matters most on a
-# server. Three of them, and they are not the same thing:
-#
-#   "cli"         Claude Code signed in as you — `claude auth login` once, on
-#                 this machine (in a container: the terminal Dokploy opens, or
-#                 `docker compose exec ponos claude auth login`). Your
-#                 subscription. The only one that keeps Claude in Chrome, and
-#                 the only one whose credits come in windows worth waiting for
-#                 (wait_for_credits above).
-#   "api_key"     an Anthropic key, below — billed by the token, no browser.
-#   "openrouter"  the key of [openrouter] further down; with route_sessions
-#                 there, the sessions run on OpenRouter and every model is
-#                 named as an OpenRouter slug.
-#
-# Empty (or a word that is none of these) reads the way a file written before
-# this key always did: "openrouter" when its sessions are routed there, "cli"
-# otherwise. `ponos doctor` says which is in use, and whether it works.
 [claude]
+# Who answers the sessions: "cli" (claude login), "api_key" (ANTHROPIC_API_KEY)
+# or "openrouter" (OPENROUTER_API_KEY). Empty: the CLI, else the first key found.
 provider = ""
 
-# The key, only read when provider = "api_key", is ANTHROPIC_API_KEY — in the
-# environment, which is how a container is usually given it, or in secrets.env,
-# where the console writes the one you type and where it wins.
-#   console.anthropic.com → API keys
-
-# ---------------------------------------------------------------------------
-# What the runner may spend
-# ---------------------------------------------------------------------------
-# Two ceilings, in dollars, and empty (or 0) is no limit at all. They count what
-# the CLI reports a session cost, which a subscription does not — so they are
-# for an API key or OpenRouter.
-#
-# daily_usd       since local midnight, every session counted, blocked and
-#                 failed ones too. Past it nothing new is started — not a
-#                 ticket, not a publication, not an answer in a thread; what is
-#                 running finishes, the ready tickets are ticked as waiting, you
-#                 are told once on Telegram / Slack, and the console shows a
-#                 banner. Everything else resumes at midnight.
-# per_ticket_usd  one session. The CLI stops it cleanly at the limit and the
-#                 ticket goes to blocked with the reason; answer it to carry on.
-# on_usd          one execution of a ticket's « On » prompt, which acts on its
-#                 own at a change of status: the CLI stops it at the limit, the
-#                 reason is written on the ticket as a comment and its status is
-#                 left alone. One dollar when the line is absent; empty or 0 is
-#                 no limit.
+# In dollars, empty or 0 is no limit. Only meaningful on an API key or OpenRouter:
+# a subscription reports no cost. daily_usd: since local midnight, past it
+# nothing new starts. per_ticket_usd: one session, which the CLI stops cleanly.
 [budget]
 daily_usd = ""
 per_ticket_usd = ""
-on_usd = 1.0
 
-# ---------------------------------------------------------------------------
-# A pull request left in review
-# ---------------------------------------------------------------------------
-# A ticket in review whose CI has settled red, or whose pull request no longer
-# merges (a conflict, a branch behind a protected base), is put back in ready by
-# Ponos with the instruction to rebase, resolve, read the failed jobs and push
-# until it is green. Not when the red is not the code's (the account's GitHub
-# billing, a base branch that is red itself), and not while a session is on it.
-#
-# ci_retries  how many times per ticket. The counter ("CI retry n/5" on the
-#             card) goes back to zero when the CI turns green or the ticket is
-#             validated; one more red and the ticket is blocked
-#             (ci.rework-exhausted) and asks. 0 never retries.
-[review]
-ci_retries = 5
-
-# ---------------------------------------------------------------------------
-# What a session may do alone
-# ---------------------------------------------------------------------------
-# Written once, read by every session — put in its prompt — so that it stops
-# asking the same question twice. Sentences in your own words; a session reads
-# them as rules, not as patterns.
-#
-# allowed  what a session does without asking
-# ask      what always waits for your word: the session ends blocked, with the
-#          question
-#
-# A key left out is the default shown here. A list written empty is an answer:
-# nothing is allowed alone (or nothing is held back).
-#
-# What no list changes: a session that needs a `sudo` password, an `npm login` or
-# a code received by e-mail does not ask yes or no — it cannot be given. It
-# prepares the commands, ends blocked with `access.sudo` or `access.credentials`,
-# and the ticket starts again by itself when you answer « fait ».
+# Sentences in your own words, put in every session's prompt: what it does alone
+# (allowed), and what always waits for your word (ask, the ticket ends blocked
+# with the question). A list written empty is an answer: nothing is allowed
+# alone, or nothing is held back. A key left out is the default shown here.
 [permissions]
 allowed = [
   "taguer et publier une release d'un dépôt du projet, après fusion sur main",
@@ -758,358 +97,53 @@ ask = [
   "toute dépense",
 ]
 
-# ---------------------------------------------------------------------------
-# Every other model
-# ---------------------------------------------------------------------------
-# What the runner drives is Claude Code, and Claude Code talks to Anthropic —
-# one family of models, on one subscription. An OpenRouter key is one account in
-# front of every provider there is, and it reaches a session two ways.
-#
-# The key alone changes nothing about the runner: it is simply *there*, in the
-# environment of every session, under the name every library already looks for.
-# A ticket can then have a GPT write the copy, a model transcribe an audio file
-# or another make the video, and pay for it — without the runner having to know
-# what any of those are.
-#   openrouter.ai/keys   the sk-or- key
-# It is OPENROUTER_API_KEY, in secrets.env or the environment — never here.
-[openrouter]
-
-# And this is the other way, which is a decision rather than a convenience: the
-# sessions themselves run on it. Claude Code then speaks to OpenRouter instead
-# of to Anthropic, and every model named — a ticket's Model column, an agent's,
-# runner.model above — becomes an OpenRouter slug rather than "opus":
-#   model = "openai/gpt-5"          or "anthropic/claude-sonnet-4.5"
-# Two things go with it, and neither is a detail. The CLI is then authenticated
-# by a token instead of as you, so Claude in Chrome does not load — a ticket
-# that needed the browser cannot be handled that way. And the bill is
-# OpenRouter's, not the subscription's: nothing meters in windows any more, so
-# wait_for_credits has nothing left to wait for.
-route_sessions = false
-
-# The console's microphone. Claude Code reads no audio, so a dictated message is
-# turned into text here first — by this model, on this key — and put back in
-# the field to be read over before it is sent. Without a key, the microphone
-# is greyed out and says why.
-transcription_model = "openai/whisper-1"
-
-# Where that key is spent. The default is OpenRouter itself; the line is here
-# for a gateway of your own that speaks the same API.
-# base_url = "https://openrouter.ai/api/v1"
-
-# The console reading its answers aloud — the Listen button on a reply, and the
-# voice mode where you talk and it answers. Synthesised here by Piper, with no
-# service in between; it needs the `voice` extra (pip install piper-tts), and
-# the console greys the buttons out with the reason until it is there. A voice
-# is downloaded the first time it is used into ~/.cache/ponos/voices (about
-# 60 MB each, not versioned anywhere); `ponos doctor` says what is installed.
-[speech]
-enabled = true
-# One voice per language of the page (runner.language, else the page's own).
-# Names from https://huggingface.co/rhasspy/piper-voices — fr_FR-upmc-medium
-# is another French one.
-voice_fr = "fr_FR-siwis-medium"
-voice_en = "en_US-lessac-medium"
-# Percent of the voice's own pace: 100 is normal, 130 a little faster. 50 at the least.
-speed = 100
-
-# The browser the sessions of external tickets act in. "ponos" is Ponos's own:
-# Chromium driven by Playwright on this machine, one profile per project kept in
-# the state directory, and a `login` tool that signs in with a login of the vault
-# without the model ever seeing its password. It needs the `browser` extra
-# (pip install playwright, then python -m playwright install chromium) —
-# `ponos doctor` says what is missing. "chrome" is Claude in Chrome, your own
-# Chrome with its extension, as before. A project says its own word in its
-# settings; a ticket names the other one with a line `Browser: chrome` (or
-# `Navigateur : Ponos`) in its body.
-[browser]
-default = "ponos"
-# false shows the window, to watch a session or to debug one (it needs a display).
-headless = true
-
-# ---------------------------------------------------------------------------
-# Being told where you are, and answering with one word
-# ---------------------------------------------------------------------------
-# A desktop notification only works if you are in front of that desktop. So the
-# runner can also write to Telegram or Slack — and what you answer there lands
-# on the ticket: a blocked ticket asks its question in the chat, you reply
-# "oui", and that reply becomes a Notion comment, which is already what puts a
-# blocked ticket back in the queue. Nothing to move on the board.
-#
-#   ponos notify          send yourself a test message
-#   ponos notify --pair   find your Telegram chat id and save it here
 [notify]
+desktop = true                          # a desktop notification when a ticket finishes
+events = ["blocked", "failed", "done"]  # the moments worth a message
+digest = "off"                          # a summary of the period: "daily" or "weekly"
 
-# The notification on this machine's screen. Defaults to runner.notify above.
-# desktop = true
-
-# Read what you write back. false: the runner still tells you things, it just
-# never listens — answers then go on the ticket in Notion, as they always could.
-replies = true
-
-# Which moments are worth a message. "blocked" is the one that expects something
-# back from you; "done" is the pull request waiting; "failed" is a log to read.
-events = ["blocked", "failed", "done"]
-
-# A summary of the period, sent by itself to Telegram or Slack: what was
-# delivered (by project), what it cost, the merge rate, the stops by cause, and
-# the tickets waiting for a decision, with their links. Read off ponos.db and the
-# board — no session, no cost — and sent once per period however many passes run.
-#   "off"     never (the default)
-#   "weekly"  on `digest_day`, at `digest_hour`: the seven days that ended then
-#   "daily"   every day at `digest_hour`: the day that ended then
-# The hour is this machine's, 0–23. A machine asleep at that hour still sends it
-# on waking, up to a day late. `ponos notify --digest` sends the period under way
-# now, to try it.
-# digest = "weekly"
-# digest_day = "monday"
-# digest_hour = 9
-
-# Telegram — the two-minute channel, and the one to start with. No public URL,
-# no webhook, no domain: the runner polls, so it works from a laptop behind a
-# NAT.
-#   1. Talk to @BotFather → /newbot → the token is PONOS_TELEGRAM_TOKEN, in
-#      secrets.env or the environment (the console's Settings write it there)
-#   2. Open the chat with your new bot and say anything to it
-#   3. ponos notify --pair   reads that message and fills in `chat`
-# Only that chat is ever read: a bot token is a public address, and anyone who
-# guesses the bot's name can write to it.
+# A reply on Telegram or Slack becomes a comment on the ticket. Anybody in the
+# chat can answer — and on Telegram run commands — unless allowed_users names
+# who may (ids or handles, a list or one comma-separated line).
 [notify.telegram]
 chat = ""
-# Who may answer, by Telegram user id (the numbers, not the @names). Empty:
-# anybody who can write in `chat` — only you in a private chat, but every member
-# in a group, and an answer becomes a comment that can wake a ticket whose
-# session runs with bypassPermissions. `ponos doctor` warns about a
-# group with nobody named here.
-# allowed_users = [123456789]
-# « /ticket <project> <what to do> » in this chat writes a ticket — a draft;
-# « /ticket! … » puts it straight in Ready. Only when allowed_users names who may
-# (a ticket in Ready is a session). The project is the first word, by name or by
-# prefix; this one is where a ticket naming none goes (empty: the bot asks).
-# default_project = "Ponos"
+# allowed_users = []
 
-# Slack — the same conversation, where the team already is. A question is posted
-# to the channel and answered in its thread, so two tickets can wait at once —
-# and so that the rest of the room's talk never lands on a ticket.
-#   1. api.slack.com/apps → Create New App → From scratch
-#   2. OAuth & Permissions → Bot Token Scopes: chat:write and channels:history
-#      (groups:history for a private channel, im:history for a direct message)
-#   3. Install to Workspace → the xoxb- token is PONOS_SLACK_TOKEN, in
-#      secrets.env or the environment
-#   4. /invite @your-bot in the channel — the step everyone forgets
-# `channel` is the channel ID: in Slack, ··· → View channel details, at the
-# bottom of the panel. Its name ("infra" or "#infra") works too, with the
-# channels:read scope (groups:read for a private one): looked up once, its ID
-# remembered.
 [notify.slack]
 channel = ""
-# Who may answer, by Slack member id (profile → ··· → Copy member ID, "U…").
-# Empty: anybody in the channel — and an answer becomes a comment that can wake
-# a ticket whose session runs with bypassPermissions. `ponos doctor`
-# warns while it is empty.
-# allowed_users = ["U0123ABCD"]
-# « ticket: <project> <what to do> » in the channel writes a ticket, as in Telegram
-# (« ticket!: … » for Ready); same condition on allowed_users.
-# default_project = "Ponos"
+# allowed_users = []
 
-# ---------------------------------------------------------------------------
-# The web console — ponos service run
-# ---------------------------------------------------------------------------
-# The board, this CLI and a chat with your whole workspace, in one page. It is
-# started for you — `install.sh` and `ponos service on` arm its unit along
-# with the timer, so it is up on http://127.0.0.1:8787 with nothing to type:
-#   ponos service run --print-token   # the token, if you lost the URL
-#   systemctl --user stop ponos-web   # stop it until the next boot
-#   ponos service off                 # stop the timer and the console
-#
-# READ THIS BEFORE CHANGING host. Behind this port sits a runner that starts
-# Claude Code sessions with bypassPermissions — anything that can reach it can
-# run code on this machine, as you. The default is loopback, and `serve` refuses
-# any other host unless a token (below) is set on purpose. To reach the console
-# from your phone or another machine, tunnel rather than widen:
-#   ssh -L 8787:127.0.0.1:8787 <this machine>
-# or, on a tailnet, `tailscale serve --bg 8787` with `url` below set to
-# https://<machine>.<tailnet>.ts.net — never `tailscale funnel` on the console, which
-# is public. For the MCP connector alone, `ponos tailscale enable` does both
-# (console on :8443 inside the tailnet, /mcp through Funnel); see the README.
 [web]
 host = "127.0.0.1"
 port = 8787
+url = ""      # the address the console is reached at, for the links in messages
+email = ""    # the sign-in e-mail (PONOS_WEB_EMAIL wins); the password is a secret
 
-# The address the console is reached at from elsewhere, when it is: behind
-# Traefik on Dokploy, a reverse proxy or a tunnel. The MCP connector's OAuth
-# addresses are built on it — claude.ai adds `<url>/mcp` and refuses anything
-# but https. Empty, they are read from each request, which is right on this
-# machine and behind a proxy that sets X-Forwarded-Proto. Its host name is also
-# the one name, besides this machine's, a loopback console answers to — what a
-# relay such as `tailscale serve` passes on.
-# url = "https://ponos.example.com"
-
-# Who may say, in X-Forwarded-For, whom it relays: addresses or networks. A
-# wrong password, code or token is counted per address, and anybody else is
-# counted by its own — being on a private network is not enough, or a published
-# Docker port, a neighbouring container or a LAN could announce a new address
-# with every guess. The default is this machine, where `tailscale serve` relays
-# from. Behind Traefik, add its address on the container's network (on Dokploy:
-# `docker inspect dokploy-traefik`); without it, every visitor shares Traefik's.
-# In a container, PONOS_WEB_TRUSTED_PROXIES (comma-separated) says it when this
-# line is absent. An entry that is neither is left out, and `ponos doctor` says so.
-trusted_proxies = ["127.0.0.1", "::1"]
-
-# The token is PONOS_WEB_TOKEN, in secrets.env or the environment. None = one is
-# drawn on first start and kept in ~/.local/state/ponos/web/token, so the
-# bookmark keeps working. Setting it is also what unlocks a non-loopback host.
-
-# Or open it the way you open everything else: with an address and a password.
-# Both set, the page asks for them instead of for the token, and a bookmark on
-# http://127.0.0.1:8787 is enough — no secret to paste, nothing in the history.
-#
-# Neither has to be typed by hand either. A console nobody has claimed — no
-# token, no pair — serves its *first connection* instead of a door: the
-# address alone opens a form that writes these two, and the Notion token, the
-# workspace page, the rules and the Telegram bot with them. Filling it in is
-# what closes it, and there is no second first connection.
-#
-#   email = "you@example.com"
-#   PONOS_WEB_PASSWORD=the one you would actually remember      (secrets.env)
-#
-# The password is a secret, and never written here. Both are also read from the
-# environment, which is where they belong on a server — a systemd drop-in, a
-# container: PONOS_WEB_EMAIL and PONOS_WEB_PASSWORD, and the environment wins.
-#
-# Setting the two unlocks a non-loopback host, exactly as a token does — and
-# deserves the same suspicion: read what [web] says above before widening.
-# Changing the password signs out every browser at once. The token does not go
-# away: it stays what a script, and the dev server's proxy, carry.
-#
-# secrets.env keeps the password as its scrypt digest, scrypt:n:r:p:salt:hash —
-# the Settings write it so, and a line in clear from before is replaced by its
-# digest on the next launch, with the same password still signing in. The
-# environment's may be either. A sign-in lasts thirty days from its last use;
-# `ponos service run --sign-out-everywhere` ends them all.
-email = ""
-
-# How often the console asks Notion what the board looks like — and only while a
-# browser is actually connected. Five seconds is the floor.
-poll_seconds = 15
-
-# A chat turn is a Claude session and wants the same kind of ceiling as a ticket.
-# Shorter, because somebody is sitting in front of it.
-chat_timeout_minutes = 20
-
-# The model a new conversation of the console starts on: `opus`, `sonnet`,
-# `haiku`, `fable`, or an OpenRouter slug (`openai/gpt-5`) when [openrouter] has
-# a key. Empty: runner.model. Each conversation keeps the model it was given,
-# and it is changed from the conversation itself.
-chat_model = ""
-
-# What a message to the workspace may carry: images (png, jpg, webp, gif),
-# videos (mp4, webm, mov) and documents (pdf, txt, md, csv, json, docx, xlsx).
-# They are kept under the runner's state — never in a repository — in a folder
-# of the conversation, which "new conversation" empties; whatever a
-# conversation nobody closed left behind goes after attachment_days. A video is
-# looked at through a few frames, which takes ffmpeg: without it, the session
-# is told it cannot see the clip, and says so.
-attachment_max_mb = 25
-attachment_days = 7
-
-# A dictated message waits in the field, transcribed, to be read over. true
-# sends it as soon as the transcription is back. Dictation needs [openrouter].
-send_after_transcription = false
-
-# Projects whose repository cannot be guessed: exact Notion name = local path.
-# Without an entry here, the runner matches the project's Repository property
-# against the remotes found under workspace_root — and clones it there when it
-# matches none of them.
+# Projects whose repository cannot be guessed: exact name = local path. Without
+# an entry the Repository is matched against the clones under workspace_root.
 [projects]
 # "Trader Ia" = "~/workspace/labo/trader-ia"
 
-# Which of your GitHub accounts each owner is worked under. One machine often
-# answers to two GitHubs — your own and a client's — and `gh` only ever has one
-# of them active, so a pull request on the other is refused for reasons that
-# read like a bug. On the left the owner, as GitHub spells it in the URL of the
-# repository; on the right the `gh` account, as `gh auth status` lists it.
-#
-# Log each one in first, once, and they stay logged in side by side:
-#
-#     gh auth login          (then again, for the second account)
-#     gh auth status         lists what it knows
-#
-# Everything that leaves the machine about a repository — the clone, the push,
-# the pull request, the merge — then goes out under the account its owner names
-# here. An owner this table does not name is worked under whichever account `gh`
-# is signed in as, which is what one account has always done: a machine with one
-# GitHub leaves this empty. A GitHub App connected from the console (Settings ›
-# GitHub) comes before this table for the owners it is installed on, and so does
-# an access token (see [github_access] below).
+# Which `gh` account each repository owner is worked under, for a machine that
+# answers to two GitHubs: owner (as in the URL) = account (as `gh auth status`
+# lists it). A GitHub App or token (below) comes first for the owners it covers.
 [github]
 # "northwind" = "dev-northwind"
-# "hermez-agency" = "hermez-bot"
 
-# How GitHub is reached without `gh`: a GitHub App, or a personal access token.
-# The App is the shape GitHub made for a robot and takes a few clicks (Settings ›
-# GitHub › Connect GitHub); a fine-grained token is a paste, and suits one person
-# and a first ticket. Prefer the App for an organisation, for several people, or
-# for tokens that expire by themselves.
-#
-#   mode   "app" or "token" puts that one first. Empty is the App when one
-#          reaches the repository's owner, then the token, then the `gh`
-#          accounts above
-#
-# The token is PONOS_GITHUB_TOKEN — in the environment, which is how a container
-# or Dokploy is given it, or in secrets.env, where the console writes the one you
-# paste after checking it (who it is, which repositories it reaches, and whether
-# Contents and Pull requests are on read and write). Never in this file. Create
-# one at github.com/settings/personal-access-tokens/new, limited to the
-# repositories tickets work on, with Contents and Pull requests on read and
-# write and Metadata on read-only.
-#
-#   token_item   keep it in a vault instead: `pass:ponos/github`,
-#                `keyring:ponos-github`, `bitwarden:github`. Read like [vault]'s
-#                items, and tried before PONOS_GITHUB_TOKEN
+# How GitHub is reached without `gh`. mode: "app" or "token" puts that one
+# first; empty is the App when one reaches the owner, then the token, then `gh`.
+# The token is PONOS_GITHUB_TOKEN; token_item keeps it in a vault instead
+# (`pass:ponos/github`, `keyring:ponos-github`, `bitwarden:github`).
 [github_access]
 mode = ""
 # token_item = "pass:ponos/github"
 
-# The keys a ticket's session may work with — an npm token, a GitHub
-# fine-grained token, a Dokploy API key — without anybody writing them in a
-# ticket. They stay where they already live, and each project is given its own
-# and nobody else's, as environment variables of its sessions. Whatever value
-# was read is replaced by *** in the comments, the pages, the logs and the
-# console. Prefer tokens of narrow reach (npm granular, GitHub fine-grained)
-# over passwords. `ponos doctor` reads each one and says whether it is there.
-#
-# provider: where they are read from, unless an entry says otherwise
-#   "env"        the runner's environment, then secrets.env beside this file
-#   "keyring"    the GNOME keyring (any Secret Service), through secret-tool:
-#                  secret-tool store --label="Ponos NPM" service ponos username hermez-npm
-#   "pass"       pass show <item>, its first line
-#   "bitwarden"  bw get password <item> — BW_SESSION in the environment or in
-#                secrets.env (bw unlock --raw)
-#   "ponos"      Ponos's own vault, the one that needs nothing installed:
-#                Settings → Vault in the console, or `ponos vault set NAME
-#                --project P` (the value on stdin, never as an argument).
-#                An entry granted to a project there is given to its sessions
-#                without a line here; a line here may still name one,
-#                "ponos:NAME" ("ponos:NAME_USER", "ponos:NAME_PASSWORD" for a
-#                login). Kept in vault.db (state directory, 0600), each entry
-#                sealed with AES-256-GCM under a 32-byte key kept apart: the
-#                system keyring when secret-tool is there, else PONOS_VAULT_KEY,
-#                else ~/.config/ponos/vault.key (0600, and `ponos doctor` warns:
-#                a backup that holds it and vault.db holds every key).
-#                It protects a copy of vault.db alone and the places the runner
-#                writes (every value read is masked); not somebody who has the
-#                Unix account that runs Ponos. `ponos vault rotate` changes the key.
+# The keys a project's sessions are given as environment variables, masked as ***
+# wherever the runner writes. provider: "env", "keyring", "pass", "bitwarden" or
+# "ponos" (Settings → Vault); an item may name another: "pass:hermez/npm".
 [vault]
 provider = "env"
 
-# One table per project, by its exact Notion name: the variable the session
-# sees = the item the provider holds it under. An item may name another
-# provider than the one above: "pass:hermez/npm". A list of names reads each
-# one under its own name. A project that is not here is given nothing; the
-# runner's own variables (PONOS_*, ANTHROPIC_API_KEY…) are never handed over.
+# One table per project, by its exact name: variable the session sees = item.
 [vault.projects]
 # Leadz = ["LEADZ_DOKPLOY_TOKEN"]
-
-# [vault.projects.Ponos]
-# NPM_TOKEN = "hermez-npm"
-# GH_DEPLOY_TOKEN = "pass:github/ponos-deploy"

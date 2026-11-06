@@ -61,13 +61,11 @@ import { locale, ruleOf } from "@/lib/recurrence"
 import { layoutOf, useLayoutInTheAddress } from "@/lib/resource-view"
 import { useRoute } from "@/lib/router"
 import { setRunnerZone } from "@/lib/runner-zone"
-import { ask } from "@/lib/settings-store"
 import { STATES, filtering, keeps } from "@/lib/schedule-search"
 import type { Schedule, Schedules } from "@/lib/types"
 import { canAct, readOnly } from "@/lib/role"
 import type { Launch } from "@/components/console/schedule-lists"
 import { PROJECTS, projectHref, projectsOnce, projectsRead, useProjects } from "@/resources/projects"
-import { settingsHref } from "@/resources/settings"
 import { projectChoices, ticketHref } from "@/resources/tickets"
 
 /* What comes back on its own, declared once for react-resource-view.
@@ -788,33 +786,6 @@ export function SchedulesCount({ drawn, problem }: LastRead) {
   )
 }
 
-/** One switch turns the whole calendar off, and a page of ticked rows that never fire is what it would otherwise read as. */
-function SchedulesFoot() {
-  const { drawn } = useSchedules()
-  if (!drawn?.database || drawn.enabled) return null
-  return (
-    <Alert className="mt-4">
-      {/* One paragraph, because the description lays its children out in a
-          grid: two of them are two lines, and the sentence would start on the
-          one after the key it is about. */}
-      <AlertDescription>
-        <p>
-          <span className="font-mono">runner.schedule = false</span> —{" "}
-          {t("none of this runs.")}{" "}
-          {/* The switch itself, brought into view and focused by the page. */}
-          <Link
-            to={settingsHref("execution")}
-            onClick={() => ask("runner.schedule")}
-            className="text-foreground underline underline-offset-2"
-          >
-            {t("Turn it on in the settings")}
-          </Link>
-        </p>
-      </AlertDescription>
-    </Alert>
-  )
-}
-
 /* Two ways this page has nothing to show, and they are two different things to
  * do about it: the workspace has no such database, or the database is there and
  * empty. The create button under the sentence is the package's, and it is gone
@@ -1058,7 +1029,6 @@ const options: ResourceDefinition<ScheduleItem, ScheduleWrite> = {
         // `top` posted there is drawn over the create form too, and the count
         // of what is on belongs to the page, not to the form over it.
         top: SchedulesTop,
-        bottom: SchedulesFoot,
         empty: NoSchedule,
       },
       // What a schedule is, without naming where it is kept: the same console
@@ -1153,7 +1123,7 @@ export const projectSchedules = createViewResource<ScheduleItem, ScheduleWrite>(
     list: {
       ...options.views?.list,
       filters: projectFormFilter,
-      components: { top: ProjectSchedulesTop, bottom: SchedulesFoot, empty: NoProjectSchedule },
+      components: { top: ProjectSchedulesTop, empty: NoProjectSchedule },
       layouts: options.views?.list?.layouts?.filter((each) => each.id !== SPLIT),
     },
   },

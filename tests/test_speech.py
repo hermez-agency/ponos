@@ -141,13 +141,13 @@ def without_piper_the_voice_says_why_and_nothing_breaks() -> None:
             raise AssertionError("a voice spoke with no Piper")
     finally:
         speech.available = original
-    off = _config("[speech]\nenabled = false\n").speech
+    off = _config(speech={"enabled": False}).speech
     assert "speech.enabled" in speech.refusal(off)
 
 
 @case
 def a_sentence_is_spoken_in_the_voice_of_its_language_at_the_speed_asked() -> None:
-    settings = _config('[speech]\nspeed = 200\nvoice_en = "en_GB-alan-medium"\n').speech
+    settings = _config(speech={"speed": 200, "voice_en": "en_GB-alan-medium"}).speech
     with _piper():
         sound = speech.synthesize(settings, "Bonjour **tout** le monde.", "fr-FR")
         assert sound[:4] == b"RIFF" and b"WAVE" in sound[:12]

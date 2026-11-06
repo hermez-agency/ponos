@@ -109,8 +109,7 @@ def without_docker_the_switch_is_greyed_with_its_reason_and_cannot_be_saved_on()
             field["name"]: field for section in described["sections"] for field in section["fields"]
         }
         assert "not installed" in fields["runner.local_ci"]["unavailable"]
-        assert fields["runner.local_ci_attempts"]["unavailable"] == ""
-        assert fields["runner.local_ci_attempts"]["fallback"] == 3
+        assert "runner.local_ci_attempts" not in fields, "a constant, not a setting"
         try:
             web_settings.save(config, {"settings": {"runner.local_ci": True}})
         except ValueError as error:

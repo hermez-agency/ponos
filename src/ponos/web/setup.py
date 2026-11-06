@@ -251,7 +251,6 @@ def save_provider(api: Api, payload: dict[str, Any]) -> dict[str, Any]:
         check = provider.openrouter_key(key or settings.key, settings.base_url)
         if key:
             values["openrouter.key"] = key
-        values["openrouter.route_sessions"] = bool(payload.get("route_sessions", True))
     if check.ok and keep:
         api.save_settings({"settings": values})
     return {"ok": check.ok, "said": check.said}
