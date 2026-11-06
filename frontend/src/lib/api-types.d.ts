@@ -3588,7 +3588,7 @@ export interface components {
         ProjectDeleted: {
             id: string;
             name: string;
-            /** @description Where the page can be restored from; empty on a board of files. */
+            /** @description Where the page can be restored from; empty on a board without Notion. */
             url: string;
             tickets: number;
             blocked: number;
