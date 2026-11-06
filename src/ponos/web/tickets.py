@@ -44,10 +44,12 @@ from .. import (
     timestamps,
     worktime,
 )
+from .. import attempts as attempts_module
 from .. import config as config_module
 from .. import goals as goals_module
 from .. import kinds as kinds_module
 from .. import priority as priority_module
+from .. import tickets as tickets_module
 from .. import transitions as transitions_module
 from ..config import Notion, state_dir
 from ..schedules import scheduled_for
@@ -701,6 +703,7 @@ class Tickets(Base):
         on: str = "",
         goal: str = "",
         plan: bool = False,
+        attempts: int | str = 1,
     ) -> dict[str, Any]:
         title = title.strip()
         if not title:
@@ -743,6 +746,11 @@ class Tickets(Base):
         if plan and kind in ("", "code"):
             values[settings.prop("plan")] = True
         page_id = self.runner.client.create_row(self.runner.database, title, values)
+        # « Tentatives »: a code ticket's too, and the ledger's alone — the
+        # board has no column for it. See attempts.py.
+        tries = attempts_module.wanted(attempts)
+        if tries > 1 and kind in ("", "code"):
+            tickets_module.update(page_id, attempts=tries)
         # Both parts from the start, whoever writes it — the console, the MCP,
         # an agent, a trigger: see ticket_page.py.
         self.runner.client.append_markdown(page_id, ticket_page.template(self.runner.voice, body))

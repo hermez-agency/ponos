@@ -243,6 +243,7 @@ class NewTicket(Payload):
     on: str = ""
     goal: str = ""
     plan: bool = False
+    attempts: Any = 1
 
 
 class On(Payload):
@@ -1126,6 +1127,7 @@ def create_ticket(
         payload.on,
         payload.goal,
         payload.plan,
+        payload.attempts,
     )
     _done(request, str(created.get("id", "")), "created", "ready" if payload.ready else "draft")
     return answer(created)

@@ -730,6 +730,14 @@ def _tickets(connection: sqlite3.Connection) -> None:
     connection.execute("CREATE INDEX mirror_queue_by_ticket ON mirror_queue (ticket, id)")
 
 
+def _tickets_have_attempts(connection: sqlite3.Connection) -> None:
+    # « Tentatives » — see attempts.py. `attempts` is how many tries the author
+    # asked for (1 or 2); `twin` is the other ticket of a pair, whichever of the
+    # two it is held on, empty for a ticket tried once. Neither goes to the board.
+    connection.execute("ALTER TABLE tickets ADD COLUMN attempts INTEGER NOT NULL DEFAULT 1")
+    connection.execute("ALTER TABLE tickets ADD COLUMN twin TEXT NOT NULL DEFAULT ''")
+
+
 def _tickets_have_a_role_and_a_goal(connection: sqlite3.Connection) -> None:
     # The two relations of the board `tickets` left out: the craft that works
     # the ticket (Master Agents) and the goal it serves (Master Objectifs). Each
@@ -1076,6 +1084,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     _pages_in_two_parts,
     _tickets,
     _tickets_have_a_role_and_a_goal,
+    _tickets_have_attempts,
 )
 
 # Any way a read or a write of the database can fail. A note the runner keeps
