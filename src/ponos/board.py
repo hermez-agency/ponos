@@ -36,6 +36,7 @@ from . import (
     store,
     subtypes,
     ticket_page,
+    tickets,
 )
 from . import update as update_module
 from . import voice as voice_module
@@ -649,6 +650,37 @@ class Board(Base):
             self.say(f"  ⌫ {entry.title or entry.page} — {entry.detail}")
         if carried := report.carried:
             self.say(f"  ⇄ {len(carried)} page(s) carried across")
+
+    def mirror(self) -> None:
+        """Keep `ponos.db` and Notion level: what rose first, then the queue emptied.
+
+        In this order because a ticket whose changes are still queued is not
+        read upward (notion_import.rise): the queue goes out before the next
+        pass reads the board. Never a reason to fail a pass — a Notion that does
+        not answer leaves the queue where it is, and nothing waits for it.
+        """
+        # Nothing to keep level before `ponos import notion` has been run, and
+        # only a Notion board has a mirror to be level with.
+        if self.dry_run or self.config.storage.mode != "notion" or tickets.empty():
+            return
+        from . import mirror as mirror_module
+        from . import notion_import
+
+        try:
+            risen = notion_import.rise(self.client, self.config, self.workspace, self._risen)
+            sent = mirror_module.flush(self.client, self.config, self.workspace)
+        except store.StoreError as error:
+            self.say(f"  ! mirror: {voice_module.line(error)}")
+            return
+        for problem in [*risen.problems, *sent.problems]:
+            self.say(f"  ! mirror: {problem}")
+        if risen:
+            self.say(
+                f"  ⇅ {risen.created} ticket(s) and {risen.changed} change(s) "
+                f"and {risen.comments} comment(s) came up from Notion"
+            )
+        if sent.failed:
+            self.say(f"  ! {sent.failed} change(s) still wait for Notion")
 
     def reshape(self) -> int:
         """Put the open tickets' pages in their two parts, once each — see ticket_page.py.

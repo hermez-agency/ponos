@@ -228,6 +228,38 @@ tickets are made up:
 
 *The go-ahead: drag the card to Validated, and he merges or publishes.*
 
+### The mirror: `ponos.db` first, Notion a copy
+
+Tickets are moving into `ponos.db`, and Notion is becoming a mirror of them. This
+is the second of four steps; for now the runner still *reads* Notion, and the
+database is kept level with it so that the day the readers move there is nothing
+to catch up.
+
+**`ponos import notion`** fills the database once, from your Master Tickets and
+Master Projects: each ticket with its properties, its Mission and its
+« What was done », the tickets it comes after, and its comments. Run it again
+and it adds nothing — a ticket already there is left as it is, and only its
+missing comments are completed. Until you have run it, passes do not touch the
+database at all.
+
+**What still comes up from Notion** is a closed list, read on every pass:
+
+- a page you create;
+- a change of status;
+- a change to the Mission;
+- a comment.
+
+Everything else on the page — the pull request, the cost, the progress, the
+priority, the model… — belongs to Ponos. If you edit one of those cells in Notion,
+the mirror writes the database's value over it.
+
+**The mirror** is the other direction: every change made to a ticket in
+`ponos.db` waits in a queue, and each pass sends it to Notion, in order. A change
+that Notion does not take (a token that is no longer valid, no network) stays in
+the queue with its count of tries and its last error, and goes again on the next
+pass; no ticket waits for it. A ticket whose changes are still queued is not read
+from Notion until they have been sent, so the older word never wins over the newer.
+
 ### The tickets database
 
 The names below are **fixed**: they are not settings, `ponos init` creates them exactly so,

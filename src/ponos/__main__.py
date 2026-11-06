@@ -481,6 +481,33 @@ def command_projects(args: argparse.Namespace) -> int:
     return 1 if failed else 0
 
 
+def command_import(args: argparse.Namespace) -> int:
+    """Fill `ponos.db` from Master Tickets and Master Projects, once. Run it twice and nothing doubles.
+
+    Explicit and never part of a pass: it reads the whole board, comments
+    included, and a board that has already been imported has nothing for it to
+    do. See notion_import.py.
+    """
+    from . import notion_import
+
+    configuration = load_config()
+    try:
+        client = store.open(configuration)
+        space = client.workspace(configuration.notion)
+        title("Importing Notion into ponos.db")
+        report = notion_import.run(client, configuration, space)
+    except store.StoreError as error:
+        bad(f"Notion did not answer: {error}")
+        return 1
+    ok(
+        f"{report.created} ticket(s) imported, {report.existing} already there, "
+        f"{report.comments} comment(s) added, {report.projects} project(s) read"
+    )
+    for problem in report.problems:
+        warn(problem)
+    return 1 if report.problems else 0
+
+
 def command_sync(args: argparse.Namespace) -> int:
     """Reconcile the Notion board and the Markdown one, and say what moved.
 
@@ -2062,6 +2089,11 @@ def _add_ticket_commands(subparsers: argparse._SubParsersAction[argparse.Argumen
     )
     syncing.add_argument("-n", "--number", type=int, default=30, help="with --journal: how many")
     syncing.set_defaults(function=command_sync)
+
+    importing = subparsers.add_parser("import", help="fill ponos.db from another board, once")
+    imported = importing.add_subparsers(dest="source", required=True, help="the board to read")
+    imported.add_parser("notion", help="Master Tickets and Master Projects → ponos.db")
+    importing.set_defaults(function=command_import)
 
 
 def _add_reading_commands(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
