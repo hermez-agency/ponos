@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import IO, Any
 from urllib.parse import parse_qs, quote, urlparse
 
-from . import config, credits, disk, leftovers, legacy, vault
+from . import config, credits, disk, leftovers, vault
 from .question import Question, caveats, lesson, parse
 
 logger = logging.getLogger(__name__)
@@ -286,7 +286,6 @@ def inheritable(environ: Mapping[str, str]) -> dict[str, str]:
     project and what its provider needs, by the caller: the rest stays here.
     """
     withheld = set(config.SECRETS.values())
-    withheld |= {legacy.OLD_PREFIX + name.removeprefix(legacy.PREFIX) for name in withheld}
     return {name: value for name, value in environ.items() if name not in withheld}
 
 
@@ -658,10 +657,7 @@ def resume_command(uri: str) -> tuple[str, list[str]]:
     one, a host that is not a host.
     """
     parsed = urlparse(uri)
-    # Migration filet: a link written before the rename, still in its Notion
-    # cell, says the old scheme and names the worktree where it used to be.
-    old = parsed.scheme == legacy.OLD
-    if parsed.scheme != SCHEME and not old:
+    if parsed.scheme != SCHEME:
         raise ValueError(f"not a {SCHEME}:// link: {uri}")
     action = parsed.netloc or parsed.path.lstrip("/").split("/")[0]
     if action != "session":
@@ -676,8 +672,6 @@ def resume_command(uri: str) -> tuple[str, list[str]]:
         )
     query = parse_qs(parsed.query)
     cwd = (query.get("cwd") or [str(Path.home())])[0]
-    if old:
-        cwd = legacy.path(cwd)
     host = (query.get("host") or [""])[0]
 
     if host:

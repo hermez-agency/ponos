@@ -32,7 +32,6 @@ from . import (
     channels,
     conversation,
     journal,
-    legacy,
     notify,
     provider,
     resources,
@@ -274,16 +273,6 @@ class Base(Chapters):
         # When a pass in flight last asked whether a newer version is out —
         # not written in the stamp, see `update.pending` and `Board.closing`.
         self._update_looked = 0.0
-
-    @property
-    def agent_labels(self) -> set[str]:
-        """This machine's label, and the one it wrote before the rename.
-
-        A migration filet: the tickets it took then still say the old name in
-        their Runner column, and they are its own all the same.
-        """
-        host = self.agent_label.partition("@")[2]
-        return {self.agent_label, f"{legacy.OLD}@{host}"}
 
     @property
     def workspace(self) -> workspace_module.Workspace:

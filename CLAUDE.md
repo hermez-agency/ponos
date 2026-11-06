@@ -301,7 +301,12 @@ le lundi — CONTRIBUTING.md, « Dependencies ».
   sous-domaines d'infrastructure — dont `umami.cardona.digital`, d'où
   `docs/index.html` et `docs/404.html` chargent leurs analytics — restent sur
   cardona.digital ; seul un ticket dédié les passe sur un domaine Hermez. De
-  même, les mentions `ticket-runner` d'`install.sh`, d'`uninstall.sh` et de
-  `desktop/ponos-url-handler.desktop.in` sont le filet de migration des
-  anciennes installations, et les préfixes `TR_*` des identifiants techniques :
-  un audit ne les remonte pas.
+  même, les préfixes `TR_*` des identifiants techniques : un audit ne les
+  remonte pas.
+- **Plus de filet de migration.** Personne d'autre n'utilise Ponos, et
+  l'installation de cette machine est migrée : le code qui ne servait qu'à
+  reprendre une installation d'avant (le nom `ticket-runner`, les anciens
+  titres de pages, les fichiers JSON d'avant `ponos.db`) est parti. Il ne
+  revient pas en passant ; une compatibilité nouvelle se décide par ticket. Seul
+  `uninstall.sh` efface encore la ligne `x-scheme-handler/ticket-runner` qu'une
+  vieille installation a laissée dans `mimeapps.list`.

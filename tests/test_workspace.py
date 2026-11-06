@@ -42,41 +42,34 @@ def a_row_is_found_however_its_title_is_capitalised() -> None:
 
 
 @case
-def a_board_built_before_the_names_were_settled_still_resolves() -> None:
-    """The rows shipped as "Master Tickets" and "Soul" before those names settled.
+def rows_under_other_titles_are_found_by_the_names_the_configuration_gives() -> None:
+    """A board whose rows carry other titles names them under `[notion.pages]`.
 
-    Renaming four rows by hand is not a migration anyone should be asked to run,
-    so the old titles are tried after the current ones — and only while the
-    configuration itself names none, since a title someone typed is a title
-    they meant.
+    Nothing is guessed past the configured title, nor past the default one: the
+    titles the runner used to ship with ("Master Tickets", "Soul") are no
+    longer tried on their own.
     """
-    client = _FakeClient(
-        {
-            "Master Tickets": "p-tickets",
-            "Master project": "p-projects",
-            "Soul": "p-soul",
-            "Objectifs": "p-goals",
-        },
-        text="who I am",
+    rows = {
+        "Master Tickets": "p-tickets",
+        "Master project": "p-projects",
+        "Soul": "p-soul",
+        "Objectifs": "p-goals",
+    }
+    named = _settings(
+        pages={"tickets": "Master Tickets", "projects": "Master project", "context": "Soul"}
     )
-    space = _from_notion(client, _settings())
+    space = _from_notion(_FakeClient(rows, text="who I am"), named)
     assert space.tickets == "db-of-p-tickets"
     assert space.projects == "db-of-p-projects"
     assert space.context == "who I am"
     assert not space.warnings
 
-    # The new names win when a board carries both, rather than the older row.
-    both = _FakeClient({"Tickets": "p-new", "Master Tickets": "p-old"})
-    assert _from_notion(both, _settings()).tickets == "db-of-p-new"
-
-    # And a configuration that names a row is never second-guessed.
-    named = _settings(pages={"tickets": "Backlog"})
     try:
-        _from_notion(_FakeClient({"Master Tickets": "p-old"}), named)
+        _from_notion(_FakeClient(rows), _settings())
     except notion.NotionError as error:
-        assert "Backlog" in str(error)
+        assert "Tickets" in str(error)
     else:
-        raise AssertionError("a named row must not fall back on a legacy title")
+        raise AssertionError("an old title must not stand in for the default one")
 
 
 @case

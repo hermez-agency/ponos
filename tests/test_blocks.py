@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import ast
-import json
 import re
-import tempfile
 from datetime import UTC, date
 from pathlib import Path
 from typing import Any
@@ -13,7 +11,7 @@ from typing import Any
 from support import FRONTEND, ROOT, _board_runner, _BoardClient, _reviewed, case
 
 from ponos import config as C
-from ponos import db, files, journal, provision, session, state, store, voice
+from ponos import files, journal, provision, session, state, store, voice
 from ponos import ticket as ticket_module
 from ponos.web import statistics as web_statistics
 from ponos.web import tickets as web_tickets
@@ -258,55 +256,6 @@ def the_board_offers_the_column_and_doctor_names_it_when_it_is_missing() -> None
 
     columns = _columns(settings, {"Status": "status"})
     assert "“Blocage”" in columns.params["missing"], columns.params
-
-
-@case
-def the_history_written_before_the_codes_is_reclassed_by_its_sentence() -> None:
-    """Migration 17, on a file migrated as far as 16: every stop gets its code."""
-    with tempfile.TemporaryDirectory() as directory:
-        location = Path(directory) / "ponos.db"
-        before = db.open_at(location, db.MIGRATIONS[:16])
-        lines = [
-            {"id": "a", "status": "blocked", "reason": "the session stopped to ask you something"},
-            {
-                "id": "b",
-                "status": "failed",
-                "reason": "je n'ai pas pu créer le worktree pour travailler",
-            },
-            {
-                "id": "c",
-                "status": "blocked",
-                "reason": "ses conflits ont été résolus, mais ses vérifications échouent",
-            },
-            {"id": "d", "status": "failed", "reason": "a sentence from nowhere"},
-            {"id": "e", "status": "done", "reason": ""},
-        ]
-        for line in lines:
-            before.execute(
-                "INSERT INTO history (ticket, status, entry) VALUES (?, ?, ?)",
-                (line["id"], line["status"], json.dumps(line)),
-            )
-        before.execute(
-            "INSERT INTO runs (ticket, started_at, status, reason)"
-            " VALUES ('a', '2026-10-01', 'blocked', 'the session called itself done without committing anything')"
-        )
-        before.commit()
-        before.close()
-        after = db.open_at(location)
-        try:
-            rows = after.execute("SELECT ticket, code, entry FROM history ORDER BY id").fetchall()
-            assert [(ticket, code) for ticket, code, _ in rows] == [
-                ("a", "session.question"),
-                ("b", "worktree.residue"),
-                ("c", "merge.checks-failed"),
-                ("d", "unknown"),
-                ("e", ""),
-            ], rows
-            assert json.loads(rows[1][2])["code"] == "worktree.residue"
-            assert "code" not in json.loads(rows[4][2])
-            assert after.execute("SELECT code FROM runs").fetchone() == ("session.no-commit",)
-        finally:
-            after.close()
 
 
 @case

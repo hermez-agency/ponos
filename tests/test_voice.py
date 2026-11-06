@@ -6,7 +6,7 @@ from typing import Any
 
 from support import case
 
-from ponos import legacy, prompt, voice
+from ponos import prompt, voice
 
 # -- the language it answers in ----------------------------------------------
 
@@ -125,11 +125,8 @@ def a_report_is_told_from_an_answer_by_the_mark_it_opens_with() -> None:
     assert voice.is_report("✅ To review — PR #1 · 2 commits")
     assert voice.is_report("🙋 Bloqué — quel en-tête ?")
     assert not voice.is_report("Celui du dashboard, pas du site public.")
-    # A board does not start over when the runner is updated: the reports
-    # already on it opened with a host, and are still ours.
-    assert voice.is_report(f"{legacy.OLD}@laptop — done.\nFait.")
-    assert voice.plain(f"{legacy.OLD}@laptop — done.\nFait.") == "done.\nFait."
-    assert voice.plain("✅ To review — PR #1") == "✅ To review — PR #1"
+    # The host the reports were signed with before the marks is no longer read.
+    assert not voice.is_report("ticket-runner@laptop — done.\nFait.")
 
 
 @case

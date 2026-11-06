@@ -291,7 +291,7 @@ def _labelled(line: str) -> tuple[str, str]:
 def _last_report(comments: Iterable[str]) -> str:
     for text in reversed(list(comments)):
         if voice_module.is_report(text):
-            return voice_module.plain(str(text)).strip()
+            return str(text).strip()
     return ""
 
 
@@ -306,16 +306,7 @@ def blockage(comments: Iterable[str]) -> Blockage:
     """
     report = _last_report(comments)
     if not report.startswith(voice_module.MARKS["blocked"]):
-        if not report:
-            return Blockage()
-        # A report from before the marks, or one that did not stop on a
-        # question: its first sentence is all there is to go on.
-        lines = [line.strip() for line in report.split("\n\n", 1)[0].splitlines() if line.strip()]
-        reason = " ".join(lines[1:2]) or lines[0].split("—", 1)[-1].strip()
-        legacy = report.startswith(voice_module.SIGNATURE) and "blocked" in lines[0].lower()
-        if not legacy:
-            return Blockage()
-        return Blockage(category=classify(reason), reason=reason, reported=True)
+        return Blockage()
     first, _, rest = report.partition("\n\n")
     lines = [line.strip() for line in first.splitlines() if line.strip()]
     verdict = lines[0]

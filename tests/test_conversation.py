@@ -17,7 +17,7 @@ from support import (
     case,
 )
 
-from ponos import conversation, legacy, notion, session, workspace
+from ponos import conversation, notion, session, workspace
 from ponos import ticket as ticket_module
 from ponos.runner import Runner
 
@@ -28,13 +28,13 @@ from ponos.runner import Runner
 def a_question_a_run_asked_comes_back_with_its_answer() -> None:
     _, lines = _runner_reading(
         [
-            f"{legacy.OLD}@laptop — blocked.\nThe ticket does not say which header.\n\n"
+            "🙋 Blocked.\nThe ticket does not say which header.\n\n"
             "Session: `abc-123` — `claude --resume abc-123`\nLog: /home/x/log.jsonl",
             "Celui du dashboard, pas du site public.",
         ]
     )
     assert lines == [
-        "a previous run: blocked. The ticket does not say which header.",
+        "a previous run: 🙋 Blocked. — asked: The ticket does not say which header.",
         "the ticket's author: Celui du dashboard, pas du site public.",
     ], lines
     assert "Session:" not in "".join(lines), "the machinery of a past run is not context"
@@ -240,7 +240,7 @@ def a_comment_with_no_thread_of_its_own_is_not_lumped_with_the_others() -> None:
 def replying_under_its_report_is_how_you_talk_to_it() -> None:
     pending = _pending(
         [
-            _said(f"{legacy.OLD}@laptop — done.\nFait.", by=ME),
+            _said("✅ Done.\nFait.", by=ME),
             _said("pourquoi ce nom de branche ?"),
         ]
     )
@@ -262,7 +262,7 @@ def naming_it_reaches_it_in_a_thread_it_never_spoke_in() -> None:
 def it_never_answers_itself() -> None:
     """The one failure mode here that would never stop on its own."""
     conversed = [
-        _said(f"{legacy.OLD}@laptop — done.\nFait.", by=ME),
+        _said("✅ Done.\nFait.", by=ME),
         _said("pourquoi ?"),
         _said("parce que la branche existait déjà.", by=ME),
     ]
@@ -286,7 +286,7 @@ def a_question_it_has_already_answered_is_not_answered_twice() -> None:
 @case
 def naming_it_asks_for_words_where_a_bare_answer_asks_for_work() -> None:
     """The `blocked` loop is untouched; the mention is what opts out of it."""
-    report = f"{legacy.OLD}@laptop — blocked.\nQuel en-tête ?"
+    report = "🙋 Blocked.\nQuel en-tête ?"
     assert _answered([report, "celui du dashboard."]), "a plain answer still runs the ticket"
     assert not _answered([report, "@claude pourquoi tu demandes ?"])
     assert not _answered([report, "Ponos, pourquoi tu demandes ?"])

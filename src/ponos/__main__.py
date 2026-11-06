@@ -31,7 +31,6 @@ from . import (
     health,
     journal,
     leftovers,
-    legacy,
     log,
     notion,
     priority,
@@ -2161,14 +2160,13 @@ def secrets_out_of_config(say: Callable[[str], None] | None = None) -> None:
 
 if __name__ == "__main__":
     # Here rather than in `main`, which the tests call: only a real launch
-    # moves an installation's directories, or its secrets — and only a real
-    # launch from a checkout is kept off the real state.
+    # moves an installation's secrets — and only a real launch from a checkout
+    # is kept off the real state.
     try:
         config_module.refuse_real_state()
     except config_module.RealStateRefused as error:
         print(f"ponos: {error}", file=sys.stderr)
         raise SystemExit(2) from None
-    legacy.migrate()
     config_module.private_state()
     secrets_out_of_config()
     raise SystemExit(main())

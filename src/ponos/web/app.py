@@ -77,7 +77,6 @@ from .server import (
     GUARD_HEADER,
     HSTS,
     IMMUTABLE,
-    LEGACY_COOKIE,
     LOCKED_POLICY,
     LOOPBACK,
     PERMISSIONS,
@@ -326,7 +325,7 @@ class Asking:
         if self.headers.get("X-Token"):
             return str(self.headers.get("X-Token")).strip()
         cookies = SimpleCookie(self.headers.get("Cookie") or "")
-        for name in (self.console.cookie, COOKIE, LEGACY_COOKIE):
+        for name in (self.console.cookie, COOKIE):
             if name in cookies:
                 self.moved = name != self.console.cookie
                 return cookies[name].value

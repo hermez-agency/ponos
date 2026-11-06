@@ -418,13 +418,11 @@ def _database_in(
 
 
 def _row(client: notion.Client, directory: str, settings: Notion, key: str, report: Report) -> str:
-    """The workspace row for `key`, by any name it has ever had, else created."""
+    """The workspace row for `key`, by the title the configuration gives it, else created."""
     rows = {page.title.strip().lower(): page.id for page in client.query(directory)}
-    for candidate in settings.page_aliases(key):
-        page = rows.get(candidate.strip().lower())
-        if page:
-            return page
     title = settings.page(key)
+    if page := rows.get(title.strip().lower()):
+        return page
     page = client.create_row(directory, title)
     report.note("created", f"“{title}” page")
     return page
