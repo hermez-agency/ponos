@@ -186,7 +186,7 @@ test("the type its tickets are born with is a button, and code says its sub-type
   await window_.getByPlaceholder("Revue hebdomadaire des dépendances").fill("Revue")
   const type = window_.getByRole("group", { name: "Type", exact: true })
   const subtype = window_.getByRole("group", { name: "Sous-type", exact: true })
-  await expect(type.getByRole("button")).toHaveCount(4)
+  await expect(type.getByRole("button")).toHaveCount(5)
   // Empty, the runner deduces each ticket's: the sub-type may still be said.
   await expect(subtype).toBeVisible()
   await type.getByRole("button").nth(1).click()
