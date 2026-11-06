@@ -667,7 +667,7 @@ def _installable() -> Iterator[tuple[Callable[..., str], Path, str]]:
     """
     quiet: dict[str, Any] = {"capture_output": True, "check": True}
     who = ["-c", "user.name=t", "-c", "user.email=t@example.invalid", "-c", "commit.gpgsign=false"]
-    kept = {name: os.environ.get(name) for name in ("HOME", "PATH")}
+    kept = {name: os.environ.get(name) for name in ("HOME", "PATH", "XDG_CONFIG_HOME")}
     with tempfile.TemporaryDirectory() as directory, _state_home():
         remote, work, app = (Path(directory) / name for name in ("remote.git", "work", "app"))
         subprocess.run(["git", "init", "--quiet", "--bare", "-b", "main", str(remote)], **quiet)
@@ -700,6 +700,10 @@ def _installable() -> Iterator[tuple[Callable[..., str], Path, str]]:
         tools.mkdir()
         (tools / "git").symlink_to(shutil.which("git") or "/usr/bin/git")
         os.environ["HOME"], os.environ["PATH"] = directory, str(tools)
+        # And the units under that home: a machine — a GitHub runner among
+        # them — that exports `XDG_CONFIG_HOME` would have them written into
+        # its own configuration (`update.units_dir`).
+        os.environ.pop("XDG_CONFIG_HOME", None)
         # What a version's environment would download — FastAPI, for the
         # console its start is checked by (`update.verify`) — borrowed from this
         # process instead: the test stays offline, and as fast as it was.
