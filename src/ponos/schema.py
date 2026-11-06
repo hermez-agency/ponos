@@ -65,14 +65,9 @@ from .config import (
     Review,
     Runner,
     Speech,
-    Storage,
     Web,
     identifier,
 )
-
-# The two vocabularies of `[storage]`, kept where the interface is declared —
-# `store.py` imports nothing from here, so this direction is the safe one.
-from .store import CONFLICTS, MODES
 
 # -- how a value is read ------------------------------------------------------
 
@@ -468,29 +463,6 @@ class PermissionsTable(Table):
     ask: Sentences = Permissions.ask
 
 
-class StorageTable(Table):
-    # A typo here would silently decide where the board lives: an unknown
-    # word falls back on Notion, which is what a file that says nothing gets.
-    mode: Annotated[str, _one_of(MODES)] = Storage.mode
-    # Empty: under the state directory, see `config.board_dir`.
-    path: str = ""
-    conflict: Annotated[str, _one_of(CONFLICTS)] = Storage.conflict
-    on_every_pass: bool = Storage.on_every_pass
-
-
-def _repositories(value: Any) -> list[str]:
-    """`owner/name`, once each, spelled as written: GitHub does not care how, `git.is_repository` does."""
-    names = [value] if isinstance(value, str) else list(value or [])
-    return list(dict.fromkeys(str(name).strip() for name in names if str(name).strip()))
-
-
-class IssuesTable(Table):
-    """`[issues]`: the repositories whose issues are the board, and the label that makes one a ticket."""
-
-    repositories: Annotated[list[str], BeforeValidator(_repositories)] = Field(default_factory=list)
-    label: Annotated[str, BeforeValidator(lambda value: str(value).strip() or "ponos")] = "ponos"
-
-
 class VaultTable(Table):
     """`[vault]`: what each project is given. `config._vault` checks what it can hand over.
 
@@ -530,8 +502,6 @@ class File(Table):
     budget: BudgetTable = Field(default_factory=BudgetTable)
     review: ReviewTable = Field(default_factory=ReviewTable)
     permissions: PermissionsTable = Field(default_factory=PermissionsTable)
-    storage: StorageTable = Field(default_factory=StorageTable)
-    issues: IssuesTable = Field(default_factory=IssuesTable)
     vault: VaultTable = Field(default_factory=VaultTable)
     github: Annotated[dict[str, str], AfterValidator(_owners)] = Field(default_factory=dict)
     github_access: GithubAccessTable = Field(default_factory=GithubAccessTable)

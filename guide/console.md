@@ -27,7 +27,7 @@ Open `http://127.0.0.1:8787` and you get one page, four things:
 │   Projects    │  ┌──────────┐  ┌──────────┐  │  workspace                  │
 │   Schedules   │  │ Retirer  │  │ Migrer   │  │  Six minutes in, on Trader  │
 │   Context     │  │ le       │  │ vers     │  │  IA. It has rewritten       │
-│   Settings    │  │ bandeau  │  │ SQLite   │  │  src/storage.py and is on   │
+│   Settings    │  │ bandeau  │  │ SQLite   │  │  src/billing.py and is on   │
 │               │  │ High     │  │ pytest   │  │  pytest. Nothing committed. │
 │               │  └──────────┘  └──────────┘  │                             │
 │               │                              │  > status                   │
@@ -570,8 +570,8 @@ From a terminal, `ponos history --csv --project <name> --month 2026-10` prints t
 session carried when it ran, and leaves `type` and `sous-type` empty.
 
 **Settings** is `config.toml` drawn as a page — the same file, the same keys, and every one
-of them, from the Notion token down to what your board calls its *Blocked* column. On a
-board kept in Markdown the Notion section comes last, since nothing reads it, and the
+of them, from the Notion token down to what your board calls its *Blocked* column. Without
+a Notion token the Notion section comes last, since nothing reads it, and the
 example token the sample file ships with is shown as *not set* rather than as a token. It is
 still a file you can open in an editor: the console rereads it when it changes on disk, and
 what you save here keeps the comments that were around the line.
@@ -636,8 +636,8 @@ one card per goal — its status, its due date, its name, what it means, the pro
 done »**, written in words over a bar. A goal no ticket points at yet says **« No ticket tied
 yet »** (« Aucun ticket rattaché ») instead, with **Tie tickets** — its form, opened on the
 *Tickets* field — and **New ticket for this goal**, the form with the goal already chosen. The count is the console's, not a Notion rollup: the
-tickets of the board that point at the goal, the cancelled ones left out, so it is the same on a
-board of Markdown files as on Notion's. The list rests on the active goals (no `Statut`, or
+tickets of the board that point at the goal, the cancelled ones left out, so it is the same with
+Notion as without. The list rests on the active goals (no `Statut`, or
 `actif`); its filters are the status — *All statuses*, or any one the database holds — and a
 project. The cards come soonest due first, the goals without a date last, and among the same day
 the highest priority first. Beside its due date, an active goal whose day is past says **« Late »**
@@ -995,7 +995,7 @@ steps, drawn by the console itself, one write each:
    the board under it — [`ponos init`](configuration.md#3-let-the-runner-build-the-rest), the same code and
    the same databases. There is no template to duplicate: the databases are built with every
    column spelled the way the runner reads them. A board already built and shared is offered
-   as such, and pointed at rather than rebuilt; a Markdown board has nothing to connect.
+   as such, and pointed at rather than rebuilt; without Notion, there is nothing to connect and the step can be skipped.
 5. **GitHub** — the GitHub App in one click, or whether `gh` is signed in, or has a
    `GH_TOKEN`, and as whom.
 6. **First project** — the repositories found under `runner.workspace_root` (the folder is

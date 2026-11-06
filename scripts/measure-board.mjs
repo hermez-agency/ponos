@@ -10,7 +10,7 @@
  * the board the audit of November 2026 measured. Each column draws its first
  * page; `--whole` opens every one of them to its last card first, the way
  * "Show more" does, for what a board drawn whole costs. The same throwaway
- * set-up (a Markdown board, `ponos service run` from this checkout on
+ * set-up (a throwaway `ponos.db`, `ponos service run` from this checkout on
  * `src/ponos/web/static` as the last `npm run build` left it, headless Chrome
  * over the DevTools protocol), the same promise: nothing of yours is read or
  * written.
@@ -50,38 +50,37 @@ const CHROME_PORT = 9290 + Math.floor(Math.random() * 100);
 const TOKEN = 'measure-board';
 
 const scratch = mkdtempSync(join(tmpdir(), 'ponos-measure-'));
-const board = join(scratch, 'board');
 const config = join(scratch, 'config.toml');
 mkdirSync(join(scratch, 'workspace'));
 writeFileSync(
   config,
-  `[storage]\nmode = "markdown"\npath = "${board}"\n\n[runner]\nworkspace_root = "${join(scratch, 'workspace')}"\n\n[web]\nport = ${SERVER_PORT}\ntoken = "${TOKEN}"\n`,
+  `[runner]\nworkspace_root = "${join(scratch, 'workspace')}"\n\n[web]\nport = ${SERVER_PORT}\ntoken = "${TOKEN}"\n`,
 );
 
 /* -- the board -------------------------------------------------------------- */
 
 const seed = `
 import datetime, json, sys
-from pathlib import Path
-from ponos import files
+from ponos import config, db, ledger, pages
 
-board = files.Board(Path(sys.argv[1]))
-prop = board.settings().prop
+settings = config.Notion()
+board = ledger.Ledger(pages.Pages(settings), settings)
+board.workspace(settings)
+prop = settings.prop
 projects = [board.create_row("projects", f"Projet {i}", {"Repository": f"user/repo-{i}"}) for i in range(6)]
-spread = json.loads(sys.argv[2]) | {"done": ${DONE}}
+spread = json.loads(sys.argv[1]) | {"done": ${DONE}}
 now = datetime.datetime.now(datetime.timezone.utc)
 i = 0
 for status, count in spread.items():
     for _ in range(count):
         page = board.create_row("tickets", f"Ticket numéro {i}", {prop("status"): status, prop("project"): [projects[i % 6]]})
-        _, path = board._find(page)
-        front, body = files.parse(path.read_text(encoding="utf-8"))
-        front["edited"] = (now - datetime.timedelta(hours=i)).isoformat(timespec="seconds")
-        path.write_text(files.render(front, "Un ticket de mesure."), encoding="utf-8")
+        board.replace_markdown(page, "Un ticket de mesure.")
+        with db.transaction() as connection:
+            connection.execute("UPDATE tickets SET edited_at = ? WHERE id = ?", ((now - datetime.timedelta(hours=i)).isoformat(timespec="seconds"), page))
         i += 1
 `;
-execFileSync('python3', ['-c', seed, board, JSON.stringify(SPREAD)], {
-  env: { ...process.env, PYTHONPATH: join(root, 'src') },
+execFileSync('python3', ['-c', seed, JSON.stringify(SPREAD)], {
+  env: { ...process.env, PYTHONPATH: join(root, 'src'), XDG_STATE_HOME: join(scratch, 'state') },
 });
 
 /* -- the server and the browser --------------------------------------------- */

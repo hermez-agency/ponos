@@ -5,10 +5,7 @@
 # lines a container answers differently — the projects under /workspace, the
 # console listening to the network Docker gives it (the installation code
 # guards it until somebody claims it, see web/setup.py), and a run every minute,
-# since a pass with nothing to do is one request to the board. And a fourth when
-# no Notion token was given: the board in Markdown files on the data volume, so
-# a container deployed with nothing but a way to reach Claude has a board to put
-# a ticket on at once. Settings › Board kept in moves it to Notion later. And
+# since a pass with nothing to do is one request to the board. And a fourth:
 # the provider, when the only way to Claude given is an Anthropic key: the
 # sessions are billed to it rather than waiting for a sign-in nobody will type.
 #
@@ -26,14 +23,11 @@ config="${PONOS_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/ponos/config.toml}"
 if [ ! -f "$config" ]; then
     mkdir -p "$(dirname "$config")"
     umask 077
-    storage=notion
-    [ -n "${PONOS_NOTION_TOKEN:-}" ] || storage=markdown
     provider=
     [ -n "${ANTHROPIC_API_KEY:-}" ] && [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ] && provider=api_key
     sed -e 's|^workspace_root = .*|workspace_root = "/workspace"|' \
         -e 's|^host = "127.0.0.1"|host = "0.0.0.0"|' \
         -e 's|^interval_seconds = 1800|interval_seconds = 60|' \
-        -e "s|^mode = \"notion\"|mode = \"$storage\"|" \
         -e "s|^provider = \"\"|provider = \"$provider\"|" \
         /app/config.example.toml > "$config"
     echo "ponos: configuration created in $config"

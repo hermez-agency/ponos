@@ -7,13 +7,13 @@ import type { Goal } from "@/lib/types"
 
 import { GoalCards, GoalPage, NoGoal } from "./goal-cards"
 
-/* A goal's page and the empty list, on either board: a board of Markdown files
- * keeps a goal as a file under goals/, so its page has no Notion to open — its
- * address is a file:// one — and its words do not send anyone to Notion. */
+/* A goal's page and the empty list, with or without a Notion behind the board:
+ * without one a goal has no Notion page to open, and its words do not send
+ * anyone to Notion. */
 
 const world = vi.hoisted(() => ({
   goal: {} as Record<string, unknown>,
-  read: { goals: [] as unknown[], configured: true, storage: "notion", problem: "" },
+  read: { goals: [] as unknown[], configured: true, notion: true, problem: "" },
 }))
 
 vi.mock("react-resource-view", async (original) => ({
@@ -55,7 +55,7 @@ const goal = (url: string): Goal =>
   ({ id: "g1", name: "Launch v1", url, projects: [], tickets: {}, linked: [], priority: null }) as unknown as Goal
 
 beforeEach(() => {
-  world.read = { goals: [], configured: true, storage: "notion", problem: "" }
+  world.read = { goals: [], configured: true, notion: true, problem: "" }
 })
 
 describe("a goal's page", () => {
@@ -65,34 +65,33 @@ describe("a goal's page", () => {
     expect(screen.getByRole("link", { name: "Open in Notion" }).getAttribute("href")).toBe("https://www.notion.so/g1")
   })
 
-  test("offers no Notion link for a goal kept as a file", () => {
-    world.read.storage = "markdown"
-    world.goal = goal("file:///home/me/board/goals/launch-v1.md")
+  test("offers no Notion link for a goal on a board without Notion", () => {
+    world.read.notion = false
+    world.goal = goal("")
     render(<GoalPage />)
     expect(screen.queryByRole("link", { name: "Open in Notion" })).toBeNull()
   })
 
-  test("says a Markdown goal goes to the board's trash, not Notion's", async () => {
-    world.read.storage = "markdown"
-    world.goal = goal("file:///home/me/board/goals/launch-v1.md")
+  test("says a goal without Notion is not sent to Notion's trash", async () => {
+    world.read.notion = false
+    world.goal = goal("")
     render(<GoalPage />)
     await userEvent.click(screen.getByRole("button", { name: "Delete" }))
     const dialog = await screen.findByRole("alertdialog")
-    expect(dialog.textContent).toContain("the board's trash")
+    expect(dialog.textContent).toContain("The goal is deleted.")
     expect(dialog.textContent).not.toContain("Notion")
   })
 })
 
 describe("the empty list of goals", () => {
-  test("sends a Markdown board to its goals/ folder, not to Notion", () => {
-    world.read = { goals: [], configured: false, storage: "markdown", problem: "" }
+  test("does not send a board without Notion to Notion", () => {
+    world.read = { goals: [], configured: false, notion: false, problem: "" }
     const { container } = render(<NoGoal />)
-    expect(container.textContent).toContain("goals/")
     expect(container.textContent).not.toContain("Notion")
   })
 
   test("sends a Notion board to its Goals database", () => {
-    world.read = { goals: [], configured: false, storage: "notion", problem: "" }
+    world.read = { goals: [], configured: false, notion: true, problem: "" }
     const { container } = render(<NoGoal />)
     expect(container.textContent).toContain("Goals database")
   })

@@ -5,7 +5,6 @@ from __future__ import annotations
 import contextlib
 import io
 import os
-import shutil
 import tempfile
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -55,18 +54,18 @@ def _http_error(code: int, retry_after: str = "") -> httpx.Response:
 
 
 @case
-def the_console_starts_on_the_file_install_sh_leaves(state_home: Path) -> None:
+def the_console_starts_on_a_notion_installation_that_has_no_token_yet(state_home: Path) -> None:
     """`serve` used to require a usable configuration, and exit 2 without a
     Notion token — so the console whose first connection *asks* for that token
     could not be reached, and its unit restarted in a loop on a fresh install.
 
     It starts now; the board it cannot read yet says why without asking Notion,
-    and `run` — the timer's command — still refuses, out loud.
+    and `run` — the timer's command — still refuses, out loud. A configuration
+    that names no Notion at all is another matter: it runs on `ponos.db` alone.
     """
-    example = Path(__file__).resolve().parents[1] / "config.example.toml"
     with tempfile.TemporaryDirectory() as directory:
         path = Path(directory) / "config.toml"
-        shutil.copy(example, path)
+        path.write_text('[notion]\nworkspace = "3a8451680af480918afcf0eb9cf70e7b"\n')
         previous = os.environ.get("PONOS_CONFIG")
         os.environ["PONOS_CONFIG"] = str(path)
         printed, errors = io.StringIO(), io.StringIO()

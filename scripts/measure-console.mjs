@@ -4,7 +4,7 @@
  *
  *   node scripts/measure-console.mjs [--runs 3] [--throttle 4] [--keep]
  *
- * Writes a throwaway Markdown board — 350 tickets, 340 of them Done, six
+ * Writes a throwaway board in a `ponos.db` — 350 tickets, 340 of them Done, six
  * projects, three schedules —, starts `ponos service run` on it from this
  * checkout (`PYTHONPATH=src`, so what is measured is `src/ponos/web/
  * static` as the last `npm run build` left it), and drives headless Chrome
@@ -51,40 +51,41 @@ const CHROME_PORT = 9290 + Math.floor(Math.random() * 100);
 const TOKEN = 'measure-console';
 
 const scratch = mkdtempSync(join(tmpdir(), 'ponos-measure-'));
-const board = join(scratch, 'board');
 const config = join(scratch, 'config.toml');
 mkdirSync(join(scratch, 'workspace'));
 writeFileSync(
   config,
-  `[storage]\nmode = "markdown"\npath = "${board}"\n\n[runner]\nworkspace_root = "${join(scratch, 'workspace')}"\n\n[web]\nport = ${SERVER_PORT}\ntoken = "${TOKEN}"\n`,
+  `[runner]\nworkspace_root = "${join(scratch, 'workspace')}"\n\n[web]\nport = ${SERVER_PORT}\ntoken = "${TOKEN}"\n`,
 );
 
 /* -- the board -------------------------------------------------------------- */
 
-// Written with the board's own writer, so the files are the ones a real
-// Markdown board holds; `edited` spread over the last months, one ticket an
+// Written through the board's own store, so the rows are the ones a real board
+// holds; `edited` spread over the last months, one ticket an
 // hour, so "the most recent Done" means something.
 const seed = `
-import datetime, sys
-from pathlib import Path
-from ponos import files
+import datetime
+from ponos import config, db, ledger, pages
 
-board = files.Board(Path(sys.argv[1]))
-prop = board.settings().prop
+settings = config.Notion()
+board = ledger.Ledger(pages.Pages(settings), settings)
+board.workspace(settings)
+prop = settings.prop
 projects = [board.create_row("projects", f"Projet {i}", {"Repository": f"user/repo-{i}"}) for i in range(6)]
 others = ["ready", "progress", "review", "blocked"]
 now = datetime.datetime.now(datetime.timezone.utc)
 for i in range(${TOTAL}):
     status = "done" if i < ${DONE} else others[i % len(others)]
     page = board.create_row("tickets", f"Ticket numéro {i}", {prop("status"): status, prop("project"): [projects[i % 6]]})
-    _, path = board._find(page)
-    front, body = files.parse(path.read_text(encoding="utf-8"))
-    front["edited"] = (now - datetime.timedelta(hours=i)).isoformat(timespec="seconds")
-    path.write_text(files.render(front, "Un ticket de mesure."), encoding="utf-8")
+    board.replace_markdown(page, "Un ticket de mesure.")
+    with db.transaction() as connection:
+        connection.execute("UPDATE tickets SET edited_at = ? WHERE id = ?", ((now - datetime.timedelta(hours=i)).isoformat(timespec="seconds"), page))
 for i, cadence in enumerate(["Daily", "Weekly", "Monthly"]):
     board.create_row("schedules", f"Revue {cadence}", {prop("cadence"): cadence, prop("at"): "09:00", prop("active"): True, prop("project"): [projects[i]]})
 `;
-execFileSync('python3', ['-c', seed, board], { env: { ...process.env, PYTHONPATH: join(root, 'src') } });
+execFileSync('python3', ['-c', seed], {
+  env: { ...process.env, PYTHONPATH: join(root, 'src'), XDG_STATE_HOME: join(scratch, 'state') },
+});
 
 /* -- the server and the browser --------------------------------------------- */
 

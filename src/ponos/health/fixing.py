@@ -29,15 +29,15 @@ class _Shaped(Protocol):
 
 
 def _shaped(client: store.Store) -> _Shaped:
-    """The board a column or a status is added to: Notion, mirrored or not.
+    """The board a column or a status is added to: Notion, behind the ledger.
 
-    A mirrored board reads its schema from Notion, so it is offered the same
-    fixes as a Notion one — and makes them on its Notion side, the only one
-    with a schema to change.
+    The ledger reads its schema from Notion, so it is offered the same fixes as
+    a Notion board — and makes them on the Notion side, the only one with a
+    schema to change.
     """
-    from ..sync import Mirror
+    from ..ledger import Ledger
 
-    board: object = client.primary if isinstance(client, Mirror) else client
+    board: object = client.notion if isinstance(client, Ledger) else client
     if not isinstance(board, _Shaped):
         raise ValueError("this board has no properties to add")
     return board
@@ -100,7 +100,7 @@ def fix(
         try:
             board = _shaped(client)
         except ValueError:
-            # A Markdown board has no options: they were only the values just rewritten.
+            # A board without Notion has no options: they were only the values just rewritten.
             return done
         prop = (board.database(space.tickets).get("properties") or {}).get(column) or {}
         current = (prop.get("select") or {}).get("options") or []

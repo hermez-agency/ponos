@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Ponos — Write the ticket. It comes back done.</title>
-<meta name="description" content="Write the ticket. It comes back done. Ponos is a harness around Claude Code that runs your tasks on your machine — code, writing, actions, posts — on a board of its own, the console or a folder of Markdown files. Notion and GitHub plug in when you want them, and nothing ships until you say yes.">
+<meta name="description" content="Write the ticket. It comes back done. Ponos is a harness around Claude Code that runs your tasks on your machine — code, writing, actions, posts — on a board of its own, the console. Notion and GitHub plug in when you want them, and nothing ships until you say yes.">
 <link rel="canonical" href="https://the-ponos.app/">
 <link rel="alternate" hreflang="en" href="https://the-ponos.app/">
 <link rel="alternate" hreflang="fr" href="https://the-ponos.app/fr/">
@@ -54,7 +54,7 @@
     "Ideas proposed, scored and turned into tickets",
     "Goals that count the tickets done toward them",
     "A vault that hands each project its own keys, masked everywhere",
-    "A board of its own: the local web console over a folder of Markdown files",
+    "A board of its own: the local web console, its tickets kept in a local database",
     "Workspace chat with the machine, in the console",
     "Optional integrations: Notion, GitHub, Telegram, Slack, OpenRouter for any other model"
   ],
@@ -601,8 +601,7 @@
       <h1>Write the ticket. <span>It comes back done.</span></h1>
       <p class="tagline">A harness around Claude Code that runs your tasks on your machine — code, writing, actions, posts.</p>
       <p class="lede">
-        Write the ticket on <strong>Ponos</strong>’s own board — the console, or a folder of
-        Markdown files. He brings back a pull request, a text, an action carried out or a post
+        Write the ticket on <strong>Ponos</strong>’s own board — the console. He brings back a pull request, a text, an action carried out or a post
         ready to go. You answer in a word, even from your phone, and nothing ships until you say yes.
       </p>
       <div class="cta">
@@ -832,7 +831,7 @@
     <div class="sec-head">
       <span class="label">The console</span>
       <h2>A board of its own.</h2>
-      <p>Ponos needs nobody else’s board. The console, on <code>127.0.0.1</code>, is where you write a ticket, drag it to <em>Ready</em> and watch its session live — with a chat with your whole workspace beside it. Under it, the board is a folder of Markdown files: <code>grep</code>, your editor and <code>git</code> read it too.</p>
+      <p>Ponos needs nobody else’s board. The console, on <code>127.0.0.1</code>, is where you write a ticket, drag it to <em>Ready</em> and watch its session live — with a chat with your whole workspace beside it. Under it, the tickets are in a local database, <code>ponos.db</code>, on your machine.</p>
     </div>
     <figure class="shots">
       <div class="shots-bar">
@@ -949,7 +948,7 @@
         </div>
       </div>
     </div>
-    <p class="notion-foot">Notion and the folder of files can also be kept in step, both at once. <a href="https://github.com/hermez-agency/ponos/blob/main/guide/board.md#both-and-what-happens-when-they-disagree">Both, and when they disagree →</a></p>
+    <p class="notion-foot">Tickets live in <code>ponos.db</code>; Notion is a mirror of them. <a href="https://github.com/hermez-agency/ponos/blob/main/guide/board.md#the-mirror-ponosdb-first-notion-a-copy">The mirror, and what still comes up from Notion →</a></p>
 
     <div class="sec-head" id="claude" style="margin:5rem 0 1.5rem;scroll-margin-top:76px">
       <span class="label">Claude</span>
@@ -988,7 +987,7 @@
       <div class="card">
         <div class="card-header"><h3 class="card-title">Then, the console walks you through it</h3></div>
         <p>On <code>http://127.0.0.1:8787</code>, a first connection in steps, each one checked for real before the next: the language, your password, who answers the sessions, Notion — paste the token, add Ponos to one page, the board is built under it —, GitHub in one click, a first project, and a demonstration ticket played there and then to prove it all works.</p>
-        <p>No Notion? The board can be a folder of Markdown files: <a href="#notion">Your board in Notion</a> says both.</p>
+        <p>No Notion? Skip it: the tickets are in <code>ponos.db</code>, and <a href="#notion">Your board in Notion</a> says both.</p>
       </div>
       <div class="card">
         <div class="card-header"><h3 class="card-title">What it needs</h3></div>
@@ -1047,7 +1046,7 @@
             <p>The three steps are <a href="#server">above</a>. The image carries everything a ticket needs — Claude Code, git, <code>gh</code>, Node —, pinned to the release the template was published with, and runs as a user of its own, never root. Four named volumes keep the configuration and the board, the clones, and the sign-ins of Claude Code and <code>gh</code>; a healthcheck asks <code>/healthz</code>; memory is capped at 4 GB.</p>
             <ul>
               <li><b>Required:</b> <code>CLAUDE_CODE_OAUTH_TOKEN</code> (your subscription) or <code>ANTHROPIC_API_KEY</code>.</li>
-              <li><b>Optional:</b> <code>OPENROUTER_API_KEY</code> for every other model; <code>GH_TOKEN</code> for the pull requests — or a GitHub App, created from the console; <code>PONOS_NOTION_TOKEN</code> for a board in Notion — without it, the board is Markdown files; <code>PONOS_TELEGRAM_TOKEN</code> and <code>PONOS_SLACK_TOKEN</code> for your phone.</li>
+              <li><b>Optional:</b> <code>OPENROUTER_API_KEY</code> for every other model; <code>GH_TOKEN</code> for the pull requests — or a GitHub App, created from the console; <code>PONOS_NOTION_TOKEN</code> for a board in Notion — without it, the tickets stay in <code>ponos.db</code>; <code>PONOS_TELEGRAM_TOKEN</code> and <code>PONOS_SLACK_TOKEN</code> for your phone.</li>
               <li><b>Generated or set:</b> <code>PONOS_WEB_EMAIL</code>, <code>PONOS_WEB_PASSWORD</code> and <code>PONOS_WEB_TOKEN</code>; <code>PONOS_LANGUAGE</code>, <code>en</code> or <code>fr</code>; <code>TZ</code>, the zone a schedule’s hours are read in.</li>
             </ul>
             <p>A Dokploy without Ponos in its catalogue imports it: a <em>Compose</em> service, <em>Advanced › Import</em>, and the Base64 the <a href="https://github.com/hermez-agency/ponos/blob/main/guide/server.md#install-with-dokploy">documentation</a> prints.</p>
@@ -1098,7 +1097,7 @@ url = "https://&lt;machine&gt;.&lt;tailnet&gt;.ts.net"</pre>
       <a href="https://github.com/hermez-agency/ponos/blob/main/guide/tickets.md#what-comes-back-on-its-own">Tickets that come back <span>§</span></a>
       <a href="https://github.com/hermez-agency/ponos/blob/main/guide/console.md#the-web-console">The web console <span>§</span></a>
       <a href="https://github.com/hermez-agency/ponos/blob/main/guide/console.md#connect-ponos-to-claude">Connect Ponos to Claude <span>§</span></a>
-      <a href="https://github.com/hermez-agency/ponos/blob/main/guide/board.md#without-notion-the-board-as-markdown-files">The board as Markdown files <span>§</span></a>
+      <a href="https://github.com/hermez-agency/ponos/blob/main/guide/board.md#without-notion">Without Notion <span>§</span></a>
       <a href="https://github.com/hermez-agency/ponos/blob/main/guide/configuration.md#every-other-model">Every other model <span>§</span></a>
       <a href="https://github.com/hermez-agency/ponos/blob/main/guide/configuration.md#connect-github-in-one-click">Connect GitHub in one click <span>§</span></a>
       <a href="https://github.com/hermez-agency/ponos/blob/main/guide/configuration.md#several-github-accounts">Several GitHub accounts <span>§</span></a>

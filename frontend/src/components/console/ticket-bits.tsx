@@ -170,9 +170,9 @@ export function lasted(minutes: number): string {
 
 /* Whether a page's address is one a browser may be sent to.
  *
- * A Markdown board's page is a file on this disk, and a `file://` link offered
- * by a page served over HTTP is one Chrome declines to follow without saying
- * anything — a link that does nothing reads as a broken console. */
+ * A `file://` link offered by a page served over HTTP is one Chrome declines
+ * to follow without saying anything — a link that does nothing reads as a
+ * broken console. */
 export const reachable = (address: string): boolean => /^https?:\/\//.test(address)
 
 /* The waits a ready card keeps to itself: the column's ordinary state — the

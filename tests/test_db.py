@@ -15,8 +15,8 @@ from pathlib import Path
 
 from support import ROOT, case
 
+from ponos import board_journal, conversation, credits, db, ideas, journal, notifications, state
 from ponos import config as C
-from ponos import conversation, credits, db, ideas, journal, notifications, state, sync
 
 # -- the local database ------------------------------------------------------
 
@@ -195,7 +195,7 @@ def json_files_left_beside_the_database_are_read_by_nobody(state_home: Path) -> 
     for name, content in left.items():
         (state_home / name).write_text(content, encoding="utf-8")
     try:
-        assert state.history() == [] and state.claims() == {} and sync.journal() == []
+        assert state.history() == [] and state.claims() == {} and board_journal.journal() == []
         assert conversation.Ledger.load().known_pages() == [] and credits.held() == 0.0
         for name, content in left.items():
             assert (state_home / name).read_text(encoding="utf-8") == content, name

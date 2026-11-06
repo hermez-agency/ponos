@@ -1057,7 +1057,7 @@ def setup_state(request: Request) -> Response:
             "code_drawn": bool(console.code),
             "container": config_module.in_container(),
             "version": __version__,
-            "storage": console.api.config.storage.mode,
+            "notion": not console.api.config.standalone,
         }
     )
 

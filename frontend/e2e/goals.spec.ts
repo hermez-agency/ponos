@@ -162,7 +162,7 @@ test("a goal is deleted after a confirmation that says so", async ({ page }) => 
   await page.locator("[data-delete-goal]").click()
   const dialog = page.getByRole("alertdialog")
   await expect(dialog).toContainText("Supprimer « Lancer la v2 » ?")
-  await expect(dialog).toContainText("corbeille")
+  await expect(dialog).toContainText("L'objectif est supprimé")
   await dialog.getByRole("button", { name: "Annuler" }).click()
   await expect(dialog).toBeHidden()
   await expect(page.locator("[data-delete-goal]")).toBeVisible()

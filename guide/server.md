@@ -120,8 +120,7 @@ console in the foreground, whose logs are the container's. The loop reads the in
 again before every wait, and starts the next run at once when the configuration changes:
 the minute a board is connected, its first run begins. Until there is one, it says so once
 and waits. The image sets the interval to 60 seconds in the configuration it writes on
-first start — and, when no `PONOS_NOTION_TOKEN` is given, the board in Markdown files
-on the data volume, so there is one to write a ticket on at once; with `ANTHROPIC_API_KEY`
+first start — so there is a board to write a ticket on at once, in `ponos.db` on the data volume; with `ANTHROPIC_API_KEY`
 and no `CLAUDE_CODE_OAUTH_TOKEN`, the `api_key` provider. That file is written once: the
 console changes it afterwards. `GET /healthz` answers `{"ok": true}` without a key, and is
 the image's `HEALTHCHECK`.
@@ -214,18 +213,18 @@ Every variable, as `template.toml` gives it — each one carries the same commen
 | `ANTHROPIC_API_KEY` | **you**, or the previous one | an Anthropic key, billed by the token; given without the token above, the provider is `api_key` from the first start |
 | `OPENROUTER_API_KEY` | you, optional | an OpenRouter key, in every session's environment for the other models a ticket calls; the sessions run there only once *Settings › OpenRouter* says so — see [Every other model](configuration.md#every-other-model) |
 | `GH_TOKEN` | you, optional | the account pull requests are opened as (`repo` scope, or fine-grained with Contents and Pull requests on read and write). Empty: create a GitHub App from the console instead, *Settings › GitHub › Connect GitHub* — see [Connect GitHub in one click](configuration.md#connect-github-in-one-click) |
-| `PONOS_NOTION_TOKEN` | you, optional | a Notion integration; without one the board is Markdown files on the data volume |
+| `PONOS_NOTION_TOKEN` | you, optional | a Notion integration; without one the tickets are in `ponos.db` on the data volume |
 | `PONOS_TELEGRAM_TOKEN` | you, optional | a bot from @BotFather; say anything to it, then `ponos notify --pair` in Dokploy's *Terminal* tab finds your chat |
 | `PONOS_SLACK_TOKEN` | you, optional | a Slack bot (`xoxb-…`); the channel's ID goes in *Settings › Slack* |
 | `PONOS_LANGUAGE` | the template: `en` | `en` or `fr` — the reports, and the console until you pick another |
 | `TZ` | the template: `UTC` | the zone a schedule's hours are read in — `Europe/Paris`, say: 09:00 is then nine in Paris |
 
 **Only Claude is required**, and one way to it is enough. With nothing else, the container
-starts on a board of Markdown files and the console is the whole of the interface: sign in,
+starts on a board kept in `ponos.db` and the console is the whole of the interface: sign in,
 add a project, write a ticket. Everything not given yet is said in the console's *Summary*
 — `missing`, and the step that fills it in — rather than by a container restarting in a loop;
 the image answers its healthcheck on `/healthz` whatever is configured. A Notion token given
-later goes in the *Environment* tab, then *Settings › Board kept in › notion*, then the
+later goes in the *Environment* tab, then the
 *Notion* step of `/setup`, which builds the board under the page you shared. A variable
 changed in the *Environment* tab is read at the next **Deploy**.
 

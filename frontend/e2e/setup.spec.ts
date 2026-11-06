@@ -51,7 +51,7 @@ test("the first connection goes from the account to the summary", async ({ page 
 
   await page.getByRole("button", { name: "Continue" }).click()
   await expect(page.getByTestId("setup-notion")).toBeVisible()
-  await expect(page.getByText("This console keeps its board in Markdown files")).toBeVisible()
+  await expect(page.getByText("Connecting a Notion board is optional")).toBeVisible()
 
   await page.getByRole("button", { name: "Continue" }).click()
   await expect(page.getByTestId("setup-github")).toBeVisible()
@@ -75,7 +75,7 @@ test("the first connection goes from the account to the summary", async ({ page 
   await expect(provider).toHaveAttribute("data-state", "missing")
   await expect(provider).toContainText("Claude Code CLI (subscription)")
   await expect(summary.locator('[data-row="board"]')).toHaveAttribute("data-state", "ok")
-  await expect(summary.locator('[data-row="board"]')).toContainText("Markdown board in")
+  await expect(summary.locator('[data-row="board"]')).toContainText("without Notion")
   await expect(summary.locator('[data-row="environment"]')).toContainText("Machine — Ponos")
 
   // Each line leads to the step that changes it.

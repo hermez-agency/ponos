@@ -35,7 +35,7 @@ and the runner carries on.
 
 **Each version has a directory of its own, and `app` is a link to one of them.**
 On 30 September 2026 a pass started while an update was rewriting `app` in
-place: it imported a `files.py` already new and a `store.py` still old, and died
+place: it imported a `store.py` already new and a `ledger.py` still old, and died
 on `ImportError: cannot import name 'SLOTS'`. The run lock could not have
 prevented it — a process imports its modules before it ever asks for the lock.
 So nothing in use is written to any more: the new version is copied beside the

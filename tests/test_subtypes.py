@@ -9,7 +9,7 @@ from typing import Any
 from support import FRONTEND, _nameless, _naming_session, _saved, _state_home, _TypedClient, case
 
 from ponos import config as C
-from ponos import files, models, notion, prompt, provision, state, subtypes
+from ponos import models, notion, prompt, provision, state, store, subtypes
 from ponos.runner import Runner
 from ponos.ticket import Ticket
 from ponos.web import statistics as web_statistics
@@ -254,7 +254,7 @@ def init_offers_the_sub_type_column_and_doctor_names_it_when_it_is_missing() -> 
         "Docs",
         "Sécurité",
     ]
-    assert files.schemas(settings)["tickets"]["Sous-type"] == "select"
+    assert store.shape(settings)["tickets"]["Sous-type"] == "select"
     from test_health import _columns
 
     columns = _columns(settings, {"statut": "status"})

@@ -191,7 +191,7 @@ function Steps() {
           ) : step === "provider" ? (
             <ProviderStep container={state.container} onNext={forward} />
           ) : step === "notion" ? (
-            <NotionStep storage={state.storage} onNext={forward} />
+            <NotionStep onNext={forward} />
           ) : step === "github" ? (
             <GithubStep container={state.container} onNext={forward} />
           ) : step === "project" ? (

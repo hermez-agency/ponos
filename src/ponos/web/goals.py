@@ -3,7 +3,7 @@
 A goal is a row of the Objectifs database, written by hand in Notion as a
 project's is, so its columns are found under the names they are written with.
 How far it has gone is counted from the board rather than read from Notion's
-rollup: a board of Markdown files has none, and the tickets the console already
+rollup: a board without Notion has none, and the tickets the console already
 holds say it column by column.
 """
 
@@ -97,7 +97,7 @@ class Goals(Base):
         """Every goal, and how far its tickets have gone.
 
         How far is counted, not read: Notion's rollup is not a column `store`
-        reads, and a board of Markdown files has none. The tickets the board
+        reads, and a board without Notion has none. The tickets the board
         lists already say it — their column, and the goal they point at — so
         a goal's progress is the same data the dashboard draws, column by
         column, on either board.
@@ -160,9 +160,9 @@ class Goals(Base):
             "goals": rows,
             "statuses": self._goal_statuses(),
             "configured": bool(self.runner.workspace.goals),
-            # Which board: "Notion's trash" and its link are Notion's, and a
-            # Markdown board has files under goals/.
-            "storage": self.config.storage.mode,
+            # "Notion's trash" and its link are Notion's, and a board without
+            # Notion has neither.
+            "notion": not self.config.standalone,
         }
 
     def _held_goal_pages(self) -> list[store.Page]:
@@ -304,7 +304,7 @@ class Goals(Base):
         Nothing but the columns a goal is written in: `Avancement`, `Faits` and
         `Total` are Notion's rollups of the tickets, and they recompute on their
         own once the tickets point here — which is why `tickets` writes the
-        ticket's side of the relation, the one a Markdown board has too.
+        ticket's side of the relation, the one a board without Notion has too.
         """
         database = self.runner.workspace.goals
         if not database:

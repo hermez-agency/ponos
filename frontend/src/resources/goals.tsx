@@ -35,7 +35,7 @@ import { projectsOnce } from "@/resources/projects"
  * the page of one in a drawer over the list — and the forms that create one,
  * change any of its columns, tie tickets to it and delete it, which is Notion's
  * trash — a goal met or given up is closed by its status instead, and kept. The progress is the server's count of the tickets the board lists (see
- * `Api.goals`), so it is the same on a board of Markdown files as on Notion's,
+ * `Api.goals`), so it is the same with or without a Notion behind the board,
  * and it is read again after every write.
  *
  * The rows are every goal, read once for whoever asks while the request is
@@ -73,12 +73,12 @@ interface LastRead {
   /** The options of the database's status column, which the form offers. */
   statuses: string[]
   configured: boolean
-  /** `storage.mode`: a Markdown board's goals are files, with no Notion to send to. */
-  storage: string
+  /** Whether a Notion sits behind the board: without one, a goal has no Notion page and no trash. */
+  notion: boolean
   problem: string
 }
 
-let read: LastRead = { goals: null, statuses: [], configured: true, storage: "", problem: "" }
+let read: LastRead = { goals: null, statuses: [], configured: true, notion: true, problem: "" }
 const listeners = new Set<() => void>()
 
 function subscribe(listener: () => void) {
@@ -106,7 +106,7 @@ function readAgain(): Promise<Goal[]> {
         goals: fresh.goals,
         statuses: fresh.statuses,
         configured: fresh.configured,
-        storage: fresh.storage ?? "",
+        notion: fresh.notion ?? true,
         problem: "",
       }
       listeners.forEach((listener) => listener())
@@ -274,11 +274,11 @@ const fields: FormInterface["inputs"] = {
 const form: FormInterface = { label: { submit: "Save" }, inputs: fields }
 
 /* A new goal is one being pursued, as the database spells it (`goals.ACTIVE`):
- * a Notion Status column refuses a name it does not offer, where a Markdown
- * board takes any — and offers none before its first goal is written. */
+ * a Notion Status column refuses a name it does not offer, where a board
+ * without Notion takes any — and offers none before its first goal is written. */
 function activeStatus(): string {
   const spelled = read.statuses.find((value) => ["actif", "active", "en cours"].includes(value.toLowerCase()))
-  return spelled ?? (read.storage === "markdown" ? "actif" : "")
+  return spelled ?? (read.notion ? "" : "actif")
 }
 
 /* It says so once written: the package's toast hands its sentence over as it

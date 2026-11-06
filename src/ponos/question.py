@@ -22,7 +22,7 @@ question along with it — see `Reports.discussion`.
 
 The question is not kept anywhere but in the comment itself. A report the
 runner can read back is a report that still means something after a restart, on
-another machine, or on a board mirrored to Markdown files — so `found` reads the
+another machine — so `found` reads the
 layout `Voice.question` writes, and nothing else.
 """
 

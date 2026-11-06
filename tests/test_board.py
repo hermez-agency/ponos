@@ -11,8 +11,7 @@ from typing import Any, cast
 
 from support import _board_runner, _BoardClient, _in_progress, _ready, _reviewed, case
 
-from ponos import config as C
-from ponos import conversation, db, journal, notion, priority, projects, state, store, sync, voice
+from ponos import conversation, db, journal, notion, priority, projects, state, store, voice
 from ponos.board import InHand
 from ponos.config import state_dir
 from ponos.runner import Runner
@@ -363,36 +362,6 @@ def a_requested_ticket_is_run_from_cancelled_only_on_a_board_without_that_option
 
 
 # -- the tidyings at the top of a pass -----------------------------------------
-
-
-class _Mirror(sync.Mirror):
-    def __init__(self, report: sync.Report) -> None:
-        self.report, self.asked = report, 0
-
-    def synchronise(self, settings: C.Notion, *, stamps: sync.Stamps | None = None) -> sync.Report:
-        self.asked += 1
-        return self.report
-
-
-@case
-def a_reconciliation_says_its_problems_and_is_skipped_when_it_should_be() -> None:
-    runner = _board_runner([], STATUS)
-    runner.config.storage = C.Storage()
-    runner.reconcile()  # Notion alone: nothing to carry, nothing asked
-
-    said: list[str] = []
-    runner.say = said.append  # type: ignore[method-assign, assignment]  # a double: what it says is kept
-    report = sync.Report(problems=["page p1: 409 conflict"])
-    runner.client = mirror = _Mirror(report)
-    runner.reconcile()
-    assert mirror.asked == 1 and said == ["  ! sync: page p1: 409 conflict"]
-
-    runner.dry_run = True
-    runner.reconcile()
-    runner.dry_run = False
-    runner.config.storage = C.Storage(on_every_pass=False)
-    runner.reconcile()
-    assert mirror.asked == 1, "neither a dry run nor `on_every_pass = false` reconciles"
 
 
 @case

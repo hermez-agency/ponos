@@ -103,9 +103,6 @@ class Runner(
         self._claimed = set()
         self._usage_warned = False
         self._unwritten = set()
-        # Before the answers and before the queue: what somebody wrote in a file
-        # this morning is part of the board this pass is about to read.
-        self.reconcile()
         self.mirror()
         self.answers()
         # Once a period, and under the lock, so that it is the pass that sends it.

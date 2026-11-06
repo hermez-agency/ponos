@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs"
+import { DatabaseSync } from "node:sqlite"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
@@ -146,7 +146,11 @@ test("a member validates a ticket in review, and the comment on it says who", as
 
   // What the board keeps: the line that says where the answer came from names her.
   const port = new URL(base()).port
-  const kept = readFileSync(join(tmpdir(), `ponos-e2e-accounts-${port}`, "board", "comments", `${VALIDATED}.md`), "utf-8")
+  const database = new DatabaseSync(join(tmpdir(), `ponos-e2e-accounts-${port}`, "state", "ponos", "ponos.db"), { readOnly: true })
+  const kept = (database.prepare("SELECT text FROM ticket_comments WHERE ticket = ? ORDER BY id").all(VALIDATED) as { text: string }[])
+    .map((row) => row.text)
+    .join("\n")
+  database.close()
   expect(kept).toContain("Answered from the console by Léa.")
   expect(kept).toContain("Decision: validated.")
 

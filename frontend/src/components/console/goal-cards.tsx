@@ -369,7 +369,7 @@ function GoalWhole({ goal, reread }: { goal: Goal; reread: () => void }) {
             <CloseGoal key={closing.status} goal={goal} closing={closing} reread={reread} />
           )
         )}
-        {/* A Markdown board's page is a file:// address, and no Notion to open. */}
+        {/* Without Notion a goal has no page address to open. */}
         {reachable(goal.url) ? (
           <a
             href={goal.url}
@@ -504,13 +504,12 @@ function CloseGoal({
 }
 
 /* Deleted after a confirmation, and said so: the goal goes to Notion's trash —
- * or its file to the board's, on a board of Markdown files — where it can be
- * brought back, and the tickets that served it simply serve none. Set apart
+ * or, without Notion, only from Ponos's own board — and and the tickets that served it simply serve none. Set apart
  * from the statuses, since a goal that is over is closed, not deleted. */
 function DeleteGoal({ goal }: { goal: Goal }) {
   const t = useT()
-  const markdown = useGoals().storage === "markdown"
-  // Its words on a Markdown board are in `goal-french.ts`: fetched before the dialog opens.
+  const notion = useGoals().notion
+  // Its words without Notion are in `goal-french.ts`: fetched before the dialog opens.
   useFrench(words)
   const navigate = useNavigate()
   if (!canAct()) return null
@@ -531,9 +530,9 @@ function DeleteGoal({ goal }: { goal: Goal }) {
     <ConfirmDialog
       title={t("Delete “{{name}}”?", { name: goal.name })}
       description={
-        markdown
+        !notion
           ? t(
-              "The goal is deleted: its file goes to the board's trash. Its tickets stay where they are, and serve no goal. To close a goal that is over, mark it reached or given up instead."
+              "The goal is deleted. Its tickets stay where they are, and serve no goal. To close a goal that is over, mark it reached or given up instead."
             )
           : t(
               "The goal is deleted: it goes to Notion's trash, with its count. Its tickets stay where they are, and serve no goal. To close a goal that is over, mark it reached or given up instead."
@@ -562,9 +561,7 @@ function DeleteGoal({ goal }: { goal: Goal }) {
 export function NoGoal() {
   const t = useT()
   const { filterContext } = useListViewContext()
-  const { configured, storage, problem, goals: known } = useGoals()
-  // A Markdown board's sentence is in `goal-french.ts`, as the badge's words are.
-  const ready = useFrench(words)
+  const { configured, notion, problem, goals: known } = useGoals()
   if (problem) return <EmptyState robot="error">{problem}</EmptyState>
   // The list rests on the active goals: with none, the closed ones are one click away.
   if (
@@ -606,11 +603,7 @@ export function NoGoal() {
     </EmptyState>
   ) : (
     <EmptyState icon={Target} title={t("No goal.")}>
-      {storage !== "markdown"
-        ? t("The workspace has no Goals database: add one in Notion, and goals can be written here.")
-        : ready
-          ? t("The board has no goals/ folder: add one, and goals can be written here.")
-          : null}
+      {notion ? t("The workspace has no Goals database: add one in Notion, and goals can be written here.") : null}
     </EmptyState>
   )
 }

@@ -33,9 +33,8 @@ def _asked(calls: Path) -> int:
 
 
 def _bare_console() -> web_api.Api:
-    directory = Path(tempfile.mkdtemp())
     console = web_api.Api.__new__(web_api.Api)
-    console._config = _config(f'[storage]\nmode = "markdown"\npath = "{directory}/board"\n')
+    console._config = _config("")
     console._stamp = web_base._stamp(console._config.path)
     console._runner = None
     console._projects = {}

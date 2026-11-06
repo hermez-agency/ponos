@@ -24,7 +24,7 @@ from support import (
     _ColumnsClient,
     _environment,
     _ideas_api,
-    _markdown_api,
+    _local_api,
     _recurring,
     _saved,
     _schedule_page,
@@ -877,7 +877,7 @@ def a_ticket_page_is_read_again_only_when_notion_says_it_changed() -> None:
     The row is still read each time — it is what says the page moved — and the
     blocks only when its `last_edited_time` did. A read made in the very minute
     of the edit is not kept: Notion counts in minutes, and a second edit in that
-    minute would not move the time. A Markdown board is never kept.
+    minute would not move the time. A board without Notion is never kept.
     """
     client = _EditedPageClient("first brief", "2026-09-01T09:00:00.000Z")
     api = _bare_api(client)
@@ -901,14 +901,15 @@ def a_ticket_page_is_read_again_only_when_notion_says_it_changed() -> None:
         "an edit in the same minute is still read"
     )
 
-    files = _EditedPageClient("on disk", "2026-09-01T09:00:00.000Z")
-    board = _bare_api(files)
+    alone = _EditedPageClient("in the database", "2026-09-01T09:00:00.000Z")
+    board = _bare_api(alone)
     assert board._runner is not None
     board._runner._workspace = type("W", (), {"goals": "", "projects": ""})()
-    board._config.storage = C.Storage(mode="markdown")
+    board._config.notion.token = board._config.notion.workspace = ""
+    board._config.notion.tickets_database = ""
     board.ticket(ticket)
     board.ticket(ticket)
-    assert files.reads == 2, "a file changed by hand says nothing in its edited time"
+    assert alone.reads == 2, "a board without Notion is never kept"
 
 
 @case
@@ -995,7 +996,7 @@ def a_markdown_board_reads_and_writes_the_cancelled_status() -> None:
     with _board() as board:
         assert "cancelled" in board.options("tickets", "statut")
         page = board.create_row("tickets", "Plus besoin", {"statut": "ready"})
-        api = _markdown_api(board)
+        api = _local_api(board)
         api.watch = type("W", (), {"nudge": lambda self: None})()
         api._schema_at = time.time()
         shown = api.board()
@@ -1020,7 +1021,6 @@ def the_runner_never_runs_a_cancelled_ticket_even_when_named() -> None:
             projects={},
             path=Path("/nowhere/config.toml"),
             web=C.Web(),
-            storage=C.Storage(mode="markdown", path=board.root),
         )
         runner.client = board
         runner._workspace = board.workspace(runner.config.notion)
@@ -1635,8 +1635,6 @@ def the_settings_are_six_pages_and_every_key_is_on_one_of_them_once() -> None:
         "notion.workspace",
     ], notion
     assert where["notion.mention"].key == "replies", "the word that asks is about answers"
-    source = [section.key for section in web_settings.SECTIONS if section.group == "source"]
-    assert source.index("storage") < source.index("notion"), "a board need not be in Notion"
 
     path, config = _saved()
     drawn = web_settings.describe(config)

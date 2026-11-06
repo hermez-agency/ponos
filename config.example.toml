@@ -34,67 +34,11 @@
 # the next launch, which says so; until then it is ignored. `ponos doctor`
 # checks both files.
 
-[storage]
-# Where the board lives. Three answers, and the first is what this tool has
-# always done.
-#
-#   "notion"    the board is Notion's, exactly as before. Nothing below this
-#               line changes anything, and [notion] is what matters
-#   "markdown"  the board is a directory of Markdown files — properties in a
-#               YAML frontmatter, the page's content under it. Notion is never
-#               asked anything: no token, no integration, no page to share, no
-#               network. `ponos doctor` stops asking too
-#   "both"      the two, kept in step. A pass reconciles them before it reads
-#               the queue, and every write lands on both — see `conflict` below
-#   "github"    the tickets are the issues of the repositories [issues] names:
-#               an open issue with the label is a ticket, its status is a
-#               label, what a run says is a comment, and its pull request says
-#               `Closes #n`. Projects and the rest stay in the Markdown board at
-#               `path`. Notion is never asked anything
-#
-# Reading a ticket, running it and reporting on it are the same in all three:
-# the runner talks to a board through one interface, and which one it got is
-# decided here and nowhere else.
-mode = "notion"
-
-# Where the Markdown board is, for "markdown" and for "both". Left empty it is
-#   ~/.local/state/ponos/board
-# and it is a plain directory — `tickets/`, `projects/`, `agents/`,
-# `schedules/`, `comments/` and `context.md`. Nothing stops you putting it in a
-# git repository of its own, which is most of the point of having it.
-path = ""
-
-# Who wins when the same page changed on both sides since the last
-# reconciliation. "newest" is the only rule there is: the later
-# `last_edited_time` is kept — to the minute, as Notion keeps it, and within the
-# same minute Notion wins — and the one that lost is written into the journal
-#   ~/.local/state/ponos/ponos.db (ponos sync --journal reads it)
-# with both timestamps. Nothing is ever overwritten without a line saying so,
-# and nothing is ever deleted: a page that disappeared on one side is
-# journalled and left alone on the other.
-#
-#   ponos sync             reconcile now, and say what moved
-#   ponos sync --journal   what past reconciliations did
-conflict = "newest"
-
-# Whether a pass reconciles before doing anything else. Off, and the two boards
-# only meet when you run `ponos sync` yourself.
-on_every_pass = true
-
-[issues]
-# Only read when storage.mode = "github": the repositories whose issues are the
-# board, as `owner/name`. GitHub is reached the way the pull requests are — the
-# GitHub App, the personal access token or `gh`, as [github_access] orders them.
-repositories = []
-
-# The label that makes an open issue a ticket. The statuses are labels built on
-# it — `ponos:progress`, `ponos:review`, `ponos:validated`, `ponos:blocked`,
-# `ponos:failed`, `ponos:paused`, `ponos:cancelled`, `ponos:done` — and Ready is
-# having none of them. `type:code` (or `writing`, `external`, `publication`),
-# `subtype:bug` and `priority:80` say the rest; without them the defaults apply.
-label = "ponos"
-
 [notion]
+# Optional: the tickets live in ponos.db either way. Without a token, the projects,
+# agents, goals, schedules and standing context live there too, and nothing in this
+# table needs a value. With one, Notion is where those are read, and a mirror of
+# the tickets.
 # The token of an internal Notion integration (https://www.notion.so/my-integrations)
 # is PONOS_NOTION_TOKEN — in secrets.env or the environment, never here.
 # The workspace page must be shared with it — everything under it is then

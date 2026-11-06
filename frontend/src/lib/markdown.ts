@@ -2,7 +2,7 @@
  * draws, decided without a DOM.
  *
  * It is not a markdown engine: it knows the shapes `notion.blocks_text` writes,
- * the same shapes a Markdown board holds as files, and the few more a session
+ * the same shapes a ticket body holds as typed Markdown, and the few more a session
  * reaches for — a nested list, a table, a word behind a link, an emphasis — and
  * nothing else. It returns plain data, never markup: the page hands every
  * string to React, which escapes it.
@@ -180,8 +180,8 @@ export function blocks(text: string): Block[] {
     /* A line under a line is the same paragraph.
      *
      * Two shapes arrive here. `notion.blocks_text` writes one line per block,
-     * so two lines in a row are two paragraphs; a Markdown board holds files
-     * somebody typed, where a paragraph is wrapped at the width of the editor
+     * so two lines in a row are two paragraphs; a body typed by hand
+     * has a paragraph wrapped at the width of the editor
      * and a blank line is what ends it. Drawn as separate blocks, the second
      * shape came out as a stack of one-line paragraphs with a gap between each
      * — a brief nobody could read.

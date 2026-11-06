@@ -132,7 +132,7 @@ class Projects(Base):
         return {
             "projects": rows,
             "workspace_root": str(self.config.runner.workspace_root),
-            "storage": self.config.storage.mode,
+            "notion": not self.config.standalone,
         }
 
     def project(self, page_id: str) -> dict[str, Any]:

@@ -2,212 +2,60 @@
 
 [The guide](README.md) · [Ponos](../README.md)
 
-The board as Markdown files or as GitHub issues, and the Notion side: its databases, and what a ticket carries.
+Where the tickets live, with Notion or without it, and the Notion side: its databases, and what a ticket carries.
 
-## Without Notion: the board as Markdown files
+## Without Notion
 
-Notion is not required. The runner talks to a board through one interface
-(`src/ponos/store.py`), and which board answers is one line. A fresh configuration
-still says `notion`, because that is what every installation before this one ran on — a
-default kept for them, not a requirement. `install.sh` and the Docker image write `markdown`
-into a new configuration unless a `PONOS_NOTION_TOKEN` came with it, and the console's first
-connection offers both roads on its Notion step: a board in Notion, or a board of Markdown
-files — the second is written without restarting anything.
+Notion is not required. The tickets live in `ponos.db` (`~/.local/state/ponos/ponos.db`),
+whatever the installation: the runner, the console, the MCP and the CLI read and write them
+there. What Notion adds is a second place to see them and to write them from — see
+[The mirror](#the-mirror-ponosdb-first-notion-a-copy).
 
-```toml
-[storage]
-mode = "markdown"          # "notion" (the default) · "markdown" · "both"
-path = ""                  # empty: ~/.local/state/ponos/board
-```
+The other objects of the board — the projects, the agents, the goals, the schedules and the
+standing context — live in Notion when `notion.token` is set, and in the `board_pages` table of
+the same `ponos.db` when it is not. So an installation with no token is a valid one, with
+nothing to configure: no token to create, no page to share, no integration to grant
+capabilities to. `ponos doctor` stops asking Notion who you are, and `require_usable` stops
+asking you for a token. `install.sh` and the Docker image do not ask for one either, and the
+console's first connection offers both roads on its Notion step: connect a Notion workspace, or
+go on without. Giving a token later changes nothing about the tickets; the projects and the rest
+are then read from Notion, which is where `ponos import notion` brings the tickets across.
 
-In `markdown` mode nothing reaches the network. There is no token to create, no page to
-share, no integration to grant capabilities to; `ponos doctor` stops asking Notion
-who you are, and `require_usable` stops asking you for a token. The board is a directory:
-
-```
-board/
-  context.md                     who the work is for — read into every prompt
-  tickets/<slug>-<id>.md
-  projects/<slug>-<id>.md
-  agents/<slug>-<id>.md
-  schedules/<slug>-<id>.md
-  goals/<slug>-<id>.md           what the tickets are for — see the goals database
-  comments/<id>.md               one page's discussion, oldest first
-  trash/<collection>/            what the console deleted: a project, a schedule, a goal
-```
-
-One file is one page. Properties go in a YAML frontmatter under the names your board
-spells them with, the content goes under it as Markdown:
-
-```markdown
----
-id: 3de451680af4811586ecde68ff380c89
-title: Corriger l'entête de la page d'accueil
-created: 2026-09-14T09:00:00+00:00
-edited: 2026-09-14T09:12:31.884210+00:00
-Status: Ready
-Priority: 75
-Project:
-  - a5f1c2b7e1f04c0e9c8d1b2a3f4e5d60
----
-
-Le titre déborde sur deux lignes en dessous de 380px.
-```
-
-Six keys are the page's own — `id`, `title`, `created`, `edited`, and the page's `cover`
-and `icon` — and everything else is a column. A picture is a file beside the page
-(`cover: northwind-b05e7e3a.cover.webp`), a URL, or — for an icon — an emoji. The column *types* are not declared twice: they come from `provision.py`, which
-is the same place the Notion databases are built from, so a property the runner learns to
-read is one both boards read the same day. Moving a ticket to the ready column is changing
-one word in one file, which is the whole point: `git`, `grep` and `$EDITOR` become the
-board's interface, and the directory can live in a repository of its own.
-
-A `created` or `edited` written without an offset — `edited: 2026-09-14T09:12`, typed by
-hand — is that hour on the runner's own clock, for the synchronisation with Notion as for
-the statistics; a bare date is the start of that day there.
-
-The console works against it exactly as against Notion — the board, a ticket's page, its
-discussion, the live steps. And it gained screens that make a Markdown-only
-installation self-sufficient: **Projects** (every project this installation knows of, the
-board's and the ones only `[projects]` names — each of them a form a click opens in a drawer over the list, and a page of its own),
-headed by the **global context** (the standing text every ticket is told first, for all the
-projects: folded to a few lines, opened by *See all*, editable in place rather than read-only;
-the old `Context` address leads there)
-and an editable **Schedules** — a row is turned off
-from the list itself, its name opens the six columns it is written in and the context its
-tickets are born with, in a window that says when the next ticket is born, and a new schedule
-is created unticked unless its « Turn on right away » box is ticked. Every
-field of the console that holds Markdown — that context, the standing one, a project's
-brief, a new ticket — is a Notion-like editor rather than a text area.
+The console works the same way in both cases — the board, a ticket's page, its discussion, the
+live steps. And it has the screens that make an installation without Notion self-sufficient:
+**Projects** (every project this installation knows of, the board's and the ones only
+`[projects]` names — each of them a form a click opens in a drawer over the list, and a page of
+its own), headed by the **global context** (the standing text every ticket is told first, for
+all the projects: folded to a few lines, opened by *See all*, editable in place rather than
+read-only; the old `Context` address leads there) and an editable **Schedules** — a row is
+turned off from the list itself, its name opens the six columns it is written in and the
+context its tickets are born with, in a window that says when the next ticket is born, and a new
+schedule is created unticked unless its « Turn on right away » box is ticked. Every field of the
+console that holds Markdown — that context, the standing one, a project's brief, a new ticket —
+is a Notion-like editor rather than a text area.
 
 **A project has a picture.** The cover of its page and its icon — Notion's own, the
 banner and the emoji or image in front of the title — are the thumbnail in the list of
 projects and the banner of the project's page; a project with neither gets its initial on
 a colour of its own. *Change the image* uploads a file (shrunk to 1500 px, WebP, before it
-leaves the browser), takes a pasted address, or an emoji for the icon, and sets it on the
-Notion page — through Notion's File Upload API for a file, as it is for an address. What
-is changed in Notion comes back at the next reading of the projects. A file Notion keeps is
+leaves the browser), takes a pasted address, or an emoji for the icon. With Notion, it is set
+on the Notion page — through Notion's File Upload API for a file, as it is for an address;
+without, it is kept in `ponos.db`. What is changed in Notion comes back at the next reading of
+the projects. A file Notion keeps is
 behind a URL that expires within the hour, so the console never shows that URL: it keeps
 a copy under `~/.local/state/ponos/images/`, fetched again when the page was
 edited since or the picture is another one. A change Notion refuses — no network, no right
 to update the page — is kept and shown as chosen, says why, and is sent again at the next
 reading; changed on both sides in between, the newest wins and the page says which.
 
-### Both, and what happens when they disagree
-
-```toml
-[storage]
-mode = "both"
-conflict = "newest"
-on_every_pass = true
-```
-
-A pass reconciles before it reads the queue, and every write the run makes lands on both
-sides at once — so a ticket claimed at 14:02 does not spend thirteen minutes reading
-*Ready* in the files while a session works on it.
-
-Three rules, and they are the ones worth arguing about.
-
-- **The newest wins, and the loser is written down.** A page changed on both sides since
-  the last reconciliation is a conflict; `conflict = "newest"` keeps the later
-  `last_edited_time`, and the version that lost goes into the journal with both
-  timestamps and the name of the side that won. Both are compared to the minute, the
-  resolution Notion answers at; within the same minute Notion wins, and the journal says
-  it was a tie. Nothing is overwritten quietly.
-- **Nothing is deleted, ever.** A page that was on both sides and is now on one is
-  journalled as a deletion and left exactly as it is on the side that still has it. A file
-  disappears for a hundred reasons — a bad merge, a stray `rm`, an editor writing to the
-  wrong place — and none of them is a decision to delete a ticket.
-- **A timestamp to the minute is not trusted alone.** Notion keeps `last_edited_time` to
-  the minute, so each stamp also carries a fingerprint of the page's properties: two
-  edits in the same minute, with a reconciliation between them, are both carried.
-- **A file is compared on what it says, not on its `edited`.** An editor leaves that line
-  as it was, so each stamp also keeps a fingerprint of the file — its properties and its
-  body: a ticket changed by hand reaches Notion on the next pass, and one changed by hand
-  and in Notion is a conflict like any other, dated by the file's modification time.
-- **A page that never existed on the other side is created there.** Which is what makes
-  the switch work from a board that is already full: the first reconciliation copies
-  everything across, in whichever direction it is missing. A page born in a file then
-  takes Notion's identifier, because that is what its URL, its relations and every report
-  about it will carry from then on.
-
-The journal is the `sync_journal` table of `~/.local/state/ponos/ponos.db`, kept for
-`log_retention_days`. The console and the runner write in it too, whatever the storage
-mode: `seen` when the console notices a status change (with Notion's edit time — to the
-minute, all Notion keeps — and the moment it saw it), `console→notion` when a move from
-the console is confirmed, `write-failed` when one is given up on, `drift` when the
-five-minute full read of the board finds something the incremental reads had wrong, and
-`conflict` when a status was not written over somebody else's — by the console, or by a
-run that finds its ticket moved by hand during the session:
-
-```sh
-ponos sync             # reconcile now, and say what moved
-ponos sync --journal   # what past reconciliations did
-```
-
----
-
-## The issues of a GitHub repository
-
-A team that follows its work in GitHub Issues has nothing to copy into Notion: the issues
-*are* the board.
-
-```toml
-[storage]
-mode = "github"
-path = ""                      # where the projects and the rest live, as for "markdown"
-
-[issues]
-repositories = ["acme/website"]    # owner/name — one or several
-label = "ponos"                    # the label that makes an issue a ticket
-```
-
-An **open issue carrying the label** is a ticket that is *Ready*; the next pass takes it. The
-session works in a worktree of its own as for any ticket, and what comes back is a pull
-request whose body says `Closes acme/website#12` — GitHub closes the issue when it is merged.
-
-**The statuses are labels**, built on the one that makes a ticket. Ready is having none of them:
-
-| Status | Label |
-|---|---|
-| In progress | `ponos:progress` |
-| In review | `ponos:review` |
-| Validated | `ponos:validated` |
-| Blocked | `ponos:blocked` |
-| Failed | `ponos:failed` |
-| Paused | `ponos:paused` |
-| Cancelled | `ponos:cancelled` (and the issue is closed as *not planned*) |
-| Done | `ponos:done`; an issue closed by anybody is Done |
-
-Moving a ticket takes one status label off and puts another on, and touches no label of
-yours. Move it by hand the same way — put `ponos:validated` on an issue in review and its pull
-request is merged, as moving the card does on Notion.
-
-**The kind of work is read from labels too**, and the defaults apply without them:
-`type:code` (or `type:writing`, `type:external`, `type:publication`), `subtype:bug` (or any
-sub-type of [the list](#the-sub-type-of-a-code-ticket)) and `priority:80`, from 0 to 100.
-What the runner decides about a ticket — its type once classified, its sub-type — is written
-back as the same labels.
-
-**What a run says is a comment of the issue**, opening on a hidden `<!-- ponos -->` so that
-its words are told from yours even when it writes under your own account: the report, the
-question of a blocked ticket. GitHub has no threads, so the whole issue is one discussion, and
-**the answer is a comment**: write « oui » under the question and the ticket is picked up
-again with it, as an answer under a report is on Notion. Name the runner (`@claude`) to ask it
-a question instead of giving it work.
-
-Ponos reaches GitHub the way it opens pull requests — the GitHub App, the personal access
-token or `gh`, as `[github_access]` orders them. The account needs *triage* rights on the
-repository (a label is a write) and the label must exist: `ponos doctor` checks the repository,
-the issues being on, the rights and the label, and says the `gh label create ponos` that
-creates it.
-
-What GitHub has no column for — the runner that took the ticket, the cost, the session, the
-progress — is kept in the Markdown board at `path`, beside the projects: each repository
-is a project there, named after it, and is run in the clone the `[projects]` table or the
-`origin` remotes find. A ticket made from the console is a file of that board, not an issue.
-The choice is per installation, not per project: a board is Notion, files or issues, and
-Linear, Jira and GitHub Projects are other stores behind the same seam.
+The journal is the `sync_journal` table of `ponos.db`, kept for `log_retention_days`. The
+console and the runner write in it: `seen` when the console notices a status change (with
+Notion's edit time — to the minute, all Notion keeps — and the moment it saw it),
+`console→notion` when a move from the console is confirmed, `write-failed` when one is given
+up on, `drift` when the five-minute full read of the board finds something the incremental
+reads had wrong, and `conflict` when a status was not written over somebody else's — by the
+console, or by a run that finds its ticket moved by hand during the session. The console
+shows it where it refuses a write.
 
 ---
 
@@ -319,8 +167,7 @@ exactly as it did before, only silently. See [Stopping before the wall](credits.
 `Plan d'abord` is an attribute for the same reason: a ticket planned first runs, asks and
 is answered like any other, and only what its first session may do changes. `ponos init`
 adds it to a board built before it, and the console's *New ticket* draws the box wherever
-the board has it. A Markdown board has it too, as `Plan d'abord: true` in a ticket's front
-matter.
+the board has it. The tickets of `ponos.db` carry it too.
 
 `Scheduled` is what turns the board into a calendar. A ticket without one starts within
 seconds of reaching the ready column, so a date on it can only mean *not yet*: the runner
@@ -578,8 +425,8 @@ as a model somebody chose:
 when it comes back, and its comment says so (`runner.auto_model_escalate`). Once: the next
 attempt keeps that model rather than climbing to the top of the price list. A ticket
 stopped by the quota carries its session on with the model it began on. What a run was
-chosen and how it ended is kept in the local journal, so this works the same on a Notion
-board, a Markdown one, or both. Through OpenRouter, name its slugs in the four levels.
+chosen and how it ended is kept in the local journal, so this works the same with Notion
+or without. Through OpenRouter, name its slugs in the four levels.
 
 **Fable only when you say so.** It costs far more than Opus, so `runner.use_fable` is
 off by default, and then nothing the runner starts runs on it: the *heaviest* level, and
@@ -795,8 +642,8 @@ GitHub (`owner/repo` or any github.com address, kept as `https://github.com/owne
 as a folder of this machine, whose `origin` fills the GitHub field in; its public address;
 and the brief, which becomes the body of the page. While it is typed, the console says
 whether that repository is already cloned here or will be at the first ticket. Ctrl+Enter
-creates it, through the same store as everything else — a Notion page, or a file on a
-Markdown board — in the columns the projects database already has (`github` rather than a
+creates it, through the same store as everything else — a Notion page, or a row of `board_pages` without
+Notion — in the columns the projects database already has (`github` rather than a
 second `Repository` beside it; `Description` and `URL` where the database has them). A
 name the workspace already has, in any case, an address that is not GitHub's, and a folder
 that is not a git repository here are refused under their field, in `runner.language`. The
@@ -933,7 +780,7 @@ The queue does not read it — a goal's `Priorité` does not order the tickets. 
 the goals is the console's [Goals](console.md#goals) page (how it counts a goal's tickets, and
 the Notion rollups that agree with it: [How a goal's tickets are counted](console.md#how-a-goals-tickets-are-counted)), the [ideas](console.md#ideas) (the active goals of the
 scope, under « Les caps du moment ») and the MCP connector's `list_goals` and `create_task`.
-On a board of Markdown files the database is the `goals/` directory, with the same columns.
+Without Notion the database is the `goals` collection of `board_pages`, with the same columns.
 
 All of it is optional twice over: a tickets database with no `Objectif` column, an empty
 relation or a goal page the integration cannot read all give the prompt you had before, to

@@ -46,7 +46,6 @@ from ..config import (
     WEEKDAYS,
     Config,
 )
-from ..store import CONFLICTS, MODES
 
 # What Claude Code accepts, and what each of them means for a runner nobody is
 # watching. `bypassPermissions` is the working default: a session that stops to
@@ -540,89 +539,6 @@ SECTIONS: tuple[Section, ...] = (
         ),
     ),
     # -- source --------------------------------------------------------------
-    Section(
-        key="storage",
-        group="source",
-        title="Where the board lives",
-        blurb=(
-            "Where your tickets live: in Notion (the default), as Markdown files on this "
-            "machine, in both kept in sync, or as the issues of GitHub repositories."
-        ),
-        fields=(
-            Field(
-                "storage",
-                "mode",
-                "choice",
-                "Board kept in",
-                "Markdown files need no Notion token and no network. Both writes to the two "
-                "and reconciles them.",
-                choices=MODES,
-                options=(
-                    ("notion", "Notion"),
-                    ("markdown", "Markdown files"),
-                    ("both", "Both, kept in sync"),
-                    ("github", "GitHub issues"),
-                ),
-                after="the console has to be restarted",
-            ),
-            Field(
-                "storage",
-                "path",
-                "path",
-                "Markdown folder",
-                "The folder holding `tickets/`, `projects/`, `agents/`, `schedules/` and "
-                "`context.md`. You can put it under git.",
-                after="the console has to be restarted",
-            ),
-            Field(
-                "storage",
-                "conflict",
-                "choice",
-                "When both sides changed",
-                "A page edited in Notion and in the files since the last sync: the most "
-                "recent edit wins, the other is kept in the sync journal.",
-                choices=CONFLICTS,
-                options=(("newest", "Keep the most recent"),),
-                advanced=True,
-            ),
-            Field(
-                "storage",
-                "on_every_pass",
-                "bool",
-                "Sync before every check of the board",
-                "Only for Both. Off: the two only sync when you run `ponos sync`.",
-                advanced=True,
-            ),
-        ),
-    ),
-    Section(
-        key="issues",
-        group="source",
-        title="GitHub issues",
-        blurb=(
-            "For a board kept in GitHub issues: an open issue with the label becomes a "
-            "ticket, its status is a `ponos:…` label, and its pull request closes it."
-        ),
-        fields=(
-            Field(
-                "issues",
-                "repositories",
-                "lines",
-                "Repositories",
-                "One `owner/name` per line. Their issues are the board.",
-                placeholder="acme/website",
-                after="the console has to be restarted",
-            ),
-            Field(
-                "issues",
-                "label",
-                "text",
-                "Label that makes a ticket",
-                "An open issue carrying it is ready to be worked on. Empty: ponos.",
-                placeholder="ponos",
-            ),
-        ),
-    ),
     Section(
         key="notion",
         group="source",
@@ -2023,7 +1939,6 @@ def _fallback(config: Config, entry: Field) -> object:
         "speech": config.speech,
         "claude": config.claude,
         "permissions": config.permissions,
-        "storage": config.storage,
         "github_access": config.github_access,
     }.get(entry.table)
     if holder is None:  # a channel table: nothing is defaulted into it

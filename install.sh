@@ -285,11 +285,6 @@ if [ -f "$CONFIG" ]; then
     ok "existing configuration kept: $CONFIG"
 else
     cp "$APP_DIR/config.example.toml" "$CONFIG"
-    # The same default as the image's: files unless a Notion token came with
-    # the installation. The console's first connection offers the other road.
-    if [ -z "${PONOS_NOTION_TOKEN:-}" ]; then
-        sed -e 's|^mode = "notion"|mode = "markdown"|' "$CONFIG" > "$CONFIG.new" && mv "$CONFIG.new" "$CONFIG"
-    fi
     chmod 600 "$CONFIG"
     ok "configuration created: $CONFIG"
     # Nothing more is asked here: the Notion token, the board, GitHub and the

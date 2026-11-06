@@ -20,58 +20,20 @@ NOTION_INTEGRATIONS = "https://www.notion.so/profile/integrations"
 def _board(
     config: config_module.Config, client: store.Store
 ) -> tuple[list[Check], workspace_module.Workspace | None]:
-    """The board, Notion or files: reached, made of the pages it needs, shaped as the runner reads it."""
+    """The board, with Notion or without: reached, made of the pages it needs, shaped as the runner reads it."""
     found: list[Check] = []
-    storage = config.storage
-    if storage.markdown:
-        found.append(
-            _check(
-                "notion.storage",
-                OK,
-                "Board",
-                "A Markdown board at {{path}}.",
-                params={"path": str(storage.path)},
-            )
-        )
-        if not storage.path.is_dir():
-            found.append(
-                _check(
-                    "notion.storage", INFO, "Board", "Not created yet: the first write makes it."
-                )
-            )
-        if storage.mode == "both":
-            found.append(
-                _check(
-                    "notion.storage",
-                    INFO,
-                    "Board",
-                    "Mirrored with Notion, {{conflict}} wins a conflict, reconciled on every pass."
-                    if storage.on_every_pass
-                    else "Mirrored with Notion, {{conflict}} wins a conflict.",
-                    params={"conflict": storage.conflict},
-                )
-            )
-    if storage.notion:
+    if not config.standalone:
         reached = _notion_token(config, client)
         found.extend(reached)
         if any(check.state == ERROR for check in reached):
             return found, None
-    elif storage.mode == "github":
-        found.append(
-            _check(
-                "notion.storage",
-                INFO,
-                "Board",
-                "storage.mode = “github”: the tickets are issues, and Notion is never asked anything.",
-            )
-        )
     else:
         found.append(
             _check(
                 "notion.storage",
                 INFO,
                 "Board",
-                "storage.mode = “markdown”: Notion is never asked anything.",
+                "No Notion token: the board is ponos.db, and Notion is never asked anything.",
             )
         )
 
@@ -86,20 +48,20 @@ def _board(
                 "Tickets database",
                 "The tickets database cannot be read.",
                 cause="The database is not shared with the integration, or it was deleted or renamed."
-                if storage.notion
+                if not config.standalone
                 else "",
                 steps=[
                     "Add the Ponos integration to your Notion page: ··· menu › Connections.",
                     "Check that the page or database named in the settings still exists.",
                 ]
-                if storage.notion
+                if not config.standalone
                 else [],
-                url=NOTION_INTEGRATIONS if storage.notion else "",
+                url=NOTION_INTEGRATIONS if not config.standalone else "",
                 evidence=str(error).strip(),
             )
         )
         return found, None
-    if storage.notion and config.notion.workspace:
+    if not config.standalone and config.notion.workspace:
         found.extend(_workspace(config, space))
     found.append(
         _check(
@@ -111,7 +73,7 @@ def _board(
         )
     )
     reference = config.notion.tickets_database or config.notion.page("tickets")
-    if storage.notion and space.tickets != reference:
+    if not config.standalone and space.tickets != reference:
         found.append(
             _check(
                 "notion.tickets",
@@ -123,7 +85,7 @@ def _board(
             )
         )
 
-    if storage.notion:
+    if not config.standalone:
         found.append(_projects_database(client, space))
     found.extend(_schema(config, client, space))
     found.extend(_other_statuses(config, client, space))
@@ -132,7 +94,7 @@ def _board(
     found.extend(_schedules(config, client, space))
     found.extend(_comments(config, client, space))
     # Only a Notion board's projects are looked through one by one.
-    return found, space if storage.notion else None
+    return found, space if not config.standalone else None
 
 
 def _notion_token(config: config_module.Config, client: store.Store) -> list[Check]:

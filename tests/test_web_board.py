@@ -17,15 +17,13 @@ from support import (
     _board_runner,
     _BoardClient,
     _ColumnsClient,
-    _mirror,
     _Nudged,
     _reviewed,
-    _settings,
     _state_home,
     case,
 )
 
-from ponos import notion, store, sync
+from ponos import board_journal, notion, store
 from ponos import ticket as ticket_module
 from ponos.web import api as web_api
 from ponos.web import board as web_board
@@ -101,7 +99,7 @@ def _store(fake: _Minutes) -> store.Store:
     return cast(store.Store, fake)
 
 
-def _reader(fake: _Minutes, said: list[sync.Entry]) -> web_board.Reader:
+def _reader(fake: _Minutes, said: list[board_journal.Entry]) -> web_board.Reader:
     return web_board.Reader(
         clock=lambda: fake.now.timestamp(), journal=lambda report: said.extend(report.entries)
     )
@@ -122,7 +120,7 @@ def three_moves_in_one_notion_minute_all_reach_the_console() -> None:
     the journal with when it was made and when it was seen.
     """
     fake = _Minutes()
-    said: list[sync.Entry] = []
+    said: list[board_journal.Entry] = []
     reader = _reader(fake, said)
     assert _statuses(reader.read(_store(fake), "db", "statut"))["ticket 1"] == "done"
     assert fake.queried[-1] is None, "the first read is the whole board"
@@ -151,7 +149,7 @@ def three_moves_in_one_notion_minute_all_reach_the_console() -> None:
 def the_whole_board_is_read_again_and_what_the_window_missed_is_counted() -> None:
     """Every five minutes, the full read — and an écart is shown, not hidden."""
     fake = _Minutes()
-    said: list[sync.Entry] = []
+    said: list[board_journal.Entry] = []
     reader = _reader(fake, said)
     reader.read(_store(fake), "db", "statut")
     # A page whose edit time the window cannot see: as if Notion's clock lied.
@@ -207,7 +205,7 @@ def a_board_of_more_than_a_hundred_tickets_is_read_to_its_last_page() -> None:
 def a_move_the_network_lost_is_sent_again_until_notion_has_it() -> None:
     """Never lost in silence: pending on the card, then there, or said failed."""
     fake = _Minutes()
-    said: list[sync.Entry] = []
+    said: list[board_journal.Entry] = []
     now = [fake.now.timestamp()]
     outbox = web_board.Outbox(
         clock=lambda: now[0], journal=lambda report: said.extend(report.entries)
@@ -243,7 +241,7 @@ def a_move_the_network_lost_is_sent_again_until_notion_has_it() -> None:
 @case
 def a_move_notion_refuses_for_good_is_said_on_the_card_and_tried_again_on_demand() -> None:
     fake = _Minutes()
-    said: list[sync.Entry] = []
+    said: list[board_journal.Entry] = []
     outbox = web_board.Outbox(
         clock=lambda: fake.now.timestamp(), journal=lambda r: said.extend(r.entries)
     )
@@ -269,7 +267,7 @@ def a_move_notion_refuses_for_good_is_said_on_the_card_and_tried_again_on_demand
 def a_move_over_a_status_changed_in_notion_meanwhile_is_not_written() -> None:
     """The console showed done; somebody moved it to review in Notion since."""
     fake = _Minutes()
-    said: list[sync.Entry] = []
+    said: list[board_journal.Entry] = []
     outbox = web_board.Outbox(
         clock=lambda: fake.now.timestamp(), journal=lambda r: said.extend(r.entries)
     )
@@ -313,7 +311,7 @@ def a_write_is_confirmed_by_reading_the_page_back() -> None:
 def a_confirmed_move_is_not_undone_by_a_query_that_has_not_caught_up() -> None:
     """The query index lags a write by seconds: the page read back outranks it."""
     fake = _Minutes()
-    said: list[sync.Entry] = []
+    said: list[board_journal.Entry] = []
     reader = _reader(fake, said)
     reader.read(_store(fake), "db", "statut")
     stale = fake.pages["1".zfill(32)]
@@ -336,7 +334,7 @@ def a_confirmed_move_is_not_undone_by_a_query_that_has_not_caught_up() -> None:
 def reading_the_board_never_writes_to_it() -> None:
     """No loop: a move is written once, however many reads and flushes follow."""
     fake = _Minutes()
-    said: list[sync.Entry] = []
+    said: list[board_journal.Entry] = []
     reader = _reader(fake, said)
     outbox = web_board.Outbox(
         clock=lambda: fake.now.timestamp(), journal=lambda r: said.extend(r.entries)
@@ -401,13 +399,13 @@ def a_conflict_stays_on_its_card_however_much_the_journal_writes_after_it() -> N
     """A busy board journals a `seen` line per status the console notices: the
     runner's refusal of hours ago must not slide out from under them."""
     with _state_home():
-        refused = sync.Report()
+        refused = board_journal.Report()
         refused.note("conflict", "tickets", "0" * 32, "ticket 0", "Done ≠ In review")
-        sync.write_journal(refused)
-        busy = sync.Report()
+        board_journal.write_journal(refused)
+        busy = board_journal.Report()
         for index in range(200):
             busy.note("seen", "tickets", "1".zfill(32), "ticket 1", f"seen {index}")
-        sync.write_journal(busy)
+        board_journal.write_journal(busy)
 
         api = _bare_api(_ColumnsClient(["ready", "done"]))
         assert api._runner is not None
@@ -438,7 +436,7 @@ def a_run_does_not_write_its_verdict_over_a_status_moved_by_hand() -> None:
         assert cast(_BoardClient, runner.client).written == [
             ("a" * 32, {"Pull Request": "https://github.com/o/r/pull/1"})
         ]
-        entries = sync.journal()
+        entries = board_journal.journal()
         assert [entry["what"] for entry in entries] == ["conflict"], entries
         assert "done" in entries[0]["detail"] and "review" in entries[0]["detail"]
 
@@ -459,26 +457,7 @@ def a_run_does_not_write_its_verdict_over_a_status_moved_by_hand() -> None:
         runner = _board_runner([page], status)
         runner._set(ticket_module.Ticket(page), **{"statut": "review"})
         assert cast(_BoardClient, runner.client).written == [("b" * 32, {"statut": "review"})]
-        assert sync.journal() == []
-
-
-@case
-def a_notion_page_edited_twice_in_one_minute_reaches_the_files_both_times(state_home: Path) -> None:
-    """The Markdown mirror trusted the minute, and lost the second edit of it."""
-    with _mirror() as (here, there, both, marks):
-        page_id = here.create_row("tickets", "Corriger l'entête", {"statut": "ready"})
-        both.synchronise(_settings(), stamps=marks)
-        minute = (datetime.now(UTC) + timedelta(days=1)).replace(second=0, microsecond=0)
-        at = minute.isoformat().replace("+00:00", ".000Z")
-        here.update("tickets", page_id, {"statut": "blocked"}, at=at)
-        assert [entry.what for entry in both.synchronise(_settings(), stamps=marks).carried] == [
-            "notion→markdown"
-        ]
-        here.update("tickets", page_id, {"statut": "done"}, at=at)
-        again = both.synchronise(_settings(), stamps=marks)
-        assert [entry.what for entry in again.carried] == ["notion→markdown"], again.entries
-        assert store.read(there.page(page_id), "statut") == "done"
-        assert not both.synchronise(_settings(), stamps=marks).carried, "and then nothing"
+        assert board_journal.journal() == []
 
 
 class _Counted(_ColumnsClient):

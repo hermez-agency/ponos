@@ -3,7 +3,7 @@
 From claude.ai, from Claude Code, from a phone: a conversation that can see the
 tasks, open one, create one in the right project and answer the question a
 blocked one asks — without the Notion connector, and without knowing whether the
-board is in Notion or in Markdown files. What a tool hands back is a task, a
+board has a Notion behind it. What a tool hands back is a task, a
 project, an idea, a sum of money: never a page, a database or a property. The
 `Api` underneath is the console's own, so a task created here is the task the
 console's *New ticket* creates, and an answer is the comment the console's
@@ -757,7 +757,7 @@ def whoami(api: Api, grant: Grant, address: str = "") -> dict[str, Any]:
         "scope": "Toutes les tâches, tous les projets et toutes les idées de cette console"
         + ("" if grant.allows(WRITE) else " — en lecture seulement")
         + ".",
-        "board": configuration.storage.mode,
+        "board": "ponos.db",
         "projects": projects,
         "waiting_for_you": waiting,
         "version": __version__,

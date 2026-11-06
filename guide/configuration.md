@@ -73,9 +73,8 @@ The secrets an older version wrote in the file are not among them: those are mov
 `config.example.toml` is read against these models by the tests, and documents every key
 they read — no more, no fewer.
 
-Steps 1 to 3 are for a board in Notion. A board of Markdown files needs none of them —
-one line, under [Without Notion](board.md#without-notion-the-board-as-markdown-files) — and goes
-straight to step 4.
+Steps 1 to 3 are for the Notion side. An installation without a Notion token needs none of
+them — see [Without Notion](board.md#without-notion) — and goes straight to step 4.
 
 ### 1. Create a Notion integration
 
@@ -265,12 +264,6 @@ for reading rather than for filling in.
 | `runner.auto_model_escalate` | `true` | a ticket whose chosen model failed runs one level up next time, once |
 | `runner.use_fable` | `false` | allow Claude Fable at all; off, every session the runner starts — chosen, escalated, written on a ticket or its agent, the console's chat — runs on `opus` instead |
 | `runner.classify_confidence` | `"medium"` | `low`, `medium` or `high` — the least confidence a guess is acted on with; below it, the ticket is blocked with the question |
-| `storage.mode` | `"notion"` | which board answers — `notion`, `markdown`, `both` kept in step, or `github`, the issues of a repository. See [Without Notion: the board as Markdown files](board.md#without-notion-the-board-as-markdown-files) and [The issues of a GitHub repository](board.md#the-issues-of-a-github-repository) |
-| `storage.path` | `~/.local/state/ponos/board` | the directory the Markdown board lives in |
-| `storage.conflict` | `"newest"` | in `both`, who wins when the same page moved on each side |
-| `storage.on_every_pass` | `true` | in `both`, reconcile before each pass — `false` leaves it to `ponos sync` |
-| `issues.repositories` | `[]` | in `github`, the `owner/name` repositories whose issues are the board |
-| `issues.label` | `"ponos"` | in `github`, the label that makes an open issue a ticket; the statuses are `<label>:progress`, `:review`… |
 | `notion.workspace` | `""` | the database whose rows are your master pages |
 | `notion.tickets_database` | `""` | one database instead of a workspace; wins when both are set |
 | `[notion.pages]` | | which row of the workspace is the tickets database, the projects database, the agents database, the context page |
@@ -593,7 +586,7 @@ without it.
 
 And a value read is a value **masked**. A session may still print its key — an `env` to
 debug a deploy, a verbose `npm publish` — so every value read is replaced by `***` before
-anything goes out: the comments and pages written to Notion or to the Markdown board, the
+anything goes out: the comments and pages written to Notion or to `ponos.db`, the
 session's transcript and stderr, the runner's log, Telegram and Slack, the console's
 answers. By value, not by name: what leaks is never `$NPM_TOKEN`, it is what it expands
 to. A value under six characters is too short to mask without masking the code around it,
@@ -689,8 +682,8 @@ granted to no project.
 
 **What it protects, and what it does not.** It protects a copy of `vault.db` on its own —
 a backup, a volume moved to another host — and every place the runner writes: a value a
-session is given is masked in its transcript, the ticket's comments in Notion or on the
-Markdown board, the log, the console's answers and stream, Telegram, Slack and the push
+session is given is masked in its transcript, the ticket's comments in Notion or in
+`ponos.db`, the log, the console's answers and stream, Telegram, Slack and the push
 notifications. Each entry's journal (Settings → Vault, the history of an entry) says when
 it was created, replaced, given other projects, revoked, and given to which ticket's
 session — never the value. It does **not** protect from somebody who has the Unix account

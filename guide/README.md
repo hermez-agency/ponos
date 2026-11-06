@@ -29,9 +29,7 @@ How to install Ponos, configure it and use it, one page per subject. Working on 
 
 ## [The board](board.md)
 
-- [Without Notion: the board as Markdown files](board.md#without-notion-the-board-as-markdown-files)
-  - [Both, and what happens when they disagree](board.md#both-and-what-happens-when-they-disagree)
-- [The issues of a GitHub repository](board.md#the-issues-of-a-github-repository)
+- [Without Notion](board.md#without-notion)
 - [The Notion side](board.md#the-notion-side)
   - [The tickets database](board.md#the-tickets-database)
   - [The type of a ticket](board.md#the-type-of-a-ticket)

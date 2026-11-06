@@ -916,7 +916,7 @@ def a_pass_that_refills_nothing_leaves_the_validated_column_alone(state_home: Pa
 def _paid_then_cut(failure: Exception) -> list[dict[str, Any]]:
     """A document ticket whose session was paid, on a board that refuses its closing write.
 
-    A board in Markdown files rather than a fake: the whole pass runs, the
+    A board in `ponos.db` rather than a fake: the whole pass runs, the
     session included, and only the write that would close the ticket fails.
     """
     from support import _board, _no_session
@@ -924,7 +924,6 @@ def _paid_then_cut(failure: Exception) -> list[dict[str, Any]]:
     with _board() as board:
         path = Path(tempfile.mkdtemp()) / "config.toml"
         path.write_text(
-            f'[storage]\nmode = "markdown"\npath = "{board.root}"\n'
             "[runner]\ndry_run = false\nprogress = false\nreply = false\n"
             "auto_update = false\nnotify = false\nattach_sessions = false\n",
             encoding="utf-8",

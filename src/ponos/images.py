@@ -26,7 +26,7 @@ reading of the board. Nothing is lost, and nothing is shown that was not asked.
 **A change comes back.** What the console writes, Notion answers with, and the
 next reading of the board finds it again. Taken for somebody else's change, it
 would be downloaded again — or, worse, a pending change would be settled
-against itself. So a picture is *agreed* on, the way `sync.py` stamps a page:
+against itself. So a picture is *agreed* on, the way a page is stamped by what the board said:
 what the board said last time we agreed, by an identity that does not change
 with each signature Notion puts on a URL. A reading that finds the agreed
 picture finds nothing new; only a reading that finds another one has seen
@@ -34,8 +34,8 @@ somebody move. And the page the board answers a write with is agreed on at
 once, so a change is never read back as news.
 
 When both moved between two readings — a change is still pending here, and the
-page shows another picture than the one agreed — the newest wins, as in
-`storage.conflict = "newest"`: the pending change's own time against the
+page shows another picture than the one agreed — the newest wins, as the console
+always settles a conflict: the pending change's own time against the
 page's `last_edited_time`. Which side won is kept, and the console says it.
 """
 

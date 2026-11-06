@@ -10,7 +10,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
-from support import _board, _config, _environment, _markdown_api, _saved, _state, _state_home, case
+from support import _board, _config, _environment, _local_api, _saved, _state, _state_home, case
 
 from ponos import config as C
 from ponos import db, github_checks, project_settings, state, update, vault, voice
@@ -184,7 +184,7 @@ def a_project_page_reads_and_saves_its_own_automatic_validation() -> None:
     with _state(), _board() as board:
         try:
             page = board.create_row("projects", "Perso", {})
-            api = _markdown_api(board)
+            api = _local_api(board)
             api._config.runner.force_validated_publication = True
             read = api.project_settings(page)
             validation = read["validation"]
@@ -294,6 +294,7 @@ def a_workspace_alone_is_enough_to_run() -> None:
 def neither_a_workspace_nor_a_database_is_refused() -> None:
     path = Path(tempfile.mkdtemp()) / "config.toml"
     path.write_text('[notion]\ntoken = "ntn_real"\n')
+    C.move_secrets(path)
     try:
         C.load(path).require_usable()
     except C.ConfigError as error:
@@ -334,9 +335,7 @@ def a_loop_of_runs_takes_the_lock_like_the_timer_did() -> None:
     """`run --every` starts `ponos run` itself, and a run already going turns it away."""
     root = Path(tempfile.mkdtemp())
     config = root / "config.toml"
-    config.write_text(
-        f'[storage]\nmode = "markdown"\npath = "{root / "board"}"\n', encoding="utf-8"
-    )
+    config.write_text("[runner]\n", encoding="utf-8")
     arguments = build_parser().parse_args(["run", "--every", "1"])
     assert arguments.every == 1
     assert build_parser().parse_args(["run", "--every"]).every == 0, "the configuration's interval"

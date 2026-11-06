@@ -22,6 +22,7 @@ from typing import Any
 from .. import (
     __version__,
     blocks,
+    board_journal,
     ci,
     credits,
     dependencies,
@@ -38,7 +39,6 @@ from .. import (
     stopping,
     store,
     subtypes,
-    sync,
     systemd,
     ticket_page,
     timestamps,
@@ -252,8 +252,8 @@ class Tickets(Base):
 
     def _board_of(self) -> list[str]:
         """Which board this is, as the configuration names it: nothing to ask Notion at the start."""
-        storage, notion = self.config.storage, self.config.notion
-        return [storage.mode, str(storage.path), notion.workspace, notion.tickets_database]
+        notion = self.config.notion
+        return [str(self.config.standalone), notion.workspace, notion.tickets_database]
 
     def _kept_board(self) -> dict[str, Any] | None:
         """The board kept by the last `_keep`, when it is this version's, of this board."""
@@ -290,7 +290,7 @@ class Tickets(Base):
         host = self.config.runner.session_host
 
         writes = self.outbox.marks()
-        refused = board_module.conflicts(sync.conflicts("tickets"))
+        refused = board_module.conflicts(board_journal.conflicts("tickets"))
         tickets = [
             board_module.settled(
                 board_module.overlay(
@@ -669,9 +669,8 @@ class Tickets(Base):
         Notion gives that time to the minute. A page read during the minute it
         was edited in could be edited again in the same minute without its time
         moving, so what is read then is not kept: only a read begun after the
-        edit's minute is over is. A Markdown board is not kept at all — its
-        page is a file read, and a file changed by hand says nothing in its
-        `edited`.
+        edit's minute is over is. A board without Notion is not kept at all — its
+        page is a local read.
         """
         key = page_id.replace("-", "")
         edited = str(page.raw.get("last_edited_time") or "")
@@ -681,7 +680,7 @@ class Tickets(Base):
         content = self.runner.client.blocks_text(page_id, live=False)
         moment = timestamps.parse(edited)
         stamp = None if moment is None else moment.timestamp()
-        if self.config.storage.mode != "markdown" and stamp is not None and started >= stamp + 60:
+        if not self.config.standalone and stamp is not None and started >= stamp + 60:
             self._briefs.pop(key, None)
             self._briefs[key] = (edited, content)
             while len(self._briefs) > BRIEFS:

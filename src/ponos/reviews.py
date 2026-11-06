@@ -45,7 +45,6 @@ from typing import Any
 
 from . import git, state, store
 from .base import Base
-from .github_issues import MARKER
 from .ticket import Ticket
 
 # How often a ticket's pull request is asked about its reviews. A reviewer is
@@ -67,6 +66,12 @@ def locate(url: str) -> tuple[str, int] | None:
     """`owner/name` and the number of a pull request address, or None."""
     found = _PR_URL.search(url)
     return (found.group(1), int(found.group(2))) if found else None
+
+
+# What a comment of the runner's starts with: invisible on GitHub, and the only
+# way to tell its words from those of the account it writes under — which is,
+# more often than not, yours.
+MARKER = "<!-- ponos -->"
 
 
 def human(item: dict[str, Any]) -> bool:

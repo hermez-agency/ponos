@@ -1032,6 +1032,51 @@ def _hooks(connection: sqlite3.Connection) -> None:
     connection.execute("CREATE INDEX hook_events_by_time ON hook_events (hook, at)")
 
 
+def _board_pages(connection: sqlite3.Connection) -> None:
+    # Les pages qui ne sont pas des tickets, quand il n'y a pas de Notion
+    # (pages.py) : projets, agents, objectifs, récurrences, et le contexte
+    # permanent. `properties` est un objet JSON à plat, sous les noms du board.
+    connection.execute(
+        """
+        CREATE TABLE board_pages (
+            id          TEXT PRIMARY KEY,
+            collection  TEXT NOT NULL,
+            title       TEXT NOT NULL DEFAULT '',
+            properties  TEXT NOT NULL DEFAULT '{}',
+            body        TEXT NOT NULL DEFAULT '',
+            created     TEXT NOT NULL,
+            edited      TEXT NOT NULL,
+            cover       TEXT NOT NULL DEFAULT '',
+            icon        TEXT NOT NULL DEFAULT '',
+            trashed     INTEGER NOT NULL DEFAULT 0
+        )
+        """
+    )
+    connection.execute(
+        "CREATE INDEX board_pages_by_collection ON board_pages (collection, created)"
+    )
+    connection.execute(
+        """
+        CREATE TABLE board_comments (
+            id          TEXT PRIMARY KEY,
+            page        TEXT NOT NULL,
+            at          TEXT NOT NULL,
+            author      TEXT NOT NULL DEFAULT '',
+            discussion  TEXT NOT NULL DEFAULT '',
+            body        TEXT NOT NULL DEFAULT ''
+        )
+        """
+    )
+    connection.execute("CREATE INDEX board_comments_by_page ON board_comments (page)")
+
+
+def _markdown_board_is_gone(connection: sqlite3.Connection) -> None:
+    # Le board Markdown et sa synchronisation avec Notion ont disparu : les
+    # empreintes de ce que les deux côtés avaient convenu n'ont plus de lecteur.
+    # Le journal (`sync_journal`) reste, la console y écrit encore ses refus.
+    connection.execute("DROP TABLE IF EXISTS sync_stamps")
+
+
 # Appended to, never edited or renamed: a file remembers each of these by name,
 # and the version of a file is how many of them it has been through. Statements go through `execute` one at a time — `executescript`
 # commits whatever transaction is open before it starts, which would apply half
@@ -1085,6 +1130,8 @@ MIGRATIONS: tuple[Migration, ...] = (
     _tickets,
     _tickets_have_a_role_and_a_goal,
     _tickets_have_attempts,
+    _board_pages,
+    _markdown_board_is_gone,
 )
 
 # Any way a read or a write of the database can fail. A note the runner keeps

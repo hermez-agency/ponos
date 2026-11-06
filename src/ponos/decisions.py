@@ -9,7 +9,7 @@ that would get it moving — each one a click.
 
 **Everything is read off the report the runner already writes.** Nothing new is
 kept anywhere, for the reason question.py gives: a report is still a report
-after a restart, on another machine, or on a board mirrored to Markdown files.
+after a restart, or on another machine.
 A session names the kind of thing it stopped on (`CATEGORY:`), and the runner
 writes that name in front of why it stops — “Missing access: …” — which is
 where `blockage` finds it again, in either language. A report written before

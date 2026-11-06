@@ -44,7 +44,6 @@ from . import (
     blocks,
     generated,
     git,
-    github_issues,
     github_token,
     journal,
     kinds,
@@ -1258,10 +1257,6 @@ class Execution(Base):
         # the person reviewing reads before the diff — see review.py.
         summary = f"{outcome.summary}\n\n{job.review}" if job.review else outcome.summary
         body = said.pull_request_body(summary, ticket.url, outcome.session_id, commits)
-        # A ticket that is a GitHub issue is closed by the pull request that
-        # answers it, rather than by somebody remembering to.
-        if closes := github_issues.closing(ticket.page):
-            body = f"{body}\n\n{closes}"
         try:
             # Prefixed the conventional way when the sub-type is known:
             # squashed, the title is the commit that lands on the base.

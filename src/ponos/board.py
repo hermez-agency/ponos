@@ -624,34 +624,6 @@ class Board(Base):
         self.say(f"Requested ticket: {ticket.title}")
         return [ticket]
 
-    def reconcile(self) -> None:
-        """Carry across whatever changed on the other board. Only in `both` mode.
-
-        At the top of a pass, before anything is read: a ticket you dragged in
-        Notion and a ticket you edited in a file have to be the same ticket by
-        the time the queue is built, or the pass would act on half the truth.
-
-        Never a reason to fail a pass. A Notion that will not answer, a
-        directory that will not be written to: both are one line, and the run
-        goes on against the board it *can* read — which is Notion, since that is
-        what a mirror reads from.
-        """
-        from . import sync as sync_module
-
-        if not isinstance(self.client, sync_module.Mirror):
-            return
-        if self.dry_run or not self.config.storage.on_every_pass:
-            return
-        report = self.client.synchronise(self.config.notion)
-        for problem in report.problems:
-            self.say(f"  ! sync: {problem}")
-        for entry in report.conflicts:
-            self.say(f"  ⇄ {entry.title or entry.page} — {entry.detail}")
-        for entry in report.deletions:
-            self.say(f"  ⌫ {entry.title or entry.page} — {entry.detail}")
-        if carried := report.carried:
-            self.say(f"  ⇄ {len(carried)} page(s) carried across")
-
     def mirror(self) -> None:
         """Keep `ponos.db` and Notion level: what rose first, then the queue emptied.
 
@@ -661,8 +633,8 @@ class Board(Base):
         not answer leaves the queue where it is, and nothing waits for it.
         """
         # Nothing to keep level before `ponos import notion` has been run, and
-        # only a Notion board has a mirror to be level with.
-        if self.dry_run or self.config.storage.mode != "notion" or not tickets.adopted():
+        # only an installation with a Notion has a mirror to be level with.
+        if self.dry_run or self.config.standalone or not tickets.adopted():
             return
         from . import mirror as mirror_module
         from . import notion_import

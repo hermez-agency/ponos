@@ -185,34 +185,9 @@ export const SETTINGS_FRENCH: Record<string, string> = {
   "Tickets database (without a workspace page)": "Base des tickets (sans page d'espace de travail)",
   "Only if the workspace page is empty: the tickets database on its own, by URL or identifier.":
     "Seulement si la page d'espace de travail est vide : la base des tickets seule, par son URL ou son identifiant.",
-  "Where your tickets live: in Notion (the default), as Markdown files on this machine, in both kept in sync, or as the issues of GitHub repositories.":
-    "Où vivent vos tickets : dans Notion (par défaut), en fichiers Markdown sur cette machine, dans les deux synchronisés, ou en issues de dépôts GitHub.",
-  "Board kept in": "Tableau stocké dans",
-  "Markdown files need no Notion token and no network. Both writes to the two and reconciles them.":
-    "Les fichiers Markdown ne demandent ni jeton Notion ni réseau. Les deux écrit des deux côtés et les réconcilie.",
   "the console has to be restarted": "la console doit être redémarrée",
-  "Markdown files": "Fichiers Markdown",
-  "Both, kept in sync": "Les deux, synchronisés",
-  "GitHub issues": "Issues GitHub",
-  "For a board kept in GitHub issues: an open issue with the label becomes a ticket, its status is a `ponos:…` label, and its pull request closes it.":
-    "Pour un tableau tenu en issues GitHub : une issue ouverte avec l'étiquette devient un ticket, son statut est une étiquette `ponos:…`, et sa pull request la ferme.",
-  "One `owner/name` per line. Their issues are the board.":
-    "Un `owner/name` par ligne. Leurs issues sont le tableau.",
   "acme/website": "acme/website",
   ponos: "ponos",
-  "Label that makes a ticket": "Étiquette qui fait un ticket",
-  "An open issue carrying it is ready to be worked on. Empty: ponos.":
-    "Une issue ouverte qui la porte est prête à être travaillée. Vide : ponos.",
-  "Markdown folder": "Dossier Markdown",
-  "The folder holding `tickets/`, `projects/`, `agents/`, `schedules/` and `context.md`. You can put it under git.":
-    "Le dossier qui contient `tickets/`, `projects/`, `agents/`, `schedules/` et `context.md`. Vous pouvez le mettre sous git.",
-  "When both sides changed": "Quand les deux côtés ont changé",
-  "A page edited in Notion and in the files since the last sync: the most recent edit wins, the other is kept in the sync journal.":
-    "Une page modifiée dans Notion et dans les fichiers depuis la dernière synchronisation : la modification la plus récente l'emporte, l'autre est gardée dans le journal de synchronisation.",
-  "Keep the most recent": "Garder la plus récente",
-  "Sync before every check of the board": "Synchroniser avant chaque consultation du tableau",
-  "Only for Both. Off: the two only sync when you run `ponos sync`.":
-    "Seulement pour Les deux. Désactivé : ils ne se synchronisent que lorsque vous lancez `ponos sync`.",
   "How often the board is checked, how many tickets run at once, and how long each one may take.":
     "À quelle fréquence le tableau est consulté, combien de tickets tournent à la fois, et combien de temps chacun peut prendre.",
   "Repositories folder": "Dossier des dépôts",

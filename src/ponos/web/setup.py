@@ -281,16 +281,7 @@ def save_notion(api: Api, payload: dict[str, Any]) -> dict[str, Any]:
     Nothing to type when the board is already there — the step says what it
     found and leaves it alone. A page given here is the same provisioning
     `ponos init` runs, through the same `_notion` the old first connection used.
-    `storage` is the other road, files instead of Notion: written alone, since
-    the configuration is reread at once and nothing has to be restarted.
     """
-    storage = _text(payload, "storage")
-    if storage:
-        if storage not in ("markdown", "notion"):
-            raise ValueError(f"“{storage}” is not a board: markdown or notion")
-        if storage != api.config.storage.mode:
-            api.save_settings({"settings": {"storage.mode": storage}})
-        return {"steps": [], "problem": "", "board": _board(api)}
     token = _text(payload, "token")
     page = _text(payload, "page")
     page_id = config_module.identifier(page)
@@ -693,7 +684,7 @@ def _seen() -> Path:
 def pending() -> bool:
     """Is this a fresh container whose steps nobody has gone through yet?
 
-    A Markdown board is usable from the first second, and a console claimed from
+    A board without Notion is usable from the first second, and a console claimed from
     the environment has no account to ask for: nothing in the configuration
     says the installation is unfinished, which is why the Dokploy template
     opened straight on an empty board. So the steps are remembered instead — a
@@ -718,11 +709,10 @@ def _board(api: Api) -> dict[str, Any]:
     configuration = api.config
     drawn: dict[str, Any] = {
         "state": "ok",
-        "storage": configuration.storage.mode,
+        "notion": not configuration.standalone,
         "workspace": configuration.notion.workspace or configuration.notion.tickets_database,
         "name": "",
         "url": "",
-        "path": str(configuration.storage.path) if configuration.storage.markdown else "",
         "tickets": None,
         "said": "",
     }
@@ -735,7 +725,7 @@ def _board(api: Api) -> dict[str, Any]:
     except Exception as error:  # the summary says it, it does not fail on it
         logger.exception("setup: the board could not be read", extra=log.FILE_ONLY)
         return {**drawn, "state": "error", "said": str(error).splitlines()[0]}
-    if configuration.storage.notion and drawn["workspace"]:
+    if not configuration.standalone and drawn["workspace"]:
         drawn.update(_titled(api, drawn["workspace"]))
     return drawn
 
@@ -748,11 +738,11 @@ def _titled(api: Api, identifier: str) -> dict[str, str]:
     tickets were just counted on answers this too — what it does not answer
     leaves the line without a name, not in error.
     """
-    from ..sync import Mirror
+    from ..ledger import Ledger
 
     client: object = api.runner.client
-    if isinstance(client, Mirror):
-        client = client.primary
+    if isinstance(client, Ledger):
+        client = client.notion
     if not isinstance(client, notion.Client):
         return {}
     try:

@@ -62,11 +62,9 @@ class Overview(Base):
             "budget": budget_limit if budget_spent >= budget_limit > 0 else 0.0,
             "budget_spent": round(budget_spent, 2),
             "workspace_root": str(configuration.runner.workspace_root),
-            # Which board this console is looking at. The panes read it to know
-            # whether a Notion link is worth drawing, and whether the sync has
-            # anything to say — in `markdown` mode neither does.
-            "storage": configuration.storage.mode,
-            "board_path": str(configuration.storage.path) if configuration.storage.markdown else "",
+            # Whether there is a Notion behind this board: the panes read it to
+            # know whether a Notion link is worth drawing.
+            "notion": not configuration.standalone,
             "interval_seconds": configuration.runner.interval_seconds,
             "model": configuration.runner.model or "default",
             "permission_mode": configuration.runner.permission_mode,

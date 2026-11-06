@@ -1444,7 +1444,7 @@ const viewsOf = (form: FormInterface, empty: React.FC): ResourceDefinition<Ticke
     // The resource's name and the line under it are what the list's own header
     // says, next to its icon: the board opens on its own words. What the board
     // is, without naming where it is kept: the same console
-    // draws a Notion workspace and a directory of Markdown files, and a
+    // draws a board with a Notion behind it and one without, and a
     // sentence that names one of them is wrong half the time.
     description: "Your board, live. Drop a card in another column and the runner is told.",
     form,

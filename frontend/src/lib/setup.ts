@@ -174,11 +174,9 @@ export function rows(summary: Summary): Row[] {
         : { value: "{{name}} — {{key}}", params: { name, key: provider.key || "—" } }
 
   const boardValue: Pick<Row, "value" | "params"> =
-    board.storage === "markdown"
-      ? { value: "Markdown board in {{path}}", params: { path: board.path } }
-      : board.workspace
-        ? notionBoard(board.name, board.tickets)
-        : { value: "No board yet", params: {} }
+    board.workspace
+      ? notionBoard(board.name, board.tickets)
+      : { value: "Board kept by Ponos, without Notion", params: {} }
 
   const lacking = machine.needs.filter((need) => !need.ok)
   return [
@@ -228,9 +226,9 @@ export function rows(summary: Summary): Row[] {
       said: board.said,
       notes: noted(board.said),
       step: "notion",
-      section: board.storage === "markdown" ? "storage" : "notion",
+      section: "notion",
       link:
-        board.storage !== "markdown" && board.name && board.url
+        board.name && board.url
           ? { param: "workspace", url: board.url, title: board.workspace }
           : undefined,
     },

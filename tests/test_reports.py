@@ -10,7 +10,7 @@ from typing import Any, cast
 
 from support import _board_runner, _BoardClient, _reviewed, case
 
-from ponos import credits, notion, resources, session, state, store, sync
+from ponos import board_journal, credits, notion, resources, session, state, store
 from ponos import question as question_module
 from ponos.runner import Runner
 from ponos.ticket import Ticket
@@ -109,7 +109,7 @@ def a_status_moved_during_the_run_is_left_alone_but_the_work_is_still_written(
     assert _client(runner).written == [("p-1", {"Cost": 0.42})]
     assert store.read(ticket.page, "statut") == "done", "the run now holds what the page says"
     assert any("moved to done" in line for line in said), said
-    conflicts = [entry for entry in sync.journal() if entry["what"] == "conflict"]
+    conflicts = [entry for entry in board_journal.journal() if entry["what"] == "conflict"]
     assert conflicts and "review" in conflicts[-1]["detail"]
 
 

@@ -138,16 +138,8 @@ export const SETUP_FRENCH: Record<string, string> = {
     "Décoché, la clé est seulement transmise aux sessions, qui continuent de tourner sur la connexion du CLI.",
   "Check and save": "Vérifier et enregistrer",
   "The board": "Le tableau",
-  "This console keeps its board in Markdown files: there is nothing to connect.":
-    "Cette console garde son tableau en fichiers Markdown : il n'y a rien à connecter.",
-  "Where your tickets live. You can change your mind later in the settings.":
-    "Où vivent vos tickets. Vous pourrez changer d'avis dans les réglages.",
-  "My board in Notion": "Mon tableau dans Notion",
-  "A board of Markdown files": "Un tableau en fichiers Markdown",
-  "Needs an integration token, and one page shared with it.":
-    "Demande le jeton d'une intégration, et une page partagée avec elle.",
-  "Ponos builds the databases itself.": "Ponos construit lui-même les bases.",
-  "Nothing to connect, no account, no network.": "Rien à connecter, aucun compte, aucun réseau.",
+  "Ponos keeps your tickets itself. Connecting a Notion board is optional, and you can do it later in the settings.":
+    "Ponos garde lui-même vos tickets. Connecter un tableau Notion est facultatif, et vous pourrez le faire plus tard dans les réglages.",
   "A folder to keep under git.": "Un dossier à garder sous git.",
   "The board, in Notion": "Le tableau, dans Notion",
   "Building the board…": "Construction du tableau…",
@@ -217,14 +209,13 @@ export const SETUP_FRENCH: Record<string, string> = {
   "{{name}} — {{key}}, sessions on OpenRouter": "{{name}} — {{key}}, sessions sur OpenRouter",
   "{{name}} — {{key}}, sessions still on the CLI":
     "{{name}} — {{key}}, sessions toujours sur le CLI",
-  "Markdown board in {{path}}": "Tableau Markdown dans {{path}}",
+  "Board kept by Ponos, without Notion": "Tableau tenu par Ponos, sans Notion",
   "Notion workspace “{{workspace}}”": "Espace Notion « {{workspace}} »",
   "Notion workspace “{{workspace}}” — {{count}} ticket": "Espace Notion « {{workspace}} » — {{count}} ticket",
   "Notion workspace “{{workspace}}” — {{count}} tickets": "Espace Notion « {{workspace}} » — {{count}} tickets",
   "A Notion workspace": "Un espace Notion",
   "Notion workspace — {{count}} ticket": "Espace Notion — {{count}} ticket",
   "Notion workspace — {{count}} tickets": "Espace Notion — {{count}} tickets",
-  "No board yet": "Pas encore de tableau",
   "{{model}} by default, chosen per ticket by the rules":
     "{{model}} par défaut, choisi par ticket selon les règles",
   "Chosen per ticket by the rules": "Choisi par ticket selon les règles",

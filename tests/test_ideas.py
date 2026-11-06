@@ -13,17 +13,17 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from support import FRONTEND, _bare_api, _board, _ideas_api, _markdown_api, _state_home, case
+from support import FRONTEND, _bare_api, _board, _ideas_api, _local_api, _state_home, case
 
 from ponos import (
     db,
-    files,
     goals,
     ideas,
     ids,
     kinds,
     markdown,
     notion,
+    pages,
     progress,
     schedules,
     session,
@@ -764,26 +764,26 @@ def the_console_writes_a_schedule_without_touching_what_a_pass_writes_back() -> 
     twice, or never — which is the one thing the calendar must not allow.
     """
     with _board() as board:
-        api = _markdown_api(board)
+        api = _local_api(board)
         created = api.create_schedule(
             "Revue des dépendances",
             {"cadence": "Weekly", "at": "09:00", "day": "Monday", "active": True},
         )
-        row = schedules.read(board.page(created["id"]), board.settings())
+        row = schedules.read(board.page(created["id"]), board.settings)
         assert row.name == "Revue des dépendances"
         assert (row.cadence, row.at, row.day) == ("Weekly", "09:00", "Monday")
         assert row.active is False, "a new schedule is created unticked, whatever was asked"
         assert not row.problem
 
         api.save_schedule(created["id"], {"active": True, "at": "07:30", "priority": 80})
-        again = schedules.read(board.page(created["id"]), board.settings())
+        again = schedules.read(board.page(created["id"]), board.settings)
         assert again.active is True and again.at == "07:30" and again.priority == 80
         assert again.next is None and again.last is None
 
         # The type and the sub-type its tickets are born with, said by their
         # keys and written in the board's words; empty lets them be guessed.
         api.save_schedule(created["id"], {"type": "code", "subtype": "bug"})
-        typed = schedules.read(board.page(created["id"]), board.settings())
+        typed = schedules.read(board.page(created["id"]), board.settings)
         assert (typed.kind, typed.subtype) == ("Code", "Bug"), (typed.kind, typed.subtype)
         listed = api.schedules()
         assert (
@@ -791,7 +791,7 @@ def the_console_writes_a_schedule_without_touching_what_a_pass_writes_back() -> 
         )
         assert [choice["value"] for choice in listed["choices"]["type"]] == list(kinds.KINDS)
         api.save_schedule(created["id"], {"type": ""})
-        assert schedules.read(board.page(created["id"]), board.settings()).kind == ""
+        assert schedules.read(board.page(created["id"]), board.settings).kind == ""
         try:
             api.save_schedule(created["id"], {"type": "poem"})
         except ValueError:
@@ -807,7 +807,7 @@ def the_console_writes_a_schedule_without_touching_what_a_pass_writes_back() -> 
             pass
         else:
             raise AssertionError("a change with nothing to change must say so")
-        untouched = schedules.read(board.page(created["id"]), board.settings())
+        untouched = schedules.read(board.page(created["id"]), board.settings)
         assert untouched.next is None and untouched.last is None
 
 
@@ -820,7 +820,7 @@ def the_console_reads_and_rewrites_the_brief_a_schedule_is_born_with() -> None:
     change, not a payload with nothing in it.
     """
     with _board() as board:
-        api = _markdown_api(board)
+        api = _local_api(board)
         created = api.create_schedule(
             "Revue des dépendances", {"cadence": "Weekly", "body": "Première version."}
         )
@@ -846,9 +846,8 @@ def the_console_reads_and_rewrites_the_brief_a_schedule_is_born_with() -> None:
 def the_console_says_which_board_it_is_looking_at() -> None:
     """The panes read it: a Notion link is worth drawing on one and not the other."""
     with _board() as board, _state_home():
-        said = _markdown_api(board).state()
-    assert said["storage"] == "markdown"
-    assert said["board_path"] == str(board.root)
+        said = _local_api(board).state()
+    assert said["notion"] is False
 
 
 @case
@@ -949,10 +948,10 @@ def an_image_in_a_brief_is_named_for_the_session_and_drawn_by_the_console() -> N
         console.shutdown()
         console.server_close()
 
-    # A board of files has no blocks: a line copied from Notion is only a name.
+    # A board without Notion has no blocks: a line copied from Notion is only a name.
     try:
-        files.Board(Path(tempfile.mkdtemp())).attachment(block_id)
-        raise AssertionError("a board of files holds no Notion file")
+        pages.Pages().attachment(block_id)
+        raise AssertionError("a board without Notion holds no Notion file")
     except LookupError:
         pass
 

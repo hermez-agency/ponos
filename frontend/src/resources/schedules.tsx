@@ -841,9 +841,9 @@ export function NoSchedule() {
   // Named rather than left blank: an empty parameter is not substituted, so the
   // sentence would show the placeholder itself. See `react-mini-i18n`.
   const page = drawn?.page || "Schedules"
-  // A Markdown board has no database to write a row in: a schedule there is
-  // a file, and the sentence that said "database" was Notion's.
-  const markdown = drawn?.storage === "markdown"
+  // Without Notion there is no database to write a row in: the sentence that
+  // said "database" was Notion's.
+  const withoutNotion = drawn?.notion === false
   return drawn && !drawn.database ? (
     <EmptyState icon={CalendarOff} title={t("Nothing repeats here")}>
       {t("This workspace has no “{{page}}” page.", { page })}{" "}
@@ -852,7 +852,7 @@ export function NoSchedule() {
     </EmptyState>
   ) : (
     <EmptyState robot="sleep" title={t("Nothing repeats here yet")}>
-      {markdown
+      {withoutNotion
         ? t("A schedule written here is a ticket that comes back on its own.")
         : t("A row in the “{{page}}” database is a ticket that comes back.", { page })}
     </EmptyState>
@@ -1062,7 +1062,7 @@ const options: ResourceDefinition<ScheduleItem, ScheduleWrite> = {
         empty: NoSchedule,
       },
       // What a schedule is, without naming where it is kept: the same console
-      // draws a Notion workspace and a directory of Markdown files.
+      // draws a board with a Notion behind it and one without.
       description: "A row says what to make and how often; when the moment comes the runner writes the ticket into the ready column and steps back.",
       // The switch in the row is one gesture, the name opening the form in a
       // window is the other: no button of the package's beside them.

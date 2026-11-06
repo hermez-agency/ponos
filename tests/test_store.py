@@ -17,14 +17,14 @@ from support import (
     _board,
     _ColumnsClient,
     _config,
-    _markdown_api,
+    _local_api,
     _Nudged,
     _state_home,
     case,
 )
 
 from ponos import config as C
-from ponos import files, ideas, ledger, markdown, notion, projects, state, store, sync
+from ponos import db, ideas, ledger, markdown, notion, pages, projects, state, store
 from ponos import ticket as ticket_module
 from ponos.web import api as web_api
 from ponos.web import board as web_board
@@ -35,43 +35,40 @@ from ponos.web import live as web_live
 
 
 @case
-def the_storage_mode_decides_which_store_is_opened() -> None:
+def the_token_decides_which_store_is_opened() -> None:
     configuration = _config("")
-    assert configuration.storage.mode == "notion"
+    assert not configuration.standalone
     # Notion's tickets are served from `ponos.db` (ledger.py); Notion itself is
     # what the ledger holds, and what the import and the checks ask for.
     served = store.open(configuration)
     assert isinstance(served, ledger.Ledger) and isinstance(served.notion, notion.Client)
     assert isinstance(store.open(configuration, notion_only=True), notion.Client)
 
-    with tempfile.TemporaryDirectory() as directory:
-        markdown_only = _config(f'[storage]\nmode = "markdown"\npath = "{directory}/board"\n')
-        assert markdown_only.storage.path == Path(directory) / "board"
-        assert isinstance(store.open(markdown_only), files.Board)
-        both = _config(f'[storage]\nmode = "both"\npath = "{directory}/board"\n')
-        assert isinstance(store.open(both), sync.Mirror)
-
-    # A word nobody meant must not quietly decide where the board lives.
-    assert _config('[storage]\nmode = "postgres"\n').storage.mode == "notion"
-    assert _config('[storage]\nconflict = "mine"\n').storage.conflict == "newest"
+    # Without a token there is no Notion to hold the pages: they are the database's.
+    path = Path(tempfile.mkdtemp()) / "config.toml"
+    path.write_text("[notion]\n", encoding="utf-8")
+    alone = C.load(path)
+    assert alone.standalone
+    held = store.open(alone)
+    assert isinstance(held, ledger.Ledger) and isinstance(held.notion, pages.Pages)
 
 
 @case
-def a_markdown_installation_needs_neither_token_nor_workspace() -> None:
-    path = Path(tempfile.mkdtemp()) / "config.toml"
-    path.write_text('[storage]\nmode = "markdown"\n', encoding="utf-8")
-    C.load(path).require_usable()  # must not raise
-
-    # And a Notion one still says exactly what it is missing.
+def an_installation_without_a_token_needs_neither_token_nor_workspace() -> None:
     empty = Path(tempfile.mkdtemp()) / "config.toml"
     empty.write_text("[notion]\n", encoding="utf-8")
+    C.load(empty).require_usable()  # must not raise
+
+    # And a Notion one still says exactly what it is missing.
+    half = Path(tempfile.mkdtemp()) / "config.toml"
+    half.write_text('[notion]\ntoken = "ntn_real"\n', encoding="utf-8")
+    C.move_secrets(half)
     try:
-        C.load(empty).require_usable()
+        C.load(half).require_usable()
     except C.ConfigError as error:
-        assert "notion.token" in str(error)
-        assert "markdown" in str(error), "the way out is worth naming here"
+        assert "notion.workspace" in str(error)
     else:
-        raise AssertionError("a Notion installation with no token must not be usable")
+        raise AssertionError("a Notion installation with no workspace must not be usable")
 
 
 # -- the three screens that must work without Notion --------------------------
@@ -91,7 +88,7 @@ def the_console_lists_every_project_it_knows_of() -> None:
         ticket = board.create_row("tickets", "Un ticket", {"statut": "ready"})
         board.update("tickets", ticket, {"Project": [code]})
 
-        api = _markdown_api(board)
+        api = _local_api(board)
         api._config.projects["Jeu d'usine"] = "/home/salva/workspace/usine"
         asked: list[str] = []
         query = api.runner.client.query
@@ -115,7 +112,7 @@ def the_console_lists_every_project_it_knows_of() -> None:
     assert rows["Site vitrine"]["kind"] == "document"
     assert rows["Jeu d'usine"]["source"] == "config"
     assert rows["Jeu d'usine"]["path"] == "/home/salva/workspace/usine"
-    assert drawn["storage"] == "markdown"
+    assert drawn["notion"] is False
 
 
 @case
@@ -131,7 +128,7 @@ def the_console_opens_a_project_and_writes_it_back() -> None:
         page = board.create_row("projects", "ponos", {"github": "user/repo"})
         board.replace_markdown(page, "Écris en français.")
 
-        api = _markdown_api(board)
+        api = _local_api(board)
         opened = api.project(page)
         assert opened["name"] == "ponos"
         assert opened["repository"] == "user/repo"
@@ -197,9 +194,9 @@ def the_console_opens_a_project_and_writes_it_back() -> None:
             raise AssertionError("an unknown project must not read as a blank one")
 
 
-def _creatable(board: files.Board, language: str = "fr") -> web_api.Api:
-    """A markdown Api that creates projects, speaking `language`."""
-    api = _markdown_api(board)
+def _creatable(board: ledger.Ledger, language: str = "fr") -> web_api.Api:
+    """An Api without Notion that creates projects, speaking `language`."""
+    api = _local_api(board)
     api._config.runner = C.Runner(language=language)
     api.runner.config = api._config
     api.watch = type("Watch", (), {"nudge": lambda self: None})()
@@ -299,7 +296,7 @@ def a_project_is_created_from_the_console_with_what_its_page_says() -> None:
                 check=True,
             )
             ticket = api.create_ticket("Un ticket", project=code["id"])["id"]
-            relation = store.read(board.page(ticket), board.settings().prop("project"))
+            relation = store.read(board.page(ticket), board.settings.prop("project"))
             assert relation == [code["id"]]
             found = projects.Resolver(root, {}).resolve(board, relation[0])
             assert found.path == clone and found.github == code["repository"]
@@ -441,9 +438,9 @@ def the_console_server_creates_a_project_and_says_which_field_it_refuses() -> No
             console.server_close()
 
 
-def _deletable(board: files.Board) -> tuple[web_api.Api, str, dict[str, str]]:
-    """A markdown Api with a project of three tickets, and one elsewhere."""
-    settings = board.settings()
+def _deletable(board: ledger.Ledger) -> tuple[web_api.Api, str, dict[str, str]]:
+    """An Api without Notion with a project of three tickets, and one elsewhere."""
+    settings = board.settings
     code = board.create_row("projects", "ponos", {"Repository": "user/repo"})
     elsewhere = board.create_row("projects", "Site vitrine", {})
     tickets = {}
@@ -456,7 +453,7 @@ def _deletable(board: files.Board) -> tuple[web_api.Api, str, dict[str, str]]:
         ticket = board.create_row("tickets", title, {settings.prop("status"): status})
         board.update("tickets", ticket, {settings.prop("project"): [project]})
         tickets[title] = ticket
-    api = _markdown_api(board)
+    api = _local_api(board)
     api._config.notion = settings
     api.runner.config = api._config
     api._reader = web_board.Reader(journal=lambda report: None)
@@ -476,8 +473,8 @@ def deleting_a_project_needs_its_name_and_changes_nothing_without_it() -> None:
             else:
                 raise AssertionError(f"“{confirm}” must not delete a project")
         assert board.page(code).title == "ponos", "refused, so still on the board"
-        status = board.settings().prop("status")
-        assert store.read(board.page(tickets["Prêt"]), status) == board.settings().state("ready")
+        status = board.settings.prop("status")
+        assert store.read(board.page(tickets["Prêt"]), status) == board.settings.state("ready")
         try:
             api.delete_project("f" * 32, {"confirm": "ponos"})
         except LookupError:
@@ -493,7 +490,7 @@ def a_deleted_project_leaves_the_console_and_its_tickets_are_stopped_not_lost() 
     removed for good — and what was spent on it stays in the history."""
     with _board() as board, _state_home():
         api, code, tickets = _deletable(board)
-        settings = board.settings()
+        settings = board.settings
         status = settings.prop("status")
         ideas.record(code, "haiku", 0.5, [{"kind": "ticket", "title": "Une idée"}])
         state.record({"id": tickets["Fini"], "status": "done", "project": "ponos", "cost_usd": 2.0})
@@ -514,8 +511,11 @@ def a_deleted_project_leaves_the_console_and_its_tickets_are_stopped_not_lost() 
             or "deleted" in board.comments(tickets["Prêt"])[-1].text
         )
         assert not board.comments(tickets["Ailleurs"])
-        # The page is put aside, not deleted: it is still on the disk.
-        assert list((board.root / "trash" / "projects").glob("ponos-*.md"))
+        # The page is put aside, not deleted: it is still in the database.
+        with db.transaction(immediate=False) as connection:
+            assert connection.execute(
+                "SELECT COUNT(*) FROM board_pages WHERE collection = 'projects' AND trashed = 1"
+            ).fetchone() == (1,)
         assert done["ideas"] == 1 and not ideas.listed(code)
         assert sum(float(one.get("cost_usd") or 0) for one in state.history(100)) == 2.0
 
@@ -536,7 +536,6 @@ def deleting_a_project_may_trash_its_tickets_too() -> None:
         assert (done["trashed"], done["blocked"]) == (3, 0)
         titles = {page.title for page in board.query("tickets")}
         assert titles == {"Ailleurs"}
-        assert len(list((board.root / "trash" / "tickets").glob("*.md"))) == 3
         assert api.reader.get(tickets["Prêt"]) is None, "dropped from what the console holds"
 
 
@@ -557,8 +556,8 @@ def a_project_with_a_session_running_is_not_deleted() -> None:
         finally:
             web_live.active = running
         assert board.page(code).title == "ponos"
-        status = board.settings().prop("status")
-        assert store.read(board.page(tickets["Prêt"]), status) == board.settings().state("ready")
+        status = board.settings.prop("status")
+        assert store.read(board.page(tickets["Prêt"]), status) == board.settings.state("ready")
 
 
 @case
@@ -589,7 +588,7 @@ def a_brief_is_saved_only_from_the_version_it_was_opened_at() -> None:
     with _board() as board:
         page = board.create_row("projects", "ponos", {"github": "user/repo"})
         board.replace_markdown(page, "# Voix\n\n- Écris en français.")
-        api = _markdown_api(board)
+        api = _local_api(board)
 
         opened = api.project_brief(page)
         assert opened["content"] == "# Voix\n\n- Écris en français."
@@ -707,7 +706,7 @@ def a_brief_that_markdown_cannot_hold_is_not_rewritten_unannounced() -> None:
     with _board() as board:
         page = board.create_row("projects", "ponos", {})
         board.replace_markdown(page, "Texte.")
-        api = _markdown_api(board)
+        api = _local_api(board)
         # The board of files has nothing to lose; make it say otherwise.
         board.losses = lambda *_: {"toggle": 1}  # type: ignore[method-assign]
         base = api.project_brief(page)["version"]
@@ -732,20 +731,20 @@ def the_console_reads_and_rewrites_the_standing_context() -> None:
     """
     with _board() as board:
         board.set_context("Première version.")
-        api = _markdown_api(board)
+        api = _local_api(board)
         assert api.context()["text"] == "Première version."
         assert api.context()["editable"]
 
         api.save_context("Deuxième version.")
         assert board.context() == "Deuxième version."
-        api = _markdown_api(board)
+        api = _local_api(board)
         api.save_context("Deuxième version.")
         assert board.context() == "Deuxième version.", "a second save must not stack"
 
         # A workspace with nowhere to write says so rather than offering a save
         # that could only fail.
-        blind = _markdown_api(board)
-        blind.runner._workspace.context_page = ""  # type: ignore[union-attr]  # `_markdown_api` gave it one
+        blind = _local_api(board)
+        blind.runner._workspace.context_page = ""  # type: ignore[union-attr]  # `_local_api` gave it one
         assert not blind.context()["editable"]
         try:
             blind.save_context("x")
@@ -766,7 +765,7 @@ def a_ticket_created_from_the_console_carries_its_priority_type_and_model() -> N
     outside that range.
     """
     with _board() as board:
-        api = _markdown_api(board)
+        api = _local_api(board)
         api._schema_at = time.time()
         api._reader = web_board.Reader(journal=lambda report: None)
         api._outbox = web_board.Outbox(journal=lambda report: None)
@@ -822,7 +821,7 @@ def a_ticket_is_given_another_priority_from_the_board() -> None:
     column — where the bar does not offer it.
     """
     with _board() as board:
-        api = _markdown_api(board)
+        api = _local_api(board)
         api._schema_at = time.time()
         api._reader = web_board.Reader(journal=lambda report: None)
         api._outbox = web_board.Outbox(journal=lambda report: None)

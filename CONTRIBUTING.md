@@ -47,7 +47,7 @@ itself and nothing else. The rest is one chapter per module:
 | `ticket.py` | `Ticket` and `Job`, the two nouns everything else passes around |
 
 Around them sit the modules a run leans on rather than consists of: `store.py` and the
-two boards behind it (`notion.py`, `files.py`, `sync.py`), `git.py`, `github_checks.py` (a pull request's checks, and the merge that waits on them), `github_app.py` (the GitHub App and its tokens), `session.py`,
+board behind it (`notion.py`, the mirror, and `pages.py`, the pages kept in `ponos.db`), `git.py`, `github_checks.py` (a pull request's checks, and the merge that waits on them), `github_app.py` (the GitHub App and its tokens), `session.py`,
 `voice.py`, `kinds.py` (the four types of ticket, and what counts as a doubt), `progress.py`, `conversation.py`, `schedules.py`, `credits.py`, `db.py` (the local SQLite
 memory, `ponos.db`, and its numbered migrations), `journal.py` (every run and its steps, in it), `channels/` and `web/`.
 
@@ -160,8 +160,8 @@ the way back to the sign-in on a 401, the server's sentence in an `ApiError`, an
 bodies of a picture, a file or a recording, which the schema does not describe.
 
 `npm run test:e2e` is Playwright, driving the Chrome already installed rather than a
-browser of its own: `e2e/console.py` starts a real `ponos service run` on a throwaway
-Markdown board, so the tests read the build that `npm run build` last wrote and nothing of
+browser of its own: `e2e/console.py` starts a real `ponos service run` on a
+throwaway board, so the tests read the build that `npm run build` last wrote and nothing of
 yours. They hold what neither Python suite can see — that a page taller than the screen
 scrolls, by the wheel and by the keyboard, and still does once a dialog has come and gone.
 Two servers are started, on free ports: one for the conversation with the workspace, whose
@@ -207,7 +207,7 @@ cd frontend && npm run dev:demo    # the page, hot reloaded, proxying /api to it
 # open http://127.0.0.1:8791/?token=demo once (the cookie), then http://127.0.0.1:5173
 ```
 
-`scripts/demo.py` is a real `ponos service run` on a throwaway Markdown board, under a temporary
+`scripts/demo.py` is a real `ponos service run` on a throwaway board in `ponos.db`, under a temporary
 `XDG_STATE_HOME` and `HOME`, with a stand-in `claude`, `gh` and `systemctl` first in the
 `PATH` — no Notion, no network, nothing of yours read or written, and the directory removed
 when you press Ctrl-C. The board is drawn to be looked at: eight projects, sixty-odd tickets in
@@ -562,7 +562,7 @@ not in either suite:
 node scripts/measure-console.mjs --runs 3 --throttle 4
 ```
 
-writes a throwaway Markdown board of 350 tickets, 340 of them Done, serves it from this
+writes a throwaway board of 350 tickets, 340 of them Done, serves it from this
 checkout and drives headless Chrome (`$CHROME`, or `google-chrome`) over the board, the
 projects and the schedules — how long each page takes to be drawn, and the longest the
 browser is held on the way. `--throttle` slows the CPU down by that factor.

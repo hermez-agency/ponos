@@ -815,64 +815,6 @@ class Vault:
         return {}
 
 
-def board_dir() -> Path:
-    """Where a Markdown board lives when the file does not say.
-
-    Under the state directory, beside the worktrees and the logs, because that
-    is where this tool already keeps what it made rather than what you wrote.
-    Anybody who would rather have it in a repository of their own says so —
-    which is most of the point of a board made of files.
-    """
-    return state_dir() / "board"
-
-
-@dataclass
-class Storage:
-    """Where the board is kept, and what to do when two copies disagree.
-
-    `notion` is the default and the whole of the old behaviour: one board, in
-    Notion, and not a line of this module is felt. `markdown` is the same board
-    as files on disk, and never touches the network — no token is read, nothing
-    is resolved, `ponos doctor` stops asking Notion who you are.
-    `both` keeps the two in step: a pass reconciles them before it reads the
-    queue, and `conflict` says who wins when the same page moved on both sides.
-    """
-
-    mode: str = "notion"
-    path: Path = field(default_factory=board_dir)
-    # "newest": the later `last_edited_time` wins, and the loser is journalled
-    # rather than dropped quietly. The only rule there is, and named so that the
-    # day there is a second one the file can say which.
-    conflict: str = "newest"
-    # Whether a pass reconciles the two before it does anything else. Off is for
-    # somebody who would rather run `ponos sync` when it suits them.
-    on_every_pass: bool = True
-
-    @property
-    def notion(self) -> bool:
-        """Does this installation talk to Notion at all?"""
-        return self.mode in ("notion", "both")
-
-    @property
-    def markdown(self) -> bool:
-        """Is there a directory of files under this board? `github` has one too:
-        the projects, the agents and what a run keeps of an issue live there."""
-        return self.mode in ("markdown", "both", "github")
-
-
-@dataclass
-class Issues:
-    """`[issues]`: which GitHub repositories are the board, for `storage.mode = "github"`.
-
-    An open issue carrying `label` is a ticket that is ready; the statuses, the
-    type and the priority are labels spelled `<label>:<status>`, `type:<kind>`
-    and `priority:<score>` — see `github_issues.py`.
-    """
-
-    repositories: tuple[str, ...] = ()
-    label: str = "ponos"
-
-
 @dataclass
 class Config:
     notion: Notion
@@ -887,8 +829,6 @@ class Config:
     budget: Budget = field(default_factory=Budget)
     review: Review = field(default_factory=Review)
     permissions: Permissions = field(default_factory=Permissions)
-    storage: Storage = field(default_factory=Storage)
-    issues: Issues = field(default_factory=Issues)
     vault: Vault = field(default_factory=Vault)
     # `[github]`: which of your GitHub accounts each owner is worked under, as
     # `owner = "the gh account"`. Empty is a machine with one account, which is
@@ -902,16 +842,30 @@ class Config:
     # closest to")` — ignored, and said so: see `schema.unknown`.
     unknown: tuple[tuple[int, str, str], ...] = ()
 
+    @property
+    def standalone(self) -> bool:
+        """Is there no Notion behind this installation?
+
+        The tickets are `ponos.db`'s whoever answers; Notion is a mirror of
+        them and the home of the projects, the agents, the goals and the
+        schedules. A configuration that names no Notion at all — no token, no
+        workspace, no database — has none, and those pages are `ponos.db`'s too
+        (see pages.py). One that names a part of it is a Notion installation
+        that is not finished, and `require_usable` says what is missing rather
+        than quietly running without.
+        """
+        token = self.notion.token
+        return (
+            (not token or token == PLACEHOLDER)
+            and not self.notion.workspace
+            and not self.notion.tickets_database
+        )
+
     def require_usable(self) -> None:
         """Raise ConfigError if the file is not complete enough to run."""
-        if self.storage.mode == "github" and not self.issues.repositories:
-            raise ConfigError(
-                f"issues.repositories must name at least one owner/name in {self.path}\n"
-                "  ponos config            opens the file in your editor"
-            )
-        if not self.storage.notion:
-            # A Markdown board needs nothing named and nothing shared: the
-            # directory is made the first time something is written into it.
+        if self.standalone:
+            # Nothing named and nothing shared: a board without Notion is made
+            # of the first thing written into it.
             return
         missing = []
         if not self.notion.token or self.notion.token == PLACEHOLDER:
@@ -928,8 +882,7 @@ class Config:
             raise ConfigError(
                 f"{', '.join(missing)} must be set\n"
                 "  ponos init <page-url>   builds the databases and fills this in\n"
-                "  ponos config            opens the file in your editor\n"
-                '  storage.mode = "markdown"       runs the whole thing without Notion'
+                "  ponos config            opens the file in your editor"
             )
 
 
@@ -1630,8 +1583,6 @@ def load(path: Path | None = None, *, secrets: Path | None = None) -> Config:
         budget=Budget(**file.budget.model_dump()),
         review=Review(**file.review.model_dump()),
         permissions=Permissions(**file.permissions.model_dump()),
-        storage=_storage(file.storage),
-        issues=Issues(repositories=tuple(file.issues.repositories), label=file.issues.label),
         vault=_vault(file.vault),
         github=dict(file.github),
         github_access=_github_access(file.github_access, stored),
@@ -1731,15 +1682,6 @@ def _trusted_proxies(table: schema.WebTable) -> tuple[str, ...]:
     written = os.environ.get(TRUSTED_PROXIES_ENV, "")
     found = tuple(entry for entry in (part.strip() for part in written.split(",")) if entry)
     return found or table.trusted_proxies
-
-
-def _storage(table: schema.StorageTable) -> Storage:
-    return Storage(
-        mode=table.mode,
-        path=Path(os.path.expanduser(table.path)) if table.path else board_dir(),
-        conflict=table.conflict,
-        on_every_pass=table.on_every_pass,
-    )
 
 
 def _notify(table: schema.NotifyTable, stored: dict[str, str], runner: Runner) -> Notify:

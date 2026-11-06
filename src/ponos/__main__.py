@@ -514,68 +514,6 @@ def command_import(args: argparse.Namespace) -> int:
     return 1 if report.problems else 0
 
 
-def command_sync(args: argparse.Namespace) -> int:
-    """Reconcile the Notion board and the Markdown one, and say what moved.
-
-    A pass already does this on its own when `storage.mode = "both"`. This is
-    for the two moments a pass is no help: the first reconciliation, where you
-    want to watch what a full board does before it does it to both copies, and
-    after an editing session in the files, where waiting for the timer is a
-    silly way to find out whether the frontmatter was readable.
-    """
-    from . import sync as sync_module
-
-    configuration = load_config()
-    if args.journal:
-        entries = sync_module.journal(args.number)
-        if not entries:
-            print("Nothing has been synchronised yet.")
-            return 0
-        title(f"The last {len(entries)} entries")
-        for entry in entries:
-            mark = {
-                "conflict": YELLOW,
-                "deleted-in-notion": YELLOW,
-                "deleted-in-markdown": YELLOW,
-                "drift": YELLOW,
-                "write-failed": YELLOW,
-            }
-            colour = mark.get(entry.get("what", ""), DIM)
-            said = " — " + entry["detail"] if entry.get("detail") else ""
-            print(
-                f"  {entry.get('at', '')[:16]}  {colour}{entry.get('what', '')}{RESET}  "
-                f"{entry.get('title') or entry.get('page', '')}{DIM}{said}{RESET}"
-            )
-        return 0
-
-    if configuration.storage.mode != "both":
-        bad(f'storage.mode is "{configuration.storage.mode}" — there is only one board to read')
-        print(f'  {DIM}set storage.mode = "both" to keep Notion and Markdown in step{RESET}')
-        return 2
-
-    from .sync import Mirror
-
-    backend = store.open(configuration)
-    assert isinstance(backend, Mirror)  # what `storage.mode = "both"` opens
-    title("Reconciling")
-    report = backend.synchronise(configuration.notion)
-    for problem in report.problems:
-        bad(problem)
-    for moved in report.carried:
-        ok(f"{moved.what}  {moved.title or moved.page}")
-    for conflict in report.conflicts:
-        warn(f"{conflict.title or conflict.page} — {conflict.detail}")
-    for deletion in report.deletions:
-        warn(f"{deletion.title or deletion.page} — {deletion.detail}")
-    if not report:
-        print(f"  {DIM}nothing to carry across — the two boards agree{RESET}")
-    print(
-        f"\n{len(report.carried)} carried, {len(report.conflicts)} conflict(s), "
-        f"{len(report.deletions)} deletion(s) — journal: ponos sync --journal"
-    )
-    return 1 if report.problems else 0
-
-
 def command_history_csv(args: argparse.Namespace) -> int:
     """Every session of a period as CSV on the standard output: see `spending.py`."""
     try:
@@ -757,6 +695,9 @@ def _status_board(configuration: config_module.Config) -> None:
             print(f"  {highlight}{number:>3}{RESET}  {name}")
     except (config_module.ConfigError, store.StoreError) as error:
         bad(f"Notion unreachable: {str(error).splitlines()[0]}")
+    except db.DatabaseError as error:
+        # The same line `_status_recent` says in its own section.
+        bad(f"The board cannot be read: {str(error).splitlines()[0]}")
 
 
 def _status_recent() -> int:
@@ -2088,13 +2029,6 @@ def _add_ticket_commands(subparsers: argparse._SubParsersAction[argparse.Argumen
 
     projects = subparsers.add_parser("projects", help="check the project → repository mapping")
     projects.set_defaults(function=command_projects)
-
-    syncing = subparsers.add_parser("sync", help="reconcile the Notion board and the Markdown one")
-    syncing.add_argument(
-        "--journal", action="store_true", help="show what past reconciliations did"
-    )
-    syncing.add_argument("-n", "--number", type=int, default=30, help="with --journal: how many")
-    syncing.set_defaults(function=command_sync)
 
     importing = subparsers.add_parser("import", help="fill ponos.db from another board, once")
     imported = importing.add_subparsers(dest="source", required=True, help="the board to read")
