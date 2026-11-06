@@ -44,7 +44,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.convertors import Convertor, register_url_convertor
 
 from .. import config as config_module
-from .. import journal, notifications, preview, store, vault
+from .. import journal, notifications, preview, push, store, vault, voice
 from . import accounts, agui, answers, creation, github, mcp_setup, setup
 from .api import Api
 
@@ -319,6 +319,22 @@ class Read(Payload):
 
 class Named(Payload):
     name: str = ""
+
+
+class PushKeys(Payload):
+    p256dh: str = ""
+    auth: str = ""
+
+
+class Endpoint(Payload):
+    endpoint: str = ""
+
+
+class Subscribed(Payload):
+    # A browser's `PushSubscription.toJSON()`, and what it says it is.
+    endpoint: str = ""
+    keys: PushKeys = Field(default_factory=PushKeys)
+    label: str = ""
 
 
 # A body passed whole to the `Api`, which reads it field by field.
@@ -1215,6 +1231,58 @@ def test_mcp(request: Request, payload: Probe = Body(default_factory=Probe)) -> 
     if payload.target != "public":
         address = f"{request.state.asking.loopback()}/mcp"
     return answer(mcp_setup.probe(address))
+
+
+@router.get("/api/push", response_model=answers.Push)
+def push_state() -> Response:
+    # The key is drawn here, the first time a browser asks for it.
+    able = push.available()
+    return answer(
+        {"available": able, "key": push.public_key() if able else "", "devices": push.devices()}
+    )
+
+
+@router.post("/api/push/subscribe", response_model=answers.Push)
+def push_subscribe(request: Request, payload: Subscribed) -> Response:
+    who = _who(request)
+    kept = push.subscribe(
+        payload.endpoint,
+        payload.keys.p256dh,
+        payload.keys.auth,
+        label=payload.label,
+        who=who.email if who else "",
+    )
+    if not kept:
+        raise HTTPException(400, "Not a push subscription")
+    return push_state()
+
+
+@router.post("/api/push/unsubscribe", response_model=answers.Push)
+def push_unsubscribe(payload: Endpoint) -> Response:
+    push.unsubscribe(payload.endpoint)
+    return push_state()
+
+
+@router.post("/api/push/test", response_model=answers.PushSent)
+def push_test(request: Request, payload: Endpoint) -> Response:
+    """One push to the browser that asked, in the words of a real one."""
+    found = [item for item in push.subscriptions() if item.endpoint == payload.endpoint]
+    if not found or not push.available():
+        raise HTTPException(404, "This browser is not subscribed")
+    config = _api(request).config
+    said = voice.Voice(config.runner.language)
+    status = push.send(
+        found[0],
+        {
+            "title": said.say("push-test-title"),
+            "body": said.say("push-test-body"),
+            "tag": "ponos-test",
+            "kind": "test",
+            "url": "/",
+        },
+        subject=f"mailto:{config.web.email}" if config.web.email else push.SUBJECT,
+    )
+    return answer({"status": status})
 
 
 @router.post("/api/notifications/read", response_model=answers.Bell)

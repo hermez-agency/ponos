@@ -99,7 +99,7 @@ installation code then the password are what stand between the Internet and the 
 ## Docker
 
 The image is another way to install the runner, not another program: the same Python and
-the same packages — httpx, pydantic, the console's FastAPI and uvicorn —, installed from
+the same packages — httpx, pydantic, cryptography, the console's FastAPI and uvicorn —, installed from
 `requirements.txt` when it is built (a container has no per-version `.venv`), with what `install.sh` would have found on the machine — git,
 `gh`, Node and Claude Code. The console is not built in it; it is committed, built.
 

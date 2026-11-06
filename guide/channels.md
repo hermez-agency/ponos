@@ -158,6 +158,10 @@ does not have — type `ticket:` instead.
 | Where you answer | a reply, the ticket's link, or just the next message | in the question's thread, or naming the ticket |
 | Who is read | the paired chat, and nobody else | the configured channel |
 
+Only need to be told? The console pushes its bell to your phone itself, with nothing to set up but a
+switch — see [the bell on your phone](console.md#the-web-console). Telegram and Slack are for
+answering from where you are told.
+
 ### What gets sent, and what does not
 
 ```toml

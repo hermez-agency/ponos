@@ -1,6 +1,7 @@
 import * as React from "react"
 
 import { installOffer, isIos, type InstallOffer } from "./install"
+import { keyBytes } from "./push"
 
 /* The console as an installed app: its worker, its update, its install button.
  *
@@ -29,7 +30,7 @@ let prompt: InstallPrompt | null = null
 let waiting: ServiceWorker | null = null
 let applying = false
 
-const standalone = () =>
+export const standalone = () =>
   window.matchMedia("(display-mode: standalone)").matches ||
   // iOS says it here and nowhere else.
   (navigator as Navigator & { standalone?: boolean }).standalone === true
@@ -109,4 +110,30 @@ export async function install() {
   prompt = null // an event is good for one prompt
   changed()
   await asked.prompt()
+}
+
+/* -- the bell, pushed (`src/ponos/push.py`) --------------------------------- */
+
+/** Whether this page can subscribe at all: a build's worker, and a browser with Web Push. */
+export const pushSupported = () =>
+  import.meta.env.PROD && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window
+
+/** This browser's subscription, if it has one. */
+export async function currentPush(): Promise<PushSubscription | null> {
+  if (!pushSupported()) return null
+  const registration = await navigator.serviceWorker.getRegistration()
+  return (await registration?.pushManager.getSubscription()) ?? null
+}
+
+/** Asks the browser — its permission, then its push service — for a subscription to `key`.
+ *
+ * One kept from before is dropped first: switching on is what somebody does
+ * when pushes stopped arriving, and an old subscription may be to a key the
+ * console no longer has. */
+export async function subscribeToPush(key: string): Promise<PushSubscription> {
+  const permission = await Notification.requestPermission()
+  if (permission !== "granted") throw new Error(permission)
+  const registration = await navigator.serviceWorker.ready
+  await (await registration.pushManager.getSubscription())?.unsubscribe()
+  return registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(key) })
 }

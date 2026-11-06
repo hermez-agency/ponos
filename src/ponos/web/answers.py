@@ -1945,6 +1945,32 @@ class Bell(Shape):
     """Tickets waiting, not notifications."""
 
 
+class PushDevice(Shape):
+    """A browser the bell is pushed to — see `push.py`."""
+
+    endpoint: str
+    label: str
+    """What the browser said it was when it subscribed: "Android", "iPhone"…"""
+    who: str
+    """The account that subscribed it, "" for the console's own sign-in."""
+    created: str
+
+
+class Push(Shape):
+    """What a browser needs to subscribe to the bell, and who already did."""
+
+    available: bool
+    """Whether this installation can send a push at all: `cryptography` is installed."""
+    key: str
+    """The console's public key, the browser's `applicationServerKey` — "" when not available."""
+    devices: list[PushDevice]
+
+
+class PushSent(Shape):
+    status: int
+    """What the push service answered: 201 when it took the message, 0 when it did not answer."""
+
+
 # -- signing in, and the first connection --------------------------------------
 
 

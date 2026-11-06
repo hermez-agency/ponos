@@ -455,7 +455,7 @@ vector. Run it again after any change to either module, and commit what it write
 ## Tests
 
 ```sh
-uv sync                        # httpx, pydantic, FastAPI, uvicorn and the tools below
+uv sync                        # httpx, pydantic, cryptography, FastAPI, uvicorn and the tools below
 uv run python tests/run.py     # one process per core; -j 1 runs the cases one after the other
 uv run python tests/functional.py
 ```

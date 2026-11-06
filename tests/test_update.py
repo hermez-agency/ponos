@@ -337,9 +337,10 @@ def only_the_consoles_application_imports_a_package_from_outside() -> None:
     """The runner, and `web/server.py`, stay the standard library's alone.
 
     The runner because a pass must not depend on an environment it may have
-    to make (`environment.ensure`) — httpx and pydantic are the exceptions:
-    only `http.py` imports the first, when the first request is sent, and only
-    `schema.py` the second, when the file is read. And `server.py`
+    to make (`environment.ensure`) — httpx, pydantic and cryptography are the
+    exceptions: only `http.py` imports the first, when the first request is
+    sent, only `schema.py` the second, when the file is read, and only
+    `push.py` the third, when a push is sent. And `server.py`
     because an installation still on v0.1.0 checks that a new version starts
     by importing it with the machine's Python — had it imported FastAPI, the
     update that brings FastAPI would have been refused on every such machine,
@@ -362,12 +363,14 @@ def only_the_consoles_application_imports_a_package_from_outside() -> None:
                     ("http.py", "httpx"),
                     ("schema.py", "pydantic"),
                     ("schema.py", "pydantic_core"),
+                    ("push.py", "cryptography"),
                 ):
                     continue
                 assert top in sys.stdlib_module_names or top == "ponos", (path.name, name)
     probe = (
         "import sys\n"
-        "for name in ('fastapi', 'uvicorn', 'starlette', 'pydantic', 'anyio', 'httpx'):\n"
+        "for name in ('fastapi', 'uvicorn', 'starlette', 'pydantic', 'anyio', 'httpx',"
+        " 'cryptography'):\n"
         "    sys.modules[name] = None\n"
         "import ponos.__main__, ponos.web.server, ponos.runner\n"
     )

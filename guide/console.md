@@ -194,6 +194,22 @@ blocked ticket — and for nothing routine. The run writes them into `ponos.db` 
 one unread per ticket and kind), the console reads them off the same stream as the board, and a
 notification read more than thirty days ago is purged.
 
+**The bell on your phone.** *Settings → Communication → Notifications on this device* pushes the
+same moments to a phone (or any browser), the console closed and the phone asleep — Web Push, with
+no third party to sign up to: the console signs what it sends with a key of its own (VAPID, drawn
+the first time a browser asks for it, kept in `~/.local/state/ponos/web/vapid.pem`) and encrypts
+it for the browser that subscribed, so the push service (Google's, Apple's, Mozilla's) carries it
+without reading it. A push leaves when the bell rings anew — once per ticket and kind until it is
+read, and a ticket that asks again replaces its notification rather than stacking another one —
+and touching it opens the ticket on the tab its decision is taken in: the discussion of a blocked
+ticket, *Decide* for one in review. *Send a test* checks that it arrives; the card lists the
+devices that receive it, and a phone lost or replaced is removed there (one its push service no
+longer knows is removed by itself). Three conditions the browser sets, which the card says when
+one is missing: the console over HTTPS — `ponos tailscale` [gives it one](#from-your-phone-and-from-claude-ponos-tailscale),
+a reverse proxy too —, notifications allowed for the site, and on an iPhone the console added to
+the home screen (*Share → Add to Home Screen*) and opened from there: Safari pushes to installed
+apps only. There are no quiet hours of Ponos's own — the phone's *Do Not Disturb* already has them.
+
 **Unblock and Decide.** A *Blocked* card carries one button, **Unblock** — no *answer* or
 *make ready* beside it — and a card *In review* a **Decide** one. Unblock opens the ticket's
 window on its *Discussion*, marked with a question mark and scrolled to the end; Decide on a

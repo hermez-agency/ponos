@@ -248,6 +248,23 @@ def a_reader_sees_and_is_refused_and_a_member_validates_under_their_name(
             status, _, _ = _ask(console, "POST", "/api/notifications/read", {}, cookie=reader)
             # Past the door, to a watch this test does not have: not a 403.
             assert status != 403, "what a reader has seen is theirs to mark"
+            status, _, offered = _ask(console, "GET", "/api/push", cookie=reader)
+            assert status == 200 and offered["available"] and offered["key"], offered
+            phone = {
+                "endpoint": "https://push.example.test/send/tom",
+                "keys": {"p256dh": "B" + "A" * 86, "auth": "A" * 22},
+                "label": "iPhone",
+            }
+            status, _, subscribed = _ask(
+                console, "POST", "/api/push/subscribe", phone, cookie=reader
+            )
+            assert status == 200, ("the bell is a reader's too", subscribed)
+            assert [(d["label"], d["who"]) for d in subscribed["devices"]] == [
+                ("iPhone", "tom@example.com")
+            ]
+            phone["endpoint"] = "http://push.example.test/plain"
+            status, _, _ = _ask(console, "POST", "/api/push/subscribe", phone, cookie=reader)
+            assert status == 400, "not a push service"
             assert store.read(board.page(drafted), "Status") == settings.state("draft")
 
             for path, body in (("/api/settings", {}), ("/api/invitations", {"role": "admin"})):

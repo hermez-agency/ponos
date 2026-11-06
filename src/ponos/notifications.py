@@ -94,24 +94,29 @@ def _now() -> str:
     return datetime.now(UTC).isoformat(timespec="seconds")
 
 
-def add(kind: str, ticket: str, title: str) -> None:
-    """Ring the bell for a ticket — unless it already rings for that kind."""
+def add(kind: str, ticket: str, title: str) -> bool:
+    """Ring the bell for a ticket — unless it already rings for that kind.
+
+    True when it rang anew: what a phone is told about (push.py), which a
+    ticket already waiting unread for the same thing is not a second time.
+    """
     if kind not in KINDS:
-        return
+        return False
     try:
         with db.transaction() as connection:
             if connection.execute(
                 "SELECT 1 FROM notifications WHERE ticket = ? AND kind = ? AND read_at = ''",
                 (ticket, kind),
             ).fetchone():
-                return
+                return False
             connection.execute(
                 "INSERT INTO notifications (kind, ticket, title, at) VALUES (?, ?, ?, ?)",
                 (kind, ticket, title, _now()),
             )
             _purge(connection)
     except db.ERRORS:
-        pass
+        return False
+    return True
 
 
 def settle(tickets: Iterable[Mapping[str, object]]) -> None:

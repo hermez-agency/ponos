@@ -1053,6 +1053,24 @@ def _accounts(connection: sqlite3.Connection) -> None:
     connection.execute("CREATE INDEX audit_by_ticket ON audit (ticket, id)")
 
 
+def _push_subscriptions(connection: sqlite3.Connection) -> None:
+    # The phones and browsers that asked for the bell as a push — see push.py.
+    # The endpoint is the subscription: a browser that subscribes again is the
+    # same row, and one the push service no longer knows is deleted.
+    connection.execute(
+        """
+        CREATE TABLE push_subscriptions (
+            endpoint  TEXT PRIMARY KEY,
+            p256dh    TEXT NOT NULL,
+            auth      TEXT NOT NULL,
+            label     TEXT NOT NULL DEFAULT '',
+            who       TEXT NOT NULL DEFAULT '',
+            created   TEXT NOT NULL
+        )
+        """
+    )
+
+
 # Appended to, never edited or renamed: a file remembers each of these by name,
 # and the version of a file is how many of them it has been through. Statements go through `execute` one at a time — `executescript`
 # commits whatever transaction is open before it starts, which would apply half
@@ -1100,6 +1118,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     _reworks,
     _kind_switches,
     _accounts,
+    _push_subscriptions,
 )
 
 # Any way a read or a write of the database can fail. A note the runner keeps

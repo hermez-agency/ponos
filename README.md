@@ -152,7 +152,7 @@ project; and a demonstration ticket, played there and then, which is the proof t
 step holds. No Notion? The board can be [a folder of Markdown files](guide/board.md#without-notion-the-board-as-markdown-files).
 
 It needs Linux or macOS (WSL works too, without a timer: [a ticket then runs when the console starts it, or with `ponos run`](guide/installation.md)), `python3` ≥ 3.11 — what it imports, httpx and pydantic for the
-runner and FastAPI and uvicorn for the console, goes into an environment of its own, made by the installer —,
+runner, cryptography for the pushes to your phone and FastAPI and uvicorn for the console, goes into an environment of its own, made by the installer —,
 `git` and [Claude Code](https://claude.com/claude-code), which the installer offers to
 install when it is missing. `gh` is optional: the console connects GitHub itself. What the
 installer arms, how Ponos updates itself and every variable it reads are in

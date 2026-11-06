@@ -32,8 +32,9 @@ canaux (Telegram, Slack) permettent de suivre le travail ou d'y répondre.
 
 Deux mondes séparés, à ne pas mélanger :
 
-- **Cœur** — Python 3.11+, la bibliothèque standard et quatre dépendances
-  d'exécution : **httpx** et **pydantic** pour le runner, **FastAPI** servi par
+- **Cœur** — Python 3.11+, la bibliothèque standard et cinq dépendances
+  d'exécution : **httpx** et **pydantic** pour le runner, **cryptography** pour
+  les push (`push.py`), **FastAPI** servi par
   **uvicorn** pour la console (`web/app.py`, `web/routes.py`) — `dependencies` dans
   `pyproject.toml`, exportées avec leurs sommes dans `requirements.txt`. Le
   groupe `dev` porte l'outillage (ruff, mypy, pytest, pytest-cov), le tout figé
@@ -192,8 +193,9 @@ le lundi — CONTRIBUTING.md, « Dependencies ».
 - `from __future__ import annotations` en tête de chaque module du cœur, et
   des annotations de type partout.
 - Le cœur n'importe que la bibliothèque standard, ses propres modules,
-  httpx et pydantic — httpx seulement dans `http.py` : une requête passe par
-  `http.send`, jamais par `urllib.request` ; pydantic seulement dans
+  httpx, pydantic et cryptography — httpx seulement dans `http.py` : une requête passe par
+  `http.send`, jamais par `urllib.request` ; cryptography seulement dans `push.py`,
+  au moment d'envoyer ; pydantic seulement dans
   `schema.py`, que `config.load` importe en lisant le fichier, pour qu'une
   passe sur le `python3` de la machine fabrique encore le `.venv`. FastAPI (et ce qu'il tire) n'entre
   que dans `web/app.py`, `web/routes.py` et `web/answers.py` — un test le vérifie. Un autre

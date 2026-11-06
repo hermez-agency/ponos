@@ -13,6 +13,11 @@
  * the new worker takes over. It does not take over by itself: the page asks
  * (`lib/service-worker.ts`), so a window in the middle of something is not
  * reloaded under its user.
+ *
+ * It also shows the bell pushed to a phone (`src/ponos/push.py`): one
+ * notification per ticket — its `tag`, so a ticket that asks again replaces
+ * what it said rather than stacking under it — and touching it opens the
+ * ticket's decision, in the console already open when there is one.
  */
 const BUILD = "__BUILD__"
 const CACHE = `ponos-shell-${BUILD}`
@@ -64,4 +69,41 @@ self.addEventListener("fetch", (event) => {
   if (request.mode === "navigate") {
     event.respondWith(fetch(request).catch(() => caches.match(OFFLINE)))
   }
+})
+
+self.addEventListener("push", (event) => {
+  let said = {}
+  try {
+    said = event.data ? event.data.json() : {}
+  } catch {
+    said = { body: event.data ? event.data.text() : "" }
+  }
+  event.waitUntil(
+    self.registration.showNotification(said.title || "Ponos", {
+      body: said.body || "",
+      tag: said.tag || undefined,
+      // A ticket that asks again is worth a second buzz: the tag replaces, this rings.
+      renotify: Boolean(said.tag),
+      requireInteraction: said.kind === "question",
+      icon: "/static/pwa/icon-192.png",
+      badge: "/static/pwa/icon-192.png",
+      data: { url: said.url || "/" },
+    })
+  )
+})
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close()
+  const target = new URL(event.notification.data?.url || "/", self.location.origin)
+  if (target.origin !== self.location.origin) return
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(async (windows) => {
+      const open = windows.find((client) => new URL(client.url).origin === target.origin)
+      if (open) {
+        await open.focus()
+        return open.navigate(target.href).catch(() => self.clients.openWindow(target.href))
+      }
+      return self.clients.openWindow(target.href)
+    })
+  )
 })
