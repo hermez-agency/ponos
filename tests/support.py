@@ -49,6 +49,7 @@ from ponos import (
     github_checks,
     github_token,
     images,
+    leftovers,
     log,
     notion,
     progress,
@@ -162,6 +163,12 @@ def run(argv: list[str]) -> int:
         + f" in {time.monotonic() - started:.1f}s"
     )
     return 1 if failures else 0
+
+
+# A tidy prunes Docker, and this machine's Docker is not the test's to prune.
+# The one case that checks what is asked of it puts the real one back.
+REAL_PRUNE = leftovers.prune_docker
+leftovers.prune_docker = lambda: False
 
 
 @fixture
@@ -598,10 +605,18 @@ def _recurring(
 def _state_home() -> Iterator[Path]:
     """A throwaway XDG_STATE_HOME, for what the runner keeps between two runs."""
     previous = os.environ.get("XDG_STATE_HOME")
+    cache = os.environ.get("XDG_CACHE_HOME")
     os.environ["XDG_STATE_HOME"] = tempfile.mkdtemp()
+    # Its cache too: the tidy sweeps the `tmp*` folders of `~/.cache`, and a
+    # test must never be the one to sweep the developer's.
+    os.environ["XDG_CACHE_HOME"] = tempfile.mkdtemp()
     try:
         yield Path(os.environ["XDG_STATE_HOME"]) / "ponos"
     finally:
+        if cache is None:
+            os.environ.pop("XDG_CACHE_HOME", None)
+        else:
+            os.environ["XDG_CACHE_HOME"] = cache
         # Its database too: a connection left open per test is three file
         # descriptors, and the suite has hundreds of these. And the journal a
         # command opened there: the next test's directory is another one.

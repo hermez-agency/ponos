@@ -182,10 +182,12 @@ def run(
     # What the caller adds comes last: an OpenRouter key configured for the
     # runner is meant to win over one that happens to be in this shell. See
     # openrouter.py.
+    scratch_tmp = leftovers.make_tmp(session_id)
     inherited = {
         **inheritable(os.environ),
         "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
         **leftovers.environment(cwd),
+        **({"TMPDIR": str(scratch_tmp)} if scratch_tmp else {}),
         **(environment or {}),
     }
     leftovers.warn_pinned(cwd)
@@ -255,6 +257,7 @@ def run(
             reap(process)
             leftovers.stop_processes(cwd)
             leftovers.sweep(cwd)
+            leftovers.drop_tmp(scratch_tmp)
     # Written by the CLI itself, so masked once it has let go of it.
     vault.scrub(stderr_path)
 

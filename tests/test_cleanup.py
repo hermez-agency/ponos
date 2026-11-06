@@ -104,6 +104,22 @@ def clean_leaves_the_worktrees_of_a_run_in_progress_alone(state_home: Path) -> N
 
 
 @case
+def clean_force_does_not_list_the_worktree_of_a_ticket_in_progress(state_home: Path) -> None:
+    """The trap of 6 November: `clean --force` stopped the processes of the
+    session it was run beside, because it listed every worktree."""
+    going = state_home / "worktrees" / "app-1a2b3c4d"
+    left = state_home / "worktrees" / "app-5e6f7a8b"
+    going.mkdir(parents=True)
+    left.mkdir(parents=True)
+    state.claim("page-1a2b3c4d", "In progress")
+    printed = io.StringIO()
+    with contextlib.redirect_stdout(printed):
+        assert cli_main(["clean", "--force"]) == 0
+    assert going.exists(), "the claimed ticket's worktree was removed"
+    assert not left.exists()
+
+
+@case
 def a_scratch_directory_never_speaks_for_the_repository_around_it() -> None:
     """`git rev-parse` in a directory that is no repository climbs to its
     parents — and the state directory may well sit inside one. `clean` would

@@ -180,6 +180,8 @@ def a_pass_tidies_what_done_tickets_left_and_nothing_else(state_home: Path) -> N
     claimed = _aged(worktrees / f"app-{tail['claimed']}", 30)
     orphan = _aged(scratch / f"notes-{tail['gone']}", 30)
     orphan_worktree = _aged(worktrees / f"app-{tail['gone2']}", 30)
+    (orphan_worktree / ".git").write_text("gitdir: /nowhere\n")
+    no_repository = _aged(worktrees / ".vite", 30)
     young_orphan = _aged(scratch / f"kind-{tail['gone2']}", 1)
     old_log = _aged(state_home / "logs" / "old.jsonl", 30, directory=False)
     new_log = _aged(state_home / "logs" / "new.jsonl", 1, directory=False)
@@ -190,6 +192,7 @@ def a_pass_tidies_what_done_tickets_left_and_nothing_else(state_home: Path) -> N
     assert tidied is not None
     assert not done.exists() and not done_scratch.exists(), "done for a month: gone"
     assert not orphan.exists(), "a scratch directory whose ticket left the board: gone"
+    assert not no_repository.exists(), "a folder no repository knows, on no ticket: gone"
     assert not old_log.exists() and new_log.exists()
     for kept in (
         fresh,
@@ -203,6 +206,67 @@ def a_pass_tidies_what_done_tickets_left_and_nothing_else(state_home: Path) -> N
         assert kept.exists(), f"{kept.name} was removed"
     assert tidied.logs == 1 and tidied.freed >= 3000, tidied
     assert runner.tidy() is None, "once a day, not every pass"
+
+
+@case
+def the_tidy_removes_stale_temporary_folders_and_prunes_docker(state_home: Path) -> None:
+    """The ticket: 37 000 `tmp*` folders in ~/.cache, 29 GB, none ever removed.
+    A session's own TMPDIR goes after the retention, the legacy ones after two
+    hours without a write — a folder still being written in stays — and Docker
+    is pruned once, unless the key says no."""
+    from support import REAL_PRUNE
+
+    from ponos import leftovers
+
+    cache = Path(os.environ["XDG_CACHE_HOME"])
+    old_session = _aged(leftovers.tmp_root() / "session-a", 2)
+    fresh_session = _aged(leftovers.tmp_root() / "session-b", 0.1)
+    legacy = _aged(cache / "tmp-ponos", 1)
+    busy = _aged(cache / "tmpabc", 1)
+    other = _aged(cache / "pip", 30)
+    # Abandoned for real: the files are old too, not only the folder.
+    for path in (old_session, legacy):
+        os.utime(path / "work.txt", (time.time() - 86400 * 2,) * 2)
+    os.utime(busy / "work.txt", None)  # written to a minute ago, folder untouched
+    asked: list[list[str]] = []
+
+    def docker(args: list[str], timeout: int) -> str:
+        asked.append(args)
+        return ""
+
+    real = leftovers.docker, leftovers.prune_docker
+    leftovers.docker, leftovers.prune_docker = docker, REAL_PRUNE
+    try:
+        tidied = _tidying([], "[runner]\ntmp_retention_hours = 1\n").tidy(now=True)
+        assert tidied is not None and tidied.tmp == 2 and tidied.docker, tidied
+        assert [command[:2] for command in asked] == [
+            ["image", "prune"],
+            ["builder", "prune"],
+            ["volume", "prune"],
+        ]
+        asked.clear()
+        _tidying([], "[runner]\ndocker_prune = false\n").tidy(now=True)
+        assert not asked, "docker_prune = false leaves Docker alone"
+    finally:
+        leftovers.docker, leftovers.prune_docker = real
+    assert not old_session.exists() and not legacy.exists()
+    for kept in (fresh_session, busy, other):
+        assert kept.exists(), f"{kept.name} was removed"
+
+
+@case
+def a_session_works_in_a_tmpdir_of_its_own_that_goes_with_it(state_home: Path) -> None:
+    from ponos import leftovers
+
+    made = leftovers.make_tmp("abc/../def")
+    assert made is not None and made.parent == leftovers.tmp_root() and made.is_dir()
+    (made / "x").write_text("x")
+    leftovers.drop_tmp(made)
+    assert not made.exists()
+    outside = state_home / "worktrees"
+    outside.mkdir(parents=True)
+    leftovers.drop_tmp(outside)
+    assert outside.exists(), "only what make_tmp made is ever removed"
 
 
 @case
@@ -363,7 +427,8 @@ def a_forgotten_worktree_goes_unless_its_ticket_runs_or_it_holds_work_nobody_els
         name: _aged(state_home / "worktrees" / f"app-{owner}", 3 if name == "young" else 40)
         for name, owner in zip(names, tail, strict=True)
     }
-    # Not a worktree any repository knows: not ours to guess about.
+    # Not a worktree any repository knows, and no ticket on the board: a
+    # folder nobody can ask for again, so it goes as the orphans do.
     (places["stray"] / "notes.txt").write_text("x")
     branches: list[str] = []
 
@@ -386,7 +451,7 @@ def a_forgotten_worktree_goes_unless_its_ticket_runs_or_it_holds_work_nobody_els
     ):
         _tidying(pages, "[runner]\nlog_retention_days = 0\n").tidy()
         gone = {name for name, path in places.items() if not path.exists()}
-        assert gone == {"failed", "gone"}, gone
+        assert gone == {"failed", "gone", "stray"}, gone
         assert sorted(branches) == [f"ticket/app-{tail[0]}", f"ticket/app-{tail[5]}"]
         # A ticket still in progress, and every one when it is turned off.
         again = _aged(state_home / "worktrees" / f"app-{tail[0]}", 40)

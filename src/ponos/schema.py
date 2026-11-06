@@ -303,6 +303,8 @@ class RunnerTable(Table):
     log_retention_days: AtLeast0 = Runner.log_retention_days
     clean_done_worktrees: bool = Runner.clean_done_worktrees
     stale_worktree_days: AtLeast0 = Runner.stale_worktree_days
+    tmp_retention_hours: AtLeast0 = Runner.tmp_retention_hours
+    docker_prune: bool = Runner.docker_prune
     worktree_exclude: Names = Runner.worktree_exclude
 
     classify: bool = Runner.classify

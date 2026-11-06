@@ -772,6 +772,19 @@ clean_done_worktrees = true
 # when a remote holds all its commits. 0 turns it off.
 stale_worktree_days = 30
 
+# Each session gets a TMPDIR of its own under ~/.cache/ponos/tmp/<session>, removed
+# when the session ends. Once a day, what is left there after this many hours goes,
+# and so do the temporary folders older sessions and tests left directly in ~/.cache
+# (tmp*, ponos-*tmp*, pt…) and in your home (tmp*) once untouched for two hours.
+# 0 turns it off.
+tmp_retention_hours = 24
+
+# Also once a day: docker image prune -a, docker builder prune and docker volume
+# prune, filtered to what is more than a day old — never a running container nor
+# its volumes, and never a volume a stopped container still refers to. false keeps
+# Docker as it is.
+docker_prune = true
+
 # Folders new worktrees are made without (a sparse checkout), comma-separated
 # or as a list — for big media files a ticket almost never touches, such as
 # "docs/media". Left out *before* the checkout, so they never use the disk. The

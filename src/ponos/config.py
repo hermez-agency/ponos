@@ -121,6 +121,11 @@ def state_dir() -> Path:
     return Path(base) / "ponos"
 
 
+def cache_dir() -> Path:
+    base = os.environ.get("XDG_CACHE_HOME") or str(Path.home() / ".cache")
+    return Path(base) / "ponos"
+
+
 def private_state() -> None:
     """Close the state directory, and the folders at its top, to other accounts.
 
@@ -440,6 +445,15 @@ class Runner:
     # ticket's status — unless the ticket is in progress, or the worktree holds
     # changes or commits that are nowhere else. Zero turns it off.
     stale_worktree_days: int = 30
+    # Each session works with a TMPDIR of its own, under `cache_dir()/tmp`,
+    # removed when it ends. What is still there after this many hours (a
+    # session killed, a crash) goes in the daily tidy, and so does what the
+    # sessions and the tests of old left in `~/.cache/tmp*` and `~/tmp*` once
+    # untouched for two. 0 turns it off.
+    tmp_retention_hours: int = 24
+    # Also once a day: `docker image prune -a`, `docker builder prune` and
+    # `docker volume prune` — what no container, running or stopped, refers to.
+    docker_prune: bool = True
     # Paths left out of every worktree (a sparse checkout), for the big media
     # files a ticket almost never touches. A ticket that needs one runs
     # `git sparse-checkout disable`. Empty checks everything out.

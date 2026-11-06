@@ -12,7 +12,7 @@ import shutil
 import sys
 from datetime import datetime
 
-from .. import cleanup, disk, git, local_ci, resources, systemd
+from .. import cleanup, disk, git, leftovers, local_ci, resources, systemd
 from .. import config as config_module
 from .check import ERROR, INFO, OK, WARN, Check, _check, _fix, _installing
 
@@ -163,11 +163,23 @@ def _disk(config: config_module.Config) -> list[Check]:
             params={
                 "state": str(state),
                 "sizes": ", ".join(
-                    f"{place} {cleanup.human(size)}" for place, size in cleanup.sizes().items()
+                    f"{place} {cleanup.human(size)}"
+                    for place, size in {**cleanup.sizes(), "tmp": cleanup.tmp_size()}.items()
                 ),
             },
         )
     )
+    reclaimable = leftovers.docker_reclaimable() if runner.docker_prune else ""
+    if reclaimable:
+        found.append(
+            _check(
+                "machine.disk",
+                INFO,
+                "Disk space",
+                "Docker could give back {{reclaimable}}; the daily tidy prunes it.",
+                params={"reclaimable": reclaimable},
+            )
+        )
     days = {"days": str(runner.log_retention_days)}
     if runner.log_retention_days <= 0:
         found.append(
