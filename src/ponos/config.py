@@ -1023,6 +1023,11 @@ TYPES = {
     "diagnostic": "Diagnostic",
 }
 
+# The types `runner.force_validated` may name. A diagnostic is not one of them:
+# it closes by itself once its fix tickets are written, and nothing of it waits
+# for a review.
+VALIDATED = tuple(kind for kind in TYPES if kind != "diagnostic")
+
 # The other spellings an option is still recognised by: the English words a
 # board was typed with before the names were fixed, and one without its accent.
 _TYPE_ALIASES = {
@@ -1701,7 +1706,7 @@ def _runner(table: schema.RunnerTable, raw: dict[str, Any]) -> Runner:
     if "force_validated" in table.model_fields_set:
         forced = table.force_validated
     else:
-        forced = tuple(kind for kind in TYPES if raw.get(f"force_validated_{kind}") is True)
+        forced = tuple(kind for kind in VALIDATED if raw.get(f"force_validated_{kind}") is True)
     read = table.model_dump(exclude={"force_validated"})
     return Runner(
         **{
@@ -1710,7 +1715,7 @@ def _runner(table: schema.RunnerTable, raw: dict[str, Any]) -> Runner:
             # The file first: a language picked in Settings is a decision taken
             # later than the deployment that set the environment.
             "language": table.language or os.environ.get(LANGUAGE_ENV, "").strip(),
-            **{f"force_validated_{kind}": kind in forced for kind in TYPES},
+            **{f"force_validated_{kind}": kind in forced for kind in VALIDATED},
         }
     )
 
