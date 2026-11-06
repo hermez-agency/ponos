@@ -364,7 +364,7 @@ export const api = {
     ),
   deleteSession: (id: string) =>
     answer(client.POST("/api/chat/{identifier}/delete", { params: { path: { identifier: id } } })),
-  chatModels: (id = "") => answer(client.GET("/api/chat/models", { params: { query: { id } } })),
+  chatModels: (id = "") => answer(client.GET("/api/chat/models", id ? { params: { query: { id } } } : {})),
   setChatModel: (chat: string, model: string) =>
     answer(
       client.POST("/api/chat/{identifier}/model", { params: { path: { identifier: chat } }, body: { model } })
