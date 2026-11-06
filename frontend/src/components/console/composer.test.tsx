@@ -63,7 +63,7 @@ describe("the send button", () => {
     expect(field.value).toBe("Hello")
   })
 
-  test("takes a sentence while Ponos answers, and says it will wait; a command, not", async () => {
+  test("takes a sentence while Ponos answers, and says it will wait; a command runs at once, one at a time", async () => {
     const user = userEvent.setup()
     const { field, arrow } = draw({ busy: true, commands: ["status"] })
     await user.type(field, "Hello")
@@ -71,6 +71,13 @@ describe("the send button", () => {
     expect(arrow().title).toBe("Send — it waits for Ponos to finish")
 
     await user.clear(field)
+    await user.type(field, ">status ")
+    expect(arrow().disabled).toBe(false)
+  })
+
+  test("holds a second command while one is running", async () => {
+    const user = userEvent.setup()
+    const { field, arrow } = draw({ busy: true, commanding: true, commands: ["status"] })
     await user.type(field, ">status ")
     expect(arrow().disabled).toBe(true)
   })
