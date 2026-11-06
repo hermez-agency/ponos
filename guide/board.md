@@ -147,6 +147,41 @@ ponos sync --journal   # what past reconciliations did
 
 ---
 
+## The tickets in ponos.db
+
+```toml
+[storage]
+mode = "db"
+```
+
+The tickets live in `ponos.db`, and Notion only mirrors them. The runner, the console, the
+MCP and the CLI read and write the database; nothing waits on Notion, which is why a Notion
+that is down — a revoked token, a quota, no network — blocks no ready ticket.
+
+Fill the database once from the board you have, then switch the mode:
+
+```sh
+ponos import notion    # every ticket of the Notion board, its two parts and its comments
+```
+
+It is safe to run twice: a page already imported is left alone.
+
+**Going out.** Every change of a ticket is a line of a queue in the database, and a pass sends
+the queue to Notion in order. A ticket changed five times while Notion was away is one write
+with the last word. When Notion refuses a change (a column it lacks), the change stays with its
+reason and the ones behind it go on.
+
+**Coming up.** Four things only: a page created in Notion becomes a ticket, its *status* is
+taken, its *Mission* part is taken, and its comments are read when the ticket's discussion is
+looked at. Anything else you edit in Notion is overwritten the next time the ticket moves. A
+status or a mission is not taken for a ticket that still has a change waiting in the queue: what
+Ponos has yet to say wins.
+
+**What stays in Notion.** The projects, the agents, the schedules, the goals and the standing
+context are still read from Notion; what was read last is kept in `notion-cache.json` beside
+`ponos.db` and answers when Notion does not. A project that was never read while Notion was up
+cannot be found until it is.
+
 ## The issues of a GitHub repository
 
 A team that follows its work in GitHub Issues has nothing to copy into Notion: the issues

@@ -35,7 +35,7 @@
 # checks both files.
 
 [storage]
-# Where the board lives. Three answers, and the first is what this tool has
+# Where the board lives. Five answers, and the first is what this tool has
 # always done.
 #
 #   "notion"    the board is Notion's, exactly as before. Nothing below this
@@ -46,6 +46,11 @@
 #               network. `ponos doctor` stops asking too
 #   "both"      the two, kept in step. A pass reconciles them before it reads
 #               the queue, and every write lands on both — see `conflict` below
+#   "db"        the tickets are rows of ponos.db and Notion only mirrors them:
+#               every change is queued and sent when Notion answers, so a
+#               Notion that is down blocks no ticket. Fill it once from Notion
+#               with `ponos import notion`. Projects, agents and the context
+#               stay Notion's (and are remembered when it is away)
 #   "github"    the tickets are the issues of the repositories [issues] names:
 #               an open issue with the label is a ticket, its status is a
 #               label, what a run says is a comment, and its pull request says

@@ -634,8 +634,13 @@ class Board(Base):
         goes on against the board it *can* read — which is Notion, since that is
         what a mirror reads from.
         """
+        from . import ledger as ledger_module
+        from . import mirror
         from . import sync as sync_module
 
+        if isinstance(self.client, ledger_module.Ledger):
+            self._mirror(mirror, self.client)
+            return
         if not isinstance(self.client, sync_module.Mirror):
             return
         if self.dry_run or not self.config.storage.on_every_pass:
@@ -649,6 +654,23 @@ class Board(Base):
             self.say(f"  ⌫ {entry.title or entry.page} — {entry.detail}")
         if carried := report.carried:
             self.say(f"  ⇄ {len(carried)} page(s) carried across")
+
+    def _mirror(self, mirror: Any, ledger: Any) -> None:
+        """Empty the queue towards Notion, bring back what changed there. See mirror.py.
+
+        Never a reason to fail a pass: that Notion does not answer is the one
+        thing `storage.mode = "db"` exists to survive.
+        """
+        if self.dry_run:
+            return
+        report = mirror.run(ledger)
+        if report.offline:
+            self.say("  ! Notion does not answer — the changes wait in the queue")
+        for problem in report.problems:
+            if not report.offline:
+                self.say(f"  ! mirror: {problem}")
+        if report.created or report.taken:
+            self.say(f"  ⇄ {report.created} ticket(s) created, {report.taken} changed in Notion")
 
     def reshape(self) -> int:
         """Put the open tickets' pages in their two parts, once each — see ticket_page.py.

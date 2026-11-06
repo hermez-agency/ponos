@@ -562,6 +562,7 @@ SECTIONS: tuple[Section, ...] = (
                     ("markdown", "Markdown files"),
                     ("both", "Both, kept in sync"),
                     ("github", "GitHub issues"),
+                    ("db", "ponos.db, Notion as its mirror"),
                 ),
                 after="the console has to be restarted",
             ),

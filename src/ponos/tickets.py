@@ -2,9 +2,9 @@
 
 `ticket.py` is a Notion page read the way a run reads it; this is the ticket
 itself, for the day the database is the source and the board only a mirror.
-Nothing reads it yet — the runner, the console and the MCP still go through
-`store` — and that is on purpose: the model and its tables come first, so that
-each next step moves one reader onto them rather than all at once.
+`ledger.py` reads and writes it for the runner, the console, the MCP and the
+CLI, and `mirror.py` is what carries it to Notion and brings back the little
+that still comes up.
 
 **The two parts of the page are two columns.** `mission` is what you write and
 `report` is what Ponos rewrites when it is done; they are not one Markdown
@@ -93,6 +93,7 @@ class Record:
     notion: str = ""
     created_at: str = ""
     edited_at: str = ""
+    notion_edited: str = ""
     after: list[str] = field(default_factory=list)
 
 
@@ -191,7 +192,16 @@ def create(title: str, *, id: str = "", after: list[str] | None = None, **values
 
 
 def _check(values: dict[str, Any]) -> None:
-    allowed = {*_TEXT, *_NUMBERS, *_FLAGS, "id", "notion", "created_at", "edited_at"}
+    allowed = {
+        *_TEXT,
+        *_NUMBERS,
+        *_FLAGS,
+        "id",
+        "notion",
+        "created_at",
+        "edited_at",
+        "notion_edited",
+    }
     unknown = sorted(set(values) - allowed)
     if unknown:
         raise ValueError(f"no such ticket column: {', '.join(unknown)}")
@@ -222,12 +232,15 @@ def listing(*, status: str = "", project: str = "") -> list[Record]:
         return [_record(connection, row) for row in rows]
 
 
-def update(ticket: str, **values: Any) -> Record | None:
+def update(ticket: str, *, mirrored: bool = False, **values: Any) -> Record | None:
     """Change columns of a ticket and queue the change; None when the ticket does not exist.
 
     A change that sets nothing new is not queued: the mirror has nothing to
     tell Notion. The kind of change the queue holds is `status` when the
     status is the only column that moved, `fields` otherwise.
+
+    `mirrored` is for a change that came up from Notion: it is already there,
+    and queuing it would send it back.
     """
     ticket = _key(ticket)
     after = values.pop("after", None)
@@ -265,26 +278,36 @@ def update(ticket: str, **values: Any) -> Record | None:
                 connection.execute(
                     "UPDATE tickets SET edited_at = ? WHERE id = ?", (_now(), ticket)
                 )
-            _queue(
-                connection,
-                ticket,
-                "status" if list(moved) == ["status"] else "fields",
-                fields=sorted(moved),
-            )
+            if not mirrored:
+                _queue(
+                    connection,
+                    ticket,
+                    "status" if list(moved) == ["status"] else "fields",
+                    fields=sorted(moved),
+                )
     return get(ticket)
 
 
 def delete(ticket: str) -> bool:
     ticket = _key(ticket)
     with db.transaction() as connection:
+        row = connection.execute("SELECT notion FROM tickets WHERE id = ?", (ticket,)).fetchone()
         gone = connection.execute("DELETE FROM tickets WHERE id = ?", (ticket,)).rowcount > 0
         if gone:
-            _queue(connection, ticket, "deleted")
+            # The row is gone when the mirror looks, so the page to trash is
+            # carried in the change itself.
+            _queue(connection, ticket, "deleted", notion=row[0] if row else "")
     return gone
 
 
-def comment(ticket: str, text: str, *, author: str = "", discussion: str = "") -> Remark:
-    """Add a comment to a ticket and queue it; raises `ValueError` on a ticket that is not here."""
+def comment(
+    ticket: str, text: str, *, author: str = "", discussion: str = "", mirrored: bool = False
+) -> Remark:
+    """Add a comment to a ticket and queue it; raises `ValueError` on a ticket that is not here.
+
+    `mirrored` is for a comment that came up from Notion: it is already there,
+    and queuing it would send it back.
+    """
     ticket = _key(ticket)
     at = _now()
     with db.transaction() as connection:
@@ -295,8 +318,36 @@ def comment(ticket: str, text: str, *, author: str = "", discussion: str = "") -
             (ticket, discussion, author, text, at),
         ).lastrowid
         assert number is not None
-        _queue(connection, ticket, "comment", comment=number)
+        if not mirrored:
+            _queue(connection, ticket, "comment", comment=number)
     return Remark(number, ticket, text, at, author, discussion)
+
+
+def attach(ticket: str, *, notion: str | None = None, edited: str | None = None) -> None:
+    """Note which page mirrors a ticket, and when Notion last edited it.
+
+    Neither is a change of the ticket: nothing is queued and `edited_at` stays.
+    """
+    sets, args = [], []
+    for column, value in (("notion", notion), ("notion_edited", edited)):
+        if value is not None:
+            sets.append(f"{column} = ?")
+            args.append(_key(value) if column == "notion" else value)
+    if not sets:
+        return
+    with db.transaction() as connection:
+        connection.execute(
+            f"UPDATE tickets SET {', '.join(sets)} WHERE id = ?", (*args, _key(ticket))
+        )
+
+
+def by_notion(page: str) -> Record | None:
+    """The ticket that a Notion page mirrors, whichever id the ticket was born with."""
+    with db.transaction(immediate=False) as connection:
+        row = connection.execute(
+            "SELECT * FROM tickets WHERE id = ? OR notion = ?", (_key(page), _key(page))
+        ).fetchone()
+        return _record(connection, row) if row else None
 
 
 def comments(ticket: str) -> list[Remark]:

@@ -831,7 +831,7 @@ class Storage:
     @property
     def notion(self) -> bool:
         """Does this installation talk to Notion at all?"""
-        return self.mode in ("notion", "both")
+        return self.mode in ("notion", "both", "db")
 
     @property
     def markdown(self) -> bool:
