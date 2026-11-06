@@ -31,6 +31,7 @@ from . import (
     git,
     github_checks,
     health,
+    ids,
     journal,
     launches,
     leftovers,
@@ -44,6 +45,7 @@ from . import (
     store,
     subtypes,
     systemd,
+    ticket_page,
     vault,
     vault_store,
     voice,
@@ -430,6 +432,66 @@ def _run_schedule(
     state.record(entry)
     ok(f"{entry['ticket']} — created, waiting in “{runner.config.notion.state('ready')}”")
     return 0
+
+
+# A symptom said at length is still the ticket's title, cut there; the whole of
+# it is the mission.
+SYMPTOM_TITLE = 120
+
+
+def command_diagnose(args: argparse.Namespace) -> int:
+    """« X does not work »: a diagnostic ticket, ready unless `--draft` — see diagnostic.py.
+
+    The sentence as it was said, for its title and its mission: the session's
+    work is to turn it into a cause, and rewording it here would be guessing
+    first. Through the store, as the console and the MCP create theirs.
+    """
+    configuration = load_config()
+    runner = Runner(configuration, quiet=True)
+    symptom = " ".join(" ".join(args.symptom).split())
+    if not symptom:
+        bad('say what does not work: ponos diagnose "the emails do not go out"')
+        return 2
+    settings = configuration.notion
+    values: dict[str, object] = {
+        settings.prop("status"): settings.state("draft" if args.draft else "ready"),
+        settings.prop("type"): runner.kind_name("diagnostic"),
+    }
+    if args.project:
+        try:
+            found = _project_named(runner, args.project)
+        except store.StoreError as error:
+            bad(f"the projects cannot be read: {error}")
+            return 1
+        if found is None:
+            bad(f"no project “{args.project}” (ponos projects lists those the tickets name)")
+            return 1
+        values[settings.prop("project")] = [found.id]
+    title_ = symptom if len(symptom) <= SYMPTOM_TITLE else symptom[: SYMPTOM_TITLE - 1] + "…"
+    try:
+        page_id = runner.client.create_row(runner.database, title_, values)
+        runner.client.append_markdown(page_id, ticket_page.template(runner.voice, symptom))
+    except store.StoreError as error:
+        bad(f"the diagnostic could not be created: {error}")
+        return 1
+    where = "in the drafts" if args.draft else "ready: the runner starts it at its next place"
+    ok(f"diagnostic created ({short_id(page_id)}), {where} — {title_}")
+    return 0
+
+
+def _project_named(runner: Runner, wanted: str) -> store.Page | None:
+    """The project page a name (any case) or an id designates, or None."""
+    database = runner.workspace.projects
+    if not database:
+        return None
+    key = ids.bare(wanted.strip()).lower()
+    for page in runner.client.query(database):
+        if (
+            ids.bare(page.id).lower() == key
+            or page.title.strip().casefold() == wanted.strip().casefold()
+        ):
+            return page
+    return None
 
 
 def command_projects(args: argparse.Namespace) -> int:
@@ -2018,6 +2080,16 @@ def _add_ticket_commands(subparsers: argparse._SubParsersAction[argparse.Argumen
         "statistics becomes today",
     )
     typing.set_defaults(function=command_subtypes)
+
+    diagnosing = subparsers.add_parser(
+        "diagnose", help="a diagnostic ticket: find why something does not work, then the fixes"
+    )
+    diagnosing.add_argument("symptom", nargs="+", help="what does not work, as you would say it")
+    diagnosing.add_argument("--project", help="the project it is about, by name or id")
+    diagnosing.add_argument(
+        "--draft", action="store_true", help="leave it in the drafts rather than ready"
+    )
+    diagnosing.set_defaults(function=command_diagnose)
 
     projects = subparsers.add_parser("projects", help="check the project → repository mapping")
     projects.set_defaults(function=command_projects)

@@ -32,7 +32,7 @@ from typing import Any
 
 from . import store, ticket_page, tickets
 from . import voice as voice_module
-from .config import Config
+from .config import TYPES, Config
 from .log import FILE_ONLY
 from .workspace import Workspace
 
@@ -59,11 +59,7 @@ def _values(
 ) -> dict[str, Any]:
     """The properties of the board for these columns of the ticket, by the board's names."""
     settings = config.notion
-    kind = (
-        settings.kind(record.kind)
-        if record.kind in ("code", "writing", "external", "publication")
-        else ""
-    )
+    kind = settings.kind(record.kind) if record.kind in TYPES else ""
     wanted: dict[str, Any] = {
         "status": ("status", record.status),
         "project": ("project", [record.project] if record.project else []),

@@ -1199,6 +1199,11 @@ export const FRENCH: Record<string, string> = {
   "add an account": "Ajouter un compte",
   "Remove this account": "Retirer ce compte",
   Save: "Enregistrer",
+  Diagnose: "Diagnostiquer",
+  "Diagnose a problem": "Diagnostiquer un problème",
+  "Diagnose a problem of {{project}}": "Diagnostiquer un problème de {{project}}",
+  "Something does not work: a session finds why, then writes the tickets that fix it":
+    "Quelque chose ne marche pas : une session trouve pourquoi, puis écrit les tickets qui le corrigent",
 
   /* -- the settings page, as `web/settings.py` describes the file ------------- */
   // The server sends one entry per key of `config.toml` — a title, a sentence

@@ -417,6 +417,7 @@ export const api = {
       preview?: { command: string; url: string; pages: string[] }
       plan?: { priority: number | null; subtypes: string[] }
       browser?: { value: "ponos" | "chrome" }
+      diagnostic?: Pick<ProjectSettings["diagnostic"], "mcp" | "hosts" | "urls" | "ready">
     }
   ) =>
     answer(

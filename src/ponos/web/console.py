@@ -64,6 +64,7 @@ logger = logging.getLogger(__name__)
 # listed is what fits both — it reads, it reconciles, it says something, and it
 # is done in seconds.
 OFFERED = (
+    "diagnose",
     "doctor",
     "history",
     "list",

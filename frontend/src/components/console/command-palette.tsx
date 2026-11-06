@@ -15,6 +15,7 @@ import {
   RefreshCw,
   Scale,
   Settings2,
+  Stethoscope,
   Target,
 } from "lucide-react"
 import { ActionList } from "react-data-form"
@@ -146,6 +147,14 @@ export function CommandPalette() {
       defaultData: here ? { project: here.id } : undefined,
     })
 
+  // A Diagnostic: the same dialog, its type already chosen — see `DiagnoseButton`.
+  const diagnoseHref = () =>
+    generateLinkByResource({
+      resource: tickets,
+      resourceAction: ActionList.create,
+      defaultData: here ? { project: here.id, type: "diagnostic" } : { type: "diagnostic" },
+    })
+
   useHotkeys({
     palette: () => change(!open),
     // Under a window — a form half written, a picker typed into — the key is
@@ -188,6 +197,12 @@ export function CommandPalette() {
       icon: Plus,
       onSelect: () => go(newTicketHref()),
       shortcut: ticketKey.label,
+    },
+    {
+      value: here ? t("Diagnose a problem of {{project}}", { project: here.name }) : t("Diagnose a problem"),
+      keywords: ["diagnose", "diagnostic", "bug", "broken", "why"],
+      icon: Stethoscope,
+      onSelect: () => go(diagnoseHref()),
     },
     {
       value: t("New project"),

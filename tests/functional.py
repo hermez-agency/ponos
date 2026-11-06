@@ -59,6 +59,7 @@ from ponos import (  # noqa: E402
     base,
     credits,
     db,
+    diagnostic,
     github_checks,
     images,
     journal,
@@ -278,6 +279,8 @@ class Board:
             return self._receive(identifier, raw)
         if route == ("PATCH", "pages", "*"):
             return self._update(identifier, body)
+        if route == ("POST", "pages"):
+            return self._create(body)
         if route == ("GET", "blocks", "*", "children"):
             return 200, {"results": self.blocks.get(identifier, []), "has_more": False}
         if route == ("PATCH", "blocks", "*", "children"):
@@ -366,6 +369,21 @@ class Board:
             page["properties"][name] = _stored(value)
         page["last_edited_time"] = _now()
         return 200, self._signed(page)
+
+    def _create(self, body: dict[str, Any]) -> tuple[int, Any]:
+        """A page made in a database — what the mirror does for a ticket born in `ponos.db`."""
+        database = str((body.get("parent") or {}).get("database_id") or "").replace("-", "")
+        if database not in self.databases:
+            return 404, {"message": "database not found"}
+        schema = self.databases[database]["properties"]
+        properties: dict[str, Any] = {}
+        for name, value in (body.get("properties") or {}).items():
+            if name not in schema:
+                return 400, {"message": f"{name} is not a property that exists"}
+            properties[name] = _stored(value)
+        identifier = self.page(properties, database=database)
+        self._append(identifier, body.get("children") or [])
+        return 200, self._signed(self.pages[identifier])
 
     def hosted(self, name: str, filename: str) -> dict[str, Any]:
         """A file this Notion keeps, as a page's cover or icon points at it."""
@@ -822,6 +840,49 @@ if silent and "You stopped without writing your report" in prompt:
     finish("RESULT: ok — compte rendu écrit", turns=1, cost=0.01)
 if silent:
     finish("Je branche le domaine.")
+
+# A diagnostic: it looks through the repository it is told it may read for the
+# line `FAKE_CLAUDE_DIAGNOSE` names. Found, it reports the file and the line, and
+# writes two fix tickets, the second after the first. Found nowhere, it stops
+# blocked on what it ruled out — leaving a FIXES.json anyway, which a diagnostic
+# that found nothing must never turn into tickets.
+sought = os.environ.get("FAKE_CLAUDE_DIAGNOSE", "")
+if sought and "# This ticket is a diagnostic" in prompt:
+    import re
+
+    where = re.search(r"repository is at (\\S+?): read it", prompt)
+    hits = []
+    if where:
+        root = Path(where.group(1))
+        for path in sorted(root.rglob("*.py")):
+            for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                if sought in line:
+                    hits.append((str(path.relative_to(root)), number, line.strip()))
+    guess = {"title": "Réécrire tout le calcul", "context": "Peut-être.", "expected": "Tout.",
+             "done": "Quand ça marche.", "out": "Rien."}
+    if not hits:
+        (here / "FIXES.json").write_text(json.dumps([guess]), encoding="utf-8")
+        finish("J'ai lu le dépôt, l'historique et les journaux : aucune ligne ne produit ce "
+               "symptôme.\\nÉliminé : le calcul, la configuration.\\nCATEGORY: question\\n"
+               "QUESTION: Sur quelle machine le total est-il faux ?\\nMODE: free\\n"
+               "RESULT: blocked — la cause n'est pas dans le dépôt")
+    name, number, line = hits[0]
+    (here / "ANSWER.md").write_text(
+        "## Symptôme\\n\\nLe total est faux.\\n\\n## Cause\\n\\n`" + name + ":" + str(number)
+        + "` : `" + line + "` soustrait au lieu d'additionner.\\n\\n## Ce qui reste incertain"
+        "\\n\\nRien.\\n\\n## Corrections\\n\\n- Additionner dans total\\n- Tester le total\\n",
+        encoding="utf-8",
+    )
+    (here / "FIXES.json").write_text(json.dumps([
+        {"title": "Additionner dans total", "context": "`" + name + ":" + str(number)
+         + "` soustrait.", "expected": "Remplacer `-` par `+` dans `total`.",
+         "done": "`total(2, 3)` vaut 5.", "out": "Le reste du module.", "subtype": "bug",
+         "priority": 80},
+        {"title": "Tester le total", "context": "Aucun test ne couvre `total`.",
+         "expected": "Un test de `total`.", "done": "Le test passe.", "out": "Le code.",
+         "after": [0]},
+    ]), encoding="utf-8")
+    finish("RESULT: ok — la cause est " + name + ":" + str(number))
 
 # A ticket run without its repository that asks for one: the session says so on
 # its `KIND: code` line — `FAKE_CLAUDE_WRONG_KIND` is why — and does nothing.
@@ -1369,7 +1430,13 @@ class Bench:
                 "select": {
                     "options": [
                         {"name": name}
-                        for name in ("Code", "Rédaction", "Action externe", "Publication")
+                        for name in (
+                            "Code",
+                            "Rédaction",
+                            "Action externe",
+                            "Publication",
+                            "Diagnostic",
+                        )
                     ]
                 },
             },
@@ -1609,6 +1676,7 @@ def bench(**overrides: object) -> Iterator[Bench]:
                 "FAKE_GH_REVIEWS": "",
                 "FAKE_CLAUDE_REVIEW_NOTHING": "",
                 "FAKE_CLAUDE_BROWSE": "",
+                "FAKE_CLAUDE_DIAGNOSE": "",
                 **{name: str(path) for name, path in logs.items()},
             }
             with _environ(environment):
@@ -2178,6 +2246,140 @@ def a_writing_ticket_is_answered_in_its_page_and_touches_no_repository(machine: 
     state = Path(os.environ["XDG_STATE_HOME"]) / "ponos"
     assert not (state / "worktrees").exists(), "a document ticket made a worktree"
     assert not list((state / "scratch").glob("*")), "its scratch directory was left behind"
+
+
+def _diagnosed_repository(machine: Bench) -> tuple[Path, str]:
+    """A repository with a known bug on `main`, its project, and a board that can link tickets."""
+    machine.typed()
+    database = machine.board.databases[machine.database]
+    database["properties"] = {
+        **database["properties"],
+        "Après": {"type": "relation", "relation": {}},
+    }
+    repository = machine.repository("calcul")
+    machine.land(repository, "calc.py", "def total(a, b):\n    return a - b\n")
+    return repository, machine.project("Calcul", repository)
+
+
+def _diagnostic(machine: Bench, project: str) -> str:
+    ticket = machine.ticket("Le total est faux", "La somme de 2 et 3 donne -1.", project)
+    machine.board.pages[ticket]["properties"]["Type"] = _stored({"select": {"name": "Diagnostic"}})
+    return ticket
+
+
+def _other_tickets(machine: Bench, *known: str) -> list[tuple[str, dict[str, Any]]]:
+    """The pages of the tickets database that the scenario did not write itself."""
+    return [
+        (page_id, page)
+        for page_id, page in machine.board.pages.items()
+        if page_id not in known
+        and page.get("parent", {}).get("database_id", "").replace("-", "")
+        == machine.database.replace("-", "")
+    ]
+
+
+@case
+def a_diagnostic_finds_the_cause_on_its_line_and_creates_the_fix_tickets_linked_to_it(
+    machine: Bench,
+) -> None:
+    """A known bug in the repository: the cause on its file and line, two fix tickets, closed.
+
+    Read only — no worktree, no branch, no pull request —, the report in the
+    page, and the tickets the session wrote created by the runner: in the
+    drafts, each « after » the diagnostic, the second after the first too, and
+    a mission that holds its four parts.
+    """
+    repository, project = _diagnosed_repository(machine)
+    ticket = _diagnostic(machine, project)
+
+    with _environ({"FAKE_CLAUDE_DIAGNOSE": "return a - b"}):
+        results = machine.run()
+
+    assert [result["status"] for result in results] == ["done"], results
+    assert machine.status(ticket) == "done", "a diagnostic closes once its tickets are written"
+    report = machine.board.body(ticket)
+    assert "calc.py:2" in report and "soustrait" in report, report
+
+    sessions = machine.sessions()
+    assert len(sessions) == 1, sessions
+    prompt = sessions[0]["prompt"]
+    assert "find the cause, fix nothing" in prompt, prompt
+    assert str(repository) in prompt and "What you may reach" in prompt, prompt
+    assert not machine.pull_requests(), "a diagnostic opened a pull request"
+    assert not any("worktree" in call["args"] for call in machine.git_calls()), "it got a worktree"
+
+    created = _other_tickets(machine, ticket)
+    by_title = {
+        notion.read(
+            notion.Page(id=page_id, url="", title="", properties=page["properties"]), "Name"
+        ): page_id
+        for page_id, page in created
+    }
+    assert sorted(by_title) == ["Additionner dans total", "Tester le total"], by_title
+    first, second = by_title["Additionner dans total"], by_title["Tester le total"]
+    for fix in (first, second):
+        assert machine.status(fix) == "draft", machine.status(fix)
+        assert machine.board.value(fix, "Type") == "Code"
+        assert machine.board.value(fix, "Project") == [project], machine.board.value(fix, "Project")
+    bare = [one.replace("-", "") for one in machine.board.value(first, "Après")]
+    assert bare == [ticket.replace("-", "")], bare
+    bare = sorted(one.replace("-", "") for one in machine.board.value(second, "Après"))
+    assert bare == sorted([ticket.replace("-", ""), first.replace("-", "")]), bare
+    mission = machine.board.body(first)
+    for part in ("Context", "Expected", "Done when", "Out of scope", "calc.py:2"):
+        assert part in mission, mission
+    assert "Fix tickets created (2)" in "\n".join(machine.board.said(ticket)), machine.board.said(
+        ticket
+    )
+
+
+@case
+def a_project_can_send_the_fix_tickets_of_its_diagnostics_straight_to_ready(
+    machine: Bench,
+) -> None:
+    """Ready on the project's Diagnostic card: each fix starts once what it comes after is done.
+
+    The first comes after the diagnostic alone, which closes in the same pass:
+    it runs at once and waits in review. The second comes after the first too,
+    and stays ready.
+    """
+    repository, project = _diagnosed_repository(machine)
+    project_settings.set_diagnostic(project, "Calcul", diagnostic.Access(ready=True))
+    ticket = _diagnostic(machine, project)
+
+    with _environ({"FAKE_CLAUDE_DIAGNOSE": "return a - b"}):
+        results = machine.run()
+
+    assert machine.status(ticket) == "done", results
+    statuses = {
+        str(machine.board.value(fix, "Name") or ""): machine.status(fix)
+        for fix, _ in _other_tickets(machine, ticket)
+    }
+    assert statuses == {"Additionner dans total": "review", "Tester le total": "ready"}, statuses
+    assert len(machine.pull_requests()) == 1, "the first fix did not run as code"
+    db.close()
+
+
+@case
+def a_diagnostic_that_finds_no_cause_is_blocked_on_a_question_and_creates_nothing(
+    machine: Bench,
+) -> None:
+    """Nothing in the repository: blocked, what was ruled out and the question — and no ticket.
+
+    Even though the session left a FIXES.json behind: a diagnostic that did not
+    find its cause does not get to write a fix on a guess.
+    """
+    _, project = _diagnosed_repository(machine)
+    ticket = _diagnostic(machine, project)
+
+    with _environ({"FAKE_CLAUDE_DIAGNOSE": "une ligne qui n'existe pas"}):
+        results = machine.run()
+
+    assert machine.status(ticket) == "blocked", (machine.status(ticket), results)
+    assert not _other_tickets(machine, ticket), "a fix ticket was written on a guess"
+    said = "\n".join(machine.board.said(ticket))
+    assert "Sur quelle machine le total est-il faux ?" in said, said
+    assert not machine.pull_requests()
 
 
 @case

@@ -68,7 +68,7 @@ ColumnKey = Literal[
     "done",
     "cancelled",
 ]
-TicketKind = Literal["code", "publication", "writing", "external"]
+TicketKind = Literal["code", "publication", "writing", "external", "diagnostic"]
 IdeaStatus = Literal["proposed", "kept", "discarded", "ticket"]
 UpgradePhase = Literal[
     "idle", "waiting", "downloading", "installing", "restarting", "done", "failed"
@@ -511,12 +511,17 @@ class ValidationField(Shape):
 
 
 class ByKind(Shape):
-    """One switch for each of the four types of ticket."""
+    """One switch for each type of ticket.
+
+    A diagnostic's is always off: it closes by itself once its fix tickets are
+    written, and there is nothing of it to validate.
+    """
 
     code: bool
     publication: bool
     writing: bool
     external: bool
+    diagnostic: bool
 
 
 class Validation(Shape):
@@ -615,6 +620,31 @@ class ProjectBrowser(Shape):
     """The domains its profile holds cookies for: the sites it is signed in to."""
 
 
+class DiagnosticHost(Shape):
+    """A machine a project's diagnostics may open a shell on — see diagnostic.py."""
+
+    address: str
+    """`user@host`, a port after a colon at most."""
+    entry: str
+    """The vault entry that opens it; empty, the keys the machine already has."""
+    label: str
+    """What the machine is, for the person reading the report."""
+
+
+class ProjectDiagnostic(Shape):
+    """What a project's diagnostics may reach, and where their fix tickets land."""
+
+    mcp: list[str]
+    """The admin MCP servers they may ask, by name, read only."""
+    hosts: list[DiagnosticHost]
+    urls: list[str]
+    """The production addresses they may `curl`, GET only."""
+    ready: bool
+    """Whether their fix tickets go straight to Ready rather than to the drafts."""
+    entries: list[str]
+    """The names of the vault's entries, to choose a host's from."""
+
+
 class ProjectSettings(Shape):
     """What a project decides for itself — see project_settings.py."""
 
@@ -628,6 +658,7 @@ class ProjectSettings(Shape):
     preview: ProjectPreview
     plan: ProjectPlan
     browser: ProjectBrowser
+    diagnostic: ProjectDiagnostic
 
 
 class ProjectNotes(Shape):

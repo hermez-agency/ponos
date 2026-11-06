@@ -17,6 +17,7 @@ import type { ProjectSettings, TicketKind, ValidationField } from "@/lib/types"
 import { settingsHref } from "@/resources/settings"
 
 import { BrowserCard } from "./project-browser"
+import { DiagnosticCard, type DiagnosticSaved } from "./project-diagnostic"
 import { NotesCard } from "./project-notes"
 import { MoreHelp } from "./settings-bits"
 import { Rich } from "./text"
@@ -144,6 +145,18 @@ export function ProjectSettingsTab({ project }: { project: string }) {
     }
   }
 
+  const saveDiagnostic = async (diagnostic: DiagnosticSaved) => {
+    setSaving(true)
+    try {
+      setSettings(await api.saveProjectSettings(project, { diagnostic }))
+      setProblem("")
+    } catch (error) {
+      setProblem(why(error))
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const saveSetup = async (command: string) => {
     setSaving(true)
     try {
@@ -259,6 +272,12 @@ export function ProjectSettingsTab({ project }: { project: string }) {
       />
       <LocalCiCard key={localCi.command} localCi={localCi} saving={saving} onSave={saveLocalCi} />
       <BrowserCard browser={settings.browser} saving={saving} onSave={saveBrowser} onChanged={read} />
+      <DiagnosticCard
+        key={JSON.stringify(settings.diagnostic)}
+        diagnostic={settings.diagnostic}
+        saving={saving}
+        onSave={saveDiagnostic}
+      />
       <Card data-card="project-self-review" className="gap-0 py-0">
         <CardHeader className="gap-1 px-5 pt-5 pb-2 sm:px-6">
           <CardTitle className="text-base">{t("Self-review before pull request")}</CardTitle>

@@ -52,8 +52,8 @@ from .config import (
     MERGE_METHODS,
     PROVIDERS,
     SECRETS,
-    TYPES,
     UPDATE_CHANNELS,
+    VALIDATED,
     WEEKDAYS,
     Budget,
     ConfigError,
@@ -204,7 +204,7 @@ def _forced(value: object) -> tuple[str, ...]:
     stop the runner, nor merge a type nobody named.
     """
     named = {str(word).strip().lower() for word in _words(value)}
-    return tuple(kind for kind in TYPES if kind in named)
+    return tuple(kind for kind in VALIDATED if kind in named)
 
 
 def _words(value: object) -> list[Any]:

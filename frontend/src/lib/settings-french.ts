@@ -284,6 +284,8 @@ export const SETTINGS_FRENCH: Record<string, string> = {
   "Writing tickets start at": "Les tickets Rédaction partent de",
   "External action tickets start at": "Les tickets Action externe partent de",
   "Publication tickets start at": "Les tickets Publication partent de",
+  "Diagnostic tickets start at": "Les tickets Diagnostic partent de",
+  Diagnostic: "Diagnostic",
   "Where a code ticket of this sub-type starts, from the level of Code.":
     "Où part un ticket Code de ce sous-type, depuis le niveau de Code.",
   "One level lower": "Un niveau plus bas",
@@ -1081,6 +1083,27 @@ export const SETTINGS_FRENCH: Record<string, string> = {
   "Browser for external tickets": "Navigateur des tickets externes",
   "Ponos's own browser is Chromium driven by Playwright on this machine, one profile per project, and it signs in with the logins of the vault without the model ever seeing their password. It needs the `browser` extra (`pip install playwright`, then `python -m playwright install chromium`). Claude in Chrome acts in your own Chrome.": "Le navigateur de Ponos est un Chromium piloté par Playwright sur cette machine, un profil par projet, qui se connecte avec les logins du coffre sans que le modèle voie jamais leur mot de passe. Il demande l'extra `browser` (`pip install playwright`, puis `python -m playwright install chromium`). Claude in Chrome agit dans votre propre Chrome.",
   "Browser of external tickets": "Navigateur des tickets externes",
+  "A diagnostic ticket investigates « X does not work » without changing anything, then writes the tickets that fix it. It always reads the repository and Ponos; declare here what else it may read.":
+    "Un ticket Diagnostic enquête sur « X ne marche pas » sans rien modifier, puis écrit les tickets qui le corrigent. Il lit toujours le dépôt et Ponos ; déclarez ici ce qu'il peut lire d'autre.",
+  "Fix tickets straight to Ready": "Tickets de correction directement en Prêt",
+  "They start as soon as the diagnostic is closed, each after the ones it depends on.":
+    "Ils partent dès que le diagnostic est fermé, chacun après ceux dont il dépend.",
+  "Off: they are created as drafts, for you to read before they run.":
+    "Désactivé : ils sont créés en brouillon, pour que vous les relisiez avant qu'ils tournent.",
+  "Admin MCP servers": "Serveurs MCP d'administration",
+  "Their names in `claude mcp list`, separated by commas. Only their tools that read are called.":
+    "Leurs noms dans `claude mcp list`, séparés par des virgules. Seuls leurs outils de lecture sont appelés.",
+  "Production addresses": "Adresses de production",
+  "Read with GET requests only, separated by commas.": "Lues en requêtes GET seulement, séparées par des virgules.",
+  "SSH hosts": "Hôtes SSH",
+  "Read-only commands only. The vault entry holds what opens the machine; empty, the keys this machine already has.":
+    "Des commandes de lecture seulement. L'entrée du coffre porte ce qui ouvre la machine ; vide, les clés que cette machine a déjà.",
+  "SSH address": "Adresse SSH",
+  "Vault entry": "Entrée du coffre",
+  "What it is": "Ce que c'est",
+  "the console": "la console",
+  "Remove this host": "Retirer cet hôte",
+  "Add a host": "Ajouter un hôte",
   "What a project uses when its settings do not say; a ticket names the other one with a line `Browser: chrome` or `Browser: ponos` in its body.": "Ce qu'utilise un projet dont les réglages ne disent rien ; un ticket nomme l'autre par une ligne `Browser: chrome` ou `Browser: ponos` dans sa description.",
   "Ponos's browser": "Navigateur de Ponos",
   "Claude in Chrome": "Claude in Chrome",

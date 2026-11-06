@@ -2545,12 +2545,18 @@ export interface components {
             /** @default  */
             project: string;
         };
-        /** @description One switch for each of the four types of ticket. */
+        /**
+         * @description One switch for each type of ticket.
+         *
+         *     A diagnostic's is always off: it closes by itself once its fix tickets are
+         *     written, and there is nothing of it to validate.
+         */
         ByKind: {
             code: boolean;
             publication: boolean;
             writing: boolean;
             external: boolean;
+            diagnostic: boolean;
         };
         Changed: {
             after: string;
@@ -2975,6 +2981,15 @@ export interface components {
         Detached: {
             /** @description The file taken off the message, by its identifier. */
             removed: string;
+        };
+        /** @description A machine a project's diagnostics may open a shell on — see diagnostic.py. */
+        DiagnosticHost: {
+            /** @description `user@host`, a port after a colon at most. */
+            address: string;
+            /** @description The vault entry that opens it; empty, the keys the machine already has. */
+            entry: string;
+            /** @description What the machine is, for the person reading the report. */
+            label: string;
         };
         Dictation: {
             ready: boolean;
@@ -3914,6 +3929,18 @@ export interface components {
             content: string;
             version: string;
         };
+        /** @description What a project's diagnostics may reach, and where their fix tickets land. */
+        ProjectDiagnostic: {
+            /** @description The admin MCP servers they may ask, by name, read only. */
+            mcp: string[];
+            hosts: components["schemas"]["DiagnosticHost"][];
+            /** @description The production addresses they may `curl`, GET only. */
+            urls: string[];
+            /** @description Whether their fix tickets go straight to Ready rather than to the drafts. */
+            ready: boolean;
+            /** @description The names of the vault's entries, to choose a host's from. */
+            entries: string[];
+        };
         /** @description Whether ideas are found for a project on a schedule — see idea_schedule.py. */
         ProjectIdeas: {
             /** @description What applies to it: its own word, or the file's. */
@@ -3999,6 +4026,7 @@ export interface components {
             preview: components["schemas"]["ProjectPreview"];
             plan: components["schemas"]["ProjectPlan"];
             browser: components["schemas"]["ProjectBrowser"];
+            diagnostic: components["schemas"]["ProjectDiagnostic"];
         };
         Projects: {
             projects: components["schemas"]["Project"][];
@@ -5143,7 +5171,7 @@ export interface components {
         /** @description One switch of the automatic validation, worded as the global card words it. */
         ValidationField: {
             /** @enum {string} */
-            kind: "code" | "publication" | "writing" | "external";
+            kind: "code" | "publication" | "writing" | "external" | "diagnostic";
             /** @description The global setting's key, `runner.force_validated_code`. */
             name: string;
             label: string;

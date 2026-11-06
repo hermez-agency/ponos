@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils"
 import { canAct, isAdmin } from "@/lib/role"
 import {
   CONTEXT_ANCHOR,
+  DiagnoseButton,
   Repository,
   Where,
   isAPage,
@@ -420,6 +421,7 @@ export function ProjectActions() {
       {away ? <Away label="Notion" href={away} /> : null}
       {/* Then the actions, one height so the row reads as one group. */}
       {isAPage(project.id) && canAct() ? <IdeasButton project={project.id} name={project.name} inline /> : null}
+      {isAPage(project.id) && canAct() ? <DiagnoseButton project={project} /> : null}
       {isAPage(project.id) && canAct() ? (
         // One piece, so that on a phone the "…" wraps with the edit button
         // rather than alone on a line under it.

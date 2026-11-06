@@ -466,6 +466,9 @@ class Runner:
     auto_model_writing: str = "light"
     auto_model_external: str = "standard"
     auto_model_publication: str = "standard"
+    # An investigation reads a lot and concludes in tickets other sessions will
+    # follow to the letter: it starts where the hard work does.
+    auto_model_diagnostic: str = "heavy"
     # …and how a code ticket's sub-type moves that start: `lower`, `same` or
     # `higher`, by sub-type — see subtypes.py. A sub-type the file says nothing
     # about moves it by the table's own default.
@@ -488,7 +491,7 @@ class Runner:
             },
             starts={
                 kind: getattr(self, f"auto_model_{kind}")
-                for kind in ("code", "writing", "external", "publication")
+                for kind in ("code", "writing", "external", "publication", "diagnostic")
             },
             shifts={key: subtypes.shift(key, self.auto_model_subtypes) for key in subtypes.KEYS},
         )
@@ -1009,7 +1012,7 @@ _DEFAULT_PAGES = {
     "goals": "Objectifs",
 }
 
-# The four types of ticket, told apart by the road they take rather than by what
+# The five types of ticket, told apart by the road they take rather than by what
 # they are about — see kinds.py. The keys are what the code says; the values are
 # the options of the board's Type column.
 TYPES = {
@@ -1017,7 +1020,13 @@ TYPES = {
     "writing": "Rédaction",
     "external": "Action externe",
     "publication": "Publication",
+    "diagnostic": "Diagnostic",
 }
+
+# The types `runner.force_validated` may name. A diagnostic is not one of them:
+# it closes by itself once its fix tickets are written, and nothing of it waits
+# for a review.
+VALIDATED = tuple(kind for kind in TYPES if kind != "diagnostic")
 
 # The other spellings an option is still recognised by: the English words a
 # board was typed with before the names were fixed, and one without its accent.
@@ -1697,7 +1706,7 @@ def _runner(table: schema.RunnerTable, raw: dict[str, Any]) -> Runner:
     if "force_validated" in table.model_fields_set:
         forced = table.force_validated
     else:
-        forced = tuple(kind for kind in TYPES if raw.get(f"force_validated_{kind}") is True)
+        forced = tuple(kind for kind in VALIDATED if raw.get(f"force_validated_{kind}") is True)
     read = table.model_dump(exclude={"force_validated"})
     return Runner(
         **{
@@ -1706,7 +1715,7 @@ def _runner(table: schema.RunnerTable, raw: dict[str, Any]) -> Runner:
             # The file first: a language picked in Settings is a decision taken
             # later than the deployment that set the environment.
             "language": table.language or os.environ.get(LANGUAGE_ENV, "").strip(),
-            **{f"force_validated_{kind}": kind in forced for kind in TYPES},
+            **{f"force_validated_{kind}": kind in forced for kind in VALIDATED},
         }
     )
 

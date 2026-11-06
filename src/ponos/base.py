@@ -156,6 +156,22 @@ if TYPE_CHECKING:
             detail: str = "",
         ) -> session.Outcome: ...
         def _github(self, job: Job) -> dict[str, str]: ...
+        def _deliver_text(
+            self,
+            job: Job,
+            outcome: session.Outcome,
+            content: str,
+            *,
+            review: bool = False,
+            kept: Path | None = None,
+            note: str = "",
+            pull_request: str = "",
+        ) -> dict[str, Any] | None: ...
+
+        # diagnosis.py
+        def _diagnosed(
+            self, job: Job, outcome: session.Outcome, content: str
+        ) -> dict[str, Any] | None: ...
 
         # review.py
         def _self_review(self, job: Job, outcome: session.Outcome) -> session.Outcome: ...

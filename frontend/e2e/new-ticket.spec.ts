@@ -137,7 +137,7 @@ test("no card says what the ticket will come back as, whatever the type", async 
   await page.getByRole("option", { name: /Website/ }).click()
   await expect(dialog.locator('[data-slot="project-repository"]')).toHaveText("git")
 
-  for (const type of ["Auto", "Code", "Writing", "External action", "Publication"]) {
+  for (const type of ["Auto", "Code", "Writing", "External action", "Publication", "Diagnostic"]) {
     await segment(dialog, "Type", type).click()
     await expect(dialog.locator('[data-slot="ticket-outcome"]')).toHaveCount(0)
     await expect(dialog.getByText("What it will give")).toHaveCount(0)

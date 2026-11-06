@@ -79,7 +79,7 @@ Two of them are yours, and each takes a few seconds. The two in between are Pono
   reaches you on **Telegram or Slack**, and your reply lands on the ticket. See
   [Being told, and answering with one word](guide/channels.md#being-told-and-answering-with-one-word).
 
-**Not only code — four kinds of task.** The ticket's type decides the road: pick it, or let
+**Not only code — five kinds of task.** The ticket's type decides the road: pick it, or let
 a small model read the ticket and choose.
 
 | Type | A ticket | What comes back |
@@ -88,6 +88,7 @@ a small model read the ticket and choose.
 | **Writing** | *Draft the October newsletter* | A text, written into the ticket, ready to copy. No repository needed. |
 | **External action** | *Add the DNS records for the new domain* | Done in the browser or a service's settings, with every change logged. It stops at its first doubt. |
 | **Publication** | *Post the 1.2 release on LinkedIn* | Prepared and shown to you first. Published once you say yes. |
+| **Diagnostic** | *The emails do not go out* | The cause, with its proof — files and lines, logs, commands —, found read-only; then the fix tickets, written and linked for you. |
 
 Tickets also [come back on their own](guide/tickets.md#what-comes-back-on-its-own) on a schedule, and the
 console's chat is a Claude Code session in your workspace — and several conversations can answer at once, each in its own tab.
@@ -192,7 +193,7 @@ runs for good (`ponos.service`), and a restart or an update never cuts a session
 daemon that comes back takes it back. See [Installing](guide/installation.md).
 
 Which of the two you get is decided by the ticket's **Type** when it has one — `Code`,
-`Rédaction`, `Action externe`, `Publication` — and otherwise by the project: a project that
+`Rédaction`, `Action externe`, `Publication`, `Diagnostic` — and otherwise by the project: a project that
 names a repository produces code, a project that names none — or a ticket with no project
 at all — produces a document. A ticket that reaches *Ready* with no type is classified
 first, and a doubt stops it before anything runs. See [The type of a ticket](guide/board.md#the-type-of-a-ticket).

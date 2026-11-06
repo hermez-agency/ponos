@@ -24,6 +24,7 @@ ponos status       # daemon, console, places taken and free per project, the que
 ponos history      # what has been handled, with the pull requests (-n, --number: how many)
 ponos history --csv --project <name> --month 2026-10   # every session of a project and what it cost, as CSV (--since, --to: another period)
 ponos projects     # Notion project → local repository mapping
+ponos diagnose "<what does not work>" --project <name>  # a Diagnostic ticket, ready: the cause found, then its fix tickets (--draft: leave it in the drafts)
 ponos subtypes     # the code tickets by sub-type
 ponos subtypes --backfill    # fill the empty ones from their prefix (--dry-run: write nothing, --all: done and cancelled ones too)
 ponos schedules    # what comes back on its own, and when it next does

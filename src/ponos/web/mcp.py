@@ -285,7 +285,10 @@ TOOLS: list[dict[str, Any]] = [
                     "enum": list(kinds_module.KINDS),
                     "description": "code (modifier un dépôt, livré en pull request), writing "
                     "(rédiger un document), external (agir sur un service extérieur), "
-                    "publication (publier, après validation humaine).",
+                    "publication (publier, après validation humaine), diagnostic (enquêter en "
+                    "lecture seule sur « X ne marche pas » : la cause avec ses preuves, puis les "
+                    "tickets de correction, écrits par la session). Pour un diagnostic, le titre "
+                    "est la phrase du symptôme.",
                 },
                 "priority": {
                     "type": "integer",

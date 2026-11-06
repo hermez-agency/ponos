@@ -244,7 +244,7 @@ def every_setting_the_file_holds_is_one_the_console_can_reach() -> None:
     expected = {f"runner.{name}" for name in schema.RunnerTable.model_fields}
     expected.discard("runner.force_validated")
     # The one list, drawn as a switch a type: see `settings._forced_changes`.
-    expected |= {f"runner.force_validated_{kind}" for kind in C.TYPES}
+    expected |= {f"runner.force_validated_{kind}" for kind in C.VALIDATED}
     expected |= {f"web.{name}" for name in schema.WebTable.model_fields}
     expected |= {"web.token", "web.password"}
     expected |= {f"notion.{name}" for name in schema.NotionTable.model_fields} - {"notion.pages"}
