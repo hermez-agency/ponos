@@ -78,9 +78,10 @@ OFFERED = (
 REFUSED = {
     "config": "opens an editor on the server — the Settings tab is that file, in this page",
     "open": "opens a terminal on the server's desktop, which is not where you are",
-    "serve": "is what you are already talking to",
-    "disable": "stops the console you are typing in — do it from a terminal",
-    "enable": "rewrites and starts the systemd units — do it from a terminal",
+    "service": (
+        "starts and stops the console you are typing in — do it from a terminal; "
+        "`status` says how the units stand"
+    ),
     "run": (
         "starts Claude sessions that outlive a command typed here — make the ticket "
         "ready and the timer runs it, or type `ponos run` in a terminal"

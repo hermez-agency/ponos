@@ -15,7 +15,7 @@
  *
  * What is filmed is the console as this checkout builds it (`PYTHONPATH=src`,
  * `src/ponos/web/static` as the last `npm run build` left it), served
- * by `ponos serve` on a throwaway Markdown board — the demonstration
+ * by `ponos service run` on a throwaway Markdown board — the demonstration
  * board of docs/console/*.webp, three projects and a few tickets — and driven
  * by headless Chrome ($CHROME, or google-chrome) over the DevTools protocol, as
  * scripts/measure-console.mjs does. Nothing of yours is read or written: the
@@ -207,7 +207,7 @@ async function stage(theme) {
   mkdirSync(join(env.HOME, 'workspace'));
   execFileSync('chmod', ['-R', 'go-rwx', join(env.XDG_STATE_HOME, 'ponos')]);
   execFileSync(python, ['-c', SEED, board], { env });
-  const server = spawn(python, ['-m', 'ponos', 'serve', '--port', String(port)], {
+  const server = spawn(python, ['-m', 'ponos', 'service', 'run', '--port', String(port)], {
     cwd: root,
     env,
     stdio: 'ignore',

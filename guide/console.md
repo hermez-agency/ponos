@@ -14,7 +14,7 @@ nobody has set up yet there is no token to paste either — the address alone op
 configuration gets filled in.
 
 ```sh
-ponos serve --print-token   # the token, if you lost the URL
+ponos service run --print-token   # the token, if you lost the URL
 ```
 
 Open `http://127.0.0.1:8787` and you get one page, four things:
@@ -313,7 +313,7 @@ window open; the palette prints N beside its entry. They are listed in one place
   `projects`, `schedules`, `status`, `sync` — and not the whole parser: `run` starts
   sessions that outlive a typed command, `update` replaces the code the console runs on,
   and `clean` deletes worktrees a session may be standing in, so those three (with `init`,
-  `enable`, `disable`, `config`, `open` and `serve`) are for a terminal. A command gets
+  `service`, `config` and `open`) are for a terminal. A command gets
   three minutes, and at the end of them its whole process group is stopped, not only the
   process the console started.
 - Anything else is a **message to your workspace**. One long Claude Code session, started
@@ -456,7 +456,7 @@ around: `Active` is the only cell you can type in, so **unticking a row in the l
 it**, without deleting anything and without opening a form. *Calendar* is for the only
 question a schedule really answers — when the next one lands: the occurrences are laid out
 by day, week or month, and clicking one opens what it will make.
-The list is answered from the rows the console already holds — read once when `ponos serve`
+The list is answered from the rows the console already holds — read once when `ponos service run`
 starts — so it opens at once: a schedule written in Notion itself shows a moment later, once
 the read the console makes behind the answer finds it, and the page reads its list again then.
 
@@ -572,7 +572,7 @@ Three things it does that a form usually does not.
 Each section carries the command that checks it — `> doctor` for Notion, `> notify` for
 Telegram and Slack — because the CLI already knows how to say whether a token works, and a
 settings page does not need a second opinion. The commands that change the machine rather
-than read it — `run`, `update`, `enable`… — are the terminal's. A setting that needs more than saving says so, once, and only when it moved.
+than read it — `run`, `update`, `service`… — are the terminal's. A setting that needs more than saving says so, once, and only when it moved.
 
 **In English, or in French.** The console reads the browser before it says anything —
 `Accept-Language` is a setting somebody actually made — and where the browser says nothing
@@ -738,7 +738,7 @@ otherwise every 4 hours, every day at an hour, every week on a day at an hour, e
 five-field cron line (`0 9 * * 1-5`). The moments come from the engine of the recurrences
 (`schedules.next_occurrence`, plus `schedules.every` and `schedules.cron`) in this machine's timezone, and
 follow its rule: the first moment of a new schedule is waited for, and a console that was off for days
-finds one pass due, not one per missed moment. Passes run in the console (`ponos serve`), which holds
+finds one pass due, not one per missed moment. Passes run in the console (`ponos service run`), which holds
 what a batch is built from; `ponos doctor` says so. *All projects* covers the ones added later too,
 *Selected projects* the ones ticked (`ideas_projects`, by page id or name); the workspace's own ideas are
 a switch of their own (`ideas_workspace`), and a project's *Settings* tab can turn it off or on for itself
@@ -800,14 +800,15 @@ by hand), `POST /api/ideas/<id>` (reworded), `POST /api/ideas/generate`, `POST
 ### Keeping it running
 
 It already is. `install.sh` arms the console's unit along with the timer, and
-`ponos enable` does the same on an installation that predates this — so the
+`ponos service on` does the same on an installation that predates this — so the
 console is up on `http://127.0.0.1:8787` with nothing to type, and comes back with the
 machine.
 
 ```sh
-ponos serve --print-token             # the token, if you lost the URL
-systemctl --user stop ponos-web       # stop it until the next boot
-ponos disable                         # stop the timer and the console for good
+ponos service run --print-token   # the token, if you lost the URL
+systemctl --user stop ponos-web   # stop it until the next boot
+ponos service off                 # stop the timer and the console for good
+ponos service status              # how the timer, the console and the Tailscale unit stand
 ```
 
 What it opens is loopback, which is why it can be a default: the port is reachable from
@@ -830,7 +831,7 @@ makes it useful, and it is the whole of the risk. So:
   consoles on one machine — the demo and the real one — each keep their own;
 - `serve` never prints that token: what it says lands in `journalctl` and `docker logs`,
   so a console opened by its token shows `/?token=…` and sends you to
-  `ponos serve --print-token` (`docker compose exec ponos ponos serve --print-token` in the image);
+  `ponos service run --print-token` (`docker compose exec ponos ponos service run --print-token` in the image);
 - writes demand a header a cross-origin form cannot set, and the `Host` header must name
   the address the console was reached on. Between them, a hostile page you have open in
   another tab can neither post to the console nor read from it;
@@ -843,7 +844,7 @@ makes it useful, and it is the whole of the risk. So:
   last one it appended to `X-Forwarded-For`. Anybody else is counted by its own address,
   whatever it says it relays;
 - the password is kept as a scrypt digest, and a sign-in lasts thirty days from its last use
-  (`ponos serve --sign-out-everywhere` ends them all, and signs out the MCP connectors too);
+  (`ponos service run --sign-out-everywhere` ends them all, and signs out the MCP connectors too);
 - every page is served under a **Content-Security-Policy** that runs no script but the
   bundle's files from `/static/` and the few lines a page carries inline, allowed by their
   hash; styles are the bundle's files too, plus the ones its libraries write at runtime (the
@@ -904,7 +905,7 @@ The unit is `ponos-tailscale.service`. It looks every 30 seconds: while the lapt
 network or is logged out of the tailnet it waits, and as soon as the tailnet is back it checks the
 serve configuration and puts it back if it drifted (`tailscaled` reconnects by itself — this is only
 for the configuration). `journalctl --user -u ponos-tailscale -f` tells what it did. Nothing turns it
-on but you: not the installer, not an update, and `ponos disable` turns it off.
+on but you: not the installer, not an update, and `ponos service off` turns it off.
 `ponos tailscale disable` also takes both doors down in Tailscale. Without systemd,
 `ponos tailscale watch` does the same in the foreground. As a second lock, the console itself
 answers 404 to any path but those three on a request that came through Funnel.
@@ -1028,7 +1029,7 @@ these two lines say by hand:
 Or, on a server, without writing either of them down anywhere:
 
 ```sh
-PONOS_WEB_EMAIL=you@example.com PONOS_WEB_PASSWORD=… ponos serve
+PONOS_WEB_EMAIL=you@example.com PONOS_WEB_PASSWORD=… ponos service run
 ```
 
 The environment wins over the files, which is what makes it worth setting: a systemd
@@ -1040,7 +1041,7 @@ With them set, `http://127.0.0.1:8787` is a bookmark that works: the page asks f
 two, and the session it leaves is signed from them rather than drawn, so a console that
 restarts does not sign you out and **changing the password signs out every browser at
 once**. A session lasts **thirty days from its last use** — a browser that keeps coming
-back is renewed, one left in a drawer runs out — and `ponos serve --sign-out-everywhere`
+back is renewed, one left in a drawer runs out — and `ponos service run --sign-out-everywhere`
 ends every one of them, the running console's included, by drawing a new key into
 `~/.local/state/ponos/web/sessions` — and takes back the keys of every MCP connector signed in
 over OAuth, which a new password alone does not. A wrong answer is counted against
@@ -1053,7 +1054,7 @@ rewritten by the next launch — the same password signs in, nobody is asked to 
 is digested in memory when the console starts, and stays the unit's to keep.
 
 The token does not go away. It stays what a script carries in `Authorization: Bearer`,
-what `serve --print-token` prints, and what the dev server's proxy borrows — it just
+what `service run --print-token` prints, and what the dev server's proxy borrows — it just
 stops being what *you* carry.
 
 ### Several people on one console
@@ -1173,7 +1174,7 @@ own token and its cookie are **not** keys to `/mcp`: they open everything behind
 and a connector is given less. Every write asked for — refused ones included — is written to
 the local database with the tool, the time and the client: `ponos mcp list` shows the clients
 and the last writes, `ponos mcp revoke <client>` takes back all of one client's keys at once, and
-`ponos serve --sign-out-everywhere` those of every connector that came in over OAuth — the tokens
+`ponos service run --sign-out-everywhere` those of every connector that came in over OAuth — the tokens
 drawn with `ponos mcp token` stay, and it names them with the line that takes each back.
 
 ### How the connection works

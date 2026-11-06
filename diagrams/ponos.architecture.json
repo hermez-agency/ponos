@@ -232,7 +232,7 @@
       "type": "frontend",
       "label": "Web console",
       "sublabel": "board, CLI and chat",
-      "tag": "ponos serve",
+      "tag": "ponos service run",
       "row": 2,
       "col": 1,
       "size": [

@@ -11,7 +11,7 @@ Still nothing kept per browser. The cookie carries its date, signed, and what
 signs it is a key drawn once and kept in `web/sessions` beside the token. That
 is the whole of "sign out everywhere" (`revoke`): a new key, and every cookie
 signed with the old one is a stranger — read again from the file whenever it
-changes, so `ponos serve --sign-out-everywhere` reaches a console already
+changes, so `ponos service run --sign-out-everywhere` reaches a console already
 running. A restart still signs nobody out, and a new password still signs
 everybody out, because what is signed includes it (`SignIn.proof`).
 

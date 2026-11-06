@@ -614,7 +614,7 @@ def command_status(args: argparse.Namespace) -> int:
 
 
 def _status_services(configuration: config_module.Config) -> None:
-    """`ponos status`: the timer and the console, or the loop where there is no systemd."""
+    """`ponos status` and `ponos service status`: the units, or the loop where there is no systemd."""
     if shutil.which("systemctl"):
         _timer_line(systemd.read())
         # The console runs by default, so its absence is worth a line: nothing
@@ -628,7 +628,18 @@ def _status_services(configuration: config_module.Config) -> None:
         if console == "active":
             print(f"    {DIM}http://{configuration.web.host}:{configuration.web.port}{RESET}")
         else:
-            print(f"    {DIM}ponos enable   to start it{RESET}")
+            print(f"    {DIM}ponos service on   to start it{RESET}")
+        # Off unless somebody published `/mcp` (`ponos tailscale enable`): its
+        # absence is the ordinary case, worth a dim line and no warning.
+        tailnet = subprocess.run(
+            ["systemctl", "--user", "is-active", "ponos-tailscale.service"],
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        if tailnet == "active":
+            ok("ponos-tailscale.service: active")
+        else:
+            _kept(f"ponos-tailscale.service: {tailnet or 'not installed'}")
     else:
         if systemd.looping():
             ok(
@@ -1017,7 +1028,7 @@ def _timer_line(timer: systemd.Timer) -> None:
     """
     if timer.stalled:
         bad("ponos.timer: enabled, but no next run — it will never fire again")
-        print(f"    {DIM}ponos enable   to restart it{RESET}")
+        print(f"    {DIM}ponos service on   to restart it{RESET}")
     elif timer.enabled == "enabled":
         ok("ponos.timer: enabled" + (" — a run is in progress" if timer.running else ""))
     else:
@@ -1513,8 +1524,12 @@ def command_open(args: argparse.Namespace) -> int:
         return 1
 
 
-def command_serve(args: argparse.Namespace) -> int:
-    """The web console: the board, this CLI and a chat, in one page."""
+def _service_run(args: argparse.Namespace) -> int:
+    """The web console in the foreground: the board, this CLI and a chat, in one page.
+
+    What the console's unit and the image start, and what a checkout runs to
+    work on the page.
+    """
     from . import web
 
     # Before the configuration: what is signed out is the state's, not the file's.
@@ -1631,7 +1646,7 @@ def command_tailscale(args: argparse.Namespace) -> int:
     """The console inside the tailnet, the MCP endpoint through Funnel — see `tailscale.py`.
 
     `enable` is the decision to publish `/mcp`, which is why nothing else turns
-    it on: not the installer, not an update, not `ponos enable`.
+    it on: not the installer, not an update, not `ponos service on`.
     """
     from . import tailscale
 
@@ -1692,26 +1707,51 @@ def command_tailscale(args: argparse.Namespace) -> int:
     return 0
 
 
-def command_timer(args: argparse.Namespace) -> int:
-    """Both units at once: the timer that runs tickets, and the console.
+def command_service(args: argparse.Namespace) -> int:
+    """The runner on this machine: on, off, how it stands, or the console in the foreground.
 
-    They are enabled and disabled together because they are the same answer to
-    "is the runner on this machine running" — a console left behind by a
-    `disable` would keep showing a board nothing is picking up.
+    One verb because they are one answer to "is the runner on this machine
+    running" — the timer that runs tickets and the console are switched on and
+    off together, since a console left behind by `off` would keep showing a
+    board nothing is picking up.
     """
+    action = getattr(args, "action", None) or "status"
+    if action == "run":
+        return _service_run(args)
+    if action == "status":
+        return _service_status()
     if not shutil.which("systemctl"):
         print("systemd not available", file=sys.stderr)
         return 1
-    if args.command == "disable":
-        code = subprocess.call(["systemctl", "--user", "disable", "--now", "ponos.timer"])
-        subprocess.call(["systemctl", "--user", "disable", "--now", "ponos-web.service"])
-        # The public door goes with the console it opens onto.
-        subprocess.call(
-            ["systemctl", "--user", "disable", "--now", "ponos-tailscale.service"],
-            stderr=subprocess.DEVNULL,
-        )
-        return code
+    if action == "off":
+        return _service_off()
+    return _service_on()
 
+
+def _service_status() -> int:
+    """`ponos service status`: the units alone — the part of `ponos status` they make."""
+    try:
+        configuration = config_module.load()
+    except config_module.ConfigError as error:
+        bad(str(error))
+        return 2
+    title("Services")
+    _status_services(configuration)
+    return 0
+
+
+def _service_off() -> int:
+    code = subprocess.call(["systemctl", "--user", "disable", "--now", "ponos.timer"])
+    subprocess.call(["systemctl", "--user", "disable", "--now", "ponos-web.service"])
+    # The public door goes with the console it opens onto.
+    subprocess.call(
+        ["systemctl", "--user", "disable", "--now", "ponos-tailscale.service"],
+        stderr=subprocess.DEVNULL,
+    )
+    return code
+
+
+def _service_on() -> int:
     try:
         configuration = config_module.load()
     except config_module.ConfigError as error:
@@ -1991,8 +2031,17 @@ def _add_setup_commands(subparsers: argparse._SubParsersAction[argparse.Argument
 
 
 def _add_console_commands(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    """The console, its MCP server, its tailnet, and the messages sent to your phone."""
-    serving = subparsers.add_parser("serve", help="the web console: board, command line and chat")
+    """The service and its console, its MCP server, its tailnet, and the messages sent to your phone."""
+    service = subparsers.add_parser(
+        "service", help="the timer and the console: on, off, status, or run in the foreground"
+    )
+    states = service.add_subparsers(dest="action", help="what to do (default: status)")
+    states.add_parser("on", help="apply runner.interval_seconds, start the timer and the console")
+    states.add_parser("off", help="stop the timer, the console and the Tailscale doors")
+    states.add_parser("status", help="the state of the systemd units")
+    serving = states.add_parser(
+        "run", help="the web console in this terminal: board, command line and chat"
+    )
     serving.add_argument("--host", help="what to bind (default: web.host, 127.0.0.1)")
     serving.add_argument("--port", type=int, help="what port to listen on (default: web.port)")
     serving.add_argument(
@@ -2003,7 +2052,7 @@ def _add_console_commands(subparsers: argparse._SubParsersAction[argparse.Argume
         action="store_true",
         help="end every browser's and every OAuth connector's sign-in to the console, and exit",
     )
-    serving.set_defaults(function=command_serve)
+    service.set_defaults(function=command_service, action="status")
 
     serving_mcp = subparsers.add_parser(
         "mcp", help="the MCP server's keys: draw, list, revoke (default: list)"
@@ -2051,7 +2100,7 @@ def _add_console_commands(subparsers: argparse._SubParsersAction[argparse.Argume
 
 
 def _add_upkeep_commands(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    """What is left behind, and the timer that runs it all."""
+    """What is left behind."""
     clean = subparsers.add_parser("clean", help="remove worktrees left by failures")
     clean.add_argument(
         "--force",
@@ -2063,13 +2112,6 @@ def _add_upkeep_commands(subparsers: argparse._SubParsersAction[argparse.Argumen
     )
     clean.add_argument("--days", type=int, default=14, help="also drop logs older than this")
     clean.set_defaults(function=command_clean)
-
-    for name, help_text in (
-        ("enable", "apply runner.interval_seconds, start the timer and the console"),
-        ("disable", "stop the timer and the console"),
-    ):
-        timer = subparsers.add_parser(name, help=help_text)
-        timer.set_defaults(function=command_timer)
 
 
 def subcommands() -> tuple[str, ...]:

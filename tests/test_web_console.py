@@ -60,7 +60,7 @@ def a_command_the_cli_does_not_have_is_refused() -> None:
 
 @case
 def the_commands_that_would_hang_a_browser_are_not_offered() -> None:
-    """`config` opens an editor and `serve` is the console itself.
+    """`config` opens an editor and `service` starts and stops the console itself.
 
     Both are refused *and* left out of the list the error message offers: naming
     a verb and then refusing it is a small lie told to somebody already lost.
@@ -89,7 +89,7 @@ def the_console_runs_what_it_lists_and_nothing_the_cli_grows_later() -> None:
     commands = web_console.Commands(lambda *a, **k: None, subcommands())
     assert set(commands.allowed) <= set(web_console.OFFERED)
     assert set(commands.allowed) <= set(subcommands()), "never a verb the CLI does not have"
-    for verb in ("run", "update", "clean", "init", "enable"):
+    for verb in ("run", "update", "clean", "init", "service"):
         assert verb not in commands.allowed, verb
         try:
             commands.parse(f"{verb} --force")

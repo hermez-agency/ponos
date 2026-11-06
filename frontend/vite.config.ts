@@ -8,7 +8,7 @@ import { defineConfig, searchForWorkspaceRoot, type Plugin } from "vite"
 
 /* The console is served by Python, not by Node.
  *
- * `ponos serve` is `http.server` and the standard library, and that is
+ * `ponos service run` is `http.server` and the standard library, and that is
  * not going to change: a tool whose whole claim is "no dependency to install"
  * cannot ask for a Node runtime on the machine it runs on. So this build writes
  * straight into the package — `src/ponos/web/static` — and what it
@@ -132,7 +132,7 @@ export default defineConfig({
     // outside it unless told to.
     fs: { allow: [searchForWorkspaceRoot(process.cwd()), MASCOT] },
     // `npm run dev` gives hot reload against a console you started yourself:
-    //   ponos serve      (127.0.0.1:8787, prints its token)
+    //   ponos service run      (127.0.0.1:8787, prints its token)
     //   npm run dev -- --open
     // The token rides on the cookie the real console set, so open the console
     // once on its own port first.

@@ -471,7 +471,7 @@ def _runner(config: config_module.Config) -> list[Check]:
                 "machine.runner",
                 INFO,
                 "Runner",
-                "One run every {{interval}}s (`ponos enable` applies a change).",
+                "One run every {{interval}}s (`ponos service on` applies a change).",
                 params=every,
             )
         )
@@ -550,8 +550,8 @@ def _timer(timer: systemd.Timer) -> Check:
             "Runner",
             "The runner's timer is {{state}}: no ticket is picked up.",
             params={"state": timer.enabled},
-            cause="`ponos enable` was never run, or the timer was disabled.",
-            steps=["In a terminal on this machine, run `ponos enable`."],
+            cause="`ponos service on` was never run, or the timer was disabled.",
+            steps=["In a terminal on this machine, run `ponos service on`."],
             evidence=timer.row,
         )
     if timer.stalled:
@@ -561,7 +561,7 @@ def _timer(timer: systemd.Timer) -> Check:
             "Runner",
             "The runner's timer is enabled but will never fire.",
             cause="systemd holds no next run for it.",
-            steps=["In a terminal on this machine, run `ponos enable` to arm it again."],
+            steps=["In a terminal on this machine, run `ponos service on` to arm it again."],
             evidence=timer.row,
         )
     return _check(
@@ -584,7 +584,7 @@ def _priority(shown: dict[str, str]) -> Check | None:
 
     Five sessions at nice 0 shared the machine with the browser they drive, as
     equals, until the desktop stopped answering. A unit written before
-    `ponos.service.in` lowered them keeps them there until `ponos enable`.
+    `ponos.service.in` lowered them keeps them there until `ponos service on`.
     """
     if not shown.get("Nice"):
         return None
@@ -604,7 +604,7 @@ def _priority(shown: dict[str, str]) -> Check | None:
             "The sessions run at the desktop's priority: " + said,
             params=params,
             cause="The runner's unit was written before it ran its sessions in the background.",
-            steps=["In a terminal on this machine, run `ponos enable` to rewrite it."],
+            steps=["In a terminal on this machine, run `ponos service on` to rewrite it."],
         )
     return _check(
         "machine.priority", OK, "Priority", "Sessions in the background: " + said, params=params

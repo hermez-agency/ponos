@@ -1,7 +1,7 @@
 """The first connection: the console asking once for everything it needs.
 
 Until now the only way into a fresh installation was a secret found on disk —
-`serve --print-token`, or the line the installer printed and you scrolled past.
+`service run --print-token`, or the line the installer printed and you scrolled past.
 That is the wrong order. A token protects an installation that is already set
 up; a fresh one has nothing to protect yet, and what it actually needs is for
 somebody to say who opens it from now on.

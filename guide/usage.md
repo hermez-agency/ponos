@@ -37,12 +37,13 @@ ponos clean --force --days <n>  # and drop the session logs older than that many
 ponos update       # move the installation to the newest version
 ponos update --check         # what is available, changing nothing
 ponos update --environment   # make the .venv of the version in use again
-ponos enable       # apply interval_seconds, start the timer and the console
-ponos disable      # stop the timer and the console
-ponos serve        # the web console, in this terminal (it already runs on its own)
-ponos serve --host <address> --port <port>  # bind elsewhere than web.host and web.port
-ponos serve --print-token    # print the console's token, and exit
-ponos serve --sign-out-everywhere  # end every browser's and every connector's sign-in, and exit
+ponos service on   # apply interval_seconds, start the timer and the console
+ponos service off  # stop the timer, the console and the Tailscale doors
+ponos service status         # the state of ponos.timer, ponos-web.service and ponos-tailscale.service
+ponos service run  # the web console, in this terminal (it already runs on its own)
+ponos service run --host <address> --port <port>  # bind elsewhere than web.host and web.port
+ponos service run --print-token    # print the console's token, and exit
+ponos service run --sign-out-everywhere  # end every browser's and every connector's sign-in, and exit
 ponos open <uri>   # what a ponos://session/<id>?cwd=<path> link runs on the desktop
 ponos tailscale [status|apply|enable|disable|watch]  # the console on your tailnet, MCP through Funnel (--interval: seconds, for watch)
 ponos notify [message]       # send yourself a test message on Telegram or Slack
@@ -80,10 +81,10 @@ wants it), and `MemoryHigh=60%` — past 60% of the machine's memory, the kernel
 reclaims theirs and slows them down rather than yours. Five sessions at once no
 longer make the browser they share with you crawl; they take longer instead.
 
-`ponos enable` rewrites the unit, and `ponos doctor` reads back what systemd
+`ponos service on` rewrites the unit, and `ponos doctor` reads back what systemd
 applies (*Priority*, under the machine): a unit written before this warns until
 it is rewritten. To give the runner more room, override a line in a drop-in
-rather than in the unit, which `ponos enable` and every update write again:
+rather than in the unit, which `ponos service on` and every update write again:
 
 ```ini
 # ~/.config/systemd/user/ponos.service.d/priority.conf

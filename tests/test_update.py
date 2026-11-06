@@ -215,6 +215,33 @@ def an_update_puts_the_console_on_the_code_it_just_installed(
 
 
 @case
+def an_update_rewrites_the_console_unit_a_former_verb_started(
+    installation: tuple[Callable[..., str], Path, str],
+) -> None:
+    """`ponos serve` went, and `ponos-web.service` named it: the unit has to follow.
+
+    A unit left on the old `ExecStart` would restart onto a verb the CLI no
+    longer has, and the console would fail every five seconds with nobody
+    told — so the update writes the unit again before it restarts the console.
+    """
+    commit, app, first = installation
+    asked = app.parent / "systemctl.log"
+    (app.parent / "bin" / "systemctl").write_text(f'#!/bin/sh\necho "$@" >> {asked}\n')
+    (app.parent / "bin" / "systemctl").chmod(0o755)
+    (app.parent / "bin" / "sh").symlink_to(shutil.which("sh") or "/bin/sh")
+    units = Path(os.environ["HOME"]) / ".config" / "systemd" / "user"
+    units.mkdir(parents=True)
+    (units / "ponos-web.service").write_text("[Service]\nExecStart=/somewhere/ponos serve\n")
+    commit("two")
+    assert update.apply(update.check(app, "main"), 600, app) == ""
+
+    written = (units / "ponos-web.service").read_text()
+    assert " service run\n" in written and " serve\n" not in written, written
+    ran = asked.read_text().splitlines()
+    assert ran.index("--user try-restart ponos-web.service") > ran.index("--user daemon-reload")
+
+
+@case
 def a_version_that_does_not_start_is_taken_back_and_one_that_does_is_kept(
     installation: tuple[Callable[..., str], Path, str],
 ) -> None:

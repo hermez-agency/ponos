@@ -10,7 +10,7 @@
  * the board the audit of November 2026 measured. Each column draws its first
  * page; `--whole` opens every one of them to its last card first, the way
  * "Show more" does, for what a board drawn whole costs. The same throwaway
- * set-up (a Markdown board, `ponos serve` from this checkout on
+ * set-up (a Markdown board, `ponos service run` from this checkout on
  * `src/ponos/web/static` as the last `npm run build` left it, headless Chrome
  * over the DevTools protocol), the same promise: nothing of yours is read or
  * written.
@@ -94,7 +94,7 @@ const stop = () => {
 };
 process.on('exit', stop);
 
-const server = spawn('python3', ['-m', 'ponos', 'serve', '--port', String(SERVER_PORT)], {
+const server = spawn('python3', ['-m', 'ponos', 'service', 'run', '--port', String(SERVER_PORT)], {
   cwd: root,
   env: {
     ...process.env,

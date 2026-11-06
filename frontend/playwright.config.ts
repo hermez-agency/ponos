@@ -2,7 +2,7 @@ import { existsSync } from "node:fs"
 import { createServer } from "node:net"
 import { defineConfig } from "@playwright/test"
 
-/* The console in a browser, against a real `ponos serve`.
+/* The console in a browser, against a real `ponos service run`.
  *
  * `e2e/console.py` starts it on a board of Markdown files it writes itself, so
  * the tests need python3 with what the runner imports (`requirements.txt`) and

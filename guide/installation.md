@@ -22,7 +22,7 @@ you want a ticket picked up as soon as you move it:
   starts two processes in the background — the console, and `ponos run --every`, the loop
   that does what the timer would (one run every `runner.interval_seconds`). A ticket moved
   to *Ready* is taken without another command. Both last until the machine restarts: start
-  them again with `ponos serve` and `ponos run --every`. `ponos doctor`, `ponos status` and
+  them again with `ponos service run` and `ponos run --every`. `ponos doctor`, `ponos status` and
   the console's runner strip say the same thing — and `doctor` warns, rather than ticking,
   when no loop is running.
 
