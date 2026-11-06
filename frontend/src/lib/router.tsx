@@ -63,7 +63,7 @@ export function consoleRouter(Shell: () => React.ReactNode) {
  * `/?page=projects` and `/?page=schedules` were pages of their own before those
  * two were lists you open a record from, and `/?page=live` and `/?page=context`
  * were until the console moved onto the package's admin layout (the context has
- * since become the first block of the projects page, which is where it leads); a link
+ * since become a page of its own again, with tabs, which is where it leads); a link
  * somebody bookmarked or pasted into a chat has to keep landing on them rather
  * than on the board. The live page has since gone altogether — a session is
  * followed on its ticket, and the running tickets are on the board — so
@@ -75,7 +75,7 @@ const MOVED: Record<string, string> = {
   projects: "/?view=console/projects/list",
   schedules: "/?view=console/schedules/list",
   live: "/?view=console/tickets/list",
-  context: "/?view=console/projects/list#global-context",
+  context: "/?view=console/context/read/context",
 }
 
 /** Where an old address now leads, if it is one. */

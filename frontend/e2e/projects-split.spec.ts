@@ -28,10 +28,12 @@ test.describe("at 1440px", () => {
 
   test("the list is on the left, the context or the project picked on the right", async ({ page }) => {
     await open(page)
-    const context = (await page.locator('[data-slot="context-block"]').boundingBox())!
+    const aside = (await page.locator("[data-projects-aside]").boundingBox())!
     const first = (await item(page, "Website").boundingBox())!
-    expect(first.x + first.width).toBeLessThanOrEqual(context.x)
+    expect(first.x + first.width).toBeLessThanOrEqual(aside.x)
     await expect(panel(page)).toHaveCount(0)
+    // The standing context is not here: it has a page of its own.
+    await expect(page.locator('[data-slot="context-block"]')).toHaveCount(0)
 
     await item(page, "Website").click()
     await expect(item(page, "Website")).toHaveAttribute("aria-pressed", "true")

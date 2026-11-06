@@ -197,7 +197,7 @@ class Bitwarden:
 
 @dataclass
 class Ponos:
-    """Ponos's own vault — Settings → Vault, `ponos vault set` — kept encrypted.
+    """Ponos's own vault — Context → Vault, `ponos vault set` — kept encrypted.
 
     An item is a variable an entry gives: `ponos:NPM_TOKEN`, or
     `ponos:LEADZ_USER` and `ponos:LEADZ_PASSWORD` for a login. See vault_store.py.

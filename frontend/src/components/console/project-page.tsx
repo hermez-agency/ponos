@@ -14,7 +14,6 @@ import { useRoute } from "@/lib/router"
 import { cn } from "@/lib/utils"
 import { canAct, isAdmin } from "@/lib/role"
 import {
-  CONTEXT_ANCHOR,
   DiagnoseButton,
   Repository,
   Where,
@@ -25,6 +24,7 @@ import {
   useTicketCount,
   type ProjectItem,
 } from "@/resources/projects"
+import { contextHref } from "@/resources/context"
 import { settingsHref } from "@/resources/settings"
 
 import { Eyebrow, Fact, Facts } from "./frame"
@@ -360,7 +360,7 @@ export function ProjectHead() {
               {/* The panel's one header: the global context is a link back to
                   it, not a second one drawn over this. */}
               <Link
-                to={`${projectsHref()}#${CONTEXT_ANCHOR}`}
+                to={contextHref()}
                 onClick={() => pick("")}
                 data-slot="context-link"
                 className="text-muted-foreground hover:text-foreground text-xs underline-offset-2 hover:underline"

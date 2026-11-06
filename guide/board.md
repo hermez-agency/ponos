@@ -341,7 +341,7 @@ its **Settings** tab, card *Diagnostic*:
 | Declared | What the session may do with it |
 | --- | --- |
 | **Admin MCP servers** — their names in `claude mcp list` | call their tools that read: health, recent errors, status, configuration |
-| **SSH hosts** — `user@host`, the vault entry that opens it, what the machine is | read-only commands (`cat`, `journalctl`, `systemctl status`, `docker logs`…). The entry is handed to that session alone, by name, as for [the vault](configuration.md#ponoss-own-vault-settings--vault) |
+| **SSH hosts** — `user@host`, the vault entry that opens it, what the machine is | read-only commands (`cat`, `journalctl`, `systemctl status`, `docker logs`…). The entry is handed to that session alone, by name, as for [the vault](configuration.md#ponoss-own-vault-context--vault) |
 | **Production addresses** | `curl`, GET only |
 
 Nothing in that list is a write access, and the session is told the rest: no commit, no

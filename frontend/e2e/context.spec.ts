@@ -1,14 +1,15 @@
 import { expect, test, type Page } from "@playwright/test"
 
-/* The standing context is the first block of the Projects page.
+/* The Context page: the standing context and the vault, as tabs.
  *
- * It was a page of its own, in the menu. What is tested is the way a person
- * goes: the page opens on a folded preview of it beside the projects, "See all" reads the rest, "Edit" writes it in place with the editor the
+ * What is tested is the way a person goes: the page opens on a folded preview
+ * of the context, "See all" reads the rest, "Edit" writes it in place with the editor the
  * brief uses, a save reaches the board, leaving with something typed asks first,
  * and the old address leads here rather than to the board.
  */
 
-const LIST = "/?view=console/projects/list"
+const LIST = "/?view=console/context/read/context"
+const PROJECTS = "/?view=console/projects/list"
 const LONG = Array.from({ length: 12 }, (_, line) => `Rule number ${line + 1} of the house.`).join("\n\n")
 
 /** Write the context straight to the board, the way the console's own request does. */
@@ -19,7 +20,7 @@ async function open(page: Page, path = LIST) {
   await page.context().addCookies([{ name: "ponos_token", value: "e2e", url: test.info().project.use.baseURL }])
   await write(page, LONG)
   await page.goto(path)
-  await expect(page.getByText("Website").first()).toBeVisible()
+  if (path === LIST) await expect(page.getByRole("tab", { name: "Context", exact: true })).toBeVisible()
 }
 
 // One context for the whole board: the tests that write it do not run side by side.
@@ -30,16 +31,14 @@ const block = (page: Page) => page.locator('[data-slot="context-block"]')
 test.describe("at 1440px", () => {
   test.use({ viewport: { width: 1440, height: 900 } })
 
-  test("the context is folded over the projects, read in full and edited in place", async ({ page }) => {
+  test("the context is folded, read in full and edited in place", async ({ page }) => {
     await open(page)
     await expect(block(page).getByText("Sent to Ponos in every ticket, for all the projects")).toBeVisible()
     await expect(block(page).getByText("Rule number 1 of the house.")).toBeVisible()
 
-    // Folded: a few lines, and the projects are beside it, on its left.
+    // Folded: a few lines.
     const folded = (await block(page).boundingBox())!
     expect(folded.height).toBeLessThan(260)
-    const item = (await page.locator("[data-project-item]").first().boundingBox())!
-    expect(item.x + item.width).toBeLessThanOrEqual(folded.x)
 
     await block(page).getByRole("button", { name: "See all" }).click()
     await expect(block(page).getByText("Rule number 12 of the house.")).toBeInViewport()
@@ -80,34 +79,77 @@ test.describe("at 1440px", () => {
     await expect(block(page).locator(".ProseMirror")).toBeVisible()
   })
 
-  test("the menu has no Context, and its old address leads to the Projects page", async ({ page }) => {
+  test("two tabs, the address carries the tab, and the Projects page no longer holds the context", async ({ page }) => {
     await open(page)
-    await expect(page.getByRole("link", { name: "Projects" })).toBeVisible()
-    await expect(page.getByRole("link", { name: "Context", exact: true })).toHaveCount(0)
-    await page.goto("/?view=console/context/list")
-    await expect(page).toHaveURL(/view=console\/projects\/list/)
+    await expect(page.getByRole("tab")).toHaveCount(2)
+    await expect(page.getByRole("tab", { name: "Context", exact: true })).toHaveAttribute("aria-selected", "true")
+    await page.getByRole("tab", { name: "Vault" }).click()
+    await expect.poll(() => new URL(page.url()).searchParams.get("view")).toBe("console/context/read/context/vault")
+    await expect(page.locator('[data-card="vault-key"]')).toBeVisible()
+    await page.getByRole("tab", { name: "Context", exact: true }).click()
     await expect(block(page)).toBeVisible()
-    await page.goto("/?page=context")
-    await expect(page).toHaveURL(/view=console\/projects\/list/)
+
+    // The menu has the page; the Projects page has no context block.
+    await page.getByRole("link", { name: "Context", exact: true }).first().click()
+    await expect(page.getByRole("tab")).toHaveCount(2)
+    await page.goto(PROJECTS)
+    await expect(page.getByText("Website").first()).toBeVisible()
+    await expect(block(page)).toHaveCount(0)
   })
 
-  test("a project's brief links back to the context", async ({ page }) => {
+  test("the old addresses lead to the Context page", async ({ page }) => {
+    await open(page)
+    await page.goto("/?view=console/context/list")
+    await expect(page).toHaveURL(/view=console\/context\/read\/context/)
+    await expect(block(page)).toBeVisible()
+    await page.goto("/?page=context")
+    await expect(page).toHaveURL(/view=console\/context\/read\/context/)
+  })
+
+  test("a project's brief links to the Context page", async ({ page }) => {
     await open(page, "/?view=console/projects/read/0000000000000000000000000000cafe&tab=brief")
     await page.getByRole("link", { name: "Inherits the global context ↑" }).click()
-    await expect(page).toHaveURL(/view=console\/projects\/list/)
-    await expect(block(page)).toBeInViewport()
+    await expect(page).toHaveURL(/view=console\/context\/read\/context/)
+    await expect(block(page)).toBeVisible()
   })
 })
 
 test.describe("on a phone", () => {
   test.use({ viewport: { width: 390, height: 780 } })
 
-  test("the list comes first on a phone, and the folded context follows it", async ({ page }) => {
+  test("the context fits a phone, with its tabs", async ({ page }) => {
     await open(page)
     await expect(block(page)).toBeVisible()
-    const item = (await page.locator("[data-project-item]").first().boundingBox())!
-    expect(item.y).toBeLessThan(780)
-    const folded = (await block(page).boundingBox())!
-    expect(folded.y).toBeGreaterThan(item.y)
+    await expect(page.getByRole("tab", { name: "Vault" })).toBeVisible()
+    const width = await page.evaluate(() => document.documentElement.scrollWidth)
+    expect(width, "no sideways scroll").toBeLessThanOrEqual(390)
   })
+})
+
+test("the vault keeps a value it never shows again, and empties the form that carried it", async ({ page }) => {
+  await page.context().addCookies([{ name: "ponos_token", value: "e2e", url: test.info().project.use.baseURL }])
+  const value = "e2e_vault_value_0123456789"
+  await page.goto("/?view=console/context/read/context/vault")
+  await expect(page.locator('[data-card="vault-key"]')).toBeVisible()
+  const form = page.locator('[data-card="vault-new"]')
+  const field = form.locator('[data-slot="vault-value"]')
+  await expect(field).toHaveAttribute("type", "password")
+  await expect(field).toHaveAttribute("autocomplete", "off")
+  await form.locator('[data-slot="vault-name"]').fill("E2E_DEPLOY_TOKEN")
+  await field.fill(value)
+  await form.locator('[data-slot="vault-projects"] [role="checkbox"]').first().click()
+  // A console opened with its token alone: the token is what is typed again.
+  const confirm = form.locator('[data-slot="vault-confirm"]')
+  if (await confirm.count()) await confirm.fill("e2e")
+  await form.locator('[data-slot="vault-create"]').click()
+  const row = page.locator('[data-vault="E2E_DEPLOY_TOKEN"]')
+  await expect(row).toBeVisible()
+  await expect(row).toContainText("…6789")
+  await expect(field).toHaveValue("")
+  await expect(page.locator("body")).not.toContainText(value)
+  // The key is a file here — no secret-tool, no PONOS_VAULT_KEY — and the page says where.
+  await expect(page.locator('[data-slot="vault-key-file"]')).toBeVisible()
+  await expect(page.locator('[data-slot="vault-key-where"]')).toContainText("vault.key")
+  const stored = await page.evaluate(() => JSON.stringify({ ...localStorage }) + JSON.stringify({ ...sessionStorage }))
+  expect(stored).not.toContain(value)
 })

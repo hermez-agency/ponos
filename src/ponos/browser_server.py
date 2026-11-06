@@ -541,7 +541,7 @@ class Browser:
         if not site:
             return failed, (
                 f"failed: the entry {entry} has no site address. Somebody has to give it one "
-                "in Settings → Vault."
+                "in Context → Vault."
             )
         target = url or site
         if not browser.same_site(target, site):

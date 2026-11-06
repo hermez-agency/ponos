@@ -855,8 +855,7 @@ function ProjectRows({ rows = [] }: ListComponentPropsInterface) {
 /* -- the list beside its panel ----------------------------------------------- */
 
 /* The third layout, and the one the list opens on: the projects on the left, one
- * line each, and on the right the global context folded, and under it the
- * project picked — its page, the very one its address opens, tabs and all, in
+ * line each, and on the right the project picked — its page, the very one its address opens, tabs and all, in
  * a column. Picking is not navigating: the page alone is a link from the
  * panel, and the list stays where it was. On a screen too narrow for two
  * columns there is no panel, and a project picked is its page.
@@ -1041,14 +1040,9 @@ function CopyPath({ path }: { path: string }) {
 
 /* -- what sits around the list -------------------------------------------- */
 
-/* What sits around the list depends on the layout.
- *
- * Beside it, in the split layout, the panel holds the standing context and the
- * project picked: see `ProjectAside`. The other two have no room on their side,
- * and the context used to be drawn over the list — a block as wide as the page,
- * most of it an empty state, between the menu and the projects the page is
- * named after. It is under them now: the projects first, then what covers all
- * of them. */
+/* Beside the list, in the split layout, the panel holds the project picked: see
+ * `ProjectAside`. The standing context is not here: it is a tab of the Context
+ * page, since it is about no project in particular. */
 function ProjectsTop() {
   useLayoutInTheAddress(PROJECTS)
   const { viewVariant } = useCurrentViewResourceContext()
@@ -1057,30 +1051,6 @@ function ProjectsTop() {
     <React.Suspense fallback={null}>
       <ProjectAside />
     </React.Suspense>
-  )
-}
-
-/** Under the list: how many are worked on in git and where their repositories are
- * looked for — then, in the two layouts with no panel, the standing context. */
-/* The standing context: drawn under the list, and fetched with it rather than
- * with the board — the first load has a budget. */
-const LazyContextBlock = React.lazy(() =>
-  import("@/components/console/context-block").then((module) => ({ default: module.ContextBlock }))
-)
-
-function ProjectsBottom() {
-  const { viewVariant } = useCurrentViewResourceContext()
-  return (
-    <>
-      <ProjectsFoot />
-      {viewVariant === SPLIT ? null : (
-        <div className="mt-8">
-          <React.Suspense fallback={null}>
-            <LazyContextBlock />
-          </React.Suspense>
-        </div>
-      )}
-    </>
   )
 }
 
@@ -1359,7 +1329,7 @@ export const projects = createViewResource<ProjectItem, ProjectWrite>(PROJECTS, 
       // The search is the package's own: it lives in the address (`q`, `type`),
       // and the rows are kept by `keeps`, as the list is read.
       filters: formFilter,
-      components: { top: ProjectsTop, bottom: ProjectsBottom, empty: NoProject },
+      components: { top: ProjectsTop, bottom: ProjectsFoot, empty: NoProject },
     },
     create: {
       title: "New project",
@@ -1399,9 +1369,6 @@ export const projects = createViewResource<ProjectItem, ProjectWrite>(PROJECTS, 
     },
   },
 })
-
-/** The address a project's brief links back to: the standing context, under the projects. */
-export const CONTEXT_ANCHOR = "global-context"
 
 /** Where the projects are, in the layout they were last worked in. */
 export const projectsHref = () =>

@@ -607,11 +607,11 @@ token that can do everything your account can.
 Another provider — 1Password's `op read`, say — is one class in `src/ponos/vault.py` with a
 `read(item)` and an `available()`, and one line in its `PROVIDERS`.
 
-### Ponos's own vault: Settings → Vault
+### Ponos's own vault: Context → Vault
 
 On a machine with neither `secret-tool`, `pass` nor `bw`, every key used to end up in the
 environment or in `secrets.env`, in clear. The `ponos` provider is the vault that needs
-nothing installed: **Settings → Vault** in the console (an admin's — a member or a reader
+nothing installed: **Context → Vault** in the console (an admin's — a member or a reader
 does not see the page, and the API answers them 403), or `ponos vault` in a terminal.
 
 An entry is one of three kinds — an **API key / token**, a **login + password** (given as
@@ -679,7 +679,7 @@ granted to no project.
 a backup, a volume moved to another host — and every place the runner writes: a value a
 session is given is masked in its transcript, the ticket's comments in Notion or in
 `ponos.db`, the log, the console's answers and stream, Telegram, Slack and the push
-notifications. Each entry's journal (Settings → Vault, the history of an entry) says when
+notifications. Each entry's journal (Context → Vault, the history of an entry) says when
 it was created, replaced, given other projects or another site, revoked, and given to which ticket's
 session — never the value. It does **not** protect from somebody who has the Unix account
 that runs Ponos: that account reads the key wherever it is kept, and can ask the runner
@@ -719,7 +719,7 @@ starts a browser and a context of its own: two tickets browse at the same time w
 meeting.
 
 **Signing in without the password.** A *login + password* entry of the vault takes a
-**site** — the address of its sign-in page (Settings → Vault, *Site*; `ponos vault set
+**site** — the address of its sign-in page (Context → Vault, *Site*; `ponos vault set
 NAME --kind login --url https://…`). The prompt names the logins granted to the ticket's
 project, and nothing else; the session calls `browser_login` with one of those names, and
 the browser opens the site, finds the user and password fields, fills them, submits, and

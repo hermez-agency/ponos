@@ -11,6 +11,7 @@ import { t } from "@/lib/i18n"
 import { SCOPE } from "@/lib/resource-view"
 import { canAct, isAdmin } from "@/lib/role"
 
+import { context, contextHref } from "./context"
 import { goals, goalsHref } from "./goals"
 import { ideas, ideasHref, scopedIdeas } from "./ideas"
 import { pairResources } from "./pairs"
@@ -78,6 +79,7 @@ const MENU: MenuItemInterface[] = [
   entry(goals.icon, "Goals", goalsHref, undefined, phone),
   // The conversations are with Claude on this machine: a reader has none to read or start.
   entry(sessions.icon, "Conversations", sessionsHref, undefined, () => !canAct(), "Chat"),
+  entry(context.icon, "Context", () => contextHref(), undefined, phone),
 ]
 
 /* The rest, pinned at the foot of the sidebar, over its version and its
@@ -87,6 +89,7 @@ const MENU: MenuItemInterface[] = [
 const FOOTER_MENU: MenuItemInterface[] = [
   entry(schedules.icon, "Schedules", schedulesHref, undefined, () => !phone()),
   entry(goals.icon, "Goals", goalsHref, undefined, () => !phone()),
+  entry(context.icon, "Context", () => contextHref(), undefined, () => !phone()),
   // How the console runs is an admin's: the others are not sent to a page of fields they may not save.
   entry(settings.icon, "Settings", () => settingsHref(), undefined, () => !isAdmin()),
 ]
@@ -103,6 +106,7 @@ export const consoleScope: ScopeInterface = {
     ideas,
     goals,
     sessions,
+    context,
     settings,
     projectTickets,
     projectSchedules,

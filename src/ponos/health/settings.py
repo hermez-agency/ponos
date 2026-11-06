@@ -476,7 +476,7 @@ def _vault_store() -> list[Check]:
                 title,
                 "Past their expiry date in the vault: {{names}}.",
                 params={"names": ", ".join(past)},
-                steps=["Replace the value in Settings → Vault, or revoke the entry."],
+                steps=["Replace the value in Context → Vault, or revoke the entry."],
             )
         )
     if soon:
@@ -498,7 +498,7 @@ def _vault_store() -> list[Check]:
                 title,
                 "Granted to no project, so given to no session: {{names}}.",
                 params={"names": ", ".join(alone)},
-                steps=["Choose its projects in Settings → Vault."],
+                steps=["Choose its projects in Context → Vault."],
             )
         )
     if not found or all(check.state == OK for check in found):

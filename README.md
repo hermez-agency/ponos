@@ -200,12 +200,12 @@ first, and a doubt stops it before anything runs. See [The type of a ticket](gui
 The board's columns, statuses and options have fixed names — `ponos init` creates them,
 `ponos doctor` names what a board lacks: [The tickets database](guide/board.md#the-tickets-database).
 
-A ticket that needs a key — an npm token, a Dokploy login — never carries it. **Settings →
+A ticket that needs a key — an npm token, a Dokploy login — never carries it. **Context →
 Vault** keeps it encrypted (AES-256-GCM, entry by entry, under a key kept apart from the
 data), for the projects you tick; their sessions get it as an environment variable, by
 name, and its value is replaced by `***` everywhere Ponos writes. It protects a copy of
 `vault.db` and the logs, not somebody with the Unix account that runs Ponos:
-[Ponos's own vault](guide/configuration.md#ponoss-own-vault-settings--vault).
+[Ponos's own vault](guide/configuration.md#ponoss-own-vault-context--vault).
 
 An external ticket acts in **Ponos's own browser** — Chromium driven by Playwright, one
 profile per project — and signs in with a login of the vault by its name: the browser

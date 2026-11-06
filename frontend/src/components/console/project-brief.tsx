@@ -11,7 +11,8 @@ import { ApiError, api, why } from "@/lib/api"
 import { useT } from "@/lib/i18n"
 import type { ProjectBrief } from "@/lib/types"
 import { canAct } from "@/lib/role"
-import { CONTEXT_ANCHOR, forgetProject, projectsHref, type ProjectItem } from "@/resources/projects"
+import { contextHref } from "@/resources/context"
+import { forgetProject, type ProjectItem } from "@/resources/projects"
 
 import { Eyebrow } from "./frame"
 import { Markdown } from "./markdown"
@@ -55,7 +56,7 @@ export function ProjectBrief({ project }: { project: ProjectItem }) {
         <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <Eyebrow>{t("the brief")}</Eyebrow>
           <Link
-            to={`${projectsHref()}#${CONTEXT_ANCHOR}`}
+            to={contextHref()}
             className="text-muted-foreground hover:text-foreground text-xs underline underline-offset-2"
           >
             {t("Inherits the global context ↑")}
