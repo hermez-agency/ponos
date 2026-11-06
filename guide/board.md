@@ -103,7 +103,10 @@ A ticket whose two parts are both written in `ponos.db` cannot lose a text, so i
 page is not read again — only its comments are; the report says how many were spared.
 
 **Letting go of Notion.** Once the report is clean, remove `PONOS_NOTION_TOKEN`
-from `secrets.env` (keep a copy beside it) and restart the runner and the console.
+from `secrets.env` (keep a copy beside it), take `workspace` and `tickets_database`
+out of the `[notion]` table of `config.toml` — an installation that still names a part of
+Notion is one whose token is missing, and refuses to start — and restart the runner and
+the console.
 With no token, Ponos has no mirror: projects, agents, goals, recurrences and the
 context are `ponos.db`'s, every address Ponos writes for a ticket — notifications,
 the pull request's body, `ponos list`, the reports — is the console's
