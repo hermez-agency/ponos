@@ -507,8 +507,9 @@ OPENINGS = ("/api/login", "/api/invite", "/api/setup")
 # The settings and the vaults in them — `[vault]`, and Ponos's own at
 # /api/vault, whose list is an admin's too —, a project's own (its forced validation
 # among them), the GitHub App, the steps of the first connection, the update,
-# the accounts, when ideas are looked for — and the reads that are the same
-# pages, or a look at the disk.
+# the accounts, when ideas are looked for, Ponos's browser (its profiles hold
+# the projects' sign-ins, its live view their dashboards) — and the reads that
+# are the same pages, or a look at the disk.
 ADMIN_WRITES = (
     "/api/settings",
     "/api/setup/",
@@ -521,6 +522,7 @@ ADMIN_WRITES = (
     "/api/disk/clean",
     "/api/ideas/schedule",
     "/api/vault",
+    "/api/browser",
 )
 ADMIN_READS = (
     "/api/accounts",
@@ -528,6 +530,7 @@ ADMIN_READS = (
     "/api/settings/folder",
     "/api/setup/",
     "/api/vault",
+    "/api/browser",
 )
 _PROJECT_OWN = re.compile(r"/api/projects/[0-9a-fA-F-]{32,36}/(settings|delete)")
 

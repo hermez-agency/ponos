@@ -44,8 +44,19 @@ from pydantic import BaseModel, ConfigDict, Field, SecretStr
 from starlette.concurrency import run_in_threadpool
 from starlette.convertors import Convertor, register_url_convertor
 
+from .. import (
+    browser,
+    journal,
+    notifications,
+    preview,
+    push,
+    speech,
+    store,
+    vault,
+    vault_store,
+    voice,
+)
 from .. import config as config_module
-from .. import journal, notifications, preview, push, speech, store, vault, vault_store, voice
 from .. import triggers as triggers_module
 from . import accounts, agui, answers, creation, github, mcp_setup, sessions, setup
 from . import attempts as attempts_module
@@ -907,12 +918,14 @@ class VaultNew(VaultWrite):
     projects: list[str] = Field(default_factory=list)
     description: str = ""
     expires: str = ""
+    url: str = ""
 
 
 class VaultChange(VaultWrite):
     projects: list[str] | None = None
     description: str | None = None
     expires: str | None = None
+    url: str | None = None
 
 
 class VaultRevoke(BaseModel):
@@ -1028,6 +1041,7 @@ def vault_create(request: Request, payload: VaultNew = Body(default_factory=Vaul
             description=payload.description,
             expires=payload.expires,
             by=_by(request),
+            url=payload.url,
         )
     except vault_store.Refused as error:
         return _vault_refused(error)
@@ -1050,6 +1064,7 @@ def vault_change(
                 description=payload.description,
                 expires=payload.expires,
                 by=_by(request),
+                url=payload.url,
             )
         )
     except vault_store.Refused as error:
@@ -1069,6 +1084,116 @@ def vault_revoke(
         return answer(vault_store.revoke(entry_id, by=_by(request)))
     except LookupError as error:
         return fail(404, str(error))
+
+
+# -- Ponos's browser ---------------------------------------------------------------
+
+
+class BrowserReset(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    project: str = ""
+
+
+class BrowserOpen(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    project: str = ""
+    url: str = ""
+
+
+class BrowserAction(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    action: str = ""
+    x: float = 0
+    y: float = 0
+    text: str = ""
+    key: str = ""
+    url: str = ""
+
+
+def _browser(request: Request) -> dict[str, Any]:
+    """What the Browser page shows: its profiles by project, and the browsers running."""
+    names = {
+        browser.slug(str(project["name"])): str(project["name"])
+        for project in _api(request).projects().values()
+    }
+    return {
+        "missing": browser.missing(),
+        "install": browser.install_commands(),
+        "profiles": [
+            {**profile, "project": names.get(profile["slug"], "")} for profile in browser.profiles()
+        ],
+        "live": [
+            {
+                "id": item["id"],
+                "project": str(item.get("project", "")),
+                "ticket": str(item.get("ticket", "")),
+                "url": str(item.get("url", "")),
+                "title": str(item.get("title", "")),
+                "at": str(item.get("at", "")),
+                "person": bool(item.get("person")),
+                "waiting": str(item.get("waiting", "")),
+            }
+            for item in browser.live()
+        ],
+    }
+
+
+@router.get("/api/browser", response_model=answers.Browser)
+def browser_state(request: Request) -> Response:
+    return answer(_browser(request))
+
+
+@router.post("/api/browser/reset", response_model=answers.Browser)
+def browser_reset(
+    request: Request, payload: BrowserReset = Body(default_factory=BrowserReset)
+) -> Response:
+    if not payload.project.strip():
+        return fail(400, "say which project's profile to reset")
+    browser.reset(payload.project)
+    return answer(_browser(request))
+
+
+@router.post("/api/browser/live", response_model=answers.BrowserOpened)
+def browser_open(
+    request: Request, payload: BrowserOpen = Body(default_factory=BrowserOpen)
+) -> Response:
+    if not payload.project.strip():
+        return fail(400, "say which project's profile to open")
+    try:
+        opened = browser.open_for_person(_api(request).config, payload.project, payload.url)
+    except ValueError as error:
+        return fail(400, str(error))
+    except RuntimeError as error:
+        return fail(409, str(error))
+    return answer({"id": opened})
+
+
+@router.get("/api/browser/live/{identifier}/screen", response_class=Response)
+def browser_screen(identifier: str) -> Response:
+    shown = browser.screen(identifier)
+    if shown is None:
+        return fail(404, "no such browser")
+    try:
+        data = shown.read_bytes()
+    except OSError:
+        return fail(404, "no such browser")
+    return Response(data, media_type="image/png", headers={"Cache-Control": "no-store"})
+
+
+@router.post("/api/browser/live/{identifier}", response_model=answers.Ok)
+def browser_act(
+    identifier: str, payload: BrowserAction = Body(default_factory=BrowserAction)
+) -> Response:
+    try:
+        browser.send(identifier, payload.model_dump())
+    except ValueError as error:
+        return fail(400, str(error))
+    except LookupError as error:
+        return fail(404, str(error))
+    return answer({"ok": True})
 
 
 # -- the accounts ----------------------------------------------------------------

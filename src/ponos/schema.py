@@ -45,6 +45,7 @@ from pydantic_core import ErrorDetails, PydanticUseDefault
 
 from . import models, subtypes
 from .config import (
+    BROWSERS,
     CONFIDENCES,
     DIGEST_DAYS,
     DIGESTS,
@@ -58,6 +59,7 @@ from .config import (
     SECRETS,
     UPDATE_CHANNELS,
     WEEKDAYS,
+    Browser,
     Budget,
     ConfigError,
     OpenRouter,
@@ -442,6 +444,11 @@ class SpeechTable(Table):
     speed: Annotated[Integer, _at_least(50)] = Speech.speed
 
 
+class BrowserTable(Table):
+    default: Annotated[str, _one_of(BROWSERS)] = Browser.default
+    headless: bool = Browser.headless
+
+
 class ClaudeTable(Table):
     # A typo must not leave the sessions on an account nobody chose: an
     # unknown word is the file that says nothing.
@@ -498,6 +505,7 @@ class File(Table):
     notify: NotifyTable = Field(default_factory=NotifyTable)
     openrouter: OpenRouterTable = Field(default_factory=OpenRouterTable)
     speech: SpeechTable = Field(default_factory=SpeechTable)
+    browser: BrowserTable = Field(default_factory=BrowserTable)
     claude: ClaudeTable = Field(default_factory=ClaudeTable)
     budget: BudgetTable = Field(default_factory=BudgetTable)
     review: ReviewTable = Field(default_factory=ReviewTable)

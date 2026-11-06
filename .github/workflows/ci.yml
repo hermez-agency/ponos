@@ -10,7 +10,9 @@
 #   le runner promet, avec `requirements.txt` et rien d'autre ;
 # - core (3.13) : la partie pure sous `TZ=Australia/Sydney`, une heure d'été ;
 # - quality : ruff, mypy, l'export du lockfile, et les deux suites sous pytest
-#   sur 3.13 — la version la plus récente —, avec la couverture et son seuil ;
+#   sur 3.13 — la version la plus récente —, avec la couverture et son seuil,
+#   et le navigateur de Ponos (l'extra `browser` et son Chromium) — ailleurs,
+#   ses cas fonctionnels sont sautés ;
 # - frontend : la console — ses types, son build commité, un vrai navigateur ;
 # - image : le parcours complet dans l'image du `Dockerfile`.
 #
@@ -137,7 +139,12 @@ jobs:
           enable-cache: true
 
       - name: L'outillage, aux versions du lockfile
-        run: uv sync --locked
+        run: uv sync --locked --extra browser
+
+      # Le navigateur de Ponos : ses cas fonctionnels (une connexion sur un site
+      # local, deux sessions côte à côte, un deuxième facteur) le lancent pour de vrai.
+      - name: Le Chromium de Playwright
+        run: uv run python -m playwright install --with-deps chromium
 
       - name: Ruff
         run: uv run ruff check --output-format=github .

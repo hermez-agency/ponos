@@ -1189,6 +1189,37 @@ SECTIONS: tuple[Section, ...] = (
         ),
     ),
     Section(
+        key="browser",
+        group="execution",
+        title="Browser for external tickets",
+        blurb=(
+            "Ponos's own browser is Chromium driven by Playwright on this machine, one profile "
+            "per project, and it signs in with the logins of the vault without the model ever "
+            "seeing their password. It needs the `browser` extra (`pip install playwright`, then "
+            "`python -m playwright install chromium`). Claude in Chrome acts in your own Chrome."
+        ),
+        fields=(
+            Field(
+                "browser",
+                "default",
+                "choice",
+                "Browser of external tickets",
+                "What a project uses when its settings do not say; a ticket names the other one "
+                "with a line `Browser: chrome` or `Browser: ponos` in its body.",
+                choices=config_module.BROWSERS,
+                options=(("ponos", "Ponos's browser"), ("chrome", "Claude in Chrome")),
+            ),
+            Field(
+                "browser",
+                "headless",
+                "bool",
+                "Without a window",
+                "Off: Chromium opens a visible window, to watch a session or to debug one. "
+                "It needs a display.",
+            ),
+        ),
+    ),
+    Section(
         key="ideas",
         group="models",
         title="Finding ideas on a schedule",
@@ -1937,6 +1968,7 @@ def _fallback(config: Config, entry: Field) -> object:
         "web": config.web,
         "openrouter": config.openrouter,
         "speech": config.speech,
+        "browser": config.browser,
         "claude": config.claude,
         "permissions": config.permissions,
         "github_access": config.github_access,

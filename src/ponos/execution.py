@@ -42,6 +42,7 @@ from typing import Any
 
 from . import (
     blocks,
+    browser,
     generated,
     git,
     github_token,
@@ -242,57 +243,103 @@ class Execution(Base):
     def _session_prompt(self, job: Job, template: str, subtype: bool) -> str:
         """The prompt of a job's session: its template, filled with the ticket."""
         section = subtypes.section(job.subtype) if subtype else ""
-        return prompt_module.build(
-            template,
+        return (
+            prompt_module.build(
+                template,
+                project=job.project.name,
+                title=job.ticket.title,
+                body=job.body,
+                repo=str(job.project.path or job.workdir),
+                branch=job.branch,
+                base=job.base,
+                url=job.ticket.url,
+                brief=job.project.brief,
+                notes=notes.kept(job.project.notion_id),
+                context=self.workspace.context,
+                agent_name=job.agent.name,
+                agent_brief=job.agent.brief,
+                goal_name=job.goal.name,
+                goal_brief=job.goal.brief,
+                goal_criterion=job.goal.criterion,
+                goal_due=job.goal.due,
+                comments=job.comments,
+                language=self.voice.instruction(),
+                allowed=self.config.permissions.allowed,
+                ask=self.config.permissions.ask,
+                owners=[*self.config.github, *self.config.github.values()],
+                kind=section
+                if job.project.is_code
+                else prompt_module.kind(job.kind, job.reference or ""),
+                # A branch picked up from an earlier attempt: the session is told,
+                # because a worktree that opens on somebody's half-done work and
+                # reads as empty is how the same thing gets written twice.
+                resumed=(
+                    f"- This ticket has run before, and its branch already carries what that "
+                    f"session committed, replayed on top of `{job.base}`. Read "
+                    f"`git log {job.base}..HEAD` and its diff first: you are continuing that "
+                    f"work, not starting it again.\n"
+                    if job.resumed
+                    else ""
+                )
+                + (
+                    f"- A worktree of this ticket was left interrupted (a rebase, a merge or a "
+                    f"detached HEAD with changes) by an earlier session. Everything it held, "
+                    f"conflict markers included, is saved on the local branch `{job.backup}`: "
+                    f"`git log -p {job.base}..{job.backup}` shows it, and `git diff HEAD "
+                    f"{job.backup}` compares it with what you have. Take from it what is worth "
+                    f"keeping.\n"
+                    if job.backup
+                    else ""
+                )
+                + (f"- {job.prepared}\n" if job.prepared else ""),
+                secrets=sorted(job.secrets),
+                workers=self.workers,
+            )
+            + (self._planned(job) if subtype else "")
+            + self._browser_prompt(job)
+        )
+
+    def _browser_prompt(self, job: Job) -> str:
+        """Choose the browser of an external ticket, and what its session is told of it.
+
+        Ponos's own unless the ticket, its project or `[browser]` say Claude in
+        Chrome — and Claude in Chrome anyway, said once, on a machine where
+        Playwright or its Chromium is missing. See browser.py.
+        """
+        job.browser = ""
+        if job.kind != "external" or self.dry_run:
+            return ""
+        if browser.chosen(self.config, job.project.notion_id, job.body) != browser.PONOS:
+            return ""
+        if why := browser.missing():
+            self.say(f"    ! Ponos's browser: {why} — Claude in Chrome instead (ponos doctor)")
+            return ""
+        job.browser = browser.PONOS
+        return "\n\n" + prompt_module.held_browser(self._logins(job))
+
+    def _logins(self, job: Job) -> dict[str, str]:
+        try:
+            return vault_store.logins(job.project.name)
+        except (sqlite3.Error, OSError) as error:
+            self.say(f"    ! the vault of Ponos cannot be read: {error}")
+            return {}
+
+    def _browsing(self, job: Job, log: Path) -> dict[str, Any]:
+        """What `session.run` is given for the browser: Claude in Chrome, or `ponos-browser`."""
+        if job.browser != browser.PONOS:
+            return {}
+        environment = browser.server_environment(
             project=job.project.name,
-            title=job.ticket.title,
-            body=job.body,
-            repo=str(job.project.path or job.workdir),
-            branch=job.branch,
-            base=job.base,
-            url=job.ticket.url,
-            brief=job.project.brief,
-            notes=notes.kept(job.project.notion_id),
-            context=self.workspace.context,
-            agent_name=job.agent.name,
-            agent_brief=job.agent.brief,
-            goal_name=job.goal.name,
-            goal_brief=job.goal.brief,
-            goal_criterion=job.goal.criterion,
-            goal_due=job.goal.due,
-            comments=job.comments,
-            language=self.voice.instruction(),
-            allowed=self.config.permissions.allowed,
-            ask=self.config.permissions.ask,
-            owners=[*self.config.github, *self.config.github.values()],
-            kind=section
-            if job.project.is_code
-            else prompt_module.kind(job.kind, job.reference or ""),
-            # A branch picked up from an earlier attempt: the session is told,
-            # because a worktree that opens on somebody's half-done work and
-            # reads as empty is how the same thing gets written twice.
-            resumed=(
-                f"- This ticket has run before, and its branch already carries what that "
-                f"session committed, replayed on top of `{job.base}`. Read "
-                f"`git log {job.base}..HEAD` and its diff first: you are continuing that "
-                f"work, not starting it again.\n"
-                if job.resumed
-                else ""
-            )
-            + (
-                f"- A worktree of this ticket was left interrupted (a rebase, a merge or a "
-                f"detached HEAD with changes) by an earlier session. Everything it held, "
-                f"conflict markers included, is saved on the local branch `{job.backup}`: "
-                f"`git log -p {job.base}..{job.backup}` shows it, and `git diff HEAD "
-                f"{job.backup}` compares it with what you have. Take from it what is worth "
-                f"keeping.\n"
-                if job.backup
-                else ""
-            )
-            + (f"- {job.prepared}\n" if job.prepared else ""),
-            secrets=sorted(job.secrets),
-            workers=self.workers,
-        ) + (self._planned(job) if subtype else "")
+            ticket=job.ticket.id,
+            session=job.session_id,
+            headless=self.config.browser.headless,
+            logins=self._logins(job),
+            downloads=job.workdir,
+        )
+        return {
+            "chrome": False,
+            "mcp_config": browser.mcp_config(log.with_suffix(".mcp.json"), environment),
+        }
 
     @staticmethod
     def _planned(job: Job) -> str:
@@ -479,6 +526,7 @@ class Execution(Base):
             environment={**job.secrets, **self.environment_for(model), **self._github(job)},
             on_event=_both(run.event, live.event if live else None),
             max_budget_usd=self.config.budget.per_ticket_usd,
+            **self._browsing(job, log),
         )
 
     def _github(self, job: Job) -> dict[str, str]:
@@ -596,6 +644,7 @@ class Execution(Base):
             environment={**job.secrets, **self.environment_for(model), **self._github(job)},
             on_event=_both(run.event, live.event if live else None),
             max_budget_usd=self.config.budget.per_ticket_usd,
+            **self._browsing(job, log),
         )
         if session.lost(asked):
             return outcome

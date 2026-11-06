@@ -598,6 +598,23 @@ class ProjectSelfReview(Shape):
     """`runner.self_review`, whatever the project says."""
 
 
+class ProjectBrowser(Shape):
+    """The browser of a project's external tickets — see browser.py."""
+
+    value: Literal["ponos", "chrome"]
+    """What applies to it: its own word, or `[browser] default`."""
+    own: bool
+    """Whether the project says so itself."""
+    global_: Literal["ponos", "chrome"] = Field(alias="global")
+    """`[browser] default`, whatever the project says."""
+    missing: str
+    """Why Ponos's browser cannot start on this machine, "" when it can."""
+    project: str
+    """The project's name, which its profile is kept under."""
+    sites: list[str]
+    """The domains its profile holds cookies for: the sites it is signed in to."""
+
+
 class ProjectSettings(Shape):
     """What a project decides for itself — see project_settings.py."""
 
@@ -610,6 +627,7 @@ class ProjectSettings(Shape):
     """The command run in each fresh worktree before its session; empty, the repository's `.ponos/setup.sh` if any."""
     preview: ProjectPreview
     plan: ProjectPlan
+    browser: ProjectBrowser
 
 
 class ProjectNotes(Shape):
@@ -1488,6 +1506,8 @@ class VaultEntry(Shape):
     updated: str
     print: str
     """La fin de la valeur, quatre caractères au plus — rien sous douze."""
+    url: str
+    """L'adresse du site d'un login : là où le navigateur de Ponos s'y connecte, et nulle part ailleurs."""
     last_used: str
     last_ticket: str
     last_project: str
@@ -1511,7 +1531,19 @@ class Vault(Shape):
 
 
 class VaultMoment(Shape):
-    action: Literal["created", "replaced", "projects", "described", "revoked", "read", "rotated"]
+    action: Literal[
+        "created",
+        "replaced",
+        "projects",
+        "described",
+        "revoked",
+        "read",
+        "rotated",
+        "login",
+        "login-failed",
+        "login-second-factor",
+        "login-refused",
+    ]
     by: str
     ticket: str
     project: str
@@ -1520,6 +1552,47 @@ class VaultMoment(Shape):
 
 class VaultHistory(Shape):
     entries: list[VaultMoment]
+
+
+class BrowserProfile(Shape):
+    """One project's profile in Ponos's browser."""
+
+    slug: str
+    """The file it is kept under."""
+    project: str
+    """The project it belongs to, "" when no known project has that name any more."""
+    sites: list[str]
+    updated: str
+
+
+class BrowserLive(Shape):
+    """A browser running now: a session's, or one opened for a person."""
+
+    id: str
+    project: str
+    ticket: str
+    url: str
+    title: str
+    at: str
+    person: bool
+    """Opened from the console, for somebody to drive."""
+    waiting: str
+    """What it stopped on — a second factor, a CAPTCHA — "" otherwise."""
+
+
+class Browser(Shape):
+    """Ponos's browser: whether it is installed, its profiles, and the browsers running."""
+
+    missing: str
+    """Why it cannot start here, "" when it can."""
+    install: list[str]
+    """The commands that install it into Ponos's Python."""
+    profiles: list[BrowserProfile]
+    live: list[BrowserLive]
+
+
+class BrowserOpened(Shape):
+    id: str
 
 
 class McpServer(Shape):

@@ -1,5 +1,5 @@
 import * as React from "react"
-import { History, KeyRound, Plus, RefreshCw, Trash2, Users } from "lucide-react"
+import { Globe, History, KeyRound, Plus, RefreshCw, Trash2, Users } from "lucide-react"
 import { toast } from "sonner"
 
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -49,6 +49,10 @@ const ACTIONS: Record<VaultMoment["action"], string> = {
   revoked: "entry revoked",
   read: "given to a session",
   rotated: "sealed under a new key",
+  login: "signed in by Ponos's browser",
+  "login-failed": "sign-in failed",
+  "login-second-factor": "sign-in stopped on a second factor",
+  "login-refused": "sign-in refused",
 }
 
 /** The password field a write carries when the server wants it again. */
@@ -172,6 +176,7 @@ function New({ vault, onMade, onAsked }: { vault: Vault; onMade: () => void; onA
   const [projects, setProjects] = React.useState<string[]>([])
   const [description, setDescription] = React.useState("")
   const [expires, setExpires] = React.useState("")
+  const [url, setUrl] = React.useState("")
   const [problem, setProblem] = React.useState("")
   const [busy, setBusy] = React.useState(false)
   const value = React.useRef<HTMLInputElement | HTMLTextAreaElement>(null)
@@ -191,6 +196,7 @@ function New({ vault, onMade, onAsked }: { vault: Vault; onMade: () => void; onA
         projects,
         description,
         expires,
+        url: kind === "login" ? url : "",
         confirm: taken(confirm),
         ...given,
       })
@@ -199,6 +205,7 @@ function New({ vault, onMade, onAsked }: { vault: Vault; onMade: () => void; onA
       setProjects([])
       setDescription("")
       setExpires("")
+      setUrl("")
       onMade()
     } catch (error) {
       const refused = refusal(error)
@@ -245,6 +252,7 @@ function New({ vault, onMade, onAsked }: { vault: Vault; onMade: () => void; onA
             </label>
           </div>
           <ValueFields kind={kind} value={value} user={user} password={password} />
+          {kind === "login" ? <SiteField url={url} onChange={setUrl} /> : null}
           <div className="flex flex-col gap-1.5 text-sm">
             <span className="font-medium">{t("Projects allowed")}</span>
             <Projects known={vault.projects} chosen={projects} onChange={setProjects} />
@@ -277,6 +285,27 @@ function New({ vault, onMade, onAsked }: { vault: Vault; onMade: () => void; onA
   )
 }
 
+/** A login's site: where Ponos's browser signs in with it, and the only place it ever types it. */
+function SiteField({ url, onChange }: { url: string; onChange: (url: string) => void }) {
+  const t = useT()
+  return (
+    <label className="flex flex-col gap-1.5 text-sm">
+      <span className="font-medium">{t("Site (sign-in page)")}</span>
+      <Input
+        value={url}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder="https://dokploy.example.com/login"
+        autoComplete="off"
+        spellCheck={false}
+        data-slot="vault-url"
+      />
+      <span className="text-muted-foreground text-xs">
+        {t("Ponos's browser signs in here with it, and types it on no other site.")}
+      </span>
+    </label>
+  )
+}
+
 function Moments({ entry }: { entry: VaultEntry }) {
   const t = useT()
   const [moments, setMoments] = React.useState<VaultMoment[] | null>(null)
@@ -304,6 +333,7 @@ function Moments({ entry }: { entry: VaultEntry }) {
 function Row({ entry, vault, onChanged, onAsked }: { entry: VaultEntry; vault: Vault; onChanged: () => void; onAsked: () => void }) {
   const t = useT()
   const [projects, setProjects] = React.useState<string[]>(entry.projects)
+  const [url, setUrl] = React.useState(entry.url)
   const [history, setHistory] = React.useState(false)
   const value = React.useRef<HTMLInputElement | HTMLTextAreaElement>(null)
   const user = React.useRef<HTMLInputElement>(null)
@@ -334,6 +364,14 @@ function Row({ entry, vault, onChanged, onAsked }: { entry: VaultEntry; vault: V
     }
     onChanged()
   }
+  const resite = async () => {
+    try {
+      await api.changeVaultEntry(entry.id, { url, confirm: taken(confirm) })
+    } catch (error) {
+      return failed("The site could not be changed", error)
+    }
+    onChanged()
+  }
   const revoke = async () => {
     try {
       await api.revokeVaultEntry(entry.id, taken(confirm))
@@ -357,6 +395,7 @@ function Row({ entry, vault, onChanged, onAsked }: { entry: VaultEntry; vault: V
           <p className="text-muted-foreground text-xs">
             {entry.projects.length ? entry.projects.join(", ") : <span className="text-destructive">{t("no project: given to no session")}</span>}
             {entry.kind === "login" ? ` · ${entry.variables.join(", ")}` : ""}
+            {entry.url ? ` · ${entry.url}` : ""}
             {entry.description ? ` · ${entry.description}` : ""}
           </p>
           <p className="text-muted-foreground text-xs">
@@ -402,6 +441,26 @@ function Row({ entry, vault, onChanged, onAsked }: { entry: VaultEntry; vault: V
             <Confirm field={confirm} needed={!vault.proven} />
           </div>
         </ConfirmDialog>
+        {entry.kind === "login" ? (
+          <ConfirmDialog
+            title={t("Site of {{name}}", { name: entry.name })}
+            description={t("Ponos's browser signs in here with it, and types it on no other site.")}
+            confirm={t("Save")}
+            onConfirm={resite}
+            onOpenChange={(open) => open && setUrl(entry.url)}
+            trigger={
+              <Button variant="ghost" size="sm" data-slot="vault-site">
+                <Globe />
+                {t("Site")}
+              </Button>
+            }
+          >
+            <div className="flex flex-col gap-3">
+              <SiteField url={url} onChange={setUrl} />
+              <Confirm field={confirm} needed={!vault.proven} />
+            </div>
+          </ConfirmDialog>
+        ) : null}
         <Button variant="ghost" size="icon-sm" onClick={() => setHistory((was) => !was)} aria-label={t("History of {{name}}", { name: entry.name })} aria-pressed={history}>
           <History />
         </Button>

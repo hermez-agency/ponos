@@ -814,6 +814,20 @@ voice_en = "en_US-lessac-medium"
 # Percent of the voice's own pace: 100 is normal, 130 a little faster. 50 at the least.
 speed = 100
 
+# The browser the sessions of external tickets act in. "ponos" is Ponos's own:
+# Chromium driven by Playwright on this machine, one profile per project kept in
+# the state directory, and a `login` tool that signs in with a login of the vault
+# without the model ever seeing its password. It needs the `browser` extra
+# (pip install playwright, then python -m playwright install chromium) —
+# `ponos doctor` says what is missing. "chrome" is Claude in Chrome, your own
+# Chrome with its extension, as before. A project says its own word in its
+# settings; a ticket names the other one with a line `Browser: chrome` (or
+# `Navigateur : Ponos`) in its body.
+[browser]
+default = "ponos"
+# false shows the window, to watch a session or to debug one (it needs a display).
+headless = true
+
 # ---------------------------------------------------------------------------
 # Being told where you are, and answering with one word
 # ---------------------------------------------------------------------------

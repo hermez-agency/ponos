@@ -16,6 +16,7 @@ import { settingsFrench } from "@/lib/settings-store"
 import type { ProjectSettings, TicketKind, ValidationField } from "@/lib/types"
 import { settingsHref } from "@/resources/settings"
 
+import { BrowserCard } from "./project-browser"
 import { NotesCard } from "./project-notes"
 import { MoreHelp } from "./settings-bits"
 import { Rich } from "./text"
@@ -123,6 +124,18 @@ export function ProjectSettingsTab({ project }: { project: string }) {
     setSaving(true)
     try {
       setSettings(await api.saveProjectSettings(project, { self_review: { enabled } }))
+      setProblem("")
+    } catch (error) {
+      setProblem(why(error))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const saveBrowser = async (value: "ponos" | "chrome") => {
+    setSaving(true)
+    try {
+      setSettings(await api.saveProjectSettings(project, { browser: { value } }))
       setProblem("")
     } catch (error) {
       setProblem(why(error))
@@ -245,6 +258,7 @@ export function ProjectSettingsTab({ project }: { project: string }) {
         onSave={savePreview}
       />
       <LocalCiCard key={localCi.command} localCi={localCi} saving={saving} onSave={saveLocalCi} />
+      <BrowserCard browser={settings.browser} saving={saving} onSave={saveBrowser} onChanged={read} />
       <Card data-card="project-self-review" className="gap-0 py-0">
         <CardHeader className="gap-1 px-5 pt-5 pb-2 sm:px-6">
           <CardTitle className="text-base">{t("Self-review before pull request")}</CardTitle>
