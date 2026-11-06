@@ -825,6 +825,25 @@ def _reworks(connection: sqlite3.Connection) -> None:
     )
 
 
+def _pr_reviews(connection: sqlite3.Connection) -> None:
+    # What the runner has read of the GitHub reviews of a ticket's pull request
+    # (reviews.py): the last review and the last line comment it saw, when it
+    # last asked, and the threads it owes an answer to once the session pushed.
+    connection.execute(
+        """
+        CREATE TABLE pr_reviews (
+            ticket     TEXT PRIMARY KEY,
+            url        TEXT NOT NULL,
+            review_id  INTEGER NOT NULL DEFAULT 0,
+            comment_id INTEGER NOT NULL DEFAULT 0,
+            asked      REAL NOT NULL DEFAULT 0,
+            pending    TEXT NOT NULL DEFAULT '[]',
+            brief      TEXT NOT NULL DEFAULT ''
+        )
+        """
+    )
+
+
 def _kind_switches(connection: sqlite3.Connection) -> None:
     # The tickets a session ran as a text or an action said were code, and the
     # runner made code and put back in ready (execution.py): once a ticket.
@@ -1160,6 +1179,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     _accounts,
     _push_subscriptions,
     _hooks,
+    _pr_reviews,
 )
 
 # Any way a read or a write of the database can fail. A note the runner keeps

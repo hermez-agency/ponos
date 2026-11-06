@@ -407,6 +407,11 @@ class Runner:
     # A person wrote the comment and a person is waiting for the answer, so a
     # minute is soon enough — and the scan costs one request per page.
     reply_interval_seconds: int = 60
+    # The reviews and the line comments of GitHub on a ticket's pull request, as
+    # work: a « Changes requested », or a comment that opens on the mention,
+    # puts the ticket back in ready. See reviews.py.
+    pr_review_comments: bool = True
+    pr_review_mention: str = "@ponos"
     reply_scan: int = 20
     reply_timeout_minutes: int = 10
     # `plan` is the guardrail, not the prompt: a conversation that quietly

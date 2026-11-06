@@ -1123,6 +1123,20 @@ class Execution(Base):
         assert project.path is not None
         said = self.voice
         dirty = git.is_dirty(job.workdir)
+        if not dirty and self.review_brief(ticket) and outcome.ok:
+            # A review of the pull request that asked for nothing to change:
+            # the reply in each thread says why, and the ticket goes back to
+            # review as it was.
+            git.remove_worktree(project.path, job.workdir)
+            self.say("    · nothing committed, the review needed no change — back to review")
+            self.answer_reviews(ticket, outcome.answer, changed=False, why=outcome.summary)
+            return self._deliver_text(
+                job,
+                outcome,
+                _report(outcome.answer) or outcome.summary,
+                review=True,
+                note=said.say("already-settled"),
+            )
         if not dirty and _done_elsewhere(outcome.answer):
             # Nothing to commit because nothing was to be: the work was a
             # deployment, a setting, a board — and its report is what it
@@ -1256,6 +1270,8 @@ class Execution(Base):
         """A branch with commits: merged when forced, the board moved, and the ticket told."""
         ticket, project = job.ticket, job.project
         assert project.path is not None
+        # The pushed commits are what answers the reviewers' threads on GitHub.
+        self.answer_reviews(ticket, outcome.answer, changed=True)
         forced, refused, later = self._merge_forced(job, pull_request)
         merged = bool(forced and not refused)
         git.remove_worktree(project.path, job.workdir)

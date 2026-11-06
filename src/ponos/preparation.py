@@ -188,6 +188,11 @@ class Preparation(Base):
         # — and the session is what remembers the half of the work that is not
         # in a commit yet. Anything else gets a fresh identifier, as ever.
         carried = self._carried_session(ticket)
+        discussion = self.discussion(ticket)
+        # What the reviewers of the pull request wrote, with the diff it is
+        # about: kept apart from the discussion, whose budget it would blow.
+        if reviewed := self.review_brief(ticket):
+            discussion.append(reviewed)
         return Job(
             ticket,
             project,
@@ -201,7 +206,7 @@ class Preparation(Base):
             model=self._written_model(ticket),
             agent=agent,
             goal=goal,
-            comments=self.discussion(ticket),
+            comments=discussion,
             kind=kind,
             reference=reference,
             subtype=subtype,

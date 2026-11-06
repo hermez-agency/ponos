@@ -1977,6 +1977,24 @@ SECTIONS: tuple[Section, ...] = (
             ),
             Field(
                 "runner",
+                "pr_review_comments",
+                "bool",
+                "Work on GitHub reviews",
+                "A review that requests changes, or a comment that opens on the word below, "
+                "puts the ticket back in Ready: the session resumes on the pull request's "
+                "branch, pushes, and answers in each thread.",
+            ),
+            Field(
+                "runner",
+                "pr_review_mention",
+                "text",
+                "Word that asks for work in a review",
+                "`@ponos` by default: write `@ponos rename this` in a comment on a line of the "
+                "pull request.",
+                advanced=True,
+            ),
+            Field(
+                "runner",
                 "reply_interval_seconds",
                 "int",
                 "Look for new comments every",

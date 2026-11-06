@@ -274,6 +274,22 @@ and the ticket waits for the base to be green. Nor for a closed pull request, wh
 that run is on the ticket, or while the checks of the last push are still running: a retry is
 only sent on a verdict, never on a pending.
 
+<a id="github-reviews"></a>**Reviewing on GitHub: the ticket hears the pull request.** A reviewer who
+lives in GitHub no longer has to go back to the ticket. For a ticket in *In review* with a pull request,
+Ponos reads the reviews and the line comments of that pull request (about once a minute), and
+two things put the ticket back in *Ready*: a review that **requests changes** (with every line
+comment it holds), and a comment — on a line, or the body of a review — that **opens on
+`@ponos`** (`runner.pr_review_mention`). Comments of bots and the runner's own never do, and
+neither does anything written before Ponos first looked at the pull request.
+
+The prompt then carries each comment with its author, its file and line and the end of the diff
+it is about; the session resumes on the pull request's own branch (not a new one), pushes, and
+ends its report with a line per comment. Ponos posts it in the thread on GitHub — what changed,
+or why nothing did. A review that asked for nothing to change goes back to review with those
+replies and no commit. What was already read is a mark kept in `ponos.db`: a comment is
+handled once. `runner.pr_review_comments = false` turns all of it off; it only concerns the
+pull requests Ponos opened.
+
 Four of those names are deliberate. *In review* rather than *Done*, because nothing is
 done when the runner lets go of a ticket: a pull request is waiting for a human, and a
 board that calls that *Done* stops being believed by the second week. *Done* is then kept
