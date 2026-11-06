@@ -4479,12 +4479,12 @@ def _in_review(machine: Bench) -> tuple[Path, str, str]:
     ticket = machine.ticket("Corriger l'entête", "Une phrase.", machine.project("Site", repository))
     machine.review()
     machine.run()
-    assert machine.status(ticket) == "In review", machine.status(ticket)
+    assert machine.status(ticket) == "review", machine.status(ticket)
     assert len(machine.pull_requests()) == 1
     branch = machine.pull_requests()[0]["branch"]
     # The second reading is the first of its reviews: it only sets the marks.
     machine.run()
-    assert machine.status(ticket) == "In review", machine.status(ticket)
+    assert machine.status(ticket) == "review", machine.status(ticket)
     return repository, ticket, branch
 
 
@@ -4509,7 +4509,7 @@ def a_review_requesting_changes_reruns_the_ticket_and_answers_in_each_thread(
     results = machine.run()
 
     assert results and results[0]["status"] == "done", results
-    assert machine.status(ticket) == "In review", machine.status(ticket)
+    assert machine.status(ticket) == "review", machine.status(ticket)
     handed = [
         call for call in machine.sessions() if "Review comments left on GitHub" in call["prompt"]
     ]
@@ -4534,7 +4534,7 @@ def a_review_requesting_changes_reruns_the_ticket_and_answers_in_each_thread(
     )
     machine.run()
     assert not machine.sessions(), machine.sessions()
-    assert machine.status(ticket) == "In review", machine.status(ticket)
+    assert machine.status(ticket) == "review", machine.status(ticket)
 
 
 @case
@@ -4555,7 +4555,7 @@ def a_comment_opening_on_the_mention_reruns_the_ticket_and_the_others_do_not(
     machine.run()
 
     assert not machine.sessions(), machine.sessions()
-    assert machine.status(ticket) == "In review", machine.status(ticket)
+    assert machine.status(ticket) == "review", machine.status(ticket)
 
     machine.review(comments=[_line(35, "@ponos Utilise une constante ici.")])
     machine.run()
@@ -4563,7 +4563,7 @@ def a_comment_opening_on_the_mention_reruns_the_ticket_and_the_others_do_not(
     assert len(machine.sessions()) == 1, machine.sessions()
     assert "Utilise une constante ici." in machine.sessions()[-1]["prompt"]
     assert [reply["to"] for reply in machine.review()] == ["35"]
-    assert machine.status(ticket) == "In review", machine.status(ticket)
+    assert machine.status(ticket) == "review", machine.status(ticket)
 
 
 @case
@@ -4580,7 +4580,7 @@ def a_review_that_needs_no_change_is_answered_in_its_threads_without_a_commit(
     replies = machine.review()
     assert [reply["to"] for reply in replies] == ["41"], replies
     assert "rien à changer" in replies[0]["body"], replies
-    assert machine.status(ticket) == "In review", machine.status(ticket)
+    assert machine.status(ticket) == "review", machine.status(ticket)
 
 
 @case
@@ -4592,7 +4592,7 @@ def reviews_are_left_alone_when_the_setting_is_off(machine: Bench) -> None:
     machine.run()
 
     assert not machine.sessions(), machine.sessions()
-    assert machine.status(ticket) == "In review", machine.status(ticket)
+    assert machine.status(ticket) == "review", machine.status(ticket)
 
 
 if __name__ == "__main__":
