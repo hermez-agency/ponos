@@ -84,6 +84,9 @@ class Job:
     # The project's secrets, read from `[vault]` once per session and handed to
     # it as environment variables — see vault.py. Never written anywhere.
     secrets: dict[str, str] = field(default_factory=dict)
+    # Which of them are the addresses of the vault's entries (`<NAME>_URL`):
+    # given beside the keys, and no secret — see vault_store.addresses.
+    addresses: list[str] = field(default_factory=list)
     # « Plan d'abord » — see planning.py. "propose" for a session that only
     # plans (and `plan` holds the one it amends, if any), "carry" for one that
     # carries out the plan approved in `plan`, with the `answer` that approved

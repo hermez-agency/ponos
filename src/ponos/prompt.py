@@ -730,22 +730,33 @@ def permissions(
     )
 
 
-def held_secrets(names: Iterable[str]) -> str:
+def held_secrets(names: Iterable[str], addresses: Iterable[str] = ()) -> str:
     """The line that tells a session which keys it holds, or nothing — see vault.py.
 
     The names and never the values: the prompt is a file on disk, a transcript
-    and, for a carried-on session, a conversation Claude Code keeps.
+    and, for a carried-on session, a conversation Claude Code keeps. The
+    addresses of the vault's entries (`<NAME>_URL`) are named apart: they are
+    no secret, and say where a key signs in or is managed.
     """
     listed = ", ".join(f"`{name}`" for name in names)
-    if not listed:
+    places = ", ".join(f"`{name}`" for name in addresses)
+    if not listed and not places:
         return ""
-    return (
-        "# Secrets\n\n"
-        f"This project's secrets are in your environment: {listed}. Use them by "
-        "name (`$NAME`), and never print, echo, commit or write their values "
-        "anywhere — not in a file, a comment, a log or your report. Any value that "
-        "slips out is replaced by *** before it reaches Notion or the console.\n"
-    )
+    text = "# Secrets\n\n"
+    if listed:
+        text += (
+            f"This project's secrets are in your environment: {listed}. Use them by "
+            "name (`$NAME`), and never print, echo, commit or write their values "
+            "anywhere — not in a file, a comment, a log or your report. Any value that "
+            "slips out is replaced by *** before it reaches Notion or the console.\n"
+        )
+    if places:
+        text += (
+            ("\n" if listed else "")
+            + f"Where they are used — the site a login signs in on, the page a key is "
+            f"managed or renewed from — is in {places}: an address, not a secret.\n"
+        )
+    return text
 
 
 def held_browser(logins: dict[str, str]) -> str:
@@ -860,6 +871,7 @@ def build(
     allowed: Iterable[str] = (),
     ask: Iterable[str] = (),
     secrets: Iterable[str] = (),
+    addresses: Iterable[str] = (),
     owners: Iterable[str] = (),
     workers: int = 0,
     notes: Iterable[str] = (),
@@ -916,7 +928,7 @@ def build(
         # Whatever the template, as the secrets below: every frame that runs a
         # test may run it beside six others.
         text = f"{text.rstrip()}\n\n{share}"
-    held = held_secrets(secrets)
+    held = held_secrets(secrets, addresses)
     if held:
         # Last, and whatever the template: every frame — a code ticket, a
         # document, a conflict to resolve — may be handed a project's keys.

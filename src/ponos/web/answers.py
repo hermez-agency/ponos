@@ -1617,7 +1617,10 @@ class VaultEntry(Shape):
     print: str
     """La fin de la valeur, quatre caractères au plus — rien sous douze."""
     url: str
-    """L'adresse du site d'un login : là où le navigateur de Ponos s'y connecte, et nulle part ailleurs."""
+    """L'adresse du site de l'entrée (http ou https) : où un login se connecte — le navigateur de
+    Ponos ne le tape nulle part ailleurs —, où une clé se gère ou se renouvelle."""
+    url_variable: str
+    """La variable où une session reçoit cette adresse, `<NOM>_URL` — vide sans adresse."""
     last_used: str
     last_ticket: str
     last_project: str
@@ -1646,6 +1649,7 @@ class VaultMoment(Shape):
         "replaced",
         "projects",
         "described",
+        "url",
         "revoked",
         "read",
         "rotated",
@@ -1657,6 +1661,8 @@ class VaultMoment(Shape):
     by: str
     ticket: str
     project: str
+    detail: str
+    """Ce que l'adresse est devenue, pour `url` — vide si elle a été retirée."""
     at: str
 
 

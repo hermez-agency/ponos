@@ -10,10 +10,11 @@ What is sealed with what:
 
 - **A nonce of 96 random bits per write**, drawn by `secrets.token_bytes`, as
   GCM requires: a nonce used twice under one key gives both plaintexts away.
-- **The entry's identity as associated data** — its id, name, kind and the
-  projects it is granted to. A sealed value copied onto another row, or a
-  project added to a row by hand, no longer opens: GCM refuses the tag, and
-  nobody with write access to the file alone can hand a key to a project.
+- **The entry's identity as associated data** — its id, name, kind, the
+  projects it is granted to and its address. A sealed value copied onto
+  another row, a project added to a row by hand, or an address changed there,
+  no longer opens: GCM refuses the tag, and nobody with write access to the
+  file alone can hand a key to a project, nor send a login to another site.
 - **A master key of 32 bytes from `secrets.token_bytes`**, never derived from
   a passphrase, and never stored beside the data. It lives, in this order of
   preference, in the system keyring (`secret-tool`), in `PONOS_VAULT_KEY` (a
@@ -31,13 +32,17 @@ so its value is masked. What it does not: somebody with the Unix account that
 runs Ponos, who can read the key wherever it is kept and ask the runner itself.
 
 The journal (`journal` table) says who did what to an entry — created,
-replaced, its projects changed, revoked — and every time a session was given
+replaced, its projects or its address changed, revoked — and every time a session was given
 it, with the ticket and the project; never a value. Ponos's browser writes
 there too, each time it signs in with a login (`signed_in`): the entry, the
 ticket, the project and how it ended.
 
-A login may carry the address of the site it opens (`url`): what the browser
-signs in on, and the only site it ever types that login into — see browser.py.
+Any entry may carry an address (`url`): where a login signs in, where a token
+is managed or renewed. It is no secret — kept in clear, beside the name — but
+it is sealed with the value all the same: for a login it is what Ponos's
+browser signs in on, and the only site it ever types that login into (see
+browser.py). A session given the entry is given it too, as `<NAME>_URL`
+(`addresses`), unmasked: a site's address in a transcript gives nothing away.
 """
 
 from __future__ import annotations
@@ -46,6 +51,7 @@ import base64
 import binascii
 import json
 import os
+import re
 import shutil
 import sqlite3
 import subprocess
@@ -72,6 +78,8 @@ NONCE_BYTES = 12
 TOKEN, LOGIN, NOTE = "token", "login", "note"
 KINDS = (TOKEN, LOGIN, NOTE)
 LOGIN_FIELDS = (("user", "_USER"), ("password", "_PASSWORD"))
+# The variable an entry's address is given in, beside its own.
+ADDRESS = "_URL"
 
 # A value shorter than this has no fingerprint at all: four characters of an
 # eight-character password are half of it.
@@ -87,8 +95,11 @@ _KEYRING = ("service", "ponos-vault", "key")
 _MASTER, _PENDING = "master", "pending"
 
 # What the vault's own check is sealed under: a value nobody reads, that tells
-# a wrong key from a right one before any entry is opened.
+# a wrong key from a right one before any entry is opened. Its associated data
+# says how the entries are sealed: `check:2` since an entry's address is part of
+# what it is sealed with, `check` before — see `_bind_addresses`.
 _CHECK = b"ponos-vault-check"
+_CHECKED, _CHECKED_BEFORE = b"check:2", b"check"
 
 _lock = threading.RLock()
 
@@ -271,9 +282,21 @@ def _aesgcm(raw: bytes) -> Any:
     return AESGCM(raw)
 
 
-def _associated(identifier: str, name: str, kind: str, projects: list[str]) -> bytes:
-    """What a sealed value is bound to: the entry it was written for, and who may read it."""
+def _associated(identifier: str, name: str, kind: str, projects: list[str], url: str = "") -> bytes:
+    """What a sealed value is bound to: the entry it was written for, who may read it, and where."""
+    return "\n".join(
+        ["ponos-vault:2", identifier, name, kind, ",".join(sorted(projects)), url]
+    ).encode()
+
+
+def _associated_before(identifier: str, name: str, kind: str, projects: list[str]) -> bytes:
+    """The same, as a vault sealed it before an entry's address was part of it."""
     return "\n".join(["ponos-vault:1", identifier, name, kind, ",".join(sorted(projects))]).encode()
+
+
+def _bound(row: sqlite3.Row) -> bytes:
+    """The associated data of a row as it is in the file."""
+    return _associated(row["id"], row["name"], row["kind"], _projects(row), row["url"])
 
 
 def _seal(raw: bytes, plain: bytes, associated: bytes) -> tuple[bytes, bytes]:
@@ -319,6 +342,7 @@ CREATE TABLE IF NOT EXISTS journal (
     by TEXT NOT NULL DEFAULT '',
     ticket TEXT NOT NULL DEFAULT '',
     project TEXT NOT NULL DEFAULT '',
+    detail TEXT NOT NULL DEFAULT '',
     at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS journal_entry ON journal (entry, id);
@@ -355,6 +379,10 @@ def _connected(create: bool = True) -> Iterator[sqlite3.Connection]:
         if "url" not in columns:
             # A vault written before an entry could say which site it is for.
             connection.execute("ALTER TABLE entries ADD COLUMN url TEXT NOT NULL DEFAULT ''")
+        written = {row[1] for row in connection.execute("PRAGMA table_info(journal)")}
+        if "detail" not in written:
+            # A journal written before it said what an entry's address became.
+            connection.execute("ALTER TABLE journal ADD COLUMN detail TEXT NOT NULL DEFAULT ''")
         with connection:
             yield connection
     finally:
@@ -370,7 +398,7 @@ def _key(connection: sqlite3.Connection, create: bool) -> Key:
             if not create:
                 raise VaultStoreError("the vault has no key yet")
             found = _drawn()
-        nonce, sealed = _seal(found.raw, _CHECK, b"check")
+        nonce, sealed = _seal(found.raw, _CHECK, _CHECKED)
         connection.execute(
             "INSERT OR REPLACE INTO meta (key, nonce, sealed) VALUES ('check', ?, ?)",
             (nonce, sealed),
@@ -384,15 +412,45 @@ def _key(connection: sqlite3.Connection, create: bool) -> Key:
     for raw in (found.raw, _pending(found.source)):
         if raw is None:
             continue
+        for checked in (_CHECKED, _CHECKED_BEFORE):
+            try:
+                _open(raw, check["nonce"], check["sealed"], checked)
+            except VaultStoreError:
+                continue
+            if raw != found.raw:
+                # A rotation that rewrote the vault and stopped before it kept its key.
+                _keep(found.source, raw)
+            if checked == _CHECKED_BEFORE:
+                _bind_addresses(connection, raw)
+            return Key(raw, found.source, found.where)
+    raise VaultStoreError(f"the key in {found.where} does not open this vault")
+
+
+def _bind_addresses(connection: sqlite3.Connection, raw: bytes) -> None:
+    """Every entry sealed again with its address, once, the first time the vault is opened.
+
+    The check is sealed again last, in the same transaction: from then on an
+    entry opens under its address only, and a vault cannot be taken back to
+    the old way by hand — the check would not open under it without the key.
+    An entry that does not open the old way stays as it is, and is refused as
+    it was before.
+    """
+    for row in connection.execute("SELECT * FROM entries").fetchall():
         try:
-            _open(raw, check["nonce"], check["sealed"], b"check")
+            plain = _open(
+                raw,
+                row["nonce"],
+                row["sealed"],
+                _associated_before(row["id"], row["name"], row["kind"], _projects(row)),
+            )
         except VaultStoreError:
             continue
-        if raw != found.raw:
-            # A rotation that rewrote the vault and stopped before it kept its key.
-            _keep(found.source, raw)
-        return Key(raw, found.source, found.where)
-    raise VaultStoreError(f"the key in {found.where} does not open this vault")
+        nonce, sealed = _seal(raw, plain, _bound(row))
+        connection.execute(
+            "UPDATE entries SET nonce = ?, sealed = ? WHERE id = ?", (nonce, sealed, row["id"])
+        )
+    nonce, sealed = _seal(raw, _CHECK, _CHECKED)
+    connection.execute("UPDATE meta SET nonce = ?, sealed = ? WHERE key = 'check'", (nonce, sealed))
 
 
 def _keep(source: str, raw: bytes) -> None:
@@ -414,6 +472,16 @@ def variables(name: str, kind: str) -> list[str]:
     if kind == LOGIN:
         return [name + suffix for _, suffix in LOGIN_FIELDS]
     return [name]
+
+
+def address_variable(name: str) -> str:
+    """The variable an entry's address is given in: `<NAME>_URL`, whatever its kind."""
+    return name + ADDRESS
+
+
+def _names(name: str, kind: str) -> set[str]:
+    """Every variable an entry may give, its address's included — what no other entry may take."""
+    return {*variables(name, kind), address_variable(name)}
 
 
 def fingerprint(value: str) -> str:
@@ -449,6 +517,7 @@ def _shown(row: sqlite3.Row, last: dict[str, dict[str, str]]) -> dict[str, Any]:
         "updated": row["updated"],
         "print": row["print"],
         "url": row["url"],
+        "url_variable": address_variable(row["name"]) if row["url"] else "",
         "last_used": used.get("at", ""),
         "last_ticket": used.get("ticket", ""),
         "last_project": used.get("project", ""),
@@ -481,7 +550,7 @@ def history(identifier: str) -> list[dict[str, Any]]:
         if not connection.execute("SELECT 1 FROM entries WHERE id = ?", (identifier,)).fetchone():
             raise LookupError("no such entry in the vault")
         rows = connection.execute(
-            "SELECT action, by, ticket, project, at FROM journal WHERE entry = ? "
+            "SELECT action, by, ticket, project, detail, at FROM journal WHERE entry = ? "
             "ORDER BY id DESC LIMIT 200",
             (identifier,),
         ).fetchall()
@@ -495,11 +564,12 @@ def _write_down(
     by: str = "",
     ticket: str = "",
     project: str = "",
+    detail: str = "",
 ) -> None:
     connection.execute(
-        "INSERT INTO journal (entry, name, action, by, ticket, project, at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?)",
-        (row["id"], row["name"], action, by, ticket, project, _now()),
+        "INSERT INTO journal (entry, name, action, by, ticket, project, detail, at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (row["id"], row["name"], action, by, ticket, project, detail, _now()),
     )
 
 
@@ -508,12 +578,12 @@ def _checked_name(name: str, kind: str, connection: sqlite3.Connection, but: str
     if not vault._NAME.match(name):
         raise Refused("name", f"{name!r} is not an environment variable name")
     taken = reserved()
-    for variable in variables(name, kind):
+    mine = _names(name, kind)
+    for variable in sorted(mine):
         if variable in taken or variable.startswith("PONOS_"):
             raise Refused("name", f"{variable} is the runner's own, and is not handed to a project")
-    mine = set(variables(name, kind))
     for other in connection.execute("SELECT id, name, kind FROM entries").fetchall():
-        if other["id"] != but and mine & set(variables(other["name"], other["kind"])):
+        if other["id"] != but and mine & _names(other["name"], other["kind"]):
             raise Refused("name", f"the vault already gives {other['name']} under that name")
     return name
 
@@ -546,19 +616,37 @@ def _checked_expiry(expires: str) -> str:
         raise Refused("expires", f"{expires!r} is not a date (YYYY-MM-DD)") from None
 
 
+# The longest address an entry keeps.
+URL_LENGTH = 500
+# A scheme written before the address — `https:`, `javascript:` — and not a host's port.
+_SCHEME = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*:(?!\d)")
+
+
 def _checked_url(url: str) -> str:
-    """The address of the site an entry is for: http(s) and a host, or nothing."""
+    """The address of the site an entry is for: http(s) and a host, or nothing.
+
+    A bare host is read as `https://` it, as a browser's address bar reads it;
+    any other scheme — `javascript:`, `file:`, `ftp:` — is refused, since the
+    console makes the address a link.
+    """
     from urllib.parse import urlsplit
 
     url = url.strip()
     if not url:
         return ""
-    if "://" not in url:
+    if not _SCHEME.match(url):
         url = "https://" + url
-    parts = urlsplit(url)
-    if parts.scheme not in ("http", "https") or not parts.hostname:
-        raise Refused("url", f"{url!r} is not the address of a site (https://…)")
-    return url[:500]
+    refused = Refused("url", f"{url!r} is not the address of a site (https://…)")
+    if len(url) > URL_LENGTH or any(character.isspace() for character in url):
+        raise refused
+    try:
+        parts = urlsplit(url)
+        hostname, _ = parts.hostname, parts.port
+    except ValueError:
+        raise refused from None
+    if parts.scheme.lower() not in ("http", "https") or not hostname:
+        raise refused
+    return url
 
 
 def _checked_projects(projects: list[str]) -> list[str]:
@@ -609,7 +697,7 @@ def create(
         nonce, sealed = _seal(
             key.raw,
             _plain(name, kind, kept),
-            _associated(row["id"], name, kind, row["projects"]),
+            _associated(row["id"], name, kind, row["projects"], row["url"]),
         )
         connection.execute(
             "INSERT INTO entries (id, name, kind, projects, description, expires, created, "
@@ -665,37 +753,33 @@ def change(
         kind, name = row["kind"], row["name"]
         was = _projects(row)
         now = was if projects is None else _checked_projects(projects)
+        address = row["url"] if url is None else _checked_url(url)
+        said = row["description"] if description is None else description.strip()[:500]
+        ends = row["expires"] if expires is None else _checked_expiry(expires)
         key = _key(connection, create=False)
+        # Read again after `_key`, which may have sealed every entry anew.
+        row = _row(connection, row["id"])
         if values:
             kept = _checked_values(kind, values)
             plain = _plain(name, kind, kept)
             printed = _print_of(kind, kept)
         else:
-            plain = _open(
-                key.raw, row["nonce"], row["sealed"], _associated(row["id"], name, kind, was)
-            )
+            plain = _open(key.raw, row["nonce"], row["sealed"], _bound(row))
             printed = row["print"]
-        nonce, sealed = _seal(key.raw, plain, _associated(row["id"], name, kind, now))
+        nonce, sealed = _seal(key.raw, plain, _associated(row["id"], name, kind, now, address))
         connection.execute(
             "UPDATE entries SET projects = ?, description = ?, expires = ?, updated = ?, "
             "print = ?, url = ?, nonce = ?, sealed = ? WHERE id = ?",
-            (
-                json.dumps(now),
-                row["description"] if description is None else description.strip()[:500],
-                row["expires"] if expires is None else _checked_expiry(expires),
-                _now(),
-                printed,
-                row["url"] if url is None else _checked_url(url),
-                nonce,
-                sealed,
-                row["id"],
-            ),
+            (json.dumps(now), said, ends, _now(), printed, address, nonce, sealed, row["id"]),
         )
         if values:
             _write_down(connection, row, "replaced", by)
         if now != was:
             _write_down(connection, row, "projects", by, project=", ".join(now))
-        if not values and now == was:
+        if address != row["url"]:
+            _write_down(connection, row, "url", by, detail=address)
+        described = (said, ends) != (row["description"], row["expires"])
+        if described or not (values or now != was or address != row["url"]):
             _write_down(connection, row, "described", by)
         written = connection.execute("SELECT * FROM entries WHERE id = ?", (row["id"],)).fetchone()
         return _shown(written, _last_reads(connection))
@@ -751,19 +835,43 @@ def read(variable: str) -> str:
         for row in connection.execute("SELECT * FROM entries").fetchall():
             if variable in variables(row["name"], row["kind"]) or variable == row["name"]:
                 key = _key(connection, create=False)
+                # Read again after `_key`, which may have sealed every entry anew.
+                row = _row(connection, row["id"])
                 held: dict[str, str] = json.loads(
-                    _open(
-                        key.raw,
-                        row["nonce"],
-                        row["sealed"],
-                        _associated(row["id"], row["name"], row["kind"], _projects(row)),
-                    )
+                    _open(key.raw, row["nonce"], row["sealed"], _bound(row))
                 )
                 if variable in held:
                     return held[variable]
                 # A login named by its entry rather than one of its two variables.
                 return held.get(variable + "_PASSWORD", "")
     return ""
+
+
+def addresses(project: str) -> dict[str, str]:
+    """The addresses of the entries granted to `project`, as `<NAME>_URL` — none for an entry without.
+
+    Given to a session beside the values, and not masked: an address is no
+    secret. Only those of the entries that open — an address changed in the
+    file by hand is not handed over, any more than the value it is sealed with.
+    """
+    if not exists():
+        return {}
+    wanted = project.strip().casefold()
+    given: dict[str, str] = {}
+    with _lock, _connected() as connection:
+        rows = connection.execute("SELECT * FROM entries WHERE url != ''").fetchall()
+        mine = [row for row in rows if wanted in {name.casefold() for name in _projects(row)}]
+        if not mine:
+            return {}
+        key = _key(connection, create=False)
+        for row in mine:
+            row = _row(connection, row["id"])
+            try:
+                _open(key.raw, row["nonce"], row["sealed"], _bound(row))
+            except VaultStoreError:
+                continue
+            given[address_variable(row["name"])] = row["url"]
+    return given
 
 
 def used(variables_given: list[str], ticket: str, project: str) -> None:
@@ -838,14 +946,14 @@ def rotate() -> tuple[int, Key]:
             _file_write(_pending_path(), fresh)
         rows = connection.execute("SELECT * FROM entries").fetchall()
         for row in rows:
-            associated = _associated(row["id"], row["name"], row["kind"], _projects(row))
+            associated = _bound(row)
             plain = _open(old.raw, row["nonce"], row["sealed"], associated)
             nonce, sealed = _seal(fresh, plain, associated)
             connection.execute(
                 "UPDATE entries SET nonce = ?, sealed = ? WHERE id = ?", (nonce, sealed, row["id"])
             )
             _write_down(connection, row, "rotated")
-        nonce, sealed = _seal(fresh, _CHECK, b"check")
+        nonce, sealed = _seal(fresh, _CHECK, _CHECKED)
         connection.execute(
             "UPDATE meta SET nonce = ?, sealed = ? WHERE key = 'check'", (nonce, sealed)
         )
