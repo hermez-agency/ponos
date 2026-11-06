@@ -39,6 +39,7 @@ from . import (
     session,
     spending,
     state,
+    stopping,
     store,
     subtypes,
     systemd,
@@ -1351,7 +1352,15 @@ def _clear_residues(directories: list[Path]) -> list[Path]:
 def _stray_work() -> tuple[list[leftovers.Project], list[tuple[int, str]]]:
     """The containers and processes still running from a worktree."""
     root = leftovers.worktrees()
-    return leftovers.compose_projects(root), leftovers.processes(root)
+    spared = health._spared()
+    return (
+        [
+            project
+            for project in leftovers.compose_projects(root)
+            if leftovers.worktree_of(project.directory) not in spared
+        ],
+        leftovers.processes(root, spared=spared),
+    )
 
 
 def _report_stray_work(projects: list[leftovers.Project], held: list[tuple[int, str]]) -> None:
@@ -1387,11 +1396,16 @@ def command_clean(args: argparse.Namespace) -> int:
     if args.force and _stop_stray_work():
         return 1
     state_root = config_module.state_dir()
+    # What a ticket in progress here holds — its worktree and its scratch — is
+    # not "left behind": listing it was how `clean --force` once stopped the
+    # processes of a session that was running.
+    going = {short_id(ticket) for ticket in (*stopping.live(), *state.claims())}
     directories = [
         directory
         for parent in ("worktrees", "scratch")
         if (state_root / parent).exists()
         for directory in sorted((state_root / parent).iterdir())
+        if directory.name.rsplit("-", 1)[-1] not in going
     ]
     # Residue first, forced or not: a directory with no `.git` holds nothing
     # git could lose, only what containers wrote there as root. Emptying it asks

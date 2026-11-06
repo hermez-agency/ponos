@@ -128,7 +128,17 @@ directories of tickets no longer on the board. A ticket in progress, blocked,
 failed or in review keeps its directory until `stale_worktree_days` (30) have
 passed without anything touching it; even then a worktree whose ticket is in
 progress, or that holds uncommitted changes or commits no remote has, is kept
-and named. A branch is deleted only when a remote holds all its commits.
+and named. A branch is deleted only when a remote holds all its commits. A
+folder under `worktrees/` that no repository knows, with no `.git` and no ticket
+on the board, goes like an orphan scratch directory.
+
+The same pass empties the temporary folders — each session works in a `TMPDIR`
+of its own under `~/.cache/ponos/tmp`, removed when it ends, and what is left
+after `tmp_retention_hours` goes, with the old `tmp*` folders of `~/.cache` and
+`~` — and prunes Docker (`docker_prune`): the images, build cache and volumes no
+container refers to. `ponos doctor` shows the temporary folders in the size of
+what Ponos holds, and what Docker could give back. `ponos clean --force` never
+lists, nor stops what runs in, the worktree of a ticket in progress.
 
 The disk is watched too. Under `min_free_disk_mb` free, the run tidies before it
 starts a ticket (at most every ten minutes), and if the space is still short it

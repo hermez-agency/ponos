@@ -179,6 +179,12 @@ export const SETTINGS_FRENCH: Record<string, string> = {
   "Drop forgotten working copies after": "Supprimer les copies de travail oubliées après",
   "A working copy untouched for this many days is deleted, whatever its ticket, unless the ticket is in progress or the copy holds work that is not pushed. 0 turns it off.":
     "Une copie de travail intacte depuis ce nombre de jours est supprimée, quel que soit son ticket, sauf s'il est en cours ou si la copie contient du travail non poussé. 0 désactive.",
+  "Drop temporary folders after": "Supprimer les dossiers temporaires après",
+  "Each session works in a temporary folder of its own, removed when it ends. One left behind is deleted once untouched for this many hours, and so are the tmp folders old sessions left in ~/.cache. 0 turns it off.":
+    "Chaque session travaille dans un dossier temporaire à elle, supprimé quand elle se termine. Un dossier resté en place est supprimé une fois intact depuis ce nombre d'heures, comme les dossiers tmp que d'anciennes sessions ont laissés dans ~/.cache. 0 désactive.",
+  "Prune Docker once a day": "Nettoyer Docker une fois par jour",
+  "Once a day, remove the Docker images, build cache and volumes no container refers to. A running container and its volumes are never touched.":
+    "Une fois par jour, supprime les images, le cache de build et les volumes Docker dont aucun conteneur ne se sert. Un conteneur en marche et ses volumes ne sont jamais touchés.",
   "Leave out of working copies": "Exclure des copies de travail",
   "Comma-separated folders (docs/media, for instance) that new working copies are made without, to spare the disk. A ticket that needs one runs git sparse-checkout disable.":
     "Dossiers séparés par des virgules (docs/media, par exemple) absents des nouvelles copies de travail, pour ménager le disque. Un ticket qui en a besoin lance git sparse-checkout disable.",

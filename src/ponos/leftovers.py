@@ -38,7 +38,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from . import git
-from .config import state_dir
+from .config import cache_dir, state_dir
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +89,63 @@ def environment(workdir: Path) -> dict[str, str]:
     """What a session in `workdir` is told so its containers are its own."""
     worktree = worktree_of(workdir)
     return {"COMPOSE_PROJECT_NAME": project_name(worktree)} if worktree else {}
+
+
+def tmp_root() -> Path:
+    """Where every session's TMPDIR lives: one place Ponos knows, and can purge."""
+    return cache_dir() / "tmp"
+
+
+def make_tmp(session_id: str) -> Path | None:
+    """A TMPDIR of its own for a session, or None when it cannot be made.
+
+    Sessions, their tests and the Chrome or Playwright they start dropped
+    `tmp*` folders in `~/.cache` and never removed them — 37 000 of them, 29 GB,
+    on 6 November 2026. Under one root, named after the session, the end of the
+    session (`drop_tmp`) and the daily tidy know where to look.
+    """
+    directory = tmp_root() / (re.sub(r"[^A-Za-z0-9_-]", "-", session_id) or "session")
+    try:
+        directory.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return None
+    return directory
+
+
+def drop_tmp(directory: Path | None) -> None:
+    """Remove a session's TMPDIR, only ever one made by `make_tmp`."""
+    if directory is not None and directory.parent == tmp_root():
+        shutil.rmtree(directory, ignore_errors=True)
+
+
+def prune_docker() -> bool:
+    """What no container refers to any more: images, build cache, volumes.
+
+    Images and build cache of more than a day only — an image pulled a minute
+    ago for a ticket that is about to start is not yet "unused". `volume prune`
+    leaves every volume that a container, running or stopped, mounts, and
+    `image prune` every image a container was made from. False when Docker is
+    absent or refused.
+    """
+    done = False
+    for command in (
+        ["image", "prune", "-a", "-f", "--filter", "until=24h"],
+        ["builder", "prune", "-f", "--filter", "until=24h"],
+        ["volume", "prune", "-f"],
+    ):
+        done = docker(command, timeout=DOWN_TIMEOUT) is not None or done
+    return done
+
+
+def docker_reclaimable() -> str:
+    """What Docker says it could give back, as `Images 23GB, Build Cache 15GB` — or empty."""
+    found = docker(["system", "df", "--format", "{{.Type}} {{.Reclaimable}}"], timeout=30)
+    pieces = []
+    for line in (found or "").splitlines():
+        type_, _, reclaimable = line.rpartition(" ")
+        if type_ and not reclaimable.startswith("0B"):
+            pieces.append(f"{type_} {reclaimable.split(' ')[0]}")
+    return ", ".join(pieces)
 
 
 def compose_projects(under: Path) -> list[Project]:

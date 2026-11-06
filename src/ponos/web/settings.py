@@ -510,6 +510,25 @@ SECTIONS: tuple[Section, ...] = (
             ),
             Field(
                 "runner",
+                "tmp_retention_hours",
+                "int",
+                "Drop temporary folders after",
+                "Each session works in a temporary folder of its own, removed when it ends. "
+                "One left behind is deleted once untouched for this many hours, and so are the "
+                "tmp folders old sessions left in ~/.cache. 0 turns it off.",
+                minimum=0,
+                unit="hours",
+            ),
+            Field(
+                "runner",
+                "docker_prune",
+                "bool",
+                "Prune Docker once a day",
+                "Once a day, remove the Docker images, build cache and volumes no container "
+                "refers to. A running container and its volumes are never touched.",
+            ),
+            Field(
+                "runner",
                 "worktree_exclude",
                 "text",
                 "Leave out of working copies",

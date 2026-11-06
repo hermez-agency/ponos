@@ -29,6 +29,16 @@ The same tidy is what the disk guard runs when the free space falls under
 `min_free_disk_mb` (see `reports.py`), which is why `tidy(now=True)` is not
 only the console's button.
 
+The temporary folders are the third thing a run fills. Each session has a
+TMPDIR of its own under `leftovers.tmp_root()`, removed when it ends; the tidy
+removes what is still there after `tmp_retention_hours`, and the `tmp*` folders
+older sessions, tests, Chrome and Playwright dropped straight in `~/.cache` and
+`~` (37 000 of them on 6 November 2026) once nothing in them was touched for
+`LEGACY_HOURS`. Docker is the fourth: `docker_prune` hands it the unused images,
+build cache and volumes once a day. A directory under `worktrees/` that no git
+repository knows, with no `.git` and no ticket on the board — a `.vite`, a copy
+whose repository was deleted — is as much an orphan as a scratch one.
+
 A scratch directory whose ticket is no longer on the board at all is an orphan:
 nobody can ask for it again, so it goes once it is old enough. A worktree in the
 same case stays — it may still hold commits, and only `clean --force` asks git
@@ -40,6 +50,7 @@ hundred tickets, and at a ten-second cadence that is a rate limit for nothing.
 
 from __future__ import annotations
 
+import fnmatch
 import os
 import shutil
 import time
@@ -47,9 +58,9 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
-from . import db, git, state, store
+from . import db, git, leftovers, state, store
 from .base import Base
-from .config import state_dir
+from .config import cache_dir, state_dir
 from .ticket import short_id
 from .web import oauth
 
@@ -57,6 +68,12 @@ DAY = 86400
 
 # The three places a run fills, as `sizes` measures them and the console shows.
 PLACES = ("worktrees", "logs", "scratch")
+
+# The folders a session or a test of old made in `~/.cache` and `~`, which
+# nothing ever removed. Only what nothing has touched for LEGACY_HOURS: a test
+# run or a Chrome in progress is writing in its own.
+LEGACY_HOURS = 2
+LEGACY_NAMES = ("tmp*", "ponos-*tmp*", "ponos-tmp*", "pt")
 
 
 def sizes(known: dict[str, int] | None = None) -> dict[str, int]:
@@ -68,6 +85,84 @@ def sizes(known: dict[str, int] | None = None) -> dict[str, int]:
     return {
         place: known[place] if place in known else _size(state_dir() / place) for place in PLACES
     }
+
+
+def tmp_size() -> int:
+    """Bytes under the session TMPDIRs and the legacy folders `tidy_tmp` would take."""
+    return _size(leftovers.tmp_root()) + sum(_size(path) for path in _legacy_tmp())
+
+
+def _legacy_tmp() -> list[Path]:
+    found: list[Path] = []
+    cache = cache_dir().parent
+    # The home is only the home when the cache is the usual `~/.cache`: a
+    # cache moved elsewhere (a test, a container) says nothing about `~/tmp`.
+    roots: list[tuple[Path, tuple[str, ...]]] = [(cache, LEGACY_NAMES)]
+    if cache.name == ".cache":
+        roots.append((cache.parent, ("tmp*",)))
+    for parent, patterns in roots:
+        try:
+            entries = sorted(parent.iterdir())
+        except OSError:
+            continue
+        for entry in entries:
+            if (
+                any(fnmatch.fnmatch(entry.name, pattern) for pattern in patterns)
+                and entry.is_dir()
+                and not entry.is_symlink()
+            ):
+                found.append(entry)
+    return found
+
+
+def _newest(directory: Path, since: float) -> bool:
+    """Whether anything under `directory` was written after `since` — stops at the first."""
+    try:
+        if directory.stat().st_mtime >= since:
+            return True
+    except OSError:
+        return True
+    for parent, names, files in os.walk(directory):
+        for name in (*names, *files):
+            try:
+                if os.lstat(os.path.join(parent, name)).st_mtime >= since:
+                    return True
+            except OSError:
+                continue
+    return False
+
+
+def tidy_tmp(hours: int) -> tuple[int, int]:
+    """Remove the stale temporary folders: (count, bytes). `hours` of 0 does nothing.
+
+    The sessions' own, past `hours`; the legacy ones, past `LEGACY_HOURS`. Said
+    by what is *inside*, not by the folder's own date: a directory's mtime moves
+    only when an entry of it is added or removed.
+    """
+    if hours <= 0:
+        return 0, 0
+    now = time.time()
+    targets = [
+        (path, now - hours * 3600)
+        for path in sorted(_children(leftovers.tmp_root()))
+        if path.is_dir() and not path.is_symlink()
+    ]
+    targets += [(path, now - LEGACY_HOURS * 3600) for path in _legacy_tmp()]
+    count = freed = 0
+    for path, since in targets:
+        if _newest(path, since):
+            continue
+        freed += _size(path)
+        shutil.rmtree(path, ignore_errors=True)
+        count += 1
+    return count, freed
+
+
+def _children(root: Path) -> list[Path]:
+    try:
+        return list(root.iterdir())
+    except OSError:
+        return []
 
 
 def worktree_sizes() -> list[tuple[str, int]]:
@@ -164,6 +259,8 @@ class Tidied:
     logs: int = 0
     records: int = 0
     freed: int = 0
+    tmp: int = 0
+    docker: bool = False
 
 
 class Cleanup(Base):
@@ -190,6 +287,10 @@ class Cleanup(Base):
             tidied.records += oauth.purge()
         except db.ERRORS as error:
             self.say(f"  ! MCP keys not purged: {error}")
+        tidied.tmp, gone = tidy_tmp(self.config.runner.tmp_retention_hours)
+        tidied.freed += gone
+        if self.config.runner.docker_prune:
+            tidied.docker = leftovers.prune_docker()
         stale = self.config.runner.stale_worktree_days
         done_too = days > 0 and self.config.runner.clean_done_worktrees
         if not done_too and stale <= 0:
@@ -227,6 +328,15 @@ class Cleanup(Base):
                 # An empty board is a board that was not read, not a board
                 # whose every ticket was deleted.
                 orphan = place == "scratch" and bool(known) and owner not in known
+                # No repository, no `.git`: nothing git could be asked about,
+                # nothing for a ticket to come back to.
+                bare = (
+                    place == "worktrees"
+                    and bool(known)
+                    and owner not in known
+                    and not (directory / ".git").exists()
+                    and git.repository_of(directory) is None
+                )
                 forgotten = (
                     place == "worktrees"
                     and stale > 0
@@ -234,7 +344,7 @@ class Cleanup(Base):
                     and owner not in busy
                     and _touched(directory) < stale_cutoff
                 )
-                condemned = untouched and (owner in old or orphan)
+                condemned = untouched and (owner in old or orphan or bare)
                 if not condemned and not forgotten:
                     continue
                 size = _size(directory)
@@ -245,9 +355,9 @@ class Cleanup(Base):
                     shutil.rmtree(directory, ignore_errors=True)
                 tidied.removed.append(directory)
                 tidied.freed += size
-        if tidied.removed or tidied.logs or tidied.records:
+        if tidied.removed or tidied.logs or tidied.records or tidied.tmp:
             self.say(
-                f"Tidied: {len(tidied.removed)} directory(ies),"
+                f"Tidied: {len(tidied.removed)} directory(ies), {tidied.tmp} temporary folder(s),"
                 f" {tidied.logs} log file(s), {tidied.records} database row(s),"
                 f" {tidied.freed // 1_000_000} MB freed."
             )
