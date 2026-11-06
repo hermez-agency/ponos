@@ -124,6 +124,20 @@ frees. A pass with nothing ready answers up to `max_concurrent` threads side by 
 Turn the whole thing off with `reply = false` under `[runner]`, and a comment goes back to
 being only what it was: the thing that wakes a blocked ticket.
 
+## What a project learns from its blocked tickets
+
+A ticket that was blocked, answered and then ends `RESULT: ok` may say what it
+learned on one line, `LESSON: <a durable fact about the project>`, just above its
+`RESULT` line. The runner does not believe it: the line becomes a *proposal* on
+the project (`GET /api/projects/<id>/notes`), and nothing reaches a prompt until
+somebody keeps it. A kept note — keep, edit, add by hand or delete, with
+`POST /api/projects/<id>/notes` — is written under « Notes on <project> » in the
+prompt of every ticket of that project, right after its brief. A proposal that is
+thrown away is remembered by its words (case and punctuation aside) and is never
+proposed again. To keep the prompt short, a note holds 300 characters, the kept
+ones 2 000 together (a note past that is refused until another is shortened), and
+ten proposals wait at most — the oldest makes room.
+
 ## Looking again at what is blocked
 
 A ticket stays *Blocked* until someone remembers it — and the cause is often gone by then:

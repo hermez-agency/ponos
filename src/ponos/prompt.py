@@ -74,6 +74,8 @@ from __future__ import annotations
 from collections.abc import Iterable
 from pathlib import Path
 
+from . import notes as notes_module
+
 DEFAULT = """\
 You are working through a ticket for the {project} project, alone and with \
 nobody to talk to: no one can answer a question while the session runs.
@@ -477,6 +479,19 @@ not take — write it just before the final line, one line each, four at most:
 CAVEAT: <what to check, in one short sentence>
 """
 
+# Asked only on a ticket somebody spoke on, which is how a blocked one comes
+# back: what it was blocked on is what the next ticket would be blocked on too.
+# A proposal, never a note — see notes.py.
+LESSON = """
+This ticket was answered after a stop. If you learned a lasting fact about the \
+project from it — a convention, a trap, something a next session would otherwise \
+ask or get wrong — write it just before the final line, on one line, under \
+{limit} characters, and only when it is true of the project rather than of this \
+ticket. Somebody reads it before it reaches anyone:
+
+LESSON: <one durable fact about the project>
+"""
+
 # What a session is told when it is picked back up where an exhausted quota left
 # it. Deliberately not the whole prompt again: this session has the ticket, the
 # brief and the context already, and resending them would cost on every turn
@@ -721,6 +736,7 @@ def build(
     secrets: Iterable[str] = (),
     owners: Iterable[str] = (),
     workers: int = 0,
+    notes: Iterable[str] = (),
 ) -> str:
     scope, frame, heading, aim, role, discussion = _frames(
         project,
@@ -733,6 +749,7 @@ def build(
         goal_brief,
         goal_criterion,
         goal_due,
+        notes,
     )
     rules = permissions(allowed, ask, owners)
     text = template.format(
@@ -763,6 +780,8 @@ def build(
         # A prompt file of your own, older than the goals: the session still
         # learns what it works for, at the end rather than not at all.
         text = f"{text.rstrip()}\n\n{aim.rstrip()}\n"
+    if comments:
+        text = f"{text.rstrip()}\n{LESSON.format(limit=notes_module.NOTE_LIMIT)}"
     if kind and "{kind}" not in template:
         # A prompt file of your own, older than the types: see the docstring.
         text = f"{text.rstrip()}\n\n{kind}"
@@ -907,6 +926,7 @@ def _frames(
     goal_brief: str = "",
     goal_criterion: str = "",
     goal_due: str = "",
+    notes: Iterable[str] = (),
 ) -> tuple[str, str, str, str, str, str]:
     """The blocks that surround a ticket, widest first. Shared by both prompts."""
     # A ticket may have no project at all: the sentence has to read either way.
@@ -919,6 +939,17 @@ def _frames(
     # before the `# Context` block so they read as the frame, not as an
     # afterthought — and after the page above, which frames them in turn.
     heading = f"# About {project}\n\n{brief.strip()}\n\n" if brief.strip() else ""
+    # What the project's sessions learned and somebody kept — see notes.py —
+    # right after the brief, which they complete, in the same block when there
+    # is one so that a template without a place of its own reads them anyway.
+    learned = [note.strip() for note in notes if note.strip()]
+    if learned:
+        heading += (
+            f"# Notes on {project}\n\n"
+            "Kept from earlier tickets of this project; they hold unless the ticket says otherwise.\n\n"
+            + "\n".join(f"- {note}" for note in learned)
+            + "\n\n"
+        )
     # The goal the ticket serves: the intent of the task, so after the project
     # it happens in — and before the role, whose rules must be the last read.
     aim = ""

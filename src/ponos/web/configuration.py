@@ -11,7 +11,16 @@ from __future__ import annotations
 
 from typing import Any
 
-from .. import idea_schedule, local_ci, planning, preview, project_settings, store, subtypes
+from .. import (
+    idea_schedule,
+    local_ci,
+    notes,
+    planning,
+    preview,
+    project_settings,
+    store,
+    subtypes,
+)
 from .. import kinds as kinds_module
 from . import settings as settings_module
 from .base import Base
@@ -101,6 +110,48 @@ class Configuration(Base):
             "subtypes": list(rule.subtypes),
             "column": bool(self.runner.plan_flag()),
         }
+
+    def project_notes(self, page_id: str) -> dict[str, Any]:
+        """The project's notes: the kept ones sessions read, and the proposals waiting."""
+        bare = project_settings.key(page_id)
+        return {
+            "id": bare,
+            **notes.read(bare),
+            "limit": notes.NOTE_LIMIT,
+            "capacity": notes.KEPT_LIMIT,
+        }
+
+    def save_project_notes(self, page_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+        """Keep, drop, add, edit or delete a note: one `action` of the five, with its text or index."""
+        bare = project_settings.key(page_id)
+        action = payload.get("action")
+        text = payload.get("text", "")
+        index = payload.get("index", -1)
+        if not isinstance(text, str) or not isinstance(index, int) or isinstance(index, bool):
+            raise ValueError("a note is text, and a kept one is told by its place")
+        row = next(
+            (
+                item
+                for item in self.all_projects()["projects"]
+                if project_settings.key(item["id"]) == bare
+            ),
+            None,
+        )
+        name = str(row["name"]) if row else ""
+        if action == "keep":
+            notes.keep(bare, name, text, str(payload.get("edited", "")))
+        elif action == "drop":
+            notes.drop(bare, name, text)
+        elif action == "add":
+            notes.add(bare, name, text)
+        elif action == "edit":
+            notes.edit(bare, name, index, text)
+        elif action == "delete":
+            notes.delete(bare, name, index)
+        else:
+            raise ValueError("say what to do with the notes: keep, drop, add, edit or delete")
+        self.hub.publish("settings", project=bare)
+        return self.project_notes(bare)
 
     def _project_local_ci(self, bare: str) -> dict[str, Any]:
         """The project's local CI: whether it runs, whose word that is, what runs it — and Docker."""

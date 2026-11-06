@@ -49,6 +49,7 @@ from . import (
     journal,
     kinds,
     local_ci,
+    notes,
     planning,
     preview,
     progress,
@@ -226,7 +227,15 @@ class Execution(Base):
         if live:
             self._close_live(live, outcome)
         self._hold_credits(outcome)
+        self._propose_lesson(job, outcome)
         return outcome
+
+    def _propose_lesson(self, job: Job, outcome: session.Outcome) -> None:
+        """What a ticket answered after a stop says it learned, put to the project as a proposal."""
+        if not (outcome.ok and outcome.lesson and job.comments) or self.dry_run:
+            return
+        if notes.propose(job.project.notion_id, job.project.name, outcome.lesson):
+            self.say(f"    · lesson proposed for {job.project.name}: {outcome.lesson}")
 
     def _session_prompt(self, job: Job, template: str, subtype: bool) -> str:
         """The prompt of a job's session: its template, filled with the ticket."""
@@ -241,6 +250,7 @@ class Execution(Base):
             base=job.base,
             url=job.ticket.url,
             brief=job.project.brief,
+            notes=notes.kept(job.project.notion_id),
             context=self.workspace.context,
             agent_name=job.agent.name,
             agent_brief=job.agent.brief,

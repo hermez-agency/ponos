@@ -60,6 +60,9 @@ _FIELD = re.compile(
 # thing it could not check. Read like the fields above, from the end.
 _CAVEAT = re.compile(r"^CAVEAT\s*:\s*(.*)$", re.IGNORECASE)
 CAVEATS = 4
+# What it learned about the project that the next ticket should know — see
+# notes.py. One line, at the same place as the caveats.
+_LESSON = re.compile(r"^LESSON\s*:\s*(.*)$", re.IGNORECASE)
 
 # How the options sit on their line: “1. Tu fusionnes · 2. Tu m'autorises”.
 _OPTION = re.compile(r"(\d)\.\s+(.+?)(?=\s+·\s+\d\.\s|$)")
@@ -263,6 +266,8 @@ def caveats(answer: str) -> list[str]:
         lines.pop()
     said: list[str] = []
     for line in reversed(lines):
+        if _LESSON.match(line):
+            continue
         matched = _CAVEAT.match(line)
         if not matched:
             break
@@ -270,6 +275,28 @@ def caveats(answer: str) -> list[str]:
         if value:
             said.insert(0, value)
     return said[-CAVEATS:]
+
+
+def lesson(answer: str) -> str:
+    """The durable fact about the project a session that ended ok wrote, or "".
+
+    Read from the same stretch as the caveats — the lines just above the RESULT
+    line — and the last one wins: a session explaining itself may quote the
+    format earlier on.
+    """
+    lines = [
+        line.strip().strip("*_`").lstrip("-#> ").strip("*_` ")
+        for line in str(answer or "").splitlines()
+    ]
+    lines = [line for line in lines if line]
+    if lines and lines[-1].upper().startswith("RESULT"):
+        lines.pop()
+    for line in reversed(lines):
+        if matched := _LESSON.match(line):
+            return " ".join(matched.group(1).strip("*_` ").split())
+        if not _CAVEAT.match(line):
+            break
+    return ""
 
 
 def found(report: str) -> Question | None:

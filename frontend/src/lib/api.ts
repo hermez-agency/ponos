@@ -165,6 +165,14 @@ export const api = {
     answer(client.GET("/api/projects/{project_id}/brief", { params: { path: { project_id: id } } })),
   projectSettings: (id: string) =>
     answer(client.GET("/api/projects/{project_id}/settings", { params: { path: { project_id: id } } })),
+  projectNotes: (id: string) =>
+    answer(client.GET("/api/projects/{project_id}/notes", { params: { path: { project_id: id } } })),
+  /** One `action` on the notes: keep (a proposal, maybe `edited`), drop, add, edit or delete. */
+  saveProjectNotes: (
+    id: string,
+    values: { action: "keep" | "drop" | "add" | "edit" | "delete"; text?: string; index?: number; edited?: string }
+  ) =>
+    answer(client.POST("/api/projects/{project_id}/notes", { params: { path: { project_id: id } }, body: values })),
   /** What a ticket being written is likely to cost and take; null without enough history. */
   estimate: (query: { project: string; type: string; subtype: string; model: string }) =>
     answer(client.GET("/api/estimate", { params: { query } })),

@@ -16,6 +16,7 @@ import { settingsFrench } from "@/lib/settings-store"
 import type { ProjectSettings, TicketKind, ValidationField } from "@/lib/types"
 import { settingsHref } from "@/resources/settings"
 
+import { NotesCard } from "./project-notes"
 import { MoreHelp } from "./settings-bits"
 import { Rich } from "./text"
 
@@ -223,6 +224,7 @@ export function ProjectSettingsTab({ project }: { project: string }) {
         </CardContent>
       </Card>
       <PlanCard key={JSON.stringify(settings.plan)} plan={settings.plan} saving={saving} onSave={savePlan} />
+      <NotesCard project={project} />
       <SetupCard key={settings.setup} setup={settings.setup} saving={saving} onSave={saveSetup} />
       <PreviewCard
         key={JSON.stringify(settings.preview)}

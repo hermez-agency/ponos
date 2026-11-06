@@ -197,6 +197,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{project_id}/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Project Notes */
+        get: operations["project_notes_api_projects__project_id__notes_get"];
+        put?: never;
+        /** Save Project Notes */
+        post: operations["save_project_notes_api_projects__project_id__notes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{project_id}/image/{slot}": {
         parameters: {
             query?: never;
@@ -3509,6 +3527,18 @@ export interface components {
             /** @description Why it cannot be turned on here, or empty when it can. */
             unavailable: string;
         };
+        /** @description What a project's sessions learned — see notes.py. */
+        ProjectNotes: {
+            id: string;
+            /** @description The notes every ticket of the project is told. */
+            kept: string[];
+            /** @description What sessions proposed and nobody has kept or thrown away yet. */
+            proposed: string[];
+            /** @description Characters in one note. */
+            limit: number;
+            /** @description Characters in the kept ones together. */
+            capacity: number;
+        };
         /** @description When the project's tickets are ticked « Plan d'abord » by themselves — see planning.py. */
         ProjectPlan: {
             /** @description The lowest priority score planned first; none for no threshold. */
@@ -5037,6 +5067,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProjectSettings"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    project_notes_api_projects__project_id__notes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectNotes"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_project_notes_api_projects__project_id__notes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectNotes"];
                 };
             };
             /** @description Validation Error */
