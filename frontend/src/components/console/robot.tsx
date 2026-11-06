@@ -73,7 +73,6 @@ export const MOOD: Record<ColumnKey, RobotState> = {
   validated: "waiting",
   blocked: "error",
   paused: "sleep",
-  failed: "error",
   done: "success",
   cancelled: "sleep",
 }

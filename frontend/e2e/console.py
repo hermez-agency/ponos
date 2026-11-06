@@ -70,32 +70,32 @@ LONG = "000000000000000000000000000abcde"
 ASKING = "00000000000000000000000000000a5c"
 NEWER = "f" * 40
 GESTURES = {
-    "0000000000000000000000000000d0e0": ("A finished ticket", "Done"),
-    "0000000000000000000000000000fa11": ("A validated ticket", "Validated"),
-    "0000000000000000000000000000a51d": ("A ticket to set aside", "Ready"),
-    "0000000000000000000000000000c0de": ("A ticket to give up", "Ready"),
-    "0000000000000000000000000000c0ff": ("A ticket given up", "Cancelled"),
-    "0000000000000000000000000000d7a1": ("A card dragged by its title", "Blocked"),
-    "0000000000000000000000000000d7a2": ("A card dragged by its foot", "Blocked"),
+    "0000000000000000000000000000d0e0": ("A finished ticket", "done"),
+    "0000000000000000000000000000fa11": ("A validated ticket", "validated"),
+    "0000000000000000000000000000a51d": ("A ticket to set aside", "ready"),
+    "0000000000000000000000000000c0de": ("A ticket to give up", "ready"),
+    "0000000000000000000000000000c0ff": ("A ticket given up", "cancelled"),
+    "0000000000000000000000000000d7a1": ("A card dragged by its title", "blocked"),
+    "0000000000000000000000000000d7a2": ("A card dragged by its foot", "blocked"),
 }
 # Pull requests whose merge did not happen, and what their cards offer instead
 # of a session: validated and waiting, and blocked on a red CI.
 MERGES = {
-    "00000000000000000000000000fe4901": ("A pull request waiting for its merge", "Validated", ""),
-    "00000000000000000000000000fe4902": ("A merge refused on a red CI", "Blocked", "merge.checks-failed"),
+    "00000000000000000000000000fe4901": ("A pull request waiting for its merge", "validated", ""),
+    "00000000000000000000000000fe4902": ("A merge refused on a red CI", "blocked", "merge.checks-failed"),
 }
 # Cards waiting on you, for a blocked ticket's discussion and the Decide tab:
 # blocked on a report that names its kind of stop — one to read, and one for
 # each gesture that moves it, one of them proposing to close the ticket — and
 # one in review whose report says what to check. No project, so no count moves.
 WAITING = {
-    "00000000000000000000000000b10c01": ("Install Tailscale on the server", "Blocked", "blocked"),
-    "00000000000000000000000000b10c02": ("Choose the host", "Blocked", "blocked"),
-    "00000000000000000000000000b10c03": ("Close the duplicate", "Blocked", "blocked"),
-    "00000000000000000000000000b10c04": ("Move the old backups", "Blocked", "blocked"),
-    "00000000000000000000000000b10c05": ("Renew the certificate", "Blocked", "blocked"),
-    "00000000000000000000000000b10c06": ("Pick the header", "Blocked", "blocked"),
-    "00000000000000000000000000de1c01": ("Add the share button", "In review", "review"),
+    "00000000000000000000000000b10c01": ("Install Tailscale on the server", "blocked", "blocked"),
+    "00000000000000000000000000b10c02": ("Choose the host", "blocked", "blocked"),
+    "00000000000000000000000000b10c03": ("Close the duplicate", "blocked", "blocked"),
+    "00000000000000000000000000b10c04": ("Move the old backups", "blocked", "blocked"),
+    "00000000000000000000000000b10c05": ("Renew the certificate", "blocked", "blocked"),
+    "00000000000000000000000000b10c06": ("Pick the header", "blocked", "blocked"),
+    "00000000000000000000000000de1c01": ("Add the share button", "review", "review"),
 }
 # Pull requests in review, and what the runner last read of their checks: one
 # red, one running, one green, and one that has no check at all — drawn with
@@ -146,11 +146,11 @@ DELIVERED = (
 # Ponos tries again by itself — the order the series takes them in, whatever
 # their priority — and two in review. One project, with an icon.
 SERIES = {
-    "000000000000000000000000005e0001": ("Pick the colour", "Blocked", "session.question", 30),
-    "000000000000000000000000005e0002": ("Give the deploy key", "Blocked", "access.credentials", 90),
-    "000000000000000000000000005e0003": ("Restart the build", "Blocked", "session.killed", 99),
-    "000000000000000000000000005e0004": ("Add the dark mode", "In review", "", 50),
-    "000000000000000000000000005e0005": ("Add the footer", "In review", "", 50),
+    "000000000000000000000000005e0001": ("Pick the colour", "blocked", "session.question", 30),
+    "000000000000000000000000005e0002": ("Give the deploy key", "blocked", "access.credentials", 90),
+    "000000000000000000000000005e0003": ("Restart the build", "blocked", "session.killed", 99),
+    "000000000000000000000000005e0004": ("Add the dark mode", "review", "", 50),
+    "000000000000000000000000005e0005": ("Add the footer", "review", "", 50),
 }
 SERIES_PROJECT = ("000000000000000000000000005e0caf", "Studio", "🎨")
 PAUSED = "00000000000000000000000000005ed1"
@@ -201,12 +201,12 @@ def board(root: Path, doomed: bool = False) -> None:
         f"## Part {part}\n\n" + " ".join(["A line of the brief, long enough to wrap."] * 12)
         for part in range(1, 41)
     )
-    long = {"id": LONG, "title": "A long ticket", "Status": "Ready", "Priority": 90}
+    long = {"id": LONG, "title": "A long ticket", "statut": "ready", "Priorité": 90}
     (tickets / f"a-long-ticket-{LONG[-8:]}.md").write_text(files.render(long, brief), encoding="utf-8")
     asking = {
         "id": ASKING,
         "title": "A ticket with a question",
-        "Status": "Blocked",
+        "statut": "blocked",
         "Blocage": "session.question",
     }
     (tickets / f"a-ticket-with-a-question-{ASKING[-8:]}.md").write_text(
@@ -219,14 +219,14 @@ def board(root: Path, doomed: bool = False) -> None:
         files.render(question, "🙋 Question\nWhich header, the dashboard's or the site's?"), encoding="utf-8"
     )
     for id, title in NAMES.items():
-        page = {"id": id, "title": title, "Status": "In review", "Pull Request": pull_request(id)}
+        page = {"id": id, "title": title, "statut": "review", "Pull Request": pull_request(id)}
         if id in SUBTYPED:
             page.update({"Type": "Code", "Sous-type": SUBTYPED[id]})
         (tickets / f"{title.lower().replace(' ', '-')}-{id[-8:]}.md").write_text(
             files.render(page, "A short brief."), encoding="utf-8"
         )
     for id, (title, status, column) in WAITING.items():
-        page = {"id": id, "title": title, "Status": status}
+        page = {"id": id, "title": title, "statut": status}
         if id in CHECKED:
             page["Pull Request"] = pull_request(id)
             # What it cost: the foot of its card has more to say than its checks.
@@ -241,27 +241,27 @@ def board(root: Path, doomed: bool = False) -> None:
             files.render(said, REPORTS.get(id, STUCK) if column == "blocked" else DELIVERED), encoding="utf-8"
         )
     id, title = WAITING_CI
-    page = {"id": id, "title": title, "Status": "In progress", "Pull Request": pull_request(id)}
+    page = {"id": id, "title": title, "statut": "progress", "Pull Request": pull_request(id)}
     (tickets / f"{title.lower().replace(' ', '-')}-{id[-8:]}.md").write_text(
         files.render(page, "A short brief."), encoding="utf-8"
     )
     id, title, model = STARTING
-    page = {"id": id, "title": title, "Status": "In progress", "Model": model}
+    page = {"id": id, "title": title, "statut": "progress", "Model": model}
     (tickets / f"{title.lower().replace(' ', '-')}-{id[-8:]}.md").write_text(
         files.render(page, "A short brief."), encoding="utf-8"
     )
     for number in range(1, 13):
-        page = {"id": f"{number:032d}", "title": f"Ticket {number}", "Status": "Backlog"}
+        page = {"id": f"{number:032d}", "title": f"Ticket {number}", "statut": "draft"}
         (tickets / f"ticket-{number}-{page['id'][-8:]}.md").write_text(
             files.render(page, "A short brief."), encoding="utf-8"
         )
     for id, (title, status) in GESTURES.items():
-        page = {"id": id, "title": title, "Status": status}
+        page = {"id": id, "title": title, "statut": status}
         (tickets / f"{title.lower().replace(' ', '-')}-{id[-8:]}.md").write_text(
             files.render(page, "A short brief."), encoding="utf-8"
         )
     for id, (title, status, code) in MERGES.items():
-        page = {"id": id, "title": title, "Status": status, "Pull Request": pull_request(id)}
+        page = {"id": id, "title": title, "statut": status, "Pull Request": pull_request(id)}
         if code:
             page["Blocage"] = code
         (tickets / f"{title.lower().replace(' ', '-')}-{id[-8:]}.md").write_text(
@@ -279,10 +279,10 @@ def board(root: Path, doomed: bool = False) -> None:
         (projects / f"{name.lower().replace(' ', '-')}-{id[-8:]}.md").write_text(
             files.render(page, f"The brief of {name}."), encoding="utf-8"
         )
-        for status in ("Ready", "Done"):
-            ticket = f"{number * 2 + (status == 'Done') + 1:030d}0{number + 1}"
+        for status in ("ready", "done"):
+            ticket = f"{number * 2 + (status == "done") + 1:030d}0{number + 1}"
             title = f"{name} work, {status.lower()}"
-            page = {"id": ticket, "title": title, "Status": status, "Project": [id]}
+            page = {"id": ticket, "title": title, "statut": status, "Project": [id]}
             (tickets / f"{title.lower().replace(' ', '-').replace(',', '')}-{ticket[-8:]}.md").write_text(
                 files.render(page, "A short brief."), encoding="utf-8"
             )
@@ -292,7 +292,7 @@ def board(root: Path, doomed: bool = False) -> None:
         files.render(page, f"The brief of {name}."), encoding="utf-8"
     )
     # A ticket on that project, for the card's foot: its icon, and its link.
-    page = {"id": FOOTED[0], "title": FOOTED[1], "Status": "Ready", "Project": [WRITING[0]]}
+    page = {"id": FOOTED[0], "title": FOOTED[1], "statut": "ready", "Project": [WRITING[0]]}
     (tickets / f"footed-{FOOTED[0][-8:]}.md").write_text(files.render(page, "A short brief."), encoding="utf-8")
     # Two schedules whose `Next` is weeks behind: one turned off since, which
     # will not fire, and one on, which fires on the next pass. Neither may show
@@ -322,7 +322,7 @@ def series_board(root: Path) -> None:
     page = {"id": id, "title": name, "icon": icon}
     (projects / f"{name.lower()}-{id[-8:]}.md").write_text(files.render(page, f"The brief of {name}."), encoding="utf-8")
     for number, (id, (title, status, code, priority)) in enumerate(SERIES.items()):
-        page = {"id": id, "title": title, "Status": status, "Priority": priority, "Project": [SERIES_PROJECT[0]],
+        page = {"id": id, "title": title, "statut": status, "Priorité": priority, "Project": [SERIES_PROJECT[0]],
                 "created": f"2026-10-{10 + number}T10:00:00+00:00"}
         if code:
             page["Blocage"] = code
@@ -330,15 +330,15 @@ def series_board(root: Path) -> None:
             files.render(page, "A short brief."), encoding="utf-8"
         )
         said = {"id": f"r{id[-4:]}", "at": "2026-10-01T10:00:00+00:00", "by": "ponos", "discussion": f"r{id[-4:]}"}
-        report = DELIVERED if status == "In review" else STUCK
+        report = DELIVERED if status == "review" else STUCK
         (comments / f"{id}.md").write_text(files.render(said, report), encoding="utf-8")
 
 
 # The board of `accounts.spec.ts`: what a reader looks at, and what a member validates.
 ACCOUNTS = {
-    "000000000000000000000000acc0de01": ("A ticket a member validates", "In review"),
-    "000000000000000000000000acc0de02": ("A ticket a reader looks at", "In review"),
-    "000000000000000000000000acc0de03": ("A draft nobody may launch", "Backlog"),
+    "000000000000000000000000acc0de01": ("A ticket a member validates", "review"),
+    "000000000000000000000000acc0de02": ("A ticket a reader looks at", "review"),
+    "000000000000000000000000acc0de03": ("A draft nobody may launch", "draft"),
 }
 # No pull request in it: the panel asks GitHub nothing.
 SHARED = "✅ To review — 2 commits · 4 minutes\nAdds a share button under each article."
@@ -350,11 +350,11 @@ def accounts_board(root: Path) -> None:
     tickets.mkdir(parents=True)
     comments.mkdir()
     for id, (title, status) in ACCOUNTS.items():
-        page = {"id": id, "title": title, "Status": status}
+        page = {"id": id, "title": title, "statut": status}
         (tickets / f"{title.lower().replace(' ', '-')}-{id[-8:]}.md").write_text(
             files.render(page, "A short brief."), encoding="utf-8"
         )
-        if status == "In review":
+        if status == "review":
             said = {"id": f"r{id[-4:]}", "at": "2026-10-01T10:00:00+00:00", "by": "ponos",
                     "discussion": f"r{id[-4:]}"}
             (comments / f"{id}.md").write_text(files.render(said, SHARED), encoding="utf-8")

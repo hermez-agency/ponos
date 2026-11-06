@@ -59,7 +59,7 @@ class _Minutes:
             id=page_id,
             url="",
             title=title,
-            properties={"Status": store.written("select", status)},
+            properties={"statut": store.written("select", status)},
             raw={"last_edited_time": self.minute()},
         )
 
@@ -70,7 +70,7 @@ class _Minutes:
             id=page.id,
             url="",
             title=page.title,
-            properties={**page.properties, "Status": store.written("select", status)},
+            properties={**page.properties, "statut": store.written("select", status)},
             raw={"last_edited_time": self.minute()},
         )
 
@@ -93,7 +93,7 @@ class _Minutes:
 
     def update(self, database_id: str, page_id: str, values: dict[str, Any]) -> None:
         self.patched.append((page_id, values))
-        self.move(page_id, values["Status"])
+        self.move(page_id, values["statut"])
 
 
 def _store(fake: _Minutes) -> store.Store:
@@ -108,7 +108,7 @@ def _reader(fake: _Minutes, said: list[sync.Entry]) -> web_board.Reader:
 
 
 def _statuses(pages: list[store.Page]) -> dict[str, str]:
-    return {page.title: store.read(page, "Status") for page in pages}
+    return {page.title: store.read(page, "statut") for page in pages}
 
 
 @case
@@ -124,13 +124,13 @@ def three_moves_in_one_notion_minute_all_reach_the_console() -> None:
     fake = _Minutes()
     said: list[sync.Entry] = []
     reader = _reader(fake, said)
-    assert _statuses(reader.read(_store(fake), "db", "Status"))["ticket 1"] == "done"
+    assert _statuses(reader.read(_store(fake), "db", "statut"))["ticket 1"] == "done"
     assert fake.queried[-1] is None, "the first read is the whole board"
 
     for second, status in ((22, "blocked"), (39, "review"), (52, "done")):
         fake.now = fake.now.replace(second=second)
         fake.move("1".zfill(32), status)
-        assert _statuses(reader.read(_store(fake), "db", "Status"))["ticket 1"] == status
+        assert _statuses(reader.read(_store(fake), "db", "statut"))["ticket 1"] == status
         asked = fake.queried[-1]
         assert asked is not None
         window = asked["last_edited_time"]["on_or_after"]
@@ -143,7 +143,7 @@ def three_moves_in_one_notion_minute_all_reach_the_console() -> None:
 
     # The overlap brings the same pages back; the same page is not news.
     fake.now = fake.now.replace(second=58)
-    reader.read(_store(fake), "db", "Status")
+    reader.read(_store(fake), "db", "statut")
     assert len([entry for entry in said if entry.what == "seen"]) == 3
 
 
@@ -153,15 +153,15 @@ def the_whole_board_is_read_again_and_what_the_window_missed_is_counted() -> Non
     fake = _Minutes()
     said: list[sync.Entry] = []
     reader = _reader(fake, said)
-    reader.read(_store(fake), "db", "Status")
+    reader.read(_store(fake), "db", "statut")
     # A page whose edit time the window cannot see: as if Notion's clock lied.
     fake.move("1".zfill(32), "blocked")
     fake.pages["1".zfill(32)].raw["last_edited_time"] = "2026-09-30T08:00:00.000Z"
     fake.now = fake.now + timedelta(seconds=30)
-    assert _statuses(reader.read(_store(fake), "db", "Status"))["ticket 1"] == "done", "premise"
+    assert _statuses(reader.read(_store(fake), "db", "statut"))["ticket 1"] == "done", "premise"
 
     fake.now = fake.now + timedelta(seconds=web_board.RECONCILE)
-    assert _statuses(reader.read(_store(fake), "db", "Status"))["ticket 1"] == "blocked"
+    assert _statuses(reader.read(_store(fake), "db", "statut"))["ticket 1"] == "blocked"
     assert fake.queried[-1] is None, "the reconciliation reads everything"
     assert reader.drift == [
         {"id": "1".zfill(32), "title": "ticket 1", "held": "done", "truth": "blocked"}
@@ -172,7 +172,7 @@ def the_whole_board_is_read_again_and_what_the_window_missed_is_counted() -> Non
     # "Resynchronise now" makes the very next read a full one.
     reader.reconcile_next()
     fake.now = fake.now + timedelta(seconds=5)
-    reader.read(_store(fake), "db", "Status")
+    reader.read(_store(fake), "db", "statut")
     assert fake.queried[-1] is None and reader.drift == []
 
 
@@ -217,7 +217,7 @@ def a_move_the_network_lost_is_sent_again_until_notion_has_it() -> None:
     def send(write: web_board.Write) -> store.Page:
         if failures:
             raise failures.pop()
-        return web_board.send(_store(fake), "db", "Status", write)
+        return web_board.send(_store(fake), "db", "statut", write)
 
     outbox.put(web_board.Write(page="1".zfill(32), column="blocked", status="blocked", seen="done"))
     changed: list[int] = []
@@ -235,7 +235,7 @@ def a_move_the_network_lost_is_sent_again_until_notion_has_it() -> None:
     now[0] += web_board.BACKOFF[1]
     outbox.flush(send, lambda: changed.append(1))
     assert outbox.marks() == {}, "confirmed, and let go of"
-    assert store.read(fake.page("1".zfill(32)), "Status") == "blocked"
+    assert store.read(fake.page("1".zfill(32)), "statut") == "blocked"
     assert [entry.what for entry in said] == ["console→notion"]
     assert "3 attempt(s)" in said[0].detail
 
@@ -261,7 +261,7 @@ def a_move_notion_refuses_for_good_is_said_on_the_card_and_tried_again_on_demand
 
     outbox.retry()
     assert outbox.marks()["1".zfill(32)].state == "pending"
-    outbox.flush(lambda write: web_board.send(_store(fake), "db", "Status", write), lambda: None)
+    outbox.flush(lambda write: web_board.send(_store(fake), "db", "statut", write), lambda: None)
     assert outbox.marks() == {}
 
 
@@ -279,7 +279,7 @@ def a_move_over_a_status_changed_in_notion_meanwhile_is_not_written() -> None:
             page="1".zfill(32), column="blocked", status="blocked", seen="done", title="ticket 1"
         )
     )
-    outbox.flush(lambda write: web_board.send(_store(fake), "db", "Status", write), lambda: None)
+    outbox.flush(lambda write: web_board.send(_store(fake), "db", "statut", write), lambda: None)
     assert fake.patched == [], "Notion's review was not written over"
     mark = outbox.marks()["1".zfill(32)]
     assert mark.state == "conflict" and "review" in mark.error
@@ -300,7 +300,7 @@ def a_write_is_confirmed_by_reading_the_page_back() -> None:
         web_board.send(
             _store(fake),
             "db",
-            "Status",
+            "statut",
             web_board.Write(page="1".zfill(32), column="blocked", status="blocked", seen="done"),
         )
     except store.StoreError as error:
@@ -315,21 +315,21 @@ def a_confirmed_move_is_not_undone_by_a_query_that_has_not_caught_up() -> None:
     fake = _Minutes()
     said: list[sync.Entry] = []
     reader = _reader(fake, said)
-    reader.read(_store(fake), "db", "Status")
+    reader.read(_store(fake), "db", "statut")
     stale = fake.pages["1".zfill(32)]
     confirmed = web_board.send(
         _store(fake),
         "db",
-        "Status",
+        "statut",
         web_board.Write(page="1".zfill(32), column="blocked", status="blocked", seen="done"),
     )
     reader.hold(confirmed)
     fake.stale["1".zfill(32)] = stale
     fake.now = fake.now + timedelta(seconds=3)
-    assert _statuses(reader.read(_store(fake), "db", "Status"))["ticket 1"] == "blocked"
+    assert _statuses(reader.read(_store(fake), "db", "statut"))["ticket 1"] == "blocked"
     # Once the hold is over, Notion's word is the word again.
     fake.now = fake.now + timedelta(seconds=web_board.HOLD + 1)
-    assert _statuses(reader.read(_store(fake), "db", "Status"))["ticket 1"] == "done"
+    assert _statuses(reader.read(_store(fake), "db", "statut"))["ticket 1"] == "done"
 
 
 @case
@@ -344,20 +344,20 @@ def reading_the_board_never_writes_to_it() -> None:
     outbox.put(web_board.Write(page="1".zfill(32), column="blocked", status="blocked", seen="done"))
     for _ in range(5):
         outbox.flush(
-            lambda write: reader.hold(web_board.send(_store(fake), "db", "Status", write)),
+            lambda write: reader.hold(web_board.send(_store(fake), "db", "statut", write)),
             lambda: None,
         )
-        reader.read(_store(fake), "db", "Status")
+        reader.read(_store(fake), "db", "statut")
         fake.now = fake.now + timedelta(seconds=20)
     fake.now = fake.now + timedelta(seconds=web_board.RECONCILE)
-    reader.read(_store(fake), "db", "Status")
+    reader.read(_store(fake), "db", "statut")
     assert len(fake.patched) == 1, fake.patched
 
     # A move to where the page already is goes out as no write at all.
     outbox.put(
         web_board.Write(page="1".zfill(32), column="blocked", status="blocked", seen="blocked")
     )
-    outbox.flush(lambda write: web_board.send(_store(fake), "db", "Status", write), lambda: None)
+    outbox.flush(lambda write: web_board.send(_store(fake), "db", "statut", write), lambda: None)
     assert len(fake.patched) == 1 and outbox.marks() == {}
 
 
@@ -378,7 +378,7 @@ def a_move_waiting_to_be_sent_survives_a_console_restart() -> None:
 @case
 def a_card_moved_from_the_console_is_drawn_waiting_until_notion_has_it() -> None:
     """The board the stream carries says it, so every tab says the same thing."""
-    api = _bare_api(_ColumnsClient(["Ready", "Done"]))
+    api = _bare_api(_ColumnsClient(["ready", "done"]))
     assert api._runner is not None
     api._runner._workspace = type("W", (), {"goals": "", "projects": "", "tickets": "db"})()
     api._schema_at = time.time()
@@ -390,7 +390,7 @@ def a_card_moved_from_the_console_is_drawn_waiting_until_notion_has_it() -> None
     answer = api.set_status("00000001-0000-0000-0000-000000000000", "review")
     assert answer["sync"] == "pending" and nudged.count == 1
     write = api._outbox.marks()["00000001000000000000000000000000"]
-    assert write.seen == "Done", "what the console showed is what must still be there"
+    assert write.seen == "done", "what the console showed is what must still be there"
     card = [item for item in api.board()["tickets"] if item["title"] == "ticket 1"][0]
     assert card["column"] == "review" and card["sync"] == "pending", card
     assert api.synchronised()["pending"] == 1 and api.synchronised()["synced_at"]
@@ -409,7 +409,7 @@ def a_conflict_stays_on_its_card_however_much_the_journal_writes_after_it() -> N
             busy.note("seen", "tickets", "1".zfill(32), "ticket 1", f"seen {index}")
         sync.write_journal(busy)
 
-        api = _bare_api(_ColumnsClient(["Ready", "Done"]))
+        api = _bare_api(_ColumnsClient(["ready", "done"]))
         assert api._runner is not None
         api._runner._workspace = type("W", (), {"goals": "", "projects": "", "tickets": "db"})()
         api._schema_at = time.time()
@@ -427,22 +427,20 @@ def a_run_does_not_write_its_verdict_over_a_status_moved_by_hand() -> None:
     in the journal (where the console finds it and marks the card), and the
     rest of what the run writes — its cost, its session — still goes in.
     """
-    status = {"ready": "Ready", "running": "In progress", "review": "In review", "done": "Done"}
-    page = _reviewed("a" * 32, "In progress", None)
+    status = {"ready": "ready", "running": "progress", "review": "review", "done": "done"}
+    page = _reviewed("a" * 32, "progress", None)
     with _state_home():
         runner = _board_runner([page], status)
         ticket = ticket_module.Ticket(page)
-        moved = _reviewed("a" * 32, "Done", None)
+        moved = _reviewed("a" * 32, "done", None)
         runner.client.page = lambda page_id: moved  # type: ignore[method-assign]
-        runner._set(
-            ticket, **{"Status": "In review", "Pull Request": "https://github.com/o/r/pull/1"}
-        )
+        runner._set(ticket, **{"statut": "review", "Pull Request": "https://github.com/o/r/pull/1"})
         assert cast(_BoardClient, runner.client).written == [
             ("a" * 32, {"Pull Request": "https://github.com/o/r/pull/1"})
         ]
         entries = sync.journal()
         assert [entry["what"] for entry in entries] == ["conflict"], entries
-        assert "Done" in entries[0]["detail"] and "In review" in entries[0]["detail"]
+        assert "done" in entries[0]["detail"] and "review" in entries[0]["detail"]
 
         # The card wears it until somebody edits the page again, in a later minute.
         card = {"id": "a" * 32, "edited": entries[0]["at"]}
@@ -452,15 +450,15 @@ def a_run_does_not_write_its_verdict_over_a_status_moved_by_hand() -> None:
 
         # What the run now holds is the page as it is: its next write is judged
         # against Done, and a status written where the page already is is fine.
-        runner._set(ticket, **{"Status": "Done"})
-        assert cast(_BoardClient, runner.client).written[-1] == ("a" * 32, {"Status": "Done"})
+        runner._set(ticket, **{"statut": "done"})
+        assert cast(_BoardClient, runner.client).written[-1] == ("a" * 32, {"statut": "done"})
 
     # And a run whose ticket nobody touched writes its verdict as it always did.
     with _state_home():
-        page = _reviewed("b" * 32, "In progress", None)
+        page = _reviewed("b" * 32, "progress", None)
         runner = _board_runner([page], status)
-        runner._set(ticket_module.Ticket(page), **{"Status": "In review"})
-        assert cast(_BoardClient, runner.client).written == [("b" * 32, {"Status": "In review"})]
+        runner._set(ticket_module.Ticket(page), **{"statut": "review"})
+        assert cast(_BoardClient, runner.client).written == [("b" * 32, {"statut": "review"})]
         assert sync.journal() == []
 
 
@@ -468,43 +466,19 @@ def a_run_does_not_write_its_verdict_over_a_status_moved_by_hand() -> None:
 def a_notion_page_edited_twice_in_one_minute_reaches_the_files_both_times(state_home: Path) -> None:
     """The Markdown mirror trusted the minute, and lost the second edit of it."""
     with _mirror() as (here, there, both, marks):
-        page_id = here.create_row("tickets", "Corriger l'entête", {"Status": "Ready"})
+        page_id = here.create_row("tickets", "Corriger l'entête", {"statut": "ready"})
         both.synchronise(_settings(), stamps=marks)
         minute = (datetime.now(UTC) + timedelta(days=1)).replace(second=0, microsecond=0)
         at = minute.isoformat().replace("+00:00", ".000Z")
-        here.update("tickets", page_id, {"Status": "Blocked"}, at=at)
+        here.update("tickets", page_id, {"statut": "blocked"}, at=at)
         assert [entry.what for entry in both.synchronise(_settings(), stamps=marks).carried] == [
             "notion→markdown"
         ]
-        here.update("tickets", page_id, {"Status": "Done"}, at=at)
+        here.update("tickets", page_id, {"statut": "done"}, at=at)
         again = both.synchronise(_settings(), stamps=marks)
         assert [entry.what for entry in again.carried] == ["notion→markdown"], again.entries
-        assert store.read(there.page(page_id), "Status") == "Done"
+        assert store.read(there.page(page_id), "statut") == "done"
         assert not both.synchronise(_settings(), stamps=marks).carried, "and then nothing"
-
-
-@case
-def a_blocked_ticket_on_a_board_where_failed_is_blocked_too_is_drawn_in_blocked() -> None:
-    """The 30/09 board: Notion showed three blocked tickets, the console none.
-
-    `failed = blocked = "blocked"` draws one column, the first — and the tickets
-    went to the second, which was never drawn.
-    """
-    api = _bare_api(_ColumnsClient(["blocked", "blocked", "Done"]))
-    api._config.notion.status = {
-        **api._config.notion.status,
-        "blocked": "blocked",
-        "failed": "blocked",
-    }
-    assert api._runner is not None
-    api._runner._workspace = type("W", (), {"goals": "", "projects": "", "tickets": "db"})()
-    api._schema_at = time.time()
-    api._reader = web_board.Reader(journal=lambda report: None)
-    board = api.board()
-    drawn = [column["key"] for column in board["columns"]]
-    assert "blocked" in drawn and "failed" not in drawn, drawn
-    assert [item["column"] for item in board["tickets"]][:2] == ["blocked", "blocked"]
-    assert all(item["column"] in drawn for item in board["tickets"]), "no card off the board"
 
 
 class _Counted(_ColumnsClient):
@@ -532,7 +506,7 @@ def the_board_then_the_statistics_cost_notion_one_query_not_two(state_home: Path
     from ponos.web import live as web_live
     from ponos.web import routes as web_routes
 
-    client = _Counted(["Ready", "Done"])
+    client = _Counted(["ready", "done"])
     api = _bare_api(client)
     assert api._runner is not None
     api._runner._workspace = type("W", (), {"goals": "", "projects": "", "tickets": "db"})()
@@ -615,7 +589,7 @@ def the_board_is_answered_as_held_and_read_again_behind_the_answer(state_home: P
     period it is now answered at once, and read again behind: a Notion that
     does not answer keeps nobody waiting.
     """
-    client = _HeldBack(["Ready", "Done"])
+    client = _HeldBack(["ready", "done"])
     api, board = _served(client)
     assert len(board()["tickets"]) == 2
     assert client.queries == 1
@@ -637,11 +611,11 @@ def the_board_is_answered_as_held_and_read_again_behind_the_answer(state_home: P
 @case
 def a_restarted_console_answers_the_board_it_kept(state_home: Path) -> None:
     """Right after a restart the console holds nothing: it answers what it drew before it."""
-    client = _HeldBack(["Ready", "Done"])
+    client = _HeldBack(["ready", "done"])
     _, board = _served(client)
     before = board()
 
-    client = _HeldBack(["Ready", "Done", "Done"])
+    client = _HeldBack(["ready", "done", "done"])
     client.held = True
     api, board = _served(client)
     answered = time.monotonic()
@@ -655,15 +629,15 @@ def a_restarted_console_answers_the_board_it_kept(state_home: Path) -> None:
 @case
 def a_kept_board_is_not_answered_for_another_board_or_after_a_write(state_home: Path) -> None:
     """Kept for this configuration's board only — and a write from the console reads Notion."""
-    _, board = _served(_HeldBack(["Ready"]))
+    _, board = _served(_HeldBack(["ready"]))
     board()
 
-    client = _HeldBack(["Ready", "Done"])
+    client = _HeldBack(["ready", "done"])
     api, board = _served(client)
     api._config.notion.tickets_database = "b" * 32
     assert len(board()["tickets"]) == 2, "another database is read, not answered from the file"
 
-    client = _HeldBack(["Ready", "Done", "Done"])
+    client = _HeldBack(["ready", "done", "done"])
     api, board = _served(client)
     api.watch.nudge()
     assert len(board()["tickets"]) == 3, "a write from the console is read"

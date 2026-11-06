@@ -66,7 +66,7 @@ def _answered(texts: list[str], error: str = "", agent: str = "", spoken: bool =
         runner.ledger.remember_page("p-ticket")
     properties = {}
     if agent:
-        properties["Runner"] = {"type": "rich_text", "rich_text": [{"plain_text": agent}]}
+        properties["Agent"] = {"type": "rich_text", "rich_text": [{"plain_text": agent}]}
     page = notion.Page(id="p-ticket", url="", title="t", properties=properties)
     return runner._answered(type("T", (), {"page": page})())
 
@@ -117,7 +117,7 @@ class _Backlog:
         self.read: list[str] = []
 
     def schema(self, database: str) -> dict[str, str]:
-        return {"Status": "status"}
+        return {"statut": "status"}
 
     def options(self, database: str, name: str) -> list[str]:
         return []
@@ -137,7 +137,7 @@ def a_backlog_no_run_ever_reported_on_costs_no_comment_request() -> None:
     def page(index: int, agent: str = "") -> notion.Page:
         properties = {}
         if agent:
-            properties["Runner"] = {"type": "rich_text", "rich_text": [{"plain_text": agent}]}
+            properties["Agent"] = {"type": "rich_text", "rich_text": [{"plain_text": agent}]}
         return notion.Page(id=f"p-{index}", url="", title=f"t{index}", properties=properties)
 
     backlog = [page(index) for index in range(200)]
@@ -164,15 +164,15 @@ def waking_looks_everywhere_but_where_a_status_already_speaks() -> None:
         "S",
         (),
         {
-            "schema": lambda self, database: {"Status": "status"},
+            "schema": lambda self, database: {"statut": "status"},
             "options": lambda self, database, name: offered,
         },
     )()
     excluded = {
         condition["status"]["does_not_equal"] for condition in runner._woken_filter()["and"]
     }
-    assert excluded == {"In review", "Validated", "Done", "Ready", "In progress"}
-    assert all(condition["property"] == "Status" for condition in runner._woken_filter()["and"])
+    assert excluded == {"review", "validated", "done", "ready", "progress"}
+    assert all(condition["property"] == "statut" for condition in runner._woken_filter()["and"])
     # Five names spoken, and everything else — failed, blocked, whatever the
     # board adds later — left in, because that is where an answer is expected.
     # A ticket waiting for credit is not among them: it never left Ready.
@@ -180,25 +180,25 @@ def waking_looks_everywhere_but_where_a_status_already_speaks() -> None:
     # A cancelled ticket is given up on: a comment under it wakes nothing — on
     # a board that offers the option, since Notion refuses a filter on one it
     # does not know.
-    offered.append("Cancelled")
+    offered.append("cancelled")
     excluded = {
         condition["status"]["does_not_equal"] for condition in runner._woken_filter()["and"]
     }
-    assert excluded == {"In review", "Validated", "Done", "Ready", "In progress", "Cancelled"}
+    assert excluded == {"review", "validated", "done", "ready", "progress", "cancelled"}
     # And so is a paused one, which you stopped on purpose: only moving it to
     # ready runs it again.
-    offered.append("Paused")
+    offered.append("paused")
     excluded = {
         condition["status"]["does_not_equal"] for condition in runner._woken_filter()["and"]
     }
     assert excluded == {
-        "In review",
-        "Validated",
-        "Done",
-        "Ready",
-        "In progress",
-        "Cancelled",
-        "Paused",
+        "review",
+        "validated",
+        "done",
+        "ready",
+        "progress",
+        "cancelled",
+        "paused",
     }
 
 
@@ -351,7 +351,7 @@ def _unblocking(
 @case
 def a_blocked_ticket_whose_cause_is_gone_goes_back_to_ready_with_the_reason() -> None:
     runner, result, sessions = _unblocking("DECISION: unblock\nREASON: Le ticket B est en Done.")
-    assert runner.moved == [{"Status": runner.config.notion.state("ready")}], runner.moved
+    assert runner.moved == [{"statut": runner.config.notion.state("ready")}], runner.moved
     assert (
         len(runner.comments_written) == 1
         and "Le ticket B est en Done." in runner.comments_written[0]

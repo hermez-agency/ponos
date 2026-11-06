@@ -127,7 +127,7 @@ def a_sentry_event_makes_one_draft_with_its_link_and_the_second_delivery_makes_n
             page = board.page(said["ticket"])
             assert page.title == "[Sentry] TypeError: x is undefined"
             assert store.read(page, "Project") == [project]
-            assert not store.read(page, "Status"), "a draft by default"
+            assert store.read(page, "statut") == "draft", "a draft by default"
             text = board.blocks_text(page.id)
             assert "https://sentry.io/organizations/acme/issues/4501/" in text
             assert "app/checkout.py in pay" in text
@@ -182,7 +182,7 @@ def a_key_makes_no_more_tickets_than_its_ceiling_an_hour(state_home: Path) -> No
         assert again[0] == 429
         ticket = board.query("tickets")[0]
         assert ticket.title == "[CI] CI en échec sur main"
-        assert store.read(ticket, "Status"), "ready was asked for"
+        assert store.read(ticket, "statut"), "ready was asked for"
 
 
 @case

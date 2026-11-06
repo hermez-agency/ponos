@@ -46,7 +46,7 @@ test("a validated pull request goes back to review without a session", async ({ 
   const back = page.getByRole("button", { name: "Back to review" })
   await expect(back).toHaveAttribute("title", /no session is started/)
   await back.click()
-  await expect(page.getByText("“A pull request waiting for its merge” moved to In review")).toBeVisible()
+  await expect(page.getByText("“A pull request waiting for its merge” moved to review")).toBeVisible()
 })
 
 test("a merge refused on a red CI is retried without a session, once confirmed", async ({ page }) => {
@@ -79,7 +79,7 @@ test("a Ready ticket is set aside in one click, and made ready again once confir
       const ticket = tickets.find((item) => item.id === "0000000000000000000000000000a51d")
       return `${ticket?.status} ${ticket?.sync ?? ""}`.trim()
     })
-    .toBe("Blocked")
+    .toBe("blocked")
   await page.reload()
   // Blocked, it opens on its discussion, and offers nothing else above it; set
   // aside by hand, nothing says why, and it runs again as it is in one click.

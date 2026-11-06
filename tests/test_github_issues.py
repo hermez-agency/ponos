@@ -118,14 +118,14 @@ def an_open_issue_with_the_label_is_a_ready_ticket_and_the_others_are_not() -> N
 
     page = tickets["Corriger le menu"]
     settings = board.settings()
-    assert store.read(page, settings.prop("status")) == "Ready"
+    assert store.read(page, settings.prop("status")) == "ready"
     assert store.read(page, settings.prop("type")) == "Code"
     assert store.read(page, settings.prop("subtype")) == "Bug"
     assert store.read(page, settings.prop("priority")) == 80
     assert page.url == "https://github.com/acme/site/issues/1"
     assert page.raw["issue"] == {"repository": "acme/site", "number": 1}
     assert github_issues.closing(page) == "Closes acme/site#1"
-    assert store.read(tickets["Déjà fait"], settings.prop("status")) == "In review"
+    assert store.read(tickets["Déjà fait"], settings.prop("status")) == "review"
 
     [project] = board.query("projects")
     assert store.read(page, settings.prop("project")) == [project.id]
@@ -141,7 +141,7 @@ def moving_a_ticket_is_one_status_label_taken_off_and_another_put_on() -> None:
     settings = board.settings()
     status, kind, priority = (settings.prop(key) for key in ("status", "type", "priority"))
 
-    board.update("tickets", page.id, {status: "In progress", kind: "Code", priority: 60})
+    board.update("tickets", page.id, {status: "progress", kind: "Code", priority: 60})
     assert board.labels_of(1) == [
         "bug",
         "ponos",
@@ -150,17 +150,17 @@ def moving_a_ticket_is_one_status_label_taken_off_and_another_put_on() -> None:
         "type:bug",
         "type:code",
     ]  # fmt: skip — a team's own `type:bug` is its own
-    board.update("tickets", page.id, {status: "Blocked"})
+    board.update("tickets", page.id, {status: "blocked"})
     assert "ponos:progress" not in board.labels_of(1) and "ponos:blocked" in board.labels_of(1)
-    board.update("tickets", page.id, {status: "Ready"})
+    board.update("tickets", page.id, {status: "ready"})
     assert board.labels_of(1) == ["bug", "ponos", "priority:60", "type:bug", "type:code"]
     assert board.issues[("acme/site", 1)]["state"] == "open"
 
-    board.update("tickets", page.id, {status: "Done", settings.prop("cost"): 0.5})
+    board.update("tickets", page.id, {status: "done", settings.prop("cost"): 0.5})
     assert board.issues[("acme/site", 1)]["state"] == "closed"
     # What GitHub has no column for stays on the file, and is read back.
     assert store.read(board.page(page.id), settings.prop("cost")) == 0.5
-    assert store.read(board.page(page.id), status) == "Done"
+    assert store.read(board.page(page.id), status) == "done"
 
 
 @case
@@ -172,7 +172,7 @@ def a_ticket_closed_on_github_is_done_on_the_board() -> None:
     board._pulled = 0.0
     [again] = board.query("tickets")
     assert again.id == page.id
-    assert store.read(again, board.settings().prop("status")) == "Done"
+    assert store.read(again, board.settings().prop("status")) == "done"
 
 
 @case

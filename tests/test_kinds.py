@@ -139,11 +139,10 @@ def a_board_spells_the_types_in_either_language() -> None:
     settings = C.Notion()
     assert settings.kind_of("Rédaction") == "writing"
     assert settings.kind_of(" action externe ") == "external"
-    assert settings.kind_of("Code") == "code" and settings.kind_of("Writing") == "writing"
+    assert settings.kind_of("Code") == "code" and settings.kind_of("Rédaction") == "writing"
     assert settings.kind_of("Urgent") == "" and settings.kind_of("") == ""
-    named = C.Notion(types={"writing": "Texte"})
-    assert named.kind_of("Texte") == "writing"
-    assert named.kind_of("Rédaction") == "", "a name the file chose is the only one read"
+    assert settings.kind_of("Writing") == "writing", "the English name a board was typed with"
+    assert settings.kind_of("External action") == "external"
 
 
 @case
@@ -374,7 +373,7 @@ def a_classification_that_is_not_sure_blocks_the_ticket_with_the_question() -> N
         job = runner.prepare(ticket)
 
     assert job is None
-    assert client.written == [{"Status": "Blocked", "Blocage": "ticket.kind-unsure"}], (
+    assert client.written == [{"statut": "blocked", "Blocage": "ticket.kind-unsure"}], (
         client.written
     )
     question = client.said[-1]
@@ -384,7 +383,7 @@ def a_classification_that_is_not_sure_blocks_the_ticket_with_the_question() -> N
     runner, ticket, client = _typed()
     with _state_home(), _naming_session('{"type": "code", "confidence": "low"}'):
         assert runner.prepare(ticket) is None
-    assert client.written == [{"Status": "Blocked", "Blocage": "ticket.kind-unsure"}]
+    assert client.written == [{"statut": "blocked", "Blocage": "ticket.kind-unsure"}]
 
     runner, ticket, client = _typed()
     with _state_home(), _naming_session("", missing=True):

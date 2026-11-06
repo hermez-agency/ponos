@@ -423,12 +423,12 @@ class Board:
         offer the validated column?", and the honest answer is what the
         configuration names plus whatever is actually written down.
         """
-        from .config import _DEFAULT_STATUS
+        from .config import STATUS
 
         settings = self.settings()
         declared: list[str] = []
         if name == settings.prop("status"):
-            declared = [settings.state(key) for key in _DEFAULT_STATUS]
+            declared = list(STATUS.values())
         seen = list(dict.fromkeys(declared))
         for page in self.query(database_id):
             value = read(page, name)

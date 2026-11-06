@@ -483,7 +483,7 @@ def the_goals_are_answered_from_what_the_console_holds_without_asking_notion() -
         api = _notion_api(fake)
         goal = api.create_goal("Lancer la v1", {})["id"]
         _serving(fake, goal)
-        api.reader.read(api.runner.client, api.runner.database, "Status")
+        api.reader.read(api.runner.client, api.runner.database, "statut")
         api.goals()
         asked.clear()
         row = api.goals()["goals"][0]

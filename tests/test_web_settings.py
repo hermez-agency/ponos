@@ -225,9 +225,12 @@ def what_the_file_says_is_told_apart_from_what_it_falls_back_on() -> None:
     silent = fields["runner.max_concurrent"]
     assert silent["value"] is None and silent["stated"] is False
     assert silent["fallback"] == C.Runner().max_concurrent, "the default, shown greyed"
-    # The three naming tables are drawn from the defaults, not listed twice.
-    assert fields["notion.status.validated"]["fallback"] == "Validated"
-    assert fields["notion.properties.progress"]["fallback"] == "Progress"
+    # The titles of the databases are drawn from the defaults, not listed twice;
+    # the names of the board's columns are no setting at all.
+    assert fields["notion.pages.tickets"]["fallback"] == "Tickets"
+    assert not [
+        name for name in fields if name.startswith(("notion.status.", "notion.properties."))
+    ]
 
 
 @case
@@ -256,13 +259,10 @@ def every_setting_the_file_holds_is_one_the_console_can_reach() -> None:
                 continue
             expected.add(f"{table}.{name}")
     for name in vars(C.Notion()):
-        if name in ("pages", "properties", "status", "types"):
+        if name == "pages":
             continue
         expected.add(f"notion.{name}")
-    for table in ("pages", "properties", "status", "types"):
-        expected |= {f"notion.{table}.{key}" for key in C.defaults(table)}
-    # The one naming key with no default: a board names its drafts or has none.
-    expected.add("notion.status.draft")
+    expected |= {f"notion.pages.{key}" for key in C.page_titles()}
     expected |= {"notify.telegram.token", "notify.telegram.chat"}
     expected |= {"notify.slack.token", "notify.slack.channel"}
 

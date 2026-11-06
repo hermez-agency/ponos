@@ -92,7 +92,6 @@ COLUMNS = (
     "paused",
     "review",
     "validated",
-    "failed",
     "done",
     "cancelled",
 )
@@ -712,15 +711,8 @@ class Tickets(Base):
         settings = self.config.notion
         values: dict[str, Any] = {}
         # Ready means "start it now"; anything else means the ticket is being
-        # written. A draft goes where the board keeps its drafts, when the
-        # configuration names that option, and is otherwise left with no
-        # status rather than parked in a column nobody named: the runner claims
-        # what it was told to claim, and a console that invented a column would
-        # be inventing a workflow.
-        if ready:
-            values[settings.prop("status")] = settings.state("ready")
-        elif _draft(settings):
-            values[settings.prop("status")] = _draft(settings)
+        # written, and goes to the drafts, which the runner never picks up.
+        values[settings.prop("status")] = settings.state("ready" if ready else "draft")
         if project:
             values[settings.prop("project")] = [project]
         # The goal it serves, only when one is chosen: most tickets serve none.
@@ -971,16 +963,10 @@ def _session_id(value: str) -> str:
 
 
 def _columns(settings: Notion) -> dict[str, str]:
-    """Which column each status is drawn in: the first that carries it.
+    """Which column each status is drawn in.
 
-    A board whose `blocked` and `failed` are one status draws one column for
-    them — the first of the two, see `board` — and the tickets have to land in
-    that one. A plain `{status: key}` kept the *last*, and every blocked ticket
-    went to a `failed` column that was never drawn: three tickets Notion shows
-    as blocked, and a console that showed none.
-
-    A status none of them names — the draft's own, `draft`, included when the
-    board does not name it — is a draft as well: the callers fall back on it.
+    A status none of them names — or none at all — is a draft as well: the
+    callers fall back on it.
     """
     names: dict[str, str] = {"": "draft"}
     for key in _keys(settings):
@@ -992,7 +978,7 @@ def _keys(settings: Notion) -> tuple[str, ...]:
     """The columns this board draws: the drafts, then the runner's.
 
     A ticket with no status is a draft, so the drafts are always the first
-    column, named or not — see `_draft`.
+    column.
     """
     return ("draft", *COLUMNS)
 
@@ -1002,12 +988,12 @@ def _causes(tickets: list[dict[str, Any]]) -> None:
 
     The board's « Blocage » column first; the history's last code for the
     ticket when the board has no such column, or a stop written before it was
-    there. A card that has left blocked or failed carries none: the cause was
+    there. A card that has left blocked carries none: the cause was
     the last stop's, and it is not stopped any more.
     """
     codes: dict[str, str] | None = None
     for ticket in tickets:
-        if ticket.get("column") not in ("blocked", "failed"):
+        if ticket.get("column") != "blocked":
             ticket["block"] = None
         elif ticket.get("block") is None:
             if codes is None:
@@ -1109,18 +1095,5 @@ def _phases(tickets: list[dict[str, Any]]) -> None:
 
 
 def _status(settings: Notion, key: str) -> str:
-    """What a column writes: the board's word for it, and for the drafts `_draft`'s."""
-    return _draft(settings) if key == "draft" else settings.state(key)
-
-
-def _draft(settings: Notion) -> str:
-    """The status a draft is written with: the option the board already had, or none.
-
-    `draft` is an option the board already had — see `Notion.state` — and it
-    counts only when named apart from every status the runner moves a ticket
-    through: a draft that is also `ready` is a ticket the runner takes, and
-    calling its column "Draft" would be lying. Unnamed, a draft is a ticket
-    with no status, and a move to the drafts clears it.
-    """
-    draft = settings.state("draft")
-    return draft if draft and draft not in [settings.state(key) for key in COLUMNS] else ""
+    """What a column writes: the board's word for it."""
+    return settings.state(key)

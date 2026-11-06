@@ -65,7 +65,6 @@ ColumnKey = Literal[
     "paused",
     "review",
     "validated",
-    "failed",
     "done",
     "cancelled",
 ]

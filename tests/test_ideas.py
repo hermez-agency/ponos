@@ -483,7 +483,7 @@ def ideas_for_a_project_are_found_in_one_call_and_never_proposed_twice(state_hom
     with _board() as board:
         project = board.create_row("projects", "Usine", {})
         board.replace_markdown(project, "Un jeu d'usine en navigateur.")
-        done = board.create_row("tickets", "Ajouter le tutoriel", {"Status": "Done"})
+        done = board.create_row("tickets", "Ajouter le tutoriel", {"statut": "done"})
         board.update("tickets", done, {"Project": [project]})
         clone = Path(tempfile.mkdtemp())
         subprocess.run(["git", "init", "-q", str(clone)], check=True)
@@ -581,7 +581,7 @@ def an_idea_turned_into_a_ticket_is_a_draft_and_a_project_idea_a_project(state_h
         ticket = board.page(kept["ticket"])
         assert ticket.title == "Un mode sombre"
         assert store.read(ticket, settings.prop("project")) == [project]
-        assert not store.read(ticket, settings.prop("status")), "a draft"
+        assert store.read(ticket, settings.prop("status")) == "draft", "a draft"
         assert not store.read(ticket, settings.prop("model")), "Model left empty"
         text = board.blocks_text(kept["ticket"])
         for heading in ("## What", "## Where", "## Done when", "## Out of scope"):
@@ -968,7 +968,7 @@ def the_live_report_writes_its_steps_into_the_file() -> None:
     flush, and a Markdown installation would silently stop having one.
     """
     with _board() as board:
-        page_id = board.create_row("tickets", "Un ticket", {"Status": "Ready"})
+        page_id = board.create_row("tickets", "Un ticket", {"statut": "ready"})
         live = progress.Live(
             board,
             page_id,

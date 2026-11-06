@@ -1,8 +1,8 @@
 """Building the Notion side of the runner from one page link.
 
 Setting this up by hand means five databases, a score of properties, four relations
-and a column of status options spelled *exactly* as the configuration spells
-them. Get one character wrong and the runner finds nothing, for ever, without
+and a column of status options spelled *exactly* as `config.PROPERTIES` and
+`config.STATUS` spell them. Get one character wrong and the runner finds nothing, for ever, without
 saying why.
 So the machine does it: you share one page with the integration, and everything
 under it is created here.
@@ -36,19 +36,19 @@ from . import blocks, ci, notion, subtypes
 from .config import Notion
 from .schedules import CADENCES
 
-# The board, left to right, and the colour that says what a column means.
+# The board, left to right, and the colour that says what a column means — the
+# colours of the board the names were taken from.
 _STATUS_COLOURS = {
-    "ready": "blue",
-    "running": "yellow",
-    "review": "purple",
-    "validated": "pink",
+    "draft": "gray",
+    "ready": "yellow",
+    "running": "blue",
+    "review": "brown",
+    "validated": "orange",
     "done": "green",
-    "failed": "red",
-    "blocked": "orange",
-    # Brown, between the runner's yellow and the grey of a ticket given up on.
-    "paused": "brown",
-    # Grey, and not done's green: given up on is not finished.
-    "cancelled": "gray",
+    "blocked": "red",
+    "paused": "purple",
+    # Default, and not done's green: given up on is not finished.
+    "cancelled": "default",
 }
 
 # The four types, from the most harmless road to the most guarded one.
@@ -71,7 +71,7 @@ _BLOCK_COLOURS = {
 
 # What `claude --model` accepts. A select rather than free text: the whole point
 # of the column is to pick without remembering the spelling.
-MODELS = ("opus", "sonnet", "haiku")
+MODELS = ("opus", "sonnet", "haiku", "fable")
 
 DIRECTORY = "ponos"
 
@@ -144,30 +144,10 @@ def _select(options: Iterable[str], colours: dict[str, str] | None = None) -> di
 
 
 def status_options(settings: Notion) -> list[dict[str, Any]]:
-    """The status column's options, in board order, without duplicates.
-
-    A configuration is free to point two states at one column — `failed` and
-    `blocked` on a single "Needs you", `review` and `done` on a single "Done" —
-    and Notion refuses a select that lists the same option twice. A file that
-    names its columns without naming `validated` is one of those: it points at
-    `review`, and the board simply has no validated column.
-    """
-    seen: dict[str, str] = {}
-    for key in (
-        "ready",
-        "running",
-        "review",
-        "validated",
-        "done",
-        "failed",
-        "blocked",
-        "paused",
-        "cancelled",
-    ):
-        name = settings.state(key).strip()
-        if name and name not in seen:
-            seen[name] = _STATUS_COLOURS[key]
-    return [{"name": name, "color": colour} for name, colour in seen.items()]
+    """The status column's options, in board order."""
+    return [
+        {"name": settings.state(key), "color": colour} for key, colour in _STATUS_COLOURS.items()
+    ]
 
 
 def projects_schema() -> dict[str, Any]:
@@ -266,9 +246,9 @@ def tickets_schema(
     # projects database is not given a back-reference it would never read.
     if projects:
         schema[settings.prop("project")] = _relation(projects)
-    if agents and settings.prop("role"):
+    if agents:
         schema[settings.prop("role")] = _relation(agents)
-    if tickets and settings.prop("after"):
+    if tickets:
         schema[settings.prop("after")] = _relation(tickets)
     return schema
 

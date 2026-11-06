@@ -33,7 +33,7 @@ export type StepKey = (typeof STEPS)[number]
 export function demoOutcome(demo: Pick<Demo, "column" | "running" | "code">): "waiting" | "done" | "stuck" | "failed" {
   if (["review", "validated", "done"].includes(demo.column)) return "done"
   if (demo.column === "blocked") return "stuck"
-  if (demo.column === "failed" || (demo.code !== null && demo.code !== 0)) return "failed"
+  if (demo.code !== null && demo.code !== 0) return "failed"
   return "waiting"
 }
 

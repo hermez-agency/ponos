@@ -143,12 +143,12 @@ class _Board:
     """The two columns that wait for a person, and nothing else."""
 
     def schema(self, database: str) -> dict[str, str]:
-        return {"Status": "status"}
+        return {"statut": "status"}
 
     def query(self, database: str, filter_: dict[str, Any] | None = None) -> list[notion.Page]:
         assert filter_ is not None
         column = filter_["status"]["equals"]
-        if column != "In review":
+        if column != "review":
             return []
         return [notion.Page(id="p1", url="https://notion.so/p1", title="Le header")]
 

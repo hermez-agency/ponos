@@ -58,22 +58,21 @@ def the_demo_board_has_every_column_and_every_family_of_stop() -> None:
     tickets = demo.tickets_of(random.Random(demo.SEED))
     statuses = Counter(ticket.status for ticket in tickets)
     for status in (
-        "Backlog",
-        "Ready",
-        "In progress",
-        "In review",
-        "Validated",
-        "Done",
-        "Failed",
-        "Blocked",
-        "Cancelled",
+        "draft",
+        "ready",
+        "progress",
+        "review",
+        "validated",
+        "done",
+        "blocked",
+        "cancelled",
     ):
         assert statuses[status], status
     assert len(tickets) >= 60
-    families = {blocks.cause(t.flag).family for t in tickets if t.status in ("Blocked", "Failed")}
+    families = {blocks.cause(t.flag).family for t in tickets if t.status == "blocked"}
     assert families == set(blocks.FAMILIES), families
     assert len({t.id for t in tickets}) == len(tickets)
-    assert {t.kind for t in tickets} == {"Code", "Writing", "External action", "Publication"}
+    assert {t.kind for t in tickets} == {"Code", "Rédaction", "Action externe", "Publication"}
     assert len({t.subtype for t in tickets if t.subtype}) == 8
 
 

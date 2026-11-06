@@ -38,41 +38,24 @@ def a_database_reference_is_normalised_but_a_name_is_not() -> None:
 
 
 @case
-def blocked_falls_back_on_failed_but_only_when_unset() -> None:
-    config = _config('[notion.status]\nfailed = "Blocked"\n')
-    assert config.notion.state("blocked") == "Blocked"
-    assert config.notion.state("ready") == "Ready", "defaults survive a partial block"
+def the_names_of_the_board_are_fixed_and_a_file_that_names_them_is_read_without_them() -> None:
+    """`[notion.properties]`, `[notion.status]` and `[notion.types]` are no settings any more.
 
-    config = _config('[notion.status]\nfailed = "Draft"\nblocked = "Blocked"\n')
-    assert config.notion.state("failed") == "Draft"
-    assert config.notion.state("blocked") == "Blocked"
-
-    config = _config("")
-    assert config.notion.state("review") == "In review"
-    assert config.notion.state("done") == "Done"
-    assert config.notion.state("blocked") == "Blocked", "its own column, not the failure one"
-    assert config.notion.state("failed") == "Failed"
-
-
-@case
-def review_falls_back_on_done_but_only_when_done_is_named() -> None:
-    """A file that names `done` and not `review` has one column for both.
-
-    Which is also what turns the merge watch off: there is no column for a
-    ticket to wait in, so there is nothing to watch. A file that names neither
-    gets the defaults, which are two — an open pull request and a merged one
-    are not the same day.
+    A file written before still says them: it is read, they are not, and they
+    are not keys to warn about either — the board is what `doctor` checks.
     """
-    config = _config('[notion.status]\ndone = "Shipped"\n')
-    assert config.notion.state("review") == config.notion.state("done") == "Shipped"
-
-    config = _config("")
-    assert config.notion.state("review") == "In review"
-    assert config.notion.state("done") == "Done", "the defaults keep them apart"
-
-    config = _config('[notion.status]\nreview = "Waiting on you"\ndone = "Shipped"\n')
-    assert config.notion.state("review") == "Waiting on you"
-    assert config.notion.state("done") == "Shipped"
+    old = _config(
+        '[notion.properties]\nstatus = "Status"\nagent = "Runner"\n'
+        '[notion.status]\nready = "Ready"\nfailed = "Failed"\n'
+        '[notion.types]\nwriting = "Writing"\n'
+    )
+    assert old.notion.prop("status") == "statut" and old.notion.prop("agent") == "Agent"
+    assert old.notion.state("ready") == "ready" and old.notion.state("blocked") == "blocked"
+    assert old.notion.kind("writing") == "Rédaction"
+    assert old.unknown == (), old.unknown
+    assert "failed" not in C.STATUS, "one status for a ticket that stopped"
+    assert old.notion.state("draft") == "draft"
+    assert old.notion.prop("role") == "Rôle", "the role is not the machine's « Agent »"
 
 
 @case
@@ -281,23 +264,6 @@ def optional_properties_have_names_even_when_absent() -> None:
         "duration",
     ):
         assert config.notion.prop(key), key
-
-
-@case
-def an_old_agent_column_is_not_read_as_the_role_too() -> None:
-    """A file written when `agent` defaulted to "Agent": its text column is the runner's.
-
-    `role` came later, with that very name for a default, and read the same
-    text column as a relation — a page asked of Notion on every ticket.
-    """
-    old = _config('[notion.properties]\nagent = "Agent"\n')
-    assert old.notion.prop("agent") == "Agent"
-    assert old.notion.prop("role") == "", "the role steps aside rather than share it"
-    assert _config("").notion.prop("role") == "Agent", "the default is left alone"
-    meant = _config('[notion.properties]\nagent = "Agent"\nrole = "Agent"\n')
-    assert meant.notion.prop("role") == "Agent", "a name the file writes is a name meant"
-    # A relation beside a relation is no misreading: the goal may point anywhere.
-    assert _config('[notion.properties]\ngoal = "Agent"\n').notion.prop("role") == "Agent"
 
 
 @case

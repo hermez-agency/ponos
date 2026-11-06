@@ -113,17 +113,17 @@ def a_claim_is_written_whole_or_not_at_all(state_home: Path) -> None:
     claim side by side: neither may lose the other's.
     """
     try:
-        state.claim("a" * 32, "Validated")
+        state.claim("a" * 32, "validated")
         try:
             with db.transaction() as connection:
                 connection.execute("DELETE FROM claims")
-                connection.execute("INSERT INTO claims VALUES (?, ?)", ("b" * 32, "Ready"))
+                connection.execute("INSERT INTO claims VALUES (?, ?)", ("b" * 32, "ready"))
                 raise OSError("disk full")
         except OSError:
             pass
-        assert state.claims() == {"a" * 32: "Validated"}, "the old claims are intact"
+        assert state.claims() == {"a" * 32: "validated"}, "the old claims are intact"
         workers = [
-            threading.Thread(target=state.claim, args=(f"{n:032d}", "Ready")) for n in range(8)
+            threading.Thread(target=state.claim, args=(f"{n:032d}", "ready")) for n in range(8)
         ]
         for worker in workers:
             worker.start()

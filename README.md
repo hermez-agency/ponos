@@ -186,11 +186,13 @@ Validated     ──────▶     merges that pull request — or publishe
 Done          ◀───────────  once it is in
 ```
 
-Which of the two you get is decided by the ticket's **Type** when it has one — *Code*,
-*Writing*, *External action*, *Publication* — and otherwise by the project: a project that
+Which of the two you get is decided by the ticket's **Type** when it has one — `Code`,
+`Rédaction`, `Action externe`, `Publication` — and otherwise by the project: a project that
 names a repository produces code, a project that names none — or a ticket with no project
 at all — produces a document. A ticket that reaches *Ready* with no type is classified
 first, and a doubt stops it before anything runs. See [The type of a ticket](guide/board.md#the-type-of-a-ticket).
+The board's columns, statuses and options have fixed names — `ponos init` creates them,
+`ponos doctor` names what a board lacks: [The tickets database](guide/board.md#the-tickets-database).
 
 ---
 

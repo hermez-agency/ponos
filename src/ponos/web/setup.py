@@ -503,7 +503,7 @@ def demo_state(api: Api, ticket: str) -> dict[str, Any]:
     code = process.poll() if process else None
     ended = process is None or code is not None
     said, cause, command = "", "", ""
-    if ended and (code or found["column"] == "failed"):
+    if ended and (code or found["column"] == "blocked"):
         log = config_module.state_dir() / "web" / f"demo-{ticket}.log"
         if log.is_file():
             lines = [

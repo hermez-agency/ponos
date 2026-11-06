@@ -204,9 +204,6 @@ class NotionTable(Table):
     # As the file writes them, and only those: `config.Notion` needs to know
     # which names the file gives to tell them from the ones it falls back on.
     pages: dict[str, str] = Field(default_factory=dict)
-    properties: dict[str, str] = Field(default_factory=dict)
-    status: dict[str, str] = Field(default_factory=dict)
-    types: dict[str, str] = Field(default_factory=dict)
 
 
 Shift = Annotated[str, _one_of(subtypes.SHIFTS)]
@@ -596,14 +593,19 @@ def line_of(text: str, where: tuple[str, ...]) -> int:
 # Keys an older version read and this one does not, as their paths: a file that
 # still holds one is not wrong for it. The secrets `config.py` moves to
 # `secrets.env` are exempt beside them, read from `SECRETS`.
-RETIRED: frozenset[tuple[str, ...]] = frozenset()
+# The names of the board's columns, statuses and types were settings until they
+# were fixed in `config.PROPERTIES`: a file that still names them is read
+# without them, and `doctor` says what the board itself is missing.
+RETIRED: frozenset[tuple[str, ...]] = frozenset(
+    {("notion", "properties"), ("notion", "status"), ("notion", "types")}
+)
 
 
 def unknown(raw: dict[str, Any], text: str) -> list[tuple[int, str, str]]:
     """Each key no table reads: its line, its dotted name, and the known one it is closest to.
 
     `read` ignores them; this is what says so. A table whose keys are the
-    file's to choose — `[projects]`, `[github]`, `[notion.status]` — has none,
+    file's to choose — `[projects]`, `[github]`, `[notion.pages]` — has none,
     and a table nobody knows is one key, its contents left unread.
     """
     exempt = RETIRED | {(*table.split("."), key) for table, key in SECRETS}

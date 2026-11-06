@@ -17,7 +17,7 @@ from .. import workspace as workspace_module
 from .check import ERROR, INFO, OK, WARN, Check, _check, _first_line, _fix
 
 # The statuses the runner moves a ticket through, each one required.
-RUNNER_STATUSES = ("ready", "running", "review", "validated", "done", "failed", "blocked")
+RUNNER_STATUSES = ("ready", "running", "review", "validated", "done", "blocked")
 
 # The properties of the Schedules database, what each is for, and the type it reads best as.
 SCHEDULE_COLUMNS = (
@@ -61,12 +61,17 @@ def _schema(
             # In Notion's words alone, the one language both pages speak.
             wrong.append(f"“{name}” ({kind} ≠ {' / '.join(accepted)})")
             costs.setdefault(name, []).append(cost)
-    # « Après » is optional — a board without it runs every ready ticket, as it
-    # always did — but one under another type is read as nothing at all.
-    after = settings.prop("after")
-    if after and schema.get(after, "relation") != "relation":
-        wrong.append(f"“{after}” ({schema[after]} ≠ relation)")
-        costs.setdefault(after, []).append("no ticket waits for the tickets it comes after")
+    # « Après » and « Rôle » are optional — a board without them runs every
+    # ready ticket, with no role, as it always did — but one under another type
+    # is read as nothing at all.
+    for key, cost in (
+        ("after", "no ticket waits for the tickets it comes after"),
+        ("role", "no agent, and so no role, per ticket"),
+    ):
+        name = settings.prop(key)
+        if schema.get(name, "relation") != "relation":
+            wrong.append(f"“{name}” ({schema[name]} ≠ relation)")
+            costs.setdefault(name, []).append(cost)
     wanted_columns = provision.tickets_schema(settings, space.projects, space.agents, space.tickets)
     addable = sorted(provision.missing_properties(schema, wanted_columns))
     found: list[Check] = []
@@ -97,7 +102,9 @@ def _schema(
                 },
                 cause="The board predates a version of Ponos, or a property was renamed or retyped.",
                 steps=(
-                    ["Rename the property in Notion, or its name under [notion.properties]."]
+                    [
+                        "Rename or retype the property in Notion: Ponos reads it under this name only."
+                    ]
                     if wrong
                     else []
                 ),
@@ -113,8 +120,6 @@ def _schema(
                 else None,
             )
         )
-
-    found.extend(_shared_names(settings, schema))
 
     options = client.options(space.tickets, settings.prop("status"))
     wanted = {key: settings.state(key) for key in RUNNER_STATUSES}
@@ -138,6 +143,7 @@ def _schema(
                 "Every status the runner moves tickets through is offered.",
             )
         )
+        found.extend(_stray_statuses(options))
         return found
     database = getattr(client, "database", None)
     board = database(space.tickets) if database else {}
@@ -171,144 +177,83 @@ def _schema(
     return found
 
 
+def _stray_statuses(options: list[str]) -> list[Check]:
+    """The statuses the board offers that are none of `config.STATUS`.
+
+    Not an error: the runner never moves a ticket there, and reads one that is
+    there as a draft. But it is a column of the board that is none of Ponos's,
+    and a ticket in it is one nobody will ever pick up.
+    """
+    known = set(config_module.STATUS.values())
+    strays = [name for name in options if name not in known]
+    if not strays:
+        return []
+    return [
+        _check(
+            "notion.statuses",
+            WARN,
+            "Tickets statuses",
+            "Statuses Ponos does not know: {{strays}}. A ticket there is read as a draft.",
+            params={"strays": ", ".join(f"“{name}”" for name in strays)},
+            steps=["Move their tickets to another status, then remove the options in Notion."],
+            evidence="known: " + ", ".join(config_module.STATUS.values()),
+        )
+    ]
+
+
 def _other_statuses(
     config: config_module.Config, client: store.Store, space: workspace_module.Workspace
 ) -> list[Check]:
-    """The statuses the runner never moves a ticket to: Cancelled, Paused, and a draft's.
+    """The statuses the runner never moves a ticket to: cancelled, paused, and draft.
 
-    Cancelled and Paused are optional — a board without them has no way to give
-    a ticket up but to call it done, nor to stop one for later — and the draft is
-    named or not at all. Any one that is also a status the runner moves tickets
-    through would be a ticket given up on, paused, or still being written, and
-    run anyway.
+    Optional, all three: a board without cancelled has no way to give a ticket
+    up but to call it done, one without paused none to stop one for later, and
+    one without draft keeps the tickets still being written with no status.
     """
     settings = config.notion
     options = client.options(space.tickets, settings.prop("status"))
     if not options:
         return []
-    moved = [settings.state(key) for key in RUNNER_STATUSES]
     found: list[Check] = []
-    cancelled = settings.state("cancelled")
-    params = {"status": cancelled}
-    if cancelled in moved:
-        found.append(
-            _check(
-                "notion.cancelled",
-                ERROR,
-                "Cancelled status",
-                "“{{status}}” is also a status the runner moves tickets through.",
-                params=params,
-                steps=["Give [notion.status] cancelled a name of its own."],
+    for key, check, title, offered, missing in (
+        (
+            "cancelled",
+            "notion.cancelled",
+            "Cancelled status",
+            "“{{status}}”: a ticket there is never run.",
+            "“{{status}}” is not offered: no column to give a ticket up in.",
+        ),
+        (
+            "paused",
+            "notion.paused",
+            "Paused status",
+            "“{{status}}”: a ticket there is never run by itself.",
+            "“{{status}}” is not offered: no column to pause a ticket in.",
+        ),
+        (
+            "draft",
+            "notion.draft",
+            "Draft status",
+            "“{{status}}”: a ticket there is never picked up.",
+            "“{{status}}” is not offered: a ticket being written has no status.",
+        ),
+    ):
+        params = {"status": settings.state(key)}
+        if settings.state(key) in options:
+            found.append(_check(check, OK, title, offered, params=params))
+        else:
+            found.append(
+                _check(
+                    check,
+                    WARN,
+                    title,
+                    missing,
+                    params=params,
+                    steps=[
+                        "`ponos init` adds it to a select; on a Notion status, add the option by hand."
+                    ],
+                )
             )
-        )
-    elif cancelled in options:
-        found.append(
-            _check(
-                "notion.cancelled",
-                OK,
-                "Cancelled status",
-                "“{{status}}”: a ticket there is never run.",
-                params=params,
-            )
-        )
-    else:
-        found.append(
-            _check(
-                "notion.cancelled",
-                WARN,
-                "Cancelled status",
-                "“{{status}}” is not offered: no column to give a ticket up in.",
-                params=params,
-                steps=[
-                    "`ponos init` adds it to a select; on a Notion status, add the option by hand."
-                ],
-            )
-        )
-    # Optional too, and for the same reason: a board without it has no
-    # gesture to stop a ticket for later, and the console offers none.
-    paused = settings.state("paused")
-    params = {"status": paused}
-    if paused in moved:
-        found.append(
-            _check(
-                "notion.paused",
-                ERROR,
-                "Paused status",
-                "“{{status}}” is also a status the runner moves tickets through.",
-                params=params,
-                steps=["Give [notion.status] paused a name of its own."],
-            )
-        )
-    elif paused in options:
-        found.append(
-            _check(
-                "notion.paused",
-                OK,
-                "Paused status",
-                "“{{status}}”: a ticket there is never run by itself.",
-                params=params,
-            )
-        )
-    else:
-        found.append(
-            _check(
-                "notion.paused",
-                WARN,
-                "Paused status",
-                "“{{status}}” is not offered: no column to pause a ticket in.",
-                params=params,
-                steps=[
-                    "`ponos init` adds it to a select; on a Notion status, add the option by hand."
-                ],
-            )
-        )
-    # The one status the runner never writes nor reads, and that nothing
-    # defaults: named, it has to be an option the board already offers, and
-    # one apart from the runner's own — a draft that is `ready` is taken.
-    draft = settings.state("draft")
-    params = {"status": draft}
-    if not draft:
-        found.append(
-            _check(
-                "notion.draft",
-                INFO,
-                "Draft status",
-                "None named: a ticket being written has no status.",
-            )
-        )
-    elif draft in moved:
-        found.append(
-            _check(
-                "notion.draft",
-                ERROR,
-                "Draft status",
-                "“{{status}}” is also a status the runner moves tickets through.",
-                params=params,
-                steps=["Give [notion.status] draft a name of its own."],
-            )
-        )
-    elif draft in options:
-        found.append(
-            _check(
-                "notion.draft",
-                OK,
-                "Draft status",
-                "“{{status}}”: a ticket there is never picked up.",
-                params=params,
-            )
-        )
-    else:
-        found.append(
-            _check(
-                "notion.draft",
-                ERROR,
-                "Draft status",
-                "“{{status}}” is not offered by the tickets database.",
-                params=params,
-                steps=["Add the option to the Status property, or name another one."],
-                evidence="available: " + ", ".join(options),
-            )
-        )
     return found
 
 
@@ -625,55 +570,3 @@ def _schedules(
                 )
             )
     return found
-
-
-def _shared_names(settings: config_module.Notion, schema: dict[str, str]) -> list[Check]:
-    """Two settings that name one property of the tickets database, if any.
-
-    Not an error Notion would ever raise: the column is there, it is read — as
-    whatever the other setting expects. `agent = "Agent"` next to `role =
-    "Agent"` reads a text as a relation, and asks Notion for a page named after
-    its first character on every ticket taken back. That one is mended from
-    here: a role on a column that is no relation was never a role, and turning
-    it off (`role = ""`) leaves the column to the setting that reads it right.
-    """
-    keys: dict[str, list[str]] = {}
-    for key in (*store.COLUMNS, "goal", "after"):
-        if settings.prop(key):
-            keys.setdefault(settings.prop(key), []).append(key)
-    shared = {name: names for name, names in keys.items() if len(names) > 1}
-    if not shared:
-        return []
-    misread = [
-        name
-        for name, names in shared.items()
-        if "role" in names and schema.get(name, "relation") != "relation"
-    ]
-    return [
-        _check(
-            "notion.shared",
-            WARN,
-            "Tickets properties",
-            "Several settings name the same property: {{shared}}.",
-            params={
-                "shared": "; ".join(
-                    f"“{name}” ({', '.join(names)})" for name, names in shared.items()
-                )
-            },
-            cause="Each setting reads the property as something else, so at most one of them is right.",
-            steps=(
-                ["Empty role under [notion.properties]: the property is not a relation."]
-                if misread
-                else ["Give each one its own name under [notion.properties]."]
-            ),
-            fix=_fix(
-                "notion_shared",
-                "Fix",
-                "Stop reading {{missing}} as the ticket's agent? "
-                "An empty role is written under [notion.properties] in config.toml.",
-                misread,
-            )
-            if misread
-            else None,
-        )
-    ]

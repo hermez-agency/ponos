@@ -1332,14 +1332,14 @@ def a_ticket_command_writes_a_draft_and_tells_where(state_home: Path) -> None:
     title, values = board.rows[0]
     assert title == "le bouton Stop ne s'affiche pas sur mobile"
     assert values["Project"] == ["p1"]
-    assert "Status" not in values, "a draft has no status unless the board names one"
+    assert values["statut"] == "draft", "a draft is written in the drafts' status"
     assert "Ponos" in phone.said[0] and "https://notion.so/new" in phone.said[0]
 
 
 @case
 def a_bang_puts_the_ticket_straight_in_ready(state_home: Path) -> None:
     board, _ = _writing("/ticket! ponos fix it")
-    assert board.rows[0][1]["Status"] == "Ready"
+    assert board.rows[0][1]["statut"] == "ready"
 
 
 @case

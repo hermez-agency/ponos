@@ -93,7 +93,7 @@ def _ticket_page(page_id: str, status: str) -> notion.Page:
         id=page_id,
         url="",
         title=page_id,
-        properties={"Status": {"type": "status", "status": {"name": status}}},
+        properties={"statut": {"type": "status", "status": {"name": status}}},
     )
 
 
@@ -122,8 +122,8 @@ def a_machine_that_was_off_for_three_days_produces_one_ticket_and_not_twelve() -
     assert len(_schedules(runner).created) == 1, "one ticket, not one per day missed"
     title_, values = _schedules(runner).created[0]
     assert title_.startswith("Revue des dépendances — ")
-    assert values["Status"] == "Ready"
-    assert values["Project"] == "p-northwind" and values["Priority"] == 40
+    assert values["statut"] == "ready"
+    assert values["Project"] == "p-northwind" and values["Priorité"] == 40
 
     # The next moment is computed from now, never by stacking up what was lost.
     ahead = schedules.scheduled_for(_written(runner, "Next"))
@@ -148,7 +148,7 @@ def a_code_schedule_makes_a_code_ticket_that_nobody_classifies() -> None:
     assert len(runner.recur()) == 1
     _, values = _schedules(runner).created[0]
     assert values["Type"] == "Code" and values["Sous-type"] == "Feature"
-    assert values["Model"] == "opus" and values["Priority"] == 40
+    assert values["Model"] == "opus" and values["Priorité"] == 40
 
     # Born typed, it is never handed to the classifier.
     born = notion.Page(
@@ -161,7 +161,7 @@ def a_code_schedule_makes_a_code_ticket_that_nobody_classifies() -> None:
         },
     )
     runner.client.schema = lambda database_id: {  # type: ignore[method-assign]  # a double: a typed board
-        "Status": "status",
+        "statut": "status",
         "Type": "select",
         "Sous-type": "select",
     }
@@ -240,7 +240,7 @@ def launching_a_schedule_by_hand_makes_the_ticket_and_leaves_its_next_moment_alo
         state.record = original
 
     assert len(_schedules(runner).created) == 1 and entry["id"] == "t1"
-    assert _schedules(runner).created[0][1]["Status"] == "Ready"
+    assert _schedules(runner).created[0][1]["statut"] == "ready"
     assert _written(runner, "Last") is not None
     assert _written(runner, "Next") is None, "the planned occurrence is untouched"
     assert _written(runner, "Active") is None, "a paused schedule stays paused"
@@ -277,9 +277,9 @@ def the_body_of_the_schedule_is_copied_into_the_ticket_it_makes() -> None:
 
 @case
 def an_occurrence_still_open_never_produces_a_second_one() -> None:
-    """A schedule stuck on a question must not fill the board with copies."""
+    """A schedule whose last ticket is still waiting to be reviewed must not fill the board with copies."""
     stale = (datetime.now().astimezone() - timedelta(hours=2)).isoformat()
-    for status in ("Ready", "In progress", "In review", "Blocked"):
+    for status in ("ready", "progress", "review", "validated"):
         runner = _recurring(
             [_schedule_page("s-1", next=stale, last_ticket="t-old")],
             tickets={"t-old": _ticket_page("t-old", status)},
@@ -290,7 +290,7 @@ def an_occurrence_still_open_never_produces_a_second_one() -> None:
         ahead = schedules.scheduled_for(_written(runner, "Next"))
         assert ahead is not None and ahead > datetime.now().astimezone(), status
 
-    for status in ("Done", "Failed"):
+    for status in ("done", "blocked"):
         runner = _recurring(
             [_schedule_page("s-1", next=stale, last_ticket="t-old")],
             tickets={"t-old": _ticket_page("t-old", status)},
@@ -477,7 +477,7 @@ def every_occurrence_is_kept_with_the_ticket_it_made_or_why_it_made_none(state_h
 
     busy = _recurring(
         [_schedule_page("s-2", next=stale, last_ticket="t-old")],
-        tickets={"t-old": _ticket_page("t-old", "In review")},
+        tickets={"t-old": _ticket_page("t-old", "review")},
     )
     busy.recur()
     (skipped,) = state.occurrences("s-2")

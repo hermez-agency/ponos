@@ -61,11 +61,11 @@ def an_mcp_client_lists_what_waits_creates_a_task_and_answers_a_question(state_h
         project = board.create_row("projects", "Usine", {"Repository": "user/usine"})
         settings = C.Notion()
         blocked = board.create_row(
-            "tickets", "Choisir l'hébergeur", {"Status": settings.state("blocked")}
+            "tickets", "Choisir l'hébergeur", {"statut": settings.state("blocked")}
         )
         board.update("tickets", blocked, {"Project": [project]})
         board.comment(blocked, f"{voice.MARKS['blocked']} Bloqué.\nQuestion : Dokploy ou Vercel ?")
-        board.create_row("tickets", "Autre chose", {"Status": settings.state("ready")})
+        board.create_row("tickets", "Autre chose", {"statut": settings.state("ready")})
         api = _ideas_api(board)
         grant = web_oauth.Grant(client="c-1", name="claude.ai", scopes=frozenset({"read", "write"}))
 
@@ -100,7 +100,7 @@ def an_mcp_client_lists_what_waits_creates_a_task_and_answers_a_question(state_h
         made = board.page(created["structuredContent"]["id"])
         assert made.title == "Brancher le domaine"
         assert store.read(made, "Project") == [project]
-        assert not store.read(made, "Status"), "a draft unless ready is asked for"
+        assert store.read(made, "statut") == "draft", "a draft unless ready is asked for"
         assert "Sur Dokploy." in board.blocks_text(made.id)
 
         launched = _mcp_call(api, grant, "create_task", title="Lance-toi", status="ready")
@@ -157,7 +157,7 @@ def an_mcp_client_lists_the_goals_and_creates_a_task_for_one(state_home: Path) -
         board.create_row("goals", "Ranger", {"Statut": "atteint"})
         settings = C.Notion()
         for title, column in (("Fait", "done"), ("En cours", "running"), ("Laissé", "cancelled")):
-            ticket = board.create_row("tickets", title, {"Status": settings.state(column)})
+            ticket = board.create_row("tickets", title, {"statut": settings.state(column)})
             board.update("tickets", ticket, {"Objectif": [launch]})
         api = _ideas_api(board)
         grant = web_oauth.Grant(client="c-1", name="claude.ai", scopes=frozenset({"read", "write"}))
@@ -202,7 +202,7 @@ def an_mcp_client_lists_the_solutions_of_a_blocked_task_and_applies_one(state_ho
     settings = C.Notion()
     with _board() as board:
         blocked = board.create_row(
-            "tickets", "Install Tailscale", {"Status": settings.state("blocked")}
+            "tickets", "Install Tailscale", {"statut": settings.state("blocked")}
         )
         board.comment(
             blocked,
@@ -378,7 +378,7 @@ def the_mcp_connector_says_its_name_and_who_holds_the_key(state_home: Path) -> N
 
     with _board() as board:
         board.create_row("projects", "Usine", {"Repository": "user/usine"})
-        board.create_row("tickets", "Choisir l'hébergeur", {"Status": C.Notion().state("blocked")})
+        board.create_row("tickets", "Choisir l'hébergeur", {"statut": C.Notion().state("blocked")})
         api = _ideas_api(board)
         api._config.web.email = "moi@example.com"
         writer = web_oauth.Grant(
@@ -451,7 +451,7 @@ def the_mcp_server_is_reached_through_oauth_with_pkce_and_its_own_keys(state_hom
     opener = urllib.request.build_opener(Stay)
 
     with _board() as board:
-        board.create_row("tickets", "Un ticket", {"Status": C.Notion().state("blocked")})
+        board.create_row("tickets", "Un ticket", {"statut": C.Notion().state("blocked")})
         api = _ideas_api(board)
         api._config.web.token = "tok"
         console = web_app.Console(("127.0.0.1", 0), api, "tok")
@@ -1121,7 +1121,7 @@ def a_batch_of_mcp_messages_is_masked_as_one_message_is(state_home: Path) -> Non
     with _board() as board:
         # Written by hand on the ticket, before the vault knew the value.
         board.create_row(
-            "tickets", "Publier avec npm_supersecret_42", {"Status": C.Notion().state("blocked")}
+            "tickets", "Publier avec npm_supersecret_42", {"statut": C.Notion().state("blocked")}
         )
         vault.remember("npm_supersecret_42")
         api = _ideas_api(board)

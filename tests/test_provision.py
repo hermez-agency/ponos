@@ -32,33 +32,33 @@ def a_bare_page_becomes_the_whole_board() -> None:
     assert set(rows) == {"Tickets", "Projects", "Agents", "Context", "Schedules"}
 
     schema = board._schemas["db-tickets"]
-    for expected in ("Status", "Project", "Agent", "Runner", "Session", "Scheduled"):
+    for expected in ("statut", "Project", "Rôle", "Agent", "Session", "Scheduled"):
         assert expected in schema, expected
 
     # The relations point at databases that existed before the tickets did.
     assert schema["Project"]["relation"]["database_id"] == "db-projects"
-    assert schema["Agent"]["relation"]["database_id"] == "db-agents"
+    assert schema["Rôle"]["relation"]["database_id"] == "db-agents"
     # « Après » points at the tickets themselves, so it comes once they exist.
     assert schema["Après"]["relation"]["database_id"] == "db-tickets"
     # …and are spelled the way the API accepts: the kind is named *and* given
     # its empty object, or the request is rejected as `undefined`.
-    for name in ("Project", "Agent"):
+    for name in ("Project", "Rôle"):
         assert schema[name]["relation"]["type"] == "single_property"
         assert schema[name]["relation"]["single_property"] == {}
 
     # A status property cannot be created through the API; a select can, and the
     # runner reads both. Every column must be there, validated included.
-    options = [option["name"] for option in schema["Status"]["select"]["options"]]
+    options = [option["name"] for option in schema["statut"]["select"]["options"]]
     assert options == [
-        "Ready",
-        "In progress",
-        "In review",
-        "Validated",
-        "Done",
-        "Failed",
-        "Blocked",
-        "Paused",
-        "Cancelled",
+        "draft",
+        "ready",
+        "progress",
+        "review",
+        "validated",
+        "done",
+        "blocked",
+        "paused",
+        "cancelled",
     ]
     # And the credit is not one of them: a ticket nothing was started for has not
     # moved, so it is ticked where it stands rather than sent to an eighth column.
@@ -94,10 +94,10 @@ def init_completes_a_board_that_predates_a_column() -> None:
         schemas={
             "db-tickets": {
                 "Name": {"title": {}},
-                "Status": {
+                "statut": {
                     "select": {
                         "options": [
-                            {"name": "Ready", "color": "blue"},
+                            {"name": "ready", "color": "blue"},
                             {"name": "Mine", "color": "purple"},
                         ]
                     }
@@ -111,9 +111,9 @@ def init_completes_a_board_that_predates_a_column() -> None:
     assert "Scheduled" in schema and "Cost" in schema
 
     # Options are merged, never replaced: a column somebody added is still there.
-    options = [option["name"] for option in schema["Status"]["select"]["options"]]
-    assert "Mine" in options and "Blocked" in options
-    assert options.index("Mine") < options.index("Blocked"), "what exists keeps its place"
+    options = [option["name"] for option in schema["statut"]["select"]["options"]]
+    assert "Mine" in options and "blocked" in options
+    assert options.index("Mine") < options.index("blocked"), "what exists keeps its place"
 
 
 @case
@@ -122,7 +122,7 @@ def a_real_status_column_is_reported_rather_than_patched() -> None:
 
     A `status` property built in Notion's own interface accepts no new options
     from the API. Silence here would surface as a ticket failing to be marked
-    "Blocked", weeks later, at the end of a session.
+    "blocked", weeks later, at the end of a session.
     """
     board = _Board(
         databases={"root": {"ponos": "dir"}, "page-tickets": {"Tickets": "db-tickets"}},
@@ -130,11 +130,11 @@ def a_real_status_column_is_reported_rather_than_patched() -> None:
         schemas={
             "db-tickets": {
                 "Name": {"title": {}},
-                "Status": {
+                "statut": {
                     "status": {
                         "options": [
-                            {"name": "Ready"},
-                            {"name": "In progress"},
+                            {"name": "ready"},
+                            {"name": "progress"},
                         ]
                     }
                 },
@@ -143,10 +143,10 @@ def a_real_status_column_is_reported_rather_than_patched() -> None:
     )
     report = provision.provision(board, _settings(), "root")  # type: ignore[arg-type]  # a fake board
 
-    assert not any(name == "Status" for _, names in board.patched for name in names)
+    assert not any(name == "statut" for _, names in board.patched for name in names)
     told = [what for verb, what in report.steps if verb == "by hand"]
-    assert told and "In review" in told[0] and "Blocked" in told[0], told
-    assert "Ready" not in told[0], "only what is actually missing"
+    assert told and "review" in told[0] and "blocked" in told[0], told
+    assert "ready" not in told[0], "only what is actually missing"
 
 
 @case
@@ -158,24 +158,6 @@ def a_column_someone_retyped_is_left_alone() -> None:
     )
     provision.provision(board, _settings(), "root")  # type: ignore[arg-type]  # a fake board
     assert board._schemas["db-tickets"]["Cost"] == {"rich_text": {}}, "not overruled"
-
-
-@case
-def two_states_on_one_column_produce_one_option() -> None:
-    """Notion refuses a select that lists the same option twice."""
-    settings = _settings()
-    settings.status = {"failed": "Needs you", "blocked": "Needs you"}
-    names = [option["name"] for option in provision.status_options(settings)]
-    assert names.count("Needs you") == 1
-    # Eight: the two that were merged count once, and renaming a failure column
-    # says nothing about the validated one, nor the paused or cancelled ones,
-    # which keep their defaults.
-    assert len(names) == 8 and {"Validated", "Paused", "Cancelled"} <= set(names)
-
-    settings.status = {"review": "Done", "done": "Done"}
-    names = [option["name"] for option in provision.status_options(settings)]
-    assert names.count("Done") == 1
-    assert "Validated" not in names, "a board that ends at the pull request has no gesture"
 
 
 @case

@@ -52,7 +52,7 @@ def _asking(
     question: str | question.Question | None, language: str = "fr"
 ) -> tuple[Runner, str, list[str]]:
     """A ticket blocked on `question`: the comment written, and what reached the phone."""
-    runner = _board_runner([_reviewed("p-stuck", "In progress", None)], {"blocked": "Blocked"})
+    runner = _board_runner([_reviewed("p-stuck", "progress", None)], {"blocked": "blocked"})
     runner.config.runner.language = language
     runner.config.notify = _config(
         '[notify]\ndesktop = false\n\n[notify.telegram]\ntoken = "123:abc"\nchat = "42"\n'
@@ -345,12 +345,12 @@ def a_ticket_is_never_closed_on_an_answer_github_did_not_give() -> None:
     """No pull request, or no `gh` to ask: the ticket stays where it is."""
     client, closed = _closing(
         [
-            _reviewed("p-nothing", "In review", None),
-            _reviewed("p-empty", "In review", ""),
-            _reviewed("p-unreachable", "In review", "https://github.com/x/y/pull/3"),
+            _reviewed("p-nothing", "review", None),
+            _reviewed("p-empty", "review", ""),
+            _reviewed("p-unreachable", "review", "https://github.com/x/y/pull/3"),
         ],
         {},  # as when gh is missing or not authenticated
-        {"review": "In review", "done": "Done"},
+        {"review": "review", "done": "done"},
     )
     assert closed == 0 and client.written == []
 
@@ -368,7 +368,6 @@ def the_columns_are_read_in_one_order_with_blocked_right_after_running() -> None
         "running",
         "review",
         "validated",
-        "failed",
         "done",
         "cancelled",
     ], order
@@ -379,8 +378,8 @@ def the_columns_are_read_in_one_order_with_blocked_right_after_running() -> None
 def a_board_without_a_review_column_is_never_even_queried() -> None:
     """`review` following `done` means there is nowhere for a ticket to wait."""
     client, closed = _closing(
-        [_reviewed("p-done", "Done", "https://github.com/x/y/pull/1")],
+        [_reviewed("p-done", "done", "https://github.com/x/y/pull/1")],
         {"https://github.com/x/y/pull/1": "MERGED"},
-        {"done": "Done"},
+        {"done": "done"},
     )
     assert closed == 0 and client.written == []

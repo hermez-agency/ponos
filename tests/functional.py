@@ -113,7 +113,7 @@ def _rich(text: str) -> list[dict[str, Any]]:
 def _stored(value: dict[str, Any]) -> dict[str, Any]:
     """One written property, as a reader would then find it.
 
-    `notion._encode` writes `{"status": {"name": "Done"}}`: the type is the only
+    `notion._encode` writes `{"status": {"name": "done"}}`: the type is the only
     key, and it is not repeated inside. What comes back from the API carries it
     as `type`, and a rich text carries `plain_text` beside the content it was
     given. Doing both here is what makes a value written by the runner readable
@@ -1233,28 +1233,28 @@ def _lines(path: Path) -> list[dict[str, Any]]:
 
 TICKETS = {
     "Name": {"type": "title", "title": {}},
-    "Status": {
+    "statut": {
         "type": "status",
         "status": {
             "options": [
                 {"name": name}
                 for name in (
-                    "Ready",
-                    "In progress",
-                    "In review",
-                    "Validated",
-                    "Done",
-                    "Failed",
-                    "Blocked",
+                    "ready",
+                    "progress",
+                    "review",
+                    "validated",
+                    "done",
+                    "blocked",
+                    "blocked",
                 )
             ]
         },
     },
     "Project": {"type": "relation", "relation": {}},
-    "Runner": {"type": "rich_text", "rich_text": {}},
+    "Agent": {"type": "rich_text", "rich_text": {}},
     "Pull Request": {"type": "url", "url": {}},
     "Session": {"type": "rich_text", "rich_text": {}},
-    "Priority": {"type": "number", "number": {}},
+    "Priorité": {"type": "number", "number": {}},
     "Model": {"type": "select", "select": {"options": [{"name": "opus"}]}},
     "Scheduled": {"type": "date", "date": {}},
     "Duration": {"type": "number", "number": {}},
@@ -1320,10 +1320,10 @@ class Bench:
             properties["Path"] = _stored({"rich_text": _rich(str(repository))})
         return self.board.page(properties, body=brief)
 
-    def ticket(self, title: str, body: str, project: str = "", status: str = "Ready") -> str:
+    def ticket(self, title: str, body: str, project: str = "", status: str = "ready") -> str:
         properties = {
             "Name": _stored({"title": _rich(title)}),
-            "Status": _stored({"status": {"name": status}}),
+            "statut": _stored({"status": {"name": status}}),
         }
         if project:
             properties["Project"] = _stored({"relation": [{"id": project}]})
@@ -1384,7 +1384,7 @@ class Bench:
 
     def move(self, ticket: str, column: str) -> None:
         """A ticket dragged from one column to the next, as you would in Notion."""
-        self.board.pages[ticket]["properties"]["Status"] = _stored({"status": {"name": column}})
+        self.board.pages[ticket]["properties"]["statut"] = _stored({"status": {"name": column}})
 
     def land(self, repository: Path, filename: str, text: str = "un autre ticket\n") -> None:
         """Another ticket merged: one commit on `main`, pushed to the remote.
@@ -1493,7 +1493,7 @@ class Bench:
     # -- reading back --------------------------------------------------------
 
     def status(self, ticket: str) -> str:
-        return str(self.board.value(ticket, "Status") or "")
+        return str(self.board.value(ticket, "statut") or "")
 
     def git_calls(self) -> list[dict[str, Any]]:
         return _lines(self.logs["FAKE_GIT_LOG"])
@@ -1790,7 +1790,7 @@ def a_code_ticket_comes_back_as_a_pull_request(machine: Bench) -> None:
 
     assert len(results) == 1, results
     assert results[0]["status"] == "done", results
-    assert machine.status(ticket) == "In review", machine.status(ticket)
+    assert machine.status(ticket) == "review", machine.status(ticket)
 
     branch = results[0]["branch"]
     assert branch.startswith("ticket/corriger-l-entete-"), branch
@@ -1805,7 +1805,7 @@ def a_code_ticket_comes_back_as_a_pull_request(machine: Bench) -> None:
     assert page in opened[0]["body"], "the pull request does not link back to the ticket"
     assert machine.board.value(ticket, "Pull Request") == opened[0]["url"]
 
-    assert str(machine.board.value(ticket, "Runner") or "").startswith("ponos@")
+    assert str(machine.board.value(ticket, "Agent") or "").startswith("ponos@")
     assert machine.board.value(ticket, "Session"), "the session was not written onto the ticket"
     assert machine.board.value(ticket, "Duration") is not None
 
@@ -1856,7 +1856,7 @@ def a_ticket_planned_first_commits_nothing_until_its_plan_is_approved(machine: B
 
     assert results[0]["status"] == "blocked", results
     assert results[0]["code"] == "session.question", results
-    assert machine.status(ticket) == "Blocked", machine.status(ticket)
+    assert machine.status(ticket) == "blocked", machine.status(ticket)
     assert machine.sessions()[-1]["permission_mode"] == "plan", machine.sessions()[-1]
     assert not machine.pull_requests(), "a ticket planned first opened a pull request"
     assert not any(
@@ -1896,7 +1896,7 @@ def a_ticket_planned_first_commits_nothing_until_its_plan_is_approved(machine: B
     results = machine.run()
 
     assert results[0]["status"] == "done", results
-    assert machine.status(ticket) == "In review", machine.status(ticket)
+    assert machine.status(ticket) == "review", machine.status(ticket)
     last = machine.sessions()[-1]
     assert last["permission_mode"] != "plan", last
     assert "# The plan you carry out" in last["prompt"], last["prompt"]
@@ -1920,8 +1920,8 @@ def a_project_rule_plans_its_high_tickets_first_once_even_on_a_board_without_the
     project_settings.set_plan(project, "Site", planning.Rule(priority=70))
     ticket = machine.ticket("Revoir le cache", "Le cache est lent.", project)
     low = machine.ticket("Corriger une coquille", "Une lettre de trop.", project)
-    machine.board.pages[ticket]["properties"]["Priority"] = _stored({"number": 80})
-    machine.board.pages[low]["properties"]["Priority"] = _stored({"number": 20})
+    machine.board.pages[ticket]["properties"]["Priorité"] = _stored({"number": 80})
+    machine.board.pages[low]["properties"]["Priorité"] = _stored({"number": 20})
 
     results = {result["id"]: result for result in machine.run()}
 
@@ -1964,22 +1964,22 @@ def a_ticket_after_another_is_not_claimed_until_that_one_is_done(machine: Bench)
         **database["properties"],
         "Après": {"type": "relation", "relation": {}},
     }
-    first = machine.ticket("Migration 1", "Déplace le dépôt.", project, status="In progress")
-    machine.board.pages[first]["properties"]["Runner"] = _stored(
+    first = machine.ticket("Migration 1", "Déplace le dépôt.", project, status="progress")
+    machine.board.pages[first]["properties"]["Agent"] = _stored(
         {"rich_text": _rich("ponos@elsewhere")}
     )
     second = machine.ticket("Migration 2", "Suis le dépôt déplacé.", project)
     machine.board.pages[second]["properties"]["Après"] = _stored({"relation": [{"id": first}]})
 
     assert machine.run() == []
-    assert machine.status(second) == "Ready", machine.status(second)
+    assert machine.status(second) == "ready", machine.status(second)
     assert not machine.sessions(), "a session was paid for a ticket whose prerequisite is not done"
 
-    machine.move(first, "Done")
+    machine.move(first, "done")
     results = machine.run()
 
     assert [result["id"] for result in results] == [second.replace("-", "")], results
-    assert machine.status(second) == "In review", machine.status(second)
+    assert machine.status(second) == "review", machine.status(second)
     db.close()
 
 
@@ -2133,7 +2133,7 @@ def a_writing_ticket_is_answered_in_its_page_and_touches_no_repository(machine: 
 
     assert len(results) == 1, results
     assert results[0]["status"] == "done" and results[0]["kind"] == "document", results
-    assert machine.status(ticket) == "Done", machine.status(ticket)
+    assert machine.status(ticket) == "done", machine.status(ticket)
     assert "La réponse." in machine.board.body(ticket), machine.board.body(ticket)
     assert results[0]["blocks"] > 0
 
@@ -2171,7 +2171,7 @@ def a_ticket_run_again_is_not_briefed_on_its_previous_run(machine: Bench) -> Non
     story = machine.board.blocks[toggles[0]["id"]]
     assert any("la charte éditoriale" in str(block) for block in story), story
 
-    machine.move(ticket, "Ready")
+    machine.move(ticket, "ready")
     machine.board.requests.clear()
     results = machine.run()
     assert results[0]["status"] == "done", results
@@ -2215,7 +2215,7 @@ def a_ticket_with_no_type_is_classified_then_published_only_once_validated(machi
     assert machine.board.value(ticket, "Type") == "Publication"
     said = machine.board.said(ticket)
     assert said[0].startswith("🏷️") and "Le ticket demande un post public." in said[0], said
-    assert machine.status(ticket) == "In review", "a publication is prepared, then read"
+    assert machine.status(ticket) == "review", "a publication is prepared, then read"
     sessions = machine.sessions()
     assert len(sessions) == 2, sessions
     assert "say what kind of ticket it is" in sessions[0]["prompt"]
@@ -2228,13 +2228,13 @@ def a_ticket_with_no_type_is_classified_then_published_only_once_validated(machi
     assert "La réponse." in machine.board.body(ticket)
 
     # Nothing happens to a ticket in review, however many passes go by.
-    assert machine.run() == [] and machine.status(ticket) == "In review"
+    assert machine.run() == [] and machine.status(ticket) == "review"
 
-    machine.move(ticket, "Validated")
+    machine.move(ticket, "validated")
     results = machine.run()
 
     assert [result.get("kind") for result in results] == ["delivery"], results
-    assert machine.status(ticket) == "Done", machine.status(ticket)
+    assert machine.status(ticket) == "done", machine.status(ticket)
     published = machine.sessions()
     assert len(published) == 1 and "You are publishing, not producing" in published[0]["prompt"]
     assert machine.board.value(ticket, "Type") == "Publication", "the type is left alone"
@@ -2291,7 +2291,7 @@ def a_ticket_whose_local_ci_fails_is_fixed_before_its_pull_request_opens(machine
         results = machine.run()
 
         assert results[0]["status"] == "done", results
-        assert machine.status(ticket) == "In review", machine.status(ticket)
+        assert machine.status(ticket) == "review", machine.status(ticket)
         sessions = machine.sessions()
         assert len(sessions) == 2, sessions
         assert "the project's CI was run on this machine" in sessions[1]["prompt"], sessions[1]
@@ -2326,7 +2326,7 @@ def a_local_ci_still_red_after_its_attempts_blocks_the_ticket_and_opens_nothing(
 
         results = machine.run()
 
-        assert machine.status(ticket) == "Blocked", machine.status(ticket)
+        assert machine.status(ticket) == "blocked", machine.status(ticket)
         assert results[0]["code"] == "merge.local-ci-failed", results[0]
         assert not machine.pull_requests(), "a pull request opened on a red local CI"
         assert len(machine.sessions()) == 2, machine.sessions()
@@ -2348,7 +2348,7 @@ def without_docker_the_local_ci_is_skipped_and_the_ticket_runs_as_before(machine
 
         machine.run()
 
-        assert machine.status(ticket) == "In review", machine.status(ticket)
+        assert machine.status(ticket) == "review", machine.status(ticket)
         assert len(machine.pull_requests()) == 1
         assert len(machine.sessions()) == 1
         assert "Local CI" not in machine.board.said(ticket)[-1]
@@ -2372,7 +2372,7 @@ def a_code_ticket_whose_validation_is_forced_is_merged_and_done_in_one_pass(mach
     results = machine.run()
 
     assert [result["status"] for result in results] == ["done"], results
-    assert machine.status(ticket) == "Done", machine.status(ticket)
+    assert machine.status(ticket) == "done", machine.status(ticket)
     opened = machine.pull_requests()
     assert len(opened) == 1, opened
     merges = machine.merges()
@@ -2401,7 +2401,7 @@ def a_project_with_its_own_validation_is_read_before_the_file_in_both_directions
 
         machine.run()
 
-        assert machine.status(merged) == "Done", machine.status(merged)
+        assert machine.status(merged) == "done", machine.status(merged)
         said = machine.board.said(merged)
         assert (
             "Validated automatically (Force validated: Code) — the project's setting" in said[-1]
@@ -2415,7 +2415,7 @@ def a_project_with_its_own_validation_is_read_before_the_file_in_both_directions
 
         machine.run()
 
-        assert machine.status(kept) == "In review", machine.status(kept)
+        assert machine.status(kept) == "review", machine.status(kept)
         assert not machine.merges(), machine.merges()
         assert "Validated automatically" not in machine.board.said(kept)[-1]
         db.close()
@@ -2438,7 +2438,7 @@ def a_forced_merge_github_refuses_leaves_the_ticket_in_review_with_the_reason(
 
     machine.run()
 
-    assert machine.status(ticket) == "In review", machine.status(ticket)
+    assert machine.status(ticket) == "review", machine.status(ticket)
     assert "main" in machine.branches(repository)
     assert "FAKE.md" not in machine.files_on(repository, "main"), "merged all the same"
     said = machine.board.said(ticket)
@@ -2499,7 +2499,7 @@ def a_code_ticket_is_merged_once_its_ci_is_green_whatever_its_sub_type(machine: 
     machine.run()
 
     for ticket, subtype in ((written, "Bug"), (prefixed, "Feature"), (deduced, "Bug")):
-        assert machine.status(ticket) == "Done", (ticket, machine.status(ticket))
+        assert machine.status(ticket) == "done", (ticket, machine.status(ticket))
         assert machine.board.value(ticket, "Sous-type") == subtype, ticket
         assert "Force validated: Code" in machine.board.said(ticket)[-1]
     assert len(machine.merges()) == 3, machine.merges()
@@ -2526,15 +2526,15 @@ def a_ticket_blocked_on_its_type_is_merged_once_somebody_gives_it(machine: Bench
 
     machine.run()
 
-    assert machine.status(ticket) == "Blocked", machine.status(ticket)
+    assert machine.status(ticket) == "blocked", machine.status(ticket)
     assert "Type" in machine.board.said(ticket)[-1], machine.board.said(ticket)[-1]
     assert not machine.pull_requests()
 
     machine.board.pages[ticket]["properties"]["Type"] = _stored({"select": {"name": "Code"}})
-    machine.move(ticket, "Ready")
+    machine.move(ticket, "ready")
     machine.run()
 
-    assert machine.status(ticket) == "Done", machine.status(ticket)
+    assert machine.status(ticket) == "done", machine.status(ticket)
     assert machine.board.value(ticket, "Sous-type") == "Bug"
     assert len(machine.merges()) == 1, machine.merges()
 
@@ -2556,7 +2556,7 @@ def _stopped_by_its_ci(
 
     machine.run()
 
-    assert machine.status(ticket) == "In review", machine.status(ticket)
+    assert machine.status(ticket) == "review", machine.status(ticket)
     assert not machine.merges(), machine.merges()
     assert "FAKE.md" not in machine.files_on(repository, "main")
     said = machine.board.said(ticket)[-1]
@@ -2610,7 +2610,7 @@ def a_forced_merge_github_refuses_for_the_billing_waits_validated_until_it_is_pa
 
     machine.run()
 
-    assert machine.status(ticket) == "Validated", machine.status(ticket)
+    assert machine.status(ticket) == "validated", machine.status(ticket)
     assert machine.board.value(ticket, "Blocage") == "ci.billing"
     assert not machine.merges(), machine.merges()
     said = machine.board.said(ticket)[-1]
@@ -2619,7 +2619,7 @@ def a_forced_merge_github_refuses_for_the_billing_waits_validated_until_it_is_pa
 
     machine.run()
 
-    assert machine.status(ticket) == "Validated", machine.status(ticket)
+    assert machine.status(ticket) == "validated", machine.status(ticket)
     assert not machine.sessions(), "no session is sent after a bill"
     assert not machine.merges()
 
@@ -2629,7 +2629,7 @@ def a_forced_merge_github_refuses_for_the_billing_waits_validated_until_it_is_pa
         state.billing_probed(hold["account"], 0.0)
     machine.run()
 
-    assert machine.status(ticket) == "Done", machine.status(ticket)
+    assert machine.status(ticket) == "done", machine.status(ticket)
     assert len(machine.merges()) == 1, machine.merges()
     assert not machine.sessions(), machine.sessions()
     assert health._github_billing() == []
@@ -2657,7 +2657,7 @@ def a_forced_merge_refused_for_being_behind_waits_in_validated_and_lands_next_pa
     with _environ({"FAKE_GH_REFUSE": "Head branch is out of date with the base branch"}):
         first = machine.run()
 
-    assert machine.status(ticket) == "Validated", machine.status(ticket)
+    assert machine.status(ticket) == "validated", machine.status(ticket)
     assert first[0].get("postponed"), first
     said = machine.board.said(ticket)[-1]
     assert said.startswith("⏸️"), said
@@ -2670,7 +2670,7 @@ def a_forced_merge_refused_for_being_behind_waits_in_validated_and_lands_next_pa
     results = machine.run()
 
     assert results and results[0]["status"] == "done", results
-    assert machine.status(ticket) == "Done", machine.status(ticket)
+    assert machine.status(ticket) == "done", machine.status(ticket)
     landed = machine.files_on(repository, "main")
     assert "OTHER.md" in landed and "FAKE.md" in landed, landed
     assert "replayed onto" in machine.board.said(ticket)[-1]
@@ -2687,13 +2687,13 @@ def a_forced_merge_in_conflict_waits_in_validated_and_its_conflict_is_resolved(
     ticket = machine.ticket("Corriger l'entête", "Le titre est faux.", project)
     with _environ({"FAKE_GH_REFUSE": "Pull Request has merge conflicts"}):
         machine.run()
-    assert machine.status(ticket) == "Validated", machine.status(ticket)
+    assert machine.status(ticket) == "validated", machine.status(ticket)
 
     machine.land(repository, "FAKE.md", "ce que l'autre ticket a écrit\n")
     results = machine.run()
 
     assert results and results[0]["status"] == "done", results
-    assert machine.status(ticket) == "Done", machine.status(ticket)
+    assert machine.status(ticket) == "done", machine.status(ticket)
     landed = machine.content(repository, "main", "FAKE.md")
     assert "ce que l'autre ticket a écrit" in landed and "the session was here" in landed
     assert [one for one in machine.sessions() if "resolving that conflict" in one["prompt"]]
@@ -2705,12 +2705,12 @@ def a_forced_merge_with_no_validated_column_still_waits_in_review(machine: Bench
     """The column is opt-in: a board without it keeps the refusal in review."""
     # A copy, as `typed` makes one: the schema every scenario starts from is shared.
     database = machine.board.databases[machine.database]
-    options = database["properties"]["Status"]["status"]["options"]
+    options = database["properties"]["statut"]["status"]["options"]
     database["properties"] = {
         **database["properties"],
-        "Status": {
+        "statut": {
             "type": "status",
-            "status": {"options": [one for one in options if one["name"] != "Validated"]},
+            "status": {"options": [one for one in options if one["name"] != "validated"]},
         },
     }
     repository = machine.repository("site")
@@ -2719,7 +2719,7 @@ def a_forced_merge_with_no_validated_column_still_waits_in_review(machine: Bench
     with _environ({"FAKE_GH_REFUSE": "Head branch is out of date with the base branch"}):
         machine.run()
 
-    assert machine.status(ticket) == "In review", machine.status(ticket)
+    assert machine.status(ticket) == "review", machine.status(ticket)
     said = machine.board.said(ticket)[-1]
     assert "Not merged, left in review" in said, said
 
@@ -2732,7 +2732,7 @@ def force_validated_never_touches_a_failed_session_nor_a_ticket_already_in_revie
     """The two guards: only a success is validated, only a ticket run from now on."""
     repository = machine.repository("site")
     project = machine.project("Site", repository)
-    waiting = machine.ticket("Déjà relu à moitié", "Rien.", project, status="In review")
+    waiting = machine.ticket("Déjà relu à moitié", "Rien.", project, status="review")
     machine.board.pages[waiting]["properties"]["Pull Request"] = _stored(
         {"url": "https://github.com/fake/repo/pull/99"}
     )
@@ -2741,8 +2741,8 @@ def force_validated_never_touches_a_failed_session_nor_a_ticket_already_in_revie
 
     machine.run()
 
-    assert machine.status(broken) == "Failed", machine.status(broken)
-    assert machine.status(waiting) == "In review", machine.status(waiting)
+    assert machine.status(broken) == "blocked", machine.status(broken)
+    assert machine.status(waiting) == "review", machine.status(waiting)
     assert not machine.merges(), machine.merges()
 
 
@@ -2758,7 +2758,7 @@ def a_publication_whose_validation_is_forced_goes_out_without_waiting(machine: B
     results = machine.run()
 
     assert [result.get("kind") for result in results] == ["delivery"], results
-    assert machine.status(ticket) == "Done", machine.status(ticket)
+    assert machine.status(ticket) == "done", machine.status(ticket)
     sessions = machine.sessions()
     assert len(sessions) == 2, sessions
     assert "prepare it, do not publish it" in sessions[0]["prompt"]
@@ -2835,17 +2835,17 @@ def a_ticket_on_an_openrouter_model_runs_on_openrouter_and_is_blocked_without_it
 
     # Without the key, the slug means nothing to the CLI: said as what it is.
     machine.run()
-    assert machine.status(routed) == "Blocked"
+    assert machine.status(routed) == "blocked"
     assert "OpenRouter key is missing" in machine.board.said(routed)[-1], machine.board.said(routed)
     assert not machine.sessions(), "nothing ran on a model nobody can reach"
 
     with _environ({"OPENROUTER_API_KEY": "sk-or-functional-tests"}):
-        machine.move(routed, "Ready")
+        machine.move(routed, "ready")
         machine.run()
     (entry,) = machine.sessions()
     assert entry["model"] == "openai/gpt-5"
     assert entry["base_url"].startswith("https://openrouter.ai"), entry
-    assert machine.status(routed) != "Blocked"
+    assert machine.status(routed) != "blocked"
     assert machine.board.value(routed, "Model") == "openai/gpt-5", "the slug stays on the ticket"
 
 
@@ -2872,7 +2872,7 @@ def a_ticket_the_runner_hesitates_over_is_blocked_and_nothing_runs(machine: Benc
     # Stopped before it was claimed, like a ticket with no project: the
     # board says so, and the pass has only the other one to report.
     assert [(result["id"], result["status"]) for result in results] == [(chosen, "done")], results
-    assert machine.status(unsure) == "Blocked"
+    assert machine.status(unsure) == "blocked"
     assert machine.board.value(unsure, "Type") is None, "a doubt writes no type"
     question = machine.board.said(unsure)[-1]
     assert "Rédaction" in question and "Publication" in question, question
@@ -2905,7 +2905,7 @@ def a_deleted_project_and_its_tickets_cost_no_session(machine: Bench) -> None:
     results = machine.run()
 
     assert [(result["id"], result["status"]) for result in results] == [(kept, "done")], results
-    assert machine.status(ticket) == "Blocked", machine.status(ticket)
+    assert machine.status(ticket) == "blocked", machine.status(ticket)
     assert "deleted" in machine.board.said(ticket)[-1], machine.board.said(ticket)
     assert all("Corriger l'entête" not in one["prompt"] for one in machine.sessions())
     assert not machine.worktrees(repository), "a deleted project got a worktree"
@@ -2929,7 +2929,7 @@ def a_session_that_fails_leaves_a_readable_ticket_and_no_worktree(machine: Bench
 
     assert len(results) == 1, results
     assert results[0]["status"] == "failed", results
-    assert machine.status(ticket) == "Failed", machine.status(ticket)
+    assert machine.status(ticket) == "blocked", machine.status(ticket)
 
     said = machine.board.said(ticket)
     assert said, "a ticket that failed was not told why"
@@ -2969,7 +2969,7 @@ def an_external_action_that_commits_nothing_is_done_with_its_report(machine: Ben
     assert machine.board.value(hesitant, "Type") == "Action externe"
     classified = machine.board.said(hesitant)[0]
     assert "n'exige pas de commit" in classified or "asks for no commit" in classified, classified
-    assert machine.status(hesitant) == "Done", machine.status(hesitant)
+    assert machine.status(hesitant) == "done", machine.status(hesitant)
     assert not machine.pull_requests()
 
     # Typed as code by somebody, and done in Dokploy all the same.
@@ -2980,7 +2980,7 @@ def an_external_action_that_commits_nothing_is_done_with_its_report(machine: Ben
         results = machine.run()
 
     assert [(result["id"], result["status"]) for result in results] == [(coded, "done")], results
-    assert machine.status(coded) == "Done", machine.status(coded)
+    assert machine.status(coded) == "done", machine.status(coded)
     assert report in machine.board.body(coded), machine.board.body(coded)
     assert "RESULT:" not in machine.board.body(coded), "the verdict is the status"
     assert not machine.pull_requests(), "nothing to review"
@@ -3002,7 +3002,7 @@ def a_code_ticket_already_settled_on_main_is_sent_to_review_with_its_report(mach
         results = machine.run()
 
     assert [(result["id"], result["status"]) for result in results] == [(ticket, "done")], results
-    assert machine.status(ticket) == "In review", machine.status(ticket)
+    assert machine.status(ticket) == "review", machine.status(ticket)
     assert "327a1c6" in machine.board.body(ticket), machine.board.body(ticket)
     assert not machine.pull_requests(), "nothing to merge"
     assert not machine.worktrees(repository), machine.worktrees(repository)
@@ -3017,7 +3017,7 @@ def a_code_ticket_that_changes_code_without_committing_it_is_still_blocked(machi
     with _environ({"FAKE_CLAUDE_DIRTY": "1"}):
         results = machine.run()
     assert results[0]["status"] == "blocked", results
-    assert machine.status(dirty) == "Blocked", machine.status(dirty)
+    assert machine.status(dirty) == "blocked", machine.status(dirty)
 
     # Clean, but saying it changed the code, from a deployment ticket.
     claimed = machine.ticket("Corriger le déploiement", "Le build casse.", project)
@@ -3025,7 +3025,7 @@ def a_code_ticket_that_changes_code_without_committing_it_is_still_blocked(machi
     with _environ({"FAKE_CLAUDE_ELSEWHERE": said}):
         results = machine.run()
     assert results[0]["status"] == "blocked", results
-    assert machine.status(claimed) == "Blocked", machine.status(claimed)
+    assert machine.status(claimed) == "blocked", machine.status(claimed)
     assert len(machine.sessions()) == 1, "a session that concluded is not asked again"
 
 
@@ -3040,7 +3040,7 @@ def a_session_that_stops_without_its_report_is_asked_for_it_once(machine: Bench)
         results = machine.run()
 
     assert results[0]["status"] == "done", results
-    assert machine.status(ticket) == "Done", machine.status(ticket)
+    assert machine.status(ticket) == "done", machine.status(ticket)
     assert "Le domaine pointe sur le serveur." in machine.board.body(ticket)
     first, again = machine.sessions()
     assert again["session"] == first["session"], "the same conversation, carried on"
@@ -3052,11 +3052,11 @@ def a_session_that_stops_without_its_report_is_asked_for_it_once(machine: Bench)
     with _environ({"FAKE_CLAUDE_SILENT": "always"}):
         results = machine.run()
     assert results[0]["status"] == "blocked", results
-    assert machine.status(silent) == "Blocked", machine.status(silent)
+    assert machine.status(silent) == "blocked", machine.status(silent)
     assert len(machine.sessions()) == 2, machine.sessions()
 
     # Back to ready: it already had its second chance.
-    machine.move(silent, "Ready")
+    machine.move(silent, "ready")
     with _environ({"FAKE_CLAUDE_SILENT": "always"}):
         results = machine.run()
     assert results[0]["status"] == "blocked", results
@@ -3115,7 +3115,7 @@ def a_writing_ticket_its_session_says_is_code_is_made_code_and_run_again_once(
         results = machine.run()
     assert [result["status"] for result in results] == ["requeued"], results
     assert machine.board.value(ticket, "Type") == "Code"
-    assert machine.status(ticket) == "Ready", machine.status(ticket)
+    assert machine.status(ticket) == "ready", machine.status(ticket)
     said = machine.board.said(ticket)[-1]
     assert "Code" in said and "?" not in said, said
     assert not machine.pull_requests(), "the first session changed nothing"
@@ -3131,12 +3131,12 @@ def a_writing_ticket_its_session_says_is_code_is_made_code_and_run_again_once(
 
     # Typed back as a text and run again: the claim is not believed twice.
     machine.board.pages[ticket]["properties"]["Type"] = _stored({"select": {"name": "Rédaction"}})
-    machine.move(ticket, "Ready")
+    machine.move(ticket, "ready")
     with _environ(wrong):
         results = machine.run()
     assert [result["status"] for result in results] == ["blocked"], results
     assert machine.board.value(ticket, "Type") == "Rédaction", "no second switch"
-    assert machine.status(ticket) == "Blocked", machine.status(ticket)
+    assert machine.status(ticket) == "blocked", machine.status(ticket)
 
 
 def _budget(machine: Bench, **limits: float) -> None:
@@ -3216,7 +3216,7 @@ def a_blocked_or_failed_session_has_its_cost_written_on_the_ticket(machine: Benc
     with _environ({"FAKE_CLAUDE_BLOCK": "A ou B ?", "FAKE_CLAUDE_COST": "0.17"}):
         results = machine.run()
     assert results[0]["status"] == "blocked", results
-    assert machine.status(asking) == "Blocked", machine.status(asking)
+    assert machine.status(asking) == "blocked", machine.status(asking)
     assert machine.board.value(asking, "Cost") == 0.17, machine.board.value(asking, "Cost")
 
 
@@ -3232,7 +3232,7 @@ def a_session_past_the_ticket_limit_stops_cleanly_and_blocks_the_ticket_with_the
 
         assert machine.sessions()[0]["budget"] == "2.50", "the limit reaches the session itself"
         assert results[0]["status"] == "blocked", results
-        assert machine.status(ticket) == "Blocked", machine.status(ticket)
+        assert machine.status(ticket) == "blocked", machine.status(ticket)
         assert machine.board.value(ticket, "Cost") == 2.51, "the cost of the session cut short"
         assert "per_ticket_usd" in machine.board.said(ticket)[-1], machine.board.said(ticket)
         assert not machine.worktrees(repository), "and no worktree left behind"
@@ -3253,12 +3253,12 @@ def past_the_daily_limit_nothing_new_is_started_and_the_ready_tickets_wait(machi
     first = machine.ticket("Une tâche chère", "Fais-la.", project)
     with _environ({"FAKE_CLAUDE_BLOCK": "A ou B ?", "FAKE_CLAUDE_COST": "1.5"}):
         machine.run()
-    assert machine.status(first) == "Blocked", machine.status(first)
+    assert machine.status(first) == "blocked", machine.status(first)
 
     second = machine.ticket("Une tâche qui attend", "Plus tard.", project)
     results = machine.run()
     assert machine.sessions() == [], "a session was started past the daily limit"
-    assert machine.status(second) == "Ready", machine.status(second)
+    assert machine.status(second) == "ready", machine.status(second)
     assert results == [], results
     assert credits.held(what="budget") > time.time(), "the wait is written down for the runs after"
 
@@ -3287,8 +3287,8 @@ def a_claude_signed_out_puts_the_ticket_back_in_ready_and_waits_for_a_login(mach
                 "another ticket was claimed past the expired sign-in"
             )
             assert results[0]["status"] == "waiting", results
-            assert machine.status(first) == "Ready", machine.status(first)
-            assert machine.status(second) == "Ready", machine.status(second)
+            assert machine.status(first) == "ready", machine.status(first)
+            assert machine.status(second) == "ready", machine.status(second)
             machine.run()
             assert machine.sessions() == [], "a session was started while signed out"
         assert len(told) == 1, told
@@ -3297,8 +3297,8 @@ def a_claude_signed_out_puts_the_ticket_back_in_ready_and_waits_for_a_login(mach
     finally:
         base.Base._announce = announce  # type: ignore[method-assign]
     assert len(machine.sessions()) == 2, "the pass signed in again did not carry on"
-    assert machine.status(first) == "In review", machine.status(first)
-    assert machine.status(second) == "In review", machine.status(second)
+    assert machine.status(first) == "review", machine.status(first)
+    assert machine.status(second) == "review", machine.status(second)
 
 
 @case
@@ -3326,7 +3326,7 @@ def a_branch_is_replayed_on_a_base_that_moved_under_the_session() -> None:
                 results = machine.run()
 
             assert results[0]["status"] == "done", results
-            assert machine.status(ticket) == "In review", machine.status(ticket)
+            assert machine.status(ticket) == "review", machine.status(ticket)
             branch = results[0]["branch"]
             files = machine.files_on(repository, branch)
             assert "FAKE.md" in files, files
@@ -3352,15 +3352,15 @@ def a_validated_merge_refused_for_being_behind_is_replayed_and_lands(machine: Be
     ticket = machine.ticket("Corriger l'entête", "Le titre est faux.", project)
 
     machine.run()
-    assert machine.status(ticket) == "In review", machine.status(ticket)
+    assert machine.status(ticket) == "review", machine.status(ticket)
 
     machine.land(repository, "OTHER.md")
-    machine.move(ticket, "Validated")
+    machine.move(ticket, "validated")
 
     results = machine.run()
 
     assert results and results[0]["status"] == "done", results
-    assert machine.status(ticket) == "Done", machine.status(ticket)
+    assert machine.status(ticket) == "done", machine.status(ticket)
     assert len(machine.merges()) == 1, "the merge was asked once too often, or never"
     landed = machine.files_on(repository, "main")
     assert "OTHER.md" in landed and "FAKE.md" in landed, landed
@@ -3394,12 +3394,12 @@ def a_validated_merge_that_conflicts_is_resolved_and_lands_with_both_changes(
 
     # The other ticket, merged first, wrote the very file this one writes.
     machine.land(repository, "FAKE.md", "ce que l'autre ticket a écrit\n")
-    machine.move(ticket, "Validated")
+    machine.move(ticket, "validated")
 
     results = machine.run()
 
     assert results and results[0]["status"] == "done", results
-    assert machine.status(ticket) == "Done", machine.status(ticket)
+    assert machine.status(ticket) == "done", machine.status(ticket)
     landed = machine.content(repository, "main", "FAKE.md")
     assert "ce que l'autre ticket a écrit" in landed, landed
     assert "the session was here" in landed, landed
@@ -3445,13 +3445,13 @@ def a_conflict_that_is_a_decision_blocks_the_ticket_with_the_question(machine: B
     branch = first[0]["branch"]
     machine.land(repository, "FAKE.md", "ce que l'autre ticket a écrit\n")
     pushed = machine.content(repository, branch, "FAKE.md")
-    machine.move(ticket, "Validated")
+    machine.move(ticket, "validated")
 
     with _environ({"FAKE_CLAUDE_RESOLVE": "blocked"}):
         results = machine.run()
 
     assert results and results[0]["status"] == "blocked", results
-    assert machine.status(ticket) == "Blocked", machine.status(ticket)
+    assert machine.status(ticket) == "blocked", machine.status(ticket)
     said = machine.board.said(ticket)[-1]
     assert "garder le texte du ticket ou celui de main" in said, said
     assert "FAKE.md" in said, said
@@ -3478,7 +3478,7 @@ def _validated_red(machine: Bench) -> tuple[Path, str, str]:
     ticket = machine.ticket("Corriger l'entête", "Le titre est faux.", project)
     branch = str(machine.run()[0]["branch"])
     os.environ["FAKE_GH_CHECKS"] = _check_runs("SUCCESS", "FAILURE")
-    machine.move(ticket, "Validated")
+    machine.move(ticket, "validated")
     return repository, ticket, branch
 
 
@@ -3502,7 +3502,7 @@ def a_validated_pull_request_red_without_conflict_is_repaired_by_a_session_and_m
     results = machine.run()
 
     assert results and results[0]["status"] == "done", results
-    assert machine.status(ticket) == "Done", machine.status(ticket)
+    assert machine.status(ticket) == "done", machine.status(ticket)
     repairs = _repairs(machine)
     assert len(repairs) == 1, machine.sessions()
     assert "`job 2`" in repairs[0]["prompt"], repairs[0]["prompt"]
@@ -3523,7 +3523,7 @@ def a_validated_pull_request_still_red_after_its_repair_is_blocked_and_never_rep
     results = machine.run()
 
     assert results and results[0]["status"] == "blocked", results
-    assert machine.status(ticket) == "Blocked", machine.status(ticket)
+    assert machine.status(ticket) == "blocked", machine.status(ticket)
     assert machine.board.value(ticket, "Blocage") == "merge.checks-failed"
     assert len(_repairs(machine)) == 1, machine.sessions()
     assert "FIXED.md" in machine.files_on(repository, branch), "the repair was not pushed"
@@ -3532,10 +3532,10 @@ def a_validated_pull_request_still_red_after_its_repair_is_blocked_and_never_rep
     assert "still red after a repair session" in said, said
 
     # Validated again on the same commit: blocked at once, no session.
-    machine.move(ticket, "Validated")
+    machine.move(ticket, "validated")
     results = machine.run()
 
-    assert machine.status(ticket) == "Blocked", machine.status(ticket)
+    assert machine.status(ticket) == "blocked", machine.status(ticket)
     assert machine.board.value(ticket, "Blocage") == "merge.checks-failed"
     assert not _repairs(machine), machine.sessions()
     assert not machine.merges(), "a red pull request was merged"
@@ -3556,7 +3556,7 @@ def _in_conflict(machine: Bench) -> tuple[Path, str, str]:
     ticket = machine.ticket("Corriger l'entête", "Le titre est faux.", project)
     branch = str(machine.run()[0]["branch"])
     machine.land(repository, "FAKE.md", "ce que l'autre ticket a écrit\n")
-    machine.move(ticket, "Validated")
+    machine.move(ticket, "validated")
     return repository, ticket, branch
 
 
@@ -3596,7 +3596,7 @@ def a_branch_pushed_to_during_its_resolution_is_not_overwritten_and_asks_which_w
     assert refusals and refusals[0], refusals
 
     assert results and results[0]["status"] == "blocked", results
-    assert machine.status(ticket) == "Blocked", machine.status(ticket)
+    assert machine.status(ticket) == "blocked", machine.status(ticket)
     assert machine.board.value(ticket, "Blocage") == "merge.pushed-over"
     said = machine.board.said(ticket)[-1]
     assert f"pushed to `{branch}` by someone else" in said, said
@@ -3639,7 +3639,7 @@ def a_resolution_whose_push_is_refused_fails_with_the_resolution_set_aside(
 
     assert results and results[0]["status"] == "failed", results
     assert results[0]["code"] == "merge.push-refused", results
-    assert machine.status(ticket) == "Failed", machine.status(ticket)
+    assert machine.status(ticket) == "blocked", machine.status(ticket)
     assert machine.board.value(ticket, "Blocage") == "merge.push-refused"
     said = machine.board.said(ticket)[-1]
     assert "pushing them was refused" in said, said
@@ -3666,7 +3666,7 @@ def a_base_that_moves_between_the_resolution_and_the_merge_is_caught_up_next_pas
         results = machine.run()
 
     assert results and results[0]["status"] == "validated", results
-    assert machine.status(ticket) == "Validated", machine.status(ticket)
+    assert machine.status(ticket) == "validated", machine.status(ticket)
     assert not machine.board.value(ticket, "Blocage"), machine.board.value(ticket, "Blocage")
     said = machine.board.said(ticket)[-1]
     assert "the base moved again in the meantime" in said, said
@@ -3677,7 +3677,7 @@ def a_base_that_moves_between_the_resolution_and_the_merge_is_caught_up_next_pas
     results = machine.run()
 
     assert results and results[0]["status"] == "done", results
-    assert machine.status(ticket) == "Done", machine.status(ticket)
+    assert machine.status(ticket) == "done", machine.status(ticket)
     landed = machine.files_on(repository, "main")
     assert "OTHER.md" in landed and "FAKE.md" in landed, landed
     assert "ce que l'autre ticket a écrit" in machine.content(repository, "main", "FAKE.md")
@@ -3698,7 +3698,7 @@ def a_base_that_keeps_moving_under_the_resolutions_blocks_the_ticket(machine: Be
         results = machine.run()
 
     assert results and results[0]["status"] == "blocked", results
-    assert machine.status(ticket) == "Blocked", machine.status(ticket)
+    assert machine.status(ticket) == "blocked", machine.status(ticket)
     assert machine.board.value(ticket, "Blocage") == "merge.base-moving"
     said = machine.board.said(ticket)[-1]
     assert "replayed onto `main` 2 times" in said, said
@@ -3716,7 +3716,7 @@ def a_project_left_out_of_resolution_blocks_on_its_conflict_as_before(machine: B
 
     machine.run()
     machine.land(repository, "FAKE.md", "ce que l'autre ticket a écrit\n")
-    machine.move(ticket, "Validated")
+    machine.move(ticket, "validated")
     results = machine.run()
 
     assert results and results[0]["status"] == "blocked", results
@@ -3783,10 +3783,10 @@ def branches_differing_only_in_generated_files_and_the_changelog_merge_without_a
 
     with _environ(_adds("a")):
         machine.run()
-    assert machine.status(ticket) == "In review", machine.status(ticket)
+    assert machine.status(ticket) == "review", machine.status(ticket)
 
     _write(repository, _adding("b"), "Un autre ticket — b")
-    machine.move(ticket, "Validated")
+    machine.move(ticket, "validated")
     results = machine.run()
 
     assert results and results[0]["status"] == "done", results
@@ -3818,14 +3818,14 @@ def three_validated_pull_requests_on_one_repository_merge_one_after_the_other(
     ]
     with _environ(_adds("a", "b", "c")):
         machine.run()
-    assert [machine.status(ticket) for ticket in tickets] == ["In review"] * 3
+    assert [machine.status(ticket) for ticket in tickets] == ["review"] * 3
     for ticket in tickets:
-        machine.move(ticket, "Validated")
+        machine.move(ticket, "validated")
 
     results = machine.run()
 
     assert [one["status"] for one in results] == ["done"] * 3, results
-    assert [machine.status(ticket) for ticket in tickets] == ["Done"] * 3
+    assert [machine.status(ticket) for ticket in tickets] == ["done"] * 3
     assert len(machine.merges()) == 3, machine.merges()
     assert not machine.sessions(), machine.sessions()
     assert machine.content(repository, "main", "dist/bundle.js") == "zéro\na\nb\nc\n"
@@ -3856,7 +3856,7 @@ def a_conflict_in_code_is_resolved_by_a_session_that_is_not_told_about_generated
         {**_adding("b"), "FAKE.md": "ce que l'autre ticket a écrit\n"},
         "Un autre ticket — b",
     )
-    machine.move(ticket, "Validated")
+    machine.move(ticket, "validated")
     results = machine.run()
 
     assert results and results[0]["status"] == "done", results
@@ -3905,7 +3905,7 @@ def a_replay_over_a_new_route_regenerates_the_api_types_with_the_bundle(machine:
     with _environ({"FAKE_CLAUDE_ALSO": json.dumps({"la route a.": route("a")})}):
         machine.run()
     _write(repository, route("setup"), "Un autre ticket — /api/setup")
-    machine.move(ticket, "Validated")
+    machine.move(ticket, "validated")
     results = machine.run()
 
     assert results and results[0]["status"] == "done", results
@@ -3940,7 +3940,7 @@ def a_failing_build_stops_the_replay_and_nothing_is_pushed(machine: Bench) -> No
         **_adding("b"),
     }
     _write(repository, broken, "Un autre ticket — b, et un build cassé")
-    machine.move(ticket, "Validated")
+    machine.move(ticket, "validated")
     results = machine.run()
 
     assert results and results[0]["status"] == "blocked", results
@@ -4183,7 +4183,7 @@ def a_pass_started_during_an_update_runs_on_one_version_and_never_on_both(machin
         hold.touch()
         said = held.communicate(timeout=120)[0]
         assert held.returncode == 0 and "Error" not in said, said
-        assert machine.status(ticket) == "Done", machine.status(ticket)
+        assert machine.status(ticket) == "done", machine.status(ticket)
 
         version = started("--version")
         assert "9." in version.communicate(timeout=60)[0], "the next pass is not the new version"
@@ -4228,7 +4228,7 @@ def a_worktree_left_in_the_middle_of_a_rebase_is_saved_and_the_ticket_starts_aga
     assert stopped.returncode != 0, "the rebase was meant to stop on a conflict"
     (worktree / "a-moitie-fait.txt").write_text("du travail non commité\n", encoding="utf-8")
 
-    machine.move(ticket, "Ready")
+    machine.move(ticket, "ready")
     results = machine.run()
 
     assert results[0]["status"] == "done", results
@@ -4286,7 +4286,7 @@ def a_ticket_renamed_between_two_attempts_carries_on_on_its_own_branch(machine: 
     machine.board.pages[ticket]["properties"]["Name"] = _stored(
         {"title": _rich("Corriger le menu du site, sur mobile aussi")}
     )
-    machine.move(ticket, "Ready")
+    machine.move(ticket, "ready")
     results = machine.run()
 
     assert results[0]["status"] == "done", (results, machine.board.said(ticket))
@@ -4317,7 +4317,7 @@ def a_session_killed_is_resumed_once_and_blocked_as_killed_if_it_dies_again(mach
     assert results[0]["status"] == "blocked", results
     assert results[0]["code"] == "session.killed", results[0]
     assert len(machine.sessions()) == 2, "once more, and no third time"
-    assert machine.status(again) == "Blocked", machine.status(again)
+    assert machine.status(again) == "blocked", machine.status(again)
     said = "\n".join(machine.board.said(again))
     assert "SIGKILL" in said, said
     assert not machine.worktrees(repository), "no worktree left behind"
@@ -4347,11 +4347,11 @@ def a_board_that_cannot_be_reached_marks_no_ticket_failed_and_the_run_does_not_f
     finally:
         http_module.sleep = patched
     assert code == 0, "the service must not fail while the network is away"
-    assert machine.status(ticket) == "Ready", machine.status(ticket)
+    assert machine.status(ticket) == "ready", machine.status(ticket)
     assert not [
         page
         for page in machine.board.pages.values()
-        if "Failed" in str(page["properties"].get("Status"))
+        if "blocked" in str(page["properties"].get("statut"))
     ]
     assert not machine.sessions(), "nothing runs without a board"
     assert machine.run()[0]["status"] == "done", "and the next pass, with the network back, runs it"
@@ -4379,19 +4379,19 @@ def a_status_that_moves_runs_the_on_prompt_once_and_a_restart_does_not_run_it_ag
     """
     from ponos import transitions
 
-    ticket = machine.ticket("Déployer le site", "Rien à faire ici.", status="Failed")
+    ticket = machine.ticket("Déployer le site", "Rien à faire ici.", status="paused")
     _with_an_on_prompt(machine, ticket, "Si on passe en Blocked, note-le dans le brief.")
 
     assert machine.run() == [] and not machine.sessions(), "a first sight is not a change"
 
-    machine.move(ticket, "Blocked")
+    machine.move(ticket, "blocked")
     results = machine.run()
     assert [entry["status"] for entry in results] == ["on-ok"], results
-    assert results[0]["transition"] == "Failed → Blocked", results
+    assert results[0]["transition"] == "paused → blocked", results
     sessions = machine.sessions()
     assert len(sessions) == 1, sessions
     prompt = sessions[0]["prompt"]
-    assert "Old status: Failed" in prompt and "New status: Blocked" in prompt, prompt
+    assert "Old status: paused" in prompt and "New status: blocked" in prompt, prompt
     assert "Si on passe en Blocked, note-le dans le brief." in prompt
     assert "Déployer le site" in prompt, "the ticket reaches the prompt"
     assert sessions[0]["budget"] == "1.00", "an execution has a ceiling"
@@ -4400,15 +4400,15 @@ def a_status_that_moves_runs_the_on_prompt_once_and_a_restart_does_not_run_it_ag
     for _ in range(2):
         assert machine.run() == [] and not machine.sessions(), "one execution per change"
 
-    machine.move(ticket, "Failed")
+    machine.move(ticket, "paused")
     assert len(machine.run()) == 1 and len(machine.sessions()) == 1, "the next change runs it again"
     history = transitions.history(ticket)
     assert [(row["old"], row["new"], row["state"]) for row in history] == [
-        ("Blocked", "Failed", "ok"),
-        ("Failed", "Blocked", "ok"),
+        ("blocked", "paused", "ok"),
+        ("paused", "blocked", "ok"),
     ], history
     assert history[0]["cost_usd"], "what an execution cost is kept"
-    assert machine.status(ticket) == "Failed", "the prompt's own session moved nothing"
+    assert machine.status(ticket) == "paused", "the prompt's own session moved nothing"
 
 
 @case
@@ -4417,18 +4417,18 @@ def an_on_prompt_that_fails_says_so_on_the_ticket_and_leaves_its_status_alone(
 ) -> None:
     from ponos import transitions
 
-    ticket = machine.ticket("Fragile", "Rien.", status="Failed")
+    ticket = machine.ticket("Fragile", "Rien.", status="paused")
     _with_an_on_prompt(machine, ticket, "Fais quelque chose.")
     machine.run()
 
-    machine.move(ticket, "Blocked")
+    machine.move(ticket, "blocked")
     with _environ({"FAKE_CLAUDE_FAIL": "le réseau est tombé"}):
         results = machine.run()
 
     assert [entry["status"] for entry in results] == ["on-failed"], results
-    assert machine.status(ticket) == "Blocked", "an error never moves a status"
+    assert machine.status(ticket) == "blocked", "an error never moves a status"
     said = machine.board.said(ticket)
-    assert said and "« On »" in said[-1] and "Failed → Blocked" in said[-1], said
+    assert said and "« On »" in said[-1] and "paused → blocked" in said[-1], said
     assert transitions.history(ticket)[0]["state"] == "failed"
     assert machine.run() == [] and not machine.sessions(), "a failed change is not tried again"
 
@@ -4436,18 +4436,18 @@ def an_on_prompt_that_fails_says_so_on_the_ticket_and_leaves_its_status_alone(
 @case
 def an_on_prompt_is_not_run_when_the_feature_is_off_nor_for_an_empty_prompt() -> None:
     with bench(on=False) as machine:
-        ticket = machine.ticket("Muet", "Rien.", status="Failed")
+        ticket = machine.ticket("Muet", "Rien.", status="paused")
         _with_an_on_prompt(machine, ticket, "Fais quelque chose.")
         machine.run()
-        machine.move(ticket, "Blocked")
+        machine.move(ticket, "blocked")
         machine.run()
         assert not machine.sessions(), "runner.on = false runs nothing"
 
     with bench() as machine:
-        ticket = machine.ticket("Sans prompt", "Rien.", status="Failed")
+        ticket = machine.ticket("Sans prompt", "Rien.", status="paused")
         _with_an_on_prompt(machine, ticket, "")
         machine.run()
-        machine.move(ticket, "Blocked")
+        machine.move(ticket, "blocked")
         machine.run()
         assert not machine.sessions(), "an empty prompt does nothing"
 

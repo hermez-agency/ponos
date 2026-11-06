@@ -96,7 +96,6 @@ from .columns import _on_option as _on_option
 from .columns import _other_statuses as _other_statuses
 from .columns import _schedules as _schedules
 from .columns import _schema as _schema
-from .columns import _shared_names as _shared_names
 from .columns import _stray_subtypes as _stray_subtypes
 from .columns import _subtypes as _subtypes
 from .columns import _types as _types

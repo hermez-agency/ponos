@@ -112,10 +112,10 @@ test("a search opens the right page and unfolds what hid the field", async ({ pa
   await open(page, "/?view=console/settings/read/config/general")
   await settingsPage(page)
   await expect(page.locator('[data-fold="mapping"]')).toHaveCount(0)
-  await page.getByRole("searchbox", { name: "Search the settings" }).fill("notion.status.ready")
+  await page.getByRole("searchbox", { name: "Search the settings" }).fill("notion.pages.tickets")
   await page.getByRole("option").first().click()
   await expect.poll(() => new URL(page.url()).searchParams.get("view")).toBe("console/settings/read/config/source")
-  await expect(page.locator('[data-field="notion-status-ready"]')).toBeVisible()
+  await expect(page.locator('[data-field="notion-pages-tickets"]')).toBeVisible()
 })
 
 test("the keys are hidden until asked for", async ({ page }) => {

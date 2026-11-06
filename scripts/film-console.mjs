@@ -86,12 +86,12 @@ projects = {name: board.create_row("projects", name, {"Repository": f"acme/{slug
             for name, slug in (("Landing page", "landing"), ("Billing API", "billing"), ("Newsletter", "newsletter"))}
 now = datetime.datetime.now(datetime.timezone.utc)
 for title, status, project, kind, priority, cost, days in (
-    ("Add a dark mode to the pricing page", "Ready", "Landing page", "Code", 75, 0, 3),
-    ("Fix rounding on VAT totals", "In review", "Billing API", "Code", 75, 1.64, 5),
-    ("Draft the October newsletter", "Done", "Newsletter", "Writing", 50, 0.52, 12),
-    ("Write the release notes for 2.4", "Done", "Newsletter", "Publication", 50, 0.73, 19),
-    ("Book the launch webinar", "Validated", "Newsletter", "External action", 25, 0.31, 9),
-    ("Compress the hero images", "Validated", "Landing page", "Code", 50, 1.12, 16),
+    ("Add a dark mode to the pricing page", "ready", "Landing page", "Code", 75, 0, 3),
+    ("Fix rounding on VAT totals", "review", "Billing API", "Code", 75, 1.64, 5),
+    ("Draft the October newsletter", "done", "Newsletter", "Rédaction", 50, 0.52, 12),
+    ("Write the release notes for 2.4", "done", "Newsletter", "Publication", 50, 0.73, 19),
+    ("Book the launch webinar", "validated", "Newsletter", "Action externe", 25, 0.31, 9),
+    ("Compress the hero images", "validated", "Landing page", "Code", 50, 1.12, 16),
 ):
     values = {prop("status"): status, prop("project"): [projects[project]], prop("type"): kind, prop("priority"): priority}
     if kind == "Code":
@@ -142,7 +142,7 @@ for line in sys.stdin:
         lock.__enter__()
         log = state.log_file(short_id(page))
         write({"type": "system", "subtype": "init"})
-        board.update("tickets", page, {prop("status"): "In progress"})
+        board.update("tickets", page, {prop("status"): "progress"})
         refresh()
     elif command == "use":
         name, given = json.loads(rest)
@@ -150,7 +150,7 @@ for line in sys.stdin:
     elif command == "deliver":
         cost = float(rest)
         write({"type": "result", "result": "Done.", "total_cost_usd": cost, "duration_ms": 372000, "num_turns": 27})
-        board.update("tickets", page, {prop("status"): "In review", prop("cost"): cost})
+        board.update("tickets", page, {prop("status"): "review", prop("cost"): cost})
         # The report a run leaves on the page, which the Decide tab reads back.
         board.comment(page, "\u2705 Done \u2014 6 min, $%.2f\\nAdds a FAQ under the pricing table: six questions, one accordion.\\nhttps://github.com/acme/landing/pull/42" % cost)
         lock.__exit__(None, None, None)

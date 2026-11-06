@@ -138,24 +138,24 @@ def a_ticket_the_credits_ran_out_on_waits_for_credit_rather_than_failing() -> No
 
     Failing it would cost the ticket twice — once for the quota, and once for
     the four hours nobody is there to put it back. Blocking it would cost the
-    board instead: "Blocked" is the column that means *you* are needed, and a
+    board instead: "blocked" is the column that means *you* are needed, and a
     column that also means "come back at six" has stopped saying anything. So
     it goes back to Ready, where it came from, and the attribute is what says
     the credit is why it is sitting there.
     """
-    page = _reviewed("p-doc", "In progress", None)
+    page = _reviewed("p-doc", "progress", None)
     runner = _out_of_credit(page)
     _board(runner).waiting = True
     result = runner._execute_document(_doc_job(page))
     assert result is not None
-    assert _board(runner).written[0][1]["Status"] == "Ready", "back where it came from"
+    assert _board(runner).written[0][1]["statut"] == "ready", "back where it came from"
     assert _board(runner).written[0][1]["Waiting for credit"] is True
     # The session goes on the page with it: it is what the pass that has credit
     # again picks the ticket back up by, rather than starting it over.
     assert _board(runner).written[0][1]["Session"] == "s-1"
     assert result["status"] == "waiting", "neither done, nor failed, nor blocked"
     said = _board(runner).comments_written[0]
-    assert said.startswith("⏸️ Waiting — out of credit, back in “Ready” until "), said
+    assert said.startswith("⏸️ Waiting — out of credit, back in “ready” until "), said
     assert "?" not in said, "a wait asks nothing of anybody"
 
 
@@ -167,12 +167,12 @@ def a_board_without_the_attribute_puts_the_ticket_back_and_says_nothing() -> Non
     attribute existed: the ticket goes back to the column it was claimed from,
     with nothing on the board saying why.
     """
-    page = _reviewed("p-doc", "In progress", None)
+    page = _reviewed("p-doc", "progress", None)
     runner = _out_of_credit(page)
     assert _board(runner).waiting is False, "premise"
     runner._execute_document(_doc_job(page))
-    assert _board(runner).written[0][1]["Status"] == "Ready"
-    assert "back in “Ready”" in _board(runner).comments_written[0]
+    assert _board(runner).written[0][1]["statut"] == "ready"
+    assert "back in “ready”" in _board(runner).comments_written[0]
     assert runner.waiting_flag() == "", "nothing to tick, and nothing pretends there is"
 
 
@@ -227,7 +227,7 @@ def a_run_that_failed_says_what_to_do_and_folds_the_rest_into_the_page() -> None
     They are not gone, they are folded: the block the run already wrote its
     steps into takes them, and the report spends its lines on the verdict.
     """
-    runner, filed, result = _that_failed(_reviewed("p-doc", "In progress", None), folded=True)
+    runner, filed, result = _that_failed(_reviewed("p-doc", "progress", None), folded=True)
     assert result["status"] == "failed"
     said = _board(runner).comments_written[0]
     assert said.splitlines() == [
@@ -245,7 +245,7 @@ def a_run_that_failed_says_what_to_do_and_folds_the_rest_into_the_page() -> None
 def a_ticket_whose_run_wrote_no_block_keeps_the_trace_under_its_verdict() -> None:
     """`runner.progress = false`, or a Notion that refused: the trace has
     nowhere to be folded into, so it stays where it can be read."""
-    runner, filed, _ = _that_failed(_reviewed("p-none", "In progress", None), folded=False)
+    runner, filed, _ = _that_failed(_reviewed("p-none", "progress", None), folded=False)
     said = _board(runner).comments_written[0]
     assert filed == []
     assert said.endswith("Its log is `/logs/x.jsonl`.")
@@ -255,8 +255,8 @@ def a_ticket_whose_run_wrote_no_block_keeps_the_trace_under_its_verdict() -> Non
 def _answered_on(comments: list[str], answer: str, write: str) -> tuple[Runner, dict[str, Any]]:
     """A document ticket whose session said `answer` and left `write` in ANSWER.md."""
 
-    page = _reviewed("p-doc", "In progress", None)
-    runner = _board_runner([page], {"review": "In review", "done": "Done"})
+    page = _reviewed("p-doc", "progress", None)
+    runner = _board_runner([page], {"review": "review", "done": "done"})
     _board(runner).append_markdown = lambda _page, _text: 2  # type: ignore[assignment, method-assign]  # a fake: the body is not kept
     runner.config.runner.keep_worktree_on_failure = False
 
@@ -321,8 +321,8 @@ def a_pull_request_a_writing_session_opened_is_attached_and_sent_to_review() -> 
     requests themselves: done, an empty Pull Request column, nothing to review,
     and two of them doing the same thing. Never again a pull request lost."""
     url = "https://github.com/SalvadorCardona/whisper-desk/pull/21"
-    page = _reviewed("p-doc", "In progress", None)
-    runner = _board_runner([page], {"review": "In review", "done": "Done"})
+    page = _reviewed("p-doc", "progress", None)
+    runner = _board_runner([page], {"review": "review", "done": "done"})
     _board(runner).append_markdown = lambda _page, _text: 2  # type: ignore[assignment, method-assign]  # a fake: the body is not kept
     log = _session_log(
         ("git log --oneline -3", "abc fix: something https://github.com/x/y/pull/3"),
@@ -345,7 +345,7 @@ def a_pull_request_a_writing_session_opened_is_attached_and_sent_to_review() -> 
     job.kind = "writing"
     runner._execute_document(job)
     values = _board(runner).written[-1][1]
-    assert values["Status"] == "In review", "in review, where a pull request waits"
+    assert values["statut"] == "review", "in review, where a pull request waits"
     assert values["Pull Request"] == url, "the pull request is the ticket's"
     said = _board(runner).comments_written[-1]
     assert url in said and "review" in said.lower(), said
@@ -355,8 +355,8 @@ def a_pull_request_a_writing_session_opened_is_attached_and_sent_to_review() -> 
 
 @case
 def a_writing_session_that_opened_nothing_still_ends_in_done() -> None:
-    page = _reviewed("p-doc", "In progress", None)
-    runner = _board_runner([page], {"review": "In review", "done": "Done"})
+    page = _reviewed("p-doc", "progress", None)
+    runner = _board_runner([page], {"review": "review", "done": "done"})
     _board(runner).append_markdown = lambda _page, _text: 2  # type: ignore[assignment, method-assign]  # a fake: the body is not kept
     log = _session_log(("gh pr list", "https://github.com/x/y/pull/3\n"))
 
@@ -376,7 +376,7 @@ def a_writing_session_that_opened_nothing_still_ends_in_done() -> None:
     job.kind = "writing"
     runner._execute_document(job)
     values = _board(runner).written[-1][1]
-    assert values["Status"] == "Done" and "Pull Request" not in values
+    assert values["statut"] == "done" and "Pull Request" not in values
 
 
 @case
@@ -429,7 +429,7 @@ def a_question_answered_on_a_finished_ticket_goes_to_review_rather_than_blocked(
             "Un CNAME est un alias.",
         )
     assert result["status"] == "done", result
-    assert _board(runner).written[-1][1]["Status"] == "In review", _board(runner).written
+    assert _board(runner).written[-1][1]["statut"] == "review", _board(runner).written
 
     # A real question still blocks, and so does a stop with nothing written.
     with _state_home():
@@ -448,12 +448,12 @@ def a_question_answered_on_a_finished_ticket_goes_to_review_rather_than_blocked(
 @case
 def a_publication_the_credits_ran_out_on_goes_back_to_validated(state_home: Path) -> None:
     """Not to ready: the decision to publish it has already been taken."""
-    page = _reviewed("p-post", "Validated", None)
+    page = _reviewed("p-post", "validated", None)
     runner = _out_of_credit(page)
     result = runner._publish(ticket_module.Ticket(page), projects.Project(name="", path=None))
     assert result is not None
-    assert _board(runner).written[0][1]["Status"] == "In progress", "claimed first"
-    assert _board(runner).written[-1][1]["Status"] == "Validated"
+    assert _board(runner).written[0][1]["statut"] == "progress", "claimed first"
+    assert _board(runner).written[-1][1]["statut"] == "validated"
     assert result["status"] == "waiting"
     assert state.claims() == {}, "and the claim is let go of on the way out"
 
@@ -492,10 +492,8 @@ def what_costs_no_credit_is_still_done_while_the_credits_are_out(state_home: Pat
     closed and a sweep start no session, and waiting four hours for the credit
     to come back would leave the validated column full for nothing."""
     merges: list[str] = []
-    runner = _out_of_credit(_reviewed("p-validated", "Validated", "https://github.com/x/y/pull/1"))
-    _board(runner)._pages.append(
-        _reviewed("p-merged", "In review", "https://github.com/x/y/pull/2")
-    )
+    runner = _out_of_credit(_reviewed("p-validated", "validated", "https://github.com/x/y/pull/1"))
+    _board(runner)._pages.append(_reviewed("p-merged", "review", "https://github.com/x/y/pull/2"))
     _board(runner)._pages.append(_ready("p-ready"))
     started: list[str] = []
     runner.prepare = lambda ticket: started.append(ticket.id)  # type: ignore[method-assign]  # a double: no worktree
@@ -514,15 +512,15 @@ def what_costs_no_credit_is_still_done_while_the_credits_are_out(state_home: Pat
 
     assert swept == [True], "the board is swept"
     assert merges == ["https://github.com/x/y/pull/1"], "the validated one is merged"
-    assert ("p-validated", {"Status": "Done"}) in _board(runner).written
-    assert ("p-merged", {"Status": "Done"}) in _board(runner).written, "the merged one is closed"
+    assert ("p-validated", {"statut": "done"}) in _board(runner).written
+    assert ("p-merged", {"statut": "done"}) in _board(runner).written, "the merged one is closed"
     assert started == [], "and not one session begun"
 
 
 @case
 def a_runner_told_not_to_wait_fails_on_the_quota_as_it_always_did(state_home: Path) -> None:
     """`wait_for_credits = false` is the old behaviour, kept for an API key."""
-    page = _reviewed("p-doc", "In progress", None)
+    page = _reviewed("p-doc", "progress", None)
     runner = _out_of_credit(page)
     runner.config.runner.wait_for_credits = False
     credits.hold(time.time() + 300)
@@ -633,7 +631,7 @@ def the_reserve_stops_the_runner_before_the_subscription_is_spent(state_home: Pa
         "p-1": True,
         "p-2": True,
     }
-    assert all("Status" not in values for _, values in _board(runner).written), "nothing moved"
+    assert all("statut" not in values for _, values in _board(runner).written), "nothing moved"
     # The Session cell is emptied: nothing was started for these, so there is no
     # conversation to carry on — and a ticket woken by a comment must not have
     # the run before it resumed, arguing with its own verdict.
@@ -775,7 +773,7 @@ def a_ticket_that_raises_fails_alone_and_the_pass_goes_on(state_home: Path) -> N
         runner
     ).comments_written
     assert [
-        page for page, values in _board(runner).written if values.get("Status") == "Failed"
+        page for page, values in _board(runner).written if values.get("statut") == "blocked"
     ] == ["p-1"], _board(runner).written
     assert {entry["id"] for entry in history} == {"p1", "p2"}, "both are in the history"
 
@@ -910,7 +908,7 @@ def a_session_picked_back_up_is_told_what_changed_and_not_the_whole_ticket() -> 
     would cost on every resumption what they cost once. What it cannot know is
     that hours passed and that its own half-done work is still on disk."""
     sent: list[tuple[str, bool]] = []
-    page = _ticked(_reviewed("p-doc", "Ready", None))
+    page = _ticked(_reviewed("p-doc", "ready", None))
     runner = _board_runner([page], {}, waiting=True)
     runner._live = lambda job: None  # type: ignore[method-assign]  # a double: no progress block
     runner.config.runner.attach_sessions = False
@@ -947,7 +945,7 @@ def a_session_that_cannot_be_picked_back_up_starts_a_fresh_one() -> None:
     everything except the thread of the interrupted session.
     """
     drawn: list[str] = []
-    page = _ticked(_reviewed("p-doc", "Ready", None))
+    page = _ticked(_reviewed("p-doc", "ready", None))
     runner = _board_runner([page], {}, waiting=True)
     runner._live = lambda job: None  # type: ignore[method-assign]  # a double: no progress block
     runner.config.runner.attach_sessions = False

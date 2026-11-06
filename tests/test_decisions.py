@@ -223,7 +223,7 @@ def each_choice_moves_the_ticket_and_leaves_the_instruction_for_the_next_session
         )
 
         def blocked(title: str, report: str = asked) -> str:
-            page = board.create_row("tickets", title, {"Status": settings.state("blocked")})
+            page = board.create_row("tickets", title, {"statut": settings.state("blocked")})
             board.update("tickets", page, {"Project": [project]})
             board.comment(page, report)
             return page
@@ -260,7 +260,7 @@ def each_choice_moves_the_ticket_and_leaves_the_instruction_for_the_next_session
         third = blocked("Give up")
         api.decide(third, "abandon", text="Not needed any more.")
         # Given up on, not done: the board offers a cancelled column.
-        assert store.read(board.page(third), "Status") == settings.state("cancelled"), (
+        assert store.read(board.page(third), "statut") == settings.state("cancelled"), (
             "moved at once"
         )
         assert third not in api.outbox.marks()
@@ -299,7 +299,7 @@ def each_choice_moves_the_ticket_and_leaves_the_instruction_for_the_next_session
             "label": "split into sub-tickets",
         }
         api.decide(fourth, "split", titles=["The API", " ", "The page"])
-        assert store.read(board.page(fourth), "Status") == settings.state("done")
+        assert store.read(board.page(fourth), "statut") == settings.state("done")
         made = [
             page for page in board.query("tickets", {}) if page.title in ("The API", "The page")
         ]
@@ -307,7 +307,9 @@ def each_choice_moves_the_ticket_and_leaves_the_instruction_for_the_next_session
         assert all(store.read(page, settings.prop("goal")) == [goal] for page in made), (
             "the parts still count towards the goal of the whole"
         )
-        assert all(not store.read(page, "Status") for page in made), "drafts, never a paid session"
+        assert all(store.read(page, "statut") == settings.state("draft") for page in made), (
+            "drafts, never a paid session"
+        )
         assert "split into 2 tickets: The API · The page" in board.comments(fourth)[-1].text
 
         fifth = blocked(
@@ -319,7 +321,7 @@ def each_choice_moves_the_ticket_and_leaves_the_instruction_for_the_next_session
         assert api.outbox.marks()[fifth].column == "ready"
         assert "Decision: run it again on opus." in board.comments(fifth)[-1].text
 
-        reviewed = board.create_row("tickets", "A button", {"Status": settings.state("review")})
+        reviewed = board.create_row("tickets", "A button", {"statut": settings.state("review")})
         board.comment(
             reviewed,
             said.report(
@@ -340,7 +342,7 @@ def each_choice_moves_the_ticket_and_leaves_the_instruction_for_the_next_session
             "Take them on mobile too.",
         ]
 
-        ready = board.create_row("tickets", "Elsewhere", {"Status": settings.state("ready")})
+        ready = board.create_row("tickets", "Elsewhere", {"statut": settings.state("ready")})
         try:
             api.decision(ready)
         except ValueError:
@@ -373,7 +375,7 @@ def a_reviewed_ticket_shows_each_job_and_each_file_of_its_pull_request() -> None
         with _board() as board:
             api = _ideas_api(board)
             said = api.runner.voice
-            reviewed = board.create_row("tickets", "A list", {"Status": settings.state("review")})
+            reviewed = board.create_row("tickets", "A list", {"statut": settings.state("review")})
             board.comment(
                 reviewed,
                 said.report(said.verdict("review", "PR #7"), "Sorts the list.", url),
@@ -383,7 +385,7 @@ def a_reviewed_ticket_shows_each_job_and_each_file_of_its_pull_request() -> None
             assert [job["name"] for job in panel["checks"]["listed"]] == ["core", "frontend"]
             assert panel["files"] == files
 
-            silent = board.create_row("tickets", "No PR", {"Status": settings.state("review")})
+            silent = board.create_row("tickets", "No PR", {"statut": settings.state("review")})
             board.comment(silent, said.report(said.verdict("review"), "Wrote a page."))
             assert api.decision(silent)["files"] == [], "no pull request, nothing asked"
     finally:

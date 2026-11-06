@@ -140,7 +140,7 @@ def the_tolerances_of_the_old_loader_are_kept() -> None:
         '[budget]\ndaily_usd = ""\nper_ticket_usd = -3\n'
         '[storage]\nmode = "markdwon"\n'
         '[claude]\nprovider = "anthropic"\n'
-        '[notify]\nevents = ["Blocked", "never"]\n'
+        '[notify]\nevents = ["blocked", "never"]\n'
         "[notify.telegram]\nchat = -100123\nallowed_users = [1, 2]\n"
     )
     assert config.budget.daily_usd == config.budget.per_ticket_usd == 0.0

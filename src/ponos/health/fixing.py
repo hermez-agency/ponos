@@ -118,10 +118,6 @@ def fix(
         loose = disk.open_to_others(config_module.state_dir(), CHECKOUTS)
         tightened = sum(disk.tighten(path) for path in loose)
         return f"{tightened} entries tightened"
-    if action == "notion_shared":
-        # Nothing to ask the board: the column stays as it is, read by one setting.
-        changed = config_module.edit(config.path, [("notion.properties", "role", "")])
-        return "role turned off" if changed else "nothing to change"
     if action == "stray_processes":
         root = leftovers.worktrees()
         worktree = root / target

@@ -28,7 +28,7 @@
 | “comments not readable” | the integration lacks *Read comments* (my-integrations → Capabilities). The ticket runs, without its discussion, and answering it in a comment no longer wakes it |
 | a comment on a ticket changes nothing | the ticket is *done*, or no run of this host ever reported on it — those two never wake |
 | a ticket keeps running again and again | its report never gets posted, so your answer stays the last word: the integration lost *Insert comments* |
-| a ticket ignores its agent | the `Agent` column is missing or is not a relation — `doctor` names it |
+| a ticket ignores its agent | the `Rôle` column is missing or is not a relation — `doctor` names it |
 | “project not found on disk” | none of what the project declares leads to a repository — the comment lists each way that was tried and why it failed. Fix its `Path` or `Repository` property, or add `"Notion name" = "/path"` under `[projects]` |
 | a ticket ran, but its comment says a declaration is wrong | the repository was found by a fallback: a `Path` pointing nowhere, or a `Repository` GitHub has since renamed. Correct the project page — `ponos projects` shows it with a `!` until you do |
 | a ticket became a document when you wanted code | its project names no repository. Give the project page a `Path` or a `Repository` |

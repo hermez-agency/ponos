@@ -217,9 +217,9 @@ def a_reader_sees_and_is_refused_and_a_member_validates_under_their_name(
     with _board() as board:
         api = _ideas_api(board)
         said = api.runner.voice
-        reviewed = board.create_row("tickets", "A button", {"Status": settings.state("review")})
+        reviewed = board.create_row("tickets", "A button", {"statut": settings.state("review")})
         board.comment(reviewed, said.report(said.verdict("review", "PR #3"), "Adds a button."))
-        drafted = board.create_row("tickets", "A draft", {"Status": settings.state("draft")})
+        drafted = board.create_row("tickets", "A draft", {"statut": settings.state("draft")})
         with _serving(api) as console:
             status, _, me = _ask(console, "GET", "/api/me", cookie="tok")
             assert me == {"email": "", "name": "", "role": "admin", "owner": True, "shared": False}
@@ -265,7 +265,7 @@ def a_reader_sees_and_is_refused_and_a_member_validates_under_their_name(
             phone["endpoint"] = "http://push.example.test/plain"
             status, _, _ = _ask(console, "POST", "/api/push/subscribe", phone, cookie=reader)
             assert status == 400, "not a push service"
-            assert store.read(board.page(drafted), "Status") == settings.state("draft")
+            assert store.read(board.page(drafted), "statut") == settings.state("draft")
 
             for path, body in (("/api/settings", {}), ("/api/invitations", {"role": "admin"})):
                 status, _, _ = _ask(console, "POST", path, body, cookie=member)

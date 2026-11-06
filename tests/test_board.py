@@ -18,15 +18,15 @@ from ponos.config import state_dir
 from ponos.runner import Runner
 from ponos.ticket import Ticket
 
-STATUS = {"ready": "Ready", "running": "In progress", "review": "In review", "done": "Done"}
+STATUS = {"ready": "ready", "running": "progress", "review": "review", "done": "done"}
 
 
-def _page(page_id: str, status: str = "Ready", **properties: dict[str, Any]) -> notion.Page:
+def _page(page_id: str, status: str = "ready", **properties: dict[str, Any]) -> notion.Page:
     return notion.Page(
         id=page_id,
         url="",
         title=page_id,
-        properties={"Status": {"type": "status", "status": {"name": status}}, **properties},
+        properties={"statut": {"type": "status", "status": {"name": status}}, **properties},
         raw={"created_time": f"2026-01-01T00:00:{page_id[-1]}0.000Z"},
     )
 
@@ -127,12 +127,12 @@ def a_dated_ticket_waits_and_the_rest_go_by_priority_then_date_then_age() -> Non
         now - timedelta(days=1),
     )
     pages = [
-        _page("a1", Priority=_number(50)),
-        _page("a2", Priority=_number(90)),
-        _page("a3", Priority=_number(50), Scheduled=_date(yesterday)),
-        _page("a4", Priority=_number(50), Scheduled=_date(last_week)),
-        _page("a5", Priority=_number(99), Scheduled=_date(tomorrow)),
-        _page("a6", Priority=_number(50)),
+        _page("a1", Priorité=_number(50)),
+        _page("a2", Priorité=_number(90)),
+        _page("a3", Priorité=_number(50), Scheduled=_date(yesterday)),
+        _page("a4", Priorité=_number(50), Scheduled=_date(last_week)),
+        _page("a5", Priorité=_number(99), Scheduled=_date(tomorrow)),
+        _page("a6", Priorité=_number(50)),
     ]
     runner = _board_runner(pages, STATUS)
     eligible, waiting = runner.queue()
@@ -152,10 +152,10 @@ def a_date_the_runner_cannot_read_holds_nothing_back() -> None:
 @case
 def a_ticket_the_credit_stopped_goes_before_a_higher_priority_one() -> None:
     pages = [
-        _page("a1", Priority=_number(99)),
+        _page("a1", Priorité=_number(99)),
         _page(
             "a2",
-            Priority=_number(10),
+            Priorité=_number(10),
             **{
                 "Waiting for credit": {  # type: ignore[arg-type]  # a column, never `status`
                     "type": "checkbox",
@@ -173,8 +173,8 @@ def a_ticket_the_credit_stopped_goes_before_a_higher_priority_one() -> None:
 @case
 def a_status_kept_in_a_select_is_filtered_as_a_select() -> None:
     runner = _board_runner([], STATUS)
-    _client(runner).columns["Status"] = "select"
-    assert runner._ready_filter() == {"property": "Status", "select": {"equals": "Ready"}}
+    _client(runner).columns["statut"] = "select"
+    assert runner._ready_filter() == {"property": "statut", "select": {"equals": "ready"}}
     assert all("select" in condition for condition in runner._woken_filter()["and"])
 
 
@@ -203,24 +203,24 @@ def a_waiting_column_of_the_wrong_type_is_not_the_credit_flag() -> None:
 @case
 def a_priority_goes_into_a_select_column_as_its_word() -> None:
     runner = _board_runner([], STATUS)
-    _client(runner).columns["Priority"] = "select"
+    _client(runner).columns["Priorité"] = "select"
     assert runner.priority_cell(75) == priority.word(75)
     assert isinstance(runner.priority_cell(75), str)
-    _client(runner).columns["Priority"] = "number"
+    _client(runner).columns["Priorité"] = "number"
     assert runner.priority_cell(75) == 75
 
 
 @case
 def cancelled_and_paused_exist_only_as_options_of_their_own() -> None:
-    runner = _board_runner([], {**STATUS, "cancelled": "Cancelled", "paused": "Paused"})
-    _client(runner)._options = ["Ready", "Done"]
+    runner = _board_runner([], {**STATUS, "cancelled": "cancelled", "paused": "paused"})
+    _client(runner)._options = ["ready", "done"]
     assert not runner.cancelled_column() and not runner.paused_column(), "not offered"
 
-    _client(runner)._options = ["Ready", "Done", "Cancelled", "Paused"]
+    _client(runner)._options = ["ready", "done", "cancelled", "paused"]
     assert runner.cancelled_column() and runner.paused_column()
 
-    shared = _board_runner([], {**STATUS, "cancelled": "Done", "paused": "Ready"})
-    _client(shared)._options = ["Ready", "Done"]
+    shared = _board_runner([], {**STATUS, "cancelled": "done", "paused": "ready"})
+    _client(shared)._options = ["ready", "done"]
     assert not shared.cancelled_column(), "a cancelled ticket that is done is a done one"
     assert not shared.paused_column(), "a paused ticket that is ready would be run"
 
@@ -244,16 +244,13 @@ def a_type_is_written_the_way_the_board_already_spells_it() -> None:
     assert runner.kind_name("writing") == "Rédaction"
     assert runner.kind_name("code") == "Code"
     _client(runner)._options = []
-    assert runner.kind_name("writing") == "Writing", "the English default on a bare board"
+    assert runner.kind_name("writing") == "Rédaction", "the board's name on a bare board"
+    _client(runner)._options = ["Writing"]
+    assert runner.kind_name("writing") == "Writing", "an older spelling the board still has"
 
     refused = _board_runner([], STATUS)
     refused.client = _Refusing([])  # type: ignore[assignment]  # a fake: a board that refuses
-    assert refused.kind_name("external") == "External action"
-
-    named = _board_runner([], STATUS)
-    named.config.notion.types = {"writing": "Texte"}
-    named.client = _Refusing([])  # type: ignore[assignment]  # a fake: a board that refuses
-    assert named.kind_name("writing") == "Texte", "a name in the file is not checked"
+    assert refused.kind_name("external") == "Action externe"
 
 
 # -- who has the last word -----------------------------------------------------
@@ -286,7 +283,7 @@ def _answered(
     broken: bool = False,
     me: str = "",
 ) -> tuple[bool, _Discussed]:
-    page = _page("a1", "Blocked", Runner=_text(agent)) if agent else _page("a1", "Blocked")
+    page = _page("a1", "blocked", Agent=_text(agent)) if agent else _page("a1", "blocked")
     runner = _board_runner([page], STATUS)
     client = _Discussed([page], said, broken)
     runner.client = client  # type: ignore[assignment]  # a fake: a discussion
@@ -357,11 +354,11 @@ def a_requested_ticket_is_found_from_its_notion_link() -> None:
 
 @case
 def a_requested_ticket_is_run_from_cancelled_only_on_a_board_without_that_option() -> None:
-    page = _page("abc123", "Cancelled")
-    runner = _board_runner([page], {**STATUS, "cancelled": "Cancelled"})
-    _client(runner)._options = ["Ready", "Cancelled"]
+    page = _page("abc123", "cancelled")
+    runner = _board_runner([page], {**STATUS, "cancelled": "cancelled"})
+    _client(runner)._options = ["ready", "cancelled"]
     assert runner.requested("abc123") == [], "given up on, not undone by a shell history"
-    _client(runner)._options = ["Ready"]
+    _client(runner)._options = ["ready"]
     assert [ticket.id for ticket in runner.requested("abc123")] == ["abc123"]
 
 
@@ -424,7 +421,7 @@ def a_ticket_claimed_by_this_pass_or_just_edited_is_not_swept(state_home: Path) 
     undated = _in_progress("t3", "ponos@laptop")
     undated.raw["last_edited_time"] = "hier"
     runner = _board_runner([_in_progress("t1", "ponos@laptop"), fresh, undated], STATUS)
-    _client(runner).columns["Runner"] = "rich_text"
+    _client(runner).columns["Agent"] = "rich_text"
     runner._claimed = {"t1"}
     assert runner.sweep() == 1, "only the one whose edit cannot be read: a day old"
     assert [page_id for page_id, _ in _client(runner).written] == ["t3"]
@@ -458,11 +455,11 @@ def a_run_a_dead_runner_left_open_is_closed_and_a_live_one_kept(state_home: Path
 
 @case
 def a_board_that_refuses_the_review_query_closes_nothing() -> None:
-    runner = _board_runner([_reviewed("r1", "In review", "https://github.com/o/r/pull/1")], STATUS)
+    runner = _board_runner([_reviewed("r1", "review", "https://github.com/o/r/pull/1")], STATUS)
     runner.client = _Refusing([])  # type: ignore[assignment]  # a fake: a board that refuses
     assert runner.close_merged() == 0
 
-    same = _board_runner([], {**STATUS, "review": "Done"})
+    same = _board_runner([], {**STATUS, "review": "done"})
     same.client = _Refusing([])  # type: ignore[assignment]  # a fake: a board that refuses
     assert same.close_merged() == 0, "nowhere to wait: nothing is even asked"
 

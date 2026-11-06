@@ -23,13 +23,12 @@ test("the language comes first, and a claimed console skips the account", () => 
   assert.equal(nextStep({ claimed: true }, "summary"), "summary")
 })
 
-test("the demonstration ticket is done once it reaches review, and failed by its column or its exit", () => {
+test("the demonstration ticket is done once it reaches review, and failed by its exit", () => {
   assert.equal(demoOutcome({ column: "ready", running: true, code: null }), "waiting")
   assert.equal(demoOutcome({ column: "running", running: true, code: null }), "waiting")
   assert.equal(demoOutcome({ column: "review", running: false, code: 0 }), "done")
   assert.equal(demoOutcome({ column: "done", running: false, code: 0 }), "done")
   assert.equal(demoOutcome({ column: "blocked", running: false, code: 0 }), "stuck")
-  assert.equal(demoOutcome({ column: "failed", running: false, code: 0 }), "failed")
   assert.equal(demoOutcome({ column: "ready", running: false, code: 2 }), "failed", "a run that refused to start")
 })
 

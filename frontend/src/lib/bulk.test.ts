@@ -9,9 +9,8 @@ import { asideable, cancellable, columnState, costOf, launchable, rangeOf } from
 
 const card = (column: string, extra: object = {}) => ({ id: column, column, ...extra })
 
-test("drafts, failed runs and tickets set aside by hand are launched; a question waits for its answer", () => {
+test("drafts and tickets set aside by hand are launched; a question waits for its answer", () => {
   assert.equal(launchable(card("draft")), true)
-  assert.equal(launchable(card("failed")), true)
   assert.equal(launchable(card("blocked")), true)
   assert.equal(launchable(card("blocked", { block: { code: "question" } })), false)
   for (const column of ["ready", "running", "paused", "review", "validated", "done", "cancelled"])

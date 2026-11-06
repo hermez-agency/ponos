@@ -84,7 +84,7 @@ def the_console_lists_every_project_it_knows_of() -> None:
     with _board() as board:
         code = board.create_row("projects", "ponos", {"Repository": "user/repo"})
         board.create_row("projects", "Site vitrine", {})
-        ticket = board.create_row("tickets", "Un ticket", {"Status": "Ready"})
+        ticket = board.create_row("tickets", "Un ticket", {"statut": "ready"})
         board.update("tickets", ticket, {"Project": [code]})
 
         api = _markdown_api(board)
@@ -770,10 +770,15 @@ def a_ticket_created_from_the_console_carries_its_priority_type_and_model() -> N
         read = api.board()
         choices = read["choices"]
         assert read["priority"] is True and "priority" not in choices
-        assert [option["value"] for option in choices["model"]] == ["opus", "sonnet", "haiku"]
+        assert [option["value"] for option in choices["model"]] == [
+            "opus",
+            "sonnet",
+            "haiku",
+            "fable",
+        ]
         assert {option["value"]: option["label"] for option in choices["type"]}[
             "writing"
-        ] == "Writing"
+        ] == "Rédaction"
 
         made = api.create_ticket(
             "Écrire l'annonce", ready=False, priority=80, kind="writing", model="haiku"
@@ -781,9 +786,9 @@ def a_ticket_created_from_the_console_carries_its_priority_type_and_model() -> N
         page = board.page(made["id"])
         settings = api.config.notion
         assert store.read(page, settings.prop("priority")) == 80
-        assert store.read(page, settings.prop("type")) == "Writing"
+        assert store.read(page, settings.prop("type")) == "Rédaction"
         assert store.read(page, settings.prop("model")) == "haiku"
-        assert not store.read(page, settings.prop("status")), "not ready is a draft"
+        assert store.read(page, settings.prop("status")) == "draft", "not ready is a draft"
 
         bare = board.page(api.create_ticket("Sans rien")["id"])
         assert not store.read(bare, settings.prop("type")), (
@@ -836,7 +841,7 @@ def a_ticket_is_given_another_priority_from_the_board() -> None:
                 raise AssertionError(f"a priority of {wrong!r} must be refused")
         assert store.read(board.page(made), settings.prop("priority")) == 50
 
-    bare = _bare_api(_ColumnsClient(["Ready"]))
+    bare = _bare_api(_ColumnsClient(["ready"]))
     bare.runner._workspace = type("W", (), {"goals": "", "projects": "", "tickets": "db"})()
     bare._schema_at = time.time()
     try:
@@ -847,7 +852,7 @@ def a_ticket_is_given_another_priority_from_the_board() -> None:
         raise AssertionError("a board without the column is told so, not written")
 
     # A board without those columns is offered none of them.
-    api = _bare_api(_ColumnsClient(["Ready"]))
+    api = _bare_api(_ColumnsClient(["ready"]))
     api.runner._workspace = type("W", (), {"goals": "", "projects": "", "tickets": "db"})()
     api._schema_at = time.time()
     assert api.board()["choices"] == {}
