@@ -3391,6 +3391,8 @@ export interface components {
             goal: string;
             /** @default false */
             plan: boolean;
+            /** @default 1 */
+            attempts: unknown;
         } & {
             [key: string]: unknown;
         };
