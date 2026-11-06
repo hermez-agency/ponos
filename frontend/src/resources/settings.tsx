@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Bell, Cpu, FolderGit2, GitPullRequest, Inbox, Play, Plug, Settings2, SlidersHorizontal, Users, Webhook } from "lucide-react"
+import { Bell, Cpu, FolderGit2, GitPullRequest, Inbox, KeyRound, Play, Plug, Settings2, SlidersHorizontal, Users, Webhook } from "lucide-react"
 import { ActionList } from "react-data-form"
 import {
   createViewResource,
@@ -58,6 +58,7 @@ const ICONS: Record<string, IconType> = {
   triggers: Webhook,
   "github-app": GitPullRequest,
   accounts: Users,
+  vault: KeyRound,
 }
 
 /* The one page the file does not describe: the MCP tab is about the console
@@ -113,6 +114,20 @@ const LazyTriggersPage = React.lazy(() =>
 const TriggersPage = () => (
   <React.Suspense fallback={null}>
     <LazyTriggersPage />
+  </React.Suspense>
+)
+
+/* The Vault tab: the keys a session is given, kept encrypted by Ponos — an
+ * admin's, and not even listed to anybody else (the API answers them 403). */
+const VAULT_TAB = "vault"
+
+const LazyVaultPage = React.lazy(() =>
+  import("@/components/console/vault-page").then((module) => ({ default: module.VaultPage }))
+)
+
+const VaultPage = () => (
+  <React.Suspense fallback={null}>
+    <LazyVaultPage />
   </React.Suspense>
 )
 
@@ -179,6 +194,14 @@ function tellTheTabs() {
       description: "What an MCP is, how to plug Ponos into Claude, and the ones the sessions use.",
       icon: ICONS[MCP_TAB],
       component: McpPage,
+    })
+  if (pages.length && isAdmin())
+    pages.push({
+      id: VAULT_TAB,
+      label: "Vault",
+      description: "The logins, passwords and API keys the sessions are given, kept encrypted.",
+      icon: ICONS[VAULT_TAB],
+      component: VaultPage,
     })
   if (pages.length && isAdmin())
     pages.push({

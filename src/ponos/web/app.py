@@ -504,7 +504,8 @@ HOOKS = triggers.ROUTE + "/"
 OPENINGS = ("/api/login", "/api/invite", "/api/setup")
 
 # What changes how the console runs, rather than the work it does: an admin's.
-# The settings and the vault in them, a project's own (its forced validation
+# The settings and the vaults in them — `[vault]`, and Ponos's own at
+# /api/vault, whose list is an admin's too —, a project's own (its forced validation
 # among them), the GitHub App, the steps of the first connection, the update,
 # the accounts, when ideas are looked for — and the reads that are the same
 # pages, or a look at the disk.
@@ -519,8 +520,15 @@ ADMIN_WRITES = (
     "/api/mcp/",
     "/api/disk/clean",
     "/api/ideas/schedule",
+    "/api/vault",
 )
-ADMIN_READS = ("/api/accounts", "/api/invitations", "/api/settings/folder", "/api/setup/")
+ADMIN_READS = (
+    "/api/accounts",
+    "/api/invitations",
+    "/api/settings/folder",
+    "/api/setup/",
+    "/api/vault",
+)
 _PROJECT_OWN = re.compile(r"/api/projects/[0-9a-fA-F-]{32,36}/(settings|delete)")
 
 # The writes a reader makes all the same: they change nothing but what this
@@ -982,6 +990,8 @@ def login(request: Request, payload: routes.Fields = Body(default_factory=dict))
     else:
         return fail(401, "wrong email or password")
     console.attempts.forgive(knocker)
+    # A password typed just now: what the vault's writes accept for a while — see `sessions.proven`.
+    sessions.prove(session)
     return _send(
         200,
         b'{"ok": true}',

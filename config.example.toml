@@ -1100,6 +1100,20 @@ mode = ""
 #   "pass"       pass show <item>, its first line
 #   "bitwarden"  bw get password <item> — BW_SESSION in the environment or in
 #                secrets.env (bw unlock --raw)
+#   "ponos"      Ponos's own vault, the one that needs nothing installed:
+#                Settings → Vault in the console, or `ponos vault set NAME
+#                --project P` (the value on stdin, never as an argument).
+#                An entry granted to a project there is given to its sessions
+#                without a line here; a line here may still name one,
+#                "ponos:NAME" ("ponos:NAME_USER", "ponos:NAME_PASSWORD" for a
+#                login). Kept in vault.db (state directory, 0600), each entry
+#                sealed with AES-256-GCM under a 32-byte key kept apart: the
+#                system keyring when secret-tool is there, else PONOS_VAULT_KEY,
+#                else ~/.config/ponos/vault.key (0600, and `ponos doctor` warns:
+#                a backup that holds it and vault.db holds every key).
+#                It protects a copy of vault.db alone and the places the runner
+#                writes (every value read is masked); not somebody who has the
+#                Unix account that runs Ponos. `ponos vault rotate` changes the key.
 [vault]
 provider = "env"
 

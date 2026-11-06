@@ -1763,6 +1763,15 @@ def _github_access(table: schema.GithubAccessTable, stored: dict[str, str]) -> G
     )
 
 
+# The key Ponos's own vault is opened with, when the environment gives it (vault_store.py).
+VAULT_KEY_ENV = "PONOS_VAULT_KEY"
+
+
+def reserved_variables() -> set[str]:
+    """The variables that are the runner's own: never a project's, from any vault."""
+    return set(SECRETS.values()) | {"ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN", VAULT_KEY_ENV}
+
+
 def _vault(table: schema.VaultTable) -> Vault:
     """`[vault]`, checked: what cannot be handed over is said.
 
@@ -1776,7 +1785,7 @@ def _vault(table: schema.VaultTable) -> Vault:
     found: list[str] = []
     if table.provider not in vault.PROVIDERS:
         found.append(f"vault.provider = {table.provider!r} is none of {', '.join(vault.PROVIDERS)}")
-    reserved = set(SECRETS.values()) | {"ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN"}
+    reserved = reserved_variables()
     projects: dict[str, dict[str, str]] = {}
     for project, entries in table.projects.items():
         if isinstance(entries, dict):

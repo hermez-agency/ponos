@@ -127,6 +127,9 @@ test("a member validates a ticket in review, and the comment on it says who", as
 
   // Not the settings: those are an admin's.
   expect((await member.request.post("/api/settings", { data: {}, headers: { "X-Ponos": "1" } })).status()).toBe(403)
+  // Nor the vault, not even its list.
+  expect((await member.request.get("/api/vault")).status()).toBe(403)
+  expect((await member.request.post("/api/vault", { data: { name: "X_TOKEN" }, headers: { "X-Ponos": "1" } })).status()).toBe(403)
 
   await member.goto(page_of(VALIDATED))
   await member.locator('[data-slot="ticket-decide-tab"]').click()

@@ -1169,6 +1169,59 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vault": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Vault Entries */
+        get: operations["vault_entries_api_vault_get"];
+        put?: never;
+        /** Vault Create */
+        post: operations["vault_create_api_vault_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/{entry_id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Vault History */
+        get: operations["vault_history_api_vault__entry_id__history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/{entry_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Vault Change */
+        put: operations["vault_change_api_vault__entry_id__put"];
+        post?: never;
+        /** Vault Revoke */
+        delete: operations["vault_revoke_api_vault__entry_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/invitations": {
         parameters: {
             query?: never;
@@ -4731,6 +4784,89 @@ export interface components {
             label: string;
             help: string;
         };
+        /** @description Le coffre : ses entrées, où est sa clé, et les projets qu'une entrée peut viser. */
+        Vault: {
+            entries: components["schemas"]["VaultEntry"][];
+            key: components["schemas"]["VaultKey"];
+            projects: string[];
+            /** @description Le mot de passe a été tapé il y a moins de cinq minutes : une écriture n'a pas à le redemander. */
+            proven: boolean;
+        };
+        VaultChange: {
+            value?: string | null;
+            user?: string | null;
+            password?: string | null;
+            /**
+             * Format: password
+             * @default
+             */
+            confirm: string;
+            projects?: string[] | null;
+            description?: string | null;
+            expires?: string | null;
+        };
+        /** @description Une entrée du coffre de Ponos, sans sa valeur : aucune route ne la renvoie. */
+        VaultEntry: {
+            id: string;
+            name: string;
+            /** @enum {string} */
+            kind: "token" | "login" | "note";
+            /** @description Les variables qu'une session reçoit : le nom, ou `<NOM>_USER` et `<NOM>_PASSWORD`. */
+            variables: string[];
+            projects: string[];
+            description: string;
+            expires: string;
+            created: string;
+            updated: string;
+            /** @description La fin de la valeur, quatre caractères au plus — rien sous douze. */
+            print: string;
+            last_used: string;
+            last_ticket: string;
+            last_project: string;
+        };
+        VaultHistory: {
+            entries: components["schemas"]["VaultMoment"][];
+        };
+        /** @description Où la clé maîtresse est gardée — jamais la clé. */
+        VaultKey: {
+            /** @enum {string} */
+            source: "" | "keyring" | "env" | "file";
+            where: string;
+        };
+        VaultMoment: {
+            /** @enum {string} */
+            action: "created" | "replaced" | "projects" | "described" | "revoked" | "read" | "rotated";
+            by: string;
+            ticket: string;
+            project: string;
+            at: string;
+        };
+        VaultNew: {
+            value?: string | null;
+            user?: string | null;
+            password?: string | null;
+            /**
+             * Format: password
+             * @default
+             */
+            confirm: string;
+            /** @default  */
+            name: string;
+            /** @default token */
+            kind: string;
+            projects?: string[];
+            /** @default  */
+            description: string;
+            /** @default  */
+            expires: string;
+        };
+        VaultRevoke: {
+            /**
+             * Format: password
+             * @default
+             */
+            confirm: string;
+        };
         Week: {
             week: string;
             counts: {
@@ -7215,6 +7351,160 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GithubDisconnected"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    vault_entries_api_vault_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Vault"];
+                };
+            };
+        };
+    };
+    vault_create_api_vault_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["VaultNew"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VaultEntry"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    vault_history_api_vault__entry_id__history_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VaultHistory"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    vault_change_api_vault__entry_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["VaultChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VaultEntry"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    vault_revoke_api_vault__entry_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["VaultRevoke"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VaultEntry"];
                 };
             };
             /** @description Validation Error */

@@ -633,3 +633,64 @@ token that can do everything your account can.
 
 Another provider — 1Password's `op read`, say — is one class in `src/ponos/vault.py` with a
 `read(item)` and an `available()`, and one line in its `PROVIDERS`.
+
+### Ponos's own vault: Settings → Vault
+
+On a machine with neither `secret-tool`, `pass` nor `bw`, every key used to end up in the
+environment or in `secrets.env`, in clear. The `ponos` provider is the vault that needs
+nothing installed: **Settings → Vault** in the console (an admin's — a member or a reader
+does not see the page, and the API answers them 403), or `ponos vault` in a terminal.
+
+An entry is one of three kinds — an **API key / token**, a **login + password** (given as
+`<NAME>_USER` and `<NAME>_PASSWORD`), a **secret note** of several lines (a certificate) —
+with the name of its variable, the **projects allowed** (none by default), a description
+and an optional expiry date. It reaches the sessions of those projects' tickets as an
+environment variable, the way every `[vault]` key does, and is masked the same way;
+nothing more is needed in `config.toml`. A line of `[vault]` may still name one —
+`NPM_TOKEN = "ponos:NPM_TOKEN"` — and wins over the page for the same variable. The
+console's chat, which is no ticket, is given none of them.
+
+**Write-only.** Once kept, a value is never answered again — not by the API, not in a
+refusal, not in a log. The list shows the name, the projects, when it was created and
+changed, when a session was last given it and the end of the value (four characters,
+nothing under twelve). There is no *show*: a value is replaced, or revoked — for good,
+after a confirmation. Every write asks for the console's password again, unless it was
+typed less than five minutes ago (signing in counts); a console opened with its token
+alone takes the token.
+
+```sh
+ponos vault set LEADZ_DOKPLOY_TOKEN --project Leadz   # asks for the value, without echo
+printf '%s\n%s\n' admin "$PASSWORD" | ponos vault set DOKPLOY --kind login --project Leadz
+ponos vault list                                       # names, projects, last use — never a value
+ponos vault rm LEADZ_DOKPLOY_TOKEN
+ponos vault rotate                                     # every entry sealed again under a new key
+```
+
+**How it is kept.** `vault.db`, in the state directory (`~/.local/state/ponos`), `0600`.
+Each entry is sealed on its own with AES-256-GCM, with a random 96-bit nonce at every
+write; the entry's id, name, kind and projects are its associated data, so a sealed value
+copied onto another entry, a byte changed, or a project added by hand in the file, no
+longer opens. The 32-byte master key (`secrets.token_bytes`, no passphrase) is never kept
+beside the data — in this order:
+
+1. the system keyring, when `secret-tool` is installed;
+2. else `PONOS_VAULT_KEY` (base64 or hex), given by the unit file or by Dokploy — the
+   sessions never inherit it;
+3. else `~/.config/ponos/vault.key`, `0600`. The page says where the key is, and
+   `ponos doctor` warns: a backup that holds both files holds every key.
+
+`ponos vault rotate` seals every entry again under a new key, kept where the old one was;
+the old one opens nothing any more. With `PONOS_VAULT_KEY`, the new key is printed once,
+to set in its place before Ponos starts again. `ponos doctor` also checks the modes of
+`vault.db` and `vault.key`, the entries past or within 14 days of their expiry, and those
+granted to no project.
+
+**What it protects, and what it does not.** It protects a copy of `vault.db` on its own —
+a backup, a volume moved to another host — and every place the runner writes: a value a
+session is given is masked in its transcript, the ticket's comments in Notion or on the
+Markdown board, the log, the console's answers and stream, Telegram, Slack and the push
+notifications. Each entry's journal (Settings → Vault, the history of an entry) says when
+it was created, replaced, given other projects, revoked, and given to which ticket's
+session — never the value. It does **not** protect from somebody who has the Unix account
+that runs Ponos: that account reads the key wherever it is kept, and can ask the runner
+itself.

@@ -14,6 +14,70 @@
    back to English. Same rule as there: the English sentence is the key. */
 
 export const SETTINGS_FRENCH: Record<string, string> = {
+  // The Vault page (components/console/vault-page.tsx).
+  "API key / token": "Clé d'API / jeton",
+  "Login + password": "Login + mot de passe",
+  "Secret note": "Note secrète",
+  "One value, given as the variable itself.": "Une valeur, donnée sous le nom de la variable.",
+  "Given as <NAME>_USER and <NAME>_PASSWORD.": "Donnée en <NOM>_USER et <NOM>_PASSWORD.",
+  "Several lines — a certificate, say — given as the variable itself.": "Plusieurs lignes — un certificat, par exemple — données sous le nom de la variable.",
+  "entry created": "entrée créée",
+  "value replaced": "valeur remplacée",
+  "projects changed": "projets modifiés",
+  "description changed": "description modifiée",
+  "entry revoked": "entrée révoquée",
+  "given to a session": "donnée à une session",
+  "sealed under a new key": "rescellée sous une nouvelle clé",
+  "The console's password, again": "Le mot de passe de la console, à nouveau",
+  "Asked before every change, unless it was typed less than five minutes ago. A console opened with its token alone takes the token.":
+    "Demandé avant chaque modification, sauf s'il a été tapé il y a moins de cinq minutes. Une console ouverte avec son seul jeton prend le jeton.",
+  "No project on the board yet.": "Aucun projet sur le tableau pour l'instant.",
+  User: "Utilisateur",
+  Password: "Mot de passe",
+  Value: "Valeur",
+  "{{name}} is kept: its sessions see {{variables}}": "{{name}} est gardée : ses sessions voient {{variables}}",
+  "New entry": "Nouvelle entrée",
+  "Given to the sessions of the projects you tick, as an environment variable: the prompt names it, and never says its value.":
+    "Donnée aux sessions des projets cochés, en variable d'environnement : le prompt la nomme, sans jamais dire sa valeur.",
+  Kind: "Type",
+  "Variable name": "Nom de la variable",
+  "Projects allowed": "Projets autorisés",
+  "Expires on (optional)": "Expire le (facultatif)",
+  ticket: "ticket",
+  "Keep in the vault": "Garder dans le coffre",
+  "The value could not be replaced": "La valeur n'a pas pu être remplacée",
+  "{{name}}: value replaced": "{{name}} : valeur remplacée",
+  "The projects could not be changed": "Les projets n'ont pas pu être modifiés",
+  "The entry could not be revoked": "L'entrée n'a pas pu être révoquée",
+  "{{name}} is revoked": "{{name}} est révoquée",
+  "The end of the value": "La fin de la valeur",
+  "no project: given to no session": "aucun projet : donnée à aucune session",
+  "created {{created}}, changed {{updated}}": "créée {{created}}, modifiée {{updated}}",
+  "last given {{when}}": "dernière utilisation {{when}}",
+  "never given yet": "jamais utilisée",
+  "expires {{when}}": "expire le {{when}}",
+  "Replace the value of {{name}}": "Remplacer la valeur de {{name}}",
+  "The old value is gone for good: it is not shown, and cannot be read back.":
+    "L'ancienne valeur disparaît pour de bon : elle n'est pas affichée et ne peut pas être relue.",
+  Replace: "Remplacer",
+  "Projects allowed for {{name}}": "Projets autorisés pour {{name}}",
+  "Only the sessions of these projects are given it.": "Seules les sessions de ces projets la reçoivent.",
+  "History of {{name}}": "Historique de {{name}}",
+  "Revoke {{name}}?": "Révoquer {{name}} ?",
+  "Deleted for good: no session is given it any more, and it cannot be brought back. What happened to it stays in the journal.":
+    "Supprimée pour de bon : plus aucune session ne la reçoit, et elle ne peut pas être récupérée. Ce qui lui est arrivé reste dans le journal.",
+  "Revoke {{name}}": "Révoquer {{name}}",
+  "Where the key is": "Où est la clé",
+  "Each entry is sealed on its own with AES-256-GCM, under a key kept apart from vault.db. A copy of vault.db alone opens nothing; somebody with the Unix account that runs Ponos can open everything.":
+    "Chaque entrée est scellée à part en AES-256-GCM, sous une clé gardée hors de vault.db. Une copie de vault.db seule n'ouvre rien ; quelqu'un qui a la main sur le compte Unix qui fait tourner Ponos peut tout ouvrir.",
+  "No key yet: one is drawn with the first entry — in the system keyring when secret-tool is there.":
+    "Pas encore de clé : elle est tirée avec la première entrée — dans le trousseau du système quand secret-tool est là.",
+  "Neither secret-tool nor PONOS_VAULT_KEY: the key is a file. A backup that holds it with vault.db holds every key — keep it out of the state's backups, or give the key in PONOS_VAULT_KEY.":
+    "Ni secret-tool ni PONOS_VAULT_KEY : la clé est un fichier. Une sauvegarde qui l'emporte avec vault.db emporte toutes les clés — garde-le hors des sauvegardes de l'état, ou donne la clé dans PONOS_VAULT_KEY.",
+  "In the vault": "Dans le coffre",
+  "A value is never shown again: replace it, or revoke it.": "Une valeur n'est plus jamais affichée : on la remplace, ou on la révoque.",
+  "Nothing in the vault yet.": "Rien dans le coffre pour l'instant.",
+  "Reading the vault…": "Lecture du coffre…",
   // The card of the bell pushed to a phone (components/console/push-card.tsx).
   "Notifications on this device": "Notifications sur cet appareil",
   "The bell, pushed to this phone even when the console is closed: a question, a pull request to review, a red CI, a failure or a block — once per ticket. Touching it opens the ticket's decision.":

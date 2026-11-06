@@ -195,12 +195,39 @@ class Bitwarden:
         return "" if shutil.which("bw") else "bw is not installed (Bitwarden CLI)"
 
 
+@dataclass
+class Ponos:
+    """Ponos's own vault — Settings → Vault, `ponos vault set` — kept encrypted.
+
+    An item is a variable an entry gives: `ponos:NPM_TOKEN`, or
+    `ponos:LEADZ_USER` and `ponos:LEADZ_PASSWORD` for a login. See vault_store.py.
+    """
+
+    name: str = "ponos"
+
+    def read(self, item: str) -> str:
+        from . import vault_store  # which imports this module
+
+        try:
+            return vault_store.read(item)
+        except vault_store.VaultStoreError:
+            raise
+        except Exception as error:  # noqa: BLE001 — a file refused, a database locked
+            raise VaultError(f"the vault of Ponos cannot be read: {error}") from error
+
+    def available(self) -> str:
+        from . import vault_store
+
+        return vault_store.problem()
+
+
 # Every provider `[vault]` may name. Adding one is a class above and a line here.
 PROVIDERS: dict[str, Callable[..., SecretProvider]] = {
     "env": Environment,
     "keyring": Keyring,
     "pass": Pass,
     "bitwarden": Bitwarden,
+    "ponos": Ponos,
 }
 
 

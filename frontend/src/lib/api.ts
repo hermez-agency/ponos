@@ -4,7 +4,7 @@ import type { components, paths } from "./api-types"
 import { t } from "./i18n"
 import { SILENT, refusalOf } from "./refusals"
 import type { Role } from "./role"
-import type { Idea, IdeasSettings, Pair, ProjectSettings, SettingValue } from "./types"
+import type { Idea, IdeasSettings, Pair, ProjectSettings, SettingValue, VaultChange, VaultNew } from "./types"
 
 /* Talking to the server.
  *
@@ -201,6 +201,17 @@ export const api = {
   /** The account gone, and every browser signed into it with it. */
   deleteAccount: (id: number) =>
     answer(client.POST("/api/accounts/{number}/delete", { params: { path: { number: id } } })),
+  /** Ponos's own vault, without a value: an admin's. */
+  vault: () => answer(client.GET("/api/vault")),
+  vaultHistory: (id: string) =>
+    answer(client.GET("/api/vault/{entry_id}/history", { params: { path: { entry_id: id } } })),
+  /* The writes: a value goes in and never comes back. `confirm` is the
+   * password again, when the server asks for it (a 403 under `confirm`). */
+  createVaultEntry: (body: VaultNew) => answer(client.POST("/api/vault", { body })),
+  changeVaultEntry: (id: string, body: VaultChange) =>
+    answer(client.PUT("/api/vault/{entry_id}", { params: { path: { entry_id: id } }, body })),
+  revokeVaultEntry: (id: string, confirm: string) =>
+    answer(client.DELETE("/api/vault/{entry_id}", { params: { path: { entry_id: id } }, body: { confirm } })),
   /** Write the prompt run at every change of the ticket's status; empty removes it. */
   setOn: (id: string, on: string) =>
     answer(client.POST("/api/tickets/{ticket_id}/on", { params: { path: { ticket_id: id } }, body: { on } })),

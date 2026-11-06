@@ -42,6 +42,8 @@ from . import (
     store,
     subtypes,
     systemd,
+    vault,
+    vault_store,
     voice,
 )
 from . import config as config_module
@@ -1642,6 +1644,115 @@ def command_mcp(args: argparse.Namespace) -> int:
     return 0
 
 
+def _vault_value(kind: str) -> dict[str, str]:
+    """What an entry is written with, read from stdin or asked without echo — never an argument.
+
+    An argument is in `ps` for every user of the machine, and in the shell's
+    history after. On stdin: the value; for a login, its user on the first
+    line and its password on the second.
+    """
+    if not sys.stdin.isatty():
+        given = sys.stdin.read()
+        if kind == vault_store.LOGIN:
+            user, _, password = given.partition("\n")
+            return {"user": user.strip(), "password": password.strip()}
+        return {"value": given}
+    if kind == vault_store.LOGIN:
+        return {"user": input("user: ").strip(), "password": getpass.getpass("password: ")}
+    if kind == vault_store.NOTE:
+        print("the note, then Ctrl-D:", file=sys.stderr)
+        return {"value": sys.stdin.read()}
+    return {"value": getpass.getpass("value (not shown): ")}
+
+
+def command_vault(args: argparse.Namespace) -> int:
+    """Ponos's own vault, from a terminal: list, set, remove, rotate — see vault_store.py.
+
+    Never a value on the command line, and never one printed: `list` says what
+    the page says, a name, its projects and the end of the value at most.
+    """
+    action = getattr(args, "action", None) or "list"
+    who = f"cli:{getpass.getuser()}"
+    try:
+        if action == "list":
+            entries = vault_store.listing()
+            where = vault_store.whereabouts()
+            title("Vault")
+            print(f"  key: {where['where'] or 'none yet — drawn with the first entry'}")
+            if not entries:
+                print("  no entry yet — ponos vault set NAME --project PROJECT")
+            for entry in entries:
+                projects = ", ".join(entry["projects"]) or f"{YELLOW}no project{RESET}"
+                printed = f" {DIM}{entry['print']}{RESET}" if entry["print"] else ""
+                used = entry["last_used"] or "never"
+                print(
+                    f"  {entry['name']:<24} {entry['kind']:<6} {projects}{printed}"
+                    f"  {DIM}used: {used}{RESET}"
+                )
+            return 0
+        if action == "set":
+            known = {entry["name"]: entry for entry in vault_store.listing()}
+            if args.name in known:
+                values = _vault_value(known[args.name]["kind"])
+                vault_store.change(
+                    args.name,
+                    values=values,
+                    projects=args.project or None,
+                    description=args.description,
+                    expires=args.expires,
+                    by=who,
+                )
+                ok(f"{args.name}: value replaced")
+                return 0
+            values = _vault_value(args.kind)
+            made = vault_store.create(
+                args.name,
+                args.kind,
+                values,
+                args.project or [],
+                description=args.description or "",
+                expires=args.expires or "",
+                by=who,
+            )
+            ok(f"{made['name']}: kept, for {', '.join(made['projects']) or 'no project yet'}")
+            print(f"{DIM}  a session sees {', '.join(made['variables'])}{RESET}")
+            return 0
+        if action == "rm":
+            if not args.yes:
+                if not sys.stdin.isatty():
+                    bad("removing an entry is for good: --yes to say so without a terminal")
+                    return 1
+                if input(f"remove {args.name} for good? [y/N] ").strip().lower() not in (
+                    "y",
+                    "yes",
+                ):
+                    return 1
+            vault_store.revoke(args.name, by=who)
+            ok(f"{args.name}: removed")
+            return 0
+        count, key = vault_store.rotate()
+        ok(
+            f"{count} entr{'y' if count == 1 else 'ies'} sealed again under a new key — the old one opens nothing"
+        )
+        if key.source == "env":
+            warn(
+                f"{vault_store.VAULT_KEY_ENV} gave the old key: set it to this one before Ponos starts again"
+            )
+            print(f"\n  {vault_store.encoded(key)}\n")
+        else:
+            print(f"{DIM}  kept in {key.where}{RESET}")
+        return 0
+    except vault_store.Refused as error:
+        bad(f"{error.field}: {error}")
+        return 1
+    except LookupError as error:
+        bad(str(error))
+        return 1
+    except (vault.VaultError, sqlite3.Error, OSError) as error:
+        bad(f"the vault: {error}")
+        return 1
+
+
 def command_tailscale(args: argparse.Namespace) -> int:
     """The console inside the tailnet, the MCP endpoint through Funnel — see `tailscale.py`.
 
@@ -2070,6 +2181,34 @@ def _add_console_commands(subparsers: argparse._SubParsersAction[argparse.Argume
         "-n", "--number", type=int, default=20, help="how many writes to show (default: 20)"
     )
     serving_mcp.set_defaults(function=command_mcp, action="list", number=20)
+
+    keeping = subparsers.add_parser(
+        "vault", help="Ponos's own vault: the keys sessions are given (default: list)"
+    )
+    kept = keeping.add_subparsers(dest="action", help="what to do (default: list)")
+    kept.add_parser("list", help="the entries, without their values")
+    setting = kept.add_parser(
+        "set", help="keep a value, read from stdin or asked without echo — never an argument"
+    )
+    setting.add_argument("name", help="the variable a session sees, NPM_TOKEN")
+    setting.add_argument(
+        "--project",
+        action="append",
+        help="a project whose sessions are given it (again for another one)",
+    )
+    setting.add_argument(
+        "--kind",
+        choices=vault_store.KINDS,
+        default=vault_store.TOKEN,
+        help="token (default), login (<NAME>_USER and <NAME>_PASSWORD) or note",
+    )
+    setting.add_argument("--description", help="what it is for")
+    setting.add_argument("--expires", help="when it expires, YYYY-MM-DD")
+    removing = kept.add_parser("rm", help="remove an entry, for good")
+    removing.add_argument("name", help="the entry's name")
+    removing.add_argument("--yes", action="store_true", help="without asking")
+    kept.add_parser("rotate", help="seal every entry again under a new key")
+    keeping.set_defaults(function=command_vault, action="list")
 
     tailnet = subparsers.add_parser(
         "tailscale", help="the console on your tailnet, the MCP connector through Funnel"

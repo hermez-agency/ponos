@@ -47,7 +47,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
-from . import db, http
+from . import db, http, vault
 from .config import state_dir
 
 if TYPE_CHECKING:
@@ -285,7 +285,8 @@ def send(
     subject: str = SUBJECT,
 ) -> int:
     """Post one message to one browser: the push service's status, or 0 without an answer."""
-    payload = json.dumps(message, ensure_ascii=False).encode()
+    # Encrypted for the phone, and still nothing a vault gave a session: see vault.py.
+    payload = json.dumps(vault.masked(message), ensure_ascii=False).encode()
     headers = {
         "Authorization": authorization(subscription.endpoint, subject),
         "Content-Encoding": "aes128gcm",

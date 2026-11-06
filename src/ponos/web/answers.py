@@ -1446,6 +1446,55 @@ class TriggerRevoked(Shape):
     id: str
 
 
+class VaultEntry(Shape):
+    """Une entrée du coffre de Ponos, sans sa valeur : aucune route ne la renvoie."""
+
+    id: str
+    name: str
+    kind: Literal["token", "login", "note"]
+    variables: list[str]
+    """Les variables qu'une session reçoit : le nom, ou `<NOM>_USER` et `<NOM>_PASSWORD`."""
+    projects: list[str]
+    description: str
+    expires: str
+    created: str
+    updated: str
+    print: str
+    """La fin de la valeur, quatre caractères au plus — rien sous douze."""
+    last_used: str
+    last_ticket: str
+    last_project: str
+
+
+class VaultKey(Shape):
+    """Où la clé maîtresse est gardée — jamais la clé."""
+
+    source: Literal["", "keyring", "env", "file"]
+    where: str
+
+
+class Vault(Shape):
+    """Le coffre : ses entrées, où est sa clé, et les projets qu'une entrée peut viser."""
+
+    entries: list[VaultEntry]
+    key: VaultKey
+    projects: list[str]
+    proven: bool
+    """Le mot de passe a été tapé il y a moins de cinq minutes : une écriture n'a pas à le redemander."""
+
+
+class VaultMoment(Shape):
+    action: Literal["created", "replaced", "projects", "described", "revoked", "read", "rotated"]
+    by: str
+    ticket: str
+    project: str
+    at: str
+
+
+class VaultHistory(Shape):
+    entries: list[VaultMoment]
+
+
 class McpServer(Shape):
     """One MCP server Claude Code holds, as `claude mcp list` says it."""
 

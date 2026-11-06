@@ -25,6 +25,7 @@ How to install Ponos, configure it and use it, one page per subject. Working on 
   - [Or an access token](configuration.md#or-an-access-token)
   - [Several GitHub accounts](configuration.md#several-github-accounts)
   - [Keys a ticket may use: the vault](configuration.md#keys-a-ticket-may-use-the-vault)
+  - [Ponos's own vault: Settings → Vault](configuration.md#ponoss-own-vault-settings--vault)
 
 ## [The board](board.md)
 

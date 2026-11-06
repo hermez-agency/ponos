@@ -367,7 +367,8 @@ def only_the_consoles_application_imports_a_package_from_outside() -> None:
     to make (`environment.ensure`) — httpx, pydantic and cryptography are the
     exceptions: only `http.py` imports the first, when the first request is
     sent, only `schema.py` the second, when the file is read, and only
-    `push.py` the third, when a push is sent. And `server.py`
+    `push.py` and `vault_store.py` the third, when a push is sent or a key of
+    Ponos's own vault sealed or opened. And `server.py`
     because an installation still on v0.1.0 checks that a new version starts
     by importing it with the machine's Python — had it imported FastAPI, the
     update that brings FastAPI would have been refused on every such machine,
@@ -391,6 +392,7 @@ def only_the_consoles_application_imports_a_package_from_outside() -> None:
                     ("schema.py", "pydantic"),
                     ("schema.py", "pydantic_core"),
                     ("push.py", "cryptography"),
+                    ("vault_store.py", "cryptography"),
                 ):
                     continue
                 assert top in sys.stdlib_module_names or top == "ponos", (path.name, name)

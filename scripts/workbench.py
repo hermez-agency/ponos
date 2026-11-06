@@ -8,7 +8,7 @@ everything around the data, and it is here once: the board of files under a
 configuration of its own, a `XDG_STATE_HOME` and a `HOME` in a temporary
 directory so that nothing reads the state of the console you run for yourself,
 and a `claude`, a `gh` and a `systemctl` first in the PATH, so that nothing
-reaches a session, GitHub or the machine's timer.
+reaches a session, GitHub, the machine's timer or its keyring.
 
 The caller writes the board and the local state (the journal, the bell) between
 `stage` and `serve`, because those are written through `ponos` itself, and
@@ -143,6 +143,14 @@ elif "list-timers" in args:
     print("Mon 2099-01-01 00:00:00 UTC 1h left n/a n/a ponos.timer ponos.service")
 """
 
+# A keyring that never answers: the vault's key goes to `vault.key`, under this
+# console's own configuration directory — never into the keyring of the machine.
+SECRET_TOOL = """#!{python}
+import sys
+
+sys.exit(1)
+"""
+
 # Who `gh api user` says it is; anything else it is asked fails, as a gh signed out would.
 GH = """#!{python}
 import json, sys
@@ -218,15 +226,23 @@ def stage(
     )
     bin = here / "bin"
     bin.mkdir()
-    for name, script in (("claude", CLAUDE), ("gh", GH), ("systemctl", SYSTEMCTL)):
+    for name, script in (
+        ("claude", CLAUDE),
+        ("gh", GH),
+        ("systemctl", SYSTEMCTL),
+        ("secret-tool", SECRET_TOOL),
+    ):
         (bin / name).write_text(
             script.format(python=sys.executable, signed=signed), encoding="utf-8"
         )
         (bin / name).chmod(0o755)
     (here / "home").mkdir()
+    # Nor the key of the vault of the console you run for yourself.
+    os.environ.pop("PONOS_VAULT_KEY", None)
     os.environ.update(
         PATH=f"{bin}{os.pathsep}{os.environ.get('PATH', '')}",
         HOME=str(here / "home"),
+        XDG_CONFIG_HOME=str(here / "home" / ".config"),
         PONOS_CONFIG=str(config),
         XDG_STATE_HOME=str(here / "state"),
         PYTHONPATH=str(ROOT / "src"),

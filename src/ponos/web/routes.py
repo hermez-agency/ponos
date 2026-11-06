@@ -27,6 +27,7 @@ and FastAPI runs such a route on a thread of its own — which is what
 
 from __future__ import annotations
 
+import hmac
 import json
 import logging
 import queue
@@ -39,14 +40,15 @@ from fastapi import APIRouter, Body, HTTPException, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import StreamingResponse
 from fastapi.routing import APIRoute
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, SecretStr
 from starlette.concurrency import run_in_threadpool
 from starlette.convertors import Convertor, register_url_convertor
 
 from .. import config as config_module
-from .. import journal, notifications, preview, push, store, vault, voice
+from .. import journal, notifications, preview, push, store, vault, vault_store, voice
 from .. import triggers as triggers_module
-from . import accounts, agui, answers, creation, github, mcp_setup, setup
+from . import accounts, agui, answers, creation, github, mcp_setup, sessions, setup
+from . import attempts as attempts_module
 from .api import Api
 
 logger = logging.getLogger(__name__)
@@ -853,6 +855,211 @@ def github_token_forget(request: Request) -> Response:
 @router.post("/api/github/disconnect", response_model=answers.GithubDisconnected)
 def github_disconnect(payload: Slug = Body(default_factory=Slug)) -> Response:
     return answer(github.disconnect(payload.slug))
+
+
+# -- Ponos's own vault -------------------------------------------------------------
+#
+# An admin's, reads included (`app.ADMIN_READS`): a member who cannot change a
+# key has no business listing them either. Write-only: a value goes in and is
+# never said again — not in an answer, not in a refusal (`refusal` quotes no
+# input), not in a log (no route logs a body, uvicorn's access log is off, and
+# a failure's trace goes through `vault.mask` like every line of `ponos.log`).
+# Each write asks again for the password typed less than five minutes ago —
+# see `sessions.proven` — on top of what the guard asks of every write.
+
+# Writes to the vault, per address: a person makes a few, a script that tries
+# names makes many.
+VAULT_WRITES = attempts_module.Quota(30, 60)
+
+
+class VaultWrite(BaseModel):
+    """What a write to the vault carries: `SecretStr` for what must never be printed."""
+
+    model_config = ConfigDict(extra="ignore", coerce_numbers_to_str=True, hide_input_in_errors=True)
+
+    value: SecretStr | None = None
+    user: SecretStr | None = None
+    password: SecretStr | None = None
+    confirm: SecretStr = SecretStr("")
+    """The console's password, again — or its token, on a console opened with it alone."""
+
+    def values(self) -> dict[str, str]:
+        given = {"value": self.value, "user": self.user, "password": self.password}
+        values = {field: held.get_secret_value() for field, held in given.items() if held}
+        # Masked from now on, wherever this process writes — a failure's trace included.
+        for value in values.values():
+            vault.remember(value.strip())
+        return values
+
+
+class VaultNew(VaultWrite):
+    name: str = ""
+    kind: str = vault_store.TOKEN
+    projects: list[str] = Field(default_factory=list)
+    description: str = ""
+    expires: str = ""
+
+
+class VaultChange(VaultWrite):
+    projects: list[str] | None = None
+    description: str | None = None
+    expires: str | None = None
+
+
+class VaultRevoke(BaseModel):
+    model_config = ConfigDict(extra="ignore", hide_input_in_errors=True)
+
+    confirm: SecretStr = SecretStr("")
+
+
+def _vault_refused(error: vault_store.Refused) -> Response:
+    said = str(error)
+    return answer(
+        {"error": said, "violations": [{"propertyPath": error.field, "message": said}]}, 400
+    )
+
+
+def _password_is(request: Request, typed: str) -> bool:
+    """`typed` is the password of whoever sent this — the token, for the token."""
+    console = request.app.state.console
+    who = _who(request)
+    if who is None:
+        return hmac.compare_digest(typed.encode(), str(console.secret).encode())
+    if who.owner:
+        entry = console.entry
+        return entry is not None and bool(entry.opens(entry.email, typed))
+    return accounts.signing_in(who.email, typed) is not None
+
+
+def _unproven(request: Request, typed: str) -> Response | None:
+    """Why this write to the vault is refused before it is read — or None, and it goes on."""
+    asking = request.state.asking
+    console = request.app.state.console
+    if not asking.same_origin():
+        return fail(403, "this request did not come from the console")
+    knocker = asking.knocker()
+    if wait := VAULT_WRITES.take(knocker):
+        return _waited(wait)
+    held = asking.presented()
+    if not typed:
+        if held and sessions.proven(held):
+            return None
+        return answer(
+            {
+                "error": "type the console's password again to change the vault",
+                "reauthenticate": True,
+                "violations": [{"propertyPath": "confirm", "message": "the password, again"}],
+            },
+            403,
+        )
+    if wait := console.attempts.admit(knocker):
+        return _waited(wait)
+    if not _password_is(request, typed):
+        return answer(
+            {
+                "error": "wrong password",
+                "reauthenticate": True,
+                "violations": [{"propertyPath": "confirm", "message": "wrong password"}],
+            },
+            403,
+        )
+    console.attempts.forgive(knocker)
+    if held:
+        sessions.prove(held)
+    return None
+
+
+def _waited(wait: float) -> Response:
+    seconds = max(1, int(wait + 0.999))
+    refused = fail(429, f"too many attempts — try again in {seconds} s")
+    refused.headers["Retry-After"] = str(seconds)
+    return refused
+
+
+def _by(request: Request) -> str:
+    who = _who(request)
+    return who.name if who else "token"
+
+
+@router.get("/api/vault", response_model=answers.Vault)
+def vault_entries(request: Request) -> Response:
+    held = request.state.asking.presented()
+    names = sorted(
+        {str(project["name"]) for project in _api(request).projects().values()}, key=str.casefold
+    )
+    return answer(
+        {
+            "entries": vault_store.listing(),
+            "key": vault_store.whereabouts(),
+            "projects": names,
+            "proven": bool(held) and sessions.proven(held),
+        }
+    )
+
+
+@router.get("/api/vault/{entry_id}/history", response_model=answers.VaultHistory)
+def vault_history(entry_id: str) -> Response:
+    try:
+        return answer({"entries": vault_store.history(entry_id)})
+    except LookupError as error:
+        return fail(404, str(error))
+
+
+@router.post("/api/vault", response_model=answers.VaultEntry)
+def vault_create(request: Request, payload: VaultNew = Body(default_factory=VaultNew)) -> Response:
+    refused = _unproven(request, payload.confirm.get_secret_value())
+    if refused is not None:
+        return refused
+    try:
+        made = vault_store.create(
+            payload.name,
+            payload.kind,
+            payload.values(),
+            payload.projects,
+            description=payload.description,
+            expires=payload.expires,
+            by=_by(request),
+        )
+    except vault_store.Refused as error:
+        return _vault_refused(error)
+    return answer(made)
+
+
+@router.put("/api/vault/{entry_id}", response_model=answers.VaultEntry)
+def vault_change(
+    request: Request, entry_id: str, payload: VaultChange = Body(default_factory=VaultChange)
+) -> Response:
+    refused = _unproven(request, payload.confirm.get_secret_value())
+    if refused is not None:
+        return refused
+    try:
+        return answer(
+            vault_store.change(
+                entry_id,
+                values=payload.values() or None,
+                projects=payload.projects,
+                description=payload.description,
+                expires=payload.expires,
+                by=_by(request),
+            )
+        )
+    except vault_store.Refused as error:
+        return _vault_refused(error)
+    except LookupError as error:
+        return fail(404, str(error))
+
+
+@router.delete("/api/vault/{entry_id}", response_model=answers.VaultEntry)
+def vault_revoke(
+    request: Request, entry_id: str, payload: VaultRevoke = Body(default_factory=VaultRevoke)
+) -> Response:
+    refused = _unproven(request, payload.confirm.get_secret_value())
+    if refused is not None:
+        return refused
+    try:
+        return answer(vault_store.revoke(entry_id, by=_by(request)))
+    except LookupError as error:
+        return fail(404, str(error))
 
 
 # -- the accounts ----------------------------------------------------------------

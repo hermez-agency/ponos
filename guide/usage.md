@@ -52,6 +52,10 @@ ponos notify --digest        # send the digest of the period under way, now
 ponos mcp token    # a key to the MCP server, for a client that cannot sign in (--read-only, --name)
 ponos mcp list     # the address to paste in Claude, the MCP clients and their last writes (-n, --number: how many)
 ponos mcp revoke <client>    # take back every key of one client
+ponos vault list   # Ponos's own vault: names, projects, last use — never a value
+ponos vault set <NAME> --project <P>   # keep a value, read from stdin or asked without echo (--kind login|note, --description, --expires)
+ponos vault rm <NAME>       # remove an entry for good (--yes without a terminal)
+ponos vault rotate          # seal every entry again under a new key
 ```
 
 The first attempt is best made by hand, on a ticket you choose:
