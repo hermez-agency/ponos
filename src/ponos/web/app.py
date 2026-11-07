@@ -523,6 +523,7 @@ ADMIN_WRITES = (
     "/api/ideas/schedule",
     "/api/vault",
     "/api/browser",
+    "/api/memories/options",
 )
 ADMIN_READS = (
     "/api/accounts",

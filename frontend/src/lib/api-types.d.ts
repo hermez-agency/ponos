@@ -1818,6 +1818,93 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/memories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Memories */
+        get: operations["memories_api_memories_get"];
+        put?: never;
+        /** Memory Add */
+        post: operations["memory_add_api_memories_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/memories/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Memory Import */
+        post: operations["memory_import_api_memories_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/memories/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Memory Options */
+        post: operations["memory_options_api_memories_options_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/memories/{identifier}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Memory Change */
+        put: operations["memory_change_api_memories__identifier__put"];
+        post?: never;
+        /** Memory Delete */
+        delete: operations["memory_delete_api_memories__identifier__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/memories/{identifier}/{action}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Memory Decide */
+        post: operations["memory_decide_api_memories__identifier___action__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/schedules/{schedule_id}/launch": {
         parameters: {
             query?: never;
@@ -3574,6 +3661,49 @@ export interface components {
             owner: boolean;
             /** @description Somebody besides the console's own sign-in has an account. */
             shared: boolean;
+        };
+        Memories: {
+            memories: components["schemas"]["Memory"][];
+            kinds: string[];
+            /** @description Whether a proposal is accepted without waiting. */
+            auto_accept: boolean;
+            /** @description Memory files of the console's assistant not imported yet. */
+            importable: number;
+            /** @description Characters in one memory. */
+            limit: number;
+            /** @description Characters of memories a prompt carries at most. */
+            capacity: number;
+        };
+        MemoriesImported: {
+            memories: components["schemas"]["Memory"][];
+            kinds: string[];
+            /** @description Whether a proposal is accepted without waiting. */
+            auto_accept: boolean;
+            /** @description Memory files of the console's assistant not imported yet. */
+            importable: number;
+            /** @description Characters in one memory. */
+            limit: number;
+            /** @description Characters of memories a prompt carries at most. */
+            capacity: number;
+            imported: number;
+        };
+        /** @description One thing Ponos remembers — see memory.py. */
+        Memory: {
+            id: number;
+            text: string;
+            /** @description person, preference, project or reference. */
+            kind: string;
+            /** @description "" for every project, else the project's id. */
+            scope: string;
+            scope_name: string;
+            /** @description ticket, chat or manual. */
+            source: string;
+            /** @description The ticket or the conversation it came from; `file:<name>` for an imported file. */
+            source_ref: string;
+            /** @description accepted (sessions read it), proposed (waiting) or refused. */
+            status: string;
+            created: string;
+            updated: string;
         };
         Message: {
             /**
@@ -9074,6 +9204,230 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProjectDeleted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    memories_api_memories_get: {
+        parameters: {
+            query?: {
+                scope?: string;
+                kind?: string;
+                status?: string;
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Memories"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    memory_add_api_memories_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Memories"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    memory_import_api_memories_import_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemoriesImported"];
+                };
+            };
+        };
+    };
+    memory_options_api_memories_options_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Memories"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    memory_change_api_memories__identifier__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                identifier: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Memories"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    memory_delete_api_memories__identifier__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                identifier: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Memories"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    memory_decide_api_memories__identifier___action__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                identifier: number;
+                action: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Memories"];
                 };
             };
             /** @description Validation Error */

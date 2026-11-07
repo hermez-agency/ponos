@@ -44,7 +44,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-from .. import __version__, db, ideas, ids, journal, log, state, store
+from .. import __version__, db, ideas, ids, journal, log, memory, state, store
 from .. import kinds as kinds_module
 from . import live
 from .oauth import READ, WRITE, Grant
@@ -411,6 +411,51 @@ TOOLS: list[dict[str, Any]] = [
                 },
             },
             ("title",),
+        ),
+    },
+    {
+        "name": "list_memories",
+        "title": "Mémoire",
+        "scope": READ,
+        "description": "Liste ce que Ponos retient d'une session à l'autre : des faits courts, avec "
+        "leur type (person, preference, project, reference), leur portée (« global » ou un "
+        "projet), leur source et leur statut (accepted : les sessions le lisent ; proposed : il "
+        "attend d'être accepté dans la console ; refused). À lire avant de proposer un souvenir, "
+        "pour ne pas répéter un fait connu.",
+        "inputSchema": _schema(
+            {
+                "project": PROJECT_FILTER,
+                "kind": {"type": "string", "enum": list(memory.KINDS)},
+                "status": {"type": "string", "enum": list(memory.STATUSES)},
+                "search": {"type": "string", "description": "Un mot du souvenir."},
+            }
+        ),
+    },
+    {
+        "name": "propose_memory",
+        "title": "Proposer un souvenir",
+        "scope": WRITE,
+        "description": "Propose un fait durable à retenir : une préférence ou une consigne, une "
+        "décision, une contrainte d'un projet, un fait sur la personne, une référence. Il reste "
+        "proposé — aucune session ne le lit — tant qu'une personne ne l'a pas accepté dans la "
+        "console (Contexte › Mémoire), sauf si le réglage d'acceptation automatique est activé. "
+        "Un fait déjà connu ou déjà refusé n'est pas reproposé. Une phrase, sans secret.",
+        "inputSchema": _schema(
+            {
+                "text": {
+                    "type": "string",
+                    "description": f"Le fait, en une phrase de {memory.FACT_LIMIT} caractères au plus.",
+                },
+                "kind": {
+                    "type": "string",
+                    "enum": list(memory.KINDS),
+                    "description": "person : qui est la personne ; preference : une préférence ou "
+                    "une consigne (par défaut) ; project : un fait ou une décision d'un projet ; "
+                    "reference : où trouver quelque chose.",
+                },
+                "project": PROJECT_FILTER,
+            },
+            ("text",),
         ),
     },
     {
@@ -1061,6 +1106,39 @@ def set_idea_state(api: Api, idea: int, state: str) -> dict[str, Any]:
     return _idea(api.reopen_idea(idea))
 
 
+def list_memories(
+    api: Api, project: str = "", kind: str = "", status: str = "", search: str = ""
+) -> dict[str, Any]:
+    scope = _project(api, project)["id"] if project else ""
+    shown = api.memories(scope, kind, status, search)["memories"][:LISTED_MOST]
+    return {
+        "memories": [
+            {
+                "id": item["id"],
+                "text": item["text"],
+                "kind": item["kind"],
+                "scope": item["scope_name"] or "global",
+                "source": item["source"],
+                "status": item["status"],
+            }
+            for item in shown
+        ]
+    }
+
+
+def propose_memory(
+    api: Api, text: str, kind: str = "preference", project: str = ""
+) -> dict[str, Any]:
+    scope = _project(api, project)["id"] if project else ""
+    made = memory.propose(text, kind, scope, "chat")
+    if made is None:
+        raise ToolError(
+            "Ce souvenir est vide, déjà connu ou a déjà été refusé : rien n'est proposé."
+        )
+    api.hub.publish("memory", id=made["id"])
+    return {"id": made["id"], "status": made["status"], "text": made["text"]}
+
+
 def _short(text: str, limit: int) -> str:
     return text if len(text) <= limit else text[:limit].rstrip() + "…"
 
@@ -1079,4 +1157,6 @@ HANDLERS: dict[str, Callable[..., dict[str, Any]]] = {
     "apply_solution": apply_solution,
     "create_idea": create_idea,
     "set_idea_state": set_idea_state,
+    "list_memories": list_memories,
+    "propose_memory": propose_memory,
 }

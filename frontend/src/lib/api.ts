@@ -218,6 +218,21 @@ export const api = {
   /** The account gone, and every browser signed into it with it. */
   deleteAccount: (id: number) =>
     answer(client.POST("/api/accounts/{number}/delete", { params: { path: { number: id } } })),
+  /** What Ponos remembers — memory.py. `scope` is "", "global" or a project's id. */
+  memories: (query: { scope?: string; kind?: string; status?: string; search?: string } = {}) =>
+    answer(client.GET("/api/memories", { params: { query } })),
+  addMemory: (values: Record<string, unknown>) => answer(client.POST("/api/memories", { body: values })),
+  changeMemory: (id: number, values: Record<string, unknown>) =>
+    answer(client.PUT("/api/memories/{identifier}", { params: { path: { identifier: id } }, body: values })),
+  decideMemory: (id: number, action: "accept" | "refuse") =>
+    answer(
+      client.POST("/api/memories/{identifier}/{action}", { params: { path: { identifier: id, action } } })
+    ),
+  deleteMemory: (id: number) =>
+    answer(client.DELETE("/api/memories/{identifier}", { params: { path: { identifier: id } } })),
+  importMemories: () => answer(client.POST("/api/memories/import")),
+  memoryAutoAccept: (on: boolean) =>
+    answer(client.POST("/api/memories/options", { body: { auto_accept: on } })),
   /** Ponos's own vault, without a value: an admin's. */
   vault: () => answer(client.GET("/api/vault")),
   vaultHistory: (id: string) =>

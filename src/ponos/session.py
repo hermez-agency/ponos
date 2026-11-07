@@ -34,7 +34,7 @@ from typing import IO, Any
 from urllib.parse import parse_qs, quote, urlparse
 
 from . import config, credits, disk, leftovers, vault
-from .question import Question, caveats, lesson, parse
+from .question import Question, caveats, lesson, memories, parse
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +74,8 @@ class Outcome:
     caveats: list[str] = field(default_factory=list)
     # What it says it learned about the project, for the notes — see notes.py.
     lesson: str = ""
+    # The facts it proposes to remember — its MEMORY lines, see memory.py.
+    memories: list[str] = field(default_factory=list)
     # How the process ended, as `subprocess` says it (negative: a signal), and
     # whether it got as far as its own last event. A session with no result is
     # one that was cut, not one that failed — what `killed` tells apart.
@@ -723,6 +725,7 @@ def _outcome(
         question=parse(answer) if blocked and not over_budget else None,
         caveats=caveats(answer) if not failed and not blocked else [],
         lesson=lesson(answer) if not failed and not blocked else "",
+        memories=memories(answer) if not failed and not blocked else [],
         resets_at=resets_at,
         over_budget=over_budget,
         code=code,

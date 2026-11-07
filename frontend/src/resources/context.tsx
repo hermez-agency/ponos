@@ -1,5 +1,5 @@
 import * as React from "react"
-import { BookOpen, KeyRound, NotebookText } from "lucide-react"
+import { BookOpen, Brain, KeyRound, NotebookText } from "lucide-react"
 import { ActionList } from "react-data-form"
 import {
   createViewResource,
@@ -32,6 +32,7 @@ const THE_PAGE = "context"
 /** The tab the page opens on, and the one an address naming none means. */
 export const STANDING_TAB = "standing"
 export const VAULT_TAB = "vault"
+export const MEMORY_TAB = "memory"
 
 /** The page as the views hold it: only what the bar's breadcrumb needs. */
 export interface ContextItem {
@@ -58,6 +59,10 @@ const Vault = lazyTab(() =>
   import("@/components/console/vault-page").then((module) => ({ default: module.VaultPage }))
 )
 
+const Memory = lazyTab(() =>
+  import("@/components/console/memory-page").then((module) => ({ default: module.MemoryPage }))
+)
+
 interface ContextTab {
   tab: Omit<TabDefinition<ContextItem>, "icon"> & { icon: IconType }
   /** Whether this role is given the tab at all; the API refuses the rest. */
@@ -72,6 +77,15 @@ const TAB_DEFINITIONS: ContextTab[] = [
       description: "What every ticket is told, for all the projects.",
       icon: NotebookText,
       component: StandingContext,
+    },
+  },
+  {
+    tab: {
+      id: MEMORY_TAB,
+      label: "Memory",
+      description: "What Ponos remembers from one session to the next, for all the projects or one.",
+      icon: Brain,
+      component: Memory,
     },
   },
   {

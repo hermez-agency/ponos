@@ -14,6 +14,45 @@
    back to English. Same rule as there: the English sentence is the key. */
 
 export const SETTINGS_FRENCH: Record<string, string> = {
+  // The Memory page (components/console/memory-page.tsx).
+  Person: "Personne",
+  "Preference or instruction": "Préférence ou consigne",
+  Reference: "Référence",
+  "From a ticket": "D'un ticket",
+  "From a conversation": "D'une conversation",
+  "Typed by hand": "Saisi à la main",
+  "Imported from the assistant's files": "Importé des fichiers de l'assistant",
+  "The memory was not saved": "Le souvenir n'a pas été enregistré",
+  "The fact": "Le fait",
+  "One short fact: a preference, a decision, a constraint, a reference.":
+    "Un fait court : une préférence, une décision, une contrainte, une référence.",
+  Scope: "Portée",
+  "All the projects": "Tous les projets",
+  "That did not work": "Cela n'a pas marché",
+  "Memory deleted": "Souvenir supprimé",
+  Refused: "Refusé",
+  Accept: "Accepter",
+  Refuse: "Refuser",
+  "What Ponos remembers from one session to the next. Sessions are told the accepted memories of their project and the global ones.":
+    "Ce que Ponos retient d'une session à l'autre. Les sessions reçoivent les souvenirs acceptés de leur projet et les souvenirs globaux.",
+  "Memories imported from the assistant's files": "Souvenirs importés des fichiers de l'assistant",
+  "Import {{count}} file(s) of the assistant": "Importer {{count}} fichier(s) de l'assistant",
+  "Add a memory": "Ajouter un souvenir",
+  "Search the memory": "Chercher dans la mémoire",
+  "Filter by scope": "Filtrer par portée",
+  "Filter by type": "Filtrer par type",
+  "Filter by state": "Filtrer par état",
+  "Every scope": "Toutes les portées",
+  "Every type": "Tous les types",
+  "Every state": "Tous les états",
+  Accepted: "Accepté",
+  Waiting: "En attente",
+  "Waiting for your word": "En attente de ton accord",
+  "No session reads these until you accept them.": "Aucune session ne les lit tant que tu ne les as pas acceptés.",
+  "Nothing is remembered yet.": "Rien n'est retenu pour l'instant.",
+  "Accept the proposals without waiting": "Accepter les propositions sans attendre",
+  "A session's proposal then reaches the next prompts at once; you read it afterwards.":
+    "La proposition d'une session atteint alors tout de suite les prompts suivants ; tu la relis après coup.",
   // The Vault page (components/console/vault-page.tsx).
   "API key / token": "Clé d'API / jeton",
   "Login + password": "Login + mot de passe",

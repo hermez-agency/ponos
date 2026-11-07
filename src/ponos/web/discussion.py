@@ -19,6 +19,7 @@ from .. import (
     decisions,
     git,
     github_checks,
+    memory,
     preview,
     question,
     redaction,
@@ -371,6 +372,12 @@ class Discussion(Base):
                 lines.append(f"- **{project['name']}** — {project['kind']} work")
         if context:
             lines += ["", "# Who you are working for", "", context[:6000]]
+        remembered = memory.for_prompt()
+        if remembered:
+            # Ponos's memory is the one memory — see memory.py — so the files
+            # of this assistant's own are imported into it, not read beside it.
+            lines += ["", "# What you remember", ""]
+            lines += [f"- {fact}" for fact in remembered]
         return "\n".join(lines)
 
 

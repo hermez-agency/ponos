@@ -1103,6 +1103,34 @@ def _detached_sessions(connection: sqlite3.Connection) -> None:
     )
 
 
+def _memories(connection: sqlite3.Connection) -> None:
+    # Ce que Ponos retient d'une session à l'autre (memory.py). `scope` est vide
+    # pour un souvenir global, sinon la clé du projet ; `mark` l'empreinte du
+    # fait, pour qu'un souvenir refusé ne revienne pas et qu'un doublon ne se
+    # pose pas deux fois. `options` : les réglages de la mémoire, une ligne chacun.
+    connection.execute(
+        """
+        CREATE TABLE memories (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            text        TEXT NOT NULL,
+            kind        TEXT NOT NULL DEFAULT 'preference',
+            scope       TEXT NOT NULL DEFAULT '',
+            source      TEXT NOT NULL DEFAULT 'manual',
+            source_ref  TEXT NOT NULL DEFAULT '',
+            status      TEXT NOT NULL DEFAULT 'accepted',
+            mark        TEXT NOT NULL,
+            created     TEXT NOT NULL,
+            updated     TEXT NOT NULL,
+            UNIQUE (scope, mark)
+        )
+        """
+    )
+    connection.execute("CREATE INDEX memories_by_scope ON memories (scope, status)")
+    connection.execute(
+        "CREATE TABLE memory_options (name TEXT PRIMARY KEY, value TEXT NOT NULL DEFAULT '')"
+    )
+
+
 # Appended to, never edited or renamed: a file remembers each of these by name,
 # and the version of a file is how many of them it has been through. Statements go through `execute` one at a time — `executescript`
 # commits whatever transaction is open before it starts, which would apply half
@@ -1159,6 +1187,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     _board_pages,
     _markdown_board_is_gone,
     _detached_sessions,
+    _memories,
 )
 
 # Any way a read or a write of the database can fail. A note the runner keeps

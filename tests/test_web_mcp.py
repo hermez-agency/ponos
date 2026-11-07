@@ -298,6 +298,7 @@ def a_read_only_mcp_client_sees_and_can_call_no_tool_that_writes(state_home: Pat
             "list_ideas",
             "list_goals",
             "list_solutions",
+            "list_memories",
         }
         assert all(tool["annotations"]["readOnlyHint"] for tool in listed["result"]["tools"])
         me = _mcp_call(api, reader, "whoami")["structuredContent"]
@@ -324,6 +325,30 @@ def a_read_only_mcp_client_sees_and_can_call_no_tool_that_writes(state_home: Pat
 
 
 @case
+def an_mcp_client_proposes_a_memory_that_waits_to_be_accepted(state_home: Path) -> None:
+    from ponos import memory
+    from ponos.web import oauth as web_oauth
+
+    with _board() as board:
+        board.create_row("projects", "Usine", {})
+        api = _ideas_api(board)
+        grant = web_oauth.Grant(
+            client="c-1", name="Claude Code", scopes=frozenset({"read", "write"})
+        )
+        made = _mcp_call(api, grant, "propose_memory", text="Le client lit le français.")
+        assert not made["isError"] and made["structuredContent"]["status"] == "proposed", made
+        again = _mcp_call(api, grant, "propose_memory", text="le client lit le français")
+        assert again["isError"], "a known fact is not proposed twice"
+        assert memory.for_prompt() == [], "a proposal is read by no session"
+        listed = _mcp_call(api, grant, "list_memories")["structuredContent"]["memories"]
+        assert [(item["text"], item["status"]) for item in listed] == [
+            ("Le client lit le français.", "proposed")
+        ]
+        memory.accept(made["structuredContent"]["id"])
+        assert memory.for_prompt() == ["[preference] Le client lit le français."]
+
+
+@case
 def no_mcp_tool_starts_a_run_runs_a_command_or_deletes_anything() -> None:
     """The whole list, written down: a tool added is a decision, not a drift."""
     from ponos.web import mcp as web_mcp
@@ -343,6 +368,8 @@ def no_mcp_tool_starts_a_run_runs_a_command_or_deletes_anything() -> None:
         "list_solutions",
         "apply_solution",
         "create_idea",
+        "list_memories",
+        "propose_memory",
         "set_idea_state",
     ]
     writes = [tool["name"] for tool in web_mcp.TOOLS if tool["scope"] == "write"]
@@ -351,6 +378,7 @@ def no_mcp_tool_starts_a_run_runs_a_command_or_deletes_anything() -> None:
         "answer_question",
         "apply_solution",
         "create_idea",
+        "propose_memory",
         "set_idea_state",
     ]
     created = next(tool for tool in web_mcp.TOOLS if tool["name"] == "create_task")
