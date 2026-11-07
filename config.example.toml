@@ -119,8 +119,7 @@ url = ""      # the address the console is reached at, for the links in messages
 email = ""    # the sign-in e-mail (PONOS_WEB_EMAIL wins); the password is a secret
 library_max_mb = 50  # the most a file of Context → Library may weigh, in MB
 
-# Projects whose repository cannot be guessed: exact name = local path. Without
-# an entry the Repository is matched against the clones under workspace_root.
+# Older files only: a project's path is set in its Settings tab now (ponos.db).
 [projects]
 # "Trader Ia" = "~/workspace/labo/trader-ia"
 
@@ -144,6 +143,6 @@ mode = ""
 [vault]
 provider = "env"
 
-# One table per project, by its exact name: variable the session sees = item.
+# Older files only: a project's keys are set in its Settings tab now (ponos.db).
 [vault.projects]
 # Leadz = ["LEADZ_DOKPLOY_TOKEN"]

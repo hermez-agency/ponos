@@ -19,7 +19,7 @@ def _project(config: config_module.Config, row: dict[str, str]) -> list[Check]:
     name = row["name"]
     params = {"project": name}
     resolver = projects.Resolver(config.runner.workspace_root, config.projects, config.github)
-    path = resolver.locate(name, row["path"], row["repository"])
+    path = resolver.locate(name, row["path"], row["repository"], row["id"])
     found: list[Check] = []
     if path is None:
         if row["repository"]:

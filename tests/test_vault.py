@@ -211,8 +211,8 @@ def a_ticket_session_is_given_its_project_secrets_by_name_only() -> None:
     runner.config = _config('[vault]\n[vault.projects]\nLeadz = ["PONOS_TEST_LEADZ_KEY"]\n')
     os.environ["PONOS_TEST_LEADZ_KEY"] = "leadz_secret_value"
     try:
-        leadz = type("J", (), {"project": type("P", (), {"name": "Leadz"})()})()
-        other = type("J", (), {"project": type("P", (), {"name": "Ponos"})()})()
+        leadz = type("J", (), {"project": type("P", (), {"name": "Leadz", "notion_id": ""})()})()
+        other = type("J", (), {"project": type("P", (), {"name": "Ponos", "notion_id": ""})()})()
         assert runner._secrets(other) == {}, "nobody else's keys"
     finally:
         os.environ.pop("PONOS_TEST_LEADZ_KEY")

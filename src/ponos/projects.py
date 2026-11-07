@@ -2,7 +2,8 @@
 
 Three ways, in this order, from the most explicit to the least:
 
-1. a `[projects]` entry in the configuration — the Notion name, the path;
+1. the path set in the project's Settings tab (`ponos.db`), or a `[projects]` entry
+   still read from an older configuration — the Notion name, the path;
 2. a **`path` property on the project page** in Notion, which keeps the mapping
    on the board rather than in a file on one machine;
 3. the project's `github` property, matched against the `origin` remotes of the
@@ -165,7 +166,16 @@ class Resolver:
         except store.StoreError:
             return ""
 
-    def locate(self, name: str, path: str = "", github: str = "") -> Path | None:
+    def _declared(self, name: str, page_id: str = "") -> str:
+        """The path the project is given by Ponos: its own setting first, then `[projects]`.
+
+        Imported here: `project_settings` reads `kinds`, which reads this module.
+        """
+        from . import project_settings
+
+        return project_settings.path(page_id) or self._overrides.get(name, "")
+
+    def locate(self, name: str, path: str = "", github: str = "", page_id: str = "") -> Path | None:
         """Where the clone of a project is on this disk, or None if it is nowhere.
 
         `resolve` for a page that is already read, and without its last two
@@ -174,7 +184,7 @@ class Resolver:
         for the network. A declaration that points nowhere is skipped, as
         `resolve` skips it, rather than shown as if it were the repository.
         """
-        for declared in (self._overrides.get(name), path):
+        for declared in (self._declared(name, page_id), path):
             if declared and git.is_repo(Path(str(declared)).expanduser()):
                 return Path(str(declared)).expanduser()
         if github:
@@ -195,7 +205,7 @@ class Resolver:
         except store.StoreError:
             return False
         return bool(
-            self._overrides.get(page.title)
+            self._declared(page.title, page_id)
             or _property(page, "Path", "path")
             or _property(page, "Repository", "github", "repo")
         )
@@ -236,7 +246,7 @@ class Resolver:
             return Project(name, path, page_id, github, self.brief(backend, page_id), note, fetched)
 
         for source, declared in (
-            ("[projects] in your configuration", self._overrides.get(name)),
+            ("the path set in the project's Settings", self._declared(name, page_id)),
             ("the project's Path property", _property(page, "Path", "path")),
         ):
             if not declared:
@@ -356,7 +366,7 @@ class Resolver:
         return (
             f"“{name}”: no repository could be found —\n"
             + "".join(f"  · {reason}\n" for reason in failed)
-            + f'Add  "{name}" = "/path/to/the/repo"  under [projects], correct the '
+            + f'Set the path of "{name}" in the project\'s Settings tab, correct the '
             "project's Path or Repository property, or clear both to make it a "
             "document project."
         )

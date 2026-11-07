@@ -4271,6 +4271,13 @@ export interface components {
             /** @description Characters in the kept ones together. */
             capacity: number;
         };
+        /** @description Where a project's repository is, by its own word — see project_settings.py. */
+        ProjectPath: {
+            /** @description The path the project holds itself; empty, the file's or the page's. */
+            value: string;
+            /** @description What a `[projects]` line of an older file still says for it, "" when none. */
+            file: string;
+        };
         ProjectPlaces: {
             name: string;
             busy: number;
@@ -4315,6 +4322,21 @@ export interface components {
             plan: components["schemas"]["ProjectPlan"];
             browser: components["schemas"]["ProjectBrowser"];
             diagnostic: components["schemas"]["ProjectDiagnostic"];
+            path: components["schemas"]["ProjectPath"];
+            vault: components["schemas"]["ProjectVault"];
+        };
+        /** @description The keys a project's sessions are given — see vault.py. */
+        ProjectVault: {
+            /** @description The project's own: `VARIABLE` → the item it is read from. */
+            entries: {
+                [key: string]: string;
+            };
+            /** @description What `[vault.projects]` of an older file still grants it, read-only. */
+            file: {
+                [key: string]: string;
+            };
+            /** @description Where an item is read from when it names no other provider. */
+            provider: string;
         };
         Projects: {
             projects: components["schemas"]["Project"][];

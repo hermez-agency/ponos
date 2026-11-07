@@ -10,6 +10,7 @@ import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Any
 
 from support import _board, _config, _environment, _local_api, _saved, _state, _state_home, case
 
@@ -231,6 +232,42 @@ def a_project_page_reads_and_saves_its_own_automatic_validation() -> None:
             assert back["validation"]["own"] is False
             assert back["validation"]["values"] == back["validation"]["global"]
             assert project_settings.owning_validation() == []
+        finally:
+            db.close()
+
+
+@case
+def a_project_page_sets_its_path_and_its_vault_keys_without_the_toml() -> None:
+    with _state(), _board() as board:
+        try:
+            page = board.create_row("projects", "Perso", {})
+            api = _local_api(board)
+            read = api.project_settings(page)
+            assert read["path"] == {"value": "", "file": ""}
+            assert read["vault"]["entries"] == {} and read["vault"]["file"] == {}
+            saved = api.save_project_settings(page, {"path": {"value": "~/workspace/perso"}})
+            assert saved["path"]["value"] == "~/workspace/perso"
+            saved = api.save_project_settings(
+                page, {"vault": {"entries": {"NPM_TOKEN": "hermez/npm"}}}
+            )
+            assert saved["vault"]["entries"] == {"NPM_TOKEN": "hermez/npm"}
+            assert saved["path"]["value"] == "~/workspace/perso", "one save leaves the other"
+            wrongs: list[dict[str, Any]] = [
+                {"path": {"value": 3}},
+                {"vault": {"entries": {"ANTHROPIC_API_KEY": "x"}}},
+                {"vault": {"entries": {"not a name": "x"}}},
+                {"vault": {"entries": []}},
+            ]
+            for wrong in wrongs:
+                try:
+                    api.save_project_settings(page, wrong)
+                except ValueError:
+                    continue
+                raise AssertionError(f"{wrong} should have been refused")
+            cleared = api.save_project_settings(
+                page, {"path": {"value": ""}, "vault": {"entries": {}}}
+            )
+            assert cleared["path"]["value"] == ""
         finally:
             db.close()
 
