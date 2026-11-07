@@ -867,7 +867,7 @@ def application(console: Console) -> FastAPI:
         # A path no route serves, or serves by another method: there is no such
         # route, as `http.server` said for both.
         if error.status_code == 404 and _navigation(request):
-            moved = READABLE.get(request.url.path.lower())
+            moved = READABLE.get(request.url.path.lower()) or _ticket_address(request.url.path)
             if moved:
                 return _send(303, b"", "text/plain", {"Location": moved})
             return _static(_asking(request), "index.html", status=404)
@@ -895,6 +895,19 @@ READABLE = {
     **dict.fromkeys(("/conversations", "/sessions"), "/?view=console/sessions/list"),
     **dict.fromkeys(("/reglages", "/réglages", "/settings"), "/?view=console/settings/read/config"),
 }
+
+
+# The address Ponos writes for a ticket — in a notification, a pull request,
+# `ponos list` — read back. A Notion page id, dashes and all, is still a
+# ticket's id: the import kept them, so a link written before is not dead.
+_TICKET_ADDRESS = re.compile(r"/tickets/([0-9a-fA-F-]{8,36})/?")
+
+
+def _ticket_address(path: str) -> str:
+    found = _TICKET_ADDRESS.fullmatch(path)
+    if not found:
+        return ""
+    return f"/?view=console/tickets/read/{found[1].replace('-', '').lower()}"
 
 
 def _navigation(request: Request) -> bool:

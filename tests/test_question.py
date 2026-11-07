@@ -298,7 +298,7 @@ def what_the_runner_writes_on_github_and_on_a_schedules_ticket_follows_the_langu
     said = voice.Voice("fr")
     body = said.pull_request_body("Le header est parti.", "https://notion.so/t", "abc", 3)
     assert body == (
-        "Le header est parti.\n\n---\nTicket Notion : https://notion.so/t\n"
+        "Le header est parti.\n\n---\nTicket : https://notion.so/t\n"
         "Session Claude Code : `abc`\nOuverte par ponos (3 commits)."
     ), body
     assert (

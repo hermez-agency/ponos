@@ -167,10 +167,13 @@ class _Pages:
 class Ledger:
     """A `store.Store` whose tickets are rows of `ponos.db`. Everything else is `notion`'s."""
 
-    def __init__(self, notion: store.Store, settings: Notion, language: str = "") -> None:
+    def __init__(
+        self, notion: store.Store, settings: Notion, language: str = "", console: str = ""
+    ) -> None:
         self.notion = notion
         self.settings = settings
         self.words = voice_module.Voice(language)
+        self.console = console.rstrip("/")
         self._tickets = ""
         # Without Notion there is nothing to fall back on: the tickets are the
         # database's from the first one, adopted or not.
@@ -443,7 +446,10 @@ class Ledger:
                 continue
             if (written := store.written(kind, value)) is not None:
                 properties[name] = written
-        url = f"https://www.notion.so/{record.notion}" if record.notion else ""
+        # The ticket's address is the console's: Notion is a mirror, then an archive.
+        url = (
+            f"{self.console}/tickets/{record.id}" if self.console else f"ponos://ticket/{record.id}"
+        )
         raw = {
             "id": record.id,
             "url": url,

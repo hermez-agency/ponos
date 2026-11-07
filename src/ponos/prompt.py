@@ -89,7 +89,7 @@ nobody to talk to: no one can answer a question while the session runs.
 - Repository: {repo}
 - You are in a dedicated git worktree, on branch `{branch}`, created from \
 `{base}`. Your working copy is shared with no one.
-{resumed}- Notion ticket: {url}
+{resumed}- Ticket: {url}
 {kind}
 # What is expected
 
@@ -125,11 +125,12 @@ RESULT: blocked — <what is missing to decide>
 
 
 DOCUMENT = """\
-You are handling a Notion ticket {scope}, alone and with nobody to talk to: no \
+You are handling a ticket {scope}, alone and with nobody to talk to: no \
 one can answer a question while the session runs.
 
 There is no code repository here. What the ticket asks for is a document, and \
-your answer will be written back into the Notion ticket itself.
+your answer will be written back into the ticket itself, as its document in \
+Ponos.
 
 # Ticket — {title}
 
@@ -138,7 +139,7 @@ your answer will be written back into the Notion ticket itself.
 {comments}{context}{brief}{goal}{agent}{permissions}# Context
 
 - Working directory: {repo} — empty and disposable, it is yours to use.
-- Notion ticket: {url}
+- Ticket: {url}
 {kind}
 # What is expected
 
@@ -187,7 +188,7 @@ slightly differently. What was validated is what goes out, word for word.
 {comments}{context}{brief}{goal}{agent}{permissions}# Context
 
 - Working directory: {repo} — empty and disposable, it is yours to use.
-- Notion ticket: {url}
+- Ticket: {url}
 
 # What is expected
 
@@ -214,7 +215,7 @@ RESULT: blocked — <what stopped you, or what is missing to do it>
 
 
 CONVERSATION = """\
-Someone has written to you in the comments of a Notion ticket {scope}. You are \
+Someone has written to you in the comments of a ticket {scope}. You are \
 answering them, here, in that thread.
 
 **You are talking, not working.** Nothing you say changes anything, and neither \
@@ -230,7 +231,7 @@ click away from making one.
 {comments}{context}{brief}{agent}# Context
 
 - {where}
-- Notion ticket: {url}
+- Ticket: {url}
 
 {thread}# The message to answer
 
@@ -266,7 +267,7 @@ that modifies, no commit. Your whole job is to read and to decide.
 {comments}{context}{brief}{agent}# Context
 
 - {where}
-- Notion ticket: {url}
+- Ticket: {url}
 
 # The board, a line per ticket — [status] title (id)
 
@@ -298,7 +299,7 @@ No RESULT line and no other report.
 
 
 ON_STATUS = """\
-The status of a Notion ticket {scope} has just changed, and the ticket carries a \
+The status of a ticket {scope} has just changed, and the ticket carries a \
 prompt written for exactly that moment. You are carrying it out, alone and with \
 nobody to talk to: no one can answer a question while the session runs.
 
@@ -309,7 +310,7 @@ nobody to talk to: no one can answer a question while the session runs.
 {comments}{context}{brief}{agent}# Context
 
 - {where}
-- Notion ticket: {url}
+- Ticket: {url}
 
 # The change that woke you
 
@@ -359,7 +360,7 @@ nobody to talk to: no one can answer a question while the session runs.
 - You are in a disposable worktree of {repo}, in the middle of \
 `git rebase origin/{base}` of the branch `{branch}`: git stopped on the \
 conflicts listed above. `git status` shows where it stands.
-- Notion ticket: {url}
+- Ticket: {url}
 
 # What is expected
 
@@ -414,7 +415,7 @@ nobody to talk to: no one can answer a question while the session runs.
 
 - You are in a disposable worktree of {repo}, on the branch `{branch}`, at the \
 commit the red checks ran on.
-- Notion ticket: {url}
+- Ticket: {url}
 
 # What is expected
 

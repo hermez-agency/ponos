@@ -46,7 +46,9 @@ COLUMNS = (
     "PR",
 )
 
-NOTION = "https://www.notion.so/"
+
+def _address(ticket: str, console: str) -> str:
+    return f"{console}/tickets/{ticket}" if console else f"ponos://ticket/{ticket}"
 
 
 def month_span(month: str) -> tuple[date, date]:
@@ -80,6 +82,7 @@ def rows(
     project: str | None = None,
     models: dict[str, str] | None = None,
     zone: tzinfo | None = None,
+    console: str = "",
 ) -> list[list[str]]:
     """One row per session ended between `first` and `last`, oldest first.
 
@@ -104,20 +107,25 @@ def rows(
         found.append((stamp, entry, key, card))
     found.sort(key=lambda item: item[0])
     return [
-        _row(stamp.astimezone(zone), entry, key, card, models or {})
+        _row(stamp.astimezone(zone), entry, key, card, models or {}, console.rstrip("/"))
         for stamp, entry, key, card in found
     ]
 
 
 def _row(
-    stamp: datetime, entry: dict[str, Any], key: str, card: dict[str, Any], models: dict[str, str]
+    stamp: datetime,
+    entry: dict[str, Any],
+    key: str,
+    card: dict[str, Any],
+    models: dict[str, str],
+    console: str,
 ) -> list[str]:
     seconds = entry.get("seconds")
     cost = entry.get("cost_usd")
     return [
         stamp.strftime("%Y-%m-%d %H:%M"),
         str(entry.get("ticket") or card.get("title") or ""),
-        str(card.get("url") or (NOTION + key if key else "")),
+        str(card.get("url") or (_address(key, console) if key else "")),
         str(card.get("type") or ""),
         str(card.get("subtype") or ""),
         models.get(str(entry.get("session") or ""), ""),

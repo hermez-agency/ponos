@@ -208,7 +208,7 @@ def the_commit_the_pull_request_and_the_changelog_follow_the_sub_type() -> None:
     )
     built = prompt.build(prompt.DEFAULT, **common, kind=subtypes.section("bug"))
     assert built.index("`fix: `") < built.index("# What is expected")
-    assert "- Notion ticket: u\n\n# What is expected" in prompt.build(prompt.DEFAULT, **common)
+    assert "- Ticket: u\n\n# What is expected" in prompt.build(prompt.DEFAULT, **common)
 
 
 @case

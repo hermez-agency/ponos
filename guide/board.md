@@ -82,21 +82,50 @@ Tickets are moving into `ponos.db`, and Notion is becoming a mirror of them. Thi
 is the third of four steps: once `ponos import notion` has filled the database, the
 runner, the console, the MCP and the CLI read and write the tickets there and never
 ask Notion for one. Notion is touched only by the mirror below — projects, agents,
-goals and the standing context are still read from it.
+goals and the standing context are still read from it until you have let go of Notion (below).
 
-**`ponos import notion`** fills the database once, from your Master Tickets and
-Master Projects: each ticket with its properties, its Mission and its
-« What was done », the tickets it comes after, and its comments. Run it again
-and it adds nothing — a ticket already there is left as it is, and only its
-missing comments are completed. Until you have run it, the tickets are Notion's as
-before; from the first ticket in the database on, they are the database's.
+**`ponos import notion`** brings home everything Notion still holds, in one run
+you can replay: the projects, agents, goals and recurrences (under their own
+identifiers, so every relation still lands), the standing context, and every
+ticket — done and cancelled ones included — with its properties, its Mission and
+its « What was done », the tickets it comes after, and its comments. The images
+and files a page names are downloaded beside `ponos.db` (`page-files/`) and shown
+by the console as before. Run it again and it adds nothing: what is already there
+is left as it is, and only what is missing is completed. Until you have run it,
+the tickets are Notion's as before; from the first ticket in the database on, they
+are the database's. Notion itself is only ever read — never changed, never emptied.
 
-**What still comes up from Notion** is a closed list, read at every look of the daemon's upkeep (`interval_seconds`):
+**`ponos import notion --check`** is the parity report: it writes nothing, counts
+both sides type by type (tickets, ticket texts, comments, « after » links, files,
+and each kind of page), and lists whatever Notion has that `ponos.db` lacks. No
+line in the list means nothing would be lost by letting go of the Notion token.
+A ticket whose two parts are both written in `ponos.db` cannot lose a text, so its
+page is not read again — only its comments are; the report says how many were spared.
+
+**Letting go of Notion.** Once the report is clean, remove `PONOS_NOTION_TOKEN`
+from `secrets.env` (keep a copy beside it), take `workspace` and `tickets_database`
+out of the `[notion]` table of `config.toml` — an installation that still names a part of
+Notion is one whose token is missing, and refuses to start — and restart the runner and
+the console.
+With no token, Ponos has no mirror: projects, agents, goals, recurrences and the
+context are `ponos.db`'s, every address Ponos writes for a ticket — notifications,
+the pull request's body, `ponos list`, the reports — is the console's
+(`/tickets/<id>`; the old page identifiers still name the ticket), and the Notion
+workspace stays as it was, a read-only archive.
+
+**A document or an external ticket delivers into `ponos.db`.** Its result is the
+ticket's document (the « What was done » part), shown on the ticket's page in the
+console, where *Edit* lets you correct it. The next session of the ticket writes
+that part again from its own report.
+
+**What still comes up from Notion** while a token is set is a closed list, read at every look of the daemon's upkeep (`interval_seconds`):
 
 - a page you create;
 - a change of status;
-- a change to the Mission;
-- a comment.
+- a change to the Mission.
+
+A comment written in Notion is no longer read: answer from the console, the MCP,
+Telegram or Slack.
 
 Everything else on the page — the pull request, the cost, the progress, the
 priority, the model… — belongs to Ponos. If you edit one of those cells in Notion,

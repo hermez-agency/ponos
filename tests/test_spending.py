@@ -74,14 +74,20 @@ def a_projects_month_adds_up_to_the_cost_its_page_shows(state_home: Path) -> Non
 
 @case
 def the_command_line_goes_by_the_project_each_line_carries(state_home: Path) -> None:
-    """Without a board the name on the line selects, whatever its case, and the link is Notion's."""
+    """Without a board the name on the line selects, whatever its case, and the link is the console's."""
     _session("d4", "2026-10-02T08:00:00+00:00", 1.0, project="Portfolio")
     _session("e5", "2026-10-02T09:00:00+00:00", 2.0, project="Opoil")
     first, last = date(2026, 10, 1), date(2026, 10, 31)
     after, before = spending.window(first, last)
     lines = state.lines(after, before)
-    mine = spending.rows(lines, first, last, project="PORTFOLIO", zone=UTC)
-    assert [row[1] for row in mine] == ["Ticket d4"] and mine[0][2].endswith("/d4")
+    mine = spending.rows(
+        lines, first, last, project="PORTFOLIO", zone=UTC, console="http://127.0.0.1:8787/"
+    )
+    assert [row[1] for row in mine] == ["Ticket d4"], mine
+    assert mine[0][2] == "http://127.0.0.1:8787/tickets/d4", mine
+    assert spending.rows(lines, first, last, project="Opoil", zone=UTC)[0][2] == (
+        "ponos://ticket/e5"
+    ), "no console, the ticket's own scheme"
     assert len(spending.rows(lines, first, last, zone=UTC)) == 2, "no project is every session"
 
 

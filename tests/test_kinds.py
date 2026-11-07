@@ -197,7 +197,7 @@ def a_prompt_file_older_than_the_types_still_says_do_not_publish() -> None:
         base="",
         url="u",
     )
-    assert "- Notion ticket: u\n\n# What is expected" in plain, "no type, no change"
+    assert "- Ticket: u\n\n# What is expected" in plain, "no type, no change"
 
 
 @case

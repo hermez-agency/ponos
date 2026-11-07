@@ -15,9 +15,10 @@ import { Link, useCurrentViewResourceContext } from "react-resource-view"
 
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useConsole, useSteps } from "@/hooks/use-console"
-import { ApiError, why } from "@/lib/api"
+import { ApiError, api, why } from "@/lib/api"
 import { copy } from "@/lib/copy"
 import { type DecisionTab, actionOf } from "@/lib/decision"
 import { PreviewPairs } from "@/components/console/preview-pairs"
@@ -231,8 +232,37 @@ export function TicketPage() {
  * wrote — the one part a session is told — and what was done, which Ponos
  * rewrites at the end of every session, its history under it. Apart, so that
  * what stands done is read at a glance rather than dug out of the brief. */
-function TicketParts({ mission, done }: { mission: string; done: string }) {
+function TicketParts({
+  ticket,
+  mission,
+  done,
+  onSaved,
+}: {
+  ticket: string
+  mission: string
+  done: string
+  onSaved: () => void
+}) {
   const t = useT()
+  const [text, setText] = React.useState<string | null>(null)
+  const [saving, setSaving] = React.useState(false)
+  const [problem, setProblem] = React.useState("")
+  const save = () => {
+    if (text === null) return
+    setSaving(true)
+    setProblem("")
+    api.setDocument(ticket, text).then(
+      () => {
+        setSaving(false)
+        setText(null)
+        onSaved()
+      },
+      (error) => {
+        setSaving(false)
+        setProblem(why(error))
+      }
+    )
+  }
   return (
     <div className="flex flex-col gap-6">
       <section data-slot="ticket-mission" className="flex flex-col gap-2">
@@ -246,8 +276,34 @@ function TicketParts({ mission, done }: { mission: string; done: string }) {
         )}
       </section>
       <section data-slot="ticket-done" className="flex flex-col gap-2">
-        <Eyebrow>{t("What was done")}</Eyebrow>
-        {done.trim() ? (
+        <div className="flex items-center justify-between gap-2">
+          <Eyebrow>{t("What was done")}</Eyebrow>
+          {canAct() && text === null ? (
+            <Button variant="ghost" size="sm" onClick={() => setText(done)}>
+              {t("Edit")}
+            </Button>
+          ) : null}
+        </div>
+        {text !== null ? (
+          <div className="flex flex-col gap-2">
+            <Textarea
+              data-slot="ticket-document"
+              aria-label={t("What was done")}
+              className="min-h-64 font-mono text-sm"
+              value={text}
+              onChange={(event) => setText(event.target.value)}
+            />
+            {problem ? <p className="text-destructive text-sm">{problem}</p> : null}
+            <div className="flex gap-2">
+              <Button size="sm" disabled={saving} onClick={save}>
+                {t("Save")}
+              </Button>
+              <Button variant="outline" size="sm" disabled={saving} onClick={() => setText(null)}>
+                {t("Cancel")}
+              </Button>
+            </div>
+          </div>
+        ) : done.trim() ? (
           <Markdown text={done} />
         ) : (
           <p className="text-muted-foreground text-sm">
@@ -717,7 +773,12 @@ function TicketTabs({
                 </div>
               )
             ) : (
-              <TicketParts mission={brief.mission ?? brief.content} done={brief.done ?? ""} />
+              <TicketParts
+                ticket={ticket.id}
+                mission={brief.mission ?? brief.content}
+                done={brief.done ?? ""}
+                onSaved={brief.again}
+              />
             )}
           </div>
           <PreviewPairs ticket={ticket.id} shots={brief.previews} />

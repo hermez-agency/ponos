@@ -525,11 +525,12 @@ def command_projects(args: argparse.Namespace) -> int:
 
 
 def command_import(args: argparse.Namespace) -> int:
-    """Fill `ponos.db` from Master Tickets and Master Projects, once. Run it twice and nothing doubles.
+    """Bring home everything Notion still holds, once. Run it twice and nothing doubles.
 
-    Explicit and never part of a pass: it reads the whole board, comments
-    included, and a board that has already been imported has nothing for it to
-    do. See notion_import.py.
+    Explicit and never part of a pass: it reads the whole workspace, comments
+    and files included, and a board that has already been imported has nothing
+    for it to do. `--check` is the parity report that says whether the token
+    can be let go. See notion_import.py.
     """
     from . import notion_import
     from .ledger import Ledger
@@ -541,8 +542,21 @@ def command_import(args: argparse.Namespace) -> int:
         # after the import may find Notion refusing, and must still start.
         ledger = Ledger(client, configuration.notion)
         space = ledger.workspace(configuration.notion)
-        if space.projects:
-            ledger.query(space.projects)
+        if getattr(args, "check", False):
+            title("Parity: Notion against ponos.db")
+            parity = notion_import.check(client, configuration, space)
+            for label, there, here in parity.rows:
+                line = f"{label:<14} Notion {there:>5}   ponos.db {here:>5}"
+                (ok if here >= there else bad)(line)
+            for note in parity.notes:
+                warn(note)
+            for loss in parity.losses:
+                bad(loss)
+            if parity.ok:
+                ok("no loss: everything Notion holds is in ponos.db")
+            else:
+                bad(f"{len(parity.losses)} loss(es) — run `ponos import notion` again")
+            return 0 if parity.ok else 1
         title("Importing Notion into ponos.db")
         report = notion_import.run(client, configuration, space)
     except store.StoreError as error:
@@ -550,11 +564,25 @@ def command_import(args: argparse.Namespace) -> int:
         return 1
     ok(
         f"{report.created} ticket(s) imported, {report.existing} already there, "
-        f"{report.comments} comment(s) added, {report.projects} project(s) read"
+        f"{report.comments} comment(s) added, {report.links} link(s), {report.files} file(s) "
+        f"({report.gone} gone at their source), "
+        f"{report.projects} project(s) read"
     )
+    for key, count in report.brought.items():
+        ok(f"{count} {key} page(s) brought home, {report.kept.get(key, 0)} already there")
+    if report.context:
+        ok("standing context brought home")
     for problem in report.problems:
         warn(problem)
     return 1 if report.problems else 0
+
+
+def _console_url() -> str:
+    """Where the console is, for a link — nothing when the configuration cannot say."""
+    try:
+        return config_module.load().console_url
+    except config_module.ConfigError:
+        return ""
 
 
 def command_history_csv(args: argparse.Namespace) -> int:
@@ -578,6 +606,7 @@ def command_history_csv(args: argparse.Namespace) -> int:
         last,
         project=args.project,
         models=journal.models(),
+        console=_console_url(),
     )
     sys.stdout.write(spending.write(lines))
     return 0
@@ -2098,7 +2127,14 @@ def _add_ticket_commands(subparsers: argparse._SubParsersAction[argparse.Argumen
 
     importing = subparsers.add_parser("import", help="fill ponos.db from another board, once")
     imported = importing.add_subparsers(dest="source", required=True, help="the board to read")
-    imported.add_parser("notion", help="Master Tickets and Master Projects → ponos.db")
+    notion_import_parser = imported.add_parser(
+        "notion", help="everything Notion still holds (tickets, pages, files, comments) → ponos.db"
+    )
+    notion_import_parser.add_argument(
+        "--check",
+        action="store_true",
+        help="write nothing: count both sides, type by type, and list what ponos.db lacks",
+    )
     importing.set_defaults(function=command_import)
 
 
