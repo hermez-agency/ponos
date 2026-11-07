@@ -312,6 +312,7 @@ class WebTable(Table):
     port: Integer = Web.port
     url: Address = Web.url
     email: Text = Web.email
+    library_max_mb: AtLeast1 = Web.library_max_mb
 
 
 class ClaudeTable(Table):

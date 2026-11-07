@@ -1,5 +1,5 @@
 import * as React from "react"
-import { BookOpen, Brain, KeyRound, NotebookText } from "lucide-react"
+import { BookOpen, Brain, KeyRound, Library, NotebookText } from "lucide-react"
 import { ActionList } from "react-data-form"
 import {
   createViewResource,
@@ -33,6 +33,7 @@ const THE_PAGE = "context"
 export const STANDING_TAB = "standing"
 export const VAULT_TAB = "vault"
 export const MEMORY_TAB = "memory"
+export const LIBRARY_TAB = "library"
 
 /** The page as the views hold it: only what the bar's breadcrumb needs. */
 export interface ContextItem {
@@ -63,6 +64,10 @@ const Memory = lazyTab(() =>
   import("@/components/console/memory-page").then((module) => ({ default: module.MemoryPage }))
 )
 
+const LibraryTab = lazyTab(() =>
+  import("@/components/console/library-page").then((module) => ({ default: module.LibraryPage }))
+)
+
 interface ContextTab {
   tab: Omit<TabDefinition<ContextItem>, "icon"> & { icon: IconType }
   /** Whether this role is given the tab at all; the API refuses the rest. */
@@ -86,6 +91,15 @@ const TAB_DEFINITIONS: ContextTab[] = [
       description: "What Ponos remembers from one session to the next, for all the projects or one.",
       icon: Brain,
       component: Memory,
+    },
+  },
+  {
+    tab: {
+      id: LIBRARY_TAB,
+      label: "Library",
+      description: "Reference files kept for the sessions, for all the projects or some.",
+      icon: Library,
+      component: LibraryTab,
     },
   },
   {

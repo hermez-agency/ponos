@@ -27,6 +27,7 @@ logs and the history with it.
 from __future__ import annotations
 
 import importlib.util
+import io
 import json
 import os
 import shutil
@@ -64,6 +65,7 @@ from ponos import (  # noqa: E402
     images,
     journal,
     ledger,
+    library,
     local_ci,
     notion,
     notion_import,
@@ -1882,6 +1884,45 @@ def a_code_ticket_comes_back_as_a_pull_request(machine: Bench) -> None:
         ("said", "CAVEAT: pas essayé sur mobile\nRESULT: ok — un fichier écrit et commité"),
     ], steps
     assert "git commit" in steps[1]["detail"], steps[1]
+    db.close()
+
+
+@case
+def a_pdf_kept_for_one_project_reaches_its_sessions_and_no_other(machine: Bench) -> None:
+    """Context → Library: a file for project X is in the prompt of X's next session, readable there.
+
+    Told by its path on this machine, never copied into the worktree — and the
+    session of another project hears nothing of it.
+    """
+    charter = b"%PDF-1.4 the brand charter"
+    site = machine.project("Site", machine.repository("site"))
+    blog = machine.project("Blog", machine.repository("blog"))
+    kept = library.save(
+        "charter.pdf",
+        io.BytesIO(charter),
+        len(charter),
+        1 << 20,
+        description="The brand charter",
+        project_list=[site],
+    )
+    machine.ticket("Refaire l'entête du site", "Suis la charte.", site)
+    machine.ticket("Refaire l'entête du blog", "Suis la charte.", blog)
+
+    results = machine.run()
+
+    assert len(results) == 2 and {one["status"] for one in results} == {"done"}, results
+    told = {
+        name: [one for one in machine.sessions() if f"Refaire l'entête du {name}" in one["prompt"]]
+        for name in ("site", "blog")
+    }
+    assert told["site"] and told["blog"], told
+    path = str(library.path_of(kept))
+    line = f"- {path} — charter.pdf — The brand charter"
+    assert "# Reference files" in told["site"][0]["prompt"], told["site"][0]["prompt"]
+    assert line in told["site"][0]["prompt"]
+    assert Path(path).read_bytes() == charter, "the session reads it where it was told"
+    assert not Path(told["site"][0]["cwd"], "charter.pdf").exists(), "copied into the worktree"
+    assert all("charter.pdf" not in one["prompt"] for one in told["blog"]), told["blog"]
     db.close()
 
 

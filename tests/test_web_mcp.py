@@ -299,6 +299,8 @@ def a_read_only_mcp_client_sees_and_can_call_no_tool_that_writes(state_home: Pat
             "list_goals",
             "list_solutions",
             "list_memories",
+            "list_library",
+            "get_library_file",
         }
         assert all(tool["annotations"]["readOnlyHint"] for tool in listed["result"]["tools"])
         me = _mcp_call(api, reader, "whoami")["structuredContent"]
@@ -349,6 +351,41 @@ def an_mcp_client_proposes_a_memory_that_waits_to_be_accepted(state_home: Path) 
 
 
 @case
+def an_mcp_client_lists_the_library_and_reads_a_files_metadata_not_its_content(
+    state_home: Path,
+) -> None:
+    from ponos import library
+    from ponos.web import oauth as web_oauth
+
+    with _board() as board:
+        usine = board.create_row("projects", "Usine", {})
+        board.create_row("projects", "Atelier", {})
+        api = _ideas_api(board)
+        reader = web_oauth.Grant(client="c-2", name="lecteur", scopes=frozenset({"read"}))
+        data = b"%PDF-1.4 charte"
+        kept = library.save(
+            "charte.pdf",
+            io.BytesIO(data),
+            len(data),
+            1 << 20,
+            description="La charte",
+            tag_list="marque",
+            project_list=[usine],
+        )
+        listed = _mcp_call(api, reader, "list_library")["structuredContent"]["files"]
+        assert [(item["name"], item["scope"]) for item in listed] == [("charte.pdf", ["Usine"])]
+        assert listed[0]["path"] == str(library.path_of(kept))
+        assert _mcp_call(api, reader, "list_library", project="Usine")["structuredContent"]["files"]
+        assert not _mcp_call(api, reader, "list_library", project="Atelier")["structuredContent"][
+            "files"
+        ], "a file for one project is not listed for another"
+        one = _mcp_call(api, reader, "get_library_file", id=kept["id"])
+        assert not one["isError"] and one["structuredContent"]["description"] == "La charte"
+        assert "PDF-1.4" not in json.dumps(one), "the content is never sent"
+        assert _mcp_call(api, reader, "get_library_file", id=999)["isError"]
+
+
+@case
 def no_mcp_tool_starts_a_run_runs_a_command_or_deletes_anything() -> None:
     """The whole list, written down: a tool added is a decision, not a drift."""
     from ponos.web import mcp as web_mcp
@@ -370,6 +407,8 @@ def no_mcp_tool_starts_a_run_runs_a_command_or_deletes_anything() -> None:
         "create_idea",
         "list_memories",
         "propose_memory",
+        "list_library",
+        "get_library_file",
         "set_idea_state",
     ]
     writes = [tool["name"] for tool in web_mcp.TOOLS if tool["scope"] == "write"]

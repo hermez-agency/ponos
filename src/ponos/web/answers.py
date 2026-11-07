@@ -745,6 +745,42 @@ class Memories(Shape):
     """Characters of memories a prompt carries at most."""
 
 
+class LibraryFile(Shape):
+    """One reference file of the library — see library.py."""
+
+    id: int
+    name: str
+    description: str
+    tags: list[str]
+    projects: list[str]
+    """The ids of the projects it is for; empty for every project."""
+    project_names: list[str]
+    kind: str
+    """image, video or document."""
+    type: str
+    size: int
+    created: str
+    updated: str
+    path: str
+    """Where a session reads it on this machine."""
+
+
+class Library(Shape):
+    files: list[LibraryFile]
+    tags: list[str]
+    """Every tag in use."""
+    count: int
+    """Files in the library, whatever the filters."""
+    total: int
+    """Bytes the library takes."""
+    max_mb: int
+    """The most a file may weigh."""
+
+
+class LibraryKept(Library):
+    kept: LibraryFile
+
+
 class MemoriesImported(Memories):
     imported: int
 

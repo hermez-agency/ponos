@@ -426,6 +426,46 @@ def memory_of() -> None:
     db.close()
 
 
+# A one-pixel PNG and a one-page PDF: real files, so that the previews have
+# something to draw.
+PIXEL = bytes.fromhex(
+    "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489"
+    "0000000d49444154789c6360f8cfc0f01f0005000201a5f645400000000049454e44ae426082"
+)
+PAGE = (
+    b"%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n"
+    b"2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n"
+    b"3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]>>endobj\n"
+    b"trailer<</Root 1 0 R>>\n%%EOF\n"
+)
+
+
+def library_of() -> None:
+    """The library: a charter for the Website project only, and a logo for every project."""
+    import io
+
+    from ponos import db, library
+
+    library.save(
+        "charter.pdf",
+        io.BytesIO(PAGE),
+        len(PAGE),
+        1 << 20,
+        description="The brand charter",
+        tag_list=["brand", "client"],
+        project_list=["0000000000000000000000000000cafe"],
+    )
+    library.save(
+        "logo.png",
+        io.BytesIO(PIXEL),
+        len(PIXEL),
+        1 << 20,
+        description="The logo, on white",
+        tag_list=["brand"],
+    )
+    db.close()
+
+
 def main() -> None:
     port = sys.argv[1] if len(sys.argv) > 1 else "8790"
     # `unclaimed`: no token and no sign-in, for the first connection's steps.
@@ -461,6 +501,7 @@ def main() -> None:
         bell_of()
         checks_of()
         memory_of()
+        library_of()
     workbench.serve(port)
 
 

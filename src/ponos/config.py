@@ -640,6 +640,9 @@ class Web:
     # size rather than read and then regretted: a phone video is a gigabyte,
     # and the session would read none of it anyway.
     attachment_max_mb: int = 25
+    # The most a file of the library (Context → Library) may weigh. Those files
+    # are kept for good and read by sessions, not dropped for one message.
+    library_max_mb: int = 50
     # How long a conversation's files are kept when nobody starts a new one.
     # They are copies of what you dropped on the page, not the originals.
     attachment_days: int = 7

@@ -230,6 +230,7 @@ key below is a field there; the file itself is `config.example.toml`, under 150 
 | `notify.digest` | `"off"` | `"daily"` or `"weekly"`: the summary of the period, sent on its own (Monday at 9 for the weekly one) |
 | `notify.telegram.chat`, `notify.slack.channel` | `""` | where the messages go; `allowed_users` of each names who may answer and command — see *Telegram and Slack* |
 | `web.host`, `web.port`, `web.url`, `web.email` | `127.0.0.1`, `8787`, `""`, `""` | the console's address and how it is opened — a token, or an email and a password. See *The web console* |
+| `web.library_max_mb` | `50` | the most a file of the [Library](console.md#library) may weigh, in MB; a heavier one is refused before a byte of it is kept |
 | `claude.provider` | `""` | who answers the sessions — see *Who answers the sessions* below |
 | `permissions.allowed`, `permissions.ask` | | what a session does alone, and what always waits for your word |
 | `github_access.mode`, `github_access.token_item` | `""` | how GitHub is reached without `gh` — see *Connect GitHub* below |

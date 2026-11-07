@@ -2034,6 +2034,12 @@ export const FRENCH: Record<string, string> = {
   "Who the console is shared with, and what each of them may do.": "Avec qui la console est partagée, et ce que chacun peut y faire.",
   Vault: "Coffre-fort",
   Memory: "Mémoire",
+  Library: "Bibliothèque",
+  "Keep in the library": "Garder dans la bibliothèque",
+  "Kept in the library": "Gardé dans la bibliothèque",
+  "The file could not be kept": "Le fichier n'a pas pu être gardé",
+  "Reference files kept for the sessions, for all the projects or some.":
+    "Fichiers de référence gardés pour les sessions, pour tous les projets ou pour certains.",
   "What Ponos remembers from one session to the next, for all the projects or one.":
     "Ce que Ponos retient d'une session à l'autre, pour tous les projets ou pour un seul.",
   "What every ticket is told, for all the projects.": "Ce que reçoit chaque ticket, pour tous les projets.",
